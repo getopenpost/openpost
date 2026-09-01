@@ -6,6 +6,18 @@
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
+	import {
+		mediaListQueryOptions,
+		mediaQueryKeys,
+		mediaStorageQueryOptions,
+		mediaTagsQueryOptions,
+		mediaUsageQueryOptions,
+		type MediaListResult,
+		type MediaStorage,
+		type MediaTagList
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { mediaQueryAPI } from '$lib/query/media';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
 	import { loadImageEditorConfig } from '$lib/image-editor/api';
@@ -34,12 +46,7 @@
 	import MediaOrganizationDialog from '$lib/components/media-organization-dialog.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
-	import {
-		createMediaTag,
-		listMediaTags,
-		updateMediaTagItems,
-		type MediaTag
-	} from '$lib/media-tags';
+	import { createMediaTag, updateMediaTagItems, type MediaTag } from '$lib/media-tags';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import VideoIcon from '@lucide/svelte/icons/video';
@@ -100,8 +107,9 @@
 
 	let mediaItems = $state<MediaItem[]>([]);
 	let mediaLoading = $state(false);
+	let mediaDataReady = $state(false);
 	let mediaRequestSequence = 0;
-	let loadedMediaViewKey = '';
+	let loadedMediaWorkspaceId = '';
 	let totalCount = $state(0);
 	let currentPage = $state(0);
 	const pageSize = 40;
@@ -125,6 +133,8 @@
 	let layoutMode = $state<'grid' | 'list'>('grid');
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
+	let hubRequestSequence = 0;
+	let loadedHubWorkspaceId = '';
 	let organizationDialogOpen = $state(false);
 	let filterDialogOpen = $state(false);
 	let selectionOrganizationDialogOpen = $state(false);
@@ -140,6 +150,7 @@
 	let selectedMedia = $state<MediaItem | null>(null);
 	let mediaUsage = $state<MediaUsage[]>([]);
 	let usageLoading = $state(false);
+	let usageDataReady = $state(false);
 	let usageError = $state('');
 	let usageRequestSequence = 0;
 	let deletionBlockedByUsage = $state(false);
@@ -282,66 +293,79 @@
 		}
 	}
 
-	async function loadMedia(workspaceID = selectedWorkspaceId) {
+	async function loadMedia(workspaceID = selectedWorkspaceId, force = false) {
 		if (!workspaceID) {
 			mediaRequestSequence++;
 			mediaLoading = false;
 			mediaItems = [];
 			totalCount = 0;
-			loadedMediaViewKey = '';
+			loadedMediaWorkspaceId = '';
+			mediaDataReady = false;
 			return;
 		}
+		if (workspaceID !== selectedWorkspaceId) return;
 		const requestKey = mediaViewKey(workspaceID);
+		const options = mediaListQueryOptions(mediaQueryAPI, workspaceID, {
+			lifecycle: lifecycleView,
+			filter,
+			sort,
+			search: appliedSearch,
+			type: mediaType,
+			source,
+			tagIds: selectedTagIDs,
+			untagged: showUntagged,
+			aspect,
+			minWidth,
+			minHeight,
+			maxWidth,
+			maxHeight,
+			dateFrom,
+			dateTo,
+			limit: pageSize,
+			offset: currentPage * pageSize
+		});
 		const requestSequence = ++mediaRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === mediaRequestSequence &&
 			selectedWorkspaceId === workspaceID &&
 			mediaViewKey(workspaceID) === requestKey;
-		if (loadedMediaViewKey !== requestKey) {
+		const cached = queryClient.getQueryData<MediaListResult>(options.queryKey);
+		if (cached) {
+			mediaItems = (cached.media ?? []).map(normalizeMediaItem);
+			totalCount = cached.total;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = true;
+		} else if (loadedMediaWorkspaceId !== workspaceID) {
 			mediaItems = [];
 			totalCount = 0;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = false;
 		}
 		mediaLoading = true;
 		error = '';
 		selectedMediaIds.clear();
 		isSelectionMode = false;
 		try {
-			const { data, error: err } = await client.GET('/media', {
-				params: {
-					query: {
-						workspace_id: workspaceID,
-						lifecycle: lifecycleView,
-						filter: filter,
-						sort: sort,
-						search: appliedSearch,
-						type: mediaType,
-						source,
-						tag_ids: selectedTagIDs.join(','),
-						untagged: showUntagged,
-						aspect,
-						min_width: minWidth,
-						min_height: minHeight,
-						max_width: maxWidth,
-						max_height: maxHeight,
-						date_from: dateFrom,
-						date_to: dateTo,
-						limit: pageSize,
-						offset: currentPage * pageSize
-					}
-				}
-			});
-			if (err) throw new Error(err.detail || m.media_load_failed());
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const data = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			const nextTotalCount = data?.total ?? 0;
+			const nextTotalCount = data.total;
 			const clampedPage = clampMediaPage(currentPage, nextTotalCount, pageSize);
 			if (clampedPage !== currentPage) {
 				currentPage = clampedPage;
 				await loadMedia(workspaceID);
 				return;
 			}
-			mediaItems = (data?.media ?? []).map(normalizeMediaItem);
+			mediaItems = (data.media ?? []).map(normalizeMediaItem);
 			totalCount = nextTotalCount;
-			loadedMediaViewKey = requestKey;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = true;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			error = errorMessage(e, m.media_load_failed());
@@ -350,31 +374,82 @@
 		}
 	}
 
-	async function loadImageEditorHub(workspaceID = selectedWorkspaceId) {
-		if (!workspaceID) return;
+	async function loadImageEditorHub(workspaceID = selectedWorkspaceId, force = false) {
+		if (!workspaceID) {
+			hubRequestSequence++;
+			tags = [];
+			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
+			mediaCanEdit = false;
+			loadedHubWorkspaceId = '';
+			hubLoading = false;
+			return;
+		}
+		if (workspaceID !== selectedWorkspaceId) return;
+		const requestSequence = ++hubRequestSequence;
+		const isCurrentRequest = () =>
+			requestSequence === hubRequestSequence && selectedWorkspaceId === workspaceID;
+		if (loadedHubWorkspaceId !== workspaceID) {
+			tags = [];
+			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
+			mediaCanEdit = false;
+			loadedHubWorkspaceId = workspaceID;
+		}
+		const tagsOptions = mediaTagsQueryOptions(mediaQueryAPI, workspaceID);
+		const storageOptions = mediaStorageQueryOptions(mediaQueryAPI, workspaceID);
+		const cachedTags = queryClient.getQueryData<MediaTagList>(tagsOptions.queryKey);
+		const cachedStorage = queryClient.getQueryData<MediaStorage>(storageOptions.queryKey);
+		if (cachedTags !== undefined) {
+			tags = cachedTags.tags ?? [];
+			mediaCanEdit = cachedTags.can_edit;
+		}
+		if (cachedStorage !== undefined) storageUsage = cachedStorage;
 		hubLoading = true;
 		try {
-			const config = await loadImageEditorConfig();
-			imageEditorEnabled = config.enabled;
-			const [tagResult, storageResult] = await Promise.all([
-				listMediaTags(workspaceID),
-				client.GET('/media/storage', { params: { query: { workspace_id: workspaceID } } })
+			if (force) {
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: tagsOptions.queryKey,
+						exact: true,
+						refetchType: 'none'
+					}),
+					queryClient.invalidateQueries({
+						queryKey: storageOptions.queryKey,
+						exact: true,
+						refetchType: 'none'
+					})
+				]);
+			}
+			const [config, tagResult, storageResult] = await Promise.all([
+				loadImageEditorConfig(),
+				queryClient.query(tagsOptions),
+				queryClient.query(storageOptions)
 			]);
-			tags = tagResult.tags;
-			mediaCanEdit = tagResult.canEdit;
-			const validTagIDs = new Set(tagResult.tags.map((tag) => tag.id));
+			if (!isCurrentRequest()) return;
+			imageEditorEnabled = config.enabled;
+			tags = tagResult.tags ?? [];
+			mediaCanEdit = tagResult.can_edit;
+			const validTagIDs = new Set(tags.map((tag) => tag.id));
 			const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
 			if (nextSelected.length !== selectedTagIDs.length) {
 				selectedTagIDs = nextSelected;
 				currentPage = 0;
 				void loadMedia(workspaceID);
 			}
-			if (storageResult.data) storageUsage = storageResult.data;
+			storageUsage = storageResult;
 		} catch (cause) {
+			if (!isCurrentRequest()) return;
 			notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
 		} finally {
-			hubLoading = false;
+			if (isCurrentRequest()) hubLoading = false;
 		}
+	}
+
+	async function refreshMediaLists(workspaceID = selectedWorkspaceId) {
+		await queryClient.invalidateQueries({
+			queryKey: mediaQueryKeys.lists(workspaceID),
+			refetchType: 'none'
+		});
+		await loadMedia(workspaceID);
 	}
 
 	function resetAssetFilters() {
@@ -407,7 +482,7 @@
 	}
 
 	async function toggleMediaTag(mediaID: string, tagID: string, selected: boolean): Promise<void> {
-		await updateMediaTagItems(tagID, [mediaID], selected ? 'add' : 'remove');
+		await updateMediaTagItems(selectedWorkspaceId, tagID, [mediaID], selected ? 'add' : 'remove');
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) {
 			item.tags = selected
@@ -419,20 +494,20 @@
 				? [...new Set([...selectedMedia.tags, tagID])]
 				: selectedMedia.tags.filter((id) => id !== tagID);
 		}
-		await loadImageEditorHub();
-		if (selected && lifecycleView === 'temporary') await loadMedia();
+		await loadImageEditorHub(selectedWorkspaceId, true);
+		if (selected && lifecycleView === 'temporary') await loadMedia(selectedWorkspaceId);
 	}
 
 	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
 		const tag = await createMediaTag(selectedWorkspaceId, name);
-		await updateMediaTagItems(tag.id, [mediaID], 'add');
-		await loadImageEditorHub();
+		await updateMediaTagItems(selectedWorkspaceId, tag.id, [mediaID], 'add');
+		await loadImageEditorHub(selectedWorkspaceId, true);
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) item.tags = [...new Set([...item.tags, tag.id])];
 		if (selectedMedia?.id === mediaID) {
 			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
 		}
-		if (lifecycleView === 'temporary') await loadMedia();
+		if (lifecycleView === 'temporary') await loadMedia(selectedWorkspaceId);
 	}
 
 	function uploadTagID(): string | undefined {
@@ -460,7 +535,10 @@
 	}
 
 	async function handleLibraryUploaded(results: MediaUploadResult[]): Promise<void> {
-		await Promise.all([loadMedia(), loadImageEditorHub()]);
+		await Promise.all([
+			refreshMediaLists(selectedWorkspaceId),
+			loadImageEditorHub(selectedWorkspaceId, true)
+		]);
 		notify(uploadedCountLabel(results.length), 'success');
 		soundPreferences.play('success');
 	}
@@ -475,8 +553,12 @@
 			if (item) {
 				item.is_favorite = data?.is_favorite ?? !item.is_favorite;
 			}
+			await queryClient.invalidateQueries({
+				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
+				refetchType: 'none'
+			});
 			if (lifecycleView === 'temporary' || (filter === 'favorites' && !data?.is_favorite)) {
-				await loadMedia();
+				await loadMedia(selectedWorkspaceId);
 			}
 		} catch (e) {
 			notify(errorMessage(e, m.media_favorite_failed()), 'error');
@@ -503,7 +585,10 @@
 				body: { media_ids: mediaIDs, mode }
 			});
 			if (result.error) throw new Error(result.error.detail);
-			await Promise.all([loadMedia(), loadImageEditorHub()]);
+			await Promise.all([
+				refreshMediaLists(selectedWorkspaceId),
+				loadImageEditorHub(selectedWorkspaceId, true)
+			]);
 			notify(
 				mode === 'remove'
 					? m.media_organization_removed({
@@ -547,7 +632,7 @@
 				params: { path: { id: mediaId } }
 			});
 			if (err) throw new Error(err.detail || m.media_trash_restore_failed());
-			await loadMedia();
+			await refreshMediaLists(selectedWorkspaceId);
 			notify(m.media_trash_restored(), 'success');
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_trash_restore_failed(), 'error');
@@ -569,7 +654,14 @@
 				return data ?? { deleted: 0, failed_ids: requestedIDs };
 			});
 			const remainingIDs = remainingMediaDeletionIDs(ids, result);
-			await loadMedia();
+			const remainingIDSet = new Set(remainingIDs);
+			for (const deletedID of ids.filter((id) => !remainingIDSet.has(id))) {
+				queryClient.removeQueries({
+					queryKey: mediaQueryKeys.usage(selectedWorkspaceId, deletedID),
+					exact: true
+				});
+			}
+			await refreshMediaLists(selectedWorkspaceId);
 
 			const failedCount = remainingIDs.length;
 			if (result.deleted === 0) {
@@ -673,7 +765,10 @@
 				parentMediaId: media.id,
 				tagId: uploadTagID()
 			});
-			await loadMedia();
+			await Promise.all([
+				refreshMediaLists(selectedWorkspaceId),
+				loadImageEditorHub(selectedWorkspaceId, true)
+			]);
 			notify(m.media_duplicated(), 'success');
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_duplicate_failed(), 'error');
@@ -682,22 +777,33 @@
 
 	async function showUsage(media: MediaItem) {
 		const mediaID = media.id;
+		const workspaceID = selectedWorkspaceId;
 		const requestSequence = ++usageRequestSequence;
 		const isCurrentRequest = () =>
-			requestSequence === usageRequestSequence && usageDialogOpen && selectedMedia?.id === mediaID;
+			requestSequence === usageRequestSequence &&
+			usageDialogOpen &&
+			selectedWorkspaceId === workspaceID &&
+			selectedMedia?.id === mediaID;
 		selectedMedia = media;
 		detailAltText = media.alt_text;
 		usageDialogOpen = true;
 		usageLoading = true;
 		usageError = '';
 		mediaUsage = [];
+		usageDataReady = false;
 		try {
-			const { data, error: err } = await client.GET('/media/{id}/usage', {
-				params: { path: { id: media.id } }
-			});
-			if (err) throw new Error(err.detail || m.media_usage_load_failed());
+			const options = mediaUsageQueryOptions(mediaQueryAPI, workspaceID, media.id);
+			const cached = queryClient.getQueryData<components['schemas']['GetMediaUsageOutputBody']>(
+				options.queryKey
+			);
+			if (cached !== undefined && isCurrentRequest()) {
+				mediaUsage = (cached.usage ?? []).map(normalizeMediaUsage);
+				usageDataReady = true;
+			}
+			const data = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			mediaUsage = (data?.usage ?? []).map(normalizeMediaUsage);
+			mediaUsage = (data.usage ?? []).map(normalizeMediaUsage);
+			usageDataReady = true;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			usageError = errorMessage(e, m.media_usage_load_failed());
@@ -718,6 +824,10 @@
 			selectedMedia.alt_text = detailAltText.trim();
 			const item = mediaItems.find((media) => media.id === selectedMedia?.id);
 			if (item) item.alt_text = detailAltText.trim();
+			await queryClient.invalidateQueries({
+				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
+				refetchType: 'none'
+			});
 			notify(m.media_alt_saved(), 'success');
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_alt_update_failed(), 'error');
@@ -748,6 +858,10 @@
 		if (current) current.original_filename = nextFilename;
 		if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
 		mediaToRename.original_filename = nextFilename;
+		await queryClient.invalidateQueries({
+			queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
+			refetchType: 'none'
+		});
 		notify(m.media_renamed(), 'success');
 	}
 
@@ -761,6 +875,10 @@
 			media.processing_progress = 0;
 			media.analysis_status = 'pending';
 			media.analysis_error = '';
+			await queryClient.invalidateQueries({
+				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
+				refetchType: 'none'
+			});
 			notify(m.media_video_retry_started(), 'neutral');
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_video_retry_failed(), 'error');
@@ -774,6 +892,7 @@
 		usageLoading = false;
 		usageError = '';
 		mediaUsage = [];
+		usageDataReady = false;
 		selectedMedia = null;
 		deletionBlockedByUsage = false;
 	}
@@ -968,6 +1087,7 @@
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
 		untrack(() => {
+			if (usageDialogOpen) handleUsageDialogOpenChange(false);
 			void loadMedia(workspaceID);
 			void loadImageEditorHub(workspaceID);
 		});
@@ -1074,10 +1194,10 @@
 		{/if}
 	{/snippet}
 
-	{#if mediaLoading && mediaItems.length > 0}
+	{#if mediaLoading && mediaDataReady}
 		<span class="sr-only" role="status">{m.common_loading()}</span>
 	{/if}
-	{#if error && mediaItems.length > 0}
+	{#if error && mediaDataReady}
 		<InlineNotice
 			tone="error"
 			message={error}
@@ -1099,7 +1219,7 @@
 				onclick={() => {
 					lifecycleView = view.value;
 					currentPage = 0;
-					void loadMedia();
+					void loadMedia(selectedWorkspaceId);
 				}}
 			>
 				{view.label}
@@ -1283,12 +1403,12 @@
 		</div>
 	{/if}
 
-	{#if (mediaLoading || hubLoading) && mediaItems.length === 0}
+	{#if (mediaLoading || hubLoading) && !mediaDataReady}
 		<PageLoading layout="gallery" label={m.common_loading()} items={10} />
-	{:else if error && mediaItems.length === 0}
+	{:else if error && !mediaDataReady}
 		<InlineNotice tone="error" message={error} class="my-2">
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => loadMedia()}>
+				<Button variant="outline" size="sm" onclick={() => loadMedia(selectedWorkspaceId, true)}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -2066,11 +2186,11 @@
 
 		<div class="space-y-2 py-4">
 			<h3 class="text-sm font-semibold">{m.media_used_by()}</h3>
-			{#if usageLoading}
+			{#if usageLoading && !usageDataReady}
 				<div class="py-4">
 					<PageLoading layout="list" label={m.common_loading()} items={3} />
 				</div>
-			{:else if usageError}
+			{:else if usageError && !usageDataReady}
 				<InlineNotice tone="error" message={usageError}>
 					{#snippet actions()}
 						<Button
@@ -2082,31 +2202,49 @@
 						</Button>
 					{/snippet}
 				</InlineNotice>
-			{:else if mediaUsage.length === 0}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					{m.media_usage_empty()}
-				</p>
 			{:else}
-				{#each mediaUsage as usage (`${usage.kind}-${usage.id}`)}
-					<div class="rounded-lg border p-3">
-						<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
-						<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
-						<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-							{#if usage.status}
-								<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
-									{mediaUsageStatusLabel(usage.status)}
-								</span>
-							{/if}
-							{#if usage.scheduled_at}
-								<span
-									>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
-										timeZone: workspaceCtx.settings.timezone || 'UTC'
-									})}</span
-								>
-							{/if}
+				{#if usageLoading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if usageError}
+					<InlineNotice tone="error" message={usageError}>
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => selectedMedia && showUsage(selectedMedia)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
+				{#if mediaUsage.length === 0}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						{m.media_usage_empty()}
+					</p>
+				{:else}
+					{#each mediaUsage as usage (`${usage.kind}-${usage.id}`)}
+						<div class="rounded-lg border p-3">
+							<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
+							<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
+							<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
+								{#if usage.status}
+									<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
+										{mediaUsageStatusLabel(usage.status)}
+									</span>
+								{/if}
+								{#if usage.scheduled_at}
+									<span
+										>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
+											timeZone: workspaceCtx.settings.timezone || 'UTC'
+										})}</span
+									>
+								{/if}
+							</div>
 						</div>
-					</div>
-				{/each}
+					{/each}
+				{/if}
 			{/if}
 		</div>
 

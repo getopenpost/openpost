@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
+	import { repostAutomationQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -86,23 +89,40 @@
 		void loadSettings(workspaceID);
 	});
 
-	async function loadSettings(id = workspaceID) {
+	async function loadSettings(id = workspaceID, force = false) {
+		if (!id || id !== workspaceID) return;
 		loading = true;
 		loadError = '';
+		if (settings?.workspace_id !== id) settings = null;
 		try {
-			const { data, error } = await client.GET('/repost-automation', {
-				params: { query: { workspace_id: id } }
-			});
-			if (error || !data) throw new Error(error?.detail || m.repost_load_failed());
+			const options = repostAutomationQueryOptions(schedulingQueryAPI, id);
+			const preserveLocalEdits = settings?.workspace_id === id && dirty;
+			const cached = queryClient.getQueryData<RepostSettings>(options.queryKey);
+			const appliedCached = Boolean(cached && id === workspaceID && !preserveLocalEdits);
+			if (cached && id === workspaceID && !preserveLocalEdits) applySettings(cached);
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const data = await queryClient.query(options);
 			if (id !== workspaceID) return;
-			settings = data;
-			policies = (data.policies ?? []).map(normalizePolicy);
-			savedSnapshot = policySnapshot(policies);
+			if (preserveLocalEdits || (appliedCached && dirty)) return;
+			applySettings(data);
 		} catch (cause) {
+			if (id !== workspaceID) return;
 			loadError = cause instanceof Error ? cause.message : m.repost_load_failed();
 		} finally {
 			if (id === workspaceID) loading = false;
 		}
+	}
+
+	function applySettings(data: RepostSettings) {
+		settings = data;
+		policies = (data.policies ?? []).map(normalizePolicy);
+		savedSnapshot = policySnapshot(policies);
 	}
 
 	async function saveSettings() {
@@ -119,9 +139,8 @@
 				body: { workspace_id: workspaceID, policies: $state.snapshot(policies) }
 			});
 			if (error || !data) throw new Error(error?.detail || m.repost_save_failed());
-			settings = data;
-			policies = (data.policies ?? []).map(normalizePolicy);
-			savedSnapshot = policySnapshot(policies);
+			queryClient.setQueryData(schedulingQueryKeys.repostAutomation(workspaceID), data);
+			applySettings(data);
 			showToast(m.repost_saved());
 		} catch (cause) {
 			saveError = cause instanceof Error ? cause.message : m.repost_save_failed();
@@ -216,7 +235,7 @@
 		if (error) {
 			return { ok: false, message: error.detail || m.repost_revoke_failed() };
 		}
-		await loadSettings();
+		await loadSettings(workspaceID, true);
 		return { ok: true, successMessage: m.repost_access_revoked() };
 	}
 
@@ -302,12 +321,22 @@
 		<p class="mt-1 text-current/75">{m.repost_analytics_notice()}</p>
 	</InlineNotice>
 
-	{#if loading}
-		<PageLoading layout="list" label={m.common_loading()} items={4} />
-	{:else if loadError}
+	{#if loadError && settings}
 		<InlineNotice tone="error" message={loadError}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => void loadSettings()}>
+				<Button variant="outline" size="sm" onclick={() => void loadSettings(workspaceID, true)}>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
+
+	{#if loading && !settings}
+		<PageLoading layout="list" label={m.common_loading()} items={4} />
+	{:else if loadError && !settings}
+		<InlineNotice tone="error" message={loadError}>
+			{#snippet actions()}
+				<Button variant="outline" size="sm" onclick={() => void loadSettings(workspaceID, true)}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}

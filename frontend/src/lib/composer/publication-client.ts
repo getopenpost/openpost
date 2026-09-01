@@ -1,6 +1,14 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
+import {
+	OpenPostQueryError,
+	openPostQueryKeys,
+	publicationDetailQueryOptions,
+	seedPublicationDetail
+} from '@openpost/query-catalog';
 import { parseDraftConflict } from '$lib/draft-conflict';
+import { queryAPI } from '$lib/query/api';
+import { queryClient } from '$lib/query/client';
 import {
 	ComposerClientError,
 	type ComposerPublicationClient,
@@ -16,21 +24,27 @@ type RenditionInput = components['schemas']['RenditionInput'];
 type RenditionSegmentInput = components['schemas']['RenditionSegmentInput'];
 type Problem = components['schemas']['ErrorModel'];
 
-export function createComposerPublicationClient(): ComposerPublicationClient {
+export function createComposerPublicationClient(workspaceId: string): ComposerPublicationClient {
 	return {
 		async load(publicationId) {
-			const { data, error, response } = await client.GET('/publications/{id}', {
-				params: { path: { id: publicationId } }
-			});
-			if (error || !data) throw clientError(error, response.status);
+			let data: Publication;
+			try {
+				data = await queryClient.query(
+					publicationDetailQueryOptions(queryAPI, workspaceId, publicationId)
+				);
+			} catch (cause) {
+				throw queryClientError(cause);
+			}
 			return { publication: data, draft: publicationDraft(data) };
 		},
 
-		async create(workspaceId, draft) {
+		async create(createWorkspaceId, draft) {
 			const { data, error, response } = await client.POST('/publications', {
-				body: { ...draft, workspace_id: workspaceId }
+				body: { ...draft, workspace_id: createWorkspaceId }
 			});
 			if (error || !data) throw clientError(error, response.status);
+			seedPublicationDetail(queryClient, data, createWorkspaceId);
+			await invalidatePublicationLists(createWorkspaceId);
 			return { ...data, draft: publicationDraft(data) };
 		},
 
@@ -40,6 +54,8 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				body: publicationUpdate(draft, expectedRevision)
 			});
 			if (error || !data) throw clientError(error, response.status);
+			seedPublicationDetail(queryClient, data, workspaceId);
+			await invalidatePublicationLists(workspaceId);
 			return data;
 		},
 
@@ -57,6 +73,7 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				body: { expected_revision: expectedRevision }
 			});
 			if (error || !data) throw clientError(error, response.status);
+			await invalidatePublication(workspaceId, publicationId);
 			return data;
 		},
 
@@ -66,6 +83,7 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				body: { expected_revision: expectedRevision }
 			});
 			if (error || !data) throw clientError(error, response.status);
+			await invalidatePublication(workspaceId, publicationId);
 			return data;
 		},
 
@@ -80,6 +98,7 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				}
 			);
 			if (error || !data) throw clientError(error, response.status);
+			await invalidatePublication(workspaceId, publicationId);
 			return data;
 		},
 
@@ -89,6 +108,7 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				body: { expected_revision: expectedRevision }
 			});
 			if (error || !data) throw clientError(error, response.status);
+			await invalidatePublication(workspaceId, publicationId);
 			return data;
 		},
 
@@ -100,15 +120,45 @@ export function createComposerPublicationClient(): ComposerPublicationClient {
 				}
 			});
 			if (error) throw clientError(error, response.status);
+			queryClient.removeQueries({
+				queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
+				exact: true
+			});
+			await invalidatePublicationLists(workspaceId);
 		}
 	};
+}
+
+function invalidatePublicationLists(workspaceId: string) {
+	return queryClient.invalidateQueries({
+		queryKey: openPostQueryKeys.publications.list(workspaceId),
+		refetchType: 'none'
+	});
+}
+
+function invalidatePublication(workspaceId: string, publicationId: string) {
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
+			exact: true,
+			refetchType: 'none'
+		}),
+		invalidatePublicationLists(workspaceId)
+	]);
+}
+
+function queryClientError(cause: unknown): ComposerClientError {
+	if (cause instanceof OpenPostQueryError) {
+		return clientError({ type: 'about:blank', detail: cause.message }, cause.status ?? 0);
+	}
+	return new ComposerClientError('unavailable', cause instanceof Error ? cause.message : '');
 }
 
 export function publicationDraft(publication: Publication): PublicationDraft {
 	const draft: PublicationDraft = {
 		title: publication.title,
 		creation_preset: parseCreationPreset(publication.creation_preset),
-		intent: publication.intent,
+		intent: parseCreationPreset(publication.intent),
 		content_profile: publication.content_profile,
 		source_text: publication.source_text,
 		audience: publication.audience,

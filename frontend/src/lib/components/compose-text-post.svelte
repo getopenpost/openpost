@@ -14,6 +14,9 @@
 		type Workspace
 	} from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
+	import { publishingOptionsQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import AIWorkspaceDialog from '$lib/components/post-builder/ai-workspace-dialog.svelte';
 	import type {
@@ -514,7 +517,7 @@
 			unsubscribeComposerSession?.();
 			composerSession = new ComposerSession({
 				workspaceId,
-				client: createComposerPublicationClient()
+				client: createComposerPublicationClient(workspaceId)
 			});
 			unsubscribeComposerSession = composerSession.subscribe((state) => {
 				workspaceSwitchState = state.workspaceSwitch;
@@ -2164,27 +2167,24 @@
 		try {
 			const results = await Promise.all(
 				sources.map(async (source) => {
-					const { data, error: optionsError } = await client.GET(
-						'/accounts/{account_id}/publishing-options/{source}',
-						{
-							params: {
-								path: { account_id: account.id, source },
-								query: {
-									region,
-									locale: getLocaleTag(),
-									limit: 25,
-									search: effectiveSearch,
-									cursor: append
-										? (destinationOptionCursorsByAccount[account.id]?.[source] ?? '')
-										: '',
-									context: JSON.stringify(settingsForAccount(account))
-								}
-							}
-						}
-					);
-					if (optionsError) {
-						throw new Error(optionsError.detail || m.compose_load_provider_options_failed());
+					const options = publishingOptionsQueryOptions(schedulingQueryAPI, selectedWorkspaceId, {
+						accountId: account.id,
+						source,
+						region,
+						locale: getLocaleTag(),
+						limit: 25,
+						search: effectiveSearch,
+						cursor: append ? (destinationOptionCursorsByAccount[account.id]?.[source] ?? '') : '',
+						context: JSON.stringify(settingsForAccount(account))
+					});
+					if (force && !onlySource && !search && !append) {
+						await queryClient.invalidateQueries({
+							queryKey: options.queryKey,
+							exact: true,
+							refetchType: 'none'
+						});
 					}
+					const data = await queryClient.query(options);
 					return [source, data?.options ?? [], data?.next_cursor ?? ''] as const;
 				})
 			);

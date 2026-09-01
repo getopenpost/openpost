@@ -8,6 +8,9 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import { client } from '$lib/api/client';
+	import { openPostQueryKeys, schedulingPublicationsQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
 	import { workspaceClock } from '$lib/components/compose/schedule-timezone';
@@ -38,6 +41,8 @@
 	let postToDelete = $state.raw<Publication | null>(null);
 	let deleteReturnFocus = $state<HTMLElement | null>(null);
 	let loadRequestSequence = 0;
+	let postsWorkspaceId = '';
+	let postsDataReady = $state(false);
 
 	const currentDate = $derived<DateValue | undefined>(ui.dayPostsDate);
 	const dateStr = $derived(currentDate ? currentDate.toString() : '');
@@ -77,8 +82,14 @@
 		}
 	}
 
-	async function loadPosts(date: string, workspaceId = currentWorkspaceId) {
+	async function loadPosts(date: string, workspaceId = currentWorkspaceId, force = false) {
 		if (!workspaceId) return;
+		if (workspaceId !== currentWorkspaceId) return;
+		if (postsWorkspaceId !== workspaceId) {
+			posts = [];
+			postsWorkspaceId = workspaceId;
+			postsDataReady = false;
+		}
 		const requestSequence = ++loadRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === loadRequestSequence &&
@@ -90,42 +101,41 @@
 		try {
 			const range = publicationDayRange();
 			if (!range) return;
-			const publications: Publication[] = [];
-			let offset = 0;
-			while (true) {
-				const query = {
-					workspace_id: workspaceId,
-					calendar_from: range.from,
-					calendar_before: range.before,
-					limit: 200,
-					offset
-				};
-				const {
-					data,
-					error: responseError,
-					response
-				} = await client.GET('/publications', {
-					params: { query }
-				});
-				if (responseError) throw new Error(responseError.detail || m.day_posts_load_failed());
-				publications.push(...(data ?? []));
-				if (response.headers.get('X-Has-More') !== 'true') break;
-				const nextOffset = Number(response.headers.get('X-Next-Offset') ?? offset + 200);
-				if (!Number.isFinite(nextOffset) || nextOffset <= offset) break;
-				offset = nextOffset;
+			const options = schedulingPublicationsQueryOptions(schedulingQueryAPI, workspaceId, {
+				calendarFrom: range.from,
+				calendarBefore: range.before,
+				limit: 200,
+				allPages: true
+			});
+			const cached = queryClient.getQueryData<Publication[]>(options.queryKey);
+			if (cached !== undefined && isCurrentRequest()) {
+				posts = sortedPosts(cached);
+				postsDataReady = true;
 			}
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const publications = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			posts = publications.toSorted(
-				(a, b) =>
-					new Date(publicationOccurrence(a)).getTime() -
-					new Date(publicationOccurrence(b)).getTime()
-			);
+			posts = sortedPosts(publications);
+			postsDataReady = true;
 		} catch (cause) {
 			if (!isCurrentRequest()) return;
 			error = cause instanceof Error ? cause.message : m.day_posts_load_failed();
 		} finally {
 			if (isCurrentRequest()) loading = false;
 		}
+	}
+
+	function sortedPosts(publications: Publication[]) {
+		return publications.toSorted(
+			(a, b) =>
+				new Date(publicationOccurrence(a)).getTime() - new Date(publicationOccurrence(b)).getTime()
+		);
 	}
 
 	function getTime(value: string) {
@@ -226,7 +236,15 @@
 				}
 			});
 			if (responseError) throw new Error(responseError.detail || m.day_posts_delete_failed());
-			await loadPosts(dateStr);
+			queryClient.removeQueries({
+				queryKey: openPostQueryKeys.publications.detail(post.workspace_id, post.id),
+				exact: true
+			});
+			await queryClient.invalidateQueries({
+				queryKey: openPostQueryKeys.publications.list(post.workspace_id),
+				refetchType: 'none'
+			});
+			await loadPosts(dateStr, post.workspace_id);
 			ui.triggerRefresh({
 				workspaceId: post.workspace_id,
 				scopes: ['activity', 'calendar', 'drafts'],
@@ -267,17 +285,37 @@
 		</Sheet.Header>
 
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-2 sm:px-5">
-			{#if loading}
+			{#if loading && !postsDataReady}
 				<PageLoading layout="list" label={m.common_loading()} items={3} />
-			{:else if error}
+			{:else if error && !postsDataReady}
 				<InlineNotice tone="error" message={error} class="my-4">
 					{#snippet actions()}
-						<Button variant="outline" size="sm" onclick={() => loadPosts(dateStr)}>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+						>
 							{m.common_retry()}
 						</Button>
 					{/snippet}
 				</InlineNotice>
 			{:else if posts.length === 0}
+				{#if loading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if error}
+					<InlineNotice tone="error" message={error} class="my-4">
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 				<EmptyState
 					icon={CalendarIcon}
 					title={m.day_posts_empty()}
@@ -288,6 +326,22 @@
 					variant="muted"
 				/>
 			{:else}
+				{#if loading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if error}
+					<InlineNotice tone="error" message={error} class="my-4">
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 				<div class="divide-y">
 					{#each posts as post (post.id)}
 						{@const destinations = post.renditions ?? []}

@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicationEventsQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -25,6 +28,7 @@
 
 	let {
 		publicationId,
+		workspaceId,
 		headingLevel = 2,
 		showHeading = true,
 		retryingRenditionID = '',
@@ -32,6 +36,7 @@
 		onManualResolution
 	}: {
 		publicationId: string;
+		workspaceId: string;
 		headingLevel?: 2 | 3;
 		showHeading?: boolean;
 		retryingRenditionID?: string;
@@ -40,11 +45,15 @@
 	} = $props();
 	let events = $state.raw<PublicationHistoryEvent[]>([]);
 	let nextCursor = $state('');
-	let loading = $state(true);
 	let loadingMore = $state(false);
 	let error = $state('');
-	let requestedPublicationId = '';
+	let requestedPublicationKey = '';
 	let requestSequence = 0;
+	let appliedResult = '';
+	const firstPageQuery = createQuery(() =>
+		publicationEventsQueryOptions(schedulingQueryAPI, workspaceId, publicationId, { limit: 30 })
+	);
+	const loading = $derived(firstPageQuery.isPending);
 	const timelineItems = $derived.by(() => {
 		const renditionIDs = new SvelteSet<string>();
 		const items: TimelineItem[] = events.map((event) => ({
@@ -72,44 +81,68 @@
 	});
 
 	$effect(() => {
-		const id = publicationId;
-		if (!id || id === requestedPublicationId) return;
+		const key = `${workspaceId}:${publicationId}`;
+		if (!publicationId || !workspaceId || key === requestedPublicationKey) return;
 		untrack(() => {
-			requestedPublicationId = id;
+			requestSequence++;
+			loadingMore = false;
+			requestedPublicationKey = key;
 			events = [];
 			nextCursor = '';
-			void loadHistory(id, '', false);
+			error = '';
 		});
 	});
 
-	async function loadHistory(id: string, cursor: string, append: boolean) {
+	$effect(() => {
+		const data = firstPageQuery.data;
+		const resultKey = `${workspaceId}:${publicationId}:${firstPageQuery.dataUpdatedAt}`;
+		if (!data || resultKey === appliedResult) return;
+		appliedResult = resultKey;
+		untrack(() => {
+			events = data.items;
+			nextCursor = data.nextCursor;
+			error = '';
+		});
+	});
+
+	$effect(() => {
+		if (!firstPageQuery.isError) return;
+		error =
+			firstPageQuery.error instanceof Error
+				? firstPageQuery.error.message
+				: m.activity_failed_load();
+	});
+
+	async function loadHistory(id: string, cursor: string, append: boolean, force = false) {
 		const request = ++requestSequence;
 		if (append) loadingMore = true;
-		else loading = true;
 		error = '';
 		try {
-			const query = { limit: 30, cursor: cursor || undefined };
-			const response = await client.GET('/publications/{id}/events', {
-				params: { path: { id }, query }
+			const options = publicationEventsQueryOptions(schedulingQueryAPI, workspaceId, id, {
+				limit: 30,
+				cursor
 			});
-			if (response.error || !response.data) {
-				throw new Error(response.error?.detail || m.activity_failed_load());
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
 			}
+			const page = await queryClient.query(options);
 			if (request !== requestSequence || publicationId !== id) return;
-			const page = response.data;
 			if (append) {
 				const existingIDs = new Set(events.map((event) => event.id));
-				events = [...events, ...page.filter((event) => !existingIDs.has(event.id))];
+				events = [...events, ...page.items.filter((event) => !existingIDs.has(event.id))];
 			} else {
-				events = page;
+				events = page.items;
 			}
-			nextCursor = response.response.headers.get('X-Next-Cursor') ?? '';
+			nextCursor = page.nextCursor;
 		} catch (cause) {
 			if (request !== requestSequence || publicationId !== id) return;
 			error = cause instanceof Error ? cause.message : m.activity_failed_load();
 		} finally {
 			if (request === requestSequence) {
-				loading = false;
 				loadingMore = false;
 			}
 		}
@@ -165,7 +198,7 @@
 	async function retryCurrentDestination(renditionID: string) {
 		if (!onRetry) return;
 		await onRetry(renditionID);
-		await loadHistory(publicationId, '', false);
+		await loadHistory(publicationId, '', false, true);
 	}
 </script>
 
@@ -193,7 +226,11 @@
 	{:else if error && events.length === 0}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button size="sm" variant="outline" onclick={() => loadHistory(publicationId, '', false)}>
+				<Button
+					size="sm"
+					variant="outline"
+					onclick={() => loadHistory(publicationId, '', false, true)}
+				>
 					{m.common_retry()}
 				</Button>
 			{/snippet}

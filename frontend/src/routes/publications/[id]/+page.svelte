@@ -338,6 +338,7 @@
 
 			<PublicationHistory
 				publicationId={publication.id}
+				workspaceId={publication.workspace_id}
 				{retryingRenditionID}
 				onRetry={retryRendition}
 				onManualResolution={reviewDestination}
@@ -376,6 +377,7 @@
 				>
 					<PublicationHistory
 						publicationId={publication.id}
+						workspaceId={publication.workspace_id}
 						headingLevel={3}
 						showHeading={false}
 						{retryingRenditionID}

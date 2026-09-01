@@ -1,6 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		promptCategoriesQueryOptions,
+		promptQueryKeys,
+		promptsQueryOptions,
+		type Prompt
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { promptQueryAPI } from '$lib/query/prompts';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -24,22 +32,6 @@
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Prompt {
-		id: string;
-		workspace_id?: string;
-		user_id?: string;
-		text: string;
-		example?: string;
-		category: string;
-		is_built_in: boolean;
-		created_at: string;
-	}
-
-	let prompts = $state<Prompt[]>([]);
-	let categories = $state<string[]>([]);
-	let loading = $state(false);
-	let loadingCategories = $state(false);
-	let categoriesError = $state('');
 	let selectedCategory = $state<string>('all');
 	let showAddPrompt = $state(false);
 	let newPromptText = $state('');
@@ -48,74 +40,28 @@
 	let submitting = $state(false);
 	let toastMessage = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
-	let error = $state('');
-	let hasLoaded = $state(false);
 	let deleteDialogOpen = $state(false);
 	let promptToDelete = $state.raw<Prompt | null>(null);
-	let promptsRequestSequence = 0;
-	let loadedPromptsKey = '';
-	let categoriesRequested = false;
-
-	interface PromptsQueryParams {
-		workspace_id: string;
-		category?: string;
-	}
-
-	async function loadPrompts(
-		workspaceID = workspaceCtx.currentWorkspace?.id ?? '',
-		category = selectedCategory
-	) {
-		if (!workspaceID) return;
-		const requestSequence = ++promptsRequestSequence;
-		const queryKey = `${workspaceID}:${category}`;
-		const queryChanged = loadedPromptsKey !== queryKey;
-		loadedPromptsKey = queryKey;
-		if (queryChanged) {
-			prompts = [];
-			hasLoaded = false;
-		}
-		loading = true;
-		error = '';
-		try {
-			const params: PromptsQueryParams = { workspace_id: workspaceID };
-			if (category !== 'all') {
-				params.category = category;
-			}
-			const { data, error: err } = await client.GET('/prompts', {
-				params: { query: params }
-			});
-			if (err) throw new Error(err.detail || m.prompts_load_failed());
-			if (requestSequence !== promptsRequestSequence) return;
-			prompts = data ?? [];
-		} catch (e) {
-			if (requestSequence !== promptsRequestSequence) return;
-			console.error('Failed to load prompts:', e);
-			error = e instanceof Error ? e.message : m.prompts_load_failed();
-		} finally {
-			if (requestSequence === promptsRequestSequence) {
-				loading = false;
-				hasLoaded = true;
-			}
-		}
-	}
-
-	async function loadCategories() {
-		loadingCategories = true;
-		categoriesError = '';
-		try {
-			const { data, error: err } = await client.GET('/prompts/categories');
-			if (err) throw new Error(err.detail || m.prompts_load_failed());
-			categories = data?.categories ?? [];
-			if (categories.length > 0 && !newPromptCategory) {
-				newPromptCategory = categories[0];
-			}
-		} catch (e) {
-			console.error('Failed to load categories:', e);
-			categoriesError = e instanceof Error ? e.message : m.prompts_load_failed();
-		} finally {
-			loadingCategories = false;
-		}
-	}
+	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const promptsQuery = createQuery(() => ({
+		...promptsQueryOptions(
+			promptQueryAPI,
+			workspaceID,
+			selectedCategory === 'all' ? '' : selectedCategory
+		),
+		placeholderData: (previousData, previousQuery) =>
+			previousQuery?.queryKey[3] === workspaceID ? previousData : undefined
+	}));
+	const categoriesQuery = createQuery(() => promptCategoriesQueryOptions(promptQueryAPI));
+	const prompts = $derived<Prompt[]>(promptsQuery.data ?? []);
+	const hasPromptData = $derived(promptsQuery.data !== undefined);
+	const categories = $derived(categoriesQuery.data ?? []);
+	const loading = $derived(promptsQuery.isFetching);
+	const loadingCategories = $derived(categoriesQuery.isFetching);
+	const error = $derived(queryErrorMessage(promptsQuery.error, m.prompts_load_failed()));
+	const categoriesError = $derived(
+		queryErrorMessage(categoriesQuery.error, m.prompts_load_failed())
+	);
 
 	async function addPrompt() {
 		if (!workspaceCtx.currentWorkspace || !newPromptText.trim() || !newPromptCategory) return;
@@ -135,7 +81,7 @@
 			newPromptExample = '';
 			toastTone = 'success';
 			toastMessage = m.prompts_created();
-			await loadPrompts();
+			await queryClient.invalidateQueries({ queryKey: promptQueryKeys.lists(workspaceID) });
 		} catch (e) {
 			toastTone = 'error';
 			toastMessage = e instanceof Error ? e.message : m.prompts_create_failed();
@@ -157,7 +103,7 @@
 				params: { path: { id: prompt.id } }
 			});
 			if (err) throw new Error(err.detail || m.prompts_delete_failed());
-			await loadPrompts();
+			await queryClient.invalidateQueries({ queryKey: promptQueryKeys.lists(workspaceID) });
 			return { ok: true, successMessage: m.prompts_deleted() };
 		} catch (e) {
 			return {
@@ -194,16 +140,12 @@
 	}
 
 	$effect(() => {
-		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
-		const category = selectedCategory;
-		if (workspaceID) {
-			void loadPrompts(workspaceID, category);
-			if (!categoriesRequested) {
-				categoriesRequested = true;
-				void loadCategories();
-			}
-		}
+		if (categories.length > 0 && !newPromptCategory) newPromptCategory = categories[0];
 	});
+
+	function queryErrorMessage(cause: unknown, fallback: string) {
+		return cause instanceof Error ? cause.message : cause ? fallback : '';
+	}
 </script>
 
 <svelte:head>
@@ -223,7 +165,7 @@
 	title={m.prompts_title()}
 	description={m.prompts_description()}
 	icon={LightbulbIcon}
-	loading={!workspaceCtx.currentWorkspace || (!hasLoaded && loading)}
+	loading={!workspaceCtx.currentWorkspace || promptsQuery.isPending}
 	loadingMessage={m.common_loading()}
 	loadingLayout="grid"
 	loadingActionCount={3}
@@ -264,28 +206,29 @@
 		{#if categoriesError}
 			<InlineNotice tone="error" message={categoriesError}>
 				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={loadCategories}>
+					<Button variant="outline" size="sm" onclick={() => void categoriesQuery.refetch()}>
 						{m.common_retry()}
 					</Button>
 				{/snippet}
 			</InlineNotice>
 		{/if}
 		{#if error}
-			<InlineNotice
-				tone="error"
-				message={error}
-				dismissLabel={m.common_close()}
-				onDismiss={() => (error = '')}
-			/>
+			<InlineNotice tone="error" message={error}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void promptsQuery.refetch()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 
 		<!-- Prompts Grid -->
-		{#if loading && prompts.length > 0}
+		{#if loading && hasPromptData}
 			<span class="sr-only" role="status">{m.common_loading()}</span>
 		{/if}
-		{#if loading && prompts.length === 0}
+		{#if loading && !hasPromptData}
 			<PageLoading layout="grid" label={m.common_loading()} items={8} />
-		{:else if !error && prompts.length === 0}
+		{:else if hasPromptData && prompts.length === 0}
 			<EmptyState
 				icon={LightbulbIcon}
 				title={m.prompts_empty()}
@@ -295,7 +238,7 @@
 				variant="dashed"
 				size="lg"
 			/>
-		{:else}
+		{:else if hasPromptData}
 			{@const groupedPrompts = prompts.reduce(
 				(acc, prompt) => {
 					if (!acc[prompt.category]) acc[prompt.category] = [];

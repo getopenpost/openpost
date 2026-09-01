@@ -51,7 +51,7 @@
 		error = '';
 		try {
 			if (editingId) {
-				await updateMediaTag(editingId, nextName);
+				await updateMediaTag(workspaceId, editingId, nextName);
 				onNotify?.(m.media_tag_updated(), 'success');
 			} else {
 				await createMediaTag(workspaceId, nextName);
@@ -73,7 +73,7 @@
 
 	async function confirmDelete(): Promise<DestructiveActionOutcome> {
 		if (!pendingDelete) return { ok: false };
-		await deleteMediaTag(pendingDelete.id);
+		await deleteMediaTag(workspaceId, pendingDelete.id);
 		if (editingId === pendingDelete.id) resetForm();
 		pendingDelete = null;
 		await onChanged();

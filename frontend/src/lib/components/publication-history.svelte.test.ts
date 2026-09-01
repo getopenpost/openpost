@@ -1,11 +1,14 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { QueryClientProvider } from '@tanstack/svelte-query';
 import { client } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
 import PublicationHistory from './publication-history.svelte';
 
 const mocks = { get: vi.fn() };
 vi.spyOn(client, 'GET').mockImplementation(mocks.get);
 beforeEach(() => {
+	queryClient.clear();
 	mocks.get.mockReset();
 });
 
@@ -46,7 +49,17 @@ it('places the latest effective outcome at its attempt or reconciliation time', 
 		response: new Response(null, { headers: { 'X-Has-More': 'false' } })
 	});
 
-	const screen = await render(PublicationHistory, { publicationId: 'publication-1' });
+	const screen = await render(
+		PublicationHistory,
+		{
+			publicationId: 'publication-1',
+			workspaceId: 'workspace-1'
+		},
+		{
+			wrapper: QueryClientProvider,
+			wrapperProps: { client: queryClient }
+		}
+	);
 	await expect.element(screen.getByText('Latest effective destination outcome')).toBeVisible();
 
 	const items = [...document.querySelectorAll('ol > li')].map((item) => item.textContent ?? '');

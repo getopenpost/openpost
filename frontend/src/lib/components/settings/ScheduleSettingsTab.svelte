@@ -11,6 +11,9 @@
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { runDestructiveSequence } from '$lib/destructive-action';
 	import { client } from '$lib/api/client';
+	import { postingSchedulesQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -121,6 +124,7 @@
 	let schedules = $state<PostingSchedule[]>([]);
 	let loadingSchedules = $state(false);
 	let scheduleError = $state('');
+	let scheduleDataReady = $state(false);
 	let showSuggestSchedule = $state(false);
 	let suggestedPostsPerDay = $state(3);
 	let generatingSchedule = $state(false);
@@ -168,21 +172,39 @@
 		);
 	});
 
-	async function loadSchedules(workspaceID = workspaceCtx.currentWorkspace?.id ?? '') {
+	async function loadSchedules(
+		workspaceID = workspaceCtx.currentWorkspace?.id ?? '',
+		force = false
+	) {
 		if (!workspaceID) return;
+		if (!isCurrentWorkspace(workspaceID)) return;
 		const requestSequence = ++scheduleRequestSequence;
 		const workspaceChanged = loadedScheduleWorkspaceID !== workspaceID;
 		loadedScheduleWorkspaceID = workspaceID;
 		loadingSchedules = true;
 		scheduleError = '';
-		if (workspaceChanged) schedules = [];
+		if (workspaceChanged) {
+			schedules = [];
+			scheduleDataReady = false;
+		}
 		try {
-			const { data, error: err } = await client.GET('/posting-schedules', {
-				params: { query: { workspace_id: workspaceID } }
-			});
-			if (err || !data) throw new Error(err?.detail || m.settings_schedule_load_failed());
+			const options = postingSchedulesQueryOptions(schedulingQueryAPI, workspaceID);
+			const cached = queryClient.getQueryData<PostingSchedule[]>(options.queryKey);
+			if (cached !== undefined && isCurrentWorkspace(workspaceID)) {
+				schedules = cached;
+				scheduleDataReady = true;
+			}
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const data = await queryClient.query(options);
 			if (requestSequence !== scheduleRequestSequence || !isCurrentWorkspace(workspaceID)) return;
 			schedules = data;
+			scheduleDataReady = true;
 		} catch (e) {
 			if (requestSequence !== scheduleRequestSequence || !isCurrentWorkspace(workspaceID)) return;
 			scheduleError = e instanceof Error ? e.message : m.settings_schedule_load_failed();
@@ -251,7 +273,7 @@
 				}
 			}
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				savedScheduleDraft = scheduleDraftSnapshot();
 				notify(m.settings_time_added());
 			}
@@ -266,7 +288,7 @@
 				params: { path: { id } }
 			});
 			if (err) throw new Error(err.detail || m.settings_action_failed());
-			await loadSchedules();
+			await loadSchedules(workspaceCtx.currentWorkspace?.id ?? '', true);
 			notify(m.settings_schedule_deleted());
 		} catch (e) {
 			notify(e instanceof Error ? e.message : m.settings_action_failed(), 'error');
@@ -284,7 +306,7 @@
 			if (!workspaceID || !workspaceCtx.settingsReady) return;
 			await createSchedule(workspaceID, dayOfWeek, row.local_hour, row.local_minute);
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				notify(m.settings_schedule_updated());
 			}
 		} catch (e) {
@@ -316,12 +338,12 @@
 					)
 				};
 			}
-			await loadSchedules();
+			await loadSchedules(workspaceCtx.currentWorkspace?.id ?? '', true);
 			const message =
 				outcome.error instanceof Error ? outcome.error.message : m.settings_action_failed();
 			return { ok: false, message };
 		}
-		await loadSchedules();
+		await loadSchedules(workspaceCtx.currentWorkspace?.id ?? '', true);
 		return { ok: true, successMessage: m.settings_time_removed() };
 	}
 
@@ -347,7 +369,7 @@
 			if (err) throw new Error(err.detail || m.settings_action_failed());
 			showSuggestSchedule = false;
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				notify(
 					suggestedPostsPerDay === 1
 						? m.settings_schedule_generated_one()
@@ -491,7 +513,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					onclick={() => void loadSchedules()}
+					onclick={() => void loadSchedules(workspaceCtx.currentWorkspace?.id ?? '', true)}
 					disabled={loadingSchedules}
 				>
 					{m.common_retry()}
@@ -499,13 +521,13 @@
 			{/snippet}
 		</InlineNotice>
 	{/if}
-	{#if loadingSchedules && scheduleRows.length === 0}
+	{#if loadingSchedules && !scheduleDataReady}
 		<PageLoading layout="list" label={m.common_loading()} items={3} />
-	{:else if !scheduleError && scheduleRows.length === 0}
+	{:else if scheduleDataReady && scheduleRows.length === 0}
 		<div class="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
 			{m.settings_no_posting_times()}
 		</div>
-	{:else}
+	{:else if scheduleDataReady}
 		<div class="space-y-3 xl:hidden">
 			{#each scheduleRows as row (row.key)}
 				<div class="rounded-xl border bg-card p-4">

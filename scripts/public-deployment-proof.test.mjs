@@ -205,6 +205,48 @@ test("the live sample plan covers every required public category and machine bou
   );
   assert.deepEqual(samples.native, [
     ["OpenAPI", "https://docs.openpo.st/openapi.json", "application/json"],
+    ["app OpenAPI", "https://app.openpo.st/openapi.json", "application/json"],
+    [
+      "marketing API catalog",
+      "https://openpo.st/.well-known/api-catalog",
+      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+    ],
+    [
+      "app API catalog",
+      "https://app.openpo.st/.well-known/api-catalog",
+      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+    ],
+    [
+      "MCP authorization metadata",
+      "https://app.openpo.st/.well-known/oauth-protected-resource",
+      "application/json",
+    ],
+    [
+      "MCP deterministic authorization metadata",
+      "https://app.openpo.st/.well-known/oauth-protected-resource/mcp",
+      "application/json",
+    ],
+    [
+      "marketing MCP card",
+      "https://openpo.st/.well-known/mcp/server-card.json",
+      "application/json; charset=utf-8",
+    ],
+    ["app MCP card", "https://app.openpo.st/.well-known/mcp/server-card.json", "application/json"],
+    ["ARD", "https://openpo.st/.well-known/ard.json", "application/json; charset=utf-8"],
+    [
+      "Agent Skills index",
+      "https://openpo.st/.well-known/agent-skills/index.json",
+      "application/json; charset=utf-8",
+    ],
+    [
+      "Agent Skill",
+      "https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz",
+      "application/gzip",
+    ],
+    ["marketing robots", "https://openpo.st/robots.txt", "text/plain; charset=utf-8"],
+    ["documentation robots", "https://docs.openpo.st/robots.txt", "text/plain; charset=utf-8"],
+    ["app robots", "https://app.openpo.st/robots.txt", "text/plain; charset=UTF-8"],
+    ["marketing favicon", "https://openpo.st/favicon.ico", "image/x-icon"],
     ["MCP", "https://app.openpo.st/mcp", "application/json"],
     ["marketing asset", "https://openpo.st/assets/brand/logo.svg", "image/svg+xml"],
     ["documentation asset", "https://docs.openpo.st/assets/screenshots/main-dark.png", "image/png"],
@@ -215,15 +257,21 @@ test("proves status, media type, exact content, query isolation, and redirect be
   const responses = new Map([
     [
       "https://openpo.st/features.md",
-      response(200, "text/markdown; charset=utf-8", "# Features\n"),
+      response(200, "text/markdown; charset=utf-8", "# Features\n", {
+        "x-openpost-discovery": "current",
+      }),
     ],
     [
       "https://deployment.example/features.md",
-      response(200, "text/markdown; charset=utf-8", "# Features\n"),
+      response(200, "text/markdown; charset=utf-8", "# Features\n", {
+        "x-openpost-discovery": "current",
+      }),
     ],
     [
       "https://openpo.st/features.md?openpost_proof=query-isolation",
-      response(200, "text/markdown; charset=utf-8", "# Features\n"),
+      response(200, "text/markdown; charset=utf-8", "# Features\n", {
+        "x-openpost-discovery": "current",
+      }),
     ],
     [
       "https://openpo.st/features/?openpost_proof=redirect",
@@ -248,6 +296,7 @@ test("proves status, media type, exact content, query isolation, and redirect be
         deploymentURL: "https://deployment.example/features.md",
         contentType: "text/markdown; charset=utf-8",
         expectedBody: "# Features\n",
+        responseHeaders: { "x-openpost-discovery": "current" },
         queryIsolation: true,
       },
       {
@@ -288,6 +337,32 @@ test("fails when a query changes generated content", async () => {
     }),
     /query changed the response body/u,
   );
+});
+
+test("proves binary discovery artifacts byte for byte", async () => {
+  const expectedBody = Buffer.from([0, 255, 1, 254]);
+  const responses = new Map([
+    ["https://openpo.st/skill.tar.gz", response(200, "application/gzip", expectedBody)],
+    ["https://deployment.example/skill.tar.gz", response(200, "application/gzip", expectedBody)],
+  ]);
+  const [result] = await proveHTTPContract({
+    fetchImpl: async (url) => responses.get(String(url)).clone(),
+    checks: [
+      {
+        kind: "artifact",
+        name: "binary Agent Skill",
+        canonicalURL: "https://openpo.st/skill.tar.gz",
+        deploymentURL: "https://deployment.example/skill.tar.gz",
+        contentType: "application/gzip",
+        expectedBody,
+        binary: true,
+      },
+    ],
+  });
+
+  assert.equal(result.local_matches, true);
+  assert.equal(result.deployment_matches, true);
+  assert.equal(result.bytes, expectedBody.length);
 });
 
 function response(status, contentType, body, headers = {}) {

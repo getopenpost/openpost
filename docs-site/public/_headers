@@ -4,4 +4,5 @@
 /llms*.txt
   Content-Type: text/plain; charset=utf-8
 /robots.txt
-  Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference
+  Content-Type: text/plain; charset=utf-8
+  Content-Signal: search=yes, ai-input=yes, ai-train=yes

@@ -12,6 +12,7 @@ import {
   marketingRouteManifest,
   marketingSiteUrl,
 } from "../packages/social-images/src/index.js";
+import { generateMarketingDiscoveryArtifacts } from "./public-agent-discovery.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const generatedNotice =
@@ -1219,6 +1220,11 @@ async function main() {
     );
   }
   await generateAgentSurface(productionProjections[surface]);
+  if (surface === "marketing") {
+    await generateMarketingDiscoveryArtifacts({
+      outputDirectory: productionProjections.marketing.outputDirectory,
+    });
+  }
   console.log(`Generated ${surface} Agent-readable pages and llms.txt.`);
 }
 

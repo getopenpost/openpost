@@ -243,7 +243,11 @@ file. It proves every generated
 Markdown page against the local build, immutable Pages deployment, and canonical
 host. It also checks discovery files, the full corpus, representative HTML
 alternates, HTML-only sitemaps, canonical redirects, query isolation, real 404s,
-OpenAPI JSON, the native MCP boundary, and asset media types. The report keeps
+OpenAPI JSON, the native MCP boundary, and asset media types. Native checks
+cover both OpenAPI documents, both RFC 9727 catalogs, both RFC 9728
+protected-resource paths, the marketing and app MCP cards, ARD, the Agent
+Skills index and archive, each crawler policy and Content Signal header, and
+the marketing favicon. The report keeps
 local build success, Pages artifact acceptance, live behavior, deployed source
 revision, and the AI crawl observation as separate evidence.
 

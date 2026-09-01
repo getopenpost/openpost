@@ -370,17 +370,28 @@ func TestMCPProtectedResourceMetadata(t *testing.T) {
 	t.Parallel()
 
 	srv := newMCPTestServer(t)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/.well-known/oauth-protected-resource", nil)
-	rec := httptest.NewRecorder()
-	srv.echo.ServeHTTP(rec, req)
+	for _, pathname := range []string{
+		"/.well-known/oauth-protected-resource",
+		"/.well-known/oauth-protected-resource/mcp",
+	} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathname, nil)
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-	require.Equal(t, "https://app.openpost.test/mcp", out["resource"])
-	require.Equal(t, []any{"https://app.openpost.test"}, out["authorization_servers"])
-	require.Equal(t, []any{"mcp:read", "mcp:full"}, out["scopes_supported"])
-	require.Equal(t, []any{"header"}, out["bearer_methods_supported"])
+		require.Equal(t, http.StatusOK, rec.Code, pathname)
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+		require.Equal(t, "https://app.openpost.test/mcp", out["resource"])
+		require.Equal(t, []any{"https://app.openpost.test"}, out["authorization_servers"])
+		require.Equal(t, []any{"mcp:read", "mcp:full"}, out["scopes_supported"])
+		require.Equal(t, []any{"header"}, out["bearer_methods_supported"])
+
+		headRequest := httptest.NewRequestWithContext(t.Context(), http.MethodHead, pathname, nil)
+		headResponse := httptest.NewRecorder()
+		srv.echo.ServeHTTP(headResponse, headRequest)
+		require.Equal(t, http.StatusOK, headResponse.Code, pathname)
+		require.Empty(t, headResponse.Body.String(), pathname)
+	}
 }
 
 func TestMCPAuthenticatesSupportedTokenScopes(t *testing.T) {

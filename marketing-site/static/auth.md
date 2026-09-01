@@ -15,6 +15,7 @@ This file tells agents and machine clients how a user grants access to OpenPost.
 MCP clients should discover the supported authorization flow from these public documents:
 
 - Protected resource metadata: https://app.openpo.st/.well-known/oauth-protected-resource
+- Deterministic MCP resource metadata: https://app.openpo.st/.well-known/oauth-protected-resource/mcp
 - Authorization server metadata: https://app.openpo.st/.well-known/oauth-authorization-server
 
 The hosted service uses the OAuth authorization-code flow with PKCE. It supports `mcp:read` and `mcp:full`. A browser opens so the signed-in user can review and approve access.

@@ -77,7 +77,7 @@ The marketing production build generates a `.md` representation for every static
 
 The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` states when OpenPost is and is not a fit, prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, self-hosting path, developer entry point, operator identity, contact route, and documentation, then links directly to the OpenAPI contract, CLI, MCP, and agent-assisted workflow. The browser-tool index is optional, and platform detail pages appear in their own optional section. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
 
-The marketing and documentation origins use `robots.txt` and a `Content-Signal` response header to allow public-content search, AI input, model training, and attributed reference use. Cloudflare managed robots and verified-bot rules can replace or block that origin policy, so live acceptance must verify the final response and representative search, training, and user-action crawler identities after each policy change. This permission covers public marketing and documentation content only and does not expose authenticated application data.
+The marketing and documentation origins use `robots.txt` and a `Content-Signal` response header to allow public-content search, AI input, and model training. The directives stay inside the wildcard user-agent group and use only fields supported by the current Content Signals policy. Cloudflare managed robots and verified-bot rules can replace or block that origin policy, so live acceptance must verify the final response and representative search, training, and user-action crawler identities after each policy change. This permission covers public marketing and documentation content only and does not expose authenticated application data.
 
 Every marketing page emits one JSON-LD graph that joins its canonical page to the OpenPost website, software application, and the real Hosted service operator. Do not add invented organizations, postal addresses, phone numbers, reviews, ratings, or offers. The public changelog also emits a dated Atom feed built from stable releases in the canonical repository changelog; `Unreleased` work never appears in the feed.
 
@@ -85,7 +85,29 @@ The generated documentation catalogue is the checked-in contract shared by both 
 
 The documentation `llms.txt` links to explicit Markdown entry points for the user guide, providers, CLI, MCP, installation, self-hosting, configuration, operations, API, and development. It links to the API guide and authoritative OpenAPI JSON rather than converting the OpenAPI operation catalogue. MCP discovery remains MCP and JSON-RPC. The API-reference page keeps its interactive viewer but also maintains useful no-JavaScript guidance and a direct OpenAPI JSON link. The generated Nix module include expands into the page representation during the owning build.
 
-`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. Marketing representations preserve semantic prose, links, tables, informative images, provider limits, and browser-tool explanations from prerendered `<main>` content while excluding navigation and interactive controls. Documentation representations start from maintained Markdown, expand controlled in-tree includes, retain headings, prose, lists, tables, code, and supported containers, normalize supported raw HTML, remove links to the private app, and resolve public links and assets against the canonical page. Browser-tool source marks the canonical explanation with `data-agent-include` and the unusable interactive region with `data-agent-exclude`; other pages may use the exclusion annotation for illustrative or duplicate responsive content. Unknown meaning-bearing markup, unresolved or unsafe includes, metadata drift, duplicate outputs, unknown public page targets, invalid rendered fragments, private routes, and representations over 256 KiB without a reviewed catalogue exception fail the build. External targets remain the source owner's responsibility.
+The marketing build also publishes the owner-declared integration inventory,
+an RFC 9727 API catalog, a byte-identical OpenAPI document, the current
+experimental MCP Server Card, and an ARD manifest. The API catalog lists the
+HTTP API and MCP endpoint as separate items. The app origin publishes the same
+catalog with self-host-aware URLs. All Link response headers use registered
+relation names, so sitemap discovery stays in `robots.txt` instead of an
+unregistered `sitemap` relation.
+
+OpenPost publishes the complete `openpost-cli` Agent Skill as a deterministic
+archive. The Agent Skills index uses the current draft schema and includes the
+archive's SHA-256 digest. The build regenerates both files from
+`skills/openpost-cli`, so a skill change cannot leave a stale digest. The ARD
+manifest points to that archive, the OpenAPI document, and the MCP Server Card.
+
+Authentication metadata stays on `app.openpo.st`, the origin that protects the
+MCP resource. Marketing does not mirror or redirect the RFC 9728 well-known
+path. OpenPost does not publish an A2A Agent Card because it does not implement
+an A2A protocol binding. It also does not register marketing-page WebMCP tools,
+publish DNS-AID records, or claim the separate auth.md agent-registration
+protocol. Add those only after OpenPost owns the matching runtime behavior and
+the relevant draft is stable enough to support.
+
+`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. `scripts/public-agent-discovery.mjs` owns generated marketing discovery artifacts. Marketing representations preserve semantic prose, links, tables, informative images, provider limits, and browser-tool explanations from prerendered `<main>` content while excluding navigation and interactive controls. Documentation representations start from maintained Markdown, expand controlled in-tree includes, retain headings, prose, lists, tables, code, and supported containers, normalize supported raw HTML, remove links to the private app, and resolve public links and assets against the canonical page. Browser-tool source marks the canonical explanation with `data-agent-include` and the unusable interactive region with `data-agent-exclude`; other pages may use the exclusion annotation for illustrative or duplicate responsive content. Unknown meaning-bearing markup, unresolved or unsafe includes, metadata drift, duplicate outputs, unknown public page targets, invalid rendered fragments, private routes, and representations over 256 KiB without a reviewed catalogue exception fail the build. External targets remain the source owner's responsibility.
 
 Both build outputs include a Cloudflare Pages `_headers` contract. Explicit `.md` files declare `text/markdown; charset=utf-8`; discovery and corpus text files declare `text/plain; charset=utf-8`. The build adds `Vary: Accept` to every catalogue-owned canonical HTML path and explicit Markdown artifact so an enabled Cache Rule can separate the two representations. These origin headers do not enable canonical-URL content selection. Optional edge selection remains a separate operator action.
 

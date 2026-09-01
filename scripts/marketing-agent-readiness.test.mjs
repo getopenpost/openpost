@@ -10,14 +10,16 @@ import { resolveMarketingSocial } from "../packages/social-images/src/index.js";
 
 test("public crawler policy explicitly permits search, AI input, and model training", async () => {
   const robots = renderPublicRobots();
-  assert.equal(
-    publicContentSignal,
-    "Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference",
-  );
+  assert.equal(publicContentSignal, "Content-Signal: search=yes, ai-input=yes, ai-train=yes");
   assert.match(robots, /^User-agent: \*$/m);
+  assert.match(
+    robots,
+    /^User-agent: \*\nContent-Signal: search=yes, ai-input=yes, ai-train=yes\nAllow: \/$/m,
+  );
   assert.match(robots, /^Allow: \/$/m);
   assert.match(robots, /^Sitemap: https:\/\/openpo\.st\/sitemap\.xml$/m);
   assert.doesNotMatch(robots, /^Disallow:/m);
+  assert.doesNotMatch(robots, /use=reference/u);
 
   const root = path.resolve(import.meta.dirname, "..");
   for (const [surface, relativeRobots, relativeHeaders] of [
@@ -29,6 +31,11 @@ test("public crawler policy explicitly permits search, AI input, and model train
       readFile(path.join(root, relativeHeaders), "utf8"),
     ]);
     assert.match(robotsSource, /ai-train=yes/u, `${surface} robots must allow training`);
+    assert.doesNotMatch(
+      robotsSource,
+      /use=reference/u,
+      `${surface} must use supported Content Signals fields only`,
+    );
     assert.match(
       headers,
       /\/robots\.txt[\s\S]*ai-train=yes/u,

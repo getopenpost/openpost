@@ -1,17 +1,33 @@
 /
-  Link: </.well-known/api-catalog>; rel="api-catalog", <https://docs.openpo.st/openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json", <https://docs.openpo.st/development/api-reference>; rel="service-doc"; type="text/html", </auth.md>; rel="describedby"; type="text/markdown", </llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"; type="application/xml", </index.md>; rel="alternate"; type="text/markdown"
+  Link: </.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json", <https://docs.openpo.st/development/api-reference>; rel="service-doc"; type="text/html", </auth.md>; rel="describedby"; type="text/markdown", </llms.txt>; rel="describedby"; type="text/plain", </index.md>; rel="alternate"; type="text/markdown"
   Vary: Accept
 /.well-known/api-catalog
   Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
   Link: </.well-known/api-catalog>; rel="api-catalog"
 /.well-known/integrations.json
   Content-Type: application/json; charset=utf-8
+/.well-known/ard.json
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+/.well-known/agent-skills/index.json
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+/.well-known/agent-skills/openpost-cli.tar.gz
+  Content-Type: application/gzip
+  Access-Control-Allow-Origin: *
 /.well-known/mcp/server-card.json
   Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+/favicon.ico
+  Content-Type: image/x-icon
+/openapi.json
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
 /*.md
   Content-Type: text/markdown; charset=utf-8
   Vary: Accept
 /llms.txt
   Content-Type: text/plain; charset=utf-8
 /robots.txt
-  Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference
+  Content-Type: text/plain; charset=utf-8
+  Content-Signal: search=yes, ai-input=yes, ai-train=yes

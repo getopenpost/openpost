@@ -1,7 +1,0 @@
-{
-  "url": "https://app.openpo.st/mcp",
-  "authentication": {
-    "type": "oauth2",
-    "authorization_server": "https://app.openpo.st"
-  }
-}

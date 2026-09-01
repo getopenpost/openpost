@@ -43,8 +43,19 @@ protected-resource and authorization-server metadata:
 
 ```txt
 GET /.well-known/oauth-protected-resource
+GET /.well-known/oauth-protected-resource/mcp
 GET /.well-known/oauth-authorization-server
 ```
+
+The `/mcp` protected-resource identifier deterministically maps to the metadata
+path ending in `/mcp` under RFC 9728. The root protected-resource path remains
+available because MCP authentication challenges name it explicitly. Both paths
+describe the same `https://app.openpo.st/mcp` resource on Hosted.
+
+OpenPost also publishes its experimental MCP Server Card at
+`/.well-known/mcp/server-card.json` and `/mcp/server-card`. The card describes
+the real Streamable HTTP endpoint and supported protocol versions. OAuth details
+remain in the RFC 9728 metadata instead of a card-specific auth object.
 
 The advertised tool surface uses progressive discovery to keep model context small. `mcp:full` clients receive `search_operations`, `query_operation`, `execute_operation`, and the Apps widget renderer. `mcp:read` clients receive the same surface without `execute_operation`; search results and prompt discovery are filtered to read-only operations. `search_operations` returns
 the exact input/output schema, safety annotations, and required execution tool

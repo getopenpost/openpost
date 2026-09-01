@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+  "name": "getopenpost/openpost",
+  "description": "Create, schedule, publish, and inspect social content through OpenPost.",
+  "title": "OpenPost MCP server",
+  "websiteUrl": "https://openpo.st",
+  "repository": {
+    "url": "https://github.com/getopenpost/openpost",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://openpo.st/icon.svg",
+      "mimeType": "image/svg+xml"
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "supportedProtocolVersions": ["2025-06-18", "2025-03-26"]
+    }
+  ]
+}

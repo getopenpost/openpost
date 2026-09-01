@@ -788,13 +788,7 @@ func main() {
 		return c.Blob(http.StatusOK, "application/json", data)
 	})
 
-	robotsHandler := func(c echo.Context) error {
-		robots := "User-agent: *\nAllow: /\nUser-agent: facebookexternalhit\nAllow: /\nUser-agent: Twitterbot\nAllow: /\nUser-agent: LinkedInBot\nAllow: /"
-		return c.String(http.StatusOK, robots)
-	}
-
-	e.GET("/robots.txt", robotsHandler)
-	e.HEAD("/robots.txt", robotsHandler)
+	handlers.NewPublicDiscoveryHandler(cfg.PublicURL, version).RegisterRoutes(e)
 
 	mcpHandler := handlers.NewMCPHandler(db, authenticator, entitlementService)
 	mcpHandler.SetServerVersion(version)

@@ -1,10 +1,21 @@
 {
   "linkset": [
     {
+      "anchor": "https://openpo.st",
+      "item": [
+        {
+          "href": "https://app.openpo.st/api/v1"
+        },
+        {
+          "href": "https://app.openpo.st/mcp"
+        }
+      ]
+    },
+    {
       "anchor": "https://app.openpo.st/api/v1",
       "service-desc": [
         {
-          "href": "https://docs.openpo.st/openapi.json",
+          "href": "https://openpo.st/openapi.json",
           "type": "application/vnd.oai.openapi+json;version=3.1"
         }
       ],
@@ -19,10 +30,20 @@
           "href": "https://app.openpo.st/api/v1/ready",
           "type": "application/json"
         }
-      ],
-      "item": [
+      ]
+    },
+    {
+      "anchor": "https://app.openpo.st/mcp",
+      "service-desc": [
         {
-          "href": "https://app.openpo.st/mcp"
+          "href": "https://openpo.st/.well-known/mcp/server-card.json",
+          "type": "application/mcp-server-card+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://docs.openpo.st/mcp/",
+          "type": "text/html"
         }
       ]
     }

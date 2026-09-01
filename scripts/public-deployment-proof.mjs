@@ -41,6 +41,121 @@ const nativeBoundaries = Object.freeze([
     queryIsolation: true,
   },
   {
+    label: "app OpenAPI",
+    name: "app OpenAPI JSON",
+    canonicalURL: "https://app.openpo.st/openapi.json",
+    contentType: "application/json",
+  },
+  {
+    label: "marketing API catalog",
+    name: "marketing RFC 9727 API catalog",
+    canonicalURL: "https://openpo.st/.well-known/api-catalog",
+    contentType: 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+    deployment: "marketing",
+    localPath: ".well-known/api-catalog",
+    responseHeaders: { link: '</.well-known/api-catalog>; rel="api-catalog"' },
+    bodyIncludes: ["https://app.openpo.st/api/v1", "https://app.openpo.st/mcp"],
+  },
+  {
+    label: "app API catalog",
+    name: "app RFC 9727 API catalog",
+    canonicalURL: "https://app.openpo.st/.well-known/api-catalog",
+    contentType: 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+    responseHeaders: { link: '</.well-known/api-catalog>; rel="api-catalog"' },
+    bodyIncludes: ["https://app.openpo.st/api/v1", "https://app.openpo.st/mcp"],
+  },
+  {
+    label: "MCP authorization metadata",
+    name: "MCP RFC 9728 challenged resource metadata",
+    canonicalURL: "https://app.openpo.st/.well-known/oauth-protected-resource",
+    contentType: "application/json",
+    bodyIncludes: ['"resource":"https://app.openpo.st/mcp"'],
+  },
+  {
+    label: "MCP deterministic authorization metadata",
+    name: "MCP RFC 9728 deterministic resource metadata",
+    canonicalURL: "https://app.openpo.st/.well-known/oauth-protected-resource/mcp",
+    contentType: "application/json",
+    bodyIncludes: ['"resource":"https://app.openpo.st/mcp"'],
+  },
+  {
+    label: "marketing MCP card",
+    name: "marketing MCP Server Card",
+    canonicalURL: "https://openpo.st/.well-known/mcp/server-card.json",
+    contentType: "application/json; charset=utf-8",
+    deployment: "marketing",
+    localPath: ".well-known/mcp/server-card.json",
+    bodyIncludes: ['"url": "https://app.openpo.st/mcp"'],
+  },
+  {
+    label: "app MCP card",
+    name: "app MCP Server Card",
+    canonicalURL: "https://app.openpo.st/.well-known/mcp/server-card.json",
+    contentType: "application/json",
+    bodyIncludes: ['"url":"https://app.openpo.st/mcp"'],
+  },
+  {
+    label: "ARD",
+    name: "Agent Resource Discovery manifest",
+    canonicalURL: "https://openpo.st/.well-known/ard.json",
+    contentType: "application/json; charset=utf-8",
+    deployment: "marketing",
+    localPath: ".well-known/ard.json",
+    bodyIncludes: ["urn:air:openpo.st:api:openpost", "urn:air:openpo.st:skill:openpost-cli"],
+  },
+  {
+    label: "Agent Skills index",
+    name: "Agent Skills discovery index",
+    canonicalURL: "https://openpo.st/.well-known/agent-skills/index.json",
+    contentType: "application/json; charset=utf-8",
+    deployment: "marketing",
+    localPath: ".well-known/agent-skills/index.json",
+    bodyIncludes: ["/.well-known/agent-skills/openpost-cli.tar.gz", "sha256:"],
+  },
+  {
+    label: "Agent Skill",
+    name: "OpenPost CLI Agent Skill archive",
+    canonicalURL: "https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz",
+    contentType: "application/gzip",
+    deployment: "marketing",
+    localPath: ".well-known/agent-skills/openpost-cli.tar.gz",
+    binary: true,
+  },
+  {
+    label: "marketing robots",
+    name: "marketing crawler policy",
+    canonicalURL: "https://openpo.st/robots.txt",
+    contentType: "text/plain; charset=utf-8",
+    deployment: "marketing",
+    localPath: "robots.txt",
+    responseHeaders: { "content-signal": "search=yes, ai-input=yes, ai-train=yes" },
+  },
+  {
+    label: "documentation robots",
+    name: "documentation crawler policy",
+    canonicalURL: "https://docs.openpo.st/robots.txt",
+    contentType: "text/plain; charset=utf-8",
+    deployment: "documentation",
+    localPath: "robots.txt",
+    responseHeaders: { "content-signal": "search=yes, ai-input=yes, ai-train=yes" },
+  },
+  {
+    label: "app robots",
+    name: "app crawler policy",
+    canonicalURL: "https://app.openpo.st/robots.txt",
+    contentType: "text/plain; charset=UTF-8",
+    bodyIncludes: ["Disallow: /", "Allow: /.well-known/api-catalog"],
+  },
+  {
+    label: "marketing favicon",
+    name: "marketing domain favicon",
+    canonicalURL: "https://openpo.st/favicon.ico",
+    contentType: "image/x-icon",
+    deployment: "marketing",
+    localPath: "favicon.ico",
+    binary: true,
+  },
+  {
     label: "MCP",
     name: "MCP native JSON-RPC boundary",
     canonicalURL: "https://app.openpo.st/mcp",
@@ -217,11 +332,11 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function fetchResponse(fetchImpl, url, request = {}) {
+async function fetchResponse(fetchImpl, url, request = {}, binary = false) {
   const response = await fetchImpl(url, { redirect: "follow", ...request });
   return {
     response,
-    body: await response.text(),
+    body: binary ? Buffer.from(await response.arrayBuffer()) : await response.text(),
     contentType: response.headers.get("content-type") ?? "",
   };
 }
@@ -235,20 +350,29 @@ function assertEqual(actual, expected, message) {
 }
 
 function assertBodyEqual(actual, expected, message) {
-  if (actual === expected) return;
+  if (Buffer.isBuffer(actual) && Buffer.isBuffer(expected) && actual.equals(expected)) return;
+  if (!Buffer.isBuffer(actual) && !Buffer.isBuffer(expected) && actual === expected) return;
   throw new Error(
     `${message}: expected sha256:${sha256(expected)} (${Buffer.byteLength(expected)} bytes), received sha256:${sha256(actual)} (${Buffer.byteLength(actual)} bytes)`,
   );
 }
 
 async function proveArtifact(fetchImpl, check) {
-  const canonical = await fetchResponse(fetchImpl, check.canonicalURL, {
-    method: check.method ?? "GET",
-    headers: check.headers,
-    body: check.requestBody,
-  });
+  const canonical = await fetchResponse(
+    fetchImpl,
+    check.canonicalURL,
+    {
+      method: check.method ?? "GET",
+      headers: check.headers,
+      body: check.requestBody,
+    },
+    check.binary,
+  );
   assertEqual(canonical.response.status, check.status ?? 200, `${check.name} status`);
   assertEqual(canonical.contentType, check.contentType, `${check.name} content type`);
+  for (const [header, expected] of Object.entries(check.responseHeaders ?? {})) {
+    assertEqual(canonical.response.headers.get(header), expected, `${check.name} ${header} header`);
+  }
   let localMatches;
   if (check.expectedBody !== undefined) {
     assertBodyEqual(
@@ -271,9 +395,16 @@ async function proveArtifact(fetchImpl, check) {
 
   let deploymentMatches;
   if (check.deploymentURL) {
-    const deployment = await fetchResponse(fetchImpl, check.deploymentURL);
+    const deployment = await fetchResponse(fetchImpl, check.deploymentURL, {}, check.binary);
     assertEqual(deployment.response.status, check.status ?? 200, `${check.name} deployment status`);
     assertEqual(deployment.contentType, check.contentType, `${check.name} deployment content type`);
+    for (const [header, expected] of Object.entries(check.responseHeaders ?? {})) {
+      assertEqual(
+        deployment.response.headers.get(header),
+        expected,
+        `${check.name} deployment ${header} header`,
+      );
+    }
     assertBodyEqual(
       deployment.body,
       canonical.body,
@@ -286,11 +417,10 @@ async function proveArtifact(fetchImpl, check) {
   if (check.queryIsolation) {
     const queryURL = new URL(check.canonicalURL);
     queryURL.searchParams.set("openpost_proof", "query-isolation");
-    const query = await fetchResponse(fetchImpl, queryURL);
+    const query = await fetchResponse(fetchImpl, queryURL, {}, check.binary);
     assertEqual(query.response.status, check.status ?? 200, `${check.name} query status`);
     assertEqual(query.contentType, check.contentType, `${check.name} query content type`);
-    if (query.body !== canonical.body)
-      throw new Error(`${check.name} query changed the response body`);
+    assertBodyEqual(query.body, canonical.body, `${check.name} query changed the response body`);
     queryIsolated = true;
   }
 
@@ -351,8 +481,8 @@ function deploymentURL(deployment, pathname) {
   return new URL(pathname, `${deployment.Deployment}/`).href;
 }
 
-async function localArtifact(directory, relativePath) {
-  return readFile(path.join(directory, relativePath), "utf8");
+async function localArtifact(directory, relativePath, binary = false) {
+  return readFile(path.join(directory, relativePath), binary ? undefined : "utf8");
 }
 
 function sampleByRoute(samples, route) {
@@ -492,14 +622,24 @@ export async function buildPublicProofChecks({
   }
 
   for (const boundary of nativeBoundaries) {
+    const deployment =
+      boundary.deployment === "marketing"
+        ? marketingDeployment
+        : boundary.deployment === "documentation"
+          ? documentationDeployment
+          : undefined;
+    const directory =
+      boundary.deployment === "marketing"
+        ? marketingDirectory
+        : boundary.deployment === "documentation"
+          ? documentationDirectory
+          : undefined;
     checks.push({
       kind: "artifact",
       ...boundary,
-      ...(boundary.deployment === "documentation"
-        ? { deploymentURL: deploymentURL(documentationDeployment, boundary.localPath) }
-        : {}),
+      ...(deployment ? { deploymentURL: deploymentURL(deployment, boundary.localPath) } : {}),
       ...(boundary.localPath
-        ? { expectedBody: await localArtifact(documentationDirectory, boundary.localPath) }
+        ? { expectedBody: await localArtifact(directory, boundary.localPath, boundary.binary) }
         : {}),
     });
   }

@@ -183,6 +183,9 @@ func (h *MCPHandler) RegisterRoutes(e *echo.Echo) {
 	e.POST("/mcp", h.handle)
 	e.GET("/mcp", h.handleStreamGetUnsupported)
 	e.GET("/.well-known/oauth-protected-resource", h.protectedResourceMetadata)
+	e.HEAD("/.well-known/oauth-protected-resource", h.protectedResourceMetadata)
+	e.GET("/.well-known/oauth-protected-resource/mcp", h.protectedResourceMetadata)
+	e.HEAD("/.well-known/oauth-protected-resource/mcp", h.protectedResourceMetadata)
 }
 
 type mcpRequest struct {
@@ -392,6 +395,10 @@ func mcpProtocolVersionSupported(version string) bool {
 func (h *MCPHandler) protectedResourceMetadata(c echo.Context) error {
 	baseURL := h.externalBaseURL(c.Request())
 	resource := baseURL + "/mcp"
+	if c.Request().Method == http.MethodHead {
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		return c.NoContent(http.StatusOK)
+	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"resource":                 resource,
 		"authorization_servers":    []string{baseURL},

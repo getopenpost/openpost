@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Kept utility and authenticated app pages out of search indexes while preserving public profile discovery, and compressed app HTML for browsers that accept gzip or Brotli.
 - Corrected app crawler rules, Content Signals, OAuth resource discovery, and public Link headers.
 - Extended production proof across the new discovery endpoints, generated artifacts, crawler policies, Content Signal headers, and favicon.
 

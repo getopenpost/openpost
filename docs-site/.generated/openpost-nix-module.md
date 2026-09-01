@@ -498,7 +498,7 @@ in
             OPENPOST_TERMS_URL=https://openpost.social/terms
             OPENPOST_PRIVACY_URL=https://openpost.social/privacy
             OPENPOST_TERMS_VERSION=2026-08-05
-            OPENPOST_PRIVACY_VERSION=2026-08-11
+            OPENPOST_PRIVACY_VERSION=2026-09-01
             OPENPOST_TELEMETRY_ENABLED=true
             OPENPOST_POSTHOG_API_HOST=https://eu.i.posthog.com
             OPENPOST_POSTHOG_BROWSER_HOST=https://eu.i.posthog.com

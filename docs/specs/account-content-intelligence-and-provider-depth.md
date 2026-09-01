@@ -163,7 +163,7 @@ Pinterest becomes a first-party provider and consumes the existing provider-app,
 ### Telegram
 
 - Add a first-party bot provider. Hosted uses the OpenPost bot; self-hosted operators configure bot token, username, and webhook secret.
-- Connect a channel or group through a 15-minute signed code posted to that chat. Persist a single-use nonce so replay protection works across web and worker processes.
+- Connect a channel or group through a 15-minute signed code posted to that chat. Issuance requires its canonical non-zero Telegram chat ID and binds the one-time credential to that exact chat. Persist only a nonce digest so replay protection works across web and worker processes; never place the credential in a URL, log, or stored plaintext.
 - Require the bot permissions needed for the selected destination and verify them before connection and publishing.
 - Publish plain text, photos, videos, documents, and media groups within current Bot API limits. Long text that cannot fit a media caption becomes a visible follow-up segment, and every resulting message ID is retained.
 - Verify webhook secret headers and subscribe only to required update types.
@@ -195,7 +195,7 @@ Each provider owns ID normalization, pagination, caps, coverage copy, safe URLs,
 ## API, automation, and contracts
 
 - The HTTP analytics contract is authoritative for source filters, coverage, insights, and repurpose sources.
-- CLI and MCP analytics reads expose the same source and coverage terms when their generated surfaces include the updated operation.
+- CLI and MCP analytics reads expose the same source and coverage terms when their generated surfaces include the updated operation. This slice does not add that operation to either catalog: the current public automation scope in `README.md` is saved Publication creation, validation, scheduling, and inspection, while analytics remains an HTTP/web read surface. Adding a new automation operation requires its own authorized scope decision rather than silently expanding token or tool access.
 - Pinterest board/section settings, Telegram chat identity, and Discord channel settings use typed Rendition settings. Source contracts are regenerated; generated files are never edited alone.
 - Bot setup and provider application secrets stay in instance administration and environment-backed provider apps, not Workspace requests, API responses, logs, or task payloads.
 

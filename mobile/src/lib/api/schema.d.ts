@@ -5911,13 +5911,18 @@ export interface components {
       title: string;
       username: string;
     };
-    ContentReference: {
-      account_content_id?: string;
-      publication_id?: string;
-      rendition_id?: string;
-      /** @enum {string} */
-      type: "openpost" | "external";
-    };
+    ContentReference:
+      | {
+          account_content_id: string;
+          /** @enum {string} */
+          type: "external";
+        }
+      | {
+          publication_id: string;
+          rendition_id: string;
+          /** @enum {string} */
+          type: "openpost";
+        };
     Conversation: {
       /** Format: date-time */
       archived_at?: string;
@@ -8266,8 +8271,8 @@ export interface components {
        * @example https://example.com/schemas/IssueTelegramConnectionCodeInputBody.json
        */
       readonly $schema?: string;
-      /** @description Optional numeric Telegram chat ID to bind before the first authenticated update */
-      expected_chat_id?: string;
+      /** @description Canonical non-zero numeric Telegram chat ID that must redeem the command */
+      expected_chat_id: string;
       /** @description Workspace receiving the Telegram destination */
       workspace_id: string;
     };
@@ -10726,6 +10731,8 @@ export interface components {
       collected_at: string;
       metadata: components["schemas"]["AnalyticsMetricMetadata"];
       metric: string;
+      /** @enum {string} */
+      scope: "requested_range" | "lifetime" | "current_snapshot";
       /** Format: int64 */
       value: number;
     };

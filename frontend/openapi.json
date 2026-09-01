@@ -3507,24 +3507,45 @@
 				"type": "object"
 			},
 			"ContentReference": {
-				"additionalProperties": false,
-				"properties": {
-					"account_content_id": {
-						"type": "string"
-					},
-					"publication_id": {
-						"type": "string"
-					},
-					"rendition_id": {
-						"type": "string"
-					},
-					"type": {
-						"enum": ["openpost", "external"],
-						"type": "string"
-					}
+				"discriminator": {
+					"propertyName": "type"
 				},
-				"required": ["type"],
-				"type": "object"
+				"oneOf": [
+					{
+						"additionalProperties": false,
+						"properties": {
+							"account_content_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"type": {
+								"enum": ["external"],
+								"type": "string"
+							}
+						},
+						"required": ["type", "account_content_id"],
+						"type": "object"
+					},
+					{
+						"additionalProperties": false,
+						"properties": {
+							"publication_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"rendition_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"type": {
+								"enum": ["openpost"],
+								"type": "string"
+							}
+						},
+						"required": ["type", "publication_id", "rendition_id"],
+						"type": "object"
+					}
+				]
 			},
 			"Conversation": {
 				"additionalProperties": false,
@@ -8889,8 +8910,9 @@
 						"type": "string"
 					},
 					"expected_chat_id": {
-						"description": "Optional numeric Telegram chat ID to bind before the first authenticated update",
+						"description": "Canonical non-zero numeric Telegram chat ID that must redeem the command",
 						"maxLength": 64,
+						"minLength": 1,
 						"type": "string"
 					},
 					"workspace_id": {
@@ -8900,7 +8922,7 @@
 						"type": "string"
 					}
 				},
-				"required": ["workspace_id"],
+				"required": ["workspace_id", "expected_chat_id"],
 				"type": "object"
 			},
 			"IssueTelegramConnectionCodeResponse": {
@@ -14551,12 +14573,16 @@
 					"metric": {
 						"type": "string"
 					},
+					"scope": {
+						"enum": ["requested_range", "lifetime", "current_snapshot"],
+						"type": "string"
+					},
 					"value": {
 						"format": "int64",
 						"type": "integer"
 					}
 				},
-				"required": ["metric", "value", "collected_at", "metadata"],
+				"required": ["metric", "value", "collected_at", "scope", "metadata"],
 				"type": "object"
 			},
 			"RepurposeProvenance": {

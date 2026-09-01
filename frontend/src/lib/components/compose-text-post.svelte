@@ -1111,7 +1111,11 @@
 	function repurposePrivateContext(handoff: RepurposeHandoff): string {
 		const evidence = (handoff.evidence ?? []).map((item) => {
 			const metric = item.metric.replaceAll('_', ' ');
-			return `${metric}: ${item.value} ${item.metadata.unit} (${item.metadata.aggregation}, ${item.collected_at})`;
+			const period =
+				item.metadata.period_start && item.metadata.period_end
+					? `, period ${item.metadata.period_start}–${item.metadata.period_end}`
+					: '';
+			return `${metric}: ${item.value} ${item.metadata.unit} (${item.scope}, ${item.metadata.aggregation}, source ${item.metadata.source || handoff.provenance.platform}, collected ${item.collected_at}${period})`;
 		});
 		return [
 			m.compose_ai_repurpose_private_provenance({
@@ -1119,7 +1123,7 @@
 				platform: handoff.provenance.platform,
 				date: handoff.provenance.published_at
 			}),
-			m.compose_ai_repurpose_private_evidence({ days: handoff.range.days }),
+			m.compose_ai_repurpose_private_evidence(),
 			...(evidence.length ? evidence : [m.compose_ai_repurpose_no_evidence()])
 		].join('\n');
 	}
@@ -1157,7 +1161,7 @@
 					approach: m.compose_ai_repurpose_approach(),
 					objective: m.compose_ai_repurpose_objective(),
 					desired_reaction: m.compose_ai_repurpose_reaction(),
-					evidence: repurposePrivateContextNotes,
+					evidence: '',
 					media: { treatment: 'none', role: 'none', brief: '' },
 					build_direction: { outcome: m.compose_ai_repurpose_objective() }
 				}

@@ -32,6 +32,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
+	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import {
 		analyticsSourceLabelKey,
@@ -402,47 +403,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return '';
 	}
 
-	function metricLabel(key: string) {
-		switch (key) {
-			case 'views':
-			case 'report_views':
-				return m.analytics_views();
-			case 'impressions':
-				return m.analytics_impressions();
-			case 'reach':
-				return m.analytics_reach();
-			case 'likes':
-			case 'report_likes':
-				return m.analytics_likes();
-			case 'comments':
-			case 'report_comments':
-				return m.analytics_comments();
-			case 'reposts':
-				return m.analytics_reposts();
-			case 'quotes':
-				return m.analytics_quotes();
-			case 'shares':
-			case 'report_shares':
-				return m.analytics_shares();
-			case 'saves':
-				return m.analytics_saves();
-			case 'clicks':
-				return m.analytics_clicks();
-			case 'estimated_watch_time':
-				return m.analytics_watch_time();
-			case 'average_view_duration':
-				return m.analytics_average_view_duration();
-			case 'average_view_percentage':
-				return m.analytics_average_view_percentage();
-			case 'subscribers_gained':
-				return m.analytics_subscribers_gained();
-			case 'subscribers_lost':
-				return m.analytics_subscribers_lost();
-			default:
-				return key.replaceAll('_', ' ');
-		}
-	}
-
 	function semanticMetricValue(item: AnalyticsContent, key: string, value: number) {
 		const unit = item.measurements?.[key]?.metadata.unit ?? item.metric_metadata?.[key]?.unit;
 		if (unit === 'basis_points') {
@@ -465,7 +425,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			const measurement = item.measurements?.[key];
 			return {
 				key,
-				label: metricLabel(key),
+				label: analyticsMetricLabel(key),
 				value: semanticMetricValue(item, key, value),
 				metadata: measurement?.metadata ?? item.metric_metadata?.[key],
 				collectedAt: measurement?.collected_at ?? item.collected_at,

@@ -8,6 +8,8 @@ export type PlatformKey =
 	| 'instagram'
 	| 'tiktok'
 	| 'youtube'
+	| 'pinterest'
+	| 'telegram'
 	| 'discord';
 
 export interface PlatformCountDefinition {
@@ -80,6 +82,20 @@ export const COUNTER_PLATFORMS: PlatformCountDefinition[] = [
 		name: 'Facebook Pages',
 		limit: 63_206,
 		note: 'Maximum post length. Shorter posts are often easier to read.',
+		countMode: 'graphemes'
+	},
+	{
+		key: 'pinterest',
+		name: 'Pinterest',
+		limit: 800,
+		note: 'Pin description limit; Pin titles use a separate field.',
+		countMode: 'graphemes'
+	},
+	{
+		key: 'telegram',
+		name: 'Telegram',
+		limit: 4_096,
+		note: 'Text-message limit; media captions allow up to 1,024 characters.',
 		countMode: 'graphemes'
 	},
 	{

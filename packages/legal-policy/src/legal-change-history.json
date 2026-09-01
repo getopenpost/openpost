@@ -1,8 +1,18 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-08-28",
+  "reviewed_on": "2026-09-01",
   "scope": "This register records material changes to the official hosted-service legal documents. Spelling, formatting, and link corrections that do not change meaning are not separate entries.",
   "entries": [
+    {
+      "document": "privacy",
+      "version": "2026-09-01",
+      "effective_date": "2026-09-01",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Disclosed that whole-account analytics stores bounded titles and text for eligible provider content published outside OpenPost so users can inspect evidence and prepare a reviewed repurpose draft.",
+        "Clarified that analytics inventory excludes raw provider responses, remote media bytes, credentials, bot secrets, and webhook secrets, while telemetry continues to exclude post text."
+      ]
+    },
     {
       "document": "privacy",
       "version": "2026-08-11",

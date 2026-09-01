@@ -5607,7 +5607,7 @@
 	"account_setup_feature_engagement_label": "Comments and replies",
 	"account_setup_feature_engagement_description": "Collect comments and replies on published posts and allow reply and moderation actions.",
 	"account_setup_feature_analytics_label": "Analytics",
-	"account_setup_feature_analytics_description": "Refresh account and post metrics from the provider.",
+	"account_setup_feature_analytics_description": "계정 지표와 OpenPost 안팎에 게시된 적격 콘텐츠를 수집합니다. 근거 확인과 재활용을 위해 제한된 제목과 본문을 저장합니다.",
 	"account_setup_feature_grow_label": "Grow",
 	"account_setup_feature_grow_description": "Discover suggested accounts to follow and enable follow actions for this account.",
 	"account_setup_provider_auth_note": "Disabling a feature changes what OpenPost does. It does not revoke provider authorization. Remove the destination or revoke its grant to change provider access.",

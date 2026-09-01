@@ -9,6 +9,8 @@
 	import facebook from '../../../../assets/logos/facebook.svg?raw';
 	import youtube from '../../../../assets/logos/youtube.svg?raw';
 	import tiktok from '../../../../assets/logos/tiktok.svg?raw';
+	import pinterest from '../../../../assets/logos/pinterest.svg?raw';
+	import telegram from '../../../../assets/logos/telegram.svg?raw';
 	import { getPlatformKey } from '$lib/utils';
 	import PlugIcon from '@lucide/svelte/icons/plug';
 
@@ -29,7 +31,9 @@
 		['instagram', instagram],
 		['facebook', facebook],
 		['youtube', youtube],
-		['tiktok', tiktok]
+		['tiktok', tiktok],
+		['pinterest', pinterest],
+		['telegram', telegram]
 	]);
 	const platformKey = $derived(getPlatformKey(platform));
 

@@ -5607,7 +5607,7 @@
 	"account_setup_feature_engagement_label": "Comentários e respostas",
 	"account_setup_feature_engagement_description": "Recolher comentários e respostas em publicações e permitir respostas e moderação.",
 	"account_setup_feature_analytics_label": "Análises",
-	"account_setup_feature_analytics_description": "Atualizar métricas da conta e das publicações a partir do fornecedor.",
+	"account_setup_feature_analytics_description": "Recolher métricas da conta e conteúdo elegível publicado aqui ou noutro local. O OpenPost guarda título e texto limitados para evidência e reaproveitamento.",
 	"account_setup_feature_grow_label": "Grow",
 	"account_setup_feature_grow_description": "Descobrir contas sugeridas para seguir e permitir ações de seguir para esta conta.",
 	"account_setup_provider_auth_note": "Desativar uma funcionalidade altera o que o OpenPost faz. Não revoga a autorização do fornecedor. Remova o destino ou revogue a autorização para alterar o acesso no fornecedor.",

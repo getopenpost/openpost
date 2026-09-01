@@ -8,8 +8,8 @@ const (
 	TermsEffectiveDate = "2026-08-05"
 	TermsURL           = "https://openpost.social/terms"
 
-	PrivacyVersion       = "2026-08-11"
-	PrivacyEffectiveDate = "2026-08-11"
+	PrivacyVersion       = "2026-09-01"
+	PrivacyEffectiveDate = "2026-09-01"
 	PrivacyURL           = "https://openpost.social/privacy"
 
 	RefundsVersion            = "2026-08-05"

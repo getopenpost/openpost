@@ -141,6 +141,8 @@ A social app can appear in OpenPost before it is ready for real accounts.
 
 <!-- provider-certification:end -->
 
+Pinterest, Telegram bot connections, and Discord bot connections are not public posting options without current live certification. Discord incoming webhooks remain the supported Discord connection.
+
 [Provider readiness](https://docs.openpost.social/operations/provider-launch-matrix) · [Platform rules](https://docs.openpost.social/providers/)
 
 ## Get started

@@ -1,7 +1,5 @@
 package telegram
 
-import "errors"
-
 type ErrorCode string
 
 const (
@@ -36,8 +34,3 @@ var (
 	ErrPublishAmbiguous        = &SafeError{code: CodePublishAmbiguous}
 	ErrInvalidPublish          = &SafeError{code: CodeInvalidPublish}
 )
-
-func IsSafe(err error) bool {
-	var safe *SafeError
-	return errors.As(err, &safe)
-}

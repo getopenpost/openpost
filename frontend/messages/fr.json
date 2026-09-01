@@ -5607,7 +5607,7 @@
 	"account_setup_feature_engagement_label": "Comments and replies",
 	"account_setup_feature_engagement_description": "Collect comments and replies on published posts and allow reply and moderation actions.",
 	"account_setup_feature_analytics_label": "Analytics",
-	"account_setup_feature_analytics_description": "Refresh account and post metrics from the provider.",
+	"account_setup_feature_analytics_description": "Collecter les métriques du compte et le contenu admissible publié ici ou ailleurs. OpenPost conserve des titres et textes limités pour les preuves et la réutilisation.",
 	"account_setup_feature_grow_label": "Grow",
 	"account_setup_feature_grow_description": "Discover suggested accounts to follow and enable follow actions for this account.",
 	"account_setup_provider_auth_note": "Disabling a feature changes what OpenPost does. It does not revoke provider authorization. Remove the destination or revoke its grant to change provider access.",

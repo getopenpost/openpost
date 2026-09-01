@@ -6,6 +6,8 @@ A provider application identifies the OpenPost installation to a social network 
 
 OpenPost manages encrypted provider-application rows for `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, `youtube`, `pinterest`, `telegram`, and Discord bot mode. Bluesky app passwords and Discord incoming webhooks remain user-owned connection modes, so the administrator API rejects those credential shapes.
 
+A configured provider application is not a public availability claim. Pinterest, Telegram bot mode, and Discord bot mode remain hidden or blocked for public Hosted use until their exact approval, scope, policy, runtime-control, and current live-certification evidence passes. Existing Discord incoming-webhook connections use a separate mode and remain supported.
+
 ## Ownership
 
 Provider console access, app review, callback registration, and the client credentials belong to the operator of the OpenPost instance.

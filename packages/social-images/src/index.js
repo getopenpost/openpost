@@ -25,6 +25,8 @@ const platformNames = [
   ["instagram", "Instagram"],
   ["tiktok", "TikTok"],
   ["youtube", "YouTube"],
+  ["pinterest", "Pinterest"],
+  ["telegram", "Telegram"],
   ["discord", "Discord"],
 ];
 
@@ -131,11 +133,11 @@ const staticMarketingEntries = [
   {
     path: "/platforms",
     key: "platforms",
-    title: "Social platforms supported by OpenPost",
-    socialTitle: "Publish where your audience already is.",
+    title: "Social platform integrations in OpenPost",
+    socialTitle: "Check implementation and availability separately.",
     description:
-      "See formats, account needs, limits, and live-test notes for every platform in OpenPost.",
-    label: `${platformNames.length} publishing destinations`,
+      "See implementation state, account needs, limits, and live-certification notes for every provider adapter in OpenPost.",
+    label: `${platformNames.length} provider adapter guides`,
     kind: "platforms",
     agentRepresentation: "static",
     agentDiscovery: { membership: "primary" },

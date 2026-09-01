@@ -9,7 +9,7 @@ export function renderPublicRobots() {
 		'User-agent: *',
 		'Allow: /',
 		'',
-		'Sitemap: https://openpost.social/sitemap.xml',
+		'Sitemap: https://openpo.st/sitemap.xml',
 		''
 	].join('\n');
 }

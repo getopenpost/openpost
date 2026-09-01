@@ -7,7 +7,7 @@
       "document": "privacy",
       "version": "2026-09-01",
       "effective_date": "2026-09-01",
-      "url": "https://openpost.social/privacy",
+      "url": "https://openpo.st/privacy",
       "changes": [
         "Disclosed that whole-account analytics stores bounded titles and text for eligible provider content published outside OpenPost so users can inspect evidence and prepare a reviewed repurpose draft.",
         "Clarified that analytics inventory excludes raw provider responses, remote media bytes, credentials, bot secrets, and webhook secrets, while telemetry continues to exclude post text."
@@ -17,7 +17,7 @@
       "document": "privacy",
       "version": "2026-08-11",
       "effective_date": "2026-08-11",
-      "url": "https://openpost.social/privacy",
+      "url": "https://openpo.st/privacy",
       "changes": [
         "Replaced the prior public-site-only Umami disclosure with the managed PostHog product, service, website, documentation, and error telemetry boundary.",
         "Documented opaque signed-in identifiers, cookieless public analytics, memory-only browser persistence, disabled replay and autocapture, excluded content and credentials, retention, and the PostHog EU Cloud subprocessor."
@@ -48,7 +48,7 @@
       "document": "terms",
       "version": "2026-08-05",
       "effective_date": "2026-08-05",
-      "url": "https://openpost.social/terms",
+      "url": "https://openpo.st/terms",
       "changes": [
         "Added Paddle's Merchant of Record role, subscription and cancellation terms, the incorporated Refund Policy, and the operator and governing-law facts.",
         "Clarified the hosted-service boundary and the acceptance version recorded by the application."
@@ -58,7 +58,7 @@
       "document": "refunds",
       "version": "2026-08-05",
       "effective_date": "2026-08-05",
-      "url": "https://openpost.social/refunds",
+      "url": "https://openpo.st/refunds",
       "changes": [
         "Published the first separate Refund Policy incorporated into the Terms, including the standard request window, statutory-rights boundary, exclusions, and Paddle processing path."
       ]

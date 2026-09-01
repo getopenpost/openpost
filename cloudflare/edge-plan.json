@@ -19,21 +19,40 @@
   ],
   "zones": [
     {
-      "key": "public",
-      "hostname": "openpost.social",
-      "zone_id_env": "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID",
+      "key": "canonical",
+      "hostname": "openpo.st",
+      "zone_id_env": "OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID",
       "surfaces": [
         {
           "key": "marketing",
-          "hostname": "openpost.social",
+          "hostname": "openpo.st",
           "pages_base_header_rules": 2,
           "route_source": "marketingRouteManifest"
         },
         {
           "key": "documentation",
-          "hostname": "docs.openpost.social",
+          "hostname": "docs.openpo.st",
           "pages_base_header_rules": 3,
           "route_source": "docsPageCatalog"
+        }
+      ]
+    },
+    {
+      "key": "legacy",
+      "hostname": "openpost.social",
+      "zone_id_env": "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID",
+      "redirects": [
+        {
+          "key": "legacy-marketing",
+          "hostname": "openpost.social",
+          "target_hostname": "openpo.st",
+          "surface": "marketing"
+        },
+        {
+          "key": "legacy-documentation",
+          "hostname": "docs.openpost.social",
+          "target_hostname": "docs.openpo.st",
+          "surface": "documentation"
         }
       ]
     }

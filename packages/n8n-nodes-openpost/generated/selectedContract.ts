@@ -2103,7 +2103,7 @@ export const selectedContract = {
   generatedAt: "1970-01-01T00:00:00.000Z",
   source: {
     openapi: "3.1.0",
-    server: "https://app.openpost.social/api/v1",
+    server: "https://app.openpo.st/api/v1",
     title: "OpenPost API",
     version: "1.0.0",
   },

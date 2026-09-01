@@ -9,22 +9,21 @@ type PublicProviderClaim = {
 	};
 };
 
-export const appUrl = 'https://app.openpost.social';
+export const appUrl = 'https://app.openpo.st';
 export const managedSignupUrl = `${appUrl}/register?plan=founder&billing_period=monthly`;
 export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
-export const userDocsUrl = 'https://docs.openpost.social/usage/';
-export const selfHostingDocsUrl = 'https://docs.openpost.social/self-hosting/';
-export const developerDocsUrl = 'https://docs.openpost.social/development/';
-export const apiGuideUrl = 'https://docs.openpost.social/development/api-reference';
-export const openApiUrl = 'https://docs.openpost.social/openapi.json';
-export const cliDocsUrl = 'https://docs.openpost.social/cli/';
-export const mcpDocsUrl = 'https://docs.openpost.social/mcp/';
-export const apiTokenDocsUrl = 'https://docs.openpost.social/development/api-tokens';
-export const agentPublishingDocsUrl =
-	'https://docs.openpost.social/usage/agent-assisted-publishing';
+export const userDocsUrl = 'https://docs.openpo.st/usage/';
+export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting/';
+export const developerDocsUrl = 'https://docs.openpo.st/development/';
+export const apiGuideUrl = 'https://docs.openpo.st/development/api-reference';
+export const openApiUrl = 'https://docs.openpo.st/openapi.json';
+export const cliDocsUrl = 'https://docs.openpo.st/cli/';
+export const mcpDocsUrl = 'https://docs.openpo.st/mcp/';
+export const apiTokenDocsUrl = 'https://docs.openpo.st/development/api-tokens';
+export const agentPublishingDocsUrl = 'https://docs.openpo.st/usage/agent-assisted-publishing';
 export const docsUrl = userDocsUrl;
 export const githubUrl = 'https://github.com/getopenpost/openpost';
-export const siteUrl = 'https://openpost.social';
+export const siteUrl = 'https://openpo.st';
 export const discordCommunityUrl = 'https://discord.gg/u2QwukmY4W';
 export const supportEmail = 'openpost@rgo.pt';
 export const supportMailUrl = `mailto:${supportEmail}`;
@@ -255,7 +254,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/main-dark.png',
 			alt: 'OpenPost publication composer with destination-specific versions'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/composing-posts',
+		docsUrl: 'https://docs.openpo.st/usage/composing-posts',
 		next: { label: 'See destination guides', href: '/platforms' }
 	},
 	{
@@ -274,9 +273,9 @@ export const featureGroups = [
 		proof: {
 			kind: 'docs',
 			label: 'Scheduling and publication status guide',
-			href: 'https://docs.openpost.social/usage/scheduling'
+			href: 'https://docs.openpo.st/usage/scheduling'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/scheduling',
+		docsUrl: 'https://docs.openpo.st/usage/scheduling',
 		next: { label: 'Compare plan limits', href: '/pricing#limits' }
 	},
 	{
@@ -297,7 +296,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/media-dark.png',
 			alt: 'OpenPost media library with reusable assets'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/',
+		docsUrl: 'https://docs.openpo.st/usage/',
 		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{
@@ -316,9 +315,9 @@ export const featureGroups = [
 		proof: {
 			kind: 'docs',
 			label: 'Analytics and communications guides',
-			href: 'https://docs.openpost.social/usage/analytics'
+			href: 'https://docs.openpo.st/usage/analytics'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/communications',
+		docsUrl: 'https://docs.openpo.st/usage/communications',
 		next: { label: 'Check provider scope', href: '/platforms' }
 	},
 	{
@@ -339,7 +338,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/settings-dark.png',
 			alt: 'OpenPost workspace and account settings'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/workspaces',
+		docsUrl: 'https://docs.openpo.st/usage/workspaces',
 		next: { label: 'Compare seats and workspaces', href: '/pricing#limits' }
 	},
 	{
@@ -358,7 +357,7 @@ export const featureGroups = [
 		proof: {
 			kind: 'docs',
 			label: 'Agent-assisted publishing guide',
-			href: 'https://docs.openpost.social/usage/agent-assisted-publishing'
+			href: 'https://docs.openpo.st/usage/agent-assisted-publishing'
 		},
 		docsUrl: developerDocsUrl,
 		next: { label: 'Review self-hosting', href: selfHostingDocsUrl }
@@ -420,7 +419,7 @@ const platformImplementations = [
 			'Polls, quote posts, and other format settings remain subject to the account API tier.'
 		],
 		verification: 'Check OAuth, account limits, and each post type you plan to use.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/x/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/x/`
 	},
 	{
 		slug: 'mastodon',
@@ -471,7 +470,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Check the server rules and publish one media test before you rely on a new server.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/mastodon/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/mastodon/`
 	},
 	{
 		slug: 'bluesky',
@@ -484,7 +483,7 @@ const platformImplementations = [
 			'Connect with a handle and app password, then schedule posts, links, media, and reply threads.',
 		heroTitle: 'Keep a Bluesky post concise while preserving links and rich text.',
 		preview: {
-			label: '@openpost.social',
+			label: '@openpo.st',
 			headline: 'A short post with a rich link card',
 			body: "Rich text, link cards, replies, labels, and media use Bluesky's AT Protocol format.",
 			detail: '300 characters',
@@ -527,7 +526,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Text and image posts work in OpenPost. Test video with the account before a scheduled campaign.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/bluesky/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/bluesky/`
 	},
 	{
 		slug: 'linkedin',
@@ -584,7 +583,7 @@ const platformImplementations = [
 		],
 		verification:
 			'OAuth success alone does not prove every publishing permission; test the formats your team will schedule.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/linkedin/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/linkedin/`
 	},
 	{
 		slug: 'threads',
@@ -640,7 +639,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Verify that Meta can fetch the exact production media URL before scheduling media-heavy work.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/threads/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/threads/`
 	},
 	{
 		slug: 'facebook',
@@ -696,7 +695,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not plan a launch around this integration until Page selection and every required format pass a live test.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/facebook/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/facebook/`
 	},
 	{
 		slug: 'instagram',
@@ -752,7 +751,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test each planned format—feed, carousel, Story, and Reel—because one successful format does not prove the others.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/instagram/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/instagram/`
 	},
 	{
 		slug: 'tiktok',
@@ -804,7 +803,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not use it for real posts until TikTok approves the app and your posting test works.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/tiktok/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/tiktok/`
 	},
 	{
 		slug: 'youtube',
@@ -855,7 +854,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Confirm upload, processing completion, thumbnail, playlist, and final privacy on the production channel.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/youtube/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/youtube/`
 	},
 	{
 		slug: 'pinterest',
@@ -901,7 +900,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect or publish for public accounts until Standard access and every readiness gate pass with current live evidence.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/pinterest/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/pinterest/`
 	},
 	{
 		slug: 'telegram',
@@ -947,7 +946,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect the bot to public accounts until every intended operation passes its readiness gate with current live evidence.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/telegram/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/telegram/`
 	},
 	{
 		slug: 'discord',
@@ -999,7 +998,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test the exact webhook and file type before you rely on it for scheduled messages.',
-		docsUrl: `${siteUrl.replace('openpost.social', 'docs.openpost.social')}/providers/discord/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/discord/`
 	}
 ] as const;
 
@@ -1114,7 +1113,7 @@ export const faqs = [
 			'Yes. OpenPost shows account growth and post results for 7, 30, or 90 days when the platform gives access. It also has comments, replies, and inboxes for supported accounts. It does not include social listening or large-company benchmarks.',
 		learnMore: {
 			label: 'Read the analytics guide',
-			href: 'https://docs.openpost.social/usage/analytics'
+			href: 'https://docs.openpo.st/usage/analytics'
 		}
 	},
 	{
@@ -1133,7 +1132,7 @@ export const faqs = [
 			'Yes. A self-hosted operator can configure provider applications through deployment settings or the encrypted instance-admin fallback. The exact credentials and approval requirements depend on the provider.',
 		learnMore: {
 			label: 'Configure provider applications',
-			href: 'https://docs.openpost.social/configuration/provider-applications'
+			href: 'https://docs.openpo.st/configuration/provider-applications'
 		}
 	},
 	{
@@ -1144,7 +1143,7 @@ export const faqs = [
 			'OpenPost keeps the error for each failed account. You can review it and retry only the accounts that can be retried.',
 		learnMore: {
 			label: 'Read the scheduling guide',
-			href: 'https://docs.openpost.social/usage/scheduling'
+			href: 'https://docs.openpo.st/usage/scheduling'
 		}
 	}
 ] as const;

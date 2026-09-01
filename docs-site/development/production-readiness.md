@@ -6,9 +6,9 @@ OpenPost uses one product core for the Hosted service and self-hosted deployment
 
 - **OpenPost** is the product name.
 - The official operated product is the **Hosted service**.
-- `openpost.social` is the marketing site.
-- `docs.openpost.social` is the docs site.
-- `app.openpost.social` is the Hosted service.
+- `openpo.st` is the marketing site.
+- `docs.openpo.st` is the docs site.
+- `app.openpo.st` is the Hosted service.
 - The self-hosted server uses the same AGPL application code.
 
 ## Shared architecture
@@ -28,7 +28,7 @@ Keep production secrets, social app keys, monitoring, backups, and private opera
 - OpenPost saves current Paddle customer and subscription mirrors plus plan limits in its own database. Normal API requests do not call Paddle.
 - Limits cover workspaces, members, social accounts, posts, media, schedules, and provider writes.
 - Self-hosted mode has permissive defaults unless the operator changes them.
-- The Hosted service creates one workspace before checkout. See the [canonical pricing page](https://openpost.social/pricing) for current plan and trial terms; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
+- The Hosted service creates one workspace before checkout. See the [canonical pricing page](https://openpo.st/pricing) for current plan and trial terms; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
 - The public prices and limits live in `marketing-site/src/routes/_marketing.ts`.
 
 ## Social networks

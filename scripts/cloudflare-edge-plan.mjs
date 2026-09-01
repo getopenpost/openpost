@@ -85,6 +85,57 @@ function redirectRule(zone, paths, mode) {
   ];
 }
 
+function legacyRedirectRules(redirect, routes) {
+  const sectionIndexes = routes.filter((route) => route !== "/" && route.endsWith("/"));
+  const noncanonicalPaths =
+    redirect.surface === "marketing"
+      ? routes.filter((route) => route !== "/").map((route) => `${route}/`)
+      : sectionIndexes.map((route) => route.slice(0, -1));
+  const normalizePath =
+    redirect.surface === "marketing"
+      ? `wildcard_replace(http.request.uri.path, "/*/", "/\${1}")`
+      : `concat(http.request.uri.path, "/")`;
+  const normalized = noncanonicalPaths.length
+    ? [
+        rule(
+          `${redirect.key}:canonical-host-redirect`,
+          redirect.surface === "marketing"
+            ? "Move old marketing URLs to canonical paths on openpo.st"
+            : "Move old documentation indexes to canonical paths on docs.openpo.st",
+          `(http.host eq ${quote(redirect.hostname)} and ${pathSet(noncanonicalPaths)})`,
+          "redirect",
+          {
+            from_value: {
+              target_url: {
+                expression: `concat(${quote(`https://${redirect.target_hostname}`)}, ${normalizePath})`,
+              },
+              status_code: 308,
+              preserve_query_string: true,
+            },
+          },
+        ),
+      ]
+    : [];
+  return [
+    ...normalized,
+    rule(
+      `${redirect.key}:host-redirect`,
+      `Move the old ${redirect.surface} host to ${redirect.target_hostname}`,
+      `(http.host eq ${quote(redirect.hostname)})`,
+      "redirect",
+      {
+        from_value: {
+          target_url: {
+            expression: `concat(${quote(`https://${redirect.target_hostname}`)}, http.request.uri.path)`,
+          },
+          status_code: 308,
+          preserve_query_string: true,
+        },
+      },
+    ),
+  ];
+}
+
 function rewriteRules(zone, routes) {
   const rootRoute = routes.includes("/") ? ["/"] : [];
   const sectionIndexes = routes.filter((route) => route !== "/" && route.endsWith("/"));
@@ -186,7 +237,7 @@ export function buildCloudflareEdgePlan({
     documentation: sortedUnique(documentationRoutes),
   };
   const zones = blueprint.zones.map((zone) => {
-    const surfaces = zone.surfaces.map((surface) => {
+    const surfaces = (zone.surfaces ?? []).map((surface) => {
       const routes = routesBySurface[surface.key];
       const canonicalRedirects =
         surface.key === "marketing"
@@ -214,13 +265,18 @@ export function buildCloudflareEdgePlan({
         },
       };
     });
+    const legacyRules = (zone.redirects ?? []).flatMap((redirect) =>
+      legacyRedirectRules(redirect, routesBySurface[redirect.surface]),
+    );
     return {
       ...zone,
       surfaces: surfaces.map(({ rules: _rules, ...surface }) => surface),
       rules: Object.fromEntries(
         blueprint.phases.map((phase) => [
           phase,
-          surfaces.flatMap((surface) => surface.rules[phase]),
+          phase === "http_request_dynamic_redirect"
+            ? [...surfaces.flatMap((surface) => surface.rules[phase]), ...legacyRules]
+            : surfaces.flatMap((surface) => surface.rules[phase]),
         ]),
       ),
     };
@@ -295,7 +351,12 @@ export function validateCloudflarePlan(plan) {
   if (JSON.stringify(actualPhases) !== JSON.stringify(expectedPhases)) {
     throw new Error("Cloudflare phases are not in the required execution order");
   }
+  const zoneHostnames = new Set();
   for (const zone of plan.zones) {
+    if (!zone.hostname || zoneHostnames.has(zone.hostname)) {
+      throw new Error(`Cloudflare zone hostname must be unique: ${zone.hostname}`);
+    }
+    zoneHostnames.add(zone.hostname);
     for (const cacheRule of zone.rules.http_request_cache_settings ?? []) {
       const accept = cacheRule.action_parameters?.vary?.headers?.accept;
       if (accept?.action !== "passthrough" || Object.keys(accept).some((key) => key !== "action")) {
@@ -733,7 +794,38 @@ export function createCloudflareClient({ token, zoneIds, fetchImpl = fetch }) {
   for (const zone of blueprint.zones) {
     if (!zoneIds[zone.key]) throw new Error(`${zone.zone_id_env} is required`);
   }
+  const verifiedZones = new Set();
+  async function ensureZoneName(zone) {
+    if (verifiedZones.has(zone)) return;
+    const definition = blueprint.zones.find((candidate) => candidate.key === zone);
+    const zoneId = zoneIds[zone];
+    const response = await fetchImpl(
+      `${blueprint.api_base_url}/zones/${encodeURIComponent(zoneId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) {
+      const messages = [...(payload.errors ?? []), ...(payload.messages ?? [])]
+        .map(({ message }) => message)
+        .filter(Boolean)
+        .join("; ");
+      throw new Error(`Cloudflare GET ${zone} zone failed (${response.status}): ${messages}`);
+    }
+    if (payload.result?.name !== definition.hostname) {
+      throw new Error(
+        `${definition.zone_id_env} resolves to ${JSON.stringify(payload.result?.name ?? null)}; expected ${definition.hostname}`,
+      );
+    }
+    verifiedZones.add(zone);
+  }
   async function request(method, zone, phase, body) {
+    await ensureZoneName(zone);
     const zoneId = zoneIds[zone];
     const response = await fetchImpl(
       `${blueprint.api_base_url}/zones/${encodeURIComponent(zoneId)}/rulesets/phases/${phase}/entrypoint`,
@@ -774,7 +866,8 @@ function operatorClient() {
   return createCloudflareClient({
     token: process.env.OPENPOST_CLOUDFLARE_EDGE_API_TOKEN,
     zoneIds: {
-      public: process.env.OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID,
+      canonical: process.env.OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID,
+      legacy: process.env.OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID,
     },
   });
 }

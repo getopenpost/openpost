@@ -11,7 +11,7 @@
 	} from '../../tools/_lib/tool-utils';
 
 	const example =
-		'New in OpenPost: write once, tailor each account version, and check every post before you schedule it. https://openpost.social';
+		'New in OpenPost: write once, tailor each account version, and check every post before you schedule it. https://openpo.st';
 	let draft = $state(example);
 
 	const visibleCharacters = $derived(graphemeCount(draft));

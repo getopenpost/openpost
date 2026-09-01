@@ -62,6 +62,16 @@ test("refuses to hide a required candidate by deleting its registry entry", () =
   );
 });
 
+test("requires every hostname compatibility entry to name its hosts and retirement gate", () => {
+  const { registry, openapi } = readCompatibilityInputs();
+  const entry = entryByID(registry, "hostname.app-legacy");
+  entry.hostnames = ["not a hostname"];
+  entry.compatibility.retirement_condition = "";
+  const problems = validationProblems(registry, openapi).join("\n");
+  assert.match(problems, /invalid hostname/u);
+  assert.match(problems, /retirement condition/u);
+});
+
 test("refuses source removal while the registry still retains the operation", () => {
   const { registry, openapi } = readCompatibilityInputs();
   delete openapi.paths["/accounts/mastodon/servers"];

@@ -1,5 +1,8 @@
 import { parseChangelog } from '@openpost/changelog';
 
+const canonicalChangelogUrl = 'https://openpo.st/changelog';
+const stableChangelogId = 'https://openpost.social/changelog';
+
 function escapeXml(value: string) {
 	return value
 		.replaceAll('&', '&amp;')
@@ -21,7 +24,8 @@ export function renderChangelogAtomFeed(markdown: string) {
 	const updated = `${releases[0].date}T00:00:00Z`;
 	const entries = releases
 		.map((release) => {
-			const url = `https://openpost.social/changelog#v${release.label}`;
+			const url = `${canonicalChangelogUrl}#v${release.label}`;
+			const stableId = `${stableChangelogId}#v${release.label}`;
 			const summary = release.groups
 				.filter((group) => group.items.length > 0)
 				.map((group) => {
@@ -32,7 +36,7 @@ export function renderChangelogAtomFeed(markdown: string) {
 				.join(' ');
 			return `  <entry>
     <title>OpenPost v${escapeXml(release.label)}</title>
-    <id>${escapeXml(url)}</id>
+    <id>${escapeXml(stableId)}</id>
     <link href="${escapeXml(url)}" />
     <updated>${release.date}T00:00:00Z</updated>
     <content type="text">${escapeXml(summary)}</content>
@@ -43,9 +47,9 @@ export function renderChangelogAtomFeed(markdown: string) {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>OpenPost changelog</title>
-  <id>https://openpost.social/changelog</id>
-  <link href="https://openpost.social/changelog" />
-  <link href="https://openpost.social/changelog.xml" rel="self" type="application/atom+xml" />
+  <id>${stableChangelogId}</id>
+  <link href="${canonicalChangelogUrl}" />
+  <link href="${canonicalChangelogUrl}.xml" rel="self" type="application/atom+xml" />
   <updated>${updated}</updated>
 ${entries}
 </feed>

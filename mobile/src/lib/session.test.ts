@@ -10,7 +10,7 @@ test("restores the selected workspace before a signed-in session becomes ready",
     loadWorkspaceId: async () => {
       workspaceId = "workspace-1";
     },
-    getServer: () => ({ baseUrl: "https://app.openpost.social" }),
+    getServer: () => ({ baseUrl: "https://app.openpo.st" }),
     getToken: () => "token",
     getWorkspaceId: () => workspaceId,
   };

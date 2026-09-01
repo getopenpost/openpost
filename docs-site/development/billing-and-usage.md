@@ -122,4 +122,4 @@ See Paddle's documentation for [`past_due` subscription recovery](https://develo
 
 Access is granted only for `active` and `trialing` subscriptions. A scheduled cancellation keeps access while Paddle still reports one of those states. `past_due`, paused, and canceled subscriptions do not grant paid-plan access. API handlers consume the local snapshot only.
 
-See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan names, prices, trial terms, and limits.
+See the [canonical Hosted service pricing](https://openpo.st/pricing) for current plan names, prices, trial terms, and limits.

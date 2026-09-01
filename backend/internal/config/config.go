@@ -170,7 +170,7 @@ type Config struct {
 
 const (
 	minSecretLength              = 32
-	managedPostHogBrowserHostURL = "https://cool.openpost.social"
+	managedPostHogBrowserHostURL = "https://cool.openpo.st"
 	managedPostHogUIHostURL      = "https://eu.posthog.com"
 )
 
@@ -210,7 +210,7 @@ func Load() *Config {
 		defaultPrivacyURL = legalpolicy.PrivacyURL
 		defaultTermsVersion = legalpolicy.TermsVersion
 		defaultPrivacyVersion = legalpolicy.PrivacyVersion
-		defaultSupportEmail = "openpost@rgo.pt"
+		defaultSupportEmail = "hello@openpo.st"
 	}
 
 	cfg := &Config{

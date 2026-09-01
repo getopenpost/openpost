@@ -1,14 +1,17 @@
 # Cloudflare public edge plan
 
 The public-surface operator owns the optional edge-selected Markdown rules for
-`openpost.social` and `docs.openpost.social`. The explicit `.md` files remain the
+`openpo.st` and `docs.openpo.st`. The explicit `.md` files remain the
 primary interface. A normal marketing or documentation build generates those
 files and never reads Cloudflare credentials or changes a zone.
 
 ## Repository contract
 
-`cloudflare/edge-plan.json` records the shared public zone, its two host
-surfaces, execution order, credential name, and Cloudflare Free limits.
+`cloudflare/edge-plan.json` records two owned zones. The canonical `openpo.st`
+zone owns Markdown negotiation, transforms, response headers, and cache
+variation for `openpo.st` and `docs.openpo.st`. The legacy `openpost.social`
+zone owns only the reviewed marketing and documentation redirects. The file
+also records execution order, credential names, and Cloudflare Free limits.
 `scripts/cloudflare-edge-plan.mjs` derives every eligible path from
 `marketingRouteManifest` and `docsPageCatalog`. Run:
 
@@ -24,7 +27,9 @@ characters. Each public build also rejects a `_headers` line over 2,000
 characters. The generated plan uses this Cloudflare execution order:
 
 1. `http_request_dynamic_redirect` canonicalizes known routes and preserves the
-   query string.
+   query string. On the legacy zone it redirects marketing paths to `openpo.st`
+   and documentation paths to `docs.openpo.st`, with path, query, and each
+   surface's trailing-slash rules preserved.
 2. `http_request_transform` selects an explicit Markdown artifact only for a
    canonical `GET` or `HEAD` request with one case-folded `Accept` value equal
    to `text/markdown` after HTTP field-value parsing. Mixed, weighted, wildcard,
@@ -59,17 +64,23 @@ require one. Query strings pass through redirects and path-only rewrites.
 
 ## Credentials
 
-For inspection, create a temporary API token restricted to the
-`openpost.social` zone with only Dynamic URL Redirects Read, Zone Transform
-Rules Read, and Cache Settings Read. The `docs.openpost.social` hostname is part
-of that zone and is not a separately delegated Cloudflare zone. For apply or
-rollback, replace those with the three matching Write permissions. Supply the
-token and exact zone ID in the operator shell:
+For inspection, create a temporary API token restricted to the `openpo.st` and
+`openpost.social` zones with Dynamic URL Redirects Read, Zone Transform Rules
+Read, and Cache Settings Read. The `docs` hostnames are part of their parent
+zones and are not separately delegated Cloudflare zones. For apply or rollback,
+replace those with the three matching Write permissions. Supply the token and
+both exact zone IDs in the operator shell:
 
 ```sh
 export OPENPOST_CLOUDFLARE_EDGE_API_TOKEN='...'
+export OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID='...'
 export OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID='...'
 ```
+
+The operator verifies each zone ID with Cloudflare before reading or writing a
+ruleset. `OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID` must report `openpo.st`, and
+`OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID` must report `openpost.social`. A mismatch
+stops the operation before any ruleset write.
 
 For deployment proof, create a separate temporary API token restricted to the
 owning account with only Cloudflare Pages Read. Copy the account ID from the
@@ -95,9 +106,9 @@ Inspection performs only Rulesets API `GET` requests:
 bun scripts/cloudflare-edge-plan.mjs inspect > /tmp/openpost-edge-inspection.json
 ```
 
-Review every current and desired phase. Exit status `2` means an unmanaged rule
-occupies a phase owned by this plan. Resolve that ownership explicitly; prepare
-stops on every reported conflict.
+Review every current and desired phase in both zones. Exit status `2` means an
+unmanaged rule occupies a phase owned by this plan. Resolve that ownership
+explicitly; prepare stops on every reported conflict.
 
 Use a new, operator-owned evidence directory. Render the forward plan, then
 prepare the operation from live state:
@@ -237,10 +248,11 @@ revision, and the AI crawl observation as separate evidence.
 
 ## Live acceptance
 
-Use Cloudflare Trace for both hosts before enabling traffic and after apply.
-Confirm the Single Redirect runs before URL Rewrite, Cache Rules see the
-canonical request and `Accept`, and response-header transformation occurs after
-cache configuration. Then check:
+Use Cloudflare Trace for all four marketing and documentation hosts before
+enabling redirects and after apply. Confirm the legacy Single Redirect rules
+preserve path and query, the canonical Single Redirect runs before URL Rewrite,
+Cache Rules see the canonical request and `Accept`, and response-header
+transformation occurs after cache configuration. Then check:
 
 - canonical HTML `GET` and `HEAD` stay HTML for missing, mixed, weighted,
   wildcard, parameterized, repeated, or non-Markdown `Accept` values;
@@ -248,12 +260,15 @@ cache configuration. Then check:
   artifact without changing the visible canonical URL;
 - trailing-slash redirects preserve query strings, and explicit `.md`, assets,
   machine resources, and unknown paths do not redirect or rewrite;
+- legacy marketing and documentation requests reach the matching canonical host
+  with one permanent redirect and without crossing between the two surfaces;
 - first HTML and Markdown requests create separate cache entries, then repeated
   requests hit the matching representation without crossing content types.
 
 Cloudflare Trace is the rule-order evidence. Response headers and repeated
-requests are the cache-order evidence. Record both hosts, `GET` and `HEAD`, one
-ordinary page, the root, and one documentation section index.
+requests are the cache-order evidence. Record both canonical hosts, both legacy
+hosts, `GET` and `HEAD`, one ordinary page, the root, and one documentation
+section index.
 
 Review Cloudflare AI Crawl Control within 24 hours of the first apply and within
 24 hours of every later edge-plan or crawler-policy change. Record whether

@@ -1559,6 +1559,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/billing/checkout/config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get public Paddle checkout configuration
+     * @description Returns only the browser-safe Paddle.js token and environment needed by Paddle transaction payment links.
+     */
+    get: operations["get-billing-checkout-config"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/billing/checkout/{attempt_id}": {
     parameters: {
       query?: never;
@@ -5306,6 +5326,21 @@ export interface components {
       name: string;
       /** @description One-time action-bound reauthentication grant */
       reauth_grant?: string;
+    };
+    BillingCheckoutConfigResponse: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/BillingCheckoutConfigResponse.json
+       */
+      readonly $schema?: string;
+      /** @description Browser-safe Paddle.js client token */
+      client_token: string;
+      /**
+       * @description Explicit Paddle.js environment
+       * @enum {string}
+       */
+      environment: "sandbox" | "production";
     };
     BillingStatusResponse: {
       /**
@@ -18055,6 +18090,44 @@ export interface operations {
         };
         content: {
           "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-billing-checkout-config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BillingCheckoutConfigResponse"];
         };
       };
       /** @description Internal Server Error */

@@ -17,6 +17,7 @@ let
   cfg = config.vps.openpost;
   isCloud = cfg.edition == "cloud";
   runtimeContract = builtins.fromJSON (builtins.readFile ./runtime-contract.json);
+  legacyHostedOrigin = "https://app.openpost.social";
 
   # Host port (external) - must be unique per service
   openpostHostPort = 8090;
@@ -33,6 +34,10 @@ let
   openpostPostgresDatabase = "openpost";
   openpostPostgresImage = "docker.io/library/postgres:17-alpine@sha256:0a8a1e76503c091f0feb387d51b10fcd746c2d61cf6cdd6e8356973a45e40a0f";
   openpostImageRepository = lib.removeSuffix ":latest" cfg.image;
+  openpostApplicationUnits = [
+    "podman-openpost.service"
+  ]
+  ++ lib.optional isCloud "podman-openpost-worker.service";
 
   openpostFileSecrets = [
     {
@@ -163,7 +168,7 @@ let
         uid = openpostHostUid;
         gid = openpostHostGid;
         mode = "0400";
-        restartUnits = [ "podman-openpost.service" ];
+        restartUnits = openpostApplicationUnits;
       }
     ) openpostFileSecrets
   );
@@ -175,6 +180,82 @@ let
     in
     "--mount=type=bind,source=${config.sops.templates.${templateName}.path},target=${secret.target},ro"
   ) openpostFileSecrets;
+
+  openpostApplicationEnvironment = {
+    OPENPOST_PORT = toString openpostContainerPort;
+    OPENPOST_EDITION = cfg.edition;
+    OPENPOST_APP_URL = "https://${cfg.domain}";
+    OPENPOST_PUBLIC_URL = "https://${cfg.domain}";
+    OPENPOST_EXTRA_CORS_ORIGINS = "https://${cfg.domain},${legacyHostedOrigin}";
+    OPENPOST_DISABLE_REGISTRATIONS = "false";
+    OPENPOST_STOCK_MEDIA_ENABLED = "true";
+    LINKEDIN_DISABLE_THREAD_REPLIES = "true";
+    X_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/x/callback";
+    LINKEDIN_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/linkedin/callback";
+    THREADS_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/threads/callback";
+    MASTODON_REDIRECT_URI = "https://${cfg.domain}/accounts/mastodon/callback";
+    TZ = cfg.timezone;
+  }
+  // openpostFileSecretEnvironment
+  // (
+    if isCloud then
+      {
+        OPENPOST_DATABASE_DRIVER = "postgres";
+        OPENPOST_STORAGE_DRIVER = "s3";
+      }
+    else
+      {
+        OPENPOST_DATABASE_DRIVER = "sqlite";
+        OPENPOST_DATABASE_PATH = "/data/db/openpost.db";
+        OPENPOST_STORAGE_DRIVER = "local";
+        OPENPOST_MEDIA_PATH = "/data/media";
+        OPENPOST_MEDIA_URL = "https://${cfg.domain}/media";
+      }
+  )
+  // cfg.extraEnvironment;
+
+  openpostApplicationEnvironmentFiles =
+    cfg.extraEnvironmentFiles
+    ++ lib.optionals isCloud [
+      config.sops.templates.openpost-cloud-env.path
+    ];
+
+  openpostApplicationOptions = [
+    "--network=podman"
+    "--uidmap=0:${toString openpostHostIdBase}:65536"
+    "--gidmap=0:${toString openpostHostIdBase}:65536"
+    "--pull=${cfg.pullPolicy}"
+  ];
+
+  stopManagedContainer =
+    name:
+    pkgs.writeShellScript "stop-${name}" ''
+      set -euo pipefail
+      if ${pkgs.podman}/bin/podman container exists ${lib.escapeShellArg name}; then
+        # Podman 5.8 can leave its transient systemd timer loaded after this
+        # update. Quiesce the container-ID-specific timer and any active probe
+        # before replacement so neither can fail after the container is gone.
+        ${pkgs.podman}/bin/podman update --health-interval=disable ${lib.escapeShellArg name} >/dev/null
+        read -r container_id < /run/${name}/ctr-id
+        [[ "$container_id" =~ ^[0-9a-f]{64}$ ]] || {
+          echo "invalid ${name} container ID" >&2
+          exit 1
+        }
+        for unit_type in timer service; do
+          while read -r unit _; do
+            [ -n "$unit" ] || continue
+            ${pkgs.systemd}/bin/systemctl stop "$unit" || true
+            if [ "$unit_type" = service ]; then
+              ${pkgs.systemd}/bin/systemctl reset-failed "$unit" || true
+            fi
+          done < <(
+            ${pkgs.systemd}/bin/systemctl list-units \
+              --all --plain --no-legend "$container_id-*.$unit_type"
+          )
+        done
+      fi
+      ${pkgs.podman}/bin/podman stop --ignore --cidfile=/run/${name}/ctr-id
+    '';
 
   openpostOpsAlert = pkgs.writeShellScript "openpost-ops-alert" ''
     set -euo pipefail
@@ -223,7 +304,7 @@ in
 
     domain = lib.mkOption {
       type = lib.types.str;
-      default = "app.openpost.social";
+      default = "app.openpo.st";
       description = "Domain for OpenPost";
     };
 
@@ -369,49 +450,18 @@ in
       }
     ];
 
-    # OpenPost application
+    # OpenPost HTTP application. Hosted workers run in a separate container so
+    # web traffic and durable job throughput can scale and fail independently.
     virtualisation.oci-containers.containers.openpost = {
       inherit (cfg) image;
       user = "${toString openpostContainerUid}:${toString openpostContainerGid}";
+      cmd = [
+        "./openpost"
+        (if isCloud then "web" else "all")
+      ];
 
-      environment = {
-        OPENPOST_PORT = toString openpostContainerPort;
-        OPENPOST_EDITION = cfg.edition;
-        OPENPOST_APP_URL = "https://${cfg.domain}";
-        OPENPOST_PUBLIC_URL = "https://${cfg.domain}";
-        OPENPOST_EXTRA_CORS_ORIGINS = "https://${cfg.domain}";
-        OPENPOST_DISABLE_REGISTRATIONS = "false";
-        OPENPOST_STOCK_MEDIA_ENABLED = "true";
-        LINKEDIN_DISABLE_THREAD_REPLIES = "true";
-        X_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/x/callback";
-        LINKEDIN_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/linkedin/callback";
-        THREADS_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/threads/callback";
-        MASTODON_REDIRECT_URI = "https://${cfg.domain}/api/v1/accounts/mastodon/callback";
-        TZ = cfg.timezone;
-      }
-      // openpostFileSecretEnvironment
-      // (
-        if isCloud then
-          {
-            OPENPOST_DATABASE_DRIVER = "postgres";
-            OPENPOST_STORAGE_DRIVER = "s3";
-          }
-        else
-          {
-            OPENPOST_DATABASE_DRIVER = "sqlite";
-            OPENPOST_DATABASE_PATH = "/data/db/openpost.db";
-            OPENPOST_STORAGE_DRIVER = "local";
-            OPENPOST_MEDIA_PATH = "/data/media";
-            OPENPOST_MEDIA_URL = "https://${cfg.domain}/media";
-          }
-      )
-      // cfg.extraEnvironment;
-
-      environmentFiles =
-        cfg.extraEnvironmentFiles
-        ++ lib.optionals isCloud [
-          config.sops.templates.openpost-cloud-env.path
-        ];
+      environment = openpostApplicationEnvironment;
+      environmentFiles = openpostApplicationEnvironmentFiles;
 
       volumes = lib.optionals (!isCloud) [
         "/var/lib/openpost/data:/data"
@@ -423,24 +473,52 @@ in
         "127.0.0.1:${toString openpostHostPort}:${toString openpostContainerPort}"
       ];
 
-      extraOptions = [
-        "--network=podman"
-        "--uidmap=0:${toString openpostHostIdBase}:65536"
-        "--gidmap=0:${toString openpostHostIdBase}:65536"
-        "--pull=${cfg.pullPolicy}"
-        "--health-cmd=sh -ec 'attempt=0; until wget --spider http://localhost:${toString openpostContainerPort}/api/v1/health; do attempt=$((attempt + 1)); [ \"$attempt\" -ge 60 ] && exit 1; sleep 1; done'"
-        "--health-interval=30s"
-        "--health-timeout=75s"
-        "--health-retries=3"
-        "--health-start-period=60s"
-        "--memory=2g"
-        "--memory-reservation=256m"
-        "--memory-swap=2g"
-        "--cpus=2.5"
-        "--pids-limit=512"
-      ]
-      ++ openpostFileSecretMounts
-      ++ cfg.extraOptions;
+      extraOptions =
+        openpostApplicationOptions
+        ++ [
+          "--health-cmd=sh -ec 'attempt=0; until wget --spider http://localhost:${toString openpostContainerPort}/api/v1/health; do attempt=$((attempt + 1)); [ \"$attempt\" -ge 60 ] && exit 1; sleep 1; done'"
+          "--health-interval=30s"
+          "--health-timeout=75s"
+          "--health-retries=3"
+          "--health-start-period=60s"
+          "--memory=1536m"
+          "--memory-reservation=256m"
+          "--memory-swap=1536m"
+          "--cpus=1.5"
+          "--pids-limit=512"
+        ]
+        ++ openpostFileSecretMounts
+        ++ cfg.extraOptions;
+    };
+
+    virtualisation.oci-containers.containers.openpost-worker = lib.mkIf isCloud {
+      inherit (cfg) image;
+      user = "${toString openpostContainerUid}:${toString openpostContainerGid}";
+      cmd = [
+        "./openpost"
+        "worker"
+      ];
+
+      environment = openpostApplicationEnvironment;
+      environmentFiles = openpostApplicationEnvironmentFiles;
+      dependsOn = [ "openpost-postgres" ];
+
+      extraOptions =
+        openpostApplicationOptions
+        ++ [
+          "--health-cmd=sh -ec 'kill -0 1'"
+          "--health-interval=30s"
+          "--health-timeout=3s"
+          "--health-retries=3"
+          "--health-start-period=5s"
+          "--memory=1024m"
+          "--memory-reservation=256m"
+          "--memory-swap=1024m"
+          "--cpus=1.0"
+          "--pids-limit=512"
+        ]
+        ++ openpostFileSecretMounts
+        ++ cfg.extraOptions;
     };
 
     virtualisation.oci-containers.containers.openpost-postgres = lib.mkIf isCloud {
@@ -482,8 +560,8 @@ in
           restartUnits = [
             "podman-openpost-postgres.service"
             "openpost-postgres-credential-reconcile.service"
-            "podman-openpost.service"
-          ];
+          ]
+          ++ openpostApplicationUnits;
         };
         "openpost-cloud-env" = {
           content = ''
@@ -495,16 +573,16 @@ in
             OPENPOST_S3_SECRET_ACCESS_KEY=${config.sops.placeholder.openpost_s3_secret_access_key}
             OPENPOST_S3_PUBLIC_BASE_URL=${config.sops.placeholder.openpost_s3_public_base_url}
             OPENPOST_LEGAL_ACCEPTANCE_REQUIRED=true
-            OPENPOST_TERMS_URL=https://openpost.social/terms
-            OPENPOST_PRIVACY_URL=https://openpost.social/privacy
+            OPENPOST_TERMS_URL=https://openpo.st/terms
+            OPENPOST_PRIVACY_URL=https://openpo.st/privacy
             OPENPOST_TERMS_VERSION=2026-08-05
             OPENPOST_PRIVACY_VERSION=2026-09-01
             OPENPOST_TELEMETRY_ENABLED=true
             OPENPOST_POSTHOG_API_HOST=https://eu.i.posthog.com
-            OPENPOST_POSTHOG_BROWSER_HOST=https://eu.i.posthog.com
+            OPENPOST_POSTHOG_BROWSER_HOST=https://cool.openpo.st
             OPENPOST_POSTHOG_UI_HOST=https://eu.posthog.com
             OPENPOST_TELEMETRY_ENVIRONMENT=production
-            OPENPOST_SUPPORT_EMAIL=hello@openpost.social
+            OPENPOST_SUPPORT_EMAIL=hello@openpo.st
             OPENPOST_EMAIL_VERIFICATION_REQUIRED=true
             OPENPOST_EMAIL_PROVIDER=smtp
             OPENPOST_EMAIL_FROM=hello@openpost.social
@@ -533,7 +611,7 @@ in
             OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID=pri_01kz8y7cy4bjsmtdtjwpwns4wf
           '';
           mode = "0400";
-          restartUnits = [ "podman-openpost.service" ];
+          restartUnits = openpostApplicationUnits;
         };
         "openpost-backup-env" = {
           content = ''
@@ -563,8 +641,8 @@ in
 
     systemd.services.openpost-image-bootstrap = lib.mkIf (cfg.bootstrapDigest != null) {
       description = "Seed the exact OpenPost image on a clean host";
-      before = [ "podman-openpost.service" ];
-      requiredBy = [ "podman-openpost.service" ];
+      before = openpostApplicationUnits;
+      requiredBy = openpostApplicationUnits;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -604,7 +682,7 @@ in
       description = "Reconcile the authoritative OpenPost PostgreSQL credential";
       after = [ "podman-openpost-postgres.service" ];
       requires = [ "podman-openpost-postgres.service" ];
-      before = [ "podman-openpost.service" ];
+      before = openpostApplicationUnits;
       unitConfig.OnFailure = [ "openpost-ops-alert@%n.service" ];
       serviceConfig = {
         Type = "oneshot";
@@ -638,9 +716,25 @@ in
     systemd.services.podman-openpost = {
       after = lib.optionals isCloud [ "openpost-postgres-credential-reconcile.service" ];
       requires = lib.optionals isCloud [ "openpost-postgres-credential-reconcile.service" ];
-      serviceConfig.TimeoutStopSec = lib.mkForce 120;
+      serviceConfig = {
+        ExecStop = lib.mkForce "${stopManagedContainer "openpost"}";
+        TimeoutStopSec = lib.mkForce 120;
+      };
       unitConfig.OnFailure = [ "openpost-ops-alert@%n.service" ];
     };
+
+    systemd.services.podman-openpost-worker = lib.mkIf isCloud {
+      after = [ "openpost-postgres-credential-reconcile.service" ];
+      requires = [ "openpost-postgres-credential-reconcile.service" ];
+      serviceConfig = {
+        ExecStop = lib.mkForce "${stopManagedContainer "openpost-worker"}";
+        TimeoutStopSec = lib.mkForce 120;
+      };
+      unitConfig.OnFailure = [ "openpost-ops-alert@%n.service" ];
+    };
+
+    systemd.services.podman-openpost-postgres.serviceConfig.ExecStop =
+      lib.mkForce "${stopManagedContainer "openpost-postgres"}";
 
     systemd.services.openpost-postgres-backup = lib.mkIf isCloud {
       description = "Backup OpenPost Postgres database";
@@ -761,6 +855,7 @@ in
             --since '25 hours ago' \
             --output=json \
             --unit=podman-openpost.service \
+            --unit=podman-openpost-worker.service \
             --unit=podman-openpost-postgres.service \
             --unit=openpost-postgres-backup.service \
             --unit=openpost-media-backup.service \
@@ -820,46 +915,63 @@ in
       };
     };
 
-    systemd.services.openpost-restore-drill = lib.mkIf (isCloud && cfg.offsiteBackup.enable) {
-      description = "Restore and validate the latest encrypted off-host OpenPost backup";
+    systemd.services.openpost-restore-drill = lib.mkIf isCloud {
+      description =
+        if cfg.offsiteBackup.enable then
+          "Restore and validate the latest encrypted off-host OpenPost backup"
+        else
+          "Restore and validate the latest local OpenPost backup";
       unitConfig.OnFailure = [ "openpost-ops-alert@%n.service" ];
       after = [
         "podman-openpost-postgres.service"
-        "openpost-offsite-backup.service"
-      ];
+      ]
+      ++ lib.optional cfg.offsiteBackup.enable "openpost-offsite-backup.service";
       requires = [
         "podman-openpost-postgres.service"
-        "openpost-offsite-backup.service"
-      ];
+      ]
+      ++ lib.optional cfg.offsiteBackup.enable "openpost-offsite-backup.service";
       serviceConfig = {
         Type = "oneshot";
         UMask = "0077";
-        EnvironmentFile = config.sops.templates."openpost-offsite-backup-env".path;
-        CacheDirectory = "openpost-restic";
         RuntimeDirectory = "openpost-restore-drill";
         ExecStart = pkgs.writeShellScript "openpost-restore-drill" ''
           set -euo pipefail
           backup_root=/var/backup/openpost
-          offsite_restore_root="$(${pkgs.coreutils}/bin/mktemp -d /run/openpost-restore-drill/offsite.XXXXXX)"
+          offsite_restore_root=""
           database_created=false
           cleanup() {
             if [ "$database_created" = true ]; then
               ${pkgs.podman}/bin/podman exec openpost-postgres dropdb \
                 --if-exists -U ${openpostPostgresUser} "$restore_database" >/dev/null
             fi
-            ${pkgs.coreutils}/bin/rm -rf -- "$offsite_restore_root"
+            ${lib.optionalString cfg.offsiteBackup.enable ''
+              if [ -n "$offsite_restore_root" ]; then
+                ${pkgs.coreutils}/bin/rm -rf -- "$offsite_restore_root"
+              fi
+            ''}
           }
           trap cleanup EXIT
 
-          ${pkgs.restic}/bin/restic restore latest \
-            --host rgo-vps \
-            --tag openpost \
-            --target "$offsite_restore_root" \
-            --include '/var/backup/openpost/openpost_*.sql.gz' \
-            --include '/var/backup/openpost/media-current/**'
-          latest_backup=$(${pkgs.findutils}/bin/find "$offsite_restore_root/var/backup/openpost" -maxdepth 1 -type f -name 'openpost_*.sql.gz' -printf '%T@ %p\n' | ${pkgs.coreutils}/bin/sort -nr | ${pkgs.gawk}/bin/awk 'NR == 1 { print $2 }')
+          ${
+            if cfg.offsiteBackup.enable then
+              ''
+                offsite_restore_root="$(${pkgs.coreutils}/bin/mktemp -d /run/openpost-restore-drill/offsite.XXXXXX)"
+                ${pkgs.restic}/bin/restic restore latest \
+                  --host rgo-vps \
+                  --tag openpost \
+                  --target "$offsite_restore_root" \
+                  --include '/var/backup/openpost/openpost_*.sql.gz' \
+                  --include '/var/backup/openpost/media-current/**'
+                backup_source_root="$offsite_restore_root/var/backup/openpost"
+              ''
+            else
+              ''
+                backup_source_root="$backup_root"
+              ''
+          }
+          latest_backup=$(${pkgs.findutils}/bin/find "$backup_source_root" -maxdepth 1 -type f -name 'openpost_*.sql.gz' -printf '%T@ %p\n' | ${pkgs.coreutils}/bin/sort -nr | ${pkgs.gawk}/bin/awk 'NR == 1 { print $2 }')
           if [ -z "$latest_backup" ]; then
-            echo "No OpenPost database backup was restored from off host" >&2
+            echo "No OpenPost database backup is available for the restore drill" >&2
             exit 1
           fi
 
@@ -884,7 +996,7 @@ in
             "SELECT count(*) FROM posts" -U ${openpostPostgresUser} -d "$restore_database")
           database_media_count=$(${pkgs.podman}/bin/podman exec openpost-postgres psql -Atqc \
             "SELECT count(*) FROM media_attachments" -U ${openpostPostgresUser} -d "$restore_database")
-          restored_media_root="$offsite_restore_root/var/backup/openpost/media-current"
+          restored_media_root="$backup_source_root/media-current"
           if [ -d "$restored_media_root" ]; then
             media_file_count=$(${pkgs.findutils}/bin/find "$restored_media_root" -type f | ${pkgs.coreutils}/bin/wc -l)
           else
@@ -921,10 +1033,14 @@ in
           ${pkgs.coreutils}/bin/chmod 0600 "$evidence_tmp"
           ${pkgs.coreutils}/bin/mv "$evidence_tmp" "$backup_root/restore-drill-latest.json"
         '';
+      }
+      // lib.optionalAttrs cfg.offsiteBackup.enable {
+        EnvironmentFile = config.sops.templates."openpost-offsite-backup-env".path;
+        CacheDirectory = "openpost-restic";
       };
     };
 
-    systemd.timers.openpost-restore-drill = lib.mkIf (isCloud && cfg.offsiteBackup.enable) {
+    systemd.timers.openpost-restore-drill = lib.mkIf isCloud {
       description = "Weekly OpenPost restore drill";
       wantedBy = [ "timers.target" ];
       timerConfig = {

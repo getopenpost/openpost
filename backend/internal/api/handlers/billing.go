@@ -120,6 +120,16 @@ func (h *BillingHandler) RegisterAPIRoutes(api huma.API) {
 	}, h.createCheckout)
 
 	huma.Register(api, huma.Operation{
+		OperationID: "get-billing-checkout-config",
+		Method:      http.MethodGet,
+		Path:        "/billing/checkout/config",
+		Summary:     "Get public Paddle checkout configuration",
+		Description: "Returns only the browser-safe Paddle.js token and environment needed by Paddle transaction payment links.",
+		Tags:        []string{"Billing"},
+		Errors:      []int{503},
+	}, h.getCheckoutConfig)
+
+	huma.Register(api, huma.Operation{
 		OperationID: "resume-billing-checkout",
 		Method:      http.MethodGet,
 		Path:        "/billing/checkout/{attempt_id}",
@@ -604,6 +614,26 @@ type BillingURLResponse struct {
 	WorkspaceID         string            `json:"workspace_id,omitempty" doc:"Workspace bound to this checkout attempt"`
 	Purpose             string            `json:"purpose,omitempty" doc:"Requested Paddle portal destination"`
 	UsedGenericFallback *bool             `json:"used_generic_fallback,omitempty" doc:"Whether Paddle omitted the purpose-specific link and OpenPost returned the generic portal"`
+}
+
+type BillingCheckoutConfigResponse struct {
+	ClientToken string `json:"client_token" doc:"Browser-safe Paddle.js client token"`
+	Environment string `json:"environment" enum:"sandbox,production" doc:"Explicit Paddle.js environment"`
+}
+
+type BillingCheckoutConfigOutput struct {
+	Body BillingCheckoutConfigResponse
+}
+
+func (h *BillingHandler) getCheckoutConfig(context.Context, *struct{}) (*BillingCheckoutConfigOutput, error) {
+	config, err := h.billing.BrowserCheckoutConfig()
+	if err != nil {
+		return nil, billingAPIError(err)
+	}
+	return &BillingCheckoutConfigOutput{Body: BillingCheckoutConfigResponse{
+		ClientToken: config.ClientToken,
+		Environment: config.Environment,
+	}}, nil
 }
 
 type ResumeBillingCheckoutInput struct {

@@ -16,7 +16,7 @@ OpenPost helps you turn product updates, customer lessons, and company notes int
 
 Write once. Adapt with control. Publish everywhere.
 
-→ https://openpost.social
+→ https://openpo.st
 
 ## LinkedIn company page
 
@@ -41,7 +41,7 @@ OpenPost gives companies of one a focused content workspace:
 
 OpenPost is the content team for companies of one.
 
-https://openpost.social
+https://openpo.st
 
 ## Product post
 

@@ -22,8 +22,8 @@ describe("plan catalogue", () => {
   it("keeps self-hosting outside the hosted plan catalogue", () => {
     expect(selfHostedDeployment).toEqual({
       software_fee_usd: 0,
-      documentation_url: "https://docs.openpost.social/self-hosting/",
-      production_checklist_url: "https://docs.openpost.social/configuration/production-checklist",
+      documentation_url: "https://docs.openpo.st/self-hosting/",
+      production_checklist_url: "https://docs.openpo.st/configuration/production-checklist",
       source_url: "https://github.com/getopenpost/openpost",
     });
     expect(planCatalog.plans).not.toContainEqual(expect.objectContaining({ id: "self-hosted" }));

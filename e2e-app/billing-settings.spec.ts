@@ -868,11 +868,9 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
   await page.getByRole("button", { name: "Create Workspace and continue" }).click();
 
   await expect(page).toHaveURL(/\/checkout\?attempt=chkat_e2e/);
-  await expect(page.getByRole("heading", { name: "Put your content team to work" })).toBeVisible();
-  await expect(page.getByText("$0 due today")).toBeVisible();
-  await expect(page.getByText("$250.00/year")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Complete your secure checkout" })).toBeVisible();
+  await expect(page.getByText("Your OpenPost plan choice is already saved.")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
   const paddleState = await page.evaluate(
     () =>
       (
@@ -889,9 +887,6 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
                 variant?: string;
                 locale?: string;
                 theme?: string;
-                frameTarget?: string;
-                frameInitialHeight?: number;
-                frameStyle?: string;
                 successUrl?: string;
               };
             } | null;
@@ -905,13 +900,9 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
   expect(paddleState?.checkout?.customData?.checkout_id).toBe("chkat_e2e");
   expect(paddleState?.checkout?.customer?.email).toBe(email);
   expect(paddleState?.checkout?.settings).toMatchObject({
-    displayMode: "inline",
+    displayMode: "overlay",
     variant: "one-page",
     theme: "light",
-    frameTarget: "openpost-paddle-checkout",
-    frameInitialHeight: 720,
-    frameStyle:
-      "width: 100%; min-width: 312px; background-color: #ffffff; color-scheme: light; border: none;",
     locale: "en",
     successUrl: "http://127.0.0.1/checkout?attempt=chkat_e2e&status=success",
   });
@@ -923,7 +914,7 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
     purchase_choice_token: "choice-founder-annual",
   });
   expect(resumeCalls).toBe(1);
-  await expect(page.getByRole("button", { name: "Monthly", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Monthly", exact: true })).toHaveCount(0);
 
   await page.evaluate(() => {
     const state = (
@@ -962,7 +953,7 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
     localStorage.setItem("mode-watcher-mode", "dark");
   });
   await page.reload();
-  await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Complete your secure checkout" })).toBeVisible();
   expect(welcomeCalls).toBe(1);
   await expect.poll(() => resumeCalls).toBe(3);
   await expect
@@ -981,33 +972,29 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
       ),
     )
     .toBe("chkat_e2e");
-  const paymentSurfaceTheme = await page
-    .getByTestId("checkout-payment-surface")
-    .evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        backgroundColor: style.backgroundColor,
-        color: style.color,
-        colorScheme: style.colorScheme,
-      };
-    });
-  expect(paymentSurfaceTheme).toEqual({
-    backgroundColor: "rgb(255, 255, 255)",
-    color: "rgb(48, 43, 40)",
-    colorScheme: "light",
-  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              __openpostPaddleTest?: { checkout?: { settings?: { theme?: string } } };
+            }
+          ).__openpostPaddleTest?.checkout?.settings?.theme,
+      ),
+    )
+    .toBe("light");
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
     await expect(
-      page.getByRole("heading", { name: "Put your content team to work" }),
+      page.getByRole("heading", { name: "Complete your secure checkout" }),
     ).toBeVisible();
     const mobileOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(mobileOverflow).toBeLessThanOrEqual(1);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
   }
 
   await page.context().addCookies([
@@ -1034,9 +1021,75 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
       ),
     )
     .toBe("pt");
-  await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conclua o pagamento seguro" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   expect(browserErrors).toEqual([]);
+});
+
+test("Paddle transaction links open managed checkout without signing in", async ({ page }) => {
+  const transactionID = "txn_01jmanagedcheckout123456789";
+  let workspaceRequests = 0;
+  await page.route("**/api/v1/workspaces", async (route) => {
+    workspaceRequests += 1;
+    await route.fulfill({ json: [] });
+  });
+  await page.route("**/api/v1/billing/checkout/config", (route) =>
+    route.fulfill({
+      json: { client_token: "test_client_token", environment: "sandbox" },
+    }),
+  );
+  await page.route("https://cdn.paddle.com/paddle/v2/paddle.js", (route) =>
+    route.fulfill({
+      contentType: "application/javascript",
+      body: `(() => {
+				const state = { environment: "", initialize: null, checkout: null };
+				window.__openpostManagedPaddle = state;
+				window.PaddleBillingV1 = {
+					Initialized: false,
+					Environment: { set(value) { state.environment = value; } },
+					Initialize(options) { state.initialize = options; this.Initialized = true; },
+					Update(options) { state.initialize = options; },
+					Checkout: {
+						open(options) {
+							state.checkout = options;
+							queueMicrotask(() => state.initialize.eventCallback({ name: "checkout.loaded" }));
+						},
+						close() {}
+					}
+				};
+			})();`,
+    }),
+  );
+
+  await page.goto(`/checkout?_ptxn=${transactionID}`);
+  await expect(page).toHaveURL(new RegExp(`/checkout\\?_ptxn=${transactionID}$`));
+  await expect(page.getByRole("heading", { name: "Complete your secure checkout" })).toBeVisible();
+  await expect(page.getByText("You do not need to sign in to OpenPost.")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as Window & {
+              __openpostManagedPaddle?: {
+                environment?: string;
+                checkout?: {
+                  transactionId?: string;
+                  settings?: { displayMode?: string; variant?: string; theme?: string };
+                };
+              };
+            }
+          ).__openpostManagedPaddle,
+      ),
+    )
+    .toMatchObject({
+      environment: "sandbox",
+      checkout: {
+        transactionId: transactionID,
+        settings: { displayMode: "overlay", variant: "one-page", theme: "light" },
+      },
+    });
+  expect(workspaceRequests).toBe(0);
 });

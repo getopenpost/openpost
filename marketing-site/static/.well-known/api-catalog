@@ -1,28 +1,28 @@
 {
   "linkset": [
     {
-      "anchor": "https://app.openpost.social/api/v1",
+      "anchor": "https://app.openpo.st/api/v1",
       "service-desc": [
         {
-          "href": "https://docs.openpost.social/openapi.json",
+          "href": "https://docs.openpo.st/openapi.json",
           "type": "application/vnd.oai.openapi+json;version=3.1"
         }
       ],
       "service-doc": [
         {
-          "href": "https://docs.openpost.social/development/api-reference",
+          "href": "https://docs.openpo.st/development/api-reference",
           "type": "text/html"
         }
       ],
       "status": [
         {
-          "href": "https://app.openpost.social/api/v1/ready",
+          "href": "https://app.openpo.st/api/v1/ready",
           "type": "application/json"
         }
       ],
       "item": [
         {
-          "href": "https://app.openpost.social/mcp"
+          "href": "https://app.openpo.st/mcp"
         }
       ]
     }

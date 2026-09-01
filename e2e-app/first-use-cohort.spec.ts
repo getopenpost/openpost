@@ -133,9 +133,20 @@ test("signup through Activation is one resumable, accessible browser journey", a
     checkout: { id: string; provider_price_id: string; customer_email: string };
   };
   await expect(page).toHaveURL(new RegExp(`/checkout\\?[^#]*attempt=${welcome.checkout.id}`));
-  await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as Window & {
+              __openpostFirstUsePaddle?: { checkout?: { settings?: { displayMode?: string } } };
+            }
+          ).__openpostFirstUsePaddle?.checkout?.settings?.displayMode,
+      ),
+    )
+    .toBe("overlay");
   await page.reload();
-  await expect(page.getByText("$250.00/year").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Complete your secure checkout" })).toBeVisible();
 
   const paddleComplete = await request.post(`${boundaryURL}/__e2e/paddle/complete`, {
     data: {

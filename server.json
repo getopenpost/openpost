@@ -2,16 +2,16 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.rodrgds/openpost",
   "description": "Manage social publishing workflows through OpenPost",
-  "version": "1.32.2",
+  "version": "1.32.3",
   "repository": {
     "url": "https://github.com/getopenpost/openpost",
     "source": "github"
   },
-  "websiteUrl": "https://docs.openpost.social/mcp/",
+  "websiteUrl": "https://docs.openpo.st/mcp/",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://app.openpost.social/mcp"
+      "url": "https://app.openpo.st/mcp"
     }
   ]
 }

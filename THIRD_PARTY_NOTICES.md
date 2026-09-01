@@ -11,6 +11,8 @@ The bundled background-removal runtime, quantized model, content-addressed resou
 
 OpenPost Image Editor is an original implementation. It does not redistribute the commercial shadcn Designer package, its components, its CSS, or its generated utilities.
 
+OpenPost social image layouts adapt the Grid and ShadcnRegistry6 components from [ogimagecn](https://github.com/shadcn-labs/ogimagecn) at commit `8e385d1c914fd7dc04bc0cba6dbcad86ca58271d`, Copyright (c) 2026 Shadcn Labs, under the MIT License. See `licenses/OGIMAGECN.txt`.
+
 OpenPost Meme Maker includes a pinned catalog snapshot from Memegen at commit `aa0fc3af4dd1c669cc35039a7d8efcca7d4eb98a`, Copyright (c) 2015 Jace Browning, under the MIT License. The bundled source notice is in `backend/internal/memes/catalog/LICENSE-MEMEGEN.txt`. Bundled fonts retain their SIL Open Font License notices in `backend/internal/memes/catalog/fonts/`.
 
 Template source links provide provenance only. Rights in photos, characters, trademarks, and other depicted material can differ by template and use. Redistributors and users must confirm their own right to publish a chosen template.

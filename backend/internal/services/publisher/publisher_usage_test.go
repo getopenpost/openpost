@@ -112,7 +112,7 @@ func TestPublisherPricesXURLFromRenderedSettings(t *testing.T) {
 		"x-account",
 		&platform.PublishRequest{
 			Content: "Launch update", Profile: models.ContentProfileShortText, OutputProfile: "x.post",
-			Settings: map[string]interface{}{"url": "https://openpost.social/launch"},
+			Settings: map[string]interface{}{"url": "https://openpo.st/launch"},
 		},
 		nil,
 	)

@@ -16,8 +16,8 @@ test("the official manifest generates the backend policy constants", async () =>
   assert.match(generated, /RefundsRequiresAcceptance\s+= false/u);
   assert.equal(
     renderLegalPolicyEnv(manifest),
-    "OPENPOST_TERMS_URL=https://openpost.social/terms\n" +
-      "OPENPOST_PRIVACY_URL=https://openpost.social/privacy\n" +
+    "OPENPOST_TERMS_URL=https://openpo.st/terms\n" +
+      "OPENPOST_PRIVACY_URL=https://openpo.st/privacy\n" +
       "OPENPOST_TERMS_VERSION=2026-08-05\n" +
       "OPENPOST_PRIVACY_VERSION=2026-09-01\n",
   );
@@ -31,19 +31,19 @@ test("policy documents fail closed on drift and unsupported acceptance", () => {
         terms: {
           version: "2026-08-05",
           effective_date: "2026-08-05",
-          url: "https://openpost.social/terms",
+          url: "https://openpo.st/terms",
           requires_acceptance: true,
         },
         privacy: {
           version: "2026-08-09",
           effective_date: "2026-08-09",
-          url: "https://openpost.social/privacy",
+          url: "https://openpo.st/privacy",
           requires_acceptance: true,
         },
         refunds: {
           version: "2026-08-05",
           effective_date: "2026-08-05",
-          url: "https://openpost.social/refunds",
+          url: "https://openpo.st/refunds",
           requires_acceptance: true,
         },
       }),
@@ -57,19 +57,19 @@ test("policy documents fail closed on drift and unsupported acceptance", () => {
         terms: {
           version: "2026-02-31",
           effective_date: "2026-02-31",
-          url: "https://openpost.social/terms",
+          url: "https://openpo.st/terms",
           requires_acceptance: true,
         },
         privacy: {
           version: "2026-08-09",
           effective_date: "2026-08-09",
-          url: "https://openpost.social/privacy",
+          url: "https://openpo.st/privacy",
           requires_acceptance: true,
         },
         refunds: {
           version: "2026-08-05",
           effective_date: "2026-08-05",
-          url: "https://openpost.social/refunds",
+          url: "https://openpo.st/refunds",
           requires_acceptance: false,
         },
       }),

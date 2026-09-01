@@ -293,7 +293,7 @@ func TestCreateBillingCheckout_WireFormat(t *testing.T) {
 			t.Fatalf("body = %#v", body)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"chkat_1","url":"https://app.openpost.social/checkout?billing_period=annual&plan=founder","plan_id":"founder","billing_period":"annual","provider_price_id":"pri_founder_year"}`))
+		_, _ = w.Write([]byte(`{"id":"chkat_1","url":"https://app.openpo.st/checkout?billing_period=annual&plan=founder","plan_id":"founder","billing_period":"annual","provider_price_id":"pri_founder_year"}`))
 	}))
 	defer srv.Close()
 
@@ -302,7 +302,7 @@ func TestCreateBillingCheckout_WireFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateBillingCheckout returned error: %v", err)
 	}
-	if got.ID != "chkat_1" || got.URL != "https://app.openpost.social/checkout?billing_period=annual&plan=founder" || got.BillingPeriod != "annual" {
+	if got.ID != "chkat_1" || got.URL != "https://app.openpo.st/checkout?billing_period=annual&plan=founder" || got.BillingPeriod != "annual" {
 		t.Fatalf("checkout = %+v", got)
 	}
 }

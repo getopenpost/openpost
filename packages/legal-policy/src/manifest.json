@@ -3,19 +3,19 @@
   "terms": {
     "version": "2026-08-05",
     "effective_date": "2026-08-05",
-    "url": "https://openpost.social/terms",
+    "url": "https://openpo.st/terms",
     "requires_acceptance": true
   },
   "privacy": {
     "version": "2026-09-01",
     "effective_date": "2026-09-01",
-    "url": "https://openpost.social/privacy",
+    "url": "https://openpo.st/privacy",
     "requires_acceptance": true
   },
   "refunds": {
     "version": "2026-08-05",
     "effective_date": "2026-08-05",
-    "url": "https://openpost.social/refunds",
+    "url": "https://openpo.st/refunds",
     "requires_acceptance": false
   }
 }

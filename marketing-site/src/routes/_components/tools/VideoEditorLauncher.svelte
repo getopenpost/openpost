@@ -11,7 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { appUrl } from '../../_marketing';
 
-	const videoEditorURL = `${appUrl}/video-editor?utm_source=openpost.social&utm_medium=free-tool&utm_campaign=public-video-editor`;
+	const videoEditorURL = `${appUrl}/video-editor?utm_source=openpo.st&utm_medium=free-tool&utm_campaign=public-video-editor`;
 	const formats = [
 		{ label: 'Portrait', size: '1080 × 1920', ratio: '9 / 16' },
 		{ label: 'Feed portrait', size: '1080 × 1350', ratio: '4 / 5' },

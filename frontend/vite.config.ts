@@ -1,6 +1,7 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import { postHogSourceMaps } from '../scripts/posthog-source-maps.ts';
@@ -196,6 +197,11 @@ export default defineConfig({
 		}
 	},
 	worker: {
-		format: 'es'
+		format: 'es',
+		plugins: () =>
+			svelte({
+				dynamicCompileOptions: ({ filename }) =>
+					filename.includes('node_modules') ? undefined : { runes: true }
+			})
 	}
 });

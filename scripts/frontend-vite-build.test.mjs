@@ -1,10 +1,14 @@
 import { spawnSync } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import {
   frontendBuildHeapMiB,
   frontendBuildNodeOptions,
   parseFrontendBuildArguments,
+  validateCompiledWorkerRunes,
 } from "./frontend-vite-build.mjs";
 
 describe("frontend Vite build memory", () => {
@@ -68,5 +72,33 @@ describe("frontend Vite build arguments", () => {
     expect(() => parseFrontendBuildArguments(["--mode=development"])).toThrow(
       "Unsupported frontend build arguments",
     );
+  });
+});
+
+describe("frontend worker output", () => {
+  test("rejects rune calls that escaped Svelte compilation", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-worker-runes-"));
+    try {
+      await writeFile(path.join(directory, "broken.js"), "const state = $state({ ready: true });");
+
+      await expect(validateCompiledWorkerRunes(directory)).rejects.toThrow(
+        "Uncompiled Svelte rune calls in worker output: broken.js",
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  test("accepts compiled Svelte runtime markers in nested worker chunks", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-worker-runes-"));
+    try {
+      const chunks = path.join(directory, "chunks");
+      await mkdir(chunks);
+      await writeFile(path.join(chunks, "compiled.js"), "const marker = Symbol('$state');");
+
+      await expect(validateCompiledWorkerRunes(directory)).resolves.toBeUndefined();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

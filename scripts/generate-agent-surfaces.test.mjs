@@ -79,10 +79,7 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
     "  Content-Type: text/plain; charset=utf-8",
     "",
   ].join("\n");
-  const pages = [
-    { canonical: "https://openpost.social/" },
-    { canonical: "https://openpost.social/features" },
-  ];
+  const pages = [{ canonical: "https://openpo.st/" }, { canonical: "https://openpo.st/features" }];
   const rendered = renderOriginVaryHeaders(base, pages);
 
   assert.match(
@@ -101,7 +98,7 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
       renderOriginVaryHeaders(
         base,
         Array.from({ length: 99 }, (_, index) => ({
-          canonical: `https://openpost.social/page-${index}`,
+          canonical: `https://openpo.st/page-${index}`,
         })),
       ),
     /uses 102 rules; Free limit is 100/u,
@@ -112,7 +109,7 @@ test("documentation discovery headers leave room for the canonical page catalogu
   const root = path.resolve(import.meta.dirname, "..");
   const base = await readFile(path.join(root, "docs-site/public/_headers"), "utf8");
   const pages = Array.from({ length: 97 }, (_, index) => ({
-    canonical: `https://docs.openpost.social/page-${index}`,
+    canonical: `https://docs.openpo.st/page-${index}`,
   }));
 
   assert.match(base, /^\/llms\*\.txt$/mu);
@@ -132,9 +129,9 @@ test("origin Vary headers compact dense route namespaces before the Pages limit"
     "",
   ].join("\n");
   const pages = [
-    { canonical: "https://docs.openpost.social/" },
+    { canonical: "https://docs.openpo.st/" },
     ...Array.from({ length: 100 }, (_, index) => ({
-      canonical: `https://docs.openpost.social/usage/page-${index}`,
+      canonical: `https://docs.openpo.st/usage/page-${index}`,
     })),
   ];
 
@@ -446,9 +443,9 @@ const marketingHTML = `<!doctype html>
 <html><head>
 <title>OpenPost - Social publishing</title>
 <meta name="description" content="Create, adapt, and publish from one workspace.">
-<link rel="canonical" href="https://openpost.social">
-<link rel="alternate" type="text/markdown" href="https://openpost.social/index.md">
-<link rel="alternate" type="text/plain" href="https://openpost.social/llms.txt">
+<link rel="canonical" href="https://openpo.st">
+<link rel="alternate" type="text/markdown" href="https://openpo.st/index.md">
+<link rel="alternate" type="text/plain" href="https://openpo.st/llms.txt">
 </head><body><nav>Navigation noise</nav><main>
 <h1>Publish everywhere</h1><p>Prepare one idea for every destination.</p>
 <a href="/features">See the features</a><script>privateState = true</script>
@@ -463,7 +460,7 @@ test("marketing production projection emits deterministic homepage Markdown and 
     surface: "marketing",
     outputDirectory: directory,
     pages: [{ sourcePath: htmlPath, outputPath: "index.md" }],
-    knownCanonicalURLs: ["https://openpost.social/", "https://openpost.social/features"],
+    knownCanonicalURLs: ["https://openpo.st/", "https://openpo.st/features"],
     discovery: {
       title: "OpenPost",
       description: "Create, adapt, and publish from one workspace.",
@@ -473,7 +470,7 @@ test("marketing production projection emits deterministic homepage Markdown and 
         {
           title: "OpenPost overview",
           description: "See the product workflow.",
-          url: "https://openpost.social/index.md",
+          url: "https://openpo.st/index.md",
         },
       ],
     },
@@ -489,18 +486,18 @@ test("marketing production projection emits deterministic homepage Markdown and 
   assert.match(firstMarkdown, /^<!-- Generated from the canonical OpenPost public page/m);
   assert.match(firstMarkdown, /^Title: OpenPost - Social publishing$/m);
   assert.match(firstMarkdown, /^Description: Create, adapt, and publish from one workspace\.$/m);
-  assert.match(firstMarkdown, /^Canonical: https:\/\/openpost\.social\/$/m);
-  assert.match(firstMarkdown, /^Source: \[https:\/\/openpost\.social\/\]/m);
+  assert.match(firstMarkdown, /^Canonical: https:\/\/openpo\.st\/$/m);
+  assert.match(firstMarkdown, /^Source: \[https:\/\/openpo\.st\/\]/m);
   assert.equal((firstMarkdown.match(/^# /gm) ?? []).length, 1);
   assert.match(firstMarkdown, /^# Publish everywhere$/m);
-  assert.match(firstMarkdown, /\[See the features\]\(https:\/\/openpost\.social\/features\)/);
+  assert.match(firstMarkdown, /\[See the features\]\(https:\/\/openpo\.st\/features\)/);
   assert.doesNotMatch(firstMarkdown, /Navigation noise|privateState/);
   assert.match(firstDiscovery, /^# OpenPost$/m);
   assert.match(firstDiscovery, /^## When to use OpenPost$/m);
   assert.match(firstDiscovery, /Use OpenPost for destination-specific publishing\./u);
   assert.match(firstDiscovery, /^## When OpenPost is not a fit$/m);
   assert.match(firstDiscovery, /Do not use OpenPost as a social network\./u);
-  assert.match(firstDiscovery, /\[OpenPost overview\]\(https:\/\/openpost\.social\/index\.md\)/);
+  assert.match(firstDiscovery, /\[OpenPost overview\]\(https:\/\/openpo\.st\/index\.md\)/);
 });
 
 test("production discovery gives agents direct interface guidance", () => {
@@ -509,10 +506,10 @@ test("production discovery gives agents direct interface guidance", () => {
 
   assert.match(marketing, /^## When to use OpenPost$/m);
   assert.match(marketing, /^## When OpenPost is not a fit$/m);
-  assert.match(marketing, /https:\/\/docs\.openpost\.social\/openapi\.json/u);
-  assert.match(marketing, /https:\/\/docs\.openpost\.social\/cli\/index\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpost\.social\/mcp\/index\.md/u);
-  assert.match(marketing, /https:\/\/openpost\.social\/developers\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/openapi\.json/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/cli\/index\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/mcp\/index\.md/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/developers\.md/u);
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
@@ -617,7 +614,7 @@ test("marketing projection rejects unsupported meaning-bearing markup with the r
       pages: [{ sourcePath: htmlPath, outputPath: "index.md" }],
       discovery: { title: "OpenPost", description: "Security.", links: [] },
     }),
-    /https:\/\/openpost\.social\/: unsupported meaning-bearing <product-claim>/u,
+    /https:\/\/openpo\.st\/: unsupported meaning-bearing <product-claim>/u,
   );
 });
 
@@ -636,7 +633,7 @@ test("marketing projection enforces the individual representation size ceiling",
       pages: [{ sourcePath: htmlPath, outputPath: "index.md" }],
       discovery: { title: "OpenPost", description: "Overview.", links: [] },
     }),
-    /https:\/\/openpost\.social\/: representation exceeds 256 KiB/u,
+    /https:\/\/openpo\.st\/: representation exceeds 256 KiB/u,
   );
 });
 
@@ -647,7 +644,7 @@ test("documentation size exceptions require reviewed canonical metadata", async 
   const page = {
     sourcePath,
     outputPath: "large.md",
-    canonical: "https://docs.openpost.social/development/large-guide",
+    canonical: "https://docs.openpo.st/development/large-guide",
     title: "Large guide",
     description: "A deliberately large reviewed guide.",
   };
@@ -720,13 +717,13 @@ test("marketing projection rejects rendered metadata that drifts from its canoni
             path: "/",
             title: "Canonical OpenPost title",
             description: "Canonical OpenPost description.",
-            canonical: "https://openpost.social/",
+            canonical: "https://openpo.st/",
           },
         },
       ],
       discovery: { title: "OpenPost", description: "Overview.", links: [] },
     }),
-    /https:\/\/openpost\.social\/: rendered title does not match canonical route metadata/u,
+    /https:\/\/openpo\.st\/: rendered title does not match canonical route metadata/u,
   );
 });
 
@@ -758,10 +755,7 @@ test("marketing projection preserves tables and informative images with absolute
   const markdown = await readFile(path.join(directory, "index.md"), "utf8");
   assert.match(markdown, /\| Plan \| Price \|\n\| --- \| --- \|\n\| Starter \| \$15 \|/u);
   assert.match(markdown, /- One workspace\n- Three accounts/u);
-  assert.match(
-    markdown,
-    /!\[OpenPost publishing result\]\(https:\/\/openpost\.social\/proof\.png\)/u,
-  );
+  assert.match(markdown, /!\[OpenPost publishing result\]\(https:\/\/openpo\.st\/proof\.png\)/u);
   assert.doesNotMatch(markdown, /decoration\.svg/u);
 });
 
@@ -807,7 +801,7 @@ services:
       {
         sourcePath,
         outputPath: "index.md",
-        canonical: "https://docs.openpost.social/",
+        canonical: "https://docs.openpo.st/",
         title: "OpenPost Documentation",
         description: "OpenPost product and operating documentation.",
       },
@@ -819,7 +813,7 @@ services:
         {
           title: "Documentation home",
           description: "Start with OpenPost documentation.",
-          url: "https://docs.openpost.social/index.md",
+          url: "https://docs.openpo.st/index.md",
         },
       ],
     },
@@ -830,9 +824,9 @@ services:
   assert.match(markdown, /^# OpenPost$/m);
   assert.match(markdown, /^Publish everywhere\.$/m);
   assert.match(markdown, /^## Clear outcomes$/m);
-  assert.match(markdown, /\[Read the user guide\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
+  assert.match(markdown, /\[Read the user guide\]\(https:\/\/docs\.openpo\.st\/usage\/\)/);
   assert.match(markdown, /^> \*\*Hosted service plans\*\*$/m);
-  assert.match(markdown, /\[User docs\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
+  assert.match(markdown, /\[User docs\]\(https:\/\/docs\.openpo\.st\/usage\/\)/);
   assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/getopenpost\/openpost:latest$/m);
 });
 
@@ -841,7 +835,7 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
   const sourcePath = path.join(directory, "accounts.md");
   await writeFile(
     sourcePath,
-    "# Accounts\n\nConnect each destination account to the current workspace. [Open settings](https://app.openpost.social/settings).\n\n```md\n# Keep this shell comment.\n[Literal example](/kept-relative)\n```\n",
+    "# Accounts\n\nConnect each destination account to the current workspace. [Open settings](https://app.openpo.st/settings).\n\n```md\n# Keep this shell comment.\n[Literal example](/kept-relative)\n```\n",
   );
   await generateAgentSurface({
     surface: "documentation",
@@ -850,7 +844,7 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
       {
         sourcePath,
         outputPath: "accounts.md",
-        canonical: "https://docs.openpost.social/usage/accounts",
+        canonical: "https://docs.openpo.st/usage/accounts",
         title: "Accounts",
         description: "Connect social accounts to OpenPost.",
       },
@@ -867,7 +861,7 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
   assert.match(markdown, /^# Keep this shell comment\.$/mu);
   assert.match(markdown, /\[Literal example\]\(\/kept-relative\)/u);
   assert.match(markdown, /Open settings/u);
-  assert.doesNotMatch(markdown, /app\.openpost\.social/u);
+  assert.doesNotMatch(markdown, /app\.openpo\.st/u);
 });
 
 test("documentation projection expands controlled includes from the owning source", async () => {
@@ -887,7 +881,7 @@ test("documentation projection expands controlled includes from the owning sourc
       {
         sourcePath,
         outputPath: "installation.md",
-        canonical: "https://docs.openpost.social/installation/module",
+        canonical: "https://docs.openpo.st/installation/module",
         title: "Installation",
         description: "Install OpenPost with a reviewed module.",
       },
@@ -940,7 +934,7 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
       {
         sourcePath,
         outputPath: "providers.md",
-        canonical: "https://docs.openpost.social/providers/",
+        canonical: "https://docs.openpo.st/providers/",
         title: "Providers",
         description: "Review provider requirements and outcomes.",
       },
@@ -984,12 +978,12 @@ test("documentation full corpus groups selected pages with provenance and no rep
   const excludedSource = path.join(directory, "notices.md.source");
   await writeFile(
     includedSource,
-    "# Accounts\n\nConnect a destination. See [Review](https://docs.openpost.social/usage/accounts#review) or [watch a video](https://youtu.be/example).\n\n![Dashboard](https://docs.openpost.social/assets/screenshots/main-dark.png)\n\n## Review\n\nCheck access.\n",
+    "# Accounts\n\nConnect a destination. See [Review](https://docs.openpo.st/usage/accounts#review) or [watch a video](https://youtu.be/example).\n\n![Dashboard](https://docs.openpo.st/assets/screenshots/main-dark.png)\n\n## Review\n\nCheck access.\n",
   );
   await writeFile(excludedSource, "# Notices\n\nLegal notice body must stay separate.\n");
   const page = (overrides) => ({
     outputPath: path.basename(overrides.page),
-    canonical: `https://docs.openpost.social/${overrides.page.replace(/\.md$/u, "")}`,
+    canonical: `https://docs.openpo.st/${overrides.page.replace(/\.md$/u, "")}`,
     title: overrides.title,
     description: `${overrides.title} documentation.`,
     ...overrides,
@@ -1035,15 +1029,15 @@ test("documentation full corpus groups selected pages with provenance and no rep
   assert.match(corpus, /^### Accounts$/m);
   assert.match(
     corpus,
-    /^Source: \[https:\/\/docs\.openpost\.social\/accounts\.md\]\(https:\/\/docs\.openpost\.social\/accounts\.md\)$/m,
+    /^Source: \[https:\/\/docs\.openpo\.st\/accounts\.md\]\(https:\/\/docs\.openpo\.st\/accounts\.md\)$/m,
   );
   assert.match(
     corpus,
-    /See \[Review\]\(https:\/\/docs\.openpost\.social\/accounts\.md#review\) or watch a video\./u,
+    /See \[Review\]\(https:\/\/docs\.openpo\.st\/accounts\.md#review\) or watch a video\./u,
   );
   assert.match(
     corpus,
-    /!\[Dashboard\]\(https:\/\/docs\.openpost\.social\/assets\/screenshots\/main-dark\.png\)/u,
+    /!\[Dashboard\]\(https:\/\/docs\.openpo\.st\/assets\/screenshots\/main-dark\.png\)/u,
   );
   assert.doesNotMatch(corpus, /youtu\.be/u);
   assert.match(corpus, /^#### Review$/m);
@@ -1062,7 +1056,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
     pages.push({
       sourcePath,
       outputPath: `large-${index}.md`,
-      canonical: `https://docs.openpost.social/development/large-${index}`,
+      canonical: `https://docs.openpo.st/development/large-${index}`,
       title: `Large ${index}`,
       description: `Large documentation page ${index}.`,
       catalog: {
@@ -1106,7 +1100,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
       {
         sourcePath: exactSource,
         outputPath: "exact.md",
-        canonical: "https://docs.openpost.social/development/exact-boundary",
+        canonical: "https://docs.openpo.st/development/exact-boundary",
         title: "Exact boundary",
         description: "Exact corpus boundary fixture.",
         catalog: {
@@ -1145,7 +1139,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
     surface: "marketing",
     outputDirectory: directory,
     pages: [{ sourcePath: htmlPath, outputPath: "index.md" }],
-    knownCanonicalURLs: ["https://openpost.social/", "https://openpost.social/features"],
+    knownCanonicalURLs: ["https://openpo.st/", "https://openpo.st/features"],
     discovery: {
       title: "OpenPost",
       description: "Public product information.",
@@ -1153,7 +1147,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         {
           title: "OpenPost overview",
           description: "Public product information.",
-          url: "https://openpost.social/index.md",
+          url: "https://openpo.st/index.md",
         },
       ],
     },
@@ -1172,7 +1166,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       pages: ["first.md", "second.md"].map((outputPath) => ({
         sourcePath: docsSource,
         outputPath,
-        canonical: "https://docs.openpost.social/guide",
+        canonical: "https://docs.openpo.st/guide",
         title: "Public guide",
         description: "One maintained page.",
       })),
@@ -1182,7 +1176,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [],
       },
     }),
-    /duplicate canonical route: https:\/\/docs\.openpost\.social\/guide/u,
+    /duplicate canonical route: https:\/\/docs\.openpo\.st\/guide/u,
   );
   await assert.rejects(
     generateAgentSurface({
@@ -1192,7 +1186,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [
           {
             ...base.discovery.links[0],
-            url: "https://openpost.social/missing.md",
+            url: "https://openpo.st/missing.md",
           },
         ],
       },
@@ -1207,7 +1201,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [
           {
             ...base.discovery.links[0],
-            url: "https://docs.openpost.social/does-not-exist.md",
+            url: "https://docs.openpo.st/does-not-exist.md",
           },
         ],
       },
@@ -1234,7 +1228,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [
           {
             ...base.discovery.links[0],
-            url: "https://app.openpost.social/publications.md",
+            url: "https://app.openpo.st/publications.md",
           },
         ],
       },
@@ -1249,7 +1243,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [
           {
             ...base.discovery.links[0],
-            url: "https://app.openpost.social/workspaces",
+            url: "https://app.openpo.st/workspaces",
           },
         ],
       },
@@ -1269,7 +1263,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         {
           sourcePath: docsSource,
           outputPath: "guide.md",
-          canonical: "https://docs.openpost.social/guide",
+          canonical: "https://docs.openpo.st/guide",
           title: "Public guide",
           description: "Useful public instructions.",
         },
@@ -1280,7 +1274,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [],
       },
     }),
-    /https:\/\/docs\.openpost\.social\/guide: generated representation contains serialized application state/u,
+    /https:\/\/docs\.openpo\.st\/guide: generated representation contains serialized application state/u,
   );
 
   await writeFile(
@@ -1292,22 +1286,22 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   );
   await assert.rejects(
     generateAgentSurface(base),
-    /https:\/\/openpost\.social\/: broken internal link.*\/missing/u,
+    /https:\/\/openpo\.st\/: broken internal link.*\/missing/u,
   );
 
   await writeFile(
     htmlPath,
     marketingHTML.replace(
       '<a href="/features">See the features</a>',
-      '<a href="https://docs.openpost.social/does-not-exist">Missing docs page</a>',
+      '<a href="https://docs.openpo.st/does-not-exist">Missing docs page</a>',
     ),
   );
   await assert.rejects(
     generateAgentSurface({
       ...base,
-      knownCanonicalURLs: [...base.knownCanonicalURLs, "https://docs.openpost.social/usage/"],
+      knownCanonicalURLs: [...base.knownCanonicalURLs, "https://docs.openpo.st/usage/"],
     }),
-    /https:\/\/openpost\.social\/: broken internal link.*docs\.openpost\.social\/does-not-exist/u,
+    /https:\/\/openpo\.st\/: broken internal link.*docs\.openpo\.st\/does-not-exist/u,
   );
 
   await writeFile(
@@ -1319,7 +1313,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   );
   await assert.rejects(
     generateAgentSurface(base),
-    /https:\/\/openpost\.social\/: broken internal fragment #missing-section/u,
+    /https:\/\/openpo\.st\/: broken internal fragment #missing-section/u,
   );
 
   const featuresPath = path.join(directory, "features.html");
@@ -1336,12 +1330,12 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       ...base,
       fragmentSources: [
         {
-          canonical: "https://openpost.social/features",
+          canonical: "https://openpo.st/features",
           sourcePath: featuresPath,
         },
       ],
     }),
-    /https:\/\/openpost\.social\/: broken internal fragment #missing-section/u,
+    /https:\/\/openpo\.st\/: broken internal fragment #missing-section/u,
   );
 
   await writeFile(
@@ -1353,7 +1347,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   );
   await assert.rejects(
     generateAgentSurface(base),
-    /https:\/\/openpost\.social\/: unsupported meaning-bearing <canvas>/u,
+    /https:\/\/openpo\.st\/: unsupported meaning-bearing <canvas>/u,
   );
 });
 
@@ -1478,13 +1472,13 @@ test(
     for (const production of [
       {
         directory: path.join(root, "marketing-site/dist"),
-        canonical: "https://openpost.social/",
-        discoveryTarget: "https://openpost.social/index.md",
+        canonical: "https://openpo.st/",
+        discoveryTarget: "https://openpo.st/index.md",
       },
       {
         directory: path.join(root, "docs-site/.vitepress/dist"),
-        canonical: "https://docs.openpost.social",
-        discoveryTarget: "https://docs.openpost.social/index.md",
+        canonical: "https://docs.openpo.st",
+        discoveryTarget: "https://docs.openpo.st/index.md",
       },
     ]) {
       const markdown = await readFile(path.join(production.directory, "index.md"), "utf8");
@@ -1550,8 +1544,7 @@ test(
             node.tagName === "link" &&
             documentAttribute(node, "rel") === "alternate" &&
             documentAttribute(node, "type") === "text/markdown" &&
-            documentAttribute(node, "href") ===
-              new URL(outputPath, "https://openpost.social/").href,
+            documentAttribute(node, "href") === new URL(outputPath, "https://openpo.st/").href,
         ),
         `${route.canonical} must advertise its explicit Markdown artifact`,
       );
@@ -1568,7 +1561,7 @@ test(
         markdownOutsideFences(markdown),
         /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]/imu,
       );
-      assert.doesNotMatch(markdown, /Navigation noise|https:\/\/app\.openpost\.social/u);
+      assert.doesNotMatch(markdown, /Navigation noise|https:\/\/app\.openpo\.st/u);
       assert.doesNotMatch(markdownOutsideFences(markdown), /\]\((?:\/|\.\.\/|\.\/)/u);
     }
 
@@ -1581,7 +1574,7 @@ test(
       (entry) => entry.agentDiscovery.membership === "primary",
     )) {
       const output = route.path === "/" ? "index.md" : `${route.path.slice(1)}.md`;
-      assert.match(marketingDiscovery, new RegExp(`https://openpost\\.social/${output}`));
+      assert.match(marketingDiscovery, new RegExp(`https://openpo\\.st/${output}`));
     }
     assert.match(marketingDiscovery, /^## Optional$/m);
     assert.doesNotMatch(marketingDiscovery, /privacy\.md|terms\.md|refunds\.md|changelog\.md/u);
@@ -1649,7 +1642,7 @@ test(
     const features = await readFile(path.join(marketingDirectory, "features.md"), "utf8");
     assert.match(
       features,
-      /!\[OpenPost publication composer with destination-specific versions\]\(https:\/\/openpost\.social\/assets\/screenshots\/main-dark\.png\)/u,
+      /!\[OpenPost publication composer with destination-specific versions\]\(https:\/\/openpo\.st\/assets\/screenshots\/main-dark\.png\)/u,
     );
     assert.deepEqual(
       featureGroups.map(({ id }) => id).toSorted(),
@@ -1718,16 +1711,16 @@ test(
       });
       assert.ok(
         html.includes(
-          `rel="alternate" type="text/markdown" href="${new URL(entry.page, "https://docs.openpost.social/").href}"`,
+          `rel="alternate" type="text/markdown" href="${new URL(entry.page, "https://docs.openpo.st/").href}"`,
         ),
       );
       assert.match(
         html,
-        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpost\.social\/llms-full\.txt"/u,
+        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpo\.st\/llms-full\.txt"/u,
       );
       assert.match(
         html,
-        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpost\.social\/llms\.txt"/u,
+        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpo\.st\/llms\.txt"/u,
       );
       assert.ok(markdown.includes(`\nTitle: ${entry.socialTitle}\n`));
       assert.ok(markdown.includes(`\nDescription: ${entry.description}\n`));
@@ -1741,7 +1734,7 @@ test(
       assert.doesNotMatch(markdownOutsideFences(markdown), /\]\((?:\/|\.\.\/|\.\/)/u);
       assert.doesNotMatch(
         markdownOutsideFences(markdown),
-        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]|\]\(https:\/\/app\.openpost\.social/imu,
+        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]|\]\(https:\/\/app\.openpo\.st/imu,
       );
     }
 
@@ -1760,15 +1753,12 @@ test(
       assert.match(docsDiscovery, new RegExp(`^## ${title}$`, "m"));
       const entry = docsSocialEntries.find((candidate) => candidate.agentDiscovery.section === key);
       assert.ok(entry);
-      assert.ok(docsDiscovery.includes(new URL(entry.page, "https://docs.openpost.social/").href));
+      assert.ok(docsDiscovery.includes(new URL(entry.page, "https://docs.openpo.st/").href));
     }
+    assert.match(docsDiscovery, /\[OpenAPI JSON\]\(https:\/\/docs\.openpo\.st\/openapi\.json\)/u);
     assert.match(
       docsDiscovery,
-      /\[OpenAPI JSON\]\(https:\/\/docs\.openpost\.social\/openapi\.json\)/u,
-    );
-    assert.match(
-      docsDiscovery,
-      /\[OpenPost documentation full corpus\]\(https:\/\/docs\.openpost\.social\/llms-full\.txt\)/u,
+      /\[OpenPost documentation full corpus\]\(https:\/\/docs\.openpo\.st\/llms-full\.txt\)/u,
     );
     assert.ok(Buffer.byteLength(docsCorpus, "utf8") < 1024 * 1024);
     assert.match(docsCorpus, /OpenPost convenience artifact/u);
@@ -1783,7 +1773,7 @@ test(
       /^### (?:Privacy Policy|Terms of Service|Refund Policy|Changelog)$/m,
     );
     for (const entry of docsSocialEntries) {
-      const artifact = new URL(entry.page, "https://docs.openpost.social/").href;
+      const artifact = new URL(entry.page, "https://docs.openpo.st/").href;
       const provenance = `Source: [${artifact}](${artifact})`;
       if (entry.agentCorpus.membership === "included") {
         assert.ok(docsCorpus.includes(provenance), `${entry.page} is missing from llms-full.txt`);
@@ -1799,7 +1789,7 @@ test(
       (candidate) => candidate.agentDiscovery.membership === "unlisted",
     )) {
       assert.equal(
-        docsDiscovery.includes(`(${new URL(entry.page, "https://docs.openpost.social/").href})`),
+        docsDiscovery.includes(`(${new URL(entry.page, "https://docs.openpo.st/").href})`),
         false,
       );
     }

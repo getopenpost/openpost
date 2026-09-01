@@ -107,9 +107,9 @@ describe('composer preview mapping', () => {
 				visibility: 'unlisted',
 				poll_options: ['Previews', 'Analytics'],
 				poll_duration_minutes: 30,
-				link_url: 'https://openpost.social/tools',
+				link_url: 'https://example.com/tools',
 				link_title: 'Free social tools',
-				link_image_url: 'https://openpost.social/social-card.png',
+				link_image_url: 'https://example.com/social-card.png',
 				location_name: 'Lisbon'
 			}
 		});
@@ -126,8 +126,8 @@ describe('composer preview mapping', () => {
 			card: {
 				kind: 'link',
 				title: 'Free social tools',
-				domain: 'openpost.social',
-				imageUrl: 'https://openpost.social/social-card.png'
+				domain: 'example.com',
+				imageUrl: 'https://example.com/social-card.png'
 			},
 			location: 'Lisbon'
 		});

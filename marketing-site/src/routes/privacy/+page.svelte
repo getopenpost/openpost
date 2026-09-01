@@ -90,7 +90,7 @@
 
 		<h2>1. Who is responsible</h2>
 		<p>
-			The hosted OpenPost service at <a href="https://app.openpost.social">app.openpost.social</a>
+			The hosted OpenPost service at <a href="https://app.openpo.st">app.openpo.st</a>
 			is operated by Rodrigo Dias in Porto, Portugal. For privacy requests, email
 			<a href="mailto:openpost@rgo.pt">openpost@rgo.pt</a>. OpenPost is the data controller for
 			account and service data described in this policy.

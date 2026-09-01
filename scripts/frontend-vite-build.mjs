@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -30,6 +30,25 @@ export function parseFrontendBuildArguments(args) {
   if (args.length === 0) return {};
 
   throw new Error(`Unsupported frontend build arguments: ${args.join(" ") || "(none)"}`);
+}
+
+const uncompiledRuneCall =
+  /\$(?:state|derived|effect|props|bindable|inspect|host)(?:\.[A-Za-z]+)?\s*\(/;
+
+export async function validateCompiledWorkerRunes(workerDirectory) {
+  const entries = await readdir(workerDirectory, { recursive: true, withFileTypes: true });
+  const invalidFiles = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+    const filePath = path.join(entry.parentPath, entry.name);
+    const contents = await readFile(filePath, "utf8");
+    if (uncompiledRuneCall.test(contents)) {
+      invalidFiles.push(path.relative(workerDirectory, filePath));
+    }
+  }
+  if (invalidFiles.length > 0) {
+    throw new Error(`Uncompiled Svelte rune calls in worker output: ${invalidFiles.join(", ")}`);
+  }
 }
 
 export async function runFrontendViteBuild() {
@@ -70,6 +89,9 @@ export async function runFrontendViteBuild() {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
   if (exitStatus !== 0) process.exit(exitStatus);
+  await validateCompiledWorkerRunes(
+    path.join(repositoryRoot, "frontend/build/_app/immutable/workers"),
+  );
 }
 
 const isEntrypoint =

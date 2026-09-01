@@ -2072,6 +2072,29 @@
 				"required": ["current_password", "name"],
 				"type": "object"
 			},
+			"BillingCheckoutConfigResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/BillingCheckoutConfigResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"client_token": {
+						"description": "Browser-safe Paddle.js client token",
+						"type": "string"
+					},
+					"environment": {
+						"description": "Explicit Paddle.js environment",
+						"enum": ["sandbox", "production"],
+						"type": "string"
+					}
+				},
+				"required": ["client_token", "environment"],
+				"type": "object"
+			},
 			"BillingStatusResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -18437,16 +18460,16 @@
 	},
 	"info": {
 		"contact": {
-			"email": "openpost@rgo.pt",
+			"email": "hello@openpo.st",
 			"name": "OpenPost support",
-			"url": "https://openpost.social/contact"
+			"url": "https://openpo.st/contact"
 		},
 		"description": "OpenPost HTTP API for workspace-scoped social publishing. Use it to inspect accounts and provider readiness, manage media and publications, schedule work, and read publishing results. Every operation still follows token scopes, workspace roles, plan limits, provider capabilities, and destination validation.",
 		"license": {
 			"identifier": "AGPL-3.0-only",
 			"name": "AGPL-3.0-only"
 		},
-		"termsOfService": "https://openpost.social/terms",
+		"termsOfService": "https://openpo.st/terms",
 		"title": "OpenPost API",
 		"version": "1.0.0"
 	},
@@ -25700,6 +25723,46 @@
 					}
 				},
 				"summary": "Create billing checkout",
+				"tags": ["Billing"]
+			}
+		},
+		"/billing/checkout/config": {
+			"get": {
+				"description": "Returns only the browser-safe Paddle.js token and environment needed by Paddle transaction payment links.",
+				"operationId": "get-billing-checkout-config",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/BillingCheckoutConfigResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Get public Paddle checkout configuration",
 				"tags": ["Billing"]
 			}
 		},
@@ -42354,7 +42417,7 @@
 	"servers": [
 		{
 			"description": "OpenPost Hosted service",
-			"url": "https://app.openpost.social/api/v1"
+			"url": "https://app.openpo.st/api/v1"
 		},
 		{
 			"description": "The OpenPost instance serving this contract",

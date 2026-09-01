@@ -75,4 +75,4 @@ openpost-mcp --profile local
 
 Prefer a workspace-scoped `mcp:read` token for audit and readiness work. Switch to `mcp:full` only when the agent must create or change OpenPost data. Never paste provider credentials, `OPENPOST_ENCRYPTION_KEY`, `OPENPOST_JWT_SECRET`, or server secrets into an agent prompt.
 
-See the [MCP documentation](https://docs.openpost.social/mcp/) for current connection steps.
+See the [MCP documentation](https://docs.openpo.st/mcp/) for current connection steps.

@@ -1,6 +1,6 @@
 {
   "name": "@getopenpost/n8n-nodes-openpost",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official n8n community node for OpenPost publishing automation.",
   "keywords": [
     "n8n",
@@ -9,11 +9,11 @@
     "publishing",
     "social-media"
   ],
-  "homepage": "https://openpost.dev",
+  "homepage": "https://openpo.st",
   "license": "MIT",
   "author": {
     "name": "OpenPost",
-    "email": "support@openpost.dev"
+    "email": "hello@openpo.st"
   },
   "repository": {
     "type": "git",

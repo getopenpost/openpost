@@ -4,13 +4,13 @@ import { destinationState, workspaceEmptyState } from "./first-use";
 
 describe("first-use recovery", () => {
   test("gives a user without workspaces web, retry, and sign-in actions", () => {
-    const state = workspaceEmptyState("https://app.openpost.social");
+    const state = workspaceEmptyState("https://app.openpo.st");
 
     expect(state.actions).toEqual([
       {
         kind: "open-url",
         label: "Open web app",
-        url: "https://app.openpost.social",
+        url: "https://app.openpo.st",
       },
       { kind: "retry", label: "Retry" },
       {

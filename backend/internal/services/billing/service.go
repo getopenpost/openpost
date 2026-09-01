@@ -182,6 +182,23 @@ type CheckoutResult struct {
 	WorkspaceID     string
 }
 
+type BrowserCheckoutConfig struct {
+	ClientToken string
+	Environment string
+}
+
+func (s *Service) BrowserCheckoutConfig() (BrowserCheckoutConfig, error) {
+	environment := strings.ToLower(strings.TrimSpace(s.paddle.Environment))
+	if environment != "sandbox" && environment != "production" {
+		return BrowserCheckoutConfig{}, configurationError("OPENPOST_PADDLE_ENVIRONMENT must be explicitly set to sandbox or production")
+	}
+	clientToken := strings.TrimSpace(s.paddle.ClientToken)
+	if clientToken == "" {
+		return BrowserCheckoutConfig{}, configurationError("OPENPOST_PADDLE_CLIENT_TOKEN is required")
+	}
+	return BrowserCheckoutConfig{ClientToken: clientToken, Environment: environment}, nil
+}
+
 type ConfirmFirstWorkspaceInput struct {
 	UserID, CustomerEmail, WorkspaceName, ReturnPath, ConfirmationKey string
 	Choice                                                            PurchaseChoice
@@ -294,13 +311,9 @@ func (s *Service) CreateCheckoutWithDB(ctx context.Context, db bun.IDB, input Cr
 	if err != nil {
 		return CheckoutResult{}, err
 	}
-	environment := strings.ToLower(strings.TrimSpace(s.paddle.Environment))
-	if environment != "sandbox" && environment != "production" {
-		return CheckoutResult{}, configurationError("OPENPOST_PADDLE_ENVIRONMENT must be explicitly set to sandbox or production")
-	}
-	clientToken := strings.TrimSpace(s.paddle.ClientToken)
-	if clientToken == "" {
-		return CheckoutResult{}, configurationError("OPENPOST_PADDLE_CLIENT_TOKEN is required")
+	browserConfig, err := s.BrowserCheckoutConfig()
+	if err != nil {
+		return CheckoutResult{}, err
 	}
 	organizationID := strings.TrimSpace(input.OrganizationID)
 	if organizationID == "" {
@@ -346,8 +359,8 @@ func (s *Service) CreateCheckoutWithDB(ctx context.Context, db bun.IDB, input Cr
 		BillingPeriod:   period,
 		TrialEndsAt:     now.AddDate(0, 0, TrialDays),
 		ReturnURL:       s.returnURL(attemptID),
-		ClientToken:     clientToken,
-		Environment:     environment,
+		ClientToken:     browserConfig.ClientToken,
+		Environment:     browserConfig.Environment,
 		CustomerEmail:   email,
 		WorkspaceID:     strings.TrimSpace(input.WorkspaceID),
 	}, nil
@@ -372,13 +385,9 @@ func (s *Service) ResumeCheckout(ctx context.Context, db bun.IDB, attemptID, use
 	if err != nil || providerPriceID != attempt.ProviderPriceID {
 		return CheckoutResult{}, attempt, ErrPurchaseChoiceMismatch
 	}
-	environment := strings.ToLower(strings.TrimSpace(s.paddle.Environment))
-	clientToken := strings.TrimSpace(s.paddle.ClientToken)
-	if environment != "sandbox" && environment != "production" {
-		return CheckoutResult{}, attempt, configurationError("OPENPOST_PADDLE_ENVIRONMENT must be explicitly set to sandbox or production")
-	}
-	if clientToken == "" {
-		return CheckoutResult{}, attempt, configurationError("OPENPOST_PADDLE_CLIENT_TOKEN is required")
+	browserConfig, err := s.BrowserCheckoutConfig()
+	if err != nil {
+		return CheckoutResult{}, attempt, err
 	}
 	return CheckoutResult{
 		URL:             s.checkoutURL(attempt.PlanID, attempt.BillingPeriod),
@@ -389,8 +398,8 @@ func (s *Service) ResumeCheckout(ctx context.Context, db bun.IDB, attemptID, use
 		BillingPeriod:   attempt.BillingPeriod,
 		TrialEndsAt:     attempt.CreatedAt.UTC().AddDate(0, 0, TrialDays),
 		ReturnURL:       s.returnURL(attempt.CheckoutAttemptID),
-		ClientToken:     clientToken,
-		Environment:     environment,
+		ClientToken:     browserConfig.ClientToken,
+		Environment:     browserConfig.Environment,
 		CustomerEmail:   strings.TrimSpace(customerEmail),
 		WorkspaceID:     attempt.WorkspaceID,
 	}, attempt, nil

@@ -14,6 +14,196 @@
   },
   "entries": [
     {
+      "id": "hostname.app-legacy",
+      "kind": "hostname",
+      "owner": "hosted-operations",
+      "status": "retained",
+      "hostnames": ["app.openpost.social"],
+      "decision": "Keep the former Hosted app, API, OAuth, MCP, callback, and webhook host serving the same deployment during the migration window. Do not blanket-redirect it.",
+      "replacement": {
+        "status": "available",
+        "operations": ["https://app.openpo.st"],
+        "notes": "New clients use app.openpo.st. Existing browser sessions remain host-bound, passkeys require reenrollment, and MCP clients reconnect when issuer or audience binding prevents reuse."
+      },
+      "migration_path": "Move public discovery and new client defaults to app.openpo.st. Keep app.openpost.social live for old clients, callbacks, links, and webhooks while their traffic is measured.",
+      "compatibility": {
+        "minimum_until": "2027-08-31",
+        "retirement_condition": "At least 12 months have passed, 30 consecutive days show no supported old-host traffic, every client and provider callback class has migration evidence, and a separate review authorizes retirement."
+      },
+      "notice": { "announced_on": null, "announced_version": null, "locations": [] },
+      "removal": { "earliest_on": null, "removal_version": null },
+      "telemetry": {
+        "hostnames": ["app.openpost.social"],
+        "observation_started_on": "2026-08-31",
+        "observation_ended_on": null,
+        "evidence": [],
+        "consumers": {
+          "web": {
+            "status": "known-use",
+            "evidence": "Existing browser sessions and links are bound to the former host."
+          },
+          "cli": {
+            "status": "known-use",
+            "evidence": "Existing Hosted profiles may store the former instance URL."
+          },
+          "mcp": {
+            "status": "known-use",
+            "evidence": "Existing registrations and OAuth resources may name the former MCP endpoint."
+          },
+          "mcp-media": {
+            "status": "known-use",
+            "evidence": "Supported MCP media clients may retain the former resource host."
+          },
+          "n8n": {
+            "status": "known-use",
+            "evidence": "Existing credentials may store the former Base URL."
+          },
+          "api": {
+            "status": "known-use",
+            "evidence": "External API clients, callbacks, links, and webhooks may name the former host."
+          }
+        }
+      }
+    },
+    {
+      "id": "hostname.media-legacy",
+      "kind": "hostname",
+      "owner": "media-storage",
+      "status": "retained",
+      "hostnames": ["media.openpost.social"],
+      "decision": "Keep the former R2 custom domain available indefinitely unless a complete stored-link and provider-fetch audit proves removal safe.",
+      "replacement": {
+        "status": "available",
+        "operations": ["https://media.openpo.st"],
+        "notes": "New media URLs use media.openpo.st. Existing public posts, stored records, queued jobs, and provider fetches may retain immutable old URLs."
+      },
+      "migration_path": "Use media.openpo.st for newly generated public URLs and keep media.openpost.social attached to the same bucket without redirecting it.",
+      "compatibility": {
+        "minimum_until": null,
+        "retirement_condition": "A complete audit proves no persisted link, queued job, provider fetch, public post, or supported client still needs the former hostname. Indefinite retention is acceptable."
+      },
+      "notice": { "announced_on": null, "announced_version": null, "locations": [] },
+      "removal": { "earliest_on": null, "removal_version": null },
+      "telemetry": {
+        "hostnames": ["media.openpost.social"],
+        "observation_started_on": "2026-08-31",
+        "observation_ended_on": null,
+        "evidence": [],
+        "consumers": {
+          "web": { "status": "pending", "evidence": null },
+          "cli": { "status": "pending", "evidence": null },
+          "mcp": { "status": "pending", "evidence": null },
+          "mcp-media": { "status": "pending", "evidence": null },
+          "n8n": { "status": "pending", "evidence": null },
+          "api": { "status": "pending", "evidence": null }
+        }
+      }
+    },
+    {
+      "id": "hostname.public-redirects",
+      "kind": "hostname",
+      "owner": "public-surface-operators",
+      "status": "retained",
+      "hostnames": ["openpost.social", "docs.openpost.social"],
+      "decision": "Keep the former marketing and documentation hosts as permanent path-and-query-preserving redirects after the canonical cutover.",
+      "replacement": {
+        "status": "available",
+        "operations": ["https://openpo.st", "https://docs.openpo.st"],
+        "notes": "The new hosts own canonical output, Markdown negotiation, sitemaps, robots, feeds, and metadata."
+      },
+      "migration_path": "Switch the Pages canonicals first, verify the new deployments, then apply one permanent redirect from each old host while preserving documentation slash rules.",
+      "compatibility": {
+        "minimum_until": null,
+        "retirement_condition": "Redirect ownership may move, but both old hostnames must continue serving one proven permanent redirect without a chain."
+      },
+      "notice": { "announced_on": null, "announced_version": null, "locations": [] },
+      "removal": { "earliest_on": null, "removal_version": null },
+      "telemetry": {
+        "hostnames": ["openpost.social", "docs.openpost.social"],
+        "observation_started_on": "2026-08-31",
+        "observation_ended_on": null,
+        "evidence": [],
+        "consumers": {
+          "web": {
+            "status": "known-use",
+            "evidence": "Published links and search indexes contain both former public hosts."
+          },
+          "cli": {
+            "status": "not-applicable",
+            "evidence": "CLI API traffic uses the Hosted app hostname, not marketing or docs redirects."
+          },
+          "mcp": {
+            "status": "not-applicable",
+            "evidence": "MCP traffic uses the Hosted app hostname."
+          },
+          "mcp-media": {
+            "status": "not-applicable",
+            "evidence": "MCP media traffic uses app and media hosts."
+          },
+          "n8n": {
+            "status": "not-applicable",
+            "evidence": "n8n API traffic uses the Hosted app hostname."
+          },
+          "api": {
+            "status": "not-applicable",
+            "evidence": "API traffic uses the Hosted app hostname."
+          }
+        }
+      }
+    },
+    {
+      "id": "hostname.telemetry-legacy",
+      "kind": "hostname",
+      "owner": "telemetry",
+      "status": "retained",
+      "hostnames": ["cool.openpost.social"],
+      "decision": "Keep the former PostHog reverse proxy available while supported browser bundles can still send to it.",
+      "replacement": {
+        "status": "available",
+        "operations": ["https://cool.openpo.st"],
+        "notes": "New Hosted, marketing, and documentation builds use cool.openpo.st after the staged Pages transition."
+      },
+      "migration_path": "Accept both proxies during the build-variable transition, move every production and preview environment to cool.openpo.st, then measure the old proxy before removal.",
+      "compatibility": {
+        "minimum_until": "2026-11-29",
+        "retirement_condition": "At least 90 days have passed since the last old bundle deployment and 30 consecutive days show no supported events through the former proxy."
+      },
+      "notice": { "announced_on": null, "announced_version": null, "locations": [] },
+      "removal": { "earliest_on": null, "removal_version": null },
+      "telemetry": {
+        "hostnames": ["cool.openpost.social"],
+        "observation_started_on": "2026-08-31",
+        "observation_ended_on": null,
+        "evidence": [],
+        "consumers": {
+          "web": {
+            "status": "known-use",
+            "evidence": "Previously deployed browser bundles send first-party telemetry through the former proxy."
+          },
+          "cli": {
+            "status": "not-applicable",
+            "evidence": "The CLI does not use the browser telemetry proxy."
+          },
+          "mcp": {
+            "status": "not-applicable",
+            "evidence": "MCP does not use the browser telemetry proxy."
+          },
+          "mcp-media": {
+            "status": "not-applicable",
+            "evidence": "MCP media does not use the browser telemetry proxy."
+          },
+          "n8n": {
+            "status": "not-applicable",
+            "evidence": "The n8n package does not use the browser telemetry proxy."
+          },
+          "api": {
+            "status": "not-applicable",
+            "evidence": "Server-side telemetry uses the direct API host."
+          }
+        }
+      }
+    },
+    {
       "id": "rest.posts.legacy-write",
       "kind": "rest",
       "owner": "publishing",

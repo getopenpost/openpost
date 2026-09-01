@@ -121,7 +121,10 @@ func (s *Service) loadOrRegister(ctx context.Context, instanceURL, host string) 
 		Where("instance_url = ?", instanceURL).
 		Scan(ctx)
 	if err == nil {
-		return instance, nil
+		if !instance.BlockedAt.IsZero() || instance.RedirectURI == s.redirectURI {
+			return instance, nil
+		}
+		return s.reregisterApp(ctx, instance)
 	}
 	if err != sql.ErrNoRows {
 		return instance, fmt.Errorf("failed to load mastodon instance: %w", err)
@@ -160,6 +163,52 @@ func (s *Service) loadOrRegister(ctx context.Context, instanceURL, host string) 
 		}
 		return instance, fmt.Errorf("failed to save mastodon instance app: %w", err)
 	}
+	return instance, nil
+}
+
+func (s *Service) reregisterApp(ctx context.Context, instance models.MastodonInstance) (models.MastodonInstance, error) {
+	app, err := s.registerApp(ctx, instance.InstanceURL)
+	if err != nil {
+		return instance, fmt.Errorf("failed to update Mastodon app redirect URI: %w", err)
+	}
+	secretEnc, err := s.encryptor.Encrypt(app.ClientSecret)
+	if err != nil {
+		return instance, fmt.Errorf("failed to encrypt updated Mastodon app secret: %w", err)
+	}
+
+	now := time.Now().UTC()
+	result, err := s.db.NewUpdate().
+		Model((*models.MastodonInstance)(nil)).
+		Set("client_id = ?", app.ClientID).
+		Set("client_secret_encrypted = ?", secretEnc).
+		Set("redirect_uri = ?", s.redirectURI).
+		Set("registration_status = ?", registrationStatusActive).
+		Set("last_verified_at = ?", now).
+		Set("updated_at = ?", now).
+		Where("id = ?", instance.ID).
+		Where("redirect_uri = ?", instance.RedirectURI).
+		Where("blocked_at IS NULL").
+		Exec(ctx)
+	if err != nil {
+		return instance, fmt.Errorf("failed to save updated Mastodon app: %w", err)
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return instance, fmt.Errorf("failed to inspect updated Mastodon app: %w", err)
+	}
+	if updated == 0 {
+		if err := s.db.NewSelect().Model(&instance).Where("id = ?", instance.ID).Scan(ctx); err != nil {
+			return instance, fmt.Errorf("failed to reload Mastodon app after concurrent update: %w", err)
+		}
+		return instance, nil
+	}
+
+	instance.ClientID = app.ClientID
+	instance.ClientSecretEnc = secretEnc
+	instance.RedirectURI = s.redirectURI
+	instance.RegistrationStatus = registrationStatusActive
+	instance.LastVerifiedAt = now
+	instance.UpdatedAt = now
 	return instance, nil
 }
 

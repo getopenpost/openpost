@@ -1,6 +1,6 @@
 # Nix Module
 
-OpenPost can also run through a NixOS module. The hosted app at `https://app.openpost.social` uses this setup.
+OpenPost can also run through a NixOS module. The hosted app at `https://app.openpo.st` uses this setup.
 
 This page is for NixOS operators. The module requires an existing reverse proxy and explicit secret management.
 

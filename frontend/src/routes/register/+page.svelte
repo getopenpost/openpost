@@ -343,7 +343,7 @@
 				<Label for="legal-acceptance" class="block min-w-0 flex-1 text-sm leading-5 font-normal">
 					{m.auth_register_legal_prefix()}
 					<a
-						{...externalHref(authConfiguration.terms_url, 'https://openpost.social/terms')}
+						{...externalHref(authConfiguration.terms_url, 'https://openpo.st/terms')}
 						target="_blank"
 						rel="noreferrer"
 						class="font-medium text-primary underline-offset-4 hover:underline"
@@ -351,7 +351,7 @@
 					>
 					{m.auth_register_legal_join()}
 					<a
-						{...externalHref(authConfiguration.privacy_url, 'https://openpost.social/privacy')}
+						{...externalHref(authConfiguration.privacy_url, 'https://openpo.st/privacy')}
 						target="_blank"
 						rel="noreferrer"
 						class="font-medium text-primary underline-offset-4 hover:underline"

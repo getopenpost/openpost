@@ -10,7 +10,7 @@ An authorized agent can inspect workspace context and prepare a canonical campai
 
 The queue keeps scheduled work, provider results, failures, and retries visible. The Hosted service and self-hosted deployment are the same AGPL product; the self-hosted runtime is one binary or container with SQLite by default and no required Redis service.
 
-See the workflow: https://openpost.social
+See the workflow: https://openpo.st
 
 `[ATTACH THE VERIFIED DEMO VIDEO]`
 

@@ -25,3 +25,5 @@ OpenPost Video Editor uses:
 Video Editor models download from their configured upstream repositories only when the related tool starts, then remain in browser Cache Storage or OPFS until removed. The MOSS browser runtime and retained notices ship under `frontend/static/moss-tts/`; model weights are not bundled.
 
 OpenPost does not include or import code, styles, utilities, or components from the commercial shadcn Designer package.
+
+OpenPost social image layouts adapt the Grid and ShadcnRegistry6 components from [ogimagecn](https://github.com/shadcn-labs/ogimagecn) at commit `8e385d1c914fd7dc04bc0cba6dbcad86ca58271d` under the MIT License. The retained license is in `licenses/OGIMAGECN.txt`.

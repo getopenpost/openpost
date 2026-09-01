@@ -48,12 +48,12 @@ Set these values in the process environment or in **Settings → Instance → Co
 OPENPOST_TELEMETRY_ENABLED=true
 OPENPOST_POSTHOG_PROJECT_TOKEN=phc_operator_owned_project_token
 OPENPOST_POSTHOG_API_HOST=https://eu.i.posthog.com
-OPENPOST_POSTHOG_BROWSER_HOST=https://cool.openpost.social
+OPENPOST_POSTHOG_BROWSER_HOST=https://cool.openpo.st
 OPENPOST_POSTHOG_UI_HOST=https://eu.posthog.com
 OPENPOST_TELEMETRY_ENVIRONMENT=production
 ```
 
-`OPENPOST_POSTHOG_API_HOST` is the direct server-side ingestion endpoint. `OPENPOST_POSTHOG_BROWSER_HOST` may be a first-party reverse proxy. Cloud mode defaults to the Hosted service `https://cool.openpost.social` proxy; self-hosted deployments fall back to the direct API host unless the operator sets a proxy. A browser proxy must forward PostHog ingestion and static asset paths and support `GET` and `POST`. Keep `OPENPOST_POSTHOG_UI_HOST` set to the real PostHog UI host.
+`OPENPOST_POSTHOG_API_HOST` is the direct server-side ingestion endpoint. `OPENPOST_POSTHOG_BROWSER_HOST` may be a first-party reverse proxy. Cloud mode defaults to the Hosted service `https://cool.openpo.st` proxy; self-hosted deployments fall back to the direct API host unless the operator sets a proxy. A browser proxy must forward PostHog ingestion and static asset paths and support `GET` and `POST`. Keep `OPENPOST_POSTHOG_UI_HOST` set to the real PostHog UI host.
 
 The browser reads its safe runtime configuration from `GET /api/v1/telemetry/config`. This lets one static OpenPost bundle work in the Hosted service and in self-hosted installations without compiling the Hosted service token into every binary.
 
@@ -63,7 +63,7 @@ The marketing and documentation sites are separate static builds. Give both buil
 
 ```dotenv
 VITE_POSTHOG_PROJECT_TOKEN=phc_operator_owned_project_token
-VITE_POSTHOG_API_HOST=https://cool.openpost.social
+VITE_POSTHOG_API_HOST=https://cool.openpo.st
 VITE_POSTHOG_UI_HOST=https://eu.posthog.com
 VITE_OPENPOST_ENVIRONMENT=production
 VITE_OPENPOST_VERSION=3.4.0

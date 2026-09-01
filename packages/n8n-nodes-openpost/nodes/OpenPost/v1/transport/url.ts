@@ -11,7 +11,7 @@ const urlValidationNode = {
 
 export function normalizeOpenPostBaseUrl(input: unknown): string {
   const raw = String(input ?? "").trim();
-  if (!raw) throw urlError("Enter your OpenPost origin, for example https://app.openpost.dev.");
+  if (!raw) throw urlError("Enter your OpenPost origin, for example https://app.openpo.st.");
   if (!/^https?:\/\//i.test(raw)) {
     throw urlError("OpenPost Base URL must include http:// or https://.");
   }

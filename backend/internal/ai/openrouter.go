@@ -19,7 +19,7 @@ import (
 
 const (
 	defaultOpenRouterBaseURL     = "https://openrouter.ai/api/v1"
-	defaultOpenRouterHTTPReferer = "https://openpost.social"
+	defaultOpenRouterHTTPReferer = "https://openpo.st"
 	defaultOpenRouterTitle       = "OpenPost"
 	defaultOpenRouterTimeout     = 15 * time.Second
 	defaultOpenRouterMaxRetries  = 4

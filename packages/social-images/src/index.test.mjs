@@ -12,6 +12,8 @@ import {
   resolveDocsSocial,
   resolveMarketingSocial,
   resolveSocialImageEntry,
+  socialImagePlatformSlugs,
+  socialRendererVersion,
 } from "./index.js";
 
 test("marketing social entries have unique paths, keys, and complete image metadata", () => {
@@ -22,12 +24,13 @@ test("marketing social entries have unique paths, keys, and complete image metad
     assert.equal(paths.has(entry.path), false, `duplicate path ${entry.path}`);
     assert.equal(keys.has(entry.key), false, `duplicate key ${entry.key}`);
     const image = new URL(entry.imageUrl);
-    assert.equal(image.origin, "https://openpost.social");
+    assert.equal(image.origin, "https://openpo.st");
     assert.equal(image.pathname, "/og");
     assert.equal(image.searchParams.get("id"), entry.id);
+    assert.equal(image.searchParams.get("v"), socialRendererVersion);
     assert.equal(image.searchParams.has("title"), false);
     assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
-    assert.match(entry.canonical, /^https:\/\/openpost\.social(?:\/|$)/);
+    assert.match(entry.canonical, /^https:\/\/openpo\.st(?:\/|$)/);
     assert.match(entry.priority, /^(?:1\.0|0\.[0-9])$/u);
     assert.match(entry.agentRepresentation, /^(?:static|platform|tool)$/u);
     assert.match(entry.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
@@ -38,29 +41,44 @@ test("marketing social entries have unique paths, keys, and complete image metad
   }
 });
 
+test("the social image platform motif uses every catalog destination", () => {
+  assert.deepEqual(socialImagePlatformSlugs, [
+    "x",
+    "mastodon",
+    "bluesky",
+    "linkedin",
+    "threads",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube",
+    "discord",
+  ]);
+});
+
 test("the public route manifest owns social, sitemap, and prerender metadata", () => {
   assert.equal(resolveMarketingSocial("/trust").key, "trust");
   assert.equal(resolveMarketingSocial("/self-hosting").key, "self-hosting");
   assert.deepEqual(marketingPrerenderEntries("/platforms")[0], { slug: "x" });
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/")),
-    "https://openpost.social/index.md",
+    "https://openpo.st/index.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/platforms/x")),
-    "https://openpost.social/platforms/x.md",
+    "https://openpo.st/platforms/x.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/pricing")),
-    "https://openpost.social/pricing.md",
+    "https://openpo.st/pricing.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/self-hosting")),
-    "https://openpost.social/self-hosting.md",
+    "https://openpo.st/self-hosting.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/tools/thread-splitter")),
-    "https://openpost.social/tools/thread-splitter.md",
+    "https://openpo.st/tools/thread-splitter.md",
   );
   assert.throws(
     () => marketingPrerenderEntries("/pricing"),
@@ -73,7 +91,7 @@ test("marketing paths resolve without query strings or trailing slashes", () => 
   assert.equal(resolveMarketingSocial("/pricing/").key, "pricing");
   assert.equal(resolveMarketingSocial("/faq/").key, "faq");
   assert.equal(resolveMarketingSocial("/tools/thread-splitter?from=x").key, "tool-thread-splitter");
-  assert.equal(resolveMarketingSocial("/unknown").canonical, "https://openpost.social/unknown");
+  assert.equal(resolveMarketingSocial("/unknown").canonical, "https://openpo.st/unknown");
 });
 
 test("docs routes and image keys match VitePress output paths", () => {
@@ -88,8 +106,8 @@ test("docs routes and image keys match VitePress output paths", () => {
     title: "X",
   });
   assert.equal(social.label, "Provider guide");
-  assert.equal(social.canonical, "https://docs.openpost.social/providers/x");
-  assert.equal(new URL(social.imageUrl).origin, "https://openpost.social");
+  assert.equal(social.canonical, "https://docs.openpo.st/providers/x");
+  assert.equal(new URL(social.imageUrl).origin, "https://openpo.st");
   assert.equal(new URL(social.imageUrl).searchParams.get("id"), "docs:providers--x");
   assert.equal(resolveSocialImageEntry(social.id).socialTitle, "X");
 });

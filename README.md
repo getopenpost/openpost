@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://openpost.social">
+  <a href="https://openpo.st">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./assets/brand/lockup-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="./assets/brand/lockup.svg">
@@ -42,11 +42,11 @@
 </p>
 
 <p align="center">
-  <a href="https://app.openpost.social/register?plan=founder&amp;billing_period=monthly"><strong>Start a 14-day trial</strong></a>
+  <a href="https://app.openpo.st/register?plan=founder&amp;billing_period=monthly"><strong>Start a 14-day trial</strong></a>
   ·
-  <a href="https://docs.openpost.social/guide/quickstart"><strong>Self-host</strong></a>
+  <a href="https://docs.openpo.st/guide/quickstart"><strong>Self-host</strong></a>
   ·
-  <a href="https://docs.openpost.social"><strong>Docs</strong></a>
+  <a href="https://docs.openpo.st"><strong>Docs</strong></a>
   ·
   <a href="https://discord.gg/u2QwukmY4W"><strong>Discord</strong></a>
 </p>
@@ -143,22 +143,22 @@ A social app can appear in OpenPost before it is ready for real accounts.
 
 Pinterest, Telegram bot connections, and Discord bot connections are not public posting options without current live certification. Discord incoming webhooks remain the supported Discord connection.
 
-[Provider readiness](https://docs.openpost.social/operations/provider-launch-matrix) · [Platform rules](https://docs.openpost.social/providers/)
+[Provider readiness](https://docs.openpo.st/operations/provider-launch-matrix) · [Platform rules](https://docs.openpo.st/providers/)
 
 ## Get started
 
 <table>
   <tr>
     <td width="22%"><strong>Hosted</strong></td>
-    <td>We host, update, and operate OpenPost. <a href="https://app.openpost.social/register?plan=founder&amp;billing_period=monthly"><strong>Start a 14-day trial &rarr;</strong></a></td>
+    <td>We host, update, and operate OpenPost. <a href="https://app.openpo.st/register?plan=founder&amp;billing_period=monthly"><strong>Start a 14-day trial &rarr;</strong></a></td>
   </tr>
   <tr>
     <td width="22%"><strong>Self-host</strong></td>
-    <td>Run OpenPost on your own server with Docker. <a href="https://docs.openpost.social/guide/quickstart"><strong>Read the quickstart &rarr;</strong></a></td>
+    <td>Run OpenPost on your own server with Docker. <a href="https://docs.openpo.st/guide/quickstart"><strong>Read the quickstart &rarr;</strong></a></td>
   </tr>
   <tr>
     <td width="22%"><strong>Automate</strong></td>
-    <td>Connect scripts and AI tools through the API, CLI, or MCP server. <a href="https://docs.openpost.social/mcp/"><strong>Set up MCP &rarr;</strong></a></td>
+    <td>Connect scripts and AI tools through the API, CLI, or MCP server. <a href="https://docs.openpo.st/mcp/"><strong>Set up MCP &rarr;</strong></a></td>
   </tr>
 </table>
 
@@ -176,7 +176,7 @@ Open `http://localhost:8080`, create the first account, and connect a social acc
 
 The default setup runs one container with SQLite, local media, and database-backed jobs. The published container supports `linux/amd64` only. ARM64 hosts need amd64 emulation. A native ARM64 image requires a custom build and its own runtime validation.
 
-[Installation reference](https://docs.openpost.social/self-hosting/) · [Hosted or self-hosted?](https://openpost.social/self-hosting)
+[Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
 
 ## Automate it
 
@@ -184,7 +184,7 @@ The API, CLI, and MCP server work with the same saved posts and workspace permis
 
 Give each client its own token, use the narrowest scope that works, and bind it to one workspace when possible.
 
-[CLI guide](https://docs.openpost.social/cli/) · [MCP guide](https://docs.openpost.social/mcp/) · [API reference](https://docs.openpost.social/development/api-reference)
+[CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
 
 ## Develop OpenPost
 
@@ -196,7 +196,7 @@ devenv shell -- setup
 bun run verify
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](https://docs.openpost.social/development/setup) before opening a pull request.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](https://docs.openpo.st/development/setup) before opening a pull request.
 
 ## Help OpenPost grow
 

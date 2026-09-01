@@ -33,6 +33,18 @@ openpost instance use local
 openpost instance health
 ```
 
+Hosted profiles are not rewritten automatically. To move a profile that points
+exactly to the former Hosted address, replace that named profile explicitly:
+
+```sh
+openpost instance add hosted https://app.openpo.st
+openpost instance use hosted
+openpost auth login https://app.openpo.st
+```
+
+Use your existing profile name in place of `hosted`. Self-hosted profiles are
+unchanged.
+
 Log in with the browser device flow:
 
 ```sh
@@ -133,7 +145,7 @@ openpost thread create ./thread.md --accounts x --schedule "next monday 9am"
 Use `publication create` for platform-specific post types and media workflows:
 
 ```sh
-openpost publication create --content-profile link_share --accounts linkedin --url https://openpost.social --content "Launch notes"
+openpost publication create --content-profile link_share --accounts linkedin --url https://openpo.st --content "Launch notes"
 openpost publication create --content-profile short_video --accounts youtube,tiktok --video-title "Short title" --video-description "YouTube description" --caption "TikTok caption" --media ./short.mp4
 openpost publication create --content-profile long_video --accounts youtube --video-title "Full walkthrough" --video-description "Long-form description" --privacy private --media ./walkthrough.mp4 --schedule next-slot
 openpost publication schedule pub_123 --at "tomorrow 9am"

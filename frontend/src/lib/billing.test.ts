@@ -7,6 +7,7 @@ import {
 	hostedPlans,
 	normalizeBillingPeriod,
 	normalizeHostedPlanID,
+	paddleTransactionIDFromSearchParams,
 	planPriceUSD
 } from './billing';
 
@@ -43,6 +44,18 @@ describe('hosted billing catalog', () => {
 		expect(checkoutPathForPlan('team', 'annual')).toBe('/checkout?plan=team&billing_period=annual');
 		expect(checkoutPathForPlan('unknown', 'annual')).toBe('');
 		expect(checkoutPathForPlan('founder', 'yearly')).toBe('');
+	});
+
+	it('accepts only Paddle transaction IDs from managed payment links', () => {
+		expect(
+			paddleTransactionIDFromSearchParams(
+				new URLSearchParams('_ptxn=txn_01jmanagedcheckout123456789')
+			)
+		).toBe('txn_01jmanagedcheckout123456789');
+		expect(
+			paddleTransactionIDFromSearchParams(new URLSearchParams('_ptxn=not-a-transaction'))
+		).toBe('');
+		expect(paddleTransactionIDFromSearchParams(new URLSearchParams())).toBe('');
 	});
 
 	it('preserves every sellable plan across monthly and annual checkout links', () => {

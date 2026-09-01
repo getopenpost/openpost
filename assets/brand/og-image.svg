@@ -24,6 +24,6 @@
     <rect x="694" y="457" width="10" height="10" rx="3" fill="#b74c05" />
     <text x="716" y="469" fill="#2c2825" font-family="Geist" font-size="16" font-weight="620">Publish</text>
   </g>
-    <text x="72" y="590" fill="#786f68" font-family="Geist" font-size="17">openpost.social</text>
+    <text x="72" y="590" fill="#786f68" font-family="Geist" font-size="17">openpo.st</text>
     <g transform="translate(1002 571)"><rect x="0" y="0" width="12" height="12" rx="5" fill="#f2efea" /><rect x="20" y="0" width="12" height="12" rx="5" fill="#f8e5d6" /><rect x="40" y="0" width="12" height="12" rx="5" fill="#b74c05" /><rect x="60" y="0" width="12" height="12" rx="5" fill="#f8e5d6" /><rect x="80" y="0" width="12" height="12" rx="5" fill="#b74c05" /><rect x="100" y="0" width="12" height="12" rx="5" fill="#f2efea" /></g>
   </svg>

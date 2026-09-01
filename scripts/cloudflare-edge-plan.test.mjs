@@ -35,20 +35,27 @@ function surfacePlan(plan, key) {
   };
 }
 
-test("groups both public hosts into the deployed Cloudflare zone", () => {
+test("assigns canonical behavior and legacy redirects to their owning zones", () => {
   const plan = samplePlan();
 
-  assert.equal(plan.zones.length, 1);
-  assert.equal(plan.zones[0].zone_id_env, "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID");
+  assert.equal(plan.zones.length, 2);
+  assert.equal(plan.zones[0].zone_id_env, "OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID");
   assert.deepEqual(
     plan.zones[0].surfaces.map(({ hostname }) => hostname),
-    ["openpost.social", "docs.openpost.social"],
+    ["openpo.st", "docs.openpo.st"],
   );
   for (const phase of plan.phases.map(({ phase }) => phase)) {
     const expressions = plan.zones[0].rules[phase].map(({ expression }) => expression).join("\n");
-    assert.match(expressions, /http\.host eq "openpost\.social"/u);
-    assert.match(expressions, /http\.host eq "docs\.openpost\.social"/u);
+    assert.match(expressions, /http\.host eq "openpo\.st"/u);
+    assert.match(expressions, /http\.host eq "docs\.openpo\.st"/u);
   }
+  assert.equal(plan.zones[1].zone_id_env, "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID");
+  assert.equal(plan.zones[1].rules.http_request_transform.length, 0);
+  const legacy = plan.zones[1].rules.http_request_dynamic_redirect;
+  assert.equal(legacy.length, 4);
+  assert.ok(legacy.every((rule) => rule.action_parameters.from_value.preserve_query_string));
+  assert.match(JSON.stringify(legacy), /https:\/\/openpo\.st/u);
+  assert.match(JSON.stringify(legacy), /https:\/\/docs\.openpo\.st/u);
 });
 
 async function preparedApplyArgs({ plan, client, evidenceDirectory }) {
@@ -81,7 +88,7 @@ test("renders ordered exact Markdown selection rules from canonical catalogues",
   );
   assert.deepEqual(
     plan.zones.map(({ hostname }) => hostname),
-    ["openpost.social"],
+    ["openpo.st", "openpost.social"],
   );
 
   const marketing = surfacePlan(plan, "marketing");
@@ -229,7 +236,7 @@ test("inspection is read-only and reports unmanaged overlaps without credentials
           {
             ref: "someone-else",
             action: "rewrite",
-            expression: `http.host eq "${zone === "marketing" ? "openpost.social" : "docs.openpost.social"}" and true`,
+            expression: `http.host eq "${zone === "canonical" ? "openpo.st" : "openpost.social"}" and true`,
           },
         ],
       };
@@ -237,8 +244,8 @@ test("inspection is read-only and reports unmanaged overlaps without credentials
     putEntrypoint: async () => assert.fail("inspect must not write"),
   };
   const report = await inspectCloudflarePlan({ plan: samplePlan(), client });
-  assert.equal(calls.length, 4);
-  assert.equal(report.conflicts.length, 4);
+  assert.equal(calls.length, 8);
+  assert.equal(report.conflicts.length, 8);
   assert.doesNotMatch(JSON.stringify(report), /super-secret/u);
 });
 
@@ -246,6 +253,13 @@ test("Cloudflare boundary uses phase entrypoints and keeps credentials out of er
   const requests = [];
   const fetchImpl = async (url, init) => {
     requests.push([url, init]);
+    if (/\/zones\/canonical-zone-secret$/u.test(url)) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, result: { name: "openpo.st" } }),
+      };
+    }
     if (init.method === "GET") {
       return { ok: false, status: 404, json: async () => ({ success: false }) };
     }
@@ -257,24 +271,48 @@ test("Cloudflare boundary uses phase entrypoints and keeps credentials out of er
   };
   const client = createCloudflareClient({
     token: "super-secret",
-    zoneIds: { public: "public-zone-secret" },
+    zoneIds: { canonical: "canonical-zone-secret", legacy: "legacy-zone-secret" },
     fetchImpl,
   });
-  assert.equal(await client.getEntrypoint("public", "http_request_transform"), null);
+  assert.equal(await client.getEntrypoint("canonical", "http_request_transform"), null);
   await assert.rejects(
-    client.putEntrypoint("public", "http_request_transform", {
+    client.putEntrypoint("canonical", "http_request_transform", {
       description: "desired",
       rules: [],
     }),
     (error) => {
-      assert.match(error.message, /public\/http_request_transform.*version conflict/u);
-      assert.doesNotMatch(error.message, /super-secret|public-zone-secret/u);
+      assert.match(error.message, /canonical\/http_request_transform.*version conflict/u);
+      assert.doesNotMatch(error.message, /super-secret|canonical-zone-secret/u);
       return true;
     },
   );
-  assert.match(requests[0][0], /zones\/public-zone-secret\/rulesets\/phases/u);
+  assert.match(requests[0][0], /zones\/canonical-zone-secret$/u);
   assert.equal(requests[0][1].headers.Authorization, "Bearer super-secret");
-  assert.equal(requests[1][1].method, "PUT");
+  assert.match(requests[1][0], /zones\/canonical-zone-secret\/rulesets\/phases/u);
+  assert.equal(requests[2][1].method, "PUT");
+});
+
+test("Cloudflare boundary rejects a zone ID whose API name does not own the rendered host", async () => {
+  const requests = [];
+  const client = createCloudflareClient({
+    token: "super-secret",
+    zoneIds: { canonical: "wrong-zone", legacy: "legacy-zone" },
+    fetchImpl: async (url, init) => {
+      requests.push([url, init]);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, result: { name: "openpost.social" } }),
+      };
+    },
+  });
+
+  await assert.rejects(
+    client.putEntrypoint("canonical", "http_request_transform", { description: "", rules: [] }),
+    /OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID resolves to "openpost\.social"; expected openpo\.st/u,
+  );
+  assert.equal(requests.length, 1);
+  assert.doesNotMatch(requests[0][0], /rulesets/u);
 });
 
 test("inspection includes existing rules in Free-plan capacity before apply", async () => {
@@ -314,7 +352,7 @@ test("inspection fails closed on every unmanaged rule in an owned phase", async 
     }),
   };
   const report = await inspectCloudflarePlan({ plan: samplePlan(), client });
-  assert.equal(report.conflicts.length, 4);
+  assert.equal(report.conflicts.length, 8);
 });
 
 test("prepare captures a reviewable rollback without mutating Cloudflare", async () => {
@@ -335,7 +373,7 @@ test("prepare captures a reviewable rollback without mutating Cloudflare", async
     },
   });
 
-  assert.equal(reads, 4);
+  assert.equal(reads, 8);
   assert.equal(writes, 0);
   assert.equal(prepared.plan_digest, planDigest(samplePlan()));
   assert.equal(prepared.before_digest, planDigest(prepared.before));
@@ -442,20 +480,20 @@ test("apply requires both reviewed digests and is idempotent", async () => {
   assert.equal(writes.length, 0);
 
   const first = await applyCloudflarePlan(firstArgs);
-  assert.equal(first.changed, 4);
-  assert.equal(writes.length, 4);
+  assert.equal(first.changed, 8);
+  assert.equal(writes.length, 8);
   for (const [, , body] of writes) {
     assert.deepEqual(Object.keys(body).sort(), ["description", "rules"]);
   }
   const rollback = JSON.parse(
     await readFile(path.join(evidenceDirectory, "rollback-plan.json"), "utf8"),
   );
-  assert.equal(rollback.operations.length, 4);
+  assert.equal(rollback.operations.length, 8);
   assert.ok(rollback.digest);
 
   const second = await applyCloudflarePlan(await preparedApplyArgs({ plan, client }));
   assert.equal(second.changed, 0);
-  assert.equal(writes.length, 4);
+  assert.equal(writes.length, 8);
 });
 
 test("apply fences every phase immediately before mutation and rollback restores captured state", async () => {
@@ -466,7 +504,7 @@ test("apply fences every phase immediately before mutation and rollback restores
   const client = {
     getEntrypoint: async (zone, phase) => {
       reads += 1;
-      if (reads === 5) return { version: "changed", rules: [] };
+      if (reads === 9) return { version: "changed", rules: [] };
       return state.get(`${zone}:${phase}`) ?? null;
     },
     putEntrypoint: async (zone, phase, body) => {
@@ -484,8 +522,8 @@ test("apply fences every phase immediately before mutation and rollback restores
     plan_digest: planDigest(plan),
     operations: [
       {
-        zone: "public",
-        zone_id_env: "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID",
+        zone: "canonical",
+        zone_id_env: "OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID",
         phase: "http_request_transform",
         expected_after: { description: "applied", rules: [] },
         before: { description: "prior", rules: [] },
@@ -511,7 +549,7 @@ test("apply stops and restores prior updates when a later phase changes before i
   const client = {
     getEntrypoint: async (zone, phase) => {
       reads += 1;
-      if (reads === 10) {
+      if (reads === 18) {
         return {
           version: "concurrent",
           rules: [{ ref: "concurrent-operator", expression: "true", action: "rewrite" }],
@@ -641,7 +679,7 @@ test("apply recovery refuses to overwrite concurrent changes on an applied phase
       writes.push([zone, phase, body]);
       desiredWrites += 1;
       if (desiredWrites === 2) {
-        state.set("public:http_request_dynamic_redirect", {
+        state.set("canonical:http_request_dynamic_redirect", {
           description: "concurrent operator change",
           rules: [{ ref: "concurrent-operator", expression: "true", action: "redirect" }],
           version: "concurrent",
@@ -673,7 +711,7 @@ test("apply restores every changed phase if after-state evidence cannot be colle
   const client = {
     getEntrypoint: async (zone, phase) => {
       reads += 1;
-      if (reads === 13) throw new Error("after inspection unavailable");
+      if (reads === 25) throw new Error("after inspection unavailable");
       return state.get(`${zone}:${phase}`) ?? null;
     },
     putEntrypoint: async (zone, phase, body) => {
@@ -687,9 +725,9 @@ test("apply restores every changed phase if after-state evidence cannot be colle
   const applyArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
   await assert.rejects(
     applyCloudflarePlan(applyArgs),
-    /failed after 4 phase update.*restored 4.*after inspection unavailable/u,
+    /failed after 8 phase update.*restored 8.*after inspection unavailable/u,
   );
-  assert.equal(writes.length, 8);
+  assert.equal(writes.length, 16);
   assert.match(await readFile(path.join(evidenceDirectory, "failure.json"), "utf8"), /restored/u);
 });
 
@@ -701,7 +739,7 @@ test("apply records mismatched after-state evidence and restores every changed p
   const client = {
     getEntrypoint: async (zone, phase) => {
       reads += 1;
-      if (reads > 12 && reads <= 16) {
+      if (reads > 24 && reads <= 32) {
         return { description: "mismatched after inspection", rules: [], version: "unexpected" };
       }
       return state.get(`${zone}:${phase}`) ?? null;
@@ -717,9 +755,9 @@ test("apply records mismatched after-state evidence and restores every changed p
   const applyArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
   await assert.rejects(
     applyCloudflarePlan(applyArgs),
-    /failed after 4 phase update.*restored 4.*4 unsettled phase/u,
+    /failed after 8 phase update.*restored 8.*5 unsettled phase/u,
   );
-  assert.equal(writes.length, 8);
+  assert.equal(writes.length, 16);
   assert.match(
     await readFile(path.join(evidenceDirectory, "after.json"), "utf8"),
     /"changed": true/u,

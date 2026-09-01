@@ -33,10 +33,7 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Get started", exact: true }).first(),
-  ).toHaveAttribute(
-    "href",
-    "https://app.openpost.social/register?plan=founder&billing_period=monthly",
-  );
+  ).toHaveAttribute("href", "https://app.openpo.st/register?plan=founder&billing_period=monthly");
   const resultPreviews = page.getByRole("group", {
     name: "Social publishing result previews",
   });
@@ -110,7 +107,7 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   await expect(page.getByRole("link", { name: "Self-host", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "User docs" }).first()).toHaveAttribute(
     "href",
-    "https://docs.openpost.social/usage/",
+    "https://docs.openpo.st/usage/",
   );
   await expect(page.getByRole("link", { name: "Self-hosting" }).first()).toHaveAttribute(
     "href",
@@ -118,7 +115,7 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   );
   await expect(page.getByRole("link", { name: "Developer docs" }).first()).toHaveAttribute(
     "href",
-    "https://docs.openpost.social/development/",
+    "https://docs.openpo.st/development/",
   );
   await expect(page.getByRole("link", { name: "GitHub source" }).first()).toHaveAttribute(
     "href",
@@ -201,7 +198,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   );
   await expect(page.getByRole("link", { name: "Billing settings" })).toHaveAttribute(
     "href",
-    "https://app.openpost.social/settings?tab=billing#billing",
+    "https://app.openpo.st/settings?tab=billing#billing",
   );
   await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
 
@@ -213,7 +210,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
     await expect(card.locator(".animated-price")).toHaveAttribute("aria-label", plan.monthly);
     await expect(card.getByRole("link", { name: `Start ${plan.name}` })).toHaveAttribute(
       "href",
-      `https://app.openpost.social/register?plan=${plan.id}&billing_period=monthly`,
+      `https://app.openpo.st/register?plan=${plan.id}&billing_period=monthly`,
     );
     await expect(card).toContainText(`Then ${plan.monthly} per month until canceled.`);
   }
@@ -232,7 +229,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
     await expect(card).toContainText(`Billed ${plan.annual} yearly`);
     await expect(card.getByRole("link", { name: `Start ${plan.name}` })).toHaveAttribute(
       "href",
-      `https://app.openpost.social/register?plan=${plan.id}&billing_period=annual`,
+      `https://app.openpo.st/register?plan=${plan.id}&billing_period=annual`,
     );
     await expect(card).toContainText(`Then ${plan.annual} per year until canceled.`);
   }
@@ -283,7 +280,7 @@ test("self-hosting path states the complete operator boundary without JavaScript
   }
   await expect(page.getByRole("link", { name: "Open the deployment guide" })).toHaveAttribute(
     "href",
-    "https://docs.openpost.social/self-hosting/",
+    "https://docs.openpo.st/self-hosting/",
   );
   await expect(page.getByRole("link", { name: "View source on GitHub" })).toHaveAttribute(
     "href",
@@ -291,7 +288,7 @@ test("self-hosting path states the complete operator boundary without JavaScript
   );
   await expect(page.getByRole("link", { name: "Review the production checklist" })).toHaveAttribute(
     "href",
-    "https://docs.openpost.social/configuration/production-checklist",
+    "https://docs.openpo.st/configuration/production-checklist",
   );
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -401,7 +398,7 @@ test("route and static not-found pages share useful recovery", async ({ page }) 
   await expect(page.getByRole("link", { name: "Read the FAQ" })).toHaveAttribute("href", "/faq");
   await expect(page.getByRole("link", { name: "Open user docs" })).toHaveAttribute(
     "href",
-    "https://docs.openpost.social/usage/",
+    "https://docs.openpo.st/usage/",
   );
 
   await page.goto("/404.html");
@@ -693,34 +690,32 @@ test("marketing SEO routes expose the current public index @desktop", async ({ r
   const robots = await request.get("/robots.txt");
   expect(robots.ok()).toBeTruthy();
   const robotsText = await robots.text();
-  expect(robotsText).toContain("Sitemap: https://openpost.social/sitemap.xml");
+  expect(robotsText).toContain("Sitemap: https://openpo.st/sitemap.xml");
 
   const sitemap = await request.get("/sitemap.xml");
   expect(sitemap.ok()).toBeTruthy();
   const xml = await sitemap.text();
-  expect(xml).toContain("<loc>https://openpost.social/</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/features</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/faq</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/platforms</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/platforms/x</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/platforms/discord</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools</loc>");
-  expect(xml).toContain(
-    "<loc>https://openpost.social/tools/multi-platform-character-counter</loc>",
-  );
-  expect(xml).toContain("<loc>https://openpost.social/tools/post-preview-generator</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools/thread-splitter</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools/fediverse-handle-checker</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools/linkedin-text-formatter</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools/best-time-to-post-calculator</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/tools/utm-link-builder</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/security</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/trust</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/privacy</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/terms</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/refunds</loc>");
-  expect(xml).not.toContain("<loc>https://openpost.social/blog</loc>");
-  expect(xml).not.toContain("<loc>https://openpost.social/tips/");
+  expect(xml).toContain("<loc>https://openpo.st/</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/features</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/faq</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/platforms</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/platforms/x</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/platforms/discord</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/multi-platform-character-counter</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/post-preview-generator</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/thread-splitter</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/fediverse-handle-checker</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/linkedin-text-formatter</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/best-time-to-post-calculator</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/tools/utm-link-builder</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/security</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/trust</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/privacy</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/terms</loc>");
+  expect(xml).toContain("<loc>https://openpo.st/refunds</loc>");
+  expect(xml).not.toContain("<loc>https://openpo.st/blog</loc>");
+  expect(xml).not.toContain("<loc>https://openpo.st/tips/");
 
   const publicPaths = [...xml.matchAll(/<loc>(https:\/\/openpost\.social[^<]+)<\/loc>/g)].map(
     ([, url]) => new URL(url).pathname,

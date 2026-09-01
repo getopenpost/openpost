@@ -15,18 +15,17 @@ interface RetryState {
 	at: number;
 }
 
-function errorMessage(error: unknown): string {
+function parseErrorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
 	if (typeof error === 'string') return error;
 	if (error && typeof error === 'object' && 'message' in error) {
-		const message = (error as { message?: unknown }).message;
+		const message = error.message;
 		if (typeof message === 'string') return message;
 	}
 	return '';
 }
 
-function isStaleModuleError(error: unknown): boolean {
-	const message = errorMessage(error);
+function isStaleModuleMessage(message: string): boolean {
 	return (
 		message.includes('Importing a module script failed') ||
 		message.includes('Failed to fetch dynamically imported module') ||
@@ -34,14 +33,43 @@ function isStaleModuleError(error: unknown): boolean {
 	);
 }
 
+function parseErrorEventMessage(event: Event): string {
+	// SAFETY: Browser error events add these optional fields to the base Event delivered to this listener.
+	const errorEvent = event as Event & { error?: unknown; message?: string };
+	return parseErrorMessage(errorEvent.error ?? errorEvent.message);
+}
+
+function parseUnhandledRejectionMessage(event: Event): string {
+	// SAFETY: Browser unhandledrejection events add reason to the base Event delivered to this listener.
+	const rejectionEvent = event as Event & { reason?: unknown };
+	return parseErrorMessage(rejectionEvent.reason);
+}
+
+function parsePreloadErrorMessage(event: Event): string {
+	// SAFETY: Vite preload error events use payload or detail for the failed import error.
+	const preloadEvent = event as Event & { payload?: unknown; detail?: unknown };
+	return parseErrorMessage(preloadEvent.payload ?? preloadEvent.detail);
+}
+
+function isRetryState(value: unknown): value is RetryState {
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		'count' in value &&
+		typeof value.count === 'number' &&
+		'at' in value &&
+		typeof value.at === 'number'
+	);
+}
+
 function retryState(runtime: RecoveryRuntime): RetryState {
 	try {
 		const raw = runtime.sessionStorage.getItem(reloadStateKey);
 		if (!raw) return { count: 0, at: 0 };
-		const state = JSON.parse(raw) as Partial<RetryState>;
-		if (typeof state.count !== 'number' || typeof state.at !== 'number') return { count: 0, at: 0 };
+		const state: unknown = JSON.parse(raw);
+		if (!isRetryState(state)) return { count: 0, at: 0 };
 		if (Date.now() - state.at > retryWindowMs) return { count: 0, at: 0 };
-		return state as RetryState;
+		return state;
 	} catch {
 		return { count: 0, at: 0 };
 	}
@@ -62,24 +90,19 @@ export function installStaleModuleRecovery(runtime: RecoveryRuntime = window): (
 			count === 1 ? 300 : count === 2 ? 800 : 1500
 		);
 	};
-	const recover = (event: Event, error: unknown) => {
-		if (!isStaleModuleError(error)) return;
+	const recover = (event: Event, message: string) => {
+		if (!isStaleModuleMessage(message)) return;
 		event.preventDefault();
 		reload();
 	};
 	const onError = (event: Event) => {
-		const errorEvent = event as Event & { error?: unknown; message?: string };
-		recover(event, errorEvent.error ?? errorEvent.message);
+		recover(event, parseErrorEventMessage(event));
 	};
 	const onUnhandledRejection = (event: Event) => {
-		recover(event, (event as Event & { reason?: unknown }).reason);
+		recover(event, parseUnhandledRejectionMessage(event));
 	};
 	const onPreloadError = (event: Event) => {
-		const preloadEvent = event as Event & {
-			payload?: unknown;
-			detail?: unknown;
-		};
-		recover(event, preloadEvent.payload ?? preloadEvent.detail);
+		recover(event, parsePreloadErrorMessage(event));
 	};
 
 	runtime.addEventListener('error', onError);

@@ -24,11 +24,11 @@ const maximumPagesHeaderLineCharacters = 2000;
 const generatedVaryHeaderMarker = "# OpenPost canonical Vary rules (generated)";
 const privateRoutePattern =
   /^\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
-const privateApplicationOrigins = new Set(["https://app.openpost.social"]);
-const publicContentOrigins = new Set(["https://openpost.social", "https://docs.openpost.social"]);
+const privateApplicationOrigins = new Set(["https://app.openpo.st"]);
+const publicContentOrigins = new Set(["https://openpo.st", "https://docs.openpo.st"]);
 const productionArtifactURLs = new Set([
-  "https://openpost.social/index.md",
-  "https://docs.openpost.social/index.md",
+  "https://openpo.st/index.md",
+  "https://docs.openpo.st/index.md",
 ]);
 const ignoredMarketingTags = new Set([
   "audio",
@@ -990,14 +990,14 @@ export const productionProjections = {
     knownCanonicalURLs: [
       ...marketingRouteManifest.map((entry) => entry.canonical),
       ...docsSocialEntries.map((entry) => entry.canonical),
-      "https://docs.openpost.social/openapi.json",
+      "https://docs.openpo.st/openapi.json",
     ],
     knownArtifactURLs: [
-      "https://docs.openpost.social/index.md",
-      "https://docs.openpost.social/openapi.json",
-      "https://docs.openpost.social/cli/index.md",
-      "https://docs.openpost.social/mcp/index.md",
-      "https://docs.openpost.social/usage/agent-assisted-publishing.md",
+      "https://docs.openpo.st/index.md",
+      "https://docs.openpo.st/openapi.json",
+      "https://docs.openpo.st/cli/index.md",
+      "https://docs.openpo.st/mcp/index.md",
+      "https://docs.openpo.st/usage/agent-assisted-publishing.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -1038,7 +1038,7 @@ export const productionProjections = {
           title: "OpenPost documentation",
           description:
             "Read the user, provider, self-hosting, CLI, MCP, and developer documentation.",
-          url: "https://docs.openpost.social/index.md",
+          url: "https://docs.openpo.st/index.md",
           classification: "primary",
         },
       ],
@@ -1051,27 +1051,27 @@ export const productionProjections = {
             {
               title: "OpenPost developer entry point",
               description: "Choose the HTTP API, CLI, or MCP server for the job.",
-              url: "https://openpost.social/developers.md",
+              url: "https://openpo.st/developers.md",
             },
             {
               title: "OpenAPI JSON",
               description: "Use the authoritative OpenAPI 3.1 HTTP API contract.",
-              url: "https://docs.openpost.social/openapi.json",
+              url: "https://docs.openpo.st/openapi.json",
             },
             {
               title: "OpenPost CLI",
               description: "Use a terminal, script, CI job, cron job, or deploy process.",
-              url: "https://docs.openpost.social/cli/index.md",
+              url: "https://docs.openpo.st/cli/index.md",
             },
             {
               title: "OpenPost MCP server",
               description: "Connect an AI assistant with explicit read and change scopes.",
-              url: "https://docs.openpost.social/mcp/index.md",
+              url: "https://docs.openpo.st/mcp/index.md",
             },
             {
               title: "Agent-assisted publishing",
               description: "Follow the human-reviewed workflow for agent-prepared publishing work.",
-              url: "https://docs.openpost.social/usage/agent-assisted-publishing.md",
+              url: "https://docs.openpo.st/usage/agent-assisted-publishing.md",
             },
           ],
         },
@@ -1127,12 +1127,12 @@ export const productionProjections = {
     knownCanonicalURLs: [
       ...docsSocialEntries.map((entry) => entry.canonical),
       ...marketingRouteManifest.map((entry) => entry.canonical),
-      "https://docs.openpost.social/openapi.json",
+      "https://docs.openpo.st/openapi.json",
     ],
     knownArtifactURLs: [
-      "https://openpost.social/index.md",
-      "https://docs.openpost.social/openapi.json",
-      "https://docs.openpost.social/llms-full.txt",
+      "https://openpo.st/index.md",
+      "https://docs.openpo.st/openapi.json",
+      "https://docs.openpo.st/llms-full.txt",
     ],
     fragmentSources: docsSocialEntries.map((entry) => ({
       canonical: entry.canonical,
@@ -1170,14 +1170,14 @@ export const productionProjections = {
         {
           title: "OpenPost product overview",
           description: "See the public product overview and Hosted service path.",
-          url: "https://openpost.social/index.md",
+          url: "https://openpo.st/index.md",
           classification: "optional",
         },
         {
           title: "OpenPost documentation full corpus",
           description:
             "Read the selected public documentation as one bounded OpenPost convenience artifact.",
-          url: "https://docs.openpost.social/llms-full.txt",
+          url: "https://docs.openpo.st/llms-full.txt",
           classification: "optional",
         },
       ],
@@ -1201,7 +1201,7 @@ export const productionProjections = {
                 {
                   title: "OpenAPI JSON",
                   description: "Use the authoritative machine-readable HTTP API contract.",
-                  url: "https://docs.openpost.social/openapi.json",
+                  url: "https://docs.openpo.st/openapi.json",
                 },
               ]
             : []),

@@ -26,7 +26,7 @@ OpenPost still sends content and access tokens to each social network when it ca
 
 Plan for TLS and a public application URL, unique JWT and encryption secrets, tested database and media restores, release and security updates, social app keys and reviews, and checks for failed posts and low storage. The default setup stays small: one Go binary or container, SQLite, local media, and saved background jobs. Redis is not required. PostgreSQL and S3-compatible storage are available for larger setups.
 
-Choose self-hosting when you already operate a server, need data in a specific environment, want to inspect or change the code, or need custom storage, networking, or social app settings. Choose the [Hosted service](https://openpost.social/pricing) when you want OpenPost to manage its server, backups, TLS, and upgrades.
+Choose self-hosting when you already operate a server, need data in a specific environment, want to inspect or change the code, or need custom storage, networking, or social app settings. Choose the [Hosted service](https://openpo.st/pricing) when you want OpenPost to manage its server, backups, TLS, and upgrades.
 
 ## Install
 

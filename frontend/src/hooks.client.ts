@@ -2,8 +2,14 @@ import type { HandleClientError } from '@sveltejs/kit';
 import { captureClientException, installGlobalErrorCapture } from '@openpost/telemetry';
 
 export async function init() {
+	initializeClientErrors(installGlobalErrorCapture);
+}
+
+type ErrorCaptureInstaller = () => () => void;
+
+export function initializeClientErrors(installErrorCapture: ErrorCaptureInstaller) {
 	detectStaleChunks();
-	installGlobalErrorCapture();
+	installErrorCapture();
 }
 
 /**

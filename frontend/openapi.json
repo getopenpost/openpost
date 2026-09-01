@@ -1417,6 +1417,208 @@
 				],
 				"type": "object"
 			},
+			"AppBootstrapOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/AppBootstrapOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"authenticated": {
+						"description": "Whether the request has a credential authorized for application bootstrap",
+						"type": "boolean"
+					},
+					"selected_workspace_id": {
+						"type": ["string", "null"]
+					},
+					"selected_workspace_settings": {
+						"$ref": "#/components/schemas/AppBootstrapWorkspaceSettings"
+					},
+					"user": {
+						"$ref": "#/components/schemas/AppBootstrapUserProfile"
+					},
+					"workspaces": {
+						"items": {
+							"$ref": "#/components/schemas/WorkspaceResponse"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"authenticated",
+					"user",
+					"workspaces",
+					"selected_workspace_id",
+					"selected_workspace_settings"
+				],
+				"type": "object"
+			},
+			"AppBootstrapUserProfile": {
+				"additionalProperties": false,
+				"properties": {
+					"avatar_url": {
+						"description": "Profile avatar URL",
+						"type": "string"
+					},
+					"composer_experience": {
+						"description": "Preferred composer experience",
+						"enum": ["specialized", "unified"],
+						"type": "string"
+					},
+					"created_at": {
+						"description": "Account creation time",
+						"format": "date-time",
+						"type": "string"
+					},
+					"display_name": {
+						"description": "User display name",
+						"type": "string"
+					},
+					"email": {
+						"description": "User email address",
+						"type": "string"
+					},
+					"email_verified": {
+						"description": "Whether the account email address is verified",
+						"type": "boolean"
+					},
+					"has_password": {
+						"description": "Whether this account has a local password credential",
+						"type": "boolean"
+					},
+					"id": {
+						"description": "User ID",
+						"type": "string"
+					},
+					"is_admin": {
+						"description": "Whether this user can manage instance-level settings",
+						"type": "boolean"
+					},
+					"is_managed": {
+						"description": "Whether this account was provisioned by an organization identity provider",
+						"type": "boolean"
+					},
+					"legal_acceptance_required": {
+						"description": "Whether the current hosted policy still needs acceptance",
+						"type": "boolean"
+					},
+					"legal_accepted_at": {
+						"description": "When the current account policy was accepted",
+						"format": "date-time",
+						"type": "string"
+					},
+					"managed_organization_name": {
+						"description": "Organization managing this account",
+						"type": "string"
+					},
+					"password_usable": {
+						"description": "Whether the local password can currently be used for sign-in and sensitive-action reauthentication",
+						"type": "boolean"
+					},
+					"privacy_version": {
+						"description": "Privacy version acknowledged by the user",
+						"type": "string"
+					},
+					"public_profile_enabled": {
+						"description": "Whether the public activity profile is visible",
+						"type": "boolean"
+					},
+					"public_profile_visible_fields": {
+						"description": "Optional account fields visible while the public profile is enabled",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"terms_version": {
+						"description": "Terms version accepted by the user",
+						"type": "string"
+					},
+					"username": {
+						"description": "Unique public username",
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"email",
+					"username",
+					"display_name",
+					"avatar_url",
+					"public_profile_enabled",
+					"public_profile_visible_fields",
+					"composer_experience",
+					"is_admin",
+					"legal_acceptance_required",
+					"created_at",
+					"email_verified",
+					"has_password",
+					"password_usable",
+					"is_managed"
+				],
+				"type": ["object", "null"]
+			},
+			"AppBootstrapWorkspaceSettings": {
+				"additionalProperties": false,
+				"properties": {
+					"avatar_url": {
+						"type": "string"
+					},
+					"color": {
+						"type": "string"
+					},
+					"media_cleanup_days": {
+						"default": 14,
+						"deprecated": true,
+						"description": "Deprecated compatibility value. Always 14; temporary-media cleanup cannot be configured.",
+						"enum": [14],
+						"format": "int64",
+						"type": "integer"
+					},
+					"name": {
+						"type": "string"
+					},
+					"random_delay_minutes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"slot_end_hour": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"slot_interval_minutes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"slot_start_hour": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"timezone": {
+						"type": "string"
+					},
+					"week_start": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"name",
+					"avatar_url",
+					"color",
+					"timezone",
+					"week_start",
+					"media_cleanup_days",
+					"random_delay_minutes",
+					"slot_start_hour",
+					"slot_end_hour",
+					"slot_interval_minutes"
+				],
+				"type": ["object", "null"]
+			},
 			"AppendProviderApprovalReviewInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -22121,6 +22323,74 @@
 				"tags": ["Auth"]
 			}
 		},
+		"/app/bootstrap": {
+			"get": {
+				"description": "Returns an anonymous state when no credential authorized for application bootstrap is present.",
+				"operationId": "get-app-bootstrap",
+				"parameters": [
+					{
+						"description": "Workspace to select when it is accessible to the current credential",
+						"explode": false,
+						"in": "query",
+						"name": "preferred_workspace_id",
+						"schema": {
+							"description": "Workspace to select when it is accessible to the current credential",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AppBootstrapOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					}
+				],
+				"summary": "Get application bootstrap state",
+				"tags": ["Auth", "Workspaces"]
+			}
+		},
 		"/auth/account": {
 			"delete": {
 				"operationId": "delete-account",
@@ -25619,7 +25889,7 @@
 						},
 						"description": "OK"
 					},
-					"default": {
+					"500": {
 						"content": {
 							"application/problem+json": {
 								"schema": {
@@ -25627,9 +25897,25 @@
 								}
 							}
 						},
-						"description": "Error"
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
 					}
 				},
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					}
+				],
 				"summary": "Get optional web session state",
 				"tags": ["Auth"]
 			}

@@ -685,6 +685,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get application bootstrap state
+         * @description Returns an anonymous state when no credential authorized for application bootstrap is present.
+         */
+        get: operations["get-app-bootstrap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/account": {
         parameters: {
             query?: never;
@@ -5045,6 +5065,93 @@ export interface components {
             objective: string;
             thesis: string;
         };
+        AppBootstrapOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AppBootstrapOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether the request has a credential authorized for application bootstrap */
+            authenticated: boolean;
+            selected_workspace_id: string | null;
+            selected_workspace_settings: components["schemas"]["AppBootstrapWorkspaceSettings"];
+            user: components["schemas"]["AppBootstrapUserProfile"];
+            workspaces: components["schemas"]["WorkspaceResponse"][];
+        };
+        AppBootstrapUserProfile: {
+            /** @description Profile avatar URL */
+            avatar_url: string;
+            /**
+             * @description Preferred composer experience
+             * @enum {string}
+             */
+            composer_experience: "specialized" | "unified";
+            /**
+             * Format: date-time
+             * @description Account creation time
+             */
+            created_at: string;
+            /** @description User display name */
+            display_name: string;
+            /** @description User email address */
+            email: string;
+            /** @description Whether the account email address is verified */
+            email_verified: boolean;
+            /** @description Whether this account has a local password credential */
+            has_password: boolean;
+            /** @description User ID */
+            id: string;
+            /** @description Whether this user can manage instance-level settings */
+            is_admin: boolean;
+            /** @description Whether this account was provisioned by an organization identity provider */
+            is_managed: boolean;
+            /** @description Whether the current hosted policy still needs acceptance */
+            legal_acceptance_required: boolean;
+            /**
+             * Format: date-time
+             * @description When the current account policy was accepted
+             */
+            legal_accepted_at?: string;
+            /** @description Organization managing this account */
+            managed_organization_name?: string;
+            /** @description Whether the local password can currently be used for sign-in and sensitive-action reauthentication */
+            password_usable: boolean;
+            /** @description Privacy version acknowledged by the user */
+            privacy_version?: string;
+            /** @description Whether the public activity profile is visible */
+            public_profile_enabled: boolean;
+            /** @description Optional account fields visible while the public profile is enabled */
+            public_profile_visible_fields: string[] | null;
+            /** @description Terms version accepted by the user */
+            terms_version?: string;
+            /** @description Unique public username */
+            username: string;
+        } | null;
+        AppBootstrapWorkspaceSettings: {
+            avatar_url: string;
+            color: string;
+            /**
+             * Format: int64
+             * @deprecated
+             * @description Deprecated compatibility value. Always 14; temporary-media cleanup cannot be configured.
+             * @default 14
+             * @enum {integer}
+             */
+            media_cleanup_days: 14;
+            name: string;
+            /** Format: int64 */
+            random_delay_minutes: number;
+            /** Format: int64 */
+            slot_end_hour: number;
+            /** Format: int64 */
+            slot_interval_minutes: number;
+            /** Format: int64 */
+            slot_start_hour: number;
+            timezone: string;
+            /** Format: int64 */
+            week_start: number;
+        } | null;
         AppendProviderApprovalReviewInputBody: {
             /**
              * Format: uri
@@ -14980,6 +15087,56 @@ export interface operations {
             };
         };
     };
+    "get-app-bootstrap": {
+        parameters: {
+            query?: {
+                /** @description Workspace to select when it is accessible to the current credential */
+                preferred_workspace_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppBootstrapOutputBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "delete-account": {
         parameters: {
             query?: never;
@@ -17903,8 +18060,17 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSessionStateOutputBody"];
                 };
             };
-            /** @description Error */
-            default: {
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

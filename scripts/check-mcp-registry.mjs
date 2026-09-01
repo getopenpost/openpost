@@ -24,11 +24,11 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
   }
 
   const escapedName = manifest.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const listingMatch = new RegExp(
-    "(?:Published|Prepared) as `" + escapedName + "` version `([^`]+)`",
-  ).exec(listings);
+  const listingMatch = new RegExp("Published as `" + escapedName + "` version `([^`]+)`").exec(
+    listings,
+  );
   if (!listingMatch) {
-    throw new Error("launch-kit listing must record the prepared or published MCP version");
+    throw new Error("launch-kit listing must record the published MCP version");
   }
   if (listingMatch[1] !== manifest.version) {
     throw new Error(

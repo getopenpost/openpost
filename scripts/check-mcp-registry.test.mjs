@@ -9,7 +9,7 @@ const manifest = {
   remotes: [{ type: "streamable-http", url: "https://app.openpo.st/mcp" }],
 };
 const listings =
-  "Prepared as `io.github.rodrgds/openpost` version `1.32.3`; publish after the new endpoint is live.";
+  "Published as `io.github.rodrgds/openpost` version `1.32.3` with the canonical endpoint.";
 const docs = "## Registry listing version and compatibility\n";
 
 test("accepts one documented immutable registry publication", () => {
@@ -25,6 +25,19 @@ test("rejects unexplained app/registry version drift", () => {
         docs,
       }),
     /does not match the launch listing/,
+  );
+});
+
+test("rejects a registry version that is only prepared", () => {
+  assert.throws(
+    () =>
+      validateMCPRegistryOwnership({
+        manifest,
+        listings:
+          "Prepared as `io.github.rodrgds/openpost` version `1.32.3`; publish after the endpoint is live.",
+        docs,
+      }),
+    /must record the published MCP version/,
   );
 });
 

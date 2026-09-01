@@ -33,6 +33,7 @@
     "expo-image": "~57.0.4",
     "expo-image-picker": "~57.0.15",
     "expo-linking": "~57.0.9",
+    "expo-network": "~57.0.1",
     "expo-router": "~57.0.18",
     "expo-secure-store": "~57.0.3",
     "expo-share-intent": "^8.0.1",

@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import {
@@ -23,10 +23,31 @@ import {
   SectionHeader,
   useColors,
 } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { formatDateTime, platformLabel, statusColor } from "@/lib/format";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
+import { invalidatePublicationData } from "@/lib/query-cache";
+import { currentWorkspaceId, prefetchPublicationEditor, usePublication } from "@/lib/queries";
+import type { PublicationActivity } from "@/lib/query-policy";
+import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  querySessionIsCurrent,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
+
+type PublicationMutationScope = WorkspaceQueryScope & {
+  publicationId: string;
+};
+
+type RescheduleRequest = {
+  scope: PublicationMutationScope;
+  when: Date;
+};
 
 export default function PostScreen() {
   const colors = useColors();
@@ -36,47 +57,72 @@ export default function PostScreen() {
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const publication = useQuery({
-    queryKey: ["publication", id],
-    queryFn: async () => {
-      const { data, error, response } = await api().GET("/publications/{id}", {
-        params: { path: { id } },
-      });
-      if (error || !data) throw new Error(await errorMessage(response, "Could not load post"));
-      return data;
-    },
-  });
+  const publication = usePublication(id, "live");
 
-  function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ["publication", id] });
-    void queryClient.invalidateQueries({ queryKey: ["publications"] });
-    void queryClient.invalidateQueries({ queryKey: ["calendar"] });
+  function captureScope(): PublicationMutationScope {
+    return {
+      ...captureWorkspaceQueryScope(currentWorkspaceId()),
+      publicationId: id,
+    };
   }
 
-  async function run(action: () => Promise<unknown>, hapticOnSuccess = false): Promise<boolean> {
+  function scopeIsCurrent(scope: WorkspaceQueryScope): boolean {
+    return workspaceQueryScopeIsCurrent(scope, getWorkspaceId());
+  }
+
+  function invalidate(
+    scope: PublicationMutationScope,
+    {
+      activities,
+      calendar = false,
+    }: {
+      activities: readonly PublicationActivity[];
+      calendar?: boolean;
+    },
+  ) {
+    if (!querySessionIsCurrent(scope)) return;
+    void invalidatePublicationData(queryClient, {
+      workspaceId: scope.workspaceId,
+      publicationId: scope.publicationId,
+      activities,
+      calendar,
+    });
+  }
+
+  async function run(
+    action: (scope: PublicationMutationScope) => Promise<unknown>,
+    refresh: {
+      activities: readonly PublicationActivity[];
+      calendar?: boolean;
+      haptic?: boolean;
+    },
+  ): Promise<boolean> {
+    const scope = captureScope();
     setActionError(null);
     try {
-      await action();
-      if (hapticOnSuccess) {
-        void successHaptic();
-      }
+      await action(scope);
+      if (refresh.haptic && scopeIsCurrent(scope)) void successHaptic();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Action failed");
-      void errorHaptic();
-      invalidate();
+      if (scopeIsCurrent(scope)) {
+        setActionError(err instanceof Error ? err.message : "Action failed");
+        void errorHaptic();
+      }
+      invalidate(scope, refresh);
       return false;
     }
-    invalidate();
-    return true;
+    invalidate(scope, refresh);
+    return scopeIsCurrent(scope);
   }
 
   const pub = publication.data;
 
   const reschedule = useMutation({
-    mutationFn: async (when: Date) => {
+    mutationFn: async ({ scope, when }: RescheduleRequest) => {
       if (!pub) throw new Error("Not loaded");
-      const updated = await api().PUT("/publications/{id}", {
-        params: { path: { id } },
+      requireCurrentQuerySession(scope);
+      const requestApi = api();
+      const updated = await requestApi.PUT("/publications/{id}", {
+        params: { path: { id: scope.publicationId } },
         body: {
           expected_revision: pub.revision ?? 0,
           scheduled_at: when.toISOString(),
@@ -85,41 +131,56 @@ export default function PostScreen() {
       if (updated.error) {
         throw new Error(await errorMessage(updated.response, "Could not reschedule"));
       }
+      requireCurrentQuerySession(scope);
       const revision = updated.data?.revision ?? (pub.revision ?? 0) + 1;
-      const { error, response } = await api().POST("/publications/{id}/schedule", {
-        params: { path: { id } },
+      const { error, response } = await requestApi.POST("/publications/{id}/schedule", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: revision },
       });
       if (error) throw new Error(await errorMessage(response, "Could not schedule"));
+      requireCurrentQuerySession(scope);
     },
-    onSuccess: () => {
-      setPickerStep(null);
-      setNewDate(null);
-      void successHaptic();
-      invalidate();
+    onSuccess: (_, { scope }) => {
+      if (scopeIsCurrent(scope)) {
+        setPickerStep(null);
+        setNewDate(null);
+        void successHaptic();
+      }
+      invalidate(scope, { activities: ["scheduled"], calendar: true });
     },
-    onError: (err) => {
-      setNewDate(null);
-      setActionError(err.message);
-      void errorHaptic();
+    onError: (err, { scope }) => {
+      if (scopeIsCurrent(scope)) {
+        setNewDate(null);
+        setActionError(err.message);
+        void errorHaptic();
+      }
+      invalidate(scope, { activities: ["scheduled"], calendar: true });
     },
   });
 
-  if (publication.isLoading) {
+  if (publication.isPending && !pub) {
     return (
-      <Screen style={{ alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.tint} />
+      <Screen style={styles.coldState}>
+        <DelayedQueryPlaceholder
+          pending
+          shape="detail"
+          offline={publication.fetchStatus === "paused"}
+        />
       </Screen>
     );
   }
 
-  if (publication.isError || !pub) {
+  if (!pub) {
     return (
-      <Screen style={{ padding: 20, paddingTop: 100, gap: 12 }}>
-        <BodyText style={{ color: colors.danger }}>
-          {publication.error instanceof Error ? publication.error.message : "Failed to load"}
-        </BodyText>
-        <Button title="Go back" onPress={() => router.back()} />
+      <Screen style={styles.coldState}>
+        <InitialQueryError
+          title="Could not load this post"
+          message={
+            publication.error instanceof Error ? publication.error.message : "Failed to load"
+          }
+          retry={() => void publication.refetch()}
+          secondaryAction={{ label: "Go back", onPress: () => router.back() }}
+        />
       </Screen>
     );
   }
@@ -141,6 +202,15 @@ export default function PostScreen() {
           <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
             {actionError}
           </BodyText>
+        ) : null}
+        {publication.isError ? (
+          <QueryNotice
+            message="Could not refresh this post. The current copy remains visible."
+            retry={() => void publication.refetch()}
+          />
+        ) : null}
+        {publication.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. The current post remains visible." offline />
         ) : null}
 
         <Card style={styles.headerCard}>
@@ -214,21 +284,38 @@ export default function PostScreen() {
               <Button
                 title="Edit"
                 variant="filled"
-                onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id } })}
+                onPress={() => {
+                  const scope = captureScope();
+                  void prefetchPublicationEditor(
+                    queryClient,
+                    scope.workspaceId,
+                    scope.publicationId,
+                  );
+                  router.push({
+                    pathname: "/publications/[id]/edit",
+                    params: { id: scope.publicationId },
+                  });
+                }}
               />
               {pub.scheduled_at ? (
                 <Button
                   title="Schedule & queue"
                   variant="tinted"
                   onPress={() =>
-                    run(async () => {
-                      const { error, response } = await api().POST("/publications/{id}/schedule", {
-                        params: { path: { id } },
-                        body: { expected_revision: pub.revision ?? 0 },
-                      });
-                      if (error)
-                        throw new Error(await errorMessage(response, "Could not schedule"));
-                    }, true)
+                    run(
+                      async (scope) => {
+                        const { error, response } = await api().POST(
+                          "/publications/{id}/schedule",
+                          {
+                            params: { path: { id: scope.publicationId } },
+                            body: { expected_revision: pub.revision ?? 0 },
+                          },
+                        );
+                        if (error)
+                          throw new Error(await errorMessage(response, "Could not schedule"));
+                      },
+                      { activities: ["draft", "scheduled"], calendar: true, haptic: true },
+                    )
                   }
                 />
               ) : null}
@@ -250,13 +337,16 @@ export default function PostScreen() {
                 title="Cancel schedule"
                 variant="destructive"
                 onPress={() =>
-                  run(async () => {
-                    const { error, response } = await api().POST("/publications/{id}/cancel", {
-                      params: { path: { id } },
-                      body: { expected_revision: pub.revision ?? 0 },
-                    });
-                    if (error) throw new Error(await errorMessage(response, "Could not cancel"));
-                  }, true)
+                  run(
+                    async (scope) => {
+                      const { error, response } = await api().POST("/publications/{id}/cancel", {
+                        params: { path: { id: scope.publicationId } },
+                        body: { expected_revision: pub.revision ?? 0 },
+                      });
+                      if (error) throw new Error(await errorMessage(response, "Could not cancel"));
+                    },
+                    { activities: ["draft", "scheduled"], calendar: true, haptic: true },
+                  )
                 }
               />
             </>
@@ -268,15 +358,18 @@ export default function PostScreen() {
                 title="Retry failed destinations"
                 variant="filled"
                 onPress={() =>
-                  run(async () => {
-                    const { error, response } = await api().POST(
-                      "/publications/{id}/retry-failed",
-                      {
-                        params: { path: { id } },
-                      },
-                    );
-                    if (error) throw new Error(await errorMessage(response, "Could not retry"));
-                  }, true)
+                  run(
+                    async (scope) => {
+                      const { error, response } = await api().POST(
+                        "/publications/{id}/retry-failed",
+                        {
+                          params: { path: { id: scope.publicationId } },
+                        },
+                      );
+                      if (error) throw new Error(await errorMessage(response, "Could not retry"));
+                    },
+                    { activities: ["failed", "scheduled"], calendar: true, haptic: true },
+                  )
                 }
               />
               <Button
@@ -285,19 +378,22 @@ export default function PostScreen() {
                 }
                 variant="plain"
                 onPress={() =>
-                  run(async () => {
-                    const result = pub.failure_dismissed_at
-                      ? await api().DELETE("/publications/{id}/failure-dismissal", {
-                          params: { path: { id } },
-                        })
-                      : await api().POST("/publications/{id}/failure-dismissal", {
-                          params: { path: { id } },
-                        });
-                    if (result.error)
-                      throw new Error(
-                        await errorMessage(result.response, "Could not update failed post"),
-                      );
-                  }, true)
+                  run(
+                    async (scope) => {
+                      const result = pub.failure_dismissed_at
+                        ? await api().DELETE("/publications/{id}/failure-dismissal", {
+                            params: { path: { id: scope.publicationId } },
+                          })
+                        : await api().POST("/publications/{id}/failure-dismissal", {
+                            params: { path: { id: scope.publicationId } },
+                          });
+                      if (result.error)
+                        throw new Error(
+                          await errorMessage(result.response, "Could not update failed post"),
+                        );
+                    },
+                    { activities: ["failed"], haptic: true },
+                  )
                 }
               />
             </>
@@ -315,19 +411,25 @@ export default function PostScreen() {
                     style: "destructive",
                     onPress: () => {
                       void (async () => {
-                        const deleted = await run(async () => {
-                          const { error, response } = await api().DELETE("/publications/{id}", {
-                            params: {
-                              path: { id },
-                              query: {
-                                confirm: true,
-                                expected_revision: pub.revision!,
+                        const deleted = await run(
+                          async (scope) => {
+                            const { error, response } = await api().DELETE("/publications/{id}", {
+                              params: {
+                                path: { id: scope.publicationId },
+                                query: {
+                                  confirm: true,
+                                  expected_revision: pub.revision!,
+                                },
                               },
-                            },
-                          });
-                          if (error)
-                            throw new Error(await errorMessage(response, "Could not delete"));
-                        });
+                            });
+                            if (error)
+                              throw new Error(await errorMessage(response, "Could not delete"));
+                          },
+                          {
+                            activities: [status === "scheduled" ? "scheduled" : "failed"],
+                            calendar: status === "scheduled",
+                          },
+                        );
                         if (deleted) router.back();
                       })();
                     },
@@ -362,7 +464,7 @@ export default function PostScreen() {
                 setNewDate(result.value);
                 setPickerStep(result.nextStep);
                 if (!result.nextStep) {
-                  reschedule.mutate(result.value);
+                  reschedule.mutate({ scope: captureScope(), when: result.value });
                 }
               }}
             />
@@ -384,6 +486,10 @@ function nextHour(): Date {
 }
 
 const styles = StyleSheet.create({
+  coldState: {
+    paddingHorizontal: 20,
+    paddingTop: 72,
+  },
   content: {
     padding: 16,
     gap: 16,

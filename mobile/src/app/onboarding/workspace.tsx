@@ -1,15 +1,15 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
-import { api, errorMessage } from "@/lib/api/client";
-import { getWorkspaceId, loadWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
+import { getWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
+import { useWorkspaces } from "@/lib/queries";
 import { getServer } from "@/lib/server";
 
 export default function WorkspaceScreen() {
@@ -20,21 +20,10 @@ export default function WorkspaceScreen() {
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
-  const workspaces = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: async () => {
-      const { data, error, response } = await api().GET("/workspaces");
-      if (error || !data)
-        throw new Error(await errorMessage(response, "Could not load workspaces"));
-      return data.filter((w): w is NonNullable<typeof w> => Boolean(w));
-    },
-  });
-
-  useEffect(() => {
-    void loadWorkspaceId();
-  }, []);
+  const workspaces = useWorkspaces();
 
   const list = useMemo(() => workspaces.data ?? [], [workspaces.data]);
+  const hasData = workspaces.data !== undefined;
 
   const finish = useCallback(async (id: string) => {
     setSelected(id);
@@ -71,17 +60,34 @@ export default function WorkspaceScreen() {
           />
         ) : null}
 
-        {workspaces.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
-        {workspaces.isError ? (
-          <View style={styles.errorState}>
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
-              {workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"}
-            </BodyText>
-            <Button title="Retry" variant="tinted" onPress={() => void workspaces.refetch()} />
-          </View>
+        <DelayedQueryPlaceholder
+          pending={!hasData && workspaces.isPending}
+          shape="list"
+          offline={workspaces.fetchStatus === "paused"}
+        />
+        {workspaces.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not load workspaces"
+            message={
+              workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"
+            }
+            retry={() => void workspaces.refetch()}
+          />
+        ) : null}
+        {workspaces.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh workspaces. The current list remains visible."
+            retry={() => void workspaces.refetch()}
+          />
+        ) : null}
+        {hasData && workspaces.fetchStatus === "paused" ? (
+          <QueryNotice
+            message="You are offline. The current workspace list remains visible."
+            offline
+          />
         ) : null}
 
-        {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
+        {hasData && list.length === 0 ? (
           <Card style={styles.emptyState}>
             <Text style={{ color: colors.text, fontSize: 17, fontWeight: "600" }}>
               No workspaces found
@@ -189,9 +195,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     flexShrink: 1,
-  },
-  errorState: {
-    gap: 12,
   },
   emptyState: {
     gap: 6,

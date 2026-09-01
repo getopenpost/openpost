@@ -37,7 +37,7 @@ export default function LoginScreen() {
         }
       }
       void successHaptic();
-      router.replace("/onboarding/workspace");
+      router.replace("/");
     } catch (err) {
       void errorHaptic();
       setError(err instanceof Error ? err.message : "Sign in failed");

@@ -5,7 +5,6 @@ import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   RefreshControl,
@@ -18,20 +17,36 @@ import { useShareIntentContext } from "expo-share-intent";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
 import { BodyText, Button, Card, IconButton, Screen, TextField, useColors } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import type { PendingAttachment } from "@/lib/media";
 import { stashPendingAttachments, stashSharedFiles } from "@/lib/share";
+import { cacheCreatedPublication, invalidatePublicationData } from "@/lib/query-cache";
+import { queryKeys } from "@/lib/query-policy";
 import {
   currentWorkspaceId,
+  prefetchPublicationEditor,
   usePublications,
   useWorkspaces,
   type PublicationListItem,
 } from "@/lib/queries";
 import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  querySessionIsCurrent,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
 import { getServer } from "@/lib/server";
 import { signOut } from "@/lib/auth";
+
+type CreateDraftRequest = {
+  scope: WorkspaceQueryScope;
+  text: string;
+};
 
 export default function DraftsScreen() {
   const colors = useColors();
@@ -46,10 +61,16 @@ export default function DraftsScreen() {
   const handledShare = useRef(false);
 
   const createDraft = useMutation({
-    mutationFn: async (text: string) => {
+    onMutate: ({ scope }: CreateDraftRequest) =>
+      queryClient.cancelQueries({
+        queryKey: queryKeys.publicationActivity(scope.workspaceId, "draft"),
+        exact: true,
+      }),
+    mutationFn: async ({ scope, text }: CreateDraftRequest) => {
+      requireCurrentQuerySession(scope);
       const { data, error, response } = await api().POST("/publications", {
         body: {
-          workspace_id: currentWorkspaceId(),
+          workspace_id: scope.workspaceId,
           creation_preset: "post",
           content_profile: "short_text",
           title: "",
@@ -57,23 +78,43 @@ export default function DraftsScreen() {
         },
       });
       if (error || !data) throw new Error(await errorMessage(response, "Could not save draft"));
-      return data;
+      return { publication: data, scope };
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    onSuccess: async ({ publication, scope }) => {
+      if (!querySessionIsCurrent(scope)) return;
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.publicationActivity(scope.workspaceId, "draft"),
+        exact: true,
+      });
+      if (!querySessionIsCurrent(scope)) return;
+      cacheCreatedPublication(queryClient, scope.workspaceId, publication);
+      void invalidatePublicationData(queryClient, {
+        workspaceId: scope.workspaceId,
+        activities: ["draft"],
+      });
+    },
+    onError: (_, { scope }) => {
+      if (!querySessionIsCurrent(scope)) return;
+      void invalidatePublicationData(queryClient, {
+        workspaceId: scope.workspaceId,
+        activities: ["draft"],
+      });
     },
   });
 
   async function quickCapture(buildWithAI = false) {
     const text = idea.trim();
     if (!text && !image) return;
+    const scope = captureWorkspaceQueryScope(currentWorkspaceId());
     setCaptureError(null);
     try {
-      const draft = await createDraft.mutateAsync(text);
+      const { publication: draft } = await createDraft.mutateAsync({ scope, text });
+      if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
       stashPendingAttachments(image ? [image] : []);
       setIdea("");
       setImage(null);
       void successHaptic();
+      void prefetchPublicationEditor(queryClient, scope.workspaceId, draft.id);
       router.push({
         pathname: "/publications/[id]/edit",
         params: {
@@ -83,6 +124,7 @@ export default function DraftsScreen() {
         },
       });
     } catch (err) {
+      if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
       setCaptureError(err instanceof Error ? err.message : "Could not save draft");
       void errorHaptic();
     }
@@ -125,21 +167,26 @@ export default function DraftsScreen() {
 
     resetShareIntent();
     void (async () => {
+      const scope = captureWorkspaceQueryScope(currentWorkspaceId());
       try {
-        const draft = await createDraft.mutateAsync(sharedText);
+        const { publication: draft } = await createDraft.mutateAsync({ scope, text: sharedText });
+        if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
         void successHaptic();
+        void prefetchPublicationEditor(queryClient, scope.workspaceId, draft.id);
         router.push({
           pathname: "/publications/[id]/edit",
           params: { id: draft.id, celebrate: "1" },
         });
       } catch {
+        if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
         setCaptureError("Could not create a draft from the shared content");
         void errorHaptic();
       }
     })();
-  }, [hasShareIntent, shareIntent, resetShareIntent, workspaces.data, createDraft]);
+  }, [hasShareIntent, shareIntent, resetShareIntent, workspaces.data, createDraft, queryClient]);
 
   const list = drafts.data ?? [];
+  const hasDraftData = drafts.data !== undefined;
   const activeWorkspace = workspaces.data?.find((workspace) => workspace.id === getWorkspaceId());
 
   return (
@@ -246,21 +293,32 @@ export default function DraftsScreen() {
           />
         }
       >
-        {drafts.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color={colors.tint} />
-        ) : null}
-        {drafts.isError ? (
-          <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load drafts</Text>
-            <BodyText accessibilityRole="alert">
-              {drafts.error instanceof Error
+        <DelayedQueryPlaceholder
+          pending={!hasDraftData && drafts.isPending}
+          shape="list"
+          offline={drafts.fetchStatus === "paused"}
+        />
+        {drafts.isError && !hasDraftData ? (
+          <InitialQueryError
+            title="Could not load drafts"
+            message={
+              drafts.error instanceof Error
                 ? drafts.error.message
-                : "Check your connection and try again."}
-            </BodyText>
-            <Button title="Try again" variant="tinted" onPress={() => void drafts.refetch()} />
-          </Card>
+                : "Check your connection and try again."
+            }
+            retry={() => void drafts.refetch()}
+          />
         ) : null}
-        {list.length === 0 && !drafts.isLoading && !drafts.isError ? (
+        {drafts.isError && hasDraftData ? (
+          <QueryNotice
+            message="Could not refresh drafts. The current list remains visible."
+            retry={() => void drafts.refetch()}
+          />
+        ) : null}
+        {hasDraftData && drafts.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. Current drafts remain visible." offline />
+        ) : null}
+        {list.length === 0 && hasDraftData ? (
           <Card style={styles.empty}>
             <BodyText style={{ textAlign: "center" }}>
               No drafts yet. Capture an idea above. It saves at once and opens in the composer.
@@ -268,7 +326,15 @@ export default function DraftsScreen() {
           </Card>
         ) : null}
         {list.map((draft) => (
-          <DraftRow key={draft.id} draft={draft} />
+          <DraftRow
+            key={draft.id}
+            draft={draft}
+            onOpen={() => {
+              const workspaceId = currentWorkspaceId();
+              void prefetchPublicationEditor(queryClient, workspaceId, draft.id);
+              router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } });
+            }}
+          />
         ))}
       </ScrollView>
 
@@ -289,14 +355,14 @@ function MenuButton({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function DraftRow({ draft }: { draft: PublicationListItem }) {
+function DraftRow({ draft, onOpen }: { draft: PublicationListItem; onOpen: () => void }) {
   const colors = useColors();
   const excerpt = firstRenditionBody(draft) ?? draft.title ?? "Untitled draft";
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${excerpt}. Edited ${relativeTime(draft.updated_at)}`}
-      onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } })}
+      onPress={onOpen}
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
@@ -448,14 +514,6 @@ const styles = StyleSheet.create({
   },
   empty: {
     marginTop: 16,
-  },
-  error: {
-    gap: 10,
-    marginTop: 16,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
   },
   row: {
     paddingVertical: 14,

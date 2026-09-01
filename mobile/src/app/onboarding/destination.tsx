@@ -1,10 +1,11 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 
 import { Brand } from "@/components/brand";
 import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { destinationState } from "@/lib/first-use";
 import { useAccounts, useWorkspaceId } from "@/lib/queries";
 import { getServer } from "@/lib/server";
@@ -33,7 +34,8 @@ export default function DestinationScreen() {
     if (readyRoute) router.replace(readyRoute);
   }, [readyRoute, server, workspaceId]);
 
-  const showProgress = !accounts.isError && (state?.kind === "checking" || state?.kind === "ready");
+  const hasData = accounts.data !== undefined;
+  const showProgress = !hasData && accounts.isPending;
 
   return (
     <Screen>
@@ -42,32 +44,33 @@ export default function DestinationScreen() {
         <Brand compact style={styles.brand} />
 
         {showProgress ? (
-          <View accessibilityLiveRegion="polite" style={styles.progress}>
-            <ActivityIndicator color={colors.tint} />
-            <BodyText>Checking connected accounts</BodyText>
-          </View>
+          <DelayedQueryPlaceholder
+            pending
+            shape="list"
+            offline={accounts.fetchStatus === "paused"}
+          />
         ) : null}
 
-        {accounts.isError ? (
-          <>
-            <Text style={[styles.title, { color: colors.text }]}>Could not check accounts</Text>
-            <Card style={styles.card}>
-              <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
-                {accounts.error instanceof Error
-                  ? accounts.error.message
-                  : "Could not load accounts"}
-              </BodyText>
-              <Button
-                title="Retry"
-                variant="tinted"
-                loading={accounts.isFetching}
-                onPress={() => void accounts.refetch()}
-              />
-            </Card>
-          </>
+        {accounts.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not check accounts"
+            message={
+              accounts.error instanceof Error ? accounts.error.message : "Could not load accounts"
+            }
+            retry={() => void accounts.refetch()}
+          />
+        ) : null}
+        {accounts.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh accounts. Current destinations remain visible."
+            retry={() => void accounts.refetch()}
+          />
+        ) : null}
+        {hasData && accounts.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. Current accounts remain visible." offline />
         ) : null}
 
-        {!accounts.isError && state?.kind === "setup" ? (
+        {hasData && state?.kind === "setup" ? (
           <>
             <Text style={[styles.title, { color: colors.text }]}>{state.title}</Text>
             <BodyText style={styles.subtitle}>{state.body}</BodyText>
@@ -124,12 +127,6 @@ const styles = StyleSheet.create({
   subtitle: {
     paddingTop: 8,
     paddingBottom: 16,
-  },
-  progress: {
-    minHeight: 160,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
   },
   card: {
     gap: 12,

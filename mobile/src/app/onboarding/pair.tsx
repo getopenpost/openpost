@@ -51,7 +51,7 @@ export default function PairScreen() {
             if (result.status === "approved") {
               void successHaptic();
               setPhase("approved");
-              setTimeout(() => router.replace("/onboarding/workspace"), 500);
+              setTimeout(() => router.replace("/"), 500);
             } else {
               setPhase(result.status);
             }

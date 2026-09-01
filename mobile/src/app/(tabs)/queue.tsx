@@ -1,87 +1,150 @@
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { BodyText, Button, Card, Screen, StatusBadge, useColors } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
-import { usePublications, type PublicationListItem } from "@/lib/queries";
+import { invalidatePublicationData } from "@/lib/query-cache";
+import { currentWorkspaceId, usePublications, type PublicationListItem } from "@/lib/queries";
+import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  querySessionIsCurrent,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
+
+type PublicationMutationRequest = {
+  publicationId: string;
+  scope: WorkspaceQueryScope;
+};
+
+type DismissMutationRequest = PublicationMutationRequest & {
+  publication: PublicationListItem;
+};
+
+type DismissedPublication = {
+  publication: PublicationListItem;
+  scope: WorkspaceQueryScope;
+};
 
 export default function QueueScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState<PublicationListItem | null>(null);
+  const [dismissed, setDismissed] = useState<DismissedPublication | null>(null);
 
   const scheduled = usePublications("scheduled");
   const failed = usePublications("failed");
 
+  function mutationRequest(publicationId: string): PublicationMutationRequest {
+    return {
+      publicationId,
+      scope: captureWorkspaceQueryScope(currentWorkspaceId()),
+    };
+  }
+
+  function scopeIsCurrent(scope: WorkspaceQueryScope): boolean {
+    return workspaceQueryScopeIsCurrent(scope, getWorkspaceId());
+  }
+
+  function invalidate(
+    { publicationId, scope }: PublicationMutationRequest,
+    activities: readonly ("scheduled" | "failed")[],
+    calendar = false,
+  ): void {
+    if (!querySessionIsCurrent(scope)) return;
+    void invalidatePublicationData(queryClient, {
+      workspaceId: scope.workspaceId,
+      publicationId,
+      activities,
+      calendar,
+    });
+  }
+
   const retryFailed = useMutation({
-    mutationFn: async (publicationId: string) => {
+    mutationFn: async ({ publicationId, scope }: PublicationMutationRequest) => {
+      requireCurrentQuerySession(scope);
       const { error, response } = await api().POST("/publications/{id}/retry-failed", {
         params: { path: { id: publicationId } },
       });
       if (error) throw new Error(await errorMessage(response, "Retry failed"));
     },
-    onSuccess: () => {
-      void successHaptic();
-      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    onSuccess: (_, request) => {
+      if (scopeIsCurrent(request.scope)) void successHaptic();
+      invalidate(request, ["failed", "scheduled"], true);
     },
-    onError: (err) => {
-      setActionError(err.message);
-      void errorHaptic();
+    onError: (err, request) => {
+      if (scopeIsCurrent(request.scope)) {
+        setActionError(err.message);
+        void errorHaptic();
+      }
+      invalidate(request, ["failed", "scheduled"], true);
     },
   });
 
   const dismissFailed = useMutation({
-    mutationFn: async (publication: PublicationListItem) => {
+    mutationFn: async ({ publicationId, scope }: DismissMutationRequest) => {
+      requireCurrentQuerySession(scope);
       const { error, response } = await api().POST("/publications/{id}/failure-dismissal", {
-        params: { path: { id: publication.id } },
+        params: { path: { id: publicationId } },
       });
       if (error) throw new Error(await errorMessage(response, "Could not dismiss failed post"));
-      return publication;
     },
-    onSuccess: (publication) => {
-      setDismissed(publication);
-      setActionError(null);
-      void selectionHaptic();
-      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    onSuccess: (_, request) => {
+      if (scopeIsCurrent(request.scope)) {
+        setDismissed({ publication: request.publication, scope: request.scope });
+        setActionError(null);
+        void selectionHaptic();
+      }
+      invalidate(request, ["failed"]);
     },
-    onError: (err) => {
-      setActionError(err.message);
-      void errorHaptic();
+    onError: (err, request) => {
+      if (scopeIsCurrent(request.scope)) {
+        setActionError(err.message);
+        void errorHaptic();
+      }
+      invalidate(request, ["failed"]);
     },
   });
 
   const restoreFailed = useMutation({
-    mutationFn: async (publicationId: string) => {
+    mutationFn: async ({ publicationId, scope }: PublicationMutationRequest) => {
+      requireCurrentQuerySession(scope);
       const { error, response } = await api().DELETE("/publications/{id}/failure-dismissal", {
         params: { path: { id: publicationId } },
       });
       if (error) throw new Error(await errorMessage(response, "Could not restore failed post"));
     },
-    onSuccess: () => {
-      setDismissed(null);
-      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    onSuccess: (_, request) => {
+      if (scopeIsCurrent(request.scope)) setDismissed(null);
+      invalidate(request, ["failed"]);
     },
-    onError: (err) => {
-      setActionError(err.message);
-      void errorHaptic();
+    onError: (err, request) => {
+      if (scopeIsCurrent(request.scope)) {
+        setActionError(err.message);
+        void errorHaptic();
+      }
+      invalidate(request, ["failed"]);
     },
   });
 
   const refreshing = scheduled.isRefetching || failed.isRefetching;
+  const hasScheduledData = scheduled.data !== undefined;
+  const hasFailedData = failed.data !== undefined;
+  const hasAnyData = hasScheduledData || hasFailedData;
+  const coldPending =
+    !hasAnyData &&
+    !scheduled.isError &&
+    !failed.isError &&
+    ((scheduled.isPending && scheduled.data === undefined) ||
+      (failed.isPending && failed.data === undefined));
 
   function refresh() {
     void scheduled.refetch();
@@ -105,52 +168,100 @@ export default function QueueScreen() {
           />
         }
       >
-        {scheduled.isLoading || failed.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={colors.tint} />
-        ) : null}
+        <DelayedQueryPlaceholder
+          pending={coldPending}
+          shape="list"
+          offline={scheduled.fetchStatus === "paused" || failed.fetchStatus === "paused"}
+        />
         {actionError ? (
           <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginBottom: 8 }}>
             {actionError}
           </BodyText>
         ) : null}
 
-        <Section title="Failed" count={failed.data?.length ?? 0}>
-          {failed.isError ? <QueryError query={failed} label="failed posts" /> : null}
-          {(failed.data ?? []).map((publication) => (
-            <FailedCard
-              key={publication.id}
-              publication={publication}
-              onRetry={() => retryFailed.mutate(publication.id)}
-              onDismiss={() => dismissFailed.mutate(publication)}
-              pending={retryFailed.isPending && retryFailed.variables === publication.id}
-            />
-          ))}
-          {(failed.data?.length ?? 0) === 0 && !failed.isLoading && !failed.isError ? (
-            <Card>
-              <BodyText style={{ textAlign: "center" }}>No failed posts.</BodyText>
-            </Card>
-          ) : null}
-        </Section>
+        {!coldPending ? (
+          <Section title="Failed" count={failed.data?.length ?? 0}>
+            {!hasFailedData && failed.isPending ? (
+              <DelayedQueryPlaceholder
+                pending
+                shape="list"
+                offline={failed.fetchStatus === "paused"}
+              />
+            ) : null}
+            {failed.isError ? (
+              <QueryError query={failed} label="failed posts" hasData={hasFailedData} />
+            ) : null}
+            {hasFailedData && failed.fetchStatus === "paused" ? (
+              <QueryNotice
+                message="You are offline. Current failed posts remain visible."
+                offline
+              />
+            ) : null}
+            {(failed.data ?? []).map((publication) => (
+              <FailedCard
+                key={publication.id}
+                publication={publication}
+                onRetry={() => retryFailed.mutate(mutationRequest(publication.id))}
+                onDismiss={() =>
+                  dismissFailed.mutate({
+                    ...mutationRequest(publication.id),
+                    publication,
+                  })
+                }
+                pending={
+                  retryFailed.isPending && retryFailed.variables?.publicationId === publication.id
+                }
+              />
+            ))}
+            {(failed.data?.length ?? 0) === 0 && hasFailedData ? (
+              <Card>
+                <BodyText style={{ textAlign: "center" }}>No failed posts.</BodyText>
+              </Card>
+            ) : null}
+          </Section>
+        ) : null}
 
-        <Section title="Upcoming" count={scheduled.data?.length ?? 0}>
-          {scheduled.isError ? <QueryError query={scheduled} label="scheduled posts" /> : null}
-          {(scheduled.data ?? []).map((publication) => (
-            <QueueRow key={publication.id} publication={publication} />
-          ))}
-          {(scheduled.data?.length ?? 0) === 0 && !scheduled.isLoading && !scheduled.isError ? (
-            <Card>
-              <BodyText style={{ textAlign: "center" }}>Nothing scheduled yet.</BodyText>
-            </Card>
-          ) : null}
-        </Section>
+        {!coldPending ? (
+          <Section title="Upcoming" count={scheduled.data?.length ?? 0}>
+            {!hasScheduledData && scheduled.isPending ? (
+              <DelayedQueryPlaceholder
+                pending
+                shape="list"
+                offline={scheduled.fetchStatus === "paused"}
+              />
+            ) : null}
+            {scheduled.isError ? (
+              <QueryError query={scheduled} label="scheduled posts" hasData={hasScheduledData} />
+            ) : null}
+            {hasScheduledData && scheduled.fetchStatus === "paused" ? (
+              <QueryNotice
+                message="You are offline. Current scheduled posts remain visible."
+                offline
+              />
+            ) : null}
+            {(scheduled.data ?? []).map((publication) => (
+              <QueueRow key={publication.id} publication={publication} />
+            ))}
+            {(scheduled.data?.length ?? 0) === 0 && hasScheduledData ? (
+              <Card>
+                <BodyText style={{ textAlign: "center" }}>Nothing scheduled yet.</BodyText>
+              </Card>
+            ) : null}
+          </Section>
+        ) : null}
       </ScrollView>
-      {dismissed ? (
+      {dismissed && scopeIsCurrent(dismissed.scope) ? (
         <View style={[styles.undoBar, { backgroundColor: colors.text }]} accessibilityRole="alert">
           <Text style={{ color: colors.bg, flex: 1 }}>Failed post dismissed</Text>
           <Button
             title="Undo"
             variant="plain"
-            onPress={() => restoreFailed.mutate(dismissed.id)}
+            onPress={() =>
+              restoreFailed.mutate({
+                publicationId: dismissed.publication.id,
+                scope: dismissed.scope,
+              })
+            }
             loading={restoreFailed.isPending}
             style={styles.undoButton}
           />
@@ -163,19 +274,25 @@ export default function QueueScreen() {
 function QueryError({
   query,
   label,
+  hasData,
 }: {
-  query: { error: Error | null; refetch: () => unknown };
+  query: { error: unknown; refetch: () => unknown };
   label: string;
+  hasData: boolean;
 }) {
-  const colors = useColors();
-  return (
-    <Card style={styles.error}>
-      <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load {label}</Text>
-      <BodyText accessibilityRole="alert">
-        {query.error?.message ?? "Check your connection and try again."}
-      </BodyText>
-      <Button title="Try again" variant="tinted" onPress={() => void query.refetch()} />
-    </Card>
+  const message =
+    query.error instanceof Error ? query.error.message : "Check your connection and try again.";
+  return hasData ? (
+    <QueryNotice
+      message={`Could not refresh ${label}. The current list remains visible.`}
+      retry={() => void query.refetch()}
+    />
+  ) : (
+    <InitialQueryError
+      title={`Could not load ${label}`}
+      message={message}
+      retry={() => void query.refetch()}
+    />
   );
 }
 
@@ -378,12 +495,5 @@ const styles = StyleSheet.create({
   },
   undoButton: {
     minHeight: 48,
-  },
-  error: {
-    gap: 12,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
   },
 });

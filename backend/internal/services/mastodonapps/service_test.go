@@ -88,6 +88,64 @@ func TestAdapterForInstanceRegistersAndCachesMastodonApp(t *testing.T) {
 	require.Equal(t, 1, registrationCalls)
 }
 
+func TestAdapterForInstanceReregistersWhenRedirectChanges(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := createMastodonAppsTestDB(t)
+	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+	oldSecret, err := encryptor.Encrypt("old-secret")
+	require.NoError(t, err)
+
+	var registrationCalls int
+	instanceServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/api/v1/apps", r.URL.Path)
+		require.NoError(t, r.ParseForm())
+		require.Equal(t, "https://app.openpo.st/accounts/mastodon/callback", r.Form.Get("redirect_uris"))
+		registrationCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"client_id":"new-client","client_secret":"new-secret"}`))
+	}))
+	defer instanceServer.Close()
+
+	_, err = db.NewInsert().Model(&models.MastodonInstance{
+		ID:                 "instance-1",
+		InstanceURL:        instanceServer.URL,
+		Host:               strings.TrimPrefix(instanceServer.URL, "https://"),
+		ClientID:           "old-client",
+		ClientSecretEnc:    oldSecret,
+		RedirectURI:        "https://app.openpost.social/accounts/mastodon/callback",
+		Scopes:             defaultScopes,
+		RegistrationStatus: registrationStatusActive,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	service := NewService(db, encryptor, Options{
+		RedirectURI: "https://app.openpo.st/accounts/mastodon/callback",
+		Website:     "https://openpo.st",
+		HTTPClient:  instanceServer.Client(),
+		Validator: func(_ context.Context, instanceURL *url.URL) error {
+			require.Equal(t, "https", instanceURL.Scheme)
+			return nil
+		},
+	})
+
+	adapter, canonicalURL, err := service.AdapterForInstance(ctx, instanceServer.URL)
+	require.NoError(t, err)
+	require.NotNil(t, adapter)
+	require.Equal(t, instanceServer.URL, canonicalURL)
+	require.Equal(t, 1, registrationCalls)
+
+	var stored models.MastodonInstance
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", "instance-1").Scan(ctx))
+	require.Equal(t, "new-client", stored.ClientID)
+	require.Equal(t, "https://app.openpo.st/accounts/mastodon/callback", stored.RedirectURI)
+	decrypted, err := encryptor.Decrypt(stored.ClientSecretEnc)
+	require.NoError(t, err)
+	require.Equal(t, "new-secret", decrypted)
+}
+
 func TestListActiveAppConfigsReturnsPersistedDynamicMastodonInstances(t *testing.T) {
 	t.Parallel()
 

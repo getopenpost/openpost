@@ -207,6 +207,10 @@ export class BrowserTelemetry {
       return;
     }
 
+    if (preference === "cookieless") {
+      this.preferenceStore.clearSDKState(config.projectToken.trim());
+    }
+
     this.initialize(config, preference);
   }
 

@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "Sistem sesi istendi.",
 	"video_editor_system_audio_unavailable": "Sistem sesi kullanılamıyor.",
 	"telemetry_consent_title": "Analiz seçenekleri",
-	"telemetry_consent_description": "Ziyaretleri ilişkilendirmek ve nelerin işe yaradığını görmek için birinci taraf analiz çerezlerine izin verin. Çerezler olmadan OpenPost yalnızca sınırlı anonim etkinliği sayar. Reklam, oturum kaydı veya geniş kapsamlı tıklama takibi kullanmayız.",
+	"telemetry_consent_description": "Ziyaretleri ilişkilendirmek ve nelerin işe yaradığını görmek için birinci taraf analiz çerezlerine izin verin. Çerezler olmadan OpenPost, kişi profili oluşturmadan yalnızca sınırlı etkinliği sayar. Reklam, oturum kaydı veya geniş kapsamlı tıklama takibi kullanmayız.",
 	"telemetry_consent_allow": "Analiz çerezlerine izin ver",
 	"telemetry_consent_cookieless": "Çerezler olmadan devam et",
 	"telemetry_consent_off": "İsteğe bağlı analizi kapat",

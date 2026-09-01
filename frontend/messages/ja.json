@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "システム音声を要求中。",
 	"video_editor_system_audio_unavailable": "システム音声は利用できません。",
 	"telemetry_consent_title": "アクセス解析の選択",
-	"telemetry_consent_description": "ファーストパーティの解析 Cookie を許可すると、訪問を関連付けて有効な機能を把握できます。Cookie を許可しない場合、OpenPost は限定的な匿名アクティビティだけを集計します。広告、セッション録画、広範なクリック追跡は使用しません。",
+	"telemetry_consent_description": "ファーストパーティの解析 Cookie を許可すると、訪問を関連付けて有効な機能を把握できます。Cookie を許可しない場合、OpenPost は個人プロファイルを作成せず、限定的なアクティビティだけを集計します。広告、セッション録画、広範なクリック追跡は使用しません。",
 	"telemetry_consent_allow": "解析 Cookie を許可",
 	"telemetry_consent_cookieless": "Cookie なしで続ける",
 	"telemetry_consent_off": "任意のアクセス解析を停止",

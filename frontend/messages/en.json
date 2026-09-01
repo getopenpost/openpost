@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "System audio requested — waiting for browser.",
 	"video_editor_system_audio_unavailable": "System audio unavailable — browser or selection cannot provide it.",
 	"telemetry_consent_title": "Analytics choices",
-	"telemetry_consent_description": "Allow first-party analytics cookies to connect visits and show what works. Without cookies, OpenPost counts limited anonymous activity. We never use ads, session replay, or broad click tracking.",
+	"telemetry_consent_description": "Allow first-party analytics cookies to connect visits and show what works. Without cookies, OpenPost counts limited activity without creating a person profile. We never use ads, session replay, or broad click tracking.",
 	"telemetry_consent_allow": "Allow analytics cookies",
 	"telemetry_consent_cookieless": "Continue without cookies",
 	"telemetry_consent_off": "Turn off optional analytics",

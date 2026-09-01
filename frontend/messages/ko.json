@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "시스템 오디오 요청됨.",
 	"video_editor_system_audio_unavailable": "시스템 오디오를 사용할 수 없습니다.",
 	"telemetry_consent_title": "분석 선택",
-	"telemetry_consent_description": "자사 분석 쿠키를 허용하면 방문을 연결하고 어떤 기능이 효과적인지 파악할 수 있습니다. 쿠키를 허용하지 않으면 OpenPost는 제한된 익명 활동만 집계합니다. 광고, 세션 재생, 광범위한 클릭 추적은 사용하지 않습니다.",
+	"telemetry_consent_description": "자사 분석 쿠키를 허용하면 방문을 연결하고 어떤 기능이 효과적인지 파악할 수 있습니다. 쿠키를 허용하지 않으면 OpenPost는 개인 프로필을 만들지 않고 제한된 활동만 집계합니다. 광고, 세션 재생, 광범위한 클릭 추적은 사용하지 않습니다.",
 	"telemetry_consent_allow": "분석 쿠키 허용",
 	"telemetry_consent_cookieless": "쿠키 없이 계속",
 	"telemetry_consent_off": "선택적 분석 끄기",

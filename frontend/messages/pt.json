@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "Áudio do sistema solicitado.",
 	"video_editor_system_audio_unavailable": "Áudio do sistema indisponível.",
 	"telemetry_consent_title": "Opções de análise",
-	"telemetry_consent_description": "Permita cookies de análise próprios para associar visitas e perceber o que funciona. Sem cookies, o OpenPost conta apenas atividade anónima limitada. Nunca usamos anúncios, gravação de sessões ou monitorização abrangente de cliques.",
+	"telemetry_consent_description": "Permita cookies de análise próprios para associar visitas e perceber o que funciona. Sem cookies, o OpenPost conta apenas atividade limitada sem criar um perfil individual. Nunca usamos anúncios, gravação de sessões ou monitorização abrangente de cliques.",
 	"telemetry_consent_allow": "Permitir cookies de análise",
 	"telemetry_consent_cookieless": "Continuar sem cookies",
 	"telemetry_consent_off": "Desativar análise opcional",

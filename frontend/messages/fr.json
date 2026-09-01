@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "Son système demandé.",
 	"video_editor_system_audio_unavailable": "Son système indisponible.",
 	"telemetry_consent_title": "Choix des mesures d’audience",
-	"telemetry_consent_description": "Autorisez les cookies de mesure d’audience internes pour relier les visites et comprendre ce qui fonctionne. Sans cookies, OpenPost compte une activité anonyme limitée. Nous n’utilisons ni publicité, ni enregistrement de session, ni suivi général des clics.",
+	"telemetry_consent_description": "Autorisez les cookies de mesure d’audience internes pour relier les visites et comprendre ce qui fonctionne. Sans cookies, OpenPost mesure une activité limitée sans créer de profil individuel. Nous n’utilisons ni publicité, ni enregistrement de session, ni suivi général des clics.",
 	"telemetry_consent_allow": "Autoriser les cookies de mesure",
 	"telemetry_consent_cookieless": "Continuer sans cookies",
 	"telemetry_consent_off": "Désactiver les mesures facultatives",

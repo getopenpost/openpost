@@ -184,7 +184,8 @@ describe("BrowserTelemetry", () => {
 
   it("keeps cookieless analytics personless and omits correlation headers", () => {
     const sdk = new FakeSDK();
-    const subject = configuredTelemetry(sdk, "cookieless");
+    const store = new FakePreferenceStore("cookieless");
+    const subject = new BrowserTelemetry(sdk, () => true, store);
     subject.identify("user-1");
     subject.configure(configuredApp);
 
@@ -197,6 +198,7 @@ describe("BrowserTelemetry", () => {
     expect(sdk.registered[0]).toMatchObject({ analytics_mode: "cookieless" });
     expect(sdk.identified).toHaveLength(0);
     expect(subject.requestHeaders()).toEqual({});
+    expect(store.clearedTokens).toEqual(["phc_test"]);
   });
 
   it("honors browser privacy signals as a complete analytics opt-out", () => {

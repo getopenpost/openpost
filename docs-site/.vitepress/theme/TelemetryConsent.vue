@@ -56,8 +56,8 @@ onUnmounted(() => {
         <h2 id="op-telemetry-consent-title" ref="heading" tabindex="-1">Analytics choices</h2>
         <p>
           Allow first-party analytics cookies to connect visits and show what works. Without
-          cookies, OpenPost counts limited anonymous activity. We never use ads, session replay, or
-          broad click tracking.
+          cookies, OpenPost counts limited activity without creating a person profile. We never use
+          ads, session replay, or broad click tracking.
         </p>
       </div>
       <button

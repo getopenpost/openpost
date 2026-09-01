@@ -7834,7 +7834,7 @@
 	"video_editor_system_audio_requested": "已请求系统音频。",
 	"video_editor_system_audio_unavailable": "系统音频不可用。",
 	"telemetry_consent_title": "分析选项",
-	"telemetry_consent_description": "允许第一方分析 Cookie，可以关联多次访问并了解哪些功能有效。不使用 Cookie 时，OpenPost 只统计有限的匿名活动。我们绝不使用广告、会话回放或广泛的点击跟踪。",
+	"telemetry_consent_description": "允许第一方分析 Cookie，可以关联多次访问并了解哪些功能有效。不使用 Cookie 时，OpenPost 只统计有限的活动，不创建个人资料。我们绝不使用广告、会话回放或广泛的点击跟踪。",
 	"telemetry_consent_allow": "允许分析 Cookie",
 	"telemetry_consent_cookieless": "不使用 Cookie 继续",
 	"telemetry_consent_off": "关闭可选分析",

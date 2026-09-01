@@ -16,7 +16,7 @@ test("public crawler policy explicitly permits search, AI input, and model train
   );
   assert.match(robots, /^User-agent: \*$/m);
   assert.match(robots, /^Allow: \/$/m);
-  assert.match(robots, /^Sitemap: https:\/\/openpost\.social\/sitemap\.xml$/m);
+  assert.match(robots, /^Sitemap: https:\/\/openpo\.st\/sitemap\.xml$/m);
   assert.doesNotMatch(robots, /^Disallow:/m);
 
   const root = path.resolve(import.meta.dirname, "..");

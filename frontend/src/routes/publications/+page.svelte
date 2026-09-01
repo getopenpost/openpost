@@ -29,10 +29,19 @@
 	import { resolveAppPath } from '$lib/app-path';
 	import { showToast } from '$lib/toast';
 	import { formatSocialAccountName } from '$lib/utils';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		activityPublicationsQueryOptions,
+		failedJobsQueryOptions,
+		openPostQueryKeys,
+		workspaceAccountsQueryOptions,
+		type ActivityPublicationBucket
+	} from '@openpost/query-catalog';
+	import { queryAPI } from '$lib/query/api';
+	import { queryClient } from '$lib/query/client';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	type ActivityDestination = NonNullable<Publication['renditions']>[number];
-	type ActivityPublicationBucket = 'scheduled' | 'published' | 'failed' | 'draft';
 	type ActivityTab = 'scheduled' | 'published' | 'failed' | 'drafts';
 	type ActivityPageState = { total: number; nextCursor: string };
 	type ActivityItem = {
@@ -67,9 +76,9 @@
 	let copiedReportPostID = $state('');
 	let retryingDestination = $state('');
 	let successMessage = $state('');
-	let loading = $state(true);
 	let hasLoaded = $state(false);
 	let error = $state('');
+	let queryError = $state('');
 	let dataWorkspaceID = $state('');
 	let dataActivityBucket = $state<ActivityPublicationBucket | ''>('');
 	let dataRequestSequence = 0;
@@ -149,120 +158,132 @@
 	);
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const activeActivityBucket = $derived(activityBucketForTab(activeTab));
+	const publicationsQuery = createQuery(() =>
+		activityPublicationsQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
+			limit: publicationPageSize
+		})
+	);
+	const failedJobsQuery = createQuery(() =>
+		failedJobsQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize })
+	);
+	const accountsQuery = createQuery(() =>
+		workspaceAccountsQueryOptions(queryAPI, currentWorkspaceID)
+	);
+	const loading = $derived(
+		publicationsQuery.isFetching || failedJobsQuery.isFetching || accountsQuery.isFetching
+	);
+	const visibleError = $derived(error || queryError);
+	const initialQueriesSettled = $derived(
+		!publicationsQuery.isPending && !failedJobsQuery.isPending && !accountsQuery.isPending
+	);
 	const currentViewLoaded = $derived(
 		hasLoaded &&
 			dataWorkspaceID === currentWorkspaceID &&
-			dataActivityBucket === activeActivityBucket
+			dataActivityBucket === activeActivityBucket &&
+			initialQueriesSettled
 	);
 	const initialLoading = $derived(
-		!currentViewLoaded && !error && (loading || Boolean(currentWorkspaceID))
+		!currentViewLoaded && !visibleError && (loading || Boolean(currentWorkspaceID))
 	);
+	let appliedPublicationsResult = '';
+	let appliedJobsResult = '';
+	let appliedAccountsResult = '';
 
 	$effect(() => {
-		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		const workspaceId = currentWorkspaceID;
 		const activityBucket = activeActivityBucket;
-		if (workspaceID) untrack(() => void loadData(workspaceID, activityBucket));
+		if (dataWorkspaceID === workspaceId && dataActivityBucket === activityBucket) return;
+		untrack(() => {
+			dataRequestSequence++;
+			const workspaceChanged = dataWorkspaceID !== workspaceId;
+			dataWorkspaceID = workspaceId;
+			dataActivityBucket = activityBucket;
+			posts = [];
+			publicationPage = { total: 0, nextCursor: '' };
+			hasLoaded = false;
+			loadingMorePublications = false;
+			loadingMoreJobs = false;
+			error = '';
+			queryError = '';
+			if (workspaceChanged) {
+				failedJobs = [];
+				failedJobsPage = { total: 0, nextCursor: '' };
+				accounts = [];
+			}
+		});
 	});
 
-	async function loadData(
-		requestedWorkspaceID = workspaceCtx.currentWorkspace?.id ?? '',
-		requestedActivityBucket = activeActivityBucket
-	) {
-		const requestSequence = ++dataRequestSequence;
-		let workspaceId = requestedWorkspaceID;
+	$effect(() => {
+		const data = publicationsQuery.data;
+		const resultKey = `${currentWorkspaceID}:${activeActivityBucket}:${publicationsQuery.dataUpdatedAt}`;
+		if (!data || appliedPublicationsResult === resultKey) return;
+		appliedPublicationsResult = resultKey;
+		untrack(() => {
+			dataWorkspaceID = currentWorkspaceID;
+			dataActivityBucket = activeActivityBucket;
+			posts = data.items.map(activityItem);
+			publicationPage = { total: data.total, nextCursor: data.nextCursor };
+			hasLoaded = true;
+		});
+	});
+
+	$effect(() => {
+		const data = failedJobsQuery.data;
+		const resultKey = `${currentWorkspaceID}:${failedJobsQuery.dataUpdatedAt}`;
+		if (!data || appliedJobsResult === resultKey) return;
+		appliedJobsResult = resultKey;
+		untrack(() => {
+			failedJobs = data.items;
+			failedJobsPage = { total: data.total, nextCursor: data.nextCursor };
+		});
+	});
+
+	$effect(() => {
+		const data = accountsQuery.data;
+		const resultKey = `${currentWorkspaceID}:${accountsQuery.dataUpdatedAt}`;
+		if (!data || appliedAccountsResult === resultKey) return;
+		appliedAccountsResult = resultKey;
+		untrack(() => {
+			accounts = data;
+		});
+	});
+
+	$effect(() => {
+		if (publicationsQuery.isError) {
+			queryError = m.activity_failed_posts();
+			return;
+		}
+		if (!initialQueriesSettled) {
+			queryError = '';
+			return;
+		}
+		if (failedJobsQuery.isError) {
+			if (!failedJobsQuery.data) {
+				failedJobs = [];
+				failedJobsPage = { total: 0, nextCursor: '' };
+			}
+			queryError = m.activity_failed_jobs();
+			return;
+		}
+		if (accountsQuery.isError) {
+			if (!accountsQuery.data) accounts = [];
+			queryError = m.activity_failed_accounts();
+			return;
+		}
+		queryError = '';
+	});
+
+	async function loadData() {
+		dataRequestSequence++;
 		loadingMorePublications = false;
 		loadingMoreJobs = false;
-		loading = true;
 		error = '';
-		try {
-			if (!workspaceCtx.currentWorkspace) {
-				try {
-					await workspaceCtx.initialize();
-				} catch {
-					throw new Error(m.activity_failed_load());
-				}
-			}
-			workspaceId ||= workspaceCtx.currentWorkspace?.id ?? '';
-			if (!workspaceId) throw new Error(m.activity_failed_load());
-
-			if (dataWorkspaceID !== workspaceId || dataActivityBucket !== requestedActivityBucket) {
-				const workspaceChanged = dataWorkspaceID !== workspaceId;
-				dataWorkspaceID = workspaceId;
-				dataActivityBucket = requestedActivityBucket;
-				posts = [];
-				failedJobs = [];
-				if (workspaceChanged) accounts = [];
-				publicationPage = { total: 0, nextCursor: '' };
-				failedJobsPage = { total: 0, nextCursor: '' };
-				hasLoaded = false;
-			}
-
-			const [publicationsResponse, jobsResponse, accountsResponse] = await Promise.all([
-				client.GET('/publications', {
-					params: {
-						query: {
-							workspace_id: workspaceId,
-							activity_bucket: requestedActivityBucket,
-							limit: publicationPageSize,
-							offset: 0
-						}
-					}
-				}),
-				client.GET('/jobs', {
-					params: {
-						query: { workspace_id: workspaceId, status: 'failed', limit: jobPageSize, offset: 0 }
-					}
-				}),
-				client.GET('/accounts', { params: { query: { workspace_id: workspaceId } } })
-			]);
-
-			if (
-				requestSequence !== dataRequestSequence ||
-				(workspaceCtx.currentWorkspace?.id ?? '') !== workspaceId ||
-				activeActivityBucket !== requestedActivityBucket
-			) {
-				return;
-			}
-			if (publicationsResponse.error || !publicationsResponse.data) {
-				throw new Error(m.activity_failed_posts());
-			}
-			posts = publicationsResponse.data.map(activityItem);
-			publicationPage = pageStateFromResponse(publicationsResponse.response);
-			failedJobs = jobsResponse.error
-				? []
-				: (jobsResponse.data ?? []).filter((job) => job.status === 'failed');
-			failedJobsPage = jobsResponse.error
-				? { total: 0, nextCursor: '' }
-				: pageStateFromResponse(jobsResponse.response);
-			accounts = accountsResponse.error ? [] : (accountsResponse.data ?? []);
-			error = jobsResponse.error
-				? m.activity_failed_jobs()
-				: accountsResponse.error
-					? m.activity_failed_accounts()
-					: '';
-			hasLoaded = true;
-		} catch (cause) {
-			if (
-				requestSequence !== dataRequestSequence ||
-				workspaceCtx.currentWorkspace?.id !== workspaceId ||
-				activeActivityBucket !== requestedActivityBucket
-			) {
-				return;
-			}
-			error = cause instanceof Error ? cause.message : m.activity_failed_load();
-		} finally {
-			if (requestSequence === dataRequestSequence) {
-				loading = false;
-			}
-		}
-	}
-
-	function pageStateFromResponse(response: Response): ActivityPageState {
-		const total = Number(response.headers.get('X-Total-Count') ?? 0);
-		return {
-			total: Number.isFinite(total) ? total : 0,
-			nextCursor: response.headers.get('X-Next-Cursor') ?? ''
-		};
+		queryError = '';
+		await Promise.all([
+			publicationsQuery.refetch(),
+			failedJobsQuery.refetch(),
+			accountsQuery.refetch()
+		]);
 	}
 
 	async function loadMorePublicationHistory() {
@@ -274,15 +295,12 @@
 		loadingMorePublications = true;
 		error = '';
 		try {
-			const query = {
-				workspace_id: workspaceId,
-				activity_bucket: activityBucket,
-				limit: publicationPageSize,
-				offset: 0,
-				cursor
-			};
-			const response = await client.GET('/publications', { params: { query } });
-			if (response.error || !response.data) throw new Error(m.activity_failed_posts());
+			const response = await queryClient.query(
+				activityPublicationsQueryOptions(queryAPI, workspaceId, activityBucket, {
+					limit: publicationPageSize,
+					cursor
+				})
+			);
 			if (
 				requestSequence !== dataRequestSequence ||
 				currentWorkspaceID !== workspaceId ||
@@ -292,9 +310,9 @@
 			const existingIDs = new Set(posts.map((post) => post.id));
 			posts = [
 				...posts,
-				...response.data.map(activityItem).filter((post) => !existingIDs.has(post.id))
+				...response.items.map(activityItem).filter((post) => !existingIDs.has(post.id))
 			];
-			publicationPage = pageStateFromResponse(response.response);
+			publicationPage = { total: response.total, nextCursor: response.nextCursor };
 		} catch (cause) {
 			if (
 				requestSequence !== dataRequestSequence ||
@@ -316,22 +334,13 @@
 		loadingMoreJobs = true;
 		error = '';
 		try {
-			const query = {
-				workspace_id: workspaceId,
-				status: 'failed',
-				limit: jobPageSize,
-				offset: 0,
-				cursor
-			};
-			const response = await client.GET('/jobs', { params: { query } });
-			if (response.error || !response.data) throw new Error(m.activity_failed_jobs());
+			const response = await queryClient.query(
+				failedJobsQueryOptions(queryAPI, workspaceId, { limit: jobPageSize, cursor })
+			);
 			if (requestSequence !== dataRequestSequence || currentWorkspaceID !== workspaceId) return;
 			const existingIDs = new Set(failedJobs.map((job) => job.id));
-			failedJobs = [
-				...failedJobs,
-				...response.data.filter((job) => job.status === 'failed' && !existingIDs.has(job.id))
-			];
-			failedJobsPage = pageStateFromResponse(response.response);
+			failedJobs = [...failedJobs, ...response.items.filter((job) => !existingIDs.has(job.id))];
+			failedJobsPage = { total: response.total, nextCursor: response.nextCursor };
 		} catch (cause) {
 			if (requestSequence !== dataRequestSequence || currentWorkspaceID !== workspaceId) return;
 			error = cause instanceof Error ? cause.message : m.activity_failed_jobs();
@@ -551,9 +560,16 @@
 		}
 	}
 
+	function isCurrentActivityView(workspaceId: string, activityBucket: ActivityPublicationBucket) {
+		return currentWorkspaceID === workspaceId && dataActivityBucket === activityBucket;
+	}
+
 	async function runDestinationAction(post: ActivityItem, destination: ActivityDestination) {
 		const recovery = deliveryRecoveryAction(destination.delivery, destination.status);
 		if (recovery === 'retry' && post.publication_id) {
+			const workspaceId = currentWorkspaceID;
+			const activityBucket = dataActivityBucket;
+			if (!workspaceId || !activityBucket) return;
 			const key = `${post.id}:${destination.social_account_id}:${destination.target_key}`;
 			retryingDestination = key;
 			error = '';
@@ -576,10 +592,24 @@
 				if (retryError) {
 					throw new Error(retryError.detail || m.activity_delivery_failed());
 				}
-				successMessage = m.activity_retry_queued();
-				await loadData();
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: openPostQueryKeys.publications.list(workspaceId),
+						refetchType: 'none'
+					}),
+					queryClient.invalidateQueries({
+						queryKey: openPostQueryKeys.jobs.failed(workspaceId),
+						refetchType: 'none'
+					})
+				]);
+				if (isCurrentActivityView(workspaceId, activityBucket)) {
+					successMessage = m.activity_retry_queued();
+					await loadData();
+				}
 			} catch (cause) {
-				error = cause instanceof Error ? cause.message : m.activity_delivery_failed();
+				if (isCurrentActivityView(workspaceId, activityBucket)) {
+					error = cause instanceof Error ? cause.message : m.activity_delivery_failed();
+				}
 			} finally {
 				retryingDestination = '';
 			}
@@ -595,16 +625,31 @@
 
 	async function dismissFailedPost(post: ActivityItem) {
 		if (!post.publication_id) return;
+		const workspaceId = currentWorkspaceID;
+		const activityBucket = dataActivityBucket;
+		if (!workspaceId || !activityBucket) return;
 		error = '';
 		const publicationID = post.publication_id;
 		const response = await client.POST('/publications/{id}/failure-dismissal', {
 			params: { path: { id: publicationID } }
 		});
 		if (response.error) {
-			error = response.error.detail || m.activity_dismiss_failed_error();
+			if (isCurrentActivityView(workspaceId, activityBucket)) {
+				error = response.error.detail || m.activity_dismiss_failed_error();
+			}
 			return;
 		}
-		posts = posts.filter((candidate) => candidate.id !== post.id);
+		await queryClient.invalidateQueries({
+			queryKey: openPostQueryKeys.publications.activityAll(workspaceId, activityBucket),
+			refetchType: 'none'
+		});
+		if (isCurrentActivityView(workspaceId, activityBucket)) {
+			posts = posts.filter((candidate) => candidate.id !== post.id);
+			publicationPage = {
+				...publicationPage,
+				total: Math.max(0, publicationPage.total - 1)
+			};
+		}
 		showToast(m.activity_dismissed_failed(), 'success', {
 			actionLabel: m.activity_restore_failed(),
 			onAction: () => {
@@ -613,10 +658,16 @@
 						params: { path: { id: publicationID } }
 					});
 					if (restored.error) {
-						error = restored.error.detail || m.activity_dismiss_failed_error();
+						if (isCurrentActivityView(workspaceId, activityBucket)) {
+							error = restored.error.detail || m.activity_dismiss_failed_error();
+						}
 						return;
 					}
-					await loadData();
+					await queryClient.invalidateQueries({
+						queryKey: openPostQueryKeys.publications.activityAll(workspaceId, activityBucket),
+						refetchType: 'none'
+					});
+					if (isCurrentActivityView(workspaceId, activityBucket)) await loadData();
 				})();
 			}
 		});
@@ -754,11 +805,14 @@
 		</Button>
 	{/snippet}
 
-	{#if error}
+	{#if visibleError}
 		<InlineNotice
 			tone="error"
-			message={error}
-			onDismiss={() => (error = '')}
+			message={visibleError}
+			onDismiss={() => {
+				error = '';
+				queryError = '';
+			}}
 			dismissLabel={m.common_dismiss()}
 		>
 			{#snippet actions()}

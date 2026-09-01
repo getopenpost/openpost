@@ -20,12 +20,19 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { seedPublicationDetail } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		loadPublicationForWorkspace,
+		PublicationWorkspaceMismatchError
+	} from './publication-load';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	let publication = $state.raw<Publication | null>(null);
 	let hasLoaded = $state(false);
 	let error = $state('');
-	let requestedPublicationId = $state('');
+	let requestedPublicationKey = $state('');
 	let publicationRequestSequence = 0;
 	let historyOpen = $state(false);
 	let retryingRenditionID = $state('');
@@ -37,6 +44,9 @@
 
 	const publicationId = $derived(page.params.id);
 	const initialWorkspaceId = $derived(page.url.searchParams.get('workspace_id'));
+	const publicationWorkspaceId = $derived(
+		initialWorkspaceId || workspaceCtx.currentWorkspace?.id || ''
+	);
 	const initialMediaIds = $derived(page.url.searchParams.getAll('media_id'));
 	const readOnlyPublication = $derived(
 		publication?.status === 'published' ||
@@ -60,20 +70,54 @@
 		}).format(new Date(value));
 	}
 
-	async function loadPublication(id: string, force = false) {
+	async function loadPublication(id: string, workspaceId: string, force = false) {
 		const requestSequence = ++publicationRequestSequence;
 		hasLoaded = false;
 		error = '';
 		try {
-			const data = await loadPublicationDetail(id, force);
-			if (requestSequence !== publicationRequestSequence || publicationId !== id) return;
+			if (!workspaceId) throw new Error(m.publication_edit_load_failed());
+			const data = await loadPublicationForWorkspace(loadPublicationDetail, {
+				publicationId: id,
+				workspaceId,
+				force,
+				onWorkspaceMismatch: async () => {
+					if (
+						requestSequence === publicationRequestSequence &&
+						publicationId === id &&
+						publicationWorkspaceId === workspaceId
+					) {
+						await goto(resolve('/publications'));
+					}
+				}
+			});
+			if (
+				requestSequence !== publicationRequestSequence ||
+				publicationId !== id ||
+				publicationWorkspaceId !== workspaceId
+			)
+				return;
 			publication = data;
 		} catch (err) {
-			if (requestSequence !== publicationRequestSequence || publicationId !== id) return;
-			error = err instanceof Error ? err.message : m.publication_edit_load_failed();
+			if (
+				requestSequence !== publicationRequestSequence ||
+				publicationId !== id ||
+				publicationWorkspaceId !== workspaceId
+			)
+				return;
+			error =
+				err instanceof PublicationWorkspaceMismatchError
+					? m.publication_edit_load_failed()
+					: err instanceof Error
+						? err.message
+						: m.publication_edit_load_failed();
 			publication = null;
 		} finally {
-			if (requestSequence === publicationRequestSequence && publicationId === id) hasLoaded = true;
+			if (
+				requestSequence === publicationRequestSequence &&
+				publicationId === id &&
+				publicationWorkspaceId === workspaceId
+			)
+				hasLoaded = true;
 		}
 	}
 
@@ -100,7 +144,7 @@
 			);
 			if (retryError) throw new Error(m.publication_delivery_retry_failed());
 			recoveryMessage = m.publication_delivery_retry_queued();
-			await loadPublication(publication.id, true);
+			await loadPublication(publication.id, publication.workspace_id, true);
 		} catch {
 			recoveryFailed = true;
 			recoveryMessage = m.publication_delivery_retry_failed();
@@ -139,7 +183,7 @@
 		recoveryMessage = publication.failure_dismissed_at
 			? m.activity_restore_failed()
 			: m.activity_dismissed_failed();
-		await loadPublication(publication.id, true);
+		await loadPublication(publication.id, publication.workspace_id, true);
 	}
 
 	async function copyAsDraft() {
@@ -157,6 +201,7 @@
 				copyError = createError?.detail || m.publication_copy_failed();
 				return;
 			}
+			seedPublicationDetail(queryClient, data, publication.workspace_id);
 			ui.invalidatePublications({
 				workspaceId: publication.workspace_id,
 				scopes: ['drafts', 'activity']
@@ -170,9 +215,10 @@
 	}
 
 	$effect(() => {
-		if (publicationId && publicationId !== requestedPublicationId) {
-			requestedPublicationId = publicationId;
-			loadPublication(publicationId);
+		const requestKey = `${publicationWorkspaceId}:${publicationId}`;
+		if (publicationId && publicationWorkspaceId && requestKey !== requestedPublicationKey) {
+			requestedPublicationKey = requestKey;
+			loadPublication(publicationId, publicationWorkspaceId);
 		}
 	});
 </script>
@@ -207,7 +253,13 @@
 	<div class="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button size="sm" onclick={() => publicationId && loadPublication(publicationId)}>
+				<Button
+					size="sm"
+					onclick={() =>
+						publicationId &&
+						publicationWorkspaceId &&
+						loadPublication(publicationId, publicationWorkspaceId)}
+				>
 					{m.common_retry()}
 				</Button>
 				<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}>

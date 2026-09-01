@@ -1,0 +1,25 @@
+{
+  "name": "@openpost/query-catalog",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@openpost/api-contract": "workspace:*",
+    "@tanstack/query-core": "5.102.8",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "peerDependencies": {
+    "@openpost/api-contract": "*",
+    "@tanstack/query-core": "5.102.8"
+  }
+}

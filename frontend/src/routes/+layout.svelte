@@ -31,9 +31,16 @@
 	import { isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
 	import PublicHome from './_components/PublicHome.svelte';
 	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
+	import { queryClient } from '$lib/query/client';
+	import { createQuerySessionGuard } from '$lib/query/session';
+	import { createPublicationQueryInvalidationBridge } from '$lib/query/publication-invalidation';
+	import { ui } from '$lib/stores/ui.svelte';
 
 	let { children } = $props();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
+	const querySessionGuard = createQuerySessionGuard(queryClient);
+	const publicationQueryInvalidationBridge = createPublicationQueryInvalidationBridge(queryClient);
 
 	beforeNavigate((navigation) => {
 		if (!unsavedChanges.hasChanges) return;
@@ -229,6 +236,18 @@
 	});
 
 	$effect(() => {
+		querySessionGuard.observe({
+			isLoading: authState.isLoading,
+			isAuthenticated: authState.isAuthenticated,
+			userId: authState.user?.id ?? null
+		});
+	});
+
+	$effect(() => {
+		void publicationQueryInvalidationBridge.observe(ui.publicationInvalidations);
+	});
+
+	$effect(() => {
 		if (pendingRedirect) void goto(resolveAppPath(pendingRedirect));
 	});
 
@@ -319,81 +338,83 @@
 	<title>OpenPost</title>
 </svelte:head>
 
-{#if !isPreviewRoute}
-	<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
-<Toaster position="bottom-center" richColors closeButton />
-<TelemetryConsent
-	title={m.telemetry_consent_title()}
-	description={m.telemetry_consent_description()}
-	allowLabel={m.telemetry_consent_allow()}
-	cookielessLabel={m.telemetry_consent_cookieless()}
-	offLabel={m.telemetry_consent_off()}
-	privacyLabel={m.telemetry_consent_privacy()}
-	privacyHref="https://openpo.st/privacy"
-	closeLabel={m.common_close()}
-/>
-{#if !isPreviewRoute && !isErrorRoute}<ConnectivityNotice />{/if}
-{#if isPreviewRoute}
-	{@render children()}
-{:else if authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
-	<AppLoading label={m.common_loading()} />
-{:else if !authState.isAuthenticated}
-	{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
-		<div class="fixed top-4 right-4 z-20">
-			<LanguageSwitcher compact />
-		</div>
-	{/if}
-	{#if currentPath === '/' && isManagedEdition}
-		<PublicHome />
-	{:else if currentPath === '/'}
-		<div class="flex min-h-[80dvh] items-center justify-center">
-			<div class="mx-auto max-w-md px-4 py-12 text-center">
-				<p class="mb-6 text-muted-foreground">{m.landing_tagline()}</p>
-				<div class="flex justify-center gap-4">
-					<a
-						href={resolve('/login')}
-						class="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-						>{m.landing_sign_in()}</a
-					>
-					<a
-						href={resolve('/register')}
-						class="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-						>{m.landing_create_account()}</a
-					>
+<QueryClientProvider client={queryClient}>
+	{#if !isPreviewRoute}
+		<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
+	<Toaster position="bottom-center" richColors closeButton />
+	<TelemetryConsent
+		title={m.telemetry_consent_title()}
+		description={m.telemetry_consent_description()}
+		allowLabel={m.telemetry_consent_allow()}
+		cookielessLabel={m.telemetry_consent_cookieless()}
+		offLabel={m.telemetry_consent_off()}
+		privacyLabel={m.telemetry_consent_privacy()}
+		privacyHref="https://openpo.st/privacy"
+		closeLabel={m.common_close()}
+	/>
+	{#if !isPreviewRoute && !isErrorRoute}<ConnectivityNotice />{/if}
+	{#if isPreviewRoute}
+		{@render children()}
+	{:else if authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
+		<AppLoading label={m.common_loading()} />
+	{:else if !authState.isAuthenticated}
+		{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+			<div class="fixed top-4 right-4 z-20">
+				<LanguageSwitcher compact />
+			</div>
+		{/if}
+		{#if currentPath === '/' && isManagedEdition}
+			<PublicHome />
+		{:else if currentPath === '/'}
+			<div class="flex min-h-[80dvh] items-center justify-center">
+				<div class="mx-auto max-w-md px-4 py-12 text-center">
+					<p class="mb-6 text-muted-foreground">{m.landing_tagline()}</p>
+					<div class="flex justify-center gap-4">
+						<a
+							href={resolve('/login')}
+							class="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+							>{m.landing_sign_in()}</a
+						>
+						<a
+							href={resolve('/register')}
+							class="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+							>{m.landing_create_account()}</a
+						>
+					</div>
 				</div>
 			</div>
-		</div>
-	{:else}
-		{@render children()}
-	{/if}
-{:else if isStandaloneRoute}
-	{#if !isPublicProfileRoute && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
-		<div class="fixed top-4 right-4 z-20">
-			<LanguageSwitcher compact />
-		</div>
-	{/if}
-	{@render children()}
-{:else}
-	<a
-		href="#main-content"
-		class="fixed top-2 left-2 z-[100] -translate-y-16 rounded-md bg-background px-3 py-2 text-sm font-medium shadow-lg transition-transform focus:translate-y-0 focus:ring-2 focus:ring-ring focus:outline-none"
-	>
-		{m.common_skip_to_content()}
-	</a>
-	<Sidebar.Provider style="padding-top: env(safe-area-inset-top);">
-		<SidebarLeft />
-		<Sidebar.Inset
-			id="main-content"
-			tabindex={-1}
-			class="pb-[var(--mobile-bottom-nav-clearance)] md:pb-0"
-		>
-			<BillingRecoveryNotice workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
-			<div class="flex min-h-0 flex-1 flex-col overflow-auto">
-				{@render children()}
+		{:else}
+			{@render children()}
+		{/if}
+	{:else if isStandaloneRoute}
+		{#if !isPublicProfileRoute && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+			<div class="fixed top-4 right-4 z-20">
+				<LanguageSwitcher compact />
 			</div>
-			<MobileBottomNav />
-			<DayPostsModal />
-			<FeedbackDialog />
-		</Sidebar.Inset>
-	</Sidebar.Provider>
-{/if}
+		{/if}
+		{@render children()}
+	{:else}
+		<a
+			href="#main-content"
+			class="fixed top-2 left-2 z-[100] -translate-y-16 rounded-md bg-background px-3 py-2 text-sm font-medium shadow-lg transition-transform focus:translate-y-0 focus:ring-2 focus:ring-ring focus:outline-none"
+		>
+			{m.common_skip_to_content()}
+		</a>
+		<Sidebar.Provider style="padding-top: env(safe-area-inset-top);">
+			<SidebarLeft />
+			<Sidebar.Inset
+				id="main-content"
+				tabindex={-1}
+				class="pb-[var(--mobile-bottom-nav-clearance)] md:pb-0"
+			>
+				<BillingRecoveryNotice workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
+				<div class="flex min-h-0 flex-1 flex-col overflow-auto">
+					{@render children()}
+				</div>
+				<MobileBottomNav />
+				<DayPostsModal />
+				<FeedbackDialog />
+			</Sidebar.Inset>
+		</Sidebar.Provider>
+	{/if}
+</QueryClientProvider>

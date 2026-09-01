@@ -14,7 +14,7 @@ const env = {
 // build artifacts, so they are expected to be absent in a clean checkout.
 const generatedPaths = [
   "frontend/openapi.json",
-  "frontend/src/lib/api/types.d.ts",
+  "packages/api-contract/src/schema.d.ts",
   "mobile/src/lib/api/schema.d.ts",
   "docs-site/reference/cli.md",
   "packages/n8n-nodes-openpost/generated/selectedContract.ts",
@@ -38,7 +38,7 @@ if (changed.length > 0) {
 }
 
 console.log(
-  "Generated API, web/mobile TypeScript, docs, CLI, and selected automation contracts are current.",
+  "Generated API, shared/mobile TypeScript, docs, CLI, and selected automation contracts are current.",
 );
 
 async function generatedHashes() {

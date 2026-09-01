@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 	"testing/fstest"
@@ -346,11 +347,37 @@ func TestManagedSpaRootProvidesProductReviewFallback(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	html := rec.Body.String()
 	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
-	require.Contains(t, html, "Create, adapt, schedule, publish, and review social content")
+	require.Contains(t, html, "Your content operation, together in one workspace.")
+	require.Contains(t, html, "Starter: $15/month")
+	require.Contains(t, html, "Agency: $199/month")
+	require.Contains(t, html, "Every plan starts with a 14-day free trial")
+	require.Contains(t, html, `href="/register?plan=founder&amp;billing_period=monthly"`)
 	require.Contains(t, html, `href="https://openpo.st/pricing"`)
 	require.Contains(t, html, `href="https://openpo.st/terms"`)
 	require.Contains(t, html, `href="https://openpo.st/privacy"`)
 	require.Contains(t, html, `href="https://openpo.st/refunds"`)
+}
+
+func TestManagedSpaRootReviewPricingMatchesCatalog(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile("../../../packages/plan-catalog/src/catalog.json")
+	require.NoError(t, err)
+	var catalog struct {
+		Plans []struct {
+			Name            string `json:"name"`
+			MonthlyPriceUSD int    `json:"monthly_price_usd"`
+		} `json:"plans"`
+	}
+	require.NoError(t, json.Unmarshal(data, &catalog))
+	require.NotEmpty(t, catalog.Plans)
+	for _, plan := range catalog.Plans {
+		require.Contains(
+			t,
+			managedEditionReviewFallback,
+			fmt.Sprintf("<li>%s: $%d/month</li>", plan.Name, plan.MonthlyPriceUSD),
+		)
+	}
 }
 
 func TestRenderPublicProfileHTMLAddsEscapedShareMetadata(t *testing.T) {

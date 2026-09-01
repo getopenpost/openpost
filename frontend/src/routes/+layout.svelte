@@ -29,6 +29,7 @@
 	import { setUnsavedChanges, UnsavedChangesContext } from '$lib/unsaved-changes.svelte';
 	import { initializeAppTelemetry } from '$lib/telemetry';
 	import { isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
+	import PublicHome from './_components/PublicHome.svelte';
 
 	let { children } = $props();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
@@ -55,6 +56,7 @@
 	let isPreviewRoute = $derived(currentPath === '/preview');
 	let isPublicProfileRoute = $derived(currentPath.startsWith('/u/'));
 	let isErrorRoute = $derived($page.status >= 400);
+	let isManagedEdition = $state(false);
 	const publicRoutes = [
 		'/login',
 		'/register',
@@ -109,7 +111,8 @@
 			Boolean(paddleTransactionIDFromSearchParams($page.url.searchParams))
 	);
 	let isPublicRoute = $derived(
-		isErrorRoute ||
+		currentPath === '/' ||
+			isErrorRoute ||
 			isPublicProfileRoute ||
 			isPublicImageEditorRoute ||
 			isPublicLocalEditorRoute ||
@@ -211,6 +214,8 @@
 
 	onMount(() => {
 		if (isPreviewRoute) return;
+		isManagedEdition =
+			document.querySelector<HTMLMetaElement>('meta[name="openpost-edition"]')?.content === 'cloud';
 		captureWebReauthGrant();
 		feedbackDiagnostics.initialize();
 		soundPreferences.initialize();
@@ -322,12 +327,34 @@
 {:else if authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
 	<AppLoading label={m.common_loading()} />
 {:else if !authState.isAuthenticated}
-	{#if !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+	{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 		<div class="fixed top-4 right-4 z-20">
 			<LanguageSwitcher compact />
 		</div>
 	{/if}
-	{@render children()}
+	{#if currentPath === '/' && isManagedEdition}
+		<PublicHome />
+	{:else if currentPath === '/'}
+		<div class="flex min-h-[80dvh] items-center justify-center">
+			<div class="mx-auto max-w-md px-4 py-12 text-center">
+				<p class="mb-6 text-muted-foreground">{m.landing_tagline()}</p>
+				<div class="flex justify-center gap-4">
+					<a
+						href={resolve('/login')}
+						class="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+						>{m.landing_sign_in()}</a
+					>
+					<a
+						href={resolve('/register')}
+						class="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+						>{m.landing_create_account()}</a
+					>
+				</div>
+			</div>
+		</div>
+	{:else}
+		{@render children()}
+	{/if}
 {:else if isStandaloneRoute}
 	{#if !isPublicProfileRoute && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 		<div class="fixed top-4 right-4 z-20">

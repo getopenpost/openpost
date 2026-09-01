@@ -349,18 +349,27 @@ func normalizedRequestPath(requestURL *url.URL) string {
 
 const managedEditionReviewFallback = `<noscript data-openpost-review-fallback>
 	<main style="box-sizing:border-box;max-width:42rem;margin:0 auto;padding:4rem 1.5rem;font:16px/1.6 system-ui,sans-serif;color:CanvasText;background:Canvas">
-		<h1 style="font-size:2rem;line-height:1.2">OpenPost</h1>
-		<p>Create, adapt, schedule, publish, and review social content from one workspace.</p>
+		<h1 style="font-size:2rem;line-height:1.2">Your content operation, together in one workspace.</h1>
+		<p>Create one source, adapt it for each social platform, schedule every destination, and review publishing results from one OpenPost workspace.</p>
+		<p><a href="/register?plan=founder&amp;billing_period=monthly">Start 14-day trial</a> · <a href="/login">Sign in</a></p>
+		<h2>Hosted plans</h2>
+		<ul>
+			<li>Starter: $15/month</li>
+			<li>Founder: $25/month</li>
+			<li>Pro: $49/month</li>
+			<li>Team: $99/month</li>
+			<li>Agency: $199/month</li>
+		</ul>
+		<p>Every plan starts with a 14-day free trial. A card is required. Cancel before the first charge.</p>
 		<nav aria-label="OpenPost product and policies">
-			<a href="https://openpo.st/pricing">Pricing</a>
+			<a href="https://openpo.st/pricing">Compare plans</a>
 			<span aria-hidden="true"> · </span>
-			<a href="https://openpo.st/terms">Terms</a>
+			<a href="https://openpo.st/terms">Terms of service</a>
 			<span aria-hidden="true"> · </span>
-			<a href="https://openpo.st/privacy">Privacy</a>
+			<a href="https://openpo.st/privacy">Privacy policy</a>
 			<span aria-hidden="true"> · </span>
-			<a href="https://openpo.st/refunds">Refunds</a>
+			<a href="https://openpo.st/refunds">Refund policy</a>
 		</nav>
-		<p>Enable JavaScript to sign in to the OpenPost app.</p>
 	</main>
 </noscript>`
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/andybalholm/brotli"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/publicprofiles"
@@ -194,24 +196,66 @@ type publicProfilePageMetadata struct {
 }
 
 func writeHTMLResponse(c echo.Context, data []byte, managedEdition bool) error {
-	return writeHTMLStatusResponse(c, data, managedEdition, http.StatusOK)
+	return writeHTMLStatusResponse(c, data, managedEdition, http.StatusOK, false)
 }
 
-func writeHTMLStatusResponse(c echo.Context, data []byte, managedEdition bool, status int) error {
+func writeHTMLStatusResponse(c echo.Context, data []byte, managedEdition bool, status int, indexable bool) error {
 	if managedEdition {
 		data = renderManagedEditionMetadata(data, normalizedRequestPath(c.Request().URL))
 	}
-	c.Response().Header().Set("Content-Type", "text/html")
-	c.Response().Header().Set("Content-Length", strconv.Itoa(len(data)))
-	c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Response().Header().Set("Pragma", "no-cache")
-	c.Response().Header().Set("Expires", "0")
+	data, contentEncoding, err := compressHTML(data, c.Request().Header.Get("Accept-Encoding"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to compress application HTML")
+	}
+	responseHeaders := c.Response().Header()
+	responseHeaders.Set("Content-Type", "text/html")
+	responseHeaders.Set("Content-Length", strconv.Itoa(len(data)))
+	responseHeaders.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	responseHeaders.Set("Pragma", "no-cache")
+	responseHeaders.Set("Expires", "0")
+	addVaryHeader(responseHeaders, "Accept-Encoding")
+	if contentEncoding != "" {
+		responseHeaders.Set("Content-Encoding", contentEncoding)
+	}
+	if !indexable {
+		responseHeaders.Set("X-Robots-Tag", "noindex, nofollow")
+	}
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(status)
 	}
 	c.Response().WriteHeader(status)
-	_, err := c.Response().Write(data)
+	_, err = c.Response().Write(data)
 	return err
+}
+
+func compressHTML(data []byte, acceptEncoding string) ([]byte, string, error) {
+	encoding := ""
+	quality := 0.0
+	for _, candidate := range []string{"br", "gzip"} {
+		candidateQuality := contentEncodingQuality(acceptEncoding, candidate)
+		if candidateQuality > quality {
+			encoding = candidate
+			quality = candidateQuality
+		}
+	}
+	if encoding == "" {
+		return data, "", nil
+	}
+
+	var compressed bytes.Buffer
+	var writer io.WriteCloser
+	if encoding == "br" {
+		writer = brotli.NewWriter(&compressed)
+	} else {
+		writer = gzip.NewWriter(&compressed)
+	}
+	if _, err := writer.Write(data); err != nil {
+		return nil, "", err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+	return compressed.Bytes(), encoding, nil
 }
 
 func registerSpaRoutesWithProfileMetadata(
@@ -235,23 +279,23 @@ func registerSpaRoutesWithProfileMetadataAndMatcher(
 	publicProfilesEnabled bool,
 	routes spaRouteMatcher,
 ) {
-	writeHTML := func(c echo.Context, data []byte, status int) error {
-		return writeHTMLStatusResponse(c, data, managedEdition, status)
+	writeHTML := func(c echo.Context, data []byte, status int, indexable bool) error {
+		return writeHTMLStatusResponse(c, data, managedEdition, status, indexable)
 	}
 
 	publicProfileHandler := func(c echo.Context) error {
 		indexData, _ := fs.ReadFile(webFS, "index.html")
 		if !publicProfilesEnabled {
-			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusNotFound)
+			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusNotFound, false)
 		}
 		metadata, found, err := loadPublicProfilePageMetadata(c.Request().Context(), db, c.Param("username"))
 		if err != nil {
-			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusServiceUnavailable)
+			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusServiceUnavailable, false)
 		}
 		if !found {
-			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusNotFound)
+			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL), http.StatusNotFound, false)
 		}
-		return writeHTML(c, renderPublicProfileHTML(indexData, &metadata, publicURL), http.StatusOK)
+		return writeHTML(c, renderPublicProfileHTML(indexData, &metadata, publicURL), http.StatusOK, true)
 	}
 	e.Match([]string{http.MethodGet, http.MethodHead}, "/u/:username", publicProfileHandler)
 
@@ -337,7 +381,7 @@ func (h spaRequestHandler) writeFallback(c echo.Context, requestPath string) err
 	if h.routes.matches(requestPath) {
 		status = http.StatusOK
 	}
-	return writeHTMLStatusResponse(c, indexData, h.managedEdition, status)
+	return writeHTMLStatusResponse(c, indexData, h.managedEdition, status, false)
 }
 
 func normalizedRequestPath(requestURL *url.URL) string {

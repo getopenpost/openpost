@@ -1,10 +1,12 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +15,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/labstack/echo/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
@@ -125,6 +128,80 @@ func TestSpaStaticAssetsRespectEncodingQualityAndRangeRequests(t *testing.T) {
 	require.Equal(t, "ide", rangeRec.Body.String())
 	require.Empty(t, rangeRec.Header().Get("Content-Encoding"))
 	require.Equal(t, "Accept-Encoding", rangeRec.Header().Get("Vary"))
+}
+
+func TestSpaHTMLIsNoindexAndCompressesNegotiatedResponses(t *testing.T) {
+	const document = `<html><head></head><body>application document with enough repeated content to compress application document</body></html>`
+	webFS := fstest.MapFS{
+		"index.html": {Data: []byte(document)},
+		"login.html": {Data: []byte(document)},
+	}
+	e := echo.New()
+	registerSpaRoutes(e, webFS)
+
+	for _, test := range []struct {
+		name            string
+		acceptEncoding  string
+		contentEncoding string
+		newReader       func(io.Reader) (io.Reader, error)
+	}{
+		{
+			name:            "gzip",
+			acceptEncoding:  "gzip",
+			contentEncoding: "gzip",
+			newReader: func(reader io.Reader) (io.Reader, error) {
+				return gzip.NewReader(reader)
+			},
+		},
+		{
+			name:            "brotli",
+			acceptEncoding:  "br",
+			contentEncoding: "br",
+			newReader: func(reader io.Reader) (io.Reader, error) {
+				return brotli.NewReader(reader), nil
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil)
+			req.Header.Set("Accept-Encoding", test.acceptEncoding)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
+			require.Equal(t, test.contentEncoding, rec.Header().Get("Content-Encoding"))
+			require.Equal(t, "Accept-Encoding", rec.Header().Get("Vary"))
+			reader, err := test.newReader(rec.Body)
+			require.NoError(t, err)
+			decoded, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			require.Equal(t, document, string(decoded))
+		})
+	}
+}
+
+func TestSpaCompressedHeadMatchesGetHeadersWithoutBody(t *testing.T) {
+	webFS := fstest.MapFS{"index.html": {Data: []byte(`<html><head></head><body>application document application document application document</body></html>`)}}
+	e := echo.New()
+	registerSpaRoutes(e, webFS)
+
+	request := func(method string) *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), method, "/", nil)
+		req.Header.Set("Accept-Encoding", "br, gzip;q=0.5")
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec
+	}
+	getRec := request(http.MethodGet)
+	headRec := request(http.MethodHead)
+
+	require.Equal(t, getRec.Code, headRec.Code)
+	for _, header := range []string{"Content-Type", "Content-Encoding", "Content-Length", "Cache-Control", "X-Robots-Tag", "Vary"} {
+		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
+	}
+	require.Equal(t, strconv.Itoa(getRec.Body.Len()), headRec.Header().Get("Content-Length"))
+	require.Empty(t, headRec.Body.String())
 }
 
 func TestSpaHTMLRemainsUncached(t *testing.T) {
@@ -419,6 +496,7 @@ func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {
 		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
 		require.Equal(t, http.StatusNotFound, rec.Code)
 		require.Contains(t, rec.Body.String(), `name="robots" content="noindex"`)
+		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
 	})
 
 	t.Run("private or missing", func(t *testing.T) {
@@ -427,6 +505,7 @@ func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
 		require.Equal(t, http.StatusNotFound, rec.Code)
+		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
 	})
 
 	t.Run("backend failure", func(t *testing.T) {
@@ -439,6 +518,7 @@ func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
 		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
 	})
 
 	t.Run("public", func(t *testing.T) {
@@ -458,5 +538,6 @@ func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {
 		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), `name="robots" content="index, follow"`)
+		require.Empty(t, rec.Header().Get("X-Robots-Tag"))
 	})
 }

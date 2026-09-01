@@ -15,9 +15,7 @@ var publicOperationIDs = map[string]struct{}{
 	"discover-oidc-provider":             {},
 	"exchange-native-oidc-handoff":       {},
 	"finish-login-passkey":               {},
-	"get-app-bootstrap":                  {},
 	"get-auth-configuration":             {},
-	"get-auth-session-state":             {},
 	"get-public-profile":                 {},
 	"get-running-version":                {},
 	"get-telemetry-config":               {},
@@ -41,6 +39,11 @@ var publicOperationIDs = map[string]struct{}{
 	"verify-login-totp":                  {},
 }
 
+var optionalAuthOperationIDs = map[string]struct{}{
+	"get-app-bootstrap":      {},
+	"get-auth-session-state": {},
+}
+
 func configureAutomationContract(config *huma.Config) {
 	if config.Components.SecuritySchemes == nil {
 		config.Components.SecuritySchemes = make(map[string]*huma.SecurityScheme)
@@ -55,6 +58,12 @@ func configureAutomationContract(config *huma.Config) {
 }
 
 func configureOperationContract(_ *huma.OpenAPI, operation *huma.Operation) {
+	if _, optionalAuth := optionalAuthOperationIDs[operation.OperationID]; optionalAuth {
+		operation.Security = []map[string][]string{
+			{},
+			{bearerSecurityScheme: {}},
+		}
+	}
 	if _, public := publicOperationIDs[operation.OperationID]; public {
 		operation.Security = []map[string][]string{}
 	}

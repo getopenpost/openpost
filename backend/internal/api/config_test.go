@@ -54,8 +54,10 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	require.NotContains(t, authConfiguration.Extensions, "x-openpost-automation")
 
 	bootstrap := operationByID(t, document, "get-app-bootstrap")
-	require.NotNil(t, bootstrap.Security)
-	require.Empty(t, bootstrap.Security, "bootstrap supports an explicit anonymous response")
+	require.Equal(t, []map[string][]string{
+		{},
+		{"bearerAuth": {}},
+	}, bootstrap.Security, "bootstrap supports anonymous and bearer-authenticated responses")
 	require.ElementsMatch(t, []string{"Auth", "Workspaces"}, bootstrap.Tags)
 	require.NotContains(t, bootstrap.Extensions, "x-openpost-automation", "narrow REST tokens must not gain account identity access")
 	bootstrapResponse := bootstrap.Responses["200"].Content["application/json"].Schema
@@ -74,7 +76,9 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	require.Contains(t, bootstrap.Responses, "503")
 
 	sessionState := operationByID(t, document, "get-auth-session-state")
-	require.NotNil(t, sessionState.Security)
-	require.Empty(t, sessionState.Security, "session state supports an explicit anonymous response")
+	require.Equal(t, []map[string][]string{
+		{},
+		{"bearerAuth": {}},
+	}, sessionState.Security, "session state supports anonymous and bearer-authenticated responses")
 	require.Contains(t, sessionState.Responses, "503")
 }

@@ -49,6 +49,7 @@ const (
 type AccountContentDiscoverySupport struct {
 	Supported         bool
 	RequiredScopes    []string
+	MinPageSize       int
 	MaxPageSize       int
 	UnavailableReason string
 }
@@ -94,17 +95,18 @@ type AccountContentCoverage struct {
 // AccountContentItem is the bounded provider-neutral projection returned by a
 // discovery adapter. It deliberately has no raw response field.
 type AccountContentItem struct {
-	ProviderContentID string
-	ProviderParentID  string
-	ContentProfile    string
-	Title             string
-	Text              string
-	ExternalURL       string
-	PublishedAt       time.Time
-	Origin            AccountContentOrigin
-	OriginConfidence  AccountContentOriginConfidence
-	RenditionID       string
-	Measurements      AnalyticsMeasurements
+	ProviderContentID     string
+	ProviderParentID      string
+	ContentProfile        string
+	Title                 string
+	Text                  string
+	ExternalURL           string
+	PublishedAt           time.Time
+	Origin                AccountContentOrigin
+	OriginConfidence      AccountContentOriginConfidence
+	RenditionID           string
+	Measurements          AnalyticsMeasurements
+	MeasurementCaptureKey string
 }
 
 type AccountContentPage struct {
@@ -151,11 +153,15 @@ func NormalizeAccountContentItem(provider string, item AccountContentItem) (Acco
 	item.ProviderParentID = strings.TrimSpace(item.ProviderParentID)
 	item.ContentProfile = strings.TrimSpace(item.ContentProfile)
 	item.RenditionID = strings.TrimSpace(item.RenditionID)
+	item.MeasurementCaptureKey = strings.TrimSpace(item.MeasurementCaptureKey)
 	if item.ProviderContentID == "" || utf8.RuneCountInString(item.ProviderContentID) > 500 {
 		return AccountContentItem{}, fmt.Errorf("provider content ID is required and must not exceed 500 characters")
 	}
 	if utf8.RuneCountInString(item.ProviderParentID) > 500 {
 		return AccountContentItem{}, fmt.Errorf("provider parent ID must not exceed 500 characters")
+	}
+	if utf8.RuneCountInString(item.MeasurementCaptureKey) > 500 {
+		return AccountContentItem{}, fmt.Errorf("measurement capture key must not exceed 500 characters")
 	}
 	if item.PublishedAt.IsZero() {
 		return AccountContentItem{}, fmt.Errorf("provider publish time is required")

@@ -267,7 +267,7 @@ func buildAccountContentOverview(
 		Measurements:          measurements,
 		LastSyncedAt:          snapshot.CapturedAt,
 	}
-	item.Engagement = platform.EngagementTotal(compatibleContentValues(metrics, metadata))
+	item.Engagement, _ = projectedContentEngagement(metrics, metadata)
 	return item, true
 }
 

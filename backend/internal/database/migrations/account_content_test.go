@@ -69,7 +69,7 @@ func TestAccountContentMigrationEnforcesBoundsUniquenessAndAccountCascade(t *tes
 	_, err = db.NewInsert().Model(&models.AccountContentDiscoveryState{
 		ID: "discovery-1", WorkspaceID: "ws-1", SocialAccountID: "account-1", Platform: "youtube",
 		Status: "partial", CoverageStatus: "partial", CoverageDescription: "Last 90 days",
-	}).Exec(ctx)
+	}).ExcludeColumn("cycle_started_at").Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.AccountContentObservation{
 		ID: "observation-1", WorkspaceID: "ws-1", SocialAccountID: "account-1",

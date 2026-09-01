@@ -139,7 +139,7 @@ func (s *Service) loadStoredInsightContent(
 				snapshot.Platform,
 			)
 			item.CollectedAt = snapshot.CapturedAt
-			item.Engagement = platform.EngagementTotal(compatibleContentValues(item.Metrics, item.MetricMetadata))
+			item.Engagement, _ = projectedContentEngagement(item.Metrics, item.MetricMetadata)
 		}
 		stored = append(stored, item)
 	}
@@ -240,7 +240,7 @@ func comparableEngagementContent(content []ContentOverview) ([]measuredEngagemen
 	invalidSemantics := false
 	for _, item := range content {
 		valuesByKey := make(map[engagementSemanticKey]int64)
-		for _, metric := range engagementMetricNames {
+		for _, metric := range engagementProjectionMetricNames(item.Metrics) {
 			value, measured := item.Metrics[metric]
 			metadata, described := item.MetricMetadata[metric]
 			if !measured || !described {

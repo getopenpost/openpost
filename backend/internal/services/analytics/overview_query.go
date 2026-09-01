@@ -2,9 +2,13 @@ package analytics
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -12,6 +16,7 @@ import (
 )
 
 var engagementMetricNames = []string{
+	platform.MetricEngagements,
 	platform.MetricLikes,
 	platform.MetricReactions,
 	platform.MetricComments,
@@ -20,6 +25,13 @@ var engagementMetricNames = []string{
 	platform.MetricShares,
 	platform.MetricSaves,
 	platform.MetricClicks,
+}
+
+func engagementProjectionMetricNames(values platform.AnalyticsValues) []string {
+	if _, measured := values[platform.MetricEngagements]; measured {
+		return engagementMetricNames[:1]
+	}
+	return engagementMetricNames[1:]
 }
 
 func (s *Service) loadOverviewPublicationsByID(
@@ -97,27 +109,45 @@ func mergeOverviewContentSummary(
 	return contentSummary
 }
 
-func decodeOverviewOffset(options OverviewOptions, days, total int) (int, error) {
+func (s *Service) decodeSignedOverviewCursor(workspaceID string, options OverviewOptions, days int) (overviewCursor, error) {
+	parts := strings.Split(options.Cursor, ".")
+	if len(parts) != 2 {
+		return overviewCursor{}, ErrInvalidOverviewCursor
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(parts[0])
+	providedSignature, signatureErr := base64.RawURLEncoding.DecodeString(parts[1])
+	expectedSignature := hmac.New(sha256.New, s.cursorSigningKey)
+	_, _ = expectedSignature.Write(decoded)
+	if err != nil || signatureErr != nil || !hmac.Equal(providedSignature, expectedSignature.Sum(nil)) {
+		return overviewCursor{}, ErrInvalidOverviewCursor
+	}
+	var cursor overviewCursor
+	if json.Unmarshal(decoded, &cursor) != nil || cursor.Offset < 0 || cursor.WorkspaceID != workspaceID ||
+		cursor.AccountID != options.AccountID || cursor.Source != options.Source || cursor.Sort != options.Sort || cursor.Days != days ||
+		cursor.Revision == "" || cursor.RangeEnd.IsZero() {
+		return overviewCursor{}, ErrInvalidOverviewCursor
+	}
+	return cursor, nil
+}
+
+func (s *Service) decodeOverviewOffset(workspaceID string, options OverviewOptions, days, total int, populationRevision string) (int, error) {
 	if options.Cursor == "" {
 		return 0, nil
 	}
-	decoded, err := base64.RawURLEncoding.DecodeString(options.Cursor)
-	if err != nil {
-		return 0, ErrInvalidOverviewCursor
-	}
-	var cursor overviewCursor
-	if json.Unmarshal(decoded, &cursor) != nil || cursor.Offset < 0 || cursor.Offset > total ||
-		cursor.AccountID != options.AccountID || cursor.Source != options.Source || cursor.Sort != options.Sort || cursor.Days != days {
+	cursor, err := s.decodeSignedOverviewCursor(workspaceID, options, days)
+	if err != nil || cursor.Offset > total || cursor.Revision != populationRevision {
 		return 0, ErrInvalidOverviewCursor
 	}
 	return cursor.Offset, nil
 }
 
-func encodeOverviewNextCursor(offset, pageSize, total int, options OverviewOptions, days int) string {
+func (s *Service) encodeOverviewNextCursor(workspaceID string, offset, pageSize, total int, options OverviewOptions, days int, populationRevision string, rangeEnd time.Time) string {
 	nextOffset := offset + pageSize
 	if nextOffset >= total {
 		return ""
 	}
-	next, _ := json.Marshal(overviewCursor{Offset: nextOffset, AccountID: options.AccountID, Source: options.Source, Sort: options.Sort, Days: days})
-	return base64.RawURLEncoding.EncodeToString(next)
+	next, _ := json.Marshal(overviewCursor{WorkspaceID: workspaceID, Offset: nextOffset, AccountID: options.AccountID, Source: options.Source, Sort: options.Sort, Days: days, Revision: populationRevision, RangeEnd: rangeEnd.UTC()})
+	signature := hmac.New(sha256.New, s.cursorSigningKey)
+	_, _ = signature.Write(next)
+	return base64.RawURLEncoding.EncodeToString(next) + "." + base64.RawURLEncoding.EncodeToString(signature.Sum(nil))
 }

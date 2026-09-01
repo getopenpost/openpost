@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/openpost/backend/internal/platform"
 )
@@ -94,6 +95,36 @@ func compatibleCountMetricValue(
 		return 0, false
 	}
 	return value, true
+}
+
+func projectedContentEngagement(values platform.AnalyticsValues, metadata map[string]platform.AnalyticsMetricMetadata) (int64, bool) {
+	metrics := engagementProjectionMetricNames(values)
+	var total int64
+	var aggregation platform.AnalyticsMetricAggregation
+	var periodStart, periodEnd string
+	measured := false
+	for _, metric := range metrics {
+		value, present := values[metric]
+		meta, described := metadata[metric]
+		if !present || !described || meta.Unit != platform.AnalyticsMetricUnitCount ||
+			(meta.Aggregation != platform.AnalyticsMetricAggregationLifetimeTotal && meta.Aggregation != platform.AnalyticsMetricAggregationReportingPeriodTotal) {
+			continue
+		}
+		start, end := "", ""
+		if meta.PeriodStart != nil {
+			start = meta.PeriodStart.UTC().Format(time.RFC3339Nano)
+		}
+		if meta.PeriodEnd != nil {
+			end = meta.PeriodEnd.UTC().Format(time.RFC3339Nano)
+		}
+		if measured && (aggregation != meta.Aggregation || periodStart != start || periodEnd != end) {
+			return 0, false
+		}
+		aggregation, periodStart, periodEnd = meta.Aggregation, start, end
+		total += value
+		measured = true
+	}
+	return total, measured
 }
 
 func compatibleContentValues(values platform.AnalyticsValues, metadata map[string]platform.AnalyticsMetricMetadata) platform.AnalyticsValues {

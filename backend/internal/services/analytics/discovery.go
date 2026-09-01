@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -22,11 +21,13 @@ import (
 )
 
 const (
-	initialDiscoveryHistory = 90 * 24 * time.Hour
-	initialDiscoveryItemCap = 250
-	routineDiscoveryCadence = 24 * time.Hour
-	defaultDiscoveryBackoff = time.Hour
-	providerSlotRetry       = 30 * time.Second
+	initialDiscoveryHistory   = 90 * 24 * time.Hour
+	initialDiscoveryItemCap   = 250
+	routineDiscoveryCadence   = 24 * time.Hour
+	defaultDiscoveryBackoff   = time.Hour
+	providerSlotRetry         = 30 * time.Second
+	discoveryLeaseTTL         = 5 * time.Minute
+	discoveryWatermarkOverlap = time.Minute
 )
 
 // DiscoveryPolicy is instance-owned rate policy. It is provider-overridable,
@@ -182,11 +183,17 @@ func (s *Service) reconsiderAccountContentDiscovery(ctx context.Context, account
 		lowerBound := now.Add(-initialDiscoveryHistory)
 		state.BackfillWatermark = lowerBound
 		state.CyclePublishedAfter = lowerBound
+		state.CycleStartedAt = now
 		state.Status = string(platform.AccountContentDiscoveryPartial)
 		state.NextEligibleAt = time.Time{}
 		state.UpdatedAt = now
 	case state.Cursor == "" && !state.InitialCompletedAt.IsZero():
-		state.CyclePublishedAfter = state.LastSuccessAt.UTC()
+		previousUpperWatermark := state.CycleStartedAt.UTC()
+		if previousUpperWatermark.IsZero() {
+			previousUpperWatermark = state.LastSuccessAt.UTC()
+		}
+		state.CyclePublishedAfter = previousUpperWatermark.Add(-discoveryWatermarkOverlap)
+		state.CycleStartedAt = now
 		state.Status = string(platform.AccountContentDiscoveryPartial)
 		state.NextEligibleAt = time.Time{}
 		state.UpdatedAt = now
@@ -271,23 +278,32 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		return s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryCostLimited,
 			"provider_read_budget_disabled", "Account content discovery is disabled by the provider read-cost policy.", nextUTCDay(now), now, true)
 	}
-	if available, err := s.discoveryProviderSlotAvailable(ctx, account.Platform, policy.ProviderConcurrency); err != nil {
+	leaseOwner, acquired, err := s.acquireDiscoveryProviderSlot(ctx, account.Platform, policy.ProviderConcurrency, now)
+	if err != nil {
 		return err
-	} else if !available {
+	}
+	if !acquired {
 		return &DiscoveryContinuationError{RetryAfter: providerSlotRetry}
+	}
+	if leaseOwner != "" {
+		defer s.releaseDiscoveryProviderSlot(context.WithoutCancel(ctx), account.Platform, leaseOwner)
 	}
 
 	pageSize := min(policy.PageSize, platform.AccountContentMaxPageSize)
 	if support.MaxPageSize > 0 {
 		pageSize = min(pageSize, support.MaxPageSize)
 	}
+	minimumPageSize := max(1, support.MinPageSize)
 	initial := state.InitialCompletedAt.IsZero()
 	if initial {
 		remaining := initialDiscoveryItemCap - state.InitialItemsDiscovered
-		if remaining <= 0 {
+		if remaining <= 0 || remaining < minimumPageSize {
 			return s.finishDiscoveryCap(ctx, state, now)
 		}
 		pageSize = min(pageSize, remaining)
+	}
+	if pageSize < minimumPageSize {
+		pageSize = minimumPageSize
 	}
 	token, err := s.discoveryAccessToken(ctx, discoverer, account.ID)
 	if err != nil {
@@ -328,7 +344,7 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 			measurements, measurementErr := measurer.FetchAccountContentBatchMeasurements(ctx, token, platform.AccountContentBatchMeasurementRequest{
 				AccountID: account.AccountID, GrantedScopes: strings.Fields(account.GrantedScopes),
 				CapabilityState: analyticsCapabilityState(account.CapabilityState), ProviderContentIDs: providerIDs,
-				PeriodStart: state.CyclePublishedAfter, PeriodEnd: now,
+				PeriodStart: state.CyclePublishedAfter, PeriodEnd: state.CycleStartedAt,
 			})
 			if measurementErr != nil {
 				return s.recordDiscoveryProviderError(ctx, account, state, measurementErr, now)
@@ -496,6 +512,19 @@ func (s *Service) commitDiscoveryPage(ctx context.Context, account models.Social
 		if err != nil {
 			return err
 		}
+		existingProviderIDs := make(map[string]struct{}, len(items))
+		if len(items) > 0 {
+			providerIDs := discoveryProviderContentIDs(items, time.Time{})
+			var existing []string
+			if err := tx.NewSelect().Model((*models.AccountContent)(nil)).Column("provider_content_id").
+				Where("social_account_id = ? AND provider_content_id IN (?)", account.ID, bun.List(providerIDs)).
+				Scan(txCtx, &existing); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("load existing discovery identities: %w", err)
+			}
+			for _, providerID := range existing {
+				existingProviderIDs[providerID] = struct{}{}
+			}
+		}
 		for _, item := range items {
 			item.RenditionID = ""
 			item.Origin = platform.AccountContentOriginExternal
@@ -504,6 +533,7 @@ func (s *Service) commitDiscoveryPage(ctx context.Context, account models.Social
 				item.RenditionID = renditionID
 				item.Origin = platform.AccountContentOriginOpenPost
 			}
+			item.MeasurementCaptureKey = "discovery:" + state.CycleStartedAt.UTC().Format(time.RFC3339Nano) + ":" + strings.TrimSpace(item.ProviderContentID)
 			if _, err := upsertAccountContent(txCtx, tx, account, item, now); err != nil {
 				return fmt.Errorf("store discovery page item: %w", err)
 			}
@@ -518,7 +548,13 @@ func (s *Service) commitDiscoveryPage(ctx context.Context, account models.Social
 			state.BackfillWatermark = page.BackfillWatermark.UTC()
 		}
 		if state.InitialCompletedAt.IsZero() {
-			state.InitialItemsDiscovered += len(items)
+			newItems := 0
+			for _, item := range items {
+				if _, existed := existingProviderIDs[strings.TrimSpace(item.ProviderContentID)]; !existed {
+					newItems++
+				}
+			}
+			state.InitialItemsDiscovered += newItems
 			if state.InitialItemsDiscovered >= initialDiscoveryItemCap {
 				state.Cursor = ""
 				state.Status = string(platform.AccountContentDiscoveryPartial)
@@ -578,39 +614,46 @@ func (s *Service) reserveDiscoveryReads(ctx context.Context, state *models.Accou
 	return true, upsertDiscoveryState(ctx, s.db, state)
 }
 
-func (s *Service) discoveryProviderSlotAvailable(ctx context.Context, provider string, limit int) (bool, error) {
+func (s *Service) acquireDiscoveryProviderSlot(ctx context.Context, provider string, limit int, now time.Time) (string, bool, error) {
 	execution, ok := providerwrite.JobExecutionFromContext(ctx)
 	if !ok {
-		return true, nil
+		return "", true, nil
 	}
-	var jobs []models.Job
-	if err := s.db.NewSelect().Model(&jobs).
-		Where("type = ? AND status = ?", jobregistry.TypeAccountContentDiscovery, jobregistry.StatusProcessing).
-		Order("id ASC").Scan(ctx); err != nil {
-		return false, fmt.Errorf("inspect discovery provider concurrency: %w", err)
+	owner := strings.TrimSpace(execution.ID)
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if owner == "" || provider == "" || limit <= 0 {
+		return "", false, nil
 	}
-	eligible := make([]string, 0, len(jobs))
-	for _, job := range jobs {
-		payload, err := jobregistry.DecodeAccountContentDiscoveryPayload(job.Payload)
+	for slot := 0; slot < limit; slot++ {
+		lease := &models.AccountContentDiscoveryLease{
+			Provider: provider, Slot: slot, OwnerJobID: owner,
+			LeaseExpiresAt: now.Add(discoveryLeaseTTL), UpdatedAt: now,
+		}
+		result, err := s.db.NewInsert().Model(lease).
+			On("CONFLICT (provider, slot) DO UPDATE").
+			Set("owner_job_id = EXCLUDED.owner_job_id").
+			Set("lease_expires_at = EXCLUDED.lease_expires_at").
+			Set("updated_at = EXCLUDED.updated_at").
+			Where("lease_expires_at <= ? OR owner_job_id = ?", now, owner).
+			Exec(ctx)
 		if err != nil {
-			continue
+			return "", false, fmt.Errorf("acquire discovery provider lease: %w", err)
 		}
-		var jobProvider string
-		if err := s.db.NewSelect().Model((*models.SocialAccount)(nil)).Column("platform").
-			Where("id = ?", payload.SocialAccountID).Scan(ctx, &jobProvider); err != nil {
-			continue
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return "", false, fmt.Errorf("inspect discovery provider lease: %w", err)
 		}
-		if strings.EqualFold(jobProvider, provider) {
-			eligible = append(eligible, job.ID)
-		}
-	}
-	sort.Strings(eligible)
-	for index, jobID := range eligible {
-		if jobID == execution.ID {
-			return index < limit, nil
+		if rows > 0 {
+			return owner, true, nil
 		}
 	}
-	return true, nil
+	return owner, false, nil
+}
+
+func (s *Service) releaseDiscoveryProviderSlot(ctx context.Context, provider, owner string) {
+	_, _ = s.db.NewDelete().Model((*models.AccountContentDiscoveryLease)(nil)).
+		Where("provider = ? AND owner_job_id = ?", strings.ToLower(strings.TrimSpace(provider)), strings.TrimSpace(owner)).
+		Exec(ctx)
 }
 
 func (s *Service) recordDiscoveryOutcome(ctx context.Context, account models.SocialAccount, state *models.AccountContentDiscoveryState, status platform.AccountContentDiscoveryStatus, code, message string, next, now time.Time, attempted bool) error {
@@ -642,7 +685,7 @@ func newDiscoveryState(account models.SocialAccount, now time.Time) *models.Acco
 		Platform: account.Platform, Status: string(platform.AccountContentDiscoveryPartial),
 		CoverageStatus:      string(platform.AccountContentDiscoveryPartial),
 		CoverageDescription: "Building account history for up to the last 90 days and 250 items.",
-		BackfillWatermark:   lowerBound, CyclePublishedAfter: lowerBound,
+		BackfillWatermark:   lowerBound, CyclePublishedAfter: lowerBound, CycleStartedAt: now,
 		CreatedAt: now, UpdatedAt: now,
 	}
 }
@@ -666,6 +709,7 @@ func upsertDiscoveryState(ctx context.Context, db bun.IDB, state *models.Account
 		Set("status = EXCLUDED.status").Set("coverage_status = EXCLUDED.coverage_status").
 		Set("coverage_description = EXCLUDED.coverage_description").Set("cursor = EXCLUDED.cursor").
 		Set("backfill_watermark = EXCLUDED.backfill_watermark").Set("cycle_published_after = EXCLUDED.cycle_published_after").
+		Set("cycle_started_at = EXCLUDED.cycle_started_at").
 		Set("initial_completed_at = EXCLUDED.initial_completed_at").Set("initial_items_discovered = EXCLUDED.initial_items_discovered").
 		Set("read_budget_window_start = EXCLUDED.read_budget_window_start").Set("read_budget_used = EXCLUDED.read_budget_used").
 		Set("last_attempted_at = EXCLUDED.last_attempted_at").Set("last_success_at = EXCLUDED.last_success_at").

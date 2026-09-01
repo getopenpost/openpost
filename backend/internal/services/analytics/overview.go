@@ -2,7 +2,9 @@ package analytics
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 )
@@ -81,6 +84,34 @@ type ContentReference struct {
 	PublicationID    string `json:"publication_id,omitempty"`
 	RenditionID      string `json:"rendition_id,omitempty"`
 	AccountContentID string `json:"account_content_id,omitempty"`
+}
+
+func (ContentReference) TransformSchema(_ huma.Registry, _ *huma.Schema) *huma.Schema {
+	stringID := func() *huma.Schema {
+		minimum := 1
+		return &huma.Schema{Type: "string", MinLength: &minimum}
+	}
+	return &huma.Schema{
+		OneOf: []*huma.Schema{
+			{
+				Type: "object", AdditionalProperties: false,
+				Properties: map[string]*huma.Schema{
+					"type":               {Type: "string", Enum: []any{"external"}},
+					"account_content_id": stringID(),
+				},
+				Required: []string{"type", "account_content_id"},
+			},
+			{
+				Type: "object", AdditionalProperties: false,
+				Properties: map[string]*huma.Schema{
+					"type":           {Type: "string", Enum: []any{"openpost"}},
+					"publication_id": stringID(), "rendition_id": stringID(),
+				},
+				Required: []string{"type", "publication_id", "rendition_id"},
+			},
+		},
+		Discriminator: &huma.Discriminator{PropertyName: "type"},
+	}
 }
 
 type ContentMeasurement struct {
@@ -184,6 +215,13 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	days = normalizeOverviewDays(days)
 	options = normalizeOverviewOptions(options)
 	now := s.now()
+	if options.Cursor != "" {
+		cursor, err := s.decodeSignedOverviewCursor(workspaceID, options, days)
+		if err != nil {
+			return Overview{}, err
+		}
+		now = cursor.RangeEnd.UTC()
+	}
 	start := now.AddDate(0, 0, -days)
 	result := Overview{
 		GeneratedAt:        now,
@@ -245,7 +283,8 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	contentSummary := summarizeWholeAccountContent(allContent)
 	result.Summary = mergeOverviewContentSummary(result.Summary, contentSummary, result.Accounts, options.AccountID)
 
-	offset, err := decodeOverviewOffset(options, days, len(allContent))
+	populationRevision := overviewPopulationRevision(allContent)
+	offset, err := s.decodeOverviewOffset(workspaceID, options, days, len(allContent), populationRevision)
 	if err != nil {
 		return Overview{}, err
 	}
@@ -258,7 +297,7 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 		}
 	}
 	result.Publications = buildPublicationOverviews(managedPage)
-	nextCursor := encodeOverviewNextCursor(offset, len(result.Content), len(allContent), options, days)
+	nextCursor := s.encodeOverviewNextCursor(workspaceID, offset, len(result.Content), len(allContent), options, days, populationRevision, now)
 	result.ContentNextCursor = nextCursor
 	result.PublicationNextCursor = nextCursor
 	return result, nil
@@ -490,8 +529,8 @@ func buildContentOverviews(
 			now,
 		)
 		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
-		item.Engagement = platform.EngagementTotal(compatible)
-		summary.Engagement.Value += item.Engagement
+		item.Engagement, _ = projectedContentEngagement(item.Metrics, item.MetricMetadata)
+		summary.Engagement.Value += platform.EngagementTotal(compatible)
 		if platform.HasEngagementMetric(compatible) {
 			summary.Engagement.Measured++
 		}
@@ -591,7 +630,7 @@ func buildPublicationOverviews(content []ContentOverview) []PublicationOverview 
 		}
 		publication.Renditions = append(publication.Renditions, item)
 		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
-		publication.Engagement += item.Engagement
+		publication.Engagement += platform.EngagementTotal(compatible)
 		if platform.HasEngagementMetric(compatible) {
 			publication.EngagementMeasured++
 		}
@@ -630,11 +669,20 @@ func buildPublicationOverviews(content []ContentOverview) []PublicationOverview 
 }
 
 type overviewCursor struct {
-	Offset    int    `json:"offset"`
-	AccountID string `json:"account_id"`
-	Source    string `json:"source"`
-	Sort      string `json:"sort"`
-	Days      int    `json:"days"`
+	WorkspaceID string    `json:"workspace_id"`
+	Offset      int       `json:"offset"`
+	AccountID   string    `json:"account_id"`
+	Source      string    `json:"source"`
+	Sort        string    `json:"sort"`
+	Days        int       `json:"days"`
+	Revision    string    `json:"revision"`
+	RangeEnd    time.Time `json:"range_end"`
+}
+
+func overviewPopulationRevision(content []ContentOverview) string {
+	encoded, _ := json.Marshal(content)
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
 }
 
 func combinedFollowerSeries(accounts []AccountOverview) []SeriesPoint {

@@ -481,7 +481,7 @@ func TestDiscoveryDailyReadBudgetCountsProviderAttempts(t *testing.T) {
 	require.Equal(t, "account_read_budget_exhausted", state.FailureCode)
 }
 
-func TestDiscoveryProviderConcurrencyDefersNonWinningActiveJob(t *testing.T) {
+func TestDiscoveryProviderConcurrencyLeaseDefersNewLowIDJob(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	first := seedAnalyticsAccount(t, db, "")
 	second := first
@@ -504,19 +504,152 @@ func TestDiscoveryProviderConcurrencyDefersNonWinningActiveJob(t *testing.T) {
 	require.NoError(t, err)
 	firstJob := loadDiscoveryJob(t, db, first.ID)
 	secondJob := loadDiscoveryJob(t, db, second.ID)
-	// Force deterministic ordering for the provider-wide slot.
+	// The already-running owner sorts after the newcomer. A lexical ranking
+	// would incorrectly let the newcomer enter the same provider slot.
 	firstOriginalID, secondOriginalID := firstJob.ID, secondJob.ID
-	firstJob.ID, secondJob.ID = "job-a", "job-b"
+	firstJob.ID, secondJob.ID = "job-z", "job-a"
 	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", jobregistry.StatusProcessing).Set("id = ?", firstJob.ID).Where("id = ?", firstOriginalID).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", jobregistry.StatusProcessing).Set("id = ?", secondJob.ID).Where("id = ?", secondOriginalID).Exec(t.Context())
 	require.NoError(t, err)
+	ownerCtx := providerwrite.WithJobExecution(t.Context(), firstJob.ID, 0, now)
+	owner, acquired, err := service.acquireDiscoveryProviderSlot(ownerCtx, first.Platform, 1, now)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.Equal(t, firstJob.ID, owner)
 	ctx := providerwrite.WithJobExecution(t.Context(), secondJob.ID, 0, now)
 	err = service.HandleJob(ctx, secondJob.Type, secondJob.Payload)
 	delay, continuation := IsDiscoveryContinuation(err)
 	require.True(t, continuation)
 	require.Equal(t, providerSlotRetry, delay)
 	require.Zero(t, calls)
+}
+
+func TestDiscoveryProviderConcurrencyLeaseExpiresAndOldOwnerCannotReleaseReplacement(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	service := NewService(db, staticTokenSource{})
+	firstCtx := providerwrite.WithJobExecution(t.Context(), "job-first", 0, now)
+	owner, acquired, err := service.acquireDiscoveryProviderSlot(firstCtx, "test", 1, now)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.Equal(t, "job-first", owner)
+
+	secondCtx := providerwrite.WithJobExecution(t.Context(), "job-second", 0, now)
+	_, acquired, err = service.acquireDiscoveryProviderSlot(secondCtx, "test", 1, now.Add(discoveryLeaseTTL-time.Nanosecond))
+	require.NoError(t, err)
+	require.False(t, acquired)
+
+	owner, acquired, err = service.acquireDiscoveryProviderSlot(secondCtx, "test", 1, now.Add(discoveryLeaseTTL))
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.Equal(t, "job-second", owner)
+	service.releaseDiscoveryProviderSlot(t.Context(), "test", "job-first")
+
+	var lease models.AccountContentDiscoveryLease
+	require.NoError(t, db.NewSelect().Model(&lease).Where("provider = ? AND slot = ?", "test", 0).Scan(t.Context()))
+	require.Equal(t, "job-second", lease.OwnerJobID)
+}
+
+func TestInitialDiscoveryCountsOnlyNewProviderIdentitiesAcrossPages(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	service := newDiscoveryTestService(db, &fakeAccountContentDiscoverer{}, now)
+	state := newDiscoveryState(account, now)
+	require.NoError(t, upsertDiscoveryState(t.Context(), db, state))
+
+	continuation, err := service.commitDiscoveryPage(t.Context(), account, state, platform.AccountContentPage{
+		Items:      []platform.AccountContentItem{discoveryItem("same", now.Add(-time.Hour)), discoveryItem("first", now.Add(-2*time.Hour))},
+		NextCursor: "page-2", Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryPartial},
+	}, 100, now)
+	require.NoError(t, err)
+	require.True(t, continuation)
+	continuation, err = service.commitDiscoveryPage(t.Context(), account, state, platform.AccountContentPage{
+		Items:    []platform.AccountContentItem{discoveryItem("same", now.Add(-time.Hour)), discoveryItem("second", now.Add(-3*time.Hour))},
+		Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryComplete},
+	}, 100, now.Add(time.Minute))
+	require.NoError(t, err)
+	require.False(t, continuation)
+	require.Equal(t, 3, state.InitialItemsDiscovered)
+	require.Equal(t, 3, accountContentCount(t, db, account.ID))
+}
+
+func TestRoutineDiscoveryUsesCycleStartWatermarkWithOverlap(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	t0 := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	t1 := t0.Add(24 * time.Hour)
+	t2 := t1.Add(time.Hour)
+	t3 := t1.Add(2 * time.Hour)
+	t4 := t1.Add(26 * time.Hour)
+	requests := make([]platform.AccountContentDiscoveryRequest, 0, 3)
+	adapter := &fakeAccountContentDiscoverer{
+		support: platform.AccountContentDiscoverySupport{Supported: true},
+		discover: func(_ context.Context, _ string, request platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+			requests = append(requests, request)
+			switch len(requests) {
+			case 1:
+				return platform.AccountContentPage{NextCursor: "page-2", Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryPartial}}, nil
+			case 2:
+				return platform.AccountContentPage{Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryComplete}}, nil
+			default:
+				return platform.AccountContentPage{Items: []platform.AccountContentItem{discoveryItem("published-during-prior-cycle", t2)}, Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryComplete}}, nil
+			}
+		},
+	}
+	service := newDiscoveryTestService(db, adapter, t1)
+	state := newDiscoveryState(account, t0)
+	state.InitialCompletedAt = t0
+	state.LastSuccessAt = t0
+	state.NextEligibleAt = t1
+	require.NoError(t, upsertDiscoveryState(t.Context(), db, state))
+	created, err := service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	require.True(t, created)
+	job := loadDiscoveryJob(t, db, account.ID)
+	err = service.HandleJob(t.Context(), job.Type, job.Payload)
+	_, continuation := IsDiscoveryContinuation(err)
+	require.True(t, continuation)
+	service.now = func() time.Time { return t3 }
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", jobregistry.StatusCompleted).Where("id = ?", job.ID).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.AccountContentDiscoveryState)(nil)).Set("next_eligible_at = ?", t4).Where("social_account_id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	service.now = func() time.Time { return t4 }
+	created, err = service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	require.True(t, created)
+	job = loadDiscoveryJob(t, db, account.ID)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.True(t, requests[2].PublishedAfter.Equal(t1.Add(-discoveryWatermarkOverlap)))
+	require.Equal(t, 1, accountContentCount(t, db, account.ID))
+}
+
+func TestDiscoveryStopsBeforeProviderMinimumWouldExceedInitialCap(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	adapter := &fakeAccountContentDiscoverer{
+		support: platform.AccountContentDiscoverySupport{Supported: true, MinPageSize: 5, MaxPageSize: 100},
+		discover: func(context.Context, string, platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+			calls++
+			return platform.AccountContentPage{}, nil
+		},
+	}
+	service := newDiscoveryTestService(db, adapter, now)
+	state := newDiscoveryState(account, now)
+	state.InitialItemsDiscovered = 246
+	require.NoError(t, upsertDiscoveryState(t.Context(), db, state))
+	inserted, err := service.enqueueAccountContentDiscovery(t.Context(), account, now)
+	require.NoError(t, err)
+	require.True(t, inserted)
+	job := loadDiscoveryJob(t, db, account.ID)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Zero(t, calls)
+	require.Equal(t, 246, state.InitialItemsDiscovered)
 }
 
 func newDiscoveryTestService(db *bun.DB, adapter platform.Adapter, now time.Time) *Service {
@@ -539,7 +672,8 @@ func loadDiscoveryJob(t *testing.T, db *bun.DB, accountID string) models.Job {
 	t.Helper()
 	var job models.Job
 	require.NoError(t, db.NewSelect().Model(&job).
-		Where("type = ? AND scope_id = ?", jobregistry.TypeAccountContentDiscovery, accountID).Scan(t.Context()))
+		Where("type = ? AND scope_id = ?", jobregistry.TypeAccountContentDiscovery, accountID).
+		Order("created_at DESC", "id DESC").Limit(1).Scan(t.Context()))
 	return job
 }
 

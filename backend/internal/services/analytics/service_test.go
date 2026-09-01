@@ -13,9 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -78,9 +80,11 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Equal(t, int64(100), first.Summary.Followers.Value)
 	require.NotEmpty(t, first.PublicationNextCursor)
 	options.Cursor = first.PublicationNextCursor
+	service.now = func() time.Time { return now.Add(24 * time.Hour) }
 	second, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, options)
 	require.NoError(t, err)
 	require.Len(t, second.Publications, 50)
+	require.Equal(t, first.GeneratedAt, second.GeneratedAt, "cursor freezes the reporting range")
 	require.NotEqual(t, first.Publications[len(first.Publications)-1].PublicationID, second.Publications[0].PublicationID)
 	options.Cursor = second.PublicationNextCursor
 	third, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, options)
@@ -90,6 +94,7 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Equal(t, first.Insights, second.Insights, "insights use the complete population, not the current page")
 	require.Equal(t, first.Insights, third.Insights, "load-more state cannot change insights")
 
+	service.now = func() time.Time { return now }
 	engagementSorted, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Sort: "engagement", Limit: 7})
 	require.NoError(t, err)
 	require.Equal(t, first.Insights, engagementSorted.Insights, "display sort and page size cannot change insights")
@@ -106,17 +111,45 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Len(t, seen, 121)
 }
 
-func TestOverviewCursorCannotCrossAccountSortOrSourceScope(t *testing.T) {
+func TestOverviewCursorCannotCrossWorkspaceAccountSortSourceRevisionOrSignature(t *testing.T) {
+	service := NewService(nil, nil)
 	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1})
-	cursor := encodeOverviewNextCursor(0, 1, 2, options, 30)
+	cursor := service.encodeOverviewNextCursor("workspace-a", 0, 1, 2, options, 30, "revision-a", time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC))
 	options.AccountID = "account-b"
 	options.Cursor = cursor
-	_, err := decodeOverviewOffset(options, 30, 2)
+	_, err := service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
 
 	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "external", Sort: "newest", Limit: 1, Cursor: cursor})
-	_, err = decodeOverviewOffset(options, 30, 2)
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1, Cursor: cursor})
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-b")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	_, err = service.decodeOverviewOffset("workspace-b", options, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+	options.Cursor = cursor[:len(cursor)-1] + "x"
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+}
+
+func TestProjectedContentEngagementPrefersAggregateAndPreservesReportingPeriodSemantics(t *testing.T) {
+	start := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
+	metadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricEngagements: {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal, Source: "pinterest", PeriodStart: &start, PeriodEnd: &end},
+		platform.MetricSaves:       {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal, Source: "pinterest", PeriodStart: &start, PeriodEnd: &end},
+	}
+	value, measured := projectedContentEngagement(platform.AnalyticsValues{platform.MetricEngagements: 10, platform.MetricSaves: 3}, metadata)
+	require.True(t, measured)
+	require.Equal(t, int64(10), value)
+
+	delete(metadata, platform.MetricEngagements)
+	missingValue, missingMeasured := projectedContentEngagement(platform.AnalyticsValues{platform.MetricPinClicks: 14}, metadata)
+	require.False(t, missingMeasured)
+	require.Zero(t, missingValue)
 }
 
 func TestWholeAccountOverviewMixesSourcesWithoutDoubleCountingOrInventingManagedIDs(t *testing.T) {
@@ -1264,6 +1297,14 @@ func seedAnalyticsPublication(t *testing.T, db *bun.DB, workspaceID, id string, 
 	_, err := db.NewInsert().Model(&publication).Exec(context.Background())
 	require.NoError(t, err)
 	return publication
+}
+
+func TestDiscordBotAnalyticsFailsClosedWithoutReadinessWhileWebhookRemainsSupported(t *testing.T) {
+	service := NewService(nil, nil)
+	bot := models.SocialAccount{Platform: capabilities.ProviderDiscord, CapabilityState: `{"connection_type":"bot"}`}
+	webhook := models.SocialAccount{Platform: capabilities.ProviderDiscord, CapabilityState: `{"connection_type":"webhook"}`}
+	require.False(t, service.isProviderOperationEnabled(t.Context(), bot, providerreadiness.OperationAnalytics))
+	require.True(t, service.isProviderOperationEnabled(t.Context(), webhook, providerreadiness.OperationAnalytics))
 }
 
 func TestRefreshCountsOnlyNewAnalyticsJobs(t *testing.T) {

@@ -7,6 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEngagementTotalPrefersProviderAggregateWithoutDoubleCountingComponents(t *testing.T) {
+	values := AnalyticsValues{
+		MetricEngagements:    10,
+		MetricSaves:          3,
+		MetricPinClicks:      14,
+		MetricOutboundClicks: 5,
+	}
+	require.Equal(t, int64(10), EngagementTotal(values))
+	require.True(t, HasEngagementMetric(values))
+}
+
 func TestAnalyticsMeasurementsPreserveIntegerUnitsAndAggregations(t *testing.T) {
 	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.FixedZone("test", -4*60*60))
 	end := start.Add(24 * time.Hour)

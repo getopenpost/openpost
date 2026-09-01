@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
@@ -38,6 +39,26 @@ type analyticsHandlerTokenSource struct{}
 
 func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) (string, error) {
 	return "token", nil
+}
+
+func TestAnalyticsContentReferenceOpenAPISchemaIsDiscriminatedOneOf(t *testing.T) {
+	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, database.CreateSchema(db))
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewAnalyticsHandler(db, testAuthenticator{}, analyticsservice.NewService(db, analyticsHandlerTokenSource{})).RegisterRoutes(api)
+	encoded, err := json.Marshal(api.OpenAPI())
+	require.NoError(t, err)
+	var document map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &document))
+	components := document["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	reference := schemas["ContentReference"].(map[string]any)
+	require.Len(t, reference["oneOf"].([]any), 2)
+	discriminator := reference["discriminator"].(map[string]any)
+	require.Equal(t, "type", discriminator["propertyName"])
 }
 
 func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
@@ -89,6 +110,39 @@ func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 	mismatchResponse := httptest.NewRecorder()
 	e.ServeHTTP(mismatchResponse, mismatchRequest)
 	require.Equal(t, http.StatusBadRequest, mismatchResponse.Code, mismatchResponse.Body.String())
+
+	inserted := contents[0]
+	inserted.ID, inserted.ProviderContentID, inserted.Text = "external-3", "video-3", "inserted"
+	inserted.PublishedAt = now.Add(-30 * time.Minute)
+	_, err = db.NewInsert().Model(&inserted).Exec(ctx)
+	require.NoError(t, err)
+	insertedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+first.ContentNextCursor, nil)
+	insertedRequest.Header.Set("Authorization", "Bearer web-token")
+	insertedResponse := httptest.NewRecorder()
+	e.ServeHTTP(insertedResponse, insertedRequest)
+	require.Equal(t, http.StatusBadRequest, insertedResponse.Code, insertedResponse.Body.String())
+
+	freshRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1", nil)
+	freshRequest.Header.Set("Authorization", "Bearer web-token")
+	freshResponse := httptest.NewRecorder()
+	e.ServeHTTP(freshResponse, freshRequest)
+	require.Equal(t, http.StatusOK, freshResponse.Code)
+	var fresh analyticsservice.Overview
+	require.NoError(t, json.Unmarshal(freshResponse.Body.Bytes(), &fresh))
+	_, err = db.NewUpdate().Model((*models.AccountContent)(nil)).Set("published_at = ?", now.Add(time.Minute)).Where("id = ?", "external-2").Exec(ctx)
+	require.NoError(t, err)
+	reorderedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+fresh.ContentNextCursor, nil)
+	reorderedRequest.Header.Set("Authorization", "Bearer web-token")
+	reorderedResponse := httptest.NewRecorder()
+	e.ServeHTTP(reorderedResponse, reorderedRequest)
+	require.Equal(t, http.StatusBadRequest, reorderedResponse.Code, reorderedResponse.Body.String())
+
+	tampered := fresh.ContentNextCursor[:len(fresh.ContentNextCursor)-1] + "x"
+	tamperedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+tampered, nil)
+	tamperedRequest.Header.Set("Authorization", "Bearer web-token")
+	tamperedResponse := httptest.NewRecorder()
+	e.ServeHTTP(tamperedResponse, tamperedRequest)
+	require.Equal(t, http.StatusBadRequest, tamperedResponse.Code, tamperedResponse.Body.String())
 }
 
 func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped(t *testing.T) {

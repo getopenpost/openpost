@@ -1494,6 +1494,7 @@ type AccountContentDiscoveryState struct {
 	Cursor                 string    `bun:",notnull,default:''" json:"-"`
 	BackfillWatermark      time.Time `bun:"backfill_watermark,nullzero" json:"backfill_watermark,omitempty"`
 	CyclePublishedAfter    time.Time `bun:"cycle_published_after,nullzero" json:"-"`
+	CycleStartedAt         time.Time `bun:"cycle_started_at,nullzero" json:"-"`
 	InitialCompletedAt     time.Time `bun:"initial_completed_at,nullzero" json:"initial_completed_at,omitempty"`
 	InitialItemsDiscovered int       `bun:"initial_items_discovered,notnull,default:0" json:"initial_items_discovered"`
 	ReadBudgetWindowStart  time.Time `bun:"read_budget_window_start,nullzero" json:"-"`
@@ -1505,6 +1506,19 @@ type AccountContentDiscoveryState struct {
 	NextEligibleAt         time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
 	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// AccountContentDiscoveryLease is one durable provider-wide semaphore slot.
+// Expiry recovers slots after worker termination; owner IDs are job execution
+// identifiers and carry no provider credentials or payload data.
+type AccountContentDiscoveryLease struct {
+	bun.BaseModel `bun:"table:account_content_discovery_leases"`
+
+	Provider       string    `bun:",pk" json:"provider"`
+	Slot           int       `bun:",pk" json:"slot"`
+	OwnerJobID     string    `bun:"owner_job_id,notnull" json:"owner_job_id"`
+	LeaseExpiresAt time.Time `bun:"lease_expires_at,notnull" json:"lease_expires_at"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
 // AccountContentObservation is a bounded provider-neutral analytics event.

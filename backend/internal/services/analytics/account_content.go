@@ -2,7 +2,9 @@ package analytics
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -113,9 +115,12 @@ func upsertAccountContent(
 		return nil, fmt.Errorf("load stored account content: %w", err)
 	}
 	if normalized.Measurements != nil {
-		if err := recordAccountContentMeasurements(ctx, db, account, *content, normalized.Measurements, now); err != nil {
+		if err := recordAccountContentMeasurements(ctx, db, account, *content, normalized.Measurements, now, normalized.MeasurementCaptureKey); err != nil {
 			return nil, err
 		}
+	}
+	if err := reconcileAccountContentObservations(ctx, db, account, *content); err != nil {
+		return nil, err
 	}
 	return content, nil
 }
@@ -127,6 +132,7 @@ func recordAccountContentMeasurements(
 	content models.AccountContent,
 	measurements platform.AnalyticsMeasurements,
 	capturedAt time.Time,
+	idempotencyKey string,
 ) error {
 	values, metadata, err := measurements.ValuesAndMetadata(account.Platform)
 	if err != nil {
@@ -140,7 +146,7 @@ func recordAccountContentMeasurements(
 	if err != nil {
 		return err
 	}
-	captureKey := subjectAccountContent + ":" + content.ID + ":" + capturedAt.Truncate(time.Minute).Format(time.RFC3339)
+	captureKey := accountContentCaptureKey(content.ID, idempotencyKey, capturedAt)
 	snapshot := &models.AnalyticsAccountContentSnapshot{
 		ID: uuid.NewString(), WorkspaceID: account.WorkspaceID, AccountContentID: content.ID,
 		SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: metricsJSON,
@@ -157,6 +163,58 @@ func recordAccountContentMeasurements(
 		LastAttemptedAt: capturedAt, LastSuccessAt: capturedAt,
 		CreatedAt: capturedAt, UpdatedAt: capturedAt,
 	})
+}
+
+func accountContentCaptureKey(contentID, idempotencyKey string, capturedAt time.Time) string {
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		idempotencyKey = capturedAt.UTC().Format(time.RFC3339Nano)
+	}
+	digest := sha256.Sum256([]byte(idempotencyKey))
+	return subjectAccountContent + ":" + contentID + ":" + hex.EncodeToString(digest[:])
+}
+
+func reconcileAccountContentObservations(ctx context.Context, db bun.IDB, account models.SocialAccount, content models.AccountContent) error {
+	var pending []models.AccountContentObservation
+	if err := db.NewSelect().Model(&pending).
+		Where("social_account_id = ? AND provider_content_id = ? AND account_content_id IS NULL", account.ID, content.ProviderContentID).
+		Order("observed_at ASC", "id ASC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("load pending account content observations: %w", err)
+	}
+	for _, observation := range pending {
+		measurements, err := decodeStoredMeasurements(observation.MetricsJSON, observation.MetricMetadataJSON)
+		if err != nil {
+			return fmt.Errorf("decode pending account content observation: %w", err)
+		}
+		if _, err := db.NewUpdate().Model((*models.AccountContentObservation)(nil)).
+			Set("account_content_id = ?", content.ID).Where("id = ? AND account_content_id IS NULL", observation.ID).Exec(ctx); err != nil {
+			return fmt.Errorf("link pending account content observation: %w", err)
+		}
+		if err := recordAccountContentMeasurements(ctx, db, account, content, measurements, observation.ObservedAt.UTC(), "observation:"+observation.ProviderObservationID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decodeStoredMeasurements(rawValues, rawMetadata string) (platform.AnalyticsMeasurements, error) {
+	values := platform.AnalyticsValues{}
+	metadata := map[string]platform.AnalyticsMetricMetadata{}
+	if err := json.Unmarshal([]byte(rawValues), &values); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(rawMetadata), &metadata); err != nil {
+		return nil, err
+	}
+	measurements := make(platform.AnalyticsMeasurements, len(values))
+	for metric, value := range values {
+		meta, ok := metadata[metric]
+		if !ok {
+			return nil, fmt.Errorf("measurement metadata is missing for %s", metric)
+		}
+		measurements[metric] = platform.AnalyticsMeasurement{Value: value, AnalyticsMetricMetadata: meta}
+	}
+	return measurements, nil
 }
 
 func encodeAnalyticsValues(values platform.AnalyticsValues) (string, error) {

@@ -159,6 +159,12 @@ func AddAnalyticsValues(target, values AnalyticsValues) {
 }
 
 func EngagementTotal(values AnalyticsValues) int64 {
+	// Provider aggregate engagement values are authoritative. Adding their
+	// component metrics again (for example Pinterest saves and clicks) would
+	// double count the same actions.
+	if total, measured := values[MetricEngagements]; measured {
+		return total
+	}
 	var total int64
 	for _, metric := range engagementMetrics {
 		total += values[metric]
@@ -178,6 +184,9 @@ var engagementMetrics = []string{
 }
 
 func HasEngagementMetric(values AnalyticsValues) bool {
+	if _, measured := values[MetricEngagements]; measured {
+		return true
+	}
 	for _, metric := range engagementMetrics {
 		if _, ok := values[metric]; ok {
 			return true

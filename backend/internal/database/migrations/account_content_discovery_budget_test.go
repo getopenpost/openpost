@@ -49,10 +49,10 @@ func TestAccountContentDiscoveryBudgetMigrationPersistsDurableCounters(t *testin
 		Status: "partial", CoverageStatus: "partial", CyclePublishedAfter: now.Add(-90 * 24 * time.Hour),
 		InitialItemsDiscovered: 100, ReadBudgetWindowStart: now, ReadBudgetUsed: 7,
 	}
-	_, err = db.NewInsert().Model(state).Exec(ctx)
+	_, err = db.NewInsert().Model(state).ExcludeColumn("cycle_started_at").Exec(ctx)
 	require.NoError(t, err)
 	var stored models.AccountContentDiscoveryState
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", state.ID).Scan(ctx))
+	require.NoError(t, db.NewSelect().Model(&stored).ExcludeColumn("cycle_started_at").Where("id = ?", state.ID).Scan(ctx))
 	require.Equal(t, 100, stored.InitialItemsDiscovered)
 	require.Equal(t, 7, stored.ReadBudgetUsed)
 }

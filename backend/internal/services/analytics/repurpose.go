@@ -40,6 +40,7 @@ type RepurposeEvidence struct {
 	Metric      string                           `json:"metric"`
 	Value       int64                            `json:"value"`
 	CollectedAt time.Time                        `json:"collected_at"`
+	Scope       string                           `json:"scope" enum:"requested_range,lifetime,current_snapshot"`
 	Metadata    platform.AnalyticsMetricMetadata `json:"metadata"`
 }
 
@@ -93,6 +94,8 @@ func (s *Service) ResolveRepurposeSource(
 	if err != nil {
 		return RepurposeSource{}, err
 	}
+	rangeEnd := s.now().UTC()
+	rangeStart := rangeEnd.AddDate(0, 0, -rangeInput.Days)
 	return RepurposeSource{
 		HandoffID: uuid.NewString(), WorkspaceID: workspaceID, Title: title,
 		SourceText: sourceText, ContentProfile: profile, DestinationAccountIDs: destinationIDs,
@@ -100,7 +103,7 @@ func (s *Service) ResolveRepurposeSource(
 		Provenance: RepurposeProvenance{
 			Reference: reference, Origin: reference.Type, Platform: platformName, PublishedAt: publishedAt,
 		},
-		Evidence: repurposeEvidence(snapshot),
+		Evidence: repurposeEvidence(snapshot, rangeStart, rangeEnd),
 	}, nil
 }
 
@@ -146,18 +149,19 @@ func (s *Service) resolveExternalRepurposeSource(
 	if !content.ProviderUnavailableAt.IsZero() {
 		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrRepurposeSourceUnavailable
 	}
-	var stored models.AnalyticsAccountContentSnapshot
-	err := s.db.NewSelect().Model(&stored).
-		Where("workspace_id = ? AND account_content_id = ? AND captured_at >= ?", workspaceID, content.ID, s.now().AddDate(0, 0, -days)).
-		Order("captured_at DESC").Limit(1).Scan(ctx)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	var stored []models.AnalyticsAccountContentSnapshot
+	if err := s.db.NewSelect().Model(&stored).
+		Where("workspace_id = ? AND account_content_id = ?", workspaceID, content.ID).
+		Order("captured_at DESC").Limit(50).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, fmt.Errorf("load external repurpose evidence: %w", err)
 	}
+	snapshots := make([]repurposeSnapshot, 0, len(stored))
+	for _, item := range stored {
+		snapshots = append(snapshots, repurposeSnapshot{MetricsJSON: item.MetricsJSON, MetricMetadataJSON: item.MetricMetadataJSON, CapturedAt: item.CapturedAt, Platform: content.Platform})
+	}
+	selected := selectRepurposeSnapshot(snapshots, s.now().AddDate(0, 0, -days), s.now())
 	return content.Title, firstNonEmptyAnalyticsText(content.Text, content.Title), content.ContentProfile,
-		content.Platform, content.PublishedAt, []string{content.SocialAccountID}, repurposeSnapshot{
-			MetricsJSON: stored.MetricsJSON, MetricMetadataJSON: stored.MetricMetadataJSON,
-			CapturedAt: stored.CapturedAt, Platform: content.Platform,
-		}, nil
+		content.Platform, content.PublishedAt, []string{content.SocialAccountID}, selected, nil
 }
 
 func (s *Service) resolveManagedRepurposeSource(
@@ -187,22 +191,23 @@ func (s *Service) resolveManagedRepurposeSource(
 		Where("publication_id = ?", publication.ID).Scan(ctx, &accountIDs); err != nil {
 		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, fmt.Errorf("load managed repurpose destinations: %w", err)
 	}
-	var stored models.AnalyticsRenditionSnapshot
-	err := s.db.NewSelect().Model(&stored).
-		Where("workspace_id = ? AND publication_id = ? AND rendition_id = ? AND captured_at >= ?", workspaceID, publication.ID, sourceRendition.ID, s.now().AddDate(0, 0, -days)).
-		Order("captured_at DESC").Limit(1).Scan(ctx)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	var stored []models.AnalyticsRenditionSnapshot
+	if err := s.db.NewSelect().Model(&stored).
+		Where("workspace_id = ? AND publication_id = ? AND rendition_id = ?", workspaceID, publication.ID, sourceRendition.ID).
+		Order("captured_at DESC").Limit(50).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, fmt.Errorf("load managed repurpose evidence: %w", err)
 	}
 	publishedAt := publication.ActualRunAt
 	if publishedAt.IsZero() {
 		publishedAt = publication.UpdatedAt
 	}
+	snapshots := make([]repurposeSnapshot, 0, len(stored))
+	for _, item := range stored {
+		snapshots = append(snapshots, repurposeSnapshot{MetricsJSON: item.MetricsJSON, MetricMetadataJSON: item.MetricMetadataJSON, CapturedAt: item.CapturedAt, Platform: sourceRendition.Platform})
+	}
+	selected := selectRepurposeSnapshot(snapshots, s.now().AddDate(0, 0, -days), s.now())
 	return publication.Title, firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
-		publication.ContentProfile, sourceRendition.Platform, publishedAt, accountIDs, repurposeSnapshot{
-			MetricsJSON: stored.MetricsJSON, MetricMetadataJSON: stored.MetricMetadataJSON,
-			CapturedAt: stored.CapturedAt, Platform: sourceRendition.Platform,
-		}, nil
+		publication.ContentProfile, sourceRendition.Platform, publishedAt, accountIDs, selected, nil
 }
 
 func (s *Service) filterRepurposeDestinations(ctx context.Context, workspaceID string, candidateIDs []string) ([]string, error) {
@@ -219,14 +224,14 @@ func (s *Service) filterRepurposeDestinations(ctx context.Context, workspaceID s
 	return ids, nil
 }
 
-func repurposeEvidence(snapshot repurposeSnapshot) []RepurposeEvidence {
+func repurposeEvidence(snapshot repurposeSnapshot, rangeStart, rangeEnd time.Time) []RepurposeEvidence {
 	if snapshot.CapturedAt.IsZero() {
 		return []RepurposeEvidence{}
 	}
 	values, metadata := decodeAnalyticsMetrics(snapshot.MetricsJSON, snapshot.MetricMetadataJSON, platform.AnalyticsMetricSubjectContent, snapshot.Platform)
 	metrics := make([]string, 0, len(values))
 	for metric := range values {
-		if _, described := metadata[metric]; described {
+		if meta, described := metadata[metric]; described && repurposeEvidenceScope(meta, rangeStart, rangeEnd) != "" {
 			metrics = append(metrics, metric)
 		}
 	}
@@ -237,10 +242,48 @@ func repurposeEvidence(snapshot repurposeSnapshot) []RepurposeEvidence {
 	evidence := make([]RepurposeEvidence, 0, len(metrics))
 	for _, metric := range metrics {
 		evidence = append(evidence, RepurposeEvidence{
-			Metric: metric, Value: values[metric], CollectedAt: snapshot.CapturedAt, Metadata: metadata[metric],
+			Metric: metric, Value: values[metric], CollectedAt: snapshot.CapturedAt,
+			Scope: repurposeEvidenceScope(metadata[metric], rangeStart, rangeEnd), Metadata: metadata[metric],
 		})
 	}
 	return evidence
+}
+
+func selectRepurposeSnapshot(snapshots []repurposeSnapshot, rangeStart, rangeEnd time.Time) repurposeSnapshot {
+	var fallback repurposeSnapshot
+	for _, snapshot := range snapshots {
+		evidence := repurposeEvidence(snapshot, rangeStart, rangeEnd)
+		if len(evidence) == 0 {
+			continue
+		}
+		for _, item := range evidence {
+			if item.Scope == "requested_range" {
+				return snapshot
+			}
+		}
+		if fallback.CapturedAt.IsZero() {
+			fallback = snapshot
+		}
+	}
+	return fallback
+}
+
+func repurposeEvidenceScope(metadata platform.AnalyticsMetricMetadata, rangeStart, rangeEnd time.Time) string {
+	switch metadata.Aggregation {
+	case platform.AnalyticsMetricAggregationLifetimeTotal:
+		return "lifetime"
+	case platform.AnalyticsMetricAggregationCurrentSnapshot:
+		return "current_snapshot"
+	case platform.AnalyticsMetricAggregationReportingPeriodTotal:
+		if metadata.PeriodStart == nil || metadata.PeriodEnd == nil ||
+			metadata.PeriodStart.UTC().Format(time.DateOnly) != rangeStart.UTC().Format(time.DateOnly) ||
+			metadata.PeriodEnd.UTC().Format(time.DateOnly) != rangeEnd.UTC().Format(time.DateOnly) {
+			return ""
+		}
+		return "requested_range"
+	default:
+		return ""
+	}
 }
 
 func truncateRepurposeText(value string, maxRunes int) string {

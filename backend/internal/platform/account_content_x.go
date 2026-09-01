@@ -29,6 +29,7 @@ type xAccountContentResponse struct {
 func (x *XAdapter) AccountContentDiscoverySupport(AnalyticsAccountContext) AccountContentDiscoverySupport {
 	return AccountContentDiscoverySupport{
 		Supported:   true,
+		MinPageSize: 5,
 		MaxPageSize: AccountContentMaxPageSize,
 	}
 }
@@ -38,7 +39,7 @@ func (x *XAdapter) DiscoverAccountContent(ctx context.Context, accessToken strin
 	if accountID == "" {
 		return AccountContentPage{}, NewAccountContentDiscoveryError(AccountContentDiscoveryFailed, "missing_account_id", 0)
 	}
-	pageSize := min(max(1, input.PageSize), AccountContentMaxPageSize)
+	pageSize := min(max(5, input.PageSize), AccountContentMaxPageSize)
 	params := url.Values{
 		"max_results":  {strconv.Itoa(pageSize)},
 		"tweet.fields": {"conversation_id,created_at,text"},

@@ -47,6 +47,7 @@ func TestResolveExternalRepurposeSourceBoundsStoredFieldsAndLeavesSourceUnchange
 	require.Len(t, first.Evidence, 1)
 	require.Equal(t, int64(42), first.Evidence[0].Value)
 	require.Equal(t, platform.AnalyticsMetricAggregationLifetimeTotal, first.Evidence[0].Metadata.Aggregation)
+	require.Equal(t, "lifetime", first.Evidence[0].Scope)
 	require.Equal(t, periodStart, now.AddDate(0, 0, -first.Range.Days))
 	require.Equal(t, periodEnd, now)
 
@@ -57,6 +58,34 @@ func TestResolveExternalRepurposeSourceBoundsStoredFieldsAndLeavesSourceUnchange
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count, "resolving a handoff must not create a Publication")
+}
+
+func TestRepurposeEvidenceSelectsRequestedReportingPeriodInsteadOfNewestMismatch(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	sevenStart := now.AddDate(0, 0, -7)
+	thirtyStart := now.AddDate(0, 0, -30)
+	snapshot := func(value int64, captured, start time.Time) repurposeSnapshot {
+		measurements := platform.AnalyticsMeasurements{platform.MetricEngagements: {
+			Value: value, AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+				Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+				Source: "pinterest", PeriodStart: &start, PeriodEnd: &now,
+			},
+		}}
+		values, metadata, err := measurements.ValuesAndMetadata("pinterest")
+		require.NoError(t, err)
+		valuesJSON, err := encodeAnalyticsValues(values)
+		require.NoError(t, err)
+		metadataJSON, err := encodeMetricMetadata(metadata)
+		require.NoError(t, err)
+		return repurposeSnapshot{MetricsJSON: valuesJSON, MetricMetadataJSON: metadataJSON, CapturedAt: captured, Platform: "pinterest"}
+	}
+	selected := selectRepurposeSnapshot([]repurposeSnapshot{
+		snapshot(30, now, thirtyStart), snapshot(7, now.Add(-time.Hour), sevenStart),
+	}, sevenStart, now)
+	evidence := repurposeEvidence(selected, sevenStart, now)
+	require.Len(t, evidence, 1)
+	require.Equal(t, int64(7), evidence[0].Value)
+	require.Equal(t, "requested_range", evidence[0].Scope)
 }
 
 func TestResolveManagedRepurposeSourceFiltersInvalidDestinationsAndPreservesPublication(t *testing.T) {

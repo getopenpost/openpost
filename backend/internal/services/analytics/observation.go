@@ -75,6 +75,6 @@ func (s *Service) RecordAccountContentObservation(
 		if err != nil || rows == 0 || contentID == "" {
 			return err
 		}
-		return recordAccountContentMeasurements(txCtx, tx, account, content, measurements, observedAt.UTC())
+		return recordAccountContentMeasurements(txCtx, tx, account, content, measurements, observedAt.UTC(), "observation:"+providerObservationID)
 	})
 }

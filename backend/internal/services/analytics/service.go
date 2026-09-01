@@ -2,6 +2,8 @@ package analytics
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -52,9 +54,15 @@ type Service struct {
 	featureGate       FeatureGate
 	readiness         *providerreadiness.Service
 	discoveryPolicies map[string]DiscoveryPolicy
+	cursorSigningKey  []byte
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource) *Service {
+	cursorSigningKey := make([]byte, 32)
+	if _, err := rand.Read(cursorSigningKey); err != nil {
+		fallback := sha256.Sum256([]byte(uuid.NewString()))
+		cursorSigningKey = fallback[:]
+	}
 	return &Service{
 		db:                db,
 		tokenSource:       tokenSource,
@@ -62,7 +70,16 @@ func NewService(db *bun.DB, tokenSource TokenSource) *Service {
 		sources:           make(map[string]platform.AnalyticsAdapter),
 		now:               func() time.Time { return time.Now().UTC() },
 		discoveryPolicies: make(map[string]DiscoveryPolicy),
+		cursorSigningKey:  cursorSigningKey,
 	}
+}
+
+func (s *Service) SetCursorSigningKey(secret string) {
+	if s == nil || strings.TrimSpace(secret) == "" {
+		return
+	}
+	digest := sha256.Sum256([]byte("openpost:analytics-cursor:" + secret))
+	s.cursorSigningKey = append([]byte(nil), digest[:]...)
 }
 
 func (s *Service) SetProvider(name string, adapter platform.Adapter) {
@@ -86,7 +103,9 @@ func (s *Service) SetProviderReadiness(readiness *providerreadiness.Service) {
 }
 
 func (s *Service) isProviderOperationEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
-	if account.Platform != capabilities.ProviderPinterest && account.Platform != capabilities.ProviderTelegram {
+	requiresReadiness := account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram ||
+		(account.Platform == capabilities.ProviderDiscord && platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot)
+	if !requiresReadiness {
 		return true
 	}
 	if s.readiness == nil {

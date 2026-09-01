@@ -249,7 +249,7 @@ func appendRenditionTrend(
 			PublicationID: snapshot.PublicationID,
 		}
 		var engagementDelta int64
-		for _, metric := range engagementMetricNames {
+		for _, metric := range engagementProjectionMetricNames(current.values) {
 			engagementDelta += comparableContentMetricDelta(current.values, current.metadata, previous, metric)
 		}
 		if engagementDelta != 0 {

@@ -635,7 +635,7 @@ func (s *Service) acquireDiscoveryProviderSlot(ctx context.Context, provider str
 			Set("owner_job_id = EXCLUDED.owner_job_id").
 			Set("lease_expires_at = EXCLUDED.lease_expires_at").
 			Set("updated_at = EXCLUDED.updated_at").
-			Where("lease_expires_at <= ? OR owner_job_id = ?", now, owner).
+			Where("account_content_discovery_lease.lease_expires_at <= ? OR account_content_discovery_lease.owner_job_id = ?", now, owner).
 			Exec(ctx)
 		if err != nil {
 			return "", false, fmt.Errorf("acquire discovery provider lease: %w", err)

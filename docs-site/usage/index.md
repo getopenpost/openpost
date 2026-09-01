@@ -8,7 +8,7 @@ Use these docs to connect accounts, build or write account versions, schedule po
 
 Provider data, formats, and actions remain limited by the connected account and provider.
 
-For a visual introduction, [watch the OpenPost product demo](https://youtu.be/_mZf3HzQaN8).
+For a visual introduction, [watch the OpenPost product demo](https://www.youtube.com/watch?v=_mZf3HzQaN8).
 
 ## Web app
 

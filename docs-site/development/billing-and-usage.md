@@ -118,7 +118,7 @@ Organization owners and admins can start recovery in one action. OpenPost create
 
 Paddle remains the source of truth after the payment method changes. The notice stays visible until a signed webhook job fetches a strictly newer canonical subscription with `active` status. That recovery clears `past_due_since` and restores paid-plan access. A stale or repeated `past_due` event cannot reinstate the failure after the newer active snapshot has been saved.
 
-See Paddle's documentation for [`past_due` subscription recovery](https://developer.paddle.com/webhooks/subscriptions/subscription-past-due), [webhook delivery and ordering](https://developer.paddle.com/webhooks/about/how-webhooks-work), and [temporary payment-method portal links](https://developer.paddle.com/build/subscriptions/update-payment-details/).
+See Paddle's documentation for [`past_due` subscription recovery](https://developer.paddle.com/webhooks/subscriptions/subscription-past-due/), [webhook delivery and ordering](https://developer.paddle.com/webhooks/about/how-webhooks-work/), and [temporary payment-method portal links](https://developer.paddle.com/build/subscriptions/update-payment-details/).
 
 Access is granted only for `active` and `trialing` subscriptions. A scheduled cancellation keeps access while Paddle still reports one of those states. `past_due`, paused, and canceled subscriptions do not grant paid-plan access. API handlers consume the local snapshot only.
 

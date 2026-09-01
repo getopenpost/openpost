@@ -58,7 +58,7 @@ Provider access and available formats still depend on account type, permissions,
 For the authoritative Docker Compose example and deployment steps, see [Docker Compose](/installation/docker-compose).
 
 ::: tip
-New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https://youtu.be/_mZf3HzQaN8), or follow the [self-hosting quickstart](/guide/quickstart).
+New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https://www.youtube.com/watch?v=_mZf3HzQaN8), or follow the [self-hosting quickstart](/guide/quickstart).
 :::
 
 ## Choose the right docs

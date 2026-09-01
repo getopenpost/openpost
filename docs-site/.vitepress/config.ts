@@ -304,11 +304,11 @@ export default defineConfig({
       },
       { text: "Self-Hosting", link: "/self-hosting/" },
       { text: "Develop", link: "/development/" },
-      { text: "Community", link: "https://discord.gg/u2QwukmY4W" },
+      { text: "Community", link: "https://discord.com/invite/u2QwukmY4W" },
     ],
     socialLinks: [
       { icon: "github", link: "https://github.com/getopenpost/openpost" },
-      { icon: "discord", link: "https://discord.gg/u2QwukmY4W" },
+      { icon: "discord", link: "https://discord.com/invite/u2QwukmY4W" },
     ],
     search: {
       provider: "local",

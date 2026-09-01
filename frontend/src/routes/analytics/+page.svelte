@@ -1428,11 +1428,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 </PageContainer>
 
 <style>
-	@container (min-width: 60rem) {
+	@container (min-width: 58rem) {
 		.analytics-content-grid {
 			grid-template-columns:
 				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
-				14rem;
+				11rem;
 			align-items: center;
 		}
 
@@ -1466,7 +1466,22 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		}
 
 		.analytics-actions {
+			align-items: stretch;
+			flex-direction: column;
 			justify-self: stretch;
+		}
+	}
+
+	@container (min-width: 68rem) {
+		.analytics-content-grid {
+			grid-template-columns:
+				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
+				14rem;
+		}
+
+		.analytics-actions {
+			align-items: center;
+			flex-direction: row;
 		}
 	}
 </style>

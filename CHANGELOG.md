@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.16.1] - 2026-09-01
+
+### Changed
+
+- Finished the hard cutover to `openpo.st`. Current application, media, telemetry, email, API, CLI, MCP, mobile, and public metadata now use the new domain. Former public hosts only redirect to their matching `openpo.st` address.
+
+### Fixed
+
+- Restored the public Hosted landing page at the app root so visitors and payment-provider reviewers can inspect current pricing and policies before signing in.
+
 ## [4.16.0] - 2026-09-01
 
 ### Fixed

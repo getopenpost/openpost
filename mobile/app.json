@@ -2,7 +2,7 @@
   "expo": {
     "name": "OpenPost",
     "slug": "openpost",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "openpost",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.openpost.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW"

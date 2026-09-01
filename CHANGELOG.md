@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.16.0] - 2026-09-01
+
+### Fixed
+
+- Keep Video Editor source-monitor shortcuts available when browser-cached code loads without Svelte compiler helpers.
+- Keep video timeline thumbnails visible when a decoded frame is released during rendering.
+- Reload the current public or application page when a deployment leaves the browser with an outdated JavaScript module.
+- Fixed Instagram account discovery failing when Meta rejects an unsupported IG User field.
+- Discover every connectable Facebook Page and linked Instagram professional account across paginated results and Business Portfolios.
+- Classify Meta token, permission, rate-limit, and transient publishing failures correctly, and retry only the known transient Threads container propagation response.
+- Resume interrupted Instagram container publishing without creating a duplicate post.
+- Normalize uploaded media filenames to valid UTF-8 before storing them.
+- Align Analytics result columns and identify social accounts with their platform throughout account-sensitive actions and messages.
+- Fixed Android release checks so normal builds can reuse the current identity and release preparation automatically advances the app version and version code.
+
+### Changed
+
+- Move OpenPost's canonical website, documentation, Hosted service, public media, telemetry proxy, and support address to the `openpo.st` domain while keeping the recorded old-domain compatibility paths available.
+- Keep the Hosted sign-in page reviewable without creating a second marketing homepage, with direct pricing and policy links plus a no-JavaScript fallback.
+- Re-register a dynamic Mastodon application when its configured callback changes, so a new connection returns to the current Hosted domain while existing grants stay intact.
+- Replace the custom billing form with Paddle's managed checkout overlay and support Paddle transaction links without requiring an OpenPost sign-in.
+- Redesign marketing and documentation social preview images with clearer type and restrained OpenPost branding.
+
+### Added
+
+- Warn before an upcoming scheduled publication uses an account that needs to be reconnected.
+
 ## [4.15.0] - 2026-08-31
 
 ### Fixed

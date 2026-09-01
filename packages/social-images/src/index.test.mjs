@@ -52,6 +52,8 @@ test("the social image platform motif uses every catalog destination", () => {
     "instagram",
     "tiktok",
     "youtube",
+    "pinterest",
+    "telegram",
     "discord",
   ]);
 });

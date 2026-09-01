@@ -99,7 +99,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import CopyIcon from '@lucide/svelte/icons/copy';
-	import { ui } from '$lib/stores/ui.svelte';
+	import { ui, type RepurposeHandoff } from '$lib/stores/ui.svelte';
 	import { ReorderableList } from 'svelte-reorderable-list';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -399,6 +399,9 @@
 	let aiContextNotes = $state('');
 	let aiContextURLs = $state('');
 	let aiContextMayPublish = $state(false);
+	let repurposePrivateContextNotes = $state('');
+	let repurposeReviewActive = $state(false);
+	let appliedRepurposeHandoffID = '';
 	let aiVoiceName = $state(m.compose_ai_default_voice());
 	let aiVoiceProfileID = $state('');
 	let aiActiveBuild = $state.raw<PublicationBuild | null>(null);
@@ -637,6 +640,16 @@
 		progress: {
 			heading: m.compose_ai_progress_heading(),
 			description: m.compose_ai_progress_description()
+		}
+	};
+	const repurposeWorkspaceCopy: AIWorkspaceDialogCopy = {
+		...aiWorkspaceCopy,
+		buildTitle: m.compose_ai_repurpose_review_title(),
+		buildDescription: m.compose_ai_repurpose_review_description(),
+		angles: {
+			...aiWorkspaceCopy.angles,
+			heading: m.compose_ai_repurpose_review_heading(),
+			description: m.compose_ai_repurpose_review_hint()
 		}
 	};
 	const aiMemeCopy: AIMemeRecommendationCopy = {
@@ -1095,6 +1108,76 @@
 		applyInitialScheduleDate(dateParam, timeParam);
 	}
 
+	function repurposePrivateContext(handoff: RepurposeHandoff): string {
+		const evidence = (handoff.evidence ?? []).map((item) => {
+			const metric = item.metric.replaceAll('_', ' ');
+			const period =
+				item.metadata.period_start && item.metadata.period_end
+					? `, period ${item.metadata.period_start}–${item.metadata.period_end}`
+					: '';
+			return `${metric}: ${item.value} ${item.metadata.unit} (${item.scope}, ${item.metadata.aggregation}, source ${item.metadata.source || handoff.provenance.platform}, collected ${item.collected_at}${period})`;
+		});
+		return [
+			m.compose_ai_repurpose_private_provenance({
+				origin: handoff.provenance.origin,
+				platform: handoff.provenance.platform,
+				date: handoff.provenance.published_at
+			}),
+			m.compose_ai_repurpose_private_evidence(),
+			...(evidence.length ? evidence : [m.compose_ai_repurpose_no_evidence()])
+		].join('\n');
+	}
+
+	async function applyRepurposeHandoff(handoff: RepurposeHandoff) {
+		appliedRepurposeHandoffID = handoff.handoff_id;
+		try {
+			await applyInitialComposerContext(
+				null,
+				null,
+				handoff.workspace_id,
+				handoff.destination_account_ids ?? []
+			);
+			if (selectedWorkspaceId !== handoff.workspace_id) {
+				throw new Error(m.analytics_repurpose_failed());
+			}
+			const content = handoff.source_text.trim();
+			posts = [{ ...makeEmptyPost(), content }];
+			activePostIndex = 0;
+			linkUrl = firstComposerURL(content);
+			variants = new Map();
+			activeVariantAccountId = null;
+			repurposePrivateContextNotes = repurposePrivateContext(handoff);
+			aiContextNotes = '';
+			aiContextURLs = '';
+			aiContextMayPublish = false;
+			aiObjective = m.compose_ai_repurpose_objective();
+			aiGenerationIdea = content;
+			aiAngles = [
+				{
+					id: `repurpose-${handoff.handoff_id}`,
+					label: m.compose_ai_repurpose_direction(),
+					hook: handoff.title || content.slice(0, 160),
+					thesis: m.compose_ai_repurpose_thesis(),
+					approach: m.compose_ai_repurpose_approach(),
+					objective: m.compose_ai_repurpose_objective(),
+					desired_reaction: m.compose_ai_repurpose_reaction(),
+					evidence: '',
+					media: { treatment: 'none', role: 'none', brief: '' },
+					build_direction: { outcome: m.compose_ai_repurpose_objective() }
+				}
+			];
+			aiSelectedAngleID = aiAngles[0].id;
+			aiWorkspaceEntry = 'build';
+			aiWorkspaceStep = 'angles';
+			repurposeReviewActive = true;
+			aiWorkspaceOpen = true;
+			ui.consumeRepurposeHandoff(handoff.handoff_id);
+		} catch (cause) {
+			ui.consumeRepurposeHandoff(handoff.handoff_id);
+			error = cause instanceof Error ? cause.message : m.analytics_repurpose_failed();
+		}
+	}
+
 	function arraysEqual(left: string[], right: string[]): boolean {
 		if (left.length !== right.length) return false;
 		return left.every((value, index) => value === right[index]);
@@ -1384,6 +1467,9 @@
 						)
 					)
 				};
+				for (const source of invalidated.optionSources) {
+					void loadDestinationOptions(account, true, source);
+				}
 			}
 		}
 		validationIssues = [];
@@ -2052,7 +2138,11 @@
 		search = '',
 		append = false
 	) {
-		let sources = loadableDestinationOptionSources(visibleSettings(account), onlySource);
+		let sources = loadableDestinationOptionSources(
+			visibleSettings(account),
+			onlySource,
+			settingsForAccount(account)
+		);
 		if (!force && !search) {
 			sources = sources.filter(
 				(source) => destinationOptionsByAccount[account.id]?.[source] === undefined
@@ -2863,6 +2953,18 @@
 		const accountParams = initialAccountIds;
 		if (!loadingWorkspaces && !isEditMode) {
 			void applyInitialComposerContext(dateParam, timeParam, workspaceParam, accountParams);
+		}
+	});
+
+	$effect(() => {
+		const handoff = ui.pendingRepurposeHandoff;
+		if (
+			handoff &&
+			!initialPublication &&
+			!loadingWorkspaces &&
+			handoff.handoff_id !== appliedRepurposeHandoffID
+		) {
+			void applyRepurposeHandoff(handoff);
 		}
 	});
 
@@ -4240,10 +4342,11 @@
 		if (aiVoiceProfileID) request.voice_profile_id = aiVoiceProfileID;
 		const contextURLs = parsedAIContextURLs();
 		if (contextURLs.length > 0) request.context_urls = contextURLs;
-		const contextNotes = aiContextNotes.trim();
+		const privateContextNotes = repurposePrivateContextNotes.trim();
+		const contextNotes = [privateContextNotes, aiContextNotes.trim()].filter(Boolean).join('\n\n');
 		if (contextNotes) {
 			request.context_notes = contextNotes;
-			request.context_may_publish = aiContextMayPublish;
+			request.context_may_publish = privateContextNotes ? false : aiContextMayPublish;
 		}
 		const assets = selectedAIAssets();
 		if (assets.length > 0) request.assets = assets;
@@ -4382,6 +4485,7 @@
 		}
 
 		const workspaceID = selectedWorkspaceId;
+		repurposeReviewActive = false;
 		aiWorkspaceOpen = true;
 		aiWorkspaceEntry = sourcePost.content.trim() ? 'build' : 'ideate';
 		aiWorkspaceStep = aiWorkspaceEntry === 'build' ? 'angles' : 'brief';
@@ -5259,6 +5363,8 @@
 		latestGenerationUndo = null;
 		aiAppliedResult = null;
 		aiAppliedStrategies = [];
+		repurposePrivateContextNotes = '';
+		repurposeReviewActive = false;
 		postBuilderError = '';
 		selectedDate = undefined;
 		selectedTime = null;
@@ -6370,7 +6476,7 @@
 	bind:open={aiWorkspaceOpen}
 	entry={aiWorkspaceEntry}
 	step={aiWorkspaceStep}
-	copy={aiWorkspaceCopy}
+	copy={repurposeReviewActive ? repurposeWorkspaceCopy : aiWorkspaceCopy}
 	opportunities={aiWorkspaceOpportunities}
 	selectedOpportunityId={aiSelectedOpportunityID}
 	angles={aiWorkspaceAngles}

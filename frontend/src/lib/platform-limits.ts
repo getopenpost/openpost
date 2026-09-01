@@ -104,6 +104,20 @@ export const PLATFORM_LIMITS = {
 		media: 'Exactly one video',
 		note: 'Private by default. Unaudited Google projects may force private uploads.'
 	},
+	pinterest: {
+		key: 'pinterest',
+		name: 'Pinterest',
+		charLimit: 800,
+		media: 'One image, up to 5 images, or one MP4 video',
+		note: 'Pin descriptions use this limit; public use remains gated on Standard access and live certification.'
+	},
+	telegram: {
+		key: 'telegram',
+		name: 'Telegram',
+		charLimit: 4096,
+		media: 'Up to 10 media items in one group',
+		note: 'Captions use a separate 1,024-character limit; public bot use remains gated on live certification.'
+	},
 	discord: {
 		key: 'discord',
 		name: 'Discord',

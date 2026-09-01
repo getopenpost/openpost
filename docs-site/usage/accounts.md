@@ -21,7 +21,9 @@ Direct messages, Comments and replies, Analytics, and Grow are optional and per 
 
 Manage these choices in the Account details drawer under **Settings → Workspace → Social accounts**. The drawer keeps feature choices together and collapses the developer shortcut until you need it. Direct messages and Comments and replies appear together under Inbox, but OpenPost saves and enforces them as separate choices.
 
-Enabling a feature queues an initial durable refresh for that account. Disabling a feature stops future provider reads and writes for that account without deleting previously collected messages, replies, metrics, or recommendations and without revoking provider authorization. Use provider settings or account removal to revoke provider authorization.
+Enabling a feature queues an initial durable refresh for that account. Enabling Analytics also permits OpenPost to discover eligible provider content, including content published outside OpenPost, and store normalized metrics plus bounded title and text for evidence and user-reviewed repurposing. It does not import remote media or create Publications from discovered content.
+
+Disabling a feature stops future provider reads and writes for that account without deleting previously collected messages, replies, metrics, discovered content, or recommendations and without revoking provider authorization. Use provider settings or account removal to revoke provider authorization.
 
 Whether a feature is available depends on three distinct facts: provider support for that account, required provider scopes, and plan access. An unsupported feature is omitted. A missing scope tells you to reconnect with additional permission. A plan restriction stays a billing matter and does not imply that reconnecting will fix it.
 

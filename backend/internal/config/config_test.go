@@ -110,6 +110,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_X_MONTHLY_BUDGET_MICROUSD",
 	"OPENPOST_X_POST_CREATE_COST_MICROUSD",
 	"OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD",
+	"OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY",
 	"OPENPOST_PROVIDER_USAGE_RETENTION_DAYS",
 	"MASTODON_REDIRECT_URI",
 	"MASTODON_SERVERS",
@@ -202,6 +203,8 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Equal(t, int64(5_000_000), cfg.XMonthlyBudgetMicrousd)
 	require.Equal(t, int64(15_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(200_000), cfg.XPostCreateWithURLCostMicrousd)
+	require.Equal(t, 12, cfg.XEngagementDailyReadBudget)
+	require.Zero(t, cfg.XAccountHistoryReadRequestsPerDay)
 	require.Equal(t, 180, cfg.ProviderUsageRetentionDays)
 	require.Equal(t, "https://openpost.example.com/media", cfg.MediaURL)
 }
@@ -271,6 +274,8 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	t.Setenv("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", "1230000")
 	t.Setenv("OPENPOST_X_POST_CREATE_COST_MICROUSD", "16000")
 	t.Setenv("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", "210000")
+	t.Setenv("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", "7")
+	t.Setenv("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY", "4")
 	t.Setenv("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", "90")
 
 	cfg := Load()
@@ -279,6 +284,8 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	require.Equal(t, int64(1_230_000), cfg.XMonthlyBudgetMicrousd)
 	require.Equal(t, int64(16_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(210_000), cfg.XPostCreateWithURLCostMicrousd)
+	require.Equal(t, 7, cfg.XEngagementDailyReadBudget)
+	require.Equal(t, 4, cfg.XAccountHistoryReadRequestsPerDay)
 	require.Equal(t, 90, cfg.ProviderUsageRetentionDays)
 }
 
@@ -693,6 +700,28 @@ func TestLoadSupportsFileBackedProviderApps(t *testing.T) {
 	require.Equal(t, "https://app.openpo.st/api/v1/accounts/youtube/callback", cfg.ProviderApps[2].RedirectURI)
 }
 
+func TestLoadSupportsHostedAndSelfHostedProviderBotContracts(t *testing.T) {
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
+	t.Setenv("OPENPOST_PROVIDER_APPS", `[
+		{"provider":"pinterest","client_id":"pin-client","client_secret":"pin-secret"},
+		{"provider":"telegram","bot_token":"telegram-token","bot_username":"@openpost_bot","webhook_secret":"telegram-webhook-secret"},
+		{"provider":"discord","connection_mode":"bot","client_id":"discord-app","client_secret":"discord-secret","bot_token":"discord-token"}
+	]`)
+
+	cfg := Load()
+
+	require.Len(t, cfg.ProviderApps, 5)
+	require.Equal(t, "webhook", cfg.ProviderApps[1].ConnectionMode)
+	require.Equal(t, "pinterest", cfg.ProviderApps[2].Provider)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/pinterest/callback", cfg.ProviderApps[2].RedirectURI)
+	require.Equal(t, "telegram", cfg.ProviderApps[3].Provider)
+	require.Equal(t, "openpost_bot", cfg.ProviderApps[3].BotUsername)
+	require.Empty(t, cfg.ProviderApps[3].RedirectURI)
+	require.Equal(t, "discord", cfg.ProviderApps[4].Provider)
+	require.Equal(t, "bot", cfg.ProviderApps[4].ConnectionMode)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/discord/callback", cfg.ProviderApps[4].RedirectURI)
+}
+
 func TestLoadSelfHostedCORSOriginsIncludeLocalDevelopmentDefaults(t *testing.T) {
 	t.Setenv("OPENPOST_APP_URL", "https://openpost.example.com/")
 	t.Setenv("OPENPOST_EXTRA_CORS_ORIGINS", "https://admin.openpost.example.com/")
@@ -739,6 +768,17 @@ func TestValidateRuntimeAllowsCloudPostgresAndS3(t *testing.T) {
 	require.NoError(t, cfg.ValidateRuntime())
 }
 
+func TestXAccountHistoryReadBudgetDefaultsToZero(t *testing.T) {
+	cfg := Load()
+	require.Zero(t, cfg.XAccountHistoryReadRequestsPerDay)
+}
+
+func TestValidateRuntimeRejectsNegativeXAccountHistoryReadBudget(t *testing.T) {
+	cfg := &Config{Edition: EditionSelfHost, XAccountHistoryReadRequestsPerDay: -1}
+	err := cfg.ValidateRuntime()
+	require.ErrorContains(t, err, "OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
+}
+
 func TestValidateRuntimeRejectsCloudLocalDefaults(t *testing.T) {
 	cfg := &Config{
 		Edition:        EditionCloud,
@@ -761,6 +801,7 @@ func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
 	cfg.XMonthlyBudgetMicrousd = -1
 	cfg.XPostCreateCostMicrousd = -1
 	cfg.XPostCreateWithURLCostMicrousd = -1
+	cfg.XEngagementDailyReadBudget = -1
 	cfg.ProviderUsageRetentionDays = -1
 
 	err := cfg.ValidateRuntime()
@@ -769,6 +810,7 @@ func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_X_MONTHLY_BUDGET_MICROUSD >= 0")
 	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_COST_MICROUSD >= 0")
 	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD >= 0")
+	require.ErrorContains(t, err, "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET >= 0")
 	require.ErrorContains(t, err, "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS >= 0")
 }
 

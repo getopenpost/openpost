@@ -34,10 +34,15 @@ function conditionMatches(condition: SettingCondition, values: DestinationSettin
 
 export function loadableDestinationOptionSources(
 	settings: SettingDefinition[],
-	onlySource = ''
+	onlySource = '',
+	values: DestinationSettings = {}
 ): string[] {
 	const sources = settings
-		.filter((setting) => !setting.unavailable_reason)
+		.filter(
+			(setting) =>
+				!setting.unavailable_reason &&
+				(setting.dependencies ?? []).every((condition) => conditionMatches(condition, values))
+		)
 		.map((setting) => setting.options_source)
 		.filter((source): source is string => Boolean(source));
 	const uniqueSources = [...new Set(sources)];
@@ -57,8 +62,8 @@ export function invalidateDependentDestinationSettings(
 	for (const setting of settings) {
 		if (!(setting.dependencies ?? []).some((condition) => condition.key === changedKey)) continue;
 		if (setting.options_source) optionSources.add(setting.options_source);
-		if ((setting.dependencies ?? []).every((condition) => conditionMatches(condition, next)))
-			continue;
+		// A provider-owned child value is bound to the exact parent collection.
+		// Clear it even when the new parent still satisfies a `present` dependency.
 		delete next[setting.key];
 	}
 	return { values: next, optionSources: [...optionSources] };

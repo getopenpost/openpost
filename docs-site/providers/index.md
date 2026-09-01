@@ -21,6 +21,8 @@ The table below is an implementation and setup inventory. It is not a Hosted ser
 | Instagram | Meta OAuth             | Provider app registry                           | Configurable | Business or Creator account; public media URL required.                    |
 | TikTok    | OAuth 2.0              | Provider app registry                           | Configurable | Video and photo paths; provider approval and public media required.        |
 | YouTube   | Google OAuth           | Provider app registry                           | Configurable | One-video upload with configurable privacy; live verification recommended. |
+| Pinterest | OAuth 2.0              | Standard-access provider app                    | Unavailable  | Development and certification paths only; no public Hosted claim.          |
+| Telegram  | Instance-owned bot     | Bot token, username, and webhook secret         | Unavailable  | Bot mode stays gated until current live certification.                     |
 | Discord   | Incoming webhook       | None                                            | Built-in     | Users connect a webhook URL; text and streamed attachments are supported.  |
 
 Start with one network. Check that its callback works before you add another. A configured app may still need approval, a valid account grant, current local and live proof, an allowed policy mode, and an enabled runtime control.
@@ -57,11 +59,13 @@ This matrix reflects implemented OpenPost code paths, not the full theoretical c
 | Instagram | No         | Yes         | Comment replies             | Yes             | Reels, Stories, and carousels; public media links are required  | Yes              | Requires insights permission                         |
 | TikTok    | No         | Yes         | No                          | Yes             | One video or 1–35 photos; app review may be required            | Yes              | Requires stats and video-list permissions            |
 | YouTube   | No         | No          | Comment replies             | Yes             | One Short or video with title, description, and privacy options | Yes              | Channel and video numbers                            |
+| Pinterest | Gated      | Gated       | No                          | Gated           | Gated; no public Hosted claim                                   | Gated            | Gated; no public Hosted claim                        |
+| Telegram  | Gated      | Gated       | No                          | Gated           | Gated; no public Hosted claim                                   | Gated            | Gated; no public Hosted claim                        |
 | Discord   | Yes        | Yes         | Reply links between parts   | Yes             | Yes, within the webhook's file-size limit                       | Yes              | No analytics                                         |
 
 Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account. Enable supported features after connection or in Account details. Disabling a feature stops future provider reads and writes without deleting stored history or revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Grow never follows automatically. Existing accounts keep their current behavior after upgrade. Use each provider page to see which optional features that provider supports.
 
-Grow discovery and follow are available only for Bluesky and Mastodon. Inbox Direct messages are available for X, Bluesky, Facebook Pages, Instagram Professional accounts, and Mastodon. Engagement Comments and replies are available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook Pages, Instagram, and YouTube. Analytics is available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook, Instagram, TikTok, and YouTube. Discord webhooks support none of these optional features.
+Grow discovery and follow are available only for Bluesky and Mastodon. Inbox Direct messages are available for X, Bluesky, Facebook Pages, Instagram Professional accounts, and Mastodon. Engagement Comments and replies are available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook Pages, Instagram, and YouTube. Analytics is available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook, Instagram, TikTok, and YouTube. Discord webhooks support none of these optional features. Pinterest, Telegram bot mode, and Discord bot mode remain excluded from public availability statements until their exact operations have current live certification.
 
 ## Implementation limits
 
@@ -78,6 +82,8 @@ Use this table when checking implemented formats and safe provider limits. An im
 | Instagram        | No text-only path                                     | Single image and carousel paths                   | Reels for Business and Creator accounts; live-account verification is still recommended                              | Comment replies and Story paths for implemented settings | Implemented | Implemented |
 | TikTok           | No text-only path                                     | 1-35 JPEG/WebP photos, up to 20 MB each           | One MP4 or MOV up to 10 minutes and 4 GB through Direct Post or inbox/upload; app review still applies               | No threading path                                        | Implemented | Implemented |
 | YouTube          | No text-only path                                     | Thumbnail only                                    | Short and Video uploads with privacy, category, title, description, and resumable upload                             | Comment replies and moderation                           | Implemented | Implemented |
+| Pinterest        | Certification-only code path                          | One to five images                                | One resumable MP4 video; Standard access and current live certification are required                                 | No threading path                                        | Gated       | Gated       |
+| Telegram bot     | Certification-only code path                          | Photos, documents, and media groups               | Video and media groups through the instance bot; every operation remains publicly gated                              | Visible ordered caption-overflow follow-up               | Gated       | Gated       |
 | Discord Webhooks | Implemented                                           | Up to 10 file attachments                         | MP4, MOV, or WebM; OpenPost uses Discord's safe 10 MiB default because the actual limit can vary                     | Reply references between segments                        | Implemented | Implemented |
 
 ## Known limitations
@@ -102,7 +108,9 @@ A platform can offer a feature while OpenPost still marks its implementation mis
 - **Instagram:** Use provider key `instagram`. OpenPost connects a selected Business or Creator account linked to a Facebook Page. It supports one image, carousels, Stories, Reels, and comment replies. Account access and live tests still apply.
 - **TikTok:** Use provider key `tiktok`. OpenPost supports direct and inbox video uploads plus photo posts through public HTTPS media links. App review and live tests still apply.
 - **YouTube:** Use provider key `youtube`. OpenPost connects a selected channel, uploads one video with privacy, title, description, thumbnail, and playlist settings, and supports comment replies and moderation. Test a live channel before you rely on it.
-- **Discord:** Connect an incoming webhook URL directly. OpenPost streams attachments and uses a safe 10 MiB file limit because Discord's actual limit can vary by server and account.
+- **Pinterest:** The adapter remains publicly unavailable until Standard access and current live certification exist. See the [Pinterest boundary](/providers/pinterest).
+- **Telegram:** Bot mode remains publicly unavailable until current live certification exists for each operation. See the [Telegram bot boundary](/providers/telegram).
+- **Discord:** Connect an incoming webhook URL directly. OpenPost streams attachments and uses a safe 10 MiB file limit because Discord's actual limit can vary by server and account. Discord bot mode is separate and remains publicly unavailable without current live certification.
 
 Social network API rules, access, request limits, and app review can change. Check that network's docs if a feature stops working.
 

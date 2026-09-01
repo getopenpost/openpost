@@ -126,6 +126,14 @@ func TestEvaluateFailClosedStatePrecedence(t *testing.T) {
 			wantState: EffectiveStateApprovalRequired, wantBlocker: BlockerApprovalRequired,
 		},
 		{
+			name: "approved access tier is below the required tier",
+			mutate: func(input *EvaluationInput) {
+				input.Contract.Requirements.RequiredApprovalTier = "standard"
+				input.Approval.Tier = "trial"
+			},
+			wantState: EffectiveStateApprovalRequired, wantBlocker: BlockerApprovalRequired,
+		},
+		{
 			name: "approval review expired",
 			mutate: func(input *EvaluationInput) {
 				input.Approval.ExpiresAt = input.Now

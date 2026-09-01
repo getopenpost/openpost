@@ -262,6 +262,11 @@
 		connectionProviderEntries.filter((provider) => !providerNeedsAdminSetup(provider))
 	);
 	let setupRequiredProviders = $derived(connectionProviderEntries.filter(providerNeedsAdminSetup));
+	let discordBotConfigured = $derived(
+		providerEntries
+			.find((provider) => provider.platform === 'discord')
+			?.configured_connection_modes?.includes('bot') ?? false
+	);
 	let hasConnectionFailure = $derived(Boolean(lastFailedMessage || providersLoadError));
 
 	function requestAccountRemoval(account: SocialAccount, kind: AccountRemovalKind) {
@@ -640,6 +645,11 @@
 		discordWebhookUrl = '';
 		discordError = '';
 		discordModalOpen = true;
+	}
+
+	async function connectDiscordBot() {
+		discordModalOpen = false;
+		await connectOAuthProvider('discord');
 	}
 
 	async function submitDiscordWebhook() {
@@ -1695,6 +1705,20 @@
 				void submitDiscordWebhook();
 			}}
 		>
+			{#if discordBotConfigured}
+				<div class="space-y-3 rounded-md border bg-muted/20 p-4">
+					<div class="space-y-1">
+						<p class="font-medium">{m.accounts_connect_discord_bot()}</p>
+						<p class="text-sm text-muted-foreground">{m.accounts_discord_bot_description()}</p>
+					</div>
+					<Button class="min-h-11 w-full sm:min-h-9" type="button" onclick={connectDiscordBot}>
+						{m.accounts_connect_discord_bot()}
+					</Button>
+				</div>
+				<p class="text-sm font-medium text-muted-foreground">
+					{m.accounts_discord_webhook_alternative()}
+				</p>
+			{/if}
 			<div class="space-y-2">
 				<Label for="discord-webhook-url">{m.accounts_discord_webhook_url()}</Label>
 				<Input

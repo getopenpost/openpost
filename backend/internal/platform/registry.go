@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -9,12 +10,16 @@ import (
 // usually populate these from legacy env vars; hosted deployments can build the
 // same registry from structured config.
 type AppConfig struct {
-	Provider     string `json:"provider"`
-	Name         string `json:"name,omitempty"`
-	ClientID     string `json:"client_id,omitempty"`
-	ClientSecret string `json:"client_secret,omitempty"`
-	RedirectURI  string `json:"redirect_uri,omitempty"`
-	InstanceURL  string `json:"instance_url,omitempty"`
+	Provider       string `json:"provider"`
+	ConnectionMode string `json:"connection_mode,omitempty"`
+	Name           string `json:"name,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+	ClientSecret   string `json:"client_secret,omitempty"`
+	RedirectURI    string `json:"redirect_uri,omitempty"`
+	InstanceURL    string `json:"instance_url,omitempty"`
+	BotToken       string `json:"bot_token,omitempty"`
+	BotUsername    string `json:"bot_username,omitempty"`
+	WebhookSecret  string `json:"webhook_secret,omitempty"`
 }
 
 type RegistryOptions struct {
@@ -23,11 +28,12 @@ type RegistryOptions struct {
 }
 
 type RegistryEntry struct {
-	Key         string
-	Provider    string
-	Name        string
-	InstanceURL string
-	Adapter     Adapter
+	Key            string
+	Provider       string
+	ConnectionMode string
+	Name           string
+	InstanceURL    string
+	Adapter        Adapter
 }
 
 type appBuilder func(AppConfig, RegistryOptions) (Adapter, error)
@@ -48,8 +54,17 @@ var appBuilders = map[string]appBuilder{
 	providerBluesky: func(_ AppConfig, _ RegistryOptions) (Adapter, error) {
 		return NewBlueskyAdapter(""), nil
 	},
-	providerDiscord: func(_ AppConfig, _ RegistryOptions) (Adapter, error) {
+	providerDiscord: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+		if app.ConnectionMode == ConnectionModeBot {
+			return NewDiscordBotAdapter(app.ClientID, app.ClientSecret, app.BotToken, app.RedirectURI), nil
+		}
 		return NewDiscordAdapter(), nil
+	},
+	providerPinterest: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+		if strings.TrimSpace(app.ClientID) == "" || strings.TrimSpace(app.ClientSecret) == "" || strings.TrimSpace(app.RedirectURI) == "" {
+			return nil, fmt.Errorf("pinterest provider app requires client_id, client_secret, and redirect_uri")
+		}
+		return NewPinterestAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
 	},
 	providerFacebook: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {
@@ -95,9 +110,16 @@ func BuildAdapterRegistry(apps []AppConfig, opts RegistryOptions) (map[string]Ad
 
 	for _, app := range apps {
 		app = NormalizeAppConfig(app)
+		if err := ValidateAppConfig(app); err != nil {
+			return nil, nil, err
+		}
+		contract, _ := ApplicationContract(app.Provider, app.ConnectionMode)
+		if !contract.AdapterBacked {
+			continue
+		}
 		builder, ok := appBuilders[app.Provider]
 		if !ok {
-			return nil, nil, fmt.Errorf("unsupported provider app: %s", app.Provider)
+			return nil, nil, fmt.Errorf("provider adapter is not registered: %s (%s)", app.Provider, app.ConnectionMode)
 		}
 
 		adapter, err := builder(app, opts)
@@ -108,11 +130,12 @@ func BuildAdapterRegistry(apps []AppConfig, opts RegistryOptions) (map[string]Ad
 		for _, key := range adapterKeys(app) {
 			adapters[key] = adapter
 			entries = append(entries, RegistryEntry{
-				Key:         key,
-				Provider:    app.Provider,
-				Name:        app.Name,
-				InstanceURL: app.InstanceURL,
-				Adapter:     adapter,
+				Key:            key,
+				Provider:       app.Provider,
+				ConnectionMode: app.ConnectionMode,
+				Name:           app.Name,
+				InstanceURL:    app.InstanceURL,
+				Adapter:        adapter,
 			})
 		}
 	}
@@ -148,26 +171,64 @@ func AppConfigMergeKey(app AppConfig) string {
 	if app.Provider == providerMastodon {
 		return app.Provider + ":" + app.InstanceURL
 	}
+	if app.Provider == providerDiscord && app.ConnectionMode == ConnectionModeBot {
+		return app.Provider + ":" + app.ConnectionMode
+	}
 	return app.Provider
 }
 
 func IsAppProviderSupported(provider string) bool {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	_, ok := appBuilders[provider]
-	return ok
+	for _, mode := range []string{ConnectionModeOAuth, ConnectionModeOAuthOOB, ConnectionModeAppPassword, ConnectionModeWebhook, ConnectionModeBot} {
+		if _, ok := ApplicationContract(provider, mode); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// AccountProviderKey selects a mode-specific adapter without exposing
+// credentials. Discord accounts created before connection_type was introduced
+// continue to resolve to the canonical incoming-webhook adapter.
+func AccountProviderKey(provider, instanceURL, capabilityStateJSON string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == providerMastodon {
+		return providerMastodon + ":" + strings.TrimRight(strings.TrimSpace(instanceURL), "/")
+	}
+	if provider == providerDiscord {
+		state := map[string]string{}
+		_ = json.Unmarshal([]byte(capabilityStateJSON), &state)
+		if state["connection_type"] == ConnectionModeBot {
+			return providerDiscord + ":" + ConnectionModeBot
+		}
+		if state["connection_type"] == ConnectionModeWebhook {
+			return providerDiscord + ":" + ConnectionModeWebhook
+		}
+	}
+	return provider
 }
 
 func NormalizeAppConfig(app AppConfig) AppConfig {
 	app.Provider = strings.ToLower(strings.TrimSpace(app.Provider))
+	app.ConnectionMode = normalizeConnectionMode(app.Provider, app.ConnectionMode, app)
 	app.Name = strings.TrimSpace(app.Name)
 	app.ClientID = strings.TrimSpace(app.ClientID)
 	app.ClientSecret = strings.TrimSpace(app.ClientSecret)
 	app.RedirectURI = strings.TrimSpace(app.RedirectURI)
 	app.InstanceURL = strings.TrimRight(strings.TrimSpace(app.InstanceURL), "/")
+	app.BotToken = strings.TrimSpace(app.BotToken)
+	app.BotUsername = strings.TrimPrefix(strings.TrimSpace(app.BotUsername), "@")
+	app.WebhookSecret = strings.TrimSpace(app.WebhookSecret)
 	return app
 }
 
 func adapterKeys(app AppConfig) []string {
+	if app.Provider == providerDiscord {
+		if app.ConnectionMode == ConnectionModeBot {
+			return []string{providerDiscord + ":" + ConnectionModeBot}
+		}
+		return []string{providerDiscord, providerDiscord + ":" + ConnectionModeWebhook}
+	}
 	if app.Provider != providerMastodon {
 		return []string{app.Provider}
 	}

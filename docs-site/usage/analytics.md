@@ -1,20 +1,21 @@
 # Analytics
 
-Use this page when reviewing saved account and Publication results.
+Use this page when reviewing saved whole-account content results.
 
-Analytics is an optional feature per connected account. It starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect account and Publication metrics for that account. Disabling it stops future account and Rendition metric collection for that account without deleting stored metrics and without revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Existing accounts keep current Analytics behavior after upgrade. The Analytics page reads saved data, so it does not wait for each platform to reply.
+Analytics is an optional feature per connected account. It starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect account metrics and discover eligible provider content, including content published outside OpenPost. OpenPost stores normalized metrics plus bounded title and text for eligible discovered items so you can inspect evidence and prepare a repurpose draft. It does not import remote media or turn discovered items into Publications.
 
-OpenPost saves the account and post numbers that each platform provides when the feature is enabled.
+Disabling Analytics stops future account, Rendition, and account-content collection for that account without deleting stored history or revoking provider authorization. Availability depends on provider support, required scopes, plan access, provider limits, and operator read policy as distinct facts. Existing accounts keep current Analytics behavior after upgrade. The Analytics page reads saved data, so it does not wait for each platform to reply.
 
 ## What the page shows
 
-- Account follower history and the latest account counters
-- Post results, such as likes, comments, reposts, quotes, shares, saves, and clicks
-- Views, impressions, and reach as separate metrics
-- Results for 7, 30, or 90 days
-- Clear notices for reconnects, unsupported data, API limits, and update errors
-- Account filtering that updates summary totals, content rows, and the follower chart together
-- Content sorting by engagement, views, or publish time, plus direct native-post links
+- Account follower history and the latest account counters, labeled as account-wide
+- One content inventory for results published with OpenPost and eligible results published elsewhere
+- `All content`, `Published with OpenPost`, and `Published elsewhere` source filters for content totals, measured insights, and content rows
+- Views, impressions, reach, and provider-native measurements with their unit, aggregation meaning, reporting period, and collection time
+- Deterministic measured insights with the reporting range, measured count, comparison sample, and exact content evidence
+- Coverage notices that explain when history begins and whether provider caps, permissions, installation date, cost policy, or failures make it partial
+- Results for 7, 30, or 90 days, with account and content filtering and sorting
+- A **Repurpose** action that prepares a new unsaved composer state and opens direction review before any AI request
 - The last successful update and when OpenPost can try again
 
 A missing number is not shown as zero. Platforms define these numbers in different ways, so OpenPost keeps views, impressions, and reach separate.
@@ -24,6 +25,8 @@ A missing number is not shown as zero. Platforms define these numbers in differe
 OpenPost updates analytics in the background for accounts where the feature is enabled. No Redis service is required.
 
 - Account numbers start with one update per day.
+- Eligible account-content discovery processes one bounded page per durable job. Initial discovery targets at most the last 90 days and 250 items; each provider can return less.
+- Routine discovery runs no more than daily and respects stored backoff, provider concurrency, per-account read budgets, and `Retry-After`. Manual refresh does not bypass those limits.
 - Posts under 6 hours old update each hour.
 - Posts from 6 to 24 hours old update every 3 hours.
 - Posts from 1 to 3 days old update every 12 hours.
@@ -46,10 +49,14 @@ If the numbers do not change, OpenPost checks less often, up to eight times the 
 | TikTok                          | Followers, following, likes, videos | Likes, comments, shares, views                                                                                                                   | Requires `user.info.stats` and `video.list`.                                                      |
 | YouTube                         | Subscribers, videos, channel views  | Video views, likes, comments                                                                                                                     | Hidden subscriber counts may be unavailable.                                                      |
 
-You may need to reconnect Instagram, Threads, or TikTok accounts that were added before OpenPost requested analytics access. OpenPost keeps the last good result while you restore access. A plan restriction is shown separately and does not imply that reconnecting will fix billing access.
+You may need to reconnect Instagram, Threads, TikTok, or YouTube accounts that were added before OpenPost requested the current analytics access. OpenPost keeps the last good result while you restore access. A plan restriction is shown separately and does not imply that reconnecting will fix billing access.
 
-## Stored data
+Pinterest, Telegram bot mode, and Discord bot mode have implementation paths but remain unavailable as public Hosted claims without current approval and live certification. Discord incoming webhooks remain the publicly documented Discord connection and do not support Analytics.
 
-OpenPost saves the numbers it needs and their update status. Analytics records do not store full platform replies, access tokens, post text, or direct messages.
+## Stored data and privacy
+
+OpenPost stores normalized account and content measurements, metric meaning, safe sync state, discovery coverage, opaque checkpoints, and bounded title and text for eligible discovered content. The title is limited to 500 characters and text to 10,000 characters. Safe provider links and stable provider-content references can also be retained. OpenPost does not store raw analytics provider responses, remote media bytes, access tokens, bot tokens, webhook secrets, or direct messages in analytics records.
+
+Account-content discovery jobs contain only OpenPost Workspace and Social Account references. Provider cursors remain in server-side discovery state and never enter page URLs or job payloads. The Repurpose request sends a discriminated opaque content reference and range in a POST body; it does not place post text, metrics, or provider payloads in a URL. Workspace access is checked again before any source or evidence is returned.
 
 Analytics, Direct messages, Comments and replies, and Grow are separate per-account choices. The opt-in inbox can collect Direct messages from X, Bluesky, Facebook Pages, Instagram, and Mastodon when enabled. See [Engagement, Inbox, and Notifications](/usage/communications) and [Accounts](/usage/accounts). Grow shows recommendations for eligible accounts and never follows automatically.

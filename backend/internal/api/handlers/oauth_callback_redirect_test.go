@@ -86,7 +86,7 @@ func (a *directOAuthTestAdapter) Publish(context.Context, string, string, *platf
 func TestOAuthCallbackAccountSelectionRedirectsExposeFinalLocationHeader(t *testing.T) {
 	t.Parallel()
 
-	for _, providerName := range []string{"facebook", "instagram"} {
+	for _, providerName := range []string{"facebook", "instagram", "discord"} {
 		t.Run(providerName, func(t *testing.T) {
 			t.Parallel()
 
@@ -240,13 +240,23 @@ func newOAuthCallbackRedirectTestServer(t *testing.T, providerName string, adapt
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	providerKey := providerName
+	providerConfig := platform.AppConfig{Provider: providerName, ClientID: providerName + "-app"}
+	if providerName == "discord" {
+		providerKey = "discord:bot"
+		providerConfig = platform.AppConfig{
+			Provider: "discord", ConnectionMode: platform.ConnectionModeBot,
+			ClientID: "discord-app", ClientSecret: "client-secret", BotToken: "bot-token",
+			RedirectURI: "https://app.openpost.test/api/v1/accounts/discord/callback",
+		}
+	}
 	handler := NewOAuthHandler(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"), map[string]platform.Adapter{
-		providerName: adapter,
+		providerKey: adapter,
 	}, testAuthenticator{}, false, "https://app.openpost.test")
 	handler.SetProviderReadiness(oauthConnectionReadiness(
 		t,
-		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
-		platform.AppConfig{Provider: providerName, ClientID: providerName + "-app"},
+		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled, approved: true},
+		providerConfig,
 	))
 	handler.GetAuthURL(api)
 	handler.Callback(api)

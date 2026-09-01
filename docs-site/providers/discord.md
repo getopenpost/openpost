@@ -29,3 +29,9 @@ Discord webhooks do not support Direct messages, Comments and replies, Analytics
 Discord sets the upload limit for the server or account that owns the webhook. OpenPost checks the file count and uses a safe 10 MiB limit, but Discord can enforce a different limit.
 
 Discord webhooks can only send. They do not let OpenPost read a channel inbox, personal alerts, or direct messages.
+
+## Discord bot mode
+
+Discord bot mode is a separate connection contract and is **not publicly available in OpenPost**. Repository paths for guild installation, permitted-channel targeting, publishing, and bounded analytics remain behind independent readiness gates. A configured application, bot token, fixture test, or working webhook does not certify bot mode.
+
+Do not advertise or enable public Discord bot connections or operations until the exact application, guild, channel, permissions, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](/operations/provider-launch-matrix). Incoming webhooks remain supported independently and do not inherit bot readiness.

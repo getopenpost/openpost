@@ -1,6 +1,6 @@
 # Shoutrrr vs OpenPost — deep product and code audit
 
-> **Historical note:** This file records the product state on 24 July 2026. It is not a current feature comparison. OpenPost added analytics, comments and replies, opt-in inboxes, feedback, Discord webhooks, and other features after this review. See the [current user docs](https://docs.openpost.social/usage/) and [provider catalogue](https://docs.openpost.social/providers/) for current facts.
+> **Historical note:** This file records the product state on 24 July 2026. It is not a current feature comparison. OpenPost added analytics, comments and replies, opt-in inboxes, feedback, Discord webhooks, and other features after this review. See the [current user docs](https://docs.openpo.st/usage/) and [provider catalogue](https://docs.openpo.st/providers/) for current facts.
 
 **Audit date:** 24 July 2026
 **Shoutrrr:** `coollabsio/shoutrrr` at `b3c4789` (`v1.3.1`)

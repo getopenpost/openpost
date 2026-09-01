@@ -38,8 +38,8 @@ func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
 	}
 	account := models.SocialAccount{ID: "account-1", WorkspaceID: "workspace-1", Platform: "pinterest"}
 	inputs := []RenditionInput{
-		{SocialAccountID: account.ID, TargetKey: "pinterest:board:alpha", Body: "Alpha"},
-		{SocialAccountID: account.ID, TargetKey: "pinterest:board:beta", Body: "Beta"},
+		{SocialAccountID: account.ID, Settings: map[string]interface{}{"board_id": "alpha"}, Body: "Alpha"},
+		{SocialAccountID: account.ID, Settings: map[string]interface{}{"board_id": "beta", "section_id": "beta-launches"}, Body: "Beta"},
 	}
 	handler := NewPublicationHandler(db, testAuthenticator{}, nil)
 	require.NoError(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
@@ -60,6 +60,8 @@ func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
 	require.Len(t, renditions, 2)
 	require.Equal(t, "pinterest:board:alpha", renditions[0].TargetKey)
 	require.Equal(t, "pinterest:board:beta", renditions[1].TargetKey)
+	require.JSONEq(t, `{"board_id":"alpha"}`, renditions[0].SettingsJSON)
+	require.JSONEq(t, `{"board_id":"beta","section_id":"beta-launches"}`, renditions[1].SettingsJSON)
 
 	require.ErrorContains(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		return handler.insertRenditions(
@@ -70,6 +72,22 @@ func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
 			}, nil, map[string]models.SocialAccount{account.ID: account},
 		)
 	}), "each social account target may appear only once")
+
+	require.ErrorContains(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return handler.insertRenditions(
+			txCtx, tx, publication, nil, nil,
+			[]RenditionInput{{SocialAccountID: account.ID, TargetKey: "telegram:chat:-100123"}},
+			nil, map[string]models.SocialAccount{account.ID: account},
+		)
+	}), "must belong to the selected social account provider")
+
+	require.ErrorContains(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return handler.insertRenditions(
+			txCtx, tx, publication, nil, nil,
+			[]RenditionInput{{SocialAccountID: account.ID, TargetKey: "pinterest:board:alpha", Settings: map[string]interface{}{"board_id": "beta"}}},
+			nil, map[string]models.SocialAccount{account.ID: account},
+		)
+	}), "does not match the selected Pinterest board")
 }
 
 func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.T) {

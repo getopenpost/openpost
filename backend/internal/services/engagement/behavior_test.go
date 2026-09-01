@@ -31,14 +31,18 @@ func (alwaysEnabledGate) IsEffectiveEnabled(context.Context, string, string) (bo
 
 type fakeCommenter struct {
 	platform.Adapter
-	accountIDs []string
-	comments   []platform.Comment
-	contentURL string
-	likedIDs   []string
-	unlikedIDs []string
-	replyCalls int
-	replyID    string
-	replyErr   error
+	accountIDs             []string
+	comments               []platform.Comment
+	contentURL             string
+	likedIDs               []string
+	unlikedIDs             []string
+	replyCalls             int
+	replyID                string
+	replyErr               error
+	incrementalRequests    []platform.IncrementalCommentRequest
+	incrementalExternalIDs []string
+	incrementalPages       []platform.IncrementalCommentPage
+	incrementalErrors      []error
 }
 
 func (*fakeCommenter) EngagementSupport() platform.EngagementSupport {
@@ -48,6 +52,24 @@ func (*fakeCommenter) EngagementSupport() platform.EngagementSupport {
 func (f *fakeCommenter) ListComments(_ context.Context, _ string, accountID, _ string) ([]platform.Comment, error) {
 	f.accountIDs = append(f.accountIDs, accountID)
 	return f.comments, nil
+}
+
+func (f *fakeCommenter) ListCommentPage(
+	_ context.Context,
+	_, accountID, externalID string,
+	request platform.IncrementalCommentRequest,
+) (platform.IncrementalCommentPage, error) {
+	f.accountIDs = append(f.accountIDs, accountID)
+	f.incrementalRequests = append(f.incrementalRequests, request)
+	f.incrementalExternalIDs = append(f.incrementalExternalIDs, externalID)
+	index := len(f.incrementalRequests) - 1
+	if index < len(f.incrementalErrors) && f.incrementalErrors[index] != nil {
+		return platform.IncrementalCommentPage{}, f.incrementalErrors[index]
+	}
+	if index < len(f.incrementalPages) {
+		return f.incrementalPages[index], nil
+	}
+	return platform.IncrementalCommentPage{Comments: f.comments}, nil
 }
 
 func (f *fakeCommenter) ReplyToComment(context.Context, string, string, string, string) (string, error) {
@@ -197,6 +219,7 @@ func engagementBehaviorTestDB(t *testing.T) *bun.DB {
 		(*models.Rendition)(nil),
 		(*models.PublicationLifecycleEvent)(nil),
 		(*models.EngagementItem)(nil),
+		(*models.XEngagementReadBudget)(nil),
 		(*models.Job)(nil),
 		(*models.ProviderWriteAttempt)(nil),
 	} {
@@ -250,6 +273,246 @@ CREATE TABLE engagement_sync_states (
 )`)
 	require.NoError(t, err)
 	return db
+}
+
+func TestScheduledXEngagementDoesNotRepeatFullConversationSearch(t *testing.T) {
+	db := engagementBehaviorTestDB(t)
+	seedProviderCommentAction(t, db)
+	ctx := t.Context()
+	now := time.Now().UTC().Truncate(time.Second)
+	commenter := &fakeCommenter{comments: []platform.Comment{{ID: "reply-1", Text: "Hello"}}}
+	service := NewService(db, staticTokenSource{}, nil)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("x", commenter)
+	service.now = func() time.Time { return now }
+
+	runScheduledSync := func() {
+		require.NoError(t, service.HandleJob(ctx, JobTypeSweep, `{}`))
+		var jobs []models.Job
+		require.NoError(t, db.NewSelect().Model(&jobs).
+			Where("type = ?", JobTypeEngagementSync).
+			Order("created_at ASC").Scan(ctx))
+		require.NotEmpty(t, jobs)
+		for _, job := range jobs {
+			require.NoError(t, service.HandleJob(ctx, job.Type, job.Payload))
+		}
+		_, err := db.NewDelete().Model((*models.Job)(nil)).Where("type = ?", JobTypeEngagementSync).Exec(ctx)
+		require.NoError(t, err)
+	}
+
+	runScheduledSync()
+	now = now.Add(30 * time.Minute)
+	runScheduledSync()
+
+	require.Len(t, commenter.incrementalRequests, 2)
+	require.Empty(t, commenter.incrementalRequests[0].SinceID)
+	require.Equal(t, "reply-1", commenter.incrementalRequests[1].SinceID,
+		"the second scheduled X run must use the committed high-water mark instead of repeating a full search")
+}
+
+func TestXIncrementalPagesCommitContinuationAndSurviveRetry(t *testing.T) {
+	db := engagementBehaviorTestDB(t)
+	seedProviderCommentAction(t, db)
+	ctx := t.Context()
+	now := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+	commenter := &fakeCommenter{
+		incrementalPages: []platform.IncrementalCommentPage{
+			{Comments: []platform.Comment{{ID: "101", Text: "Newest"}}, NextToken: "page-2", HighestID: "101"},
+			{},
+			{Comments: []platform.Comment{{ID: "100", Text: "Older"}}, HighestID: "101"},
+			{},
+		},
+		incrementalErrors: []error{nil, &platform.HTTPError{StatusCode: 503, Code: "temporarily_unavailable"}, nil, nil},
+	}
+	service := NewService(db, staticTokenSource{}, nil)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("x", commenter)
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncEngagement(ctx, "rendition-1"))
+	var state models.EngagementSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("rendition_id = ?", "rendition-1").Scan(ctx))
+	cursor := decodeXCommentCursor(&state)
+	require.Empty(t, cursor.SinceID)
+	require.Equal(t, "page-2", cursor.NextToken, "a committed page must not be reread after the next request fails")
+
+	now = now.Add(30 * time.Minute)
+	require.NoError(t, service.syncEngagement(ctx, "rendition-1"))
+	require.Equal(t, "page-2", commenter.incrementalRequests[1].NextToken)
+	require.NoError(t, db.NewSelect().Model(&state).Where("rendition_id = ?", "rendition-1").Scan(ctx))
+	cursor = decodeXCommentCursor(&state)
+	require.Equal(t, "page-2", cursor.NextToken, "a failed continuation request must leave the committed page cursor intact")
+
+	now = now.Add(time.Hour)
+	require.NoError(t, service.syncEngagement(ctx, "rendition-1"))
+	require.Equal(t, "page-2", commenter.incrementalRequests[2].NextToken)
+	require.Empty(t, commenter.incrementalRequests[2].SinceID)
+	require.NoError(t, db.NewSelect().Model(&state).Where("rendition_id = ?", "rendition-1").Scan(ctx))
+	cursor = decodeXCommentCursor(&state)
+	require.Equal(t, "101", cursor.SinceID)
+	require.Empty(t, cursor.NextToken)
+
+	now = now.Add(30 * time.Minute)
+	require.NoError(t, service.syncEngagement(ctx, "rendition-1"))
+	require.Equal(t, "101", commenter.incrementalRequests[3].SinceID)
+	count, err := db.NewSelect().Model((*models.EngagementItem)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, count, "retry and the next incremental run must neither skip nor duplicate replies")
+}
+
+func TestXAccountReadBudgetIsDurableFairAndSharedWithManualRefresh(t *testing.T) {
+	db := engagementBehaviorTestDB(t)
+	ctx := t.Context()
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	seedEngagementRenditions(t, db, "x", 7, now)
+	commenter := &fakeCommenter{}
+	service := NewService(db, staticTokenSource{}, nil)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("x", commenter)
+	service.SetXDailyReadBudget(3)
+	service.now = func() time.Time { return now }
+
+	runQueuedEngagementSyncs(t, db, service, func() (int, error) {
+		return service.refreshWorkspace(ctx, "workspace-1", false)
+	})
+	require.Equal(t, []string{"external-00", "external-01", "external-02"}, commenter.incrementalExternalIDs)
+	var budget models.XEngagementReadBudget
+	require.NoError(t, db.NewSelect().Model(&budget).Where("social_account_id = ?", "account-1").Scan(ctx))
+	require.Equal(t, 3, budget.AttemptsUsed)
+
+	queued, err := service.RefreshWorkspace(ctx, Actor{UserID: "user-1"}, "workspace-1", true)
+	require.NoError(t, err)
+	require.Zero(t, queued, "manual refresh must share the same exhausted account budget")
+	require.Len(t, commenter.incrementalRequests, 3)
+
+	now = now.Add(24 * time.Hour)
+	runQueuedEngagementSyncs(t, db, service, func() (int, error) {
+		return service.RefreshWorkspace(ctx, Actor{UserID: "user-1"}, "workspace-1", true)
+	})
+	require.Equal(t, []string{"external-03", "external-04", "external-05"}, commenter.incrementalExternalIDs[3:],
+		"renditions deferred by the budget must be first on the next UTC day")
+	require.NoError(t, db.NewSelect().Model(&budget).Where("social_account_id = ?", "account-1").Scan(ctx))
+	require.Equal(t, 3, budget.AttemptsUsed)
+}
+
+func TestXProviderBackoffFencesSiblingRenditions(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		providerErr *platform.HTTPError
+		wantDelay   time.Duration
+		wantCode    string
+	}{
+		{name: "Retry-After", providerErr: &platform.HTTPError{StatusCode: 429, Code: "rate_limit", RetryAfter: 2 * time.Hour}, wantDelay: 2 * time.Hour, wantCode: "rate_limit"},
+		{name: "depleted credits", providerErr: &platform.HTTPError{StatusCode: 402, Code: "credits_depleted", RetryAfter: 24 * time.Hour}, wantDelay: 24 * time.Hour, wantCode: "credits_depleted"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := engagementBehaviorTestDB(t)
+			ctx := t.Context()
+			now := time.Date(2026, 9, 8, 8, 0, 0, 0, time.UTC)
+			seedEngagementRenditions(t, db, "x", 2, now)
+			commenter := &fakeCommenter{incrementalErrors: []error{test.providerErr}}
+			service := NewService(db, staticTokenSource{}, nil)
+			service.SetFeatureGate(alwaysEnabledGate{})
+			service.SetProvider("x", commenter)
+			service.now = func() time.Time { return now }
+
+			require.NoError(t, service.syncEngagement(ctx, "rendition-00"))
+			require.NoError(t, service.syncEngagement(ctx, "rendition-01"))
+			require.Len(t, commenter.incrementalRequests, 1, "stored account backoff must prevent sibling provider calls")
+			var budget models.XEngagementReadBudget
+			require.NoError(t, db.NewSelect().Model(&budget).Where("social_account_id = ?", "account-1").Scan(ctx))
+			require.Equal(t, now.Add(test.wantDelay), budget.BlockedUntil)
+			require.Equal(t, test.wantCode, budget.BlockCode)
+			queued, err := service.RefreshWorkspace(ctx, Actor{UserID: "user-1"}, "workspace-1", true)
+			require.NoError(t, err)
+			require.Zero(t, queued, "manual refresh must not override stored provider backoff")
+			require.Len(t, commenter.incrementalRequests, 1)
+		})
+	}
+}
+
+func TestNonXEngagementKeepsGenericProviderPathAndCadence(t *testing.T) {
+	db := engagementBehaviorTestDB(t)
+	ctx := t.Context()
+	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+	seedEngagementRenditions(t, db, "mastodon", 1, now)
+	commenter := &fakeCommenter{comments: []platform.Comment{{ID: "reply-1", Text: "Hello"}}}
+	service := NewService(db, staticTokenSource{}, nil)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("mastodon:", commenter)
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncEngagement(ctx, "rendition-00"))
+	require.Len(t, commenter.accountIDs, 1)
+	require.Empty(t, commenter.incrementalRequests, "non-X adapters must remain on their existing ListComments behavior")
+	var state models.EngagementSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("rendition_id = ?", "rendition-00").Scan(ctx))
+	require.Equal(t, now.Add(5*time.Minute), state.NextSyncAt)
+	budgetCount, err := db.NewSelect().Model((*models.XEngagementReadBudget)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, budgetCount)
+}
+
+func TestXCadenceDefaultsAndNonXBehaviorRemainDistinct(t *testing.T) {
+	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+	require.Equal(t, 30*time.Minute, xEngagementCadence(now.Add(-time.Hour), now, true))
+	require.Equal(t, 4*time.Hour, xEngagementCadence(now.Add(-2*24*time.Hour), now, true))
+	require.Equal(t, 24*time.Hour, xEngagementCadence(now.Add(-8*24*time.Hour), now, true))
+	require.Equal(t, 7*24*time.Hour, xEngagementCadence(now.Add(-31*24*time.Hour), now, true))
+	require.Equal(t, 24*time.Hour, xEngagementCadence(now.Add(-31*24*time.Hour), now, false))
+
+	// The generic cadence remains unchanged for every non-X provider.
+	require.Equal(t, 5*time.Minute, engagementCadence(now.Add(-time.Hour), now, true))
+	require.Equal(t, 30*time.Minute, engagementCadence(now.Add(-2*24*time.Hour), now, true))
+	require.Equal(t, 6*time.Hour, engagementCadence(now.Add(-8*24*time.Hour), now, true))
+}
+
+func seedEngagementRenditions(t *testing.T, db *bun.DB, provider string, count int, now time.Time) {
+	t.Helper()
+	ctx := t.Context()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "account-1", WorkspaceID: "workspace-1", Platform: provider,
+		AccountID: "remote-account", Slug: "account-1", AccessTokenEnc: []byte("encrypted"),
+		IsActive: true, CreatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	for index := range count {
+		publicationID := fmt.Sprintf("publication-%02d", index)
+		renditionID := fmt.Sprintf("rendition-%02d", index)
+		_, err = db.NewInsert().Model(&models.Publication{
+			ID: publicationID, WorkspaceID: "workspace-1", CreatedByID: "user-1",
+			Title: "Launch", SourceContent: "Launch", Status: models.PublicationStatusPublished,
+			ActualRunAt: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour), UpdatedAt: now,
+		}).Exec(ctx)
+		require.NoError(t, err)
+		_, err = db.NewInsert().Model(&models.Rendition{
+			ID: renditionID, PublicationID: publicationID, SocialAccountID: "account-1",
+			Platform: provider, Profile: "short_text", Status: models.RenditionStatusPublished,
+			ExternalID: fmt.Sprintf("external-%02d", index), CreatedAt: now, UpdatedAt: now,
+		}).Exec(ctx)
+		require.NoError(t, err)
+	}
+}
+
+func runQueuedEngagementSyncs(
+	t *testing.T,
+	db *bun.DB,
+	service *Service,
+	enqueue func() (int, error),
+) {
+	t.Helper()
+	queued, err := enqueue()
+	require.NoError(t, err)
+	require.Positive(t, queued)
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).
+		Where("type = ?", JobTypeEngagementSync).
+		Order("run_at ASC", "id ASC").Scan(t.Context()))
+	for _, job := range jobs {
+		require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	}
+	_, err = db.NewDelete().Model((*models.Job)(nil)).Where("type = ?", JobTypeEngagementSync).Exec(t.Context())
+	require.NoError(t, err)
 }
 
 func TestProviderPostURLUsesStableProviderIdentifiers(t *testing.T) {

@@ -173,6 +173,43 @@ describe('media-capabilities', () => {
 		);
 	});
 
+	it('accepts 1-5 Pinterest images and rejects uncertified formats', () => {
+		const images = Array.from({ length: 5 }, (_, index) => ({
+			id: `pinterest-${index}`,
+			mimeType: index % 2 === 0 ? 'image/jpeg' : 'image/webp'
+		}));
+
+		expect(validateProviderMedia('pinterest', images)).toEqual([]);
+		expect(
+			validateProviderMedia('pinterest', [...images, { id: 'extra', mimeType: 'image/png' }])
+		).toContainEqual(
+			expect.objectContaining({
+				provider: 'pinterest',
+				severity: 'error',
+				message: 'Pinterest Pins require 1-5 images.'
+			})
+		);
+		expect(validateProviderMedia('pinterest', [{ id: 'video', mimeType: 'video/mp4' }])).toEqual([
+			{
+				provider: 'pinterest',
+				mediaId: 'video',
+				severity: 'error',
+				message: 'Pinterest Pins support JPEG, PNG, or WebP images only.'
+			}
+		]);
+		expect(
+			validateProviderMedia('pinterest', [
+				{ id: 'large', mimeType: 'image/png', size: 20 * 1024 * 1024 + 1 }
+			])
+		).toContainEqual(
+			expect.objectContaining({
+				provider: 'pinterest',
+				mediaId: 'large',
+				message: 'Pinterest images must be 20MB or smaller.'
+			})
+		);
+	});
+
 	it('accepts one TikTok video or 1-35 JPEG and WebP photos', () => {
 		const photos = Array.from({ length: 35 }, (_, index) => ({
 			id: `tiktok-${index}`,

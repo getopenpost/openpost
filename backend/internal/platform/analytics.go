@@ -21,19 +21,36 @@ const (
 )
 
 const (
-	MetricFollowers   = "followers"
-	MetricFollowing   = "following"
-	MetricPosts       = "posts"
-	MetricLikes       = "likes"
-	MetricComments    = "comments"
-	MetricReposts     = "reposts"
-	MetricQuotes      = "quotes"
-	MetricShares      = "shares"
-	MetricSaves       = "saves"
-	MetricViews       = "views"
-	MetricImpressions = "impressions"
-	MetricReach       = "reach"
-	MetricClicks      = "clicks"
+	MetricFollowers      = "followers"
+	MetricFollowing      = "following"
+	MetricMembers        = "members"
+	MetricPosts          = "posts"
+	MetricLikes          = "likes"
+	MetricReactions      = "reactions"
+	MetricComments       = "comments"
+	MetricReposts        = "reposts"
+	MetricQuotes         = "quotes"
+	MetricShares         = "shares"
+	MetricSaves          = "saves"
+	MetricViews          = "views"
+	MetricImpressions    = "impressions"
+	MetricReach          = "reach"
+	MetricClicks         = "clicks"
+	MetricEngagements    = "engagements"
+	MetricPinClicks      = "pin_clicks"
+	MetricOutboundClicks = "outbound_clicks"
+	MetricVideoViews     = "video_views"
+	MetricClickRate      = "click_rate"
+
+	MetricReportViews           = "report_views"
+	MetricEstimatedWatchTime    = "estimated_watch_time"
+	MetricAverageViewDuration   = "average_view_duration"
+	MetricAverageViewPercentage = "average_view_percentage"
+	MetricSubscribersGained     = "subscribers_gained"
+	MetricSubscribersLost       = "subscribers_lost"
+	MetricReportLikes           = "report_likes"
+	MetricReportComments        = "report_comments"
+	MetricReportShares          = "report_shares"
 )
 
 // AnalyticsValues is deliberately open-ended. Providers expose different
@@ -66,19 +83,24 @@ type AccountAnalyticsSupportResolver interface {
 }
 
 type AccountAnalyticsRequest struct {
-	AccountID       string
-	GrantedScopes   []string
-	CapabilityState map[string]string
+	AccountID            string
+	GrantedScopes        []string
+	CapabilityState      map[string]string
+	ReportingPeriodStart time.Time
+	ReportingPeriodEnd   time.Time
 }
 
 type ContentAnalyticsRequest struct {
-	AccountID     string
-	ExternalIDs   []string
-	Profile       string
-	OutputProfile string
-	PublishedAt   time.Time
-	GrantedScopes []string
-	OwnReplyCount int
+	AccountID            string
+	ExternalIDs          []string
+	ProviderReferences   []string
+	Profile              string
+	OutputProfile        string
+	PublishedAt          time.Time
+	ReportingPeriodStart time.Time
+	ReportingPeriodEnd   time.Time
+	GrantedScopes        []string
+	OwnReplyCount        int
 }
 
 // AnalyticsAdapter is optional so publishing remains independent from
@@ -88,6 +110,13 @@ type AnalyticsAdapter interface {
 	AnalyticsSupport() AnalyticsSupport
 	FetchAccountAnalytics(ctx context.Context, accessToken string, input AccountAnalyticsRequest) (AnalyticsValues, error)
 	FetchContentAnalytics(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsValues, error)
+}
+
+// ProviderReferenceAnalyticsAdapter marks content analytics that must use the
+// durable provider-write receipt rather than reconstructing a read target from
+// user-authored settings or provider history.
+type ProviderReferenceAnalyticsAdapter interface {
+	RequiresProviderReferences() bool
 }
 
 type AnalyticsError struct {
@@ -130,6 +159,12 @@ func AddAnalyticsValues(target, values AnalyticsValues) {
 }
 
 func EngagementTotal(values AnalyticsValues) int64 {
+	// Provider aggregate engagement values are authoritative. Adding their
+	// component metrics again (for example Pinterest saves and clicks) would
+	// double count the same actions.
+	if total, measured := values[MetricEngagements]; measured {
+		return total
+	}
 	var total int64
 	for _, metric := range engagementMetrics {
 		total += values[metric]
@@ -139,6 +174,7 @@ func EngagementTotal(values AnalyticsValues) int64 {
 
 var engagementMetrics = []string{
 	MetricLikes,
+	MetricReactions,
 	MetricComments,
 	MetricReposts,
 	MetricQuotes,
@@ -148,6 +184,9 @@ var engagementMetrics = []string{
 }
 
 func HasEngagementMetric(values AnalyticsValues) bool {
+	if _, measured := values[MetricEngagements]; measured {
+		return true
+	}
 	for _, metric := range engagementMetrics {
 		if _, ok := values[metric]; ok {
 			return true

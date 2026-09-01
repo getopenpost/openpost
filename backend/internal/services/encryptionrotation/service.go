@@ -35,7 +35,7 @@ var columnTargets = []columnTarget{
 	{table: "oidc_auth_requests", primaryKeys: []string{"id"}, columns: []string{"pkce_verifier_encrypted"}},
 	{table: "oidc_native_handoffs", primaryKeys: []string{"id"}, columns: []string{"token_encrypted"}},
 	{table: "mastodon_instances", primaryKeys: []string{"id"}, columns: []string{"client_secret_encrypted"}},
-	{table: "provider_apps", primaryKeys: []string{"id"}, columns: []string{"client_secret_encrypted"}},
+	{table: "provider_apps", primaryKeys: []string{"id"}, columns: []string{"client_secret_encrypted", "bot_token_encrypted", "webhook_secret_encrypted"}},
 	{table: "instance_settings", primaryKeys: []string{"key"}, columns: []string{"value_encrypted"}},
 	{table: "ai_prompt_overrides", primaryKeys: []string{"key"}, columns: []string{"value_encrypted"}},
 	{table: "oauth_grants", primaryKeys: []string{"id"}, columns: []string{"access_token_encrypted", "refresh_token_encrypted"}},

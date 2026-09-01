@@ -1,3 +1,5 @@
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- The test doubles add the exact browser event and runtime fields read by the recovery module. */
+
 import { describe, expect, it, vi } from 'vitest';
 import { installStaleModuleRecovery } from './stale-module-recovery';
 

@@ -65,7 +65,7 @@
 		'multi-platform-character-counter': {
 			heading: 'Count every visible character before you publish',
 			description:
-				'Check one draft against ten social network limits. Emoji stay intact, with an X-style count for characters and links.',
+				'Check one draft against twelve social network limits. Emoji stay intact, with an X-style count for characters and links.',
 			audience: 'Writers adapting one draft for several social destinations.',
 			inputs: ['One text draft'],
 			outputs: [
@@ -83,7 +83,7 @@
 		'post-preview-generator': {
 			heading: 'Preview each platform before you publish',
 			description:
-				'Check text, images, video, polls, links, content warnings, and supported formats across all ten OpenPost platforms.',
+				'Check text, images, video, polls, links, content warnings, and the formats supported by each available preview.',
 			audience: 'Creators who want to inspect how a draft may appear before scheduling it.',
 			inputs: [
 				'Post text and a selected social network',

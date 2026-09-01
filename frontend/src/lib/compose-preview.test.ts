@@ -39,9 +39,18 @@ describe('social preview model', () => {
 			new URL('../../../backend/internal/capabilities/capabilities.go', import.meta.url),
 			'utf8'
 		);
+		const providerValues = new Map(
+			[...backendCatalog.matchAll(/(Provider[A-Za-z]+)\s+=\s+"([^"]+)"/gu)].map((match) => [
+				match[1],
+				match[2]
+			])
+		);
 		const backendProviders = [
-			...backendCatalog.matchAll(/Provider[A-Za-z]+\s+=\s+"([^"]+)"/gu)
-		].map((match) => match[1]);
+			...backendCatalog.matchAll(/Capability\{Provider:\s+(Provider[A-Za-z]+)[^\n]*\}/gu)
+		]
+			.filter((match) => !match[0].includes('UnavailableReason:'))
+			.map((match) => providerValues.get(match[1]))
+			.filter((provider): provider is string => Boolean(provider));
 
 		expect([...new Set(backendProviders)].sort()).toEqual([...previewPlatforms].sort());
 	});

@@ -715,11 +715,7 @@ func capabilitySettingDependenciesMet(setting capabilities.SettingDefinition, se
 }
 
 func (h *CapabilityResolverHandler) adapterForResolveAccount(account models.SocialAccount) platform.Adapter {
-	key := account.Platform
-	if account.Platform == capabilities.ProviderMastodon {
-		key = capabilities.ProviderMastodon + ":" + account.InstanceURL
-	}
-	return h.providers[key]
+	return h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 }
 
 func (h *CapabilityResolverHandler) cachedAccountCapability(key string) (platform.AccountCapabilityResult, time.Time, bool) {

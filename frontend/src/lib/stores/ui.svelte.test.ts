@@ -1,5 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UIState } from './ui.svelte';
+import { UIState, type RepurposeHandoff } from './ui.svelte';
+
+function repurposeHandoff(id: string): RepurposeHandoff {
+	return {
+		handoff_id: id,
+		workspace_id: 'workspace-1',
+		title: 'Source',
+		source_text: 'Stored source text',
+		content_profile: 'short_text',
+		destination_account_ids: ['account-1'],
+		range: { days: 30 },
+		provenance: {
+			origin: 'external',
+			platform: 'x',
+			published_at: '2026-09-08T12:00:00Z',
+			reference: { type: 'external', account_content_id: 'content-1' }
+		},
+		evidence: []
+	};
+}
+
+describe('UIState repurpose handoff', () => {
+	it('replaces repeated invocations with fresh local state and only consumes the matching handoff', () => {
+		const state = new UIState();
+		state.setRepurposeHandoff(repurposeHandoff('first'));
+		state.setRepurposeHandoff(repurposeHandoff('second'));
+
+		expect(state.pendingRepurposeHandoff?.handoff_id).toBe('second');
+		state.consumeRepurposeHandoff('first');
+		expect(state.pendingRepurposeHandoff?.handoff_id).toBe('second');
+		state.consumeRepurposeHandoff('second');
+		expect(state.pendingRepurposeHandoff).toBeNull();
+	});
+});
 
 describe('UIState composer reset guards', () => {
 	it('keeps the active composer mounted until its transient work can be discarded safely', () => {

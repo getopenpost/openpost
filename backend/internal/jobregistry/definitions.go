@@ -16,6 +16,7 @@ const (
 	TypeAnalyticsSweep          = "analytics_sweep"
 	TypeAnalyticsAccount        = "analytics_account_sync"
 	TypeAnalyticsRendition      = "analytics_rendition_sync"
+	TypeAccountContentDiscovery = "account_content_discovery"
 	TypeBillingWebhook          = "billing_paddle_webhook"
 	TypeEngagementSweep         = "engagement_sweep"
 	TypeMessagingSweep          = "messaging_sweep"
@@ -32,6 +33,7 @@ const (
 	TypeGrowthDiscovery         = "growth_discovery"
 	TypeGrowthFollow            = "growth_follow"
 	TypePublicationBuild        = "publication_build"
+	TypeBotIngress              = "bot_ingress"
 	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 )
 
@@ -56,6 +58,7 @@ const (
 	ExecuteVideo                 ExecutionKind = "video"
 	ExecuteGrowth                ExecutionKind = "growth"
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
+	ExecuteBotIngress            ExecutionKind = "bot_ingress"
 	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 )
 
@@ -112,6 +115,12 @@ var definitions = map[string]Definition{
 		"Analytics collection failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeAnalyticsRendition: providerReadDefinition(TypeAnalyticsRendition, 3, ExecuteAnalytics, RecoveryRequeue,
 		"Analytics collection failed. OpenPost will retry when the failure is temporary.", ""),
+	TypeAccountContentDiscovery: {
+		Type: TypeAccountContentDiscovery, DefaultMaxAttempts: 3,
+		Execution: ExecuteAnalytics, Failure: FailureProviderRead, Recovery: RecoveryRequeue,
+		FailureMessage: "Account content discovery failed. OpenPost will retry when the failure is temporary.",
+		identity:       accountContentDiscoveryIdentity,
+	},
 	TypeBillingWebhook: definition(TypeBillingWebhook, 8, ExecuteBilling, FailureDefault, RecoveryRequeue),
 	TypeEngagementSweep: providerReadDefinition(TypeEngagementSweep, 5, ExecuteEngagement, RecoverySupersedeSweep,
 		"Engagement collection failed. OpenPost will retry when the failure is temporary.",
@@ -145,6 +154,12 @@ var definitions = map[string]Definition{
 		Type: TypePublicationBuild, DefaultMaxAttempts: 2,
 		Execution: ExecutePublicationBuild, Failure: FailureDefault, Recovery: RecoveryRequeue,
 		identity: publicationBuildIdentity,
+	},
+	TypeBotIngress: {
+		Type: TypeBotIngress, DefaultMaxAttempts: 8,
+		Execution: ExecuteBotIngress, Failure: FailureDefault, Recovery: RecoveryRequeue,
+		FailureMessage: "Bot event processing failed with a safe normalized error.",
+		identity:       botIngressIdentity,
 	},
 	TypeScheduledAccountCheck: {
 		Type: TypeScheduledAccountCheck, DefaultMaxAttempts: 3, Recurrence: 15 * time.Minute,

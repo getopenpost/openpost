@@ -1,0 +1,11 @@
+{
+  "data": [
+    {
+      "id": "page-1_external-2",
+      "message": "External Facebook lesson",
+      "created_time": "2026-09-02T09:00:00+0000",
+      "permalink_url": "https://evil.example/token-in-url",
+      "attachments": { "data": [{ "media_type": "link", "type": "share" }] }
+    }
+  ]
+}

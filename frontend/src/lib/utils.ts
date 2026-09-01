@@ -62,6 +62,10 @@ export function getPlatformName(platform: string): string {
 			return 'YouTube';
 		case 'tiktok':
 			return 'TikTok';
+		case 'pinterest':
+			return 'Pinterest';
+		case 'telegram':
+			return 'Telegram';
 		default:
 			return platform.split(':')[0];
 	}
@@ -135,7 +139,9 @@ export function getPlatformColor(platform: string): string {
 		['instagram', 'bg-pink-500'],
 		['facebook', 'bg-blue-700'],
 		['youtube', 'bg-red-600'],
-		['tiktok', 'bg-zinc-900']
+		['tiktok', 'bg-zinc-900'],
+		['pinterest', 'bg-red-700'],
+		['telegram', 'bg-sky-500']
 	]);
 	return colors.get(getPlatformKey(platform)) ?? 'bg-gray-500';
 }

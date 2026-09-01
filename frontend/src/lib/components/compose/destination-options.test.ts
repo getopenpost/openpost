@@ -59,6 +59,19 @@ describe('loadableDestinationOptionSources', () => {
 		]);
 		expect(loadableDestinationOptionSources(settings, 'x_communities')).toEqual([]);
 	});
+
+	it('loads Pinterest sections only after a board is selected', () => {
+		const board = setting('board_id', 'pinterest_boards');
+		const section = {
+			...setting('section_id', 'pinterest_sections'),
+			dependencies: [{ key: 'board_id', operator: 'present' as const }]
+		};
+
+		expect(loadableDestinationOptionSources([board, section])).toEqual(['pinterest_boards']);
+		expect(loadableDestinationOptionSources([board, section], '', { board_id: 'board-1' })).toEqual(
+			['pinterest_boards', 'pinterest_sections']
+		);
+	});
 });
 
 describe('paged destination options', () => {
@@ -85,7 +98,7 @@ describe('paged destination options', () => {
 		const board = setting('board_id', 'pinterest_boards');
 		const section = {
 			...setting('section_id', 'pinterest_sections'),
-			dependencies: [{ key: 'board_id', operator: 'equals' as const, value: 'board-1' }]
+			dependencies: [{ key: 'board_id', operator: 'present' as const }]
 		};
 		const result = invalidateDependentDestinationSettings(
 			[board, section],

@@ -2,6 +2,8 @@ package platform
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +13,72 @@ import (
 	"testing"
 	"time"
 )
+
+func TestXIncrementalCommentsSendSinceIDAndBoundedNextToken(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if r.URL.Path != "/2/tweets/search/recent" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		query := r.URL.Query()
+		requireQuery := func(key, want string) {
+			if got := query.Get(key); got != want {
+				t.Fatalf("%s: got %q, want %q", key, got, want)
+			}
+		}
+		requireQuery("query", "conversation_id:post-1")
+		requireQuery("max_results", "25")
+		if requestCount == 1 {
+			requireQuery("since_id", "100")
+			requireQuery("next_token", "")
+		} else {
+			requireQuery("since_id", "100")
+			requireQuery("next_token", "opaque-page-2")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"101","text":"Reply","author_id":"reader","conversation_id":"post-1"}],"meta":{"newest_id":"101","next_token":"opaque-page-2"}}`))
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	page, err := adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{SinceID: "100", Limit: 25})
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if page.HighestID != "101" || page.NextToken != "opaque-page-2" || len(page.Comments) != 1 {
+		t.Fatalf("unexpected page: %#v", page)
+	}
+	_, err = adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{SinceID: "100", NextToken: page.NextToken, Limit: 25})
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+}
+
+func TestXIncrementalCommentsClassifyDepletedCreditsWithoutResponseBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusPaymentRequired)
+		_, _ = w.Write([]byte(`{"title":"private provider response"}`))
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	_, err := adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{})
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) {
+		t.Fatalf("expected HTTPError, got %v", err)
+	}
+	if providerErr.Code != "credits_depleted" || providerErr.RetryAfter != 24*time.Hour {
+		t.Fatalf("unexpected depleted-credit classification: %#v", providerErr)
+	}
+	if strings.Contains(err.Error(), "private provider response") || strings.Contains(err.Error(), "access-token") {
+		t.Fatalf("error retained provider body or credential: %v", err)
+	}
+}
 
 type consumeOnceXRequestStore struct {
 	meta     XRequestMeta
@@ -258,6 +326,45 @@ func TestXGetProfileFallsBackWhenSubscriptionFieldIsUnavailable(t *testing.T) {
 	}
 	if profile.CapabilityState[XCapabilityStateSubscriptionType] != XSubscriptionTypeUnknown {
 		t.Fatalf("expected unknown subscription state: %#v", profile.CapabilityState)
+	}
+}
+
+func TestXDiscoversOneBoundedAccountHistoryPageWithExactIDs(t *testing.T) {
+	historyStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2/users/42/tweets" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if r.URL.Query().Get("max_results") != "5" || r.URL.Query().Get("start_time") != historyStart.Format(time.RFC3339) {
+			t.Fatalf("unexpected bounded discovery query %q", r.URL.RawQuery)
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "OAuth ") {
+			t.Fatal("expected OAuth 1.0a authorization header")
+		}
+		_, _ = io.WriteString(w, `{"data":[
+			{"id":"100","text":"  Launch update  ","created_at":"2026-02-03T12:00:00Z","conversation_id":"90"},
+			{"id":"not-an-exact-id","text":"ignored","created_at":"2026-02-02T12:00:00Z"}
+		],"meta":{"next_token":"page-2"}}`)
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+	page, err := adapter.DiscoverAccountContent(context.Background(), "access-token|access-secret", AccountContentDiscoveryRequest{
+		AccountID: "42", PublishedAfter: historyStart, PageSize: 5,
+	})
+	if err != nil {
+		t.Fatalf("DiscoverAccountContent returned error: %v", err)
+	}
+	if len(page.Items) != 1 || page.Items[0].ProviderContentID != "100" || page.Items[0].ProviderParentID != "90" {
+		t.Fatalf("unexpected exact discovery items: %#v", page.Items)
+	}
+	if page.Items[0].ExternalURL != "https://x.com/i/web/status/100" || page.Items[0].Text != "Launch update" {
+		t.Fatalf("unexpected normalized X item: %#v", page.Items[0])
+	}
+	if page.NextCursor != "page-2" || page.Coverage.Status != AccountContentDiscoveryPartial {
+		t.Fatalf("expected bounded continuation: %#v", page)
 	}
 }
 

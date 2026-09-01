@@ -35,6 +35,8 @@ func DeterministicContentURL(provider, _ string, username, instanceURL, external
 		return blueskyContentURL(externalID)
 	case "linkedin":
 		return linkedinContentURL(externalID)
+	case "pinterest":
+		return pinterestPinURL(externalID)
 	case "tiktok":
 		return tiktokContentURL(username, externalID)
 	case "youtube":

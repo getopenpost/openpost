@@ -22,8 +22,9 @@ import (
 )
 
 type oauthReadinessLedger struct {
-	mu      sync.RWMutex
-	control providerreadiness.RuntimeControlState
+	mu       sync.RWMutex
+	control  providerreadiness.RuntimeControlState
+	approved bool
 }
 
 func (l *oauthReadinessLedger) setControl(state providerreadiness.RuntimeControlState) {
@@ -32,8 +33,16 @@ func (l *oauthReadinessLedger) setControl(state providerreadiness.RuntimeControl
 	l.mu.Unlock()
 }
 
-func (*oauthReadinessLedger) LatestApprovalReview(context.Context, providerreadiness.Subject) (*providerreadiness.ApprovalReview, error) {
-	return nil, providerreadiness.ErrLedgerFactNotFound
+func (l *oauthReadinessLedger) LatestApprovalReview(_ context.Context, subject providerreadiness.Subject) (*providerreadiness.ApprovalReview, error) {
+	if !l.approved || (subject.Provider != "pinterest" && subject.Provider != "telegram" && subject.Provider != "discord") {
+		return nil, providerreadiness.ErrLedgerFactNotFound
+	}
+	now := time.Now().UTC()
+	return &providerreadiness.ApprovalReview{
+		Provider: subject.Provider, AppFingerprint: subject.AppFingerprint,
+		ProviderEnvironment: subject.ProviderEnvironment, InstanceFingerprint: subject.InstanceFingerprint,
+		Evidence: providerreadiness.ApprovalEvidence{State: providerreadiness.ApprovalStateApproved, Tier: "standard", SourceURL: "https://provider.example/approval", ReviewedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)},
+	}, nil
 }
 
 func (*oauthReadinessLedger) ApprovalReviewByID(context.Context, string) (*providerreadiness.ApprovalReview, error) {

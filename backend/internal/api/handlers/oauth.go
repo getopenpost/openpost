@@ -173,17 +173,20 @@ type MastodonServerInfo struct {
 }
 
 type ProviderInfo struct {
-	Platform       string                     `json:"platform" doc:"Provider key"`
-	InstallationID string                     `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
-	DisplayName    string                     `json:"display_name" doc:"Human-readable provider name"`
-	AuthMode       string                     `json:"auth_mode" doc:"Connection method: oauth, app_password, or oauth_oob"`
-	Configured     bool                       `json:"configured" doc:"Whether this provider can currently be connected"`
-	Status         string                     `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
-	Description    string                     `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
-	Capabilities   []string                   `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
-	Name           string                     `json:"name,omitempty" doc:"Provider app or server display name"`
-	InstanceURL    string                     `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
-	Readiness      providerreadiness.Decision `json:"readiness"`
+	Platform                  string                                `json:"platform" doc:"Provider key"`
+	InstallationID            string                                `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
+	DisplayName               string                                `json:"display_name" doc:"Human-readable provider name"`
+	AuthMode                  string                                `json:"auth_mode" doc:"Primary connection method retained for compatibility"`
+	ConnectionModes           []string                              `json:"connection_modes,omitempty" doc:"Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot"`
+	ConfiguredConnectionModes []string                              `json:"configured_connection_modes,omitempty" doc:"Connection methods configured and ready on this instance"`
+	ConnectionReadiness       map[string]providerreadiness.Decision `json:"connection_readiness,omitempty" doc:"Mode-specific readiness for providers with distinct connection methods"`
+	Configured                bool                                  `json:"configured" doc:"Whether this provider can currently be connected"`
+	Status                    string                                `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
+	Description               string                                `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
+	Capabilities              []string                              `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
+	Name                      string                                `json:"name,omitempty" doc:"Provider app or server display name"`
+	InstanceURL               string                                `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
+	Readiness                 providerreadiness.Decision            `json:"readiness"`
 }
 
 type ListProvidersOutput struct {
@@ -199,7 +202,7 @@ type ListMastodonServersOutput struct {
 }
 
 type GetAuthURLInput struct {
-	Platform    string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)"`
+	Platform    string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)"`
 	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID to link account to"`
 	ServerName  string `query:"server_name" doc:"Mastodon server name from config (required for mastodon)"`
 	InstanceURL string `query:"instance_url" doc:"Mastodon instance URL to dynamically register"`
@@ -332,18 +335,36 @@ var coreProviderCapabilities = []string{"Text posts", "Media posts", "Scheduling
 
 var providerCatalog = []ProviderInfo{
 	{
-		Platform:     "bluesky",
-		DisplayName:  "Bluesky",
-		AuthMode:     "app_password",
-		Description:  "Handle and app-password connection with no server app setup.",
-		Capabilities: coreProviderCapabilities,
+		Platform:        "bluesky",
+		DisplayName:     "Bluesky",
+		AuthMode:        "app_password",
+		ConnectionModes: []string{"app_password"},
+		Description:     "Handle and app-password connection with no server app setup.",
+		Capabilities:    coreProviderCapabilities,
 	},
 	{
-		Platform:     "discord",
-		DisplayName:  "Discord",
-		AuthMode:     "webhook",
-		Description:  "Connect a Discord channel with its incoming webhook URL.",
-		Capabilities: []string{"Text posts", "Media attachments", "Scheduling", "Message deletion", "MCP workflows"},
+		Platform:        "discord",
+		DisplayName:     "Discord",
+		AuthMode:        "webhook",
+		ConnectionModes: []string{"webhook", "bot"},
+		Description:     "Incoming webhooks remain available; bot connections stay gated until configured and certified.",
+		Capabilities:    []string{"Text posts", "Media attachments", "Scheduling", "Message deletion", "MCP workflows"},
+	},
+	{
+		Platform:        "pinterest",
+		DisplayName:     "Pinterest",
+		AuthMode:        "oauth",
+		ConnectionModes: []string{"oauth"},
+		Description:     "Trial access supports development and certification; production requires current Standard access and live certification.",
+		Capabilities:    []string{"Board targeting", "Optional board sections"},
+	},
+	{
+		Platform:        "telegram",
+		DisplayName:     "Telegram",
+		AuthMode:        "bot",
+		ConnectionModes: []string{"bot"},
+		Status:          providerStatusPlanned,
+		Description:     "Telegram bot connections stay gated until bot certification is complete.",
 	},
 	{
 		Platform:     "x",
@@ -416,7 +437,11 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 		return adapter, nil
 	}
 
-	adapter, ok := h.providers[platform]
+	key := platform
+	if platform == "discord" {
+		key = "discord:bot"
+	}
+	adapter, ok := h.providers[key]
 	if !ok {
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -507,6 +532,13 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+func selectedAccountInstanceURL(provider string, values ...string) string {
+	if provider == "discord" {
+		return ""
+	}
+	return firstNonEmpty(values...)
+}
+
 func (h *OAuthHandler) ListProviders(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-account-providers",
@@ -545,17 +577,45 @@ func applyProviderAvailabilityReadiness(
 		for index := range infos {
 			infos[index].Readiness = providerreadiness.UnavailableDecision(providerreadiness.OperationConnect)
 			infos[index].Configured = false
-			infos[index].Status = string(providerreadiness.EffectiveStateDegraded)
+			if infos[index].Platform == "discord" {
+				infos[index].ConnectionReadiness = map[string]providerreadiness.Decision{
+					platform.ConnectionModeWebhook: providerreadiness.UnavailableDecision(providerreadiness.OperationConnect),
+					platform.ConnectionModeBot:     providerreadiness.UnavailableDecision(providerreadiness.OperationConnect),
+				}
+			}
+			if infos[index].Status != providerStatusPlanned {
+				infos[index].Status = string(providerreadiness.EffectiveStateDegraded)
+			}
 		}
 		return infos
 	}
 	for index := range infos {
+		if infos[index].Status == providerStatusPlanned {
+			infos[index].Readiness = providerreadiness.UnavailableDecision(providerreadiness.OperationConnect)
+			infos[index].Configured = false
+			continue
+		}
 		decision := readiness.DecideConnection(
 			ctx,
 			infos[index].Platform,
 			infos[index].InstanceURL,
 			providerreadiness.ExecutionIntentProduction,
 		)
+		if infos[index].Platform == "discord" {
+			webhookDecision := decision
+			botDecision := readiness.DecideConnection(ctx, "discord", platform.ConnectionModeBot, providerreadiness.ExecutionIntentProduction)
+			infos[index].ConnectionReadiness = map[string]providerreadiness.Decision{
+				platform.ConnectionModeWebhook: webhookDecision,
+				platform.ConnectionModeBot:     botDecision,
+			}
+			infos[index].ConfiguredConnectionModes = nil
+			if webhookDecision.Connectable {
+				infos[index].ConfiguredConnectionModes = append(infos[index].ConfiguredConnectionModes, platform.ConnectionModeWebhook)
+			}
+			if botDecision.Connectable {
+				infos[index].ConfiguredConnectionModes = append(infos[index].ConfiguredConnectionModes, platform.ConnectionModeBot)
+			}
+		}
 		infos[index].Readiness = decision
 		infos[index].Configured = decision.Connectable
 		infos[index].Status = string(decision.State)
@@ -586,6 +646,14 @@ func providerInfoWithStatus(providers map[string]platform.Adapter, item Provider
 		return item
 	}
 	item.Configured = providers[item.Platform] != nil
+	if item.Platform == "discord" {
+		if providers["discord:"+platform.ConnectionModeWebhook] != nil || providers["discord"] != nil {
+			item.ConfiguredConnectionModes = append(item.ConfiguredConnectionModes, platform.ConnectionModeWebhook)
+		}
+		if providers["discord:"+platform.ConnectionModeBot] != nil {
+			item.ConfiguredConnectionModes = append(item.ConfiguredConnectionModes, platform.ConnectionModeBot)
+		}
+	}
 	if item.Configured {
 		item.Status = providerStatusAvailable
 	} else {
@@ -823,6 +891,9 @@ func (h *OAuthHandler) authURLProvider(
 	if err != nil {
 		return nil, "", huma.Error400BadRequest(err.Error())
 	}
+	if input.Platform == "discord" {
+		return adapter, platform.ConnectionModeBot, nil
+	}
 	return adapter, "", nil
 }
 
@@ -943,9 +1014,12 @@ func (h *OAuthHandler) Callback(api huma.API) {
 			userID = statePayload.UserID
 			workspaceID = statePayload.WorkspaceID
 			executionIntent = statePayload.ExecutionIntent
-			if input.Platform == mastodonProvider {
+			switch input.Platform {
+			case mastodonProvider:
 				input.ServerName = statePayload.ServerName
 				instanceRef = statePayload.ServerName
+			case "discord":
+				instanceRef = platform.ConnectionModeBot
 			}
 		}
 
@@ -1503,7 +1577,10 @@ func (h *OAuthHandler) DiscordWebhookLogin(api huma.API) {
 		if err := h.ensureCanStartAccountConnection(ctx, input.Body.WorkspaceID, userID); err != nil {
 			return nil, err
 		}
-		adapter, ok := h.providers["discord"].(*platform.DiscordAdapter)
+		adapter, ok := h.providers["discord:"+platform.ConnectionModeWebhook].(*platform.DiscordAdapter)
+		if !ok {
+			adapter, ok = h.providers["discord"].(*platform.DiscordAdapter)
+		}
 		if !ok {
 			return nil, huma.Error400BadRequest("discord webhooks are not configured")
 		}
@@ -1672,7 +1749,7 @@ func (h *OAuthHandler) CompleteAccountSelection(api huma.API) {
 				AccountID:             selected.AccountID,
 				AccountUsername:       selected.AccountUsername,
 				AccountAvatarURL:      selected.AccountAvatarURL,
-				InstanceURL:           firstNonEmpty(selected.InstanceURL, pending.InstanceURL),
+				InstanceURL:           selectedAccountInstanceURL(pending.Platform, selected.InstanceURL, pending.InstanceURL),
 				Token:                 selected.Token,
 				CapabilityState:       selected.CapabilityState,
 				Grant:                 authorizationGrantInput(adapter, firstNonEmptyTokenValue(tokenResp, "_grant_subject", "user_id", "open_id", "sub")),
@@ -2204,12 +2281,16 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		Summary:     "Revoke a provider grant and disconnect every destination that uses it",
 		Tags:        []string{tagAccounts},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{403, 404},
+		Errors:      []int{403, 404, 502},
 	}, func(ctx context.Context, input *RevokeAccountGrantInput) (*struct{}, error) {
 		userID := middleware.GetUserID(ctx)
 		account, err := h.getEditableAccount(ctx, input.AccountID, userID)
 		if err != nil {
 			return nil, err
+		}
+		if err := h.revokeProviderAuthorization(ctx, account); err != nil {
+			log.Printf("failed to revoke provider authorization account=%s provider=%s: %v", account.ID, account.Platform, err)
+			return nil, huma.Error502BadGateway("failed to revoke provider authorization")
 		}
 		now := time.Now().UTC()
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
@@ -2275,6 +2356,39 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		}
 		return nil, nil
 	})
+}
+
+func (h *OAuthHandler) revokeProviderAuthorization(ctx context.Context, account models.SocialAccount) error {
+	key := account.Platform
+	if account.Platform == mastodonProvider {
+		key = mastodonProvider + ":" + account.InstanceURL
+	}
+	revoker, ok := h.providers[key].(platform.AuthorizationRevoker)
+	if !ok {
+		return nil
+	}
+
+	var encrypted []byte
+	if account.OAuthGrantID == "" {
+		encrypted = account.AccessTokenEnc
+	} else {
+		var grant models.OAuthGrant
+		if err := h.db.NewSelect().Model(&grant).
+			Column("access_token_encrypted").
+			Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
+			Scan(ctx); err != nil {
+			return err
+		}
+		encrypted = grant.AccessTokenEnc
+	}
+	if len(encrypted) == 0 {
+		return errors.New("provider authorization credential is unavailable")
+	}
+	accessToken, err := h.crypto.Decrypt(encrypted)
+	if err != nil {
+		return fmt.Errorf("decrypt provider authorization: %w", err)
+	}
+	return revoker.RevokeAuthorization(ctx, accessToken)
 }
 
 func (h *OAuthHandler) getAccessibleAccount(ctx context.Context, accountID, userID string) (models.SocialAccount, error) {

@@ -277,6 +277,64 @@
 				],
 				"type": "object"
 			},
+			"AccountDiscoveryCoverage": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"backfill_watermark": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"failure_code": {
+						"type": "string"
+					},
+					"failure_message": {
+						"type": "string"
+					},
+					"initial_completed_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"initial_items_discovered": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"last_attempted_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"last_success_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"next_eligible_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"status": {
+						"enum": [
+							"complete",
+							"partial",
+							"permission_required",
+							"rate_limited",
+							"cost_limited",
+							"unsupported",
+							"failed"
+						],
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "platform", "status", "initial_items_discovered"],
+				"type": "object"
+			},
 			"AccountExport": {
 				"additionalProperties": false,
 				"properties": {
@@ -825,6 +883,12 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"metric_metadata": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+						},
+						"type": "object"
+					},
 					"metrics": {
 						"additionalProperties": {
 							"format": "int64",
@@ -871,6 +935,7 @@
 					"missing_account_scopes",
 					"missing_content_scopes",
 					"metrics",
+					"metric_metadata",
 					"follower_series",
 					"stale"
 				],
@@ -1249,6 +1314,42 @@
 				"required": ["message"],
 				"type": "object"
 			},
+			"AnalyticsMetricMetadata": {
+				"additionalProperties": false,
+				"properties": {
+					"aggregation": {
+						"enum": [
+							"current_snapshot",
+							"lifetime_total",
+							"reporting_period_total",
+							"reporting_period_average"
+						],
+						"type": "string"
+					},
+					"period_end": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"period_start": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"scale": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"source": {
+						"type": "string"
+					},
+					"unit": {
+						"enum": ["count", "milliseconds", "basis_points"],
+						"type": "string"
+					}
+				},
+				"required": ["unit", "aggregation"],
+				"type": "object"
+			},
 			"Angle": {
 				"additionalProperties": false,
 				"properties": {
@@ -1408,10 +1509,11 @@
 						"type": "string"
 					},
 					"operation": {
-						"enum": ["publish_immediate", "publish_scheduled"],
+						"enum": ["discover", "analytics", "publish_immediate", "publish_scheduled"],
 						"type": "string"
 					},
 					"output_profile": {
+						"description": "Required for publishing certification; omitted for account discovery and analytics",
 						"type": "string"
 					},
 					"policy_mode": {
@@ -1437,7 +1539,6 @@
 					"approval_review_id",
 					"workspace_id",
 					"social_account_id",
-					"output_profile",
 					"operation",
 					"kind",
 					"tested_at",
@@ -3293,10 +3394,39 @@
 				"required": ["body", "title", "description", "alt_text"],
 				"type": "object"
 			},
+			"ContentMeasurement": {
+				"additionalProperties": false,
+				"properties": {
+					"availability": {
+						"enum": ["available"],
+						"type": "string"
+					},
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"metadata": {
+						"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["value", "availability", "collected_at", "metadata"],
+				"type": "object"
+			},
 			"ContentOverview": {
 				"additionalProperties": false,
 				"properties": {
 					"account_id": {
+						"type": "string"
+					},
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"content_profile": {
 						"type": "string"
 					},
 					"engagement": {
@@ -3319,6 +3449,22 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"measurements": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/ContentMeasurement"
+						},
+						"type": "object"
+					},
+					"metric_availability": {
+						"enum": ["available", "pending", "unavailable"],
+						"type": "string"
+					},
+					"metric_metadata": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+						},
+						"type": "object"
+					},
 					"metrics": {
 						"additionalProperties": {
 							"format": "int64",
@@ -3340,7 +3486,14 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference"
+					},
 					"rendition_id": {
+						"type": "string"
+					},
+					"source": {
+						"enum": ["openpost", "external"],
 						"type": "string"
 					},
 					"stale": {
@@ -3357,20 +3510,65 @@
 					}
 				},
 				"required": [
-					"publication_id",
-					"rendition_id",
+					"reference",
+					"source",
 					"title",
 					"excerpt",
+					"content_profile",
 					"platform",
 					"account_id",
 					"username",
 					"published_at",
 					"status",
+					"metric_availability",
 					"metrics",
+					"metric_metadata",
+					"measurements",
 					"engagement",
 					"stale"
 				],
 				"type": "object"
+			},
+			"ContentReference": {
+				"discriminator": {
+					"propertyName": "type"
+				},
+				"oneOf": [
+					{
+						"additionalProperties": false,
+						"properties": {
+							"account_content_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"type": {
+								"enum": ["external"],
+								"type": "string"
+							}
+						},
+						"required": ["type", "account_content_id"],
+						"type": "object"
+					},
+					{
+						"additionalProperties": false,
+						"properties": {
+							"publication_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"rendition_id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"type": {
+								"enum": ["openpost"],
+								"type": "string"
+							}
+						},
+						"required": ["type", "publication_id", "rendition_id"],
+						"type": "object"
+					}
+				]
 			},
 			"Conversation": {
 				"additionalProperties": false,
@@ -4529,6 +4727,9 @@
 					"advertisable": {
 						"type": "boolean"
 					},
+					"analytics_ready": {
+						"type": "boolean"
+					},
 					"blockers": {
 						"items": {
 							"$ref": "#/components/schemas/Blocker"
@@ -4541,11 +4742,17 @@
 					"contract_digest": {
 						"type": "string"
 					},
+					"discoverable": {
+						"type": "boolean"
+					},
 					"executable": {
 						"type": "boolean"
 					},
 					"facts": {
 						"$ref": "#/components/schemas/Facts"
+					},
+					"observable": {
+						"type": "boolean"
 					},
 					"publishable": {
 						"type": "boolean"
@@ -4554,7 +4761,17 @@
 						"type": "string"
 					}
 				},
-				"required": ["state", "executable", "connectable", "publishable", "advertisable", "facts"],
+				"required": [
+					"state",
+					"executable",
+					"connectable",
+					"publishable",
+					"discoverable",
+					"observable",
+					"analytics_ready",
+					"advertisable",
+					"facts"
+				],
 				"type": "object"
 			},
 			"Definition": {
@@ -8153,6 +8370,145 @@
 				"required": ["nominee_user_id", "confirm_organization_name", "reauth_grant"],
 				"type": "object"
 			},
+			"Insight": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"caveat": {
+						"enum": [
+							"filtered_content_lifetime_totals",
+							"filtered_content_reporting_period_totals",
+							"account_wide"
+						],
+						"type": "string"
+					},
+					"comparison_sample": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"content": {
+						"$ref": "#/components/schemas/InsightContentEvidence"
+					},
+					"destination_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"kind": {
+						"enum": [
+							"most_engagement_actions",
+							"strongest_measured_destination",
+							"follower_decline"
+						],
+						"type": "string"
+					},
+					"measured_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"metric": {
+						"type": "string"
+					},
+					"period": {
+						"$ref": "#/components/schemas/InsightPeriod"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"reason": {
+						"enum": ["missing_measurements", "low_sample", "incompatible_semantics", "no_decline"],
+						"type": "string"
+					},
+					"status": {
+						"enum": ["available", "insufficient_data"],
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["kind", "status", "period", "metric", "measured_count", "comparison_sample"],
+				"type": "object"
+			},
+			"InsightContentEvidence": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"excerpt": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"published_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference"
+					},
+					"source": {
+						"enum": ["openpost", "external"],
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"reference",
+					"source",
+					"title",
+					"excerpt",
+					"platform",
+					"account_id",
+					"username",
+					"published_at",
+					"collected_at"
+				],
+				"type": "object"
+			},
+			"InsightPeriod": {
+				"additionalProperties": false,
+				"properties": {
+					"aggregation": {
+						"enum": ["unavailable", "current_snapshot", "lifetime_total", "reporting_period_total"],
+						"type": "string"
+					},
+					"filter_end": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"filter_start": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"measurement_end": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"measurement_start": {
+						"format": "date-time",
+						"type": "string"
+					}
+				},
+				"required": ["filter_start", "filter_end", "aggregation"],
+				"type": "object"
+			},
 			"InstanceAuditJSONExport": {
 				"additionalProperties": false,
 				"properties": {
@@ -8563,6 +8919,59 @@
 					}
 				},
 				"required": ["question", "answer"],
+				"type": "object"
+			},
+			"IssueTelegramConnectionCodeInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/IssueTelegramConnectionCodeInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_chat_id": {
+						"description": "Canonical non-zero numeric Telegram chat ID that must redeem the command",
+						"maxLength": 64,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace receiving the Telegram destination",
+						"maxLength": 200,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "expected_chat_id"],
+				"type": "object"
+			},
+			"IssueTelegramConnectionCodeResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/IssueTelegramConnectionCodeResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"bot_username": {
+						"description": "Instance-owned Telegram bot username",
+						"type": "string"
+					},
+					"code": {
+						"description": "One-time command to post in the destination chat. Returned only by this issuance response.",
+						"type": "string"
+					},
+					"expires_at": {
+						"description": "When the one-time command expires",
+						"format": "date-time",
+						"type": "string"
+					}
+				},
+				"required": ["code", "bot_username", "expires_at"],
 				"type": "object"
 			},
 			"Item": {
@@ -11003,6 +11412,10 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"account_growth_scope": {
+						"enum": ["account_wide"],
+						"type": "string"
+					},
 					"accounts": {
 						"items": {
 							"$ref": "#/components/schemas/AccountOverview"
@@ -11015,9 +11428,18 @@
 						},
 						"type": ["array", "null"]
 					},
+					"content_next_cursor": {
+						"type": "string"
+					},
 					"content_total": {
 						"format": "int64",
 						"type": "integer"
+					},
+					"coverage": {
+						"items": {
+							"$ref": "#/components/schemas/AccountDiscoveryCoverage"
+						},
+						"type": ["array", "null"]
 					},
 					"follower_series": {
 						"items": {
@@ -11028,6 +11450,12 @@
 					"generated_at": {
 						"format": "date-time",
 						"type": "string"
+					},
+					"insights": {
+						"items": {
+							"$ref": "#/components/schemas/Insight"
+						},
+						"type": ["array", "null"]
 					},
 					"last_synced_at": {
 						"format": "date-time",
@@ -11050,6 +11478,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"source": {
+						"enum": ["all", "openpost", "external"],
+						"type": "string"
+					},
 					"summary": {
 						"$ref": "#/components/schemas/Summary"
 					},
@@ -11066,6 +11498,10 @@
 					"trends",
 					"publications",
 					"content",
+					"coverage",
+					"insights",
+					"source",
+					"account_growth_scope",
 					"publication_total",
 					"content_total"
 				],
@@ -11722,8 +12158,20 @@
 			"ProviderAppResponse": {
 				"additionalProperties": false,
 				"properties": {
+					"bot_token_configured": {
+						"description": "Whether an encrypted bot token is stored",
+						"type": "boolean"
+					},
+					"bot_username": {
+						"description": "Public bot username without the at-sign",
+						"type": "string"
+					},
 					"client_id": {
-						"description": "OAuth client ID",
+						"description": "OAuth client or application ID",
+						"type": "string"
+					},
+					"connection_mode": {
+						"description": "Instance-owned provider connection mode",
 						"type": "string"
 					},
 					"created_at": {
@@ -11778,14 +12226,21 @@
 					"updated_at": {
 						"description": "Last update time",
 						"type": "string"
+					},
+					"webhook_secret_configured": {
+						"description": "Whether an encrypted webhook verification secret is stored",
+						"type": "boolean"
 					}
 				},
 				"required": [
 					"id",
 					"provider",
+					"connection_mode",
 					"client_id",
 					"is_active",
 					"secret_configured",
+					"bot_token_configured",
+					"webhook_secret_configured",
 					"created_at",
 					"updated_at",
 					"source",
@@ -11987,7 +12442,7 @@
 				"additionalProperties": false,
 				"properties": {
 					"auth_mode": {
-						"description": "Connection method: oauth, app_password, or oauth_oob",
+						"description": "Primary connection method retained for compatibility",
 						"type": "string"
 					},
 					"capabilities": {
@@ -12000,6 +12455,27 @@
 					"configured": {
 						"description": "Whether this provider can currently be connected",
 						"type": "boolean"
+					},
+					"configured_connection_modes": {
+						"description": "Connection methods configured and ready on this instance",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"connection_modes": {
+						"description": "Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"connection_readiness": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/Decision"
+						},
+						"description": "Mode-specific readiness for providers with distinct connection methods",
+						"type": "object"
 					},
 					"description": {
 						"description": "Short connection or launch note for this provider",
@@ -12036,9 +12512,34 @@
 				"required": ["platform", "display_name", "auth_mode", "configured", "readiness"],
 				"type": "object"
 			},
+			"ProviderReadinessAccount": {
+				"additionalProperties": false,
+				"properties": {
+					"analytics": {
+						"$ref": "#/components/schemas/Decision"
+					},
+					"discovery": {
+						"$ref": "#/components/schemas/Decision"
+					},
+					"observation": {
+						"$ref": "#/components/schemas/Decision"
+					},
+					"social_account_id": {
+						"type": "string"
+					}
+				},
+				"required": ["social_account_id"],
+				"type": "object"
+			},
 			"ProviderReadinessItem": {
 				"additionalProperties": false,
 				"properties": {
+					"accounts": {
+						"items": {
+							"$ref": "#/components/schemas/ProviderReadinessAccount"
+						},
+						"type": ["array", "null"]
+					},
 					"advertisable": {
 						"type": "boolean"
 					},
@@ -14055,6 +14556,148 @@
 				"required": ["message"],
 				"type": "object"
 			},
+			"RepurposeAnalyticsInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RepurposeAnalyticsInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"range": {
+						"$ref": "#/components/schemas/RepurposeRange",
+						"description": "Reporting range used to recompute private evidence"
+					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference",
+						"description": "Opaque discriminated analytics content reference"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "reference", "range"],
+				"type": "object"
+			},
+			"RepurposeEvidence": {
+				"additionalProperties": false,
+				"properties": {
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"metadata": {
+						"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+					},
+					"metric": {
+						"type": "string"
+					},
+					"scope": {
+						"enum": ["requested_range", "lifetime", "current_snapshot"],
+						"type": "string"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["metric", "value", "collected_at", "scope", "metadata"],
+				"type": "object"
+			},
+			"RepurposeProvenance": {
+				"additionalProperties": false,
+				"properties": {
+					"origin": {
+						"enum": ["openpost", "external"],
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"published_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference"
+					}
+				},
+				"required": ["reference", "origin", "platform", "published_at"],
+				"type": "object"
+			},
+			"RepurposeRange": {
+				"additionalProperties": false,
+				"properties": {
+					"days": {
+						"description": "Reporting window in days",
+						"enum": [7, 30, 90],
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["days"],
+				"type": "object"
+			},
+			"RepurposeSource": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RepurposeSource.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"content_profile": {
+						"type": "string"
+					},
+					"destination_account_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"evidence": {
+						"items": {
+							"$ref": "#/components/schemas/RepurposeEvidence"
+						},
+						"type": ["array", "null"]
+					},
+					"handoff_id": {
+						"type": "string"
+					},
+					"provenance": {
+						"$ref": "#/components/schemas/RepurposeProvenance"
+					},
+					"range": {
+						"$ref": "#/components/schemas/RepurposeRange"
+					},
+					"source_text": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"handoff_id",
+					"workspace_id",
+					"title",
+					"source_text",
+					"content_profile",
+					"destination_account_ids",
+					"range",
+					"provenance",
+					"evidence"
+				],
+				"type": "object"
+			},
 			"RequestPasswordResetInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -14929,12 +15572,24 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"bot_token": {
+						"description": "Bot token. Omit to preserve the encrypted value when updating.",
+						"type": "string"
+					},
+					"bot_username": {
+						"description": "Public Telegram bot username",
+						"type": "string"
+					},
 					"client_id": {
-						"description": "OAuth client ID",
+						"description": "OAuth client or application ID",
 						"type": "string"
 					},
 					"client_secret": {
 						"description": "OAuth client secret. Omit to preserve the existing secret when updating.",
+						"type": "string"
+					},
+					"connection_mode": {
+						"description": "Provider connection mode; inferred when omitted",
 						"type": "string"
 					},
 					"instance_url": {
@@ -14956,9 +15611,13 @@
 					"redirect_uri": {
 						"description": "OAuth redirect URI",
 						"type": "string"
+					},
+					"webhook_secret": {
+						"description": "Webhook verification secret. Omit to preserve the encrypted value when updating.",
+						"type": "string"
 					}
 				},
-				"required": ["provider", "client_id"],
+				"required": ["provider"],
 				"type": "object"
 			},
 			"SaveProviderAppResponse": {
@@ -15983,6 +16642,10 @@
 					"engagement": {
 						"$ref": "#/components/schemas/MetricSummary"
 					},
+					"follower_scope": {
+						"enum": ["account_wide"],
+						"type": "string"
+					},
 					"followers": {
 						"$ref": "#/components/schemas/MetricSummary"
 					},
@@ -16000,7 +16663,15 @@
 						"$ref": "#/components/schemas/MetricSummary"
 					}
 				},
-				"required": ["followers", "engagement", "views", "impressions", "reach", "published"],
+				"required": [
+					"followers",
+					"follower_scope",
+					"engagement",
+					"views",
+					"impressions",
+					"reach",
+					"published"
+				],
 				"type": "object"
 			},
 			"SyncStateView": {
@@ -18602,6 +19273,86 @@
 				"tags": ["Accounts"]
 			}
 		},
+		"/accounts/telegram/connection-code": {
+			"post": {
+				"description": "Returns the signed command exactly once. It expires after 15 minutes and is never placed in a URL, job, log, or later response.",
+				"operationId": "issue-telegram-connection-code",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/IssueTelegramConnectionCodeInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IssueTelegramConnectionCodeResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Issue a one-time Telegram connection command",
+				"tags": ["Accounts"]
+			}
+		},
 		"/accounts/{account_id}": {
 			"delete": {
 				"operationId": "disconnect-account",
@@ -18951,6 +19702,16 @@
 							}
 						},
 						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
 					}
 				},
 				"summary": "Revoke a provider grant and disconnect every destination that uses it",
@@ -19136,12 +19897,12 @@
 				"operationId": "get-auth-url",
 				"parameters": [
 					{
-						"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)",
+						"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)",
 						"in": "path",
 						"name": "platform",
 						"required": true,
 						"schema": {
-							"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)",
+							"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)",
 							"type": "string"
 						}
 					},
@@ -20826,12 +21587,24 @@
 						}
 					},
 					{
-						"description": "Optional social account ID used to filter results and totals",
+						"description": "Optional social account ID used to filter results and content totals",
 						"explode": false,
 						"in": "query",
 						"name": "account_id",
 						"schema": {
-							"description": "Optional social account ID used to filter results and totals",
+							"description": "Optional social account ID used to filter results and content totals",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Content source filter; account growth remains account-wide",
+						"explode": false,
+						"in": "query",
+						"name": "source",
+						"schema": {
+							"default": "all",
+							"description": "Content source filter; account growth remains account-wide",
+							"enum": ["all", "openpost", "external"],
 							"type": "string"
 						}
 					},
@@ -20848,23 +21621,23 @@
 						}
 					},
 					{
-						"description": "Opaque publication-page cursor",
+						"description": "Opaque source-bound content cursor",
 						"explode": false,
 						"in": "query",
 						"name": "cursor",
 						"schema": {
-							"description": "Opaque publication-page cursor",
+							"description": "Opaque source-bound content cursor",
 							"type": "string"
 						}
 					},
 					{
-						"description": "Publication results per page",
+						"description": "Content results per page",
 						"explode": false,
 						"in": "query",
 						"name": "limit",
 						"schema": {
 							"default": 50,
-							"description": "Publication results per page",
+							"description": "Content results per page",
 							"format": "int64",
 							"maximum": 100,
 							"minimum": 1,
@@ -20924,7 +21697,7 @@
 						"description": "Internal Server Error"
 					}
 				},
-				"summary": "Get stored account and publication analytics",
+				"summary": "Get stored whole-account content analytics",
 				"tags": ["Analytics"]
 			}
 		},
@@ -20994,6 +21767,96 @@
 					}
 				},
 				"summary": "Queue analytics collection for a workspace",
+				"tags": ["Analytics"]
+			}
+		},
+		"/analytics/repurpose": {
+			"post": {
+				"description": "Resolves bounded stored source fields and private evidence without creating or changing a Publication, Rendition, provider item, or AI build.",
+				"operationId": "prepare-analytics-repurpose",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RepurposeAnalyticsInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RepurposeSource"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"410": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Gone"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Prepare a fresh local repurpose handoff",
 				"tags": ["Analytics"]
 			}
 		},

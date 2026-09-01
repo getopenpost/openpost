@@ -251,6 +251,36 @@ func TestPendingReferenceUsesReadOnlyReconciliation(t *testing.T) {
 	require.Equal(t, int32(1), reconciles.Load())
 }
 
+func TestDurablyPendingSafeCompoundWriteResumesWithFreshFence(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "pending-safe-compound")
+	var sends atomic.Int32
+
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		sends.Add(1)
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "compound", RetrySafety: platform.PublishRetryNever}))
+		pending := platform.PublishResult{
+			ExternalID: "constituent-1", SubmissionState: platform.PublishSubmissionPending,
+			ProviderState: "compound_partial", RetrySafety: platform.PublishRetrySafe,
+		}
+		require.NoError(t, control.Checkpoint(pending))
+		return pending, nil
+	}, nil)
+	_, pending := IsPending(err)
+	require.True(t, pending)
+
+	result, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		sends.Add(1)
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "compound", RetrySafety: platform.PublishRetryNever}))
+		return platform.AcceptedPublishResult("constituent-1"), nil
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "constituent-1", result.ExternalID)
+	require.Equal(t, int32(2), sends.Load())
+	require.Equal(t, 2, latestProviderWriteAttempt(t, db, input.OperationID).AttemptNumber)
+}
+
 func TestStaleWorkerAttemptBecomesAmbiguousBeforeJobRecovery(t *testing.T) {
 	db := newProviderWriteTestDB(t)
 	service := New(db)

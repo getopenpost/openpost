@@ -20,6 +20,7 @@ func TestDeterministicContentURL(t *testing.T) {
 		{name: "mastodon", provider: "mastodon", username: "@rgo", instance: "https://mastodon.social", externalID: "456", want: "https://mastodon.social/@rgo/456"},
 		{name: "bluesky", provider: "bluesky", externalID: `{"uri":"at://did:plc:rgo/app.bsky.feed.post/3abc","cid":"cid"}`, want: "https://bsky.app/profile/did:plc:rgo/post/3abc"},
 		{name: "linkedin", provider: "linkedin", externalID: "urn:li:share:789", want: "https://www.linkedin.com/feed/update/urn:li:share:789"},
+		{name: "pinterest", provider: "pinterest", externalID: "993607355001234567", want: "https://www.pinterest.com/pin/993607355001234567/"},
 		{name: "tiktok", provider: "tiktok", username: "@rgo", externalID: "741234", want: "https://www.tiktok.com/@rgo/video/741234"},
 		{name: "youtube", provider: "youtube", externalID: "video-1", want: "https://www.youtube.com/watch?v=video-1"},
 		{name: "existing url", provider: "threads", externalID: "https://www.threads.net/@rgo/post/example", want: "https://www.threads.net/@rgo/post/example"},
@@ -41,5 +42,6 @@ func TestDeterministicContentURL(t *testing.T) {
 func TestDeterministicContentURLRejectsUnsafeValues(t *testing.T) {
 	require.Empty(t, DeterministicContentURL("x", "", "", "", "123/../../settings"))
 	require.Empty(t, DeterministicContentURL("threads", "", "", "", "javascript:alert(1)"))
+	require.Empty(t, DeterministicContentURL("pinterest", "", "", "", "123/../../settings"))
 	require.False(t, IsSafeContentURL("https://user:secret@example.com/post"))
 }

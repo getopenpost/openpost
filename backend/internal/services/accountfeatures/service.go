@@ -77,10 +77,11 @@ type SupportResolver struct {
 }
 
 type Service struct {
-	db         bun.IDB
-	providers  map[string]platform.Adapter
-	planPolicy PlanPolicy
-	now        func() time.Time
+	db               bun.IDB
+	providers        map[string]platform.Adapter
+	analyticsSources map[string]platform.AnalyticsAdapter
+	planPolicy       PlanPolicy
+	now              func() time.Time
 }
 
 func NewService(db bun.IDB, providers map[string]platform.Adapter, policy PlanPolicy) *Service {
@@ -89,16 +90,23 @@ func NewService(db bun.IDB, providers map[string]platform.Adapter, policy PlanPo
 	}
 	ref := providers
 	return &Service{
-		db:         db,
-		providers:  ref,
-		planPolicy: policy,
-		now:        func() time.Time { return time.Now().UTC() },
+		db:               db,
+		providers:        ref,
+		analyticsSources: make(map[string]platform.AnalyticsAdapter),
+		planPolicy:       policy,
+		now:              func() time.Time { return time.Now().UTC() },
 	}
 }
 
 func (s *Service) SetPlanPolicy(p PlanPolicy) {
 	if p != nil {
 		s.planPolicy = p
+	}
+}
+
+func (s *Service) SetAnalyticsSource(name string, adapter platform.AnalyticsAdapter) {
+	if adapter != nil {
+		s.analyticsSources[strings.ToLower(strings.TrimSpace(name))] = adapter
 	}
 }
 
@@ -607,7 +615,12 @@ func extractPreferenceMeta(pref *models.AccountFeature) (*time.Time, string, str
 }
 
 func (s *Service) supportFor(_ context.Context, account models.SocialAccount, feature string) ([]string, []string, string, bool) {
-	adapter, ok := s.resolveAdapter(account.Platform)
+	if feature == FeatureAnalytics {
+		if source := s.analyticsSources[strings.ToLower(strings.TrimSpace(account.Platform))]; source != nil {
+			return s.supportForAnalytics(account, source)
+		}
+	}
+	adapter, ok := s.resolveAdapter(platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState))
 	if !ok || adapter == nil {
 		return nil, nil, "", false
 	}
@@ -666,7 +679,7 @@ func (s *Service) supportForEngagement(account models.SocialAccount, adapter pla
 	return sup.RequiredScopes, missing, sup.Unavailable, true
 }
 
-func (s *Service) supportForAnalytics(account models.SocialAccount, adapter platform.Adapter) ([]string, []string, string, bool) {
+func (s *Service) supportForAnalytics(account models.SocialAccount, adapter any) ([]string, []string, string, bool) {
 	a, ok := adapter.(platform.AnalyticsAdapter)
 	if !ok {
 		return nil, nil, "", false
@@ -683,7 +696,7 @@ func (s *Service) supportForAnalytics(account models.SocialAccount, adapter plat
 	return required, missing, unavailable, true
 }
 
-func (s *Service) resolveAnalyticsSupport(account models.SocialAccount, a platform.AnalyticsAdapter, adapter platform.Adapter) platform.AnalyticsSupport {
+func (s *Service) resolveAnalyticsSupport(account models.SocialAccount, a platform.AnalyticsAdapter, adapter any) platform.AnalyticsSupport {
 	if resolver, ok := adapter.(platform.AccountAnalyticsSupportResolver); ok {
 		var capState map[string]string
 		_ = json.Unmarshal([]byte(account.CapabilityState), &capState)

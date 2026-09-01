@@ -2,6 +2,8 @@ package analytics
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,10 +14,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/organizationguard"
+	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
 
@@ -40,23 +45,41 @@ type FeatureGate interface {
 }
 
 type Service struct {
-	db          *bun.DB
-	tokenSource TokenSource
-	providersMu sync.RWMutex
-	providers   map[string]platform.Adapter
-	sources     map[string]platform.AnalyticsAdapter
-	now         func() time.Time
-	featureGate FeatureGate
+	db                *bun.DB
+	tokenSource       TokenSource
+	providersMu       sync.RWMutex
+	providers         map[string]platform.Adapter
+	sources           map[string]platform.AnalyticsAdapter
+	now               func() time.Time
+	featureGate       FeatureGate
+	readiness         *providerreadiness.Service
+	discoveryPolicies map[string]DiscoveryPolicy
+	cursorSigningKey  []byte
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource) *Service {
-	return &Service{
-		db:          db,
-		tokenSource: tokenSource,
-		providers:   make(map[string]platform.Adapter),
-		sources:     make(map[string]platform.AnalyticsAdapter),
-		now:         func() time.Time { return time.Now().UTC() },
+	cursorSigningKey := make([]byte, 32)
+	if _, err := rand.Read(cursorSigningKey); err != nil {
+		fallback := sha256.Sum256([]byte(uuid.NewString()))
+		cursorSigningKey = fallback[:]
 	}
+	return &Service{
+		db:                db,
+		tokenSource:       tokenSource,
+		providers:         make(map[string]platform.Adapter),
+		sources:           make(map[string]platform.AnalyticsAdapter),
+		now:               func() time.Time { return time.Now().UTC() },
+		discoveryPolicies: make(map[string]DiscoveryPolicy),
+		cursorSigningKey:  cursorSigningKey,
+	}
+}
+
+func (s *Service) SetCursorSigningKey(secret string) {
+	if s == nil || strings.TrimSpace(secret) == "" {
+		return
+	}
+	digest := sha256.Sum256([]byte("openpost:analytics-cursor:" + secret))
+	s.cursorSigningKey = append([]byte(nil), digest[:]...)
 }
 
 func (s *Service) SetProvider(name string, adapter platform.Adapter) {
@@ -73,6 +96,32 @@ func (s *Service) SetExternalSource(platformName string, adapter platform.Analyt
 
 func (s *Service) SetFeatureGate(g FeatureGate) {
 	s.featureGate = g
+}
+
+func (s *Service) SetProviderReadiness(readiness *providerreadiness.Service) {
+	s.readiness = readiness
+}
+
+func (s *Service) isProviderOperationEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
+	requiresReadiness := account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram ||
+		(account.Platform == capabilities.ProviderDiscord && platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot)
+	if !requiresReadiness {
+		return true
+	}
+	if s.readiness == nil {
+		return false
+	}
+	decision := s.readiness.DecideAccountOperation(ctx, account, operation, providerreadiness.ExecutionIntentProduction)
+	switch operation {
+	case providerreadiness.OperationDiscover:
+		return decision.Discoverable
+	case providerreadiness.OperationObservation:
+		return decision.Observable
+	case providerreadiness.OperationAnalytics:
+		return decision.AnalyticsReady
+	default:
+		return false
+	}
 }
 
 func (s *Service) isAnalyticsEnabled(ctx context.Context, accountID string) bool {
@@ -117,6 +166,12 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 			return fmt.Errorf("decode analytics rendition job")
 		}
 		return s.syncRendition(ctx, input.RenditionID)
+	case jobregistry.TypeAccountContentDiscovery:
+		input, err := jobregistry.DecodeAccountContentDiscoveryPayload(payload)
+		if err != nil {
+			return err
+		}
+		return s.handleAccountContentDiscovery(ctx, input)
 	default:
 		return fmt.Errorf("unsupported analytics job type %q", jobType)
 	}
@@ -162,6 +217,11 @@ func (s *Service) enqueueWorkspace(ctx context.Context, workspaceID string, forc
 	if err != nil {
 		return queued, err
 	}
+	discoveryJobs, err := s.reconsiderAccountContentAccounts(ctx, accounts, now)
+	queued += discoveryJobs
+	if err != nil {
+		return queued, err
+	}
 	renditions, err := s.listAnalyticsRenditions(ctx, workspaceID, force, now)
 	if err != nil {
 		return queued, err
@@ -198,6 +258,9 @@ func (s *Service) enqueueAccountJobs(ctx context.Context, accounts []models.Soci
 func (s *Service) enqueueAccountJob(ctx context.Context, account models.SocialAccount, force bool, now time.Time) (bool, error) {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
+	}
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -285,6 +348,9 @@ func (s *Service) enqueueRenditionJob(
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "This provider does not expose content analytics in OpenPost.")
@@ -332,6 +398,9 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "")
@@ -347,17 +416,22 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
-	values, err := adapter.FetchAccountAnalytics(ctx, token, platform.AccountAnalyticsRequest{
-		AccountID:       account.AccountID,
-		GrantedScopes:   strings.Fields(account.GrantedScopes),
-		CapabilityState: analyticsCapabilityState(account.CapabilityState),
-	})
+	now := s.now()
+	request := platform.AccountAnalyticsRequest{
+		AccountID:            account.AccountID,
+		GrantedScopes:        strings.Fields(account.GrantedScopes),
+		CapabilityState:      analyticsCapabilityState(account.CapabilityState),
+		ReportingPeriodStart: now.AddDate(0, 0, -30),
+		ReportingPeriodEnd:   now,
+	}
+	values, metadata, err := fetchAccountMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
-	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, accountCadence)
+	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, metadata, accountCadence)
 }
 
+//nolint:gocyclo // Sync keeps feature, readiness, scope, identity, and provider failure gates before one read.
 func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	var rendition models.Rendition
 	if err := s.db.NewSelect().Model(&rendition).Where("id = ? AND status = ?", renditionID, models.RenditionStatusPublished).Scan(ctx); err != nil {
@@ -375,6 +449,9 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	}
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
+	}
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -403,19 +480,32 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
 	s.resolveAndStoreContentURL(ctx, adapter, token, account, &rendition)
-	values, err := adapter.FetchContentAnalytics(ctx, token, platform.ContentAnalyticsRequest{
-		AccountID:     account.AccountID,
-		ExternalIDs:   externalIDs,
-		Profile:       rendition.Profile,
-		OutputProfile: rendition.OutputProfile,
-		PublishedAt:   publishedAt,
-		GrantedScopes: strings.Fields(account.GrantedScopes),
-		OwnReplyCount: max(0, len(externalIDs)-1),
-	})
+	providerReferences, err := s.analyticsProviderReferences(ctx, adapter, rendition, account, externalIDs)
+	if err != nil {
+		return err
+	}
+	now := s.now()
+	reportingStart := publishedAt
+	if !reportingStart.Before(now) {
+		reportingStart = now.AddDate(0, 0, -1)
+	}
+	request := platform.ContentAnalyticsRequest{
+		AccountID:            account.AccountID,
+		ExternalIDs:          externalIDs,
+		ProviderReferences:   providerReferences,
+		Profile:              rendition.Profile,
+		OutputProfile:        rendition.OutputProfile,
+		PublishedAt:          publishedAt,
+		ReportingPeriodStart: reportingStart,
+		ReportingPeriodEnd:   now,
+		GrantedScopes:        strings.Fields(account.GrantedScopes),
+		OwnReplyCount:        max(0, len(externalIDs)-1),
+	}
+	values, metadata, err := fetchContentMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
-	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, contentCadence(s.now().Sub(publishedAt)))
+	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, metadata, contentCadence(s.now().Sub(publishedAt)))
 }
 
 func (s *Service) resolveAndStoreContentURL(
@@ -469,6 +559,7 @@ func (s *Service) recordSuccess(
 	account models.SocialAccount,
 	publicationID, renditionID string,
 	values platform.AnalyticsValues,
+	metadata map[string]platform.AnalyticsMetricMetadata,
 	baseCadence time.Duration,
 ) error {
 	if values == nil {
@@ -478,12 +569,16 @@ func (s *Service) recordSuccess(
 	if err != nil {
 		return fmt.Errorf("encode analytics values: %w", err)
 	}
+	metadataJSON, err := encodeMetricMetadata(metadata)
+	if err != nil {
+		return err
+	}
 	now := s.now()
 	state, err := s.loadState(ctx, subjectType, subjectID)
 	if err != nil {
 		return fmt.Errorf("load analytics sync state: %w", err)
 	}
-	unchanged := state != nil && state.MetricsJSON == string(metricsJSON)
+	unchanged := state != nil && state.MetricsJSON == string(metricsJSON) && state.MetricMetadataJSON == metadataJSON
 	streak := 0
 	if unchanged {
 		streak = state.UnchangedStreak + 1
@@ -498,48 +593,51 @@ func (s *Service) recordSuccess(
 		captureKey := subjectType + ":" + subjectID + ":" + now.Truncate(time.Minute).Format(time.RFC3339)
 		if subjectType == subjectAccount {
 			snapshot := &models.AnalyticsAccountSnapshot{
-				ID:              uuid.NewString(),
-				WorkspaceID:     account.WorkspaceID,
-				SocialAccountID: account.ID,
-				Platform:        account.Platform,
-				MetricsJSON:     string(metricsJSON),
-				CapturedAt:      now,
-				CaptureKey:      captureKey,
+				ID:                 uuid.NewString(),
+				WorkspaceID:        account.WorkspaceID,
+				SocialAccountID:    account.ID,
+				Platform:           account.Platform,
+				MetricsJSON:        string(metricsJSON),
+				MetricMetadataJSON: metadataJSON,
+				CapturedAt:         now,
+				CaptureKey:         captureKey,
 			}
 			if _, err := tx.NewInsert().Model(snapshot).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return fmt.Errorf("store account analytics snapshot: %w", err)
 			}
 		} else {
 			snapshot := &models.AnalyticsRenditionSnapshot{
-				ID:              uuid.NewString(),
-				WorkspaceID:     account.WorkspaceID,
-				PublicationID:   publicationID,
-				RenditionID:     renditionID,
-				SocialAccountID: account.ID,
-				Platform:        account.Platform,
-				MetricsJSON:     string(metricsJSON),
-				CapturedAt:      now,
-				CaptureKey:      captureKey,
+				ID:                 uuid.NewString(),
+				WorkspaceID:        account.WorkspaceID,
+				PublicationID:      publicationID,
+				RenditionID:        renditionID,
+				SocialAccountID:    account.ID,
+				Platform:           account.Platform,
+				MetricsJSON:        string(metricsJSON),
+				MetricMetadataJSON: metadataJSON,
+				CapturedAt:         now,
+				CaptureKey:         captureKey,
 			}
 			if _, err := tx.NewInsert().Model(snapshot).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return fmt.Errorf("store rendition analytics snapshot: %w", err)
 			}
 		}
 		return upsertState(ctx, tx, &models.AnalyticsSyncState{
-			ID:              stateID(subjectType, subjectID),
-			WorkspaceID:     account.WorkspaceID,
-			SubjectType:     subjectType,
-			SubjectID:       subjectID,
-			SocialAccountID: account.ID,
-			Platform:        account.Platform,
-			Status:          string(platform.AnalyticsStatusOK),
-			MetricsJSON:     string(metricsJSON),
-			LastAttemptedAt: now,
-			LastSuccessAt:   now,
-			NextSyncAt:      nextSyncAt,
-			UnchangedStreak: streak,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                 stateID(subjectType, subjectID),
+			WorkspaceID:        account.WorkspaceID,
+			SubjectType:        subjectType,
+			SubjectID:          subjectID,
+			SocialAccountID:    account.ID,
+			Platform:           account.Platform,
+			Status:             string(platform.AnalyticsStatusOK),
+			MetricsJSON:        string(metricsJSON),
+			MetricMetadataJSON: metadataJSON,
+			LastAttemptedAt:    now,
+			LastSuccessAt:      now,
+			NextSyncAt:         nextSyncAt,
+			UnchangedStreak:    streak,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		})
 	})
 }
@@ -559,30 +657,33 @@ func (s *Service) recordUnavailable(ctx context.Context, subjectType, subjectID 
 		next = now.Add(accountCadence)
 	}
 	metricsJSON := "{}"
+	metadataJSON := "{}"
 	lastSuccessAt := time.Time{}
 	unchangedStreak := 0
 	if state != nil {
 		metricsJSON = state.MetricsJSON
+		metadataJSON = state.MetricMetadataJSON
 		lastSuccessAt = state.LastSuccessAt
 		unchangedStreak = state.UnchangedStreak
 	}
 	return upsertState(ctx, s.db, &models.AnalyticsSyncState{
-		ID:              stateID(subjectType, subjectID),
-		WorkspaceID:     account.WorkspaceID,
-		SubjectType:     subjectType,
-		SubjectID:       subjectID,
-		SocialAccountID: account.ID,
-		Platform:        account.Platform,
-		Status:          string(status),
-		ErrorCode:       code,
-		ErrorMessage:    message,
-		MetricsJSON:     metricsJSON,
-		LastAttemptedAt: now,
-		LastSuccessAt:   lastSuccessAt,
-		NextSyncAt:      next,
-		UnchangedStreak: unchangedStreak,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 stateID(subjectType, subjectID),
+		WorkspaceID:        account.WorkspaceID,
+		SubjectType:        subjectType,
+		SubjectID:          subjectID,
+		SocialAccountID:    account.ID,
+		Platform:           account.Platform,
+		Status:             string(status),
+		ErrorCode:          code,
+		ErrorMessage:       message,
+		MetricsJSON:        metricsJSON,
+		MetricMetadataJSON: metadataJSON,
+		LastAttemptedAt:    now,
+		LastSuccessAt:      lastSuccessAt,
+		NextSyncAt:         next,
+		UnchangedStreak:    unchangedStreak,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 }
 
@@ -603,30 +704,33 @@ func (s *Service) recordFailure(ctx context.Context, subjectType, subjectID stri
 		return fmt.Errorf("load failed analytics sync state: %w", err)
 	}
 	metricsJSON := "{}"
+	metadataJSON := "{}"
 	lastSuccessAt := time.Time{}
 	unchangedStreak := 0
 	if state != nil {
 		metricsJSON = state.MetricsJSON
+		metadataJSON = state.MetricMetadataJSON
 		lastSuccessAt = state.LastSuccessAt
 		unchangedStreak = state.UnchangedStreak
 	}
 	err = upsertState(ctx, s.db, &models.AnalyticsSyncState{
-		ID:              stateID(subjectType, subjectID),
-		WorkspaceID:     account.WorkspaceID,
-		SubjectType:     subjectType,
-		SubjectID:       subjectID,
-		SocialAccountID: account.ID,
-		Platform:        account.Platform,
-		Status:          string(status),
-		ErrorCode:       code,
-		ErrorMessage:    safeAnalyticsMessageForAdapter(adapter, status, code),
-		MetricsJSON:     metricsJSON,
-		LastAttemptedAt: now,
-		LastSuccessAt:   lastSuccessAt,
-		NextSyncAt:      next,
-		UnchangedStreak: unchangedStreak,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 stateID(subjectType, subjectID),
+		WorkspaceID:        account.WorkspaceID,
+		SubjectType:        subjectType,
+		SubjectID:          subjectID,
+		SocialAccountID:    account.ID,
+		Platform:           account.Platform,
+		Status:             string(status),
+		ErrorCode:          code,
+		ErrorMessage:       safeAnalyticsMessageForAdapter(adapter, status, code),
+		MetricsJSON:        metricsJSON,
+		MetricMetadataJSON: metadataJSON,
+		LastAttemptedAt:    now,
+		LastSuccessAt:      lastSuccessAt,
+		NextSyncAt:         next,
+		UnchangedStreak:    unchangedStreak,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err != nil {
 		return err
@@ -650,6 +754,7 @@ func upsertState(ctx context.Context, db bun.IDB, state *models.AnalyticsSyncSta
 		Set("error_code = EXCLUDED.error_code").
 		Set("error_message = EXCLUDED.error_message").
 		Set("metrics_json = EXCLUDED.metrics_json").
+		Set("metric_metadata_json = EXCLUDED.metric_metadata_json").
 		Set("last_attempted_at = EXCLUDED.last_attempted_at").
 		Set("last_success_at = EXCLUDED.last_success_at").
 		Set("next_sync_at = EXCLUDED.next_sync_at").
@@ -723,10 +828,7 @@ func (s *Service) analyticsAdapter(account models.SocialAccount) platform.Analyt
 	}
 	s.providersMu.RUnlock()
 
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key = "mastodon:" + account.InstanceURL
-	}
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	s.providersMu.RLock()
 	adapter := s.providers[key]
 	s.providersMu.RUnlock()
@@ -805,6 +907,65 @@ func (s *Service) analyticsAccessToken(ctx context.Context, adapter platform.Ana
 		return "", nil
 	}
 	return s.accessToken(ctx, accountID)
+}
+
+func (s *Service) analyticsProviderReferences(
+	ctx context.Context,
+	adapter platform.AnalyticsAdapter,
+	rendition models.Rendition,
+	account models.SocialAccount,
+	externalIDs []string,
+) ([]string, error) {
+	consumer, ok := adapter.(platform.ProviderReferenceAnalyticsAdapter)
+	if !ok || !consumer.RequiresProviderReferences() {
+		return nil, nil
+	}
+	return s.renditionProviderReferences(ctx, rendition, account, externalIDs)
+}
+
+func (s *Service) renditionProviderReferences(
+	ctx context.Context,
+	rendition models.Rendition,
+	account models.SocialAccount,
+	externalIDs []string,
+) ([]string, error) {
+	if len(externalIDs) == 0 {
+		return nil, nil
+	}
+	const maxReceiptRows = 100
+	var attempts []models.ProviderWriteAttempt
+	if err := s.db.NewSelect().
+		Model(&attempts).
+		Column("external_id", "provider_reference").
+		Where("rendition_id = ?", rendition.ID).
+		Where("social_account_id = ?", account.ID).
+		Where("provider = ?", account.Platform).
+		Where("status = ?", providerwrite.StatusAccepted).
+		Where("submission_state = ?", platform.PublishSubmissionAccepted).
+		Where("external_id IN (?)", bun.List(externalIDs)).
+		Where("provider_reference <> ''").
+		Order("updated_at DESC").
+		Limit(maxReceiptRows).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("load analytics provider receipts: %w", err)
+	}
+	persisted := make(map[string]struct{}, len(externalIDs))
+	for _, externalID := range externalIDs {
+		persisted[externalID] = struct{}{}
+	}
+	seenIDs := make(map[string]struct{}, len(attempts))
+	references := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		if _, ok := persisted[attempt.ExternalID]; !ok {
+			continue
+		}
+		if _, duplicate := seenIDs[attempt.ExternalID]; duplicate {
+			continue
+		}
+		seenIDs[attempt.ExternalID] = struct{}{}
+		references = append(references, attempt.ProviderReference)
+	}
+	return references, nil
 }
 
 func (s *Service) renditionExternalIDs(ctx context.Context, rendition models.Rendition) ([]string, error) {

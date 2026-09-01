@@ -44,7 +44,7 @@ test("official policy documents use explicit independent acceptance rules", () =
 });
 
 test("effective dates format from the canonical ISO value", () => {
-  assert.equal(formatPolicyEffectiveDate(legalPolicy.privacy), "11 August 2026");
+  assert.equal(formatPolicyEffectiveDate(legalPolicy.privacy), "1 September 2026");
   assert.equal(formatLegalDate("2026-08-05"), "5 August 2026");
   assert.throws(() => formatLegalDate("not-a-date"), /invalid legal date/u);
 });
@@ -123,6 +123,30 @@ test("managed data has an owned purpose, retention rule, and deletion trigger", 
     assert.ok(entry.evidence.length > 0, `${entry.id} needs source evidence`);
     assertSourcePathsExist(entry.evidence, entry.id);
   }
+});
+
+test("whole-account analytics discloses bounded external content without raw provider data", () => {
+  const analytics = privacyInventory.managed_retention.find(({ id }) => id === "analytics-usage");
+  assert.ok(analytics);
+  assert.match(analytics.includes, /bounded titles and text.*published outside OpenPost/u);
+  assert.match(
+    analytics.exceptions,
+    /do not retain raw provider responses, remote media bytes, access tokens, bot tokens, or webhook secrets/u,
+  );
+
+  const policy = readFileSync(
+    `${repositoryRoot}marketing-site/src/routes/privacy/+page.svelte`,
+    "utf8",
+  );
+  assert.match(
+    policy,
+    /bounded titles and text for eligible content published\s+outside OpenPost/u,
+  );
+  assert.match(
+    policy,
+    /do not contain raw platform replies, remote media, access tokens, bot tokens,\s+webhook secrets/u,
+  );
+  assert.match(policy, /We do not send post content[\s\S]*telemetry properties/u);
 });
 
 test("browser storage inventory covers every supported storage technology", () => {

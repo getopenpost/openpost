@@ -99,6 +99,14 @@
     "audience": "This page is for people deciding whether OpenPost fits their YouTube publishing workflow.",
     "boundary": "Implemented: App review required"
   },
+  "https://openpo.st/platforms/pinterest": {
+    "audience": "This page is for people deciding whether OpenPost fits their Pinterest publishing workflow.",
+    "boundary": "Implemented: Adapter code exists; public connections are intentionally unavailable"
+  },
+  "https://openpo.st/platforms/telegram": {
+    "audience": "This page is for people deciding whether OpenPost fits their Telegram publishing workflow.",
+    "boundary": "Implemented: Bot paths exist; public connections are intentionally unavailable"
+  },
   "https://openpo.st/platforms/discord": {
     "audience": "This page is for people deciding whether OpenPost fits their Discord publishing workflow.",
     "boundary": "A webhook can publish and delete its own messages, but it cannot read the channel inbox."
@@ -375,6 +383,14 @@
     "audience": "This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.",
     "boundary": "For custom instances: no static env entry is required, but the instance must be public HTTPS and allow app registration."
   },
+  "https://docs.openpo.st/providers/pinterest": {
+    "audience": "This page is for operators reviewing Pinterest's certification boundary.",
+    "boundary": "Pinterest is not publicly available in OpenPost."
+  },
+  "https://docs.openpo.st/providers/telegram": {
+    "audience": "This page is for operators reviewing Telegram bot mode's certification boundary.",
+    "boundary": "Telegram bot mode is not publicly available in OpenPost."
+  },
   "https://docs.openpo.st/providers/threads": {
     "audience": "This page is for operators configuring Threads and users connecting an account.",
     "boundary": "Threads supports text, single media, replies, and 2-20 item media carousels, but the media URL requirement makes deployment details matter."
@@ -393,7 +409,7 @@
   },
   "https://docs.openpo.st/providers/youtube": {
     "audience": "This page is for operators configuring YouTube and users connecting a channel.",
-    "boundary": "Google may omit hidden subscriber counts. Accounts without youtube.readonly may need to reconnect."
+    "boundary": "Test a live account before you rely on YouTube publishing, especially for app review, playlists, and thumbnails."
   },
   "https://docs.openpo.st/reference/callback-urls": {
     "audience": "This reference is for operators registering provider and identity callback URLs.",
@@ -424,8 +440,8 @@
     "boundary": "A person reviews the work before allowing a change."
   },
   "https://docs.openpo.st/usage/analytics": {
-    "audience": "Use this page when reviewing saved account and Publication results.",
-    "boundary": "Disabling it stops future account and Rendition metric collection for that account without deleting stored metrics and without revoking provider authorization."
+    "audience": "Use this page when reviewing saved whole-account content results.",
+    "boundary": "Disabling Analytics stops future account, Rendition, and account-content collection for that account without deleting stored history or revoking provider authorization."
   },
   "https://docs.openpo.st/usage/auto-reposts": {
     "audience": "This page is for people configuring native same-network repost rules after publication.",

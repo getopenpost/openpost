@@ -857,6 +857,98 @@ const platformImplementations = [
 		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/youtube/`
 	},
 	{
+		slug: 'pinterest',
+		name: 'Pinterest',
+		short: 'pinterest',
+		tag: 'Unavailable pending certification',
+		requiresProviderApproval: true,
+		implementationDetail: 'Adapter code exists; public connections are intentionally unavailable',
+		description:
+			'Pinterest is not publicly available in OpenPost. Standard API access and current live certification are required before connection or publishing can be claimed.',
+		heroTitle: 'Pinterest remains behind the provider readiness gate.',
+		preview: {
+			label: 'No public connection',
+			headline: 'Certification required',
+			body: 'Mocked tests and adapter code do not make Pinterest available to public Hosted accounts.',
+			detail: 'Standard access plus live evidence',
+			chips: ['Unavailable', 'Provider approval', 'Live certification']
+		},
+		accountRequirement:
+			'A Pinterest app with Standard access, exact scopes, runtime controls, and current live certification.',
+		auth: 'OAuth 2.0; publicly unavailable',
+		setup: [
+			'Operators may configure a Pinterest app only for controlled development or certification work.',
+			'Keep public connection, publishing, discovery, and analytics operations disabled without current evidence.',
+			'Use the provider readiness ledger before changing any public availability statement.'
+		],
+		formats: [
+			{
+				name: 'Public availability',
+				text: 'Unavailable',
+				media: 'Unavailable'
+			}
+		],
+		limits: [
+			'Standard API access is required for production use',
+			'Public Hosted availability requires current exact-subject live evidence',
+			'No Pinterest operation is advertised as available today'
+		],
+		limitations: [
+			'Trial access is for development and certification, not public production use.',
+			'An adapter, configured credential, or mocked test is not a readiness claim.',
+			'OpenPost exposes no public Pinterest claim without a current certification projection.'
+		],
+		verification:
+			'Do not connect or publish for public accounts until Standard access and every readiness gate pass with current live evidence.',
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/pinterest/`
+	},
+	{
+		slug: 'telegram',
+		name: 'Telegram',
+		short: 'telegram',
+		tag: 'Bot mode unavailable pending certification',
+		requiresProviderApproval: false,
+		implementationDetail: 'Bot paths exist; public connections are intentionally unavailable',
+		description:
+			'Telegram bot mode is not publicly available in OpenPost. It remains blocked until the exact bot configuration and operations have current live certification.',
+		heroTitle: 'Telegram bot mode remains behind the provider readiness gate.',
+		preview: {
+			label: 'No public connection',
+			headline: 'Live bot certification required',
+			body: 'A configured bot token does not make Telegram available to public Hosted accounts.',
+			detail: 'Connect, publish, observation, and analytics gate separately',
+			chips: ['Unavailable', 'Instance bot', 'Live certification']
+		},
+		accountRequirement:
+			'An instance-owned Telegram bot with a secret webhook and current live evidence for each enabled operation.',
+		auth: 'Instance-owned bot; publicly unavailable',
+		setup: [
+			'Operators may configure the instance bot only for controlled development or certification work.',
+			'Keep public connection, publishing, observation, and analytics operations disabled without current evidence.',
+			'Use the provider readiness ledger before changing any public availability statement.'
+		],
+		formats: [
+			{
+				name: 'Public availability',
+				text: 'Unavailable',
+				media: 'Unavailable'
+			}
+		],
+		limits: [
+			'Every bot operation has an independent readiness gate',
+			'Public Hosted availability requires current exact-subject live evidence',
+			'No Telegram bot operation is advertised as available today'
+		],
+		limitations: [
+			'Bot credentials are instance-owned and never belong in workspace data.',
+			'An implementation path or configured token is not a readiness claim.',
+			'OpenPost exposes no public Telegram bot claim without a current certification projection.'
+		],
+		verification:
+			'Do not connect the bot to public accounts until every intended operation passes its readiness gate with current live evidence.',
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/telegram/`
+	},
+	{
 		slug: 'discord',
 		name: 'Discord',
 		short: 'discord',
@@ -950,7 +1042,7 @@ export const tools = [
 		slug: 'multi-platform-character-counter',
 		name: 'Multi-platform character counter',
 		description:
-			'Paste once and compare one draft against the limits and counting rules for ten social networks.'
+			'Paste once and compare one draft against the limits and counting rules for twelve social networks.'
 	},
 	{
 		slug: 'post-preview-generator',

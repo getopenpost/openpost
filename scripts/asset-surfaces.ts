@@ -10,6 +10,8 @@ export const publishedProviderAssetSlugs = [
   "instagram",
   "tiktok",
   "youtube",
+  "pinterest",
+  "telegram",
   "discord",
 ] as const;
 

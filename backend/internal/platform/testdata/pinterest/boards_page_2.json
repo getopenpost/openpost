@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "id": "board-2",
+      "name": "Lessons duplicate",
+      "privacy": "PUBLIC",
+      "owner": { "username": "openpost" }
+    },
+    {
+      "id": "board-3",
+      "name": "Build notes",
+      "privacy": "SECRET",
+      "owner": { "username": "openpost" }
+    }
+  ],
+  "bookmark": null
+}

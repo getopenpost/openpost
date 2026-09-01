@@ -47,6 +47,9 @@ type Operation string
 
 const (
 	OperationConnect          Operation = "connect"
+	OperationDiscover         Operation = "discover"
+	OperationObservation      Operation = "observation"
+	OperationAnalytics        Operation = "analytics"
 	OperationPublishImmediate Operation = "publish_immediate"
 	OperationPublishScheduled Operation = "publish_scheduled"
 	OperationRefresh          Operation = "refresh"
@@ -55,6 +58,10 @@ const (
 
 func (o Operation) IsPublish() bool {
 	return o == OperationPublishImmediate || o == OperationPublishScheduled
+}
+
+func (o Operation) IsAccountRead() bool {
+	return o == OperationDiscover || o == OperationObservation || o == OperationAnalytics
 }
 
 type ExecutionIntent string
@@ -124,6 +131,9 @@ type CheckKind string
 const (
 	CheckConnect          CheckKind = "connect"
 	CheckAuthorization    CheckKind = "authorization"
+	CheckDiscovery        CheckKind = "discovery"
+	CheckObservation      CheckKind = "observation"
+	CheckAnalytics        CheckKind = "analytics"
 	CheckPublishImmediate CheckKind = "publish_immediate"
 	CheckPublishScheduled CheckKind = "publish_scheduled"
 	CheckFinalResult      CheckKind = "final_result"
@@ -237,6 +247,7 @@ type Requirements struct {
 	RequireProductionProviderApp bool               `json:"require_production_provider_app"`
 	RequireExactRevision         bool               `json:"require_exact_revision"`
 	RequireApproval              bool               `json:"require_approval"`
+	RequiredApprovalTier         string             `json:"required_approval_tier,omitempty"`
 	RequireAuthorization         bool               `json:"require_authorization"`
 	RequireLocalEvidence         bool               `json:"require_local_evidence"`
 	RequireLiveEvidence          bool               `json:"require_live_evidence"`
@@ -379,6 +390,9 @@ type Decision struct {
 	Executable     bool           `json:"executable"`
 	Connectable    bool           `json:"connectable"`
 	Publishable    bool           `json:"publishable"`
+	Discoverable   bool           `json:"discoverable"`
+	Observable     bool           `json:"observable"`
+	AnalyticsReady bool           `json:"analytics_ready"`
 	Advertisable   bool           `json:"advertisable"`
 	Facts          Facts          `json:"facts"`
 	Blockers       []Blocker      `json:"blockers,omitempty"`

@@ -112,9 +112,11 @@
 				projects, templates, brand settings, prompts, schedules, post status, and job history.
 			</li>
 			<li>
-				<strong>Analytics data:</strong> account and post numbers, past results, update status, and safe
-				platform error codes. Analytics records do not contain full platform replies, access tokens, post
-				text, or direct messages.
+				<strong>Analytics data:</strong> account and content numbers, past results, update and discovery
+				status, safe platform error codes, and bounded titles and text for eligible content published
+				outside OpenPost. This lets you inspect measured evidence and prepare a repurpose draft for review.
+				Analytics records do not contain raw platform replies, remote media, access tokens, bot tokens,
+				webhook secrets, or direct messages.
 			</li>
 			<li>
 				<strong>Product and website telemetry:</strong> cookieless public page views and selected interactions;

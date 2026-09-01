@@ -35,6 +35,8 @@ const (
 	providerInstagram = "instagram"
 	providerLinkedIn  = "linkedin"
 	providerMastodon  = "mastodon"
+	providerPinterest = "pinterest"
+	providerTelegram  = "telegram"
 	providerTikTok    = "tiktok"
 	providerThreads   = "threads"
 	providerX         = "x"

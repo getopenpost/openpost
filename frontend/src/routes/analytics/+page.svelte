@@ -1,14 +1,16 @@
 <!--
-THESIS: Analytics follows one OpenPost publication across its provider renditions.
+THESIS: Analytics explains stored account and content measurements without hiding provider limits.
 OWN-WORLD: It uses OpenPost's flat borders, compact controls, and provider marks.
-STORY: Read exact metric totals, inspect combined or account growth, then expand a publication for provider detail.
+STORY: Read exact totals, verify evidence, then inspect managed and external content in one list.
 FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified follower trend are visible without scrolling.
-FORM: Publications are the primary rows; provider renditions disclose in place without leaving context.
+FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
@@ -30,8 +32,17 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
+	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
 	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
-	import { hasEngagementMeasurement, type AnalyticsSortMode } from '$lib/analytics-overview';
+	import {
+		analyticsSourceLabelKey,
+		appendAnalyticsContentPage,
+		hasEngagementMeasurement,
+		hasLimitedAccountHistory,
+		insightHasRanking,
+		isBuildingAccountHistory,
+		type AnalyticsSortMode
+	} from '$lib/analytics-overview';
 	import {
 		allFeatureEffectiveDisabled,
 		collectiveDisabledReason,
@@ -42,39 +53,40 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	type AnalyticsOverview = components['schemas']['Overview'];
 	type AnalyticsAccount = components['schemas']['AccountOverview'];
 	type AnalyticsContent = components['schemas']['ContentOverview'];
-	type AnalyticsPublication = components['schemas']['PublicationOverview'];
+	type AnalyticsInsight = components['schemas']['Insight'];
+	type AccountDiscoveryCoverage = components['schemas']['AccountDiscoveryCoverage'];
+	type AnalyticsMetricMetadata = components['schemas']['AnalyticsMetricMetadata'];
 	type MetricSummary = components['schemas']['MetricSummary'];
 	type RangeDays = 7 | 30 | 90;
+	type ContentSource = 'all' | 'openpost' | 'external';
 	type ChartMetric = 'followers' | 'engagement' | 'views';
 	type FeatureState = FeatureComponents['schemas']['FeatureStateResponse'];
-	type AnalyticsInsight = {
-		title: string;
-		body: string;
-		account?: {
-			name: string;
-			platform: string;
-			avatarUrl?: string | null;
-		};
-	};
 
 	let overview = $state.raw<AnalyticsOverview | null>(null);
 	let rangeDays = $state<RangeDays>(30);
 	let selectedAccountID = $state('all');
 	let chartMetric = $state<ChartMetric>('views');
 	let sortMode = $state<AnalyticsSortMode>('engagement');
-	let expandedPublicationID = $state('');
+	let sourceFilter = $state<ContentSource>('all');
+	let expandedContentID = $state('');
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let refreshing = $state(false);
+	let repurposingReferenceKey = $state('');
 	let error = $state('');
 	let toastMessage = $state('');
+	let toastTone = $state<'success' | 'error'>('success');
 	let dataWorkspaceID = $state('');
 	let dataRequestSequence = 0;
 	let analyticsFeatures = $state.raw<FeatureState[]>([]);
 
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const accounts = $derived(overview?.accounts ?? []);
-	const publications = $derived(overview?.publications ?? []);
+	const contentItems = $derived(overview?.content ?? []);
+	const analyticsInsights = $derived(overview?.insights ?? []);
+	const accountCoverage = $derived(overview?.coverage ?? []);
+	const buildingCoverage = $derived(accountCoverage.filter(isBuildingAccountHistory));
+	const hasLimitedCoverage = $derived(accountCoverage.some(hasLimitedAccountHistory));
 	const selectedAccount = $derived(
 		selectedAccountID === 'all'
 			? undefined
@@ -110,9 +122,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		(selectedAccount
 			? Boolean(selectedAccount.last_synced_at)
 			: accounts.some((account) => Boolean(account.last_synced_at))) ||
-			publications.some((publication) =>
-				(publication.renditions ?? []).some((rendition) => Boolean(rendition.last_synced_at))
-			)
+			contentItems.some((item) => Boolean(item.collected_at || item.last_synced_at))
 	);
 	const initialLoading = $derived(
 		Boolean(currentWorkspaceID) && loading && (!overview || dataWorkspaceID !== currentWorkspaceID)
@@ -178,65 +188,14 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	const unavailableSummaryMetrics = $derived(
 		summaryMetrics.filter((item) => item.metric.measured === 0)
 	);
-	const analyticsInsights = $derived.by(() => {
-		const insights: AnalyticsInsight[] = [];
-		const strongestPublication = publications
-			.filter((publication) => publication.engagement_measured > 0)
-			.toSorted((left, right) => right.engagement - left.engagement)[0];
-		if (strongestPublication) {
-			insights.push({
-				title: m.analytics_insight_top_post(),
-				body: m.analytics_insight_top_post_body({
-					post: publicationLabel(strongestPublication),
-					engagement: formatNumber(strongestPublication.engagement)
-				})
-			});
-		}
-		const strongestDestination = publications
-			.flatMap((publication) => publication.renditions ?? [])
-			.filter(hasEngagementMeasurement)
-			.toSorted((left, right) => right.engagement - left.engagement)[0];
-		if (strongestDestination) {
-			const account = accounts.find(
-				(candidate) => candidate.id === strongestDestination.account_id
-			);
-			insights.push({
-				title: m.analytics_insight_top_destination(),
-				body: m.analytics_insight_top_destination_body({
-					engagement: formatNumber(strongestDestination.engagement)
-				}),
-				account: {
-					name: renditionName(strongestDestination),
-					platform: strongestDestination.platform,
-					avatarUrl: account?.avatar_url
-				}
-			});
-		}
-		const decliningAccount = accounts
-			.filter((account) => (account.follower_delta ?? 0) < 0)
-			.toSorted((left, right) => (left.follower_delta ?? 0) - (right.follower_delta ?? 0))[0];
-		if (decliningAccount) {
-			insights.push({
-				title: m.analytics_insight_follower_decline(),
-				body: m.analytics_insight_follower_decline_body({
-					count: formatNumber(Math.abs(decliningAccount.follower_delta ?? 0))
-				}),
-				account: {
-					name: accountName(decliningAccount),
-					platform: decliningAccount.platform,
-					avatarUrl: decliningAccount.avatar_url
-				}
-			});
-		}
-		return insights.slice(0, 3);
-	});
-
 	$effect(() => {
 		const workspaceID = currentWorkspaceID;
 		const days = rangeDays;
 		const accountID = selectedAccountID;
 		const requestedSort = sortMode;
-		if (workspaceID) void loadAnalytics(workspaceID, days, accountID, requestedSort);
+		const requestedSource = sourceFilter;
+		if (workspaceID)
+			void loadAnalytics(workspaceID, days, accountID, requestedSort, requestedSource);
 	});
 
 	async function loadAnalytics(
@@ -244,6 +203,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		requestedDays = rangeDays,
 		requestedAccountID = selectedAccountID,
 		requestedSort = sortMode,
+		requestedSource = sourceFilter,
 		cursor = '',
 		append = false
 	) {
@@ -262,6 +222,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						workspace_id: workspaceID,
 						days: requestedDays,
 						account_id: requestedAccountID === 'all' ? undefined : requestedAccountID,
+						source: requestedSource,
 						sort: requestedSort,
 						cursor: cursor || undefined,
 						limit: 50
@@ -276,15 +237,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			}
 			if (response.error || !response.data) throw new Error(m.analytics_failed_load());
 			overview =
-				append && overview
-					? {
-							...response.data,
-							publications: [
-								...(overview.publications ?? []),
-								...(response.data.publications ?? [])
-							]
-						}
-					: response.data;
+				append && overview ? appendAnalyticsContentPage(overview, response.data) : response.data;
 			dataWorkspaceID = workspaceID;
 			void loadAnalyticsFeatures(workspaceID, response.data.accounts ?? []);
 			if (
@@ -294,17 +247,17 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 				selectedAccountID = 'all';
 			}
 			if (
-				expandedPublicationID &&
-				!response.data.publications?.some(
-					(publication) => publication.publication_id === expandedPublicationID
-				)
+				expandedContentID &&
+				!response.data.content?.some((item) => contentIdentity(item) === expandedContentID)
 			) {
-				expandedPublicationID = '';
+				expandedContentID = '';
 			}
 		} catch (cause) {
 			if (requestSequence !== dataRequestSequence) return;
-			if (append) toastMessage = m.analytics_load_more_failed();
-			else error = cause instanceof Error ? cause.message : m.analytics_failed_load();
+			if (append) {
+				toastTone = 'error';
+				toastMessage = m.analytics_load_more_failed();
+			} else error = cause instanceof Error ? cause.message : m.analytics_failed_load();
 		} finally {
 			if (requestSequence === dataRequestSequence) {
 				loading = false;
@@ -313,14 +266,15 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		}
 	}
 
-	function loadMorePublications() {
-		if (!overview?.publication_next_cursor || loadingMore) return;
+	function loadMoreContent() {
+		if (!overview?.content_next_cursor || loadingMore) return;
 		void loadAnalytics(
 			currentWorkspaceID,
 			rangeDays,
 			selectedAccountID,
 			sortMode,
-			overview.publication_next_cursor,
+			sourceFilter,
+			overview.content_next_cursor,
 			true
 		);
 	}
@@ -337,11 +291,38 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 				body: { workspace_id: currentWorkspaceID }
 			});
 			if (response.error || !response.data) throw new Error(m.analytics_refresh_failed());
+			toastTone = 'success';
 			toastMessage = m.analytics_refresh_queued({ count: response.data.queued });
 		} catch {
+			toastTone = 'error';
 			toastMessage = m.analytics_refresh_failed();
 		} finally {
 			refreshing = false;
+		}
+	}
+
+	async function repurposeContent(item: AnalyticsContent) {
+		const key = contentIdentity(item);
+		if (!currentWorkspaceID || repurposingReferenceKey) return;
+		repurposingReferenceKey = key;
+		try {
+			const response = await client.POST('/analytics/repurpose', {
+				body: {
+					workspace_id: currentWorkspaceID,
+					reference: item.reference,
+					range: { days: rangeDays }
+				}
+			});
+			if (response.error || !response.data) {
+				throw new Error(response.error?.detail || m.analytics_repurpose_failed());
+			}
+			ui.setRepurposeHandoff(response.data);
+			await goto(resolve('/'));
+		} catch (cause) {
+			toastTone = 'error';
+			toastMessage = cause instanceof Error ? cause.message : m.analytics_repurpose_failed();
+		} finally {
+			repurposingReferenceKey = '';
 		}
 	}
 
@@ -392,10 +373,6 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		return `${m.analytics_account_filter()}: ${accountLabel(account)}`;
 	}
 
-	function renditionAccount(rendition: AnalyticsContent): AnalyticsAccount | undefined {
-		return accounts.find((account) => account.id === rendition.account_id);
-	}
-
 	function renditionName(rendition: AnalyticsContent): string {
 		return (
 			formatSocialAccountName(rendition.username, rendition.platform) ||
@@ -430,52 +407,234 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		return '';
 	}
 
-	function engagementMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
-		return [
-			{ key: 'likes', label: m.analytics_likes() },
-			{ key: 'comments', label: m.analytics_comments() },
-			{ key: 'reposts', label: m.analytics_reposts() },
-			{ key: 'quotes', label: m.analytics_quotes() },
-			{ key: 'shares', label: m.analytics_shares() },
-			{ key: 'saves', label: m.analytics_saves() },
-			{ key: 'clicks', label: m.analytics_clicks() }
-		]
-			.filter((metric) => (measured[metric.key] ?? 0) > 0)
-			.map((metric) => ({ ...metric, value: metrics[metric.key] ?? 0 }));
+	function semanticMetricValue(item: AnalyticsContent, key: string, value: number) {
+		const unit = item.measurements?.[key]?.metadata.unit ?? item.metric_metadata?.[key]?.unit;
+		if (unit === 'basis_points') {
+			return new Intl.NumberFormat(getLocaleTag(), {
+				style: 'percent',
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 2
+			}).format(value / 10_000);
+		}
+		if (unit === 'milliseconds') {
+			const seconds = value / 1000;
+			if (seconds < 60) return `${formatNumber(seconds)}s`;
+			return `${formatNumber(seconds / 60)} min`;
+		}
+		return formatNumber(value);
 	}
 
-	function renditionExposure(item: AnalyticsContent) {
-		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return exposureMetrics(item.metrics, measured);
+	function metricEvidence(item: AnalyticsContent) {
+		return Object.entries(item.metrics).map(([key, value]) => {
+			const measurement = item.measurements?.[key];
+			return {
+				key,
+				label: analyticsMetricLabel(key),
+				value: semanticMetricValue(item, key, value),
+				metadata: measurement?.metadata ?? item.metric_metadata?.[key],
+				collectedAt: measurement?.collected_at ?? item.collected_at,
+				availability: measurement?.availability ?? 'available'
+			};
+		});
 	}
 
-	function renditionEngagement(item: AnalyticsContent) {
-		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return engagementMetrics(item.metrics, measured);
+	function metricUnit(metadata: AnalyticsMetricMetadata | undefined) {
+		switch (metadata?.unit) {
+			case 'milliseconds':
+				return m.analytics_evidence_milliseconds();
+			case 'basis_points':
+				return m.analytics_evidence_basis_points();
+			case 'count':
+				return m.analytics_evidence_count();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
 	}
 
-	function exposureMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
-		return [
-			{ key: 'views', label: m.analytics_views() },
-			{ key: 'impressions', label: m.analytics_impressions() },
-			{ key: 'reach', label: m.analytics_reach() }
-		]
-			.filter((metric) => (measured[metric.key] ?? 0) > 0)
-			.map((metric) => ({
-				...metric,
-				value: metrics[metric.key] ?? 0,
-				measured: measured[metric.key] ?? 0
-			}));
+	function aggregationLabel(aggregation: string | undefined) {
+		switch (aggregation) {
+			case 'current_snapshot':
+				return m.analytics_evidence_current_snapshot();
+			case 'lifetime_total':
+				return m.analytics_evidence_lifetime_total();
+			case 'reporting_period_total':
+				return m.analytics_evidence_reporting_period_total();
+			case 'reporting_period_average':
+				return m.analytics_evidence_reporting_period_average();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
 	}
 
-	function publicationLabel(publication: AnalyticsPublication) {
-		return publication.title || publication.excerpt || m.analytics_untitled_publication();
+	function metricPeriod(metadata: AnalyticsMetricMetadata | undefined) {
+		return metadata?.period_start && metadata.period_end
+			? `${formatDate(metadata.period_start)} – ${formatDate(metadata.period_end)}`
+			: m.analytics_evidence_period_unavailable();
 	}
 
-	function publicationViews(publication: AnalyticsPublication) {
-		return (publication.measured.views ?? 0) > 0
-			? formatNumber(publication.metrics.views ?? 0)
-			: '—';
+	function availabilityLabel(availability: string) {
+		switch (availability) {
+			case 'available':
+				return m.analytics_evidence_available();
+			case 'pending':
+				return m.analytics_evidence_pending();
+			case 'insufficient_data':
+				return m.analytics_evidence_insufficient();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
+	}
+
+	function metricCaveat(aggregation: string | undefined) {
+		if (aggregation === 'lifetime_total') return m.analytics_insight_lifetime_caveat();
+		if (aggregation === 'reporting_period_total' || aggregation === 'reporting_period_average')
+			return m.analytics_insight_reporting_period_caveat();
+		return '';
+	}
+
+	function coverageStatusLabel(coverage: AccountDiscoveryCoverage) {
+		if (isBuildingAccountHistory(coverage)) return m.analytics_history_building();
+		switch (coverage.status) {
+			case 'complete':
+				return m.analytics_history_complete();
+			case 'partial':
+				return m.analytics_history_partial();
+			case 'permission_required':
+				return m.analytics_history_permission_required();
+			case 'rate_limited':
+				return m.analytics_history_rate_limited();
+			case 'cost_limited':
+				return m.analytics_history_cost_limited();
+			case 'unsupported':
+				return m.analytics_history_unsupported();
+			default:
+				return m.analytics_history_failed();
+		}
+	}
+
+	function coverageAccount(coverage: AccountDiscoveryCoverage) {
+		const account = accounts.find((candidate) => candidate.id === coverage.account_id);
+		return account ? accountLabel(account) : getPlatformName(coverage.platform);
+	}
+
+	function contentIdentity(item: AnalyticsContent) {
+		return item.reference.type === 'external'
+			? `external:${item.reference.account_content_id ?? ''}`
+			: `openpost:${item.reference.rendition_id ?? ''}`;
+	}
+
+	function contentLabel(item: AnalyticsContent) {
+		return item.title || item.excerpt || m.analytics_untitled_publication();
+	}
+
+	function sourceLabel(source: AnalyticsContent['source']) {
+		return analyticsSourceLabelKey(source) === 'published_elsewhere'
+			? m.analytics_source_published_elsewhere()
+			: m.analytics_source_published_with_openpost();
+	}
+
+	function insightTitle(insight: AnalyticsInsight) {
+		switch (insight.kind) {
+			case 'most_engagement_actions':
+				return m.analytics_insight_most_engagement();
+			case 'strongest_measured_destination':
+				return m.analytics_insight_top_destination();
+			default:
+				return m.analytics_insight_follower_decline();
+		}
+	}
+
+	function insightBody(insight: AnalyticsInsight) {
+		if (!insightHasRanking(insight)) {
+			switch (insight.reason) {
+				case 'low_sample':
+					return insight.kind === 'strongest_measured_destination'
+						? m.analytics_insight_insufficient_destinations()
+						: m.analytics_insight_insufficient_low_sample();
+				case 'incompatible_semantics':
+					return m.analytics_insight_insufficient_incompatible();
+				case 'no_decline':
+					return m.analytics_insight_no_decline();
+				default:
+					return m.analytics_insight_insufficient_missing();
+			}
+		}
+		if (insight.kind === 'follower_decline') {
+			return m.analytics_insight_follower_decline_body({
+				count: formatNumber(Math.abs(insight.value))
+			});
+		}
+		if (insight.kind === 'strongest_measured_destination') {
+			return m.analytics_insight_top_destination_body({
+				engagement: formatNumber(insight.value)
+			});
+		}
+		return m.analytics_insight_most_engagement_body({
+			content:
+				insight.content?.title || insight.content?.excerpt || m.analytics_untitled_publication(),
+			engagement: formatNumber(insight.value)
+		});
+	}
+
+	function insightAccountName(insight: AnalyticsInsight) {
+		return (
+			formatSocialAccountName(insight.username ?? '', insight.platform ?? '') ||
+			getPlatformName(insight.platform ?? '')
+		);
+	}
+
+	function insightIdentity(insight: AnalyticsInsight) {
+		if (
+			!insightHasRanking(insight) ||
+			(insight.kind !== 'strongest_measured_destination' && insight.kind !== 'follower_decline')
+		) {
+			return undefined;
+		}
+		const account = accounts.find((candidate) => candidate.id === insight.account_id);
+		return {
+			name: account ? accountName(account) : insightAccountName(insight),
+			platform: account?.platform ?? insight.platform ?? '',
+			avatarUrl: account?.avatar_url
+		};
+	}
+
+	function insightSample(insight: AnalyticsInsight) {
+		return m.analytics_insight_sample({
+			measured: insight.measured_count,
+			total: insight.comparison_sample
+		});
+	}
+
+	function insightCaveat(insight: AnalyticsInsight) {
+		switch (insight.caveat) {
+			case 'filtered_content_lifetime_totals':
+				return m.analytics_insight_lifetime_caveat();
+			case 'filtered_content_reporting_period_totals':
+				return m.analytics_insight_reporting_period_caveat();
+			case 'account_wide':
+				return m.analytics_insight_account_wide_caveat();
+			default:
+				return '';
+		}
+	}
+
+	function insightPeriod(insight: AnalyticsInsight) {
+		const start = insight.period.measurement_start ?? insight.period.filter_start;
+		const end = insight.period.measurement_end ?? insight.period.filter_end;
+		return `${formatDate(start)} – ${formatDate(end)}`;
+	}
+
+	function insightPeriodLabel(insight: AnalyticsInsight) {
+		return insight.period.aggregation === 'current_snapshot' ||
+			insight.period.aggregation === 'reporting_period_total'
+			? m.analytics_insight_period_label()
+			: m.analytics_insight_content_range_label();
+	}
+
+	function insightMetricLabel(insight: AnalyticsInsight) {
+		return insight.metric === 'followers'
+			? m.analytics_evidence_followers()
+			: m.analytics_evidence_engagement_actions();
 	}
 </script>
 
@@ -524,7 +683,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		message={toastMessage}
 		onDismiss={() => (toastMessage = '')}
 		dismissLabel={m.common_dismiss()}
-		tone={toastMessage === m.analytics_refresh_failed() ? 'error' : 'success'}
+		tone={toastTone}
 	/>
 {/if}
 
@@ -693,6 +852,72 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 				</div>
 			</section>
 
+			{#if accountCoverage.length}
+				<section
+					class="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
+					aria-labelledby="analytics-history-heading"
+					data-testid="analytics-history-coverage"
+				>
+					<div class="border-b border-border px-4 py-3">
+						<h2 id="analytics-history-heading" class="text-sm font-semibold">
+							{buildingCoverage.length
+								? m.analytics_history_building()
+								: m.analytics_history_title()}
+						</h2>
+						<p class="mt-1 text-xs leading-5 text-muted-foreground">
+							{m.analytics_history_description()}
+						</p>
+					</div>
+					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-3">
+						{#each accountCoverage as coverage (coverage.account_id)}
+							<article
+								class="min-w-0 bg-card px-4 py-3"
+								data-testid={`analytics-coverage-${coverage.account_id}`}
+							>
+								<div class="flex min-w-0 items-center gap-2">
+									<PlatformIcon platform={coverage.platform} class="size-4 shrink-0" />
+									<p class="min-w-0 truncate text-sm font-medium">
+										{coverageAccount(coverage)}
+									</p>
+								</div>
+								<p class="mt-2 text-xs font-medium">{coverageStatusLabel(coverage)}</p>
+								{#if coverage.description}
+									<p class="mt-1 text-xs leading-5 text-muted-foreground">
+										{coverage.description}
+									</p>
+								{/if}
+								<div class="mt-2 space-y-0.5 text-xs leading-5 text-muted-foreground">
+									{#if coverage.initial_items_discovered > 0 || isBuildingAccountHistory(coverage)}
+										<p>
+											{m.analytics_history_items({ count: coverage.initial_items_discovered })}
+										</p>
+									{/if}
+									{#if coverage.backfill_watermark}
+										<p>
+											{m.analytics_history_since({
+												date: formatDate(coverage.backfill_watermark)
+											})}
+										</p>
+									{/if}
+									{#if coverage.last_success_at}
+										<p>
+											{m.analytics_history_last_success({
+												date: formatDateTime(coverage.last_success_at)
+											})}
+										</p>
+									{/if}
+									{#if hasLimitedAccountHistory(coverage)}
+										<p class="font-medium text-foreground">
+											{m.analytics_history_limited_note()}
+										</p>
+									{/if}
+								</div>
+							</article>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			{#if !hasMeasurements}
 				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
 			{/if}
@@ -815,36 +1040,109 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 					class="rounded-xl border border-border"
 					aria-labelledby="analytics-insights-heading"
 				>
-					<h2
-						id="analytics-insights-heading"
-						class="border-b border-border px-4 py-3 text-sm font-semibold"
-					>
-						{m.analytics_insights_title()}
-					</h2>
-					<div class="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-						{#each analyticsInsights as insight (insight.title)}
-							<div class="p-4">
-								<p class="text-sm font-semibold">{insight.title}</p>
-								{#if insight.account}
+					<div class="border-b border-border px-4 py-3">
+						<h2 id="analytics-insights-heading" class="text-sm font-semibold">
+							{m.analytics_insights_title()}
+						</h2>
+						<p class="mt-1 text-xs leading-5 text-muted-foreground">
+							{m.analytics_insights_description()}
+						</p>
+					</div>
+					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-4">
+						{#each analyticsInsights as insight (insight.kind)}
+							{@const identity = insightIdentity(insight)}
+							<article
+								class="min-w-0 bg-card p-4"
+								data-testid={`analytics-insight-${insight.kind}`}
+							>
+								<p class="text-sm font-semibold">{insightTitle(insight)}</p>
+								{#if identity}
 									<SocialAccountIdentity
 										class="mt-2"
-										name={insight.account.name}
-										platform={insight.account.platform}
-										avatarUrl={insight.account.avatarUrl}
-										detail={insight.body}
+										name={identity.name}
+										platform={identity.platform}
+										avatarUrl={identity.avatarUrl}
+										detail={insightBody(insight)}
 									/>
 								{:else}
-									<p class="mt-1 text-sm leading-5 text-muted-foreground">{insight.body}</p>
+									<p class="mt-1 text-sm leading-5 text-muted-foreground">{insightBody(insight)}</p>
 								{/if}
-							</div>
+								<details class="group mt-2 border-t border-border pt-1">
+									<summary
+										class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+									>
+										{m.analytics_evidence_details()}
+										<ChevronDownIcon class="size-4 transition-transform group-open:rotate-180" />
+									</summary>
+									<dl class="space-y-1 pb-2 text-xs leading-5 text-muted-foreground">
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_availability()}:</dt>
+											<dd>{availabilityLabel(insight.status)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_metric()}:</dt>
+											<dd>{insightMetricLabel(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_unit()}:</dt>
+											<dd>{m.analytics_evidence_count()}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_aggregation()}:</dt>
+											<dd>{aggregationLabel(insight.period.aggregation)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{insightPeriodLabel(insight)}:</dt>
+											<dd>{insightPeriod(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_insight_sample_label()}:</dt>
+											<dd>{insightSample(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_collection()}:</dt>
+											<dd>
+												{insight.content?.collected_at
+													? formatDateTime(insight.content.collected_at)
+													: m.analytics_not_collected()}
+											</dd>
+										</div>
+										{#if insight.destination_count !== undefined}
+											<div class="flex flex-wrap gap-x-1">
+												<dt>{m.analytics_insight_destinations_label()}:</dt>
+												<dd>{insight.destination_count}</dd>
+											</div>
+										{/if}
+									</dl>
+									{#if insight.content}
+										<div
+											class="space-y-1 border-t border-border py-2 text-xs leading-5 text-muted-foreground"
+										>
+											<p class="flex items-center gap-2">
+												<PlatformIcon
+													platform={insight.content.platform}
+													class="size-3.5 shrink-0"
+												/>
+												<span>{getPlatformName(insight.content.platform)}</span>
+											</p>
+											<p>{sourceLabel(insight.content.source)}</p>
+										</div>
+									{/if}
+									{#if insightCaveat(insight)}
+										<p class="border-t border-border py-2 text-xs leading-5 text-muted-foreground">
+											{insightCaveat(insight)}
+										</p>
+									{/if}
+								</details>
+							</article>
 						{/each}
 					</div>
 				</section>
 			{/if}
 
 			<section aria-labelledby="analytics-content-heading">
-				<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-					<div>
+				<div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+					<div class="min-w-0">
 						<h2 id="analytics-content-heading" class="text-base font-semibold">
 							{m.analytics_content_title()}
 						</h2>
@@ -854,26 +1152,56 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 								: m.analytics_content_description()}
 						</p>
 					</div>
-					<Select.Root
-						type="single"
-						value={sortMode}
-						onValueChange={(value) => (sortMode = value as AnalyticsSortMode)}
-					>
-						<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.analytics_sort_label()}>
-							{sortMode === 'newest'
-								? m.analytics_sort_newest()
-								: sortMode === 'views'
-									? m.analytics_sort_views()
-									: m.analytics_sort_engagement()}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="engagement">{m.analytics_sort_engagement()}</Select.Item>
-							<Select.Item value="views">{m.analytics_sort_views()}</Select.Item>
-							<Select.Item value="newest">{m.analytics_sort_newest()}</Select.Item>
-						</Select.Content>
-					</Select.Root>
+					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
+						<div
+							class="grid min-h-11 min-w-0 grid-cols-3 items-stretch rounded-md border border-border p-1"
+							role="group"
+							aria-label={m.analytics_source_filter_label()}
+						>
+							{#each ['all', 'openpost', 'external'] as source (source)}
+								<button
+									type="button"
+									class={[
+										'min-h-11 min-w-0 rounded-sm px-1.5 text-xs leading-4 font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-2.5 sm:text-sm',
+										sourceFilter === source
+											? 'bg-secondary text-secondary-foreground'
+											: 'text-muted-foreground hover:text-foreground'
+									]}
+									aria-pressed={sourceFilter === source}
+									onclick={() => (sourceFilter = source as ContentSource)}
+								>
+									{source === 'all'
+										? m.analytics_source_all()
+										: source === 'openpost'
+											? m.analytics_source_published_with_openpost()
+											: m.analytics_source_published_elsewhere()}
+								</button>
+							{/each}
+						</div>
+						<Select.Root
+							type="single"
+							value={sortMode}
+							onValueChange={(value) => (sortMode = value as AnalyticsSortMode)}
+						>
+							<Select.Trigger
+								class="h-11 w-full sm:h-9 sm:w-44"
+								aria-label={m.analytics_sort_label()}
+							>
+								{sortMode === 'newest'
+									? m.analytics_sort_newest()
+									: sortMode === 'views'
+										? m.analytics_sort_views()
+										: m.analytics_sort_engagement()}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="engagement">{m.analytics_sort_engagement()}</Select.Item>
+								<Select.Item value="views">{m.analytics_sort_views()}</Select.Item>
+								<Select.Item value="newest">{m.analytics_sort_newest()}</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
 				</div>
-				{#if publications.length === 0}
+				{#if contentItems.length === 0}
 					<p class="border-y border-dashed border-border py-8 text-sm text-muted-foreground">
 						{m.analytics_content_empty()}
 					</p>
@@ -892,151 +1220,177 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 							<span class="sr-only">{m.analytics_table_actions()}</span>
 						</div>
 						<div class="divide-y divide-border">
-							{#each publications as publication (publication.publication_id)}
-								{@const renditions = publication.renditions ?? []}
-								{@const expanded = expandedPublicationID === publication.publication_id}
-								<article>
+							{#each contentItems as item (contentIdentity(item))}
+								{@const id = contentIdentity(item)}
+								{@const expanded = expandedContentID === id}
+								{@const itemEvidence = metricEvidence(item)}
+								<article data-testid="analytics-content-row">
 									<div class="analytics-content-grid grid min-w-0 gap-4 px-4 py-4">
 										<div class="min-w-0">
-											<a
-												href={resolve('/publications/[id]', { id: publication.publication_id })}
-												class="line-clamp-2 font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-											>
-												{publicationLabel(publication)}
-											</a>
-											<div class="analytics-mobile-date mt-1 text-xs text-muted-foreground">
-												{formatDate(publication.published_at)}
-											</div>
+											{#if item.reference.type === 'openpost' && item.reference.publication_id}
+												<a
+													href={resolve('/publications/[id]', {
+														id: item.reference.publication_id
+													})}
+													class="line-clamp-2 font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+													>{contentLabel(item)}</a
+												>
+											{:else}
+												<p class="line-clamp-2 font-medium">{contentLabel(item)}</p>
+											{/if}
+											<p class="analytics-mobile-date mt-1 text-xs text-muted-foreground">
+												{formatDate(item.published_at)}
+											</p>
 										</div>
-
 										<div
 											class="flex min-w-0 items-center gap-2 text-sm"
 											data-testid="analytics-row-destinations"
 										>
-											<span class="flex shrink-0 items-center gap-1" aria-hidden="true">
-												{#each renditions.slice(0, 4) as rendition (rendition.rendition_id)}
-													<span
-														class="flex size-7 items-center justify-center rounded-full border border-border bg-background"
-													>
-														<PlatformIcon platform={rendition.platform} class="size-3.5" />
-													</span>
-												{/each}
+											<span
+												class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background"
+											>
+												<PlatformIcon platform={item.platform} class="size-3.5" />
 											</span>
-											<span class="truncate text-xs text-muted-foreground">
-												{renditions.length === 1
-													? m.analytics_destination_singular()
-													: m.analytics_destinations({ count: renditions.length })}
+											<span class="min-w-0">
+												<span class="block truncate text-xs">{renditionName(item)}</span>
+												<span
+													class="block truncate text-xs text-muted-foreground"
+													data-testid={`analytics-source-${id}`}>{sourceLabel(item.source)}</span
+												>
 											</span>
 										</div>
-
 										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
 											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_summary_engagement()}</span
 											>
-											<span class="font-medium tabular-nums">
-												{publication.engagement_measured > 0
-													? formatNumber(publication.engagement)
-													: '—'}
-											</span>
+											<span class="font-medium tabular-nums"
+												>{hasEngagementMeasurement(item)
+													? formatNumber(item.engagement)
+													: '—'}</span
+											>
 										</div>
 										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
 											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_views()}</span
 											>
-											<span class="font-medium tabular-nums">{publicationViews(publication)}</span>
+											<span class="font-medium tabular-nums"
+												>{item.metrics.views === undefined
+													? '—'
+													: semanticMetricValue(item, 'views', item.metrics.views)}</span
+											>
 										</div>
 										<div class="analytics-published hidden text-sm text-muted-foreground">
 											<span class="analytics-row-label">{m.analytics_table_published()}: </span>
-											{formatDate(publication.published_at)}
+											{formatDate(item.published_at)}
 										</div>
-
-										<Button
-											variant="ghost"
-											size="sm"
-											class="analytics-details-action w-full justify-between"
-											aria-expanded={expanded}
-											aria-controls={`analytics-publication-${publication.publication_id}`}
-											onclick={() =>
-												(expandedPublicationID = expanded ? '' : publication.publication_id)}
-										>
-											{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
-											<ChevronDownIcon
-												class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-											/>
-										</Button>
+										<div class="analytics-actions flex min-h-11 w-full items-center gap-1">
+											<Button
+												size="sm"
+												class="min-h-11 flex-1 md:flex-none"
+												disabled={Boolean(repurposingReferenceKey)}
+												onclick={() => repurposeContent(item)}
+												data-testid={`analytics-repurpose-${id}`}
+											>
+												{repurposingReferenceKey === id
+													? m.analytics_repurposing()
+													: m.analytics_repurpose()}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												class="min-h-11 flex-1 justify-between md:flex-none"
+												aria-expanded={expanded}
+												aria-controls={`analytics-content-${id.replace(':', '-')}`}
+												onclick={() => (expandedContentID = expanded ? '' : id)}
+												data-testid={`analytics-details-${id}`}
+											>
+												<span class="sm:hidden">{m.analytics_evidence_details()}</span>
+												<span class="hidden sm:inline">
+													{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
+												</span>
+												<ChevronDownIcon
+													class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+												/>
+											</Button>
+										</div>
 									</div>
-
 									{#if expanded}
 										<div
-											id={`analytics-publication-${publication.publication_id}`}
-											class="border-t border-border bg-muted/20 px-2 py-2 sm:px-4"
+											id={`analytics-content-${id.replace(':', '-')}`}
+											class="border-t border-border bg-muted/20 px-4 py-3"
 										>
-											{#each renditions as rendition (rendition.rendition_id)}
-												{@const renditionExposures = renditionExposure(rendition)}
-												{@const renditionEngagementMetrics = renditionEngagement(rendition)}
-												{@const account = renditionAccount(rendition)}
-												<div
-													class="grid min-w-0 gap-3 border-b border-border py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-												>
-													<div class="min-w-0">
-														<SocialAccountIdentity
-															name={renditionName(rendition)}
-															platform={rendition.platform}
-															avatarUrl={account?.avatar_url}
-														/>
-														<div class="mt-1 pl-11">
-															{#if contentStatus(rendition)}
-																<p
-																	class={[
-																		'mt-0.5 line-clamp-2 text-xs',
-																		rendition.status === 'permission_required' ||
-																		rendition.status === 'rate_limited'
-																			? 'text-amber-700 dark:text-amber-300'
-																			: 'text-muted-foreground'
-																	]}
-																>
-																	{contentStatus(rendition)}
+											{#if itemEvidence.length}
+												<div class="divide-y divide-border border-y border-border">
+													{#each itemEvidence as metric (metric.key)}
+														<div class="py-3 text-xs leading-5">
+															<div class="flex flex-wrap items-baseline justify-between gap-x-3">
+																<p class="font-medium">{metric.label}</p>
+																<p class="font-semibold tabular-nums">{metric.value}</p>
+															</div>
+															<dl class="mt-1 grid gap-x-4 text-muted-foreground sm:grid-cols-2">
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_availability()}:</dt>
+																	<dd>{availabilityLabel(metric.availability)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_unit()}:</dt>
+																	<dd>{metricUnit(metric.metadata)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_aggregation()}:</dt>
+																	<dd>{aggregationLabel(metric.metadata?.aggregation)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_period()}:</dt>
+																	<dd>{metricPeriod(metric.metadata)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1 sm:col-span-2">
+																	<dt>{m.analytics_evidence_collection()}:</dt>
+																	<dd>
+																		{metric.collectedAt
+																			? formatDateTime(metric.collectedAt)
+																			: m.analytics_not_collected()}
+																	</dd>
+																</div>
+															</dl>
+															{#if metricCaveat(metric.metadata?.aggregation)}
+																<p class="mt-1 text-muted-foreground">
+																	{metricCaveat(metric.metadata?.aggregation)}
 																</p>
 															{/if}
 														</div>
-													</div>
-													<div class="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-														<span>
-															<span class="text-muted-foreground">
-																{m.analytics_summary_engagement()}:
-															</span>
-															{hasEngagementMeasurement(rendition)
-																? formatNumber(rendition.engagement)
-																: '—'}
-														</span>
-														{#each renditionExposures as metric (metric.key)}
-															<span>
-																<span class="text-muted-foreground">{metric.label}:</span>
-																{formatNumber(metric.value)}
-															</span>
-														{/each}
-														{#each renditionEngagementMetrics as metric (metric.key)}
-															<span>
-																<span class="text-muted-foreground">{metric.label}:</span>
-																{formatNumber(metric.value)}
-															</span>
-														{/each}
-														{#if rendition.external_url}
-															<Button
-																href={rendition.external_url}
-																target="_blank"
-																rel="noreferrer"
-																variant="ghost"
-																size="icon-xs"
-																aria-label={m.analytics_open_native()}
-																title={m.analytics_open_native()}
-															>
-																<ExternalLinkIcon class="size-3.5" />
-															</Button>
-														{/if}
-													</div>
+													{/each}
 												</div>
-											{/each}
+											{:else}
+												<p class="border-y border-border py-3 text-xs text-muted-foreground">
+													{m.analytics_evidence_availability()}: {availabilityLabel(
+														item.metric_availability
+													)}
+												</p>
+											{/if}
+											<div
+												class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground"
+											>
+												<span
+													>{m.analytics_collected_at({
+														date: item.collected_at
+															? formatDateTime(item.collected_at)
+															: m.analytics_not_collected()
+													})}</span
+												>
+												{#if contentStatus(item)}<span>{contentStatus(item)}</span>{/if}
+												{#if item.external_url}
+													<Button
+														href={item.external_url}
+														target="_blank"
+														rel="noreferrer"
+														variant="ghost"
+														size="sm"
+													>
+														{m.analytics_open_native()}<ExternalLinkIcon class="size-3.5" />
+													</Button>
+												{/if}
+											</div>
 										</div>
 									{/if}
 								</article>
@@ -1044,14 +1398,19 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						</div>
 					</div>
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-						<p class="text-xs text-muted-foreground">
-							{m.analytics_results_range({
-								shown: publications.length,
-								total: overview?.publication_total ?? publications.length
-							})}
-						</p>
-						{#if overview?.publication_next_cursor}
-							<Button variant="outline" onclick={loadMorePublications} disabled={loadingMore}>
+						<div class="text-xs leading-5 text-muted-foreground">
+							<p>
+								{m.analytics_results_range_stored({
+									shown: contentItems.length,
+									total: overview?.content_total ?? contentItems.length
+								})}
+							</p>
+							{#if hasLimitedCoverage}
+								<p>{m.analytics_history_limited_note()}</p>
+							{/if}
+						</div>
+						{#if overview?.content_next_cursor}
+							<Button variant="outline" onclick={loadMoreContent} disabled={loadingMore}>
 								{loadingMore ? m.analytics_loading_more() : m.analytics_load_more()}
 							</Button>
 						{/if}
@@ -1069,11 +1428,11 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 </PageContainer>
 
 <style>
-	@container (min-width: 60rem) {
+	@container (min-width: 58rem) {
 		.analytics-content-grid {
 			grid-template-columns:
-				minmax(0, 2fr) minmax(8rem, 1fr) 6rem 6rem 7.5rem
-				14rem;
+				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
+				11rem;
 			align-items: center;
 		}
 
@@ -1106,8 +1465,23 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			border: 0;
 		}
 
-		.analytics-details-action {
+		.analytics-actions {
+			align-items: stretch;
+			flex-direction: column;
 			justify-self: stretch;
+		}
+	}
+
+	@container (min-width: 68rem) {
+		.analytics-content-grid {
+			grid-template-columns:
+				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
+				14rem;
+		}
+
+		.analytics-actions {
+			align-items: center;
+			flex-direction: row;
 		}
 	}
 </style>

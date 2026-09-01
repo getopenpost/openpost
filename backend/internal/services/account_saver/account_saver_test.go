@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +89,38 @@ func loadAccountGrant(t *testing.T, db *bun.DB, account *models.SocialAccount) m
 // openInMemorySQLite creates an in-memory SQLite database.
 func openInMemorySQLite() (*sql.DB, error) {
 	return sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+}
+
+func TestDiscordBotAccountStoresGuildReferenceWithoutGlobalBotToken(t *testing.T) {
+	db := createTestDB(t)
+	encryptor := crypto.NewTokenEncryptor("test-secret-key-for-testing-only")
+	saver := NewAccountSaver(db, encryptor)
+	seedWorkspaceMember(t, db, "workspace-discord", "user-discord")
+
+	const globalBotToken = "instance-global-discord-bot-secret"
+	account, err := saver.SaveAccountFromInput(t.Context(), SaveAccountInput{
+		Actor:           accountSaverActor("user-discord"),
+		UserID:          "user-discord",
+		PlatformName:    "discord",
+		WorkspaceID:     "workspace-discord",
+		AccountID:       "guild-100",
+		AccountUsername: "OpenPost Guild",
+		Token:           &platform.TokenResult{AccessToken: "discord-guild:guild-100", TokenType: "Installation", Extra: map[string]string{"scope": "bot"}},
+		CapabilityState: map[string]string{"connection_type": "bot", "discord_guild_id": "guild-100"},
+		Grant:           AuthorizationGrantInput{ProviderProjectID: "discord-app", ProviderSubject: "user-1", ExecutionMode: "bot_oauth2"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "guild-100", account.AccountID)
+	require.Empty(t, account.AccessTokenEnc)
+	require.Contains(t, account.CapabilityState, `"connection_type":"bot"`)
+
+	grant := loadAccountGrant(t, db, account)
+	storedCredential, err := encryptor.Decrypt(grant.AccessTokenEnc)
+	require.NoError(t, err)
+	require.Equal(t, "discord-guild:guild-100", storedCredential)
+	for _, stored := range []string{storedCredential, account.CapabilityState, grant.AuthorizationEvidence, account.AccountUsername} {
+		require.False(t, strings.Contains(stored, globalBotToken))
+	}
 }
 
 // TestSaveAccount_X tests saving an X (Twitter) account.

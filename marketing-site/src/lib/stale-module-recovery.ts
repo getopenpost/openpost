@@ -1,3 +1,5 @@
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion -- Browser error events and persisted JSON are untyped I/O boundaries; this module narrows their fields before use. */
+
 const reloadStateKey = 'openpost:chunk-reload';
 const retryWindowMs = 15_000;
 const maxRetries = 3;

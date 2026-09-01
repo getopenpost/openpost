@@ -10,6 +10,7 @@ import (
 
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 )
 
 type ServiceOptions struct {
@@ -124,6 +125,8 @@ type CertificationContext struct {
 // ResolveCertificationContext derives the immutable certification subject
 // from the exact stored account and current runtime. Callers cannot supply
 // app identity, account kind, account reference, scopes, or contract digests.
+//
+//nolint:gocyclo // Certification context centralizes read and publish subject derivation without parallel evidence paths.
 func (s *Service) ResolveCertificationContext(
 	ctx context.Context,
 	account models.SocialAccount,
@@ -135,23 +138,41 @@ func (s *Service) ResolveCertificationContext(
 	if s == nil || s.authorizations == nil {
 		return CertificationContext{}, errors.New("provider readiness authorization source is unavailable")
 	}
-	if !operation.IsPublish() {
+	if !operation.IsPublish() && !operation.IsAccountRead() {
 		return CertificationContext{}, errors.New("provider certification operation is invalid")
 	}
-	capability, found := capabilities.FindOutput(account.Platform, strings.TrimSpace(outputProfile))
-	if !found || !s.isPublicationImplemented(account.Platform, capability.OutputProfile) {
-		return CertificationContext{}, errors.New("provider certification output profile is not implemented")
+	var capability capabilities.Capability
+	if operation.IsPublish() {
+		var found bool
+		capability, found = capabilities.FindOutput(account.Platform, strings.TrimSpace(outputProfile))
+		if !found || !s.isPublicationImplemented(account.Platform, capability.OutputProfile) {
+			return CertificationContext{}, errors.New("provider certification output profile is not implemented")
+		}
+	} else if strings.TrimSpace(outputProfile) != "" {
+		return CertificationContext{}, errors.New("account read certification does not use an output profile")
 	}
-	configuration := s.resolveConfiguration(account.Platform, account.InstanceURL)
+	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
 	if configuration.Evidence.State != ConfigurationStateConfigured {
 		return CertificationContext{}, errors.New("provider certification account is not exactly configured")
 	}
-	policyMode := PublicationPolicyMode(account, capability, settings)
+	policyMode := account.Platform + "." + string(operation)
+	accountKind := AccountKind(account)
+	var contract CertificationContract
+	var err error
+	mandatoryCertification := requiresCertifiedOperation(account.Platform, accountConfigurationRef(account))
+	enforceCertification := s.managedProduction || mandatoryCertification
+	if operation.IsPublish() {
+		policyMode = PublicationPolicyMode(account, capability, settings)
+		contract, err = PublicationContract(capability, operation, enforceCertification, accountKind, policyMode)
+	} else {
+		contract, err = OperationContract(account.Platform, operation, enforceCertification, accountKind)
+	}
+	if mandatoryCertification && !s.managedProduction {
+		allowNonProductionCertification(&contract)
+	}
 	if claimedPolicyMode = strings.TrimSpace(claimedPolicyMode); claimedPolicyMode != "" && claimedPolicyMode != policyMode {
 		return CertificationContext{}, errors.New("provider certification policy mode does not match the account settings")
 	}
-	accountKind := AccountKind(account)
-	contract, err := PublicationContract(capability, operation, s.managedProduction, accountKind, policyMode)
 	if err != nil {
 		return CertificationContext{}, err
 	}
@@ -159,8 +180,11 @@ func (s *Service) ResolveCertificationContext(
 	if err != nil {
 		return CertificationContext{}, err
 	}
-	if authorization.State != AuthorizationStateValid {
+	if contract.Requirements.RequireAuthorization && authorization.State != AuthorizationStateValid {
 		return CertificationContext{}, errors.New("provider certification account authorization is not valid")
+	}
+	if !contract.Requirements.RequireAuthorization {
+		authorization = AuthorizationEvidence{State: AuthorizationStateNotApplicable}
 	}
 	for _, requiredScope := range contract.Requirements.RequiredScopes {
 		if !slices.Contains(authorization.GrantedScopes, requiredScope) {
@@ -191,7 +215,11 @@ func (s *Service) CurrentRevision() string {
 
 func (s *Service) DecideConnection(ctx context.Context, provider, instanceURL string, intent ExecutionIntent) Decision {
 	configuration := s.resolveConnectionConfiguration(provider, instanceURL)
-	contract, _ := ConnectionContract(provider, s != nil && s.enforceCertification)
+	mandatoryCertification := requiresCertifiedOperation(provider, instanceURL)
+	contract, _ := ConnectionContract(provider, (s != nil && s.enforceCertification) || mandatoryCertification)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
 	return s.Decide(ctx, DecisionRequest{
 		Implemented:     s.isImplemented(provider),
 		Subject:         s.subject(configuration, "", "", OperationConnect, "default"),
@@ -221,7 +249,7 @@ func (s *Service) DecideAccountPublication(
 	accountReferenceHash, referenceErr := AccountReferenceHash(account)
 	if s == nil || s.authorizations == nil {
 		return s.decidePublication(ctx, PublicationDecisionInput{
-			Provider: account.Platform, InstanceURL: account.InstanceURL,
+			Provider: account.Platform, InstanceURL: accountConfigurationRef(account),
 			AccountKind: AccountKind(account), Capability: capability,
 			Operation: operation, Intent: intent, PolicyMode: policyMode,
 			CurrentAccountReferenceHash: accountReferenceHash,
@@ -230,11 +258,58 @@ func (s *Service) DecideAccountPublication(
 	authorization, err := s.authorizations.AuthorizationForAccount(ctx, account, s.currentTime())
 	err = errors.Join(err, referenceErr)
 	return s.decidePublication(ctx, PublicationDecisionInput{
-		Provider: account.Platform, InstanceURL: account.InstanceURL,
+		Provider: account.Platform, InstanceURL: accountConfigurationRef(account),
 		AccountKind: AccountKind(account), Capability: capability,
 		Operation: operation, Intent: intent, PolicyMode: policyMode,
 		CurrentAccountReferenceHash: accountReferenceHash, Authorization: authorization,
 	}, err)
+}
+
+// DecideAccountOperation evaluates discovery, observation, and analytics
+// independently from connection and publishing.
+func (s *Service) DecideAccountOperation(ctx context.Context, account models.SocialAccount, operation Operation, intent ExecutionIntent) Decision {
+	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
+	accountKind := AccountKind(account)
+	policyMode := account.Platform + "." + string(operation)
+	mandatoryCertification := requiresCertifiedOperation(account.Platform, accountConfigurationRef(account))
+	contract, _ := OperationContract(account.Platform, operation, (s != nil && s.enforceCertification) || mandatoryCertification, accountKind)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
+	accountReferenceHash, referenceErr := AccountReferenceHash(account)
+	request := DecisionRequest{
+		Implemented:                 s.isAccountOperationImplemented(account, operation),
+		Subject:                     s.subject(configuration, accountKind, "", operation, policyMode),
+		CurrentAccountReferenceHash: accountReferenceHash,
+		Intent:                      intent,
+		CurrentRevision:             s.revision(),
+		Contract:                    contract,
+		Configuration:               configuration.Evidence,
+		Authorization:               AuthorizationEvidence{State: AuthorizationStateNotApplicable},
+		Policy:                      PolicyEvidence{State: PolicyStateAllowed},
+	}
+	if referenceErr != nil {
+		return unavailableDecision(request, s.currentTime())
+	}
+	if account.Platform == capabilities.ProviderPinterest {
+		if s == nil || s.authorizations == nil {
+			return unavailableDecision(request, s.currentTime())
+		}
+		authorization, err := s.authorizations.AuthorizationForAccount(ctx, account, s.currentTime())
+		if err != nil {
+			return unavailableDecision(request, s.currentTime())
+		}
+		request.Authorization = authorization
+	}
+	return s.Decide(ctx, request)
+}
+
+func accountConfigurationRef(account models.SocialAccount) string {
+	if account.Platform == capabilities.ProviderDiscord &&
+		platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot {
+		return platform.ConnectionModeBot
+	}
+	return account.InstanceURL
 }
 
 func (s *Service) decidePublication(ctx context.Context, input PublicationDecisionInput, authorizationErr error) Decision {
@@ -248,13 +323,17 @@ func (s *Service) decidePublication(ctx context.Context, input PublicationDecisi
 		accountKind = "standard"
 	}
 	policyMode := normalizedPolicyToken(input.PolicyMode, input.Provider+".unspecified")
+	mandatoryCertification := requiresCertifiedOperation(input.Provider, input.InstanceURL)
 	contract, _ := PublicationContract(
 		input.Capability,
 		input.Operation,
-		s != nil && s.enforceCertification,
+		(s != nil && s.enforceCertification) || mandatoryCertification,
 		accountKind,
 		policyMode,
 	)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
 	request := DecisionRequest{
 		Implemented:                 s.isPublicationImplemented(input.Provider, outputProfile),
 		Subject:                     s.subject(configuration, accountKind, outputProfile, input.Operation, policyMode),
@@ -327,12 +406,49 @@ func (s *Service) resolveConnectionConfiguration(provider, instanceURL string) R
 	return configuration
 }
 
+func requiresCertifiedOperation(provider, configurationRef string) bool {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	switch provider {
+	case capabilities.ProviderPinterest, capabilities.ProviderTelegram:
+		return true
+	case capabilities.ProviderDiscord:
+		return strings.EqualFold(strings.TrimSpace(configurationRef), platform.ConnectionModeBot)
+	default:
+		return false
+	}
+}
+
+func allowNonProductionCertification(contract *CertificationContract) {
+	if contract == nil {
+		return
+	}
+	contract.Requirements.RequireProductionDeployment = false
+	contract.Requirements.RequireProductionProviderApp = false
+}
+
 func (s *Service) isImplemented(provider string) bool {
 	if s == nil {
 		return false
 	}
 	_, ok := s.implemented[strings.ToLower(strings.TrimSpace(provider))]
 	return ok
+}
+
+func (s *Service) isAccountOperationImplemented(account models.SocialAccount, operation Operation) bool {
+	if !s.isImplemented(account.Platform) {
+		return false
+	}
+	switch operation {
+	case OperationDiscover:
+		return account.Platform == capabilities.ProviderPinterest
+	case OperationObservation:
+		return account.Platform == capabilities.ProviderTelegram
+	case OperationAnalytics:
+		return account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram ||
+			(account.Platform == capabilities.ProviderDiscord && accountConfigurationRef(account) == platform.ConnectionModeBot)
+	default:
+		return false
+	}
 }
 
 func (s *Service) isPublicationImplemented(provider, outputProfile string) bool {
@@ -452,25 +568,37 @@ func (s *Service) AppendCertification(ctx context.Context, approvalReviewID stri
 	return s.ledger.AppendCertification(ctx, approvalReviewID, evidence)
 }
 
+//nolint:gocyclo // Validation keeps read and publish evidence bound to their independently derived contracts.
 func (s *Service) validateCertificationContract(evidence CertificationEvidence) error {
 	if evidence.Subject.DeploymentEnvironment != s.deployment ||
 		s.configurations == nil || !s.configurations.ContainsSubject(evidence.Subject) {
 		return errors.New("provider certification subject is not configured in this runtime")
 	}
-	if !evidence.Subject.Operation.IsPublish() {
+	if !evidence.Subject.Operation.IsPublish() && !evidence.Subject.Operation.IsAccountRead() {
 		return errors.New("provider certification operation is not supported")
 	}
-	capability, ok := capabilities.FindOutput(evidence.Subject.Provider, evidence.Subject.OutputProfile)
-	if !ok {
-		return errors.New("provider certification output profile is not implemented")
+	var capability capabilities.Capability
+	if evidence.Subject.Operation.IsPublish() {
+		var ok bool
+		capability, ok = capabilities.FindOutput(evidence.Subject.Provider, evidence.Subject.OutputProfile)
+		if !ok {
+			return errors.New("provider certification output profile is not implemented")
+		}
+	} else if evidence.Subject.OutputProfile != "" || !s.isImplemented(evidence.Subject.Provider) {
+		return errors.New("provider certification account read operation is not implemented")
 	}
-	contract, err := PublicationContract(
-		capability,
-		evidence.Subject.Operation,
-		s.managedProduction,
-		evidence.Subject.AccountKind,
-		evidence.Subject.PolicyMode,
-	)
+	var contract CertificationContract
+	var err error
+	if evidence.Subject.Operation.IsPublish() {
+		contract, err = PublicationContract(
+			capability, evidence.Subject.Operation, s.managedProduction,
+			evidence.Subject.AccountKind, evidence.Subject.PolicyMode,
+		)
+	} else {
+		contract, err = OperationContract(
+			evidence.Subject.Provider, evidence.Subject.Operation, s.managedProduction, evidence.Subject.AccountKind,
+		)
+	}
 	if err != nil {
 		return errors.New("provider certification contract is invalid")
 	}

@@ -59,7 +59,7 @@ func OperatorRuntimeApps(configs []platform.AppConfig, environment ProviderEnvir
 	result := RuntimeApps(configs, ConfigurationSourceEnvironment, environment)
 	for index := range result {
 		config := platform.NormalizeAppConfig(result[index].Config)
-		if (config.Provider == capabilities.ProviderBluesky || config.Provider == capabilities.ProviderDiscord) && config.ClientID == "" {
+		if platform.IsBuiltInAppConfig(config) {
 			result[index].Source = ConfigurationSourceBuiltIn
 		}
 	}
@@ -104,8 +104,12 @@ func (c *ConfigurationCatalog) Resolve(provider, instanceURL string, environment
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	instanceURL = strings.TrimRight(strings.TrimSpace(instanceURL), "/")
 	key := provider
+	fingerprintInstanceURL := instanceURL
 	if provider == capabilities.ProviderMastodon {
 		key += ":" + instanceURL
+	} else if provider == capabilities.ProviderDiscord && instanceURL == platform.ConnectionModeBot {
+		key += ":" + platform.ConnectionModeBot
+		fingerprintInstanceURL = ""
 	}
 	if c != nil {
 		c.mu.RLock()
@@ -115,7 +119,7 @@ func (c *ConfigurationCatalog) Resolve(provider, instanceURL string, environment
 			return configured
 		}
 	}
-	instanceFingerprint, _ := InstanceFingerprint(instanceURL)
+	instanceFingerprint, _ := InstanceFingerprint(fingerprintInstanceURL)
 	return RuntimeConfiguration{
 		Provider:            provider,
 		AppFingerprint:      missingAppFingerprint(provider, instanceFingerprint),
@@ -153,6 +157,19 @@ func AppFingerprint(config platform.AppConfig) (string, error) {
 	config = platform.NormalizeAppConfig(config)
 	if !providerPattern.MatchString(config.Provider) {
 		return "", errors.New("provider app is invalid")
+	}
+	if config.Provider == capabilities.ProviderPinterest || config.Provider == capabilities.ProviderTelegram ||
+		(config.Provider == capabilities.ProviderDiscord && config.ConnectionMode == platform.ConnectionModeBot) {
+		return digestJSON(struct {
+			Provider       string `json:"provider"`
+			ConnectionMode string `json:"connection_mode"`
+			ClientID       string `json:"client_id"`
+			BotUsername    string `json:"bot_username"`
+			RedirectURI    string `json:"redirect_uri"`
+		}{
+			Provider: config.Provider, ConnectionMode: config.ConnectionMode, ClientID: config.ClientID,
+			BotUsername: config.BotUsername, RedirectURI: config.RedirectURI,
+		})
 	}
 	return digestJSON(struct {
 		Provider    string `json:"provider"`
@@ -239,11 +256,16 @@ func PublicationContract(
 	if err != nil {
 		return CertificationContract{}, err
 	}
+	requiredApprovalTier := ""
+	if enforceCertification && capability.Provider == capabilities.ProviderPinterest {
+		requiredApprovalTier = "standard"
+	}
 	requirements := Requirements{
 		RequireConfiguration:         true,
 		RequireProductionDeployment:  enforceCertification,
 		RequireProductionProviderApp: enforceCertification,
 		RequireApproval:              enforceCertification,
+		RequiredApprovalTier:         requiredApprovalTier,
 		RequireAuthorization:         true,
 		RequireLocalEvidence:         enforceCertification,
 		RequireLiveEvidence:          enforceCertification,
@@ -263,6 +285,56 @@ func PublicationContract(
 	}, nil
 }
 
+// OperationContract binds each non-publishing provider operation to independent
+// readiness evidence rather than borrowing connect or publish certification.
+func OperationContract(provider string, operation Operation, enforceCertification bool, accountKind string) (CertificationContract, error) {
+	provider = strings.TrimSpace(provider)
+	if (provider != capabilities.ProviderPinterest || (operation != OperationDiscover && operation != OperationAnalytics)) &&
+		(provider != capabilities.ProviderTelegram || (operation != OperationObservation && operation != OperationAnalytics)) &&
+		(provider != capabilities.ProviderDiscord || operation != OperationAnalytics) {
+		return CertificationContract{}, errors.New("provider readiness operation is not implemented")
+	}
+	accountKind = normalizedPolicyToken(accountKind, "standard")
+	policyMode := provider + "." + string(operation)
+	capabilityDigest, err := digestJSON(struct {
+		SchemaVersion int       `json:"schema_version"`
+		Provider      string    `json:"provider"`
+		Operation     Operation `json:"operation"`
+	}{SchemaVersion: 1, Provider: provider, Operation: operation})
+	if err != nil {
+		return CertificationContract{}, err
+	}
+	subject := Subject{Provider: provider, AccountKind: accountKind, Operation: operation, PolicyMode: policyMode}
+	scopes := RequiredScopesForSubject(subject)
+	policyDigest, err := policyDigest(provider, "account", operation, policyMode, scopes)
+	if err != nil {
+		return CertificationContract{}, err
+	}
+	requirements := Requirements{
+		RequireConfiguration:         true,
+		RequireAuthorization:         provider == capabilities.ProviderPinterest,
+		RequireProductionDeployment:  enforceCertification,
+		RequireProductionProviderApp: enforceCertification,
+		RequireApproval:              enforceCertification,
+		RequireLocalEvidence:         enforceCertification,
+		RequireLiveEvidence:          enforceCertification,
+		AllowTrialExecution:          enforceCertification && provider == capabilities.ProviderPinterest,
+	}
+	if enforceCertification {
+		if provider == capabilities.ProviderPinterest {
+			requirements.RequiredApprovalTier = "standard"
+			requirements.RequiredScopes = scopes
+		}
+		checks := operationCheckRequirements(operation)
+		requirements.RequiredLocalChecks = append([]CheckRequirement(nil), checks...)
+		requirements.RequiredLiveChecks = append([]CheckRequirement(nil), checks...)
+	}
+	return CertificationContract{
+		SchemaVersion: CertificationContractSchemaVersion, CapabilityDigest: capabilityDigest,
+		PolicyDigest: policyDigest, Requirements: requirements,
+	}, nil
+}
+
 func ConnectionContract(provider string, enforceCertification bool) (CertificationContract, error) {
 	provider = strings.TrimSpace(provider)
 	capabilityDigest, err := digestJSON(struct {
@@ -277,6 +349,10 @@ func ConnectionContract(provider string, enforceCertification bool) (Certificati
 	if err != nil {
 		return CertificationContract{}, err
 	}
+	requiredApprovalTier := ""
+	if enforceCertification && provider == capabilities.ProviderPinterest {
+		requiredApprovalTier = "standard"
+	}
 	return CertificationContract{
 		SchemaVersion:    CertificationContractSchemaVersion,
 		CapabilityDigest: capabilityDigest,
@@ -286,6 +362,7 @@ func ConnectionContract(provider string, enforceCertification bool) (Certificati
 			RequireProductionDeployment:  enforceCertification,
 			RequireProductionProviderApp: enforceCertification,
 			RequireApproval:              enforceCertification,
+			RequiredApprovalTier:         requiredApprovalTier,
 			AllowTrialExecution:          enforceCertification,
 		},
 	}, nil
@@ -309,12 +386,22 @@ func normalizedPolicyToken(value, fallback string) string {
 // RequiredScopesForSubject binds authorization evidence to account kind,
 // output, operation, and provider policy rather than a provider-wide union.
 func RequiredScopesForSubject(subject Subject) []string {
+	if subject.Provider == capabilities.ProviderPinterest {
+		switch subject.Operation {
+		case OperationDiscover:
+			return []string{"pins:read"}
+		case OperationAnalytics:
+			return []string{"pins:read", "user_accounts:read"}
+		}
+	}
 	if !subject.Operation.IsPublish() {
 		return nil
 	}
 	switch subject.Provider {
 	case capabilities.ProviderFacebook:
 		return []string{"pages_manage_posts", "pages_read_engagement"}
+	case capabilities.ProviderPinterest:
+		return []string{"boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"}
 	case capabilities.ProviderInstagram:
 		return []string{"instagram_basic", "instagram_content_publish"}
 	case capabilities.ProviderYouTube:
@@ -395,6 +482,22 @@ func splitScopeSet(raw string) []string {
 	}
 	slices.Sort(result)
 	return result
+}
+
+func operationCheckRequirements(operation Operation) []CheckRequirement {
+	checks := []CheckRequirement{{Kind: CheckConnect}, {Kind: CheckAuthorization}}
+	switch operation {
+	case OperationDiscover:
+		checks = append(checks, CheckRequirement{Kind: CheckDiscovery})
+	case OperationObservation:
+		checks = append(checks, CheckRequirement{Kind: CheckObservation})
+	case OperationAnalytics:
+		checks = append(checks, CheckRequirement{Kind: CheckAnalytics})
+	}
+	return append(checks,
+		CheckRequirement{Kind: CheckRefresh, AllowNotApplicable: true},
+		CheckRequirement{Kind: CheckRevoke, AllowNotApplicable: true},
+	)
 }
 
 func publicationCheckRequirements(operation Operation) []CheckRequirement {

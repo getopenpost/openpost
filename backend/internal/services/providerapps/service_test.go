@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -190,15 +191,19 @@ func TestUpsertProviderAppValidatesProviderInput(t *testing.T) {
 
 	service := NewService(createProviderAppsTestDB(t), crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"))
 
-	for _, provider := range []string{"reddit", "bluesky", "discord"} {
+	for _, provider := range []string{"reddit", "bluesky"} {
 		_, _, err := service.UpsertProviderApp(context.Background(), UpsertInput{Provider: provider, ClientID: "client", IsActive: true})
 		var validationErr ValidationError
 		require.ErrorAs(t, err, &validationErr)
 		require.ErrorContains(t, err, "unsupported provider app")
 	}
 
-	_, _, err := service.UpsertProviderApp(context.Background(), UpsertInput{Provider: "mastodon", ClientID: "client", IsActive: true})
+	_, _, err := service.UpsertProviderApp(context.Background(), UpsertInput{Provider: "discord", ConnectionMode: "webhook", IsActive: true})
 	var validationErr ValidationError
+	require.ErrorAs(t, err, &validationErr)
+	require.ErrorContains(t, err, "unsupported provider app")
+
+	_, _, err = service.UpsertProviderApp(context.Background(), UpsertInput{Provider: "mastodon", ClientID: "client", IsActive: true})
 	require.ErrorAs(t, err, &validationErr)
 	require.ErrorContains(t, err, "instance_url is required")
 
@@ -224,6 +229,43 @@ func TestUpsertProviderAppAcceptsEveryManagedProviderIdentity(t *testing.T) {
 		Provider: "mastodon", ClientID: "mastodon-client", InstanceURL: "https://example.social", IsActive: true,
 	})
 	require.NoError(t, err)
+}
+
+func TestUpsertBotProviderAppsEncryptsEverySecret(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	db := createProviderAppsTestDB(t)
+	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+	service := NewService(db, encryptor)
+	clientSecret := "discord-client-secret"
+	botToken := "discord-bot-token"
+	webhookSecret := "telegram-webhook-secret"
+
+	discord, _, err := service.UpsertProviderApp(ctx, UpsertInput{
+		Provider: "discord", ConnectionMode: "bot", ClientID: "discord-app", ClientSecret: &clientSecret,
+		BotToken: &botToken, RedirectURI: "https://app.test/api/v1/accounts/discord/callback", IsActive: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "bot", discord.ConnectionMode)
+	require.NotEmpty(t, discord.ClientSecretEnc)
+	require.NotEmpty(t, discord.BotTokenEnc)
+
+	telegram, _, err := service.UpsertProviderApp(ctx, UpsertInput{
+		Provider: "telegram", BotToken: &botToken, BotUsername: "@openpost_bot", WebhookSecret: &webhookSecret, IsActive: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "openpost_bot", telegram.BotUsername)
+	require.NotEmpty(t, telegram.BotTokenEnc)
+	require.NotEmpty(t, telegram.WebhookSecretEnc)
+
+	configs, err := service.ListActiveAppConfigs(ctx)
+	require.NoError(t, err)
+	require.Len(t, configs, 2)
+	for _, config := range configs {
+		require.NotContains(t, fmt.Sprintf("%+v", config), "0123456789abcdef0123456789abcdef")
+		require.NoError(t, platform.ValidateAppConfig(config))
+	}
 }
 
 func TestDeleteProviderAppRemovesRow(t *testing.T) {

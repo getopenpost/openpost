@@ -11,6 +11,8 @@ func TestRequiresPublicMediaUsesProfileCapability(t *testing.T) {
 	require.True(t, requiresPublicMedia("threads", models.ContentProfileCarousel))
 	require.False(t, requiresPublicMedia("threads", models.ContentProfileShortText))
 	require.True(t, requiresPublicMedia("tiktok", models.ContentProfileShortVideo))
+	require.True(t, requiresPublicMedia("pinterest", models.ContentProfileImagePost))
+	require.True(t, requiresPublicMedia("pinterest", models.ContentProfileCarousel))
 	require.False(t, requiresPublicMedia("mastodon", models.ContentProfileImagePost))
 }
 

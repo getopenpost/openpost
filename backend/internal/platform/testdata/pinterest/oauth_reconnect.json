@@ -1,0 +1,8 @@
+{
+  "access_token": "pin-access-reconnected",
+  "refresh_token": "pin-refresh-reconnected",
+  "expires_in": 2592000,
+  "refresh_token_expires_in": 31536000,
+  "scope": "boards:read,boards:write,pins:read,pins:write,user_accounts:read",
+  "token_type": "bearer"
+}

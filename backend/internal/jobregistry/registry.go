@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -41,6 +42,18 @@ type MediaCleanupPayload struct {
 
 type PublicationBuildPayload struct {
 	BuildID string `json:"build_id"`
+}
+
+type BotIngressPayload struct {
+	EventID     string `json:"event_id"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+// AccountContentDiscoveryPayload contains only database-owned references. The
+// durable discovery state owns cursors, content, provider outcomes, and budgets.
+type AccountContentDiscoveryPayload struct {
+	WorkspaceID     string `json:"workspace_id"`
+	SocialAccountID string `json:"social_account_id"`
 }
 
 type InvalidPayloadError struct {
@@ -153,6 +166,120 @@ func publicationBuildIdentity(payload string) (Identity, error) {
 		return Identity{}, err
 	}
 	return PublicationBuildIdentity(decoded.BuildID)
+}
+
+func EncodeAccountContentDiscoveryPayload(payload AccountContentDiscoveryPayload) (string, error) {
+	payload.WorkspaceID = strings.TrimSpace(payload.WorkspaceID)
+	payload.SocialAccountID = strings.TrimSpace(payload.SocialAccountID)
+	if !validDiscoveryReference(payload.WorkspaceID) || !validDiscoveryReference(payload.SocialAccountID) {
+		return "", &InvalidPayloadError{err: errors.New("invalid account content discovery reference")}
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "", &InvalidPayloadError{err: fmt.Errorf("encode account content discovery payload: %w", err)}
+	}
+	return string(encoded), nil
+}
+
+func DecodeAccountContentDiscoveryPayload(payload string) (AccountContentDiscoveryPayload, error) {
+	var decoded AccountContentDiscoveryPayload
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return decoded, &InvalidPayloadError{err: fmt.Errorf("decode account content discovery payload: %w", err)}
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return decoded, &InvalidPayloadError{err: errors.New("decode account content discovery payload: trailing data")}
+	}
+	decoded.WorkspaceID = strings.TrimSpace(decoded.WorkspaceID)
+	decoded.SocialAccountID = strings.TrimSpace(decoded.SocialAccountID)
+	if !validDiscoveryReference(decoded.WorkspaceID) || !validDiscoveryReference(decoded.SocialAccountID) {
+		return decoded, &InvalidPayloadError{err: errors.New("invalid account content discovery reference")}
+	}
+	return decoded, nil
+}
+
+func accountContentDiscoveryIdentity(payload string) (Identity, error) {
+	decoded, err := DecodeAccountContentDiscoveryPayload(payload)
+	if err != nil {
+		return Identity{}, err
+	}
+	return AccountContentDiscoveryIdentity(decoded.SocialAccountID)
+}
+
+func AccountContentDiscoveryIdentity(accountID string) (Identity, error) {
+	accountID = strings.TrimSpace(accountID)
+	if !validDiscoveryReference(accountID) {
+		return Identity{}, errors.New("social_account_id is required for account content discovery")
+	}
+	return Identity{ScopeID: accountID, DedupeKey: "discover"}, nil
+}
+
+func validDiscoveryReference(value string) bool {
+	if value == "" || len(value) > 200 {
+		return false
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+func EncodeBotIngressPayload(payload BotIngressPayload) (string, error) {
+	payload.EventID = strings.TrimSpace(payload.EventID)
+	payload.WorkspaceID = strings.TrimSpace(payload.WorkspaceID)
+	if !validBotIngressReference(payload.EventID, true) || !validBotIngressReference(payload.WorkspaceID, false) {
+		return "", &InvalidPayloadError{err: errors.New("invalid bot ingress event reference")}
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "", &InvalidPayloadError{err: fmt.Errorf("encode bot ingress payload: %w", err)}
+	}
+	return string(encoded), nil
+}
+
+func DecodeBotIngressPayload(payload string) (BotIngressPayload, error) {
+	var decoded BotIngressPayload
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return BotIngressPayload{}, &InvalidPayloadError{err: fmt.Errorf("decode bot ingress payload: %w", err)}
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return BotIngressPayload{}, &InvalidPayloadError{err: errors.New("decode bot ingress payload: trailing data")}
+	}
+	decoded.EventID = strings.TrimSpace(decoded.EventID)
+	decoded.WorkspaceID = strings.TrimSpace(decoded.WorkspaceID)
+	if !validBotIngressReference(decoded.EventID, true) || !validBotIngressReference(decoded.WorkspaceID, false) {
+		return BotIngressPayload{}, &InvalidPayloadError{err: errors.New("invalid bot ingress event reference")}
+	}
+	return decoded, nil
+}
+
+func botIngressIdentity(payload string) (Identity, error) {
+	decoded, err := DecodeBotIngressPayload(payload)
+	if err != nil {
+		return Identity{}, err
+	}
+	scopeID := decoded.WorkspaceID
+	if scopeID == "" {
+		scopeID = TypeBotIngress
+	}
+	return Identity{ScopeID: scopeID, DedupeKey: decoded.EventID}, nil
+}
+
+func validBotIngressReference(value string, required bool) bool {
+	if required && value == "" || len(value) > 200 {
+		return false
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return false
+		}
+	}
+	return true
 }
 
 func PublicationBuildIdentity(buildID string) (Identity, error) {

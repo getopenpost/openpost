@@ -175,6 +175,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/telegram/connection-code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Issue a one-time Telegram connection command
+     * @description Returns the signed command exactly once. It expires after 15 minutes and is never placed in a URL, job, log, or later response.
+     */
+    post: operations["issue-telegram-connection-code"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}": {
     parameters: {
       query?: never;
@@ -566,7 +586,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get stored account and publication analytics */
+    /** Get stored whole-account content analytics */
     get: operations["get-analytics-overview"];
     put?: never;
     post?: never;
@@ -587,6 +607,26 @@ export interface paths {
     put?: never;
     /** Queue analytics collection for a workspace */
     post: operations["refresh-analytics"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/analytics/repurpose": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Prepare a fresh local repurpose handoff
+     * @description Resolves bounded stored source fields and private evidence without creating or changing a Publication, Rendition, provider item, or AI build.
+     */
+    post: operations["prepare-analytics-repurpose"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4560,6 +4600,34 @@ export interface components {
       /** Format: int64 */
       workspaces: number;
     };
+    AccountDiscoveryCoverage: {
+      account_id: string;
+      /** Format: date-time */
+      backfill_watermark?: string;
+      description?: string;
+      failure_code?: string;
+      failure_message?: string;
+      /** Format: date-time */
+      initial_completed_at?: string;
+      /** Format: int64 */
+      initial_items_discovered: number;
+      /** Format: date-time */
+      last_attempted_at?: string;
+      /** Format: date-time */
+      last_success_at?: string;
+      /** Format: date-time */
+      next_eligible_at?: string;
+      platform: string;
+      /** @enum {string} */
+      status:
+        | "complete"
+        | "partial"
+        | "permission_required"
+        | "rate_limited"
+        | "cost_limited"
+        | "unsupported"
+        | "failed";
+    };
     AccountExport: {
       /**
        * Format: uri
@@ -4730,6 +4798,9 @@ export interface components {
       id: string;
       /** Format: date-time */
       last_synced_at?: string;
+      metric_metadata: {
+        [key: string]: components["schemas"]["AnalyticsMetricMetadata"];
+      };
       metrics: {
         [key: string]: number;
       };
@@ -4935,6 +5006,23 @@ export interface components {
       revision?: number;
       workspace_activated?: boolean;
     };
+    AnalyticsMetricMetadata: {
+      /** @enum {string} */
+      aggregation:
+        | "current_snapshot"
+        | "lifetime_total"
+        | "reporting_period_total"
+        | "reporting_period_average";
+      /** Format: date-time */
+      period_end?: string;
+      /** Format: date-time */
+      period_start?: string;
+      /** Format: int64 */
+      scale?: number;
+      source?: string;
+      /** @enum {string} */
+      unit: "count" | "milliseconds" | "basis_points";
+    };
     Angle: {
       approach: string;
       id: string;
@@ -4996,8 +5084,9 @@ export interface components {
       /** @enum {string} */
       kind: "local" | "live";
       /** @enum {string} */
-      operation: "publish_immediate" | "publish_scheduled";
-      output_profile: string;
+      operation: "discover" | "analytics" | "publish_immediate" | "publish_scheduled";
+      /** @description Required for publishing certification; omitted for account discovery and analytics */
+      output_profile?: string;
       /** @description Optional asserted normalized policy mode; the server derives and verifies it */
       policy_mode?: string;
       policy_settings?: {
@@ -5809,8 +5898,20 @@ export interface components {
       description: components["schemas"]["TextConstraint"];
       title: components["schemas"]["TextConstraint"];
     };
+    ContentMeasurement: {
+      /** @enum {string} */
+      availability: "available";
+      /** Format: date-time */
+      collected_at: string;
+      metadata: components["schemas"]["AnalyticsMetricMetadata"];
+      /** Format: int64 */
+      value: number;
+    };
     ContentOverview: {
       account_id: string;
+      /** Format: date-time */
+      collected_at?: string;
+      content_profile: string;
       /** Format: int64 */
       engagement: number;
       error_code?: string;
@@ -5819,21 +5920,44 @@ export interface components {
       external_url?: string;
       /** Format: date-time */
       last_synced_at?: string;
+      measurements: {
+        [key: string]: components["schemas"]["ContentMeasurement"];
+      };
+      /** @enum {string} */
+      metric_availability: "available" | "pending" | "unavailable";
+      metric_metadata: {
+        [key: string]: components["schemas"]["AnalyticsMetricMetadata"];
+      };
       metrics: {
         [key: string]: number;
       };
       /** Format: date-time */
       next_sync_at?: string;
       platform: string;
-      publication_id: string;
+      publication_id?: string;
       /** Format: date-time */
       published_at: string;
-      rendition_id: string;
+      reference: components["schemas"]["ContentReference"];
+      rendition_id?: string;
+      /** @enum {string} */
+      source: "openpost" | "external";
       stale: boolean;
       status: string;
       title: string;
       username: string;
     };
+    ContentReference:
+      | {
+          account_content_id: string;
+          /** @enum {string} */
+          type: "external";
+        }
+      | {
+          publication_id: string;
+          rendition_id: string;
+          /** @enum {string} */
+          type: "openpost";
+        };
     Conversation: {
       /** Format: date-time */
       archived_at?: string;
@@ -6435,11 +6559,14 @@ export interface components {
     };
     Decision: {
       advertisable: boolean;
+      analytics_ready: boolean;
       blockers?: components["schemas"]["Blocker"][] | null;
       connectable: boolean;
       contract_digest?: string;
+      discoverable: boolean;
       executable: boolean;
       facts: components["schemas"]["Facts"];
+      observable: boolean;
       publishable: boolean;
       state: string;
     };
@@ -7907,6 +8034,59 @@ export interface components {
       /** @description One-time grant for organization.ownership.transfer */
       reauth_grant: string;
     };
+    Insight: {
+      account_id?: string;
+      /** @enum {string} */
+      caveat?:
+        | "filtered_content_lifetime_totals"
+        | "filtered_content_reporting_period_totals"
+        | "account_wide";
+      /** Format: int64 */
+      comparison_sample: number;
+      content?: components["schemas"]["InsightContentEvidence"];
+      /** Format: int64 */
+      destination_count?: number;
+      /** @enum {string} */
+      kind: "most_engagement_actions" | "strongest_measured_destination" | "follower_decline";
+      /** Format: int64 */
+      measured_count: number;
+      metric: string;
+      period: components["schemas"]["InsightPeriod"];
+      platform?: string;
+      /** @enum {string} */
+      reason?: "missing_measurements" | "low_sample" | "incompatible_semantics" | "no_decline";
+      /** @enum {string} */
+      status: "available" | "insufficient_data";
+      username?: string;
+      /** Format: int64 */
+      value?: number;
+    };
+    InsightContentEvidence: {
+      account_id: string;
+      /** Format: date-time */
+      collected_at: string;
+      excerpt: string;
+      platform: string;
+      /** Format: date-time */
+      published_at: string;
+      reference: components["schemas"]["ContentReference"];
+      /** @enum {string} */
+      source: "openpost" | "external";
+      title: string;
+      username: string;
+    };
+    InsightPeriod: {
+      /** @enum {string} */
+      aggregation: "unavailable" | "current_snapshot" | "lifetime_total" | "reporting_period_total";
+      /** Format: date-time */
+      filter_end: string;
+      /** Format: date-time */
+      filter_start: string;
+      /** Format: date-time */
+      measurement_end?: string;
+      /** Format: date-time */
+      measurement_start?: string;
+    };
     InstanceAuditJSONExport: {
       /**
        * Format: uri
@@ -8114,6 +8294,35 @@ export interface components {
       answer: string;
       /** @description Interview question */
       question: string;
+    };
+    IssueTelegramConnectionCodeInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/IssueTelegramConnectionCodeInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Canonical non-zero numeric Telegram chat ID that must redeem the command */
+      expected_chat_id: string;
+      /** @description Workspace receiving the Telegram destination */
+      workspace_id: string;
+    };
+    IssueTelegramConnectionCodeResponse: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/IssueTelegramConnectionCodeResponse.json
+       */
+      readonly $schema?: string;
+      /** @description Instance-owned Telegram bot username */
+      bot_username: string;
+      /** @description One-time command to post in the destination chat. Returned only by this issuance response. */
+      code: string;
+      /**
+       * Format: date-time
+       * @description When the one-time command expires
+       */
+      expires_at: string;
     };
     Item: {
       /** @description Account ID */
@@ -9168,13 +9377,18 @@ export interface components {
        * @example https://example.com/schemas/Overview.json
        */
       readonly $schema?: string;
+      /** @enum {string} */
+      account_growth_scope: "account_wide";
       accounts: components["schemas"]["AccountOverview"][] | null;
       content: components["schemas"]["ContentOverview"][] | null;
+      content_next_cursor?: string;
       /** Format: int64 */
       content_total: number;
+      coverage: components["schemas"]["AccountDiscoveryCoverage"][] | null;
       follower_series: components["schemas"]["SeriesPoint"][] | null;
       /** Format: date-time */
       generated_at: string;
+      insights: components["schemas"]["Insight"][] | null;
       /** Format: date-time */
       last_synced_at?: string;
       publication_next_cursor?: string;
@@ -9183,6 +9397,8 @@ export interface components {
       publications: components["schemas"]["PublicationOverview"][] | null;
       /** Format: int64 */
       range_days: number;
+      /** @enum {string} */
+      source: "all" | "openpost" | "external";
       summary: components["schemas"]["Summary"];
       trends: components["schemas"]["TrendSeries"];
     };
@@ -9477,8 +9693,14 @@ export interface components {
       workspace_id?: string;
     };
     ProviderAppResponse: {
-      /** @description OAuth client ID */
+      /** @description Whether an encrypted bot token is stored */
+      bot_token_configured: boolean;
+      /** @description Public bot username without the at-sign */
+      bot_username?: string;
+      /** @description OAuth client or application ID */
       client_id: string;
+      /** @description Instance-owned provider connection mode */
+      connection_mode: string;
       /** @description Creation time */
       created_at: string;
       /** @description Whether the database row can be deleted through the admin API */
@@ -9508,6 +9730,8 @@ export interface components {
       source: "environment" | "database";
       /** @description Last update time */
       updated_at: string;
+      /** @description Whether an encrypted webhook verification secret is stored */
+      webhook_secret_configured: boolean;
     };
     ProviderCostOperationSummary: {
       /**
@@ -9612,12 +9836,20 @@ export interface components {
       terminal_reason?: string;
     };
     ProviderInfo: {
-      /** @description Connection method: oauth, app_password, or oauth_oob */
+      /** @description Primary connection method retained for compatibility */
       auth_mode: string;
       /** @description High-level OpenPost capabilities available or planned for this provider */
       capabilities?: string[] | null;
       /** @description Whether this provider can currently be connected */
       configured: boolean;
+      /** @description Connection methods configured and ready on this instance */
+      configured_connection_modes?: string[] | null;
+      /** @description Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot */
+      connection_modes?: string[] | null;
+      /** @description Mode-specific readiness for providers with distinct connection methods */
+      connection_readiness?: {
+        [key: string]: components["schemas"]["Decision"];
+      };
       /** @description Short connection or launch note for this provider */
       description?: string;
       /** @description Human-readable provider name */
@@ -9634,7 +9866,14 @@ export interface components {
       /** @description Provider launch status: available, needs_configuration, or planned */
       status?: string;
     };
+    ProviderReadinessAccount: {
+      analytics?: components["schemas"]["Decision"];
+      discovery?: components["schemas"]["Decision"];
+      observation?: components["schemas"]["Decision"];
+      social_account_id: string;
+    };
     ProviderReadinessItem: {
+      accounts?: components["schemas"]["ProviderReadinessAccount"][] | null;
       advertisable: boolean;
       blocking_issues?: string[] | null;
       configured_app_state: string;
@@ -10504,6 +10743,63 @@ export interface components {
       readonly $schema?: string;
       message: string;
     };
+    RepurposeAnalyticsInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/RepurposeAnalyticsInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Reporting range used to recompute private evidence */
+      range: components["schemas"]["RepurposeRange"];
+      /** @description Opaque discriminated analytics content reference */
+      reference: components["schemas"]["ContentReference"];
+      /** @description Workspace ID */
+      workspace_id: string;
+    };
+    RepurposeEvidence: {
+      /** Format: date-time */
+      collected_at: string;
+      metadata: components["schemas"]["AnalyticsMetricMetadata"];
+      metric: string;
+      /** @enum {string} */
+      scope: "requested_range" | "lifetime" | "current_snapshot";
+      /** Format: int64 */
+      value: number;
+    };
+    RepurposeProvenance: {
+      /** @enum {string} */
+      origin: "openpost" | "external";
+      platform: string;
+      /** Format: date-time */
+      published_at: string;
+      reference: components["schemas"]["ContentReference"];
+    };
+    RepurposeRange: {
+      /**
+       * Format: int64
+       * @description Reporting window in days
+       * @enum {integer}
+       */
+      days: 7 | 30 | 90;
+    };
+    RepurposeSource: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/RepurposeSource.json
+       */
+      readonly $schema?: string;
+      content_profile: string;
+      destination_account_ids: string[] | null;
+      evidence: components["schemas"]["RepurposeEvidence"][] | null;
+      handoff_id: string;
+      provenance: components["schemas"]["RepurposeProvenance"];
+      range: components["schemas"]["RepurposeRange"];
+      source_text: string;
+      title: string;
+      workspace_id: string;
+    };
     RequestPasswordResetInputBody: {
       /**
        * Format: uri
@@ -10881,10 +11177,16 @@ export interface components {
        * @example https://example.com/schemas/SaveProviderAppInputBody.json
        */
       readonly $schema?: string;
-      /** @description OAuth client ID */
-      client_id: string;
+      /** @description Bot token. Omit to preserve the encrypted value when updating. */
+      bot_token?: string;
+      /** @description Public Telegram bot username */
+      bot_username?: string;
+      /** @description OAuth client or application ID */
+      client_id?: string;
       /** @description OAuth client secret. Omit to preserve the existing secret when updating. */
       client_secret?: string;
+      /** @description Provider connection mode; inferred when omitted */
+      connection_mode?: string;
       /** @description Federated provider instance URL */
       instance_url?: string;
       /** @description Whether this app should be active. Defaults to true. */
@@ -10895,6 +11197,8 @@ export interface components {
       provider: string;
       /** @description OAuth redirect URI */
       redirect_uri?: string;
+      /** @description Webhook verification secret. Omit to preserve the encrypted value when updating. */
+      webhook_secret?: string;
     };
     SaveProviderAppResponse: {
       /**
@@ -11317,6 +11621,8 @@ export interface components {
     };
     Summary: {
       engagement: components["schemas"]["MetricSummary"];
+      /** @enum {string} */
+      follower_scope: "account_wide";
       followers: components["schemas"]["MetricSummary"];
       impressions: components["schemas"]["MetricSummary"];
       /** Format: int64 */
@@ -12756,6 +13062,75 @@ export interface operations {
       };
     };
   };
+  "issue-telegram-connection-code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IssueTelegramConnectionCodeInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IssueTelegramConnectionCodeResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
   "disconnect-account": {
     parameters: {
       query?: never;
@@ -13028,6 +13403,15 @@ export interface operations {
           "application/problem+json": components["schemas"]["ErrorModel"];
         };
       };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
   };
   "search-account-publishing-options": {
@@ -13136,7 +13520,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        /** @description Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube) */
+        /** @description Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest) */
         platform: string;
       };
       cookie?: never;
@@ -14283,13 +14667,15 @@ export interface operations {
         workspace_id: string;
         /** @description Reporting window in days (7, 30, or 90) */
         days?: number;
-        /** @description Optional social account ID used to filter results and totals */
+        /** @description Optional social account ID used to filter results and content totals */
         account_id?: string;
+        /** @description Content source filter; account growth remains account-wide */
+        source?: "all" | "openpost" | "external";
         /** @description Stored result ordering */
         sort?: "engagement" | "views" | "newest";
-        /** @description Opaque publication-page cursor */
+        /** @description Opaque source-bound content cursor */
         cursor?: string;
-        /** @description Publication results per page */
+        /** @description Content results per page */
         limit?: number;
       };
       header?: never;
@@ -14378,6 +14764,84 @@ export interface operations {
       };
       /** @description Forbidden */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "prepare-analytics-repurpose": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RepurposeAnalyticsInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RepurposeSource"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Gone */
+      410: {
         headers: {
           [name: string]: unknown;
         };

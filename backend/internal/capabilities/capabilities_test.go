@@ -489,7 +489,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 			require.Equal(t, tt.maxBytes, capability.Media.MaxSizeBytes)
 			require.Equal(t, tt.maxDuration, capability.Media.MaxDurationSeconds)
 			require.ElementsMatch(t, tt.allowedMIMEs, capability.Media.AllowedMIMEs)
-			require.Equal(t, "2026-08-27.1", capability.CapabilityRevision)
+			require.Equal(t, "2026-09-03.1", capability.CapabilityRevision)
 		})
 	}
 }
@@ -745,6 +745,83 @@ func TestValidateBlocksMastodonPollWithMedia(t *testing.T) {
 	}}, map[string]any{"poll_options": "One\nTwo"})
 
 	requireIssueCode(t, issues, "mastodon_poll_media_conflict")
+}
+
+func TestPinterestTelegramAndDiscordExposeTypedDestinationSettings(t *testing.T) {
+	t.Parallel()
+
+	pinterest, ok := Find(ProviderPinterest, models.ContentProfileImagePost)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "board_id")
+	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "section_id")
+	require.Equal(t, 1, pinterest.Media.MinCount)
+	require.Equal(t, 1, pinterest.Media.MaxCount)
+	require.True(t, pinterest.Media.RequiresPublicURL)
+	require.True(t, pinterest.Media.RequiresHTTPSFetchable)
+	require.True(t, pinterest.RequiresAppReview)
+	require.NotEmpty(t, pinterest.UnavailableReason)
+
+	carousel, ok := Find(ProviderPinterest, models.ContentProfileCarousel)
+	require.True(t, ok)
+	require.Equal(t, 2, carousel.Media.MinCount)
+	require.Equal(t, 5, carousel.Media.MaxCount)
+	require.True(t, carousel.RequiresAppReview)
+	require.NotEmpty(t, carousel.UnavailableReason)
+
+	pinterestVideo, ok := Find(ProviderPinterest, models.ContentProfileShortVideo)
+	require.True(t, ok)
+	require.Equal(t, []string{"video/mp4"}, pinterestVideo.Media.AllowedMIMEs)
+	require.Equal(t, int64(2*1024*1024*1024), pinterestVideo.Media.MaxSizeBytes)
+	require.Contains(t, capabilitySettingKeys(pinterestVideo.Settings), "cover_media_id")
+	require.NotEmpty(t, pinterestVideo.UnavailableReason, "video delivery must remain unavailable until certification")
+
+	telegram, ok := Find(ProviderTelegram, models.ContentProfileShortText)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(telegram.Settings), "chat_id")
+	require.NotEmpty(t, telegram.UnavailableReason)
+
+	discord, ok := Find(ProviderDiscord, models.ContentProfileShortText)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "channel_id")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "embed")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_policy")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_user_ids")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_role_ids")
+	for _, setting := range discord.Settings {
+		if setting.Key == "mention_user_ids" {
+			require.Equal(t, "remote_picker", setting.Control)
+			require.Equal(t, "discord_members", setting.OptionsSource)
+		}
+		if setting.Key == "mention_role_ids" {
+			require.Equal(t, "remote_picker", setting.Control)
+			require.Equal(t, "discord_roles", setting.OptionsSource)
+		}
+	}
+
+	// Existing webhook renditions predate bot settings and must remain valid.
+	requireNoIssueCode(t, Validate(ProviderDiscord, models.ContentProfileShortText, "hello", "", "", nil, nil), "setting_required")
+}
+
+func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
+	t.Parallel()
+
+	issues := Validate(ProviderPinterest, models.ContentProfileImagePost, "caption", "", "", []MediaItem{{
+		ID: "image-1", MimeType: "image/jpeg", Size: 1024,
+	}}, map[string]any{"board_id": "board-1", "chat_id": "-100123"})
+	requireIssueCode(t, issues, "unsupported_setting")
+
+	issues = Validate(ProviderTelegram, models.ContentProfileShortText, "hello", "", "", nil, map[string]any{
+		"chat_id": "-100123", "channel_id": "discord-channel",
+	})
+	requireIssueCode(t, issues, "unsupported_setting")
+}
+
+func capabilitySettingKeys(settings []SettingDefinition) []string {
+	keys := make([]string, 0, len(settings))
+	for _, setting := range settings {
+		keys = append(keys, setting.Key)
+	}
+	return keys
 }
 
 func TestValidateFlagsUnsupportedProviderSettings(t *testing.T) {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -11,10 +12,68 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/stretchr/testify/require"
 )
+
+type authorizationRevokingAdapter struct {
+	providerAvailabilityAdapter
+	token string
+	err   error
+}
+
+func (a *authorizationRevokingAdapter) RevokeAuthorization(_ context.Context, token string) error {
+	a.token = token
+	return a.err
+}
+
+func TestProviderRevocationFailureKeepsTheLocalGrantRetryable(t *testing.T) {
+	db := createHandlerTestDB(t,
+		(*models.Organization)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
+		(*models.SocialAccount)(nil), (*models.Job)(nil),
+	)
+	ctx := t.Context()
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "OAuth"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "OAuth"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
+	require.NoError(t, err)
+	encryptor := crypto.NewTokenEncryptor("test-key")
+	encrypted, err := encryptor.Encrypt("provider-access")
+	require.NoError(t, err)
+	grant := models.OAuthGrant{
+		ID: "grant-1", WorkspaceID: "workspace-1", Provider: "pinterest", ProviderProjectID: "pin-app",
+		ProviderSubject: "openpost", AccessTokenEnc: encrypted, TokenVersion: 1, ExecutionMode: "oauth2",
+		AuthorizationEvidence: `{"source":"test"}`, ValidationStatus: "valid", ValidatedAt: time.Now().UTC(),
+		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	_, err = db.NewInsert().Model(&grant).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.SocialAccount{
+		ID: "account-1", WorkspaceID: "workspace-1", Platform: "pinterest", AccountID: "openpost",
+		OAuthGrantID: grant.ID, AccessTokenEnc: []byte{}, RefreshTokenEnc: []byte{}, IsActive: true,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	adapter := &authorizationRevokingAdapter{err: errors.New("provider unavailable")}
+	handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{"pinterest": adapter}, testAuthenticator{}, false, "https://app.openpost.test")
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler.RevokeAccountGrant(api)
+
+	response := oauthSelectionRequest(t, e, http.MethodDelete, "/api/v1/accounts/account-1/grant", nil, true)
+	require.Equal(t, http.StatusBadGateway, response.Code, response.Body.String())
+	require.Equal(t, "provider-access", adapter.token)
+	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", grant.ID).Scan(ctx))
+	require.True(t, grant.RevokedAt.IsZero())
+	require.NotEmpty(t, grant.AccessTokenEnc)
+	var account models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", "account-1").Scan(ctx))
+	require.True(t, account.IsActive)
+}
 
 func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.T) {
 	ctx := context.Background()

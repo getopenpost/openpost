@@ -482,19 +482,23 @@ func (s *Service) publishRendition(
 		return err
 	}
 	token := ""
-	if !connectorBacked {
+	_, usesInstanceCredential := provider.(platform.InstanceCredentialPublisher)
+	if !connectorBacked && !usesInstanceCredential {
 		token, err = s.tm.GetValidAccessToken(ctx, account.ID)
 		if err != nil {
 			return fmt.Errorf("auth error: %v", err)
 		}
+	}
+	settings := map[string]interface{}{}
+	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
+	if err := validatePublishingTarget(ctx, provider, token, account.AccountID, settings); err != nil {
+		return err
 	}
 	mediaAttachments, mediaAltTexts, mediaSettings, err := s.loadRenditionMedia(ctx, rendition.ID)
 	if err != nil {
 		return err
 	}
 
-	settings := map[string]interface{}{}
-	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
 	if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
 		return err
 	}
@@ -523,6 +527,7 @@ func (s *Service) publishRendition(
 
 	req := &platform.PublishRequest{
 		Content:          rendition.Body,
+		RenditionID:      rendition.ID,
 		Profile:          rendition.Profile,
 		OutputProfile:    rendition.OutputProfile,
 		Title:            firstNonEmptyPublisherString(rendition.Title, publication.Title),
@@ -632,7 +637,8 @@ func (s *Service) publishRenditionSegments(
 		return err
 	}
 	token := ""
-	if !connectorBacked {
+	_, usesInstanceCredential := provider.(platform.InstanceCredentialPublisher)
+	if !connectorBacked && !usesInstanceCredential {
 		token, err = s.tm.GetValidAccessToken(ctx, account.ID)
 		if err != nil {
 			return fmt.Errorf("auth error: %v", err)
@@ -640,6 +646,9 @@ func (s *Service) publishRenditionSegments(
 	}
 	destinationSettings := map[string]interface{}{}
 	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &destinationSettings)
+	if err := validatePublishingTarget(ctx, provider, token, account.AccountID, destinationSettings); err != nil {
+		return err
+	}
 
 	parentExternalID := ""
 	rootExternalID := ""
@@ -714,6 +723,7 @@ func (s *Service) publishRenditionSegments(
 
 		req := &platform.PublishRequest{
 			Content:          segment.Body,
+			RenditionID:      rendition.ID,
 			Profile:          rendition.Profile,
 			OutputProfile:    rendition.OutputProfile,
 			Title:            firstNonEmptyPublisherString(segment.Title, rendition.Title, publication.Title),
@@ -948,7 +958,7 @@ func mergePublisherSettings(base, overrides map[string]interface{}) map[string]i
 }
 
 func (s *Service) hydratePublicSettingMediaURLs(ctx context.Context, workspaceID, provider string, settings map[string]interface{}) error {
-	if provider != "instagram" {
+	if provider != "instagram" && provider != "pinterest" {
 		return nil
 	}
 	for _, key := range []string{"cover_media_id"} {
@@ -1663,6 +1673,22 @@ func (s *Service) connectorCapabilityForAccount(
 	)
 }
 
+func validatePublishingTarget(
+	ctx context.Context,
+	provider platform.Publisher,
+	accessToken, accountID string,
+	settings map[string]interface{},
+) error {
+	validator, ok := provider.(platform.PublishingTargetValidator)
+	if !ok {
+		return nil
+	}
+	if err := validator.ValidatePublishingTarget(ctx, accessToken, accountID, settings); err != nil {
+		return fmt.Errorf("publishing target validation failed: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) publishProvider(
 	ctx context.Context,
 	provider platform.Publisher,
@@ -2123,7 +2149,10 @@ func (s *Service) openMediaReaderAt(ctx context.Context, storageKey string, offs
 }
 
 func (s *Service) openThumbnailFromSettings(ctx context.Context, settings map[string]interface{}) (*models.MediaAttachment, io.ReadCloser, error) {
-	thumbnailID := settingStringPublisher(settings, "thumbnail_media_id")
+	thumbnailID := firstNonEmptyPublisherString(
+		settingStringPublisher(settings, "thumbnail_media_id"),
+		settingStringPublisher(settings, "cover_media_id"),
+	)
 	if thumbnailID == "" {
 		return nil, nil, nil
 	}
@@ -2235,10 +2264,7 @@ func (s *Service) providerForAccount(ctx context.Context, workspaceID string, ac
 			return nil, "", false, err
 		}
 	}
-	providerKey := account.Platform
-	if account.Platform == "mastodon" {
-		providerKey = "mastodon:" + account.InstanceURL
-	}
+	providerKey := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	s.providerMu.RLock()
 	provider, ok := s.providers[providerKey]
 	s.providerMu.RUnlock()

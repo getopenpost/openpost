@@ -7,18 +7,54 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
+
+var analyticsTestSchemaPath string
+
+func TestMain(m *testing.M) {
+	templateDir, err := os.MkdirTemp("", "openpost-analytics-tests-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create analytics test template directory: %v\n", err)
+		os.Exit(1)
+	}
+	analyticsTestSchemaPath = filepath.Join(templateDir, "schema.db")
+	db, err := database.InitDB("file:" + analyticsTestSchemaPath + "?mode=rwc")
+	if err == nil {
+		err = database.CreateSchema(db)
+	}
+	if db != nil {
+		if closeErr := db.Close(); err == nil {
+			err = closeErr
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create analytics test schema: %v\n", err)
+		_ = os.RemoveAll(templateDir)
+		os.Exit(1)
+	}
+
+	code := m.Run()
+	if err := os.RemoveAll(templateDir); err != nil && code == 0 {
+		fmt.Fprintf(os.Stderr, "remove analytics test template directory: %v\n", err)
+		code = 1
+	}
+	os.Exit(code)
+}
 
 func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	db := newAnalyticsTestDB(t)
@@ -63,7 +99,8 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	service := NewService(db, staticTokenSource{})
-
+	adapter := &fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true, Content: true}}
+	service.SetProvider(account.Platform, adapter)
 	service.SetFeatureGate(alwaysEnabledGate{})
 	service.now = func() time.Time { return now }
 	options := normalizeOverviewOptions(OverviewOptions{Sort: "newest", Limit: 50})
@@ -77,15 +114,26 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Equal(t, int64(100), first.Summary.Followers.Value)
 	require.NotEmpty(t, first.PublicationNextCursor)
 	options.Cursor = first.PublicationNextCursor
+	service.now = func() time.Time { return now.Add(24 * time.Hour) }
 	second, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, options)
 	require.NoError(t, err)
 	require.Len(t, second.Publications, 50)
+	require.Equal(t, first.GeneratedAt, second.GeneratedAt, "cursor freezes the reporting range")
 	require.NotEqual(t, first.Publications[len(first.Publications)-1].PublicationID, second.Publications[0].PublicationID)
 	options.Cursor = second.PublicationNextCursor
 	third, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, options)
 	require.NoError(t, err)
 	require.Len(t, third.Publications, 21)
 	require.Empty(t, third.PublicationNextCursor)
+	require.Equal(t, first.Insights, second.Insights, "insights use the complete population, not the current page")
+	require.Equal(t, first.Insights, third.Insights, "load-more state cannot change insights")
+
+	service.now = func() time.Time { return now }
+	engagementSorted, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Sort: "engagement", Limit: 7})
+	require.NoError(t, err)
+	require.Equal(t, first.Insights, engagementSorted.Insights, "display sort and page size cannot change insights")
+	require.Zero(t, adapter.accountCalls, "analytics reads must not call providers")
+	require.Zero(t, adapter.contentCalls, "insights must use stored snapshots only")
 
 	seen := map[string]bool{}
 	for _, page := range [][]PublicationOverview{first.Publications, second.Publications, third.Publications} {
@@ -97,13 +145,166 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Len(t, seen, 121)
 }
 
-func TestOverviewCursorCannotCrossAccountOrSortScope(t *testing.T) {
-	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1})
-	cursor := encodeOverviewNextCursor(0, 1, 2, options, 30)
+func TestOverviewCursorCannotCrossWorkspaceAccountSortSourceRevisionOrSignature(t *testing.T) {
+	service := NewService(nil, nil)
+	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1})
+	cursor := service.encodeOverviewNextCursor("workspace-a", 0, 1, 2, options, 30, "revision-a", time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC))
 	options.AccountID = "account-b"
 	options.Cursor = cursor
-	_, err := decodeOverviewOffset(options, 30, 2)
+	_, err := service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "external", Sort: "newest", Limit: 1, Cursor: cursor})
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1, Cursor: cursor})
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-b")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	_, err = service.decodeOverviewOffset("workspace-b", options, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+	options.Cursor = cursor[:len(cursor)-1] + "x"
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+}
+
+func TestProjectedContentEngagementPrefersAggregateAndPreservesReportingPeriodSemantics(t *testing.T) {
+	start := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
+	metadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricEngagements: {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal, Source: "pinterest", PeriodStart: &start, PeriodEnd: &end},
+		platform.MetricSaves:       {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal, Source: "pinterest", PeriodStart: &start, PeriodEnd: &end},
+	}
+	value, measured := projectedContentEngagement(platform.AnalyticsValues{platform.MetricEngagements: 10, platform.MetricSaves: 3}, metadata)
+	require.True(t, measured)
+	require.Equal(t, int64(10), value)
+
+	delete(metadata, platform.MetricEngagements)
+	missingValue, missingMeasured := projectedContentEngagement(platform.AnalyticsValues{platform.MetricPinClicks: 14}, metadata)
+	require.False(t, missingMeasured)
+	require.Zero(t, missingValue)
+}
+
+func TestWholeAccountOverviewMixesSourcesWithoutDoubleCountingOrInventingManagedIDs(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := t.Context()
+	account := seedAnalyticsAccount(t, db, "content.read")
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-managed", now)
+	rendition := models.Rendition{
+		ID: "rendition-managed", PublicationID: publication.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: models.ContentProfileLongVideo, Status: models.RenditionStatusPublished,
+		ExternalID: "provider-managed", ExternalURL: "https://provider.example/managed", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+	inventory := []models.AccountContent{
+		{
+			ID: "content-managed", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
+			Platform: account.Platform, ProviderContentID: rendition.ExternalID, ContentProfile: models.ContentProfileLongVideo,
+			Title: "Managed provider title", Text: "Managed provider text", ExternalURL: rendition.ExternalURL,
+			PublishedAt: now.Add(-time.Hour), Origin: string(platform.AccountContentOriginOpenPost),
+			OriginConfidence: string(platform.AccountContentOriginConfidenceExact), RenditionID: rendition.ID,
+			FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "content-external", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
+			Platform: account.Platform, ProviderContentID: "provider-external", ContentProfile: models.ContentProfileLongVideo,
+			Title: "External provider title", Text: "External provider text", ExternalURL: "https://provider.example/external",
+			PublishedAt: now.Add(-2 * time.Hour), Origin: string(platform.AccountContentOriginExternal),
+			OriginConfidence:  string(platform.AccountContentOriginConfidenceExact),
+			FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	_, err = db.NewInsert().Model(&inventory).Exec(ctx)
+	require.NoError(t, err)
+	metadata := `{"views":{"unit":"count","aggregation":"lifetime_total","source":"provider-native"}}`
+	capturedAt := now.Add(-10 * time.Minute)
+	snapshots := []models.AnalyticsAccountContentSnapshot{
+		{ID: "snapshot-managed", WorkspaceID: account.WorkspaceID, AccountContentID: "content-managed", SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"views":10}`, MetricMetadataJSON: metadata, CaptureKey: "managed", CapturedAt: capturedAt},
+		{ID: "snapshot-external", WorkspaceID: account.WorkspaceID, AccountContentID: "content-external", SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"views":20}`, MetricMetadataJSON: metadata, CaptureKey: "external", CapturedAt: capturedAt},
+	}
+	_, err = db.NewInsert().Model(&snapshots).Exec(ctx)
+	require.NoError(t, err)
+	states := []models.AnalyticsSyncState{
+		{
+			ID: stateID(subjectRendition, rendition.ID), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectRendition, SubjectID: rendition.ID, SocialAccountID: account.ID, Platform: account.Platform,
+			Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"views":999}`, LastSuccessAt: now,
+		},
+		{
+			ID: stateID(subjectAccount, account.ID), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectAccount, SubjectID: account.ID, SocialAccountID: account.ID, Platform: account.Platform,
+			Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"followers":50}`, LastSuccessAt: now,
+		},
+	}
+	_, err = db.NewInsert().Model(&states).Exec(ctx)
+	require.NoError(t, err)
+	accountSnapshots := []models.AnalyticsAccountSnapshot{
+		{ID: "account-old", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":40}`, CapturedAt: now.Add(-7 * 24 * time.Hour)},
+		{ID: "account-new", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":50}`, CapturedAt: now},
+	}
+	_, err = db.NewInsert().Model(&accountSnapshots).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.AccountContentDiscoveryState{
+		ID: "coverage-1", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform,
+		Status: string(platform.AccountContentDiscoveryComplete), CoverageStatus: string(platform.AccountContentDiscoveryComplete),
+		CoverageDescription: "Recent provider history is complete.", InitialItemsDiscovered: 2, LastSuccessAt: now,
+		CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	service := NewService(db, staticTokenSource{})
+	service.now = func() time.Time { return now }
+
+	all, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "all", Sort: "newest"})
+	require.NoError(t, err)
+	require.Equal(t, "all", all.Source)
+	require.Equal(t, "account_wide", all.AccountGrowthScope)
+	require.Equal(t, "account_wide", all.Summary.FollowerScope)
+	require.Equal(t, 2, all.ContentTotal)
+	require.Equal(t, 2, all.Summary.Published)
+	require.Equal(t, 1, all.PublicationTotal)
+	require.Equal(t, int64(30), all.Summary.Views.Value, "the linked managed rendition is represented only by its inventory snapshot")
+	require.Equal(t, 2, all.Summary.Views.Measured)
+	require.Len(t, all.Coverage, 1)
+	require.Equal(t, string(platform.AccountContentDiscoveryComplete), all.Coverage[0].Status)
+	require.Equal(t, 2, all.Coverage[0].InitialItemsDiscovered)
+
+	managed := all.Content[0]
+	require.Equal(t, "openpost", managed.Reference.Type)
+	require.Equal(t, publication.ID, managed.Reference.PublicationID)
+	require.Equal(t, rendition.ID, managed.Reference.RenditionID)
+	require.Empty(t, managed.Reference.AccountContentID)
+	require.Equal(t, rendition.ExternalURL, managed.ExternalURL)
+	require.True(t, capturedAt.Equal(managed.Measurements[platform.MetricViews].CollectedAt))
+	require.Equal(t, "provider-native", managed.Measurements[platform.MetricViews].Metadata.Source)
+	require.Equal(t, "available", managed.MetricAvailability)
+
+	external := all.Content[1]
+	require.Equal(t, "external", external.Reference.Type)
+	require.Equal(t, "content-external", external.Reference.AccountContentID)
+	require.Empty(t, external.Reference.PublicationID)
+	require.Empty(t, external.Reference.RenditionID)
+	require.Empty(t, external.PublicationID)
+	require.Empty(t, external.RenditionID)
+	externalJSON, err := json.Marshal(external)
+	require.NoError(t, err)
+	require.NotContains(t, string(externalJSON), "publication_id")
+	require.NotContains(t, string(externalJSON), "rendition_id")
+
+	openpost, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "openpost"})
+	require.NoError(t, err)
+	require.Equal(t, 1, openpost.ContentTotal)
+	require.Equal(t, int64(10), openpost.Summary.Views.Value)
+	externalOnly, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "external"})
+	require.NoError(t, err)
+	require.Equal(t, 1, externalOnly.ContentTotal)
+	require.Equal(t, int64(20), externalOnly.Summary.Views.Value)
+	require.Equal(t, all.Summary.Followers, openpost.Summary.Followers)
+	require.Equal(t, all.Summary.Followers, externalOnly.Summary.Followers)
+	require.Equal(t, all.Trends.Followers, externalOnly.Trends.Followers)
 }
 
 type staticTokenSource struct{}
@@ -143,11 +344,27 @@ func (f *fakeExternalAnalyticsAdapter) FetchContentAnalytics(_ context.Context, 
 
 type fakeAnalyticsAdapter struct {
 	platform.Adapter
-	support    platform.AnalyticsSupport
-	account    platform.AnalyticsValues
-	content    platform.AnalyticsValues
-	accountErr error
-	contentErr error
+	support      platform.AnalyticsSupport
+	account      platform.AnalyticsValues
+	content      platform.AnalyticsValues
+	accountErr   error
+	contentErr   error
+	accountCalls int
+	contentCalls int
+}
+
+type fakeSemanticAnalyticsAdapter struct {
+	fakeAnalyticsAdapter
+	accountMeasurements platform.AnalyticsMeasurements
+	contentMeasurements platform.AnalyticsMeasurements
+}
+
+func (f *fakeSemanticAnalyticsAdapter) FetchAccountAnalyticsMeasurements(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsMeasurements, error) {
+	return f.accountMeasurements, f.accountErr
+}
+
+func (f *fakeSemanticAnalyticsAdapter) FetchContentAnalyticsMeasurements(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsMeasurements, error) {
+	return f.contentMeasurements, f.contentErr
 }
 
 func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
@@ -155,11 +372,167 @@ func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
 }
 
 func (f *fakeAnalyticsAdapter) FetchAccountAnalytics(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
+	f.accountCalls++
 	return f.account, f.accountErr
 }
 
 func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
+	f.contentCalls++
 	return f.content, f.contentErr
+}
+
+func TestYouTubeLifetimeAndReportingMetricsAreIncompatibleForAggregation(t *testing.T) {
+	periodStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	periodEnd := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	values := platform.AnalyticsValues{
+		platform.MetricViews:       900,
+		platform.MetricReportViews: 120,
+	}
+	metadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricViews: {
+			Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+			Source: "youtube_data_api",
+		},
+		platform.MetricReportViews: {
+			Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+			Source: "youtube_analytics_api", PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+		},
+	}
+
+	compatible := compatibleContentValues(values, metadata)
+	require.Equal(t, platform.AnalyticsValues{platform.MetricViews: 900}, compatible)
+	require.NotContains(t, compatible, platform.MetricReportViews)
+}
+
+func TestPinterestAnalyticsReadinessFailsClosedBeforeProviderCallAndPreservesHistory(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "pins:read user_accounts:read")
+	account.Platform = "pinterest"
+	_, err := db.NewUpdate().Model(&account).Column("platform", "granted_scopes").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	existing := &models.AnalyticsSyncState{
+		ID: stateID(subjectAccount, account.ID), WorkspaceID: account.WorkspaceID,
+		SubjectType: subjectAccount, SubjectID: account.ID, SocialAccountID: account.ID, Platform: account.Platform,
+		Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"impressions":42}`,
+		MetricMetadataJSON: `{}`, LastSuccessAt: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	_, err = db.NewInsert().Model(existing).Exec(t.Context())
+	require.NoError(t, err)
+	adapter := &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true, AccountRequiredScopes: []string{"pins:read", "user_accounts:read"}},
+		account: platform.AnalyticsValues{platform.MetricImpressions: 99},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("pinterest", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncAccount(t.Context(), account.ID))
+	require.Zero(t, adapter.accountCalls, "readiness must be checked before the Pinterest provider call")
+	state, err := service.loadState(t.Context(), subjectAccount, account.ID)
+	require.NoError(t, err)
+	require.Equal(t, "provider_readiness_blocked", state.ErrorCode)
+	require.JSONEq(t, `{"impressions":42}`, state.MetricsJSON, "blocking stale or missing certification must not delete stored history")
+}
+
+func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-semantics", now)
+	rendition := models.Rendition{
+		ID: "rendition-semantics", PublicationID: publication.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: "short_text", Status: models.RenditionStatusPublished,
+		ExternalID: "provider-semantics", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+
+	periodStart := now.Add(-24 * time.Hour)
+	periodEnd := now
+	scale := int64(100)
+	adapter := &fakeSemanticAnalyticsAdapter{
+		fakeAnalyticsAdapter: fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true, Content: true}},
+		accountMeasurements: platform.AnalyticsMeasurements{
+			platform.MetricFollowers: {
+				Value: 42,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationCurrentSnapshot,
+				},
+			},
+		},
+		contentMeasurements: platform.AnalyticsMeasurements{
+			platform.MetricLikes: {
+				Value: 3,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+				},
+			},
+			platform.MetricViews: {
+				Value: 1250,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitMilliseconds, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+					Source: "provider_report", Scale: &scale,
+				},
+			},
+			platform.MetricImpressions: {
+				Value: 800,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+					PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+				},
+			},
+			"completion_rate": {
+				Value: 8750,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitBasisPoints, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodAverage,
+					Source: "provider_report", PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+				},
+			},
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("test", adapter)
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+	require.NoError(t, service.syncRendition(ctx, rendition.ID))
+	var accountState models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&accountState).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	var accountSnapshot models.AnalyticsAccountSnapshot
+	require.NoError(t, db.NewSelect().Model(&accountSnapshot).Where("social_account_id = ?", account.ID).Scan(ctx))
+	require.JSONEq(t, accountState.MetricsJSON, accountSnapshot.MetricsJSON)
+	require.JSONEq(t, accountState.MetricMetadataJSON, accountSnapshot.MetricMetadataJSON)
+
+	var state models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectRendition, rendition.ID)).Scan(ctx))
+	var snapshot models.AnalyticsRenditionSnapshot
+	require.NoError(t, db.NewSelect().Model(&snapshot).Where("rendition_id = ?", rendition.ID).Scan(ctx))
+	require.JSONEq(t, state.MetricsJSON, snapshot.MetricsJSON)
+	require.JSONEq(t, state.MetricMetadataJSON, snapshot.MetricMetadataJSON)
+
+	values, metadata := decodeAnalyticsMetrics(state.MetricsJSON, state.MetricMetadataJSON, platform.AnalyticsMetricSubjectContent, state.Platform)
+	require.Equal(t, int64(1250), values[platform.MetricViews])
+	require.Equal(t, platform.AnalyticsMetricUnitMilliseconds, metadata[platform.MetricViews].Unit)
+	require.Equal(t, "provider_report", metadata[platform.MetricViews].Source)
+	require.Equal(t, scale, *metadata[platform.MetricViews].Scale)
+	require.Equal(t, platform.AnalyticsMetricUnitBasisPoints, metadata["completion_rate"].Unit)
+	require.Equal(t, periodStart, *metadata["completion_rate"].PeriodStart)
+	require.Equal(t, periodEnd, *metadata["completion_rate"].PeriodEnd)
+
+	overview, err := service.Overview(ctx, account.WorkspaceID, 30)
+	require.NoError(t, err)
+	require.Equal(t, int64(42), overview.Summary.Followers.Value)
+	require.Equal(t, int64(3), overview.Summary.Engagement.Value)
+	require.Zero(t, overview.Summary.Views.Value)
+	require.Zero(t, overview.Summary.Views.Measured)
+	require.Zero(t, overview.Summary.Impressions.Measured)
+	require.Empty(t, overview.Trends.Views)
+	require.Equal(t, int64(1250), overview.Content[0].Metrics[platform.MetricViews], "incompatible raw measurements remain inspectable")
+	require.Equal(t, platform.AnalyticsMetricUnitMilliseconds, overview.Content[0].MetricMetadata[platform.MetricViews].Unit)
 }
 
 func TestAccountSyncStoresHistoryAndBacksOffWhenUnchanged(t *testing.T) {
@@ -728,8 +1101,8 @@ func TestOverviewAggregatesLatestProviderMetricsWithoutBlendingExposureKinds(t *
 			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 5}},
 		},
 		{
-			Date: now.Format("2006-01-02"), Value: 3,
-			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 3}},
+			Date: now.Format("2006-01-02"), Value: 2,
+			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 2}},
 		},
 	}, overview.Trends.Engagement)
 	require.Equal(t, []DailyBreakdownPoint{
@@ -809,6 +1182,72 @@ func TestOverviewGroupsRenditionsAndOmitsProviderDeletedContent(t *testing.T) {
 	require.Equal(t, int64(3), overview.Summary.Engagement.Value)
 	require.Equal(t, int64(20), overview.Summary.Views.Value)
 	require.Zero(t, overview.Summary.Impressions.Measured)
+}
+
+func TestDiscordProviderReferencesComeOnlyFromAcceptedReceiptsForPersistedIDs(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	account := seedAnalyticsAccount(t, db, "")
+	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("platform = ?", "discord").
+		Set("account_id = ?", "guild-1").
+		Set("capability_state_json = ?", `{"connection_type":"bot"}`).
+		Where("id = ?", account.ID).
+		Exec(ctx)
+	require.NoError(t, err)
+	account.Platform = "discord"
+	account.AccountID = "guild-1"
+	account.CapabilityState = `{"connection_type":"bot"}`
+
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-discord", now)
+	rendition := models.Rendition{
+		ID: "rendition-discord", PublicationID: publication.ID, SocialAccountID: account.ID,
+		TargetKey: "discord", Platform: "discord", Profile: "short_text",
+		Status: models.RenditionStatusPublished, ExternalID: "message-1", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+	authorization := models.PublicationAuthorization{
+		ID: "authorization-discord", BatchID: "batch-discord", WorkspaceID: account.WorkspaceID,
+		PublicationID: publication.ID, RenditionID: rendition.ID, Action: "publish",
+		ActorOrigin: "worker", ActorUserID: "user-1", PublicationRevision: 1,
+		SocialAccountID: account.ID, TargetKey: "discord", ScheduledAt: now,
+		ContentHash: "sha256:content", MediaHash: "sha256:media", SettingsHash: "sha256:settings",
+		PolicyMode: "immediate", ProviderPolicyMode: "discord.bot", ExecutionIntent: "production",
+		ConfirmedAt: now, CreatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&authorization).Exec(ctx)
+	require.NoError(t, err)
+
+	attempts := []models.ProviderWriteAttempt{
+		acceptedDiscordAttempt("attempt-1", "operation-1", authorization, "message-1", "discord:channel-1:message-1:", now),
+		acceptedDiscordAttempt("attempt-rogue", "operation-rogue", authorization, "arbitrary-guild-message", "discord:channel-1:arbitrary-guild-message:", now),
+	}
+	_, err = db.NewInsert().Model(&attempts).Exec(ctx)
+	require.NoError(t, err)
+
+	service := NewService(db, staticTokenSource{})
+	externalIDs, err := service.renditionExternalIDs(ctx, rendition)
+	require.NoError(t, err)
+	require.Equal(t, []string{"message-1"}, externalIDs)
+	references, err := service.renditionProviderReferences(ctx, rendition, account, externalIDs)
+	require.NoError(t, err)
+	require.Equal(t, []string{"discord:channel-1:message-1:"}, references)
+	require.NotContains(t, references, "discord:channel-1:arbitrary-guild-message:")
+}
+
+func acceptedDiscordAttempt(id, operationID string, authorization models.PublicationAuthorization, externalID, reference string, now time.Time) models.ProviderWriteAttempt {
+	return models.ProviderWriteAttempt{
+		ID: id, OperationID: operationID, AttemptNumber: 1, AuthorizationID: authorization.ID,
+		WorkspaceID: authorization.WorkspaceID, PublicationID: authorization.PublicationID,
+		RenditionID: authorization.RenditionID, SocialAccountID: authorization.SocialAccountID,
+		TargetKey: authorization.TargetKey, Provider: "discord", Operation: "publish",
+		PayloadFingerprint: "sha256:payload", Status: "accepted",
+		SubmissionState: string(platform.PublishSubmissionAccepted), ProviderState: "discord_message_published",
+		ProviderReference: reference, RetrySafety: string(platform.PublishRetryReconcileOnly),
+		ExternalID: externalID, CompletedAt: now, CreatedAt: now, UpdatedAt: now,
+	}
 }
 
 func TestHistoricalRenditionUsesActiveReplacementCredentialsAfterReconnect(t *testing.T) {
@@ -894,6 +1333,14 @@ func seedAnalyticsPublication(t *testing.T, db *bun.DB, workspaceID, id string, 
 	return publication
 }
 
+func TestDiscordBotAnalyticsFailsClosedWithoutReadinessWhileWebhookRemainsSupported(t *testing.T) {
+	service := NewService(nil, nil)
+	bot := models.SocialAccount{Platform: capabilities.ProviderDiscord, CapabilityState: `{"connection_type":"bot"}`}
+	webhook := models.SocialAccount{Platform: capabilities.ProviderDiscord, CapabilityState: `{"connection_type":"webhook"}`}
+	require.False(t, service.isProviderOperationEnabled(t.Context(), bot, providerreadiness.OperationAnalytics))
+	require.True(t, service.isProviderOperationEnabled(t.Context(), webhook, providerreadiness.OperationAnalytics))
+}
+
 func TestRefreshCountsOnlyNewAnalyticsJobs(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	ctx := context.Background()
@@ -940,9 +1387,12 @@ func jsonStringSlice(t *testing.T, raw any) []string {
 
 func newAnalyticsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
+	template, err := os.ReadFile(analyticsTestSchemaPath)
 	require.NoError(t, err)
-	require.NoError(t, database.CreateSchema(db))
+	databasePath := filepath.Join(t.TempDir(), "analytics.db")
+	require.NoError(t, os.WriteFile(databasePath, template, 0o600))
+	db, err := database.InitDB("file:" + databasePath + "?mode=rwc")
+	require.NoError(t, err)
 	now := time.Now().UTC()
 	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Analytics", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)

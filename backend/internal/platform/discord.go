@@ -180,6 +180,10 @@ func (d *DiscordAdapter) publish(ctx context.Context, webhookURL string, req *Pu
 }
 
 func doDiscordMultipart(ctx context.Context, endpoint string, payload []byte, media []UploadMediaRequest) ([]byte, error) {
+	return doDiscordMultipartWithHeaders(ctx, endpoint, payload, media, nil)
+}
+
+func doDiscordMultipartWithHeaders(ctx context.Context, endpoint string, payload []byte, media []UploadMediaRequest, headers map[string]string) ([]byte, error) {
 	reader, writer := io.Pipe()
 	form := multipart.NewWriter(writer)
 	writeDone := make(chan error, 1)
@@ -208,9 +212,12 @@ func doDiscordMultipart(ctx context.Context, endpoint string, payload []byte, me
 			}
 		}
 	}()
-	response, requestErr := DoRequestNoRedirect(ctx, http.MethodPost, endpoint, reader, map[string]string{
-		headerContentType: form.FormDataContentType(),
-	})
+	requestHeaders := make(map[string]string, len(headers)+1)
+	for key, value := range headers {
+		requestHeaders[key] = value
+	}
+	requestHeaders[headerContentType] = form.FormDataContentType()
+	response, requestErr := DoRequestNoRedirect(ctx, http.MethodPost, endpoint, reader, requestHeaders)
 	if requestErr != nil {
 		_ = reader.CloseWithError(requestErr)
 	}

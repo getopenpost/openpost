@@ -860,16 +860,20 @@ type MastodonInstance struct {
 type ProviderApp struct {
 	bun.BaseModel `bun:"table:provider_apps"`
 
-	ID              string    `bun:",pk" json:"id"`
-	Provider        string    `bun:",notnull" json:"provider"`
-	Name            string    `bun:",notnull,default:''" json:"name"`
-	ClientID        string    `bun:",notnull,default:''" json:"client_id"`
-	ClientSecretEnc []byte    `bun:"client_secret_encrypted" json:"-"`
-	RedirectURI     string    `bun:",notnull,default:''" json:"redirect_uri"`
-	InstanceURL     string    `bun:",notnull,default:''" json:"instance_url"`
-	IsActive        bool      `bun:",notnull,default:true" json:"is_active"`
-	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID               string    `bun:",pk" json:"id"`
+	Provider         string    `bun:",notnull" json:"provider"`
+	ConnectionMode   string    `bun:"connection_mode,notnull,default:''" json:"connection_mode"`
+	Name             string    `bun:",notnull,default:''" json:"name"`
+	ClientID         string    `bun:",notnull,default:''" json:"client_id"`
+	ClientSecretEnc  []byte    `bun:"client_secret_encrypted" json:"-"`
+	RedirectURI      string    `bun:",notnull,default:''" json:"redirect_uri"`
+	InstanceURL      string    `bun:",notnull,default:''" json:"instance_url"`
+	BotTokenEnc      []byte    `bun:"bot_token_encrypted" json:"-"`
+	BotUsername      string    `bun:"bot_username,notnull,default:''" json:"bot_username"`
+	WebhookSecretEnc []byte    `bun:"webhook_secret_encrypted" json:"-"`
+	IsActive         bool      `bun:",notnull,default:true" json:"is_active"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // ProviderApprovalReview is an append-only operator review of the approval
@@ -1436,35 +1440,142 @@ type RenditionMedia struct {
 	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms,notnull,default:0" json:"thumbnail_timestamp_ms"`
 }
 
+// AccountContent is the analytics-owned, read-only inventory of content found
+// on a connected provider account. It stores only bounded normalized fields;
+// provider responses and remote media are never retained.
+type AccountContent struct {
+	bun.BaseModel `bun:"table:account_contents"`
+
+	ID                    string    `bun:",pk" json:"id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID       string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform              string    `bun:",notnull" json:"platform"`
+	ProviderContentID     string    `bun:"provider_content_id,notnull" json:"provider_content_id"`
+	ProviderParentID      string    `bun:"provider_parent_id,notnull,default:''" json:"provider_parent_id,omitempty"`
+	ContentProfile        string    `bun:"content_profile,notnull,default:'short_text'" json:"content_profile"`
+	Title                 string    `bun:",notnull,default:''" json:"title,omitempty"`
+	Text                  string    `bun:",notnull,default:''" json:"text"`
+	ExternalURL           string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
+	PublishedAt           time.Time `bun:"published_at,notnull" json:"published_at"`
+	Origin                string    `bun:",notnull" json:"origin"`
+	OriginConfidence      string    `bun:"origin_confidence,notnull,default:'unknown'" json:"origin_confidence"`
+	RenditionID           string    `bun:"rendition_id,nullzero" json:"rendition_id,omitempty"`
+	FirstDiscoveredAt     time.Time `bun:"first_discovered_at,notnull" json:"first_discovered_at"`
+	LastSeenAt            time.Time `bun:"last_seen_at,notnull" json:"last_seen_at"`
+	ProviderUnavailableAt time.Time `bun:"provider_unavailable_at,nullzero" json:"provider_unavailable_at,omitempty"`
+	CreatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// AnalyticsAccountContentSnapshot is an immutable measurement for one item in
+// the account content inventory.
+type AnalyticsAccountContentSnapshot struct {
+	bun.BaseModel `bun:"table:analytics_account_content_snapshots"`
+
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	AccountContentID   string    `bun:"account_content_id,notnull" json:"account_content_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
+}
+
+// AccountContentDiscoveryState is the mutable, per-account checkpoint for
+// bounded discovery. Cursor is opaque; errors are safe normalized summaries.
+type AccountContentDiscoveryState struct {
+	bun.BaseModel `bun:"table:account_content_discovery_states"`
+
+	ID                     string    `bun:",pk" json:"id"`
+	WorkspaceID            string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID        string    `bun:"social_account_id,notnull,unique" json:"social_account_id"`
+	Platform               string    `bun:",notnull" json:"platform"`
+	Status                 string    `bun:",notnull,default:'partial'" json:"status"`
+	CoverageStatus         string    `bun:"coverage_status,notnull,default:'partial'" json:"coverage_status"`
+	CoverageDescription    string    `bun:"coverage_description,notnull,default:''" json:"coverage_description,omitempty"`
+	Cursor                 string    `bun:",notnull,default:''" json:"-"`
+	BackfillWatermark      time.Time `bun:"backfill_watermark,nullzero" json:"backfill_watermark,omitempty"`
+	CyclePublishedAfter    time.Time `bun:"cycle_published_after,nullzero" json:"-"`
+	CycleStartedAt         time.Time `bun:"cycle_started_at,nullzero" json:"-"`
+	InitialCompletedAt     time.Time `bun:"initial_completed_at,nullzero" json:"initial_completed_at,omitempty"`
+	InitialItemsDiscovered int       `bun:"initial_items_discovered,notnull,default:0" json:"initial_items_discovered"`
+	ReadBudgetWindowStart  time.Time `bun:"read_budget_window_start,nullzero" json:"-"`
+	ReadBudgetUsed         int       `bun:"read_budget_used,notnull,default:0" json:"-"`
+	LastAttemptedAt        time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
+	LastSuccessAt          time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
+	FailureCode            string    `bun:"failure_code,notnull,default:''" json:"failure_code,omitempty"`
+	FailureMessage         string    `bun:"failure_message,notnull,default:''" json:"failure_message,omitempty"`
+	NextEligibleAt         time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
+	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// AccountContentDiscoveryLease is one durable provider-wide semaphore slot.
+// Expiry recovers slots after worker termination; owner IDs are job execution
+// identifiers and carry no provider credentials or payload data.
+type AccountContentDiscoveryLease struct {
+	bun.BaseModel `bun:"table:account_content_discovery_leases"`
+
+	Provider       string    `bun:",pk" json:"provider"`
+	Slot           int       `bun:",pk" json:"slot"`
+	OwnerJobID     string    `bun:"owner_job_id,notnull" json:"owner_job_id"`
+	LeaseExpiresAt time.Time `bun:"lease_expires_at,notnull" json:"lease_expires_at"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull" json:"updated_at"`
+}
+
+// AccountContentObservation is a bounded provider-neutral analytics event.
+// It can precede inventory discovery, so AccountContentID is optional. The row
+// contains normalized measurements only and never the originating webhook.
+type AccountContentObservation struct {
+	bun.BaseModel `bun:"table:account_content_observations"`
+
+	ID                    string    `bun:",pk" json:"id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID       string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	AccountContentID      string    `bun:"account_content_id,nullzero" json:"account_content_id,omitempty"`
+	Platform              string    `bun:",notnull" json:"platform"`
+	ProviderObservationID string    `bun:"provider_observation_id,notnull" json:"provider_observation_id"`
+	ProviderContentID     string    `bun:"provider_content_id,notnull" json:"provider_content_id"`
+	ObservationType       string    `bun:"observation_type,notnull" json:"observation_type"`
+	MetricsJSON           string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON    string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	ObservedAt            time.Time `bun:"observed_at,notnull" json:"observed_at"`
+	CreatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 // AnalyticsAccountSnapshot is an immutable provider measurement. MetricsJSON
-// contains only normalized counters; provider responses and tokens are never
-// retained.
+// contains only normalized integers and MetricMetadataJSON preserves their
+// meaning; provider responses and tokens are never retained.
 type AnalyticsAccountSnapshot struct {
 	bun.BaseModel `bun:"table:analytics_account_snapshots"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	CaptureKey      string    `bun:"capture_key,notnull,default:''" json:"-"`
-	CapturedAt      time.Time `bun:"captured_at,notnull" json:"captured_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
 }
 
-// AnalyticsRenditionSnapshot stores aggregate metrics for one provider
+// AnalyticsRenditionSnapshot stores normalized metrics for one provider
 // rendition. Thread segment counters are normalized into the rendition total.
 type AnalyticsRenditionSnapshot struct {
 	bun.BaseModel `bun:"table:analytics_rendition_snapshots"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	PublicationID   string    `bun:"publication_id,notnull" json:"publication_id"`
-	RenditionID     string    `bun:"rendition_id,notnull" json:"rendition_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	CaptureKey      string    `bun:"capture_key,notnull,default:''" json:"-"`
-	CapturedAt      time.Time `bun:"captured_at,notnull" json:"captured_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	PublicationID      string    `bun:"publication_id,notnull" json:"publication_id"`
+	RenditionID        string    `bun:"rendition_id,notnull" json:"rendition_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
 }
 
 // AnalyticsSyncState is the latest collection state for an account or
@@ -1472,22 +1583,23 @@ type AnalyticsRenditionSnapshot struct {
 type AnalyticsSyncState struct {
 	bun.BaseModel `bun:"table:analytics_sync_states"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SubjectType     string    `bun:"subject_type,notnull" json:"subject_type"`
-	SubjectID       string    `bun:"subject_id,notnull" json:"subject_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	Status          string    `bun:",notnull,default:'pending'" json:"status"`
-	ErrorCode       string    `bun:"error_code,notnull,default:''" json:"error_code"`
-	ErrorMessage    string    `bun:"error_message,notnull,default:''" json:"error_message"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	LastAttemptedAt time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at"`
-	LastSuccessAt   time.Time `bun:"last_success_at,nullzero" json:"last_success_at"`
-	NextSyncAt      time.Time `bun:"next_sync_at,nullzero" json:"next_sync_at"`
-	UnchangedStreak int       `bun:"unchanged_streak,notnull,default:0" json:"unchanged_streak"`
-	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SubjectType        string    `bun:"subject_type,notnull" json:"subject_type"`
+	SubjectID          string    `bun:"subject_id,notnull" json:"subject_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	Status             string    `bun:",notnull,default:'pending'" json:"status"`
+	ErrorCode          string    `bun:"error_code,notnull,default:''" json:"error_code"`
+	ErrorMessage       string    `bun:"error_message,notnull,default:''" json:"error_message"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	LastAttemptedAt    time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at"`
+	LastSuccessAt      time.Time `bun:"last_success_at,nullzero" json:"last_success_at"`
+	NextSyncAt         time.Time `bun:"next_sync_at,nullzero" json:"next_sync_at"`
+	UnchangedStreak    int       `bun:"unchanged_streak,notnull,default:0" json:"unchanged_streak"`
+	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // EngagementAttachment is the safe public metadata needed to render a
@@ -1609,6 +1721,21 @@ type EngagementSyncState struct {
 	EmptyStreak      int       `bun:"empty_streak,notnull,default:0" json:"empty_streak"`
 	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// XEngagementReadBudget is the durable UTC-day provider-read fence shared by
+// scheduled and manual engagement collection for one X account.
+type XEngagementReadBudget struct {
+	bun.BaseModel `bun:"table:x_engagement_read_budgets"`
+
+	SocialAccountID string    `bun:"social_account_id,pk" json:"social_account_id"`
+	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	WindowStart     time.Time `bun:"window_start,notnull" json:"window_start"`
+	AttemptsUsed    int       `bun:"attempts_used,notnull,default:0" json:"attempts_used"`
+	BlockedUntil    time.Time `bun:"blocked_until,nullzero" json:"blocked_until"`
+	BlockCode       string    `bun:"block_code,notnull,default:''" json:"block_code"`
+	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // MessagingSyncState is the latest safe cursor and collection state for one account inbox.
@@ -2254,6 +2381,96 @@ type PublicationAsset struct {
 	MediaID       string    `bun:",pk" json:"media_id"`
 	DisplayOrder  int       `bun:",notnull,default:0" json:"display_order"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+// BotConnectionNonce stores only a digest of a signed, single-use bot
+// connection credential. The credential itself is returned once and is never
+// persisted.
+type BotConnectionNonce struct {
+	bun.BaseModel `bun:"table:bot_connection_nonces"`
+
+	ID                       string    `bun:",pk" json:"id"`
+	Provider                 string    `bun:",notnull" json:"provider"`
+	WorkspaceID              string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	CreatedByUserID          string    `bun:"created_by_user_id,notnull" json:"created_by_user_id"`
+	NonceHash                string    `bun:"nonce_hash,notnull" json:"-"`
+	ExpectedSubjectReference string    `bun:"expected_subject_reference,notnull,default:''" json:"-"`
+	ExpiresAt                time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	ConsumedAt               time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
+	CreatedAt                time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
+// BotIngressEvent is the bounded provider-neutral projection retained from a
+// verified bot webhook. It intentionally has no raw payload or header fields.
+type BotIngressEvent struct {
+	bun.BaseModel `bun:"table:bot_ingress_events"`
+
+	ID                 string    `bun:",pk" json:"id"`
+	Provider           string    `bun:",notnull" json:"provider"`
+	ProviderEventID    string    `bun:"provider_event_id,notnull" json:"provider_event_id"`
+	Kind               string    `bun:",notnull" json:"kind"`
+	WorkspaceID        string    `bun:"workspace_id,nullzero" json:"workspace_id,omitempty"`
+	SocialAccountID    string    `bun:"social_account_id,notnull,default:''" json:"social_account_id,omitempty"`
+	ConnectionNonceID  string    `bun:"connection_nonce_id,notnull,default:''" json:"connection_nonce_id,omitempty"`
+	SubjectReference   string    `bun:"subject_reference,notnull,default:''" json:"subject_reference,omitempty"`
+	ParentReference    string    `bun:"parent_reference,notnull,default:''" json:"parent_reference,omitempty"`
+	ContentProfile     string    `bun:"content_profile,notnull,default:''" json:"content_profile,omitempty"`
+	ContentText        string    `bun:"content_text,notnull,default:''" json:"content_text,omitempty"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json,omitempty"`
+	OccurredAt         time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
+	ProcessedAt        time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
+	SafeErrorCode      string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	ProcessingAttempts int       `bun:"processing_attempts,notnull,default:0" json:"processing_attempts"`
+	CreatedAt          time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
+// TelegramChatInstallation retains authenticated bot-membership timing before
+// a chat is bound to a Workspace. It contains no conversation or credential data.
+type TelegramChatInstallation struct {
+	bun.BaseModel `bun:"table:telegram_chat_installations"`
+
+	ChatID           string    `bun:"chat_id,pk" json:"chat_id"`
+	ChatType         string    `bun:"chat_type,notnull" json:"chat_type"`
+	MembershipStatus string    `bun:"membership_status,notnull" json:"membership_status"`
+	InstalledAt      time.Time `bun:"installed_at,nullzero" json:"installed_at,omitempty"`
+	UpdatedAt        time.Time `bun:"updated_at,notnull" json:"updated_at"`
+}
+
+// TelegramConnection records the destination identity and truthful observation
+// boundary established by a bot connection. Bot credentials remain instance-owned.
+type TelegramConnection struct {
+	bun.BaseModel `bun:"table:telegram_connections"`
+
+	SocialAccountID       string    `bun:"social_account_id,pk" json:"social_account_id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	ChatID                string    `bun:"chat_id,unique,notnull" json:"chat_id"`
+	ChatType              string    `bun:"chat_type,notnull" json:"chat_type"`
+	InstalledAt           time.Time `bun:"installed_at,notnull" json:"installed_at"`
+	CoverageStartedAt     time.Time `bun:"coverage_started_at,notnull" json:"coverage_started_at"`
+	CoverageKind          string    `bun:"coverage_kind,notnull" json:"coverage_kind"`
+	PermissionsVerifiedAt time.Time `bun:"permissions_verified_at,notnull" json:"permissions_verified_at"`
+	CreatedAt             time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
+// TelegramPublishReceipt is one ordered message outcome for a Rendition. Rows
+// are prepared before provider calls so restarts can distinguish a safe
+// continuation from an ambiguous write. No content or credentials are stored.
+type TelegramPublishReceipt struct {
+	bun.BaseModel `bun:"table:telegram_publish_receipts"`
+
+	ID             string    `bun:",pk" json:"id"`
+	OperationID    string    `bun:"operation_id,notnull" json:"operation_id"`
+	RenditionID    string    `bun:"rendition_id,notnull" json:"rendition_id"`
+	RequestIndex   int       `bun:"request_index,notnull" json:"request_index"`
+	MessageIndex   int       `bun:"message_index,notnull" json:"message_index"`
+	RequestKind    string    `bun:"request_kind,notnull" json:"request_kind"`
+	Status         string    `bun:",notnull" json:"status"`
+	MessageID      string    `bun:"message_id,notnull,default:''" json:"message_id,omitempty"`
+	SafeErrorCode  string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	SendingStarted time.Time `bun:"sending_started_at,nullzero" json:"sending_started_at,omitempty"`
+	AcceptedAt     time.Time `bun:"accepted_at,nullzero" json:"accepted_at,omitempty"`
+	CreatedAt      time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
 type Job struct {

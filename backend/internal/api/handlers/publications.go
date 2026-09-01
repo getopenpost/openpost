@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
@@ -919,7 +918,7 @@ func (h *PublicationHandler) upsertRenditionsTx(
 		targets := make(map[renditionservice.TargetIdentity]struct{}, len(renditions))
 		for _, input := range renditions {
 			account := accountMap[input.SocialAccountID]
-			targetKey, targetErr := normalizeRenditionTargetKey(account, input.TargetKey)
+			targetKey, targetErr := normalizeRenditionTargetKey(account, input.TargetKey, input.Settings)
 			if targetErr != nil {
 				return PublicationResponse{}, huma.Error400BadRequest(targetErr.Error())
 			}
@@ -1732,7 +1731,7 @@ func (h *PublicationHandler) insertRenditions(
 		if !ok {
 			return huma.Error400BadRequest("one or more social accounts are invalid, disconnected, or outside this workspace")
 		}
-		targetKey, err := normalizeRenditionTargetKey(account, input.TargetKey)
+		targetKey, err := normalizeRenditionTargetKey(account, input.TargetKey, input.Settings)
 		if err != nil {
 			return huma.Error400BadRequest(err.Error())
 		}
@@ -2663,10 +2662,7 @@ func (h *PublicationHandler) validateDynamicPublicationCapabilities(ctx context.
 		if !ok {
 			continue
 		}
-		adapter := h.providers[account.Platform]
-		if account.Platform == capabilities.ProviderMastodon {
-			adapter = h.providers[capabilities.ProviderMastodon+":"+account.InstanceURL]
-		}
+		adapter := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 		result := platform.AccountCapabilityResult{}
 		hasResult := false
 		if account.Platform == capabilities.ProviderX {
@@ -2746,6 +2742,19 @@ func (h *PublicationHandler) validateDynamicPublicationCapabilities(ctx context.
 		}
 		for segmentIndex, segment := range segments {
 			settings := mergePublicationSettings(destinationSettings, segment.Settings)
+			if platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot &&
+				strings.TrimSpace(fmt.Sprint(settings["channel_id"])) == "" {
+				issue := dynamicPublicationIssue(
+					rendition,
+					"setting_required",
+					"Choose a Discord channel for this destination.",
+					"channel_id",
+				)
+				issue.SegmentID = segment.ID
+				issue.Scope = capabilities.SettingScopeSegment
+				issue.ScopeID = segment.ID
+				issues = append(issues, issue)
+			}
 			for key, available := range result.AvailableFeatures {
 				if available || !publicationSettingEnabled(settings[key]) {
 					continue
@@ -4132,24 +4141,8 @@ func renditionAccountIDs(renditions []RenditionInput) []string {
 	return out
 }
 
-func normalizeRenditionTargetKey(account models.SocialAccount, requested string) (string, error) {
-	base := publicationauth.TargetKey(account)
-	target := strings.TrimSpace(requested)
-	if target == "" {
-		return base, nil
-	}
-	if len(target) > 255 {
-		return "", errors.New("target_key must be at most 255 bytes")
-	}
-	for _, char := range target {
-		if unicode.IsControl(char) || unicode.IsSpace(char) {
-			return "", errors.New("target_key cannot contain whitespace or control characters")
-		}
-	}
-	if target != base && !strings.HasPrefix(target, base+":") {
-		return "", errors.New("target_key must belong to the selected social account provider")
-	}
-	return target, nil
+func normalizeRenditionTargetKey(account models.SocialAccount, requested string, settings map[string]interface{}) (string, error) {
+	return platform.ResolveTargetKey(account.Platform, publicationauth.TargetKey(account), requested, settings)
 }
 
 func allPublicationMediaIDs(

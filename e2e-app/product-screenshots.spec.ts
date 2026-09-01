@@ -624,13 +624,13 @@ function analyticsFixture() {
     generated_at: "2026-08-20T14:20:00Z",
     last_synced_at: "2026-08-20T14:18:00Z",
     range_days: 30,
+    source: "all",
+    account_growth_scope: "account_wide",
     content_total: 49,
     summary: {
       followers: { value: 6901, delta: 157, measured: 5 },
-      engagement: {
-        value: engagementTrend.reduce((total, point) => total + point.value, 0),
-        measured: 49,
-      },
+      follower_scope: "account_wide",
+      engagement: { value: 33, measured: 1 },
       views: { value: viewTrend.reduce((total, point) => total + point.value, 0), measured: 12 },
       impressions: { value: 8437, measured: 12 },
       reach: { value: 0, measured: 0 },
@@ -670,7 +670,83 @@ function analyticsFixture() {
       follower_series: index === 0 ? followerSeries : [],
       last_synced_at: "2026-08-20T14:18:00Z",
     })),
-    content: [],
+    content: [
+      {
+        reference: {
+          type: "openpost",
+          publication_id: "analytics-publication",
+          rendition_id: "analytics-rendition",
+        },
+        source: "openpost",
+        publication_id: "analytics-publication",
+        rendition_id: "analytics-rendition",
+        title: "The boring part of publishing should stay boring",
+        excerpt: "Draft once, adapt the details, and keep the result visible.",
+        content_profile: "short_text",
+        platform: "threads",
+        account_id: "account-threads",
+        username: "@rodrgds",
+        external_url: "https://www.threads.net/@rodrgds/post/demo",
+        published_at: "2026-08-19T12:05:00Z",
+        status: "ok",
+        metric_availability: "available",
+        collected_at: "2026-08-20T14:18:00Z",
+        metrics: { likes: 22, comments: 6, reposts: 5, impressions: 980 },
+        metric_metadata: {
+          likes: { unit: "count", aggregation: "lifetime_total", source: "threads" },
+          comments: { unit: "count", aggregation: "lifetime_total", source: "threads" },
+          reposts: { unit: "count", aggregation: "lifetime_total", source: "threads" },
+          impressions: { unit: "count", aggregation: "lifetime_total", source: "threads" },
+        },
+        measurements: {},
+        engagement: 33,
+        last_synced_at: "2026-08-20T14:18:00Z",
+        stale: false,
+      },
+    ],
+    insights: [
+      {
+        kind: "most_engagement_actions",
+        status: "insufficient_data",
+        reason: "low_sample",
+        period: {
+          filter_start: "2026-07-21T14:20:00Z",
+          filter_end: "2026-08-20T14:20:00Z",
+          aggregation: "lifetime_total",
+        },
+        metric: "engagement_actions",
+        measured_count: 1,
+        comparison_sample: 49,
+      },
+      {
+        kind: "strongest_measured_destination",
+        status: "insufficient_data",
+        reason: "low_sample",
+        period: {
+          filter_start: "2026-07-21T14:20:00Z",
+          filter_end: "2026-08-20T14:20:00Z",
+          aggregation: "lifetime_total",
+        },
+        metric: "engagement_actions",
+        measured_count: 1,
+        comparison_sample: 49,
+        destination_count: 1,
+      },
+      {
+        kind: "follower_decline",
+        status: "insufficient_data",
+        reason: "no_decline",
+        period: {
+          filter_start: "2026-07-21T14:20:00Z",
+          filter_end: "2026-08-20T14:20:00Z",
+          aggregation: "current_snapshot",
+        },
+        metric: "followers",
+        measured_count: 1,
+        comparison_sample: 6,
+        caveat: "account_wide",
+      },
+    ],
     publications: [
       {
         publication_id: "analytics-publication",
@@ -1306,7 +1382,7 @@ test.describe("product screenshot capture", () => {
       )
       .toBeGreaterThanOrEqual(0.99);
     await capture(page, "analytics-dark.png", [
-      page.getByRole("heading", { name: "Highlights" }),
+      page.getByRole("heading", { name: "Measured insights" }),
       dailyViewsChart,
     ]);
 

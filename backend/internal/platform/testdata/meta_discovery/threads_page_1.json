@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "18000000000000001",
+      "text": "Managed Threads launch",
+      "media_type": "TEXT_POST",
+      "media_product_type": "THREADS",
+      "permalink": "https://www.threads.net/@openpost/post/managed1",
+      "timestamp": "2026-09-03T10:00:00+0000"
+    },
+    {
+      "id": "18000000000000001",
+      "text": "Duplicate edge row",
+      "media_type": "TEXT_POST",
+      "permalink": "https://www.threads.net/@openpost/post/managed1",
+      "timestamp": "2026-09-03T10:00:00+0000"
+    }
+  ],
+  "paging": {
+    "cursors": { "after": "threads-page-2" },
+    "next": "https://graph.threads.net/v1.0/threads-1/threads?after=threads-page-2"
+  }
+}

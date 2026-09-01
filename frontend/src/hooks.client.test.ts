@@ -1,3 +1,5 @@
+/* oxlint-disable anti-slop/no-module-mocking, anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- This bootstrap-order regression test observes telemetry through a module spy and supplies the exact browser event/runtime fields read by the hook. */
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { initializeClientErrors } from './hooks.client';
 

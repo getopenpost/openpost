@@ -45,10 +45,18 @@ type ProviderReadinessItem struct {
 	Connectable        bool                       `json:"connectable"`
 	Advertisable       bool                       `json:"advertisable"`
 	Facts              providerreadiness.Facts    `json:"facts"`
+	Accounts           []ProviderReadinessAccount `json:"accounts,omitempty"`
 	Profiles           []ProviderReadinessProfile `json:"profiles,omitempty"`
 	ConfiguredAppState string                     `json:"configured_app_state"`
 	ConnectedAccounts  int                        `json:"connected_accounts"`
 	BlockingIssues     []string                   `json:"blocking_issues,omitempty"`
+}
+
+type ProviderReadinessAccount struct {
+	SocialAccountID string                      `json:"social_account_id"`
+	Discovery       *providerreadiness.Decision `json:"discovery,omitempty"`
+	Observation     *providerreadiness.Decision `json:"observation,omitempty"`
+	Analytics       *providerreadiness.Decision `json:"analytics,omitempty"`
 }
 
 type ProviderReadinessProfile struct {
@@ -125,6 +133,28 @@ func (h *ProviderReadinessHandler) buildProviderReadiness(
 	item.Facts = connection.Facts
 	item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(connection.Blockers)...)
 	for _, account := range accounts {
+		accountReadiness := ProviderReadinessAccount{SocialAccountID: account.ID}
+		if provider == capabilities.ProviderPinterest {
+			discovery := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationDiscover, providerreadiness.ExecutionIntentProduction)
+			analytics := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationAnalytics, providerreadiness.ExecutionIntentProduction)
+			accountReadiness.Discovery = &discovery
+			accountReadiness.Analytics = &analytics
+			decisions = append(decisions, discovery, analytics)
+			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(discovery.Blockers)...)
+			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(analytics.Blockers)...)
+		}
+		if provider == capabilities.ProviderTelegram {
+			observation := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationObservation, providerreadiness.ExecutionIntentProduction)
+			analytics := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationAnalytics, providerreadiness.ExecutionIntentProduction)
+			accountReadiness.Observation = &observation
+			accountReadiness.Analytics = &analytics
+			decisions = append(decisions, observation, analytics)
+			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(observation.Blockers)...)
+			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(analytics.Blockers)...)
+		}
+		if accountReadiness.Discovery != nil || accountReadiness.Observation != nil || accountReadiness.Analytics != nil {
+			item.Accounts = append(item.Accounts, accountReadiness)
+		}
 		for _, capability := range capabilities.All() {
 			if capability.Provider != provider {
 				continue
@@ -222,6 +252,8 @@ func readinessProviders() []string {
 		capabilities.ProviderThreads,
 		capabilities.ProviderLinkedIn,
 		capabilities.ProviderDiscord,
+		capabilities.ProviderPinterest,
+		capabilities.ProviderTelegram,
 	}
 }
 

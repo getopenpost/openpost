@@ -39,6 +39,7 @@ import (
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/billing"
+	"github.com/openpost/backend/internal/services/botingress"
 	cliauth "github.com/openpost/backend/internal/services/cli_auth"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/emailchange"
@@ -72,6 +73,7 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/openpost/backend/internal/services/sourcecontext"
+	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
@@ -411,6 +413,27 @@ func main() {
 	// Direct and file-backed environment values are the operator-owned layer
 	// and remain authoritative over administrator-managed database fallbacks.
 	providerAppConfigs = platform.MergeAppConfigs(providerAppConfigs, cfg.ProviderApps...)
+	botIngressService := botingress.New(db, []byte("openpost:bot-connection:v1:"+cfg.JWTSecret))
+	var telegramConnectionService *telegramservice.Service
+	for _, app := range providerAppConfigs {
+		app = platform.NormalizeAppConfig(app)
+		if app.Provider != "telegram" || app.ConnectionMode != platform.ConnectionModeBot {
+			continue
+		}
+		telegramConnectionService = telegramservice.NewService(
+			db,
+			telegramservice.NewHTTPBotAPI(app.BotToken, nil),
+			app.BotUsername,
+			app.WebhookSecret,
+		)
+		if err := botIngressService.RegisterProcessor("telegram", telegramConnectionService); err != nil {
+			log.Fatal("failed to register Telegram ingress processor")
+		}
+		// The same credential-safe boundary owns Telegram publishing. The
+		// instance bot token never enters a Workspace SocialAccount or job.
+		publishSvc.SetProvider(capabilities.ProviderTelegram, telegramConnectionService)
+		break
+	}
 	providerEnvironment := providerreadiness.ProviderEnvironmentDevelopment
 	defaultProviderControl := providerreadiness.RuntimeControlStateEnabled
 	managedProviderProduction := cfg.Edition == config.EditionCloud
@@ -441,6 +464,22 @@ func main() {
 			DefaultControl:               defaultProviderControl,
 		},
 	)
+	if telegramConnectionService != nil {
+		telegramConnectionService.SetProviderReadiness(providerReadinessService)
+	}
+	if command.role.runsWeb() && telegramConnectionService != nil {
+		configureCtx, cancelConfigure := context.WithTimeout(context.Background(), 15*time.Second)
+		if err := telegramConnectionService.ConfigureWebhook(configureCtx, cfg.PublicURL); err != nil {
+			cancelConfigure()
+			if errors.Is(err, telegramservice.ErrProviderUnavailable) {
+				log.Printf("Telegram webhook registration skipped: provider readiness is unavailable")
+			} else {
+				log.Fatal("failed to configure Telegram webhook")
+			}
+		} else {
+			cancelConfigure()
+		}
+	}
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:  cfg.EnableLinkedInOrganizations,
@@ -498,6 +537,17 @@ func main() {
 	publishSvc.SetTelemetry(telemetryRecorder)
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
+	analyticsService.SetCursorSigningKey(cfg.JWTSecret)
+	analyticsService.SetProviderReadiness(providerReadinessService)
+	analyticsService.SetDiscoveryPolicy("x", analyticsservice.DiscoveryPolicy{
+		ProviderConcurrency: 1,
+		ReadRequestsPerDay:  cfg.XAccountHistoryReadRequestsPerDay,
+		PageSize:            platform.AccountContentMaxPageSize,
+	})
+	if telegramConnectionService != nil {
+		telegramConnectionService.SetAccountContentStore(analyticsService)
+		analyticsService.SetExternalSource(capabilities.ProviderTelegram, telegramConnectionService)
+	}
 	repostService := repostservice.NewService(db, tokenManager)
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)
@@ -509,6 +559,7 @@ func main() {
 	publishSvc.SetNotificationService(notificationService)
 	publishSvc.SetRepostScheduler(repostService)
 	engagementService := engagementservice.NewService(db, tokenManager, notificationService)
+	engagementService.SetXDailyReadBudget(cfg.XEngagementDailyReadBudget)
 	messagingService := messagingservice.NewService(db, tokenManager, notificationService)
 	for name, adapter := range providers {
 		tokenManager.SetProvider(name, adapter)
@@ -675,6 +726,7 @@ func main() {
 		worker.SetFeedbackService(feedbackService)
 		worker.SetAnalyticsService(analyticsService)
 		worker.SetBillingService(billingService)
+		worker.SetBotIngressService(botIngressService)
 		worker.SetEngagementService(engagementService)
 		worker.SetMessagingService(messagingService)
 		worker.SetNotificationService(notificationService)
@@ -710,6 +762,9 @@ func main() {
 	apiGroup.Use(handlers.MemeBodyLimitMiddleware)
 	humaConfig := apiroutes.OpenAPIConfig("1.0.0")
 	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
+	if telegramConnectionService != nil {
+		telegramConnectionService.RegisterWebhook(e, botIngressService)
+	}
 
 	mediaHandler.RegisterLegacyRoutes(e)
 	profileHandler.RegisterLegacyRoutes(e)
@@ -777,6 +832,8 @@ func main() {
 		CLIAuthService:            cliAuthService,
 		MCPOAuthService:           mcpOAuthService,
 		BillingService:            billingService,
+		BotIngressService:         botIngressService,
+		TelegramService:           telegramConnectionService,
 		MediaStorage:              storage,
 		MediaSigner:               mediaSigner,
 		ImageCaptioner:            imageCaptioner,

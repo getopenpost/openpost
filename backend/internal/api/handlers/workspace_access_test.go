@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
@@ -100,10 +98,7 @@ type workspaceAccessFixture struct {
 
 func newWorkspaceAccessFixture(t *testing.T) (*bun.DB, workspaceAccessFixture) {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
-	require.NoError(t, err)
-	require.NoError(t, database.CreateSchema(db))
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	db := newHandlerSchemaTestDB(t)
 	now := time.Now().UTC()
 	fixture := workspaceAccessFixture{
 		workspace: models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Workspace", CreatedAt: now},

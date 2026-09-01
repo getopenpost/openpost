@@ -17,6 +17,7 @@ import (
 )
 
 var httpClient = newDefaultHTTPClient()
+var defaultPlatformHTTPClient = httpClient
 
 func newDefaultHTTPClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()

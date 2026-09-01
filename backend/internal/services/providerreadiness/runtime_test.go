@@ -39,6 +39,35 @@ func TestAppFingerprintTracksIdentityButNotSecretRotation(t *testing.T) {
 	}
 }
 
+func TestBotAppFingerprintTracksPublicIdentityButNotSecrets(t *testing.T) {
+	t.Parallel()
+	app := platform.AppConfig{
+		Provider: capabilities.ProviderTelegram, ConnectionMode: platform.ConnectionModeBot,
+		BotUsername: "openpost_bot", BotToken: "token-1", WebhookSecret: "webhook-1",
+	}
+	want, err := AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.BotToken = "token-2"
+	app.WebhookSecret = "webhook-2"
+	got, err := AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("bot secret rotation changed app fingerprint: %q != %q", got, want)
+	}
+	app.BotUsername = "renamed_bot"
+	got, err = AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == want {
+		t.Fatalf("bot public identity change retained fingerprint %q", got)
+	}
+}
+
 func TestConfigurationCatalogUsesRuntimePrecedenceAndExactInstance(t *testing.T) {
 	t.Parallel()
 	databaseApp := platform.AppConfig{Provider: "mastodon", ClientID: "db", RedirectURI: "urn:ietf:wg:oauth:2.0:oob", InstanceURL: "https://social.example"}
@@ -65,6 +94,101 @@ func TestConfigurationCatalogUsesRuntimePrecedenceAndExactInstance(t *testing.T)
 	missing := catalog.Resolve("mastodon", "https://other.example", ProviderEnvironmentProduction)
 	if missing.Evidence.State != ConfigurationStateMissing || missing.AppFingerprint == "" || missing.InstanceFingerprint == "" {
 		t.Fatalf("missing exact instance did not retain a valid blocked subject: %#v", missing)
+	}
+}
+
+func TestPinterestManagedContractsRequireCurrentStandardApprovalAndOrganicScopes(t *testing.T) {
+	t.Parallel()
+
+	capability, ok := capabilities.Find(capabilities.ProviderPinterest, models.ContentProfileImagePost)
+	if !ok {
+		t.Fatal("Pinterest image capability is missing")
+	}
+	managed, err := PublicationContract(capability, OperationPublishImmediate, true, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if managed.Requirements.RequiredApprovalTier != "standard" {
+		t.Fatalf("managed Pinterest approval tier = %q", managed.Requirements.RequiredApprovalTier)
+	}
+	for _, scope := range []string{"boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"} {
+		if !slices.Contains(managed.Requirements.RequiredScopes, scope) {
+			t.Fatalf("managed Pinterest contract omitted scope %q: %#v", scope, managed.Requirements.RequiredScopes)
+		}
+	}
+
+	development, err := PublicationContract(capability, OperationPublishImmediate, false, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if development.Requirements.RequiredApprovalTier != "" || len(development.Requirements.RequiredScopes) != 0 {
+		t.Fatalf("development Pinterest contract enabled production gates: %#v", development.Requirements)
+	}
+}
+
+func TestPinterestReadContractsSeparateDiscoveryAnalyticsAndPublishingEvidence(t *testing.T) {
+	t.Parallel()
+
+	discovery, err := OperationContract(capabilities.ProviderPinterest, OperationDiscover, true, "standard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	analytics, err := OperationContract(capabilities.ProviderPinterest, OperationAnalytics, true, "standard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, ok := capabilities.Find(capabilities.ProviderPinterest, models.ContentProfileImagePost)
+	if !ok {
+		t.Fatal("Pinterest image capability is missing")
+	}
+	publishing, err := PublicationContract(capability, OperationPublishImmediate, true, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	discoveryDigest, _ := discovery.Digest()
+	analyticsDigest, _ := analytics.Digest()
+	publishingDigest, _ := publishing.Digest()
+	if discoveryDigest == analyticsDigest || discoveryDigest == publishingDigest || analyticsDigest == publishingDigest {
+		t.Fatalf("Pinterest readiness operations share certification evidence: discover=%q analytics=%q publish=%q", discoveryDigest, analyticsDigest, publishingDigest)
+	}
+	if !slices.Equal(discovery.Requirements.RequiredScopes, []string{"pins:read"}) {
+		t.Fatalf("discovery scopes = %#v", discovery.Requirements.RequiredScopes)
+	}
+	if !slices.Equal(analytics.Requirements.RequiredScopes, []string{"pins:read", "user_accounts:read"}) {
+		t.Fatalf("analytics scopes = %#v", analytics.Requirements.RequiredScopes)
+	}
+}
+
+func TestDiscordBotAccountUsesBotConfigurationWithoutPersistedInstanceURL(t *testing.T) {
+	t.Parallel()
+	account := models.SocialAccount{
+		Platform:        capabilities.ProviderDiscord,
+		InstanceURL:     "",
+		CapabilityState: `{"connection_type":"bot"}`,
+	}
+	if got := accountConfigurationRef(account); got != platform.ConnectionModeBot {
+		t.Fatalf("account configuration reference = %q, want bot", got)
+	}
+}
+
+func TestConfigurationCatalogResolvesDiscordConnectionModesIndependently(t *testing.T) {
+	t.Parallel()
+	webhook := platform.AppConfig{Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeWebhook}
+	bot := platform.AppConfig{
+		Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeBot,
+		ClientID: "discord-app", ClientSecret: "client-secret", BotToken: "bot-secret", RedirectURI: "https://openpost.test/discord/callback",
+	}
+	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{webhook, bot}, ConfigurationSourceEnvironment, ProviderEnvironmentDevelopment))
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhookConfig := catalog.Resolve(capabilities.ProviderDiscord, "", ProviderEnvironmentDevelopment)
+	botConfig := catalog.Resolve(capabilities.ProviderDiscord, platform.ConnectionModeBot, ProviderEnvironmentDevelopment)
+	if webhookConfig.Evidence.State != ConfigurationStateConfigured || botConfig.Evidence.State != ConfigurationStateConfigured {
+		t.Fatalf("discord modes were not independently configured: webhook=%#v bot=%#v", webhookConfig, botConfig)
+	}
+	if webhookConfig.AppFingerprint == botConfig.AppFingerprint || botConfig.InstanceFingerprint != "" {
+		t.Fatalf("discord mode identity is not isolated: webhook=%#v bot=%#v", webhookConfig, botConfig)
 	}
 }
 

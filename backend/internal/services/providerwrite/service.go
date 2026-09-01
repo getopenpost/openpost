@@ -161,6 +161,16 @@ func (s *Service) executeAttempt(
 				return s.reconcile(ctx, attempt, reconcile)
 			}
 		}
+		// A compound provider may durably checkpoint accepted constituent
+		// writes before continuing. Only its explicit safe retry declaration
+		// permits a fresh fenced attempt; unknown writes remain ambiguous.
+		if attempt.SubmissionState == string(platform.PublishSubmissionPending) && attempt.RetrySafety == string(platform.PublishRetrySafe) {
+			next, err := s.createNextAttempt(ctx, input, attempt.AttemptNumber+1)
+			if err != nil {
+				return platform.PublishResult{}, err
+			}
+			return s.sendPrepared(ctx, next, send)
+		}
 		return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrWriteInProgress}
 	case StatusAmbiguous:
 		return s.resumeAmbiguous(ctx, input, attempt, send, reconcile, resume)

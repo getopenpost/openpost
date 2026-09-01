@@ -717,7 +717,7 @@ test("marketing SEO routes expose the current public index @desktop", async ({ r
   expect(xml).not.toContain("<loc>https://openpo.st/blog</loc>");
   expect(xml).not.toContain("<loc>https://openpo.st/tips/");
 
-  const publicPaths = [...xml.matchAll(/<loc>(https:\/\/openpost\.social[^<]+)<\/loc>/g)].map(
+  const publicPaths = [...xml.matchAll(/<loc>(https:\/\/openpo\.st[^<]+)<\/loc>/g)].map(
     ([, url]) => new URL(url).pathname,
   );
   expect(publicPaths.length).toBeGreaterThan(20);

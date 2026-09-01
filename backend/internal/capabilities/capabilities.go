@@ -21,12 +21,14 @@ const (
 	ProviderInstagram = "instagram"
 	ProviderLinkedIn  = "linkedin"
 	ProviderMastodon  = "mastodon"
+	ProviderPinterest = "pinterest"
+	ProviderTelegram  = "telegram"
 	ProviderThreads   = "threads"
 	ProviderTikTok    = "tiktok"
 	ProviderX         = "x"
 	ProviderYouTube   = "youtube"
 
-	capabilityRevision   = "2026-08-27.1"
+	capabilityRevision   = "2026-09-03.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
 )
@@ -317,6 +319,15 @@ func All() []Capability {
 	tiktokVideo.RequiresPublicURL = true
 	tiktokVideo.RequiresHTTPSFetchable = true
 	discordVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 10 * 1024 * 1024}
+	pinterestImage := MediaConstraint{
+		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"},
+		MaxSizeBytes: 20 * 1024 * 1024, RequiresPublicURL: true, RequiresHTTPSFetchable: true,
+	}
+	pinterestCarousel := pinterestImage
+	pinterestCarousel.MinCount = 2
+	pinterestCarousel.MaxCount = 5
+	pinterestVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 2 * 1024 * 1024 * 1024, MaxDurationSeconds: 15 * 60}
+	telegramMedia := MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "application/pdf"}}
 	publicShortVideo := shortVideo
 	publicShortVideo.RequiresPublicURL = true
 	publicShortVideo.RequiresHTTPSFetchable = true
@@ -409,10 +420,18 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileShortVideo, Label: "TikTok video", TextLimit: 2200, Media: tiktokVideo, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileCarousel, Label: "TikTok photo post", TextLimit: 4000, Media: tiktokPhotos, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text}),
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileImagePost, Label: "Discord attachment", TextLimit: 2000, Media: MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif"}, MaxSizeBytes: 10 * 1024 * 1024}}),
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo}),
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileLongVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileImagePost, Label: "Pinterest Pin", TextLimit: 800, Media: pinterestImage, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileCarousel, Label: "Pinterest multi-image Pin", TextLimit: 800, Media: pinterestCarousel, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileShortVideo, Label: "Pinterest video Pin", TextLimit: 800, Media: pinterestVideo, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+
+		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
+		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
+		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortVideo, Label: "Telegram video", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
+
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text, Settings: discordSettings()}),
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileImagePost, Label: "Discord attachment", TextLimit: 2000, Media: MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif"}, MaxSizeBytes: 10 * 1024 * 1024}, Settings: discordSettings()}),
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileLongVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),
 	}
 }
 
@@ -743,6 +762,10 @@ func providerDisplayName(provider string) string {
 		return "Instagram"
 	case ProviderMastodon:
 		return "Mastodon"
+	case ProviderPinterest:
+		return "Pinterest"
+	case ProviderTelegram:
+		return "Telegram"
 	case ProviderBluesky:
 		return "Bluesky"
 	case ProviderThreads:
@@ -2153,6 +2176,36 @@ func threadsSettings() []SettingField {
 		{Key: "spoiler", Label: "Mark media as a spoiler", Type: "boolean", MediaShapes: []string{MediaShapeSingleImage, MediaShapeMultipleImage, MediaShapeVideo, MediaShapeMixedMedia}},
 		{Key: "ghost_post", Label: "Ghost post", Type: "boolean", Capability: "ghost_posts", UnavailableReason: "Ghost posts are not available for this connected account."},
 		{Key: "reply_approvals", Label: "Require reply approval", Type: "boolean", Capability: "reply_approvals", UnavailableReason: "Reply approvals are not available for this connected account."},
+	}
+}
+
+func pinterestSettings() []SettingField {
+	return []SettingField{
+		{Key: "board_id", Label: "Board", Type: "select", Control: "remote_picker", Required: true, OptionsSource: "pinterest_boards"},
+		{Key: "section_id", Label: "Board section", Type: "select", Control: "remote_picker", OptionsSource: "pinterest_sections", Dependencies: []SettingCondition{{Key: "board_id", Operator: "present"}}},
+		{Key: "pin_title", Label: "Pin title", Type: "text", Constraints: SettingConstraint{MaxLength: 100}},
+		{Key: "destination_link", Label: "Destination link", Type: "url"},
+		{Key: "cover_media_id", Label: "Cover image", Type: "media", Control: "media_picker", Intents: []string{IntentShortVideo}, MediaShapes: []string{MediaShapeVideo}, Required: true, Constraints: SettingConstraint{Accept: []string{"image/jpeg", "image/png"}}},
+		{Key: "alt_text", Label: "Alt text", Type: "textarea", Scope: SettingScopeMediaItem, Constraints: SettingConstraint{MaxLength: 500}},
+		{Key: "is_ai_generated", Label: "AI-generated content", Type: "boolean"},
+	}
+}
+
+func telegramSettings() []SettingField {
+	return []SettingField{
+		{Key: "chat_id", Label: "Chat", Type: "select", Control: "remote_picker", Required: true, OptionsSource: "telegram_chats"},
+		{Key: "disable_notification", Label: "Send silently", Type: "boolean"},
+		{Key: "protect_content", Label: "Protect forwarding", Type: "boolean"},
+	}
+}
+
+func discordSettings() []SettingField {
+	return []SettingField{
+		{Key: "channel_id", Label: "Channel", Type: "select", Control: "remote_picker", OptionsSource: "discord_channels"},
+		{Key: "embed", Label: "Embed", Type: "json", Control: "structured_editor", Help: "Add one typed Discord embed object. Unknown fields are rejected."},
+		{Key: "mention_policy", Label: "Mentions", Type: "select", Default: "none", Options: []string{"none", "selected"}},
+		{Key: "mention_user_ids", Label: "Mention person", Type: "select", Control: "remote_picker", OptionsSource: "discord_members", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}, {Key: "channel_id", Operator: "present"}}},
+		{Key: "mention_role_ids", Label: "Mention role", Type: "select", Control: "remote_picker", OptionsSource: "discord_roles", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}, {Key: "channel_id", Operator: "present"}}},
 	}
 }
 

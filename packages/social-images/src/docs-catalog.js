@@ -1018,6 +1018,38 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "providers/pinterest.md",
+    "title": "Pinterest",
+    "description": "Understand Pinterest's implemented adapter boundary and why public connections remain unavailable without Standard access and live certification.",
+    "route": "/providers/pinterest",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "providers"
+    }
+  },
+  {
+    "page": "providers/telegram.md",
+    "title": "Telegram bot mode",
+    "description": "Understand Telegram bot mode's implemented boundary and why it remains publicly unavailable without current live certification.",
+    "route": "/providers/telegram",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "providers"
+    }
+  },
+  {
     "page": "providers/threads.md",
     "title": "Threads",
     "description": "This page is for operators configuring Threads and users connecting an account.",
@@ -1213,7 +1245,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/analytics.md",
     "title": "Analytics",
-    "description": "Use this page when reviewing saved account and Publication results.",
+    "description": "Use this page when reviewing saved whole-account content results.",
     "route": "/usage/analytics",
     "agentRepresentation": {
       "membership": "ordinary"

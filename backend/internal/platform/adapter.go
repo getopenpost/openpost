@@ -12,6 +12,7 @@ import (
 // PublishRequest contains everything needed to publish a single post.
 type PublishRequest struct {
 	Content          string // Post text content
+	RenditionID      string // Owning Rendition for provider-specific durable receipts
 	Profile          string // OpenPost content profile, e.g. short_text, carousel, story, short_video
 	OutputProfile    string // Provider-qualified output profile, e.g. instagram.carousel
 	Title            string // Provider-specific title for video/link surfaces
@@ -179,6 +180,14 @@ type DirectMediaPublisher interface {
 	PublishWithMedia(ctx context.Context, accessToken, accountID string, req *PublishRequest, media []UploadMediaRequest) (PublishResult, error)
 }
 
+// InstanceCredentialPublisher marks a provider whose write credential belongs
+// to the OpenPost instance rather than a Workspace account. The credential
+// stays inside the provider implementation and never crosses the publisher or
+// token-manager boundary.
+type InstanceCredentialPublisher interface {
+	UsesInstanceCredential() bool
+}
+
 // PublishReconciler performs a read-only lookup for a previously submitted
 // provider operation. It must never recreate the write.
 type PublishReconciler interface {
@@ -214,6 +223,7 @@ func RegisterAllMediaValidators() {
 		MediaValidators[providerInstagram] = validateInstagramMedia
 		MediaValidators[providerLinkedIn] = validateLinkedInMedia
 		MediaValidators[providerMastodon] = validateMastodonMedia
+		MediaValidators[providerPinterest] = validatePinterestMedia
 		MediaValidators[providerTikTok] = validateTikTokMedia
 		MediaValidators[providerThreads] = validateThreadsMedia
 		MediaValidators[providerX] = validateXMedia
@@ -298,6 +308,18 @@ type PublishingOptionsPage struct {
 // broad DestinationOptionsProvider remains a compatibility interface.
 type PublishingOptionsProvider interface {
 	SearchPublishingOptions(ctx context.Context, accessToken string, input PublishingOptionsInput) (PublishingOptionsPage, error)
+}
+
+// PublishingTargetValidator rechecks an account-owned subdestination before
+// media upload or any other provider mutation begins.
+type PublishingTargetValidator interface {
+	ValidatePublishingTarget(ctx context.Context, accessToken, accountID string, settings map[string]interface{}) error
+}
+
+// AuthorizationRevoker invalidates a provider credential before OpenPost
+// clears the encrypted local grant.
+type AuthorizationRevoker interface {
+	RevokeAuthorization(ctx context.Context, accessToken string) error
 }
 
 type AccountCapabilityInput struct {

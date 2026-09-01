@@ -1,0 +1,30 @@
+{
+  "all": {
+    "daily_metrics": [
+      {
+        "date": "2026-08-30",
+        "metrics": {
+          "IMPRESSION": 10,
+          "ENGAGEMENT": 3,
+          "SAVE": 1,
+          "PIN_CLICK": 5,
+          "OUTBOUND_CLICK": 2,
+          "VIDEO_MRC_VIEW": 4,
+          "PIN_CLICK_RATE": 0.5
+        }
+      },
+      {
+        "date": "2026-08-31",
+        "metrics": {
+          "IMPRESSION": 90,
+          "ENGAGEMENT": 7,
+          "SAVE": 2,
+          "PIN_CLICK": 9,
+          "OUTBOUND_CLICK": 3,
+          "VIDEO_MRC_VIEW": 6,
+          "PIN_CLICK_RATE": 0.1
+        }
+      }
+    ]
+  }
+}

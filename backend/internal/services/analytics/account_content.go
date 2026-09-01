@@ -1,0 +1,237 @@
+package analytics
+
+import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/uptrace/bun"
+)
+
+const subjectAccountContent = "account_content"
+
+// UpsertAccountContent normalizes and stores one provider item by its stable
+// identity within a Social Account. Repeated discovery updates the one inventory
+// row and appends an immutable measurement snapshot when measurements are
+// present.
+func (s *Service) UpsertAccountContent(
+	ctx context.Context,
+	accountID string,
+	item platform.AccountContentItem,
+) (*models.AccountContent, error) {
+	accountID = strings.TrimSpace(accountID)
+	if accountID == "" {
+		return nil, fmt.Errorf("social account ID is required")
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ?", accountID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("social account not found")
+		}
+		return nil, fmt.Errorf("load account content owner: %w", err)
+	}
+
+	var content *models.AccountContent
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var err error
+		content, err = upsertAccountContent(txCtx, tx, account, item, s.now().UTC())
+		return err
+	})
+	return content, err
+}
+
+func upsertAccountContent(
+	ctx context.Context,
+	db bun.IDB,
+	account models.SocialAccount,
+	item platform.AccountContentItem,
+	now time.Time,
+) (*models.AccountContent, error) {
+	normalized, err := platform.NormalizeAccountContentItem(account.Platform, item)
+	if err != nil {
+		return nil, err
+	}
+	if normalized.ContentProfile == "" {
+		normalized.ContentProfile = models.ContentProfileShortText
+	}
+	if !validAccountContentProfile(normalized.ContentProfile) {
+		return nil, fmt.Errorf("unsupported account content profile %q", normalized.ContentProfile)
+	}
+	if normalized.RenditionID != "" {
+		count, countErr := db.NewSelect().Model((*models.Rendition)(nil)).
+			Where("id = ? AND social_account_id = ? AND platform = ? AND external_id = ?",
+				normalized.RenditionID, account.ID, account.Platform, normalized.ProviderContentID).
+			Count(ctx)
+		if countErr != nil {
+			return nil, fmt.Errorf("validate account content rendition: %w", countErr)
+		}
+		if count != 1 {
+			return nil, fmt.Errorf("rendition link is not an exact match for this social account and persisted external ID")
+		}
+		normalized.Origin = platform.AccountContentOriginOpenPost
+		normalized.OriginConfidence = platform.AccountContentOriginConfidenceExact
+	}
+
+	content := &models.AccountContent{
+		ID: uuid.NewString(), WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
+		Platform: account.Platform, ProviderContentID: normalized.ProviderContentID,
+		ProviderParentID: normalized.ProviderParentID, ContentProfile: normalized.ContentProfile,
+		Title: normalized.Title, Text: normalized.Text, ExternalURL: normalized.ExternalURL,
+		PublishedAt: normalized.PublishedAt, Origin: string(normalized.Origin),
+		OriginConfidence: string(normalized.OriginConfidence), RenditionID: normalized.RenditionID,
+		FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if _, err := db.NewInsert().Model(content).
+		On("CONFLICT (social_account_id, provider_content_id) DO UPDATE").
+		Set("workspace_id = EXCLUDED.workspace_id").
+		Set("platform = EXCLUDED.platform").
+		Set("provider_parent_id = EXCLUDED.provider_parent_id").
+		Set("content_profile = EXCLUDED.content_profile").
+		Set("title = EXCLUDED.title").
+		Set("text = EXCLUDED.text").
+		Set("external_url = EXCLUDED.external_url").
+		Set("published_at = EXCLUDED.published_at").
+		Set("origin = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin ELSE EXCLUDED.origin END").
+		Set("origin_confidence = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin_confidence ELSE EXCLUDED.origin_confidence END").
+		Set("rendition_id = COALESCE(EXCLUDED.rendition_id, rendition_id)").
+		Set("last_seen_at = EXCLUDED.last_seen_at").
+		Set("provider_unavailable_at = NULL").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx); err != nil {
+		return nil, fmt.Errorf("store account content: %w", err)
+	}
+	if err := db.NewSelect().Model(content).
+		Where("social_account_id = ? AND provider_content_id = ?", account.ID, normalized.ProviderContentID).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("load stored account content: %w", err)
+	}
+	if normalized.Measurements != nil {
+		if err := recordAccountContentMeasurements(ctx, db, account, *content, normalized.Measurements, now, normalized.MeasurementCaptureKey); err != nil {
+			return nil, err
+		}
+	}
+	if err := reconcileAccountContentObservations(ctx, db, account, *content); err != nil {
+		return nil, err
+	}
+	return content, nil
+}
+
+func recordAccountContentMeasurements(
+	ctx context.Context,
+	db bun.IDB,
+	account models.SocialAccount,
+	content models.AccountContent,
+	measurements platform.AnalyticsMeasurements,
+	capturedAt time.Time,
+	idempotencyKey string,
+) error {
+	values, metadata, err := measurements.ValuesAndMetadata(account.Platform)
+	if err != nil {
+		return fmt.Errorf("validate account content measurements: %w", err)
+	}
+	metricsJSON, err := encodeAnalyticsValues(values)
+	if err != nil {
+		return err
+	}
+	metadataJSON, err := encodeMetricMetadata(metadata)
+	if err != nil {
+		return err
+	}
+	captureKey := accountContentCaptureKey(content.ID, idempotencyKey, capturedAt)
+	snapshot := &models.AnalyticsAccountContentSnapshot{
+		ID: uuid.NewString(), WorkspaceID: account.WorkspaceID, AccountContentID: content.ID,
+		SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: metricsJSON,
+		MetricMetadataJSON: metadataJSON, CaptureKey: captureKey, CapturedAt: capturedAt,
+	}
+	if _, err := db.NewInsert().Model(snapshot).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
+		return fmt.Errorf("store account content analytics snapshot: %w", err)
+	}
+	return upsertState(ctx, db, &models.AnalyticsSyncState{
+		ID: stateID(subjectAccountContent, content.ID), WorkspaceID: account.WorkspaceID,
+		SubjectType: subjectAccountContent, SubjectID: content.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Status: string(platform.AnalyticsStatusOK),
+		MetricsJSON: metricsJSON, MetricMetadataJSON: metadataJSON,
+		LastAttemptedAt: capturedAt, LastSuccessAt: capturedAt,
+		CreatedAt: capturedAt, UpdatedAt: capturedAt,
+	})
+}
+
+func accountContentCaptureKey(contentID, idempotencyKey string, capturedAt time.Time) string {
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		idempotencyKey = capturedAt.UTC().Format(time.RFC3339Nano)
+	}
+	digest := sha256.Sum256([]byte(idempotencyKey))
+	return subjectAccountContent + ":" + contentID + ":" + hex.EncodeToString(digest[:])
+}
+
+func reconcileAccountContentObservations(ctx context.Context, db bun.IDB, account models.SocialAccount, content models.AccountContent) error {
+	var pending []models.AccountContentObservation
+	if err := db.NewSelect().Model(&pending).
+		Where("social_account_id = ? AND provider_content_id = ? AND account_content_id IS NULL", account.ID, content.ProviderContentID).
+		Order("observed_at ASC", "id ASC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("load pending account content observations: %w", err)
+	}
+	for _, observation := range pending {
+		measurements, err := decodeStoredMeasurements(observation.MetricsJSON, observation.MetricMetadataJSON)
+		if err != nil {
+			return fmt.Errorf("decode pending account content observation: %w", err)
+		}
+		if _, err := db.NewUpdate().Model((*models.AccountContentObservation)(nil)).
+			Set("account_content_id = ?", content.ID).Where("id = ? AND account_content_id IS NULL", observation.ID).Exec(ctx); err != nil {
+			return fmt.Errorf("link pending account content observation: %w", err)
+		}
+		if err := recordAccountContentMeasurements(ctx, db, account, content, measurements, observation.ObservedAt.UTC(), "observation:"+observation.ProviderObservationID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decodeStoredMeasurements(rawValues, rawMetadata string) (platform.AnalyticsMeasurements, error) {
+	values := platform.AnalyticsValues{}
+	metadata := map[string]platform.AnalyticsMetricMetadata{}
+	if err := json.Unmarshal([]byte(rawValues), &values); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(rawMetadata), &metadata); err != nil {
+		return nil, err
+	}
+	measurements := make(platform.AnalyticsMeasurements, len(values))
+	for metric, value := range values {
+		meta, ok := metadata[metric]
+		if !ok {
+			return nil, fmt.Errorf("measurement metadata is missing for %s", metric)
+		}
+		measurements[metric] = platform.AnalyticsMeasurement{Value: value, AnalyticsMetricMetadata: meta}
+	}
+	return measurements, nil
+}
+
+func encodeAnalyticsValues(values platform.AnalyticsValues) (string, error) {
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return "", fmt.Errorf("encode account content analytics values: %w", err)
+	}
+	return string(encoded), nil
+}
+
+func validAccountContentProfile(profile string) bool {
+	switch profile {
+	case models.ContentProfileShortText, models.ContentProfileThread, models.ContentProfileLinkShare,
+		models.ContentProfileImagePost, models.ContentProfileCarousel, models.ContentProfileStory,
+		models.ContentProfileShortVideo, models.ContentProfileLongVideo:
+		return true
+	default:
+		return false
+	}
+}

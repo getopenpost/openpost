@@ -1,14 +1,8 @@
-import {
-	createOpenPostQueryError,
-	type ActivityPublicationBucket,
-	type OpenPostQueryAPI,
-	type QueryPageResult
-} from '@openpost/query-catalog';
-import type { components } from '@openpost/api-contract';
+import { type ActivityPublicationBucket, type OpenPostQueryAPI } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { queryGET, queryPageResult } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
-type APIProblem = components['schemas']['ErrorModel'];
 
 interface ActivityPublicationsQuery {
 	workspace_id: string;
@@ -29,11 +23,16 @@ interface FailedJobsQuery {
 export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQueryAPI {
 	return {
 		async getPublication(_workspaceId, publicationId, signal) {
-			const { data, error, response } = await transport.GET('/publications/{id}', {
-				params: { path: { id: publicationId } },
-				signal
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load publication',
+				request: (requestSignal) =>
+					transport.GET('/publications/{id}', {
+						params: { path: { id: publicationId } },
+						signal: requestSignal
+					})
 			});
-			return requiredData(data, error, response, 'Unable to load publication');
+			return data;
 		},
 		async listActivityPublications(workspaceId, bucket, page, signal) {
 			const query: ActivityPublicationsQuery = {
@@ -43,12 +42,16 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 				offset: 0
 			};
 			if (page.cursor) query.cursor = page.cursor;
-			const { data, error, response } = await transport.GET('/publications', {
-				params: { query },
-				signal
+			const { data, response } = await queryGET({
+				signal,
+				fallback: 'Unable to load publications',
+				request: (requestSignal) =>
+					transport.GET('/publications', {
+						params: { query },
+						signal: requestSignal
+					})
 			});
-			const items = requiredData(data, error, response, 'Unable to load publications');
-			return pageResult(items, response);
+			return queryPageResult(data, response);
 		},
 		async listFailedJobs(workspaceId, page, signal) {
 			const query: FailedJobsQuery = {
@@ -58,60 +61,52 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 				offset: 0
 			};
 			if (page.cursor) query.cursor = page.cursor;
-			const { data, error, response } = await transport.GET('/jobs', {
-				params: { query },
-				signal
+			const { data, response } = await queryGET({
+				signal,
+				fallback: 'Unable to load jobs',
+				request: (requestSignal) =>
+					transport.GET('/jobs', {
+						params: { query },
+						signal: requestSignal
+					})
 			});
-			if (error) throw createOpenPostQueryError(response.status, error, 'Unable to load jobs');
-			return pageResult(
-				(data ?? []).filter((job) => job.status === 'failed'),
+			return queryPageResult(
+				data.filter((job) => job.status === 'failed'),
 				response
 			);
 		},
 		async listAccounts(workspaceId, signal) {
-			const { data, error, response } = await transport.GET('/accounts', {
-				params: { query: { workspace_id: workspaceId } },
-				signal
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load social accounts',
+				request: (requestSignal) =>
+					transport.GET('/accounts', {
+						params: { query: { workspace_id: workspaceId } },
+						signal: requestSignal
+					})
 			});
-			if (error) {
-				throw createOpenPostQueryError(response.status, error, 'Unable to load social accounts');
-			}
-			return data ?? [];
+			return data;
 		},
 		async listSocialSets(workspaceId, signal) {
-			const { data, error, response } = await transport.GET('/social-sets', {
-				params: { query: { workspace_id: workspaceId } },
-				signal
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load social sets',
+				request: (requestSignal) =>
+					transport.GET('/social-sets', {
+						params: { query: { workspace_id: workspaceId } },
+						signal: requestSignal
+					})
 			});
-			if (error)
-				throw createOpenPostQueryError(response.status, error, 'Unable to load social sets');
-			return data ?? [];
+			return data;
 		},
 		async getCapabilities(signal) {
-			const { data, error, response } = await transport.GET('/capabilities', { signal });
-			return requiredData(data, error, response, 'Unable to load capabilities');
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load capabilities',
+				request: (requestSignal) => transport.GET('/capabilities', { signal: requestSignal })
+			});
+			return data;
 		}
-	};
-}
-
-function requiredData<T>(
-	data: T | null | undefined,
-	error: APIProblem | undefined,
-	response: Response,
-	fallback: string
-): T {
-	if (error || data === null || data === undefined) {
-		throw createOpenPostQueryError(response.status, error, fallback);
-	}
-	return data;
-}
-
-function pageResult<T>(items: T[], response: Response): QueryPageResult<T> {
-	const total = Number(response.headers.get('X-Total-Count') ?? 0);
-	return {
-		items,
-		total: Number.isFinite(total) ? total : 0,
-		nextCursor: response.headers.get('X-Next-Cursor') ?? ''
 	};
 }
 

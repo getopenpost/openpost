@@ -6,9 +6,16 @@ export interface QueryPage {
 }
 
 const rootKey = ["openpost", "v1"] as const;
-const workspaceKey = (workspaceId: string) => [...rootKey, "workspace", workspaceId] as const;
+
+export function openPostWorkspaceKey<const Segments extends readonly unknown[]>(
+  workspaceId: string,
+  ...segments: Segments
+) {
+  return [...rootKey, "workspace", workspaceId, ...segments] as const;
+}
+
 const publicationActivityRootKey = (workspaceId: string) =>
-  [...workspaceKey(workspaceId), "publications", "list", "activity"] as const;
+  [...openPostWorkspaceKey(workspaceId), "publications", "list", "activity"] as const;
 const publicationActivityKey = (workspaceId: string, bucket: ActivityPublicationBucket) =>
   [...publicationActivityRootKey(workspaceId), bucket] as const;
 
@@ -16,8 +23,9 @@ export const openPostQueryKeys = {
   all: rootKey,
   capabilities: () => [...rootKey, "capabilities"] as const,
   publications: {
-    all: (workspaceId: string) => [...workspaceKey(workspaceId), "publications"] as const,
-    list: (workspaceId: string) => [...workspaceKey(workspaceId), "publications", "list"] as const,
+    all: (workspaceId: string) => [...openPostWorkspaceKey(workspaceId), "publications"] as const,
+    list: (workspaceId: string) =>
+      [...openPostWorkspaceKey(workspaceId), "publications", "list"] as const,
     activityRoot: publicationActivityRootKey,
     activityAll: publicationActivityKey,
     activity: (workspaceId: string, bucket: ActivityPublicationBucket, page: QueryPage) =>
@@ -26,20 +34,22 @@ export const openPostQueryKeys = {
         { cursor: page.cursor ?? "", limit: page.limit },
       ] as const,
     detail: (workspaceId: string, publicationId: string) =>
-      [...workspaceKey(workspaceId), "publications", "detail", publicationId] as const,
+      [...openPostWorkspaceKey(workspaceId), "publications", "detail", publicationId] as const,
   },
   jobs: {
-    failed: (workspaceId: string) => [...workspaceKey(workspaceId), "jobs", "failed"] as const,
+    failed: (workspaceId: string) =>
+      [...openPostWorkspaceKey(workspaceId), "jobs", "failed"] as const,
     failedPage: (workspaceId: string, page: QueryPage) =>
       [
-        ...workspaceKey(workspaceId),
+        ...openPostWorkspaceKey(workspaceId),
         "jobs",
         "failed",
         { cursor: page.cursor ?? "", limit: page.limit },
       ] as const,
   },
-  accounts: (workspaceId: string) => [...workspaceKey(workspaceId), "accounts"] as const,
-  socialSets: (workspaceId: string) => [...workspaceKey(workspaceId), "social-sets"] as const,
+  accounts: (workspaceId: string) => [...openPostWorkspaceKey(workspaceId), "accounts"] as const,
+  socialSets: (workspaceId: string) =>
+    [...openPostWorkspaceKey(workspaceId), "social-sets"] as const,
 };
 
 export function isOpenPostActivityQueryKey(queryKey: readonly unknown[]): boolean {

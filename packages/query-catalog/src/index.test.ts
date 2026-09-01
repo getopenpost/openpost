@@ -5,9 +5,12 @@ import {
   capabilityStaleTime,
   isOpenPostActivityQueryKey,
   isOpenPostDraftActivityQueryKey,
+  liveQueryStaleTime,
   OpenPostQueryError,
   openPostQueryDefaults,
   openPostQueryKeys,
+  openPostQueryPolicy,
+  openPostWorkspaceKey,
   queryGarbageCollectionTime,
   publicationDetailQueryOptions,
   seedPublicationDetail,
@@ -16,6 +19,7 @@ import {
   type QueryPage,
   type QueryPageResult,
   queryStaleTime,
+  stableQueryStaleTime,
 } from "./index";
 
 describe("OpenPost query catalogue", () => {
@@ -88,8 +92,31 @@ describe("OpenPost query catalogue", () => {
       }),
     );
     expect(queryStaleTime).toBe(30_000);
+    expect(liveQueryStaleTime).toBe(15_000);
+    expect(stableQueryStaleTime).toBe(300_000);
     expect(capabilityStaleTime).toBe(300_000);
     expect(queryGarbageCollectionTime).toBe(1_800_000);
+  });
+
+  it("extends the canonical Workspace key and query policy for domain catalogues", () => {
+    expect(openPostWorkspaceKey("workspace-1", "media", "list", { limit: 20 })).toEqual([
+      "openpost",
+      "v1",
+      "workspace",
+      "workspace-1",
+      "media",
+      "list",
+      { limit: 20 },
+    ]);
+    expect(openPostQueryPolicy(liveQueryStaleTime)).toMatchObject({
+      gcTime: 1_800_000,
+      networkMode: "online",
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: false,
+      retry: shouldRetryQuery,
+      staleTime: 15_000,
+      throwOnError: false,
+    });
   });
 
   it("matches only Activity publication and failed-job keys", () => {

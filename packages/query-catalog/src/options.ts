@@ -2,24 +2,7 @@ import type { QueryFunctionContext } from "@tanstack/query-core";
 import type { OpenPostQueryAPI } from "./api";
 import { seedPublicationDetail } from "./cache";
 import { openPostQueryKeys, type ActivityPublicationBucket, type QueryPage } from "./keys";
-import {
-  capabilityStaleTime,
-  queryGarbageCollectionTime,
-  queryRetryDelay,
-  queryStaleTime,
-} from "./policies";
-import { shouldRetryQuery } from "./errors";
-
-function queryPolicy(staleTime: number) {
-  return {
-    staleTime,
-    gcTime: queryGarbageCollectionTime,
-    retry: shouldRetryQuery,
-    retryDelay: queryRetryDelay,
-    networkMode: "online" as const,
-    throwOnError: false,
-  };
-}
+import { capabilityStaleTime, openPostQueryPolicy, queryStaleTime } from "./policies";
 
 export function publicationDetailQueryOptions(
   api: Pick<OpenPostQueryAPI, "getPublication">,
@@ -28,7 +11,7 @@ export function publicationDetailQueryOptions(
 ) {
   const queryKey = openPostQueryKeys.publications.detail(workspaceId, publicationId);
   return {
-    ...queryPolicy(queryStaleTime),
+    ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId && publicationId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
@@ -45,7 +28,7 @@ export function activityPublicationsQueryOptions(
   const normalizedPage = { limit: page.limit, cursor: page.cursor ?? "" };
   const queryKey = openPostQueryKeys.publications.activity(workspaceId, bucket, normalizedPage);
   return {
-    ...queryPolicy(queryStaleTime),
+    ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
@@ -72,7 +55,7 @@ export function failedJobsQueryOptions(
   const normalizedPage = { limit: page.limit, cursor: page.cursor ?? "" };
   const queryKey = openPostQueryKeys.jobs.failedPage(workspaceId, normalizedPage);
   return {
-    ...queryPolicy(queryStaleTime),
+    ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
@@ -86,7 +69,7 @@ export function workspaceAccountsQueryOptions(
 ) {
   const queryKey = openPostQueryKeys.accounts(workspaceId);
   return {
-    ...queryPolicy(queryStaleTime),
+    ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
@@ -100,7 +83,7 @@ export function workspaceSocialSetsQueryOptions(
 ) {
   const queryKey = openPostQueryKeys.socialSets(workspaceId);
   return {
-    ...queryPolicy(queryStaleTime),
+    ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
@@ -111,7 +94,7 @@ export function workspaceSocialSetsQueryOptions(
 export function capabilityCatalogQueryOptions(api: Pick<OpenPostQueryAPI, "getCapabilities">) {
   const queryKey = openPostQueryKeys.capabilities();
   return {
-    ...queryPolicy(capabilityStaleTime),
+    ...openPostQueryPolicy(capabilityStaleTime),
     queryKey,
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) => api.getCapabilities(signal),
   };

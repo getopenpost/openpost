@@ -15,7 +15,6 @@ import (
 
 const (
 	InsightKindMostEngagementActions        = "most_engagement_actions"
-	InsightKindLeastEngagementActions       = "least_engagement_actions"
 	InsightKindStrongestMeasuredDestination = "strongest_measured_destination"
 	InsightKindFollowerDecline              = "follower_decline"
 
@@ -55,7 +54,7 @@ type InsightContentEvidence struct {
 }
 
 type Insight struct {
-	Kind             string                  `json:"kind" enum:"most_engagement_actions,least_engagement_actions,strongest_measured_destination,follower_decline"`
+	Kind             string                  `json:"kind" enum:"most_engagement_actions,strongest_measured_destination,follower_decline"`
 	Status           string                  `json:"status" enum:"available,insufficient_data"`
 	Reason           string                  `json:"reason,omitempty" enum:"missing_measurements,low_sample,incompatible_semantics,no_decline"`
 	Period           InsightPeriod           `json:"period"`
@@ -149,29 +148,26 @@ func (s *Service) loadStoredInsightContent(
 func buildContentInsights(content []ContentOverview, start, end time.Time) []Insight {
 	basePeriod := InsightPeriod{FilterStart: start, FilterEnd: end, Aggregation: InsightPeriodAggregationUnavailable}
 	most := insufficientInsight(InsightKindMostEngagementActions, "engagement_actions", basePeriod, InsightReasonMissingMeasurements, 0, len(content))
-	least := insufficientInsight(InsightKindLeastEngagementActions, "engagement_actions", basePeriod, InsightReasonMissingMeasurements, 0, len(content))
 	destinationCount := 0
 	strongest := insufficientInsight(InsightKindStrongestMeasuredDestination, "engagement_actions", basePeriod, InsightReasonMissingMeasurements, 0, len(content))
 	strongest.DestinationCount = &destinationCount
 
 	measured, semanticCount, measuredCount := comparableEngagementContent(content)
-	most.MeasuredCount, least.MeasuredCount, strongest.MeasuredCount = measuredCount, measuredCount, measuredCount
+	most.MeasuredCount, strongest.MeasuredCount = measuredCount, measuredCount
 	if len(measured) == 0 {
 		if semanticCount > 0 {
 			most.Reason = InsightReasonIncompatibleSemantics
-			least.Reason = InsightReasonIncompatibleSemantics
 			strongest.Reason = InsightReasonIncompatibleSemantics
 		}
-		return []Insight{most, least, strongest}
+		return []Insight{most, strongest}
 	}
 	period := insightPeriodForKey(start, end, measured[0].key)
-	most.Period, least.Period, strongest.Period = period, period, period
+	most.Period, strongest.Period = period, period
 
 	if semanticCount > 1 {
 		most.Reason = InsightReasonIncompatibleSemantics
-		least.Reason = InsightReasonIncompatibleSemantics
 		strongest.Reason = InsightReasonIncompatibleSemantics
-		return []Insight{most, least, strongest}
+		return []Insight{most, strongest}
 	}
 
 	destinations := make(map[string][]measuredEngagementContent)
@@ -183,17 +179,14 @@ func buildContentInsights(content []ContentOverview, start, end time.Time) []Ins
 
 	if len(measured) < 2 {
 		most.Reason = InsightReasonLowSample
-		least.Reason = InsightReasonLowSample
 	} else {
 		sortMeasuredEngagement(measured, true)
 		most = availableContentInsight(InsightKindMostEngagementActions, measured[0], len(measured), len(content), period)
-		sortMeasuredEngagement(measured, false)
-		least = availableContentInsight(InsightKindLeastEngagementActions, measured[0], len(measured), len(content), period)
 	}
 
 	if destinationCount < 2 {
 		strongest.Reason = InsightReasonLowSample
-		return []Insight{most, least, strongest}
+		return []Insight{most, strongest}
 	}
 
 	type destinationCandidate struct {
@@ -231,7 +224,7 @@ func buildContentInsights(content []ContentOverview, start, end time.Time) []Ins
 		Content: insightContentEvidence(winner.evidence.content), AccountID: winner.accountID,
 		Platform: winner.platform, Username: winner.username, Caveat: contentInsightCaveat(period.Aggregation),
 	}
-	return []Insight{most, least, strongest}
+	return []Insight{most, strongest}
 }
 
 func comparableEngagementContent(content []ContentOverview) ([]measuredEngagementContent, int, int) {

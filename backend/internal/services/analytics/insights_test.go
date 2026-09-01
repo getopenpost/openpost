@@ -24,7 +24,7 @@ func TestContentInsightsRankStoredCompatibleMeasurementsWithStableEvidence(t *te
 	}
 
 	insights := buildContentInsights(content, now.Add(-30*24*time.Hour), now)
-	require.Len(t, insights, 3)
+	require.Len(t, insights, 2)
 
 	most := insights[0]
 	require.Equal(t, InsightStatusAvailable, most.Status)
@@ -36,13 +36,7 @@ func TestContentInsightsRankStoredCompatibleMeasurementsWithStableEvidence(t *te
 	require.Equal(t, 3, most.ComparisonSample)
 	require.Equal(t, InsightCaveatFilteredLifetimeTotals, most.Caveat)
 
-	least := insights[1]
-	require.Equal(t, InsightStatusAvailable, least.Status)
-	require.Equal(t, int64(2), *least.Value)
-	require.Equal(t, "external-low", least.Content.Reference.AccountContentID)
-	require.Equal(t, "external", least.Content.Source)
-
-	strongest := insights[2]
+	strongest := insights[1]
 	require.Equal(t, InsightStatusAvailable, strongest.Status)
 	require.Equal(t, "account-youtube", strongest.AccountID)
 	require.Equal(t, int64(10), *strongest.Value)

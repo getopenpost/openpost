@@ -719,19 +719,6 @@ function analyticsFixture() {
         comparison_sample: 49,
       },
       {
-        kind: "least_engagement_actions",
-        status: "insufficient_data",
-        reason: "low_sample",
-        period: {
-          filter_start: "2026-07-21T14:20:00Z",
-          filter_end: "2026-08-20T14:20:00Z",
-          aggregation: "lifetime_total",
-        },
-        metric: "engagement_actions",
-        measured_count: 1,
-        comparison_sample: 49,
-      },
-      {
         kind: "strongest_measured_destination",
         status: "insufficient_data",
         reason: "low_sample",

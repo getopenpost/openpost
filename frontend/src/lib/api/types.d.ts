@@ -8001,7 +8001,7 @@ export interface components {
             /** Format: int64 */
             destination_count?: number;
             /** @enum {string} */
-            kind: "most_engagement_actions" | "least_engagement_actions" | "strongest_measured_destination" | "follower_decline";
+            kind: "most_engagement_actions" | "strongest_measured_destination" | "follower_decline";
             /** Format: int64 */
             measured_count: number;
             metric: string;

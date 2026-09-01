@@ -537,8 +537,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		switch (insight.kind) {
 			case 'most_engagement_actions':
 				return m.analytics_insight_most_engagement();
-			case 'least_engagement_actions':
-				return m.analytics_insight_least_engagement();
 			case 'strongest_measured_destination':
 				return m.analytics_insight_top_destination();
 			default:
@@ -571,21 +569,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				engagement: formatNumber(insight.value)
 			});
 		}
-		return insight.kind === 'least_engagement_actions'
-			? m.analytics_insight_least_engagement_body({
-					content:
-						insight.content?.title ||
-						insight.content?.excerpt ||
-						m.analytics_untitled_publication(),
-					engagement: formatNumber(insight.value)
-				})
-			: m.analytics_insight_most_engagement_body({
-					content:
-						insight.content?.title ||
-						insight.content?.excerpt ||
-						m.analytics_untitled_publication(),
-					engagement: formatNumber(insight.value)
-				});
+		return m.analytics_insight_most_engagement_body({
+			content:
+				insight.content?.title || insight.content?.excerpt || m.analytics_untitled_publication(),
+			engagement: formatNumber(insight.value)
+		});
 	}
 
 	function insightAccountName(insight: AnalyticsInsight) {

@@ -64,6 +64,7 @@ func TestPinterestDiscoveryReadinessFailsClosedWithoutCreatingPublications(t *te
 	var state models.AccountContentDiscoveryState
 	require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", account.ID).Scan(t.Context()))
 	require.Equal(t, "provider_readiness_blocked", state.FailureCode)
+	require.Equal(t, providerReadinessMessage, state.FailureMessage)
 	publicationCount, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, publicationCount)

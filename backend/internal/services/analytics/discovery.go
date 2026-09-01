@@ -28,6 +28,7 @@ const (
 	providerSlotRetry         = 30 * time.Second
 	discoveryLeaseTTL         = 5 * time.Minute
 	discoveryWatermarkOverlap = time.Minute
+	providerReadinessMessage  = "Account content discovery requires current provider access and certification."
 )
 
 // DiscoveryPolicy is instance-owned rate policy. It is provider-overridable,
@@ -143,7 +144,7 @@ func (s *Service) reconsiderAccountContentDiscovery(ctx context.Context, account
 	}
 	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationDiscover) {
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryPermissionRequired,
-			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, false)
+			"provider_readiness_blocked", providerReadinessMessage, now.Add(routineDiscoveryCadence), now, false)
 	}
 	if discoverer == nil {
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryUnsupported,
@@ -250,7 +251,7 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 	}
 	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationDiscover) {
 		return s.recordDiscoveryOutcome(ctx, account, nil, platform.AccountContentDiscoveryPermissionRequired,
-			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, true)
+			"provider_readiness_blocked", providerReadinessMessage, now.Add(routineDiscoveryCadence), now, true)
 	}
 	discoverer := s.accountContentDiscoverer(account)
 	if discoverer == nil {

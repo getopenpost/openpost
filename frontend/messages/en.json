@@ -95,8 +95,6 @@
 	"analytics_insights_description": "Rankings use only stored measurements with matching meaning and reporting periods.",
 	"analytics_insight_most_engagement": "Most engagement actions",
 	"analytics_insight_most_engagement_body": "{content}: {engagement} measured engagement actions.",
-	"analytics_insight_least_engagement": "Fewest engagement actions",
-	"analytics_insight_least_engagement_body": "{content}: {engagement} measured engagement actions.",
 	"analytics_insight_insufficient_missing": "Not enough content has measured engagement to make this comparison.",
 	"analytics_insight_insufficient_low_sample": "At least two measured results are needed for a ranking.",
 	"analytics_insight_insufficient_destinations": "At least two measured destinations are needed for a ranking.",

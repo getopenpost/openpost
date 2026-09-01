@@ -501,34 +501,6 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
             },
           },
           {
-            kind: "least_engagement_actions",
-            status: "available",
-            period: {
-              filter_start: "2026-06-26T12:00:00Z",
-              filter_end: "2026-07-26T12:00:00Z",
-              aggregation: "lifetime_total",
-            },
-            metric: "engagement_actions",
-            value: 4,
-            measured_count: 2,
-            comparison_sample: 3,
-            account_id: "account-x",
-            platform: "youtube",
-            username: "OpenPost",
-            caveat: "filtered_content_lifetime_totals",
-            content: {
-              reference: { type: "external", account_content_id: "external-1" },
-              source: "external",
-              title: "Published elsewhere update",
-              excerpt: "An update published directly on YouTube.",
-              platform: "youtube",
-              account_id: "account-x",
-              username: "OpenPost",
-              published_at: "2026-07-23T09:00:00Z",
-              collected_at: "2026-07-26T11:53:00Z",
-            },
-          },
-          {
             kind: "strongest_measured_destination",
             status: "insufficient_data",
             reason: "low_sample",
@@ -801,14 +773,13 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   await expect(page.getByTestId("analytics-coverage-account-tiktok")).toContainText(
     "History unavailable",
   );
-  const leastEngagementInsight = page.getByTestId("analytics-insight-least_engagement_actions");
-  await leastEngagementInsight.getByText("Evidence details").click();
-  await expect(leastEngagementInsight).toContainText("Published elsewhere");
-  await expect(leastEngagementInsight).toContainText("Metric: Engagement actions");
-  await expect(leastEngagementInsight).toContainText("Unit: Count");
-  await expect(leastEngagementInsight).toContainText("Aggregation: Lifetime total");
-  await expect(leastEngagementInsight).toContainText("Collection time: Jul 26, 11:53 AM");
   const mostEngagementInsight = page.getByTestId("analytics-insight-most_engagement_actions");
+  await mostEngagementInsight.getByText("Evidence details").click();
+  await expect(mostEngagementInsight).toContainText("Published with OpenPost");
+  await expect(mostEngagementInsight).toContainText("Metric: Engagement actions");
+  await expect(mostEngagementInsight).toContainText("Unit: Count");
+  await expect(mostEngagementInsight).toContainText("Aggregation: Lifetime total");
+  await expect(mostEngagementInsight).toContainText("Collection time: Jul 26, 11:55 AM");
   await expect(mostEngagementInsight).toContainText(
     "Launch notes: 58 measured engagement actions.",
   );

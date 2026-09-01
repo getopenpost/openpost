@@ -8398,7 +8398,6 @@
 					"kind": {
 						"enum": [
 							"most_engagement_actions",
-							"least_engagement_actions",
 							"strongest_measured_destination",
 							"follower_decline"
 						],

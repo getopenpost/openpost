@@ -16,7 +16,7 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import AppLoading from '$lib/components/app-loading.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { onboardingPathForPlan } from '$lib/billing';
+	import { onboardingPathForPlan, paddleTransactionIDFromSearchParams } from '$lib/billing';
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { feedbackDiagnostics } from '$lib/feedback-diagnostics';
@@ -105,11 +105,16 @@
 			(route) => currentPath === route || currentPath.startsWith(`${route}/`)
 		)
 	);
+	let isPublicCheckoutTransactionRoute = $derived(
+		currentPath === '/checkout' &&
+			Boolean(paddleTransactionIDFromSearchParams($page.url.searchParams))
+	);
 	let isPublicRoute = $derived(
 		isErrorRoute ||
 			isPublicProfileRoute ||
 			isPublicImageEditorRoute ||
 			isPublicLocalEditorRoute ||
+			isPublicCheckoutTransactionRoute ||
 			publicRoutes.some((route) => currentPath.startsWith(route))
 	);
 

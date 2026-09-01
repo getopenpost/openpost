@@ -5,22 +5,18 @@
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
-	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		billingPeriodFromSearchParams,
 		onboardingPathForPlan,
-		hostedPlanByID,
 		hostedPlanFromSearchParams,
-		hostedPlans,
 		normalizeBillingPeriod,
 		normalizeHostedPlanID,
+		paddleTransactionIDFromSearchParams,
 		type BillingPeriod,
 		type HostedPlanID
 	} from '$lib/billing';
@@ -29,86 +25,48 @@
 	import { m } from '$lib/paraglide/messages';
 	import { initializePaddle, type Paddle, type PaddleEventData } from '@paddle/paddle-js';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { resolveAppPath } from '$lib/app-path';
 
 	type BillingURL = components['schemas']['BillingURLResponse'];
+	type BrowserCheckoutConfig = components['schemas']['BillingCheckoutConfigResponse'];
+	type CheckoutMode = 'attempt' | 'transaction';
 	type CheckoutState = 'loading' | 'ready' | 'opening' | 'confirming' | 'success' | 'error';
 
 	let selectedPlanID = $state<HostedPlanID>('founder');
 	let billingPeriod = $state<BillingPeriod>('monthly');
 	let checkout = $state.raw<BillingURL | null>(null);
 	let paddle = $state.raw<Paddle | null>(null);
-	let localizedPrices = $state<Record<string, string>>({});
+	let checkoutMode = $state<CheckoutMode>('attempt');
 	let checkoutState = $state<CheckoutState>('loading');
 	let error = $state('');
+	let boundAttemptID = $state('');
+	let transactionID = $state('');
 	let requestSequence = 0;
 	let stopped = false;
 	let paddlePromise: Promise<Paddle | undefined> | null = null;
 	let paddleConfiguration = '';
-	let paymentFrameLoaded = $state(false);
-	let boundAttemptID = $state('');
 
-	let selectedPlan = $derived(hostedPlanByID(selectedPlanID)!);
-	let selectedPrice = $derived(localizedPrices[selectedPlanID] ?? '');
-	let userEmail = $derived($auth.user?.email ?? '');
-	let isLocked = $derived(Boolean(boundAttemptID));
-	let lockedChangeHref = $derived.by(() => {
-		const redirect = safeSameOriginRedirect(page.url, '');
-		const target = new URL('/onboarding', page.url.origin);
-		if (redirect) target.searchParams.set('redirect', redirect);
-		return `${target.pathname}${target.search}`;
-	});
-
-	function trialEndLabel(value?: string) {
-		const trialEnd = value ? new Date(value) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-		return new Intl.DateTimeFormat(getLocaleTag(), {
-			month: 'long',
-			day: 'numeric',
-			year: 'numeric'
-		}).format(trialEnd);
-	}
-
-	function updateURL() {
-		const params = new URLSearchParams(page.url.searchParams);
-		params.set('plan', selectedPlanID);
-		params.set('billing_period', billingPeriod);
-		params.delete('status');
-		params.delete('affiliate_code');
-		window.history.replaceState({}, '', `${page.url.pathname}?${params}`);
-	}
-
-	async function choosePlan(planID: HostedPlanID) {
-		if (selectedPlanID === planID && checkoutState === 'ready') return;
-		selectedPlanID = planID;
-		updateURL();
-		await createCheckout();
-	}
-
-	async function choosePeriod(period: BillingPeriod) {
-		if (billingPeriod === period) return;
-		billingPeriod = period;
-		updateURL();
-		await createCheckout();
+	function paddleLocale(): 'en' | 'pt' {
+		return getLocaleTag().toLowerCase().startsWith('pt') ? 'pt' : 'en';
 	}
 
 	function handlePaddleEvent(event: PaddleEventData) {
 		if (event.name === 'checkout.loaded') {
-			paymentFrameLoaded = true;
 			checkoutState = 'ready';
 			return;
 		}
 		if (event.name === 'checkout.closed') {
-			paymentFrameLoaded = false;
 			checkoutState = 'error';
-			error = m.checkout_closed();
+			error = checkoutMode === 'transaction' ? m.checkout_managed_closed() : m.checkout_closed();
 			return;
 		}
 		if (event.name === 'checkout.completed' && checkoutState !== 'confirming') {
-			paymentFrameLoaded = false;
+			if (checkoutMode === 'transaction') {
+				checkoutState = 'success';
+				return;
+			}
 			void confirmSubscription();
 			return;
 		}
@@ -118,23 +76,13 @@
 		}
 	}
 
-	function retryCheckout() {
-		if (boundAttemptID) return loadBoundCheckout(boundAttemptID);
-		return createCheckout();
-	}
-
-	function paddleLocale(): 'en' | 'pt' {
-		return getLocaleTag().toLowerCase().startsWith('pt') ? 'pt' : 'en';
-	}
-
-	async function initializePaddleForCheckout(data: BillingURL): Promise<Paddle> {
-		if (!data.client_token || !data.environment) {
+	async function initializePaddleForCheckout(config: BrowserCheckoutConfig): Promise<Paddle> {
+		const environment = config.environment?.trim().toLowerCase();
+		const clientToken = config.client_token?.trim();
+		if (!clientToken || (environment !== 'sandbox' && environment !== 'production')) {
 			throw new Error(m.checkout_load_failed());
 		}
-		if (data.environment !== 'sandbox' && data.environment !== 'production') {
-			throw new Error(m.checkout_load_failed());
-		}
-		const configuration = `${data.environment}:${data.client_token}`;
+		const configuration = `${environment}:${clientToken}`;
 		if (paddle && paddleConfiguration === configuration) return paddle;
 		if (paddleConfiguration && paddleConfiguration !== configuration) {
 			throw new Error(m.checkout_load_failed());
@@ -142,8 +90,8 @@
 		if (!paddlePromise) {
 			paddleConfiguration = configuration;
 			paddlePromise = initializePaddle({
-				environment: data.environment,
-				token: data.client_token,
+				environment,
+				token: clientToken,
 				eventCallback: handlePaddleEvent
 			});
 		}
@@ -159,30 +107,6 @@
 		}
 	}
 
-	async function loadLocalizedPrices(
-		instance: Paddle,
-		data: BillingURL
-	): Promise<Record<string, string>> {
-		const priceIDs = data.price_ids ?? {};
-		const entries = Object.entries(priceIDs).filter((entry): entry is [string, string] =>
-			Boolean(entry[1])
-		);
-		if (entries.length !== hostedPlans.length) throw new Error(m.checkout_load_failed());
-		const preview = await instance.PricePreview({
-			items: entries.map(([, priceId]) => ({ priceId, quantity: 1 }))
-		});
-		const formattedByPrice = new Map(
-			preview.data.details.lineItems.map((item) => [item.price.id, item.formattedTotals.total])
-		);
-		const nextPrices: Record<string, string> = {};
-		for (const [planID, priceID] of entries) {
-			const formatted = formattedByPrice.get(priceID);
-			if (!formatted) throw new Error(m.checkout_load_failed());
-			nextPrices[planID] = formatted;
-		}
-		return nextPrices;
-	}
-
 	async function createCheckout() {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
 		if (!workspaceID) {
@@ -192,10 +116,8 @@
 		}
 		const sequence = ++requestSequence;
 		paddle?.Checkout.close();
-		paymentFrameLoaded = false;
 		checkoutState = 'loading';
 		checkout = null;
-		localizedPrices = {};
 		error = '';
 		try {
 			const { data, error: apiError } = await client.POST('/billing/checkout', {
@@ -216,12 +138,10 @@
 			) {
 				throw new Error(apiError?.detail || m.checkout_load_failed());
 			}
-			const instance = await initializePaddleForCheckout(data);
-			const nextPrices = await loadLocalizedPrices(instance, data);
-			if (sequence !== requestSequence || stopped) return;
-			localizedPrices = nextPrices;
 			checkout = data;
-			await openPaddleCheckout(instance, data);
+			const instance = await initializePaddleForCheckout(data);
+			if (sequence !== requestSequence || stopped) return;
+			openAttemptCheckout(instance, data);
 		} catch (caught) {
 			if (sequence !== requestSequence || stopped) return;
 			checkoutState = 'error';
@@ -254,12 +174,10 @@
 			if (!planID || !period) throw new Error(m.checkout_load_failed());
 			selectedPlanID = planID;
 			billingPeriod = period;
-			const instance = await initializePaddleForCheckout(data);
-			const nextPrices = await loadLocalizedPrices(instance, data);
-			if (sequence !== requestSequence || stopped) return;
-			localizedPrices = nextPrices;
 			checkout = data;
-			await openPaddleCheckout(instance, data);
+			const instance = await initializePaddleForCheckout(data);
+			if (sequence !== requestSequence || stopped) return;
+			openAttemptCheckout(instance, data);
 		} catch (caught) {
 			if (sequence !== requestSequence || stopped) return;
 			checkoutState = 'error';
@@ -267,33 +185,25 @@
 		}
 	}
 
-	async function openPaddleCheckout(instance: Paddle, data: BillingURL) {
+	function openAttemptCheckout(instance: Paddle, data: BillingURL) {
 		if (!data.id || !data.provider_price_id || !data.customer_email || !data.return_url) {
-			error = m.checkout_load_failed();
 			checkoutState = 'error';
+			error = m.checkout_load_failed();
 			return;
 		}
 		checkoutState = 'opening';
-		paymentFrameLoaded = false;
-		if (stopped) return;
 		instance.Checkout.open({
 			items: [{ priceId: data.provider_price_id, quantity: 1 }],
 			customData: { checkout_id: data.id },
 			customer: { email: data.customer_email },
 			settings: {
-				displayMode: 'inline',
+				displayMode: 'overlay',
 				variant: 'one-page',
-				// Granular branded-input colors are managed in Paddle. Keep the hosted fields
-				// on a deliberate light canvas so labels, values, and errors remain readable.
 				theme: 'light',
 				locale: paddleLocale(),
 				allowLogout: false,
 				showAddDiscounts: true,
 				showAddTaxId: true,
-				frameTarget: 'openpost-paddle-checkout',
-				frameInitialHeight: 720,
-				frameStyle:
-					'width: 100%; min-width: 312px; background-color: #ffffff; color-scheme: light; border: none;',
 				successUrl: data.return_url
 			}
 		});
@@ -301,6 +211,38 @@
 			billing_period: billingPeriod,
 			plan_id: selectedPlanID
 		});
+	}
+
+	async function loadManagedTransaction() {
+		const sequence = ++requestSequence;
+		checkoutState = 'loading';
+		error = '';
+		try {
+			const { data: config, error: apiError } = await client.GET('/billing/checkout/config');
+			if (apiError || !config) throw new Error(apiError?.detail || m.checkout_load_failed());
+			const instance = await initializePaddleForCheckout(config);
+			if (sequence !== requestSequence || stopped) return;
+			checkoutState = 'opening';
+			instance.Checkout.open({
+				transactionId: transactionID,
+				settings: {
+					displayMode: 'overlay',
+					variant: 'one-page',
+					theme: 'light',
+					locale: paddleLocale()
+				}
+			});
+		} catch (caught) {
+			if (sequence !== requestSequence || stopped) return;
+			checkoutState = 'error';
+			error = caught instanceof Error && caught.message ? caught.message : m.checkout_load_failed();
+		}
+	}
+
+	function retryCheckout() {
+		if (checkoutMode === 'transaction') return loadManagedTransaction();
+		if (boundAttemptID) return loadBoundCheckout(boundAttemptID);
+		return createCheckout();
 	}
 
 	async function loadCheckoutReturn(attemptID: string) {
@@ -345,6 +287,18 @@
 	}
 
 	onMount(() => {
+		const requestedTransaction = paddleTransactionIDFromSearchParams(page.url.searchParams);
+		if (requestedTransaction) {
+			checkoutMode = 'transaction';
+			transactionID = requestedTransaction;
+			void loadManagedTransaction();
+			return () => {
+				stopped = true;
+				requestSequence += 1;
+				paddle?.Checkout.close();
+			};
+		}
+
 		selectedPlanID = hostedPlanFromSearchParams(page.url.searchParams) || 'founder';
 		billingPeriod = billingPeriodFromSearchParams(page.url.searchParams) || 'monthly';
 		boundAttemptID = page.url.searchParams.get('attempt')?.trim() ?? '';
@@ -382,10 +336,10 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="min-h-dvh bg-background">
+<div class="min-h-dvh bg-muted/30">
 	<header class="border-b bg-background/95">
 		<div
-			class="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:min-h-20 sm:px-6 lg:px-8"
+			class="mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:min-h-20 sm:px-6"
 		>
 			<a
 				href={resolveAppPath('/')}
@@ -394,7 +348,7 @@
 			>
 				<Logo width={132} height={30} showText />
 			</a>
-			<div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+			<div class="hidden items-center gap-2 text-sm font-medium text-muted-foreground sm:flex">
 				<LockIcon class="size-4 text-primary" />
 				{m.checkout_secure()}
 			</div>
@@ -402,263 +356,86 @@
 	</header>
 
 	<main
-		class="mx-auto w-full max-w-7xl py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-14"
+		class="mx-auto grid w-full max-w-5xl place-items-center px-4 py-12 sm:px-6 sm:py-20"
 		style="padding-bottom: max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem));"
 	>
-		{#if checkoutState === 'success'}
-			<Card class="mx-4 max-w-xl sm:mx-auto">
-				<CardContent class="flex flex-col items-center gap-5 px-6 py-10 text-center sm:px-10">
+		<Card class="w-full max-w-lg shadow-sm">
+			<CardContent
+				class="flex flex-col items-center gap-6 px-6 py-10 text-center sm:px-10 sm:py-12"
+			>
+				{#if checkoutState === 'success'}
 					<div
 						class="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"
 					>
 						<CheckIcon class="size-7" />
 					</div>
 					<div class="space-y-2">
-						<h1 class="text-2xl font-semibold tracking-tight">{m.checkout_success_heading()}</h1>
-						<p class="text-sm/6 text-muted-foreground">{m.checkout_success_description()}</p>
+						<h1 class="text-2xl font-semibold tracking-tight">
+							{checkoutMode === 'transaction'
+								? m.checkout_managed_success_heading()
+								: m.checkout_success_heading()}
+						</h1>
+						<p class="text-sm/6 text-muted-foreground">
+							{checkoutMode === 'transaction'
+								? m.checkout_managed_success_description()
+								: m.checkout_success_description()}
+						</p>
 					</div>
-					<div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+					{#if checkoutMode === 'attempt'}
 						<Button size="lg" onclick={continueToAccounts}>{m.checkout_connect_account()}</Button>
-					</div>
-				</CardContent>
-			</Card>
-		{:else if checkoutState === 'confirming'}
-			<Card class="mx-4 max-w-xl sm:mx-auto">
-				<CardContent class="space-y-5 px-6 py-10 text-center sm:px-10" role="status">
-					<SparklesIcon class="mx-auto size-10 animate-pulse text-primary" />
-					<div class="space-y-2">
+					{/if}
+				{:else if checkoutState === 'confirming'}
+					<LoaderCircleIcon class="size-10 animate-spin text-primary" />
+					<div class="space-y-2" role="status">
 						<h1 class="text-xl font-semibold">{m.checkout_confirming_heading()}</h1>
 						<p class="text-sm/6 text-muted-foreground">{m.checkout_confirming_description()}</p>
 					</div>
-				</CardContent>
-			</Card>
-		{:else}
-			<div
-				class="grid items-start gap-10 lg:grid-cols-[22rem_minmax(0,47rem)] lg:justify-center lg:gap-16"
-			>
-				<aside class="space-y-7 px-4 sm:px-0 lg:sticky lg:top-8">
-					<div class="space-y-3">
-						<p class="text-sm font-semibold text-primary">{m.checkout_eyebrow()}</p>
-						<h1
-							class="max-w-[15ch] text-3xl font-semibold tracking-[-0.025em] text-balance sm:text-4xl"
-						>
-							{m.checkout_heading()}
-						</h1>
-						<p class="max-w-[42ch] text-sm/6 text-muted-foreground">
-							{#if isLocked}
-								{m.checkout_description_locked({ plan: selectedPlan.name })}
-							{:else}
-								{m.checkout_description()}
-							{/if}
+				{:else}
+					<div
+						class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+					>
+						<LockIcon class="size-7" />
+					</div>
+					<div class="space-y-2">
+						<h1 class="text-2xl font-semibold tracking-tight">{m.checkout_managed_heading()}</h1>
+						<p class="text-sm/6 text-muted-foreground">
+							{checkoutMode === 'transaction'
+								? m.checkout_managed_link_description()
+								: m.checkout_managed_description()}
 						</p>
-						{#if isLocked}
-							<p class="text-xs text-muted-foreground">{m.checkout_plan_locked()}</p>
-						{/if}
 					</div>
-
-					<div class="grid grid-cols-3 gap-3 border-y py-4 text-xs text-muted-foreground">
-						<span class="flex flex-col gap-1.5">
-							<ShieldCheckIcon class="size-4 text-primary" />{m.checkout_trial()}
-						</span>
-						<span class="flex flex-col gap-1.5">
-							<LockIcon class="size-4 text-primary" />{m.checkout_card_required()}
-						</span>
-						<span class="flex flex-col gap-1.5">
-							<CheckIcon class="size-4 text-primary" />{m.checkout_cancel()}
-						</span>
-					</div>
-
-					<div class="space-y-3">
-						<div
-							class="grid grid-cols-2 rounded-lg bg-muted p-1"
-							role="group"
-							aria-label={m.checkout_billing_period()}
-						>
-							<Button
-								variant={billingPeriod === 'monthly' ? 'default' : 'ghost'}
-								size="sm"
-								aria-pressed={billingPeriod === 'monthly'}
-								disabled={Boolean(boundAttemptID)}
-								onclick={() => void choosePeriod('monthly')}
+					{#if checkoutState === 'error'}
+						<div class="w-full space-y-4 text-left">
+							<InlineNotice tone="error" message={error} />
+							<Button class="w-full" size="lg" onclick={() => void retryCheckout()}
+								>{m.common_retry()}</Button
 							>
-								{m.checkout_monthly()}
-							</Button>
-							<Button
-								variant={billingPeriod === 'annual' ? 'default' : 'ghost'}
-								size="sm"
-								aria-pressed={billingPeriod === 'annual'}
-								disabled={Boolean(boundAttemptID)}
-								onclick={() => void choosePeriod('annual')}
-							>
-								{m.checkout_annual()}
-								<span class="ml-1 text-xs opacity-80">{m.checkout_save()}</span>
-							</Button>
 						</div>
-
-						{#if isLocked}
-							<InlineNotice
-								tone="info"
-								message={`${m.checkout_plan_locked()} ${m.checkout_plan_locked_hint()}`}
-							>
-								{#snippet actions()}
-									<a
-										href={lockedChangeHref}
-										class="text-sm font-medium text-primary underline-offset-4 hover:underline"
-										>{m.checkout_plan_locked_action()}</a
-									>
-								{/snippet}
-							</InlineNotice>
-						{/if}
-						<RadioGroup.Root
-							value={selectedPlanID}
-							name="checkout_plan"
-							class="grid gap-1.5"
-							disabled={Boolean(boundAttemptID)}
-							onValueChange={(value) => void choosePlan(value as HostedPlanID)}
-						>
-							{#each hostedPlans as plan (plan.id)}
-								<label
-									class={[
-										'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-										selectedPlanID === plan.id
-											? 'bg-primary/10 text-foreground'
-											: 'text-muted-foreground hover:bg-muted hover:text-foreground'
-									]}
-								>
-									<RadioGroup.Item value={plan.id} aria-label={plan.name} />
-									<span class="min-w-0 flex-1 font-medium text-foreground">{plan.name}</span>
-									{#if plan.featured}
-										<span class="text-xs font-medium text-primary">{m.checkout_popular()}</span>
-									{/if}
-									<span class="shrink-0 text-sm tabular-nums">
-										{#if localizedPrices[plan.id]}
-											{localizedPrices[plan.id]}/{billingPeriod === 'annual'
-												? m.checkout_year()
-												: m.checkout_month()}
-										{:else}
-											<Skeleton class="h-4 w-16" />
-										{/if}
-									</span>
-								</label>
-							{/each}
-						</RadioGroup.Root>
-					</div>
-
-					<div class="space-y-3 border-t pt-5">
-						<div class="flex items-start justify-between gap-4">
-							<div>
-								<p class="font-semibold">OpenPost {selectedPlan.name}</p>
-								<p class="mt-0.5 text-sm text-muted-foreground">{selectedPlan.bestFor}</p>
-							</div>
-							{#if selectedPrice}
-								<p class="shrink-0 text-lg font-semibold tabular-nums">{selectedPrice}</p>
-							{:else}
-								<Skeleton class="h-7 w-20" />
-							{/if}
+					{:else}
+						<div class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+							<LoaderCircleIcon class="size-4 animate-spin" />
+							{checkoutState === 'loading' ? m.checkout_loading() : m.checkout_opening_secure()}
 						</div>
-						<ul class="grid gap-2 text-sm text-muted-foreground">
-							{#each selectedPlan.limits as limit (limit)}
-								<li class="flex items-start gap-2">
-									<CheckIcon class="mt-0.5 size-4 shrink-0 text-primary" />{limit}
-								</li>
-							{/each}
-						</ul>
-					</div>
-				</aside>
+					{/if}
+				{/if}
 
-				<section class="min-w-0" aria-labelledby="payment-heading">
-					<div class="border-y bg-card sm:rounded-xl sm:border">
-						<div class="space-y-4 border-b px-4 py-5 sm:px-7 sm:py-6">
-							<div class="flex items-start justify-between gap-4">
-								<div class="flex min-w-0 items-start gap-3">
-									<div
-										class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-									>
-										<CreditCardIcon class="size-4" />
-									</div>
-									<div class="min-w-0">
-										<h2 id="payment-heading" class="font-semibold">{m.checkout_secure()}</h2>
-										<p class="truncate text-sm text-muted-foreground">{userEmail}</p>
-									</div>
-								</div>
-								<div class="shrink-0 text-right">
-									<p class="font-semibold tabular-nums">{selectedPrice || '—'}</p>
-									<p class="text-xs text-muted-foreground">
-										{billingPeriod === 'annual'
-											? m.checkout_billed_annually()
-											: m.checkout_billed_monthly()}
-									</p>
-								</div>
-							</div>
-
-							<div class="rounded-lg bg-primary/8 px-4 py-3">
-								<p class="font-semibold">{m.checkout_zero_today()}</p>
-								{#if selectedPrice}
-									<p class="mt-1 text-sm/6 text-muted-foreground">
-										{m.checkout_charge_date({
-											price: selectedPrice,
-											date: trialEndLabel(checkout?.trial_ends_at)
-										})}
-									</p>
-								{/if}
-							</div>
-						</div>
-
-						{#if checkoutState === 'error'}
-							<div class="space-y-4 px-4 py-8 sm:px-7">
-								<InlineNotice tone="error" message={error} />
-								<Button onclick={() => void retryCheckout()}>{m.common_retry()}</Button>
-							</div>
-						{:else}
-							<div
-								data-testid="checkout-payment-surface"
-								class="relative min-h-[45rem] overflow-hidden bg-white text-[#302b28] [color-scheme:light] sm:rounded-b-xl"
-								aria-busy={!paymentFrameLoaded}
-							>
-								{#if !paymentFrameLoaded}
-									<div
-										class="pointer-events-none absolute inset-0 z-10 grid content-start gap-5 bg-white p-4 sm:p-7 md:grid-cols-[minmax(0,0.85fr)_minmax(20rem,1.15fr)]"
-										role="status"
-									>
-										<span class="sr-only">{m.checkout_loading()}</span>
-										<div class="space-y-4">
-											<Skeleton class="h-28 w-full bg-[#eceae8]" />
-											<Skeleton class="h-36 w-full bg-[#eceae8]" />
-										</div>
-										<div class="space-y-4">
-											<Skeleton class="h-11 w-full bg-[#eceae8]" />
-											<Skeleton class="h-24 w-full bg-[#eceae8]" />
-											<Skeleton class="h-11 w-full bg-[#eceae8]" />
-											<Skeleton class="h-11 w-full bg-[#eceae8]" />
-										</div>
-									</div>
-								{/if}
-								<div
-									class="openpost-paddle-checkout min-h-[45rem] w-full"
-									data-testid="paddle-checkout-frame"
-								></div>
-							</div>
-						{/if}
-					</div>
-
-					<p class="px-4 pt-4 text-center text-xs/5 text-muted-foreground sm:px-7">
-						{m.checkout_paddle_mor()}
-						<a
-							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpo.st/terms">{m.checkout_terms()}</a
-						>,
-						<a
-							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpo.st/privacy">{m.checkout_privacy()}</a
-						>,
-						{m.checkout_and()}
-						<a
-							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpo.st/refunds">{m.checkout_refunds()}</a
-						>.
-					</p>
-				</section>
-			</div>
-		{/if}
+				<p class="text-xs/5 text-muted-foreground">
+					{m.checkout_paddle_mor()}
+					<a
+						class="underline underline-offset-2 hover:text-foreground"
+						href="https://openpo.st/terms">{m.checkout_terms()}</a
+					>,
+					<a
+						class="underline underline-offset-2 hover:text-foreground"
+						href="https://openpo.st/privacy">{m.checkout_privacy()}</a
+					>,
+					{m.checkout_and()}
+					<a
+						class="underline underline-offset-2 hover:text-foreground"
+						href="https://openpo.st/refunds">{m.checkout_refunds()}</a
+					>.
+				</p>
+			</CardContent>
+		</Card>
 	</main>
 </div>

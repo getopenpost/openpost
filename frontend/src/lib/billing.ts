@@ -38,6 +38,7 @@ export const hostedPlans: readonly HostedPlan[] = planCatalog.plans.map((plan) =
 
 const hostedPlanIDSet = new Set<string>(hostedPlanIDs);
 const billingPeriodSet = new Set<string>(billingPeriods);
+const paddleTransactionIDPattern = /^txn_[A-Za-z0-9]{8,120}$/;
 
 function isHostedPlanID(value: string): value is HostedPlanID {
 	return hostedPlanIDSet.has(value);
@@ -63,6 +64,11 @@ export function hostedPlanFromSearchParams(searchParams: URLSearchParams): Hoste
 
 export function billingPeriodFromSearchParams(searchParams: URLSearchParams): BillingPeriod | '' {
 	return normalizeBillingPeriod(searchParams.get('billing_period'));
+}
+
+export function paddleTransactionIDFromSearchParams(searchParams: URLSearchParams): string {
+	const transactionID = searchParams.get('_ptxn')?.trim() ?? '';
+	return paddleTransactionIDPattern.test(transactionID) ? transactionID : '';
 }
 
 export function hostedPlanByID(planID: string | null | undefined): HostedPlan | undefined {

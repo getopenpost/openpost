@@ -442,6 +442,23 @@ func TestCreateBillingCheckoutRoute(t *testing.T) {
 	require.Equal(t, "/publications/new?source=calendar", attempt.ReturnPath)
 }
 
+func TestBillingCheckoutConfigIsPublicAndBrowserSafe(t *testing.T) {
+	t.Parallel()
+
+	srv := newBillingAPITestServer(t)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/billing/checkout/config", nil)
+	rec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var response map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, map[string]any{
+		"client_token": "test_client_token",
+		"environment":  "sandbox",
+	}, response)
+}
+
 func TestBillingMutationsRequireWorkspaceAdmin(t *testing.T) {
 	srv := newBillingAPITestServer(t)
 	_, err := srv.db.NewUpdate().

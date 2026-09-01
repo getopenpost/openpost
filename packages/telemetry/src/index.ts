@@ -1,6 +1,11 @@
 import posthog from "posthog-js";
 
 export type TelemetrySurface = "app" | "marketing" | "docs";
+export type TelemetryPreference = "persistent" | "cookieless" | "off";
+export type TelemetryPreferenceStatus = TelemetryPreference | "undecided" | "unavailable";
+
+export const telemetryPreferenceCookie = "openpost_analytics";
+export const telemetryPreferencesEvent = "openpost:telemetry-preferences";
 
 export interface BrowserTelemetryConfig {
   enabled: boolean;
@@ -82,6 +87,14 @@ interface BrowserSDK {
   get_session_id?(): string;
 }
 
+export interface TelemetryPreferenceStore {
+  read(): TelemetryPreference | null;
+  write(preference: TelemetryPreference): void;
+  privacySignalEnabled(): boolean;
+  clearSDKState(projectToken: string): void;
+  reload(): void;
+}
+
 type PendingEvent = {
   name: TelemetryEventName;
   properties: Record<string, unknown>;
@@ -130,10 +143,24 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
 const firstCompositionSignals = new Set(["text", "media", "content_mode"]);
 const planIDs = new Set(["starter", "founder", "pro", "team", "agency"]);
 const billingPeriods = new Set(["monthly", "annual"]);
+const telemetryPreferenceVersion = "v1";
+const telemetryPreferenceMaxAgeSeconds = 365 * 24 * 60 * 60;
+
+const browserPreferenceStore: TelemetryPreferenceStore = {
+  read: readBrowserTelemetryPreference,
+  write: writeBrowserTelemetryPreference,
+  privacySignalEnabled: browserPrivacySignalEnabled,
+  clearSDKState: clearBrowserSDKState,
+  reload: () => window.location.reload(),
+};
 
 export class BrowserTelemetry {
   private configured = false;
+  private configResolved = false;
   private disabled = false;
+  private config: BrowserTelemetryConfig | null = null;
+  private preference: TelemetryPreferenceStatus = "unavailable";
+  private preferenceListeners = new Set<(preference: TelemetryPreferenceStatus) => void>();
   private activeUserID: string | null = null;
   private pendingUserID: string | null = null;
   private pendingEvents: PendingEvent[] = [];
@@ -141,18 +168,23 @@ export class BrowserTelemetry {
   private pendingExceptions: PendingException[] = [];
   private capturedErrors = new WeakSet<object>();
   private currentPagePath: string | null = null;
+  private requestedPagePath: string | null = null;
   private previousPagePath: string | null = null;
   private routeTemplates = new Map<string, string>();
 
   constructor(
     private readonly sdk: BrowserSDK,
     private readonly runtimeAvailable: () => boolean = () => typeof window !== "undefined",
+    private readonly preferenceStore: TelemetryPreferenceStore = browserPreferenceStore,
   ) {}
 
   configure(config: BrowserTelemetryConfig): void {
     if (!this.runtimeAvailable()) return;
+    this.configResolved = true;
+    this.config = config;
     if (!config.enabled || !config.projectToken?.trim() || !config.apiHost?.trim()) {
       this.disabled = true;
+      this.setPreferenceStatus("unavailable");
       this.pendingEvents = [];
       this.pendingPageViews = [];
       this.pendingExceptions = [];
@@ -160,27 +192,55 @@ export class BrowserTelemetry {
       return;
     }
 
-    this.sdk.init(config.projectToken.trim(), {
-      api_host: config.apiHost.trim().replace(/\/+$/, ""),
+    this.disabled = false;
+    const preference = this.preferenceStore.privacySignalEnabled()
+      ? "off"
+      : (this.preferenceStore.read() ?? "undecided");
+    this.setPreferenceStatus(preference);
+    if (preference === "off") {
+      this.preferenceStore.clearSDKState(config.projectToken.trim());
+      this.clearPendingCapture();
+      return;
+    }
+    if (preference === "undecided") {
+      this.clearPendingCapture();
+      return;
+    }
+
+    this.initialize(config, preference);
+  }
+
+  private initialize(config: BrowserTelemetryConfig, preference: TelemetryPreference): void {
+    if (preference === "off") return;
+
+    this.sdk.init(config.projectToken!.trim(), {
+      api_host: config.apiHost!.trim().replace(/\/+$/, ""),
       ...(config.uiHost?.trim() ? { ui_host: config.uiHost.trim().replace(/\/+$/, "") } : {}),
       autocapture: false,
       capture_pageview: false,
       capture_pageleave: true,
       capture_heatmaps: false,
+      capture_dead_clicks: false,
       capture_performance: {
         network_timing: false,
         web_vitals: true,
-        web_vitals_allowed_metrics: ["CLS", "INP", "LCP"],
+        web_vitals_allowed_metrics: ["CLS", "FCP", "INP", "LCP"],
         web_vitals_attribution: false,
       },
       before_send: (event: BrowserCaptureEvent | null) => this.sanitizeBrowserEvent(event),
       capture_exceptions: false,
       disable_session_recording: true,
       disable_surveys: true,
-      cross_subdomain_cookie: false,
-      persistence: "memory",
-      cookieless_mode: "always",
-      person_profiles: config.surface === "app" ? "identified_only" : "never",
+      enable_recording_console_log: false,
+      logs: { captureConsoleLogs: false },
+      disable_capture_url_hashes: true,
+      opt_out_useragent_filter: false,
+      cross_subdomain_cookie: preference === "persistent",
+      cookieWinsOnConflict: preference === "persistent",
+      persistence: preference === "persistent" ? "localStorage+cookie" : "memory",
+      ...(preference === "cookieless" ? { cookieless_mode: "always" } : {}),
+      person_profiles:
+        preference === "persistent" && config.surface === "app" ? "identified_only" : "never",
       respect_dnt: true,
     });
     this.sdk.register(
@@ -190,22 +250,27 @@ export class BrowserTelemetry {
         edition: config.edition,
         version: config.version,
         revision: config.revision,
+        analytics_mode: preference,
       }),
     );
     this.configured = true;
     this.disabled = false;
 
-    if (this.pendingUserID) {
+    if (preference === "persistent" && this.pendingUserID) {
       this.identify(this.pendingUserID);
     }
     for (const event of this.pendingEvents.splice(0)) {
       this.sdk.capture(event.name, event.properties);
     }
-    for (const pageView of this.pendingPageViews.splice(0)) {
+    const pendingPageViews = this.pendingPageViews.splice(0);
+    for (const pageView of pendingPageViews) {
       this.capturePageView(pageView.pathname);
     }
     for (const exception of this.pendingExceptions.splice(0)) {
       this.sdk.captureException(exception.error, exception.properties);
+    }
+    if (this.requestedPagePath && pendingPageViews.length === 0) {
+      this.capturePageView(this.requestedPagePath);
     }
   }
 
@@ -219,7 +284,7 @@ export class BrowserTelemetry {
     const properties = allowlistedEventProperties(name, (args[0] ?? {}) as Record<string, unknown>);
     if (properties === null) return;
     if (!this.configured) {
-      if (this.pendingEvents.length < maxPendingEvents)
+      if (!this.configResolved && this.pendingEvents.length < maxPendingEvents)
         this.pendingEvents.push({ name, properties });
       return;
     }
@@ -229,9 +294,10 @@ export class BrowserTelemetry {
   capturePageView(pathname: string, _title?: string): void {
     if (this.disabled || typeof window === "undefined") return;
     const path = cleanPath(pathname);
+    this.requestedPagePath = pathname;
     this.rememberRouteTemplate(cleanPath(window.location.pathname), path);
     if (!this.configured) {
-      if (this.pendingPageViews.length < maxPendingEvents) {
+      if (!this.configResolved && this.pendingPageViews.length < maxPendingEvents) {
         this.pendingPageViews.push({ pathname });
       }
       return;
@@ -278,7 +344,13 @@ export class BrowserTelemetry {
       return;
     }
     this.pendingUserID = normalized;
-    if (!this.configured || this.disabled || this.activeUserID === normalized) return;
+    if (
+      !this.configured ||
+      this.disabled ||
+      this.preference !== "persistent" ||
+      this.activeUserID === normalized
+    )
+      return;
     if (this.activeUserID !== null) this.sdk.reset();
     this.sdk.identify(normalized);
     this.activeUserID = normalized;
@@ -299,7 +371,7 @@ export class BrowserTelemetry {
     const sanitized = sanitizeError(error);
     const compacted = compactProperties(properties);
     if (!this.configured) {
-      if (this.pendingExceptions.length < maxPendingEvents) {
+      if (!this.configResolved && this.pendingExceptions.length < maxPendingEvents) {
         this.pendingExceptions.push({
           error: sanitized,
           properties: compacted,
@@ -311,13 +383,62 @@ export class BrowserTelemetry {
   }
 
   requestHeaders(): Record<string, string> {
-    if (!this.configured || this.disabled) return {};
+    if (!this.configured || this.disabled || this.preference !== "persistent") return {};
     const distinctID = this.sdk.get_distinct_id?.();
     const sessionID = this.sdk.get_session_id?.();
     return compactProperties({
       "X-PostHog-Distinct-ID": distinctID,
       "X-PostHog-Session-ID": sessionID,
     }) as Record<string, string>;
+  }
+
+  preferenceStatus(): TelemetryPreferenceStatus {
+    return this.preference;
+  }
+
+  setPreference(preference: TelemetryPreference): void {
+    if (!this.runtimeAvailable() || this.preference === "unavailable") return;
+    const nextPreference = this.preferenceStore.privacySignalEnabled() ? "off" : preference;
+    this.preferenceStore.write(nextPreference);
+    if (nextPreference === this.preference) return;
+
+    if (this.configured) {
+      this.disabled = true;
+      this.sdk.reset();
+      if (this.config?.projectToken) {
+        this.preferenceStore.clearSDKState(this.config.projectToken.trim());
+      }
+      this.setPreferenceStatus(nextPreference);
+      this.preferenceStore.reload();
+      return;
+    }
+
+    this.setPreferenceStatus(nextPreference);
+    if (nextPreference === "off") {
+      this.clearPendingCapture();
+      if (this.config?.projectToken) {
+        this.preferenceStore.clearSDKState(this.config.projectToken.trim());
+      }
+      return;
+    }
+    if (this.config) this.initialize(this.config, nextPreference);
+  }
+
+  subscribePreference(listener: (preference: TelemetryPreferenceStatus) => void): () => void {
+    this.preferenceListeners.add(listener);
+    listener(this.preference);
+    return () => this.preferenceListeners.delete(listener);
+  }
+
+  private setPreferenceStatus(preference: TelemetryPreferenceStatus): void {
+    this.preference = preference;
+    for (const listener of this.preferenceListeners) listener(preference);
+  }
+
+  private clearPendingCapture(): void {
+    this.pendingEvents = [];
+    this.pendingPageViews = [];
+    this.pendingExceptions = [];
   }
 }
 
@@ -346,6 +467,25 @@ export function identifyTelemetryUser(userID: string): void {
 
 export function resetTelemetryIdentity(): void {
   telemetry.resetIdentity();
+}
+
+export function getTelemetryPreference(): TelemetryPreferenceStatus {
+  return telemetry.preferenceStatus();
+}
+
+export function setTelemetryPreference(preference: TelemetryPreference): void {
+  telemetry.setPreference(preference);
+}
+
+export function subscribeTelemetryPreference(
+  listener: (preference: TelemetryPreferenceStatus) => void,
+): () => void {
+  return telemetry.subscribePreference(listener);
+}
+
+export function openTelemetryPreferences(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(telemetryPreferencesEvent));
 }
 
 export function captureClientException(
@@ -393,6 +533,84 @@ export function installGlobalErrorCapture(): () => void {
     window.removeEventListener("error", onError);
     window.removeEventListener("unhandledrejection", onUnhandledRejection);
   };
+}
+
+function readBrowserTelemetryPreference(): TelemetryPreference | null {
+  if (typeof document === "undefined") return null;
+  const encoded = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${telemetryPreferenceCookie}=`))
+    ?.slice(telemetryPreferenceCookie.length + 1);
+  if (!encoded) return null;
+  const value = decodeURIComponent(encoded);
+  const [version, preference, ...extra] = value.split(":");
+  if (
+    version !== telemetryPreferenceVersion ||
+    extra.length > 0 ||
+    !isTelemetryPreference(preference)
+  ) {
+    return null;
+  }
+  return preference;
+}
+
+function writeBrowserTelemetryPreference(preference: TelemetryPreference): void {
+  const attributes = [
+    `${telemetryPreferenceCookie}=${encodeURIComponent(`${telemetryPreferenceVersion}:${preference}`)}`,
+    "Path=/",
+    `Max-Age=${telemetryPreferenceMaxAgeSeconds}`,
+    "SameSite=Lax",
+  ];
+  if (window.location.protocol === "https:") attributes.push("Secure");
+  if (isOpenPostHostedHostname(window.location.hostname)) attributes.push("Domain=.openpo.st");
+  document.cookie = attributes.join("; ");
+}
+
+function browserPrivacySignalEnabled(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const privacyNavigator = navigator as Navigator & {
+    globalPrivacyControl?: boolean;
+    msDoNotTrack?: string;
+  };
+  return (
+    privacyNavigator.globalPrivacyControl === true ||
+    [privacyNavigator.doNotTrack, privacyNavigator.msDoNotTrack].some((value) => value === "1")
+  );
+}
+
+function clearBrowserSDKState(projectToken: string): void {
+  if (!projectToken) return;
+  const keys = [`ph_${projectToken}_posthog`, `__ph_opt_in_out_${projectToken}`];
+  try {
+    for (const key of keys) {
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Storage can be unavailable under strict browser policies. Cookie cleanup still applies.
+  }
+  for (const key of keys) {
+    const cookieAttributes = [
+      `${key}=`,
+      "Path=/",
+      "Max-Age=0",
+      "SameSite=Lax",
+      ...(window.location.protocol === "https:" ? ["Secure"] : []),
+    ];
+    document.cookie = cookieAttributes.join("; ");
+    if (isOpenPostHostedHostname(window.location.hostname)) {
+      document.cookie = [...cookieAttributes, "Domain=.openpo.st"].join("; ");
+    }
+  }
+}
+
+function isTelemetryPreference(value: string | undefined): value is TelemetryPreference {
+  return value === "persistent" || value === "cookieless" || value === "off";
+}
+
+function isOpenPostHostedHostname(hostname: string): boolean {
+  return hostname === "openpo.st" || hostname.endsWith(".openpo.st");
 }
 
 function compactProperties(properties: Record<string, unknown>): Record<string, unknown> {

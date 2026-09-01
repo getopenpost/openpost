@@ -29,10 +29,18 @@ const cfg: BrowserTelemetryConfig = {
   surface: "app",
 };
 
+const persistentPreferenceStore = {
+  read: () => "persistent" as const,
+  write: () => undefined,
+  privacySignalEnabled: () => false,
+  clearSDKState: () => undefined,
+  reload: () => undefined,
+};
+
 describe("growth telemetry allowlisting", () => {
   it("allows only privacy-safe growth properties and drops IDs/handles", () => {
     const sdk = new FakeSDK();
-    const t = new BrowserTelemetry(sdk as never, () => true);
+    const t = new BrowserTelemetry(sdk as never, () => true, persistentPreferenceStore);
     t.configure(cfg);
 
     t.capture("growth opened", { platform_count: 2 });
@@ -82,7 +90,7 @@ describe("growth telemetry allowlisting", () => {
 
   it("rejects growth events containing URLs or emails in property values", () => {
     const sdk = new FakeSDK();
-    const t = new BrowserTelemetry(sdk as never, () => true);
+    const t = new BrowserTelemetry(sdk as never, () => true, persistentPreferenceStore);
     t.configure(cfg);
     // SAFETY: Negative test intentionally sends disallowed property to verify allowlist rejection.
     (t.capture as unknown as (name: string, props: Record<string, unknown>) => void)(

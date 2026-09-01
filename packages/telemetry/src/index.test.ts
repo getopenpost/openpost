@@ -5,6 +5,7 @@ import {
   configureTelemetry,
   installGlobalErrorCapture,
   type BrowserTelemetryConfig,
+  type TelemetryPreference,
 } from "./index";
 
 const globalSDK = vi.hoisted(() => ({
@@ -67,6 +68,39 @@ class FakeSDK {
   }
 }
 
+class FakePreferenceStore {
+  preference: TelemetryPreference | null;
+  privacySignal = false;
+  writes: TelemetryPreference[] = [];
+  clearedTokens: string[] = [];
+  reloadCount = 0;
+
+  constructor(preference: TelemetryPreference | null = "persistent") {
+    this.preference = preference;
+  }
+
+  read() {
+    return this.preference;
+  }
+  write(preference: TelemetryPreference) {
+    this.preference = preference;
+    this.writes.push(preference);
+  }
+  privacySignalEnabled() {
+    return this.privacySignal;
+  }
+  clearSDKState(projectToken: string) {
+    this.clearedTokens.push(projectToken);
+  }
+  reload() {
+    this.reloadCount += 1;
+  }
+}
+
+function configuredTelemetry(sdk: FakeSDK, preference: TelemetryPreference | null = "persistent") {
+  return new BrowserTelemetry(sdk, () => true, new FakePreferenceStore(preference));
+}
+
 const configuredApp: BrowserTelemetryConfig = {
   enabled: true,
   projectToken: "phc_test",
@@ -82,7 +116,7 @@ const configuredApp: BrowserTelemetryConfig = {
 describe("BrowserTelemetry", () => {
   it("uses private browser defaults and flushes queued identity and events", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.identify("user-1");
     subject.capture("signup started");
     subject.configure(configuredApp);
@@ -95,21 +129,108 @@ describe("BrowserTelemetry", () => {
       capture_performance: {
         network_timing: false,
         web_vitals: true,
-        web_vitals_allowed_metrics: ["CLS", "INP", "LCP"],
+        web_vitals_allowed_metrics: ["CLS", "FCP", "INP", "LCP"],
         web_vitals_attribution: false,
       },
-      persistence: "memory",
-      cookieless_mode: "always",
+      capture_dead_clicks: false,
+      persistence: "localStorage+cookie",
+      cross_subdomain_cookie: true,
+      cookieWinsOnConflict: true,
       person_profiles: "identified_only",
       disable_session_recording: true,
+      enable_recording_console_log: false,
+      logs: { captureConsoleLogs: false },
+      disable_capture_url_hashes: true,
+      opt_out_useragent_filter: false,
     });
+    expect(sdk.registered[0]).toMatchObject({ analytics_mode: "persistent" });
     expect(sdk.identified).toEqual(["user-1"]);
     expect(sdk.events[0]?.event).toBe("signup started");
   });
 
+  it("sends nothing while the visitor has not chosen an analytics mode", () => {
+    const sdk = new FakeSDK();
+    const store = new FakePreferenceStore(null);
+    const subject = new BrowserTelemetry(sdk, () => true, store);
+    subject.identify("user-1");
+    subject.capture("signup started");
+
+    subject.configure(configuredApp);
+    subject.capture("signup started");
+    subject.captureException(new Error("not sent"));
+
+    expect(subject.preferenceStatus()).toBe("undecided");
+    expect(sdk.initialized).toHaveLength(0);
+    expect(sdk.events).toHaveLength(0);
+    expect(sdk.exceptions).toHaveLength(0);
+    expect(subject.requestHeaders()).toEqual({});
+  });
+
+  it("starts persistent analytics at consent without replaying pre-consent events", () => {
+    const sdk = new FakeSDK();
+    const store = new FakePreferenceStore(null);
+    const subject = new BrowserTelemetry(sdk, () => true, store);
+    subject.capture("signup started");
+    subject.configure(configuredApp);
+
+    subject.setPreference("persistent");
+
+    expect(store.writes).toEqual(["persistent"]);
+    expect(sdk.initialized).toHaveLength(1);
+    expect(sdk.events).toHaveLength(0);
+    subject.capture("signup started");
+    expect(sdk.events).toEqual([{ event: "signup started", properties: {} }]);
+  });
+
+  it("keeps cookieless analytics personless and omits correlation headers", () => {
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk, "cookieless");
+    subject.identify("user-1");
+    subject.configure(configuredApp);
+
+    expect(sdk.initialized[0]?.options).toMatchObject({
+      persistence: "memory",
+      cookieless_mode: "always",
+      cross_subdomain_cookie: false,
+      person_profiles: "never",
+    });
+    expect(sdk.registered[0]).toMatchObject({ analytics_mode: "cookieless" });
+    expect(sdk.identified).toHaveLength(0);
+    expect(subject.requestHeaders()).toEqual({});
+  });
+
+  it("honors browser privacy signals as a complete analytics opt-out", () => {
+    const sdk = new FakeSDK();
+    const store = new FakePreferenceStore("persistent");
+    store.privacySignal = true;
+    const subject = new BrowserTelemetry(sdk, () => true, store);
+
+    subject.configure(configuredApp);
+    subject.setPreference("persistent");
+
+    expect(subject.preferenceStatus()).toBe("off");
+    expect(sdk.initialized).toHaveLength(0);
+    expect(store.writes).toEqual(["off"]);
+    expect(store.clearedTokens).toEqual(["phc_test"]);
+  });
+
+  it("clears SDK state and reloads when an initialized mode changes", () => {
+    const sdk = new FakeSDK();
+    const store = new FakePreferenceStore("persistent");
+    const subject = new BrowserTelemetry(sdk, () => true, store);
+    subject.configure(configuredApp);
+
+    subject.setPreference("off");
+
+    expect(sdk.optOutCount).toBe(0);
+    expect(sdk.resetCount).toBe(1);
+    expect(store.clearedTokens).toEqual(["phc_test"]);
+    expect(store.reloadCount).toBe(1);
+  });
+
   it("resets before switching identified users and on logout", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
     subject.identify("user-1");
     subject.identify("user-2");
@@ -128,7 +249,7 @@ describe("BrowserTelemetry", () => {
     vi.stubGlobal("document", { title: "Publications" });
     try {
       const sdk = new FakeSDK();
-      const subject = new BrowserTelemetry(sdk, () => true);
+      const subject = configuredTelemetry(sdk);
       subject.configure(configuredApp);
       subject.capturePageView("/publications/[id]");
 
@@ -194,7 +315,7 @@ describe("BrowserTelemetry", () => {
 
   it("rejects direct identity values instead of identifying them", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
     subject.identify("person@example.com");
@@ -205,7 +326,7 @@ describe("BrowserTelemetry", () => {
 
   it("does not expose credentials or capture events when disabled", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure({ ...configuredApp, enabled: false });
     subject.capture("signup started");
 
@@ -215,7 +336,7 @@ describe("BrowserTelemetry", () => {
 
   it("rejects non-allowlisted first composition properties at runtime", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
     subject.capture("first composition started", {
@@ -240,7 +361,7 @@ describe("BrowserTelemetry", () => {
 
   it("rejects unknown events and properties at runtime", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
     const captureUnchecked = subject.capture.bind(subject) as (
@@ -263,7 +384,7 @@ describe("BrowserTelemetry", () => {
 
   it("rejects sensitive values even when the property name is allowed", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
     subject.capture("billing checkout opened", {
@@ -284,7 +405,7 @@ describe("BrowserTelemetry", () => {
 
   it("scrubs common secrets and captures the same error object once", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
     const error = new Error("Failed https://example.com/callback?code=secret user@example.com");
     subject.captureException(error);
@@ -298,7 +419,7 @@ describe("BrowserTelemetry", () => {
 
   it("keeps the browser event type when a rejection is not an Error", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
     subject.captureException(new Event("error"));
@@ -308,7 +429,7 @@ describe("BrowserTelemetry", () => {
 
   it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
     const sdk = new FakeSDK();
-    const subject = new BrowserTelemetry(sdk, () => true);
+    const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
     const error = new Error("Navigation failed");
     error.stack = [

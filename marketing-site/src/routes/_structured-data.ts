@@ -85,7 +85,10 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 					'Self-hosted deployment'
 				],
 				sameAs: [githubUrl],
-				subjectOf: [developerDocsUrl, agentPublishingDocsUrl, discordCommunityUrl]
+				subjectOf: [developerDocsUrl, agentPublishingDocsUrl, discordCommunityUrl].map((url) => ({
+					'@type': 'WebPage',
+					url
+				}))
 			},
 			{
 				'@id': `${siteUrl}/#source`,

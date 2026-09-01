@@ -57,6 +57,26 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.equal(software.name, "OpenPost");
   assert.equal(software.operatingSystem, "Web, Android");
   assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
+  assert.deepEqual(software.subjectOf, [
+    {
+      "@type": "WebPage",
+      url: "https://docs.openpo.st/development",
+    },
+    {
+      "@type": "WebPage",
+      url: "https://docs.openpo.st/usage/agent-assisted-publishing",
+    },
+    {
+      "@type": "WebPage",
+      url: "https://discord.com/invite/u2QwukmY4W",
+    },
+  ]);
+  assert.ok(
+    software.subjectOf.every(
+      (subject) => typeof subject !== "string" && subject["@type"] === "WebPage",
+    ),
+    "subjectOf values must be CreativeWork nodes rather than URL strings",
+  );
   assert.equal(source.codeRepository, "https://github.com/getopenpost/openpost");
   assert.deepEqual(source.runtimePlatform, ["Web", "Linux", "Android"]);
   assert.equal(operator.name, "Rodrigo Dias");

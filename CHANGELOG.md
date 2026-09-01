@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Made X engagement reply collection incremental and bounded, with a durable per-account daily read budget, provider backoff, and slower age-based polling so scheduled and manual refreshes cannot repeat costly full conversation searches.
 - Keep Video Editor source-monitor shortcuts available when browser-cached code loads without Svelte compiler helpers.
 - Keep video timeline thumbnails visible when a decoded frame is released during rendering.
 - Reload the current public or application page when a deployment leaves the browser with an outdated JavaScript module.
@@ -21,6 +22,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Synchronized whole-account Analytics and Repurpose contracts, privacy disclosures, provider readiness claims, operator guidance, and generated web/mobile API consumers.
+- Advanced the Hosted Privacy Policy to 2026-09-01 to disclose bounded eligible external-content text while preserving the raw-payload, credential, remote-media, and telemetry exclusions.
+- Analytics measurements now preserve provider source, integer unit, aggregation meaning, reporting period, and optional display scale while keeping legacy analytics history readable.
+- Polished Analytics into one accessible managed-and-external content scan with truthful account-history coverage, server evidence details, and phone-safe Repurpose actions.
+- Require current Pinterest Standard access and matching live certification before production connection or publishing is advertised.
+- Keep Pinterest production delivery gated on current Standard access and live certification, and stop rather than replay a Pin create whose outcome may be ambiguous.
 - Move OpenPost's canonical website, documentation, Hosted service, public media, telemetry proxy, and support address to the `openpo.st` domain while keeping the recorded old-domain compatibility paths available.
 - Keep the Hosted sign-in page reviewable without creating a second marketing homepage, with direct pricing and policy links plus a no-JavaScript fallback.
 - Re-register a dynamic Mastodon application when its configured callback changes, so a new connection returns to the current Hosted domain while existing grants stay intact.
@@ -29,7 +36,38 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Resume Pinterest video Pin registration, upload, processing checks, creation, and read-only reconciliation from durable checkpoints.
+- Validate the MP4 video and public JPEG or PNG cover before Pinterest receives publishing work.
+- Discover bounded, read-only Pinterest Pins and exact-link managed Pin IDs without creating Publications.
+- Persist explicit-window Pinterest account and Pin impressions, engagements, saves, Pin clicks, outbound clicks, supported video views, and weighted click rate while preserving missing metrics.
+- Keep Pinterest discovery, analytics, and publishing behind independent current Standard-access and certification evidence.
+- Added workspace-bound 15-minute Telegram connection commands with authenticated one-time webhook consumption, verified channel/group permissions, and explicit since-installation coverage.
+- Added certification-gated Telegram bot publishing for text, photos, videos, PDF documents, and compatible media groups, with permission rechecks, ordered caption-overflow messages, and durable receipts. The bot path remains unavailable until its exact deployment and operations have current approval and certification evidence.
+- Added authenticated Telegram channel observation from bot installation onward, including external channel posts, semantic reaction counts, account-only member counts, and independent observation and analytics readiness.
+- Added Discord bot installation with guild selection and permitted text or announcement channel targets while keeping incoming-webhook connections available.
+- Added certification-gated Discord bot delivery for typed embeds, direct attachments, and permission-approved member or role mentions with deny-all implicit mention defaults and durable reconciliation. Bot mode remains unavailable until certified; existing incoming-webhook connections remain supported and are not placed behind the bot certification gate.
+- Added certification-gated, bounded Discord bot analytics for approximate guild membership plus reactions and thread replies on exact OpenPost-published message receipts. Bot analytics remain unavailable until certified, never read guild message history, and do not affect existing Discord webhook support or invent views, reach, or impressions.
+- Added a bounded account-content inventory with immutable analytics snapshots, discovery checkpoints, normalized observations, and optional provider discovery and batch-measurement contracts.
+- Added durable, rate-aware account content discovery with bounded initial history, daily eligibility, truthful provider outcomes, and crash-safe page continuation.
+- Added bounded YouTube upload discovery with paginated channel history, lifetime video statistics, and exact matching to OpenPost-published Renditions.
+- Added source-bound whole-account analytics reads with deduplicated OpenPost and external content, per-account discovery coverage, and provider metric semantics.
+- Added stored, explainable analytics insights with compatible-period ranking, explicit insufficient-data states, source context, and unified OpenPost and external content results.
+- Added an editor-authorized Repurpose action for managed and externally discovered analytics content that opens fresh local direction review without changing the source, creating a draft, contacting a provider, or starting an AI build.
+- Added date-bounded YouTube Analytics report metrics while keeping Data API lifetime counters visibly separate.
+- Added bounded account-content discovery for connected Instagram professional accounts, Threads profiles, and Facebook Pages, with approved-scope checks, safe links, truthful partial coverage, and exact matching to OpenPost-published Renditions.
+- Added bounded TikTok video discovery with opaque pagination, inline lifetime metrics, safe public URLs, and exact matching to OpenPost-published Renditions.
+- Added bounded public-post discovery for Mastodon and Bluesky with server-scoped identities, safe links, explicit partial coverage, pagination, and exact matching to OpenPost-published Renditions.
+- Added bounded X and scope-gated LinkedIn Organization Page account-history discovery. X provider reads remain disabled until the operator grants a positive daily request budget, and LinkedIn member history remains unavailable.
+- Added instance-owned Pinterest, Telegram bot, and Discord bot application contracts, typed destination settings, and provider-safe target identities while preserving Discord incoming webhooks as a separate connection mode.
+- Added durable, single-use signed bot connection codes and safe idempotent webhook ingestion for upcoming bot providers.
+- Connect Pinterest accounts in development or certification flows, page every board, and load sections only for the selected board.
+- Recheck Pinterest board ownership, section relationship, and account access before publishing work begins.
+- Publish certified single-image and multi-image organic Pinterest Pins to the exact selected board and section with ordered media, title, description, destination link, image alt text, and AI-generated disclosure.
 - Warn before an upcoming scheduled publication uses an account that needs to be reconnected.
+
+### Security
+
+- Keep Pinterest upload credentials in encrypted media-delivery state, clear them after upload, and never replay a final Pin create with an ambiguous outcome.
 
 ## [4.15.0] - 2026-08-31
 

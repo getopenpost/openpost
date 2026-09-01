@@ -7,12 +7,22 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
+	import {
+		accountFeaturesQueryOptions,
+		growthQueryKeys,
+		growthQueryOptions,
+		workspaceAccountsQueryOptions,
+		type GrowthResult
+	} from '@openpost/query-catalog';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy, onMount } from 'svelte';
 	import { client } from '$lib/api/client';
-	import type { components } from '$lib/api/types';
+	import { queryAPI } from '$lib/query/api';
+	import { queryClient } from '$lib/query/client';
+	import { featureQueryAPI } from '$lib/query/features';
+	import { growthQueryAPI } from '$lib/query/growth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
@@ -32,7 +42,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		growthRankBucket,
 		growthMutualBucket,
 		applyGrowthControls,
-		StaleGuard,
 		terminalRemovalDelay
 	} from '$lib/growth-helpers';
 	import type {
@@ -46,42 +55,80 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
-	import { isFeatureEffective, loadFeatureStates } from '$lib/feature-disabled';
+	import { isFeatureEffective } from '$lib/feature-disabled';
 
-	type SocialAccount = components['schemas']['AccountResponse'];
-	type FeatureState = components['schemas']['FeatureStateResponse'];
-
-	let accounts = $state.raw<SocialAccount[]>([]);
-	let accountFeatures = $state.raw<FeatureState[]>([]);
-	let featuresLoading = $state(false);
 	let selectedAccountID = $state<string | null>(null);
 	let items = $state.raw<RecommendationView[]>([]);
 	let syncState = $state.raw<SyncStateView | null>(null);
 	let currentGenerationID = $state<string>('');
-	let loading = $state(true);
-	let accountsLoading = $state(true);
 	let inlineMessage = $state('');
 	let inlineTone = $state<'error' | 'warning' | 'info'>('info');
 	let inlineActionLabel = $state('');
 	let inlineActionHandler: (() => void) | null = $state(null);
 	let toastMessage = $state('');
 	let toastTone = $state<'neutral' | 'success' | 'error'>('neutral');
-	let refreshQueued = $state(false);
 	let growthView = $state<GrowthView>('all');
 	let growthSort = $state<GrowthSort>('best_match');
 	let minimumMutuals = $state(0);
-	const growthGuard = new StaleGuard();
-	const accountsGuard = new StaleGuard();
 	let pendingSessionIds = $state.raw<Set<string>>(new Set());
 	let destroyed = false;
 	const shownGenerations = new Set<string>();
 	const openedWorkspaces = new Set<string>();
-	let accountsWorkspaceID = '';
+	let selectionWorkspaceID = $state('');
+	let appliedGrowthData: GrowthResult | undefined;
+	let appliedGrowthScope = '';
 
 	const localeTag = $derived(getLocaleTag());
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const queryAccountID = $derived(
+		selectionWorkspaceID === workspaceID ? (selectedAccountID ?? '') : ''
+	);
+	const accountsQuery = createQuery(() => workspaceAccountsQueryOptions(queryAPI, workspaceID));
+	const accounts = $derived(accountsQuery.data ?? []);
+	const featuresQuery = createQuery(() =>
+		accountFeaturesQueryOptions(
+			featureQueryAPI,
+			workspaceID,
+			accounts.map((account) => account.id)
+		)
+	);
+	const accountFeatures = $derived(featuresQuery.data ?? []);
+	const growthQuery = createQuery(() =>
+		growthQueryOptions(growthQueryAPI, workspaceID, queryAccountID)
+	);
+	const accountsLoading = $derived(accountsQuery.isPending && !accountsQuery.data);
+	const featuresLoading = $derived(
+		accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data
+	);
+	const loading = $derived(Boolean(queryAccountID) && growthQuery.isPending && !growthQuery.data);
+	const readError = $derived.by(() => {
+		if (accountsQuery.isError && !accountsQuery.data) {
+			return queryErrorMessage(accountsQuery.error);
+		}
+		if (featuresQuery.isError && !featuresQuery.data) {
+			return queryErrorMessage(featuresQuery.error);
+		}
+		if (growthQuery.isError && !growthQuery.data && queryAccountID) {
+			return queryErrorMessage(growthQuery.error);
+		}
+		return '';
+	});
+	const backgroundReadError = $derived.by(() => {
+		if (accountsQuery.isError && accountsQuery.data) return queryErrorMessage(accountsQuery.error);
+		if (featuresQuery.isError && featuresQuery.data) return queryErrorMessage(featuresQuery.error);
+		if (growthQuery.isError && growthQuery.data) return queryErrorMessage(growthQuery.error);
+		return '';
+	});
+	const initialLoading = $derived(
+		Boolean(workspaceID) &&
+			(accountsLoading || featuresLoading || (Boolean(selectedAccountID) && loading)) &&
+			!readError
+	);
 	const selectedAccount = $derived(
 		selectedAccountID ? accounts.find((a) => a.id === selectedAccountID) : undefined
+	);
+	const refreshQueued = $derived(
+		syncState?.status === 'queued' || syncState?.status === 'refreshing'
 	);
 	const busy = $derived(refreshQueued || isSyncBusy(syncState));
 	const hasPendingFollow = $derived(items.some((i) => i.follow_state === 'pending'));
@@ -105,16 +152,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const isStaleDisabled = $derived(staleGrowFeature !== null);
 	const growDisabled = $derived(isStaleDisabled);
 	const showAccountSelector = $derived(eligible.length > 0);
-	const noCompatible = $derived(!accountsLoading && !featuresLoading && compatible.length === 0);
+	const noCompatible = $derived(
+		!accountsLoading && !featuresLoading && !readError && compatible.length === 0
+	);
 	const noEligible = $derived(
 		!accountsLoading &&
 			!featuresLoading &&
+			!readError &&
 			compatible.length > 0 &&
 			eligible.length === 0 &&
 			!isStaleDisabled
 	);
 	const neverGenerated = $derived(
 		!loading &&
+			!readError &&
 			!noCompatible &&
 			!noEligible &&
 			!isStaleDisabled &&
@@ -156,14 +207,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 
 	function resetGrowthForSwitch() {
-		growthGuard.next();
 		items = [];
 		syncState = null;
 		currentGenerationID = '';
 		inlineMessage = '';
 		pendingSessionIds = new Set();
-		refreshQueued = false;
-		loading = true;
+		appliedGrowthData = undefined;
+		appliedGrowthScope = '';
 	}
 
 	function resetControls() {
@@ -172,13 +222,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		minimumMutuals = 0;
 	}
 
-	onMount(async () => {
-		try {
-			if (!workspaceCtx.currentWorkspace) await workspaceCtx.initialize();
-		} catch {
-			accountsLoading = false;
-			loading = false;
-		}
+	onMount(() => {
+		if (!workspaceCtx.currentWorkspace) void workspaceCtx.initialize();
 	});
 
 	onDestroy(() => {
@@ -187,42 +232,63 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	$effect(() => {
 		const wid = workspaceID;
-		if (!wid || wid === accountsWorkspaceID) return;
-		accountsWorkspaceID = wid;
-		accountsGuard.next();
+		if (wid === selectionWorkspaceID) return;
+		selectionWorkspaceID = wid;
 		resetGrowthForSwitch();
-		accounts = [];
-		accountFeatures = [];
 		selectedAccountID = null;
-		accountsLoading = true;
-		void loadAccounts(wid);
 	});
 
 	$effect(() => {
-		const wid = workspaceID;
-		const acc = selectedAccountID;
-		if (!wid || !acc) return;
-		const accObj = accounts.find((a) => a.id === acc);
-		if (!accObj) return;
-		if (isStaleDisabled) return;
-		growthGuard.next();
-		void loadGrowth(wid, acc);
+		if (!accountsQuery.data || (accounts.length > 0 && !featuresQuery.data)) return;
+		if (featuresQuery.isError && !featuresQuery.data) return;
+		const nextEligible = compatibleAccounts(accounts).filter((account) =>
+			isFeatureEffective(accountFeatures, account.id, 'grow')
+		);
+		let nextID: string | null = null;
+		if (nextEligible.length > 0) {
+			nextID = selectInitialAccount(nextEligible, selectedAccountID);
+		} else {
+			const nextCompatible = compatibleAccounts(accounts);
+			if (selectedAccountID && nextCompatible.some((account) => account.id === selectedAccountID)) {
+				nextID = selectedAccountID;
+			} else if (nextCompatible.length === 1) {
+				nextID = nextCompatible[0].id;
+			}
+		}
+		if (nextID === selectedAccountID) return;
+		resetGrowthForSwitch();
+		selectedAccountID = nextID;
 	});
 
-	// Polling via one-shot timer owned by effect with cleanup
+	$effect(() => {
+		const data = growthQuery.data;
+		const wid = workspaceID;
+		const acc = queryAccountID;
+		const scope = `${wid}:${acc ?? ''}`;
+		if (
+			!data ||
+			!wid ||
+			!acc ||
+			!growthResultMatchesScope(data, wid, acc) ||
+			(data === appliedGrowthData && scope === appliedGrowthScope)
+		) {
+			return;
+		}
+		appliedGrowthData = data;
+		appliedGrowthScope = scope;
+		void applyGrowthResult(data, wid, acc);
+	});
+
 	$effect(() => {
 		const shouldPoll =
 			!isStaleDisabled && (refreshQueued || shouldPollSync(syncState, hasPendingFollow));
-		const wid = workspaceID;
-		const acc = selectedAccountID;
-		if (!shouldPoll || !wid || !acc) return;
+		if (!shouldPoll || !workspaceID || !selectedAccountID) return;
 		const timer = setTimeout(() => {
-			void loadGrowth(wid, acc, true);
+			void growthQuery.refetch();
 		}, 5000);
 		return () => clearTimeout(timer);
 	});
 
-	// Telemetry: capture once per workspace after accounts settle
 	$effect(() => {
 		if (accountsLoading || featuresLoading || !workspaceID) return;
 		if (openedWorkspaces.has(workspaceID)) return;
@@ -230,264 +296,165 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		captureTelemetryEvent('growth opened', { platform_count: eligible.length });
 	});
 
-	async function loadAccountFeatures(workspace: string, accountList: SocialAccount[]) {
-		featuresLoading = true;
-		try {
-			accountFeatures = await loadFeatureStates(workspace, accountList);
-		} finally {
-			featuresLoading = false;
-		}
-	}
+	async function applyGrowthResult(data: GrowthResult, ws: string, acc: string) {
+		const newItems = data.items ?? [];
+		const newSync = data.sync_state ?? null;
+		const followUpdates = data.follow_updates ?? [];
+		syncState = newSync;
+		currentGenerationID = newSync?.current_generation_id ?? '';
 
-	async function loadAccounts(requestedWorkspaceID: string) {
-		const seq = accountsGuard.next();
-		accountsLoading = true;
-		featuresLoading = true;
-		try {
-			const response = await client.GET('/accounts', {
-				params: { query: { workspace_id: requestedWorkspaceID } }
-			});
-			if (accountsGuard.isStale(seq)) return;
-			if (response.error) throw new Error('load failed');
-			const list = response.data ?? [];
-			if (requestedWorkspaceID !== workspaceCtx.currentWorkspace?.id) return;
-			accounts = list;
-			await loadAccountFeatures(requestedWorkspaceID, list);
-			if (accountsGuard.isStale(seq)) return;
-			// After features loaded, choose initial eligible account using local lists to avoid derived timing
-			const localCompatible = compatibleAccounts(list);
-			const localEligible = localCompatible.filter((acc) =>
-				accountFeatures.some(
-					(f) => f.social_account_id === acc.id && f.feature === 'grow' && f.effective_enabled
-				)
-			);
-			if (localEligible.length > 0) {
-				const nextID = selectInitialAccount(localEligible, selectedAccountID);
-				if (nextID !== selectedAccountID) {
-					resetGrowthForSwitch();
-					selectedAccountID = nextID;
-					if (!nextID) {
-						loading = false;
-						accountsLoading = false;
-						return;
-					}
-				}
-			} else {
-				// No eligible: keep stale selection if there was a compatible previously selected
-				if (selectedAccountID) {
-					const stillCompatible = localCompatible.some((c) => c.id === selectedAccountID);
-					if (!stillCompatible) {
-						selectedAccountID = null;
-						loading = false;
-					} else {
-						// keep stale, allow stored recommendations to remain if any
-						loading = items.length === 0 ? false : loading;
-					}
-				} else {
-					// If no prior selection but we have a single stale compatible account, keep it for disabled state
-					if (localCompatible.length === 1) {
-						selectedAccountID = localCompatible[0].id;
-						// trigger stale disabled view: keep loading false to show disabled notice
-						if (items.length === 0) {
-							// still need to load growth for stale account to show stored items
-							growthGuard.next();
-							void loadGrowth(requestedWorkspaceID, selectedAccountID);
-						}
-						loading = false;
-					} else {
-						loading = false;
-					}
-				}
-				accountsLoading = false;
-				return;
+		const prevPendingIds = new Set(pendingSessionIds);
+		let mergedItems: RecommendationView[] = [...newItems];
+		let followToast: { handle: string } | null = null;
+
+		for (const it of mergedItems) {
+			if (it.follow_state === 'failed' && prevPendingIds.has(it.id)) {
+				followToast = { handle: `@${it.handle}` };
 			}
-		} catch {
-			if (accountsGuard.isStale(seq)) return;
-			if (accounts.length === 0) {
-				inlineMessage = m.grow_load_failed();
-				inlineTone = 'error';
-				inlineActionLabel = m.grow_load_failed_retry();
+		}
+
+		const updatesById = new Map(followUpdates.map((u) => [u.id, u]));
+		const toShowTerminal: RecommendationView[] = [];
+		for (const pid of prevPendingIds) {
+			const upd = updatesById.get(pid);
+			if (upd && (upd.follow_state === 'following' || upd.follow_state === 'requested')) {
+				const prior = items.find((r) => r.id === pid);
+				if (prior) {
+					toShowTerminal.push({
+						...prior,
+						follow_state: upd.follow_state,
+						updated_at: upd.updated_at
+					});
+				}
+			}
+		}
+
+		if (toShowTerminal.length) {
+			const terminalIDs = new Set(toShowTerminal.map((item) => item.id));
+			mergedItems = [...mergedItems.filter((item) => !terminalIDs.has(item.id)), ...toShowTerminal];
+			items = mergedItems;
+			const delay = terminalRemovalDelay();
+			if (delay > 0) {
+				await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
+			}
+			if (destroyed || selectedAccountID !== acc || workspaceID !== ws) return;
+			items = items.filter((item) => !terminalIDs.has(item.id));
+			pendingSessionIds = new Set([...pendingSessionIds].filter((id) => !terminalIDs.has(id)));
+		} else {
+			items = mergedItems;
+			const stillPending = new Set<string>();
+			for (const id of pendingSessionIds) {
+				const found = mergedItems.find((it) => it.id === id);
+				if (found?.follow_state === 'pending') stillPending.add(id);
+			}
+			pendingSessionIds = stillPending;
+		}
+
+		if (followToast) {
+			toastMessage = m.grow_follow_failed({ handle: followToast.handle });
+			toastTone = 'error';
+			setTimeout(() => (toastMessage = ''), 3000);
+		}
+
+		if (newSync) {
+			const kind = syncErrorKind(newSync);
+			if (newSync.status === 'ok') {
+				inlineMessage = '';
+				inlineActionLabel = '';
+				inlineActionHandler = null;
+			} else if (kind === 'rate_limited') {
+				const platformKey = selectedAccount ? selectedAccount.platform.toLowerCase() : '';
+				let msg = m.grow_rate_limited_generic();
+				if (platformKey.includes('bluesky')) msg = m.grow_rate_limited_bluesky();
+				else if (platformKey.includes('mastodon')) msg = m.grow_rate_limited_mastodon();
+				inlineMessage = msg;
+				inlineTone = 'warning';
+				inlineActionLabel = '';
+				inlineActionHandler = null;
+			} else if (kind === 'auth') {
+				inlineMessage = m.grow_auth_required_description();
+				inlineTone = 'warning';
+				inlineActionLabel = m.grow_reconnect();
 				inlineActionHandler = () => {
-					if (workspaceID) void loadAccounts(workspaceID);
+					window.location.assign('/settings?tab=accounts');
+				};
+			} else if (kind === 'failed') {
+				inlineMessage = m.grow_temporary_unavailable();
+				inlineTone = 'error';
+				inlineActionLabel = m.grow_refresh();
+				inlineActionHandler = () => {
+					if (workspaceID && selectedAccountID) void handleRefresh();
 				};
 			}
-		} finally {
-			if (!accountsGuard.isStale(seq)) {
-				accountsLoading = false;
-				featuresLoading = false;
+		}
+
+		if (mergedItems.length > 0 && currentGenerationID) {
+			const key = `${ws}:${acc}:${currentGenerationID}`;
+			if (!shownGenerations.has(key)) {
+				shownGenerations.add(key);
+				for (let idx = 0; idx < mergedItems.length; idx++) {
+					const rec = mergedItems[idx];
+					if (toShowTerminal.some((t) => t.id === rec.id)) continue;
+					captureTelemetryEvent('growth recommendation shown', {
+						platform: rec.platform,
+						rank_bucket: growthRankBucket(idx + 1),
+						mutual_count_bucket: growthMutualBucket(rec.mutual_count),
+						follows_viewer: rec.follows_viewer
+					});
+				}
 			}
-			if (!selectedAccountID) loading = false;
 		}
 	}
 
-	async function loadGrowth(ws: string, acc: string, isPoll = false) {
-		const seq = growthGuard.next();
-		const requestKey = `${ws}:${acc}`;
-		if (!isPoll) {
-			loading = items.length === 0;
-			inlineMessage = '';
+	function growthResultMatchesScope(data: GrowthResult, ws: string, acc: string) {
+		if (
+			data.sync_state &&
+			(data.sync_state.workspace_id !== ws || data.sync_state.social_account_id !== acc)
+		) {
+			return false;
 		}
-		try {
-			const response = await client.GET('/growth', {
-				params: { query: { workspace_id: ws, account_id: acc } }
-			});
-			if (growthGuard.isStale(seq)) return;
-			if (`${workspaceID}:${selectedAccountID ?? ''}` !== requestKey) return;
-			if (response.error || !response.data) throw response.error;
-			const data = response.data;
-			const newItems = data.items ?? [];
-			const newSync = data.sync_state ?? null;
-			const followUpdates = data.follow_updates ?? [];
-			syncState = newSync;
-			refreshQueued = newSync?.status === 'queued' || newSync?.status === 'refreshing';
-			currentGenerationID = newSync?.current_generation_id ?? '';
-
-			const prevPendingIds = new Set(pendingSessionIds);
-			let mergedItems: RecommendationView[] = [...newItems];
-			let followToast: { handle: string } | null = null;
-
-			for (const it of mergedItems) {
-				if (it.follow_state === 'failed' && prevPendingIds.has(it.id)) {
-					followToast = { handle: `@${it.handle}` };
-				}
-			}
-
-			const updatesById = new Map(followUpdates.map((u) => [u.id, u]));
-			const toShowTerminal: RecommendationView[] = [];
-			for (const pid of prevPendingIds) {
-				const upd = updatesById.get(pid);
-				if (upd && (upd.follow_state === 'following' || upd.follow_state === 'requested')) {
-					const prior = items.find((r) => r.id === pid);
-					if (prior) {
-						toShowTerminal.push({
-							...prior,
-							follow_state: upd.follow_state,
-							updated_at: upd.updated_at
-						});
-					}
-				}
-			}
-
-			if (toShowTerminal.length) {
-				const terminalIDs = new Set(toShowTerminal.map((item) => item.id));
-				mergedItems = [
-					...mergedItems.filter((item) => !terminalIDs.has(item.id)),
-					...toShowTerminal
-				];
-				items = mergedItems;
-				const delay = terminalRemovalDelay();
-				if (delay > 0) {
-					await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
-				}
-				if (destroyed || selectedAccountID !== acc || workspaceID !== ws) return;
-				items = items.filter((item) => !terminalIDs.has(item.id));
-				pendingSessionIds = new Set([...pendingSessionIds].filter((id) => !terminalIDs.has(id)));
-			} else {
-				items = mergedItems;
-				const stillPending = new Set<string>();
-				for (const id of pendingSessionIds) {
-					const found = mergedItems.find((it) => it.id === id);
-					if (found?.follow_state === 'pending') stillPending.add(id);
-				}
-				pendingSessionIds = stillPending;
-			}
-
-			if (followToast) {
-				toastMessage = m.grow_follow_failed({ handle: followToast.handle });
-				toastTone = 'error';
-				setTimeout(() => (toastMessage = ''), 3000);
-			}
-
-			if (newSync) {
-				const kind = syncErrorKind(newSync);
-				if (newSync.status === 'ok') {
-					inlineMessage = '';
-					inlineActionLabel = '';
-					inlineActionHandler = null;
-				} else if (kind === 'rate_limited') {
-					const platformKey = selectedAccount ? selectedAccount.platform.toLowerCase() : '';
-					let msg = m.grow_rate_limited_generic();
-					if (platformKey.includes('bluesky')) msg = m.grow_rate_limited_bluesky();
-					else if (platformKey.includes('mastodon')) msg = m.grow_rate_limited_mastodon();
-					inlineMessage = msg;
-					inlineTone = 'warning';
-					inlineActionLabel = '';
-					inlineActionHandler = null;
-				} else if (kind === 'auth') {
-					inlineMessage = m.grow_auth_required_description();
-					inlineTone = 'warning';
-					inlineActionLabel = m.grow_reconnect();
-					inlineActionHandler = () => {
-						window.location.assign('/settings?tab=accounts');
-					};
-				} else if (kind === 'failed') {
-					inlineMessage = m.grow_temporary_unavailable();
-					inlineTone = 'error';
-					inlineActionLabel = m.grow_refresh();
-					inlineActionHandler = () => {
-						if (workspaceID && selectedAccountID) void handleRefresh();
-					};
-				}
-			}
-
-			if (mergedItems.length > 0 && currentGenerationID) {
-				const key = `${ws}:${acc}:${currentGenerationID}`;
-				if (!shownGenerations.has(key)) {
-					shownGenerations.add(key);
-					for (let idx = 0; idx < mergedItems.length; idx++) {
-						const rec = mergedItems[idx];
-						if (toShowTerminal.some((t) => t.id === rec.id)) continue;
-						captureTelemetryEvent('growth recommendation shown', {
-							platform: rec.platform,
-							rank_bucket: growthRankBucket(idx + 1),
-							mutual_count_bucket: growthMutualBucket(rec.mutual_count),
-							follows_viewer: rec.follows_viewer
-						});
-					}
-				}
-			}
-
-			loading = false;
-		} catch {
-			if (growthGuard.isStale(seq)) return;
-			if (ws !== workspaceID || acc !== selectedAccountID) return;
-			inlineMessage = m.grow_load_failed();
-			inlineTone = 'error';
-			inlineActionLabel = m.grow_load_failed_retry();
-			inlineActionHandler = () => {
-				if (workspaceID && selectedAccountID) void loadGrowth(workspaceID, selectedAccountID);
-			};
-			loading = false;
-		}
+		return (data.items ?? []).every(
+			(item) => item.workspace_id === ws && item.social_account_id === acc
+		);
 	}
 
 	async function handleRefresh() {
 		if (!workspaceID || !selectedAccountID || busy || isStaleDisabled) return;
-		growthGuard.next();
-		refreshQueued = true;
+		const requestedWorkspaceID = workspaceID;
+		const requestedAccountID = selectedAccountID;
+		const requestedPlatform = selectedAccount?.platform ?? '';
+		const requestedGenerationID = currentGenerationID;
+		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
 		try {
 			const res = await client.POST('/growth/refresh', {
-				body: { workspace_id: workspaceID, account_id: selectedAccountID }
+				body: { workspace_id: requestedWorkspaceID, account_id: requestedAccountID }
 			});
 			if (res.error) throw res.error;
-			if (syncState) {
-				syncState = { ...syncState, status: 'queued' };
-			} else {
-				const now = new Date().toISOString();
-				const queuedState: SyncStateView = {
-					id: '',
-					workspace_id: workspaceID,
-					social_account_id: selectedAccountID,
-					platform: selectedAccount?.platform ?? '',
-					status: 'queued',
-					current_generation_id: currentGenerationID,
-					created_at: now,
-					updated_at: now
+			const now = new Date().toISOString();
+			await queryClient.cancelQueries({ queryKey, exact: true });
+			queryClient.setQueryData<GrowthResult>(queryKey, (current) => {
+				if (!current) return current;
+				const queuedState: SyncStateView = current?.sync_state
+					? { ...current.sync_state, status: 'queued', updated_at: now }
+					: {
+							id: '',
+							workspace_id: requestedWorkspaceID,
+							social_account_id: requestedAccountID,
+							platform: requestedPlatform,
+							status: 'queued',
+							current_generation_id: requestedGenerationID,
+							created_at: now,
+							updated_at: now
+						};
+				return {
+					items: current?.items ?? [],
+					follow_updates: current?.follow_updates ?? [],
+					sync_state: queuedState
 				};
-				syncState = queuedState;
-			}
+			});
+			void queryClient.invalidateQueries({ queryKey, exact: true });
 		} catch {
-			refreshQueued = false;
+			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
 			toastMessage = m.grow_refresh_failed();
 			toastTone = 'error';
 			setTimeout(() => (toastMessage = ''), 3000);
@@ -495,25 +462,38 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	async function handleFollow(id: string) {
-		if (!workspaceID || isStaleDisabled) return;
-		const prev = items;
-		items = items.map((it) => (it.id === id ? { ...it, follow_state: 'pending' } : it));
-		const nextPending = new Set(pendingSessionIds);
-		nextPending.add(id);
-		pendingSessionIds = nextPending;
+		if (!workspaceID || !selectedAccountID || isStaleDisabled) return;
+		const requestedWorkspaceID = workspaceID;
+		const requestedAccountID = selectedAccountID;
+		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
+		const previousItem = items.find((item) => item.id === id);
+		items = items.map((item) => (item.id === id ? { ...item, follow_state: 'pending' } : item));
+		pendingSessionIds = new Set(pendingSessionIds).add(id);
+		await queryClient.cancelQueries({ queryKey, exact: true });
+		updateGrowthItems(queryKey, (current) =>
+			current.map((item) => (item.id === id ? { ...item, follow_state: 'pending' } : item))
+		);
 		try {
 			const res = await client.POST('/growth/{recommendation_id}/follow', {
 				params: { path: { recommendation_id: id } },
-				body: { workspace_id: workspaceID }
+				body: { workspace_id: requestedWorkspaceID }
 			});
 			if (res.error) throw res.error;
+			void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
 		} catch {
-			items = prev;
+			updateGrowthItems(queryKey, (current) =>
+				previousItem
+					? current.map((item) => (item.id === previousItem.id ? previousItem : item))
+					: current
+			);
+			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
+			if (previousItem) {
+				items = items.map((item) => (item.id === previousItem.id ? previousItem : item));
+			}
 			const pruned = new Set(pendingSessionIds);
 			pruned.delete(id);
 			pendingSessionIds = pruned;
-			const rec = prev.find((r) => r.id === id);
-			const handle = rec ? `@${rec.handle}` : '';
+			const handle = previousItem ? `@${previousItem.handle}` : '';
 			toastMessage = m.grow_follow_failed({ handle });
 			toastTone = 'error';
 			setTimeout(() => (toastMessage = ''), 3000);
@@ -521,26 +501,68 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	async function handleDismiss(id: string) {
-		if (!workspaceID) return;
-		const prev = items;
-		items = prev.filter((r) => r.id !== id);
-		if (pendingSessionIds.has(id)) {
+		if (!workspaceID || !selectedAccountID) return;
+		const requestedWorkspaceID = workspaceID;
+		const requestedAccountID = selectedAccountID;
+		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
+		const previousIndex = items.findIndex((item) => item.id === id);
+		const previousItem = items[previousIndex];
+		const wasPending = pendingSessionIds.has(id);
+		items = items.filter((item) => item.id !== id);
+		if (wasPending) {
 			const next = new Set(pendingSessionIds);
 			next.delete(id);
 			pendingSessionIds = next;
 		}
+		await queryClient.cancelQueries({ queryKey, exact: true });
+		updateGrowthItems(queryKey, (current) => current.filter((item) => item.id !== id));
 		try {
 			const res = await client.POST('/growth/{recommendation_id}/dismiss', {
 				params: { path: { recommendation_id: id } },
-				body: { workspace_id: workspaceID }
+				body: { workspace_id: requestedWorkspaceID }
 			});
 			if (res.error) throw res.error;
+			void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
 		} catch {
-			items = prev;
+			updateGrowthItems(queryKey, (current) =>
+				restoreRecommendation(current, previousItem, previousIndex)
+			);
+			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
+			items = restoreRecommendation(items, previousItem, previousIndex);
+			if (wasPending) pendingSessionIds = new Set(pendingSessionIds).add(id);
 			toastMessage = m.grow_dismiss_failed();
 			toastTone = 'error';
 			setTimeout(() => (toastMessage = ''), 3000);
 		}
+	}
+
+	function updateGrowthItems(
+		queryKey: ReturnType<typeof growthQueryKeys.account>,
+		update: (items: RecommendationView[]) => RecommendationView[]
+	) {
+		queryClient.setQueryData<GrowthResult>(queryKey, (current) =>
+			current ? { ...current, items: update(current.items ?? []) } : current
+		);
+	}
+
+	function restoreRecommendation(
+		current: RecommendationView[],
+		item: RecommendationView | undefined,
+		index: number
+	) {
+		if (!item || current.some((candidate) => candidate.id === item.id)) return current;
+		const insertionIndex = Math.min(Math.max(index, 0), current.length);
+		return [...current.slice(0, insertionIndex), item, ...current.slice(insertionIndex)];
+	}
+
+	function retryReads() {
+		if (accountsQuery.isError) void accountsQuery.refetch();
+		if (featuresQuery.isError) void featuresQuery.refetch();
+		if (growthQuery.isError) void growthQuery.refetch();
+	}
+
+	function queryErrorMessage(cause: unknown) {
+		return cause instanceof Error && cause.message ? cause.message : m.grow_load_failed();
 	}
 
 	function handleOpenProfile(rec: RecommendationView) {
@@ -601,7 +623,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	title={m.grow_title()}
 	description={m.grow_description()}
 	icon={UserRoundPlusIcon}
-	loading={false}
+	loading={initialLoading}
 	loadingLayout="grid"
 	loadingItems={6}
 >
@@ -627,6 +649,23 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	{/snippet}
 
 	<div class="flex min-w-0 flex-col gap-4">
+		{#if readError}
+			<InlineNotice tone="error" message={readError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryReads}
+						>{m.grow_load_failed_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{:else if backgroundReadError}
+			<InlineNotice tone="error" message={backgroundReadError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryReads}
+						>{m.grow_load_failed_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		{#if showAccountSelector}
 			<div class="flex flex-wrap items-center gap-3">
 				<label for="grow-account-select" class="text-sm font-medium">{m.grow_for_label()}</label>
@@ -862,9 +901,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			</section>
 		{/if}
 
-		{#if loading && items.length === 0}
-			<PageLoading layout="grid" items={6} label={m.grow_loading()} />
-		{:else if noCompatible}
+		{#if noCompatible}
 			<EmptyState
 				icon={UsersIcon}
 				title={m.grow_no_compatible_title()}
@@ -881,9 +918,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				actionHref="/settings?tab=accounts"
 			/>
 		{:else if isStaleDisabled}
-			{#if loading}
-				<PageLoading layout="grid" items={6} label={m.grow_loading()} />
-			{:else if filterEmpty}
+			{#if filterEmpty}
 				<EmptyState
 					icon={UsersIcon}
 					title={m.grow_no_filter_results_title()}

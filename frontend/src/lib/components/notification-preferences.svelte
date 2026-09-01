@@ -1,7 +1,15 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import {
+		notificationPreferencesQueryOptions,
+		notificationQueryKeys
+	} from '@openpost/query-catalog';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { untrack } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { queryClient } from '$lib/query/client';
+	import { notificationQueryAPI } from '$lib/query/notifications';
+	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import {
@@ -36,9 +44,7 @@
 		notify?: typeof showToast;
 	} = $props();
 
-	let loading = $state(true);
 	let saving = $state(false);
-	let error = $state('');
 	let preferences = $state.raw<Preferences>({});
 	let topicDefinitions = $state.raw<NotificationTopicDefinition[]>([]);
 	const eventGroups = $derived(notificationTopicGroups(topicDefinitions));
@@ -47,22 +53,38 @@
 	let emailAddress = $state('');
 	let digestTime = $state('09:00');
 	let digestTimezone = $state('UTC');
+	const actorID = $derived($auth.user?.id ?? '');
 	const dirty = $derived(
 		JSON.stringify({ preferences, digest_time: digestTime, digest_timezone: digestTimezone }) !==
 			savedSnapshot
 	);
+	const preferencesQuery = createQuery(
+		() => notificationPreferencesQueryOptions(notificationQueryAPI),
+		() => queryClient
+	);
+	const loading = $derived(preferencesQuery.isPending && !preferencesQuery.data);
+	const initialError = $derived(
+		preferencesQuery.isError && !preferencesQuery.data
+			? queryErrorMessage(preferencesQuery.error)
+			: ''
+	);
+	const staleError = $derived(
+		preferencesQuery.isError && preferencesQuery.data
+			? queryErrorMessage(preferencesQuery.error)
+			: ''
+	);
+	let appliedPreferences: components['schemas']['PreferenceSettings'] | undefined;
 
-	onMount(() => void load());
+	$effect(() => {
+		const data = preferencesQuery.data;
+		if (!data || data === appliedPreferences || (savedSnapshot && dirty)) return;
+		untrack(() => {
+			appliedPreferences = data;
+			applyPreferences(data);
+		});
+	});
 
-	async function load() {
-		loading = true;
-		error = '';
-		const { data, error: apiError } = await client.GET('/notifications/preferences');
-		if (apiError || !data) {
-			error = apiError?.detail || m.notifications_preferences_load_failed();
-			loading = false;
-			return;
-		}
+	function applyPreferences(data: components['schemas']['PreferenceSettings']) {
 		preferences = data.preferences;
 		topicDefinitions = data.topic_definitions ?? [];
 		digestTime = data.digest_configured ? data.digest_time : '09:00';
@@ -76,7 +98,6 @@
 		});
 		emailAvailable = data.email_available;
 		emailAddress = data.email_address;
-		loading = false;
 	}
 
 	function preferenceFor(definition: NotificationTopicDefinition): ChannelPreference {
@@ -123,6 +144,7 @@
 	}
 
 	async function save() {
+		const requestedActorID = actorID;
 		saving = true;
 		const { data, error: apiError } = await client.PUT('/notifications/preferences', {
 			body: {
@@ -132,6 +154,7 @@
 			}
 		});
 		saving = false;
+		if (actorID !== requestedActorID) return;
 		if (apiError || !data) {
 			notify(
 				apiError?.status === 400
@@ -141,17 +164,19 @@
 			);
 			return;
 		}
-		preferences = data.preferences;
-		digestTime = data.digest_time;
-		digestTimezone = data.digest_timezone;
-		savedSnapshot = JSON.stringify({
-			preferences: data.preferences,
-			digest_time: data.digest_time,
-			digest_timezone: data.digest_timezone
+		await queryClient.cancelQueries({
+			queryKey: notificationQueryKeys.preferences(),
+			exact: true
 		});
-		emailAvailable = data.email_available;
-		emailAddress = data.email_address;
+		queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+		applyPreferences(data);
 		notify(m.notifications_preferences_saved(), 'success');
+	}
+
+	function queryErrorMessage(cause: unknown) {
+		return cause instanceof Error && cause.message
+			? cause.message
+			: m.notifications_preferences_load_failed();
 	}
 
 	function frequencyLabel(frequency: string) {
@@ -188,21 +213,32 @@
 
 {#if loading}
 	<PageLoading layout="list" label={m.common_loading()} items={5} />
-{:else if error}
-	<InlineNotice tone="error" message={error}>
+{:else if initialError}
+	<InlineNotice tone="error" message={initialError}>
 		{#snippet actions()}
-			<Button variant="outline" size="sm" onclick={() => void load()}>{m.common_retry()}</Button>
+			<Button variant="outline" size="sm" onclick={() => void preferencesQuery.refetch()}
+				>{m.common_retry()}</Button
+			>
 		{/snippet}
 	</InlineNotice>
 {:else}
 	<div class="space-y-6">
+		{#if staleError}
+			<InlineNotice tone="error" message={staleError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void preferencesQuery.refetch()}
+						>{m.common_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		<SectionHeader
 			title={m.notifications_delivery_heading()}
 			description={m.notifications_delivery_description()}
 			icon={BellRingIcon}
 		/>
 
-		<NotificationMutes {workspaceID} {workspaceName} {notify} />
+		<NotificationMutes {workspaceID} {workspaceName} {notify} queryStatus="parent" />
 
 		{#if emailAvailable}
 			<p class="text-sm text-muted-foreground">

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { notificationQueryKeys } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
 import NotificationPreferences from './notification-preferences.svelte';
 import NotificationMutes from './notification-mutes.svelte';
 
@@ -74,6 +76,7 @@ function deferred<T>() {
 
 describe('NotificationPreferences', () => {
 	beforeEach(() => {
+		queryClient.clear();
 		mocks.get.mockReset();
 		mocks.put.mockReset();
 		mocks.post.mockReset();
@@ -82,6 +85,27 @@ describe('NotificationPreferences', () => {
 	});
 
 	afterEach(() => vi.useRealTimers());
+
+	it('reuses a parent-owned preference query without starting a nested read', async () => {
+		queryClient.setQueryData(notificationQueryKeys.preferences(), {
+			mutes: [
+				{
+					id: 'parent-mute',
+					scope: 'account',
+					starts_at: '2026-08-14T11:00:00Z',
+					ends_at: '2035-08-14T13:00:00Z'
+				}
+			]
+		});
+
+		const screen = await render(NotificationMutes, {
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+
+		await expect.element(screen.getByLabelText('Active mutes')).toBeVisible();
+		expect(mocks.get).not.toHaveBeenCalled();
+	});
 
 	it('removes an expired Mute and refreshes while the page stays open', async () => {
 		vi.useFakeTimers();
@@ -437,6 +461,43 @@ describe('NotificationPreferences', () => {
 		await expect
 			.element(screen.getByLabelText('Publish failed · Email frequency').nth(1))
 			.toBeDisabled();
+	});
+
+	it('keeps saved preferences visible through a background error and clears the notice on retry', async () => {
+		const saved = {
+			preferences: preferences(),
+			topic_definitions: topicDefinitions(),
+			email_available: true,
+			email_address: 'founder@example.com',
+			digest_time: '09:00',
+			digest_timezone: 'Europe/Lisbon',
+			digest_configured: true,
+			mutes: []
+		};
+		mocks.get.mockResolvedValueOnce({ data: saved }).mockResolvedValueOnce({
+			error: { detail: 'Preferences refresh failed' },
+			response: new Response(null, { status: 400 })
+		});
+
+		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
+		await expect
+			.element(screen.getByText('Email notifications go to founder@example.com.'))
+			.toBeVisible();
+
+		await queryClient.invalidateQueries({
+			queryKey: notificationQueryKeys.preferences(),
+			exact: true
+		});
+
+		await expect.element(screen.getByText('Preferences refresh failed')).toBeVisible();
+		await expect
+			.element(screen.getByText('Email notifications go to founder@example.com.'))
+			.toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+
+		mocks.get.mockResolvedValue({ data: saved });
+		await screen.getByRole('button', { name: 'Try again' }).click();
+		await expect.element(screen.getByText('Preferences refresh failed')).not.toBeInTheDocument();
 	});
 
 	it('defaults only a new choice to 09:00 in the browser timezone', async () => {

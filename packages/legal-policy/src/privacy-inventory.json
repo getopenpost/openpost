@@ -335,10 +335,10 @@
       "category": "Product, marketing, documentation, and service telemetry",
       "owner": "Managed OpenPost service and PostHog",
       "purpose": "Measure public-site use, understand product workflows, diagnose failures, and improve the managed service without advertising profiles, cross-site tracking, or session replay.",
-      "includes": "Cookieless page views and selected interaction events on the public sites; opaque user, workspace, publication, rendition, and job identifiers for managed product events; browser and service version, environment, route template, status, error type, and sanitized exception context. OpenPost does not send email addresses, names, usernames, post text, media, request bodies, credentials, query strings, or raw URLs as telemetry properties.",
+      "includes": "For visitors who allow analytics cookies: first-party identifiers and sessions shared across OpenPost sibling subdomains, country derived before raw IP discard, referrer and approved campaign facts, page views, Web Vitals, selected interactions, and sanitized browser failures. For visitors who continue without analytics cookies: limited personless events with daily server-hashed identity and no geography. Managed product and service telemetry can include opaque user, workspace, publication, rendition, and job identifiers plus release, route-template, status, error type, and sanitized exception context. OpenPost does not send email addresses, names, usernames, post text, media, request bodies, credentials, query strings, raw URLs, or raw IP addresses as telemetry properties.",
       "duration": "Managed PostHog event data is configured for a maximum 12-month retention window. OpenPost does not keep a separate telemetry copy after PostHog deletes or expires the event data.",
       "deletion_trigger": "Expiry under the managed PostHog retention window, operator deletion of an event or person, a supported account-deletion request for linked identified data, or retirement of the analytics project.",
-      "exceptions": "Marketing and documentation traffic remains anonymous and personless. The managed app and backend use the same opaque OpenPost user ID after sign-in so product events and service outcomes can be joined. Browser persistence is memory-only; autocapture, session replay, console capture, network bodies, and advertising tracking are disabled.",
+      "exceptions": "No optional browser telemetry is sent before a choice or after full opt-out. Do Not Track or Global Privacy Control forces full browser opt-out. Persistent analytics is limited to visitors who allow first-party analytics cookies; cookieless mode remains personless and cannot provide reliable multi-day identity, country, or server-side IP bot enrichment. Backend service telemetry is separately disclosed and is not controlled by the browser choice. Autocapture, session replay, heatmaps, surveys, console capture, network timing and bodies, advertising profiles, and cross-site tracking are disabled.",
       "evidence": [
         "packages/telemetry/src/index.ts",
         "backend/internal/telemetry/telemetry.go",
@@ -432,6 +432,30 @@
         "frontend/src/lib/components/ui/sidebar/constants.ts",
         "frontend/src/lib/components/ui/sidebar/sidebar-provider.svelte"
       ]
+    },
+    {
+      "id": "cookie-telemetry-preference",
+      "technology": "cookie",
+      "owner": "OpenPost telemetry preference control",
+      "identifier_kind": "exact",
+      "identifier": "openpost_analytics",
+      "purpose": "Keeps the visitor’s persistent, cookieless, or fully off browser-analytics choice and prevents repeated prompts.",
+      "scope": "Hosted OpenPost sibling subdomains through Domain=.openpo.st; host-only on self-hosted domains; Path=/; SameSite=Lax; Secure on HTTPS.",
+      "duration": "One year after the latest choice, or until the visitor changes the choice or clears site data.",
+      "necessity": "functional",
+      "source_refs": ["packages/telemetry/src/index.ts"]
+    },
+    {
+      "id": "cookie-posthog-analytics",
+      "technology": "cookie",
+      "owner": "PostHog browser analytics SDK",
+      "identifier_kind": "prefix",
+      "identifier": "ph_",
+      "purpose": "Keeps first-party visitor and session identity across OpenPost sibling subdomains only after the visitor allows analytics cookies.",
+      "scope": "Hosted OpenPost sibling subdomains through Domain=.openpo.st; host-only on self-hosted domains; used only in persistent analytics mode.",
+      "duration": "Up to one year under the PostHog SDK setting, or until full opt-out, site-data clearing, or SDK expiry removes it.",
+      "necessity": "analytics",
+      "source_refs": ["packages/telemetry/src/index.ts"]
     },
     {
       "id": "local-color-mode",
@@ -716,6 +740,18 @@
       "duration": "Until a preset is removed or replaced, or site data is cleared.",
       "necessity": "functional",
       "source_refs": ["frontend/src/lib/video-editor/timeline/custom-easing-presets.ts"]
+    },
+    {
+      "id": "local-posthog-analytics",
+      "technology": "localStorage",
+      "owner": "PostHog browser analytics SDK",
+      "identifier_kind": "prefix",
+      "identifier": "ph_",
+      "purpose": "Keeps first-party analytics state on the current origin only after the visitor allows persistent analytics.",
+      "scope": "Current application, marketing, or documentation origin; used only in persistent analytics mode and synchronized through the cookie identity.",
+      "duration": "Until full opt-out, site-data clearing, browser eviction, or SDK expiry removes the state.",
+      "necessity": "analytics",
+      "source_refs": ["packages/telemetry/src/index.ts"]
     },
     {
       "id": "session-chunk-reload",

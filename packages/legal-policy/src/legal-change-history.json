@@ -10,7 +10,9 @@
       "url": "https://openpo.st/privacy",
       "changes": [
         "Disclosed that whole-account analytics stores bounded titles and text for eligible provider content published outside OpenPost so users can inspect evidence and prepare a reviewed repurpose draft.",
-        "Clarified that analytics inventory excludes raw provider responses, remote media bytes, credentials, bot secrets, and webhook secrets, while telemetry continues to exclude post text."
+        "Clarified that analytics inventory excludes raw provider responses, remote media bytes, credentials, bot secrets, and webhook secrets, while telemetry continues to exclude post text.",
+        "Added a separate, withdrawable browser analytics choice with persistent first-party, limited cookieless, and fully off modes.",
+        "Documented cross-subdomain first-party identity after permission, country derivation before raw IP discard, browser privacy signals, and the separate backend service-telemetry boundary."
       ]
     },
     {

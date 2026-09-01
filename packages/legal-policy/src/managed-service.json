@@ -62,8 +62,8 @@
       "name": "PostHog, Inc.",
       "role": "subprocessor",
       "use": "required",
-      "purpose": "Receives managed product, public-site, service, and error telemetry so OpenPost can measure use, diagnose failures, and improve the hosted service.",
-      "data": "Cookieless public-site events; opaque managed-service user and workspace identifiers; product and service events; browser, service, release, route-template, status, and sanitized error context. OpenPost does not enable session replay or send post content, media, credentials, request bodies, email addresses, names, usernames, query strings, or raw URLs as telemetry properties.",
+      "purpose": "Receives consent-aware product, public-site, service, and error telemetry so OpenPost can measure use, understand acquisition, diagnose failures, and improve the hosted service.",
+      "data": "Persistent first-party browser events and country for visitors who allow analytics cookies; limited cookieless personless events after cookie rejection; opaque managed-service user and workspace identifiers; product and service events; browser, service, release, route-template, status, and sanitized error context. Raw client IP is discarded after approved browser enrichment. OpenPost does not enable session replay or send post content, media, credentials, request bodies, email addresses, names, usernames, query strings, or raw URLs as telemetry properties.",
       "location": "PostHog EU Cloud in Frankfurt, Germany.",
       "transfer": "OpenPost selects PostHog's EU Cloud. PostHog describes its GDPR commitments and international-transfer safeguards in its privacy and GDPR documentation.",
       "source_urls": [

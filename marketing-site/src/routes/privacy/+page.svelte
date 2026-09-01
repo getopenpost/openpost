@@ -119,10 +119,12 @@
 				webhook secrets, or direct messages.
 			</li>
 			<li>
-				<strong>Product and website telemetry:</strong> cookieless public page views and selected interactions;
-				opaque signed-in user and workspace identifiers; product and service events; release, route-template,
-				status, and sanitized error facts. We do not send post content, media, request bodies, credentials,
-				email addresses, names, usernames, query strings, or raw URLs as telemetry properties.
+				<strong>Product and website telemetry:</strong> persistent first-party browser analytics after
+				permission, or limited personless cookieless events after cookie rejection; opaque signed-in user
+				and workspace identifiers; product and service events; country for persistent browser events;
+				release, route-template, status, and sanitized error facts. We discard raw client IP after approved
+				enrichment. We do not send post content, media, request bodies, credentials, email addresses,
+				names, usernames, query strings, or raw URLs as telemetry properties.
 			</li>
 			<li>
 				<strong>Brand font records:</strong> custom WOFF2, TTF, or OTF files, family and style details,
@@ -176,8 +178,8 @@
 			<li>Comply with law, enforce the Terms of Service, and resolve disputes.</li>
 			<li>Improve the service using technical logs and error data.</li>
 			<li>
-				Understand anonymous traffic and selected interactions on the marketing and documentation
-				sites.
+				Understand acquisition, returning use, performance, and selected interactions through the
+				browser analytics mode you choose.
 			</li>
 		</ul>
 		<p>
@@ -337,12 +339,18 @@
 		</p>
 		<p>
 			The Hosted service, marketing site, and documentation site use PostHog EU Cloud for product,
-			service, error, and website telemetry. Public traffic remains cookieless and personless. The
-			signed-in app and backend use the same opaque OpenPost user ID to join product actions to
-			service outcomes. Browser persistence is memory-only; autocapture, session replay, console
-			capture, network bodies, advertising profiles, and cross-site tracking are disabled. The
-			privacy-enhanced YouTube player is loaded only when you open the product demo; YouTube may
-			then process device and playback data.
+			service, error, and website telemetry. Before you choose, OpenPost sends no optional browser
+			telemetry. If you allow analytics cookies, first-party identity and sessions can continue
+			across OpenPost sibling subdomains. PostHog derives country for those browser events before
+			discarding the raw IP. If you continue without analytics cookies, OpenPost sends limited
+			personless events with daily server-hashed identity and no geography. You can also turn
+			optional browser analytics fully off. Do Not Track and Global Privacy Control force that full
+			browser opt-out. The signed-in app and backend use opaque OpenPost identifiers for separately
+			disclosed service telemetry; the browser choice does not disable authoritative backend
+			outcomes. Autocapture, session replay, heatmaps, surveys, console capture, network timing and
+			bodies, advertising profiles, and cross-site tracking are disabled. The privacy-enhanced
+			YouTube player is loaded only when you open the product demo; YouTube may then process device
+			and playback data.
 		</p>
 		<p>
 			OpenPost Video Editor live previews, optional screen, camera, and audio recording, editing,
@@ -393,7 +401,11 @@
 									>
 								</td>
 								<td class="p-4 leading-6">
-									{entry.necessity === 'strictly_necessary' ? 'Strictly necessary' : 'Functional'}
+									{entry.necessity === 'strictly_necessary'
+										? 'Strictly necessary'
+										: entry.necessity === 'analytics'
+											? 'Optional analytics'
+											: 'Functional'}
 								</td>
 							</tr>
 						{/each}

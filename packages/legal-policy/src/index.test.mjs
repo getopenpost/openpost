@@ -164,13 +164,25 @@ test("browser storage inventory covers every supported storage technology", () =
     assert.ok(!identifiers.has(identity), `duplicate browser identifier ${identity}`);
     identifiers.add(identity);
     assert.match(entry.identifier_kind, /^(exact|prefix)$/u);
-    assert.match(entry.necessity, /^(strictly_necessary|functional)$/u);
+    assert.match(entry.necessity, /^(strictly_necessary|functional|analytics)$/u);
     for (const field of ["owner", "purpose", "scope", "duration"]) {
       assert.ok(entry[field].length >= 15, `${entry.id} needs a useful ${field}`);
     }
     assert.ok(entry.source_refs.length > 0, `${entry.id} needs source evidence`);
     assertSourcePathsExist(entry.source_refs, entry.id);
   }
+});
+
+test("browser analytics storage remains optional and consent-aware", () => {
+  const storage = new Map(privacyInventory.browser_storage.map((entry) => [entry.id, entry]));
+  assert.equal(storage.get("cookie-telemetry-preference")?.necessity, "functional");
+  assert.equal(storage.get("cookie-posthog-analytics")?.necessity, "analytics");
+  assert.equal(storage.get("local-posthog-analytics")?.necessity, "analytics");
+
+  const telemetry = privacyInventory.managed_retention.find(({ id }) => id === "website-analytics");
+  assert.match(telemetry?.includes ?? "", /country derived before raw IP discard/u);
+  assert.match(telemetry?.exceptions ?? "", /No optional browser telemetry is sent before/u);
+  assert.match(telemetry?.exceptions ?? "", /Backend service telemetry is separately disclosed/u);
 });
 
 test("material legal history has a current entry for every canonical policy", () => {

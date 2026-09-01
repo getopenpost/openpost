@@ -57,10 +57,12 @@ changes live in [Developer Docs](/development/).
 - [ ] Confirm a new hosted user can create the bootstrap workspace and is blocked from extra workspaces before checkout.
 - [ ] Confirm team invitations are blocked once active members plus pending invites reach the plan limit.
 - [ ] Configure one EU PostHog production project for the app, backend, marketing site, and documentation; use separate staging and development projects.
-- [ ] Disable PostHog IP capture, autocapture, session replay, console capture, and network bodies; enable cookieless server hashing and set event retention to no more than 12 months.
+- [ ] Enable stateful cookieless server hashing; keep raw-IP discard on after approved persistent-event country and bot enrichment; remove city, region, coordinates, postal code, and accuracy-radius properties; set event retention to no more than 12 months.
+- [ ] Keep broad autocapture, session replay, heatmaps, surveys, dead clicks, console capture, network timing and bodies, and automatic browser exception capture disabled; enable only CLS, FCP, INP, and LCP Web Vitals.
 - [ ] Set the PostHog project token and server, browser, and UI hosts; keep the personal API key only in CI source-map upload secrets.
 - [ ] Verify `GET /api/v1/telemetry/config` exposes only the browser-safe project token and ingestion configuration.
-- [ ] Verify a browser intent event, a server outcome event, and one sanitized test exception arrive without content, credentials, email, names, query strings, or raw URLs.
+- [ ] Verify undecided and fully off browsers send no optional events; persistent events keep cross-subdomain identity and country without raw IP; cookieless events stay personless with no geography or browser correlation headers.
+- [ ] Verify a browser intent event, a server outcome event, and one sanitized test exception arrive without content, credentials, email, names, query strings, raw URLs, or precise location properties.
 
 ## Providers
 

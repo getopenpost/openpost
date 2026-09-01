@@ -96,7 +96,7 @@ export type BrowserStorageEntry = Readonly<{
   purpose: string;
   scope: string;
   duration: string;
-  necessity: "strictly_necessary" | "functional";
+  necessity: "strictly_necessary" | "functional" | "analytics";
   source_refs: readonly string[];
 }>;
 

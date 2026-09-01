@@ -12,6 +12,7 @@
 		meta?: Snippet;
 		actions?: Snippet;
 		loading?: boolean;
+		loadingPlaceholderVisible?: boolean;
 		loadingActionCount?: number;
 		contentClass?: string;
 		titleClass?: string;
@@ -26,6 +27,7 @@
 		meta,
 		actions,
 		loading = false,
+		loadingPlaceholderVisible = true,
 		loadingActionCount = 2,
 		contentClass,
 		titleClass,
@@ -77,7 +79,12 @@
 		>
 			{#if loading}
 				{#each loadingActionKeys as key, index (key)}
-					<Skeleton class={index === 0 ? 'h-9 w-32' : 'h-9 w-24'} />
+					<Skeleton
+						class={cn(
+							index === 0 ? 'h-9 w-32' : 'h-9 w-24',
+							!loadingPlaceholderVisible && 'invisible'
+						)}
+					/>
 				{/each}
 			{:else}
 				{@render actions()}

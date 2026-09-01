@@ -1,14 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { createRawSnippet } from 'svelte';
 import ImageIcon from '@lucide/svelte/icons/image';
 import AppToast from './app-toast.svelte';
 import { Toaster } from './ui/sonner';
 import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 import EmptyState from './empty-state.svelte';
+import PageContainer from './page-container.svelte';
 import PageHeader from './page-header.svelte';
 import PageLoading from './page-loading.svelte';
 
+function textSnippet(text: string) {
+	return createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
+}
+
 describe('shared page states', () => {
+	afterEach(() => vi.useRealTimers());
+
 	it('renders one semantic page heading with its supporting copy', async () => {
 		const screen = await render(PageHeader, {
 			title: 'Media Library',
@@ -53,6 +61,76 @@ describe('shared page states', () => {
 			'[data-slot="page-loading"] > div'
 		)?.children;
 		expect(loadingItems).toHaveLength(items);
+	});
+
+	it('does not flash a page loader when content resolves within 150 ms', async () => {
+		vi.useFakeTimers();
+		const props = {
+			title: 'Drafts',
+			loading: true,
+			loadingMessage: 'Loading drafts',
+			actions: textSnippet('Create draft'),
+			children: textSnippet('Loaded drafts')
+		};
+		const screen = await render(PageContainer, props);
+
+		await vi.advanceTimersByTimeAsync(100);
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+		await expect.element(screen.getByText('Loaded drafts')).not.toBeInTheDocument();
+
+		await screen.rerender({ ...props, loading: false });
+		await expect.element(screen.getByText('Loaded drafts')).toBeVisible();
+		await expect.element(screen.getByText('Create draft')).toBeVisible();
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+
+		await vi.advanceTimersByTimeAsync(20);
+		await screen.rerender(props);
+		await vi.advanceTimersByTimeAsync(30);
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+
+		await vi.advanceTimersByTimeAsync(119);
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+		await vi.advanceTimersByTimeAsync(1);
+		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
+	});
+
+	it('shows one content-shaped page loader after the 150 ms delay', async () => {
+		vi.useFakeTimers();
+		const screen = await render(PageContainer, {
+			title: 'Drafts',
+			loading: true,
+			loadingMessage: 'Loading drafts',
+			actions: textSnippet('Create draft'),
+			children: textSnippet('Loaded drafts')
+		});
+
+		await vi.advanceTimersByTimeAsync(149);
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+		await expect.element(screen.getByText('Create draft')).not.toBeInTheDocument();
+		const delayedAction = screen.container.querySelector(
+			'[data-slot="page-header-actions"] [data-slot="skeleton"]'
+		);
+		expect(delayedAction).not.toBeNull();
+		expect(delayedAction?.classList.contains('invisible')).toBe(true);
+
+		await vi.advanceTimersByTimeAsync(1);
+		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
+		await expect.element(screen.getByText('Loading drafts')).toBeInTheDocument();
+		await expect.element(screen.getByText('Loaded drafts')).not.toBeInTheDocument();
+		expect(screen.container.querySelectorAll('[data-slot="page-loading"]')).toHaveLength(1);
+		expect(delayedAction?.classList.contains('invisible')).toBe(false);
+
+		await screen.rerender({
+			title: 'Drafts',
+			loading: false,
+			loadingMessage: 'Loading drafts',
+			actions: textSnippet('Create draft'),
+			children: textSnippet('Loaded drafts')
+		});
+		await expect.element(screen.getByText('Create draft')).toBeVisible();
+		expect(
+			screen.container.querySelectorAll('[data-slot="page-header-actions"] [data-slot="skeleton"]')
+		).toHaveLength(0);
 	});
 
 	it('keeps an empty-state action attached to a correctly nested heading', async () => {

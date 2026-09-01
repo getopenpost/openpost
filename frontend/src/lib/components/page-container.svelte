@@ -3,6 +3,7 @@
 	import type { IconComponent } from '$lib/component-types';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
+	import { createDelayedVisibility } from '$lib/query/presentation.svelte';
 
 	type PageLoadingProps = ComponentProps<typeof PageLoading>;
 
@@ -47,18 +48,20 @@
 		embedded = false,
 		children
 	}: Props = $props();
+
+	const loadingPlaceholder = createDelayedVisibility(() => loading);
 </script>
 
 {#if embedded}
 	<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
-		{#if loading}
+		{#if loading && loadingPlaceholder.current}
 			<PageLoading
 				layout={loadingLayout}
 				variant={loadingVariant}
 				label={loadingMessage}
 				items={loadingItems}
 			/>
-		{:else}
+		{:else if !loading}
 			{@render children()}
 		{/if}
 	</div>
@@ -68,17 +71,25 @@
 		class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
 		style="container-type: inline-size;"
 	>
-		<PageHeader {title} icon={Icon} {description} {actions} {loading} {loadingActionCount} />
+		<PageHeader
+			{title}
+			icon={Icon}
+			{description}
+			{actions}
+			{loading}
+			loadingPlaceholderVisible={loadingPlaceholder.current}
+			{loadingActionCount}
+		/>
 
 		<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
-			{#if loading}
+			{#if loading && loadingPlaceholder.current}
 				<PageLoading
 					layout={loadingLayout}
 					variant={loadingVariant}
 					label={loadingMessage}
 					items={loadingItems}
 				/>
-			{:else}
+			{:else if !loading}
 				{@render children()}
 			{/if}
 		</div>

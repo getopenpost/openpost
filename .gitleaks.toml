@@ -26,4 +26,4 @@ targetRules = ["discord-client-secret"]
 condition = "AND"
 regexTarget = "match"
 paths = ['''(?:^|/)frontend/messages/[^/]+\.json$''']
-regexes = ['''Discord(?: bot)?",\s+"accounts_discord_bot_description''']
+regexes = ['''(?:Discord(?: bot)?|Discord-Bot)",\s+"accounts_discord_bot_description''']

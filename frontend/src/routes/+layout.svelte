@@ -30,6 +30,7 @@
 	import { initializeAppTelemetry } from '$lib/telemetry';
 	import { isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
 	import PublicHome from './_components/PublicHome.svelte';
+	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
 
 	let { children } = $props();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
@@ -321,6 +322,16 @@
 {#if !isPreviewRoute}
 	<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
 <Toaster position="bottom-center" richColors closeButton />
+<TelemetryConsent
+	title={m.telemetry_consent_title()}
+	description={m.telemetry_consent_description()}
+	allowLabel={m.telemetry_consent_allow()}
+	cookielessLabel={m.telemetry_consent_cookieless()}
+	offLabel={m.telemetry_consent_off()}
+	privacyLabel={m.telemetry_consent_privacy()}
+	privacyHref="https://openpo.st/privacy"
+	closeLabel={m.common_close()}
+/>
 {#if !isPreviewRoute && !isErrorRoute}<ConnectivityNotice />{/if}
 {#if isPreviewRoute}
 	{@render children()}

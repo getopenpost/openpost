@@ -175,3 +175,129 @@
 .vp-doc table {
   font-size: 0.92rem;
 }
+
+.op-footer-button {
+  color: var(--vp-c-text-2);
+  font: inherit;
+}
+
+.op-footer-button:hover {
+  color: var(--vp-c-brand-1);
+}
+
+.op-footer-button:focus-visible,
+.op-telemetry-consent button:focus-visible,
+.op-telemetry-consent a:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+.op-telemetry-consent {
+  position: fixed;
+  z-index: 100;
+  right: max(1.5rem, env(safe-area-inset-right));
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  left: max(1.5rem, env(safe-area-inset-left));
+  width: min(42rem, calc(100% - 3rem));
+  margin-inline: auto;
+  padding: 1.25rem;
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-elv);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1rem 3rem color-mix(in oklch, var(--vp-c-text-1) 16%, transparent);
+}
+
+.op-telemetry-copy {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.op-telemetry-copy > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.op-telemetry-copy h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+}
+
+.op-telemetry-copy p {
+  max-width: 68ch;
+  margin: 0.25rem 0 0;
+  color: var(--vp-c-text-2);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.op-telemetry-close {
+  min-height: 2.75rem;
+  margin: -0.5rem -0.5rem 0 0;
+  padding-inline: 0.75rem;
+  color: var(--vp-c-text-2);
+  border-radius: 0.625rem;
+}
+
+.op-telemetry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.op-telemetry-actions button,
+.op-telemetry-actions a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.875rem;
+  color: var(--vp-c-text-1);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 0.625rem;
+}
+
+.op-telemetry-actions button:not(.op-telemetry-quiet) {
+  flex: 1 1 12rem;
+}
+
+.op-telemetry-actions button:hover,
+.op-telemetry-actions a:hover {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.op-telemetry-actions .op-telemetry-quiet,
+.op-telemetry-actions a {
+  color: var(--vp-c-text-2);
+  border-color: transparent;
+}
+
+@media (max-width: 30rem) {
+  .op-telemetry-consent {
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: max(0.75rem, env(safe-area-inset-left));
+    width: calc(100% - 1.5rem);
+    padding: 1rem;
+  }
+
+  .op-telemetry-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .op-telemetry-actions button:not(.op-telemetry-quiet) {
+    flex-basis: auto;
+  }
+}

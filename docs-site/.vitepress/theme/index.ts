@@ -1,16 +1,21 @@
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
 import "./custom.css";
+import Layout from "./Layout.vue";
+import {
+  captureTelemetryPageView,
+  configureTelemetry,
+  installGlobalErrorCapture,
+} from "@openpost/telemetry";
 
 const apiReferencePath = "/development/api-reference";
 
 export default {
   extends: DefaultTheme,
+  Layout,
   async enhanceApp(ctx) {
     await DefaultTheme.enhanceApp?.(ctx);
     if (typeof window !== "undefined") {
-      const { captureTelemetryPageView, configureTelemetry, installGlobalErrorCapture } =
-        await import("@openpost/telemetry");
       configureTelemetry({
         enabled: Boolean(
           import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_API_HOST,

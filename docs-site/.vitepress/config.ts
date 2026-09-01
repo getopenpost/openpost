@@ -318,7 +318,8 @@ export default defineConfig({
       text: "Edit this page on GitHub",
     },
     footer: {
-      message: "Open source under AGPL-3.0-only.",
+      message:
+        '<button type="button" class="op-footer-button" data-openpost-analytics>Analytics choices</button> · Open source under AGPL-3.0-only.',
       copyright: "Copyright © 2026 OpenPost Contributors",
     },
     sidebar: {

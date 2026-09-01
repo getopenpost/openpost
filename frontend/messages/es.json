@@ -7832,5 +7832,12 @@
 	"video_editor_system_audio_inactive": "Audio del sistema solicitado pero no proporcionado — revisa la casilla de audio del navegador.",
 	"video_editor_system_audio_not_requested": "Audio del sistema desactivado.",
 	"video_editor_system_audio_requested": "Audio del sistema solicitado.",
-	"video_editor_system_audio_unavailable": "Audio del sistema no disponible."
+	"video_editor_system_audio_unavailable": "Audio del sistema no disponible.",
+	"telemetry_consent_title": "Opciones de analítica",
+	"telemetry_consent_description": "Permite cookies de analítica propias para conectar visitas y saber qué funciona. Sin cookies, OpenPost cuenta una actividad anónima limitada. Nunca usamos anuncios, grabación de sesiones ni seguimiento amplio de clics.",
+	"telemetry_consent_allow": "Permitir cookies de analítica",
+	"telemetry_consent_cookieless": "Continuar sin cookies",
+	"telemetry_consent_off": "Desactivar la analítica opcional",
+	"telemetry_consent_privacy": "Política de privacidad",
+	"telemetry_consent_preferences": "Opciones de analítica"
 }

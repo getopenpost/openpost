@@ -26,6 +26,8 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { ui } from '$lib/stores/ui.svelte';
+	import { openTelemetryPreferences } from '@openpost/telemetry';
+	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 
 	type AppearanceMode = 'system' | 'light' | 'dark';
 
@@ -249,6 +251,16 @@
 	{m.sidebar_interface_sounds()}
 </DropdownMenu.CheckboxItem>
 <LanguageSwitcher variant="menu" touchSize={showDestinations} />
+<DropdownMenu.Item
+	class={[menuItemClass, 'gap-3']}
+	onclick={() => {
+		onNavigate?.();
+		openTelemetryPreferences();
+	}}
+>
+	<SlidersHorizontalIcon class="size-4 text-muted-foreground" />
+	{m.telemetry_consent_preferences()}
+</DropdownMenu.Item>
 <DropdownMenu.Item
 	class={[menuItemClass, 'gap-3']}
 	onclick={() => {

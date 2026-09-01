@@ -8,6 +8,7 @@
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { marketingNavigation, platforms } from '../_marketing';
+	import { openTelemetryPreferences } from '@openpost/telemetry';
 
 	const groups = marketingNavigation.footerGroups.map((group) => ({
 		...group,
@@ -139,6 +140,13 @@
 							class="size-3.5"
 						/>{/if}
 					Sound
+				</button>
+				<button
+					type="button"
+					class="focus-ring inline-flex min-h-11 items-center rounded-md transition-colors hover:text-foreground"
+					onclick={openTelemetryPreferences}
+				>
+					Analytics choices
 				</button>
 				<a
 					class="focus-ring inline-flex min-h-11 items-center rounded-md transition-colors hover:text-foreground"

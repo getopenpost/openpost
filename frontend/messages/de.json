@@ -7832,5 +7832,12 @@
 	"video_editor_system_audio_inactive": "Systemaudio angefordert, aber nicht bereitgestellt — Browser-Audio-Checkbox prüfen.",
 	"video_editor_system_audio_not_requested": "Systemaudio aus.",
 	"video_editor_system_audio_requested": "Systemaudio angefordert.",
-	"video_editor_system_audio_unavailable": "Systemaudio nicht verfügbar."
+	"video_editor_system_audio_unavailable": "Systemaudio nicht verfügbar.",
+	"telemetry_consent_title": "Analyseoptionen",
+	"telemetry_consent_description": "Erlaube Analyse-Cookies von OpenPost, um Besuche zu verbinden und zu erkennen, was funktioniert. Ohne Cookies zählt OpenPost nur begrenzte anonyme Aktivitäten. Wir verwenden keine Werbung, Sitzungsaufzeichnungen oder umfassende Klickverfolgung.",
+	"telemetry_consent_allow": "Analyse-Cookies erlauben",
+	"telemetry_consent_cookieless": "Ohne Cookies fortfahren",
+	"telemetry_consent_off": "Optionale Analyse ausschalten",
+	"telemetry_consent_privacy": "Datenschutzerklärung",
+	"telemetry_consent_preferences": "Analyseoptionen"
 }

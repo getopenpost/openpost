@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import { marketingAgentMarkdownUrl, resolveMarketingSocial } from '@openpost/social-images';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
@@ -15,6 +16,7 @@
 	import MarketingFooter from './_components/MarketingFooter.svelte';
 	import MarketingNav from './_components/MarketingNav.svelte';
 	import { structuredDataForMarketingPage } from './_structured-data';
+	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
 
 	let { children } = $props();
 	const social = $derived(resolveMarketingSocial(page.url.pathname));
@@ -109,3 +111,14 @@
 	</main>
 	<MarketingFooter />
 </div>
+
+<TelemetryConsent
+	title="Analytics choices"
+	description="Allow first-party analytics cookies to connect visits and show what works. Without cookies, OpenPost counts limited anonymous activity. We never use ads, session replay, or broad click tracking."
+	allowLabel="Allow analytics cookies"
+	cookielessLabel="Continue without cookies"
+	offLabel="Turn off optional analytics"
+	privacyLabel="Privacy policy"
+	privacyHref={resolve('/privacy')}
+	closeLabel="Close"
+/>

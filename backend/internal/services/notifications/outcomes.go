@@ -59,19 +59,29 @@ func NewPublicationResultOutcome(facts PublicationResultFacts) (Outcome, error) 
 }
 
 type AccountAttentionFacts struct {
-	RecipientUserID string
-	WorkspaceID     string
-	AccountID       string
-	PublicationID   string
-	Provider        string
-	AccountLabel    string
+	RecipientUserID    string
+	WorkspaceID        string
+	AccountID          string
+	PublicationID      string
+	Provider           string
+	AccountLabel       string
+	ScheduledAtRisk    bool
+	ScheduleOccurrence string
 }
 
 func NewAccountNeedsAttentionOutcome(facts AccountAttentionFacts) (Outcome, error) {
+	eventID := facts.AccountID + ":" + facts.PublicationID
+	if occurrence := strings.TrimSpace(facts.ScheduleOccurrence); occurrence != "" {
+		eventID += ":" + occurrence
+	}
 	return newOutcome(semanticOutcome{
 		recipientID: facts.RecipientUserID, workspaceID: facts.WorkspaceID,
-		topic: TypeAccountNeedsAttention, eventID: facts.AccountID + ":" + facts.PublicationID,
-		payload: map[string]any{"account_id": facts.AccountID, "publication_id": facts.PublicationID, "provider": facts.Provider, "account_label": facts.AccountLabel},
+		topic: TypeAccountNeedsAttention, eventID: eventID,
+		payload: map[string]any{
+			"account_id": facts.AccountID, "publication_id": facts.PublicationID,
+			"provider": facts.Provider, "account_label": facts.AccountLabel,
+			"scheduled_at_risk": facts.ScheduledAtRisk,
+		},
 	})
 }
 
@@ -307,8 +317,13 @@ func materializePublicationOutcome(value semanticOutcome) (createInput, error) {
 
 func materializeAccountAttentionOutcome(value semanticOutcome) (createInput, error) {
 	input := baseOutcomeInput(value)
-	input.Title = "Connected account needs attention"
-	input.Body = "Publishing is paused until the account is reconnected."
+	if scheduledAtRisk, _ := value.payload["scheduled_at_risk"].(bool); scheduledAtRisk {
+		input.Title = "Scheduled publication at risk"
+		input.Body = "Reconnect this account before the next scheduled publication."
+	} else {
+		input.Title = "Connected account needs attention"
+		input.Body = "Publishing is paused until the account is reconnected."
+	}
 	input.Href = "/settings?tab=accounts"
 	input.Actions = []models.NotificationAction{{Label: "Reconnect account", Href: input.Href, Kind: "primary"}}
 	return input, nil

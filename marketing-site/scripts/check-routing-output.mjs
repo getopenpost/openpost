@@ -22,6 +22,10 @@ assert.equal(
 	headerLines[apiCatalogRuleIndex + 1]?.trim(),
 	'Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"'
 );
+for (const pathname of ['/.well-known/integrations.json', '/.well-known/mcp/server-card.json']) {
+	const ruleIndex = headerLines.indexOf(pathname);
+	assert.equal(headerLines[ruleIndex + 1]?.trim(), 'Content-Type: application/json; charset=utf-8');
+}
 
 const apiCatalog = JSON.parse(
 	await readFile(path.join(outputRoot, '.well-known', 'api-catalog'), 'utf8')
@@ -47,9 +51,49 @@ assert.deepEqual(apiCatalog, {
 					href: 'https://app.openpost.social/api/v1/ready',
 					type: 'application/json'
 				}
+			],
+			item: [
+				{
+					href: 'https://app.openpost.social/mcp'
+				}
 			]
 		}
 	]
+});
+
+const integrations = JSON.parse(
+	await readFile(path.join(outputRoot, '.well-known', 'integrations.json'), 'utf8')
+);
+assert.equal(integrations.version, 3);
+assert.deepEqual(
+	integrations.surfaces.map(({ type, slug }) => ({ type, slug })),
+	[
+		{ type: 'http', slug: 'api' },
+		{ type: 'mcp', slug: 'mcp' },
+		{ type: 'cli', slug: 'cli' }
+	]
+);
+assert.deepEqual(Object.keys(integrations.credentials).toSorted(), [
+	'openpost_api_token',
+	'openpost_mcp_oauth'
+]);
+assert.ok(
+	integrations.surfaces.every(
+		(surface) =>
+			surface.basis.via === 'declared' &&
+			surface.basis.source === 'https://openpost.social/.well-known/integrations.json'
+	)
+);
+
+const mcpServerCard = JSON.parse(
+	await readFile(path.join(outputRoot, '.well-known', 'mcp', 'server-card.json'), 'utf8')
+);
+assert.deepEqual(mcpServerCard, {
+	url: 'https://app.openpost.social/mcp',
+	authentication: {
+		type: 'oauth2',
+		authorization_server: 'https://app.openpost.social'
+	}
 });
 
 const authDiscovery = await readFile(path.join(outputRoot, 'auth.md'), 'utf8');

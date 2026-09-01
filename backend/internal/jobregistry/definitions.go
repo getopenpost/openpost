@@ -34,6 +34,7 @@ const (
 	TypeGrowthFollow            = "growth_follow"
 	TypePublicationBuild        = "publication_build"
 	TypeBotIngress              = "bot_ingress"
+	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -58,6 +59,7 @@ const (
 	ExecuteGrowth                ExecutionKind = "growth"
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
 	ExecuteBotIngress            ExecutionKind = "bot_ingress"
+	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -158,6 +160,11 @@ var definitions = map[string]Definition{
 		Execution: ExecuteBotIngress, Failure: FailureDefault, Recovery: RecoveryRequeue,
 		FailureMessage: "Bot event processing failed with a safe normalized error.",
 		identity:       botIngressIdentity,
+	},
+	TypeScheduledAccountCheck: {
+		Type: TypeScheduledAccountCheck, DefaultMaxAttempts: 3, Recurrence: 15 * time.Minute,
+		Execution: ExecuteScheduledAccountCheck, Failure: FailureProviderRead, Recovery: RecoveryRequeue,
+		FailureMessage: "A scheduled account check failed. OpenPost will retry without changing the account connection.",
 	},
 }
 

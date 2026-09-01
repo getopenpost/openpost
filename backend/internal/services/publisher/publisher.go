@@ -1837,7 +1837,28 @@ func (s *Service) publishProviderWithUsage(
 			return reconciler.ReconcilePublish(reconcileCtx, token, accountID, reference)
 		}
 	}
-	return providerwrite.New(s.db).Execute(ctx, input, send, reconcile)
+	var resume providerwrite.ResumeFunc
+	if resumer, ok := provider.(platform.PublishResumer); ok {
+		resume = func(resumeCtx context.Context, control *providerwrite.Control, reference string) (platform.PublishResult, error) {
+			if readinessErr := s.requireProviderWriteReadiness(resumeCtx, workspaceID, providerName, writeScope, req); readinessErr != nil {
+				return platform.PublishResult{}, readinessErr
+			}
+			if quotaErr := s.checkMonthlyQuota(resumeCtx, workspaceID, entitlements.LimitProviderWriteCallsMonthly); quotaErr != nil {
+				return platform.PublishResult{}, quotaErr
+			}
+			reservation, reserveErr := s.reserveProviderPublishCost(resumeCtx, workspaceID, providerName, subject, phase+"-resume", req)
+			if reserveErr != nil {
+				return platform.PublishResult{}, reserveErr
+			}
+			requestCopy := *req
+			control.BindPublishRequest(&requestCopy)
+			s.recordProviderWriteCall(resumeCtx, workspaceID)
+			result, resumeErr := resumer.ResumePublish(resumeCtx, token, accountID, &requestCopy, reference)
+			s.settleProviderPublishCost(resumeCtx, reservation, resumeErr)
+			return result, resumeErr
+		}
+	}
+	return providerwrite.New(s.db).Execute(ctx, input, send, reconcile, resume)
 }
 
 func (s *Service) requireProviderWriteReadiness(

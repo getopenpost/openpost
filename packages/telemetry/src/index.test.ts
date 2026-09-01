@@ -2,8 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyTelemetryRequestHeaders,
   BrowserTelemetry,
+  configureTelemetry,
+  installGlobalErrorCapture,
   type BrowserTelemetryConfig,
 } from "./index";
+
+const globalSDK = vi.hoisted(() => ({
+  init: vi.fn(),
+  capture: vi.fn(),
+  captureException: vi.fn(),
+  identify: vi.fn(),
+  register: vi.fn(),
+  reset: vi.fn(),
+  opt_out_capturing: vi.fn(),
+  get_distinct_id: vi.fn(() => "browser-user-1"),
+  get_session_id: vi.fn(() => "session-1"),
+}));
+
+vi.mock("posthog-js", () => ({ default: globalSDK }));
 
 class FakeSDK {
   initialized: Array<{ token: string; options: Record<string, unknown> }> = [];
@@ -282,7 +298,17 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).not.toContain("https://example.com");
   });
 
-  it("redacts raw stack URLs while retaining safe source-map asset paths", () => {
+  it("keeps the browser event type when a rejection is not an Error", () => {
+    const sdk = new FakeSDK();
+    const subject = new BrowserTelemetry(sdk, () => true);
+    subject.configure(configuredApp);
+
+    subject.captureException(new Event("error"));
+
+    expect(sdk.exceptions[0]?.error.message).toBe("Event: error");
+  });
+
+  it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
     const sdk = new FakeSDK();
     const subject = new BrowserTelemetry(sdk, () => true);
     subject.configure(configuredApp);
@@ -296,9 +322,8 @@ describe("BrowserTelemetry", () => {
     subject.captureException(error);
 
     const stack = sdk.exceptions[0]?.error.stack ?? "";
-    expect(stack).toContain("/_app/immutable/chunks/app.ABC123.js:12:3");
+    expect(stack).toContain("https://app.openpost.social/_app/immutable/chunks/app.ABC123.js:12:3");
     expect(stack).toContain("[redacted-url]");
-    expect(stack).not.toContain("app.openpost.social");
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");
   });
@@ -312,5 +337,30 @@ describe("BrowserTelemetry", () => {
     expect(headers.get("Authorization")).toBe("Bearer token");
     expect(headers.get("X-PostHog-Distinct-ID")).toBe("browser-user-1");
     expect(headers.get("X-PostHog-Session-ID")).toBe("session-1");
+  });
+});
+
+describe("installGlobalErrorCapture", () => {
+  it("does not report an error already handled by an earlier listener", () => {
+    const runtime = new EventTarget();
+    vi.stubGlobal("window", runtime);
+    try {
+      configureTelemetry(configuredApp);
+      runtime.addEventListener("error", (event) => event.preventDefault());
+      const removeCapture = installGlobalErrorCapture();
+      const event = new Event("error", { cancelable: true }) as Event & {
+        error: Error;
+        message: string;
+      };
+      event.error = new Error("Importing a module script failed.");
+      event.message = event.error.message;
+
+      runtime.dispatchEvent(event);
+
+      expect(globalSDK.captureException).not.toHaveBeenCalled();
+      removeCapture();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

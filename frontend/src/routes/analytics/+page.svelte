@@ -33,7 +33,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
-	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import {
 		analyticsSourceLabelKey,
 		appendAnalyticsContentPage,
@@ -364,9 +364,13 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return formatSocialAccountName(account.username, account.platform) || account.platform;
 	}
 
+	function accountLabel(account: AnalyticsAccount): string {
+		return formatSocialAccountLabel(account.username, account.platform);
+	}
+
 	function accountFilterLabel(account: AnalyticsAccount | undefined): string {
 		if (!account) return m.analytics_account_filter();
-		return `${m.analytics_account_filter()}: ${accountName(account)}, ${getPlatformName(account.platform)}`;
+		return `${m.analytics_account_filter()}: ${accountLabel(account)}`;
 	}
 
 	function renditionName(rendition: AnalyticsContent): string {
@@ -510,7 +514,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 	function coverageAccount(coverage: AccountDiscoveryCoverage) {
 		const account = accounts.find((candidate) => candidate.id === coverage.account_id);
-		return account ? accountName(account) : getPlatformName(coverage.platform);
+		return account ? accountLabel(account) : getPlatformName(coverage.platform);
 	}
 
 	function contentIdentity(item: AnalyticsContent) {
@@ -559,13 +563,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		}
 		if (insight.kind === 'follower_decline') {
 			return m.analytics_insight_follower_decline_body({
-				account: insightAccountName(insight),
 				count: formatNumber(Math.abs(insight.value))
 			});
 		}
 		if (insight.kind === 'strongest_measured_destination') {
 			return m.analytics_insight_top_destination_body({
-				account: insightAccountName(insight),
 				engagement: formatNumber(insight.value)
 			});
 		}
@@ -591,6 +593,21 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			formatSocialAccountName(insight.username ?? '', insight.platform ?? '') ||
 			getPlatformName(insight.platform ?? '')
 		);
+	}
+
+	function insightIdentity(insight: AnalyticsInsight) {
+		if (
+			!insightHasRanking(insight) ||
+			(insight.kind !== 'strongest_measured_destination' && insight.kind !== 'follower_decline')
+		) {
+			return undefined;
+		}
+		const account = accounts.find((candidate) => candidate.id === insight.account_id);
+		return {
+			name: account ? accountName(account) : insightAccountName(insight),
+			platform: account?.platform ?? insight.platform ?? '',
+			avatarUrl: account?.avatar_url
+		};
 	}
 
 	function insightSample(insight: AnalyticsInsight) {
@@ -752,7 +769,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			{#each accountsNeedingReconnect as account (account.id)}
 				<InlineNotice
 					tone="warning"
-					message={`${accountName(account)}: ${account.error_message || m.analytics_permission_required()}`}
+					message={`${accountLabel(account)}: ${account.error_message || m.analytics_permission_required()}`}
 				>
 					{#snippet actions()}
 						<Button href="/settings?tab=accounts" variant="outline" size="sm"
@@ -930,7 +947,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							{chartDescription}
 							{#if selectedAccount}
 								<span>
-									{m.analytics_filtered_to_account({ account: accountName(selectedAccount) })}</span
+									{m.analytics_filtered_to_account({
+										account: accountLabel(selectedAccount)
+									})}</span
 								>
 							{/if}
 						</p>
@@ -1043,12 +1062,23 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					</div>
 					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-4">
 						{#each analyticsInsights as insight (insight.kind)}
+							{@const identity = insightIdentity(insight)}
 							<article
 								class="min-w-0 bg-card p-4"
 								data-testid={`analytics-insight-${insight.kind}`}
 							>
 								<p class="text-sm font-semibold">{insightTitle(insight)}</p>
-								<p class="mt-1 text-sm leading-5 text-muted-foreground">{insightBody(insight)}</p>
+								{#if identity}
+									<SocialAccountIdentity
+										class="mt-2"
+										name={identity.name}
+										platform={identity.platform}
+										avatarUrl={identity.avatarUrl}
+										detail={insightBody(insight)}
+									/>
+								{:else}
+									<p class="mt-1 text-sm leading-5 text-muted-foreground">{insightBody(insight)}</p>
+								{/if}
 								<details class="group mt-2 border-t border-border pt-1">
 									<summary
 										class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -1130,7 +1160,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{selectedAccount
-								? m.analytics_content_for_account({ account: accountName(selectedAccount) })
+								? m.analytics_content_for_account({ account: accountLabel(selectedAccount) })
 								: m.analytics_content_description()}
 						</p>
 					</div>
@@ -1191,7 +1221,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					<div class="overflow-hidden rounded-xl border border-border">
 						<div
 							data-testid="analytics-content-table-header"
-							class="hidden grid-cols-[minmax(0,2fr)_minmax(9rem,1fr)_6rem_6rem_7.5rem_auto] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground md:grid"
+							class="analytics-content-grid analytics-content-table-header hidden gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground"
 							aria-hidden="true"
 						>
 							<span>{m.analytics_table_post()}</span>
@@ -1207,9 +1237,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								{@const expanded = expandedContentID === id}
 								{@const itemEvidence = metricEvidence(item)}
 								<article data-testid="analytics-content-row">
-									<div
-										class="grid min-w-0 gap-4 px-4 py-4 md:grid-cols-[minmax(0,2fr)_minmax(9rem,1fr)_6rem_6rem_7.5rem_auto] md:items-center"
-									>
+									<div class="analytics-content-grid grid min-w-0 gap-4 px-4 py-4">
 										<div class="min-w-0">
 											{#if item.reference.type === 'openpost' && item.reference.publication_id}
 												<a
@@ -1222,11 +1250,14 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											{:else}
 												<p class="line-clamp-2 font-medium">{contentLabel(item)}</p>
 											{/if}
-											<p class="mt-1 text-xs text-muted-foreground md:hidden">
+											<p class="analytics-mobile-date mt-1 text-xs text-muted-foreground">
 												{formatDate(item.published_at)}
 											</p>
 										</div>
-										<div class="flex min-w-0 items-center gap-2 text-sm">
+										<div
+											class="flex min-w-0 items-center gap-2 text-sm"
+											data-testid="analytics-row-destinations"
+										>
 											<span
 												class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background"
 											>
@@ -1240,10 +1271,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												>
 											</span>
 										</div>
-										<div
-											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
-										>
-											<span class="text-xs text-muted-foreground md:hidden"
+										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_summary_engagement()}</span
 											>
 											<span class="font-medium tabular-nums"
@@ -1252,10 +1281,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													: '—'}</span
 											>
 										</div>
-										<div
-											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
-										>
-											<span class="text-xs text-muted-foreground md:hidden"
+										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_views()}</span
 											>
 											<span class="font-medium tabular-nums"
@@ -1264,12 +1291,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													: semanticMetricValue(item, 'views', item.metrics.views)}</span
 											>
 										</div>
-										<div class="hidden text-sm text-muted-foreground md:block">
+										<div class="analytics-published hidden text-sm text-muted-foreground">
+											<span class="analytics-row-label">{m.analytics_table_published()}: </span>
 											{formatDate(item.published_at)}
 										</div>
-										<div
-											class="flex min-h-11 w-full items-center gap-1 md:w-auto md:justify-self-end"
-										>
+										<div class="analytics-actions flex min-h-11 w-full items-center gap-1">
 											<Button
 												size="sm"
 												class="min-h-11 flex-1 md:flex-none"
@@ -1412,3 +1438,47 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		</div>
 	{/if}
 </PageContainer>
+
+<style>
+	@container (min-width: 60rem) {
+		.analytics-content-grid {
+			grid-template-columns:
+				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
+				14rem;
+			align-items: center;
+		}
+
+		.analytics-content-table-header {
+			display: grid;
+		}
+
+		.analytics-mobile-date {
+			display: none;
+		}
+
+		.analytics-metric {
+			display: block;
+			text-align: end;
+		}
+
+		.analytics-published {
+			display: block;
+		}
+
+		.analytics-row-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		.analytics-actions {
+			justify-self: stretch;
+		}
+	}
+</style>

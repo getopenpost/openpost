@@ -109,16 +109,30 @@ func mergeOverviewContentSummary(
 	return contentSummary
 }
 
+func decodeCanonicalOverviewCursorPart(value string) ([]byte, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil || base64.RawURLEncoding.EncodeToString(decoded) != value {
+		return nil, ErrInvalidOverviewCursor
+	}
+	return decoded, nil
+}
+
 func (s *Service) decodeSignedOverviewCursor(workspaceID string, options OverviewOptions, days int) (overviewCursor, error) {
 	parts := strings.Split(options.Cursor, ".")
 	if len(parts) != 2 {
 		return overviewCursor{}, ErrInvalidOverviewCursor
 	}
-	decoded, err := base64.RawURLEncoding.DecodeString(parts[0])
-	providedSignature, signatureErr := base64.RawURLEncoding.DecodeString(parts[1])
+	decoded, err := decodeCanonicalOverviewCursorPart(parts[0])
+	if err != nil {
+		return overviewCursor{}, ErrInvalidOverviewCursor
+	}
+	providedSignature, err := decodeCanonicalOverviewCursorPart(parts[1])
+	if err != nil {
+		return overviewCursor{}, ErrInvalidOverviewCursor
+	}
 	expectedSignature := hmac.New(sha256.New, s.cursorSigningKey)
 	_, _ = expectedSignature.Write(decoded)
-	if err != nil || signatureErr != nil || !hmac.Equal(providedSignature, expectedSignature.Sum(nil)) {
+	if !hmac.Equal(providedSignature, expectedSignature.Sum(nil)) {
 		return overviewCursor{}, ErrInvalidOverviewCursor
 	}
 	var cursor overviewCursor

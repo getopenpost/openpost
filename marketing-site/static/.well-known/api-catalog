@@ -19,6 +19,11 @@
           "href": "https://app.openpost.social/api/v1/ready",
           "type": "application/json"
         }
+      ],
+      "item": [
+        {
+          "href": "https://app.openpost.social/mcp"
+        }
       ]
     }
   ]

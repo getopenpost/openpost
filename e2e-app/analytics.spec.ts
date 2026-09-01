@@ -724,7 +724,57 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   const launch = contentRows.filter({ hasText: "Launch notes" });
   const walkthrough = contentRows.filter({ hasText: "Product walkthrough" });
   const externalUpdate = contentRows.filter({ hasText: "Published elsewhere update" });
+  const tableHeader = page.getByTestId("analytics-content-table-header");
+  await expect(tableHeader).toBeVisible();
+  const [postHeader, destinationsHeader, engagementHeader, viewsHeader, publishedHeader] =
+    await Promise.all(
+      [
+        tableHeader.getByText("Post", { exact: true }),
+        tableHeader.getByText("Destinations", { exact: true }),
+        tableHeader.getByText("Engagement", { exact: true }),
+        tableHeader.getByText("Views", { exact: true }),
+        tableHeader.getByText("Published", { exact: true }),
+      ].map((locator) => locator.boundingBox()),
+    );
+  const [postValue, destinationsValue, engagementValue, viewsValue, publishedValue] =
+    await Promise.all(
+      [
+        launch.getByRole("link", { name: "Launch notes" }),
+        launch.getByTestId("analytics-row-destinations"),
+        launch.getByText("58", { exact: true }),
+        launch.getByText("—", { exact: true }),
+        launch.locator(".analytics-published"),
+      ].map((locator) => locator.boundingBox()),
+    );
+  for (const box of [
+    postHeader,
+    destinationsHeader,
+    engagementHeader,
+    viewsHeader,
+    publishedHeader,
+    postValue,
+    destinationsValue,
+    engagementValue,
+    viewsValue,
+    publishedValue,
+  ]) {
+    expect(box).not.toBeNull();
+  }
+  expect(Math.abs(postHeader!.x - postValue!.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(destinationsHeader!.x - destinationsValue!.x)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      engagementHeader!.x + engagementHeader!.width - engagementValue!.x - engagementValue!.width,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(viewsHeader!.x + viewsHeader!.width - viewsValue!.x - viewsValue!.width),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(publishedHeader!.x - publishedValue!.x)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath("analytics-1280-overview.png") });
+  await page.getByRole("heading", { name: "Post results" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("analytics-1280-results.png") });
+  await page.getByRole("heading", { name: "Analytics" }).scrollIntoViewIfNeeded();
   await expect(launch.getByText("58", { exact: true })).toBeVisible();
   await expect(walkthrough.getByText("5.1K")).toBeVisible();
   await expect(walkthrough.getByText("—", { exact: true })).toBeVisible();
@@ -781,9 +831,9 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "All content", exact: true }).click();
   await expect.poll(() => requestedSources.at(-1)).toBe("all");
-  await walkthrough.getByRole("button", { name: "Show platform details" }).click();
+  await walkthrough.getByRole("button", { name: "Show destination details" }).click();
   await expect(walkthrough.getByText("Published with OpenPost", { exact: true })).toBeVisible();
-  await expect(walkthrough.getByRole("button", { name: "Hide platform details" })).toBeVisible();
+  await expect(walkthrough.getByRole("button", { name: "Hide destination details" })).toBeVisible();
   const youtubeNativePost = walkthrough.getByRole("link", {
     name: "Open post on platform",
   });
@@ -792,7 +842,7 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
     "https://www.youtube.com/watch?v=video-1",
   );
   await expect(youtubeNativePost).toHaveAttribute("target", "_blank");
-  await launch.getByRole("button", { name: "Show platform details" }).click();
+  await launch.getByRole("button", { name: "Show destination details" }).click();
   await expect(launch.getByText("Impressions", { exact: true })).toBeVisible();
   await expect(launch.getByText("8.8K", { exact: true })).toBeVisible();
   await expect(launch.getByText("Availability: Available", { exact: true }).first()).toBeVisible();
@@ -844,14 +894,16 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   });
   await page.keyboard.press("Escape");
   await expect(
-    page.getByText("@video: Reconnect this account to grant: user.info.stats."),
+    page.getByText("@video · TikTok: Reconnect this account to grant: user.info.stats."),
   ).toBeVisible();
   const reconnectNotice = page
     .locator('[data-slot="inline-notice"]')
-    .filter({ hasText: "@video: Reconnect this account to grant: user.info.stats." });
+    .filter({ hasText: "@video · TikTok: Reconnect this account to grant: user.info.stats." });
   const [reconnectMessageBox, reconnectActionBox] = await Promise.all([
     reconnectNotice
-      .getByText("@video: Reconnect this account to grant: user.info.stats.", { exact: true })
+      .getByText("@video · TikTok: Reconnect this account to grant: user.info.stats.", {
+        exact: true,
+      })
       .boundingBox(),
     reconnectNotice.getByRole("link", { name: "Manage accounts" }).boundingBox(),
   ]);

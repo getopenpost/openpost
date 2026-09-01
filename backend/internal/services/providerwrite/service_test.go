@@ -355,6 +355,39 @@ func TestDeliveryProjectionTracksProcessingReconciliationAndLiveState(t *testing
 	require.Equal(t, fixedNow, delivery.LastReconciledAt)
 }
 
+func TestResumePersistsCheckpointBeforeReturningPending(t *testing.T) {
+	db := newProviderDeliveryTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "resume-checkpoint")
+
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "create", RetrySafety: platform.PublishRetryNever}))
+		return platform.PublishResult{
+			SubmissionState: platform.PublishSubmissionPending,
+			ProviderState:   "container_ready", ProviderReference: "ig1:f:container-1",
+			RetrySafety: platform.PublishRetryReconcileOnly,
+		}, nil
+	}, nil)
+	_, pending := IsPending(err)
+	require.True(t, pending)
+
+	_, err = service.Execute(t.Context(), input, nilSafeSend, nil, func(_ context.Context, control *Control, reference string) (platform.PublishResult, error) {
+		require.Equal(t, "ig1:f:container-1", reference)
+		result := platform.PublishResult{
+			SubmissionState: platform.PublishSubmissionPending,
+			ProviderState:   "publish_started", ProviderReference: "ig1:p:container-1",
+			RetrySafety: platform.PublishRetryReconcileOnly,
+		}
+		require.NoError(t, control.Checkpoint(result))
+		return result, nil
+	})
+	_, pending = IsPending(err)
+	require.True(t, pending)
+	stored := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, "publish_started", stored.ProviderState)
+	require.Equal(t, "ig1:p:container-1", stored.ProviderReference)
+}
+
 func TestOlderAttemptCannotOverwriteNewerDeliveryProjection(t *testing.T) {
 	db := newProviderDeliveryTestDB(t)
 	service := New(db)

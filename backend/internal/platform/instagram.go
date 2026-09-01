@@ -15,9 +15,27 @@ import (
 
 const (
 	instagramCheckpointPrefix         = "ig1:"
-	instagramCheckpointProviderState  = "instagram_container_processing"
-	instagramPublishedProviderState   = "instagram_container_published"
+	instagramCheckpointFinalKind      = "f"
+	instagramCheckpointPublishKind    = "p"
+	instagramCheckpointCarouselKind   = "c"
+	instagramCheckpointChildPostKind  = "d"
+	instagramCheckpointParentPostKind = "a"
+	instagramCheckpointStoryKind      = "s"
+	instagramCheckpointStoryMakeKind  = "u"
+	instagramCheckpointStoryPostKind  = "t"
+	instagramFinalProviderState       = "instagram:v1:final_container"
+	instagramPublishProviderState     = "instagram:v1:publish_started"
+	instagramCarouselProviderState    = "instagram:v1:carousel_children"
+	instagramChildPostProviderState   = "instagram:v1:carousel_child_create_started"
+	instagramParentPostProviderState  = "instagram:v1:carousel_parent_create_started"
+	instagramStoryProviderState       = "instagram:v1:story_sequence"
+	instagramStoryMakeProviderState   = "instagram:v1:story_container_create_started"
+	instagramStoryPostProviderState   = "instagram:v1:story_publish_started"
+	instagramPublishedProviderState   = "instagram:v1:published"
 	instagramCheckpointReconcileDelay = 10 * time.Second
+	instagramCheckpointMissingValue   = "-"
+	instagramUnknownPublishedIDPrefix = "~"
+	instagramCheckpointIDMaxLength    = 48
 )
 
 type InstagramAdapter struct {
@@ -271,10 +289,13 @@ func (i *InstagramAdapter) publish(ctx context.Context, accessToken, instagramUs
 	if err != nil {
 		return "", err
 	}
-	if err := checkpointInstagramContainer(req, containerID); err != nil {
+	if err := checkpointInstagramFinalContainer(req, containerID); err != nil {
 		return "", err
 	}
 	if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
+		return "", err
+	}
+	if err := checkpointInstagramPublishIntent(req, containerID); err != nil {
 		return "", err
 	}
 	return i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
@@ -390,15 +411,74 @@ func (i *InstagramAdapter) publishCarousel(ctx context.Context, accessToken, ins
 	}
 	childIDs := make([]string, 0, len(req.PlatformMediaIDs))
 	for index, mediaURL := range req.PlatformMediaIDs {
+		if err := req.Checkpoint(pendingInstagramCarouselCreateResult(childIDs)); err != nil {
+			return "", err
+		}
 		childID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", mediaURL, isVideoMime(req.Media[index].MimeType), true, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
 		if err != nil {
+			return "", err
+		}
+		childIDs = append(childIDs, childID)
+		if err := req.Checkpoint(pendingInstagramCarouselResult(childIDs)); err != nil {
 			return "", err
 		}
 		if err := i.waitForContainer(ctx, accessToken, childID); err != nil {
 			return "", err
 		}
-		childIDs = append(childIDs, childID)
 	}
+	if err := req.Checkpoint(pendingInstagramCarouselParentResult(childIDs)); err != nil {
+		return "", err
+	}
+	containerID, err := i.createCarouselContainer(ctx, accessToken, instagramUserID, req, childIDs)
+	if err != nil {
+		return "", err
+	}
+	if err := checkpointInstagramFinalContainer(req, containerID); err != nil {
+		return "", err
+	}
+	if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
+		return "", err
+	}
+	if err := checkpointInstagramPublishIntent(req, containerID); err != nil {
+		return "", err
+	}
+	return i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
+}
+
+func (i *InstagramAdapter) publishStories(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) (string, error) {
+	ids := make([]string, 0, len(req.PlatformMediaIDs))
+	for index, mediaURL := range req.PlatformMediaIDs {
+		if err := req.Checkpoint(pendingInstagramStoryCreateResult(index, ids)); err != nil {
+			return "", err
+		}
+		containerID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", mediaURL, isVideoMime(req.Media[index].MimeType), false, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
+		if err != nil {
+			return "", err
+		}
+		if err := req.Checkpoint(pendingInstagramStoryResult(index, ids, containerID)); err != nil {
+			return "", err
+		}
+		if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
+			return "", err
+		}
+		if err := req.Checkpoint(pendingInstagramStoryPublishResult(index, ids, containerID)); err != nil {
+			return "", err
+		}
+		publishedID, err := i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
+		if err != nil {
+			return "", err
+		}
+		ids = append(ids, publishedID)
+		if index+1 < len(req.PlatformMediaIDs) {
+			if err := req.Checkpoint(pendingInstagramStoryResult(index+1, ids, "")); err != nil {
+				return "", err
+			}
+		}
+	}
+	return strings.Join(ids, ","), nil
+}
+
+func (i *InstagramAdapter) createCarouselContainer(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, childIDs []string) (string, error) {
 	values := map[string]string{
 		"media_type":          "CAROUSEL",
 		"children":            strings.Join(childIDs, ","),
@@ -415,41 +495,7 @@ func (i *InstagramAdapter) publishCarousel(ctx context.Context, accessToken, ins
 	if err != nil {
 		return "", fmt.Errorf("instagram carousel container: %w", err)
 	}
-	containerID, err := instagramIDFromResponse("instagram carousel container", respBody)
-	if err != nil {
-		return "", err
-	}
-	if err := checkpointInstagramContainer(req, containerID); err != nil {
-		return "", err
-	}
-	if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
-		return "", err
-	}
-	return i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
-}
-
-func (i *InstagramAdapter) publishStories(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) (string, error) {
-	ids := make([]string, 0, len(req.PlatformMediaIDs))
-	for index, mediaURL := range req.PlatformMediaIDs {
-		containerID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", mediaURL, isVideoMime(req.Media[index].MimeType), false, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
-		if err != nil {
-			return "", err
-		}
-		if len(req.PlatformMediaIDs) == 1 {
-			if err := checkpointInstagramContainer(req, containerID); err != nil {
-				return "", err
-			}
-		}
-		if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
-			return "", err
-		}
-		publishedID, err := i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
-		if err != nil {
-			return "", err
-		}
-		ids = append(ids, publishedID)
-	}
-	return strings.Join(ids, ","), nil
+	return instagramIDFromResponse("instagram carousel container", respBody)
 }
 
 func instagramIsStory(req *PublishRequest) bool {
@@ -612,72 +658,414 @@ func (i *InstagramAdapter) containerStatus(ctx context.Context, accessToken, con
 	return strings.ToUpper(strings.TrimSpace(statusResp.StatusCode)), nil
 }
 
-func checkpointInstagramContainer(req *PublishRequest, containerID string) error {
-	return req.Checkpoint(pendingInstagramContainerResult(containerID))
+type instagramPublishCheckpoint struct {
+	kind         string
+	containerID  string
+	references   []string
+	currentIndex int
 }
 
-func pendingInstagramContainerResult(containerID string) PublishResult {
+func checkpointInstagramFinalContainer(req *PublishRequest, containerID string) error {
+	return req.Checkpoint(pendingInstagramFinalResult(containerID))
+}
+
+func checkpointInstagramPublishIntent(req *PublishRequest, containerID string) error {
+	return req.Checkpoint(pendingInstagramPublishResult(containerID))
+}
+
+func pendingInstagramFinalResult(containerID string) PublishResult {
+	return pendingInstagramResult(
+		instagramFinalProviderState,
+		instagramCheckpointPrefix+instagramCheckpointFinalKind+":"+strings.TrimSpace(containerID),
+	)
+}
+
+func pendingInstagramPublishResult(containerID string) PublishResult {
+	return pendingInstagramResult(
+		instagramPublishProviderState,
+		instagramCheckpointPrefix+instagramCheckpointPublishKind+":"+strings.TrimSpace(containerID),
+	)
+}
+
+func pendingInstagramCarouselResult(childIDs []string) PublishResult {
+	return pendingInstagramCarouselStageResult(instagramCheckpointCarouselKind, instagramCarouselProviderState, childIDs)
+}
+
+func pendingInstagramCarouselCreateResult(childIDs []string) PublishResult {
+	return pendingInstagramCarouselStageResult(instagramCheckpointChildPostKind, instagramChildPostProviderState, childIDs)
+}
+
+func pendingInstagramCarouselParentResult(childIDs []string) PublishResult {
+	return pendingInstagramCarouselStageResult(instagramCheckpointParentPostKind, instagramParentPostProviderState, childIDs)
+}
+
+func pendingInstagramCarouselStageResult(kind, providerState string, childIDs []string) PublishResult {
+	references := strings.Join(childIDs, ",")
+	if references == "" {
+		references = instagramCheckpointMissingValue
+	}
+	return pendingInstagramResult(providerState, instagramCheckpointPrefix+kind+":"+references)
+}
+
+func pendingInstagramStoryResult(currentIndex int, publishedIDs []string, containerID string) PublishResult {
+	return pendingInstagramStoryStageResult(instagramCheckpointStoryKind, instagramStoryProviderState, currentIndex, publishedIDs, containerID)
+}
+
+func pendingInstagramStoryCreateResult(currentIndex int, publishedIDs []string) PublishResult {
+	return pendingInstagramStoryStageResult(instagramCheckpointStoryMakeKind, instagramStoryMakeProviderState, currentIndex, publishedIDs, "")
+}
+
+func pendingInstagramStoryPublishResult(currentIndex int, publishedIDs []string, containerID string) PublishResult {
+	return pendingInstagramStoryStageResult(instagramCheckpointStoryPostKind, instagramStoryPostProviderState, currentIndex, publishedIDs, containerID)
+}
+
+func pendingInstagramStoryStageResult(kind, providerState string, currentIndex int, publishedIDs []string, containerID string) PublishResult {
+	published := strings.Join(publishedIDs, ",")
+	if published == "" {
+		published = instagramCheckpointMissingValue
+	}
+	containerID = strings.TrimSpace(containerID)
+	if containerID == "" {
+		containerID = instagramCheckpointMissingValue
+	}
+	return pendingInstagramResult(
+		providerState,
+		fmt.Sprintf("%s%s:%d:%s:%s", instagramCheckpointPrefix, kind, currentIndex, published, containerID),
+	)
+}
+
+func pendingInstagramResult(providerState, providerReference string) PublishResult {
 	return PublishResult{
 		SubmissionState:   PublishSubmissionPending,
-		ProviderState:     instagramCheckpointProviderState,
-		ProviderReference: instagramCheckpointPrefix + strings.TrimSpace(containerID),
+		ProviderState:     providerState,
+		ProviderReference: providerReference,
 		RetrySafety:       PublishRetryReconcileOnly,
 		ReconcileAfter:    instagramCheckpointReconcileDelay,
 	}
 }
 
-func instagramCheckpointContainerID(providerReference string) (string, error) {
+func parseInstagramPublishCheckpoint(providerReference string) (instagramPublishCheckpoint, error) {
 	providerReference = strings.TrimSpace(providerReference)
 	if !strings.HasPrefix(providerReference, instagramCheckpointPrefix) {
-		return "", fmt.Errorf("instagram publish reconciliation requires a versioned container reference")
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram publish reconciliation requires a versioned checkpoint")
 	}
-	containerID := strings.TrimPrefix(providerReference, instagramCheckpointPrefix)
-	if containerID == "" || strings.ContainsAny(containerID, ":,/?#\r\n\t") {
-		return "", fmt.Errorf("instagram publish reconciliation container reference is invalid")
+	value := strings.TrimPrefix(providerReference, instagramCheckpointPrefix)
+	if !strings.Contains(value, ":") {
+		if err := validateInstagramCheckpointID(value); err != nil {
+			return instagramPublishCheckpoint{}, err
+		}
+		return instagramPublishCheckpoint{kind: instagramCheckpointFinalKind, containerID: value}, nil
 	}
-	return containerID, nil
+	kind, payload, _ := strings.Cut(value, ":")
+	switch kind {
+	case instagramCheckpointFinalKind, instagramCheckpointPublishKind:
+		if err := validateInstagramCheckpointID(payload); err != nil {
+			return instagramPublishCheckpoint{}, err
+		}
+		return instagramPublishCheckpoint{kind: kind, containerID: payload}, nil
+	case instagramCheckpointCarouselKind, instagramCheckpointChildPostKind, instagramCheckpointParentPostKind:
+		return parseInstagramCarouselCheckpoint(kind, payload)
+	case instagramCheckpointStoryKind, instagramCheckpointStoryMakeKind, instagramCheckpointStoryPostKind:
+		return parseInstagramStoryCheckpoint(kind, payload)
+	default:
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram publish checkpoint version or stage is unsupported")
+	}
 }
 
-func (i *InstagramAdapter) ReconcilePublish(ctx context.Context, accessToken, instagramUserID, providerReference string) (PublishResult, error) {
-	containerID, err := instagramCheckpointContainerID(providerReference)
+func parseInstagramCarouselCheckpoint(kind, payload string) (instagramPublishCheckpoint, error) {
+	var references []string
+	var err error
+	if payload != instagramCheckpointMissingValue {
+		references, err = parseInstagramCheckpointIDs(payload)
+	}
+	if err != nil || (kind == instagramCheckpointCarouselKind && len(references) == 0) || len(references) > 10 {
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram carousel checkpoint is invalid")
+	}
+	return instagramPublishCheckpoint{kind: kind, references: references}, nil
+}
+
+func parseInstagramStoryCheckpoint(kind, payload string) (instagramPublishCheckpoint, error) {
+	parts := strings.Split(payload, ":")
+	if len(parts) != 3 {
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram story checkpoint is invalid")
+	}
+	currentIndex, err := strconv.Atoi(parts[0])
+	if err != nil || currentIndex < 0 || currentIndex > 9 {
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram story checkpoint index is invalid")
+	}
+	references, err := parseOptionalInstagramCheckpointIDs(parts[1])
+	if err != nil {
+		return instagramPublishCheckpoint{}, fmt.Errorf("instagram story checkpoint media ids are invalid")
+	}
+	containerID := ""
+	if parts[2] != instagramCheckpointMissingValue {
+		containerID = parts[2]
+		if err := validateInstagramCheckpointID(containerID); err != nil {
+			return instagramPublishCheckpoint{}, err
+		}
+	}
+	return instagramPublishCheckpoint{kind: kind, references: references, currentIndex: currentIndex, containerID: containerID}, nil
+}
+
+func parseOptionalInstagramCheckpointIDs(value string) ([]string, error) {
+	if value == instagramCheckpointMissingValue {
+		return nil, nil
+	}
+	return parseInstagramCheckpointIDs(value)
+}
+
+func parseInstagramCheckpointIDs(value string) ([]string, error) {
+	values := strings.Split(value, ",")
+	for _, candidate := range values {
+		if err := validateInstagramCheckpointID(candidate); err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+func validateInstagramCheckpointID(value string) error {
+	rawValue := strings.TrimPrefix(value, instagramUnknownPublishedIDPrefix)
+	if rawValue == "" || len(rawValue) > instagramCheckpointIDMaxLength || strings.ContainsAny(rawValue, ":,/?#\r\n\t") {
+		return fmt.Errorf("instagram publish checkpoint contains an invalid provider id")
+	}
+	return nil
+}
+
+func (i *InstagramAdapter) ResumePublish(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, providerReference string) (PublishResult, error) {
+	checkpoint, err := parseInstagramPublishCheckpoint(providerReference)
 	if err != nil {
 		return PublishResult{SubmissionState: PublishSubmissionRejected, RetrySafety: PublishRetryNever}, err
 	}
-	pending := pendingInstagramContainerResult(containerID)
-	status, err := i.containerStatus(ctx, accessToken, containerID)
+	switch checkpoint.kind {
+	case instagramCheckpointFinalKind, instagramCheckpointPublishKind:
+		return i.resumeFinalContainer(ctx, accessToken, instagramUserID, req, checkpoint)
+	case instagramCheckpointCarouselKind, instagramCheckpointChildPostKind, instagramCheckpointParentPostKind:
+		return i.resumeCarousel(ctx, accessToken, instagramUserID, req, checkpoint)
+	case instagramCheckpointStoryKind, instagramCheckpointStoryMakeKind, instagramCheckpointStoryPostKind:
+		return i.resumeStorySequence(ctx, accessToken, instagramUserID, req, checkpoint)
+	default:
+		return PublishResult{SubmissionState: PublishSubmissionRejected, RetrySafety: PublishRetryNever}, fmt.Errorf("instagram publish checkpoint stage is unsupported")
+	}
+}
+
+func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, checkpoint instagramPublishCheckpoint) (PublishResult, error) {
+	pending := pendingInstagramFinalResult(checkpoint.containerID)
+	if checkpoint.kind == instagramCheckpointPublishKind {
+		pending = pendingInstagramPublishResult(checkpoint.containerID)
+	}
+	status, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
 	if err != nil {
 		return pending, normalizeMetaPublishError(err)
 	}
 	switch status {
 	case "FINISHED":
-		externalID, publishErr := i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
+		if checkpoint.kind == instagramCheckpointPublishKind {
+			return pending, nil
+		}
+		if err := checkpointInstagramPublishIntent(req, checkpoint.containerID); err != nil {
+			return pending, err
+		}
+		pending = pendingInstagramPublishResult(checkpoint.containerID)
+		externalID, publishErr := i.publishMediaContainer(ctx, accessToken, instagramUserID, checkpoint.containerID)
 		if publishErr != nil {
 			publishErr = normalizeMetaPublishError(publishErr)
 			var providerErr *HTTPError
 			if errors.As(publishErr, &providerErr) && providerErr.StatusCode >= 400 && providerErr.StatusCode < 500 && providerErr.StatusCode != http.StatusRequestTimeout && providerErr.StatusCode != http.StatusTooManyRequests {
-				return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderReference: providerReference, RetrySafety: PublishRetryNever}, publishErr
+				return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderState: instagramFinalProviderState, ProviderReference: pending.ProviderReference, RetrySafety: PublishRetryNever}, publishErr
 			}
 			return pending, publishErr
 		}
 		result := AcceptedPublishResult(externalID)
 		result.ProviderState = instagramPublishedProviderState
-		result.ProviderReference = providerReference
+		result.ProviderReference = pending.ProviderReference
 		return result, nil
 	case "PUBLISHED":
-		result := AcceptedPublishResult(containerID)
+		result := AcceptedPublishResult("")
 		result.ProviderState = instagramPublishedProviderState
-		result.ProviderReference = providerReference
+		result.ProviderReference = pending.ProviderReference
 		return result, nil
 	case "ERROR", "EXPIRED":
 		return PublishResult{
 			SubmissionState:   PublishSubmissionRejected,
-			ProviderState:     instagramCheckpointProviderState,
-			ProviderReference: providerReference,
+			ProviderState:     instagramFinalProviderState,
+			ProviderReference: pending.ProviderReference,
 			RetrySafety:       PublishRetryNever,
 		}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
 	default:
 		return pending, nil
 	}
+}
+
+func (i *InstagramAdapter) resumeCarousel(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, checkpoint instagramPublishCheckpoint) (PublishResult, error) {
+	pending := pendingInstagramCarouselCheckpoint(checkpoint)
+	if err := validateInstagramCarouselCheckpoint(req, checkpoint); err != nil {
+		return rejectedInstagramCheckpoint(pending, err.Error())
+	}
+	for _, childID := range checkpoint.references {
+		status, err := i.containerStatus(ctx, accessToken, childID)
+		if err != nil {
+			return pending, normalizeMetaPublishError(err)
+		}
+		switch status {
+		case "FINISHED":
+		case "ERROR", "EXPIRED", "PUBLISHED":
+			return rejectedInstagramCheckpoint(pending, "instagram carousel child container is not reusable")
+		default:
+			return pending, nil
+		}
+	}
+	if checkpoint.kind == instagramCheckpointChildPostKind || checkpoint.kind == instagramCheckpointParentPostKind {
+		return pending, nil
+	}
+	if len(checkpoint.references) < len(req.PlatformMediaIDs) {
+		index := len(checkpoint.references)
+		if err := req.Checkpoint(pendingInstagramCarouselCreateResult(checkpoint.references)); err != nil {
+			return pending, err
+		}
+		pending = pendingInstagramCarouselCreateResult(checkpoint.references)
+		childID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", req.PlatformMediaIDs[index], isVideoMime(req.Media[index].MimeType), true, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
+		if err != nil {
+			return instagramPendingOrRejected(pending, err)
+		}
+		return pendingInstagramCarouselResult(append(append([]string(nil), checkpoint.references...), childID)), nil
+	}
+	if err := req.Checkpoint(pendingInstagramCarouselParentResult(checkpoint.references)); err != nil {
+		return pending, err
+	}
+	pending = pendingInstagramCarouselParentResult(checkpoint.references)
+	containerID, err := i.createCarouselContainer(ctx, accessToken, instagramUserID, req, checkpoint.references)
+	if err != nil {
+		return instagramPendingOrRejected(pending, err)
+	}
+	return pendingInstagramFinalResult(containerID), nil
+}
+
+func pendingInstagramCarouselCheckpoint(checkpoint instagramPublishCheckpoint) PublishResult {
+	switch checkpoint.kind {
+	case instagramCheckpointChildPostKind:
+		return pendingInstagramCarouselCreateResult(checkpoint.references)
+	case instagramCheckpointParentPostKind:
+		return pendingInstagramCarouselParentResult(checkpoint.references)
+	default:
+		return pendingInstagramCarouselResult(checkpoint.references)
+	}
+}
+
+func validateInstagramCarouselCheckpoint(req *PublishRequest, checkpoint instagramPublishCheckpoint) error {
+	if req == nil || instagramIsStory(req) || len(req.PlatformMediaIDs) < 2 || len(req.PlatformMediaIDs) > 10 || len(req.Media) != len(req.PlatformMediaIDs) || len(checkpoint.references) > len(req.PlatformMediaIDs) {
+		return fmt.Errorf("instagram carousel checkpoint does not match the publish request")
+	}
+	if checkpoint.kind == instagramCheckpointChildPostKind && len(checkpoint.references) >= len(req.PlatformMediaIDs) {
+		return fmt.Errorf("instagram carousel child checkpoint has no remaining child")
+	}
+	if checkpoint.kind == instagramCheckpointParentPostKind && len(checkpoint.references) != len(req.PlatformMediaIDs) {
+		return fmt.Errorf("instagram carousel parent checkpoint is incomplete")
+	}
+	return nil
+}
+
+func (i *InstagramAdapter) resumeStorySequence(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, checkpoint instagramPublishCheckpoint) (PublishResult, error) {
+	pending := pendingInstagramStoryCheckpoint(checkpoint)
+	if err := validateInstagramStoryCheckpoint(req, checkpoint); err != nil {
+		return rejectedInstagramCheckpoint(pending, err.Error())
+	}
+	if checkpoint.kind == instagramCheckpointStoryMakeKind {
+		if checkpoint.containerID != "" {
+			return rejectedInstagramCheckpoint(pending, "instagram story creation checkpoint contains a container")
+		}
+		return pending, nil
+	}
+	if checkpoint.containerID == "" {
+		index := checkpoint.currentIndex
+		if err := req.Checkpoint(pendingInstagramStoryCreateResult(index, checkpoint.references)); err != nil {
+			return pending, err
+		}
+		pending = pendingInstagramStoryCreateResult(index, checkpoint.references)
+		containerID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", req.PlatformMediaIDs[index], isVideoMime(req.Media[index].MimeType), false, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
+		if err != nil {
+			return instagramPendingOrRejected(pending, err)
+		}
+		return pendingInstagramStoryResult(index, checkpoint.references, containerID), nil
+	}
+	status, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
+	if err != nil {
+		return pending, normalizeMetaPublishError(err)
+	}
+	externalID := ""
+	switch status {
+	case "FINISHED":
+		if checkpoint.kind == instagramCheckpointStoryPostKind {
+			return pending, nil
+		}
+		if err := req.Checkpoint(pendingInstagramStoryPublishResult(checkpoint.currentIndex, checkpoint.references, checkpoint.containerID)); err != nil {
+			return pending, err
+		}
+		pending = pendingInstagramStoryPublishResult(checkpoint.currentIndex, checkpoint.references, checkpoint.containerID)
+		externalID, err = i.publishMediaContainer(ctx, accessToken, instagramUserID, checkpoint.containerID)
+		if err != nil {
+			return instagramPendingOrRejected(pending, err)
+		}
+	case "PUBLISHED":
+		externalID = instagramUnknownPublishedIDPrefix + checkpoint.containerID
+	case "ERROR", "EXPIRED":
+		return rejectedInstagramCheckpoint(pending, "instagram story container processing failed")
+	default:
+		return pending, nil
+	}
+	publishedIDs := append(append([]string(nil), checkpoint.references...), externalID)
+	nextIndex := checkpoint.currentIndex + 1
+	if nextIndex == len(req.PlatformMediaIDs) {
+		return acceptedInstagramStoryResult(publishedIDs, pending.ProviderReference), nil
+	}
+	return pendingInstagramStoryResult(nextIndex, publishedIDs, ""), nil
+}
+
+func pendingInstagramStoryCheckpoint(checkpoint instagramPublishCheckpoint) PublishResult {
+	switch checkpoint.kind {
+	case instagramCheckpointStoryMakeKind:
+		return pendingInstagramStoryCreateResult(checkpoint.currentIndex, checkpoint.references)
+	case instagramCheckpointStoryPostKind:
+		return pendingInstagramStoryPublishResult(checkpoint.currentIndex, checkpoint.references, checkpoint.containerID)
+	default:
+		return pendingInstagramStoryResult(checkpoint.currentIndex, checkpoint.references, checkpoint.containerID)
+	}
+}
+
+func validateInstagramStoryCheckpoint(req *PublishRequest, checkpoint instagramPublishCheckpoint) error {
+	if req == nil || !instagramIsStory(req) || len(req.PlatformMediaIDs) == 0 || len(req.PlatformMediaIDs) != len(req.Media) || checkpoint.currentIndex >= len(req.PlatformMediaIDs) || len(checkpoint.references) != checkpoint.currentIndex {
+		return fmt.Errorf("instagram story checkpoint does not match the publish request")
+	}
+	return nil
+}
+
+func acceptedInstagramStoryResult(publishedIDs []string, providerReference string) PublishResult {
+	knownIDs := make([]string, 0, len(publishedIDs))
+	for _, publishedID := range publishedIDs {
+		if !strings.HasPrefix(publishedID, instagramUnknownPublishedIDPrefix) {
+			knownIDs = append(knownIDs, publishedID)
+		}
+	}
+	result := AcceptedPublishResult(strings.Join(knownIDs, ","))
+	result.ProviderState = instagramPublishedProviderState
+	result.ProviderReference = providerReference
+	return result
+}
+
+func instagramPendingOrRejected(pending PublishResult, err error) (PublishResult, error) {
+	err = normalizeMetaPublishError(err)
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && providerErr.StatusCode >= 400 && providerErr.StatusCode < 500 && providerErr.StatusCode != http.StatusRequestTimeout && providerErr.StatusCode != http.StatusTooManyRequests {
+		pending.SubmissionState = PublishSubmissionRejected
+		pending.RetrySafety = PublishRetryNever
+	}
+	return pending, err
+}
+
+func rejectedInstagramCheckpoint(pending PublishResult, message string) (PublishResult, error) {
+	pending.SubmissionState = PublishSubmissionRejected
+	pending.RetrySafety = PublishRetryNever
+	return pending, fmt.Errorf("%s", message)
 }
 
 func (i *InstagramAdapter) publishMediaContainer(ctx context.Context, accessToken, instagramUserID, containerID string) (string, error) {
@@ -707,6 +1095,9 @@ func instagramIDFromResponse(label string, respBody []byte) (string, error) {
 	}
 	if resp.ID == "" {
 		return "", fmt.Errorf("%s: missing id", label)
+	}
+	if err := validateInstagramCheckpointID(resp.ID); err != nil {
+		return "", fmt.Errorf("%s: invalid id", label)
 	}
 	return resp.ID, nil
 }

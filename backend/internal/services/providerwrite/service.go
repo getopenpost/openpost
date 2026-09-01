@@ -116,6 +116,7 @@ func (s *Service) Execute(
 	input Input,
 	send SendFunc,
 	reconcile ReconcileFunc,
+	resumeOptions ...ResumeFunc,
 ) (platform.PublishResult, error) {
 	input = normalizeInput(input)
 	if err := validateInput(input); err != nil {
@@ -131,7 +132,11 @@ func (s *Service) Execute(
 	if err := validateAttempt(input, attempt); err != nil {
 		return platform.PublishResult{}, err
 	}
-	return s.executeAttempt(ctx, input, attempt, send, reconcile)
+	var resume ResumeFunc
+	if len(resumeOptions) > 0 {
+		resume = resumeOptions[0]
+	}
+	return s.executeAttempt(ctx, input, attempt, send, reconcile, resume)
 }
 
 func (s *Service) executeAttempt(
@@ -140,6 +145,7 @@ func (s *Service) executeAttempt(
 	attempt *models.ProviderWriteAttempt,
 	send SendFunc,
 	reconcile ReconcileFunc,
+	resume ResumeFunc,
 ) (platform.PublishResult, error) {
 	switch attempt.Status {
 	case StatusAccepted:
@@ -147,8 +153,13 @@ func (s *Service) executeAttempt(
 	case StatusPrepared:
 		return s.sendPrepared(ctx, attempt, send)
 	case StatusSending:
-		if attempt.SubmissionState == string(platform.PublishSubmissionPending) && attempt.ProviderReference != "" && reconcile != nil {
-			return s.reconcile(ctx, attempt, reconcile)
+		if attempt.SubmissionState == string(platform.PublishSubmissionPending) && attempt.ProviderReference != "" {
+			if resume != nil {
+				return s.resume(ctx, attempt, resume)
+			}
+			if reconcile != nil {
+				return s.reconcile(ctx, attempt, reconcile)
+			}
 		}
 		// A compound provider may durably checkpoint accepted constituent
 		// writes before continuing. Only its explicit safe retry declaration
@@ -162,7 +173,7 @@ func (s *Service) executeAttempt(
 		}
 		return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrWriteInProgress}
 	case StatusAmbiguous:
-		return s.resumeAmbiguous(ctx, input, attempt, send, reconcile)
+		return s.resumeAmbiguous(ctx, input, attempt, send, reconcile, resume)
 	case StatusDefiniteFailure:
 		return s.resumeDefiniteFailure(ctx, input, attempt, send)
 	default:
@@ -176,9 +187,15 @@ func (s *Service) resumeAmbiguous(
 	attempt *models.ProviderWriteAttempt,
 	send SendFunc,
 	reconcile ReconcileFunc,
+	resume ResumeFunc,
 ) (platform.PublishResult, error) {
-	if attempt.ProviderReference != "" && reconcile != nil {
-		return s.reconcile(ctx, attempt, reconcile)
+	if attempt.ProviderReference != "" {
+		if resume != nil {
+			return s.resume(ctx, attempt, resume)
+		}
+		if reconcile != nil {
+			return s.reconcile(ctx, attempt, reconcile)
+		}
 	}
 	if !idempotentRetryAvailable(attempt, s.now()) {
 		return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrOutcomeAmbiguous}
@@ -188,6 +205,50 @@ func (s *Service) resumeAmbiguous(
 		return platform.PublishResult{}, err
 	}
 	return s.sendPrepared(ctx, next, send)
+}
+
+func (s *Service) resume(ctx context.Context, attempt *models.ProviderWriteAttempt, resume ResumeFunc) (platform.PublishResult, error) {
+	if !attempt.ReconcileAfter.IsZero() && s.now().Before(attempt.ReconcileAfter) {
+		return platform.PublishResult{}, pendingError(resultFromAttempt(attempt))
+	}
+	control := &Control{service: s, attempt: attempt, ctx: ctx}
+	result, resumeErr := resume(ctx, control, attempt.ProviderReference)
+	current, loadErr := s.loadAttempt(context.WithoutCancel(ctx), attempt.ID)
+	if loadErr != nil {
+		return platform.PublishResult{}, loadErr
+	}
+	if current.Status == StatusAccepted {
+		return resultFromAttempt(current), nil
+	}
+	if current.Status != StatusSending && current.Status != StatusAmbiguous {
+		return platform.PublishResult{}, fmt.Errorf("provider write attempt changed to %q during resume", current.Status)
+	}
+	result = mergeResult(resultFromAttempt(current), result)
+	switch result.SubmissionState {
+	case platform.PublishSubmissionAccepted:
+		if resumeErr != nil {
+			return platform.PublishResult{}, resumeErr
+		}
+		if err := s.persistResult(ctx, current, result, nil, true); err != nil {
+			return platform.PublishResult{}, err
+		}
+		return result, nil
+	case platform.PublishSubmissionRejected:
+		if resumeErr == nil {
+			resumeErr = errors.New("provider rejected the resumed write")
+		}
+		if err := s.persistDefiniteFailure(ctx, current, platform.PublishSubmissionRejected, platform.PublishRetryNever, resumeErr); err != nil {
+			return platform.PublishResult{}, err
+		}
+		return platform.PublishResult{}, resumeErr
+	default:
+		result.SubmissionState = platform.PublishSubmissionPending
+		result.RetrySafety = platform.PublishRetryReconcileOnly
+		if err := s.persistResult(ctx, current, result, resumeErr, true); err != nil {
+			return platform.PublishResult{}, err
+		}
+		return platform.PublishResult{}, pendingError(result)
+	}
 }
 
 func (s *Service) resumeDefiniteFailure(

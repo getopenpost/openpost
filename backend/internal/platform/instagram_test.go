@@ -360,18 +360,19 @@ func TestInstagramPublishImageFromPublicURL(t *testing.T) {
 	if publishForm.Get("creation_id") != "container-1" || publishForm.Get(oauthParamAccessToken) != "page-token" {
 		t.Fatalf("unexpected publish form: %s", publishForm.Encode())
 	}
-	if len(checkpoints) != 2 ||
+	if len(checkpoints) != 3 ||
 		checkpoints[0].SubmissionState != PublishSubmissionPending ||
-		checkpoints[0].ProviderReference != "ig1:container-1" ||
-		checkpoints[1].SubmissionState != PublishSubmissionAccepted {
+		checkpoints[0].ProviderReference != "ig1:f:container-1" ||
+		checkpoints[1].ProviderReference != "ig1:p:container-1" ||
+		checkpoints[2].SubmissionState != PublishSubmissionAccepted {
 		t.Fatalf("unexpected publish checkpoints: %#v", checkpoints)
 	}
-	if strings.Join(events, ",") != "create,checkpoint,status,publish" {
+	if strings.Join(events, ",") != "create,checkpoint,status,checkpoint,publish" {
 		t.Fatalf("container must be checkpointed before processing and publishing, got %v", events)
 	}
 }
 
-func TestInstagramReconcilePublishFinishesCheckpointedContainer(t *testing.T) {
+func TestInstagramResumePublishFinishesCheckpointedContainer(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -388,21 +389,22 @@ func TestInstagramReconcilePublishFinishesCheckpointedContainer(t *testing.T) {
 		}
 	})}
 
-	result, err := NewInstagramAdapter("", "", "").ReconcilePublish(
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
 		t.Context(),
 		"page-token",
 		"ig-1",
+		nil,
 		"ig1:container-1",
 	)
 	if err != nil {
-		t.Fatalf("ReconcilePublish returned error: %v", err)
+		t.Fatalf("ResumePublish returned error: %v", err)
 	}
 	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "ig-media-1" {
 		t.Fatalf("unexpected reconciliation result: %#v", result)
 	}
 }
 
-func TestInstagramReconcilePublishDoesNotRepublishPublishedContainer(t *testing.T) {
+func TestInstagramResumePublishDoesNotRepublishPublishedContainer(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -414,17 +416,167 @@ func TestInstagramReconcilePublishDoesNotRepublishPublishedContainer(t *testing.
 		return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
 	})}
 
-	result, err := NewInstagramAdapter("", "", "").ReconcilePublish(
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
 		t.Context(),
 		"page-token",
 		"ig-1",
+		nil,
 		"ig1:container-1",
 	)
 	if err != nil {
-		t.Fatalf("ReconcilePublish returned error: %v", err)
+		t.Fatalf("ResumePublish returned error: %v", err)
 	}
-	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "container-1" {
+	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "" {
 		t.Fatalf("unexpected published-container result: %#v", result)
+	}
+}
+
+func TestInstagramResumePublishDoesNotReplayAmbiguousSubmission(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/container-1" {
+			t.Fatalf("ambiguous submission must not be replayed: %s %s", req.Method, req.URL.String())
+		}
+		return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+	})}
+
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
+		t.Context(), "page-token", "ig-1", nil, "ig1:p:container-1",
+	)
+	if err != nil {
+		t.Fatalf("ResumePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:p:container-1" {
+		t.Fatalf("unexpected ambiguous-submission result: %#v", result)
+	}
+}
+
+func TestInstagramResumePublishContinuesCarouselChildren(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	var createForm url.Values
+	var events []string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/child-1":
+			events = append(events, "status")
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/ig-1/media":
+			events = append(events, "create")
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("reading child form: %v", err)
+			}
+			createForm, err = url.ParseQuery(string(body))
+			if err != nil {
+				t.Fatalf("parsing child form: %v", err)
+			}
+			return jsonResponse(req, `{"id":"child-2"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	req := &PublishRequest{
+		Content:          "Carousel",
+		PlatformMediaIDs: []string{"https://media.example/one.jpg", "https://media.example/two.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}},
+	}
+	req.SetWriteFence(nil, func(result PublishResult) error {
+		if result.ProviderReference == "ig1:d:child-1" {
+			events = append(events, "checkpoint")
+		}
+		return nil
+	})
+
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
+		t.Context(), "page-token", "ig-1", req, "ig1:c:child-1",
+	)
+	if err != nil {
+		t.Fatalf("ResumePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:c:child-1,child-2" {
+		t.Fatalf("unexpected carousel result: %#v", result)
+	}
+	if createForm.Get("image_url") != "https://media.example/two.jpg" || createForm.Get("is_carousel_item") != "true" {
+		t.Fatalf("unexpected resumed child form: %s", createForm.Encode())
+	}
+	if strings.Join(events, ",") != "status,checkpoint,create" {
+		t.Fatalf("resumed child creation must be fenced, got %v", events)
+	}
+}
+
+func TestInstagramResumePublishDoesNotReplayAmbiguousContainerCreation(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/child-1" {
+			t.Fatalf("ambiguous container creation must not be replayed: %s %s", req.Method, req.URL.String())
+		}
+		return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+	})}
+	req := &PublishRequest{
+		PlatformMediaIDs: []string{"https://media.example/one.jpg", "https://media.example/two.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}},
+	}
+
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
+		t.Context(), "page-token", "ig-1", req, "ig1:d:child-1",
+	)
+	if err != nil {
+		t.Fatalf("ResumePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:d:child-1" {
+		t.Fatalf("unexpected ambiguous-creation result: %#v", result)
+	}
+}
+
+func TestInstagramResumePublishCompletesStorySequence(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/ig-1/media":
+			return jsonResponse(req, `{"id":"container-2"}`), nil
+		case "/v25.0/container-2":
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/ig-1/media_publish":
+			return jsonResponse(req, `{"id":"published-2"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	req := &PublishRequest{
+		Profile:          "story",
+		PlatformMediaIDs: []string{"https://media.example/one.jpg", "https://media.example/two.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}},
+	}
+	adapter := NewInstagramAdapter("", "", "")
+
+	created, err := adapter.ResumePublish(t.Context(), "page-token", "ig-1", req, "ig1:s:1:published-1:-")
+	if err != nil {
+		t.Fatalf("creating resumed story container: %v", err)
+	}
+	if created.SubmissionState != PublishSubmissionPending || created.ProviderReference != "ig1:s:1:published-1:container-2" {
+		t.Fatalf("unexpected story creation result: %#v", created)
+	}
+
+	completed, err := adapter.ResumePublish(t.Context(), "page-token", "ig-1", req, created.ProviderReference)
+	if err != nil {
+		t.Fatalf("publishing resumed story container: %v", err)
+	}
+	if completed.SubmissionState != PublishSubmissionAccepted || completed.ExternalID != "published-1,published-2" {
+		t.Fatalf("unexpected story completion result: %#v", completed)
 	}
 }
 

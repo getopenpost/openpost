@@ -77,6 +77,7 @@ type Input struct {
 
 type SendFunc func(context.Context, *Control) (platform.PublishResult, error)
 type ReconcileFunc func(context.Context, string) (platform.PublishResult, error)
+type ResumeFunc func(context.Context, *Control, string) (platform.PublishResult, error)
 
 type OutcomeError struct {
 	Kind       string

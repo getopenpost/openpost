@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
@@ -42,10 +41,7 @@ func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) 
 }
 
 func TestAnalyticsContentReferenceOpenAPISchemaIsDiscriminatedOneOf(t *testing.T) {
-	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, analyticsservice.NewService(db, analyticsHandlerTokenSource{})).RegisterRoutes(api)

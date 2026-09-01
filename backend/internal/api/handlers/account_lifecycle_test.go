@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/mediastore"
@@ -38,10 +37,7 @@ func (s *accountLifecycleStorage) Delete(_ context.Context, id string) error {
 func TestAccountDeletionQueuesObjectCleanupWhenImmediateDeletionFails(t *testing.T) {
 	t.Parallel()
 
-	db, err := database.InitDB("file:" + t.TempDir() + "/deferred-cleanup.db?mode=rwc")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	authService := auth.NewService("test-secret")
 	passwordHash, err := authService.HashPassword("current-password-123")
 	require.NoError(t, err)
@@ -87,10 +83,7 @@ func (s *accountLifecycleStorage) Open(context.Context, string) (io.ReadCloser, 
 func TestAccountExportOmitsSecretsAndDeletionRemovesPersonalData(t *testing.T) {
 	t.Parallel()
 
-	db, err := database.InitDB("file:" + t.TempDir() + "/account.db?mode=rwc")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 
 	authService := auth.NewService("test-secret")
 	passwordHash, err := authService.HashPassword("current-password-123")
@@ -158,10 +151,7 @@ func TestAccountExportOmitsSecretsAndDeletionRemovesPersonalData(t *testing.T) {
 func TestAccountDeletionPreviewsOwnershipTransferAndBlocksActiveBilling(t *testing.T) {
 	t.Parallel()
 
-	db, err := database.InitDB("file:" + t.TempDir() + "/blocked.db?mode=rwc")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	authService := auth.NewService("test-secret")
 	hash, err := authService.HashPassword("current-password-123")
 	require.NoError(t, err)
@@ -206,10 +196,7 @@ func TestAccountDeletionPreviewsOwnershipTransferAndBlocksActiveBilling(t *testi
 func TestAccountDeletionTransfersSharedOrganizationAndPreservesTeamContent(t *testing.T) {
 	t.Parallel()
 
-	db, err := database.InitDB("file:" + t.TempDir() + "/transfer.db?mode=rwc")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	authService := auth.NewService("test-secret")
 	hash, err := authService.HashPassword("current-password-123")
 	require.NoError(t, err)

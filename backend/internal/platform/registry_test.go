@@ -90,7 +90,7 @@ func TestValidateAppConfigFailsClosedForHostedAndSelfHostedBotShapes(t *testing.
 	t.Parallel()
 
 	complete := []AppConfig{
-		{Provider: "pinterest", ClientID: "hosted-client", ClientSecret: "hosted-secret", RedirectURI: "https://app.openpost.social/api/v1/accounts/pinterest/callback"},
+		{Provider: "pinterest", ClientID: "hosted-client", ClientSecret: "hosted-secret", RedirectURI: "https://app.test/api/v1/accounts/pinterest/callback"},
 		{Provider: "telegram", BotToken: "selfhost-token", BotUsername: "openpost_bot", WebhookSecret: "selfhost-webhook-secret"},
 		{Provider: "discord", ConnectionMode: "bot", ClientID: "discord-app", ClientSecret: "discord-secret", BotToken: "discord-token", RedirectURI: "https://selfhost.test/api/v1/accounts/discord/callback"},
 	}

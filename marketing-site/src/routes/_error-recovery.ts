@@ -19,14 +19,14 @@ export const marketingErrorRecovery = {
 		{
 			label: 'Open user docs',
 			description: 'Follow maintained product and setup guidance.',
-			href: 'https://docs.openpo.st/usage/'
+			href: 'https://docs.openpo.st/usage'
 		}
 	],
 	support: [
 		{ label: 'Email support', href: 'mailto:openpost@rgo.pt' },
 		{
 			label: 'Ask the Discord community',
-			href: 'https://discord.gg/u2QwukmY4W'
+			href: 'https://discord.com/invite/u2QwukmY4W'
 		}
 	]
 } as const;

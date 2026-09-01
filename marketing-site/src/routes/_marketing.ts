@@ -12,22 +12,22 @@ type PublicProviderClaim = {
 export const appUrl = 'https://app.openpo.st';
 export const managedSignupUrl = `${appUrl}/register?plan=founder&billing_period=monthly`;
 export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
-export const userDocsUrl = 'https://docs.openpo.st/usage/';
-export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting/';
-export const developerDocsUrl = 'https://docs.openpo.st/development/';
+export const userDocsUrl = 'https://docs.openpo.st/usage';
+export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting';
+export const developerDocsUrl = 'https://docs.openpo.st/development';
 export const apiGuideUrl = 'https://docs.openpo.st/development/api-reference';
 export const openApiUrl = 'https://docs.openpo.st/openapi.json';
-export const cliDocsUrl = 'https://docs.openpo.st/cli/';
-export const mcpDocsUrl = 'https://docs.openpo.st/mcp/';
+export const cliDocsUrl = 'https://docs.openpo.st/cli';
+export const mcpDocsUrl = 'https://docs.openpo.st/mcp';
 export const apiTokenDocsUrl = 'https://docs.openpo.st/development/api-tokens';
 export const agentPublishingDocsUrl = 'https://docs.openpo.st/usage/agent-assisted-publishing';
 export const docsUrl = userDocsUrl;
 export const githubUrl = 'https://github.com/getopenpost/openpost';
 export const siteUrl = 'https://openpo.st';
-export const discordCommunityUrl = 'https://discord.gg/u2QwukmY4W';
+export const discordCommunityUrl = 'https://discord.com/invite/u2QwukmY4W';
 export const supportEmail = 'openpost@rgo.pt';
 export const supportMailUrl = `mailto:${supportEmail}`;
-export const demoVideoUrl = 'https://youtu.be/_mZf3HzQaN8';
+export const demoVideoUrl = 'https://www.youtube.com/watch?v=_mZf3HzQaN8';
 export const demoVideoEmbedUrl =
 	'https://www.youtube-nocookie.com/embed/_mZf3HzQaN8?autoplay=1&rel=0';
 
@@ -296,7 +296,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/media-dark.png',
 			alt: 'OpenPost media library with reusable assets'
 		},
-		docsUrl: 'https://docs.openpo.st/usage/',
+		docsUrl: 'https://docs.openpo.st/usage',
 		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{

@@ -30,7 +30,7 @@ test("marketing social entries have unique paths, keys, and complete image metad
     assert.equal(image.searchParams.get("v"), socialRendererVersion);
     assert.equal(image.searchParams.has("title"), false);
     assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
-    assert.match(entry.canonical, /^https:\/\/openpost\.social(?:\/|$)/);
+    assert.match(entry.canonical, /^https:\/\/openpo\.st(?:\/|$)/);
     assert.match(entry.priority, /^(?:1\.0|0\.[0-9])$/u);
     assert.match(entry.agentRepresentation, /^(?:static|platform|tool)$/u);
     assert.match(entry.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);

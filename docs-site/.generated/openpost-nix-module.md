@@ -585,11 +585,11 @@ in
             OPENPOST_SUPPORT_EMAIL=hello@openpo.st
             OPENPOST_EMAIL_VERIFICATION_REQUIRED=true
             OPENPOST_EMAIL_PROVIDER=smtp
-            OPENPOST_EMAIL_FROM=hello@openpo.st
+            OPENPOST_EMAIL_FROM=hello@openpost.social
             OPENPOST_SMTP_HOST=smtp.purelymail.com
             OPENPOST_SMTP_PORT=465
-            OPENPOST_SMTP_USERNAME=hello@openpo.st
-            OPENPOST_SMTP_FROM=hello@openpo.st
+            OPENPOST_SMTP_USERNAME=hello@openpost.social
+            OPENPOST_SMTP_FROM=hello@openpost.social
             OPENPOST_SMTP_TLS_MODE=tls
             OPENPOST_SMTP_SERVER_NAME=smtp.purelymail.com
             OPENPOST_IMAGE_CAPTION_PROVIDER=azure/eu

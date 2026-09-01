@@ -105,6 +105,29 @@ func TestInstagramExchangeAndSelectBusinessAccount(t *testing.T) {
 	}
 }
 
+func TestInstagramRefreshAccountMetadataUsesTheExactProfessionalAccount(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/ig-1" || req.URL.Query().Get(oauthParamAccessToken) != "page-token" {
+			t.Fatalf("unexpected request %s", req.URL.String())
+		}
+		return jsonResponse(req, `{"id":"ig-1","username":"current-ig","name":"Current IG","profile_picture_url":"https://cdn.example/current-ig.png"}`), nil
+	})}
+
+	profile, err := NewInstagramAdapter("", "", "").RefreshAccountMetadata(
+		t.Context(), "page-token", AccountMetadataRequest{AccountID: "ig-1"},
+	)
+	if err != nil {
+		t.Fatalf("RefreshAccountMetadata returned error: %v", err)
+	}
+	if profile.ID != "ig-1" || profile.Username != "current-ig" || profile.AvatarURL != "https://cdn.example/current-ig.png" {
+		t.Fatalf("unexpected refreshed Instagram profile: %#v", profile)
+	}
+}
+
 func TestInstagramListAccountSelectionsExplainsFacebookPageLinkRequirement(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

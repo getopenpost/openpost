@@ -218,6 +218,25 @@ func (f *FacebookAdapter) GetProfile(ctx context.Context, accessToken string) (*
 	}, nil
 }
 
+func (f *FacebookAdapter) RefreshAccountMetadata(ctx context.Context, accessToken string, _ AccountMetadataRequest) (*UserProfile, error) {
+	endpoint := f.graphURL("me?fields=id,name,username,picture.type(square)&access_token=" + url.QueryEscape(accessToken))
+	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("facebook page profile: %w", err)
+	}
+	var page facebookPage
+	if err := json.Unmarshal(respBody, &page); err != nil {
+		return nil, fmt.Errorf("decoding facebook page profile: %w", err)
+	}
+	if strings.TrimSpace(page.ID) == "" {
+		return nil, fmt.Errorf("facebook page profile returned no id")
+	}
+	return &UserProfile{
+		ID: page.ID, Username: firstNonEmptyString(page.Username, page.Name),
+		DisplayName: page.Name, AvatarURL: page.Picture.Data.URL,
+	}, nil
+}
+
 func (f *FacebookAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
 	pages, err := f.listPages(ctx, token)
 	if err != nil {

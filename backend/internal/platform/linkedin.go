@@ -183,6 +183,57 @@ func (l *LinkedInAdapter) GetProfile(ctx context.Context, accessToken string) (*
 	}, nil
 }
 
+func (l *LinkedInAdapter) RefreshAccountMetadata(ctx context.Context, accessToken string, input AccountMetadataRequest) (*UserProfile, error) {
+	accountID := strings.TrimSpace(input.AccountID)
+	kind, remoteID, ok := strings.Cut(strings.TrimPrefix(accountID, "urn:li:"), ":")
+	if !ok || remoteID == "" {
+		return nil, fmt.Errorf("linkedin account identity is malformed")
+	}
+	switch kind {
+	case "person":
+		profile, err := l.GetProfile(ctx, accessToken)
+		if err != nil {
+			return nil, err
+		}
+		if profile.ID != remoteID {
+			return nil, fmt.Errorf("linkedin member identity changed")
+		}
+		profile.ID = accountID
+		return profile, nil
+	case "organization":
+		return l.organizationMetadata(ctx, accessToken, accountID, remoteID)
+	default:
+		return nil, fmt.Errorf("%w for linkedin account type %q", ErrAccountMetadataRefreshUnsupported, kind)
+	}
+}
+
+func (l *LinkedInAdapter) organizationMetadata(ctx context.Context, accessToken, accountID, organizationID string) (*UserProfile, error) {
+	endpoint := "https://api.linkedin.com/rest/organizations?ids=List(" + url.QueryEscape(organizationID) + ")&projection=" + url.QueryEscape(linkedInOrganizationLogoProjection)
+	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion()))
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Results map[string]struct {
+			LocalizedName string                   `json:"localizedName"`
+			VanityName    string                   `json:"vanityName"`
+			LogoV2        linkedInOrganizationLogo `json:"logoV2"`
+		} `json:"results"`
+		Statuses map[string]int `json:"statuses"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("decoding linkedin organization: %w", err)
+	}
+	organization, ok := result.Results[organizationID]
+	if !ok || (result.Statuses[organizationID] != 0 && result.Statuses[organizationID] != http.StatusOK) {
+		return nil, fmt.Errorf("linkedin organization is no longer available")
+	}
+	return &UserProfile{
+		ID: accountID, Username: firstNonEmptyString(organization.VanityName, organization.LocalizedName),
+		DisplayName: organization.LocalizedName, AvatarURL: organization.LogoV2.avatarURL(),
+	}, nil
+}
+
 func (l *LinkedInAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
 	if token == nil || strings.TrimSpace(token.AccessToken) == "" {
 		return nil, fmt.Errorf("linkedin access token is required")

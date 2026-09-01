@@ -143,8 +143,15 @@ func TestYouTubeExchangeRefreshAndSelectChannel(t *testing.T) {
 	if selected.Token.Extra["channel_id"] != "channel-1" {
 		t.Fatalf("expected selected token channel id, got %#v", selected.Token.Extra)
 	}
-	if channelsCalls != 2 {
-		t.Fatalf("expected two channels calls, got %d", channelsCalls)
+	profile, err := adapter.RefreshAccountMetadata(context.Background(), "access-token", AccountMetadataRequest{AccountID: "channel-1"})
+	if err != nil {
+		t.Fatalf("RefreshAccountMetadata returned error: %v", err)
+	}
+	if profile.ID != "channel-1" || profile.Username != "@openpost" || profile.AvatarURL != "https://yt.example/avatar.jpg" {
+		t.Fatalf("unexpected refreshed YouTube channel profile: %#v", profile)
+	}
+	if channelsCalls != 3 {
+		t.Fatalf("expected three channels calls, got %d", channelsCalls)
 	}
 }
 

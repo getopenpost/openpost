@@ -166,6 +166,24 @@ func (y *YouTubeAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	}, nil
 }
 
+func (y *YouTubeAdapter) RefreshAccountMetadata(ctx context.Context, accessToken string, input AccountMetadataRequest) (*UserProfile, error) {
+	accountID := strings.TrimSpace(input.AccountID)
+	channels, err := y.listChannels(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	for _, channel := range channels {
+		if channel.ID != accountID {
+			continue
+		}
+		return &UserProfile{
+			ID: channel.ID, Username: firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+			DisplayName: channel.Snippet.Title, AvatarURL: channel.Snippet.Thumbnails.Default.URL,
+		}, nil
+	}
+	return nil, fmt.Errorf("youtube channel %s is no longer available", accountID)
+}
+
 func (y *YouTubeAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
 	channels, err := y.listChannels(ctx, token.AccessToken)
 	if err != nil {

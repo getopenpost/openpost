@@ -251,6 +251,23 @@ type UserProfile struct {
 	CapabilityState map[string]string
 }
 
+// AccountMetadataRequest identifies the exact connected destination whose
+// current provider-owned name and avatar are requested. AccountID can differ
+// from the authorization owner's identity for Pages, channels, organizations,
+// and guilds.
+type AccountMetadataRequest struct {
+	AccountID       string
+	CapabilityState map[string]string
+}
+
+var ErrAccountMetadataRefreshUnsupported = errors.New("account metadata refresh is unsupported")
+
+// AccountMetadataRefresher resolves current metadata for one exact connected
+// destination when GetProfile would describe the authorization owner instead.
+type AccountMetadataRefresher interface {
+	RefreshAccountMetadata(ctx context.Context, accessToken string, input AccountMetadataRequest) (*UserProfile, error)
+}
+
 // AccountSelectionOption is a user-visible account, page, or channel that can
 // be selected after a provider OAuth flow. It must not contain access tokens or
 // other secrets because options are stored as pending OAuth metadata.

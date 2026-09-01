@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { client, type Workspace } from '$lib/api/client';
+import { client, type SocialAccount, type Workspace } from '$lib/api/client';
 import AccountManagement from './account-management.svelte';
+import '../../routes/layout.css';
 
 const getMock = vi.fn();
+const postMock = vi.fn();
 vi.spyOn(client, 'GET').mockImplementation(getMock);
+vi.spyOn(client, 'POST').mockImplementation(postMock);
 
 const workspace = {
 	id: 'workspace-62',
@@ -28,13 +32,156 @@ const links = {
 	mastodonCallbackHref: '/accounts/mastodon/callback'
 };
 
+const account: SocialAccount = {
+	id: 'account-1',
+	workspace_id: workspace.id,
+	slug: 'x-founder',
+	platform: 'x',
+	account_id: 'provider-account-1',
+	account_username: 'old-founder',
+	account_avatar_url: '',
+	instance_url: '',
+	is_active: true,
+	thread_replies_supported: true,
+	messaging_supported: true,
+	messages_enabled: false,
+	grant_destination_count: 1,
+	shared_grant: false
+};
+
 describe('account management modes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		postMock.mockResolvedValue({ data: null, error: null });
 		getMock.mockImplementation((path: string) => {
 			if (path === '/accounts') return Promise.resolve({ data: [], error: null });
 			return Promise.resolve({ data: [], error: null });
 		});
+	});
+
+	it('refreshes the open account identity without closing its details', async () => {
+		await page.viewport(390, 844);
+		getMock.mockImplementation((path: string) => {
+			if (path === '/accounts') return Promise.resolve({ data: [account], error: null });
+			return Promise.resolve({ data: [], error: null });
+		});
+		postMock.mockResolvedValue({
+			data: {
+				...account,
+				account_username: 'current-founder',
+				account_avatar_url: 'https://cdn.example/current-founder.jpg'
+			},
+			error: null
+		});
+		const onAccountsChanged = vi.fn();
+		const screen = await render(AccountManagement, {
+			workspace,
+			workspaces: [workspace],
+			links,
+			onContinue: vi.fn(),
+			onAccountsChanged
+		});
+
+		await screen.getByRole('button', { name: /Actions for/ }).click();
+		await screen.getByRole('menuitem', { name: 'Account details' }).click();
+		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-before.png' });
+		await screen.getByRole('button', { name: 'Refresh profile' }).click();
+
+		expect(postMock).toHaveBeenCalledWith('/accounts/{account_id}/refresh-metadata', {
+			params: { path: { account_id: 'account-1' } }
+		});
+		const drawer = screen.getByTestId('account-settings-drawer');
+		await expect.element(drawer.getByText('@current-founder')).toBeVisible();
+		await expect.element(drawer).toBeVisible();
+		expect(drawer.element().querySelector('img')?.getAttribute('src')).toBe(
+			'https://cdn.example/current-founder.jpg'
+		);
+		expect(onAccountsChanged).toHaveBeenCalledOnce();
+		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-after.png' });
+
+		await page.viewport(320, 720);
+		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+		expect(
+			drawer
+				.getByRole('button', { name: /Refresh profile for/ })
+				.element()
+				.getBoundingClientRect().height
+		).toBeGreaterThanOrEqual(44);
+		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-320.png' });
+
+		document.documentElement.classList.add('dark');
+		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-dark.png' });
+		document.documentElement.classList.remove('dark');
+		await page.viewport(1280, 720);
+		const refreshButton = drawer.getByRole('button', { name: /Refresh profile for/ });
+		refreshButton.element().focus();
+		await expect.element(refreshButton).toHaveFocus();
+		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-desktop.png' });
+	});
+
+	it('keeps account details open and reports refresh failures', async () => {
+		getMock.mockImplementation((path: string) => {
+			if (path === '/accounts') return Promise.resolve({ data: [account], error: null });
+			return Promise.resolve({ data: [], error: null });
+		});
+		let completeRefresh: (result: {
+			data: null;
+			error: { detail: string };
+			response: Response;
+		}) => void = () => {};
+		postMock.mockReturnValue(
+			new Promise((resolve) => {
+				completeRefresh = resolve;
+			})
+		);
+		const screen = await render(AccountManagement, {
+			workspace,
+			workspaces: [workspace],
+			links,
+			onContinue: vi.fn()
+		});
+
+		await screen.getByRole('button', { name: /Actions for/ }).click();
+		await screen.getByRole('menuitem', { name: 'Account details' }).click();
+		await screen.getByRole('button', { name: 'Refresh profile' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: /Refresh profile for/ }))
+			.toBeDisabled();
+		await expect.element(screen.getByText('Refreshing…')).toBeVisible();
+
+		completeRefresh({
+			data: null,
+			error: { detail: 'Unlocalized server detail.' },
+			response: new Response(null, { status: 502 })
+		});
+		await expect
+			.element(screen.getByText('The provider profile could not be refreshed. Try again.'))
+			.toBeVisible();
+		await expect.element(screen.getByTestId('account-settings-drawer')).toBeVisible();
+	});
+
+	it('does not offer provider refresh for connector accounts', async () => {
+		getMock.mockImplementation((path: string) => {
+			if (path === '/accounts') {
+				return Promise.resolve({
+					data: [{ ...account, provider_installation_id: 'connector-installation-1' }],
+					error: null
+				});
+			}
+			return Promise.resolve({ data: [], error: null });
+		});
+		const screen = await render(AccountManagement, {
+			workspace,
+			workspaces: [workspace],
+			links,
+			onContinue: vi.fn()
+		});
+
+		await screen.getByRole('button', { name: /Actions for/ }).click();
+		await screen.getByRole('menuitem', { name: 'Account details' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: /Refresh profile for/ }))
+			.not.toBeInTheDocument();
 	});
 
 	it('renders account content without duplicating the Settings navigation', async () => {

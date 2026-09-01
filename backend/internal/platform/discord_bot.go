@@ -120,6 +120,24 @@ func (d *DiscordBotAdapter) GetProfile(ctx context.Context, accessToken string) 
 	return &UserProfile{ID: user.ID, Username: firstNonEmptyString(user.GlobalName, user.Username), AvatarURL: discordAvatarURL(user.ID, user.Avatar)}, nil
 }
 
+func (d *DiscordBotAdapter) RefreshAccountMetadata(ctx context.Context, _ string, input AccountMetadataRequest) (*UserProfile, error) {
+	guildID := strings.TrimSpace(input.AccountID)
+	if guildID == "" {
+		return nil, fmt.Errorf("discord guild id is required")
+	}
+	var guild discordGuild
+	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"?with_counts=true", "Bot "+d.botToken, &guild); err != nil {
+		return nil, fmt.Errorf("loading discord guild profile: %w", err)
+	}
+	if guild.ID != guildID {
+		return nil, fmt.Errorf("discord guild profile returned a different id")
+	}
+	return &UserProfile{
+		ID: guild.ID, Username: guild.Name, DisplayName: guild.Name,
+		AvatarURL: discordGuildIconURL(guild.ID, guild.Icon),
+	}, nil
+}
+
 func (d *DiscordBotAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
 	if token == nil || strings.TrimSpace(token.AccessToken) == "" {
 		return nil, fmt.Errorf("discord user authorization is unavailable")
@@ -626,6 +644,7 @@ type discordRole struct {
 type discordGuild struct {
 	ID                     string        `json:"id"`
 	Name                   string        `json:"name"`
+	Icon                   string        `json:"icon"`
 	Roles                  []discordRole `json:"roles"`
 	ApproximateMemberCount int           `json:"approximate_member_count"`
 }

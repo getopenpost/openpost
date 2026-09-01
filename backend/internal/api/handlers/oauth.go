@@ -57,6 +57,7 @@ type OAuthHandler struct {
 	readiness                    *providerreadiness.Service
 	connectorRegistry            *connectors.Registry
 	connectorStore               *connectors.Store
+	tokenSource                  AccessTokenSource
 	// frontendURL is the absolute base URL the SPA is served from
 	// (e.g. "https://openpost.example.com"). OAuth callback redirects go
 	// here so they work behind reverse proxies and subpath mounts.
@@ -161,6 +162,10 @@ func (h *OAuthHandler) SetTelemetry(recorder telemetry.Recorder) {
 
 func (h *OAuthHandler) SetAccountFeaturesService(svc *accountfeatures.Service) {
 	h.accountFeatures = svc
+}
+
+func (h *OAuthHandler) SetTokenSource(source AccessTokenSource) {
+	h.tokenSource = source
 }
 
 func (h *OAuthHandler) ProviderMap() map[string]platform.Adapter {
@@ -320,6 +325,14 @@ type UpdateAccountInput struct {
 }
 
 type UpdateAccountOutput struct {
+	Body AccountResponse
+}
+
+type RefreshAccountMetadataInput struct {
+	AccountID string `path:"account_id" doc:"OpenPost account ID"`
+}
+
+type RefreshAccountMetadataOutput struct {
 	Body AccountResponse
 }
 
@@ -2087,6 +2100,110 @@ func (h *OAuthHandler) UpdateAccount(api huma.API) {
 		resp = h.enrichResponseMessaging(ctx, updated, middleware.GetUserID(ctx), resp)
 		return &UpdateAccountOutput{Body: resp}, nil
 	})
+}
+
+func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "refresh-account-metadata",
+		Method:      http.MethodPost,
+		Path:        "/accounts/{account_id}/refresh-metadata",
+		Summary:     "Refresh a connected account's provider profile metadata",
+		Tags:        []string{tagAccounts},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{403, 404, 409, 501, 502},
+	}, func(ctx context.Context, input *RefreshAccountMetadataInput) (*RefreshAccountMetadataOutput, error) {
+		account, err := h.getEditableAccount(ctx, input.AccountID, middleware.GetUserID(ctx))
+		if err != nil {
+			return nil, err
+		}
+		if h.tokenSource == nil {
+			return nil, huma.Error501NotImplemented("account metadata refresh is unavailable")
+		}
+		if h.connectorStore != nil {
+			_, bindingErr := h.connectorStore.BindingForAccount(ctx, account.WorkspaceID, account.ID)
+			switch {
+			case bindingErr == nil:
+				return nil, huma.Error501NotImplemented("profile refresh is unavailable for connector accounts")
+			case !errors.Is(bindingErr, sql.ErrNoRows):
+				return nil, huma.Error500InternalServerError("failed to resolve the account provider")
+			}
+		}
+
+		adapter := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+		if adapter == nil {
+			return nil, huma.Error501NotImplemented("profile refresh is unavailable for this account provider")
+		}
+		accessToken, err := h.tokenSource.GetValidAccessToken(ctx, account.ID)
+		if err != nil {
+			return nil, huma.Error502BadGateway("the provider access token could not be loaded")
+		}
+
+		profile, err := refreshProviderAccountMetadata(ctx, adapter, accessToken, account)
+		if err != nil {
+			if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
+				return nil, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
+			}
+			return nil, huma.Error502BadGateway("the provider profile could not be refreshed")
+		}
+		if profile == nil || strings.TrimSpace(profile.ID) == "" {
+			return nil, huma.Error502BadGateway("the provider returned an invalid account profile")
+		}
+		if strings.TrimSpace(profile.ID) != strings.TrimSpace(account.AccountID) {
+			return nil, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
+		}
+
+		if err := h.updateAccountProfileMetadata(ctx, account, profile); err != nil {
+			return nil, err
+		}
+
+		updated, err := h.fetchUpdatedAccount(ctx, account.ID)
+		if err != nil {
+			return nil, err
+		}
+		resp := accountResponse(updated, h.disableLinkedInThreadReplies)
+		resp = h.enrichResponseMessaging(ctx, updated, middleware.GetUserID(ctx), resp)
+		return &RefreshAccountMetadataOutput{Body: resp}, nil
+	})
+}
+
+func (h *OAuthHandler) updateAccountProfileMetadata(ctx context.Context, account models.SocialAccount, profile *platform.UserProfile) error {
+	username := strings.TrimSpace(firstNonEmpty(profile.Username, profile.DisplayName))
+	avatarURL := strings.TrimSpace(profile.AvatarURL)
+	if username == "" && avatarURL == "" {
+		return nil
+	}
+
+	query := h.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Where("id = ? AND workspace_id = ? AND account_id = ? AND is_active = ?", account.ID, account.WorkspaceID, account.AccountID, true)
+	if username != "" {
+		query = query.Set("account_username = ?", username)
+	}
+	if avatarURL != "" {
+		query = query.Set("account_avatar_url = ?", avatarURL)
+	}
+	result, err := query.Exec(ctx)
+	if err != nil {
+		return huma.Error500InternalServerError("failed to update account metadata")
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return huma.Error500InternalServerError("failed to verify account metadata update")
+	}
+	if updated != 1 {
+		return huma.Error409Conflict("the account changed while its profile was refreshing; try again")
+	}
+	return nil
+}
+
+func refreshProviderAccountMetadata(ctx context.Context, adapter platform.Adapter, accessToken string, account models.SocialAccount) (*platform.UserProfile, error) {
+	if refresher, ok := adapter.(platform.AccountMetadataRefresher); ok {
+		capabilityState := map[string]string{}
+		_ = json.Unmarshal([]byte(account.CapabilityState), &capabilityState)
+		return refresher.RefreshAccountMetadata(ctx, accessToken, platform.AccountMetadataRequest{
+			AccountID: account.AccountID, CapabilityState: capabilityState,
+		})
+	}
+	return adapter.GetProfile(ctx, accessToken)
 }
 
 func validateAccountSlug(slug string) error {

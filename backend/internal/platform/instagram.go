@@ -175,6 +175,34 @@ func (i *InstagramAdapter) GetProfile(ctx context.Context, accessToken string) (
 	return &UserProfile{ID: profile.ID, Username: profile.Name, DisplayName: profile.Name}, nil
 }
 
+func (i *InstagramAdapter) RefreshAccountMetadata(ctx context.Context, accessToken string, input AccountMetadataRequest) (*UserProfile, error) {
+	accountID := strings.TrimSpace(input.AccountID)
+	if accountID == "" {
+		return nil, fmt.Errorf("instagram account id is required")
+	}
+	endpoint := i.graphURL(url.PathEscape(accountID) + "?fields=id,username,name,profile_picture_url&access_token=" + url.QueryEscape(accessToken))
+	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("instagram profile: %w", err)
+	}
+	var profile struct {
+		ID                string `json:"id"`
+		Username          string `json:"username"`
+		Name              string `json:"name"`
+		ProfilePictureURL string `json:"profile_picture_url"`
+	}
+	if err := json.Unmarshal(respBody, &profile); err != nil {
+		return nil, fmt.Errorf("decoding instagram profile: %w", err)
+	}
+	if strings.TrimSpace(profile.ID) == "" {
+		return nil, fmt.Errorf("instagram profile returned no id")
+	}
+	return &UserProfile{
+		ID: profile.ID, Username: firstNonEmptyString(profile.Username, profile.Name),
+		DisplayName: profile.Name, AvatarURL: profile.ProfilePictureURL,
+	}, nil
+}
+
 func (i *InstagramAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
 	pages, err := i.listInstagramPages(ctx, token)
 	if err != nil {

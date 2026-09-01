@@ -244,6 +244,31 @@ func TestDiscordBotGuildSelectionRechecksManageabilityAndInstallation(t *testing
 	}
 }
 
+func TestDiscordBotRefreshAccountMetadataUsesTheExactGuild(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/api/v10/guilds/100" || req.URL.Query().Get("with_counts") != "true" {
+			t.Fatalf("unexpected request %s", req.URL.String())
+		}
+		if req.Header.Get(headerAuthorization) != "Bot global-bot-token" {
+			t.Fatalf("unexpected authorization %q", req.Header.Get(headerAuthorization))
+		}
+		return jsonResponse(req, `{"id":"100","name":"Current Guild","icon":"current-icon"}`), nil
+	})}
+
+	profile, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").RefreshAccountMetadata(
+		t.Context(), "stored-installation-reference", AccountMetadataRequest{AccountID: "100"},
+	)
+	if err != nil {
+		t.Fatalf("RefreshAccountMetadata returned error: %v", err)
+	}
+	if profile.ID != "100" || profile.Username != "Current Guild" || profile.AvatarURL != "https://cdn.discordapp.com/icons/100/current-icon.png" {
+		t.Fatalf("unexpected refreshed Discord guild profile: %#v", profile)
+	}
+}
+
 func TestDiscordBotListsOnlyPermittedTextAndAnnouncementChannels(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

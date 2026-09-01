@@ -378,6 +378,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.SetConnectorRegistry(deps.ConnectorRegistry, deps.ConnectorStore)
 	oauthHandler.SetProviderRegistrars(deps.ProviderRegistrars...)
 	oauthHandler.SetTelemetry(deps.Telemetry)
+	oauthHandler.SetTokenSource(deps.TokenSource)
 	oauthHandler.ListProviders(api)
 	oauthHandler.ConnectConnector(api)
 	oauthHandler.ListMastodonServers(api)
@@ -390,6 +391,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.CompleteAccountSelection(api)
 	oauthHandler.ListAccounts(api)
 	oauthHandler.UpdateAccount(api)
+	oauthHandler.RefreshAccountMetadata(api)
 	oauthHandler.DisconnectAccount(api)
 	oauthHandler.RevokeAccountGrant(api)
 

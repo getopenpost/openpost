@@ -115,6 +115,32 @@ func TestFacebookExchangeAndSelectPage(t *testing.T) {
 	}
 }
 
+func TestFacebookRefreshAccountMetadataUsesTheSelectedPageToken(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/me" || req.URL.Query().Get(oauthParamAccessToken) != "page-token" {
+			t.Fatalf("unexpected request %s", req.URL.String())
+		}
+		if fields := req.URL.Query().Get("fields"); !strings.Contains(fields, "picture.type(square)") {
+			t.Fatalf("facebook page profile omitted its picture: %s", fields)
+		}
+		return jsonResponse(req, `{"id":"page-1","name":"Current Page","username":"current-page","picture":{"data":{"url":"https://cdn.example/current-page.png"}}}`), nil
+	})}
+
+	profile, err := NewFacebookAdapter("", "", "").RefreshAccountMetadata(
+		t.Context(), "page-token", AccountMetadataRequest{AccountID: "page-1"},
+	)
+	if err != nil {
+		t.Fatalf("RefreshAccountMetadata returned error: %v", err)
+	}
+	if profile.ID != "page-1" || profile.Username != "current-page" || profile.AvatarURL != "https://cdn.example/current-page.png" {
+		t.Fatalf("unexpected refreshed Facebook Page profile: %#v", profile)
+	}
+}
+
 func TestFacebookListAccountSelectionsExplainsPageAccessRequirement(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

@@ -31,6 +31,7 @@
 	import { resolveAppPath } from '$lib/app-path';
 	import { continuationHrefForNormalizedConnection } from '$lib/account-management-route';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { m } from '$lib/paraglide/messages';
 	import AccountFeaturePresentation from '$lib/components/account-feature-presentation.svelte';
@@ -148,6 +149,8 @@
 	});
 	let editAccountLoading = $state(false);
 	let editAccountError = $state('');
+	let accountMetadataRefreshing = $state(false);
+	let accountMetadataRefreshError = $state('');
 	let accountRemovalDialogOpen = $state(false);
 	let accountRemovalAction = $state.raw<AccountRemovalAction | null>(null);
 	const accountSlugPattern = '[a-z0-9][a-z0-9-]{0,62}';
@@ -419,6 +422,7 @@
 		editingAccount = account;
 		editAccountSlug = account.slug ?? '';
 		editAccountError = '';
+		accountMetadataRefreshError = '';
 		editFeatures = [];
 		editFeatureSelections = {};
 		editFeaturesInitial = {};
@@ -457,7 +461,7 @@
 	}
 
 	async function updateAccountSlug() {
-		if (!editingAccount) return;
+		if (!editingAccount || accountMetadataRefreshing) return;
 		editAccountLoading = true;
 		editAccountError = '';
 		try {
@@ -489,6 +493,56 @@
 				e instanceof Error && e.message ? e.message : m.accounts_update_slug_failed();
 		} finally {
 			editAccountLoading = false;
+		}
+	}
+
+	async function refreshAccountMetadata() {
+		const account = editingAccount;
+		if (!account || accountMetadataRefreshing || editAccountLoading) return;
+		accountMetadataRefreshing = true;
+		accountMetadataRefreshError = '';
+		let failureMessage = m.accounts_refresh_profile_failed();
+		try {
+			const {
+				data,
+				error: requestError,
+				response
+			} = await client.POST('/accounts/{account_id}/refresh-metadata', {
+				params: { path: { account_id: account.id } }
+			});
+			if (requestError) {
+				failureMessage = accountMetadataRefreshErrorMessage(response.status);
+				throw requestError;
+			}
+			if (!data) throw new Error(m.accounts_refresh_profile_failed());
+			const refreshed = { ...account, ...data };
+			accounts = accounts.map((candidate) =>
+				candidate.id === account.id ? { ...candidate, ...data } : candidate
+			);
+			if (editingAccount?.id === account.id) editingAccount = refreshed;
+			onAccountsChanged();
+			showToast(
+				m.accounts_profile_refreshed({ account: accountContextLabel(refreshed) }),
+				undefined,
+				'neutral'
+			);
+		} catch {
+			accountMetadataRefreshError = failureMessage;
+		} finally {
+			accountMetadataRefreshing = false;
+		}
+	}
+
+	function accountMetadataRefreshErrorMessage(status: number): string {
+		switch (status) {
+			case 403:
+				return m.accounts_refresh_profile_forbidden();
+			case 409:
+				return m.accounts_refresh_profile_conflict();
+			case 501:
+				return m.accounts_refresh_profile_unavailable();
+			default:
+				return m.accounts_refresh_profile_failed();
 		}
 	}
 
@@ -1781,7 +1835,9 @@
 					class="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5"
 					data-testid="account-settings-scroll"
 				>
-					<div class="flex items-center gap-3 rounded-lg border bg-muted/20 p-3">
+					<div
+						class="flex flex-col items-stretch gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center"
+					>
 						<div class="min-w-0 flex-1">
 							<SocialAccountIdentity
 								name={accountDisplayName(editingAccount)}
@@ -1797,7 +1853,39 @@
 								</div>
 							{/if}
 						</div>
+						{#if !isConnectorAccount(editingAccount)}
+							<Button
+								class="min-h-11 shrink-0 sm:min-h-9"
+								variant="outline"
+								size="sm"
+								type="button"
+								onclick={() => void refreshAccountMetadata()}
+								disabled={accountMetadataRefreshing || editAccountLoading}
+								aria-label={m.accounts_refresh_profile_for({
+									account: accountContextLabel(editingAccount)
+								})}
+							>
+								{#if accountMetadataRefreshing}
+									<LoaderIcon
+										class="size-4 animate-spin motion-reduce:animate-none"
+										aria-hidden="true"
+									/>
+									{m.accounts_refreshing_profile()}
+								{:else}
+									<RefreshIcon class="size-4" aria-hidden="true" />
+									{m.accounts_refresh_profile()}
+								{/if}
+							</Button>
+						{/if}
 					</div>
+					{#if accountMetadataRefreshError}
+						<InlineNotice
+							tone="error"
+							message={accountMetadataRefreshError}
+							dismissLabel={m.common_dismiss()}
+							onDismiss={() => (accountMetadataRefreshError = '')}
+						/>
+					{/if}
 					{#if editFeaturesLoading}
 						<div class="rounded-lg border p-3 text-sm text-muted-foreground">
 							{m.common_loading()}
@@ -1894,7 +1982,7 @@
 					<Button
 						class="min-h-11 sm:min-h-9"
 						type="submit"
-						disabled={editAccountLoading || !editAccountSlug.trim()}
+						disabled={editAccountLoading || accountMetadataRefreshing || !editAccountSlug.trim()}
 					>
 						{editAccountLoading ? m.common_saving() : m.accounts_save_details()}
 					</Button>

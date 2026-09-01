@@ -91,6 +91,13 @@ func TestLinkedInOrganizationSelectionUsesOrganizationURN(t *testing.T) {
 	if selected.CapabilityState["linkedin_account_type"] != "organization" {
 		t.Fatalf("missing organization capability state %#v", selected.CapabilityState)
 	}
+	profile, err := adapter.RefreshAccountMetadata(context.Background(), "member-token", AccountMetadataRequest{AccountID: "urn:li:organization:42"})
+	if err != nil {
+		t.Fatalf("RefreshAccountMetadata returned error: %v", err)
+	}
+	if profile.ID != "urn:li:organization:42" || profile.Username != "openpost" || profile.AvatarURL != "https://media.linkedin.example/openpost.png" {
+		t.Fatalf("unexpected refreshed LinkedIn organization profile %#v", profile)
+	}
 }
 
 func TestLinkedInOrganizationScopesAreExplicitlyEnabled(t *testing.T) {

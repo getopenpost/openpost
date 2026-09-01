@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.17.1] - 2026-09-01
+
+### Fixed
+
+- Let automated reviewers crawl the signed-out Hosted landing page while keeping private app routes out of search results.
+
 ## [4.17.0] - 2026-09-01
 
 ### Added

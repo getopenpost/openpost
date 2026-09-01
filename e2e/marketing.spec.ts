@@ -464,6 +464,9 @@ test("marketing index has no horizontal overflow", async ({ page }) => {
 test("landing stays responsive and theme-aware", async ({ page }) => {
   await page.goto("/");
 
+  const telemetryChoice = page.getByRole("button", { name: "Continue without cookies" });
+  if (await telemetryChoice.isVisible()) await telemetryChoice.click();
+
   const viewportWidth = page.viewportSize()?.width ?? 1280;
   await expect(page.locator("[data-floating-mark]")).toHaveCount(12);
   await expect(page.locator(".hero-title")).toHaveCSS("color", "oklch(0.2 0.01 50)");

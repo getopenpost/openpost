@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Added consent-aware browser analytics choices with persistent first-party, limited cookieless, and fully off modes across the app, website, and documentation.
 - Added a Refresh profile action to connected account details so current provider names and profile pictures can be fetched without reconnecting the account.
 - Published verifiable OpenPost Agent Skills, current API and MCP discovery metadata, and a standard favicon for integration directories.
 
@@ -16,6 +17,10 @@ All notable changes to this project are documented in this file.
 - Kept utility and authenticated app pages out of search indexes while preserving public profile discovery, and compressed app HTML for browsers that accept gzip or Brotli.
 - Corrected app crawler rules, Content Signals, OAuth resource discovery, and public Link headers.
 - Extended production proof across the new discovery endpoints, generated artifacts, crawler policies, Content Signal headers, and favicon.
+
+### Changed
+
+- Persistent browser analytics now preserve cross-subdomain acquisition, returning visits, sessions, country, bot filtering, and FCP while replay, broad autocapture, heatmaps, surveys, console capture, network payloads, and precise location stay disabled.
 
 ## [4.16.1] - 2026-09-01
 

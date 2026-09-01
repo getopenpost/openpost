@@ -1,22 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { init } from './hooks.client';
+import { initializeClientErrors } from './hooks.client';
 
-const capturedExceptions = vi.hoisted(() => vi.fn());
+const capturedExceptions = vi.fn();
 
-vi.mock('@openpost/telemetry', () => ({
-	captureClientException: capturedExceptions,
-	installGlobalErrorCapture: () => {
-		const capture = (event: Event) => {
-			if (!event.defaultPrevented) capturedExceptions();
-		};
-		window.addEventListener('error', capture);
-		window.addEventListener('unhandledrejection', capture);
-		return () => {
-			window.removeEventListener('error', capture);
-			window.removeEventListener('unhandledrejection', capture);
-		};
-	}
-}));
+function installTestErrorCapture() {
+	const capture = (event: Event) => {
+		if (!event.defaultPrevented) capturedExceptions();
+	};
+	window.addEventListener('error', capture);
+	window.addEventListener('unhandledrejection', capture);
+	return () => {
+		window.removeEventListener('error', capture);
+		window.removeEventListener('unhandledrejection', capture);
+	};
+}
+
+function testRuntime() {
+	return Object.assign(new EventTarget(), {
+		location: { reload: vi.fn() },
+		setTimeout: vi.fn(() => 1)
+	});
+}
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -24,13 +28,8 @@ afterEach(() => {
 });
 
 describe('client error initialization', () => {
-	it('handles stale module failures before global telemetry observes them', async () => {
-		const runtime = new EventTarget() as EventTarget & {
-			location: { reload: () => void };
-			setTimeout: typeof setTimeout;
-		};
-		runtime.location = { reload: vi.fn() };
-		runtime.setTimeout = vi.fn(() => 1) as unknown as typeof setTimeout;
+	it('handles stale module failures before global telemetry observes them', () => {
+		const runtime = testRuntime();
 		vi.stubGlobal('window', runtime);
 		vi.stubGlobal('navigator', {});
 		vi.stubGlobal('sessionStorage', {
@@ -39,26 +38,20 @@ describe('client error initialization', () => {
 			removeItem: vi.fn()
 		});
 
-		await init();
-		const event = new Event('error', { cancelable: true }) as Event & {
-			error: Error;
-			message: string;
-		};
-		event.error = new Error('Importing a module script failed.');
-		event.message = event.error.message;
+		initializeClientErrors(installTestErrorCapture);
+		const error = new Error('Importing a module script failed.');
+		const event = Object.assign(new Event('error', { cancelable: true }), {
+			error,
+			message: error.message
+		});
 		runtime.dispatchEvent(event);
 
 		expect(event.defaultPrevented).toBe(true);
 		expect(capturedExceptions).not.toHaveBeenCalled();
 	});
 
-	it('handles Vite preload failures from the emitted payload', async () => {
-		const runtime = new EventTarget() as EventTarget & {
-			location: { reload: () => void };
-			setTimeout: typeof setTimeout;
-		};
-		runtime.location = { reload: vi.fn() };
-		runtime.setTimeout = vi.fn(() => 1) as unknown as typeof setTimeout;
+	it('handles Vite preload failures from the emitted payload', () => {
+		const runtime = testRuntime();
 		vi.stubGlobal('window', runtime);
 		vi.stubGlobal('navigator', {});
 		vi.stubGlobal('sessionStorage', {
@@ -67,11 +60,10 @@ describe('client error initialization', () => {
 			removeItem: vi.fn()
 		});
 
-		await init();
-		const event = new Event('vite:preloadError', { cancelable: true }) as Event & {
-			payload: Error;
-		};
-		event.payload = new Error('Importing a module script failed.');
+		initializeClientErrors(installTestErrorCapture);
+		const event = Object.assign(new Event('vite:preloadError', { cancelable: true }), {
+			payload: new Error('Importing a module script failed.')
+		});
 		runtime.dispatchEvent(event);
 
 		expect(event.defaultPrevented).toBe(true);

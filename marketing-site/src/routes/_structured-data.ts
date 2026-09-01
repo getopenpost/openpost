@@ -73,7 +73,10 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 				operatingSystem: 'Web, Android',
 				description:
 					'An all-in-one social publishing workspace with a web app, HTTP API, CLI, MCP server, and self-hosted deployment option.',
-				softwareHelp: userDocsUrl,
+				softwareHelp: {
+					'@type': 'WebPage',
+					url: userDocsUrl
+				},
 				license: `${githubUrl}/blob/main/LICENSE`,
 				author: { '@id': operatorId },
 				featureList: [

@@ -5,6 +5,7 @@ import test from "node:test";
 
 import { renderChangelogAtomFeed } from "../marketing-site/src/lib/changelog-feed.ts";
 import { publicContentSignal, renderPublicRobots } from "../marketing-site/src/lib/robots.ts";
+import { platforms } from "../marketing-site/src/routes/_marketing.ts";
 import { structuredDataForMarketingPage } from "../marketing-site/src/routes/_structured-data.ts";
 import { resolveMarketingSocial } from "../packages/social-images/src/index.js";
 
@@ -57,10 +58,14 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.equal(software.name, "OpenPost");
   assert.equal(software.operatingSystem, "Web, Android");
   assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
+  assert.deepEqual(software.softwareHelp, {
+    "@type": "WebPage",
+    url: "https://docs.openpo.st/usage/",
+  });
   assert.deepEqual(software.subjectOf, [
     {
       "@type": "WebPage",
-      url: "https://docs.openpo.st/development",
+      url: "https://docs.openpo.st/development/",
     },
     {
       "@type": "WebPage",
@@ -88,6 +93,12 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.equal(faqPage["@type"], "FAQPage");
   assert.ok(faqPage.mainEntity.length >= 7);
   assert.equal(faqPage.mainEntity[0].acceptedAnswer["@type"], "Answer");
+});
+
+test("platform guides use their direct canonical documentation URLs", () => {
+  for (const platform of platforms) {
+    assert.equal(platform.docsUrl, `https://docs.openpo.st/providers/${platform.slug}`);
+  }
 });
 
 test("changelog feed contains only dated stable releases and escaped content", () => {

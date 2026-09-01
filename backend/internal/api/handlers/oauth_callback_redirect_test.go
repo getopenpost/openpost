@@ -255,7 +255,7 @@ func newOAuthCallbackRedirectTestServer(t *testing.T, providerName string, adapt
 	}, testAuthenticator{}, false, "https://app.openpost.test")
 	handler.SetProviderReadiness(oauthConnectionReadiness(
 		t,
-		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
+		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled, approved: true},
 		providerConfig,
 	))
 	handler.GetAuthURL(api)

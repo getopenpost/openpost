@@ -98,7 +98,7 @@ func (service *Service) Available() bool {
 }
 
 func (service *Service) ConfigureWebhook(ctx context.Context, publicURL string) error {
-	if !service.Available() {
+	if !service.Available() || !service.OperationReady(ctx, providerreadiness.OperationConnect) {
 		return ErrProviderUnavailable
 	}
 	base, err := url.Parse(strings.TrimSpace(publicURL))
@@ -124,9 +124,20 @@ func (service *Service) RegisterWebhook(e *echo.Echo, ingress *botingress.Servic
 		if err != nil || len(body) > botingress.MaxEventBodyBytes {
 			return c.JSON(http.StatusRequestEntityTooLarge, map[string]bool{"ok": false})
 		}
+		verifier := botingress.SecretHeaderVerifier{HeaderName: WebhookSecretHeader, Secret: service.webhookSecret}
+		if err := verifier.Verify(request.Header, body); err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]bool{"ok": false})
+		}
+		normalized, err := normalizer.Normalize(body)
+		if err != nil {
+			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+		}
+		if !service.ingressEventReady(request.Context(), normalized) {
+			return c.JSON(http.StatusServiceUnavailable, map[string]bool{"ok": false})
+		}
 		_, acceptErr := ingress.Accept(request.Context(), botingress.AcceptRequest{
 			Provider: "telegram", Headers: request.Header, Body: body,
-			Verifier:   botingress.SecretHeaderVerifier{HeaderName: WebhookSecretHeader, Secret: service.webhookSecret},
+			Verifier:   verifier,
 			Normalizer: normalizer,
 		})
 		if errors.Is(acceptErr, botingress.ErrInvalidSignature) {
@@ -139,6 +150,27 @@ func (service *Service) RegisterWebhook(e *echo.Echo, ingress *botingress.Servic
 		// rejection details are never reflected into provider responses.
 		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 	})
+}
+
+func (service *Service) ingressEventReady(ctx context.Context, event botingress.NormalizedEvent) bool {
+	switch event.Kind {
+	case "telegram.connection_requested", "telegram.membership_changed":
+		return service.OperationReady(ctx, providerreadiness.OperationConnect)
+	case "telegram.channel_post", "telegram.reaction_count":
+		var connection models.TelegramConnection
+		if err := service.db.NewSelect().Model(&connection).
+			Where("chat_id = ? AND chat_type = ?", strings.TrimSpace(event.SubjectReference), "channel").Scan(ctx); err != nil {
+			return false
+		}
+		var account models.SocialAccount
+		if err := service.db.NewSelect().Model(&account).
+			Where("id = ? AND is_active = ?", connection.SocialAccountID, true).Scan(ctx); err != nil || service.readiness == nil {
+			return false
+		}
+		return service.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationObservation, providerreadiness.ExecutionIntentProduction).Observable
+	default:
+		return false
+	}
 }
 
 //nolint:gocyclo // Identity, membership, and destination permission checks remain one pre-persistence boundary.
@@ -211,6 +243,13 @@ func (service *Service) processObservation(ctx context.Context, event models.Bot
 	if err := service.db.NewSelect().Model(&account).
 		Where("id = ? AND is_active = ?", connection.SocialAccountID, true).Scan(ctx); err != nil {
 		return ErrPersistenceFailed
+	}
+	if strings.TrimSpace(event.ID) != "" {
+		if _, err := service.db.NewUpdate().Model((*models.BotIngressEvent)(nil)).
+			Set("workspace_id = ?", account.WorkspaceID).Set("social_account_id = ?", account.ID).
+			Where("id = ?", event.ID).Exec(ctx); err != nil {
+			return ErrPersistenceFailed
+		}
 	}
 	if service.readiness == nil || !service.readiness.DecideAccountOperation(
 		ctx, account, providerreadiness.OperationObservation, providerreadiness.ExecutionIntentProduction,

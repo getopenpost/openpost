@@ -3,11 +3,14 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/netguard"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,6 +78,27 @@ func TestMastodonAccountContentDiscoveryIsInstanceAwarePublicOnlyAndPaginated(t 
 	require.NoError(t, err)
 	require.Empty(t, last.Items)
 	require.Empty(t, last.NextCursor)
+}
+
+type mastodonTestResolver struct{}
+
+func (mastodonTestResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
+	return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
+}
+
+func TestMastodonDiscoveryHTTPClientRejectsCrossOriginRedirect(t *testing.T) {
+	client := mastodonDiscoveryHTTPClientWithPolicy("https://social.example", netguard.URLPolicy{
+		Label: "mastodon instance", AllowedSchemes: []string{"https"}, Resolver: mastodonTestResolver{},
+	})
+	err := client.CheckRedirect(&http.Request{URL: mustParseMastodonTestURL(t, "https://other.example/api/v1/statuses")}, nil)
+	require.ErrorContains(t, err, "changed origin")
+}
+
+func mustParseMastodonTestURL(t *testing.T, raw string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(raw)
+	require.NoError(t, err)
+	return parsed
 }
 
 func TestMastodonAccountContentURLStripsProviderQueryAndFragment(t *testing.T) {

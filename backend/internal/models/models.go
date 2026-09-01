@@ -2401,22 +2401,23 @@ type BotConnectionNonce struct {
 type BotIngressEvent struct {
 	bun.BaseModel `bun:"table:bot_ingress_events"`
 
-	ID                string    `bun:",pk" json:"id"`
-	Provider          string    `bun:",notnull" json:"provider"`
-	ProviderEventID   string    `bun:"provider_event_id,notnull" json:"provider_event_id"`
-	Kind              string    `bun:",notnull" json:"kind"`
-	WorkspaceID       string    `bun:"workspace_id,nullzero" json:"workspace_id,omitempty"`
-	SocialAccountID   string    `bun:"social_account_id,notnull,default:''" json:"social_account_id,omitempty"`
-	ConnectionNonceID string    `bun:"connection_nonce_id,notnull,default:''" json:"connection_nonce_id,omitempty"`
-	SubjectReference  string    `bun:"subject_reference,notnull,default:''" json:"subject_reference,omitempty"`
-	ParentReference   string    `bun:"parent_reference,notnull,default:''" json:"parent_reference,omitempty"`
-	ContentProfile    string    `bun:"content_profile,notnull,default:''" json:"content_profile,omitempty"`
-	ContentText       string    `bun:"content_text,notnull,default:''" json:"content_text,omitempty"`
-	MetricsJSON       string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json,omitempty"`
-	OccurredAt        time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
-	ProcessedAt       time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
-	SafeErrorCode     string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
-	CreatedAt         time.Time `bun:"created_at,notnull" json:"created_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	Provider           string    `bun:",notnull" json:"provider"`
+	ProviderEventID    string    `bun:"provider_event_id,notnull" json:"provider_event_id"`
+	Kind               string    `bun:",notnull" json:"kind"`
+	WorkspaceID        string    `bun:"workspace_id,nullzero" json:"workspace_id,omitempty"`
+	SocialAccountID    string    `bun:"social_account_id,notnull,default:''" json:"social_account_id,omitempty"`
+	ConnectionNonceID  string    `bun:"connection_nonce_id,notnull,default:''" json:"connection_nonce_id,omitempty"`
+	SubjectReference   string    `bun:"subject_reference,notnull,default:''" json:"subject_reference,omitempty"`
+	ParentReference    string    `bun:"parent_reference,notnull,default:''" json:"parent_reference,omitempty"`
+	ContentProfile     string    `bun:"content_profile,notnull,default:''" json:"content_profile,omitempty"`
+	ContentText        string    `bun:"content_text,notnull,default:''" json:"content_text,omitempty"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json,omitempty"`
+	OccurredAt         time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
+	ProcessedAt        time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
+	SafeErrorCode      string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	ProcessingAttempts int       `bun:"processing_attempts,notnull,default:0" json:"processing_attempts"`
+	CreatedAt          time.Time `bun:"created_at,notnull" json:"created_at"`
 }
 
 // TelegramChatInstallation retains authenticated bot-membership timing before

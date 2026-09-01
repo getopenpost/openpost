@@ -27,6 +27,15 @@ func (roundTrip roundTripFunc) RoundTrip(request *http.Request) (*http.Response,
 	return roundTrip(request)
 }
 
+type unavailableTelegramGate struct{}
+
+func (unavailableTelegramGate) DecideConnection(context.Context, string, string, providerreadiness.ExecutionIntent) providerreadiness.Decision {
+	return providerreadiness.Decision{}
+}
+func (unavailableTelegramGate) DecideAccountOperation(context.Context, models.SocialAccount, providerreadiness.Operation, providerreadiness.ExecutionIntent) providerreadiness.Decision {
+	return providerreadiness.Decision{}
+}
+
 type readyTelegramGate struct {
 	observationDisabled bool
 	analyticsDisabled   bool
@@ -210,6 +219,13 @@ func TestHTTPBotAPIOmitsProviderTokenFromTransportErrors(t *testing.T) {
 	require.NotContains(t, err.Error(), "api.telegram.test")
 }
 
+func TestWebhookRegistrationMakesNoProviderCallWhenReadinessUnavailable(t *testing.T) {
+	service, api, _, _ := newTelegramTestService(t)
+	service.SetProviderReadiness(unavailableTelegramGate{})
+	require.ErrorIs(t, service.ConfigureWebhook(t.Context(), "https://app.openpost.test"), ErrProviderUnavailable)
+	require.Empty(t, api.webhook.URL)
+}
+
 func TestWebhookSubscriptionUsesOnlyRequiredUpdatesAndSafeURL(t *testing.T) {
 	service, api, _, _ := newTelegramTestService(t)
 	require.NoError(t, service.ConfigureWebhook(t.Context(), "https://app.openpost.test"))
@@ -246,8 +262,24 @@ func TestWebhookAuthenticatesBeforeParsingAndNeverEchoesConnectionCodes(t *testi
 	require.JSONEq(t, `{"ok":true}`, ordinaryResponse.Body.String())
 }
 
-func TestDuplicateChannelUpdateQueuesOneJob(t *testing.T) {
+func TestUnknownChannelUpdateIsRejectedBeforeStorage(t *testing.T) {
 	service, _, db, _ := newTelegramTestService(t)
+	ingress := botingress.New(db, []byte("private-signing-key"))
+	e := echo.New()
+	service.RegisterWebhook(e, ingress)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, WebhookPath, strings.NewReader(`{"update_id":20,"channel_post":{"message_id":16,"date":1788177600,"text":"private unknown text","chat":{"id":-9090,"type":"channel"}}}`))
+	request.Header.Set(WebhookSecretHeader, "webhook-secret")
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, request)
+	require.Equal(t, http.StatusServiceUnavailable, response.Code)
+	count, err := db.NewSelect().Model((*models.BotIngressEvent)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+}
+
+func TestDuplicateChannelUpdateQueuesOneJob(t *testing.T) {
+	service, _, db, now := newTelegramTestService(t)
+	require.NoError(t, service.Process(t.Context(), connectionEvent("workspace-1", "-1001", "channel", now.Add(-time.Hour))))
 	ingress := botingress.New(db, []byte("private-signing-key"))
 	e := echo.New()
 	service.RegisterWebhook(e, ingress)

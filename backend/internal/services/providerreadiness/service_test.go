@@ -312,7 +312,7 @@ func TestServiceAppendsOnlyEvidenceForTheCurrentRuntimeContract(t *testing.T) {
 	}
 }
 
-func TestTelegramConnectPublishObservationAndAnalyticsReadinessAreIndependent(t *testing.T) {
+func TestTelegramOperationsFailClosedWithoutCertificationInDevelopment(t *testing.T) {
 	now := time.Date(2026, time.August, 31, 12, 0, 0, 0, time.UTC)
 	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{{
 		Provider: capabilities.ProviderTelegram, ConnectionMode: platform.ConnectionModeBot, BotUsername: "openpost_bot",
@@ -337,8 +337,8 @@ func TestTelegramConnectPublishObservationAndAnalyticsReadinessAreIndependent(t 
 	connect := service.DecideConnection(t.Context(), capabilities.ProviderTelegram, "", ExecutionIntentProduction)
 	observation := service.DecideAccountOperation(t.Context(), account, OperationObservation, ExecutionIntentProduction)
 	analytics := service.DecideAccountOperation(t.Context(), account, OperationAnalytics, ExecutionIntentProduction)
-	if !connect.Connectable || observation.Observable || observation.State != EffectiveStateDisabled || !analytics.AnalyticsReady {
-		t.Fatalf("Telegram readiness gates were not independent: connect=%#v observation=%#v analytics=%#v", connect, observation, analytics)
+	if connect.Connectable || observation.Observable || observation.State != EffectiveStateDisabled || analytics.AnalyticsReady {
+		t.Fatalf("uncertified Telegram operations did not fail closed: connect=%#v observation=%#v analytics=%#v", connect, observation, analytics)
 	}
 	capability, ok := capabilities.Find(capabilities.ProviderTelegram, models.ContentProfileShortText)
 	if !ok {
@@ -350,8 +350,39 @@ func TestTelegramConnectPublishObservationAndAnalyticsReadinessAreIndependent(t 
 		CurrentAccountReferenceHash: "sha256:" + strings.Repeat("a", 64),
 		Authorization:               AuthorizationEvidence{State: AuthorizationStateValid, ValidatedAt: now.Add(-time.Minute)},
 	})
-	if !publish.Publishable {
-		t.Fatalf("observation control disabled publishing: %#v", publish)
+	if publish.Publishable || !hasBlocker(publish.Blockers, BlockerApprovalRequired) {
+		t.Fatalf("uncertified Telegram publishing did not fail closed: %#v", publish)
+	}
+}
+
+func TestDiscordWebhookConnectionRemainsAvailableWhileBotFailsClosed(t *testing.T) {
+	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{
+		{Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeWebhook, ClientID: "webhook-app"},
+		{Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeBot, ClientID: "bot-app"},
+	}, ConfigurationSourceEnvironment, ProviderEnvironmentDevelopment))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger := &fakeLedger{
+		control: RuntimeControl{State: RuntimeControlStateEnabled}, approvalErr: ErrLedgerFactNotFound,
+		localErr: ErrLedgerFactNotFound, liveErr: ErrLedgerFactNotFound,
+	}
+	service := NewService(ledger, ServiceOptions{Configurations: catalog, DefaultControl: RuntimeControlStateEnabled})
+	webhook := service.DecideConnection(t.Context(), capabilities.ProviderDiscord, "", ExecutionIntentProduction)
+	bot := service.DecideConnection(t.Context(), capabilities.ProviderDiscord, platform.ConnectionModeBot, ExecutionIntentProduction)
+	if !webhook.Connectable {
+		t.Fatalf("Discord webhook connection was unexpectedly gated: %#v", webhook)
+	}
+	if bot.Connectable || !hasBlocker(bot.Blockers, BlockerApprovalRequired) {
+		t.Fatalf("uncertified Discord bot connection did not fail closed: %#v", bot)
+	}
+	botAccount := models.SocialAccount{
+		ID: "discord-account", WorkspaceID: "workspace-1", Platform: capabilities.ProviderDiscord,
+		AccountID: "guild-1", CapabilityState: `{"connection_type":"bot"}`, IsActive: true,
+	}
+	analytics := service.DecideAccountOperation(t.Context(), botAccount, OperationAnalytics, ExecutionIntentProduction)
+	if analytics.AnalyticsReady || !hasBlocker(analytics.Blockers, BlockerApprovalRequired) {
+		t.Fatalf("uncertified Discord bot analytics did not fail closed: %#v", analytics)
 	}
 }
 

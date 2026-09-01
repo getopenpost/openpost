@@ -159,11 +159,16 @@ func (s *Service) ResolveCertificationContext(
 	accountKind := AccountKind(account)
 	var contract CertificationContract
 	var err error
+	mandatoryCertification := requiresCertifiedOperation(account.Platform, accountConfigurationRef(account))
+	enforceCertification := s.managedProduction || mandatoryCertification
 	if operation.IsPublish() {
 		policyMode = PublicationPolicyMode(account, capability, settings)
-		contract, err = PublicationContract(capability, operation, s.managedProduction, accountKind, policyMode)
+		contract, err = PublicationContract(capability, operation, enforceCertification, accountKind, policyMode)
 	} else {
-		contract, err = OperationContract(account.Platform, operation, s.managedProduction, accountKind)
+		contract, err = OperationContract(account.Platform, operation, enforceCertification, accountKind)
+	}
+	if mandatoryCertification && !s.managedProduction {
+		allowNonProductionCertification(&contract)
 	}
 	if claimedPolicyMode = strings.TrimSpace(claimedPolicyMode); claimedPolicyMode != "" && claimedPolicyMode != policyMode {
 		return CertificationContext{}, errors.New("provider certification policy mode does not match the account settings")
@@ -175,8 +180,11 @@ func (s *Service) ResolveCertificationContext(
 	if err != nil {
 		return CertificationContext{}, err
 	}
-	if authorization.State != AuthorizationStateValid {
+	if contract.Requirements.RequireAuthorization && authorization.State != AuthorizationStateValid {
 		return CertificationContext{}, errors.New("provider certification account authorization is not valid")
+	}
+	if !contract.Requirements.RequireAuthorization {
+		authorization = AuthorizationEvidence{State: AuthorizationStateNotApplicable}
 	}
 	for _, requiredScope := range contract.Requirements.RequiredScopes {
 		if !slices.Contains(authorization.GrantedScopes, requiredScope) {
@@ -207,7 +215,11 @@ func (s *Service) CurrentRevision() string {
 
 func (s *Service) DecideConnection(ctx context.Context, provider, instanceURL string, intent ExecutionIntent) Decision {
 	configuration := s.resolveConnectionConfiguration(provider, instanceURL)
-	contract, _ := ConnectionContract(provider, s != nil && s.enforceCertification)
+	mandatoryCertification := requiresCertifiedOperation(provider, instanceURL)
+	contract, _ := ConnectionContract(provider, (s != nil && s.enforceCertification) || mandatoryCertification)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
 	return s.Decide(ctx, DecisionRequest{
 		Implemented:     s.isImplemented(provider),
 		Subject:         s.subject(configuration, "", "", OperationConnect, "default"),
@@ -259,7 +271,11 @@ func (s *Service) DecideAccountOperation(ctx context.Context, account models.Soc
 	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
 	accountKind := AccountKind(account)
 	policyMode := account.Platform + "." + string(operation)
-	contract, _ := OperationContract(account.Platform, operation, s != nil && s.enforceCertification, accountKind)
+	mandatoryCertification := requiresCertifiedOperation(account.Platform, accountConfigurationRef(account))
+	contract, _ := OperationContract(account.Platform, operation, (s != nil && s.enforceCertification) || mandatoryCertification, accountKind)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
 	accountReferenceHash, referenceErr := AccountReferenceHash(account)
 	request := DecisionRequest{
 		Implemented:                 s.isAccountOperationImplemented(account, operation),
@@ -307,13 +323,17 @@ func (s *Service) decidePublication(ctx context.Context, input PublicationDecisi
 		accountKind = "standard"
 	}
 	policyMode := normalizedPolicyToken(input.PolicyMode, input.Provider+".unspecified")
+	mandatoryCertification := requiresCertifiedOperation(input.Provider, input.InstanceURL)
 	contract, _ := PublicationContract(
 		input.Capability,
 		input.Operation,
-		s != nil && s.enforceCertification,
+		(s != nil && s.enforceCertification) || mandatoryCertification,
 		accountKind,
 		policyMode,
 	)
+	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+		allowNonProductionCertification(&contract)
+	}
 	request := DecisionRequest{
 		Implemented:                 s.isPublicationImplemented(input.Provider, outputProfile),
 		Subject:                     s.subject(configuration, accountKind, outputProfile, input.Operation, policyMode),
@@ -386,6 +406,26 @@ func (s *Service) resolveConnectionConfiguration(provider, instanceURL string) R
 	return configuration
 }
 
+func requiresCertifiedOperation(provider, configurationRef string) bool {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	switch provider {
+	case capabilities.ProviderPinterest, capabilities.ProviderTelegram:
+		return true
+	case capabilities.ProviderDiscord:
+		return strings.EqualFold(strings.TrimSpace(configurationRef), platform.ConnectionModeBot)
+	default:
+		return false
+	}
+}
+
+func allowNonProductionCertification(contract *CertificationContract) {
+	if contract == nil {
+		return
+	}
+	contract.Requirements.RequireProductionDeployment = false
+	contract.Requirements.RequireProductionProviderApp = false
+}
+
 func (s *Service) isImplemented(provider string) bool {
 	if s == nil {
 		return false
@@ -404,7 +444,8 @@ func (s *Service) isAccountOperationImplemented(account models.SocialAccount, op
 	case OperationObservation:
 		return account.Platform == capabilities.ProviderTelegram
 	case OperationAnalytics:
-		return account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram
+		return account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram ||
+			(account.Platform == capabilities.ProviderDiscord && accountConfigurationRef(account) == platform.ConnectionModeBot)
 	default:
 		return false
 	}

@@ -88,4 +88,14 @@ func TestTelegramConnectionCodeIsWorkspaceBoundAndReturnedOnlyAtIssuance(t *test
 	require.NoError(t, err)
 	require.NotContains(t, string(stored), output.Code)
 	require.NotContains(t, string(stored), "private-webhook-secret")
+
+	missingChatRequest := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/accounts/telegram/connection-code", bytes.NewBufferString(`{"workspace_id":"workspace-1"}`))
+	missingChatRequest.Header.Set("Authorization", "Bearer web-token")
+	missingChatRequest.Header.Set("Content-Type", "application/json")
+	missingChatResponse := httptest.NewRecorder()
+	e.ServeHTTP(missingChatResponse, missingChatRequest)
+	require.Equal(t, http.StatusUnprocessableEntity, missingChatResponse.Code)
+	count, err := db.NewSelect().Model((*models.BotConnectionNonce)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
 }

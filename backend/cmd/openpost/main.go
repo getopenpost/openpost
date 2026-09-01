@@ -470,9 +470,14 @@ func main() {
 		configureCtx, cancelConfigure := context.WithTimeout(context.Background(), 15*time.Second)
 		if err := telegramConnectionService.ConfigureWebhook(configureCtx, cfg.PublicURL); err != nil {
 			cancelConfigure()
-			log.Fatal("failed to configure Telegram webhook")
+			if errors.Is(err, telegramservice.ErrProviderUnavailable) {
+				log.Printf("Telegram webhook registration skipped: provider readiness is unavailable")
+			} else {
+				log.Fatal("failed to configure Telegram webhook")
+			}
+		} else {
+			cancelConfigure()
 		}
-		cancelConfigure()
 	}
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
@@ -531,6 +536,7 @@ func main() {
 	publishSvc.SetTelemetry(telemetryRecorder)
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
+	analyticsService.SetCursorSigningKey(cfg.JWTSecret)
 	analyticsService.SetProviderReadiness(providerReadinessService)
 	analyticsService.SetDiscoveryPolicy("x", analyticsservice.DiscoveryPolicy{
 		ProviderConcurrency: 1,

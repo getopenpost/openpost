@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/netguard"
 )
 
 const mastodonAccountContentPageSize = 40
@@ -69,7 +71,7 @@ func (m *MastodonAdapter) DiscoverAccountContent(ctx context.Context, accessToke
 		params.Set("max_id", cursor.MaxID)
 	}
 	endpoint := instanceURL + "/api/v1/accounts/" + url.PathEscape(strings.TrimSpace(input.AccountID)) + "/statuses?" + params.Encode()
-	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{headerAuthorization: bearerPrefix + accessToken})
+	body, err := doRequestWithClient(ctx, mastodonDiscoveryHTTPClient(instanceURL), http.MethodGet, endpoint, nil, map[string]string{headerAuthorization: bearerPrefix + accessToken})
 	if err != nil {
 		return AccountContentPage{}, socialAccountContentDiscoveryError(err)
 	}
@@ -189,6 +191,31 @@ func encodeMastodonAccountContentCursor(cursor mastodonAccountContentCursor) (st
 		return "", fmt.Errorf("encoding mastodon discovery cursor: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(encoded), nil
+}
+
+func mastodonDiscoveryHTTPClient(instanceURL string) *http.Client {
+	// Tests inject a package client before constructing requests. Production
+	// instance traffic always uses the guarded client below.
+	if httpClient != defaultPlatformHTTPClient {
+		return httpClient
+	}
+	policy := netguard.URLPolicy{Label: "mastodon instance", AllowedSchemes: []string{"https"}}
+	return mastodonDiscoveryHTTPClientWithPolicy(instanceURL, policy)
+}
+
+func mastodonDiscoveryHTTPClientWithPolicy(instanceURL string, policy netguard.URLPolicy) *http.Client {
+	base, _ := url.Parse(instanceURL)
+	client := netguard.NewHTTPClient(30*time.Second, policy)
+	client.CheckRedirect = func(request *http.Request, _ []*http.Request) error {
+		if err := netguard.ValidateURL(request.Context(), request.URL, policy); err != nil {
+			return err
+		}
+		if !strings.EqualFold(request.URL.Scheme, base.Scheme) || !strings.EqualFold(request.URL.Host, base.Host) {
+			return fmt.Errorf("mastodon instance redirect changed origin")
+		}
+		return nil
+	}
+	return client
 }
 
 func decodeMastodonAccountContentCursor(raw, instanceURL string) (mastodonAccountContentCursor, error) {

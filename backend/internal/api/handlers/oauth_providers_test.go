@@ -72,7 +72,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	}
 	handler.readiness = oauthConnectionReadiness(
 		t,
-		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
+		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled, approved: true},
 		platform.AppConfig{Provider: "bluesky", ClientID: "bluesky-app"},
 		platform.AppConfig{Provider: "discord", ConnectionMode: "webhook"},
 		platform.AppConfig{Provider: "pinterest", ClientID: "pin-app", ClientSecret: "pin-secret", RedirectURI: "https://app.test/api/v1/accounts/pinterest/callback"},

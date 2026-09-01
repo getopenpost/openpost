@@ -290,7 +290,8 @@ func PublicationContract(
 func OperationContract(provider string, operation Operation, enforceCertification bool, accountKind string) (CertificationContract, error) {
 	provider = strings.TrimSpace(provider)
 	if (provider != capabilities.ProviderPinterest || (operation != OperationDiscover && operation != OperationAnalytics)) &&
-		(provider != capabilities.ProviderTelegram || (operation != OperationObservation && operation != OperationAnalytics)) {
+		(provider != capabilities.ProviderTelegram || (operation != OperationObservation && operation != OperationAnalytics)) &&
+		(provider != capabilities.ProviderDiscord || operation != OperationAnalytics) {
 		return CertificationContract{}, errors.New("provider readiness operation is not implemented")
 	}
 	accountKind = normalizedPolicyToken(accountKind, "standard")

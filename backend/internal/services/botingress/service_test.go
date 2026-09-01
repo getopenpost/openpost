@@ -44,7 +44,7 @@ func openBotIngressTestDB(t *testing.T, path string, initialize bool) *bun.DB {
 			subject_reference TEXT NOT NULL DEFAULT '', parent_reference TEXT NOT NULL DEFAULT '',
 			content_profile TEXT NOT NULL DEFAULT '', content_text TEXT NOT NULL DEFAULT '',
 			metrics_json TEXT NOT NULL DEFAULT '{}', occurred_at DATETIME NOT NULL, processed_at DATETIME,
-			safe_error_code TEXT NOT NULL DEFAULT '', created_at DATETIME NOT NULL,
+			safe_error_code TEXT NOT NULL DEFAULT '', processing_attempts INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL,
 			UNIQUE (provider, provider_event_id)
 		);
 	`)
@@ -287,7 +287,7 @@ func TestHandleJobProcessesOnlySafeEventAndNormalizesProcessorFailure(t *testing
 		Provider: "telegram", Body: []byte(`{"raw":"private"}`),
 		Verifier: VerifyFunc(func(http.Header, []byte) error { return nil }),
 		Normalizer: NormalizeFunc(func([]byte) (NormalizedEvent, error) {
-			return NormalizedEvent{ProviderEventID: "process-1", Kind: "reaction.changed", SubjectReference: "message-1", OccurredAt: now}, nil
+			return NormalizedEvent{ProviderEventID: "process-1", Kind: "reaction.changed", SubjectReference: "message-1", ContentText: "private text", MetricsJSON: `{"reactions":3}`, OccurredAt: now}, nil
 		}),
 	})
 	require.NoError(t, err)
@@ -303,12 +303,16 @@ func TestHandleJobProcessesOnlySafeEventAndNormalizesProcessorFailure(t *testing
 	require.NoError(t, web.HandleJob(t.Context(), jobregistry.TypeBotIngress, payload))
 	require.NoError(t, web.HandleJob(t.Context(), jobregistry.TypeBotIngress, payload))
 	require.Equal(t, int32(1), calls.Load())
+	var processed models.BotIngressEvent
+	require.NoError(t, web.db.NewSelect().Model(&processed).Where("id = ?", accepted.EventID).Scan(t.Context()))
+	require.Empty(t, processed.ContentText)
+	require.JSONEq(t, `{}`, processed.MetricsJSON)
 
 	failed, err := web.Accept(t.Context(), AcceptRequest{
 		Provider: "discord", Body: []byte(`{"provider_secret":"never-store"}`),
 		Verifier: VerifyFunc(func(http.Header, []byte) error { return nil }),
 		Normalizer: NormalizeFunc(func([]byte) (NormalizedEvent, error) {
-			return NormalizedEvent{ProviderEventID: "process-2", Kind: "installation.changed", SubjectReference: "guild-1", OccurredAt: now}, nil
+			return NormalizedEvent{ProviderEventID: "process-2", Kind: "installation.changed", SubjectReference: "guild-1", ContentText: "bounded private payload", MetricsJSON: `{"members":5}`, OccurredAt: now}, nil
 		}),
 	})
 	require.NoError(t, err)
@@ -317,10 +321,15 @@ func TestHandleJobProcessesOnlySafeEventAndNormalizesProcessorFailure(t *testing
 	})))
 	failedPayload, err := jobregistry.EncodeBotIngressPayload(jobregistry.BotIngressPayload{EventID: failed.EventID})
 	require.NoError(t, err)
-	err = web.HandleJob(t.Context(), jobregistry.TypeBotIngress, failedPayload)
-	require.ErrorIs(t, err, ErrProcessingFailed)
-	require.NotContains(t, err.Error(), "raw provider")
+	for attempt := 0; attempt < maxRetainedProcessingAttempts; attempt++ {
+		err = web.HandleJob(t.Context(), jobregistry.TypeBotIngress, failedPayload)
+		require.ErrorIs(t, err, ErrProcessingFailed)
+		require.NotContains(t, err.Error(), "raw provider")
+	}
 	var event models.BotIngressEvent
 	require.NoError(t, web.db.NewSelect().Model(&event).Where("id = ?", failed.EventID).Scan(t.Context()))
 	require.Equal(t, string(CodeProcessingFailed), event.SafeErrorCode)
+	require.Equal(t, maxRetainedProcessingAttempts, event.ProcessingAttempts)
+	require.Empty(t, event.ContentText)
+	require.JSONEq(t, `{}`, event.MetricsJSON)
 }

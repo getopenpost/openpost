@@ -28,7 +28,7 @@ type TelegramConnectionHandler struct {
 type IssueTelegramConnectionCodeInput struct {
 	Body struct {
 		WorkspaceID    string `json:"workspace_id" minLength:"1" maxLength:"200" doc:"Workspace receiving the Telegram destination"`
-		ExpectedChatID string `json:"expected_chat_id,omitempty" maxLength:"64" doc:"Optional numeric Telegram chat ID to bind before the first authenticated update"`
+		ExpectedChatID string `json:"expected_chat_id" minLength:"1" maxLength:"64" doc:"Canonical non-zero numeric Telegram chat ID that must redeem the command"`
 	}
 }
 
@@ -77,11 +77,9 @@ func (handler *TelegramConnectionHandler) issueCode(ctx context.Context, input *
 		return nil, huma.Error403Forbidden("social account limit exceeded")
 	}
 	expectedChatID := strings.TrimSpace(input.Body.ExpectedChatID)
-	if expectedChatID != "" {
-		chatID, parseErr := strconv.ParseInt(expectedChatID, 10, 64)
-		if parseErr != nil || chatID == 0 || strconv.FormatInt(chatID, 10) != expectedChatID {
-			return nil, huma.Error400BadRequest("expected_chat_id must be a canonical non-zero numeric Telegram chat ID")
-		}
+	chatID, parseErr := strconv.ParseInt(expectedChatID, 10, 64)
+	if parseErr != nil || chatID == 0 || strconv.FormatInt(chatID, 10) != expectedChatID {
+		return nil, huma.Error400BadRequest("expected_chat_id must be a canonical non-zero numeric Telegram chat ID")
 	}
 	issued, err := handler.ingress.IssueNonce(ctx, botingress.IssueNonceInput{
 		Provider: "telegram", WorkspaceID: workspaceID,

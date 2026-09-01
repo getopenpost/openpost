@@ -16,7 +16,10 @@ import (
 	"github.com/uptrace/bun"
 )
 
-const MaxEventBodyBytes = 256 << 10
+const (
+	MaxEventBodyBytes             = 256 << 10
+	maxRetainedProcessingAttempts = 8
+)
 
 type SignatureVerifier interface {
 	Verify(headers http.Header, body []byte) error
@@ -336,6 +339,7 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	now := s.now().UTC()
 	if _, err := s.db.NewUpdate().Model((*models.BotIngressEvent)(nil)).
 		Set("processed_at = ?", now).Set("safe_error_code = ''").
+		Set("content_text = ''").Set("content_profile = ''").Set("metrics_json = '{}'").
 		Where("id = ? AND processed_at IS NULL", event.ID).Exec(ctx); err != nil {
 		return ErrProcessingFailed
 	}
@@ -359,8 +363,19 @@ func safeProcessorError(err error) *SafeError {
 
 func (s *Service) recordProcessingFailure(ctx context.Context, eventID string, safe *SafeError) error {
 	if _, err := s.db.NewUpdate().Model((*models.BotIngressEvent)(nil)).
-		Set("safe_error_code = ?", safe.Code()).Where("id = ?", eventID).Exec(ctx); err != nil {
+		Set("safe_error_code = ?", safe.Code()).
+		Set("processing_attempts = processing_attempts + 1").Where("id = ?", eventID).Exec(ctx); err != nil {
 		return ErrProcessingFailed
+	}
+	var attempts int
+	if err := s.db.NewSelect().Model((*models.BotIngressEvent)(nil)).Column("processing_attempts").Where("id = ?", eventID).Scan(ctx, &attempts); err != nil {
+		return ErrProcessingFailed
+	}
+	if attempts >= maxRetainedProcessingAttempts {
+		if _, err := s.db.NewUpdate().Model((*models.BotIngressEvent)(nil)).
+			Set("content_text = ''").Set("content_profile = ''").Set("metrics_json = '{}'").Where("id = ?", eventID).Exec(ctx); err != nil {
+			return ErrProcessingFailed
+		}
 	}
 	return safe
 }

@@ -145,7 +145,7 @@ function Brand({ origin, variant }: { origin: string; variant: CardVariant }) {
 }
 
 function SignalField({ kind }: { kind: OgKind }) {
-	const activeByKind: Record<OgKind, number[]> = {
+	const activeByKind = {
 		home: [1, 4, 6, 9, 11, 14],
 		workflow: [0, 5, 10, 15],
 		platforms: [1, 2, 4, 7, 8, 11, 13, 14],
@@ -156,7 +156,7 @@ function SignalField({ kind }: { kind: OgKind }) {
 		'self-hosting': [0, 1, 2, 4, 6, 8, 9, 10],
 		document: [0, 1, 2, 4, 6, 8, 10, 12, 13, 14],
 		docs: [0, 5, 10, 15]
-	};
+	} satisfies Record<OgKind, readonly number[]>;
 	const active = new Set(activeByKind[kind]);
 
 	return (

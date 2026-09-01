@@ -144,7 +144,7 @@ const nativeBoundaries = Object.freeze([
     name: "app crawler policy",
     canonicalURL: "https://app.openpo.st/robots.txt",
     contentType: "text/plain; charset=UTF-8",
-    bodyIncludes: ["Disallow: /", "Allow: /.well-known/api-catalog"],
+    bodyIncludes: ["Allow: /", "Disallow: /api/"],
   },
   {
     label: "marketing favicon",

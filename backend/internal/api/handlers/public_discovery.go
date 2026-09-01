@@ -13,15 +13,8 @@ import (
 const (
 	apiCatalogMediaType = `application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"`
 	publicRobotsPolicy  = `User-agent: *
-Disallow: /
-Allow: /u/
-Allow: /openapi.json
-Allow: /.well-known/api-catalog
-Allow: /.well-known/oauth-authorization-server
-Allow: /.well-known/oauth-protected-resource
-Allow: /.well-known/oauth-protected-resource/mcp
-Allow: /.well-known/mcp/server-card.json
-Allow: /mcp/server-card
+Allow: /
+Disallow: /api/
 `
 )
 

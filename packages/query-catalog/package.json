@@ -13,13 +13,12 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@openpost/api-contract": "workspace:*",
+    "@openpost/api-contract": "file:../api-contract",
     "@tanstack/query-core": "5.102.8",
     "typescript": "5.9.3",
     "vitest": "4.1.10"
   },
   "peerDependencies": {
-    "@openpost/api-contract": "*",
     "@tanstack/query-core": "5.102.8"
   }
 }

@@ -53,7 +53,10 @@ export function planCI(files, manifest, { full = false } = {}) {
       ["backend/", "frontend/", "packages/", "assets/", "docker/", "provider-certification/"],
       [".dockerignore", "bun.lock", "bunfig.toml", "package.json", "turbo.json"],
     ),
-    android: matches(["mobile/"], ["frontend/openapi.json"]),
+    android: matches(
+      ["mobile/", "packages/api-contract/", "packages/query-catalog/"],
+      ["frontend/openapi.json"],
+    ),
     cache_contract: files.some(
       (file) =>
         [

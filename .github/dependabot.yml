@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Go is one release contract across go.mod, locked Devenv, and the builder
+    # image. Upgrade it manually across those surfaces instead of Docker alone.
+    ignore:
+      - dependency-name: golang
     labels:
       - dependencies
       - container
@@ -14,6 +18,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - dependencies
       - ci

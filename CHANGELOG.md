@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-09-01
+
+### Added
+
+- Added a Refresh profile action to connected account details so current provider names and profile pictures can be fetched without reconnecting the account.
+- Published verifiable OpenPost Agent Skills, current API and MCP discovery metadata, and a standard favicon for integration directories.
+
+### Fixed
+
+- Corrected app crawler rules, Content Signals, OAuth resource discovery, and public Link headers.
+- Extended production proof across the new discovery endpoints, generated artifacts, crawler policies, Content Signal headers, and favicon.
+
 ## [4.16.1] - 2026-09-01
 
 ### Changed

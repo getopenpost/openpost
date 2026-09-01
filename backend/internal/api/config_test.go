@@ -52,4 +52,29 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	require.NotNil(t, authConfiguration.Security)
 	require.Empty(t, authConfiguration.Security, "public operations override root bearer security")
 	require.NotContains(t, authConfiguration.Extensions, "x-openpost-automation")
+
+	bootstrap := operationByID(t, document, "get-app-bootstrap")
+	require.NotNil(t, bootstrap.Security)
+	require.Empty(t, bootstrap.Security, "bootstrap supports an explicit anonymous response")
+	require.ElementsMatch(t, []string{"Auth", "Workspaces"}, bootstrap.Tags)
+	require.NotContains(t, bootstrap.Extensions, "x-openpost-automation", "narrow REST tokens must not gain account identity access")
+	bootstrapResponse := bootstrap.Responses["200"].Content["application/json"].Schema
+	bootstrapSchema := document.Components.Schemas.SchemaFromRef(bootstrapResponse.Ref)
+	require.ElementsMatch(t, []string{
+		"authenticated",
+		"user",
+		"workspaces",
+		"selected_workspace_id",
+		"selected_workspace_settings",
+	}, bootstrapSchema.Required)
+	require.False(t, bootstrapSchema.Properties["workspaces"].Nullable)
+	require.True(t, bootstrapSchema.Properties["selected_workspace_id"].Nullable)
+	require.True(t, document.Components.Schemas.SchemaFromRef(bootstrapSchema.Properties["user"].Ref).Nullable)
+	require.True(t, document.Components.Schemas.SchemaFromRef(bootstrapSchema.Properties["selected_workspace_settings"].Ref).Nullable)
+	require.Contains(t, bootstrap.Responses, "503")
+
+	sessionState := operationByID(t, document, "get-auth-session-state")
+	require.NotNil(t, sessionState.Security)
+	require.Empty(t, sessionState.Security, "session state supports an explicit anonymous response")
+	require.Contains(t, sessionState.Responses, "503")
 }

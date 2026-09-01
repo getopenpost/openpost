@@ -495,6 +495,36 @@ func TestAuthSessionStateSupportsAnonymousAndAuthenticatedRequests(t *testing.T)
 	require.False(t, invalidBody.Body.Authenticated)
 }
 
+type authSessionStateErrorAuthenticator struct {
+	err error
+}
+
+func (a authSessionStateErrorAuthenticator) AuthenticateBearer(context.Context, string) (*middleware.Principal, error) {
+	return nil, a.err
+}
+
+func TestAuthSessionStateReturns503WhenAuthenticationIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	db := createHandlerTestDB(t, (*models.User)(nil))
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler := NewAuthHandler(
+		db,
+		nil,
+		authSessionStateErrorAuthenticator{err: context.DeadlineExceeded},
+		nil,
+		nil,
+		false,
+	)
+	handler.SessionState(api)
+
+	response := authSessionRequest(t, e, http.MethodGet, "/api/v1/auth/session-state", "valid-looking-token")
+
+	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+	require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
+}
+
 func TestSessionCookieUsesTheDocumentedPersistentLifetime(t *testing.T) {
 	t.Parallel()
 

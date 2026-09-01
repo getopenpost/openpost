@@ -224,6 +224,12 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	authHandler.BeginPasskeyRegistration(api)
 	authHandler.FinishPasskeyRegistration(api)
 	authHandler.RemovePasskey(api)
+	handlers.NewAppBootstrapHandler(
+		deps.DB,
+		deps.Authenticator,
+		deps.AccountPolicy,
+		deps.IdentityService,
+	).RegisterRoutes(api)
 	handlers.NewEmailChangeHandler(
 		deps.EmailChangeService,
 		deps.IdentityService,

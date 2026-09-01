@@ -453,10 +453,11 @@ func TestBillingCheckoutConfigIsPublicAndBrowserSafe(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	var response map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-	require.Equal(t, map[string]any{
-		"client_token": "test_client_token",
-		"environment":  "sandbox",
-	}, response)
+	require.Equal(t, "test_client_token", response["client_token"])
+	require.Equal(t, "sandbox", response["environment"])
+	for key := range response {
+		require.Contains(t, []string{"$schema", "client_token", "environment"}, key)
+	}
 }
 
 func TestBillingMutationsRequireWorkspaceAdmin(t *testing.T) {

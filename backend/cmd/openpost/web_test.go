@@ -422,6 +422,7 @@ func TestManagedSpaRootProvidesProductReviewFallback(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.Empty(t, rec.Header().Get("X-Robots-Tag"))
 	html := rec.Body.String()
 	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
 	require.Contains(t, html, "Your content operation, together in one workspace.")

@@ -327,7 +327,7 @@ func (h spaRequestHandler) serve(c echo.Context) error {
 	}
 	if relPath == "" {
 		indexData, _ := fs.ReadFile(h.webFS, "index.html")
-		return h.writeHTML(c, indexData)
+		return writeHTMLStatusResponse(c, indexData, h.managedEdition, http.StatusOK, h.managedEdition)
 	}
 	if path.Ext(relPath) == ".html" {
 		if data, err := fs.ReadFile(h.webFS, relPath); err == nil {

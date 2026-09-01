@@ -110,8 +110,8 @@ test("accounts distinguishes destination disconnect from credential revocation",
   ).toBeVisible();
   await menu.getByRole("menuitem", { name: "Disconnect this destination" }).click();
 
-  let dialog = page.getByRole("dialog", { name: "Disconnect shared_a?" });
-  await expect(dialog).toContainText("shared_a is one of 2 destinations");
+  let dialog = page.getByRole("dialog", { name: "Disconnect shared_a · LinkedIn?" });
+  await expect(dialog).toContainText("shared_a · LinkedIn is one of 2 destinations");
   await expect(dialog).toContainText("every other destination stays connected");
   await dialog.getByRole("button", { name: "Disconnect this destination" }).click();
   await expect.poll(() => deletePaths).toContain("/api/v1/accounts/shared-a");
@@ -141,8 +141,10 @@ test("accounts distinguishes destination disconnect from credential revocation",
   await expect(menu.getByRole("menuitem", { name: "Remove connection" })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Disconnect this destination" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Remove connection" }).click();
-  dialog = page.getByRole("dialog", { name: "Remove solo?" });
-  await expect(dialog).toContainText("delete its saved provider credentials and disconnect solo");
+  dialog = page.getByRole("dialog", { name: "Remove solo · LinkedIn?" });
+  await expect(dialog).toContainText(
+    "delete its saved provider credentials and disconnect solo · LinkedIn",
+  );
   await expect(dialog).toContainText("does not disable the credential at LinkedIn");
   await dialog.getByRole("button", { name: "Remove connection" }).click();
   await expect.poll(() => deletePaths).toContain("/api/v1/accounts/solo/grant");

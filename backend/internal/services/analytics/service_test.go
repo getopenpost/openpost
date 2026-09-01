@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -21,6 +23,38 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
+
+var analyticsTestSchemaPath string
+
+func TestMain(m *testing.M) {
+	templateDir, err := os.MkdirTemp("", "openpost-analytics-tests-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create analytics test template directory: %v\n", err)
+		os.Exit(1)
+	}
+	analyticsTestSchemaPath = filepath.Join(templateDir, "schema.db")
+	db, err := database.InitDB("file:" + analyticsTestSchemaPath + "?mode=rwc")
+	if err == nil {
+		err = database.CreateSchema(db)
+	}
+	if db != nil {
+		if closeErr := db.Close(); err == nil {
+			err = closeErr
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create analytics test schema: %v\n", err)
+		_ = os.RemoveAll(templateDir)
+		os.Exit(1)
+	}
+
+	code := m.Run()
+	if err := os.RemoveAll(templateDir); err != nil && code == 0 {
+		fmt.Fprintf(os.Stderr, "remove analytics test template directory: %v\n", err)
+		code = 1
+	}
+	os.Exit(code)
+}
 
 func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	db := newAnalyticsTestDB(t)
@@ -1353,9 +1387,12 @@ func jsonStringSlice(t *testing.T, raw any) []string {
 
 func newAnalyticsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
+	template, err := os.ReadFile(analyticsTestSchemaPath)
 	require.NoError(t, err)
-	require.NoError(t, database.CreateSchema(db))
+	databasePath := filepath.Join(t.TempDir(), "analytics.db")
+	require.NoError(t, os.WriteFile(databasePath, template, 0o600))
+	db, err := database.InitDB("file:" + databasePath + "?mode=rwc")
+	require.NoError(t, err)
 	now := time.Now().UTC()
 	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Analytics", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)

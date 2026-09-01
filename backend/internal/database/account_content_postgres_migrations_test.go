@@ -48,7 +48,7 @@ func TestAccountContentMigrationsExecuteOnPostgres(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-pg", OrganizationID: "org-pg", Name: "Postgres", CreatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
-	account := &models.SocialAccount{ID: "account-pg", WorkspaceID: "workspace-pg", Slug: "postgres", Platform: "telegram", AccountID: "-1001", AccountUsername: "channel", IsActive: true, CreatedAt: now}
+	account := &models.SocialAccount{ID: "account-pg", WorkspaceID: "workspace-pg", Slug: "postgres", Platform: "telegram", AccountID: "-1001", AccountUsername: "channel", AccessTokenEnc: []byte("encrypted"), IsActive: true, CreatedAt: now}
 	_, err = db.NewInsert().Model(account).Exec(t.Context())
 	require.NoError(t, err)
 	content := &models.AccountContent{ID: "content-pg", WorkspaceID: "workspace-pg", SocialAccountID: account.ID, Platform: "telegram", ProviderContentID: "42", ContentProfile: models.ContentProfileShortText, PublishedAt: now, Origin: "external", OriginConfidence: "exact", FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now}

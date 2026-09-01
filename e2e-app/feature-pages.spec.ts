@@ -1013,7 +1013,32 @@ test.describe("Engagement and Analytics feature-aware", () => {
               last_synced_at: new Date().toISOString(),
             },
           ],
-          content: [],
+          content: [
+            {
+              reference: {
+                type: "openpost",
+                publication_id: "pub-1",
+                rendition_id: "rendition-1",
+              },
+              source: "openpost",
+              content_profile: "short_text",
+              title: "Stored Post",
+              excerpt: "Excerpt",
+              platform: "x",
+              account_id: acc,
+              username: "@xuser",
+              published_at: new Date().toISOString(),
+              status: "ok",
+              metric_availability: "available",
+              collected_at: new Date().toISOString(),
+              metrics: { likes: 10 },
+              metric_metadata: {},
+              measurements: {},
+              engagement: 10,
+              last_synced_at: new Date().toISOString(),
+            },
+          ],
+          content_total: 1,
           publications: [
             {
               publication_id: "pub-1",

@@ -123,7 +123,7 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   );
   await expect(page.getByRole("link", { name: "Discord", exact: true }).last()).toHaveAttribute(
     "href",
-    "https://discord.gg/u2QwukmY4W",
+    "https://discord.com/invite/u2QwukmY4W",
   );
 });
 
@@ -360,7 +360,7 @@ test("features and FAQ expose complete, qualified product guidance", async ({ pa
   await expect(page.getByText("Self-hosting", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Ask the Discord community" })).toHaveAttribute(
     "href",
-    "https://discord.gg/u2QwukmY4W",
+    "https://discord.com/invite/u2QwukmY4W",
   );
   await expect(page.getByRole("link", { name: /Email openpost@rgo.pt/ })).toHaveAttribute(
     "href",
@@ -657,7 +657,7 @@ test("marketing navigation uses the shared responsive menu patterns", async ({ p
         name: "Discord community",
         exact: true,
       }),
-    ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
+    ).toHaveAttribute("href", "https://discord.com/invite/u2QwukmY4W");
     const resourceMenu = navigation.locator(".resource-menu");
     const resourceMenuBox = await resourceMenu.boundingBox();
     expect(resourceMenuBox).not.toBeNull();
@@ -683,7 +683,7 @@ test("marketing navigation uses the shared responsive menu patterns", async ({ p
       name: "Discord community",
       exact: true,
     }),
-  ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
+  ).toHaveAttribute("href", "https://discord.com/invite/u2QwukmY4W");
 });
 
 test("marketing SEO routes expose the current public index @desktop", async ({ request }) => {

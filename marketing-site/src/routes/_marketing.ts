@@ -12,13 +12,13 @@ type PublicProviderClaim = {
 export const appUrl = 'https://app.openpo.st';
 export const managedSignupUrl = `${appUrl}/register?plan=founder&billing_period=monthly`;
 export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
-export const userDocsUrl = 'https://docs.openpo.st/usage';
-export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting';
-export const developerDocsUrl = 'https://docs.openpo.st/development';
+export const userDocsUrl = 'https://docs.openpo.st/usage/';
+export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting/';
+export const developerDocsUrl = 'https://docs.openpo.st/development/';
 export const apiGuideUrl = 'https://docs.openpo.st/development/api-reference';
 export const openApiUrl = 'https://docs.openpo.st/openapi.json';
-export const cliDocsUrl = 'https://docs.openpo.st/cli';
-export const mcpDocsUrl = 'https://docs.openpo.st/mcp';
+export const cliDocsUrl = 'https://docs.openpo.st/cli/';
+export const mcpDocsUrl = 'https://docs.openpo.st/mcp/';
 export const apiTokenDocsUrl = 'https://docs.openpo.st/development/api-tokens';
 export const agentPublishingDocsUrl = 'https://docs.openpo.st/usage/agent-assisted-publishing';
 export const docsUrl = userDocsUrl;
@@ -296,7 +296,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/media-dark.png',
 			alt: 'OpenPost media library with reusable assets'
 		},
-		docsUrl: 'https://docs.openpo.st/usage',
+		docsUrl: 'https://docs.openpo.st/usage/',
 		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{
@@ -419,7 +419,7 @@ const platformImplementations = [
 			'Polls, quote posts, and other format settings remain subject to the account API tier.'
 		],
 		verification: 'Check OAuth, account limits, and each post type you plan to use.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/x/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/x`
 	},
 	{
 		slug: 'mastodon',
@@ -470,7 +470,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Check the server rules and publish one media test before you rely on a new server.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/mastodon/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/mastodon`
 	},
 	{
 		slug: 'bluesky',
@@ -526,7 +526,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Text and image posts work in OpenPost. Test video with the account before a scheduled campaign.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/bluesky/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/bluesky`
 	},
 	{
 		slug: 'linkedin',
@@ -583,7 +583,7 @@ const platformImplementations = [
 		],
 		verification:
 			'OAuth success alone does not prove every publishing permission; test the formats your team will schedule.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/linkedin/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/linkedin`
 	},
 	{
 		slug: 'threads',
@@ -639,7 +639,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Verify that Meta can fetch the exact production media URL before scheduling media-heavy work.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/threads/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/threads`
 	},
 	{
 		slug: 'facebook',
@@ -695,7 +695,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not plan a launch around this integration until Page selection and every required format pass a live test.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/facebook/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/facebook`
 	},
 	{
 		slug: 'instagram',
@@ -751,7 +751,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test each planned format—feed, carousel, Story, and Reel—because one successful format does not prove the others.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/instagram/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/instagram`
 	},
 	{
 		slug: 'tiktok',
@@ -803,7 +803,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not use it for real posts until TikTok approves the app and your posting test works.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/tiktok/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/tiktok`
 	},
 	{
 		slug: 'youtube',
@@ -854,7 +854,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Confirm upload, processing completion, thumbnail, playlist, and final privacy on the production channel.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/youtube/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/youtube`
 	},
 	{
 		slug: 'pinterest',
@@ -900,7 +900,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect or publish for public accounts until Standard access and every readiness gate pass with current live evidence.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/pinterest/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/pinterest`
 	},
 	{
 		slug: 'telegram',
@@ -946,7 +946,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect the bot to public accounts until every intended operation passes its readiness gate with current live evidence.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/telegram/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/telegram`
 	},
 	{
 		slug: 'discord',
@@ -998,7 +998,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test the exact webhook and file type before you rely on it for scheduled messages.',
-		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/discord/`
+		docsUrl: `${siteUrl.replace('openpo.st', 'docs.openpo.st')}/providers/discord`
 	}
 ] as const;
 

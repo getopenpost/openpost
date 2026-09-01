@@ -253,9 +253,7 @@
 		</p>
 		<p>
 			You can disconnect a YouTube account in OpenPost and revoke access from your
-			<a href="https://security.google.com/settings/security/permissions"
-				>Google account permissions</a
-			>.
+			<a href="https://myaccount.google.com/permissions">Google account permissions</a>.
 		</p>
 
 		<h2>7. Retention and deletion</h2>

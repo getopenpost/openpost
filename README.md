@@ -48,7 +48,7 @@
   ·
   <a href="https://docs.openpo.st"><strong>Docs</strong></a>
   ·
-  <a href="https://discord.gg/u2QwukmY4W"><strong>Discord</strong></a>
+  <a href="https://discord.com/invite/u2QwukmY4W"><strong>Discord</strong></a>
 </p>
 
 <div align="center">

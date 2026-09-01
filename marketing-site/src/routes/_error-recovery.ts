@@ -19,7 +19,7 @@ export const marketingErrorRecovery = {
 		{
 			label: 'Open user docs',
 			description: 'Follow maintained product and setup guidance.',
-			href: 'https://docs.openpo.st/usage'
+			href: 'https://docs.openpo.st/usage/'
 		}
 	],
 	support: [

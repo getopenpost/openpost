@@ -86,7 +86,8 @@
 		<ol>
 			<li>
 				For a Paddle order, use
-				<a href="https://paddle.net">paddle.net</a> or the support link on your Paddle receipt.
+				<a href="https://www.paddle.net/contact">Paddle support</a> or the support link on your Paddle
+				receipt.
 			</li>
 			<li>
 				You can also email

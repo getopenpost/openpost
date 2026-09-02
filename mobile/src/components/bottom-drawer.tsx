@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from "react";
 import { ModalBottomSheet } from "@swmansion/react-native-bottom-sheet";
-import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import {
   KeyboardAwareScrollView,
@@ -10,6 +9,7 @@ import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/components/ui";
+import { ThemeIcon } from "@/components/theme-icon";
 import { drawerBottomPadding } from "@/lib/bottom-drawer-layout";
 
 export function BottomDrawer({
@@ -61,11 +61,7 @@ export function BottomDrawer({
               pressed && styles.pressed,
             ]}
           >
-            <SymbolView
-              name={{ ios: "xmark", android: "close" }}
-              size={24}
-              tintColor={colors.onSurface}
-            />
+            <ThemeIcon role="close" size={24} tintColor={colors.onSurface} />
           </Pressable>
         </View>
         <KeyboardAwareScrollView

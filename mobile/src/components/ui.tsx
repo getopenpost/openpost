@@ -1,4 +1,3 @@
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,11 +12,13 @@ import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { STATUS_LABEL } from "@/lib/format";
 import { pressHaptic } from "@/lib/haptics";
+import { ThemeIcon } from "@/components/theme-icon";
 import {
   actionPresentation,
   NATIVE_CONTROL_METRICS,
   type NativeActionIntent,
   type NativeColorRoles,
+  type NativeIconRole,
   useNativeTheme,
   withAlpha,
 } from "@/theme";
@@ -178,12 +179,12 @@ export function TextField({ style, ...props }: React.ComponentProps<typeof TextI
 
 export function IconButton({
   label,
-  name,
+  role,
   onPress,
   color,
 }: {
   label: string;
-  name: SymbolViewProps["name"];
+  role: NativeIconRole;
   onPress: () => void;
   color?: string;
 }) {
@@ -202,7 +203,7 @@ export function IconButton({
         pressed && { backgroundColor: colors.primaryContainer },
       ]}
     >
-      <SymbolView name={name} size={24} tintColor={color ?? colors.onSurface} />
+      <ThemeIcon role={role} size={24} tintColor={color ?? colors.onSurface} />
     </Pressable>
   );
 }

@@ -193,7 +193,7 @@ export default function DraftsScreen() {
             </BodyText>
             <IconButton
               label={`Remove ${image.filename}`}
-              name={{ ios: "trash", android: "delete" }}
+              role="delete"
               color={colors.error}
               onPress={() => setImage(null)}
             />
@@ -288,13 +288,7 @@ export default function DraftsScreen() {
 }
 
 function MenuButton({ onOpen }: { onOpen: () => void }) {
-  return (
-    <IconButton
-      label="Open workspace menu"
-      name={{ ios: "ellipsis", android: "more_vert" }}
-      onPress={onOpen}
-    />
-  );
+  return <IconButton label="Open workspace menu" role="more" onPress={onOpen} />;
 }
 
 function DraftRow({ draft }: { draft: PublicationListItem }) {

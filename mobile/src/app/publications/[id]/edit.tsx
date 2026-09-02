@@ -29,6 +29,7 @@ import {
 } from "@/components/ui";
 import { CelebrationBurst } from "@/components/celebration-burst";
 import { BottomDrawer } from "@/components/bottom-drawer";
+import { ThemeIcon } from "@/components/theme-icon";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
@@ -648,12 +649,8 @@ function Composer({
                       { backgroundColor: colors.surfaceContainerHigh },
                     ]}
                   >
-                    <SymbolView
-                      name={
-                        attachment.mimeType.startsWith("video/")
-                          ? { ios: "play.rectangle", android: "video_library" }
-                          : { ios: "photo", android: "image" }
-                      }
+                    <ThemeIcon
+                      role={attachment.mimeType.startsWith("video/") ? "video" : "image"}
                       size={24}
                       tintColor={colors.onSurfaceVariant}
                     />
@@ -667,11 +664,7 @@ function Composer({
                   <View
                     style={[styles.thumbOverlay, { backgroundColor: withAlpha(colors.error, 0.6) }]}
                   >
-                    <SymbolView
-                      name={{ ios: "exclamationmark.triangle.fill", android: "warning" }}
-                      size={18}
-                      tintColor={colors.onError}
-                    />
+                    <ThemeIcon role="warning" size={18} tintColor={colors.onError} />
                   </View>
                 ) : null}
               </View>
@@ -683,20 +676,20 @@ function Composer({
                   {index > 0 ? (
                     <IconButton
                       label="Move attachment earlier"
-                      name={{ ios: "chevron.left", android: "chevron_left" }}
+                      role="back"
                       onPress={() => moveAttachment(index, -1)}
                     />
                   ) : null}
                   {index < attachments.length - 1 ? (
                     <IconButton
                       label="Move attachment later"
-                      name={{ ios: "chevron.right", android: "chevron_right" }}
+                      role="next"
                       onPress={() => moveAttachment(index, 1)}
                     />
                   ) : null}
                   <IconButton
                     label={`Remove ${attachment.filename}`}
-                    name={{ ios: "trash", android: "delete" }}
+                    role="delete"
                     color={colors.error}
                     onPress={() => removeAttachment(attachment.localId)}
                   />
@@ -749,11 +742,7 @@ function Composer({
           {({ pressed }) => (
             <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
-                <SymbolView
-                  name={{ ios: "person.2", android: "group" }}
-                  size={22}
-                  tintColor={colors.primary}
-                />
+                <ThemeIcon role="account" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Social Set</Text>
@@ -761,11 +750,7 @@ function Composer({
                   {selectedSetLabel(socialSets.data ?? [], activeSocialSetId, activeAccounts.size)}
                 </BodyText>
               </View>
-              <SymbolView
-                name={{ ios: "chevron.right", android: "chevron_right" }}
-                size={20}
-                tintColor={colors.onSurfaceVariant}
-              />
+              <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
             </Card>
           )}
         </Pressable>
@@ -777,11 +762,7 @@ function Composer({
           {({ pressed }) => (
             <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
-                <SymbolView
-                  name={{ ios: "calendar", android: "calendar_month" }}
-                  size={22}
-                  tintColor={colors.primary}
-                />
+                <ThemeIcon role="calendar" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Publish time</Text>
@@ -791,11 +772,7 @@ function Composer({
                     : "Use the next open slot"}
                 </BodyText>
               </View>
-              <SymbolView
-                name={{ ios: "chevron.right", android: "chevron_right" }}
-                size={20}
-                tintColor={colors.onSurfaceVariant}
-              />
+              <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
             </Card>
           )}
         </Pressable>
@@ -843,7 +820,7 @@ function Composer({
           />
           <IconButton
             label="Choose publishing time"
-            name={{ ios: "calendar", android: "calendar_month" }}
+            role="calendar"
             onPress={() => setScheduleDrawerOpen(true)}
           />
         </View>
@@ -905,11 +882,7 @@ function Composer({
                         ]}
                       >
                         {selected ? (
-                          <SymbolView
-                            name={{ ios: "checkmark", android: "check" }}
-                            size={15}
-                            tintColor={colors.onPrimary}
-                          />
+                          <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
                         ) : null}
                       </View>
                       <View style={{ flex: 1 }}>

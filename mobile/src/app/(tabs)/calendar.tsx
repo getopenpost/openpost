@@ -103,7 +103,7 @@ export default function CalendarScreen() {
         <View style={styles.nav}>
           <IconButton
             label="Previous month"
-            name={{ ios: "chevron.left", android: "chevron_left" }}
+            role="back"
             color={colors.primary}
             onPress={() => shiftMonth(-1)}
           />
@@ -120,7 +120,7 @@ export default function CalendarScreen() {
           </Pressable>
           <IconButton
             label="Next month"
-            name={{ ios: "chevron.right", android: "chevron_right" }}
+            role="next"
             color={colors.primary}
             onPress={() => shiftMonth(1)}
           />

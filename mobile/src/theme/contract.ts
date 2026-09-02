@@ -16,6 +16,8 @@ export type NativeActionIntent = (typeof ACTION_INTENTS)[number];
 export const NATIVE_ICON_ROLES = [
   "add",
   "back",
+  "next",
+  "disclosure",
   "close",
   "menu",
   "more",

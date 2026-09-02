@@ -1,6 +1,7 @@
 export * from "./builtins";
 export * from "./contract";
 export * from "./freeze";
+export * from "./icons";
 export * from "./native-theme-runtime";
 export * from "./navigation";
 export {

@@ -4487,7 +4487,7 @@
 
 <style>
 	.image-editor-theme {
-		--image-editor-accent: oklch(0.65 0.18 48);
+		--image-editor-accent: var(--primary);
 		--image-editor-panel: var(--background);
 		--image-editor-panel-border: var(--border);
 	}

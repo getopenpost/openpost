@@ -247,13 +247,15 @@
 	<title>{m.record_title()}</title>
 </svelte:head>
 
-<div class="flex min-h-dvh flex-col bg-[oklch(0.145_0.008_55)] text-[oklch(0.92_0.005_85)]">
+<div
+	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
+>
 	<header
-		class="flex items-center justify-between border-b border-[oklch(0.25_0.015_55)] px-3 py-2"
+		class="flex items-center justify-between border-b border-[var(--video-editor-border)] px-3 py-2"
 	>
 		<a
 			href="/editors"
-			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
 		>
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
@@ -293,7 +295,7 @@
 			{:else if lastDownloads.length > 0}
 				<div class="p-4 text-center text-sm">
 					{#if hasRecoverableDownloads}
-						<p class="mb-2 text-amber-200">{m.video_editor_recovery_available()}</p>
+						<p class="mb-2 text-warning-foreground">{m.video_editor_recovery_available()}</p>
 					{/if}
 					<p class="font-medium">
 						{m.video_editor_recording_files_saved({
@@ -321,7 +323,7 @@
 				</div>
 			{:else if isRequesting}
 				<div role="status" aria-live="polite" class="text-center">
-					<p class="text-sm text-[oklch(0.65_0.015_55)]">
+					<p class="text-sm text-[var(--video-editor-muted)]">
 						{m.video_editor_recording_waiting()}
 					</p>
 				</div>
@@ -330,14 +332,14 @@
 					<p class="font-mono text-5xl tabular-nums">
 						{recorder.countdownRemaining}
 					</p>
-					<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
+					<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
 						{m.video_editor_record_countdown_active({
 							seconds: recorder.countdownRemaining ?? 0
 						})}
 					</p>
 				</div>
 			{:else}
-				<p class="text-sm text-[oklch(0.65_0.015_55)]">
+				<p class="text-sm text-[var(--video-editor-muted)]">
 					{m.record_preview_empty()}
 				</p>
 			{/if}
@@ -345,7 +347,7 @@
 			{#if recorder.error}
 				<div
 					role="alert"
-					class="w-full rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200"
+					class="w-full rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
 				>
 					{localizedRecorderError()}
 				</div>
@@ -354,15 +356,15 @@
 
 		{#if !captureBusy}
 			<!-- Selection -->
-			<fieldset class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
+			<fieldset class="space-y-3 rounded-lg border border-[var(--video-editor-border)] p-3">
 				<legend
-					class="px-1 text-xs font-semibold tracking-widest text-[oklch(0.65_0.015_55)] uppercase"
+					class="px-1 text-xs font-semibold tracking-widest text-[var(--video-editor-muted)] uppercase"
 					>{m.video_editor_recording_sources_description()}</legend
 				>
 				<div class="grid gap-2 sm:grid-cols-3">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -374,7 +376,7 @@
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -386,7 +388,7 @@
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
 					>
 						<Checkbox
 							bind:checked={includeMic}
@@ -503,7 +505,7 @@
 								recorderPreferences.set('includeSystemAudio', checked === true)}
 						/>
 						{m.record_system_audio()}
-						<span class="text-xs text-[oklch(0.65_0.015_55)]"
+						<span class="text-xs text-[var(--video-editor-muted)]"
 							>({m.video_editor_system_audio_caveat()})</span
 						>
 					</label>
@@ -574,7 +576,7 @@
 						/>
 					</div>
 				</div>
-				<p class="text-xs text-[oklch(0.65_0.015_55)]">
+				<p class="text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_record_estimate({ size: plannedEstimate })}
 				</p>
 			</fieldset>
@@ -589,10 +591,10 @@
 				</Button>
 			</div>
 		{:else}
-			<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
+			<div class="space-y-3 rounded-lg border border-[var(--video-editor-border)] p-3">
 				<div class="grid gap-2 text-xs">
 					{#if includeScreen}
-						<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
+						<div class="flex justify-between rounded bg-[var(--video-editor-control)] px-2 py-1.5">
 							<span>{m.record_source_screen()}</span><span class="font-mono tabular-nums"
 								>{m.video_editor_recording_chunks({
 									count: recorder.counters.screen.chunks
@@ -622,7 +624,7 @@
 						</div>
 					{/if}
 					{#if includeCamera}
-						<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
+						<div class="flex justify-between rounded bg-[var(--video-editor-control)] px-2 py-1.5">
 							<span>{m.record_source_camera()}</span><span class="font-mono tabular-nums"
 								>{m.video_editor_recording_chunks({
 									count: recorder.counters.camera.chunks
@@ -632,7 +634,7 @@
 					{/if}
 					{#if includeMic}
 						<div
-							class="flex flex-wrap items-center justify-between gap-2 rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5"
+							class="flex flex-wrap items-center justify-between gap-2 rounded bg-[var(--video-editor-control)] px-2 py-1.5"
 						>
 							<span>{m.record_source_audio()}</span>
 							<div class="flex items-center gap-2">

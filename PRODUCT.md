@@ -22,7 +22,7 @@ OpenPost is the all-in-one content team for solo founders. It sits above a basic
 
 Users move between composing, adapting destination renditions, managing connected accounts and reusable media, planning a calendar, and inspecting scheduled or completed jobs. Small teams share workspaces and roles. Automation uses the same workspace and account boundaries through the API, CLI, and MCP server. Users may choose the Hosted service, while self-hosted operators configure their own domain, storage, database, and provider applications.
 
-The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile app uses the same typed HTTP API, terms, permissions, and workspace boundaries through a native Android interface.
+The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile app uses the same typed HTTP API, terms, permissions, and workspace boundaries through native Android and iOS interfaces.
 
 ## Capabilities and Constraints
 
@@ -30,11 +30,11 @@ The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile a
 - Social Sets save format-independent account groups and optional account format defaults. New drafts snapshot their selected destinations so later set edits do not change scheduled work.
 - Publications can be scheduled through a durable database-backed queue, with visible draft, scheduled, published, failed, and retry states.
 - Workspaces organize accounts, media, prompts, schedules, members, billing, and usage limits.
-- Organizations own a versioned theme library and default. When organization policy allows it, workspace admins may choose another published theme. Each person still chooses light, dark, or system appearance. The complete resolved theme applies to authenticated web and Android chrome; theme creation and revision management remain a desktop web task.
+- Organizations own a versioned theme library and default. When organization policy allows it, workspace admins may choose another published theme. Each person still chooses light, dark, or system appearance. The complete resolved theme applies to authenticated web and mobile chrome; theme creation and revision management remain a desktop web task.
 - OpenPost Image Editor creates editable, multi-page social images from workspace media, original templates, brand assets, text, and shapes. It exports ordered derivatives back to Media or the active composer without replacing source assets.
 - The web app, typed HTTP API, CLI, and MCP server share authorization and workspace boundaries.
 - Provider capabilities, media limits, review requirements, quotas, and live-account readiness vary. Product copy and UI must preserve those distinctions.
-- The web app supports light and dark appearance, ten translated locales, and responsive browser use. The native mobile app uses the same resolved theme semantics and supports light, dark, and system appearance in the focused Android workflow described above.
+- The web app supports light and dark appearance, ten translated locales, and responsive browser use. The native mobile app uses the same resolved theme semantics and supports light, dark, and system appearance on Android and iOS.
 - Self-hosted deployments must remain portable: embedded static assets, configurable storage, SQLite by default, PostgreSQL support, and no hard dependency on an external queue service.
 - OpenPost Image Editor remains a focused still-image editor. Video editing, animation, print color workflows, arbitrary remote assets, and low-level image-editor MCP operations are outside its product scope.
 

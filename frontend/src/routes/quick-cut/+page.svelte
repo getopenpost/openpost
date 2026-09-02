@@ -82,8 +82,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		frameCaptureFileName,
 		type FrameCaptureFormat
 	} from '$lib/quick-cut/frame-capture';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { quickCutShortcutAction } from '$lib/quick-cut/shortcuts';
 
 	let sources = $state<QuickCutSource[]>([]);
@@ -1264,9 +1263,10 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 								onclick={() => void captureCurrentFrame('png')}
 								class="min-h-11 min-w-11 md:min-h-7 md:min-w-7"
 							>
-								{#if capturingFrame}<LoaderIcon
+								{#if capturingFrame}<ProtectedIcon
+										icon="loading"
 										class="size-4 animate-spin motion-reduce:animate-none"
-									/>{:else}<CameraIcon class="size-4" />{/if}
+									/>{:else}<ThemeIcon role="camera" class="size-4" />{/if}
 							</Button>
 						</div>
 					</div>

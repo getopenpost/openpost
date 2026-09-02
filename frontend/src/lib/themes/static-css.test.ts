@@ -22,17 +22,23 @@ function normalized(value: string): string {
 }
 
 describe('embedded Workshop CSS', () => {
-	it('defines the complete dark runtime variables before asynchronous theme resolution', () => {
-		const expected = themeSchemeToCssVariables(resolveBuiltInTheme('workshop', 'dark'));
-		const actual = declarations('.dark');
+	it.each([
+		['light', ':root'],
+		['dark', '.dark']
+	] as const)(
+		'defines the complete %s runtime variables before asynchronous theme resolution',
+		(scheme, selector) => {
+			const expected = themeSchemeToCssVariables(resolveBuiltInTheme('workshop', scheme));
+			const actual = declarations(selector);
 
-		expect([...actual.keys()].filter((key) => key.startsWith('--'))).toEqual(
-			expect.arrayContaining(Object.keys(expected))
-		);
-		for (const [property, value] of Object.entries(expected)) {
-			expect(normalized(actual.get(property) ?? ''), property).toBe(normalized(value));
+			expect([...actual.keys()].filter((key) => key.startsWith('--'))).toEqual(
+				expect.arrayContaining(Object.keys(expected))
+			);
+			for (const [property, value] of Object.entries(expected)) {
+				expect(normalized(actual.get(property) ?? ''), property).toBe(normalized(value));
+			}
 		}
-	});
+	);
 
 	it('activates theme reduced-motion recipes only for an operating-system preference', () => {
 		const css = layoutCss();

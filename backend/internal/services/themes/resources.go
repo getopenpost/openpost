@@ -222,12 +222,17 @@ func (s *Service) publishedResourcesAvailable(ctx context.Context, organizationI
 	return nil
 }
 
+type publishedResourceRequest struct {
+	revision int
+	assetIDs []string
+}
+
 func (s *Service) loadPublishedResourceSets(ctx context.Context, organizationID string, themes []customSummaryRow) (map[string]map[string]assetRow, error) {
-	result, themeRevisions, hasRequirements := initializePublishedResourceSets(themes)
-	if !hasRequirements {
+	result, requests := initializePublishedResourceSets(themes)
+	if len(requests) == 0 {
 		return result, nil
 	}
-	linked, linkedAssetIDs, err := s.loadPublishedResourceLinks(ctx, themeRevisions)
+	linked, linkedAssetIDs, err := s.loadPublishedResourceLinks(ctx, requests)
 	if err != nil {
 		return nil, err
 	}
@@ -239,32 +244,41 @@ func (s *Service) loadPublishedResourceSets(ctx context.Context, organizationID 
 	return result, nil
 }
 
-func initializePublishedResourceSets(themes []customSummaryRow) (map[string]map[string]assetRow, map[string]int, bool) {
+func initializePublishedResourceSets(themes []customSummaryRow) (map[string]map[string]assetRow, map[string]publishedResourceRequest) {
 	result := make(map[string]map[string]assetRow, len(themes))
-	themeRevisions := make(map[string]int, len(themes))
-	hasRequirements := false
+	requests := make(map[string]publishedResourceRequest, len(themes))
 	for _, theme := range themes {
 		result[theme.ThemeID] = map[string]assetRow{}
-		themeRevisions[theme.ThemeID] = theme.LatestPublishedRevision
 		manifest, err := decodeStoredManifest(theme.ManifestJSON)
-		if err == nil && len(manifestResourceRequirements(manifest)) > 0 {
-			hasRequirements = true
+		if err != nil {
+			continue
 		}
+		requirements := manifestResourceRequirements(manifest)
+		if len(requirements) == 0 {
+			continue
+		}
+		assetIDs := make([]string, 0, len(requirements))
+		for assetID := range requirements {
+			assetIDs = append(assetIDs, assetID)
+		}
+		slices.Sort(assetIDs)
+		requests[theme.ThemeID] = publishedResourceRequest{revision: theme.LatestPublishedRevision, assetIDs: assetIDs}
 	}
-	return result, themeRevisions, hasRequirements
+	return result, requests
 }
 
-func (s *Service) loadPublishedResourceLinks(ctx context.Context, themeRevisions map[string]int) (map[string]map[string]struct{}, []string, error) {
-	themeIDs := make([]string, 0, len(themeRevisions))
-	for themeID := range themeRevisions {
+func (s *Service) loadPublishedResourceLinks(ctx context.Context, requests map[string]publishedResourceRequest) (map[string]map[string]struct{}, []string, error) {
+	themeIDs := make([]string, 0, len(requests))
+	for themeID := range requests {
 		themeIDs = append(themeIDs, themeID)
 	}
 	slices.Sort(themeIDs)
 	conditions := make([]string, 0, len(themeIDs))
-	conditionArgs := make([]any, 0, len(themeIDs)*2)
+	conditionArgs := make([]any, 0, len(themeIDs)*3)
 	for _, themeID := range themeIDs {
-		conditions = append(conditions, "(link.theme_id = ? AND link.revision = ?)")
-		conditionArgs = append(conditionArgs, themeID, themeRevisions[themeID])
+		request := requests[themeID]
+		conditions = append(conditions, "(link.theme_id = ? AND link.revision = ? AND link.asset_id IN (?))")
+		conditionArgs = append(conditionArgs, themeID, request.revision, bun.List(request.assetIDs))
 	}
 	var links []revisionAssetRow
 	if err := s.db.NewSelect().Model(&links).ModelTableExpr("organization_theme_revision_assets AS link").ExcludeColumn("*").
@@ -276,7 +290,8 @@ func (s *Service) loadPublishedResourceLinks(ctx context.Context, themeRevisions
 	linked := make(map[string]map[string]struct{}, len(themeIDs))
 	linkedAssetIDs := make([]string, 0, len(links))
 	for _, link := range links {
-		if themeRevisions[link.ThemeID] != link.Revision {
+		request, requested := requests[link.ThemeID]
+		if !requested || request.revision != link.Revision {
 			continue
 		}
 		if linked[link.ThemeID] == nil {

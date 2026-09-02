@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -203,6 +204,47 @@ func TestAvailablePageSkipsUnsafeRowsWithoutAnEmptyContinuation(t *testing.T) {
 	require.Empty(t, page.NextCursor)
 	_, err = service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", unsafeTheme.Summary.Reference.ID, 1)
 	require.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestAvailablePageIgnoresManyStrayRevisionAssetLinks(t *testing.T) {
+	service, db := newThemeTestService(t)
+	service.storage = mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
+	actor := Actor{UserID: "admin-1"}
+	required, err := service.UploadAsset(t.Context(), actor, UploadAssetInput{
+		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Required art", MediaType: "image/png", Content: bytes.NewReader(pngImage(t, 20, 20)),
+	})
+	require.NoError(t, err)
+	manifest := BuiltIns()["workshop"]
+	manifest.Assets = []ThemeAsset{{ID: required.ID, Slot: "header-decoration", SourceURL: "asset:" + required.ID, MimeType: "image/png", Alt: "Required"}}
+	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Bounded resources", Manifest: manifest})
+	require.NoError(t, err)
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	require.NoError(t, err)
+
+	require.NoError(t, db.RunInTx(t.Context(), nil, func(ctx context.Context, tx bun.Tx) error {
+		for index := range MaxThemePageLimit * 3 {
+			assetID := fmt.Sprintf("stray-%03d", index)
+			sizeBytes := any(1)
+			if index == 0 {
+				sizeBytes = "corrupt-size"
+			}
+			if _, insertErr := tx.ExecContext(ctx, `INSERT INTO organization_theme_assets
+				(id, organization_id, kind, name, media_type, object_key, size_bytes, width, height, checksum_sha256, created_by, created_at)
+				VALUES (?, 'org-1', 'illustration', 'Stray', 'image/png', ?, ?, 1, 1, ?, 'admin-1', ?)`,
+				assetID, "theme-assets/org-1/"+assetID+".png", sizeBytes, fmt.Sprintf("%064x", index+1), time.Now().UTC()); insertErr != nil {
+				return insertErr
+			}
+			if _, insertErr := tx.ExecContext(ctx, `INSERT INTO organization_theme_revision_assets (theme_id, revision, asset_id) VALUES (?, 1, ?)`, theme.Summary.Reference.ID, assetID); insertErr != nil {
+				return insertErr
+			}
+		}
+		return nil
+	}))
+
+	page, err := service.Available(t.Context(), actor, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
+	require.NoError(t, err)
+	require.Equal(t, append(slices.Clone(builtInOrder), theme.Summary.Reference.ID), summaryIDs(page.Items))
+	require.Empty(t, page.NextCursor)
 }
 
 func TestAvailablePageScansPastOneHundredUnavailableRowsAndSoftlyExhausts(t *testing.T) {

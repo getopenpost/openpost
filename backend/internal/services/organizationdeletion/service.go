@@ -164,7 +164,7 @@ func (s *Service) deleteInTx(ctx context.Context, tx bun.Tx, organizationID, act
 		return &UseCaseError{Kind: ErrorConflict, Message: preview.Blockers[0].Message}
 	}
 	workspaceIDs := workspaceIDs(preview.Workspaces)
-	if err := prepareBoundaryDeletion(ctx, tx, workspaceIDs); err != nil {
+	if err := prepareBoundaryDeletion(ctx, tx, current.ID, workspaceIDs); err != nil {
 		return err
 	}
 	event := &models.OrganizationLifecycleAuditEvent{ID: uuid.NewString(), OrganizationID: current.ID, OrganizationName: current.Name, WorkspaceCount: len(workspaceIDs), BillingState: preview.BillingState, ActorUserID: actorUserID, Action: "organization.deleted", CreatedAt: s.now()}
@@ -195,10 +195,27 @@ func workspaceIDs(workspaces []Workspace) []string {
 	return ids
 }
 
-func prepareBoundaryDeletion(ctx context.Context, tx bun.Tx, workspaceIDs []string) error {
+func prepareBoundaryDeletion(ctx context.Context, tx bun.Tx, organizationID string, workspaceIDs []string) error {
 	keys, err := workspacedeletion.StoredObjectKeys(ctx, tx, workspaceIDs)
 	if err != nil {
 		return err
+	}
+	var themeAssets []struct {
+		ObjectKey       string `bun:"object_key"`
+		NativeObjectKey string `bun:"native_object_key"`
+	}
+	if err := tx.NewSelect().Table("organization_theme_assets").
+		Column("object_key", "native_object_key").
+		Where("organization_id = ?", organizationID).
+		Scan(ctx, &themeAssets); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	for _, asset := range themeAssets {
+		for _, key := range []string{asset.ObjectKey, asset.NativeObjectKey} {
+			if strings.TrimSpace(key) != "" {
+				keys = append(keys, key)
+			}
+		}
 	}
 	_, err = workspacedeletion.EnqueueStorageCleanup(ctx, tx, keys)
 	return err

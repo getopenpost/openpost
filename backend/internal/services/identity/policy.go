@@ -112,7 +112,7 @@ func normalizeStoredAPITokenMode(mode string) string {
 	}
 }
 
-func PolicyForOrganization(ctx context.Context, db *bun.DB, organizationID string) (Policy, error) {
+func PolicyForOrganization(ctx context.Context, db bun.IDB, organizationID string) (Policy, error) {
 	return policyForOrganization(ctx, db, organizationID)
 }
 
@@ -265,7 +265,7 @@ func breakGlassSessionAllowed(
 
 func EvaluateOrganizationAccess(
 	ctx context.Context,
-	db *bun.DB,
+	db bun.IDB,
 	organizationID,
 	userID,
 	sessionID,
@@ -335,7 +335,7 @@ func EvaluateOrganizationAccess(
 
 func organizationTokenScopeAllows(
 	ctx context.Context,
-	db *bun.DB,
+	db bun.IDB,
 	tokenID,
 	userID string,
 ) (bool, error) {
@@ -412,7 +412,7 @@ func validOrganizationToken(
 
 func validOrganizationBoundToken(
 	ctx context.Context,
-	db *bun.DB,
+	db bun.IDB,
 	tokenID,
 	userID,
 	organizationID string,

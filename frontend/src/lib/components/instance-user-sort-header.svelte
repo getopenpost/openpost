@@ -29,9 +29,6 @@
 	{:else if sorted === 'desc'}
 		<ThemeIcon role="arrow-down" class="size-3" />
 	{:else}
-		<span class="relative size-3" aria-hidden="true">
-			<ThemeIcon role="arrow-up" class="absolute inset-x-0 -top-0.5 h-2 w-3" />
-			<ThemeIcon role="arrow-down" class="absolute inset-x-0 -bottom-0.5 h-2 w-3" />
-		</span>
+		<ThemeIcon role="sort" class="size-3" />
 	{/if}
 </Button>

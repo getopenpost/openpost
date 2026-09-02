@@ -27,7 +27,7 @@
 			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 			{savingLabel}
 		{:else}
-			<ThemeIcon role="check" class="size-4" />
+			<ThemeIcon role="save" class="size-4" />
 			{label}
 		{/if}
 	</Button>

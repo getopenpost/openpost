@@ -3,8 +3,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
 	import type { MediaTag } from '$lib/media-tags';
-	import HashIcon from '@lucide/svelte/icons/hash';
-	import TagIcon from '@lucide/svelte/icons/tag';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
@@ -61,7 +59,7 @@
 	<Popover.Trigger>
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="sm" class="h-8 rounded-full px-2.5">
-				<TagIcon class="size-3.5" />
+				<ThemeIcon role="tag" class="size-3.5" />
 				{label}
 			</Button>
 		{/snippet}
@@ -89,7 +87,7 @@
 							{#if selectedIds.includes(tag.id)}<ThemeIcon role="check" class="size-3" />{/if}
 						</span>
 					{/if}
-					<HashIcon class="size-3.5 text-muted-foreground" />
+					<ThemeIcon role="tag" class="size-3.5 text-muted-foreground" />
 					<span class="min-w-0 flex-1 truncate">{tag.name}</span>
 				</button>
 			{/each}

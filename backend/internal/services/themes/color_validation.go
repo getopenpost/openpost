@@ -45,12 +45,6 @@ func validateColorTokens(colors ThemeColorTokens) error {
 		{"warningInk", colors.Warning, colors.WarningInk, colors.Canvas, minimumTextContrast},
 		{"infoInk", colors.Info, colors.InfoInk, colors.Canvas, minimumTextContrast},
 		{"link", colors.Canvas, colors.Link, colors.Canvas, minimumTextContrast},
-		{"actionLink", colors.Canvas, colors.ActionLink, colors.Canvas, minimumTextContrast},
-		{"actionFocalInk", colors.ActionFocal, colors.ActionFocalInk, colors.Canvas, minimumTextContrast},
-		{"actionPrimaryInk", colors.ActionPrimary, colors.ActionPrimaryInk, colors.Canvas, minimumTextContrast},
-		{"actionOrdinaryInk", colors.ActionOrdinary, colors.ActionOrdinaryInk, colors.Canvas, minimumTextContrast},
-		{"actionQuietInk", colors.ActionQuiet, colors.ActionQuietInk, colors.Canvas, minimumTextContrast},
-		{"actionDestructiveInk", colors.ActionDestructive, colors.ActionDestructiveInk, colors.Canvas, minimumFocusContrast},
 		{"disabledInk", colors.Disabled, colors.DisabledInk, colors.Canvas, minimumFocusContrast},
 		{"fieldInk", colors.Field, colors.FieldInk, colors.Canvas, minimumTextContrast},
 		{"fieldHoverInk", colors.FieldHover, colors.FieldInk, colors.Canvas, minimumTextContrast},
@@ -65,6 +59,37 @@ func validateColorTokens(colors ThemeColorTokens) error {
 		ratio, ok := contrastRatioOn(pair.background, pair.foreground, pair.underlay)
 		if !ok || ratio < pair.minimum {
 			return invalidManifest("colors."+pair.path, fmt.Sprintf("must have independently computed contrast of at least %.1f:1", pair.minimum))
+		}
+	}
+	actions := []struct {
+		path                   string
+		foreground             string
+		resting, hover, active string
+	}{
+		{"actionFocalInk", colors.ActionFocalInk, colors.ActionFocal, colors.ActionFocalHover, colors.ActionFocalActive},
+		{"actionPrimaryInk", colors.ActionPrimaryInk, colors.ActionPrimary, colors.ActionPrimaryHover, colors.ActionPrimaryActive},
+		{"actionOrdinaryInk", colors.ActionOrdinaryInk, colors.ActionOrdinary, colors.ActionOrdinaryHover, colors.ActionOrdinaryActive},
+		{"actionQuietInk", colors.ActionQuietInk, colors.ActionQuiet, colors.ActionQuietHover, colors.ActionQuietActive},
+		{"actionDestructiveInk", colors.ActionDestructiveInk, colors.ActionDestructive, colors.ActionDestructiveHover, colors.ActionDestructiveActive},
+	}
+	for _, action := range actions {
+		for _, background := range []string{action.resting, action.hover, action.active} {
+			for _, underlay := range []string{colors.Canvas, colors.Surface} {
+				ratio, ok := contrastRatioOn(background, action.foreground, underlay)
+				if !ok || ratio < minimumTextContrast {
+					return invalidManifest("colors."+action.path, fmt.Sprintf("must remain readable in every interaction state at %.1f:1", minimumTextContrast))
+				}
+			}
+		}
+	}
+	for _, link := range []struct {
+		path, foreground string
+	}{{"actionLink", colors.ActionLink}, {"actionLinkHover", colors.ActionLinkHover}} {
+		for _, background := range []string{colors.Canvas, colors.Surface} {
+			ratio, ok := contrastRatioOn(background, link.foreground, background)
+			if !ok || ratio < minimumTextContrast {
+				return invalidManifest("colors."+link.path, fmt.Sprintf("must remain readable at %.1f:1", minimumTextContrast))
+			}
 		}
 	}
 	for _, surface := range []struct {

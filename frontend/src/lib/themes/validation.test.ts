@@ -51,6 +51,39 @@ describe('theme manifest value validation', () => {
 		expect(isSafeThemeSchemeManifestValues(indistinguishableStatus)).toBe(false);
 	});
 
+	it('rejects unreadable action text in every rendered interaction state', () => {
+		const unreadableHover = resolveBuiltInTheme('workshop', 'light').manifest;
+		unreadableHover.colors.actionFocal = '#000000';
+		unreadableHover.colors.actionFocalHover = '#888888';
+		unreadableHover.colors.actionFocalActive = '#222222';
+		unreadableHover.colors.actionFocalInk = '#ffffff';
+		expect(isSafeThemeSchemeManifestValues(unreadableHover)).toBe(false);
+
+		const unreadableDestructive = resolveBuiltInTheme('workshop', 'light').manifest;
+		unreadableDestructive.colors.actionDestructive = '#888888';
+		unreadableDestructive.colors.actionDestructiveHover = '#777777';
+		unreadableDestructive.colors.actionDestructiveActive = '#666666';
+		unreadableDestructive.colors.actionDestructiveInk = '#ffffff';
+		expect(isSafeThemeSchemeManifestValues(unreadableDestructive)).toBe(false);
+
+		const unreadableLinkHover = resolveBuiltInTheme('workshop', 'light').manifest;
+		unreadableLinkHover.colors.actionLinkHover = unreadableLinkHover.colors.canvas;
+		expect(isSafeThemeSchemeManifestValues(unreadableLinkHover)).toBe(false);
+	});
+
+	it('keeps focus visible and destructive actions semantically distinct', () => {
+		const invisibleFocus = resolveBuiltInTheme('workshop', 'light').manifest;
+		invisibleFocus.colors.focus = invisibleFocus.colors.canvas;
+		expect(isSafeThemeSchemeManifestValues(invisibleFocus)).toBe(false);
+
+		const unsafeDestructive = resolveBuiltInTheme('workshop', 'light').manifest;
+		unsafeDestructive.colors.actionDestructive = unsafeDestructive.colors.actionPrimary;
+		unsafeDestructive.colors.actionDestructiveHover = unsafeDestructive.colors.actionPrimaryHover;
+		unsafeDestructive.colors.actionDestructiveActive = unsafeDestructive.colors.actionPrimaryActive;
+		unsafeDestructive.colors.actionDestructiveInk = unsafeDestructive.colors.actionPrimaryInk;
+		expect(isSafeThemeSchemeManifestValues(unsafeDestructive)).toBe(false);
+	});
+
 	it('measures WCAG contrast after alpha compositing', () => {
 		expect(themeColorContrastRatio('black', 'white')).toBe(21);
 		expect(themeColorContrastRatio('rgb(0 0 0 / 50%)', 'white')).toBeCloseTo(3.98, 2);

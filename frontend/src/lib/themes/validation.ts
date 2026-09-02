@@ -18,7 +18,9 @@ const LINE_HEIGHT_PATTERN = /^[0-9]+(?:\.[0-9]+)?$/;
 const NAMED_EASINGS = new Set(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out']);
 const STATUS_COLOR_KEYS = ['danger', 'success', 'warning', 'info'] as const;
 const MINIMUM_STATUS_COLOR_DISTANCE = 0.04;
+const MINIMUM_SEMANTIC_ACTION_DISTANCE = 0.014;
 const MINIMUM_TEXT_CONTRAST = 4.5;
+const MINIMUM_FOCUS_CONTRAST = 3;
 
 interface ParsedCssLength {
 	value: number;
@@ -45,11 +47,6 @@ const readableColorPairs = [
 	['successInk', 'success', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['warningInk', 'warning', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['infoInk', 'info', 'canvas', MINIMUM_TEXT_CONTRAST],
-	['actionFocalInk', 'actionFocal', 'canvas', MINIMUM_TEXT_CONTRAST],
-	['actionPrimaryInk', 'actionPrimary', 'canvas', MINIMUM_TEXT_CONTRAST],
-	['actionOrdinaryInk', 'actionOrdinary', 'canvas', MINIMUM_TEXT_CONTRAST],
-	['actionQuietInk', 'actionQuiet', 'canvas', MINIMUM_TEXT_CONTRAST],
-	['actionDestructiveInk', 'actionDestructive', 'canvas', 3],
 	['fieldInk', 'field', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['disabledInk', 'disabled', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['navigationActiveInk', 'navigationActive', 'canvas', MINIMUM_TEXT_CONTRAST],
@@ -360,7 +357,12 @@ export function themeColorContrastRatio(
 	const backgroundColor = toRgbaColor(background);
 	const baseColor = toRgbaColor(base);
 	if (!foregroundColor || !backgroundColor || !baseColor) return undefined;
-	const opaqueBase = compositeColor(baseColor, { red: 1, green: 1, blue: 1, alpha: 1 });
+	const opaqueBase = compositeColor(baseColor, {
+		red: 1,
+		green: 1,
+		blue: 1,
+		alpha: 1
+	});
 	const compositedBackground = compositeColor(backgroundColor, opaqueBase);
 	const compositedForeground = compositeColor(foregroundColor, compositedBackground);
 	const foregroundLuminance = relativeLuminance(compositedForeground);
@@ -376,6 +378,116 @@ function hasReadableColorPairs(colors: ThemeColorTokens): boolean {
 		const ratio = themeColorContrastRatio(colors[foreground], colors[background], colors[base]);
 		return ratio !== undefined && ratio >= minimum;
 	});
+}
+
+const ACTION_COLOR_SETS = [
+	['actionFocalInk', ['actionFocal', 'actionFocalHover', 'actionFocalActive']],
+	['actionPrimaryInk', ['actionPrimary', 'actionPrimaryHover', 'actionPrimaryActive']],
+	['actionOrdinaryInk', ['actionOrdinary', 'actionOrdinaryHover', 'actionOrdinaryActive']],
+	['actionQuietInk', ['actionQuiet', 'actionQuietHover', 'actionQuietActive']],
+	[
+		'actionDestructiveInk',
+		['actionDestructive', 'actionDestructiveHover', 'actionDestructiveActive']
+	]
+] as const satisfies readonly (readonly [
+	keyof ThemeColorTokens,
+	readonly (keyof ThemeColorTokens)[]
+])[];
+
+function hasReadableActionStates(colors: ThemeColorTokens): boolean {
+	for (const [foreground, backgrounds] of ACTION_COLOR_SETS) {
+		for (const background of backgrounds) {
+			for (const underlay of ['canvas', 'surface'] as const) {
+				const ratio = themeColorContrastRatio(
+					colors[foreground],
+					colors[background],
+					colors[underlay]
+				);
+				if (ratio === undefined || ratio < MINIMUM_TEXT_CONTRAST) return false;
+			}
+		}
+	}
+	for (const foreground of ['actionLink', 'actionLinkHover'] as const) {
+		for (const background of ['canvas', 'surface'] as const) {
+			const ratio = themeColorContrastRatio(
+				colors[foreground],
+				colors[background],
+				colors[background]
+			);
+			if (ratio === undefined || ratio < MINIMUM_TEXT_CONTRAST) return false;
+		}
+	}
+	return true;
+}
+
+function hasVisibleFocus(colors: ThemeColorTokens): boolean {
+	return (['canvas', 'surface', 'field', 'sidebar', 'actionOrdinary'] as const).every(
+		(background) => {
+			const ratio = themeColorContrastRatio(colors.focus, colors[background], colors.canvas);
+			return ratio !== undefined && ratio >= MINIMUM_FOCUS_CONTRAST;
+		}
+	);
+}
+
+function perceptualColorDistance(
+	first: string,
+	second: string,
+	underlay: string
+): number | undefined {
+	const firstColor = toRgbaColor(first);
+	const secondColor = toRgbaColor(second);
+	const underlayColor = toRgbaColor(underlay);
+	if (!firstColor || !secondColor || !underlayColor || underlayColor.alpha !== 1) return undefined;
+	const firstLab = toOklab(compositeColor(firstColor, underlayColor));
+	const secondLab = toOklab(compositeColor(secondColor, underlayColor));
+	return Math.hypot(
+		firstLab[0] - secondLab[0],
+		firstLab[1] - secondLab[1],
+		firstLab[2] - secondLab[2]
+	);
+}
+
+function toOklab(color: RgbaColor): readonly [number, number, number] {
+	const linear = (channel: number) =>
+		channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+	const red = linear(color.red);
+	const green = linear(color.green);
+	const blue = linear(color.blue);
+	const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+	const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+	const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+	return [
+		0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+		1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+		0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
+	];
+}
+
+function hasDistinctDestructiveAction(colors: ThemeColorTokens): boolean {
+	for (const [background, foreground] of [
+		['actionFocal', 'actionFocalInk'],
+		['actionPrimary', 'actionPrimaryInk'],
+		['actionOrdinary', 'actionOrdinaryInk'],
+		['actionQuiet', 'actionQuietInk']
+	] as const) {
+		const backgroundDistance = perceptualColorDistance(
+			colors.actionDestructive,
+			colors[background],
+			colors.canvas
+		);
+		const foregroundDistance = perceptualColorDistance(
+			colors.actionDestructiveInk,
+			colors[foreground],
+			colors.canvas
+		);
+		if (
+			(backgroundDistance === undefined || backgroundDistance < MINIMUM_SEMANTIC_ACTION_DISTANCE) &&
+			(foregroundDistance === undefined || foregroundDistance < MINIMUM_SEMANTIC_ACTION_DISTANCE)
+		) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function hasDistinctStatusColors(colors: ThemeColorTokens): boolean {
@@ -425,6 +537,9 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 	return (
 		THEME_COLOR_TOKEN_KEYS.every((key) => isSafeThemeColor(manifest.colors[key])) &&
 		hasReadableColorPairs(manifest.colors) &&
+		hasReadableActionStates(manifest.colors) &&
+		hasVisibleFocus(manifest.colors) &&
+		hasDistinctDestructiveAction(manifest.colors) &&
 		hasDistinctStatusColors(manifest.colors) &&
 		isSafeTypography(manifest) &&
 		isBoundedCssLength(spacing.base, 64) &&

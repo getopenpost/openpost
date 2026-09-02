@@ -179,6 +179,7 @@ export interface NativeActionStyle {
   readonly content: string;
   readonly border: string;
   readonly pressedContainer: string;
+  readonly pressedContent: string;
   readonly depthColor: string;
   readonly borderWidth: number;
   readonly depth: number;

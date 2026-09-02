@@ -105,6 +105,10 @@ describe("native built-in themes", () => {
       },
       {
         ...manifest,
+        colors: { ...manifest.colors, focus: manifest.colors.background },
+      },
+      {
+        ...manifest,
         typography: {
           ...manifest.typography,
           bodyMedium: { ...manifest.typography.bodyMedium, fontWeight: "750" },
@@ -132,7 +136,10 @@ describe("native built-in themes", () => {
         ...manifest,
         colors: {
           ...manifest.colors,
-          status: { ...manifest.colors.status, published: manifest.colors.background },
+          status: {
+            ...manifest.colors.status,
+            published: manifest.colors.background,
+          },
         },
       },
       {
@@ -144,9 +151,29 @@ describe("native built-in themes", () => {
       },
       {
         ...manifest,
+        actions: {
+          ...manifest.actions,
+          primary: {
+            ...manifest.actions.primary,
+            pressedContainer: manifest.actions.primary.content,
+          },
+        },
+      },
+      {
+        ...manifest,
+        actions: {
+          ...manifest.actions,
+          destructive: { ...manifest.actions.quiet },
+        },
+      },
+      {
+        ...manifest,
         iconography: {
           ...manifest.iconography,
-          roles: { ...manifest.iconography.roles, edit: manifest.iconography.roles.delete },
+          roles: {
+            ...manifest.iconography.roles,
+            edit: manifest.iconography.roles.delete,
+          },
         },
       },
     ];

@@ -183,21 +183,24 @@ export function Button({
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={presentation.content} />
-      ) : (
-        <Text
-          style={[
-            theme.manifest.typography.labelLarge,
-            {
-              color: presentation.content,
-              textDecorationLine: presentation.underline ? "underline" : "none",
-            },
-          ]}
-        >
-          {title}
-        </Text>
-      )}
+      {({ pressed }) => {
+        const contentColor = pressed ? presentation.pressedContent : presentation.content;
+        return loading ? (
+          <ActivityIndicator color={contentColor} />
+        ) : (
+          <Text
+            style={[
+              theme.manifest.typography.labelLarge,
+              {
+                color: contentColor,
+                textDecorationLine: presentation.underline ? "underline" : "none",
+              },
+            ]}
+          >
+            {title}
+          </Text>
+        );
+      }}
     </Pressable>
   );
 }

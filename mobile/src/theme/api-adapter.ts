@@ -304,18 +304,19 @@ function adaptScheme({
       }),
       quiet: action({
         container: nativeColor(value.colors.actionQuiet),
-        content: readableSurfaceColor(nativeColor(value.colors.actionQuietInk), colors),
+        content: nativeColor(value.colors.actionQuietInk),
         pressedContainer: nativeColor(value.colors.actionQuietActive),
       }),
       destructive: action({
         container: nativeColor(value.colors.actionDestructive),
-        content: readableSurfaceColor(nativeColor(value.colors.actionDestructiveInk), colors),
+        content: nativeColor(value.colors.actionDestructiveInk),
         pressedContainer: nativeColor(value.colors.actionDestructiveActive),
       }),
       link: action({
         container: "#00000000",
-        content: readableSurfaceColor(nativeColor(value.colors.actionLink), colors),
-        pressedContainer: nativeColor(value.colors.actionLinkHover),
+        content: nativeColor(value.colors.actionLink),
+        pressedContainer: "#00000000",
+        pressedContent: nativeColor(value.colors.actionLinkHover),
         underline: true,
       }),
     },
@@ -384,10 +385,6 @@ function adaptColors(value: Record<string, string>): NativeColorRoles | null {
     },
   };
   return allNativeColors(mapped) ? mapped : null;
-}
-
-function readableSurfaceColor(candidate: string, colors: NativeColorRoles): string {
-  return readableThemeForeground(candidate, colors.onSurface, colors.background, colors.surface);
 }
 
 function adaptEditor(
@@ -721,6 +718,7 @@ function action({
   depth = 0,
   depthColor = "#00000000",
   pressedContainer,
+  pressedContent = content,
   underline = false,
 }: {
   border?: string;
@@ -730,6 +728,7 @@ function action({
   depth?: number;
   depthColor?: string;
   pressedContainer: string;
+  pressedContent?: string;
   underline?: boolean;
 }): NativeActionStyle {
   return {
@@ -738,6 +737,7 @@ function action({
     container,
     content,
     pressedContainer,
+    pressedContent,
     depthColor,
     depth,
     disabledOpacity: 0.42,

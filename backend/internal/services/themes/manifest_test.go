@@ -68,6 +68,51 @@ func TestBuiltInInteractiveStatesArePerceptuallyDistinct(t *testing.T) {
 	}
 }
 
+func TestBuiltInActionStatesRemainReadable(t *testing.T) {
+	var families []ThemeManifest
+	require.NoError(t, json.Unmarshal(builtInFixture, &families))
+	for _, family := range families {
+		for _, scheme := range []struct {
+			name     string
+			manifest *ThemeSchemeManifest
+		}{{"light", family.Schemes.Light}, {"dark", family.Schemes.Dark}} {
+			if scheme.manifest == nil {
+				continue
+			}
+			colors := scheme.manifest.Colors
+			actions := []struct {
+				name                   string
+				foreground             string
+				resting, hover, active string
+			}{
+				{"focal", colors.ActionFocalInk, colors.ActionFocal, colors.ActionFocalHover, colors.ActionFocalActive},
+				{"primary", colors.ActionPrimaryInk, colors.ActionPrimary, colors.ActionPrimaryHover, colors.ActionPrimaryActive},
+				{"ordinary", colors.ActionOrdinaryInk, colors.ActionOrdinary, colors.ActionOrdinaryHover, colors.ActionOrdinaryActive},
+				{"quiet", colors.ActionQuietInk, colors.ActionQuiet, colors.ActionQuietHover, colors.ActionQuietActive},
+				{"destructive", colors.ActionDestructiveInk, colors.ActionDestructive, colors.ActionDestructiveHover, colors.ActionDestructiveActive},
+			}
+			for _, action := range actions {
+				for state, background := range map[string]string{"resting": action.resting, "hover": action.hover, "active": action.active} {
+					for underlay, surface := range map[string]string{"canvas": colors.Canvas, "surface": colors.Surface} {
+						ratio, ok := contrastRatioOn(background, action.foreground, surface)
+						if !ok || ratio < minimumTextContrast {
+							t.Errorf("%s %s %s %s on %s contrast %.2f, want at least %.1f", family.ID, scheme.name, action.name, state, underlay, ratio, minimumTextContrast)
+						}
+					}
+				}
+			}
+			for state, foreground := range map[string]string{"resting": colors.ActionLink, "hover": colors.ActionLinkHover} {
+				for surface, background := range map[string]string{"canvas": colors.Canvas, "surface": colors.Surface} {
+					ratio, ok := contrastRatioOn(background, foreground, background)
+					if !ok || ratio < minimumTextContrast {
+						t.Errorf("%s %s link %s on %s contrast %.2f, want at least %.1f", family.ID, scheme.name, state, surface, ratio, minimumTextContrast)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestDecodeManifestRejectsUnknownAndFutureSchemas(t *testing.T) {
 	raw, err := json.Marshal(BuiltIns()["workshop"])
 	require.NoError(t, err)
@@ -133,6 +178,18 @@ func TestNormalizeSchemeManifestRejectsAdversarialTokens(t *testing.T) {
 		{"unparsed color mix", "colors.chart1", func(m *ThemeSchemeManifest) { m.Colors.Chart1 = `color-mix(in oklch, nope 50%, black)` }},
 		{"low contrast", "colors.canvasInk", func(m *ThemeSchemeManifest) { m.Colors.Ink = m.Colors.Canvas }},
 		{"low ordinary action contrast", "colors.actionOrdinaryInk", func(m *ThemeSchemeManifest) { m.Colors.ActionOrdinaryInk = m.Colors.ActionOrdinary }},
+		{"low focal hover contrast", "colors.actionFocalInk", func(m *ThemeSchemeManifest) {
+			m.Colors.ActionFocal = "#000000"
+			m.Colors.ActionFocalHover = "#888888"
+			m.Colors.ActionFocalActive = "#222222"
+			m.Colors.ActionFocalInk = "#ffffff"
+		}},
+		{"low destructive action contrast", "colors.actionDestructiveInk", func(m *ThemeSchemeManifest) {
+			m.Colors.ActionDestructive = "#888888"
+			m.Colors.ActionDestructiveHover = "#777777"
+			m.Colors.ActionDestructiveActive = "#666666"
+			m.Colors.ActionDestructiveInk = "#ffffff"
+		}},
 		{"low link contrast", "colors.link", func(m *ThemeSchemeManifest) { m.Colors.Link = m.Colors.Canvas }},
 		{"low chrome contrast", "colors.chromeInk", func(m *ThemeSchemeManifest) { m.Colors.ChromeInk = m.Colors.Chrome }},
 		{"invisible focus", "colors.focus", func(m *ThemeSchemeManifest) { m.Colors.Focus = m.Colors.Canvas }},

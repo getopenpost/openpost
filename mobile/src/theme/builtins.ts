@@ -704,6 +704,7 @@ function manifest(
         container: "transparent",
         content: colors.primary,
         pressedContainer: colors.primaryContainer,
+        pressedContent: colors.onPrimaryContainer,
       }),
       destructive: actionStyle({
         container: "transparent",
@@ -744,6 +745,7 @@ function actionStyle(
     depthColor: values.depthColor ?? "transparent",
     disabledOpacity: values.disabledOpacity ?? 0.42,
     pressedContainer: values.pressedContainer ?? values.container,
+    pressedContent: values.pressedContent ?? values.content,
     underline: values.underline ?? false,
   };
 }

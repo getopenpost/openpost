@@ -4,6 +4,7 @@ import {
   NATIVE_MIN_TEXT_SIZE,
   PUBLICATION_STATUSES,
   type NativeIconPackId,
+  type NativeActionStyle,
   type NativeTextRole,
   type NativeThemeManifest,
 } from "./contract";
@@ -68,6 +69,10 @@ const TYPOGRAPHY_KEYS = [
 
 type Rgba = readonly [red: number, green: number, blue: number, alpha: number];
 
+const MINIMUM_TEXT_CONTRAST = 4.5;
+const MINIMUM_FOCUS_CONTRAST = 3;
+const MINIMUM_SEMANTIC_ACTION_DISTANCE = 0.014;
+
 export function validateNativeThemeManifest(
   value: NativeThemeManifest | null | undefined,
 ): value is NativeThemeManifest {
@@ -91,15 +96,17 @@ export function validateNativeThemeManifest(
   }
 
   if (
-    !hasReadableContrast(colors.onSurface, colors.background, 4.5) ||
-    !hasReadableContrast(colors.onSurface, colors.surface, 4.5) ||
-    !hasReadableContrast(colors.onSurfaceVariant, colors.background, 4.5) ||
-    !hasReadableContrast(colors.onSurfaceVariant, colors.surface, 4.5) ||
-    !hasReadableContrast(colors.primary, colors.onPrimary, 4.5) ||
+    !hasReadableContrast(colors.onSurface, colors.background, MINIMUM_TEXT_CONTRAST) ||
+    !hasReadableContrast(colors.onSurface, colors.surface, MINIMUM_TEXT_CONTRAST) ||
+    !hasReadableContrast(colors.onSurfaceVariant, colors.background, MINIMUM_TEXT_CONTRAST) ||
+    !hasReadableContrast(colors.onSurfaceVariant, colors.surface, MINIMUM_TEXT_CONTRAST) ||
+    !hasReadableContrast(colors.primary, colors.onPrimary, MINIMUM_TEXT_CONTRAST) ||
+    !hasReadableContrast(colors.focus, colors.background, MINIMUM_FOCUS_CONTRAST) ||
+    !hasReadableContrast(colors.focus, colors.surface, MINIMUM_FOCUS_CONTRAST) ||
     PUBLICATION_STATUSES.some(
       (status) =>
-        !hasReadableContrast(colors.status[status], colors.background, 4.5) ||
-        !hasReadableContrast(colors.status[status], colors.surface, 4.5),
+        !hasReadableContrast(colors.status[status], colors.background, MINIMUM_TEXT_CONTRAST) ||
+        !hasReadableContrast(colors.status[status], colors.surface, MINIMUM_TEXT_CONTRAST),
     )
   ) {
     return false;
@@ -114,6 +121,7 @@ export function validateNativeThemeManifest(
         !parseNativeColor(action.content) ||
         !parseNativeColor(action.border) ||
         !parseNativeColor(action.pressedContainer) ||
+        !parseNativeColor(action.pressedContent) ||
         !parseNativeColor(action.depthColor) ||
         !boundedNumber(action.borderWidth, 0, 4) ||
         !boundedNumber(action.depth, 0, 8) ||
@@ -122,17 +130,13 @@ export function validateNativeThemeManifest(
       ) {
         return true;
       }
-      return (
-        ((intent === "focal" || intent === "primary" || intent === "ordinary") &&
-          !hasReadableContrast(action.content, action.container, 4.5)) ||
-        ((intent === "quiet" || intent === "destructive" || intent === "link") &&
-          (!hasReadableContrast(action.content, colors.background, 4.5) ||
-            !hasReadableContrast(action.content, colors.surface, 4.5)))
-      );
+      return !hasReadableActionContrast(action, colors.background, colors.surface);
     })
   ) {
     return false;
   }
+
+  if (!hasDistinctDestructiveAction(value.actions, colors.background, colors.surface)) return false;
 
   if (EDITOR_COLOR_KEYS.some((key) => !parseNativeColor(value.editor?.[key]))) return false;
   if (TYPOGRAPHY_KEYS.some((key) => !validTextRole(value.typography?.[key]))) return false;
@@ -234,6 +238,114 @@ export function readableThemeForeground(
   return result;
 }
 
+function hasReadableActionContrast(
+  action: NativeActionStyle,
+  background: string,
+  surface: string,
+): boolean {
+  return [background, surface].every(
+    (underlay) =>
+      hasReadableContrastOn(action.content, action.container, underlay, MINIMUM_TEXT_CONTRAST) &&
+      hasReadableContrastOn(
+        action.pressedContent,
+        action.pressedContainer,
+        underlay,
+        MINIMUM_TEXT_CONTRAST,
+      ),
+  );
+}
+
+function hasDistinctDestructiveAction(
+  actions: NativeThemeManifest["actions"],
+  background: string,
+  surface: string,
+): boolean {
+  const destructive = actions.destructive;
+  return (["focal", "primary", "ordinary", "quiet"] as const).every((intent) => {
+    const safe = actions[intent];
+    return [background, surface].every((underlay) => {
+      const containerDistance = perceptualColorDistanceOn(
+        destructive.container,
+        safe.container,
+        underlay,
+      );
+      const contentDistance = perceptualColorDistanceOn(
+        destructive.content,
+        safe.content,
+        underlay,
+      );
+      return (
+        (containerDistance !== null && containerDistance >= MINIMUM_SEMANTIC_ACTION_DISTANCE) ||
+        (contentDistance !== null && contentDistance >= MINIMUM_SEMANTIC_ACTION_DISTANCE)
+      );
+    });
+  });
+}
+
+function hasReadableContrastOn(
+  foreground: string,
+  container: string,
+  underlay: string,
+  minimum: number,
+): boolean {
+  const foregroundColor = parseNativeColor(foreground);
+  const containerColor = parseNativeColor(container);
+  const underlayColor = parseNativeColor(underlay);
+  if (
+    !foregroundColor ||
+    !containerColor ||
+    !underlayColor ||
+    foregroundColor[3] !== 1 ||
+    underlayColor[3] !== 1
+  ) {
+    return false;
+  }
+  return contrastRatio(foregroundColor, compositeColor(containerColor, underlayColor)) >= minimum;
+}
+
+function perceptualColorDistanceOn(first: string, second: string, underlay: string): number | null {
+  const firstColor = parseNativeColor(first);
+  const secondColor = parseNativeColor(second);
+  const underlayColor = parseNativeColor(underlay);
+  if (!firstColor || !secondColor || !underlayColor || underlayColor[3] !== 1) return null;
+  const firstLab = toOklab(compositeColor(firstColor, underlayColor));
+  const secondLab = toOklab(compositeColor(secondColor, underlayColor));
+  return Math.hypot(
+    firstLab[0] - secondLab[0],
+    firstLab[1] - secondLab[1],
+    firstLab[2] - secondLab[2],
+  );
+}
+
+function compositeColor(foreground: Rgba, background: Rgba): Rgba {
+  const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+  if (alpha === 0) return [0, 0, 0, 0];
+  return [
+    (foreground[0] * foreground[3] + background[0] * background[3] * (1 - foreground[3])) / alpha,
+    (foreground[1] * foreground[3] + background[1] * background[3] * (1 - foreground[3])) / alpha,
+    (foreground[2] * foreground[3] + background[2] * background[3] * (1 - foreground[3])) / alpha,
+    alpha,
+  ];
+}
+
+function toOklab(color: Rgba): readonly [number, number, number] {
+  const linear = (channel: number) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  const red = linear(color[0]);
+  const green = linear(color[1]);
+  const blue = linear(color[2]);
+  const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+  const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+  const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
 function validTextRole(value: NativeTextRole | null | undefined): boolean {
   if (
     !value ||
@@ -293,10 +405,14 @@ function hasReadableContrast(foreground: string, background: string, minimum: nu
   ) {
     return false;
   }
-  const [lighter, darker] = [luminance(foregroundColor), luminance(backgroundColor)].sort(
+  return contrastRatio(foregroundColor, backgroundColor) >= minimum;
+}
+
+function contrastRatio(foreground: Rgba, background: Rgba): number {
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort(
     (left, right) => right - left,
   );
-  return (lighter + 0.05) / (darker + 0.05) >= minimum;
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 function luminance([red, green, blue]: Rgba): number {

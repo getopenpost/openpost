@@ -18,6 +18,11 @@ describe("resolved theme API adapter", () => {
     expect(manifest.colors.onPrimary).toBe("#fbfaf9ff");
     expect(manifest.colors.scrim).toBe("#1a151285");
     expect(manifest.actions.focal.pressedContainer).toBe("#a6470cff");
+    expect(manifest.actions.focal.pressedContent).toBe("#fbfaf9ff");
+    expect(manifest.actions.link).toMatchObject({
+      pressedContainer: "#00000000",
+      pressedContent: "#973900ff",
+    });
     expect(manifest.typography.bodyMedium).toMatchObject({
       fontFamily: "Example Sans",
       fontSize: 14,
@@ -70,9 +75,26 @@ describe("resolved theme API adapter", () => {
     ).toEqual({ ok: false, reason: "invalid-response" });
   });
 
+  test("rejects destructive text that is unreadable on its rendered containers", () => {
+    const response = resolvedThemeFixture();
+    response.manifest.colors.actionDestructive = response.manifest.colors.ink;
+    response.manifest.colors.actionDestructiveActive = response.manifest.colors.ink;
+    response.manifest.colors.actionDestructiveInk = response.manifest.colors.ink;
+
+    expect(
+      adaptResolvedThemeResponse({
+        cacheIdentity: "theme-1:7:light",
+        response,
+        workspaceId: "workspace-1",
+      }),
+    ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
   test("uses the theme text role when an accent is unsafe as native status text", () => {
     const response = resolvedThemeFixture();
     response.manifest.colors.actionFocal = "oklch(0.8 0.1 80)";
+    response.manifest.colors.actionFocalHover = "oklch(0.85 0.085 80)";
+    response.manifest.colors.actionFocalActive = "oklch(0.9 0.07 80)";
     response.manifest.colors.actionFocalInk = response.manifest.colors.ink;
 
     const adapted = adaptResolvedThemeResponse({
@@ -275,13 +297,13 @@ function resolvedThemeFixture() {
         actionOrdinaryInk: ink,
         actionOrdinaryBorder: border,
         actionOrdinaryHover: border,
-        actionOrdinaryActive: muted,
+        actionOrdinaryActive: "oklch(0.85 0.005 80)",
         actionQuiet: "transparent",
         actionQuietInk: ink,
         actionQuietHover: sunken,
         actionQuietActive: border,
         actionDestructive: "oklch(0.96 0.02 25)",
-        actionDestructiveInk: danger,
+        actionDestructiveInk: "oklch(0.43 0.2 25)",
         actionDestructiveHover: "oklch(0.92 0.04 25)",
         actionDestructiveActive: "oklch(0.88 0.06 25)",
         actionLink: brand,

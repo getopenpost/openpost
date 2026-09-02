@@ -10583,6 +10583,16 @@ export interface components {
             source_revision?: number;
             theme_id: string;
         };
+        PublishedRevisionPage: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PublishedRevisionPage.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["PublishedRevision"][];
+            next_cursor?: string;
+        };
         PublishedThemeCatalogItem: {
             /**
              * Format: uri
@@ -12125,6 +12135,16 @@ export interface components {
             /** @enum {string} */
             slot: "background-texture" | "sidebar-decoration" | "header-decoration" | "empty-state-illustration" | "loading-illustration";
             sourceUrl: string;
+        };
+        ThemeAssetPage: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ThemeAssetPage.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["ThemeAssetRecord"][];
+            next_cursor?: string;
         };
         ThemeAssetRecord: {
             /**
@@ -29456,6 +29476,10 @@ export interface operations {
             query: {
                 /** @description Organization ID */
                 organization_id: string;
+                /** @description Maximum assets to return */
+                limit?: number;
+                /** @description Opaque cursor for stable newest-first pagination */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -29469,7 +29493,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ThemeAssetRecord"][];
+                    "application/json": components["schemas"]["ThemeAssetPage"];
                 };
             };
             /** @description Bad Request */
@@ -30768,6 +30792,10 @@ export interface operations {
             query: {
                 /** @description Organization ID */
                 organization_id: string;
+                /** @description Maximum revisions to return */
+                limit?: number;
+                /** @description Opaque cursor for stable newest-first pagination */
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -30784,7 +30812,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublishedRevision"][];
+                    "application/json": components["schemas"]["PublishedRevisionPage"];
                 };
             };
             /** @description Bad Request */

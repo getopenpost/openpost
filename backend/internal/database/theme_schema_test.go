@@ -15,7 +15,7 @@ func TestCreateSchemaBuildsOrganizationThemeLifecycleOnFreshSQLite(t *testing.T)
 	require.NoError(t, CreateSchema(db))
 
 	var applied int
-	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM schema_migrations WHERE version = 127").Scan(t.Context(), &applied))
+	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM schema_migrations WHERE version = 128").Scan(t.Context(), &applied))
 	require.Equal(t, 1, applied)
 	for _, table := range []string{
 		"organization_theme_settings", "organization_themes", "organization_theme_drafts",
@@ -29,6 +29,9 @@ func TestCreateSchemaBuildsOrganizationThemeLifecycleOnFreshSQLite(t *testing.T)
 	var catalogIndex int
 	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'organization_theme_revisions_catalog_idx'").Scan(t.Context(), &catalogIndex))
 	require.Equal(t, 1, catalogIndex)
+	var assetPageIndex int
+	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'organization_theme_assets_page_idx'").Scan(t.Context(), &assetPageIndex))
+	require.Equal(t, 1, assetPageIndex)
 
 	now := time.Date(2026, time.September, 2, 12, 0, 0, 0, time.UTC)
 	_, err = db.NewInsert().Model(&models.User{ID: "theme-owner", Email: "theme-owner@example.com", CreatedAt: now}).Exec(t.Context())

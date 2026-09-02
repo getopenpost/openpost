@@ -362,6 +362,11 @@ type PublishedRevision struct {
 	PublishedAt    time.Time     `json:"published_at"`
 }
 
+type PublishedRevisionPage struct {
+	Items      []PublishedRevision `json:"items" nullable:"false"`
+	NextCursor string              `json:"next_cursor,omitempty"`
+}
+
 type ThemeSummary struct {
 	Reference              ThemeReference `json:"reference"`
 	OrganizationID         string         `json:"organization_id,omitempty"`
@@ -492,4 +497,9 @@ type ThemeAssetRecord struct {
 	LicenseAcknowledged bool           `json:"license_acknowledged,omitempty"`
 	CreatedBy           string         `json:"created_by"`
 	CreatedAt           time.Time      `json:"created_at"`
+}
+
+type ThemeAssetPage struct {
+	Items      []ThemeAssetRecord `json:"items" nullable:"false"`
+	NextCursor string             `json:"next_cursor,omitempty"`
 }

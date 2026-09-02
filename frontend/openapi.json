@@ -13567,6 +13567,29 @@
 				"required": ["theme_id", "revision", "manifest", "published_by", "published_at"],
 				"type": "object"
 			},
+			"PublishedRevisionPage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/PublishedRevisionPage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/PublishedRevision"
+						},
+						"type": "array"
+					},
+					"next_cursor": {
+						"type": "string"
+					}
+				},
+				"required": ["items"],
+				"type": "object"
+			},
 			"PublishedThemeCatalogItem": {
 				"additionalProperties": false,
 				"properties": {
@@ -17231,6 +17254,29 @@
 					}
 				},
 				"required": ["id", "slot", "sourceUrl", "mimeType"],
+				"type": "object"
+			},
+			"ThemeAssetPage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ThemeAssetPage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/ThemeAssetRecord"
+						},
+						"type": "array"
+					},
+					"next_cursor": {
+						"type": "string"
+					}
+				},
+				"required": ["items"],
 				"type": "object"
 			},
 			"ThemeAssetRecord": {
@@ -41928,6 +41974,31 @@
 							"description": "Organization ID",
 							"type": "string"
 						}
+					},
+					{
+						"description": "Maximum assets to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 20,
+							"description": "Maximum assets to return",
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable newest-first pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable newest-first pagination",
+							"maxLength": 1024,
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -41935,10 +42006,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"items": {
-										"$ref": "#/components/schemas/ThemeAssetRecord"
-									},
-									"type": "array"
+									"$ref": "#/components/schemas/ThemeAssetPage"
 								}
 							}
 						},
@@ -43699,6 +43767,31 @@
 							"description": "Organization ID",
 							"type": "string"
 						}
+					},
+					{
+						"description": "Maximum revisions to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 20,
+							"description": "Maximum revisions to return",
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable newest-first pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable newest-first pagination",
+							"maxLength": 1024,
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -43706,10 +43799,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"items": {
-										"$ref": "#/components/schemas/PublishedRevision"
-									},
-									"type": "array"
+									"$ref": "#/components/schemas/PublishedRevisionPage"
 								}
 							}
 						},

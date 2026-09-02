@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -201,10 +202,10 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 
 	revisionsResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, revisionsResponse.Code, revisionsResponse.Body.String())
-	var revisions []themes.PublishedRevision
+	var revisions themes.PublishedRevisionPage
 	require.NoError(t, json.Unmarshal(revisionsResponse.Body.Bytes(), &revisions))
-	require.Len(t, revisions, 2)
-	require.Equal(t, 2, revisions[0].Revision)
+	require.Len(t, revisions.Items, 2)
+	require.Equal(t, 2, revisions.Items[0].Revision)
 	firstRevision := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions/1?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, firstRevision.Code, firstRevision.Body.String())
 	rollbackResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/rollback", map[string]any{
@@ -384,6 +385,79 @@ func TestThemeHTTPSummaryPaginationIsBoundedCompactAndComplete(t *testing.T) {
 	}
 }
 
+func TestThemeHTTPRevisionPagesAreBoundedNewestFirstAndComplete(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
+		"organization_id": "org-1", "name": "Revision history", "duplicate_built_in_id": "studio",
+	})
+	require.Equal(t, http.StatusOK, createdResponse.Code, createdResponse.Body.String())
+	var created themes.Theme
+	require.NoError(t, json.Unmarshal(createdResponse.Body.Bytes(), &created))
+	themeID := created.Summary.Reference.ID
+	manifest := created.Draft.Manifest
+	for revision := 1; revision <= 3; revision++ {
+		if revision > 1 {
+			manifest.Description = fmt.Sprintf("Revision %d", revision)
+			updated := themeRequest(t, e, http.MethodPut, "/api/v1/themes/"+url.PathEscape(themeID)+"/draft", map[string]any{
+				"organization_id": "org-1", "expected_revision": revision - 1, "name": "Revision history", "manifest": manifest,
+			})
+			require.Equal(t, http.StatusOK, updated.Code, updated.Body.String())
+		}
+		published := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{
+			"organization_id": "org-1", "expected_draft_revision": revision, "expected_published_revision": revision - 1,
+		})
+		require.Equal(t, http.StatusOK, published.Code, published.Body.String())
+	}
+
+	firstResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=2", nil)
+	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
+	var first themes.PublishedRevisionPage
+	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
+	require.Equal(t, []int{3, 2}, []int{first.Items[0].Revision, first.Items[1].Revision})
+	require.NotEmpty(t, first.NextCursor)
+
+	secondResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=2&cursor="+url.QueryEscape(first.NextCursor), nil)
+	require.Equal(t, http.StatusOK, secondResponse.Code, secondResponse.Body.String())
+	var second themes.PublishedRevisionPage
+	require.NoError(t, json.Unmarshal(secondResponse.Body.Bytes(), &second))
+	require.Equal(t, []int{1}, []int{second.Items[0].Revision})
+	require.Empty(t, second.NextCursor)
+	require.Equal(t, http.StatusBadRequest, themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&cursor=not-a-cursor", nil).Code)
+	require.Equal(t, http.StatusUnprocessableEntity, themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=101", nil).Code)
+}
+
+func TestThemeHTTPAssetPagesAreBoundedStableAndComplete(t *testing.T) {
+	e, db, _ := newThemeTestServer(t)
+	assetIDs := make([]string, 0, 3)
+	for index := range 3 {
+		asset := uploadThemeAsset(t, e, map[string]any{
+			"organization_id": "org-1", "kind": "illustration", "name": fmt.Sprintf("Asset %d", index),
+			"media_type": "image/png", "content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 20+index, 20+index)),
+		})
+		assetIDs = append(assetIDs, asset.ID)
+	}
+	equalCreatedAt := time.Date(2026, time.September, 2, 13, 0, 0, 0, time.UTC)
+	_, err := db.NewUpdate().Table("organization_theme_assets").Set("created_at = ?", equalCreatedAt).Where("organization_id = ?", "org-1").Exec(t.Context())
+	require.NoError(t, err)
+	slices.Sort(assetIDs)
+
+	firstResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2", nil)
+	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
+	var first themes.ThemeAssetPage
+	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
+	require.Equal(t, assetIDs[:2], themeAssetIDs(first.Items))
+	require.NotEmpty(t, first.NextCursor)
+
+	secondResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2&cursor="+url.QueryEscape(first.NextCursor), nil)
+	require.Equal(t, http.StatusOK, secondResponse.Code, secondResponse.Body.String())
+	var second themes.ThemeAssetPage
+	require.NoError(t, json.Unmarshal(secondResponse.Body.Bytes(), &second))
+	require.Equal(t, assetIDs[2:], themeAssetIDs(second.Items))
+	require.Empty(t, second.NextCursor)
+	require.Equal(t, http.StatusBadRequest, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&cursor=not-a-cursor", nil).Code)
+	require.Equal(t, http.StatusUnprocessableEntity, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=101", nil).Code)
+}
+
 func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *testing.T) {
 	e, _, _ := newThemeTestServer(t)
 	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
@@ -469,6 +543,11 @@ func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
 	require.Contains(t, pageProperties, "items")
 	require.Contains(t, pageProperties, "next_cursor")
 	require.NotContains(t, pageProperties, "manifest")
+	for _, schemaName := range []string{"PublishedRevisionPage", "ThemeAssetPage"} {
+		properties := schemas[schemaName].(map[string]any)["properties"].(map[string]any)
+		require.Contains(t, properties, "items")
+		require.Contains(t, properties, "next_cursor")
+	}
 	createRequired := schemas["CreateThemeInputBody"].(map[string]any)["required"].([]any)
 	require.NotContains(t, createRequired, "manifest")
 	publishRequired := schemas["PublishThemeInputBody"].(map[string]any)["required"].([]any)
@@ -484,6 +563,14 @@ func requireEnumProperty(t *testing.T, schemas map[string]any, schemaName, prope
 	t.Helper()
 	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)
 	require.Equal(t, expected, property["enum"], schemaName+"."+propertyName)
+}
+
+func themeAssetIDs(assets []themes.ThemeAssetRecord) []string {
+	ids := make([]string, 0, len(assets))
+	for _, asset := range assets {
+		ids = append(ids, asset.ID)
+	}
+	return ids
 }
 
 func requireArrayEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {

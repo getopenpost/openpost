@@ -40,8 +40,10 @@ type ThemeOrganizationListInput struct {
 	Cursor         string `query:"cursor" maxLength:"1024" doc:"Opaque cursor for stable name-ordered pagination"`
 }
 
-type ThemeOrganizationInput struct {
+type ThemeAssetListInput struct {
 	OrganizationID string `query:"organization_id" required:"true" doc:"Organization ID"`
+	Limit          int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Maximum assets to return"`
+	Cursor         string `query:"cursor" maxLength:"1024" doc:"Opaque cursor for stable newest-first pagination"`
 }
 
 type AvailableThemesInput struct {
@@ -102,6 +104,8 @@ type RollbackThemeInput struct {
 type ThemeRevisionListInput struct {
 	PathID         string `path:"id" doc:"Organization theme ID"`
 	OrganizationID string `query:"organization_id" required:"true" doc:"Organization ID"`
+	Limit          int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Maximum revisions to return"`
+	Cursor         string `query:"cursor" maxLength:"1024" doc:"Opaque cursor for stable newest-first pagination"`
 }
 
 type GetThemeRevisionInput struct {
@@ -156,7 +160,7 @@ type BuiltInThemeListOutput struct {
 }
 type ThemeRevisionOutput struct{ Body themes.PublishedRevision }
 type ThemeRevisionListOutput struct {
-	Body []themes.PublishedRevision `nullable:"false"`
+	Body themes.PublishedRevisionPage
 }
 type ThemeSettingsOutput struct{ Body themes.ThemeSettings }
 type OrganizationThemeSettingsOutput struct {
@@ -198,7 +202,7 @@ type DeleteThemeAssetInput struct {
 
 type ThemeAssetOutput struct{ Body themes.ThemeAssetRecord }
 type ThemeAssetListOutput struct {
-	Body []themes.ThemeAssetRecord `nullable:"false"`
+	Body themes.ThemeAssetPage
 }
 type DeleteThemeAssetOutput struct {
 	Body struct {
@@ -300,11 +304,11 @@ func (h *ThemeHandler) get(ctx context.Context, input *ThemePathInput) (*ThemeOu
 }
 
 func (h *ThemeHandler) listRevisions(ctx context.Context, input *ThemeRevisionListInput) (*ThemeRevisionListOutput, error) {
-	items, err := h.themes.ListRevisions(ctx, themeActor(ctx), input.OrganizationID, input.PathID)
+	page, err := h.themes.ListRevisions(ctx, themeActor(ctx), input.OrganizationID, input.PathID, themes.PageOptions{Limit: input.Limit, Cursor: input.Cursor})
 	if err != nil {
 		return nil, themeError(err)
 	}
-	return &ThemeRevisionListOutput{Body: items}, nil
+	return &ThemeRevisionListOutput{Body: page}, nil
 }
 
 func (h *ThemeHandler) getRevision(ctx context.Context, input *GetThemeRevisionInput) (*ThemeRevisionOutput, error) {
@@ -396,12 +400,12 @@ func (h *ThemeHandler) updateWorkspaceAssignment(ctx context.Context, input *Upd
 	return &ThemeSettingsOutput{Body: item}, nil
 }
 
-func (h *ThemeHandler) listAssets(ctx context.Context, input *ThemeOrganizationInput) (*ThemeAssetListOutput, error) {
-	items, err := h.themes.ListAssets(ctx, themeActor(ctx), input.OrganizationID)
+func (h *ThemeHandler) listAssets(ctx context.Context, input *ThemeAssetListInput) (*ThemeAssetListOutput, error) {
+	page, err := h.themes.ListAssets(ctx, themeActor(ctx), input.OrganizationID, themes.PageOptions{Limit: input.Limit, Cursor: input.Cursor})
 	if err != nil {
 		return nil, themeError(err)
 	}
-	return &ThemeAssetListOutput{Body: items}, nil
+	return &ThemeAssetListOutput{Body: page}, nil
 }
 
 func (h *ThemeHandler) uploadAsset(ctx context.Context, input *UploadThemeAssetInput) (*ThemeAssetOutput, error) {

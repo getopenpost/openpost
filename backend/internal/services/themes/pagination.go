@@ -15,9 +15,11 @@ const (
 	MaxThemePageLimit     = 100
 	maxThemeCursorLength  = 1024
 
-	themeCursorVersion   = 1
-	cursorSegmentBuiltIn = "built_in"
-	cursorSegmentCustom  = "custom"
+	themeCursorVersion    = 1
+	cursorSegmentBuiltIn  = "built_in"
+	cursorSegmentCustom   = "custom"
+	cursorSegmentRevision = "revision"
+	cursorSegmentAsset    = "asset"
 )
 
 type PageOptions struct {
@@ -33,6 +35,7 @@ type themePageCursor struct {
 	NormalizedName string    `json:"n,omitempty"`
 	CreatedAt      time.Time `json:"t,omitempty"`
 	ID             string    `json:"i,omitempty"`
+	Revision       int       `json:"r,omitempty"`
 }
 
 func normalizePageOptions(options PageOptions) (PageOptions, error) {
@@ -96,15 +99,36 @@ func themeCursorSegmentAllowed(segment string, allowedSegments []string) bool {
 func validThemeCursor(cursor themePageCursor) bool {
 	switch cursor.Segment {
 	case cursorSegmentBuiltIn:
-		return cursor.BuiltInIndex >= 0 && cursor.BuiltInIndex < len(builtInOrder) && cursor.NormalizedName == "" && cursor.CreatedAt.IsZero() && cursor.ID == ""
+		return validBuiltInThemeCursor(cursor)
 	case cursorSegmentCustom:
 		return validCustomThemeCursor(cursor)
+	case cursorSegmentRevision:
+		return validRevisionThemeCursor(cursor)
+	case cursorSegmentAsset:
+		return validAssetThemeCursor(cursor)
 	default:
 		return false
 	}
 }
 
+func validBuiltInThemeCursor(cursor themePageCursor) bool {
+	return cursor.BuiltInIndex >= 0 && cursor.BuiltInIndex < len(builtInOrder) &&
+		cursor.NormalizedName == "" && cursor.CreatedAt.IsZero() && cursor.ID == "" && cursor.Revision == 0
+}
+
+func validRevisionThemeCursor(cursor themePageCursor) bool {
+	return cursor.Revision >= 1 && cursor.BuiltInIndex == 0 && cursor.NormalizedName == "" && cursor.CreatedAt.IsZero() && cursor.ID == ""
+}
+
+func validAssetThemeCursor(cursor themePageCursor) bool {
+	return cursor.BuiltInIndex == 0 && cursor.NormalizedName == "" && !cursor.CreatedAt.IsZero() &&
+		cursor.ID != "" && len(cursor.ID) <= 256 && cursor.Revision == 0
+}
+
 func validCustomThemeCursor(cursor themePageCursor) bool {
+	if cursor.Revision != 0 {
+		return false
+	}
 	if cursor.NormalizedName == "" && cursor.CreatedAt.IsZero() && cursor.ID == "" {
 		return cursor.BuiltInIndex == 0
 	}

@@ -110,26 +110,44 @@ func NewWithStorage(db *bun.DB, storage mediastore.BlobStorage) *Service {
 	return service
 }
 
-func (s *Service) ListAssets(ctx context.Context, actor Actor, organizationID string) ([]ThemeAssetRecord, error) {
+func (s *Service) ListAssets(ctx context.Context, actor Actor, organizationID string, options PageOptions) (ThemeAssetPage, error) {
 	organizationID = strings.TrimSpace(organizationID)
 	if organizationID == "" {
-		return nil, fmt.Errorf("%w: organization_id is required", ErrInvalidInput)
+		return ThemeAssetPage{}, fmt.Errorf("%w: organization_id is required", ErrInvalidInput)
 	}
 	if s == nil || s.db == nil {
-		return nil, ErrUnavailable
+		return ThemeAssetPage{}, ErrUnavailable
 	}
 	if err := authorizeOrganization(ctx, s.db, actor, organizationID); err != nil {
-		return nil, err
+		return ThemeAssetPage{}, err
+	}
+	options, err := normalizePageOptions(options)
+	if err != nil {
+		return ThemeAssetPage{}, err
+	}
+	scope := themeCursorScope("assets", organizationID)
+	cursor, err := decodeThemeCursor(options.Cursor, scope, cursorSegmentAsset)
+	if err != nil {
+		return ThemeAssetPage{}, err
 	}
 	var rows []assetRow
-	if err := s.db.NewSelect().Model(&rows).Where("organization_id = ?", organizationID).OrderExpr("created_at DESC, id ASC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w: list theme assets", ErrUnavailable)
+	query := s.db.NewSelect().Model(&rows).Where("organization_id = ?", organizationID)
+	if !cursor.CreatedAt.IsZero() {
+		query = query.Where("created_at < ? OR (created_at = ? AND id > ?)", cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
 	}
-	result := make([]ThemeAssetRecord, 0, len(rows))
+	if err := query.OrderExpr("created_at DESC, id ASC").Limit(options.Limit + 1).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ThemeAssetPage{}, fmt.Errorf("%w: list theme assets", ErrUnavailable)
+	}
+	page := ThemeAssetPage{Items: make([]ThemeAssetRecord, 0, min(len(rows), options.Limit))}
+	if len(rows) > options.Limit {
+		rows = rows[:options.Limit]
+		last := rows[len(rows)-1]
+		page.NextCursor = encodeThemeCursor(themePageCursor{Scope: scope, Segment: cursorSegmentAsset, CreatedAt: last.CreatedAt.UTC(), ID: last.ID})
+	}
 	for _, row := range rows {
-		result = append(result, s.assetFromRow(row))
+		page.Items = append(page.Items, s.assetFromRow(row))
 	}
-	return result, nil
+	return page, nil
 }
 
 //nolint:gocyclo // Upload is one trust boundary for authorization, bounded decoding, metadata validation, and atomic persistence.

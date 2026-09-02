@@ -247,34 +247,51 @@ func (s *Service) published(ctx context.Context, organizationID, themeID string,
 	return &PublishedRevision{ThemeID: themeID, Revision: row.Revision, SourceRevision: row.SourceRevision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt}, nil
 }
 
-func (s *Service) ListRevisions(ctx context.Context, actor Actor, organizationID, themeID string) ([]PublishedRevision, error) {
+func (s *Service) ListRevisions(ctx context.Context, actor Actor, organizationID, themeID string, options PageOptions) (PublishedRevisionPage, error) {
 	organizationID = strings.TrimSpace(organizationID)
 	themeID = strings.TrimSpace(themeID)
 	if organizationID == "" || themeID == "" {
-		return nil, fmt.Errorf("%w: organization_id and theme_id are required", ErrInvalidInput)
+		return PublishedRevisionPage{}, fmt.Errorf("%w: organization_id and theme_id are required", ErrInvalidInput)
 	}
 	if s == nil || s.db == nil {
-		return nil, ErrUnavailable
+		return PublishedRevisionPage{}, ErrUnavailable
 	}
 	if err := authorizeOrganization(ctx, s.db, actor, organizationID); err != nil {
-		return nil, err
+		return PublishedRevisionPage{}, err
 	}
 	if _, err := s.loadTheme(ctx, s.db, organizationID, themeID); err != nil {
-		return nil, err
+		return PublishedRevisionPage{}, err
+	}
+	options, err := normalizePageOptions(options)
+	if err != nil {
+		return PublishedRevisionPage{}, err
+	}
+	scope := themeCursorScope("revisions", organizationID+":"+themeID)
+	cursor, err := decodeThemeCursor(options.Cursor, scope, cursorSegmentRevision)
+	if err != nil {
+		return PublishedRevisionPage{}, err
 	}
 	var rows []revisionRow
-	if err := s.db.NewSelect().Model(&rows).Where("theme_id = ? AND organization_id = ?", themeID, organizationID).OrderExpr("revision DESC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w: list published theme revisions", ErrUnavailable)
+	query := s.db.NewSelect().Model(&rows).Where("theme_id = ? AND organization_id = ?", themeID, organizationID)
+	if cursor.Revision > 0 {
+		query = query.Where("revision < ?", cursor.Revision)
 	}
-	result := make([]PublishedRevision, 0, len(rows))
+	if err := query.OrderExpr("revision DESC").Limit(options.Limit + 1).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return PublishedRevisionPage{}, fmt.Errorf("%w: list published theme revisions", ErrUnavailable)
+	}
+	page := PublishedRevisionPage{Items: make([]PublishedRevision, 0, min(len(rows), options.Limit))}
+	if len(rows) > options.Limit {
+		rows = rows[:options.Limit]
+		page.NextCursor = encodeThemeCursor(themePageCursor{Scope: scope, Segment: cursorSegmentRevision, Revision: rows[len(rows)-1].Revision})
+	}
 	for _, row := range rows {
 		manifest, err := decodeStoredManifest(row.ManifestJSON)
 		if err != nil {
-			return nil, fmt.Errorf("%w: decode published theme revision", ErrUnavailable)
+			return PublishedRevisionPage{}, fmt.Errorf("%w: decode published theme revision", ErrUnavailable)
 		}
-		result = append(result, PublishedRevision{ThemeID: themeID, Revision: row.Revision, SourceRevision: row.SourceRevision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt})
+		page.Items = append(page.Items, PublishedRevision{ThemeID: themeID, Revision: row.Revision, SourceRevision: row.SourceRevision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt})
 	}
-	return result, nil
+	return page, nil
 }
 
 func (s *Service) GetRevision(ctx context.Context, actor Actor, organizationID, themeID string, revision int) (PublishedRevision, error) {

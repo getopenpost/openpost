@@ -163,18 +163,23 @@
 			limit: publicationPageSize
 		})
 	);
-	const failedJobsQuery = createQuery(() =>
-		failedJobsQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize })
-	);
+	const failedJobsQuery = createQuery(() => ({
+		...failedJobsQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
+		enabled: Boolean(currentWorkspaceID && activeActivityBucket === 'failed')
+	}));
 	const accountsQuery = createQuery(() =>
 		workspaceAccountsQueryOptions(queryAPI, currentWorkspaceID)
 	);
 	const loading = $derived(
-		publicationsQuery.isFetching || failedJobsQuery.isFetching || accountsQuery.isFetching
+		publicationsQuery.isFetching ||
+			accountsQuery.isFetching ||
+			(activeActivityBucket === 'failed' && failedJobsQuery.isFetching)
 	);
 	const visibleError = $derived(error || queryError);
 	const initialQueriesSettled = $derived(
-		!publicationsQuery.isPending && !failedJobsQuery.isPending && !accountsQuery.isPending
+		!publicationsQuery.isPending &&
+			!accountsQuery.isPending &&
+			(activeActivityBucket !== 'failed' || !failedJobsQuery.isPending)
 	);
 	const currentViewLoaded = $derived(
 		hasLoaded &&
@@ -257,7 +262,7 @@
 			queryError = '';
 			return;
 		}
-		if (failedJobsQuery.isError) {
+		if (activeActivityBucket === 'failed' && failedJobsQuery.isError) {
 			if (!failedJobsQuery.data) {
 				failedJobs = [];
 				failedJobsPage = { total: 0, nextCursor: '' };
@@ -281,8 +286,8 @@
 		queryError = '';
 		await Promise.all([
 			publicationsQuery.refetch(),
-			failedJobsQuery.refetch(),
-			accountsQuery.refetch()
+			accountsQuery.refetch(),
+			...(activeActivityBucket === 'failed' ? [failedJobsQuery.refetch()] : [])
 		]);
 	}
 

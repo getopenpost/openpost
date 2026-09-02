@@ -3,6 +3,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { publicationEventsQueryOptions } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import { QueryProjectionTracker } from '$lib/query/projection';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -49,7 +50,7 @@
 	let error = $state('');
 	let requestedPublicationKey = '';
 	let requestSequence = 0;
-	let appliedResult = '';
+	const firstPageProjection = new QueryProjectionTracker();
 	const firstPageQuery = createQuery(() =>
 		publicationEventsQueryOptions(schedulingQueryAPI, workspaceId, publicationId, { limit: 30 })
 	);
@@ -95,9 +96,8 @@
 
 	$effect(() => {
 		const data = firstPageQuery.data;
-		const resultKey = `${workspaceId}:${publicationId}:${firstPageQuery.dataUpdatedAt}`;
-		if (!data || resultKey === appliedResult) return;
-		appliedResult = resultKey;
+		const scope = `${workspaceId}:${publicationId}`;
+		if (!firstPageProjection.shouldProject(data, scope)) return;
 		untrack(() => {
 			events = data.items;
 			nextCursor = data.nextCursor;

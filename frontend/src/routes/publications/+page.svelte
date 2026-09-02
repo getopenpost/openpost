@@ -41,6 +41,7 @@
 	} from '@openpost/query-catalog';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
+	import { QueryProjectionTracker } from '$lib/query/projection';
 	import {
 		PublicationOperationScope,
 		type PublicationOperation
@@ -200,9 +201,9 @@
 	const initialLoading = $derived(
 		!currentViewLoaded && !visibleError && (loading || Boolean(currentWorkspaceID))
 	);
-	let appliedPublicationsResult = '';
-	let appliedJobsResult = '';
-	let appliedAccountsResult = '';
+	const publicationsProjection = new QueryProjectionTracker();
+	const jobsProjection = new QueryProjectionTracker();
+	const accountsProjection = new QueryProjectionTracker();
 
 	$effect(() => {
 		const workspaceId = currentWorkspaceID;
@@ -234,9 +235,8 @@
 
 	$effect(() => {
 		const data = publicationsQuery.data;
-		const resultKey = `${currentWorkspaceID}:${activeActivityBucket}:${publicationsQuery.dataUpdatedAt}`;
-		if (!data || appliedPublicationsResult === resultKey) return;
-		appliedPublicationsResult = resultKey;
+		const scope = `${currentWorkspaceID}:${activeActivityBucket}`;
+		if (!publicationsProjection.shouldProject(data, scope)) return;
 		untrack(() => {
 			dataWorkspaceID = currentWorkspaceID;
 			dataActivityBucket = activeActivityBucket;
@@ -248,9 +248,7 @@
 
 	$effect(() => {
 		const data = failedJobsQuery.data;
-		const resultKey = `${currentWorkspaceID}:${failedJobsQuery.dataUpdatedAt}`;
-		if (!data || appliedJobsResult === resultKey) return;
-		appliedJobsResult = resultKey;
+		if (!jobsProjection.shouldProject(data, currentWorkspaceID)) return;
 		untrack(() => {
 			failedJobs = data.items;
 			failedJobsPage = { total: data.total, nextCursor: data.nextCursor };
@@ -259,9 +257,7 @@
 
 	$effect(() => {
 		const data = accountsQuery.data;
-		const resultKey = `${currentWorkspaceID}:${accountsQuery.dataUpdatedAt}`;
-		if (!data || appliedAccountsResult === resultKey) return;
-		appliedAccountsResult = resultKey;
+		if (!accountsProjection.shouldProject(data, currentWorkspaceID)) return;
 		untrack(() => {
 			accounts = data;
 		});

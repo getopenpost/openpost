@@ -3,6 +3,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { repostAutomationQueryOptions } from '@openpost/query-catalog';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
+	import { QueryProjectionTracker } from '$lib/query/projection';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -35,7 +36,7 @@
 		onChange
 	}: Props = $props();
 	let open = $state(false);
-	let appliedResult = '';
+	const settingsProjection = new QueryProjectionTracker();
 	const settingsQuery = createQuery(() => ({
 		...repostAutomationQueryOptions(schedulingQueryAPI, workspaceID),
 		enabled: open && Boolean(workspaceID)
@@ -100,9 +101,7 @@
 	});
 
 	$effect(() => {
-		const resultKey = `${workspaceID}:${settingsQuery.dataUpdatedAt}`;
-		if (!settingsQuery.data || resultKey === appliedResult) return;
-		appliedResult = resultKey;
+		if (!settingsProjection.shouldProject(settingsQuery.data, workspaceID)) return;
 		if (value.mode !== 'custom' || (value.target_account_ids?.length ?? 0) > 0) return;
 		const firstTarget = targetAccounts[0];
 		if (!firstTarget) return;

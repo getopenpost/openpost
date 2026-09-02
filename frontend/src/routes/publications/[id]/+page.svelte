@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { onDestroy } from 'svelte';
 	import { loadPublicationDetail } from '$lib/api/performance-cache';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
@@ -21,12 +22,17 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
-	import { seedPublicationDetail } from '@openpost/query-catalog';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
+	import { openPostQueryKeys, seedPublicationDetail } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
 	import {
 		loadPublicationForWorkspace,
 		PublicationWorkspaceMismatchError
 	} from './publication-load';
+	import {
+		PublicationOperationScope,
+		type PublicationOperation
+	} from '../publication-operation-scope';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	let publication = $state.raw<Publication | null>(null);
@@ -41,6 +47,9 @@
 	let copying = $state(false);
 	let copyError = $state('');
 	let copyRequestKey = '';
+	let recoveryRequestSequence = 0;
+	let copyRequestSequence = 0;
+	const operationScope = new PublicationOperationScope<AuthIdentityToken | undefined>();
 
 	const publicationId = $derived(page.params.id);
 	const initialWorkspaceId = $derived(page.url.searchParams.get('workspace_id'));
@@ -54,6 +63,50 @@
 			publication?.status === 'failed' ||
 			publication?.renditions?.some((rendition) => rendition.delivery !== undefined)
 	);
+
+	type DetailOperation = PublicationOperation<AuthIdentityToken | undefined>;
+
+	function captureDetailOperation(id: string, workspaceId: string): DetailOperation {
+		return operationScope.capture(auth.captureIdentity(), workspaceId, id);
+	}
+
+	function actorIsCurrent(operation: DetailOperation) {
+		return operationScope.actorIsCurrent(operation, (identity) => auth.isIdentityCurrent(identity));
+	}
+
+	function detailViewIsCurrent(operation: DetailOperation) {
+		return operationScope.viewIsCurrent(operation, {
+			workspaceId: publicationWorkspaceId,
+			viewKey: publicationId,
+			isIdentityCurrent: (identity) => auth.isIdentityCurrent(identity)
+		});
+	}
+
+	function recoveryViewIsCurrent(operation: DetailOperation, requestSequence: number) {
+		return requestSequence === recoveryRequestSequence && detailViewIsCurrent(operation);
+	}
+
+	function copyViewIsCurrent(operation: DetailOperation, requestSequence: number) {
+		return requestSequence === copyRequestSequence && detailViewIsCurrent(operation);
+	}
+
+	function invalidatePublicationActivity(workspaceId: string) {
+		ui.invalidatePublications({ workspaceId, scopes: ['activity'] }, { immediate: true });
+	}
+
+	async function reconcilePublicationRecovery(operation: DetailOperation) {
+		if (!actorIsCurrent(operation)) return false;
+		const queryKey = openPostQueryKeys.publications.detail(
+			operation.workspaceId,
+			operation.viewKey
+		);
+		await queryClient.cancelQueries({ queryKey, exact: true });
+		if (!actorIsCurrent(operation)) return false;
+		await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+		if (!actorIsCurrent(operation)) return false;
+		invalidatePublicationActivity(operation.workspaceId);
+		return true;
+	}
 
 	function statusLabel(status: string) {
 		if (status === 'published') return m.activity_status_published();
@@ -72,6 +125,7 @@
 
 	async function loadPublication(id: string, workspaceId: string, force = false) {
 		const requestSequence = ++publicationRequestSequence;
+		const operation = captureDetailOperation(id, workspaceId);
 		hasLoaded = false;
 		error = '';
 		try {
@@ -81,29 +135,15 @@
 				workspaceId,
 				force,
 				onWorkspaceMismatch: async () => {
-					if (
-						requestSequence === publicationRequestSequence &&
-						publicationId === id &&
-						publicationWorkspaceId === workspaceId
-					) {
+					if (requestSequence === publicationRequestSequence && detailViewIsCurrent(operation)) {
 						await goto(resolve('/publications'));
 					}
 				}
 			});
-			if (
-				requestSequence !== publicationRequestSequence ||
-				publicationId !== id ||
-				publicationWorkspaceId !== workspaceId
-			)
-				return;
+			if (requestSequence !== publicationRequestSequence || !detailViewIsCurrent(operation)) return;
 			publication = data;
 		} catch (err) {
-			if (
-				requestSequence !== publicationRequestSequence ||
-				publicationId !== id ||
-				publicationWorkspaceId !== workspaceId
-			)
-				return;
+			if (requestSequence !== publicationRequestSequence || !detailViewIsCurrent(operation)) return;
 			error =
 				err instanceof PublicationWorkspaceMismatchError
 					? m.publication_edit_load_failed()
@@ -112,11 +152,7 @@
 						: m.publication_edit_load_failed();
 			publication = null;
 		} finally {
-			if (
-				requestSequence === publicationRequestSequence &&
-				publicationId === id &&
-				publicationWorkspaceId === workspaceId
-			)
+			if (requestSequence === publicationRequestSequence && detailViewIsCurrent(operation))
 				hasLoaded = true;
 		}
 	}
@@ -127,8 +163,14 @@
 	}
 
 	async function retryRendition(renditionID: string) {
-		const rendition = publication?.renditions?.find((item) => item.id === renditionID);
-		if (!publication || !rendition) return;
+		const currentPublication = publication;
+		const rendition = currentPublication?.renditions?.find((item) => item.id === renditionID);
+		if (!currentPublication || !rendition) return;
+		const operation = captureDetailOperation(
+			currentPublication.id,
+			currentPublication.workspace_id
+		);
+		const requestSequence = ++recoveryRequestSequence;
 		retryingRenditionID = renditionID;
 		recoveryMessage = '';
 		recoveryFailed = false;
@@ -137,19 +179,23 @@
 				'/publications/{id}/renditions/{account_id}/retry',
 				{
 					params: {
-						path: { id: publication.id, account_id: rendition.social_account_id },
+						path: { id: currentPublication.id, account_id: rendition.social_account_id },
 						query: { target_key: rendition.target_key }
 					}
 				}
 			);
 			if (retryError) throw new Error(m.publication_delivery_retry_failed());
+			if (!(await reconcilePublicationRecovery(operation))) return;
+			if (!recoveryViewIsCurrent(operation, requestSequence)) return;
 			recoveryMessage = m.publication_delivery_retry_queued();
-			await loadPublication(publication.id, publication.workspace_id, true);
+			await loadPublication(currentPublication.id, currentPublication.workspace_id, true);
 		} catch {
-			recoveryFailed = true;
-			recoveryMessage = m.publication_delivery_retry_failed();
+			if (recoveryViewIsCurrent(operation, requestSequence)) {
+				recoveryFailed = true;
+				recoveryMessage = m.publication_delivery_retry_failed();
+			}
 		} finally {
-			retryingRenditionID = '';
+			if (recoveryViewIsCurrent(operation, requestSequence)) retryingRenditionID = '';
 		}
 	}
 
@@ -165,29 +211,46 @@
 	}
 
 	async function toggleFailureDismissal() {
-		if (!publication || publication.status !== 'failed') return;
+		const currentPublication = publication;
+		if (!currentPublication || currentPublication.status !== 'failed') return;
+		const operation = captureDetailOperation(
+			currentPublication.id,
+			currentPublication.workspace_id
+		);
+		const requestSequence = ++recoveryRequestSequence;
+		const wasDismissed = Boolean(currentPublication.failure_dismissed_at);
+		retryingRenditionID = '';
 		recoveryMessage = '';
 		recoveryFailed = false;
-		const response = publication.failure_dismissed_at
-			? await client.DELETE('/publications/{id}/failure-dismissal', {
-					params: { path: { id: publication.id } }
-				})
-			: await client.POST('/publications/{id}/failure-dismissal', {
-					params: { path: { id: publication.id } }
-				});
-		if (response.error) {
-			recoveryFailed = true;
-			recoveryMessage = m.activity_dismiss_failed_error();
-			return;
+		try {
+			const response = wasDismissed
+				? await client.DELETE('/publications/{id}/failure-dismissal', {
+						params: { path: { id: currentPublication.id } }
+					})
+				: await client.POST('/publications/{id}/failure-dismissal', {
+						params: { path: { id: currentPublication.id } }
+					});
+			if (response.error) throw new Error(m.activity_dismiss_failed_error());
+			if (!(await reconcilePublicationRecovery(operation))) return;
+			if (!recoveryViewIsCurrent(operation, requestSequence)) return;
+			recoveryMessage = wasDismissed ? m.activity_restore_failed() : m.activity_dismissed_failed();
+			await loadPublication(currentPublication.id, currentPublication.workspace_id, true);
+		} catch {
+			if (recoveryViewIsCurrent(operation, requestSequence)) {
+				recoveryFailed = true;
+				recoveryMessage = m.activity_dismiss_failed_error();
+			}
 		}
-		recoveryMessage = publication.failure_dismissed_at
-			? m.activity_restore_failed()
-			: m.activity_dismissed_failed();
-		await loadPublication(publication.id, publication.workspace_id, true);
 	}
 
 	async function copyAsDraft() {
-		if (!publication || copying) return;
+		const currentPublication = publication;
+		if (!currentPublication || copying) return;
+		const operation = captureDetailOperation(
+			currentPublication.id,
+			currentPublication.workspace_id
+		);
+		const requestSequence = ++copyRequestSequence;
 		copying = true;
 		copyError = '';
 		// Reuse this key after an ambiguous response so a retry cannot create a second draft.
@@ -195,31 +258,66 @@
 		try {
 			const { data, error: createError } = await client.POST('/publications', {
 				params: { header: { 'Idempotency-Key': copyRequestKey } },
-				body: publicationDraftCopy(publication)
+				body: publicationDraftCopy(currentPublication)
 			});
 			if (createError || !data) {
-				copyError = createError?.detail || m.publication_copy_failed();
+				if (copyViewIsCurrent(operation, requestSequence)) {
+					copyError = createError?.detail || m.publication_copy_failed();
+				}
 				return;
 			}
-			seedPublicationDetail(queryClient, data, publication.workspace_id);
-			ui.invalidatePublications({
-				workspaceId: publication.workspace_id,
-				scopes: ['drafts', 'activity']
-			});
+			if (!actorIsCurrent(operation)) return;
+			await Promise.all([
+				queryClient.cancelQueries({
+					queryKey: openPostQueryKeys.publications.detail(operation.workspaceId, data.id),
+					exact: true
+				}),
+				queryClient.cancelQueries({
+					queryKey: openPostQueryKeys.publications.list(operation.workspaceId)
+				})
+			]);
+			if (!actorIsCurrent(operation)) return;
+			seedPublicationDetail(queryClient, data, operation.workspaceId);
+			ui.invalidatePublications(
+				{
+					workspaceId: operation.workspaceId,
+					scopes: ['drafts', 'activity']
+				},
+				{ immediate: true }
+			);
+			if (!copyViewIsCurrent(operation, requestSequence)) return;
 			await goto(resolve(`/publications/${data.id}`));
 		} catch {
-			copyError = m.publication_copy_failed();
+			if (copyViewIsCurrent(operation, requestSequence)) {
+				copyError = m.publication_copy_failed();
+			}
 		} finally {
-			copying = false;
+			if (copyViewIsCurrent(operation, requestSequence)) copying = false;
 		}
 	}
 
 	$effect(() => {
 		const requestKey = `${publicationWorkspaceId}:${publicationId}`;
 		if (publicationId && publicationWorkspaceId && requestKey !== requestedPublicationKey) {
+			operationScope.supersedeView();
+			recoveryRequestSequence += 1;
+			copyRequestSequence += 1;
+			retryingRenditionID = '';
+			recoveryMessage = '';
+			recoveryFailed = false;
+			copying = false;
+			copyError = '';
+			copyRequestKey = '';
 			requestedPublicationKey = requestKey;
 			loadPublication(publicationId, publicationWorkspaceId);
 		}
+	});
+
+	onDestroy(() => {
+		publicationRequestSequence += 1;
+		recoveryRequestSequence += 1;
+		copyRequestSequence += 1;
+		operationScope.destroy();
 	});
 </script>
 

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { client, type SocialAccount } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
+	import { ui } from '$lib/stores/ui.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
 	import PageContainer from '$lib/components/page-container.svelte';
@@ -27,7 +29,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { resolveAppPath } from '$lib/app-path';
-	import { showToast } from '$lib/toast';
+	import { dismissToast, showToast } from '$lib/toast';
 	import { formatSocialAccountName } from '$lib/utils';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
@@ -39,6 +41,10 @@
 	} from '@openpost/query-catalog';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
+	import {
+		PublicationOperationScope,
+		type PublicationOperation
+	} from './publication-operation-scope';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	type ActivityDestination = NonNullable<Publication['renditions']>[number];
@@ -84,11 +90,15 @@
 	let dataRequestSequence = 0;
 	let loadingMorePublications = $state(false);
 	let loadingMoreJobs = $state(false);
+	let destinationActionSequence = 0;
+	const failureDismissalToastIDs = new Set<string | number>();
 	let activeTab = $state<ActivityTab>(
 		page.url.searchParams.get('tab') === 'drafts' ? 'drafts' : 'scheduled'
 	);
 	const publicationPageSize = 40;
 	const jobPageSize = 50;
+	const operationScope = new PublicationOperationScope<AuthIdentityToken | undefined>();
+	type ActivityOperation = PublicationOperation<AuthIdentityToken | undefined>;
 
 	const scheduledPosts = $derived(
 		posts
@@ -199,6 +209,10 @@
 		const activityBucket = activeActivityBucket;
 		if (dataWorkspaceID === workspaceId && dataActivityBucket === activityBucket) return;
 		untrack(() => {
+			dismissFailureDismissalToasts();
+			operationScope.supersedeView();
+			destinationActionSequence += 1;
+			retryingDestination = '';
 			dataRequestSequence++;
 			const workspaceChanged = dataWorkspaceID !== workspaceId;
 			dataWorkspaceID = workspaceId;
@@ -565,8 +579,43 @@
 		}
 	}
 
-	function isCurrentActivityView(workspaceId: string, activityBucket: ActivityPublicationBucket) {
-		return currentWorkspaceID === workspaceId && dataActivityBucket === activityBucket;
+	function captureActivityOperation(
+		workspaceId: string,
+		activityBucket: ActivityPublicationBucket
+	): ActivityOperation {
+		return operationScope.capture(auth.captureIdentity(), workspaceId, activityBucket);
+	}
+
+	function activityActorIsCurrent(operation: ActivityOperation) {
+		return operationScope.actorIsCurrent(operation, (identity) => auth.isIdentityCurrent(identity));
+	}
+
+	function activityViewIsCurrent(operation: ActivityOperation) {
+		return operationScope.viewIsCurrent(operation, {
+			workspaceId: currentWorkspaceID,
+			viewKey: dataActivityBucket === activeActivityBucket ? dataActivityBucket : '',
+			isIdentityCurrent: (identity) => auth.isIdentityCurrent(identity)
+		});
+	}
+
+	function invalidateActivity(workspaceId: string) {
+		ui.invalidatePublications({ workspaceId, scopes: ['activity'] }, { immediate: true });
+	}
+
+	function dismissFailureDismissalToasts() {
+		for (const toastID of failureDismissalToastIDs) dismissToast(toastID);
+		failureDismissalToastIDs.clear();
+	}
+
+	async function reconcileActivityPublication(operation: ActivityOperation, publicationId: string) {
+		if (!activityActorIsCurrent(operation)) return false;
+		const queryKey = openPostQueryKeys.publications.detail(operation.workspaceId, publicationId);
+		await queryClient.cancelQueries({ queryKey, exact: true });
+		if (!activityActorIsCurrent(operation)) return false;
+		await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+		if (!activityActorIsCurrent(operation)) return false;
+		invalidateActivity(operation.workspaceId);
+		return true;
 	}
 
 	async function runDestinationAction(post: ActivityItem, destination: ActivityDestination) {
@@ -575,6 +624,8 @@
 			const workspaceId = currentWorkspaceID;
 			const activityBucket = dataActivityBucket;
 			if (!workspaceId || !activityBucket) return;
+			const operation = captureActivityOperation(workspaceId, activityBucket);
+			const actionSequence = ++destinationActionSequence;
 			const key = `${post.id}:${destination.social_account_id}:${destination.target_key}`;
 			retryingDestination = key;
 			error = '';
@@ -597,26 +648,19 @@
 				if (retryError) {
 					throw new Error(retryError.detail || m.activity_delivery_failed());
 				}
-				await Promise.all([
-					queryClient.invalidateQueries({
-						queryKey: openPostQueryKeys.publications.list(workspaceId),
-						refetchType: 'none'
-					}),
-					queryClient.invalidateQueries({
-						queryKey: openPostQueryKeys.jobs.failed(workspaceId),
-						refetchType: 'none'
-					})
-				]);
-				if (isCurrentActivityView(workspaceId, activityBucket)) {
+				if (!(await reconcileActivityPublication(operation, post.publication_id))) return;
+				if (actionSequence === destinationActionSequence && activityViewIsCurrent(operation)) {
 					successMessage = m.activity_retry_queued();
 					await loadData();
 				}
 			} catch (cause) {
-				if (isCurrentActivityView(workspaceId, activityBucket)) {
+				if (actionSequence === destinationActionSequence && activityViewIsCurrent(operation)) {
 					error = cause instanceof Error ? cause.message : m.activity_delivery_failed();
 				}
 			} finally {
-				retryingDestination = '';
+				if (actionSequence === destinationActionSequence && activityViewIsCurrent(operation)) {
+					retryingDestination = '';
+				}
 			}
 			return;
 		}
@@ -633,50 +677,58 @@
 		const workspaceId = currentWorkspaceID;
 		const activityBucket = dataActivityBucket;
 		if (!workspaceId || !activityBucket) return;
+		const operation = captureActivityOperation(workspaceId, activityBucket);
 		error = '';
 		const publicationID = post.publication_id;
-		const response = await client.POST('/publications/{id}/failure-dismissal', {
-			params: { path: { id: publicationID } }
-		});
-		if (response.error) {
-			if (isCurrentActivityView(workspaceId, activityBucket)) {
-				error = response.error.detail || m.activity_dismiss_failed_error();
+		try {
+			const response = await client.POST('/publications/{id}/failure-dismissal', {
+				params: { path: { id: publicationID } }
+			});
+			if (response.error) {
+				if (activityViewIsCurrent(operation)) {
+					error = response.error.detail || m.activity_dismiss_failed_error();
+				}
+				return;
 			}
-			return;
-		}
-		await queryClient.invalidateQueries({
-			queryKey: openPostQueryKeys.publications.activityAll(workspaceId, activityBucket),
-			refetchType: 'none'
-		});
-		if (isCurrentActivityView(workspaceId, activityBucket)) {
+			if (!(await reconcileActivityPublication(operation, publicationID))) return;
+			if (!activityViewIsCurrent(operation)) return;
 			posts = posts.filter((candidate) => candidate.id !== post.id);
 			publicationPage = {
 				...publicationPage,
 				total: Math.max(0, publicationPage.total - 1)
 			};
-		}
-		showToast(m.activity_dismissed_failed(), 'success', {
-			actionLabel: m.activity_restore_failed(),
-			onAction: () => {
-				void (async () => {
-					const restored = await client.DELETE('/publications/{id}/failure-dismissal', {
-						params: { path: { id: publicationID } }
-					});
-					if (restored.error) {
-						if (isCurrentActivityView(workspaceId, activityBucket)) {
-							error = restored.error.detail || m.activity_dismiss_failed_error();
+			const toastID = showToast(m.activity_dismissed_failed(), 'success', {
+				actionLabel: m.activity_restore_failed(),
+				onAction: () => {
+					failureDismissalToastIDs.delete(toastID);
+					if (!activityViewIsCurrent(operation)) return;
+					void (async () => {
+						const restored = await client.DELETE('/publications/{id}/failure-dismissal', {
+							params: { path: { id: publicationID } }
+						});
+						if (restored.error) {
+							if (activityViewIsCurrent(operation)) {
+								error = restored.error.detail || m.activity_dismiss_failed_error();
+							}
+							return;
 						}
-						return;
-					}
-					await queryClient.invalidateQueries({
-						queryKey: openPostQueryKeys.publications.activityAll(workspaceId, activityBucket),
-						refetchType: 'none'
-					});
-					if (isCurrentActivityView(workspaceId, activityBucket)) await loadData();
-				})();
-			}
-		});
+						if (!(await reconcileActivityPublication(operation, publicationID))) return;
+						if (activityViewIsCurrent(operation)) await loadData();
+					})();
+				}
+			});
+			failureDismissalToastIDs.add(toastID);
+		} catch {
+			if (activityViewIsCurrent(operation)) error = m.activity_dismiss_failed_error();
+		}
 	}
+
+	onDestroy(() => {
+		dismissFailureDismissalToasts();
+		dataRequestSequence += 1;
+		destinationActionSequence += 1;
+		operationScope.destroy();
+	});
 </script>
 
 {#snippet postList(items: ActivityItem[], emptyTitle: string, emptyDescription: string)}

@@ -8,9 +8,9 @@ import {
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useColors } from "@/components/ui";
 import { ThemeIcon } from "@/components/theme-icon";
 import { drawerBottomPadding } from "@/lib/bottom-drawer-layout";
+import { useNativeTheme } from "@/theme";
 
 export function BottomDrawer({
   children,
@@ -22,10 +22,11 @@ export function BottomDrawer({
   open: boolean;
   title: string;
 }>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const restingBottomPadding = Math.max(24, insets.bottom + 12);
+  const restingBottomPadding = Math.max(spacing.extraLarge, insets.bottom + spacing.medium);
   const { height: keyboardTranslation } = useReanimatedKeyboardAnimation();
   const keyboardPaddingStyle = useAnimatedStyle(() => ({
     paddingBottom: drawerBottomPadding(restingBottomPadding, keyboardTranslation.value),
@@ -42,14 +43,33 @@ export function BottomDrawer({
       scrimColor={colors.scrim}
       surface={
         <View
-          style={[StyleSheet.absoluteFill, styles.surface, { backgroundColor: colors.surface }]}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: shape.extraLarge,
+              borderTopRightRadius: shape.extraLarge,
+            },
+          ]}
         />
       }
     >
       <Animated.View style={[styles.drawer, { maxHeight: height * 0.9 }, keyboardPaddingStyle]}>
-        <View style={[styles.handle, { backgroundColor: colors.outlineVariant }]} />
-        <View style={styles.heading}>
-          <Text style={[styles.title, { color: colors.onSurface }]}>{title}</Text>
+        <View
+          style={[
+            styles.handle,
+            {
+              backgroundColor: colors.outlineVariant,
+              marginTop: spacing.medium,
+            },
+          ]}
+        />
+        <View
+          style={[styles.heading, { paddingHorizontal: spacing.large, paddingTop: spacing.medium }]}
+        >
+          <Text style={[styles.title, typography.titleLarge, { color: colors.onSurface }]}>
+            {title}
+          </Text>
           <Pressable
             accessibilityLabel="Close"
             accessibilityRole="button"
@@ -66,7 +86,7 @@ export function BottomDrawer({
         </View>
         <KeyboardAwareScrollView
           bottomOffset={18}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={{ gap: spacing.large, padding: spacing.large }}
           contentInsetAdjustmentBehavior="never"
           keyboardDismissMode={process.env.EXPO_OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
@@ -88,10 +108,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 48,
   },
-  content: {
-    gap: 18,
-    padding: 18,
-  },
   drawer: {
     flexShrink: 1,
     overflow: "hidden",
@@ -100,15 +116,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderRadius: 999,
     height: 5,
-    marginTop: 10,
     width: 42,
   },
   heading: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingTop: 10,
   },
   pressed: {
     opacity: 0.72,
@@ -116,14 +129,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexShrink: 1,
   },
-  surface: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   title: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.4,
   },
 });

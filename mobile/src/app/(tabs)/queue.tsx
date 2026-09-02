@@ -12,7 +12,7 @@ import {
 import { useState } from "react";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
-import { BodyText, Button, Card, Screen, StatusBadge, useColors } from "@/components/ui";
+import { BodyText, Button, Card, PageTitle, Screen, StatusBadge, useColors } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
@@ -92,7 +92,7 @@ export default function QueueScreen() {
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.onSurface }]}>Queue</Text>
+        <PageTitle>Queue</PageTitle>
       </View>
 
       <ScrollView
@@ -210,7 +210,10 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
     <Pressable
       accessibilityRole="button"
       onPress={() =>
-        router.push({ pathname: "/publications/[id]", params: { id: publication.id } })
+        router.push({
+          pathname: "/publications/[id]",
+          params: { id: publication.id },
+        })
       }
     >
       {({ pressed }) => (
@@ -323,11 +326,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -0.5,
   },
   sectionTitle: {
     fontSize: 13,

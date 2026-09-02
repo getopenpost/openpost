@@ -17,7 +17,17 @@ import {
 import { useShareIntentContext } from "expo-share-intent";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
-import { BodyText, Button, Card, IconButton, Screen, TextField, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  ContentTitle,
+  IconButton,
+  PageTitle,
+  Screen,
+  TextField,
+  useColors,
+} from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
@@ -32,9 +42,11 @@ import {
 import { getWorkspaceId } from "@/lib/api/token-store";
 import { getServer } from "@/lib/server";
 import { signOut } from "@/lib/auth";
+import { useNativeTheme } from "@/theme";
 
 export default function DraftsScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const queryClient = useQueryClient();
   const [idea, setIdea] = useState("");
   const [image, setImage] = useState<PendingAttachment | null>(null);
@@ -145,9 +157,19 @@ export default function DraftsScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            gap: spacing.medium,
+            paddingBottom: spacing.small,
+            paddingHorizontal: spacing.extraLarge,
+            paddingTop: spacing.large,
+          },
+        ]}
+      >
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: colors.onSurface }]}>Drafts</Text>
+          <PageTitle>Drafts</PageTitle>
           {workspaces.data && workspaces.data.length > 1 ? (
             <Pressable
               accessibilityRole="button"
@@ -164,10 +186,17 @@ export default function DraftsScreen() {
       <View
         style={[
           styles.capture,
-          { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.outlineVariant,
+            borderRadius: shape.large,
+            marginHorizontal: spacing.extraLarge,
+            marginTop: spacing.small,
+            padding: spacing.medium,
+          },
         ]}
       >
-        <Text style={[styles.captureTitle, { color: colors.onSurface }]}>Jot an idea</Text>
+        <ContentTitle>Jot an idea</ContentTitle>
         <TextField
           value={idea}
           onChangeText={setIdea}
@@ -177,6 +206,7 @@ export default function DraftsScreen() {
           textAlignVertical="top"
           style={[
             styles.ideaField,
+            typography.bodyLarge,
             { backgroundColor: colors.surface, borderColor: "transparent" },
           ]}
         />
@@ -184,10 +214,20 @@ export default function DraftsScreen() {
           <View
             style={[
               styles.attachmentRow,
-              { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.outlineVariant,
+                borderRadius: shape.medium,
+                gap: spacing.medium,
+                padding: spacing.small,
+              },
             ]}
           >
-            <Image source={{ uri: image.uri }} style={styles.attachmentThumb} contentFit="cover" />
+            <Image
+              source={{ uri: image.uri }}
+              style={[styles.attachmentThumb, { borderRadius: shape.small }]}
+              contentFit="cover"
+            />
             <BodyText numberOfLines={1} style={{ color: colors.onSurface, flex: 1 }}>
               {image.filename}
             </BodyText>
@@ -199,7 +239,7 @@ export default function DraftsScreen() {
             />
           </View>
         ) : null}
-        <View style={styles.attachRow}>
+        <View style={[styles.attachRow, { gap: spacing.small }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={image ? "Replace image" : "Add image from library"}
@@ -207,7 +247,7 @@ export default function DraftsScreen() {
             onPress={() => void pickImage()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.outlineVariant },
+              { borderColor: colors.outlineVariant, borderRadius: shape.small },
               pressed && { opacity: 0.6 },
             ]}
           >
@@ -224,7 +264,7 @@ export default function DraftsScreen() {
             {captureError}
           </BodyText>
         ) : null}
-        <View style={styles.captureActions}>
+        <View style={[styles.captureActions, { gap: spacing.small }]}>
           <Button
             title="Generate draft"
             intent="focal"
@@ -243,7 +283,10 @@ export default function DraftsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={{
+          gap: spacing.medium,
+          padding: spacing.extraLarge,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={drafts.isRefetching}
@@ -298,7 +341,12 @@ function DraftRow({ draft }: { draft: PublicationListItem }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${excerpt}. Edited ${relativeTime(draft.updated_at)}`}
-      onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } })}
+      onPress={() =>
+        router.push({
+          pathname: "/publications/[id]/edit",
+          params: { id: draft.id },
+        })
+      }
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
@@ -350,6 +398,17 @@ function WorkspaceMenu({
             <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
           </Pressable>
         ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            onClose();
+            router.push("/appearance");
+          }}
+          style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+        >
+          <Text style={{ color: colors.onSurface, fontSize: 16 }}>Appearance</Text>
+          <BodyText>Theme and light or dark mode</BodyText>
+        </Pressable>
         {server ? (
           <Pressable
             accessibilityRole="link"
@@ -382,57 +441,31 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -0.5,
   },
   capture: {
-    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    marginHorizontal: 20,
-    marginTop: 8,
-    padding: 14,
-  },
-  captureTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    letterSpacing: -0.2,
   },
   ideaField: {
-    fontSize: 17,
-    lineHeight: 25,
     minHeight: 104,
     paddingHorizontal: 0,
     paddingTop: 10,
   },
   attachmentRow: {
     alignItems: "center",
-    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 12,
     minHeight: 80,
-    padding: 8,
   },
   attachmentThumb: {
-    borderRadius: 10,
     height: 64,
     width: 64,
   },
   attachRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
   },
   addTile: {
     alignItems: "center",
-    borderRadius: 10,
     borderStyle: "dashed",
     borderWidth: 1.5,
     height: 64,
@@ -442,11 +475,6 @@ const styles = StyleSheet.create({
   captureActions: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
-  },
-  list: {
-    padding: 20,
-    gap: 10,
   },
   empty: {
     marginTop: 16,

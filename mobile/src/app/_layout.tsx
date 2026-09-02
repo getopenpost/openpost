@@ -129,6 +129,7 @@ function ThemedApplication({ signedIn }: { signedIn: boolean }) {
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="appearance" options={{ headerShown: false }} />
         <Stack.Screen
           name="onboarding/server"
           options={{

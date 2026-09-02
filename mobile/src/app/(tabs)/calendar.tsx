@@ -16,6 +16,7 @@ import {
   Button,
   Card,
   IconButton,
+  PageTitle,
   Screen,
   StatusBadge,
   useColors,
@@ -96,10 +97,10 @@ export default function CalendarScreen() {
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.onSurface }]}>
+        <PageTitle style={styles.title}>
           {month.toLocaleDateString("en", { month: "long" })}
           <Text style={{ color: colors.onSurfaceVariant }}> {month.getFullYear()}</Text>
-        </Text>
+        </PageTitle>
         <View style={styles.nav}>
           <IconButton
             label="Previous month"
@@ -198,14 +199,21 @@ export default function CalendarScreen() {
                       style={[
                         styles.dayCircle,
                         isSelected && { backgroundColor: colors.primary },
-                        !isSelected && isToday && { borderWidth: 1.5, borderColor: colors.primary },
+                        !isSelected &&
+                          isToday && {
+                            borderWidth: 1.5,
+                            borderColor: colors.primary,
+                          },
                       ]}
                     >
                       <Text
                         style={[
                           styles.dayNumber,
                           { color: colors.onSurface },
-                          isSelected && { color: colors.onPrimary, fontWeight: "700" },
+                          isSelected && {
+                            color: colors.onPrimary,
+                            fontWeight: "700",
+                          },
                         ]}
                       >
                         {date.getDate()}
@@ -300,9 +308,6 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
   },
   nav: {
     flexDirection: "row",

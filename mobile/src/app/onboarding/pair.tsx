@@ -7,6 +7,7 @@ import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { pollPairing, startPairing } from "@/lib/auth";
 import { successHaptic } from "@/lib/haptics";
+import { isAbortError, waitForPairingResult } from "@/lib/pairing-loop";
 
 type Phase = "starting" | "waiting" | "approved" | "denied" | "expired" | "error";
 
@@ -17,7 +18,6 @@ export default function PairScreen() {
   const [verificationUrl, setVerificationUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const deviceCode = useRef("");
   const cancelled = useRef(false);
 
   useFocusEffect(
@@ -36,34 +36,32 @@ export default function PairScreen() {
       try {
         const state = await startPairing();
         if (cancelled.current) return;
-        deviceCode.current = state.deviceCode;
         setUserCode(state.userCode);
         setVerificationUrl(state.verificationUrl);
         setPhase("waiting");
-        while (!cancelled.current) {
-          try {
-            const result = await pollPairing(deviceCode.current);
-            if (cancelled.current) return;
-            if (result.status === "pending") {
-              await sleep(result.intervalMs);
-              continue;
-            }
-            if (result.status === "approved") {
-              void successHaptic();
-              setPhase("approved");
-              setTimeout(() => router.replace("/"), 500);
-            } else {
-              setPhase(result.status);
-            }
-            return;
-          } catch {
-            await sleep(3000);
-          }
+        const result = await waitForPairingResult({
+          deviceCode: state.deviceCode,
+          isCancelled: () => cancelled.current,
+          poll: pollPairing,
+        });
+        if (!result || cancelled.current) return;
+        if (result.status === "approved") {
+          void successHaptic();
+          setPhase("approved");
+          setTimeout(() => router.replace("/"), 500);
+        } else {
+          setPhase(result.status);
         }
       } catch (err) {
         if (!cancelled.current) {
           setPhase("error");
-          setError(err instanceof Error ? err.message : "Could not start pairing");
+          setError(
+            isAbortError(err)
+              ? "Your sign-in session changed. Get a new pairing code."
+              : err instanceof Error
+                ? err.message
+                : "Could not start pairing",
+          );
         }
       }
     })();
@@ -72,7 +70,7 @@ export default function PairScreen() {
     };
   }, [attempt]);
 
-  async function restart() {
+  function restart() {
     setError(null);
     setPhase("starting");
     setUserCode("");
@@ -154,9 +152,9 @@ export default function PairScreen() {
               </BodyText>
             ) : null}
             <Button
-              title="Try again"
+              title="Get a new code"
               variant="tinted"
-              onPress={() => void restart()}
+              onPress={restart}
               style={styles.openButton}
             />
           </>
@@ -175,10 +173,6 @@ export default function PairScreen() {
 
 function returnToLogin() {
   router.replace("/onboarding/login");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const styles = StyleSheet.create({

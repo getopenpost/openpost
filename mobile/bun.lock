@@ -52,6 +52,10 @@
       },
     },
   },
+  "patchedDependencies": {
+    "expo-modules-jsi@57.0.7": "patches/expo-modules-jsi@57.0.7.patch",
+    "expo-modules-core@57.0.15": "patches/expo-modules-core@57.0.15.patch",
+  },
   "overrides": {
     "expo-constants": "~57.0.17",
     "expo-linking": "~57.0.9",

@@ -3,6 +3,7 @@ import { useColorScheme } from "react-native";
 
 import type {
   NativeResolvedThemeContract,
+  NativeStagedThemeResources,
   NativeThemePreference,
   NativeThemeScheme,
   NativeThemeSnapshot,
@@ -26,11 +27,13 @@ export function NativeThemeRuntime({
   children,
   contract = null,
   preference = "system",
+  stagedResources = null,
   systemScheme: systemSchemeOverride,
   workspaceId,
 }: PropsWithChildren<{
   contract?: NativeResolvedThemeContract | null;
   preference?: NativeThemePreference;
+  stagedResources?: NativeStagedThemeResources | null;
   systemScheme?: NativeThemeScheme | null;
   workspaceId: string | null;
 }>) {
@@ -39,8 +42,15 @@ export function NativeThemeRuntime({
     systemSchemeOverride ??
     (detectedScheme === "dark" ? "dark" : detectedScheme === "light" ? "light" : null);
   const snapshot = useMemo(
-    () => resolveNativeTheme({ contract, preference, systemScheme, workspaceId }),
-    [contract, preference, systemScheme, workspaceId],
+    () =>
+      resolveNativeTheme({
+        contract,
+        preference,
+        stagedResources,
+        systemScheme,
+        workspaceId,
+      }),
+    [contract, preference, stagedResources, systemScheme, workspaceId],
   );
 
   return <NativeThemeContext.Provider value={snapshot}>{children}</NativeThemeContext.Provider>;

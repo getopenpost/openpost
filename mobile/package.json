@@ -16,6 +16,7 @@
     "generate:api": "openapi-typescript ../frontend/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
+    "@asamuzakjp/css-color": "3.2.0",
     "@expo/ui": "~57.0.15",
     "@react-native-community/datetimepicker": "^9.1.0",
     "@swmansion/react-native-bottom-sheet": "0.16.2",

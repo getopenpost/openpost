@@ -1,4 +1,4 @@
-export const NATIVE_THEME_CONTRACT_VERSION = 1 as const;
+export const NATIVE_THEME_CONTRACT_VERSION = 2 as const;
 
 export type NativeThemeScheme = "light" | "dark";
 export type NativeThemePreference = NativeThemeScheme | "system";
@@ -59,14 +59,84 @@ export const PUBLICATION_STATUSES = [
 ] as const;
 export type NativePublicationStatus = (typeof PUBLICATION_STATUSES)[number];
 
-export type NativeFontWeight = "400" | "500" | "600" | "700" | "800";
+export type NativeFontWeight =
+  | "100"
+  | "200"
+  | "300"
+  | "400"
+  | "500"
+  | "600"
+  | "700"
+  | "800"
+  | "900";
 
 export interface NativeTextRole {
   readonly fontFamily?: string;
+  readonly fontResourceId?: string;
   readonly fontSize: number;
   readonly fontWeight: NativeFontWeight;
   readonly letterSpacing: number;
   readonly lineHeight: number;
+}
+
+export type NativeThemeAssetSlot =
+  | "background-texture"
+  | "sidebar-decoration"
+  | "header-decoration"
+  | "empty-state-illustration"
+  | "loading-illustration";
+
+export interface NativeThemeFontResource {
+  readonly id: string;
+  readonly family: string;
+  readonly sourceUrl: string;
+  readonly format: "woff2";
+  readonly nativeDerivative: Readonly<{
+    readonly sourceUrl: string;
+    readonly format: "ttf" | "otf";
+    /** SHA-256 of the generated native font bytes. */
+    readonly identity: string;
+  }>;
+  readonly weight: number;
+  readonly style: "normal" | "italic";
+  readonly display: "swap" | "fallback" | "optional";
+}
+
+export interface NativeThemeAssetResource {
+  readonly id: string;
+  readonly slot: NativeThemeAssetSlot;
+  readonly sourceUrl: string;
+  readonly mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/avif";
+  readonly alt?: string;
+}
+
+export interface NativeThemeResources {
+  /** Stable identity of the exact descriptors that must be staged together. */
+  readonly identity: string;
+  readonly fonts: readonly NativeThemeFontResource[];
+  readonly assets: readonly NativeThemeAssetResource[];
+}
+
+/**
+ * Query-side resource loaders publish this only after every descriptor has a
+ * local, decoded resource. The renderer rejects partial and stale sets.
+ */
+export interface NativeStagedThemeResources {
+  readonly contractIdentity: string;
+  readonly resourceIdentity: string;
+  readonly workspaceId: string;
+  readonly fonts: Readonly<
+    Record<
+      string,
+      Readonly<{
+        family: string;
+        uri: string;
+        format: "ttf" | "otf";
+        derivativeIdentity: string;
+      }>
+    >
+  >;
+  readonly assets: Readonly<Record<string, string>>;
 }
 
 export interface NativeColorRoles {
@@ -191,20 +261,23 @@ export interface NativeThemeFamily {
 export interface NativeResolvedThemeContract {
   readonly contractVersion: typeof NATIVE_THEME_CONTRACT_VERSION;
   readonly identity: string;
-  readonly organizationId: string;
   readonly workspaceId: string;
   readonly themeId: string;
   readonly displayName: string;
   readonly revision: string;
+  readonly resolutionSource: "builtin" | "organization" | "fallback";
+  readonly fallbackReason?: string;
   readonly supportedSchemes: readonly NativeThemeScheme[];
   readonly manifests: Partial<Readonly<Record<NativeThemeScheme, NativeThemeManifest>>>;
+  readonly resources: NativeThemeResources;
 }
 
 export type NativeThemeFallbackReason =
   | "contract-unavailable"
   | "invalid-contract"
   | "stale-contract"
-  | "unsupported-scheme";
+  | "unsupported-scheme"
+  | "resources-unavailable";
 
 export interface NativeThemeSnapshot {
   readonly activationKey: string;
@@ -214,7 +287,14 @@ export interface NativeThemeSnapshot {
   readonly familyId: string;
   readonly displayName: string;
   readonly manifest: NativeThemeManifest;
+  readonly resources: NativeStagedThemeResources | null;
   readonly source:
-    | Readonly<{ kind: "contract"; identity: string; revision: string }>
+    | Readonly<{
+        kind: "contract";
+        identity: string;
+        revision: string;
+        resolutionSource: "builtin" | "organization" | "fallback";
+        fallbackReason?: string;
+      }>
     | Readonly<{ kind: "fallback"; reason: NativeThemeFallbackReason }>;
 }

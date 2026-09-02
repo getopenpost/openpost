@@ -2,7 +2,9 @@ import { BUILTIN_THEME_FAMILIES, validateNativeThemeManifest } from "./builtins"
 import {
   NATIVE_THEME_CONTRACT_VERSION,
   type NativeResolvedThemeContract,
+  type NativeStagedThemeResources,
   type NativeThemeFallbackReason,
+  type NativeThemeManifest,
   type NativeThemePreference,
   type NativeThemeScheme,
   type NativeThemeSnapshot,
@@ -20,11 +22,13 @@ export function resolveEffectiveScheme(
 export function resolveNativeTheme({
   contract,
   preference,
+  stagedResources,
   systemScheme,
   workspaceId,
 }: {
   contract: NativeResolvedThemeContract | null | undefined;
   preference: NativeThemePreference;
+  stagedResources?: NativeStagedThemeResources | null;
   systemScheme: NativeThemeScheme | null | undefined;
   workspaceId: string | null;
 }): NativeThemeSnapshot {
@@ -47,9 +51,13 @@ export function resolveNativeTheme({
   if (
     !validateNativeThemeManifest(manifest) ||
     manifest.scheme !== effectiveScheme ||
-    manifest.familyId !== contract.themeId
+    manifest.familyId !== contract.themeId ||
+    !manifestFontsMatchResources(manifest, contract)
   ) {
     return workshopFallback(workspaceId, preference, effectiveScheme, "invalid-contract");
+  }
+  if (!nativeThemeResourcesReady(contract, stagedResources)) {
+    return workshopFallback(workspaceId, preference, effectiveScheme, "resources-unavailable");
   }
 
   return deepFreeze({
@@ -65,7 +73,31 @@ export function resolveNativeTheme({
     familyId: contract.themeId,
     displayName: contract.displayName,
     manifest,
-    source: { kind: "contract", identity: contract.identity, revision: contract.revision },
+    resources: cloneStagedResources(stagedResources),
+    source: {
+      kind: "contract",
+      identity: contract.identity,
+      revision: contract.revision,
+      resolutionSource: contract.resolutionSource,
+      ...(contract.fallbackReason ? { fallbackReason: contract.fallbackReason } : {}),
+    },
+  });
+}
+
+function manifestFontsMatchResources(
+  manifest: NativeThemeManifest,
+  contract: NativeResolvedThemeContract,
+): boolean {
+  const fonts = new Map(contract.resources.fonts.map((font) => [font.id, font]));
+  return Object.values(manifest.typography).every((role) => {
+    if (!role.fontResourceId && !role.fontFamily) return true;
+    if (!role.fontResourceId || !role.fontFamily) return false;
+    const font = fonts.get(role.fontResourceId);
+    return (
+      font?.family === role.fontFamily &&
+      font.weight === Number(role.fontWeight) &&
+      font.style === "normal"
+    );
   });
 }
 
@@ -90,6 +122,7 @@ function workshopFallback(
     familyId: family.id,
     displayName: family.displayName,
     manifest,
+    resources: null,
     source: { kind: "fallback", reason },
   });
 }
@@ -107,12 +140,119 @@ function validContractMetadata(contract: NativeResolvedThemeContract): boolean {
   return (
     contract.contractVersion === NATIVE_THEME_CONTRACT_VERSION &&
     contract.identity.length > 0 &&
-    contract.organizationId.length > 0 &&
     contract.workspaceId.length > 0 &&
     contract.themeId.length > 0 &&
     contract.displayName.length > 0 &&
     contract.revision.length > 0 &&
+    ["builtin", "organization", "fallback"].includes(contract.resolutionSource) &&
     contract.supportedSchemes.length > 0 &&
-    contract.supportedSchemes.every((scheme) => scheme === "light" || scheme === "dark")
+    contract.supportedSchemes.every((scheme) => scheme === "light" || scheme === "dark") &&
+    validResources(contract)
   );
+}
+
+function validResources(contract: NativeResolvedThemeContract): boolean {
+  const resources = contract.resources;
+  if (
+    !resources ||
+    !resources.identity ||
+    !Array.isArray(resources.fonts) ||
+    !Array.isArray(resources.assets)
+  ) {
+    return false;
+  }
+  const ids = new Set<string>();
+  for (const font of resources.fonts) {
+    if (
+      !font.id ||
+      ids.has(font.id) ||
+      !font.family ||
+      !font.sourceUrl ||
+      font.format !== "woff2" ||
+      !font.nativeDerivative ||
+      !font.nativeDerivative.sourceUrl ||
+      (font.nativeDerivative.format !== "ttf" && font.nativeDerivative.format !== "otf") ||
+      !/^[0-9a-f]{64}$/i.test(font.nativeDerivative.identity) ||
+      !Number.isInteger(font.weight) ||
+      font.weight < 100 ||
+      font.weight > 900 ||
+      font.weight % 100 !== 0 ||
+      (font.style !== "normal" && font.style !== "italic") ||
+      !["swap", "fallback", "optional"].includes(font.display)
+    ) {
+      return false;
+    }
+    ids.add(font.id);
+  }
+  const slots = new Set<string>();
+  for (const asset of resources.assets) {
+    if (
+      !asset.id ||
+      ids.has(asset.id) ||
+      slots.has(asset.slot) ||
+      !asset.sourceUrl ||
+      ![
+        "background-texture",
+        "sidebar-decoration",
+        "header-decoration",
+        "empty-state-illustration",
+        "loading-illustration",
+      ].includes(asset.slot) ||
+      !["image/png", "image/jpeg", "image/webp", "image/avif"].includes(asset.mimeType)
+    ) {
+      return false;
+    }
+    ids.add(asset.id);
+    slots.add(asset.slot);
+  }
+  return true;
+}
+
+export function nativeThemeResourcesReady(
+  contract: NativeResolvedThemeContract,
+  staged: NativeStagedThemeResources | null | undefined,
+): boolean {
+  const required = contract.resources;
+  if (required.fonts.length === 0 && required.assets.length === 0) return true;
+  if (
+    !staged ||
+    staged.contractIdentity !== contract.identity ||
+    staged.resourceIdentity !== required.identity ||
+    staged.workspaceId !== contract.workspaceId
+  ) {
+    return false;
+  }
+  const fontIds = required.fonts.map((font) => font.id).sort();
+  const stagedFontIds = Object.keys(staged.fonts).sort();
+  const assetIds = required.assets.map((asset) => asset.id).sort();
+  const stagedAssetIds = Object.keys(staged.assets).sort();
+  return (
+    sameStrings(fontIds, stagedFontIds) &&
+    sameStrings(assetIds, stagedAssetIds) &&
+    required.fonts.every(
+      (font) =>
+        staged.fonts[font.id]?.family === font.family &&
+        staged.fonts[font.id]?.format === font.nativeDerivative.format &&
+        staged.fonts[font.id]?.derivativeIdentity === font.nativeDerivative.identity &&
+        /^file:\/\//.test(staged.fonts[font.id]?.uri ?? ""),
+    ) &&
+    required.assets.every((asset) => /^file:\/\//.test(staged.assets[asset.id] ?? ""))
+  );
+}
+
+function cloneStagedResources(
+  staged: NativeStagedThemeResources | null | undefined,
+): NativeStagedThemeResources | null {
+  if (!staged) return null;
+  return {
+    contractIdentity: staged.contractIdentity,
+    resourceIdentity: staged.resourceIdentity,
+    workspaceId: staged.workspaceId,
+    fonts: Object.fromEntries(Object.entries(staged.fonts).map(([id, font]) => [id, { ...font }])),
+    assets: { ...staged.assets },
+  };
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

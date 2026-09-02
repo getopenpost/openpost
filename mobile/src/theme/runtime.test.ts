@@ -16,7 +16,6 @@ describe("native theme runtime", () => {
     const priorContract = createBuiltinThemeContract({
       familyId: "studio",
       identity: "studio@1",
-      organizationId: "org-1",
       workspaceId: "workspace-1",
     });
     const prior = resolveNativeTheme({
@@ -34,7 +33,10 @@ describe("native theme runtime", () => {
 
     expect(prior.familyId).toBe("studio");
     expect(afterSwitch.familyId).toBe("workshop");
-    expect(afterSwitch.source).toEqual({ kind: "fallback", reason: "stale-contract" });
+    expect(afterSwitch.source).toEqual({
+      kind: "fallback",
+      reason: "stale-contract",
+    });
     expect(afterSwitch.activationKey).toContain("workspace-2:light:");
     expect(Object.isFrozen(afterSwitch)).toBe(true);
     expect(Object.isFrozen(afterSwitch.manifest.colors)).toBe(true);
@@ -44,7 +46,6 @@ describe("native theme runtime", () => {
     const contract = createBuiltinThemeContract({
       familyId: "midnight",
       identity: "midnight@1",
-      organizationId: "org-1",
       workspaceId: "workspace-1",
     });
 
@@ -57,7 +58,10 @@ describe("native theme runtime", () => {
 
     expect(resolved.effectiveScheme).toBe("light");
     expect(resolved.familyId).toBe("workshop");
-    expect(resolved.source).toEqual({ kind: "fallback", reason: "unsupported-scheme" });
+    expect(resolved.source).toEqual({
+      kind: "fallback",
+      reason: "unsupported-scheme",
+    });
     expect(resolved.manifest.id).toBe("workshop-light");
   });
 
@@ -65,7 +69,6 @@ describe("native theme runtime", () => {
     const contract = createBuiltinThemeContract({
       familyId: "studio",
       identity: "studio@1",
-      organizationId: "org-1",
       workspaceId: "workspace-1",
     });
     const { shape: _shape, ...incomplete } = contract.manifests.light!;
@@ -81,6 +84,172 @@ describe("native theme runtime", () => {
     });
 
     expect(resolved.familyId).toBe("workshop");
-    expect(resolved.source).toEqual({ kind: "fallback", reason: "invalid-contract" });
+    expect(resolved.source).toEqual({
+      kind: "fallback",
+      reason: "invalid-contract",
+    });
+  });
+
+  test("activates a resource-backed theme only after the exact complete set is staged", () => {
+    const base = createBuiltinThemeContract({
+      familyId: "studio",
+      identity: "studio@7",
+      workspaceId: "workspace-1",
+    });
+    const contract = {
+      ...base,
+      resources: {
+        identity: "studio@7:resources:font-1,texture-1",
+        fonts: [
+          {
+            id: "font-1",
+            family: "Example Sans",
+            sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1",
+            format: "woff2" as const,
+            nativeDerivative: {
+              sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&format=ttf",
+              format: "ttf" as const,
+              identity: "8f".repeat(32),
+            },
+            weight: 400,
+            style: "normal" as const,
+            display: "swap" as const,
+          },
+        ],
+        assets: [
+          {
+            id: "texture-1",
+            slot: "background-texture" as const,
+            sourceUrl: "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1",
+            mimeType: "image/avif" as const,
+          },
+        ],
+      },
+    };
+    const resolve = (
+      stagedResources?: Parameters<typeof resolveNativeTheme>[0]["stagedResources"],
+    ) =>
+      resolveNativeTheme({
+        contract,
+        preference: "light",
+        stagedResources,
+        systemScheme: "light",
+        workspaceId: "workspace-1",
+      });
+
+    expect(resolve().source).toEqual({
+      kind: "fallback",
+      reason: "resources-unavailable",
+    });
+    expect(
+      resolve({
+        contractIdentity: contract.identity,
+        resourceIdentity: contract.resources.identity,
+        workspaceId: contract.workspaceId,
+        fonts: {
+          "font-1": {
+            family: "Example Sans",
+            uri: "file:///theme/font-1.ttf",
+            format: "ttf",
+            derivativeIdentity: "8f".repeat(32),
+          },
+        },
+        assets: {},
+      }).source,
+    ).toEqual({ kind: "fallback", reason: "resources-unavailable" });
+    expect(
+      resolve({
+        contractIdentity: contract.identity,
+        resourceIdentity: "older-resources",
+        workspaceId: contract.workspaceId,
+        fonts: {
+          "font-1": {
+            family: "Example Sans",
+            uri: "file:///theme/font-1.ttf",
+            format: "ttf",
+            derivativeIdentity: "8f".repeat(32),
+          },
+        },
+        assets: { "texture-1": "file:///theme/texture-1.avif" },
+      }).source,
+    ).toEqual({ kind: "fallback", reason: "resources-unavailable" });
+    expect(
+      resolve({
+        contractIdentity: contract.identity,
+        resourceIdentity: contract.resources.identity,
+        workspaceId: contract.workspaceId,
+        fonts: {
+          "font-1": {
+            family: "Example Sans",
+            uri: "file:///theme/font-1.ttf",
+            format: "ttf",
+            derivativeIdentity: "7e".repeat(32),
+          },
+        },
+        assets: { "texture-1": "file:///theme/texture-1.avif" },
+      }).source,
+    ).toEqual({ kind: "fallback", reason: "resources-unavailable" });
+
+    const active = resolve({
+      contractIdentity: contract.identity,
+      resourceIdentity: contract.resources.identity,
+      workspaceId: contract.workspaceId,
+      fonts: {
+        "font-1": {
+          family: "Example Sans",
+          uri: "file:///theme/font-1.ttf",
+          format: "ttf",
+          derivativeIdentity: "8f".repeat(32),
+        },
+      },
+      assets: { "texture-1": "file:///theme/texture-1.avif" },
+    });
+    expect(active.source).toEqual({
+      kind: "contract",
+      identity: "studio@7",
+      revision: "builtin-1",
+      resolutionSource: "builtin",
+    });
+    expect(active.resources?.assets).toEqual({
+      "texture-1": "file:///theme/texture-1.avif",
+    });
+  });
+
+  test("rejects a manifest whose custom font role is not backed by its exact descriptor", () => {
+    const base = createBuiltinThemeContract({
+      familyId: "studio",
+      identity: "studio@8",
+      workspaceId: "workspace-1",
+    });
+    const manifest = base.manifests.light!;
+    const contract = {
+      ...base,
+      manifests: {
+        light: {
+          ...manifest,
+          typography: {
+            ...manifest.typography,
+            bodyMedium: {
+              ...manifest.typography.bodyMedium,
+              fontFamily: "Example Sans",
+              fontResourceId: "missing-font",
+            },
+          },
+        },
+      },
+    };
+
+    const resolved = resolveNativeTheme({
+      contract,
+      preference: "light",
+      systemScheme: "light",
+      workspaceId: "workspace-1",
+    });
+
+    expect(resolved.source).toEqual({
+      kind: "fallback",
+      reason: "invalid-contract",
+    });
+    expect(resolved.familyId).toBe("workshop");
   });
 });

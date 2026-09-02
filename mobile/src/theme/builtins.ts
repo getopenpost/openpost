@@ -160,10 +160,38 @@ const TYPE_ROLES = deepFreeze({
 });
 
 const SHAPES = deepFreeze({
-  precise: { extraSmall: 4, small: 8, medium: 12, large: 16, extraLarge: 24, full: 999 },
-  soft: { extraSmall: 6, small: 10, medium: 14, large: 18, extraLarge: 26, full: 999 },
-  round: { extraSmall: 8, small: 12, medium: 16, large: 22, extraLarge: 30, full: 999 },
-  paper: { extraSmall: 3, small: 6, medium: 10, large: 14, extraLarge: 20, full: 999 },
+  precise: {
+    extraSmall: 4,
+    small: 8,
+    medium: 12,
+    large: 16,
+    extraLarge: 24,
+    full: 999,
+  },
+  soft: {
+    extraSmall: 6,
+    small: 10,
+    medium: 14,
+    large: 18,
+    extraLarge: 26,
+    full: 999,
+  },
+  round: {
+    extraSmall: 8,
+    small: 12,
+    medium: 16,
+    large: 22,
+    extraLarge: 30,
+    full: 999,
+  },
+  paper: {
+    extraSmall: 3,
+    small: 6,
+    medium: 10,
+    large: 14,
+    extraLarge: 20,
+    full: 999,
+  },
 } satisfies Record<ThemeShape, NativeThemeManifest["shape"]>);
 
 const SPACING = deepFreeze({
@@ -534,25 +562,28 @@ export function builtinThemeForScheme(
 export function createBuiltinThemeContract({
   familyId,
   identity,
-  organizationId,
   workspaceId,
 }: {
   familyId: BuiltinThemeId;
   identity: string;
-  organizationId: string;
   workspaceId: string;
 }): NativeResolvedThemeContract {
   const family = BUILTIN_THEME_FAMILIES[familyId];
   return deepFreeze({
     contractVersion: NATIVE_THEME_CONTRACT_VERSION,
     identity,
-    organizationId,
     workspaceId,
     themeId: family.id,
     displayName: family.displayName,
     revision: `builtin-${family.builtinVersion}`,
+    resolutionSource: "builtin",
     supportedSchemes: family.supportedSchemes,
     manifests: family.manifests,
+    resources: {
+      identity: `${identity}:resources:[]`,
+      fonts: [],
+      assets: [],
+    },
   });
 }
 

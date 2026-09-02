@@ -4,19 +4,32 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  PageTitle,
+  Screen,
+  SectionHeader,
+  useColors,
+} from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { api, errorMessage } from "@/lib/api/client";
 import { getWorkspaceId, loadWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
 import { getServer } from "@/lib/server";
+import { beginNativeThemeWorkspaceTransition, cancelNativeThemeWorkspaceTransition } from "@/theme";
 
 export default function WorkspaceScreen() {
   const colors = useColors();
-  const { from, mode } = useLocalSearchParams<{ from?: string; mode?: string }>();
+  const { from, mode } = useLocalSearchParams<{
+    from?: string;
+    mode?: string;
+  }>();
   const switching = mode === "switch";
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
@@ -38,8 +51,16 @@ export default function WorkspaceScreen() {
 
   const finish = useCallback(async (id: string) => {
     setSelected(id);
-    await saveWorkspaceId(id);
-    router.replace(destinationState(null).route);
+    setSelectionError(null);
+    beginNativeThemeWorkspaceTransition(id);
+    try {
+      await saveWorkspaceId(id);
+      router.replace(destinationState(null).route);
+    } catch {
+      cancelNativeThemeWorkspaceTransition(id);
+      setSelected(null);
+      setSelectionError("Could not switch workspaces. Try again.");
+    }
   }, []);
 
   useEffect(() => {
@@ -49,16 +70,17 @@ export default function WorkspaceScreen() {
     if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
     else if (list.length === 1) automatic = list[0].id;
     if (automatic) {
-      void saveWorkspaceId(automatic).then(() => router.replace(destinationState(null).route));
+      const timer = setTimeout(() => void finish(automatic), 0);
+      return () => clearTimeout(timer);
     }
-  }, [list, selected, switching]);
+  }, [finish, list, selected, switching]);
 
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
-        <Text style={[styles.title, { color: colors.onSurface }]}>Choose workspace</Text>
+        <PageTitle>Choose workspace</PageTitle>
         <BodyText style={styles.subtitle}>Each workspace has its own posts and accounts.</BodyText>
         {switching ? (
           <Button
@@ -80,10 +102,21 @@ export default function WorkspaceScreen() {
             <Button title="Retry" intent="ordinary" onPress={() => void workspaces.refetch()} />
           </View>
         ) : null}
+        {selectionError ? (
+          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
+            {selectionError}
+          </BodyText>
+        ) : null}
 
         {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
           <Card style={styles.emptyState}>
-            <Text style={{ color: colors.onSurface, fontSize: 17, fontWeight: "600" }}>
+            <Text
+              style={{
+                color: colors.onSurface,
+                fontSize: 17,
+                fontWeight: "600",
+              }}
+            >
               No workspaces found
             </Text>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
@@ -161,11 +194,6 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginBottom: 28,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.5,
   },
   subtitle: {
     paddingTop: 8,

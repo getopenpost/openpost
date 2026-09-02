@@ -17,7 +17,6 @@ test("a contract icon-pack mapping changes the native semantic symbol selection"
   const originalContract = createBuiltinThemeContract({
     familyId: "workshop",
     identity: "workshop@1",
-    organizationId: "org-1",
     workspaceId: "workspace-1",
   });
   const originalManifest = originalContract.manifests.light!;

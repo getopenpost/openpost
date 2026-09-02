@@ -75,13 +75,44 @@ export function SectionHeader({ label }: { label: string }) {
   return (
     <Text
       style={[
-        styles.sectionHeader,
         theme.manifest.typography.labelLarge,
-        { color: theme.manifest.colors.onSurfaceVariant },
+        {
+          color: theme.manifest.colors.onSurfaceVariant,
+          marginBottom: theme.manifest.spacing.small,
+          marginHorizontal: theme.manifest.spacing.extraSmall,
+        },
       ]}
     >
       {label}
     </Text>
+  );
+}
+
+export function PageTitle({ style, ...props }: React.ComponentProps<typeof Text>) {
+  const theme = useNativeTheme();
+  return (
+    <Text
+      {...props}
+      style={[
+        theme.manifest.typography.headlineLarge,
+        { color: theme.manifest.colors.onSurface },
+        style,
+      ]}
+    />
+  );
+}
+
+export function ContentTitle({ style, ...props }: React.ComponentProps<typeof Text>) {
+  const theme = useNativeTheme();
+  return (
+    <Text
+      {...props}
+      style={[
+        theme.manifest.typography.titleMedium,
+        { color: theme.manifest.colors.onSurface },
+        style,
+      ]}
+    />
   );
 }
 
@@ -115,7 +146,11 @@ export function Button({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={title}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ ...accessibilityState, disabled: inactive, busy: loading }}
+      accessibilityState={{
+        ...accessibilityState,
+        disabled: inactive,
+        busy: loading,
+      }}
       disabled={inactive}
       onPressIn={() => void pressHaptic()}
       onPress={onPress}
@@ -131,6 +166,7 @@ export function Button({
           borderRadius: theme.manifest.shape.medium,
           borderWidth: presentation.borderWidth,
           opacity: inactive ? presentation.disabledOpacity : 1,
+          paddingHorizontal: theme.manifest.spacing.large,
           transform: pressed && hasDepth ? [{ translateY: presentation.depth }] : undefined,
         },
         style,
@@ -170,6 +206,7 @@ export function TextField({ style, ...props }: React.ComponentProps<typeof TextI
           borderColor: colors.outline,
           borderRadius: shape.small,
           color: colors.onSurface,
+          paddingHorizontal: theme.manifest.spacing.medium,
         },
         style,
       ]}
@@ -216,7 +253,10 @@ export function StatusBadge({ status }: { status: string }) {
     <View
       style={[
         styles.badge,
-        { backgroundColor: withAlpha(color, 0.15), borderRadius: theme.manifest.shape.full },
+        {
+          backgroundColor: withAlpha(color, 0.15),
+          borderRadius: theme.manifest.shape.full,
+        },
       ]}
     >
       <View style={[styles.badgeDot, { backgroundColor: color }]} />
@@ -247,20 +287,14 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
   },
-  sectionHeader: {
-    marginBottom: 8,
-    marginHorizontal: 4,
-  },
   button: {
     alignItems: "center",
     justifyContent: "center",
     minHeight: NATIVE_CONTROL_METRICS.buttonMinHeight,
-    paddingHorizontal: 16,
   },
   textField: {
     borderWidth: StyleSheet.hairlineWidth,
     minHeight: NATIVE_CONTROL_METRICS.textFieldMinHeight,
-    paddingHorizontal: 12,
   },
   iconButton: {
     alignItems: "center",

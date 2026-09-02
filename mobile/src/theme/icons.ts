@@ -44,11 +44,6 @@ const PLATFORM_SYMBOLS: Readonly<Record<NativeIconRole, PlatformSymbolName>> = {
   video: { ios: "play.rectangle", android: "video_library" },
   account: { ios: "person.crop.circle", android: "account_circle" },
   notification: { ios: "bell", android: "notifications" },
-  warning: { ios: "exclamationmark.triangle", android: "warning" },
-  error: { ios: "xmark.circle", android: "error" },
-  success: { ios: "checkmark.circle", android: "check_circle" },
-  play: { ios: "play.fill", android: "play_arrow" },
-  pause: { ios: "pause.fill", android: "pause" },
   undo: { ios: "arrow.uturn.backward", android: "undo" },
   redo: { ios: "arrow.uturn.forward", android: "redo" },
 };

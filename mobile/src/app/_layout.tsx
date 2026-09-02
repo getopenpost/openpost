@@ -4,7 +4,7 @@ import { BottomSheetProvider } from "@swmansion/react-native-bottom-sheet";
 import * as SplashScreen from "expo-splash-screen";
 import { ShareIntentProvider } from "expo-share-intent";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -18,7 +18,18 @@ import {
   subscribeWorkspaceId,
 } from "@/lib/api/token-store";
 import { loadSessionState } from "@/lib/session";
-import { NativeThemeRuntime, navigationColorsFor, useNativeTheme } from "@/theme";
+import {
+  bindNativeThemeSession,
+  getNativeThemeActivation,
+  getThemePreference,
+  loadThemePreference,
+  NativeThemeRuntime,
+  navigationColorsFor,
+  isNativeThemeSessionCurrent,
+  subscribeNativeThemeActivation,
+  subscribeThemePreference,
+  useNativeTheme,
+} from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,14 +46,17 @@ function useSessionReady() {
 
   useEffect(() => {
     void (async () => {
-      await loadSessionState({
-        loadServer,
-        loadToken,
-        loadWorkspaceId,
-        getServer,
-        getToken,
-        getWorkspaceId,
-      });
+      await Promise.all([
+        loadSessionState({
+          loadServer,
+          loadToken,
+          loadWorkspaceId,
+          getServer,
+          getToken,
+          getWorkspaceId,
+        }),
+        loadThemePreference(),
+      ]);
       setLoaded(true);
       void SplashScreen.hideAsync();
     })();
@@ -54,27 +68,30 @@ function useSessionReady() {
 export default function RootLayout() {
   const { loaded, server, token, signedIn } = useSessionReady();
   const workspaceId = useSyncExternalStore(subscribeWorkspaceId, getWorkspaceId);
-  const previousSession = useRef<string | null>(null);
+  const preference = useSyncExternalStore(subscribeThemePreference, getThemePreference);
+  const activation = useSyncExternalStore(subscribeNativeThemeActivation, getNativeThemeActivation);
+  const sessionIdentity = `${server?.baseUrl ?? ""}\n${token ?? ""}`;
+  const activationMatchesSession = isNativeThemeSessionCurrent(sessionIdentity);
 
   useEffect(() => {
     if (!loaded) return;
-    const session = `${server?.baseUrl ?? ""}\n${token ?? ""}`;
-    if (previousSession.current === null) {
-      previousSession.current = session;
-      return;
-    }
-    if (previousSession.current !== session) {
-      previousSession.current = session;
+    if (!isNativeThemeSessionCurrent(sessionIdentity)) {
       queryClient.clear();
+      bindNativeThemeSession(sessionIdentity);
     }
-  }, [loaded, server?.baseUrl, token]);
+  }, [loaded, sessionIdentity]);
 
   if (!loaded) return null;
 
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <NativeThemeRuntime workspaceId={workspaceId}>
+        <NativeThemeRuntime
+          contract={signedIn && activationMatchesSession ? activation.contract : null}
+          preference={preference}
+          stagedResources={signedIn && activationMatchesSession ? activation.resources : null}
+          workspaceId={signedIn ? workspaceId : null}
+        >
           <KeyboardProvider
             navigationBarTranslucent
             preload={false}

@@ -7,9 +7,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Avatar from '$lib/components/ui/avatar';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { Workspace } from '$lib/api/client';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { workspaceColor } from '$lib/workspace-color';
@@ -78,7 +76,7 @@
 			aria-hidden="true"
 		></span>
 		{#if workspace.id === workspaceCtx.currentWorkspace?.id}
-			<CheckIcon class="size-4 text-primary" />
+			<ThemeIcon role="check" class="size-4 text-primary" />
 		{/if}
 	</DropdownMenu.Item>
 {/each}
@@ -92,13 +90,13 @@
 {/if}
 {#if onCreate}
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={createWorkspace}>
-		<PlusIcon class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="add" class="mr-2 size-4 text-muted-foreground" />
 		{m.onboarding_submit()}
 	</DropdownMenu.Item>
 {/if}
 {#if showSettings}
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={openWorkspaceSettings}>
-		<SettingsIcon class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="settings" class="mr-2 size-4 text-muted-foreground" />
 		{m.sidebar_workspace_settings()}
 	</DropdownMenu.Item>
 {/if}

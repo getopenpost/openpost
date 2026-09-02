@@ -48,5 +48,33 @@ export default defineConfig(
 				svelteConfig
 			}
 		}
+	},
+	{
+		files: [
+			'src/lib/components/account-preferences-menu.svelte',
+			'src/lib/components/mobile-bottom-nav.svelte',
+			'src/lib/components/notification-bell.svelte',
+			'src/lib/components/sidebar-left.svelte',
+			'src/lib/components/workspace-menu-items.svelte',
+			'src/lib/components/ui/sidebar/**/*.svelte'
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								'@lucide/svelte',
+								'@lucide/svelte/*',
+								'remixicon-svelte',
+								'remixicon-svelte/*'
+							],
+							message: 'Global app chrome must use semantic icons from $lib/themes/icons.'
+						}
+					]
+				}
+			]
+		}
 	}
 );

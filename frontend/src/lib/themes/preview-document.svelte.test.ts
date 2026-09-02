@@ -5,14 +5,14 @@ import { WebThemeRuntime, type ThemeRuntimeLoaders } from './runtime.js';
 
 const frames: HTMLIFrameElement[] = [];
 
-function isolatedRuntime(): WebThemeRuntime {
+function isolatedRuntime() {
 	const loaders: ThemeRuntimeLoaders = {
 		stageFonts: vi.fn(async () => ({ release: vi.fn() })),
 		loadAssets: vi.fn(async () => undefined),
 		loadIconPack: vi.fn(async () => undefined),
 		setBrowserSurface: vi.fn(() => vi.fn())
 	};
-	return new WebThemeRuntime(loaders);
+	return { loaders, runtime: new WebThemeRuntime(loaders) };
 }
 
 afterEach(() => {
@@ -31,11 +31,8 @@ describe('theme preview document', () => {
 		document.body.append(frame);
 		frames.push(frame);
 
-		const preview = await mountThemePreviewDocument(
-			frame,
-			resolveBuiltInTheme('midnight', 'dark'),
-			{ styleSource: source, runtime: isolatedRuntime() }
-		);
+		const { loaders, runtime } = isolatedRuntime();
+		const preview = await mountThemePreviewDocument(frame, { styleSource: source, runtime });
 
 		expect(frame.getAttribute('sandbox')).toBe('allow-same-origin');
 		expect(frame.referrerPolicy).toBe('no-referrer');
@@ -44,10 +41,17 @@ describe('theme preview document', () => {
 		expect(preview.root.ownerDocument).toBe(preview.document);
 		expect(preview.portalTarget.ownerDocument).toBe(preview.document);
 		expect(preview.portalProps).toEqual({ to: preview.portalTarget });
-		expect(preview.document.documentElement.dataset.themeId).toBe('midnight');
-		expect(preview.document.documentElement.classList.contains('dark')).toBe(true);
+		expect(preview.document.documentElement.dataset.themeId).toBeUndefined();
+		expect(loaders.stageFonts).not.toHaveBeenCalled();
 		expect(document.documentElement.getAttribute('data-theme-id')).toBe(hostTheme);
 		expect(preview.document.head.textContent).toContain('[data-preview-scene]');
+
+		expect(await preview.apply(resolveBuiltInTheme('midnight', 'dark'))).toBe(true);
+		expect(preview.document.documentElement.dataset.themeId).toBe('midnight');
+		expect(preview.document.documentElement.classList.contains('dark')).toBe(true);
+		expect(loaders.stageFonts).toHaveBeenCalledTimes(1);
+		expect(loaders.loadAssets).toHaveBeenCalledTimes(1);
+		expect(loaders.loadIconPack).toHaveBeenCalledTimes(1);
 
 		const scene = preview.document.createElement('main');
 		scene.dataset.previewScene = '';

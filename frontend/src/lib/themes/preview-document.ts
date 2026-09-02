@@ -75,7 +75,6 @@ async function copyStyles(source: Document, target: Document): Promise<void> {
 
 export async function mountThemePreviewDocument(
 	frame: HTMLIFrameElement,
-	theme: WebResolvedTheme,
 	options: ThemePreviewDocumentOptions = {}
 ): Promise<ThemePreviewDocument> {
 	frame.setAttribute('sandbox', 'allow-same-origin');
@@ -91,7 +90,6 @@ export async function mountThemePreviewDocument(
 
 	const runtime =
 		options.runtime ?? new WebThemeRuntime(createBrowserThemeRuntimeLoaders(targetDocument));
-	await runtime.applyScoped(theme, targetDocument.documentElement);
 	let destroyed = false;
 	const boundary: ThemePreviewDocument = {
 		document: targetDocument,

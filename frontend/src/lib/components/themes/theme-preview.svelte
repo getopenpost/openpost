@@ -9,6 +9,7 @@
 	import {
 		mountThemePreviewDocument,
 		type ThemePreviewDocument,
+		type WebThemeRuntime,
 		type WebResolvedTheme
 	} from '$lib/themes';
 	import ThemePreviewSceneContent from './theme-preview-scene.svelte';
@@ -23,6 +24,7 @@
 		viewport?: ThemePreviewViewportValue;
 		label: string;
 		interactive?: boolean;
+		runtime?: WebThemeRuntime;
 		class?: string;
 	}
 
@@ -32,6 +34,7 @@
 		viewport = 'desktop',
 		label,
 		interactive = false,
+		runtime,
 		class: className = ''
 	}: Props = $props();
 
@@ -78,22 +81,18 @@
 		const generation = ++documentGeneration;
 		ready = false;
 
-		void mountThemePreviewDocument(target, initialTheme)
+		void mountThemePreviewDocument(target, { runtime })
 			.then((mountedPreview) => {
 				if (generation !== documentGeneration) {
 					mountedPreview.destroy();
 					return;
 				}
-				preview = mountedPreview;
 				sceneProps.theme = initialTheme;
 				sceneInstance = mount(ThemePreviewSceneContent, {
 					target: mountedPreview.root,
 					props: sceneProps
 				});
-				applyTheme(
-					mountedPreview,
-					untrack(() => theme)
-				);
+				preview = mountedPreview;
 			})
 			.catch(() => {
 				if (generation === documentGeneration) ready = false;

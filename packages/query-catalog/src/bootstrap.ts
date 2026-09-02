@@ -1,6 +1,9 @@
 import type { components } from "@openpost/api-contract";
 import type { QueryClient, QueryFunctionContext } from "@tanstack/query-core";
+import { adminQueryKeys } from "./admin";
+import type { QueryCachePlan } from "./cache-plan";
 import { openPostQueryKeys, openPostWorkspaceKey } from "./keys";
+import { organizationQueryKeys } from "./organizations";
 import { openPostQueryPolicy, stableQueryStaleTime } from "./policies";
 
 export type AppBootstrap = components["schemas"]["AppBootstrapOutputBody"];
@@ -30,6 +33,18 @@ export const openPostBootstrapQueryKeys = {
   workspaceSettings: (workspaceId: string) =>
     [...openPostWorkspaceKey(workspaceId), "settings"] as const,
 };
+
+export function workspaceCreationCachePlan(): QueryCachePlan {
+  return {
+    invalidate: [
+      { queryKey: openPostBootstrapQueryKeys.appRoot() },
+      { queryKey: openPostBootstrapQueryKeys.workspaces(), exact: true },
+      { queryKey: adminQueryKeys.overview(), exact: true },
+      { queryKey: adminQueryKeys.usersRoot() },
+      { queryKey: organizationQueryKeys.all(), exact: true },
+    ],
+  };
+}
 
 export function appBootstrapQueryOptions(
   api: AppBootstrapQueryAPI,

@@ -11,11 +11,8 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { auth } from '$lib/stores/auth';
 	import { get } from 'svelte/store';
-	import {
-		adminQueryKeys,
-		openPostBootstrapQueryKeys,
-		organizationQueryKeys
-	} from '@openpost/query-catalog';
+	import { workspaceCreationCachePlan } from '@openpost/query-catalog';
+	import { executeQueryCachePlan } from '$lib/query/cache-plan';
 	import { queryClient } from '$lib/query/client';
 	import { m } from '$lib/paraglide/messages';
 
@@ -72,24 +69,7 @@
 				throw new Error(responseError?.detail || m.onboarding_create_failed());
 			}
 			if (!isSameActor()) return;
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: openPostBootstrapQueryKeys.appRoot()
-				}),
-				queryClient.invalidateQueries({
-					queryKey: openPostBootstrapQueryKeys.workspaces(),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: adminQueryKeys.overview(),
-					exact: true
-				}),
-				queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-				queryClient.invalidateQueries({
-					queryKey: organizationQueryKeys.all(),
-					exact: true
-				})
-			]);
+			await executeQueryCachePlan(queryClient, workspaceCreationCachePlan());
 			const projection = auth.captureUserProjection(actorID);
 			if (!projection) return;
 			const bootstrap = await workspaceCtx.loadWorkspaces(data.id, {

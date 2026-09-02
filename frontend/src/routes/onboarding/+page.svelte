@@ -9,14 +9,14 @@
 	import { client } from '$lib/api/client';
 	import type { AuthConfiguration } from '$lib/api/client';
 	import {
-		adminQueryKeys,
 		authConfigurationQueryOptions,
 		authQueryKeys,
-		openPostBootstrapQueryKeys,
 		organizationQueryKeys,
-		OpenPostQueryError
+		OpenPostQueryError,
+		workspaceCreationCachePlan
 	} from '@openpost/query-catalog';
 	import { authQueryAPI } from '$lib/query/auth';
+	import { executeQueryCachePlan } from '$lib/query/cache-plan';
 	import { queryClient } from '$lib/query/client';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -94,24 +94,7 @@
 	}
 
 	async function invalidateWorkspaceInventory() {
-		await Promise.all([
-			queryClient.invalidateQueries({
-				queryKey: openPostBootstrapQueryKeys.appRoot()
-			}),
-			queryClient.invalidateQueries({
-				queryKey: openPostBootstrapQueryKeys.workspaces(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				queryKey: adminQueryKeys.overview(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-			queryClient.invalidateQueries({
-				queryKey: organizationQueryKeys.all(),
-				exact: true
-			})
-		]);
+		await executeQueryCachePlan(queryClient, workspaceCreationCachePlan());
 	}
 
 	async function invalidateWelcomeAudit(workspaceID: string) {

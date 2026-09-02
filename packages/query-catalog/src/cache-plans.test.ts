@@ -18,6 +18,7 @@ import {
   publicProfileQueryKeys,
   workspaceInvitationAcceptanceCachePlan,
   workspaceInvitationRefreshCachePlan,
+  workspaceCreationCachePlan,
   workspaceSettingsQueryKeys,
   type QueryCachePlan,
 } from "./index";
@@ -36,6 +37,30 @@ function expectInvalidated(client: QueryClient, queryKey: readonly unknown[]) {
 }
 
 describe("mutation cache plans", () => {
+  it("owns the complete Workspace creation inventory", async () => {
+    const client = new QueryClient();
+    const bootstrap = openPostBootstrapQueryKeys.app("workspace-1");
+    const workspaces = openPostBootstrapQueryKeys.workspaces();
+    const overview = adminQueryKeys.overview();
+    const users = adminQueryKeys.users({
+      page: 1,
+      perPage: 20,
+      search: "",
+      sort: "created_at",
+      direction: "desc",
+    });
+    const organizations = organizationQueryKeys.all();
+    const unrelated = billingQueryKeys.status("workspace-1");
+    seed(client, bootstrap, workspaces, overview, users, organizations, unrelated);
+
+    await applyPlan(client, workspaceCreationCachePlan());
+
+    for (const queryKey of [bootstrap, workspaces, overview, users, organizations]) {
+      expectInvalidated(client, queryKey);
+    }
+    expect(client.getQueryState(unrelated)?.isInvalidated).toBe(false);
+  });
+
   it("owns every account mutation dependency without crossing Workspace scope", async () => {
     const client = new QueryClient();
     const profile = publicProfileQueryKeys.detail("founder");

@@ -12,6 +12,22 @@ export type MemeTemplateList = components["schemas"]["ListMemeTemplatesOutputBod
 export type StockProviderList = components["schemas"]["ListStockProvidersOutputBody"];
 export type StockSearchPage = components["schemas"]["SearchPage"];
 
+export interface MediaMetadataItem {
+  readonly id: string;
+  readonly mime_type?: string;
+  readonly alt_text?: string;
+  readonly size?: number;
+  readonly processing_status?: string;
+  readonly processing_progress?: number;
+  readonly poster_thumbnail_url?: string;
+  readonly analysis_status?: string;
+  readonly analysis_error?: string;
+}
+
+export interface MediaMetadataResult {
+  readonly media: MediaMetadataItem[];
+}
+
 export interface MediaListFilters {
   readonly lifecycle?: "library" | "temporary" | "trash" | "all";
   readonly filter?: string;
@@ -74,6 +90,11 @@ export interface MediaQueryAPI {
     filters: NormalizedMediaListFilters,
     signal: AbortSignal,
   ): Promise<MediaListResult>;
+  getMediaMetadata(
+    workspaceId: string,
+    mediaIds: readonly string[],
+    signal: AbortSignal,
+  ): Promise<MediaMetadataResult>;
   getMediaStorage(workspaceId: string, signal: AbortSignal): Promise<MediaStorage>;
   listMediaTags(workspaceId: string, signal: AbortSignal): Promise<MediaTagList>;
   getMediaUsage(workspaceId: string, mediaId: string, signal: AbortSignal): Promise<MediaUsage>;
@@ -94,6 +115,8 @@ export const mediaQueryKeys = {
   lists: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "media", "list"),
   list: (workspaceId: string, filters: MediaListFilters) =>
     openPostWorkspaceKey(workspaceId, "media", "list", normalizeMediaListFilters(filters)),
+  metadata: (workspaceId: string, mediaIds: readonly string[]) =>
+    openPostWorkspaceKey(workspaceId, "media", "metadata", normalizeMediaMetadataIDs(mediaIds)),
   storage: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "media", "storage"),
   tags: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "media", "tags"),
   usage: (workspaceId: string, mediaId: string) =>
@@ -145,6 +168,22 @@ export async function reconcileMediaListItemMutation(
 
   await client.invalidateQueries({ queryKey, refetchType: "none" });
   return canReconcile();
+}
+
+export function mediaMetadataQueryOptions(
+  api: Pick<MediaQueryAPI, "getMediaMetadata">,
+  workspaceId: string,
+  mediaIds: readonly string[],
+) {
+  const normalizedMediaIds = normalizeMediaMetadataIDs(mediaIds);
+  const queryKey = mediaQueryKeys.metadata(workspaceId, normalizedMediaIds);
+  return {
+    ...openPostQueryPolicy(queryStaleTime),
+    queryKey,
+    enabled: Boolean(workspaceId && normalizedMediaIds.length > 0),
+    queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
+      api.getMediaMetadata(workspaceId, normalizedMediaIds, signal),
+  };
 }
 
 export function mediaStorageQueryOptions(
@@ -233,6 +272,10 @@ export function stockSearchQueryOptions(
 export type NormalizedMediaListFilters = ReturnType<typeof normalizeMediaListFilters>;
 export type NormalizedMemeTemplateFilters = ReturnType<typeof normalizeMemeTemplateFilters>;
 export type NormalizedStockMediaSearch = ReturnType<typeof normalizeStockMediaSearch>;
+
+export function normalizeMediaMetadataIDs(mediaIds: readonly string[]) {
+  return [...new Set(mediaIds.map((mediaId) => mediaId.trim()).filter(Boolean))].sort();
+}
 
 export function normalizeMediaListFilters(filters: MediaListFilters) {
   return {

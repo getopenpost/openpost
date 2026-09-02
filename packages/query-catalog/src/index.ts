@@ -23,3 +23,4 @@ export * from "./prompts";
 export * from "./public-profiles";
 export * from "./scheduling";
 export * from "./workspace-settings";
+export * from "./voice-profiles";

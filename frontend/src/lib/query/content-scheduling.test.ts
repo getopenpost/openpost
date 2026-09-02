@@ -145,6 +145,47 @@ describe('content and scheduling web query adapters', () => {
 		});
 	});
 
+	it('normalizes raw media metadata and preserves the request signal', async () => {
+		let request: Request | undefined;
+		const rawFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			request = new Request(new URL(String(input), 'https://openpost.test'), init);
+			return Response.json({
+				media: [
+					{
+						id: 'media-1',
+						mime_type: 'video/mp4',
+						size: 512,
+						processing_status: 'processing'
+					},
+					{ id: 42 }
+				]
+			});
+		});
+		const api = createMediaQueryAPI(transportWith(vi.fn()), rawFetch);
+		const controller = new AbortController();
+
+		await expect(
+			api.getMediaMetadata('workspace-1', ['media-b', 'media-a'], controller.signal)
+		).resolves.toEqual({
+			media: [
+				{
+					id: 'media-1',
+					mime_type: 'video/mp4',
+					size: 512,
+					processing_status: 'processing'
+				}
+			]
+		});
+		expect(request).toBeDefined();
+		expect(Object.fromEntries(new URL(request!.url).searchParams)).toEqual({
+			workspace_id: 'workspace-1',
+			media_ids: 'media-b,media-a'
+		});
+		expect(request?.signal.aborted).toBe(false);
+		controller.abort();
+		expect(request?.signal.aborted).toBe(true);
+	});
+
 	it('returns empty nullable prompt lists and reports HTTP problems through Query errors', async () => {
 		const emptyAPI = createPromptQueryAPI(
 			transportWith(

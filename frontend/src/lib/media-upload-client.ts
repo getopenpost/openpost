@@ -4,6 +4,7 @@ import type { VideoConstraint, VideoPreparationProgress } from '$lib/video/types
 import type { StockMediaProvenance } from '$lib/stock-media';
 import { isSVGFile, rasterizeSVGToPNG } from '$lib/media/svg-rasterize';
 import { m } from '$lib/paraglide/messages';
+import { queryMediaStorage } from '$lib/query/media';
 
 export type MediaUploadResult = components['schemas']['MediaUploadResult'];
 
@@ -75,8 +76,6 @@ interface MediaMetadataResponse {
 	media?: MediaUploadResult[];
 }
 
-const directUploadCapabilityByWorkspace = new Map<string, Promise<boolean>>();
-
 const TRANSIENT_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const MAX_UPLOAD_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 800;
@@ -133,7 +132,7 @@ export async function uploadMediaFile({
 		clientSHA256,
 		stockProvenance
 	};
-	if (!(await mediaStorageSupportsDirectUploads(workspaceId))) {
+	if (!(await mediaStorageSupportsDirectUploads(workspaceId, signal))) {
 		return uploadViaMultipart(workspaceId, uploadFile, altText, metadata, onProgress, signal);
 	}
 	try {
@@ -262,24 +261,16 @@ export function normalizedUploadErrorMessage(
 	return fallbackWithStatus;
 }
 
-async function mediaStorageSupportsDirectUploads(workspaceId: string): Promise<boolean> {
-	const cacheKey = workspaceId;
-	const cached = directUploadCapabilityByWorkspace.get(cacheKey);
-	if (cached) return cached;
-
-	const request = fetch(apiURL(`/media/storage?workspace_id=${encodeURIComponent(workspaceId)}`), {
-		credentials: 'include',
-		headers: apiHeaders(false)
-	})
-		.then(async (response) => {
-			if (!response.ok) return true;
-			return directUploadSupportedFromStorageResponse(
-				parseStorageCapabilityResponse(await response.json())
-			);
-		})
-		.catch(() => true);
-	directUploadCapabilityByWorkspace.set(cacheKey, request);
-	return request;
+async function mediaStorageSupportsDirectUploads(
+	workspaceId: string,
+	signal?: AbortSignal
+): Promise<boolean> {
+	try {
+		return directUploadSupportedFromStorageResponse(await queryMediaStorage(workspaceId, signal));
+	} catch {
+		if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+		return true;
+	}
 }
 
 async function uploadViaDirectSession(
@@ -420,12 +411,6 @@ function createUploadSessionBody(
 	if (metadata.clientSHA256) body.client_sha256 = metadata.clientSHA256;
 	if (metadata.stockProvenance) body.stock_provenance = metadata.stockProvenance;
 	return body;
-}
-
-function parseStorageCapabilityResponse(value: unknown): StorageCapabilityResponse {
-	if (!isUploadRecord(value)) return {};
-	const supported = value.direct_upload_supported;
-	return typeof supported === 'boolean' ? { direct_upload_supported: supported } : {};
 }
 
 function parseUploadProblem(value: unknown): UploadProblem {

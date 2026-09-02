@@ -7,15 +7,12 @@
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import {
-		applyAPIRequestHeaders,
-		client,
-		type SocialAccount,
-		type Workspace
-	} from '$lib/api/client';
+	import { client, type SocialAccount, type Workspace } from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import { publishingOptionsQueryOptions } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import { queryMediaMetadata } from '$lib/query/media';
+	import { queryVoiceProfiles } from '$lib/query/voice-profiles';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import AIWorkspaceDialog from '$lib/components/post-builder/ai-workspace-dialog.svelte';
@@ -32,7 +29,6 @@
 		createPublicationBuild,
 		discoverPublicationOpportunities,
 		getPublicationBuild,
-		listVoiceProfiles,
 		planPublicationAngles,
 		retryPublicationBuild,
 		type PublicationBuild,
@@ -180,7 +176,6 @@
 		type PublicationDraft
 	} from '$lib/composer/session';
 	import { composerErrorMessage } from '$lib/composer/error-presentation';
-	import { parseComposerMediaMetadata } from '$lib/composer/media-metadata';
 	import { createComposerPublicationClient } from '$lib/composer/publication-client';
 	import { buildComposerPreview } from '$lib/compose-preview';
 	import { openPreviewWindow, type PreviewWindowSession } from '$lib/preview-window';
@@ -420,6 +415,7 @@
 	let aiOpportunitySlow = $state(false);
 	let aiBuildCreateRejected = $state(false);
 	let aiRequestController: AbortController | null = null;
+	let aiVoiceRequestController: AbortController | null = null;
 	let aiMemeCandidates = $state.raw<AIMemeRecommendationCandidate[]>([]);
 	let aiMemeSelectedID = $state('');
 	let aiMemeError = $state('');
@@ -2900,6 +2896,7 @@
 		if (aiPollTimer) clearTimeout(aiPollTimer);
 		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
 		aiRequestController?.abort();
+		aiVoiceRequestController?.abort();
 		capabilityResolveAbortController?.abort();
 		for (const controller of captionRequests.values()) controller.abort();
 		captionRequests.clear();
@@ -3070,30 +3067,20 @@
 		if (!workspaceId || missingIds.length === 0) return;
 
 		try {
-			const resp = await fetch(
-				`/api/v1/media/metadata?workspace_id=${encodeURIComponent(
-					workspaceId
-				)}&media_ids=${encodeURIComponent(missingIds.join(','))}`,
-				{
-					credentials: 'include',
-					headers: applyAPIRequestHeaders(new Headers())
-				}
-			);
-			if (!resp.ok) return;
-
-			const mediaData = parseComposerMediaMetadata(await resp.json());
+			const mediaData = (await queryMediaMetadata(workspaceId, missingIds, { force })).media;
+			if (composerDestroyed || workspaceId !== selectedWorkspaceId) return;
 			const nextMimeTypes = new SvelteMap(mediaMimeTypes);
 			const nextAltTexts = new SvelteMap(mediaAltTexts);
 			const nextSizes = new SvelteMap(mediaSizes);
 			for (const media of mediaData) {
-				if (media.mimeType) {
-					nextMimeTypes.set(media.id, media.mimeType);
+				if (media.mime_type) {
+					nextMimeTypes.set(media.id, media.mime_type);
 				}
 				if (media.size !== undefined) {
 					nextSizes.set(media.id, media.size);
 				}
-				if (media.altText) {
-					nextAltTexts.set(media.id, media.altText);
+				if (media.alt_text) {
+					nextAltTexts.set(media.id, media.alt_text);
 				} else {
 					nextAltTexts.delete(media.id);
 				}
@@ -3101,8 +3088,10 @@
 			mediaMimeTypes = nextMimeTypes;
 			mediaAltTexts = nextAltTexts;
 			mediaSizes = nextSizes;
-		} catch (e) {
-			console.error('Failed to load media metadata:', e);
+		} catch (cause) {
+			if (!composerDestroyed && workspaceId === selectedWorkspaceId) {
+				console.error('Failed to load media metadata:', cause);
+			}
 		}
 	}
 
@@ -3262,6 +3251,7 @@
 		composerSession = null;
 		clearAutoSaveTimer();
 		aiRequestController?.abort();
+		aiVoiceRequestController?.abort();
 		if (aiPollTimer) clearTimeout(aiPollTimer);
 		aiPollTimer = null;
 		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
@@ -4355,22 +4345,28 @@
 
 	async function loadAIWorkspaceVoice(workspaceID: string): Promise<void> {
 		if (!workspaceID) return;
+		aiVoiceRequestController?.abort();
+		const controller = new AbortController();
+		aiVoiceRequestController = controller;
 		if (workspaceID === selectedWorkspaceId) {
 			aiVoiceName = m.compose_ai_default_voice();
 			aiVoiceProfileID = '';
 		}
 		try {
-			const profiles = await listVoiceProfiles(workspaceID);
+			const profiles = await queryVoiceProfiles(workspaceID, controller.signal);
 			if (workspaceID !== selectedWorkspaceId) return;
 			const profile = profiles.find((candidate) => candidate.is_default) ?? profiles[0];
 			if (profile) {
 				aiVoiceName = profile.name;
 				aiVoiceProfileID = profile.id;
 			}
-		} catch {
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') return;
 			if (workspaceID !== selectedWorkspaceId) return;
 			aiVoiceName = m.compose_ai_default_voice();
 			aiVoiceProfileID = '';
+		} finally {
+			if (aiVoiceRequestController === controller) aiVoiceRequestController = null;
 		}
 	}
 

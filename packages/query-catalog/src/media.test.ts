@@ -1,8 +1,10 @@
 import { QueryClient } from "@tanstack/query-core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  mediaMetadataQueryOptions,
   mediaQueryKeys,
   reconcileMediaListItemMutation,
+  type MediaMetadataResult,
   type MediaListItem,
   type MediaListResult,
 } from "./media";
@@ -12,6 +14,42 @@ function mediaItem(id: string, filename: string): MediaListItem {
 }
 
 describe("media query cache", () => {
+  it("normalizes metadata IDs into one stable Workspace key", () => {
+    expect(mediaQueryKeys.metadata("workspace-1", [" media-b ", "media-a", "media-b", ""])).toEqual(
+      mediaQueryKeys.metadata("workspace-1", ["media-a", "media-b"]),
+    );
+  });
+
+  it("deduplicates metadata reads and forwards Query cancellation", async () => {
+    let observedSignal: AbortSignal | undefined;
+    let finishRead = (_result: MediaMetadataResult) => {};
+    const getMediaMetadata = vi.fn(
+      (_workspaceId: string, _mediaIds: readonly string[], signal: AbortSignal) => {
+        observedSignal = signal;
+        return new Promise<MediaMetadataResult>((resolve) => {
+          finishRead = resolve;
+        });
+      },
+    );
+    const client = new QueryClient();
+    const options = mediaMetadataQueryOptions({ getMediaMetadata }, "workspace-1", [
+      "media-b",
+      "media-a",
+    ]);
+
+    const first = client.fetchQuery(options);
+    const second = client.fetchQuery(options);
+    await Promise.resolve();
+    expect(observedSignal).toBeInstanceOf(AbortSignal);
+    expect(observedSignal?.aborted).toBe(false);
+    expect(getMediaMetadata).toHaveBeenCalledTimes(1);
+
+    await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+    expect(observedSignal?.aborted).toBe(true);
+    finishRead({ media: [] });
+    await Promise.allSettled([first, second]);
+  });
+
   it("uses one key for equivalent normalized tag sets", () => {
     expect(
       mediaQueryKeys.list("workspace-1", {

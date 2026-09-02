@@ -151,7 +151,7 @@ test("reports duplicate, unexpected, and missing direct reads", () => {
   );
 });
 
-test("excludes only Query adapters and the named Image Editor adapter", () => {
+test("excludes Query adapters but scans legacy Image Editor adapters", () => {
   withFixture(
     {
       "frontend/src/lib/query/accounts.ts": "transport.GET('/accounts');",
@@ -163,6 +163,10 @@ test("excludes only Query adapters and the named Image Editor adapter", () => {
       assert.deepEqual(
         result.violations.map(({ file, endpoint }) => ({ file, endpoint })),
         [
+          {
+            file: "frontend/src/lib/image-editor/api.ts",
+            endpoint: "/image-editor/designs",
+          },
           {
             file: "frontend/src/lib/image-editor/other.ts",
             endpoint: "/must-still-be-seen",

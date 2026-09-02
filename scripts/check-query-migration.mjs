@@ -7,7 +7,6 @@ import ts from "typescript";
 
 const sourceRoots = ["frontend/src"];
 const sourceExtensions = new Set([".svelte", ".ts"]);
-const excludedImperativeAdapters = new Set(["frontend/src/lib/image-editor/api.ts"]);
 const queryAdapterPrefix = "frontend/src/lib/query/";
 
 const imperativeReadAllowlist = [
@@ -124,7 +123,7 @@ function allowlistKey(file, endpoint) {
 }
 
 function isExcludedAdapter(repoPath) {
-  return excludedImperativeAdapters.has(repoPath) || repoPath.startsWith(queryAdapterPrefix);
+  return repoPath.startsWith(queryAdapterPrefix);
 }
 
 function scriptSegments(file, source) {

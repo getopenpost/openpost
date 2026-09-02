@@ -122,8 +122,66 @@ function allowlistKey(file, endpoint) {
   return `${file}\0${endpoint}`;
 }
 
-function isExcludedAdapter(repoPath) {
-  return repoPath.startsWith(queryAdapterPrefix);
+function isQueryAdapter(repoPath) {
+  return repoPath.startsWith(queryAdapterPrefix) && !repoPath.endsWith(".test.ts");
+}
+
+function directCentralBoundaryNames(sourceFile) {
+  const names = new Set(["queryGET", "queryTransportRequest"]);
+
+  function containsCentralBoundary(node, root) {
+    let found = false;
+    function visit(current) {
+      if (found) return;
+      if (current !== root && ts.isFunctionLike(current)) return;
+      if (ts.isCallExpression(current)) {
+        const expression = unwrapExpression(current.expression);
+        if (ts.isIdentifier(expression) && names.has(expression.text)) {
+          found = true;
+          return;
+        }
+      }
+      ts.forEachChild(current, visit);
+    }
+    visit(node);
+    return found;
+  }
+
+  function visit(node) {
+    if (
+      ts.isFunctionDeclaration(node) &&
+      node.name &&
+      node.body &&
+      containsCentralBoundary(node.body, node)
+    ) {
+      names.add(node.name.text);
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isFunctionLike(node.initializer) &&
+      containsCentralBoundary(node.initializer, node.initializer)
+    ) {
+      names.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return names;
+}
+
+function isCentralizedQueryRead(node, boundaryNames) {
+  let current = node.parent;
+  while (current) {
+    if (ts.isCallExpression(current)) {
+      const expression = unwrapExpression(current.expression);
+      if (ts.isIdentifier(expression) && boundaryNames.has(expression.text)) return true;
+    }
+    current = current.parent;
+  }
+  return false;
 }
 
 function scriptSegments(file, source) {
@@ -237,6 +295,7 @@ function callsInSegment(file, repoPath, originalSource, segment) {
     ts.ScriptKind.TS,
   );
   const aliases = collectSimpleAliases(sourceFile);
+  const boundaryNames = directCentralBoundaryNames(sourceFile);
   const calls = [];
 
   function visit(node) {
@@ -246,7 +305,12 @@ function callsInSegment(file, repoPath, originalSource, segment) {
         const endpoint = endpointForCall(node, kind);
         if (endpoint) {
           const index = segment.offset + node.getStart(sourceFile);
-          calls.push({ file: repoPath, endpoint, line: lineAt(originalSource, index) });
+          calls.push({
+            file: repoPath,
+            endpoint,
+            line: lineAt(originalSource, index),
+            centralized: isCentralizedQueryRead(node, boundaryNames),
+          });
         }
       }
     }
@@ -278,15 +342,18 @@ export function findImperativeQueryViolations(
     pairingAllowlist = pairingReadAllowlist,
   } = {},
 ) {
+  const adapterCalls = [];
   const calls = [];
   for (const sourceRoot of roots) {
     const root = resolve(repoRoot, sourceRoot);
-    for (const file of sourceFiles(root)) {
+    for (const file of sourceFiles(root).sort()) {
       const repoPath = relative(repoRoot, file).replaceAll("\\", "/");
-      if (isExcludedAdapter(repoPath)) continue;
+      if (repoPath.startsWith(queryAdapterPrefix) && repoPath.endsWith(".test.ts")) continue;
       const source = readFileSync(file, "utf8");
       for (const segment of scriptSegments(file, source)) {
-        calls.push(...callsInSegment(file, repoPath, source, segment));
+        const segmentCalls = callsInSegment(file, repoPath, source, segment);
+        if (isQueryAdapter(repoPath)) adapterCalls.push(...segmentCalls);
+        else calls.push(...segmentCalls);
       }
     }
   }
@@ -310,6 +377,8 @@ export function findImperativeQueryViolations(
   }
 
   return {
+    adapterCalls,
+    adapterViolations: adapterCalls.filter((call) => !call.centralized),
     calls,
     missing: missingReads(allowlist, actualCounts),
     pairingCalls,
@@ -330,14 +399,28 @@ function printMissing(label, items) {
 
 function main() {
   const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-  const { missing, pairingCalls, pairingMissing, violations } =
+  const { adapterCalls, adapterViolations, missing, pairingCalls, pairingMissing, violations } =
     findImperativeQueryViolations(repoRoot);
-  if (missing.length === 0 && pairingMissing.length === 0 && violations.length === 0) {
+  if (
+    adapterViolations.length === 0 &&
+    missing.length === 0 &&
+    pairingMissing.length === 0 &&
+    violations.length === 0
+  ) {
     const imperativeCount = imperativeReadAllowlist.reduce((total, item) => total + item.count, 0);
     process.stdout.write(
-      `query-migration: ${imperativeCount} intentional imperative web reads and ${pairingCalls.length} pairing read match their allowlists\n`,
+      `query-migration: ${adapterCalls.length} Query adapter reads cross the central transport boundary; ${imperativeCount} intentional imperative web reads and ${pairingCalls.length} pairing read match their allowlists\n`,
     );
     return;
+  }
+
+  if (adapterViolations.length > 0) {
+    process.stderr.write(
+      `query-migration: ${adapterViolations.length} Query adapter reads bypass the central transport boundary:\n`,
+    );
+    for (const violation of adapterViolations) {
+      process.stderr.write(`- ${violation.file}:${violation.line} ${violation.endpoint}\n`);
+    }
   }
 
   if (violations.length > 0) {

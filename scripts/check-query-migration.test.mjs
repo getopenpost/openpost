@@ -151,15 +151,36 @@ test("reports duplicate, unexpected, and missing direct reads", () => {
   );
 });
 
-test("excludes Query adapters but scans legacy Image Editor adapters", () => {
+test("requires Query adapters to cross the central transport boundary", () => {
   withFixture(
     {
-      "frontend/src/lib/query/accounts.ts": "transport.GET('/accounts');",
+      "frontend/src/lib/query/accounts.ts": `
+		queryData(signal, (requestSignal) =>
+			transport.GET('/accounts', { signal: requestSignal })
+		);
+		function queryData(signal, request) {
+			return queryGET({ signal, fallback: 'Could not load accounts.', request });
+		}
+      `,
+      "frontend/src/lib/query/bypass.ts": "transport.GET('/query-bypass');",
       "frontend/src/lib/image-editor/api.ts": "client.GET('/image-editor/designs');",
       "frontend/src/lib/image-editor/other.ts": "client.GET('/must-still-be-seen');",
     },
     (repoRoot) => {
       const result = scan(repoRoot);
+      assert.deepEqual(
+        result.adapterCalls.map(({ endpoint }) => endpoint),
+        ["/accounts", "/query-bypass"],
+      );
+      assert.deepEqual(
+        result.adapterViolations.map(({ file, endpoint }) => ({ file, endpoint })),
+        [
+          {
+            file: "frontend/src/lib/query/bypass.ts",
+            endpoint: "/query-bypass",
+          },
+        ],
+      );
       assert.deepEqual(
         result.violations.map(({ file, endpoint }) => ({ file, endpoint })),
         [

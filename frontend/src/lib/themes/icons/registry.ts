@@ -1,9 +1,12 @@
-import type { ThemeIconPackId, ThemeIconRole } from '../contracts.js';
+import { THEME_ICON_ROLES, type ThemeIconPackId, type ThemeIconRole } from '../contracts.js';
 import lucidePack from './packs/lucide.generated.js';
 import type { ThemeIconData, ThemeIconPack } from './types.js';
 
 type ThemeIconPackLoader = () => Promise<{ default: ThemeIconPack }>;
 type ThemeIconPackLoaders = Record<ThemeIconPackId, ThemeIconPackLoader>;
+
+const THEME_ICON_VIEW_BOX = /^\d+(?:\.\d+)? \d+(?:\.\d+)? \d+(?:\.\d+)? \d+(?:\.\d+)?$/;
+const MAX_THEME_ICON_BODY_LENGTH = 16_384;
 
 const packLoaders = {
 	lucide: () => import('./packs/lucide.generated.js'),
@@ -22,6 +25,7 @@ export function createThemeIconRegistry(
 	loaders: ThemeIconPackLoaders,
 	fallback: ThemeIconPack = lucidePack
 ): ThemeIconRegistry {
+	assertCompletePack(fallback.id, fallback);
 	const loaded = new Map<ThemeIconPackId, ThemeIconPack>([[fallback.id, fallback]]);
 	const pending = new Map<ThemeIconPackId, Promise<ThemeIconPack>>();
 
@@ -35,6 +39,7 @@ export function createThemeIconRegistry(
 			const request = (async () => {
 				try {
 					const module = await loaders[id]();
+					assertCompletePack(id, module.default);
 					loaded.set(id, module.default);
 					return module.default;
 				} finally {
@@ -48,6 +53,29 @@ export function createThemeIconRegistry(
 			return (loaded.get(pack) ?? fallback).icons[role];
 		}
 	};
+}
+
+function assertCompletePack(expectedId: ThemeIconPackId, pack: ThemeIconPack): void {
+	if (!pack || pack.id !== expectedId) {
+		throw new Error(`${expectedId} returned the wrong theme icon pack`);
+	}
+	for (const role of THEME_ICON_ROLES) {
+		const icon = pack.icons?.[role];
+		if (!icon || !safeGeneratedIconBody(icon.body) || !THEME_ICON_VIEW_BOX.test(icon.viewBox)) {
+			throw new Error(`${expectedId} has an invalid ${role} theme icon`);
+		}
+	}
+}
+
+function safeGeneratedIconBody(body: string): boolean {
+	return (
+		body.length > 0 &&
+		body.length <= MAX_THEME_ICON_BODY_LENGTH &&
+		body.includes('<') &&
+		!/<\/?(?:script|svg|foreignObject)\b/i.test(body) &&
+		!/\b(?:href|on\w+)\s*=/i.test(body) &&
+		!/url\s*\(/i.test(body)
+	);
 }
 
 const registry = createThemeIconRegistry(packLoaders);

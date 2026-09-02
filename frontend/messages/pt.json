@@ -1779,6 +1779,8 @@
 	"accounts_provider_unavailable": "Indisponível",
 	"accounts_provider_ask_admin": "Pedir ao administrador",
 	"accounts_provider_admin_enable": "O administrador da instância precisa de ativar esta plataforma.",
+	"accounts_provider_admin_enable_self": "É o administrador desta instância. Ative estas plataformas nas configurações da instância.",
+	"accounts_provider_admin_configure": "Configurar",
 	"accounts_provider_retry_readiness": "Repetir verificação",
 	"provider_readiness_label_unsupported": "Não implementada",
 	"provider_readiness_label_disabled": "Desativada",

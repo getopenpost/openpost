@@ -271,6 +271,7 @@
 			?.configured_connection_modes?.includes('bot') ?? false
 	);
 	let hasConnectionFailure = $derived(Boolean(lastFailedMessage || providersLoadError));
+	let viewerIsInstanceAdmin = $derived(showInstanceSettings);
 
 	function requestAccountRemoval(account: SocialAccount, kind: AccountRemovalKind) {
 		accountRemovalAction = { account, kind };
@@ -921,9 +922,19 @@
 	}
 
 	function providerActionEnabled(provider: ProviderEntry): boolean {
-		return (
+		if (
 			connectingInstallationID !== provider.installation_id &&
 			(providerCanConnect(provider) || providerReadiness(provider).action === 'retry')
+		) {
+			return true;
+		}
+		// Instance admins can set up gated providers themselves in instance
+		// settings, so keep the action reachable instead of disabled.
+		return (
+			viewerIsInstanceAdmin &&
+			provider.status !== 'planned' &&
+			(providerReadiness(provider).action === 'configure' ||
+				providerReadiness(provider).action === 'contact_admin')
 		);
 	}
 
@@ -941,7 +952,9 @@
 			case 'configure':
 			case 'contact_admin':
 			default:
-				return m.accounts_provider_ask_admin();
+				return viewerIsInstanceAdmin
+					? m.accounts_provider_admin_configure()
+					: m.accounts_provider_ask_admin();
 		}
 	}
 
@@ -950,7 +963,12 @@
 			connectProvider(provider);
 			return;
 		}
-		if (providerReadiness(provider).action === 'retry') {
+		const action = providerReadiness(provider).action;
+		if (viewerIsInstanceAdmin && (action === 'configure' || action === 'contact_admin')) {
+			void goto(resolveAppPath('/settings?tab=configuration'));
+			return;
+		}
+		if (action === 'retry') {
 			clearConnectionFailure();
 			void loadProviders();
 		}
@@ -1499,9 +1517,11 @@
 										>
 									</summary>
 									<div class="border-t px-3 py-3">
-										<p class="mb-3 text-xs text-muted-foreground">
-											{m.accounts_provider_admin_enable()}
-										</p>
+									<p class="mb-3 text-xs text-muted-foreground">
+										{viewerIsInstanceAdmin
+											? m.accounts_provider_admin_enable_self()
+											: m.accounts_provider_admin_enable()}
+									</p>
 										<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 											{#each setupRequiredProviders as provider (providerKey(provider))}
 												<div

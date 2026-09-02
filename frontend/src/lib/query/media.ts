@@ -6,7 +6,11 @@ import type {
 	NormalizedMemeTemplateFilters,
 	NormalizedStockMediaSearch
 } from '@openpost/query-catalog';
-import { mediaMetadataQueryOptions, mediaStorageQueryOptions } from '@openpost/query-catalog';
+import {
+	mediaMetadataQueryOptions,
+	mediaStorageQueryOptions,
+	runWithCallerAbort
+} from '@openpost/query-catalog';
 import { applyAPIRequestHeaders, client } from '$lib/api/client';
 import { m } from '$lib/paraglide/messages';
 import { queryClient } from './client';
@@ -206,7 +210,7 @@ export const mediaQueryAPI = createMediaQueryAPI(client);
 
 export function queryMediaStorage(workspaceId: string, signal?: AbortSignal) {
 	const options = mediaStorageQueryOptions(mediaQueryAPI, workspaceId);
-	return runQueryWithCallerCancellation(signal, options.queryKey, () => queryClient.query(options));
+	return runWithCallerAbort(signal, () => queryClient.query(options));
 }
 
 export async function queryMediaMetadata(
@@ -223,9 +227,7 @@ export async function queryMediaMetadata(
 			refetchType: 'none'
 		});
 	}
-	return runQueryWithCallerCancellation(options.signal, queryOptions.queryKey, () =>
-		queryClient.query(queryOptions)
-	);
+	return runWithCallerAbort(options.signal, () => queryClient.query(queryOptions));
 }
 
 function parseMediaMetadataResponse(value: MediaMetadataJSONValue): MediaMetadataResult {
@@ -282,20 +284,4 @@ function stringValue(value: MediaMetadataJSONValue | undefined): string | undefi
 
 function numberValue(value: MediaMetadataJSONValue | undefined): number | undefined {
 	return Number.isFinite(value) ? Number(value) : undefined;
-}
-
-function runQueryWithCallerCancellation<Result>(
-	signal: AbortSignal | undefined,
-	queryKey: readonly unknown[],
-	run: () => Promise<Result>
-): Promise<Result> {
-	if (!signal) return run();
-	if (signal.aborted) return Promise.reject(abortReason(signal));
-	const cancel = () => void queryClient.cancelQueries({ queryKey, exact: true });
-	signal.addEventListener('abort', cancel, { once: true });
-	return run().finally(() => signal.removeEventListener('abort', cancel));
-}
-
-function abortReason(signal: AbortSignal): Error {
-	return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
 }

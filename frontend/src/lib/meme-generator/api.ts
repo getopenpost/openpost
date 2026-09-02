@@ -1,6 +1,10 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
-import { memeTemplatesQueryOptions, OpenPostQueryError } from '@openpost/query-catalog';
+import {
+	memeTemplatesQueryOptions,
+	OpenPostQueryError,
+	runWithCallerAbort
+} from '@openpost/query-catalog';
 import { m } from '$lib/paraglide/messages';
 import { mediaQueryAPI } from '$lib/query/media';
 import { queryClient } from '$lib/query/client';
@@ -75,22 +79,16 @@ export async function listMemeTemplates({
 	signal
 }: MemeTemplateListInput): Promise<MemeTemplateListResult> {
 	const options = memeTemplatesQueryOptions(mediaQueryAPI, workspaceId, { query, limit });
-	signal?.throwIfAborted();
-	const abort = () => void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
-	signal?.addEventListener('abort', abort, { once: true });
 	let data: components['schemas']['ListMemeTemplatesOutputBody'];
 	try {
-		data = await queryClient.query(options);
-		signal?.throwIfAborted();
+		data = await runWithCallerAbort(signal, () => queryClient.query(options));
 	} catch (cause) {
-		if (signal?.aborted) throw signal.reason;
+		if (signal?.aborted) throw cause;
 		if (cause instanceof Error && cause.name === 'AbortError') throw cause;
 		if (cause instanceof Error) {
 			throw new MemeGeneratorRequestError(cause.message, statusFrom(cause));
 		}
 		throw new MemeGeneratorRequestError(m.meme_generator_templates_failed(), 0);
-	} finally {
-		signal?.removeEventListener('abort', abort);
 	}
 	return { ...data, templates: (data.templates ?? []).map(normalizeTemplate) };
 }

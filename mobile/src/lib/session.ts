@@ -1,6 +1,7 @@
 import {
   appBootstrapQueryOptions,
   confirmedBootstrapWorkspaceId,
+  runWithCallerAbort,
   seedAppBootstrap,
   type AppBootstrap,
 } from "@openpost/query-catalog";
@@ -63,45 +64,38 @@ export async function synchronizeSession(
     },
     preferredWorkspaceId,
   );
-  const cancel = () => {
-    void synchronizer.queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
-  };
-  signal.addEventListener("abort", cancel, { once: true });
+  const bootstrap = await runWithCallerAbort(signal, () =>
+    synchronizer.queryClient.fetchQuery(options),
+  );
+  signal.throwIfAborted();
+  if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
 
-  try {
-    const bootstrap = await synchronizer.queryClient.fetchQuery(options);
-    signal.throwIfAborted();
-    if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
-
-    if (!bootstrap.authenticated) {
-      const cleared = await synchronizer.clearToken(identity);
-      if (!cleared) throw sessionChanged();
-      return currentSessionState(synchronizer);
-    }
-
-    const selectedWorkspaceId = confirmedBootstrapWorkspaceId(bootstrap);
-    const workspaceCommitted = await synchronizer.commitWorkspaceId(selectedWorkspaceId, identity);
-    if (!workspaceCommitted) {
-      throw sessionChanged();
-    }
-
-    signal.throwIfAborted();
-    const committedIdentity = synchronizer.captureIdentity();
-    if (
-      committedIdentity.serverBaseUrl !== identity.serverBaseUrl ||
-      committedIdentity.serverMutationRevision !== identity.serverMutationRevision ||
-      committedIdentity.token !== identity.token ||
-      committedIdentity.tokenMutationRevision !== identity.tokenMutationRevision ||
-      committedIdentity.workspaceId !== selectedWorkspaceId ||
-      !synchronizer.identityIsCurrent(committedIdentity)
-    ) {
-      throw sessionChanged();
-    }
-    seedAppBootstrap(synchronizer.queryClient, bootstrap);
+  if (!bootstrap.authenticated) {
+    const cleared = await synchronizer.clearToken(identity);
+    if (!cleared) throw sessionChanged();
     return currentSessionState(synchronizer);
-  } finally {
-    signal.removeEventListener("abort", cancel);
   }
+
+  const selectedWorkspaceId = confirmedBootstrapWorkspaceId(bootstrap);
+  const workspaceCommitted = await synchronizer.commitWorkspaceId(selectedWorkspaceId, identity);
+  if (!workspaceCommitted) {
+    throw sessionChanged();
+  }
+
+  signal.throwIfAborted();
+  const committedIdentity = synchronizer.captureIdentity();
+  if (
+    committedIdentity.serverBaseUrl !== identity.serverBaseUrl ||
+    committedIdentity.serverMutationRevision !== identity.serverMutationRevision ||
+    committedIdentity.token !== identity.token ||
+    committedIdentity.tokenMutationRevision !== identity.tokenMutationRevision ||
+    committedIdentity.workspaceId !== selectedWorkspaceId ||
+    !synchronizer.identityIsCurrent(committedIdentity)
+  ) {
+    throw sessionChanged();
+  }
+  seedAppBootstrap(synchronizer.queryClient, bootstrap);
+  return currentSessionState(synchronizer);
 }
 
 function sessionChanged(): DOMException {

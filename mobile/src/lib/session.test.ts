@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { openPostBootstrapQueryKeys, type AppBootstrap } from "@openpost/query-catalog";
-import { QueryClient } from "@tanstack/react-query";
+import {
+  appBootstrapQueryOptions,
+  openPostBootstrapQueryKeys,
+  type AppBootstrap,
+} from "@openpost/query-catalog";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 
 import {
   loadSessionState,
@@ -114,6 +118,43 @@ describe("authenticated session bootstrap", () => {
     await synchronizeSession(state.dependencies, new AbortController().signal);
 
     expect(state.bootstrapCalls).toBe(1);
+    queryClient.clear();
+  });
+
+  test("keeps a shared bootstrap request alive when one synchronization caller aborts", async () => {
+    const queryClient = new QueryClient();
+    const result = bootstrap();
+    const requestStarted = deferred<void>();
+    const releaseRequest = deferred<AppBootstrap>();
+    let requestCount = 0;
+    const readAppBootstrap = async () => {
+      requestCount += 1;
+      requestStarted.resolve();
+      return releaseRequest.promise;
+    };
+    const state = synchronizer(queryClient, { bootstrap: result });
+    state.dependencies.readAppBootstrap = readAppBootstrap;
+    const observer = new QueryObserver(
+      queryClient,
+      appBootstrapQueryOptions(
+        { getAppBootstrap: readAppBootstrap },
+        state.dependencies.getWorkspaceId(),
+      ),
+    );
+    const unsubscribe = observer.subscribe(() => undefined);
+    await requestStarted.promise;
+    const controller = new AbortController();
+    const synchronization = synchronizeSession(state.dependencies, controller.signal);
+
+    controller.abort();
+    await Promise.resolve();
+    releaseRequest.resolve(result);
+
+    await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(requestCount).toBe(1);
+    expect(observer.getCurrentResult().data).toEqual(result);
+    unsubscribe();
     queryClient.clear();
   });
 

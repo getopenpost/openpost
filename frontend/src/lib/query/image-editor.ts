@@ -18,7 +18,8 @@ import {
 	imageEditorRevisionQueryOptions,
 	imageEditorRevisionsQueryOptions,
 	imageEditorTemplatesQueryOptions,
-	mediaListQueryOptions
+	mediaListQueryOptions,
+	runWithCallerAbort
 } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
@@ -316,14 +317,7 @@ export function queryImageEditorRevision(
 		designId,
 		revisionId
 	);
-	if (!signal) return queryClient.query(options);
-	if (signal.aborted)
-		return Promise.reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
-	const cancel = () => {
-		void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
-	};
-	signal.addEventListener('abort', cancel, { once: true });
-	return queryClient.query(options).finally(() => signal.removeEventListener('abort', cancel));
+	return runWithCallerAbort(signal, () => queryClient.query(options));
 }
 
 export async function queryImageEditorMedia(

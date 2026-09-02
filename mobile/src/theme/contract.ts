@@ -119,7 +119,10 @@ export interface NativeThemeResources {
 
 /**
  * Query-side resource loaders publish this only after every descriptor has a
- * local, decoded resource. The renderer rejects partial and stale sets.
+ * local, decoded resource. Font loaders must authenticate the derivative byte
+ * request, verify its identity, and stage it as a file URI before Expo Font
+ * receives it. Protected API URLs are never valid staged resources. The
+ * renderer rejects partial and stale sets.
  */
 export interface NativeStagedThemeResources {
   readonly contractIdentity: string;

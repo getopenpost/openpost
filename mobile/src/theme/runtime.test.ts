@@ -149,6 +149,22 @@ describe("native theme runtime", () => {
         fonts: {
           "font-1": {
             family: "Example Sans",
+            uri: contract.resources.fonts[0]!.nativeDerivative.sourceUrl,
+            format: "ttf",
+            derivativeIdentity: "8f".repeat(32),
+          },
+        },
+        assets: { "texture-1": "file:///theme/texture-1.avif" },
+      }).source,
+    ).toEqual({ kind: "fallback", reason: "resources-unavailable" });
+    expect(
+      resolve({
+        contractIdentity: contract.identity,
+        resourceIdentity: contract.resources.identity,
+        workspaceId: contract.workspaceId,
+        fonts: {
+          "font-1": {
+            family: "Example Sans",
             uri: "file:///theme/font-1.ttf",
             format: "ttf",
             derivativeIdentity: "8f".repeat(32),

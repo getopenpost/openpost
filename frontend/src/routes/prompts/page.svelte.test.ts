@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
 import { promptQueryKeys, type Prompt } from '@openpost/query-catalog';
 import { client, type User, type Workspace } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
+import { FIRST_VIEWPORT_LOADING_DELAY_MS } from '$lib/query/presentation.svelte';
 import { auth } from '$lib/stores/auth';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
 import PromptsPage from './+page.svelte';
@@ -12,7 +13,7 @@ const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
 const deleteMock = vi.spyOn(client, 'DELETE');
 
-describe('prompt mutation ownership', () => {
+describe('prompts page', () => {
 	beforeEach(() => {
 		queryClient.clear();
 		getMock.mockReset();
@@ -32,6 +33,78 @@ describe('prompt mutation ownership', () => {
 			// SAFETY: The fixture contains every response field consumed by the component.
 			return response([prompt(workspaceID)]) as never;
 		});
+	});
+
+	afterEach(() => vi.useRealTimers());
+
+	it('keeps one page placeholder until prompts and uncached categories resolve', async () => {
+		vi.useFakeTimers();
+		queryClient.clear();
+		const promptsRead = deferred<ReturnType<typeof response<Prompt[]>>>();
+		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
+		getMock.mockImplementation((path) => {
+			if (path === '/prompts/categories') return categoriesRead.promise as never;
+			if (path === '/prompts') return promptsRead.promise as never;
+			throw new Error(`Unexpected GET ${path}`);
+		});
+
+		const screen = await renderPromptsPage();
+		await vi.waitFor(() => {
+			expect(promptReadCount('workspace-a')).toBe(1);
+			expect(categoryReadCount()).toBe(1);
+		});
+
+		promptsRead.resolve(response([prompt('workspace-a')]));
+		await vi.waitFor(() => {
+			expect(queryClient.getQueryData(promptQueryKeys.list('workspace-a'))).toHaveLength(1);
+		});
+		await vi.advanceTimersByTimeAsync(FIRST_VIEWPORT_LOADING_DELAY_MS);
+
+		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
+		expect(screen.container.querySelectorAll('[data-slot="page-loading"]')).toHaveLength(1);
+		await expect.element(screen.getByText('workspace-a prompt')).not.toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('button', { name: 'Add prompt' }))
+			.not.toBeInTheDocument();
+
+		categoriesRead.resolve(response({ categories: ['Ideas'] }));
+		await vi.waitFor(() => {
+			expect(queryClient.getQueryData(promptQueryKeys.categories())).toEqual(['Ideas']);
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Add prompt' })).toBeVisible();
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+	});
+
+	it('keeps cached categories and page content visible during a category refresh', async () => {
+		vi.useFakeTimers();
+		queryClient.setQueryData(promptQueryKeys.categories(), ['Ideas'], { updatedAt: 1 });
+		queryClient.setQueryData(promptQueryKeys.list('workspace-a'), [prompt('workspace-a')]);
+		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
+		getMock.mockImplementation((path, request) => {
+			if (path === '/prompts/categories') return categoriesRead.promise as never;
+			if (path !== '/prompts') throw new Error(`Unexpected GET ${path}`);
+			const workspaceID = request?.params?.query?.workspace_id ?? '';
+			return Promise.resolve(response([prompt(workspaceID)])) as never;
+		});
+
+		const screen = await renderPromptsPage();
+		await vi.waitFor(() => expect(categoryReadCount()).toBe(1));
+		await vi.advanceTimersByTimeAsync(FIRST_VIEWPORT_LOADING_DELAY_MS);
+
+		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Add prompt' })).toBeVisible();
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
+		expect(
+			screen.container.querySelectorAll('[data-slot="page-header-actions"] [data-slot="skeleton"]')
+		).toHaveLength(0);
+
+		categoriesRead.resolve(response({ categories: ['Ideas', 'Updates'] }));
+		await vi.waitFor(() => {
+			expect(queryClient.getQueryData(promptQueryKeys.categories())).toEqual(['Ideas', 'Updates']);
+		});
+		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
 	});
 
 	it('does not refresh or report an old prompt creation in a new Workspace', async () => {
@@ -113,7 +186,22 @@ describe('prompt mutation ownership', () => {
 				path === '/prompts' && request?.params?.query?.workspace_id === workspaceID
 		).length;
 	}
+
+	function categoryReadCount() {
+		return getMock.mock.calls.filter(([path]) => path === '/prompts/categories').length;
+	}
 });
+
+function renderPromptsPage() {
+	return render(
+		PromptsPage,
+		{},
+		{
+			wrapper: QueryClientProvider,
+			wrapperProps: { client: queryClient }
+		}
+	);
+}
 
 function response<T>(data: T) {
 	return { data, error: undefined, response: new Response(null, { status: 200 }) };

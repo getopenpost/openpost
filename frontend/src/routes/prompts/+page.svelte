@@ -23,7 +23,6 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
@@ -34,7 +33,6 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/paraglide/messages';
@@ -72,7 +70,12 @@
 	const hasPromptData = $derived(promptsQuery.data !== undefined);
 	const categories = $derived(categoriesQuery.data ?? []);
 	const loading = $derived(promptsQuery.isFetching);
-	const loadingCategories = $derived(categoriesQuery.isFetching);
+	const hasCategoryData = $derived(categoriesQuery.data !== undefined);
+	const routeLoading = $derived(
+		!workspaceCtx.currentWorkspace ||
+			promptsQuery.isPending ||
+			(categoriesQuery.isPending && !hasCategoryData)
+	);
 	const error = $derived(queryErrorMessage(promptsQuery.error, m.prompts_load_failed()));
 	const categoriesError = $derived(
 		queryErrorMessage(categoriesQuery.error, m.prompts_load_failed())
@@ -226,33 +229,29 @@
 	title={m.prompts_title()}
 	description={m.prompts_description()}
 	icon={LightbulbIcon}
-	loading={!workspaceCtx.currentWorkspace || promptsQuery.isPending}
+	loading={routeLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="grid"
 	loadingActionCount={3}
 >
 	{#snippet actions()}
-		{#if loadingCategories && categories.length === 0}
-			<Skeleton class="h-9 w-32" />
-		{:else}
-			<Select.Root
-				type="single"
-				value={selectedCategory}
-				onValueChange={(value) => {
-					selectedCategory = value;
-				}}
-			>
-				<Select.Trigger class="w-40">
-					{selectedCategory === 'all' ? m.prompts_all_categories() : selectedCategory}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{m.prompts_all_categories()}</Select.Item>
-					{#each categories as category (category)}
-						<Select.Item value={category}>{category}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-		{/if}
+		<Select.Root
+			type="single"
+			value={selectedCategory}
+			onValueChange={(value) => {
+				selectedCategory = value;
+			}}
+		>
+			<Select.Trigger class="w-40">
+				{selectedCategory === 'all' ? m.prompts_all_categories() : selectedCategory}
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Item value="all">{m.prompts_all_categories()}</Select.Item>
+				{#each categories as category (category)}
+					<Select.Item value={category}>{category}</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 		<Button onclick={getRandomPrompt} variant="outline" class="gap-2">
 			<ShuffleIcon class="size-4" />
 			{m.prompts_random()}
@@ -287,9 +286,7 @@
 		{#if loading && hasPromptData}
 			<span class="sr-only" role="status">{m.common_loading()}</span>
 		{/if}
-		{#if loading && !hasPromptData}
-			<PageLoading layout="grid" label={m.common_loading()} items={8} />
-		{:else if hasPromptData && prompts.length === 0}
+		{#if hasPromptData && prompts.length === 0}
 			<EmptyState
 				icon={LightbulbIcon}
 				title={m.prompts_empty()}
@@ -400,24 +397,20 @@
 						<div class="space-y-2">
 							<label class="text-sm font-medium" for="prompt-category">{m.prompts_category()}</label
 							>
-							{#if loadingCategories && categories.length === 0}
-								<Skeleton class="h-9 w-full" />
-							{:else}
-								<Select.Root
-									type="single"
-									value={newPromptCategory}
-									onValueChange={(v) => (newPromptCategory = v)}
-								>
-									<Select.Trigger id="prompt-category" class="w-full">
-										{newPromptCategory || m.prompts_select_category()}
-									</Select.Trigger>
-									<Select.Content>
-										{#each categories as category (category)}
-											<Select.Item value={category}>{category}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							{/if}
+							<Select.Root
+								type="single"
+								value={newPromptCategory}
+								onValueChange={(v) => (newPromptCategory = v)}
+							>
+								<Select.Trigger id="prompt-category" class="w-full">
+									{newPromptCategory || m.prompts_select_category()}
+								</Select.Trigger>
+								<Select.Content>
+									{#each categories as category (category)}
+										<Select.Item value={category}>{category}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
 						</div>
 					</div>
 					<Dialog.Footer>

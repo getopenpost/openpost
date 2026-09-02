@@ -114,4 +114,29 @@ describe('analytics performance chart', () => {
 
 		await expect.element(screen.getByText('@openpost.bsky.social')).toBeVisible();
 	});
+
+	it('uses the active theme chart palette for series colors', async () => {
+		const screen = await render(AnalyticsPerformanceChart, {
+			points: [
+				{
+					date: '2026-08-30',
+					value: 12,
+					items: [{ key: 'account-1', label: 'OpenPost', platform: 'bluesky', value: 12 }]
+				}
+			],
+			metric: 'followers',
+			label: 'Daily follower change',
+			emptyLabel: 'No daily changes',
+			otherLabel: 'Other accounts',
+			formatValue: String,
+			formatDate: String
+		});
+		screen.container.style.setProperty('--chart-1', 'rgb(12 34 56)');
+		const series = screen.container.querySelector<SVGRectElement>(
+			'rect[fill*="analytics-series-1"]'
+		);
+		if (!series) throw new Error('Expected a themed analytics series');
+
+		await expect.poll(() => getComputedStyle(series).fill).toBe('rgb(12, 34, 56)');
+	});
 });

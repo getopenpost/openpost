@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { onlineManager, QueryClient, QueryObserver } from "@tanstack/react-query";
+import type { QueryPageResult } from "@openpost/query-catalog";
 
 import {
   capturePublicationListCacheContext,
@@ -233,7 +234,7 @@ describe("query cache behavior", () => {
       queryFn: async () => {
         calls += 1;
         await gate;
-        return [publication("publication-1", "draft")];
+        return publicationPage(publication("publication-1", "draft"));
       },
     };
 
@@ -252,7 +253,7 @@ describe("query cache behavior", () => {
     const client = new QueryClient();
     const workspaceOneKey = queryKeys.publicationActivity("workspace-1", "draft");
     const workspaceTwoKey = queryKeys.publicationActivity("workspace-2", "draft");
-    const cached = [publication("publication-1", "draft")];
+    const cached = publicationPage(publication("publication-1", "draft"));
     const queryFn = async () => cached;
     client.setQueryData(workspaceOneKey, cached);
     const observer = new QueryObserver(client, {
@@ -336,6 +337,51 @@ describe("query cache behavior", () => {
 });
 
 describe("publication cache handoff", () => {
+  test("adds a created draft to the cached activity page without corrupting pagination", () => {
+    const client = new QueryClient();
+    const existing = publication("publication-1", "draft");
+    const created = publication("publication-2", "draft");
+    const draftKey = queryKeys.publicationActivity("workspace-1", "draft");
+    client.setQueryData(draftKey, {
+      items: [existing],
+      total: 4,
+      nextCursor: "page-2",
+    });
+
+    cacheCreatedPublication(client, "workspace-1", created);
+    cacheCreatedPublication(client, "workspace-1", created);
+
+    expect(client.getQueryData<QueryPageResult<Publication>>(draftKey)).toEqual({
+      items: [created, existing],
+      total: 5,
+      nextCursor: "page-2",
+    });
+    client.clear();
+  });
+
+  test("keeps a created draft within the activity page limit", () => {
+    const client = new QueryClient();
+    const existing = Array.from({ length: 100 }, (_, index) =>
+      publication(`publication-${index}`, "draft"),
+    );
+    const created = publication("publication-created", "draft");
+    const draftKey = queryKeys.publicationActivity("workspace-1", "draft");
+    client.setQueryData<QueryPageResult<Publication>>(draftKey, {
+      items: existing,
+      total: 100,
+      nextCursor: "page-2",
+    });
+
+    cacheCreatedPublication(client, "workspace-1", created);
+
+    expect(client.getQueryData<QueryPageResult<Publication>>(draftKey)).toEqual({
+      items: [created, ...existing.slice(0, 99)],
+      total: 101,
+      nextCursor: "page-2",
+    });
+    client.clear();
+  });
+
   test("cancels a draft read started during creation before seeding and refreshing", async () => {
     onlineManager.setOnline(true);
     const client = new QueryClient();
@@ -349,18 +395,18 @@ describe("publication cache handoff", () => {
       markStarted = resolve;
     });
 
-    client.setQueryData(draftKey, [existing], { updatedAt: 1 });
+    client.setQueryData(draftKey, publicationPage(existing), { updatedAt: 1 });
     await client.cancelQueries({ queryKey: draftKey, exact: true });
-    const observer = new QueryObserver<Publication[], OpenPostQueryError>(client, {
+    const observer = new QueryObserver<QueryPageResult<Publication>, OpenPostQueryError>(client, {
       ...queryPolicies.standard,
       staleTime: 0,
       queryKey: draftKey,
       queryFn: ({ signal }) => {
         calls += 1;
-        if (calls > 1) return Promise.resolve([created, existing]);
+        if (calls > 1) return Promise.resolve(publicationPage(created, existing));
         firstRequestSignal = signal;
         markStarted();
-        return new Promise<Publication[]>((_, reject) => {
+        return new Promise<QueryPageResult<Publication>>((_, reject) => {
           signal.addEventListener(
             "abort",
             () => reject(new DOMException("cancelled", "AbortError")),
@@ -381,10 +427,9 @@ describe("publication cache handoff", () => {
 
     expect(firstRequestSignal?.aborted).toBe(true);
     expect(calls).toBe(2);
-    expect(client.getQueryData<Publication[]>(draftKey)?.map(({ id }) => id)).toEqual([
-      "publication-2",
-      "publication-1",
-    ]);
+    expect(
+      client.getQueryData<QueryPageResult<Publication>>(draftKey)?.items.map(({ id }) => id),
+    ).toEqual(["publication-2", "publication-1"]);
     unsubscribe();
     client.clear();
   });
@@ -394,7 +439,7 @@ describe("publication cache handoff", () => {
     const existing = publication("publication-1", "draft");
     const created = publication("publication-2", "draft");
     const draftKey = queryKeys.publicationActivity("workspace-1", "draft");
-    client.setQueryData(draftKey, [existing]);
+    client.setQueryData(draftKey, publicationPage(existing));
 
     cacheCreatedPublication(client, "workspace-1", created);
     cacheCreatedPublication(client, "workspace-1", created);
@@ -402,10 +447,9 @@ describe("publication cache handoff", () => {
     expect(
       client.getQueryData<Publication>(queryKeys.publication("workspace-1", created.id)),
     ).toEqual(created);
-    expect(client.getQueryData<Publication[]>(draftKey)?.map(({ id }) => id)).toEqual([
-      "publication-2",
-      "publication-1",
-    ]);
+    expect(
+      client.getQueryData<QueryPageResult<Publication>>(draftKey)?.items.map(({ id }) => id),
+    ).toEqual(["publication-2", "publication-1"]);
 
     const emptyClient = new QueryClient();
     cacheCreatedPublication(emptyClient, "workspace-1", created);
@@ -426,6 +470,22 @@ describe("publication cache handoff", () => {
       updatedAt: 1234,
     });
     expect(findCachedPublication(client, "workspace-2", cached.id)).toBeUndefined();
+  });
+
+  test("uses a publication stored in an activity page as detail data", () => {
+    const client = new QueryClient();
+    const cached = publication("publication-1", "draft");
+    client.setQueryData(
+      queryKeys.publicationActivity("workspace-1", "draft"),
+      { items: [cached], total: 1, nextCursor: "" },
+      { updatedAt: 4321 },
+    );
+
+    expect(findCachedPublication(client, "workspace-1", cached.id)).toEqual({
+      data: cached,
+      updatedAt: 4321,
+    });
+    client.clear();
   });
 
   test("refreshes an existing detail entry from a newer full list response", () => {
@@ -720,4 +780,8 @@ function publication(
   updatedAt = "2026-09-01T12:00:00Z",
 ): Publication {
   return { id, revision, status, updated_at: updatedAt, workspace_id: workspaceId } as Publication;
+}
+
+function publicationPage(...items: Publication[]): QueryPageResult<Publication> {
+  return { items, total: items.length, nextCursor: "" };
 }

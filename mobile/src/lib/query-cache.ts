@@ -4,8 +4,14 @@ import {
   requirePublicationWorkspace,
   seedPublicationDetail,
   type PublicationListCacheContext,
+  type QueryPageResult,
 } from "@openpost/query-catalog";
-import { publicationRefreshKeys, queryKeys, type PublicationRefreshRequest } from "./query-policy";
+import {
+  mobileQueryDimensions,
+  publicationRefreshKeys,
+  queryKeys,
+  type PublicationRefreshRequest,
+} from "./query-policy";
 import { queryActorScopeIsCurrent, type WorkspaceQueryScope } from "./query-session";
 
 export {
@@ -39,8 +45,9 @@ export function findCachedPublication(
   ];
 
   for (const query of queries) {
-    if (!Array.isArray(query.state.data)) continue;
-    const publication = (query.state.data as Publication[]).find(
+    const publications = cachedPublications(query.state.data);
+    if (!publications) continue;
+    const publication = publications.find(
       (candidate) => candidate.id === publicationId && candidate.workspace_id === workspaceId,
     );
     if (!publication || (match && match.updatedAt >= query.state.dataUpdatedAt)) continue;
@@ -48,6 +55,14 @@ export function findCachedPublication(
   }
 
   return match;
+}
+
+function cachedPublications(data: unknown): Publication[] | undefined {
+  if (Array.isArray(data)) return data as Publication[];
+  if (!data || typeof data !== "object" || !("items" in data) || !Array.isArray(data.items)) {
+    return undefined;
+  }
+  return data.items as Publication[];
 }
 
 export function cachePublication(
@@ -81,12 +96,20 @@ export function cacheCreatedPublication(
   publication: Publication,
 ): void {
   cachePublication(queryClient, workspaceId, publication);
-  queryClient.setQueryData<Publication[]>(
+  queryClient.setQueryData<QueryPageResult<Publication>>(
     queryKeys.publicationActivity(workspaceId, "draft"),
-    (current) =>
-      current
-        ? [publication, ...current.filter((candidate) => candidate.id !== publication.id)]
-        : undefined,
+    (current) => {
+      if (!current) return undefined;
+      const alreadyCached = current.items.some((candidate) => candidate.id === publication.id);
+      return {
+        ...current,
+        items: [
+          publication,
+          ...current.items.filter((candidate) => candidate.id !== publication.id),
+        ].slice(0, mobileQueryDimensions.publicationPage.limit),
+        total: current.total + (alreadyCached ? 0 : 1),
+      };
+    },
   );
 }
 

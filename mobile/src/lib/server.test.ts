@@ -4,6 +4,7 @@ import {
   activityPublicationsQueryOptions,
   liveQueryStaleTime,
   queryStaleTime,
+  type QueryPageResult,
   workspaceAccountsQueryOptions,
 } from "@openpost/query-catalog";
 
@@ -107,9 +108,11 @@ describe("publication detail initial data", () => {
     const publicationId = "publication-1";
     const detailKey = queryKeys.publication(workspaceId, publicationId);
     const scheduled = publication(publicationId, "scheduled");
-    client.setQueryData(queryKeys.publicationActivity(workspaceId, "scheduled"), [scheduled], {
-      updatedAt: 100,
-    });
+    client.setQueryData<QueryPageResult<Publication>>(
+      queryKeys.publicationActivity(workspaceId, "scheduled"),
+      { items: [scheduled], total: 1, nextCursor: "" },
+      { updatedAt: 100 },
+    );
     const listContext = capturePublicationListCacheContext(client, workspaceId);
 
     const observer = new QueryObserver(

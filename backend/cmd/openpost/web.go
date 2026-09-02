@@ -391,8 +391,11 @@ func normalizedRequestPath(requestURL *url.URL) string {
 	return requestURL.Path
 }
 
-const managedEditionReviewFallback = `<noscript data-openpost-review-fallback>
-	<main style="box-sizing:border-box;max-width:42rem;margin:0 auto;padding:4rem 1.5rem;font:16px/1.6 system-ui,sans-serif;color:CanvasText;background:Canvas">
+const managedEditionReviewMetadata = `<title data-openpost-review-fallback>OpenPost - content publishing workspace</title>
+		<meta data-openpost-review-fallback name="description" content="Create, adapt, schedule, publish, and review social content from one OpenPost workspace.">
+		<link data-openpost-review-fallback rel="canonical" href="https://app.openpo.st/">`
+
+const managedEditionReviewFallback = `<main data-openpost-review-fallback style="box-sizing:border-box;max-width:42rem;margin:0 auto;padding:4rem 1.5rem;font:16px/1.6 system-ui,sans-serif;color:CanvasText;background:Canvas">
 		<h1 style="font-size:2rem;line-height:1.2">Your content operation, together in one workspace.</h1>
 		<p>Create one source, adapt it for each social platform, schedule every destination, and review publishing results from one OpenPost workspace.</p>
 		<p><a href="/register?plan=founder&amp;billing_period=monthly">Start 14-day trial</a> · <a href="/login">Sign in</a></p>
@@ -415,7 +418,9 @@ const managedEditionReviewFallback = `<noscript data-openpost-review-fallback>
 			<a href="https://openpo.st/refunds">Refund policy</a>
 		</nav>
 	</main>
-</noscript>`
+	<script data-openpost-review-fallback>
+		document.querySelectorAll('[data-openpost-review-fallback]').forEach((element) => element.remove());
+	</script>`
 
 func renderManagedEditionMetadata(indexData []byte, requestPath string) []byte {
 	htmlDocument := string(indexData)
@@ -431,6 +436,9 @@ func renderManagedEditionMetadata(indexData []byte, requestPath string) []byte {
 	)
 	if requestPath != "/" && requestPath != "/login" && requestPath != "/checkout" {
 		return []byte(htmlDocument)
+	}
+	if requestPath == "/" {
+		htmlDocument = strings.Replace(htmlDocument, "</head>", managedEditionReviewMetadata+"\n\t</head>", 1)
 	}
 	if !strings.Contains(htmlDocument, "</body>") {
 		return []byte(htmlDocument)

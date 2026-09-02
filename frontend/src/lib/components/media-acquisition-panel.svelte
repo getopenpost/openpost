@@ -545,7 +545,7 @@
 									</Button>
 								{:else if item.status === 'success'}
 									<span
-										class="flex size-8 items-center justify-center text-emerald-600 dark:text-emerald-400"
+										class="flex size-8 items-center justify-center text-success-foreground"
 										aria-label={m.media_upload_complete()}
 									>
 										<ProtectedIcon icon="success" class="size-4" />

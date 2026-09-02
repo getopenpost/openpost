@@ -12,7 +12,7 @@
 
 <section
 	data-testid="workspace-activation-completion"
-	class="mx-auto mt-4 flex w-[calc(100%-1.5rem)] max-w-2xl flex-col gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-4 sm:w-[calc(100%-3rem)] sm:flex-row sm:items-center sm:justify-between"
+	class="mx-auto mt-4 flex w-[calc(100%-1.5rem)] max-w-2xl flex-col gap-3 rounded-lg border border-success-foreground/25 bg-success p-4 sm:w-[calc(100%-3rem)] sm:flex-row sm:items-center sm:justify-between"
 	aria-labelledby="workspace-activation-heading"
 >
 	<div class="min-w-0">

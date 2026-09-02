@@ -41,7 +41,7 @@
 						'size-11 shrink-0 sm:size-9',
 						hasErrors
 							? 'text-destructive hover:text-destructive'
-							: 'text-amber-700 hover:text-amber-700 dark:text-amber-300',
+							: 'text-warning-foreground hover:text-warning-foreground',
 						className
 					)}
 					aria-label={`${m.compose_check_before_publishing()} (${issues.length})`}
@@ -67,7 +67,7 @@
 					<li
 						class={cn(
 							'rounded-md text-sm leading-5',
-							issue.severity === 'error' ? 'text-destructive' : 'text-amber-700 dark:text-amber-300'
+							issue.severity === 'error' ? 'text-destructive' : 'text-warning-foreground'
 						)}
 					>
 						{#snippet issueContent()}

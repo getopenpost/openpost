@@ -55,7 +55,7 @@
 >
 	<div class="space-y-4">
 		{#if workspaceActivated}
-			<div class="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-4">
+			<div class="rounded-lg border border-success-foreground/25 bg-success p-4">
 				<h2 class="font-semibold">{m.workspace_activation_heading()}</h2>
 				<p class="mt-1 text-sm/6 text-muted-foreground">
 					{m.workspace_activation_description()}

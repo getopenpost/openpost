@@ -94,7 +94,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the focusable ARIA separator follows the Window Splitter pattern -->
 <div
-	class="group absolute z-[85] touch-none items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--panel-resize-focus,oklch(0.66_0.14_45))] {visibilityClass} {positionClass} {className}"
+	class="group absolute z-[85] touch-none items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--panel-resize-focus,var(--ring))] {visibilityClass} {positionClass} {className}"
 	role="separator"
 	tabindex="0"
 	aria-label={label}

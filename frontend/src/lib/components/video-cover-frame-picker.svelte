@@ -158,14 +158,14 @@
 		</p>
 	{:else if appliedTimestampMs !== null}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
-			<ProtectedIcon icon="success" class="size-3.5 text-emerald-600" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" aria-hidden="true" />
 			{m.compose_cover_frame_selected({
 				time: formatCoverFrameTimestamp(appliedTimestampMs)
 			})}
 		</p>
 	{:else if mode === 'image' && typeof value === 'string' && value}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<ProtectedIcon icon="success" class="size-3.5 text-emerald-600" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" aria-hidden="true" />
 			{m.compose_cover_image_selected()}
 		</p>
 	{/if}

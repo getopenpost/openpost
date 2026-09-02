@@ -97,6 +97,7 @@
 	--color-overlay: var(--overlay);
 	--color-scrim: var(--scrim);
 	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-info: var(--info);

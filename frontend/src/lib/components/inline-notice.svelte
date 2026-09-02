@@ -39,10 +39,10 @@
 		tone === 'error'
 			? 'border-destructive/20 bg-destructive/10 text-destructive'
 			: tone === 'success'
-				? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+				? 'border-success-foreground/20 bg-success text-success-foreground'
 				: tone === 'warning'
-					? 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-					: 'border-border bg-muted/35 text-foreground'
+					? 'border-warning-foreground/25 bg-warning text-warning-foreground'
+					: 'border-info-foreground/20 bg-info text-info-foreground'
 	);
 </script>
 

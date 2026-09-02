@@ -146,6 +146,7 @@ describe("native theme runtime", () => {
         fonts: [
           {
             id: "font-1",
+            sourceFamily: "Example Sans",
             family: "Example Sans",
             sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1",
             format: "woff2" as const,

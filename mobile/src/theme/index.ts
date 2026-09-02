@@ -3,6 +3,7 @@ export * from "./api-adapter";
 export * from "./builtins";
 export * from "./contract";
 export * from "./freeze";
+export * from "./font-family";
 export * from "./icons";
 export * from "./native-theme-runtime";
 export * from "./navigation";

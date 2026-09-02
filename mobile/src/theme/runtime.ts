@@ -190,6 +190,7 @@ function validResources(contract: NativeResolvedThemeContract): boolean {
     if (
       !font.id ||
       ids.has(font.id) ||
+      !font.sourceFamily ||
       !font.family ||
       !font.sourceUrl ||
       font.format !== "woff2" ||

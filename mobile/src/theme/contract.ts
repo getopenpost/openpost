@@ -141,6 +141,9 @@ export interface NativeThemeAssetBinding {
 
 export interface NativeThemeFontResource {
   readonly id: string;
+  /** Original family declared by the organization theme. */
+  readonly sourceFamily: string;
+  /** Revision-safe family name registered with Expo Font. */
   readonly family: string;
   readonly sourceUrl: string;
   readonly format: "woff2";

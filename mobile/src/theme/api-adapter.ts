@@ -19,6 +19,7 @@ import {
   type NativeThemeScheme,
 } from "./contract";
 import { deepFreeze } from "./freeze";
+import { nativeThemeRuntimeFontFamily } from "./font-family";
 import { readableThemeForeground, validateNativeThemeManifest } from "./validation";
 
 const ICON_PACKS = new Set<NativeIconPackId>([
@@ -168,17 +169,20 @@ export function adaptResolvedThemeResponse({
         mimeType,
         alt ?? null,
       ]),
-      fonts: fonts.map(({ display, family, id, nativeDerivative, sourceUrl, style, weight }) => [
-        id,
-        family,
-        sourceUrl,
-        weight,
-        style,
-        display,
-        nativeDerivative.sourceUrl,
-        nativeDerivative.format,
-        nativeDerivative.identity,
-      ]),
+      fonts: fonts.map(
+        ({ display, family, id, nativeDerivative, sourceFamily, sourceUrl, style, weight }) => [
+          id,
+          sourceFamily,
+          family,
+          sourceUrl,
+          weight,
+          style,
+          display,
+          nativeDerivative.sourceUrl,
+          nativeDerivative.format,
+          nativeDerivative.identity,
+        ],
+      ),
     })}`;
     const contract: NativeResolvedThemeContract = {
       contractVersion: NATIVE_THEME_CONTRACT_VERSION,
@@ -442,10 +446,10 @@ function textRole(
   if (letterSpacing === null) return null;
   const face = fonts.find(
     (font) =>
-      font.family === value.family && font.weight === value.weight && font.style === "normal",
+      font.sourceFamily === value.family && font.weight === value.weight && font.style === "normal",
   );
   return {
-    ...(face ? { fontFamily: value.family, fontResourceId: face.id } : {}),
+    ...(face ? { fontFamily: face.family, fontResourceId: face.id } : {}),
     fontSize,
     fontWeight,
     letterSpacing,
@@ -604,7 +608,8 @@ function adaptFonts(
     seen.add(value.id);
     result.push({
       id: value.id,
-      family: value.family,
+      sourceFamily: value.family,
+      family: nativeThemeRuntimeFontFamily(value.id),
       sourceUrl: value.sourceUrl,
       format: "woff2",
       nativeDerivative: {

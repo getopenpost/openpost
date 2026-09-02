@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { adaptResolvedThemeResponse } from "./api-adapter";
+import { nativeThemeRuntimeFontFamily } from "./font-family";
 
 describe("resolved theme API adapter", () => {
   test("converts a complete canonical scheme into React Native-safe values", () => {
@@ -24,7 +25,7 @@ describe("resolved theme API adapter", () => {
       pressedContent: "#973900ff",
     });
     expect(manifest.typography.bodyMedium).toMatchObject({
-      fontFamily: "Example Sans",
+      fontFamily: nativeThemeRuntimeFontFamily("font-1"),
       fontSize: 14,
       fontWeight: "400",
       letterSpacing: 0,
@@ -56,7 +57,7 @@ describe("resolved theme API adapter", () => {
     expect(adapted.contract.resources.fonts).toEqual([
       {
         display: "swap",
-        family: "Example Sans",
+        family: nativeThemeRuntimeFontFamily("font-1"),
         format: "woff2",
         id: "font-1",
         nativeDerivative: {
@@ -67,6 +68,7 @@ describe("resolved theme API adapter", () => {
         },
         sourceUrl:
           "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7",
+        sourceFamily: "Example Sans",
         style: "normal",
         weight: 400,
       },

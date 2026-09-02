@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createBuiltinThemeContract } from "./builtins";
 import type { NativeResolvedThemeContract } from "./contract";
+import { nativeThemeRuntimeFontFamily } from "./font-family";
 import { stageNativeThemeResources, type NativeThemeResourceStageAdapter } from "./resource-stage";
 
 const FONT_IDENTITY = "8f".repeat(32);
@@ -19,7 +20,8 @@ function resourceBackedContract(): NativeResolvedThemeContract {
       fonts: [
         {
           id: "font-1",
-          family: "Organization Sans",
+          sourceFamily: "Organization Sans",
+          family: nativeThemeRuntimeFontFamily("font-1"),
           sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1",
           format: "woff2",
           nativeDerivative: {
@@ -60,7 +62,7 @@ describe("native theme resource staging", () => {
         events.push(`load:${fonts.map((font) => font.id).join(",")}`);
         expect(fonts).toEqual([
           {
-            family: "Organization Sans",
+            family: nativeThemeRuntimeFontFamily("font-1"),
             format: "ttf",
             id: "font-1",
             uri: "file:///themes/font-1.ttf",
@@ -76,7 +78,7 @@ describe("native theme resource staging", () => {
       fonts: {
         "font-1": {
           derivativeIdentity: FONT_IDENTITY,
-          family: "Organization Sans",
+          family: nativeThemeRuntimeFontFamily("font-1"),
           format: "ttf",
           uri: "file:///themes/font-1.ttf",
         },

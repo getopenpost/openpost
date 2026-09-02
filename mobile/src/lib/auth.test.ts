@@ -5,9 +5,18 @@ type Deferred<T> = {
   resolve: (value: T | PromiseLike<T>) => void;
 };
 
+type ServerStoreOperation = "delete" | "set";
+
 const TOKEN_KEY = "openpost.auth.token";
 const WORKSPACE_KEY = "openpost.workspace.id";
+const SERVER_KEY = "openpost.server.baseUrl";
 const values = new Map<string, string>();
+let pendingServerWrite: {
+  operation: ServerStoreOperation;
+  started: Deferred<void>;
+  release: Deferred<void>;
+} | null = null;
+let failingServerOperation: ServerStoreOperation | null = null;
 
 mock.module("expo-constants", () => ({
   default: { expoConfig: { version: "test" } },
@@ -16,14 +25,36 @@ mock.module("react-native", () => ({ Platform: { OS: "ios" } }));
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
+    const pending =
+      key === SERVER_KEY && pendingServerWrite?.operation === "set" ? pendingServerWrite : null;
+    if (pending) {
+      pendingServerWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
+    if (key === SERVER_KEY && failingServerOperation === "set") {
+      failingServerOperation = null;
+      throw new Error("SecureStore server write failed");
+    }
     values.set(key, value);
   },
   deleteItemAsync: async (key: string) => {
+    const pending =
+      key === SERVER_KEY && pendingServerWrite?.operation === "delete" ? pendingServerWrite : null;
+    if (pending) {
+      pendingServerWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
+    if (key === SERVER_KEY && failingServerOperation === "delete") {
+      failingServerOperation = null;
+      throw new Error("SecureStore server write failed");
+    }
     values.delete(key);
   },
 }));
 
-const { setServer } = await import("./server");
+const { clearServer, getServer, setServer } = await import("./server");
 const { getToken, loadToken, loadWorkspaceId } = await import("./api/token-store");
 const { captureApiRequestIdentity, commitTokenForIdentity } = await import("./api/client");
 const { login, pollPairing, signOut, verifyTotp } = await import("./auth");
@@ -32,14 +63,71 @@ describe("auth request identity", () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(async () => {
+    pendingServerWrite = null;
+    failingServerOperation = null;
     values.clear();
     await loadToken();
     await loadWorkspaceId();
   });
 
   afterEach(() => {
+    pendingServerWrite?.release.resolve();
+    pendingServerWrite = null;
+    failingServerOperation = null;
     globalThis.fetch = originalFetch;
   });
+
+  for (const transition of [
+    { action: "set", outcome: "success" },
+    { action: "set", outcome: "failure" },
+    { action: "clear", outcome: "success" },
+    { action: "clear", outcome: "failure" },
+  ] as const) {
+    test(`does not save a login captured during a pending server ${transition.action} ${transition.outcome}`, async () => {
+      const request = deferredFetch();
+      const previousServer = `https://old-${transition.action}-${transition.outcome}.example.com`;
+      await setServer(previousServer);
+      const serverStarted = deferred<void>();
+      const releaseServer = deferred<void>();
+      const storeOperation = transition.action === "set" ? "set" : "delete";
+      pendingServerWrite = {
+        operation: storeOperation,
+        started: serverStarted,
+        release: releaseServer,
+      };
+      if (transition.outcome === "failure") failingServerOperation = storeOperation;
+      const serverTransition =
+        transition.action === "set"
+          ? setServer("https://replacement-pending-login.example.com")
+          : clearServer();
+      await serverStarted.promise;
+      const signingIn = login("founder@example.com", "password");
+      await request.started.promise;
+      request.respond({ token: "token-old-server" });
+      const signInOutcome = await signingIn.then(
+        () => "signed-in",
+        (cause: unknown) => (cause instanceof Error ? cause.name : "unknown-error"),
+      );
+      releaseServer.resolve();
+      const serverOutcome = await serverTransition.then(
+        () => "success",
+        () => "failure",
+      );
+
+      expect(signInOutcome).toBe("AbortError");
+      expect(serverOutcome).toBe(transition.outcome);
+      expect(getServer()?.baseUrl).toBe(
+        transition.action === "set" && transition.outcome === "success"
+          ? "https://replacement-pending-login.example.com"
+          : transition.action === "clear" && transition.outcome === "success"
+            ? undefined
+            : previousServer,
+      );
+      expect(values.get(SERVER_KEY)).toBe(getServer()?.baseUrl);
+      expect(getToken()).toBeNull();
+      expect(values.has(TOKEN_KEY)).toBe(false);
+    });
+  }
 
   test("does not save an old login response after the server changes", async () => {
     const request = deferredFetch();

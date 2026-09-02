@@ -31,7 +31,7 @@ mock.module("expo-secure-store", () => ({
   },
 }));
 
-const { getServer, setServer } = await import("./server");
+const { clearServer, getServer, setServer } = await import("./server");
 const { getWorkspaceId, loadToken, loadWorkspaceId, subscribeWorkspaceId } =
   await import("./api/token-store");
 const { captureApiRequestIdentity, commitTokenForIdentity } = await import("./api/client");
@@ -114,6 +114,43 @@ describe("workspace selection", () => {
     releaseServer.resolve();
     await serverChange;
   });
+
+  for (const transition of [
+    { action: "set", outcome: "success" },
+    { action: "set", outcome: "failure" },
+    { action: "clear", outcome: "success" },
+    { action: "clear", outcome: "failure" },
+  ] as const) {
+    test(`does not select a Workspace during a pending server ${transition.action} ${transition.outcome}`, async () => {
+      const started = deferred<void>();
+      const release = deferred<void>();
+      const serverOperation: StoreOperation =
+        transition.action === "set"
+          ? { kind: "set", key: SERVER_KEY, value: "https://pending.example.com" }
+          : { kind: "delete", key: SERVER_KEY };
+      pendingWrite = { ...serverOperation, started, release };
+      if (transition.outcome === "failure") failingWrite = serverOperation;
+      const serverTransition =
+        transition.action === "set" ? setServer("https://pending.example.com") : clearServer();
+      await started.promise;
+      let navigationCount = 0;
+
+      const selected = await completeWorkspaceSelection("workspace-new", () => {
+        navigationCount += 1;
+      });
+      release.resolve();
+      const serverOutcome = await serverTransition.then(
+        () => "success",
+        () => "failure",
+      );
+
+      expect(selected).toBe(false);
+      expect(navigationCount).toBe(0);
+      expect(serverOutcome).toBe(transition.outcome);
+      expect(getWorkspaceId()).toBe("workspace-old");
+      expect(values.get(WORKSPACE_KEY)).toBe("workspace-old");
+    });
+  }
 
   test("does not publish or navigate when a token change queues during its write", async () => {
     const workspaceStarted = deferred<void>();

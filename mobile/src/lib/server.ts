@@ -15,6 +15,7 @@ let current: ServerConfig | null = null;
 const listeners = new Set<() => void>();
 let persistenceTail = Promise.resolve();
 let mutationRevision = 0;
+let pendingServerMutationCount = 0;
 
 export function subscribeServer(listener: () => void): () => void {
   listeners.add(listener);
@@ -29,6 +30,10 @@ export function getServerMutationRevision(): number {
   return mutationRevision;
 }
 
+export function getPendingServerMutationCount(): number {
+  return pendingServerMutationCount;
+}
+
 function notify() {
   for (const listener of listeners) listener();
 }
@@ -40,6 +45,13 @@ function runPersistenceOperation<T>(operation: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return result;
+}
+
+function runServerMutation<T>(operation: () => Promise<T>): Promise<T> {
+  pendingServerMutationCount += 1;
+  return runPersistenceOperation(operation).finally(() => {
+    pendingServerMutationCount -= 1;
+  });
 }
 
 export function loadServer(): Promise<ServerConfig | null> {
@@ -62,7 +74,7 @@ export function setServer(rawUrl: string): Promise<ServerConfig> {
   }
   const next = { baseUrl: normalized, isHosted: normalized === HOSTED_URL };
   const operationRevision = ++mutationRevision;
-  return runPersistenceOperation(async () => {
+  return runServerMutation(async () => {
     requireCurrentServerOperation(operationRevision);
     const previousStored = await SecureStore.getItemAsync(KEY);
     requireCurrentServerOperation(operationRevision);
@@ -84,7 +96,7 @@ export function setServer(rawUrl: string): Promise<ServerConfig> {
 
 export function clearServer(): Promise<void> {
   const operationRevision = ++mutationRevision;
-  return runPersistenceOperation(async () => {
+  return runServerMutation(async () => {
     requireCurrentServerOperation(operationRevision);
     const previousStored = await SecureStore.getItemAsync(KEY);
     requireCurrentServerOperation(operationRevision);

@@ -15,7 +15,9 @@ type Deferred<T> = {
 };
 
 const storedIdentity = new Map<string, string>();
+const SERVER_KEY = "openpost.server.baseUrl";
 let pendingTokenWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
+let pendingServerWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
 let pendingWorkspaceWrite: {
   operation: "delete" | "set";
   started: Deferred<void>;
@@ -25,6 +27,12 @@ let pendingWorkspaceWrite: {
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => storedIdentity.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
+    const serverPending = key === SERVER_KEY ? pendingServerWrite : null;
+    if (serverPending) {
+      serverPending.started.resolve();
+      await serverPending.release.promise;
+      if (pendingServerWrite === serverPending) pendingServerWrite = null;
+    }
     const pending = key === "openpost.auth.token" ? pendingTokenWrite : null;
     if (pending) {
       pendingTokenWrite = null;
@@ -91,8 +99,10 @@ test("restores the selected workspace before a signed-in session becomes ready",
 describe("authenticated session bootstrap", () => {
   afterEach(() => {
     pendingTokenWrite?.release.resolve();
+    pendingServerWrite?.release.resolve();
     pendingWorkspaceWrite?.release.resolve();
     pendingTokenWrite = null;
+    pendingServerWrite = null;
     pendingWorkspaceWrite = null;
   });
 
@@ -212,6 +222,33 @@ describe("authenticated session bootstrap", () => {
     expect(state.savedWorkspaceIds).toEqual([]);
     expect(queryClient.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
     queryClient.clear();
+  });
+
+  test("does not persist or seed a session captured during a pending server change", async () => {
+    await hydrateStoredIdentity("token-old", "workspace-old");
+    await setServer("https://pending-session-old.example.com");
+    const serverStarted = deferred<void>();
+    const releaseServer = deferred<void>();
+    pendingServerWrite = { started: serverStarted, release: releaseServer };
+    const serverTransition = setServer("https://pending-session-new.example.com");
+    await serverStarted.promise;
+    const client = new QueryClient();
+
+    const synchronizationOutcome = await synchronizeSession(
+      actualSynchronizer(client, bootstrapFor("workspace-new")),
+      new AbortController().signal,
+    ).then(
+      () => "ready",
+      (cause: unknown) => (cause instanceof Error ? cause.name : "unknown-error"),
+    );
+    releaseServer.resolve();
+    await serverTransition;
+
+    expect(synchronizationOutcome).toBe("AbortError");
+    expect(storedIdentity.get("openpost.workspace.id")).toBe("workspace-old");
+    expect(getWorkspaceId()).toBe("workspace-old");
+    expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+    client.clear();
   });
 
   test("does not clear a newer token when an old bootstrap reports anonymous", async () => {
@@ -347,6 +384,7 @@ function synchronizer(
     captureIdentity: () => ({
       serverBaseUrl: "https://app.openpo.st",
       serverMutationRevision: 0,
+      serverMutationPendingAtCapture: false,
       token: state.token,
       tokenMutationRevision: 0,
       workspaceMutationRevision: 0,

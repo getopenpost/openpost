@@ -1,7 +1,12 @@
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
 
-import { getServer, getServerMutationRevision, subscribeServer } from "../server";
+import {
+  getPendingServerMutationCount,
+  getServer,
+  getServerMutationRevision,
+  subscribeServer,
+} from "../server";
 import {
   commitTokenIfCurrent,
   commitWorkspaceIdIfCurrent,
@@ -15,6 +20,7 @@ export type Api = ReturnType<typeof createClient<paths>>;
 export type ApiRequestIdentity = {
   serverBaseUrl: string;
   serverMutationRevision: number;
+  serverMutationPendingAtCapture: boolean;
   token: string | null;
   tokenMutationRevision: number;
   workspaceMutationRevision: number;
@@ -54,6 +60,7 @@ export function captureApiRequestIdentity(): ApiRequestIdentity {
   return {
     serverBaseUrl: getServer()?.baseUrl ?? "",
     serverMutationRevision: getServerMutationRevision(),
+    serverMutationPendingAtCapture: getPendingServerMutationCount() > 0,
     token: getToken(),
     tokenMutationRevision: getTokenMutationRevision(),
     workspaceMutationRevision: getWorkspaceMutationRevision(),
@@ -62,8 +69,7 @@ export function captureApiRequestIdentity(): ApiRequestIdentity {
 
 export function apiRequestIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
   return (
-    getServer()?.baseUrl === identity.serverBaseUrl &&
-    getServerMutationRevision() === identity.serverMutationRevision &&
+    apiServerIdentityIsCurrent(identity) &&
     getToken() === identity.token &&
     getTokenMutationRevision() === identity.tokenMutationRevision
   );
@@ -71,6 +77,8 @@ export function apiRequestIdentityIsCurrent(identity: ApiRequestIdentity): boole
 
 function apiServerIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
   return (
+    !identity.serverMutationPendingAtCapture &&
+    getPendingServerMutationCount() === 0 &&
     getServer()?.baseUrl === identity.serverBaseUrl &&
     getServerMutationRevision() === identity.serverMutationRevision
   );

@@ -43,11 +43,11 @@ describe("workspace selection", () => {
     pendingWrite = null;
     failingWrite = null;
     values.clear();
+    await setServer("https://old.example.com");
     values.set(TOKEN_KEY, "token-current");
     values.set(WORKSPACE_KEY, "workspace-old");
     await loadToken();
     await loadWorkspaceId();
-    await setServer("https://old.example.com");
   });
 
   afterEach(() => {
@@ -102,7 +102,6 @@ describe("workspace selection", () => {
       release: releaseServer,
     };
     const serverChange = setServer("https://new.example.com");
-    await serverStarted.promise;
     expect(getServer()?.baseUrl).toBe("https://old.example.com");
     releaseWorkspace.resolve();
 
@@ -111,8 +110,11 @@ describe("workspace selection", () => {
     expect(values.get(WORKSPACE_KEY)).toBe("workspace-old");
     expect(getWorkspaceId()).toBe("workspace-old");
 
+    await serverStarted.promise;
     releaseServer.resolve();
     await serverChange;
+    expect(values.has(WORKSPACE_KEY)).toBe(false);
+    expect(getWorkspaceId()).toBeNull();
   });
 
   for (const transition of [
@@ -147,8 +149,13 @@ describe("workspace selection", () => {
       expect(selected).toBe(false);
       expect(navigationCount).toBe(0);
       expect(serverOutcome).toBe(transition.outcome);
-      expect(getWorkspaceId()).toBe("workspace-old");
-      expect(values.get(WORKSPACE_KEY)).toBe("workspace-old");
+      if (transition.outcome === "success") {
+        expect(getWorkspaceId()).toBeNull();
+        expect(values.has(WORKSPACE_KEY)).toBe(false);
+      } else {
+        expect(getWorkspaceId()).toBe("workspace-old");
+        expect(values.get(WORKSPACE_KEY)).toBe("workspace-old");
+      }
     });
   }
 

@@ -1,6 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
@@ -18,7 +18,7 @@ export default function PairScreen() {
   const [verificationUrl, setVerificationUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const cancelled = useRef(false);
+  const attemptRef = useRef(attempt);
 
   useFocusEffect(
     useCallback(() => {
@@ -30,52 +30,62 @@ export default function PairScreen() {
     }, []),
   );
 
-  useEffect(() => {
-    cancelled.current = false;
-    void (async () => {
-      try {
-        const state = await startPairing();
-        if (cancelled.current) return;
-        setUserCode(state.userCode);
-        setVerificationUrl(state.verificationUrl);
-        setPhase("waiting");
-        const result = await waitForPairingResult({
-          deviceCode: state.deviceCode,
-          isCancelled: () => cancelled.current,
-          poll: pollPairing,
-        });
-        if (!result || cancelled.current) return;
-        if (result.status === "approved") {
-          void successHaptic();
-          setPhase("approved");
-          setTimeout(() => router.replace("/"), 500);
-        } else {
-          setPhase(result.status);
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      const attemptId = attempt;
+      const isCancelled = () => controller.signal.aborted || attemptRef.current !== attemptId;
+      let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+      void (async () => {
+        try {
+          const state = await startPairing("OpenPost Mobile", controller.signal);
+          if (isCancelled()) return;
+          setUserCode(state.userCode);
+          setVerificationUrl(state.verificationUrl);
+          setPhase("waiting");
+          const result = await waitForPairingResult({
+            deviceCode: state.deviceCode,
+            isCancelled,
+            poll: (deviceCode) => pollPairing(deviceCode, controller.signal),
+          });
+          if (!result || isCancelled()) return;
+          if (result.status === "approved") {
+            void successHaptic();
+            setPhase("approved");
+            navigationTimer = setTimeout(() => router.replace("/"), 500);
+          } else {
+            setPhase(result.status);
+          }
+        } catch (err) {
+          if (!isCancelled()) {
+            setPhase("error");
+            setError(
+              isAbortError(err)
+                ? "Your sign-in session changed. Get a new pairing code."
+                : err instanceof Error
+                  ? err.message
+                  : "Could not start pairing",
+            );
+          }
         }
-      } catch (err) {
-        if (!cancelled.current) {
-          setPhase("error");
-          setError(
-            isAbortError(err)
-              ? "Your sign-in session changed. Get a new pairing code."
-              : err instanceof Error
-                ? err.message
-                : "Could not start pairing",
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled.current = true;
-    };
-  }, [attempt]);
+      })();
+      return () => {
+        controller.abort();
+        if (navigationTimer) clearTimeout(navigationTimer);
+      };
+    }, [attempt]),
+  );
 
   function restart() {
     setError(null);
     setPhase("starting");
     setUserCode("");
     setVerificationUrl("");
-    setAttempt((current) => current + 1);
+    setAttempt((current) => {
+      const next = current + 1;
+      attemptRef.current = next;
+      return next;
+    });
   }
 
   const title =

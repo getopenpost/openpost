@@ -10,8 +10,11 @@ import {
 import {
   commitTokenIfCurrent,
   commitWorkspaceIdIfCurrent,
+  getPendingTokenMutationCount,
+  getPendingWorkspaceMutationCount,
   getToken,
   getTokenMutationRevision,
+  getWorkspaceId,
   getWorkspaceMutationRevision,
   subscribeToken,
 } from "./token-store";
@@ -23,7 +26,10 @@ export type ApiRequestIdentity = {
   serverMutationPendingAtCapture: boolean;
   token: string | null;
   tokenMutationRevision: number;
+  tokenMutationPendingAtCapture: boolean;
+  workspaceId: string | null;
   workspaceMutationRevision: number;
+  workspaceMutationPendingAtCapture: boolean;
 };
 
 let client: Api | null = null;
@@ -63,13 +69,28 @@ export function captureApiRequestIdentity(): ApiRequestIdentity {
     serverMutationPendingAtCapture: getPendingServerMutationCount() > 0,
     token: getToken(),
     tokenMutationRevision: getTokenMutationRevision(),
+    tokenMutationPendingAtCapture: getPendingTokenMutationCount() > 0,
+    workspaceId: getWorkspaceId(),
     workspaceMutationRevision: getWorkspaceMutationRevision(),
+    workspaceMutationPendingAtCapture: getPendingWorkspaceMutationCount() > 0,
   };
 }
 
 export function apiRequestIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
   return (
+    apiActorIdentityIsCurrent(identity) &&
+    !identity.workspaceMutationPendingAtCapture &&
+    getPendingWorkspaceMutationCount() === 0 &&
+    getWorkspaceId() === identity.workspaceId &&
+    getWorkspaceMutationRevision() === identity.workspaceMutationRevision
+  );
+}
+
+export function apiActorIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
+  return (
     apiServerIdentityIsCurrent(identity) &&
+    !identity.tokenMutationPendingAtCapture &&
+    getPendingTokenMutationCount() === 0 &&
     getToken() === identity.token &&
     getTokenMutationRevision() === identity.tokenMutationRevision
   );
@@ -87,13 +108,19 @@ function apiServerIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
 export function commitTokenForIdentity(
   token: string,
   identity: ApiRequestIdentity,
+  stillActive: () => boolean = () => true,
 ): Promise<boolean> {
-  return commitTokenIfCurrent(token, identity.token, identity.tokenMutationRevision, () =>
-    apiServerIdentityIsCurrent(identity),
+  if (!stillActive() || !apiServerIdentityIsCurrent(identity)) return Promise.resolve(false);
+  return commitTokenIfCurrent(
+    token,
+    identity.token,
+    identity.tokenMutationRevision,
+    () => stillActive() && apiServerIdentityIsCurrent(identity),
   );
 }
 
 export function clearTokenForIdentity(identity: ApiRequestIdentity): Promise<boolean> {
+  if (!apiServerIdentityIsCurrent(identity)) return Promise.resolve(false);
   return commitTokenIfCurrent(null, identity.token, identity.tokenMutationRevision, () =>
     apiServerIdentityIsCurrent(identity),
   );
@@ -103,13 +130,13 @@ export function commitWorkspaceIdForIdentity(
   workspaceId: string | null,
   identity: ApiRequestIdentity,
 ): Promise<boolean> {
-  if (!identity.token) return Promise.resolve(false);
+  if (!identity.token || !apiActorIdentityIsCurrent(identity)) return Promise.resolve(false);
   return commitWorkspaceIdIfCurrent(
     workspaceId,
     identity.token,
     identity.tokenMutationRevision,
     identity.workspaceMutationRevision,
-    () => apiServerIdentityIsCurrent(identity),
+    () => apiActorIdentityIsCurrent(identity),
   );
 }
 
@@ -118,6 +145,7 @@ export async function settleApiUnauthorized(
   response: Response | undefined,
 ): Promise<void> {
   if (response?.status !== 401 || !identity.token) return;
+  if (!apiActorIdentityIsCurrent(identity)) return;
   await clearTokenForIdentity(identity);
 }
 

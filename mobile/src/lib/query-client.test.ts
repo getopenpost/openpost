@@ -9,11 +9,18 @@ const TOKEN_KEY = "openpost.auth.token";
 const SERVER_KEY = "openpost.server.baseUrl";
 const values = new Map<string, string>();
 let pendingServerWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
+let pendingTokenWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
 let failingServerValue: string | null = null;
 
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
+    const tokenWrite = key === TOKEN_KEY ? pendingTokenWrite : null;
+    if (tokenWrite) {
+      pendingTokenWrite = null;
+      tokenWrite.started.resolve();
+      await tokenWrite.release.promise;
+    }
     const pending = key === SERVER_KEY ? pendingServerWrite : null;
     if (pending) {
       pendingServerWrite = null;
@@ -40,6 +47,7 @@ const { workspacesOptions } = await import("./queries");
 describe("query session cache", () => {
   beforeEach(async () => {
     pendingServerWrite = null;
+    pendingTokenWrite = null;
     failingServerValue = null;
     values.clear();
     await loadToken();
@@ -49,7 +57,9 @@ describe("query session cache", () => {
 
   afterEach(() => {
     pendingServerWrite?.release.resolve();
+    pendingTokenWrite?.release.resolve();
     pendingServerWrite = null;
+    pendingTokenWrite = null;
     failingServerValue = null;
   });
 
@@ -79,6 +89,25 @@ describe("query session cache", () => {
     await settleApiUnauthorized(captureApiRequestIdentity(), new Response(null, { status: 401 }));
     expect(getToken()).toBeNull();
     expect(queryClient.getQueryData(["openpost", "v1", "actor-data"])).toBeUndefined();
+  });
+
+  test("does not let a query captured during token replacement cancel that replacement", async () => {
+    await setServer("https://identity.example.com");
+    expect(await commitTokenForIdentity("token-old", captureApiRequestIdentity())).toBe(true);
+    const started = deferred<void>();
+    const release = deferred<void>();
+    pendingTokenWrite = { started, release };
+
+    const replacement = commitTokenForIdentity("token-new", captureApiRequestIdentity());
+    await started.promise;
+    const queryIdentity = captureApiRequestIdentity();
+    const settling = settleApiUnauthorized(queryIdentity, new Response(null, { status: 401 }));
+    release.resolve();
+
+    expect(await replacement).toBe(true);
+    await settling;
+    expect(getToken()).toBe("token-new");
+    expect(values.get(TOKEN_KEY)).toBe("token-new");
   });
 
   test("does not settle a query 401 captured during a failed server transition", async () => {

@@ -225,8 +225,8 @@ describe("authenticated session bootstrap", () => {
   });
 
   test("does not persist or seed a session captured during a pending server change", async () => {
-    await hydrateStoredIdentity("token-old", "workspace-old");
     await setServer("https://pending-session-old.example.com");
+    await hydrateStoredIdentity("token-old", "workspace-old");
     const serverStarted = deferred<void>();
     const releaseServer = deferred<void>();
     pendingServerWrite = { started: serverStarted, release: releaseServer };
@@ -245,19 +245,15 @@ describe("authenticated session bootstrap", () => {
     await serverTransition;
 
     expect(synchronizationOutcome).toBe("AbortError");
-    expect(storedIdentity.get("openpost.workspace.id")).toBe("workspace-old");
-    expect(getWorkspaceId()).toBe("workspace-old");
+    expect(storedIdentity.has("openpost.workspace.id")).toBe(false);
+    expect(getWorkspaceId()).toBeNull();
     expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
     client.clear();
   });
 
   test("does not clear a newer token when an old bootstrap reports anonymous", async () => {
-    storedIdentity.clear();
-    storedIdentity.set("openpost.auth.token", "token-old");
-    storedIdentity.set("openpost.workspace.id", "workspace-old");
-    await loadToken();
-    await loadWorkspaceId();
     await setServer("https://anonymous-bootstrap.example.com");
+    await hydrateStoredIdentity("token-old", "workspace-old");
     const bootstrapStarted = deferred<void>();
     const releaseBootstrap = deferred<AppBootstrap>();
     const client = new QueryClient();
@@ -301,13 +297,41 @@ describe("authenticated session bootstrap", () => {
     client.clear();
   });
 
+  test("does not seed or overwrite a Workspace while a newer selection is pending", async () => {
+    await setServer("https://workspace-pending-bootstrap.example.com");
+    await hydrateStoredIdentity("token-old", "workspace-old");
+    const selectionStarted = deferred<void>();
+    const releaseSelection = deferred<void>();
+    pendingWorkspaceWrite = {
+      operation: "set",
+      started: selectionStarted,
+      release: releaseSelection,
+    };
+    const selecting = commitWorkspaceIdForIdentity("workspace-new", captureApiRequestIdentity());
+    await selectionStarted.promise;
+    const client = new QueryClient();
+
+    const synchronization = synchronizeSession(
+      actualSynchronizer(client, bootstrapFor("workspace-old")),
+      new AbortController().signal,
+    );
+    releaseSelection.resolve();
+
+    await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
+    expect(await selecting).toBe(true);
+    expect(storedIdentity.get("openpost.workspace.id")).toBe("workspace-new");
+    expect(getWorkspaceId()).toBe("workspace-new");
+    expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+    client.clear();
+  });
+
   for (const scenario of [
     { name: "overwrite", operation: "set" as const, selectedWorkspaceId: "workspace-new" },
     { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
   ]) {
     test(`does not ${scenario.name} the Workspace after its server changes mid-write`, async () => {
-      await hydrateStoredIdentity("token-old", "workspace-old");
       await setServer("https://old-bootstrap.example.com");
+      await hydrateStoredIdentity("token-old", "workspace-old");
       const started = deferred<void>();
       const release = deferred<void>();
       pendingWorkspaceWrite = { operation: scenario.operation, started, release };
@@ -318,12 +342,13 @@ describe("authenticated session bootstrap", () => {
       );
 
       await started.promise;
-      await setServer("https://new-bootstrap.example.com");
+      const serverChange = setServer("https://new-bootstrap.example.com");
       release.resolve();
 
       await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
-      expect(storedIdentity.get("openpost.workspace.id")).toBe("workspace-old");
-      expect(getWorkspaceId()).toBe("workspace-old");
+      await serverChange;
+      expect(storedIdentity.has("openpost.workspace.id")).toBe(false);
+      expect(getWorkspaceId()).toBeNull();
       expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
       client.clear();
     });
@@ -334,8 +359,8 @@ describe("authenticated session bootstrap", () => {
     { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
   ]) {
     test(`does not ${scenario.name} the Workspace after a token change queues mid-write`, async () => {
-      await hydrateStoredIdentity("token-old", "workspace-old");
       await setServer("https://token-bootstrap.example.com");
+      await hydrateStoredIdentity("token-old", "workspace-old");
       const started = deferred<void>();
       const release = deferred<void>();
       pendingWorkspaceWrite = { operation: scenario.operation, started, release };
@@ -387,7 +412,10 @@ function synchronizer(
       serverMutationPendingAtCapture: false,
       token: state.token,
       tokenMutationRevision: 0,
+      tokenMutationPendingAtCapture: false,
+      workspaceId,
       workspaceMutationRevision: 0,
+      workspaceMutationPendingAtCapture: false,
     }),
     identityIsCurrent: (identity) =>
       identity.serverBaseUrl === "https://app.openpo.st" && identity.token === state.token,
@@ -481,7 +509,8 @@ function actualSynchronizer(queryClient: QueryClient, result: AppBootstrap): Ses
 }
 
 async function hydrateStoredIdentity(token: string, workspaceId: string): Promise<void> {
-  storedIdentity.clear();
+  storedIdentity.delete("openpost.auth.token");
+  storedIdentity.delete("openpost.workspace.id");
   storedIdentity.set("openpost.auth.token", token);
   storedIdentity.set("openpost.workspace.id", workspaceId);
   await loadToken();

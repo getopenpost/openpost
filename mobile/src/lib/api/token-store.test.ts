@@ -15,7 +15,6 @@ const TOKEN_KEY = "openpost.auth.token";
 const WORKSPACE_KEY = "openpost.workspace.id";
 const TRANSACTION_KEY = "openpost.identity.pending";
 const values = new Map<string, string>();
-let restartImportRevision = 0;
 let pendingRead: {
   key: string;
   value: string | null;
@@ -26,7 +25,7 @@ let pendingWrite: (StoreOperation & { started: Deferred<void>; release: Deferred
   null;
 let failingWrites: StoreOperation[] = [];
 
-mock.module("expo-secure-store", () => ({
+const secureStore = {
   getItemAsync: async (key: string) => {
     const pending = pendingRead?.key === key ? pendingRead : null;
     if (pending) {
@@ -47,12 +46,21 @@ mock.module("expo-secure-store", () => ({
     failWrite({ kind: "delete", key });
     values.delete(key);
   },
-}));
+};
+
+mock.module("expo-secure-store", () => secureStore);
 
 const { setServer } = await import("../server");
+const { createIdentityStore } = await import("../identity-store");
 const {
+  commitTokenIfCurrent,
+  commitWorkspaceIdIfCurrent,
+  getPendingTokenMutationCount,
+  getPendingWorkspaceMutationCount,
   getToken,
+  getTokenMutationRevision,
   getWorkspaceId,
+  getWorkspaceMutationRevision,
   loadToken,
   loadWorkspaceId,
   subscribeToken,
@@ -86,8 +94,12 @@ describe("token and Workspace persistence", () => {
 
   test("publishes token changes only after both keys are durable", async () => {
     const tokenSnapshots: (string | null)[] = [];
+    const tokenPendingSnapshots: number[] = [];
     const workspaceSnapshots: (string | null)[] = [];
-    const unsubscribeToken = subscribeToken(() => tokenSnapshots.push(getToken()));
+    const unsubscribeToken = subscribeToken(() => {
+      tokenSnapshots.push(getToken());
+      tokenPendingSnapshots.push(getPendingTokenMutationCount());
+    });
     const unsubscribeWorkspace = subscribeWorkspaceId(() =>
       workspaceSnapshots.push(getWorkspaceId()),
     );
@@ -97,12 +109,14 @@ describe("token and Workspace persistence", () => {
       expect(values.get(TOKEN_KEY)).toBe("token-1");
       expect(getToken()).toBe("token-1");
       expect(tokenSnapshots).toEqual(["token-1"]);
+      expect(tokenPendingSnapshots).toEqual([0]);
       expect(workspaceSnapshots).toEqual([null]);
 
       expect(await clearTokenForIdentity(captureApiRequestIdentity())).toBe(true);
       expect(values.has(TOKEN_KEY)).toBe(false);
       expect(getToken()).toBeNull();
       expect(tokenSnapshots).toEqual(["token-1", null]);
+      expect(tokenPendingSnapshots).toEqual([0, 0]);
     } finally {
       unsubscribeToken();
       unsubscribeWorkspace();
@@ -111,10 +125,19 @@ describe("token and Workspace persistence", () => {
 
   test("persists and publishes a cleared preferred Workspace", async () => {
     await hydrate("token-current", "workspace-current");
+    const pendingSnapshots: number[] = [];
+    const unsubscribe = subscribeWorkspaceId(() =>
+      pendingSnapshots.push(getPendingWorkspaceMutationCount()),
+    );
 
-    expect(await commitWorkspaceIdForIdentity(null, captureApiRequestIdentity())).toBe(true);
-    expect(values.has(WORKSPACE_KEY)).toBe(false);
-    expect(getWorkspaceId()).toBeNull();
+    try {
+      expect(await commitWorkspaceIdForIdentity(null, captureApiRequestIdentity())).toBe(true);
+      expect(values.has(WORKSPACE_KEY)).toBe(false);
+      expect(getWorkspaceId()).toBeNull();
+      expect(pendingSnapshots).toEqual([0]);
+    } finally {
+      unsubscribe();
+    }
   });
 
   test("repairs the token when clearing the Workspace key fails", async () => {
@@ -264,6 +287,29 @@ describe("token and Workspace persistence", () => {
     expect(getToken()).toBe("token-new");
   });
 
+  test("does not publish or restore a token across a server intent during marker deletion", async () => {
+    await hydrate("token-old", "workspace-old");
+    const started = deferred<void>();
+    const release = deferred<void>();
+    pendingWrite = { kind: "delete", key: TRANSACTION_KEY, started, release };
+
+    const committing = commitTokenForIdentity("token-stale", captureApiRequestIdentity());
+    await started.promise;
+    const changingServer = setServer("https://replacement-during-token-marker.example.com");
+    release.resolve();
+
+    expect(await committing).toBe(false);
+    await changingServer;
+    expect(values.get("openpost.server.baseUrl")).toBe(
+      "https://replacement-during-token-marker.example.com",
+    );
+    expect(values.has(TOKEN_KEY)).toBe(false);
+    expect(values.has(WORKSPACE_KEY)).toBe(false);
+    expect(values.has(TRANSACTION_KEY)).toBe(false);
+    expect(getToken()).toBeNull();
+    expect(getWorkspaceId()).toBeNull();
+  });
+
   test("fails closed when the committed session marker cannot be cleared", async () => {
     await hydrate("token-old", "workspace-old");
     failingWrites.push({ kind: "delete", key: TRANSACTION_KEY });
@@ -293,6 +339,29 @@ describe("token and Workspace persistence", () => {
     await expectFreshRestartHydration("token-old", null);
   });
 
+  test("does not publish or restore a Workspace across a server intent during marker deletion", async () => {
+    await hydrate("token-old", "workspace-old");
+    const started = deferred<void>();
+    const release = deferred<void>();
+    pendingWrite = { kind: "delete", key: TRANSACTION_KEY, started, release };
+
+    const committing = commitWorkspaceIdForIdentity("workspace-stale", captureApiRequestIdentity());
+    await started.promise;
+    const changingServer = setServer("https://replacement-during-workspace-marker.example.com");
+    release.resolve();
+
+    expect(await committing).toBe(false);
+    await changingServer;
+    expect(values.get("openpost.server.baseUrl")).toBe(
+      "https://replacement-during-workspace-marker.example.com",
+    );
+    expect(values.has(TOKEN_KEY)).toBe(false);
+    expect(values.has(WORKSPACE_KEY)).toBe(false);
+    expect(values.has(TRANSACTION_KEY)).toBe(false);
+    expect(getToken()).toBeNull();
+    expect(getWorkspaceId()).toBeNull();
+  });
+
   test("keeps the session marker through a superseded token rollback", async () => {
     await hydrate("token-old", "workspace-old");
     const tokenStarted = deferred<void>();
@@ -305,9 +374,15 @@ describe("token and Workspace persistence", () => {
       release: releaseToken,
     };
 
-    const staleCommit = commitTokenForIdentity("token-stale", captureApiRequestIdentity());
+    let identityIsCurrent = true;
+    const staleCommit = commitTokenIfCurrent(
+      "token-stale",
+      "token-old",
+      getTokenMutationRevision(),
+      () => identityIsCurrent,
+    );
     await tokenStarted.promise;
-    await setServer("https://rollback-cut.example.com");
+    identityIsCurrent = false;
     const workspaceRestoreStarted = deferred<void>();
     const releaseWorkspaceRestore = deferred<void>();
     pendingWrite = {
@@ -343,9 +418,15 @@ describe("token and Workspace persistence", () => {
       release,
     };
 
-    const staleCommit = commitTokenForIdentity("token-new", captureApiRequestIdentity());
+    let identityIsCurrent = true;
+    const staleCommit = commitTokenIfCurrent(
+      "token-new",
+      "token-old",
+      getTokenMutationRevision(),
+      () => identityIsCurrent,
+    );
     await started.promise;
-    await setServer("https://replacement-token.example.com");
+    identityIsCurrent = false;
     failingWrites.push(
       { kind: "set", key: TOKEN_KEY, value: "token-old" },
       { kind: "delete", key: TOKEN_KEY },
@@ -529,13 +610,17 @@ describe("token and Workspace persistence", () => {
       release,
     };
 
-    const staleCommit = commitWorkspaceIdForIdentity(
+    let identityIsCurrent = true;
+    const staleCommit = commitWorkspaceIdIfCurrent(
       "workspace-stale",
-      captureApiRequestIdentity(),
+      "token-current",
+      getTokenMutationRevision(),
+      getWorkspaceMutationRevision(),
+      () => identityIsCurrent,
     );
     await started.promise;
     expect(values.get(TRANSACTION_KEY)).toBe("workspace");
-    await setServer("https://replacement-identity.example.com");
+    identityIsCurrent = false;
     failingWrites.push(
       { kind: "set", key: WORKSPACE_KEY, value: "workspace-old" },
       { kind: "delete", key: WORKSPACE_KEY },
@@ -682,11 +767,8 @@ async function expectFreshRestartHydration(
   expect(restarted.getWorkspaceId()).toBe(expectedWorkspaceId);
 }
 
-async function importFreshTokenStore(): Promise<typeof import("./token-store")> {
-  restartImportRevision += 1;
-  const restarted = (await import(
-    `./token-store.ts?restart=${restartImportRevision}`
-  )) as typeof import("./token-store");
+async function importFreshTokenStore(): Promise<ReturnType<typeof createIdentityStore>> {
+  const restarted = createIdentityStore(secureStore);
   expect(restarted.getToken).not.toBe(getToken);
   return restarted;
 }

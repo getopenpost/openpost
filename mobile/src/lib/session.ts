@@ -86,7 +86,17 @@ export async function synchronizeSession(
     }
 
     signal.throwIfAborted();
-    if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
+    const committedIdentity = synchronizer.captureIdentity();
+    if (
+      committedIdentity.serverBaseUrl !== identity.serverBaseUrl ||
+      committedIdentity.serverMutationRevision !== identity.serverMutationRevision ||
+      committedIdentity.token !== identity.token ||
+      committedIdentity.tokenMutationRevision !== identity.tokenMutationRevision ||
+      committedIdentity.workspaceId !== selectedWorkspaceId ||
+      !synchronizer.identityIsCurrent(committedIdentity)
+    ) {
+      throw sessionChanged();
+    }
     seedAppBootstrap(synchronizer.queryClient, bootstrap);
     return currentSessionState(synchronizer);
   } finally {

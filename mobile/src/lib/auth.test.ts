@@ -16,6 +16,7 @@ let pendingServerWrite: {
   started: Deferred<void>;
   release: Deferred<void>;
 } | null = null;
+let pendingTokenWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
 let failingServerOperation: ServerStoreOperation | null = null;
 
 mock.module("expo-constants", () => ({
@@ -25,6 +26,12 @@ mock.module("react-native", () => ({ Platform: { OS: "ios" } }));
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
+    const tokenPending = key === TOKEN_KEY ? pendingTokenWrite : null;
+    if (tokenPending) {
+      pendingTokenWrite = null;
+      tokenPending.started.resolve();
+      await tokenPending.release.promise;
+    }
     const pending =
       key === SERVER_KEY && pendingServerWrite?.operation === "set" ? pendingServerWrite : null;
     if (pending) {
@@ -64,6 +71,7 @@ describe("auth request identity", () => {
 
   beforeEach(async () => {
     pendingServerWrite = null;
+    pendingTokenWrite = null;
     failingServerOperation = null;
     values.clear();
     await loadToken();
@@ -72,7 +80,9 @@ describe("auth request identity", () => {
 
   afterEach(() => {
     pendingServerWrite?.release.resolve();
+    pendingTokenWrite?.release.resolve();
     pendingServerWrite = null;
+    pendingTokenWrite = null;
     failingServerOperation = null;
     globalThis.fetch = originalFetch;
   });
@@ -168,6 +178,89 @@ describe("auth request identity", () => {
     expect(values.has(TOKEN_KEY)).toBe(false);
   });
 
+  test("rejects a stale pairing HTTP error before classifying the old response", async () => {
+    const request = deferredFetch();
+    await setServer("https://old-pairing-error.example.com");
+    const polling = pollPairing("device-code");
+    await request.started.promise;
+    await setServer("https://new-pairing-error.example.com");
+    request.respond({ message: "old device code rejected" }, 400);
+
+    await expect(polling).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBeNull();
+    expect(values.has(TOKEN_KEY)).toBe(false);
+  });
+
+  test("does not finish pairing after its screen aborts during token persistence", async () => {
+    const request = deferredFetch();
+    await setServer("https://pairing-cancel.example.com");
+    const tokenStarted = deferred<void>();
+    const releaseToken = deferred<void>();
+    pendingTokenWrite = { started: tokenStarted, release: releaseToken };
+    const controller = new AbortController();
+    const polling = pollPairing("device-code", controller.signal);
+    await request.started.promise;
+    request.respond({ status: "approved", token: "abandoned-token" });
+    await tokenStarted.promise;
+
+    controller.abort();
+    releaseToken.resolve();
+
+    await expect(polling).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBeNull();
+    expect(values.has(TOKEN_KEY)).toBe(false);
+  });
+
+  test("does not finish login after its screen aborts the request", async () => {
+    const request = deferredFetch();
+    await setServer("https://login-cancel.example.com");
+    const controller = new AbortController();
+    const signingIn = login("founder@example.com", "password", controller.signal);
+    await request.started.promise;
+
+    controller.abort();
+    request.respond({ token: "abandoned-token" });
+
+    await expect(signingIn).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBeNull();
+    expect(values.has(TOKEN_KEY)).toBe(false);
+  });
+
+  test("does not finish TOTP verification after its screen aborts the request", async () => {
+    const request = deferredFetch();
+    await setServer("https://totp-cancel.example.com");
+    const controller = new AbortController();
+    const verifying = verifyTotp("mfa-token", "123456", controller.signal);
+    await request.started.promise;
+
+    controller.abort();
+    request.respond({ token: "abandoned-token" });
+
+    await expect(verifying).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBeNull();
+    expect(values.has(TOKEN_KEY)).toBe(false);
+  });
+
+  test("does not finish TOTP verification after aborting during token persistence", async () => {
+    const request = deferredFetch();
+    await setServer("https://totp-persistence-cancel.example.com");
+    const tokenStarted = deferred<void>();
+    const releaseToken = deferred<void>();
+    pendingTokenWrite = { started: tokenStarted, release: releaseToken };
+    const controller = new AbortController();
+    const verifying = verifyTotp("mfa-token", "123456", controller.signal);
+    await request.started.promise;
+    request.respond({ token: "abandoned-token" });
+    await tokenStarted.promise;
+
+    controller.abort();
+    releaseToken.resolve();
+
+    await expect(verifying).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBeNull();
+    expect(values.has(TOKEN_KEY)).toBe(false);
+  });
+
   test("does not save a stale TOTP response after the server changes", async () => {
     const request = deferredFetch();
     await setServer("https://old-totp.example.com");
@@ -195,9 +288,9 @@ describe("auth request identity", () => {
   });
 
   test("does not let an old logout clear a newer token", async () => {
-    await hydrate("token-old", "workspace-old");
     const request = deferredFetch();
     await setServer("https://old-logout.example.com");
+    await hydrate("token-old", "workspace-old");
     const signingOut = signOut();
     await request.started.promise;
     expect(await commitTokenForIdentity("token-new", captureApiRequestIdentity())).toBe(true);

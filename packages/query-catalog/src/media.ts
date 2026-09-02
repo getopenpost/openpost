@@ -1,9 +1,10 @@
 import type { components } from "@openpost/api-contract";
-import type { QueryFunctionContext } from "@tanstack/query-core";
+import type { QueryClient, QueryFunctionContext } from "@tanstack/query-core";
 import { openPostWorkspaceKey } from "./keys";
 import { capabilityStaleTime, openPostQueryPolicy, queryStaleTime } from "./policies";
 
 export type MediaListResult = components["schemas"]["ListMediaOutputBody"];
+export type MediaListItem = NonNullable<MediaListResult["media"]>[number];
 export type MediaStorage = components["schemas"]["GetMediaStorageOutputBody"];
 export type MediaTagList = components["schemas"]["ListMediaTagsOutputBody"];
 export type MediaUsage = components["schemas"]["GetMediaUsageOutputBody"];
@@ -31,6 +32,13 @@ export interface MediaListFilters {
   readonly dateTo?: string;
   readonly limit?: number;
   readonly offset?: number;
+}
+
+export interface MediaListItemMutation {
+  readonly workspaceId: string;
+  readonly mediaId: string;
+  readonly update: (item: MediaListItem) => MediaListItem;
+  readonly canReconcile?: () => boolean;
 }
 
 export interface MemeTemplateFilters {
@@ -116,6 +124,27 @@ export function mediaListQueryOptions(
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
       api.listMedia(workspaceId, normalized, signal),
   };
+}
+
+export async function reconcileMediaListItemMutation(
+  client: QueryClient,
+  { workspaceId, mediaId, update, canReconcile = () => true }: MediaListItemMutation,
+): Promise<boolean> {
+  const queryKey = mediaQueryKeys.lists(workspaceId);
+  await client.cancelQueries({ queryKey });
+  if (!canReconcile()) return false;
+
+  client.setQueriesData<MediaListResult>({ queryKey }, (current) => {
+    if (!current) return current;
+    return {
+      ...current,
+      media: (current.media ?? []).map((item) => (item.id === mediaId ? update(item) : item)),
+    };
+  });
+  if (!canReconcile()) return false;
+
+  await client.invalidateQueries({ queryKey, refetchType: "none" });
+  return canReconcile();
 }
 
 export function mediaStorageQueryOptions(
@@ -216,7 +245,9 @@ export function normalizeMediaListFilters(filters: MediaListFilters) {
     assetKind: filters.assetKind?.trim() ?? "",
     aspect: filters.aspect?.trim() ?? "",
     tagId: filters.tagId?.trim() ?? "",
-    tagIds: [...(filters.tagIds ?? [])].filter(Boolean).sort(),
+    tagIds: [
+      ...new Set((filters.tagIds ?? []).map((tagId) => tagId.trim()).filter(Boolean)),
+    ].sort(),
     untagged: filters.untagged ?? false,
     minWidth: filters.minWidth ?? 0,
     minHeight: filters.minHeight ?? 0,

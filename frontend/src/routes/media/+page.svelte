@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { page } from '$app/stores';
 	import { goto, replaceState } from '$app/navigation';
@@ -9,6 +9,7 @@
 	import {
 		mediaListQueryOptions,
 		mediaQueryKeys,
+		reconcileMediaListItemMutation,
 		mediaStorageQueryOptions,
 		mediaTagsQueryOptions,
 		mediaUsageQueryOptions,
@@ -22,6 +23,8 @@
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
 	import { loadImageEditorConfig } from '$lib/image-editor/api';
 	import { clampMediaPage } from '$lib/media-pagination';
+	import { mediaInitialLoading } from '$lib/media-initial-loading';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -108,6 +111,7 @@
 	let mediaItems = $state<MediaItem[]>([]);
 	let mediaLoading = $state(false);
 	let mediaDataReady = $state(false);
+	let mediaSettledWorkspaceId = '';
 	let mediaRequestSequence = 0;
 	let loadedMediaWorkspaceId = '';
 	let totalCount = $state(0);
@@ -132,7 +136,8 @@
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
 	let tags = $state<MediaTag[]>([]);
-	let hubLoading = $state(false);
+	let hubDataReady = $state(false);
+	let hubSettledWorkspaceId = '';
 	let hubRequestSequence = 0;
 	let loadedHubWorkspaceId = '';
 	let organizationDialogOpen = $state(false);
@@ -156,11 +161,14 @@
 	let deletionBlockedByUsage = $state(false);
 	let detailAltText = $state('');
 	let detailSaving = $state(false);
+	let detailSaveSequence = 0;
 	let renameDialogOpen = $state(false);
 	let mediaToRename = $state.raw<MediaItem | null>(null);
 
 	let deleteDialogOpen = $state(false);
 	let deletionRequest = $state.raw<LibraryDeletionRequest | null>(null);
+	let workspaceViewRevision = 0;
+	let routeActive = true;
 
 	const selectedMediaIds = new SvelteSet<string>();
 	let isSelectionMode = $state(false);
@@ -169,9 +177,67 @@
 	const libraryContextItemClass =
 		'flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted data-disabled:pointer-events-none data-disabled:opacity-45';
 
+	interface MediaMutationContext {
+		identity: AuthIdentityToken | undefined;
+		workspaceID: string;
+		workspaceRevision: number;
+		viewKey: string;
+	}
+
 	function notify(message: string, tone: 'neutral' | 'success' | 'error' = 'neutral') {
 		toastMessage = message;
 		toastTone = tone;
+	}
+
+	function captureMediaMutationContext(): MediaMutationContext {
+		return {
+			identity: auth.captureIdentity(),
+			workspaceID: selectedWorkspaceId,
+			workspaceRevision: workspaceViewRevision,
+			viewKey: mediaViewKey()
+		};
+	}
+
+	function mediaMutationActorIsCurrent(context: MediaMutationContext): boolean {
+		return auth.isIdentityCurrent(context.identity);
+	}
+
+	function mediaMutationSurfaceIsCurrent(context: MediaMutationContext): boolean {
+		return (
+			routeActive &&
+			mediaMutationActorIsCurrent(context) &&
+			context.workspaceRevision === workspaceViewRevision &&
+			context.workspaceID === selectedWorkspaceId
+		);
+	}
+
+	function mediaMutationViewIsCurrent(context: MediaMutationContext): boolean {
+		return mediaMutationSurfaceIsCurrent(context) && context.viewKey === mediaViewKey();
+	}
+
+	async function reconcileMediaMutation(
+		context: MediaMutationContext,
+		mediaID: string,
+		update: Parameters<typeof reconcileMediaListItemMutation>[1]['update']
+	): Promise<boolean> {
+		if (!mediaMutationActorIsCurrent(context)) return false;
+
+		if (context.workspaceID === selectedWorkspaceId) {
+			mediaRequestSequence++;
+			mediaLoading = false;
+		}
+		const reconciled = await reconcileMediaListItemMutation(queryClient, {
+			workspaceId: context.workspaceID,
+			mediaId: mediaID,
+			update,
+			canReconcile: () => mediaMutationActorIsCurrent(context)
+		});
+		if (!reconciled) return false;
+
+		if (context.workspaceID === selectedWorkspaceId && !mediaMutationViewIsCurrent(context)) {
+			void loadMedia(context.workspaceID);
+		}
+		return mediaMutationViewIsCurrent(context);
 	}
 
 	function normalizeMediaItem(item: MediaListResponseItem): MediaItem {
@@ -301,6 +367,7 @@
 			totalCount = 0;
 			loadedMediaWorkspaceId = '';
 			mediaDataReady = false;
+			mediaSettledWorkspaceId = '';
 			return;
 		}
 		if (workspaceID !== selectedWorkspaceId) return;
@@ -340,7 +407,9 @@
 			totalCount = 0;
 			loadedMediaWorkspaceId = workspaceID;
 			mediaDataReady = false;
+			mediaSettledWorkspaceId = '';
 		}
+		if (force && !mediaDataReady) mediaSettledWorkspaceId = '';
 		mediaLoading = true;
 		error = '';
 		selectedMediaIds.clear();
@@ -366,9 +435,11 @@
 			totalCount = nextTotalCount;
 			loadedMediaWorkspaceId = workspaceID;
 			mediaDataReady = true;
+			mediaSettledWorkspaceId = workspaceID;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			error = errorMessage(e, m.media_load_failed());
+			mediaSettledWorkspaceId = workspaceID;
 		} finally {
 			if (isCurrentRequest()) mediaLoading = false;
 		}
@@ -381,7 +452,8 @@
 			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
 			mediaCanEdit = false;
 			loadedHubWorkspaceId = '';
-			hubLoading = false;
+			hubDataReady = false;
+			hubSettledWorkspaceId = '';
 			return;
 		}
 		if (workspaceID !== selectedWorkspaceId) return;
@@ -393,6 +465,8 @@
 			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
 			mediaCanEdit = false;
 			loadedHubWorkspaceId = workspaceID;
+			hubDataReady = false;
+			hubSettledWorkspaceId = '';
 		}
 		const tagsOptions = mediaTagsQueryOptions(mediaQueryAPI, workspaceID);
 		const storageOptions = mediaStorageQueryOptions(mediaQueryAPI, workspaceID);
@@ -403,7 +477,16 @@
 			mediaCanEdit = cachedTags.can_edit;
 		}
 		if (cachedStorage !== undefined) storageUsage = cachedStorage;
-		hubLoading = true;
+		hubDataReady = cachedTags !== undefined && cachedStorage !== undefined;
+		const configRequest = loadImageEditorConfig()
+			.then((config) => {
+				if (isCurrentRequest()) imageEditorEnabled = config.enabled;
+			})
+			.catch((cause) => {
+				if (isCurrentRequest()) {
+					notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
+				}
+			});
 		try {
 			if (force) {
 				await Promise.all([
@@ -419,13 +502,11 @@
 					})
 				]);
 			}
-			const [config, tagResult, storageResult] = await Promise.all([
-				loadImageEditorConfig(),
+			const [tagResult, storageResult] = await Promise.all([
 				queryClient.query(tagsOptions),
 				queryClient.query(storageOptions)
 			]);
 			if (!isCurrentRequest()) return;
-			imageEditorEnabled = config.enabled;
 			tags = tagResult.tags ?? [];
 			mediaCanEdit = tagResult.can_edit;
 			const validTagIDs = new Set(tags.map((tag) => tag.id));
@@ -436,12 +517,14 @@
 				void loadMedia(workspaceID);
 			}
 			storageUsage = storageResult;
+			hubDataReady = true;
+			hubSettledWorkspaceId = workspaceID;
 		} catch (cause) {
 			if (!isCurrentRequest()) return;
 			notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
-		} finally {
-			if (isCurrentRequest()) hubLoading = false;
+			hubSettledWorkspaceId = workspaceID;
 		}
+		await configRequest;
 	}
 
 	async function refreshMediaLists(workspaceID = selectedWorkspaceId) {
@@ -543,35 +626,49 @@
 		soundPreferences.play('success');
 	}
 
-	async function toggleFavorite(mediaId: string) {
+	async function toggleFavorite(
+		mediaId: string,
+		context = captureMediaMutationContext()
+	): Promise<boolean> {
+		if (!mediaMutationSurfaceIsCurrent(context)) return false;
+		const previousFavorite = mediaItems.find((media) => media.id === mediaId)?.is_favorite ?? false;
 		try {
 			const { data, error: err } = await client.PATCH('/media/{id}/favorite', {
 				params: { path: { id: mediaId } }
 			});
 			if (err) throw new Error(err.detail || m.media_favorite_failed());
-			const item = mediaItems.find((m) => m.id === mediaId);
-			if (item) {
-				item.is_favorite = data?.is_favorite ?? !item.is_favorite;
+			const nextFavorite = data?.is_favorite ?? !previousFavorite;
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaId, (item) => ({
+				...item,
+				is_favorite: nextFavorite
+			}));
+			if (!viewIsCurrent) return false;
+
+			const item = mediaItems.find((media) => media.id === mediaId);
+			if (item) item.is_favorite = nextFavorite;
+			if (lifecycleView === 'temporary' || (filter === 'favorites' && !nextFavorite)) {
+				await loadMedia(context.workspaceID);
 			}
-			await queryClient.invalidateQueries({
-				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
-				refetchType: 'none'
-			});
-			if (lifecycleView === 'temporary' || (filter === 'favorites' && !data?.is_favorite)) {
-				await loadMedia(selectedWorkspaceId);
-			}
+			return true;
 		} catch (e) {
-			notify(errorMessage(e, m.media_favorite_failed()), 'error');
+			if (mediaMutationSurfaceIsCurrent(context)) {
+				notify(errorMessage(e, m.media_favorite_failed()), 'error');
+			}
+			return false;
 		}
 	}
 
 	async function toggleFavoriteBatch() {
+		const context = captureMediaMutationContext();
 		const ids = Array.from(selectedMediaIds);
 		for (const id of ids) {
-			await toggleFavorite(id);
+			if (!mediaMutationSurfaceIsCurrent(context)) return;
+			await toggleFavorite(id, context);
 		}
-		selectedMediaIds.clear();
-		isSelectionMode = false;
+		if (mediaMutationSurfaceIsCurrent(context)) {
+			selectedMediaIds.clear();
+			isSelectionMode = false;
+		}
 	}
 
 	async function assignSelectedOrganization(mode: 'add' | 'remove' = 'add') {
@@ -814,25 +911,33 @@
 
 	async function saveDetailAltText(): Promise<void> {
 		if (!selectedMedia || detailSaving) return;
+		const context = captureMediaMutationContext();
+		const mediaID = selectedMedia.id;
+		const nextAltText = detailAltText.trim();
+		const saveSequence = ++detailSaveSequence;
 		detailSaving = true;
 		try {
 			const { error: updateError } = await client.PATCH('/media/{id}', {
-				params: { path: { id: selectedMedia.id } },
-				body: { alt_text: detailAltText.trim() }
+				params: { path: { id: mediaID } },
+				body: { alt_text: nextAltText }
 			});
 			if (updateError) throw new Error(updateError.detail || m.media_alt_update_failed());
-			selectedMedia.alt_text = detailAltText.trim();
-			const item = mediaItems.find((media) => media.id === selectedMedia?.id);
-			if (item) item.alt_text = detailAltText.trim();
-			await queryClient.invalidateQueries({
-				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
-				refetchType: 'none'
-			});
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
+				...item,
+				alt_text: nextAltText
+			}));
+			if (!viewIsCurrent || saveSequence !== detailSaveSequence) return;
+
+			if (selectedMedia?.id === mediaID) selectedMedia.alt_text = nextAltText;
+			const item = mediaItems.find((media) => media.id === mediaID);
+			if (item) item.alt_text = nextAltText;
 			notify(m.media_alt_saved(), 'success');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_alt_update_failed(), 'error');
+			if (mediaMutationSurfaceIsCurrent(context) && saveSequence === detailSaveSequence) {
+				notify(cause instanceof Error ? cause.message : m.media_alt_update_failed(), 'error');
+			}
 		} finally {
-			detailSaving = false;
+			if (saveSequence === detailSaveSequence) detailSaving = false;
 		}
 	}
 
@@ -844,44 +949,70 @@
 
 	async function renameMedia(filename: string): Promise<void> {
 		if (!mediaToRename) return;
-		const mediaID = mediaToRename.id;
-		const { error: updateError } = await client.PATCH('/media/{id}', {
-			params: { path: { id: mediaID } },
-			body: { original_filename: filename }
-		});
-		if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
-
-		const current = mediaItems.find((media) => media.id === mediaID);
-		const extension = mediaToRename.original_filename.match(/\.[^.]+$/u)?.[0] ?? '';
+		const context = captureMediaMutationContext();
+		const target = mediaToRename;
+		const mediaID = target.id;
+		const extension = target.original_filename.match(/\.[^.]+$/u)?.[0] ?? '';
 		const nextFilename =
 			/\.[^.]+$/u.test(filename) || !extension ? filename : `${filename}${extension}`;
-		if (current) current.original_filename = nextFilename;
-		if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
-		mediaToRename.original_filename = nextFilename;
-		await queryClient.invalidateQueries({
-			queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
-			refetchType: 'none'
-		});
-		notify(m.media_renamed(), 'success');
+		try {
+			const { error: updateError } = await client.PATCH('/media/{id}', {
+				params: { path: { id: mediaID } },
+				body: { original_filename: filename }
+			});
+			if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
+
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
+				...item,
+				original_filename: nextFilename
+			}));
+			if (!viewIsCurrent) return;
+
+			const current = mediaItems.find((media) => media.id === mediaID);
+			if (current) current.original_filename = nextFilename;
+			if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
+			if (mediaToRename?.id === mediaID) mediaToRename.original_filename = nextFilename;
+			notify(m.media_renamed(), 'success');
+		} catch (cause) {
+			if (!mediaMutationSurfaceIsCurrent(context)) return;
+			throw cause;
+		}
 	}
 
 	async function retryVideoAnalysis(media: MediaItem): Promise<void> {
+		const context = captureMediaMutationContext();
 		try {
 			const { error: retryError } = await client.POST('/media/{id}/analysis/retry', {
 				params: { path: { id: media.id } }
 			});
 			if (retryError) throw new Error(retryError.detail || m.media_video_retry_failed());
-			media.processing_status = 'processing';
-			media.processing_progress = 0;
-			media.analysis_status = 'pending';
-			media.analysis_error = '';
-			await queryClient.invalidateQueries({
-				queryKey: mediaQueryKeys.lists(selectedWorkspaceId),
-				refetchType: 'none'
-			});
+			const viewIsCurrent = await reconcileMediaMutation(context, media.id, (item) => ({
+				...item,
+				processing_status: 'processing',
+				processing_progress: 0,
+				analysis_status: 'pending',
+				analysis_error: ''
+			}));
+			if (!viewIsCurrent) return;
+
+			const current = mediaItems.find((item) => item.id === media.id);
+			if (current) {
+				current.processing_status = 'processing';
+				current.processing_progress = 0;
+				current.analysis_status = 'pending';
+				current.analysis_error = '';
+			}
+			if (selectedMedia?.id === media.id) {
+				selectedMedia.processing_status = 'processing';
+				selectedMedia.processing_progress = 0;
+				selectedMedia.analysis_status = 'pending';
+				selectedMedia.analysis_error = '';
+			}
 			notify(m.media_video_retry_started(), 'neutral');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_video_retry_failed(), 'error');
+			if (mediaMutationSurfaceIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_video_retry_failed(), 'error');
+			}
 		}
 	}
 
@@ -895,6 +1026,8 @@
 		usageDataReady = false;
 		selectedMedia = null;
 		deletionBlockedByUsage = false;
+		detailSaveSequence++;
+		detailSaving = false;
 	}
 
 	function formatSize(bytes: number): string {
@@ -1084,9 +1217,18 @@
 		return () => window.clearInterval(timer);
 	});
 
+	onDestroy(() => {
+		routeActive = false;
+		mediaRequestSequence++;
+		hubRequestSequence++;
+		usageRequestSequence++;
+		detailSaveSequence++;
+	});
+
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
 		untrack(() => {
+			workspaceViewRevision++;
 			if (usageDialogOpen) handleUsageDialogOpenChange(false);
 			void loadMedia(workspaceID);
 			void loadImageEditorHub(workspaceID);
@@ -1126,6 +1268,16 @@
 		].filter(Boolean).length
 	);
 	const totalPages = $derived(Math.ceil(totalCount / pageSize));
+	const initialRouteLoading = $derived(
+		mediaInitialLoading({
+			workspaceLoading: loading,
+			hasWorkspace: Boolean(selectedWorkspaceId),
+			mediaReady: mediaDataReady && loadedMediaWorkspaceId === selectedWorkspaceId,
+			mediaSettled: mediaSettledWorkspaceId === selectedWorkspaceId,
+			hubReady: hubDataReady && loadedHubWorkspaceId === selectedWorkspaceId,
+			hubSettled: hubSettledWorkspaceId === selectedWorkspaceId
+		})
+	);
 	const allMediaSelected = $derived(
 		mediaItems.length > 0 && mediaItems.every((media) => selectedMediaIds.has(media.id))
 	);
@@ -1169,7 +1321,7 @@
 	title={m.media_hub_title()}
 	description={descriptionText}
 	icon={ImageIcon}
-	{loading}
+	loading={initialRouteLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="gallery"
 >
@@ -1403,9 +1555,7 @@
 		</div>
 	{/if}
 
-	{#if (mediaLoading || hubLoading) && !mediaDataReady}
-		<PageLoading layout="gallery" label={m.common_loading()} items={10} />
-	{:else if error && !mediaDataReady}
+	{#if error && !mediaDataReady}
 		<InlineNotice tone="error" message={error} class="my-2">
 			{#snippet actions()}
 				<Button variant="outline" size="sm" onclick={() => loadMedia(selectedWorkspaceId, true)}>

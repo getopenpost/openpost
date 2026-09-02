@@ -117,3 +117,26 @@ Likely cause: localhost or internal hostnames leaked into public-facing settings
 How to check: inspect `OPENPOST_APP_URL`, `OPENPOST_MEDIA_URL`, and social network callback entries.
 
 How to fix: replace internal URLs with the real public HTTPS domain.
+
+## No instance administrator
+
+Symptoms: nobody can open instance settings, configure provider applications, or manage users. Settings > Instance is hidden for every account.
+
+Likely cause: the first account was created before OpenPost promoted the first registrant to instance administrator automatically, or the database was restored from a volume where a non-admin account came first.
+
+How to check: sign in and confirm that no account shows the instance administration views under Settings.
+
+How to fix: promote an existing account from the host that runs OpenPost:
+
+```sh
+docker compose exec openpost ./openpost grant-admin --email you@example.test
+```
+
+Or with a single binary:
+
+```sh
+openpost grant-admin --email you@example.test
+```
+
+The command prints the promoted account and the resulting administrator count. If it reports that no account exists for that address, check the exact email under the sign-in page's registered accounts or run it again with the address each person signs in with.
+

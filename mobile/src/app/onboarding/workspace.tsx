@@ -58,12 +58,12 @@ export default function WorkspaceScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
-        <Text style={[styles.title, { color: colors.text }]}>Choose workspace</Text>
+        <Text style={[styles.title, { color: colors.onSurface }]}>Choose workspace</Text>
         <BodyText style={styles.subtitle}>Each workspace has its own posts and accounts.</BodyText>
         {switching ? (
           <Button
             title="Cancel"
-            variant="plain"
+            intent="quiet"
             onPress={() =>
               from === "destination" ? router.replace("/onboarding/destination") : router.back()
             }
@@ -71,19 +71,19 @@ export default function WorkspaceScreen() {
           />
         ) : null}
 
-        {workspaces.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
+        {workspaces.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {workspaces.isError ? (
           <View style={styles.errorState}>
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
               {workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"}
             </BodyText>
-            <Button title="Retry" variant="tinted" onPress={() => void workspaces.refetch()} />
+            <Button title="Retry" intent="ordinary" onPress={() => void workspaces.refetch()} />
           </View>
         ) : null}
 
         {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
           <Card style={styles.emptyState}>
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "600" }}>
+            <Text style={{ color: colors.onSurface, fontSize: 17, fontWeight: "600" }}>
               No workspaces found
             </Text>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
@@ -91,14 +91,14 @@ export default function WorkspaceScreen() {
               <>
                 <Button
                   title={emptyState.actions[0].label}
-                  variant="focal"
+                  intent="focal"
                   accessibilityRole="link"
                   onPress={() => void WebBrowser.openBrowserAsync(emptyState.actions[0].url)}
                   style={styles.emptyPrimary}
                 />
                 <Button
                   title={emptyState.actions[1].label}
-                  variant="tinted"
+                  intent="ordinary"
                   loading={workspaces.isFetching}
                   onPress={() => void workspaces.refetch()}
                 />
@@ -125,15 +125,15 @@ export default function WorkspaceScreen() {
                     styles.row,
                     index > 0 && {
                       borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: colors.separator,
+                      borderTopColor: colors.outlineVariant,
                     },
                     pressed && { opacity: 0.5 },
                   ]}
                 >
-                  <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+                  <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
                     {workspace.name}
                   </Text>
-                  {selected === workspace.id ? <ActivityIndicator color={colors.tint} /> : null}
+                  {selected === workspace.id ? <ActivityIndicator color={colors.primary} /> : null}
                 </Pressable>
               ))}
             </Card>
@@ -143,7 +143,7 @@ export default function WorkspaceScreen() {
         {!switching ? (
           <Button
             title={emptyState?.actions[2].label ?? "Back to sign in"}
-            variant="plain"
+            intent="quiet"
             onPress={() => router.replace(emptyState?.actions[2].route ?? "/onboarding/login")}
             style={styles.back}
           />

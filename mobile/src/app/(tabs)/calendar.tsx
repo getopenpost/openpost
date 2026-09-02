@@ -96,15 +96,15 @@ export default function CalendarScreen() {
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
+        <Text style={[styles.title, { color: colors.onSurface }]}>
           {month.toLocaleDateString("en", { month: "long" })}
-          <Text style={{ color: colors.textSecondary }}> {month.getFullYear()}</Text>
+          <Text style={{ color: colors.onSurfaceVariant }}> {month.getFullYear()}</Text>
         </Text>
         <View style={styles.nav}>
           <IconButton
             label="Previous month"
             name={{ ios: "chevron.left", android: "chevron_left" }}
-            color={colors.tint}
+            color={colors.primary}
             onPress={() => shiftMonth(-1)}
           />
           <Pressable
@@ -116,12 +116,12 @@ export default function CalendarScreen() {
             }}
             style={({ pressed }) => [styles.todayButton, pressed && { opacity: 0.65 }]}
           >
-            <Text style={{ color: colors.tint, fontSize: 15, fontWeight: "600" }}>Today</Text>
+            <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "600" }}>Today</Text>
           </Pressable>
           <IconButton
             label="Next month"
             name={{ ios: "chevron.right", android: "chevron_right" }}
-            color={colors.tint}
+            color={colors.primary}
             onPress={() => shiftMonth(1)}
           />
         </View>
@@ -133,16 +133,18 @@ export default function CalendarScreen() {
           <RefreshControl
             refreshing={publications.isRefetching}
             onRefresh={() => void publications.refetch()}
-            tintColor={colors.textSecondary}
+            tintColor={colors.onSurfaceVariant}
           />
         }
       >
         {publications.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={colors.tint} />
+          <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
         ) : null}
         {publications.isError ? (
           <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load calendar</Text>
+            <Text style={[styles.errorTitle, { color: colors.onSurface }]}>
+              Could not load calendar
+            </Text>
             <BodyText accessibilityRole="alert">
               {publications.error instanceof Error
                 ? publications.error.message
@@ -150,7 +152,7 @@ export default function CalendarScreen() {
             </BodyText>
             <Button
               title="Try again"
-              variant="tinted"
+              intent="ordinary"
               onPress={() => void publications.refetch()}
             />
           </Card>
@@ -161,7 +163,7 @@ export default function CalendarScreen() {
             <Text
               accessibilityLabel={label}
               key={`${shortLabel}-${index}`}
-              style={[styles.weekday, { color: colors.textSecondary }]}
+              style={[styles.weekday, { color: colors.onSurfaceVariant }]}
             >
               {shortLabel}
             </Text>
@@ -195,15 +197,15 @@ export default function CalendarScreen() {
                     <View
                       style={[
                         styles.dayCircle,
-                        isSelected && { backgroundColor: colors.tint },
-                        !isSelected && isToday && { borderWidth: 1.5, borderColor: colors.tint },
+                        isSelected && { backgroundColor: colors.primary },
+                        !isSelected && isToday && { borderWidth: 1.5, borderColor: colors.primary },
                       ]}
                     >
                       <Text
                         style={[
                           styles.dayNumber,
-                          { color: colors.text },
-                          isSelected && { color: colors.onTint, fontWeight: "700" },
+                          { color: colors.onSurface },
+                          isSelected && { color: colors.onPrimary, fontWeight: "700" },
                         ]}
                       >
                         {date.getDate()}
@@ -215,7 +217,13 @@ export default function CalendarScreen() {
                           key={item.id}
                           style={[
                             styles.dot,
-                            { backgroundColor: statusColor(item.status, colors.dark) },
+                            {
+                              backgroundColor: statusColor(
+                                item.status,
+                                colors.status,
+                                colors.onSurfaceVariant,
+                              ),
+                            },
                           ]}
                         />
                       ))}
@@ -228,7 +236,7 @@ export default function CalendarScreen() {
         </View>
 
         <Card style={styles.daySheet}>
-          <Text style={[styles.daySheetTitle, { color: colors.text }]}>
+          <Text style={[styles.daySheetTitle, { color: colors.onSurface }]}>
             {selectedDay
               ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en", {
                   weekday: "long",
@@ -255,7 +263,7 @@ export default function CalendarScreen() {
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text
                     style={{
-                      color: colors.text,
+                      color: colors.onSurface,
                       fontSize: 15,
                       fontWeight: "500",
                     }}

@@ -4,12 +4,10 @@ import { BottomSheetProvider } from "@swmansion/react-native-bottom-sheet";
 import * as SplashScreen from "expo-splash-screen";
 import { ShareIntentProvider } from "expo-share-intent";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { DARK_COLORS, LIGHT_COLORS } from "@/components/ui";
 import { getServer, loadServer, subscribeServer } from "@/lib/server";
 import {
   getToken,
@@ -17,8 +15,10 @@ import {
   loadToken,
   loadWorkspaceId,
   subscribeToken,
+  subscribeWorkspaceId,
 } from "@/lib/api/token-store";
 import { loadSessionState } from "@/lib/session";
+import { NativeThemeRuntime, navigationColorsFor, useNativeTheme } from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,8 +52,8 @@ function useSessionReady() {
 }
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
   const { loaded, server, token, signedIn } = useSessionReady();
+  const workspaceId = useSyncExternalStore(subscribeWorkspaceId, getWorkspaceId);
   const previousSession = useRef<string | null>(null);
 
   useEffect(() => {
@@ -71,64 +71,69 @@ export default function RootLayout() {
 
   if (!loaded) return null;
 
-  const baseTheme = scheme === "dark" ? DarkTheme : DefaultTheme;
-  const colors = scheme === "dark" ? DARK_COLORS : LIGHT_COLORS;
-  const navigationTheme = {
-    ...baseTheme,
-    colors: {
-      ...baseTheme.colors,
-      primary: colors.tint,
-      background: colors.bg,
-      card: colors.card,
-      text: colors.text,
-      border: colors.separator,
-      notification: colors.danger,
-    },
-  };
-
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <KeyboardProvider
-          navigationBarTranslucent
-          preload={false}
-          preserveEdgeToEdge
-          statusBarTranslucent
-        >
-          <BottomSheetProvider>
-            <ShareIntentProvider>
-              <ThemeProvider value={navigationTheme}>
-                <StatusBar style="auto" />
-                <Stack>
-                  <Stack.Screen name="index" options={{ headerShown: false }} />
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="onboarding/server"
-                    options={{
-                      headerShown: !signedIn,
-                      title: "Server",
-                      headerBackTitle: "Back",
-                    }}
-                  />
-                  <Stack.Screen name="onboarding/login" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding/pair" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding/workspace" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding/destination" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="publications/[id]/edit"
-                    options={{
-                      presentation: "modal",
-                      title: "Edit publication",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen name="publications/[id]" options={{ title: "Publication" }} />
-                </Stack>
-              </ThemeProvider>
-            </ShareIntentProvider>
-          </BottomSheetProvider>
-        </KeyboardProvider>
+        <NativeThemeRuntime workspaceId={workspaceId}>
+          <KeyboardProvider
+            navigationBarTranslucent
+            preload={false}
+            preserveEdgeToEdge
+            statusBarTranslucent
+          >
+            <BottomSheetProvider>
+              <ShareIntentProvider>
+                <ThemedApplication signedIn={signedIn} />
+              </ShareIntentProvider>
+            </BottomSheetProvider>
+          </KeyboardProvider>
+        </NativeThemeRuntime>
       </QueryClientProvider>
     </SafeAreaProvider>
+  );
+}
+
+function ThemedApplication({ signedIn }: { signedIn: boolean }) {
+  const theme = useNativeTheme();
+  const navigationTheme = useMemo(() => {
+    const baseTheme = theme.effectiveScheme === "dark" ? DarkTheme : DefaultTheme;
+    return Object.freeze({
+      ...baseTheme,
+      colors: Object.freeze({
+        ...baseTheme.colors,
+        ...navigationColorsFor(theme),
+      }),
+    });
+  }, [theme]);
+
+  return (
+    <ThemeProvider value={navigationTheme}>
+      <StatusBar style={theme.effectiveScheme === "dark" ? "light" : "dark"} />
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="onboarding/server"
+          options={{
+            headerShown: !signedIn,
+            title: "Server",
+            headerBackTitle: "Back",
+          }}
+        />
+        <Stack.Screen name="onboarding/login" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/pair" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/workspace" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/destination" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="publications/[id]/edit"
+          options={{
+            presentation: "modal",
+            title: "Edit publication",
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen name="publications/[id]" options={{ title: "Publication" }} />
+      </Stack>
+    </ThemeProvider>
   );
 }

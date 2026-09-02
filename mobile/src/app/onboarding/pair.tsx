@@ -96,7 +96,7 @@ export default function PairScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.onSurface }]}>{title}</Text>
         {phase !== "approved" ? (
           <BodyText style={styles.subtitle}>
             Approve this device from a browser where you are signed in. Organizations that use
@@ -108,14 +108,14 @@ export default function PairScreen() {
           <>
             <Card style={styles.codeCard}>
               {phase === "starting" ? (
-                <ActivityIndicator color={colors.tint} />
+                <ActivityIndicator color={colors.primary} />
               ) : (
                 <Text
                   accessibilityLabel={`Pairing code ${userCode}`}
                   adjustsFontSizeToFit
                   minimumFontScale={0.55}
                   numberOfLines={1}
-                  style={[styles.code, { color: colors.text }]}
+                  style={[styles.code, { color: colors.onSurface }]}
                   selectable
                 >
                   {userCode}
@@ -123,17 +123,17 @@ export default function PairScreen() {
               )}
             </Card>
             <BodyText style={styles.center}>Enter this code at</BodyText>
-            <BodyText style={[styles.center, styles.url, { color: colors.text }]}>
+            <BodyText style={[styles.center, styles.url, { color: colors.onSurface }]}>
               {verificationUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}
             </BodyText>
             <Button
               title="Open verification page"
-              variant="focal"
+              intent="focal"
               onPress={() => void WebBrowser.openBrowserAsync(verificationUrl)}
               style={styles.openButton}
             />
             <View accessibilityLiveRegion="polite" style={styles.waitRow}>
-              <ActivityIndicator color={colors.tint} />
+              <ActivityIndicator color={colors.primary} />
               <BodyText>Waiting for approval</BodyText>
             </View>
           </>
@@ -149,13 +149,13 @@ export default function PairScreen() {
         {phase === "denied" || phase === "expired" || phase === "error" ? (
           <>
             {error ? (
-              <BodyText accessibilityRole="alert" style={[styles.center, { color: colors.danger }]}>
+              <BodyText accessibilityRole="alert" style={[styles.center, { color: colors.error }]}>
                 {error}
               </BodyText>
             ) : null}
             <Button
               title="Try again"
-              variant="tinted"
+              intent="ordinary"
               onPress={() => void restart()}
               style={styles.openButton}
             />
@@ -164,7 +164,7 @@ export default function PairScreen() {
 
         <Button
           title="Back to sign in"
-          variant="plain"
+          intent="quiet"
           onPress={returnToLogin}
           style={styles.backButton}
         />

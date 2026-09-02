@@ -92,7 +92,7 @@ export default function QueueScreen() {
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Queue</Text>
+        <Text style={[styles.title, { color: colors.onSurface }]}>Queue</Text>
       </View>
 
       <ScrollView
@@ -101,15 +101,15 @@ export default function QueueScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={colors.textSecondary}
+            tintColor={colors.onSurfaceVariant}
           />
         }
       >
         {scheduled.isLoading || failed.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={colors.tint} />
+          <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
         ) : null}
         {actionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginBottom: 8 }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error, marginBottom: 8 }}>
             {actionError}
           </BodyText>
         ) : null}
@@ -145,11 +145,14 @@ export default function QueueScreen() {
         </Section>
       </ScrollView>
       {dismissed ? (
-        <View style={[styles.undoBar, { backgroundColor: colors.text }]} accessibilityRole="alert">
-          <Text style={{ color: colors.bg, flex: 1 }}>Failed post dismissed</Text>
+        <View
+          style={[styles.undoBar, { backgroundColor: colors.onSurface }]}
+          accessibilityRole="alert"
+        >
+          <Text style={{ color: colors.background, flex: 1 }}>Failed post dismissed</Text>
           <Button
             title="Undo"
-            variant="plain"
+            intent="quiet"
             onPress={() => restoreFailed.mutate(dismissed.id)}
             loading={restoreFailed.isPending}
             style={styles.undoButton}
@@ -170,11 +173,11 @@ function QueryError({
   const colors = useColors();
   return (
     <Card style={styles.error}>
-      <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load {label}</Text>
+      <Text style={[styles.errorTitle, { color: colors.onSurface }]}>Could not load {label}</Text>
       <BodyText accessibilityRole="alert">
         {query.error?.message ?? "Check your connection and try again."}
       </BodyText>
-      <Button title="Try again" variant="tinted" onPress={() => void query.refetch()} />
+      <Button title="Try again" intent="ordinary" onPress={() => void query.refetch()} />
     </Card>
   );
 }
@@ -191,7 +194,7 @@ function Section({
   const colors = useColors();
   return (
     <View style={{ gap: 8 }}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+      <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant }]}>
         {title.toUpperCase()}
         {count > 0 ? ` · ${count}` : ""}
       </Text>
@@ -213,7 +216,7 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
               {titleFor(publication)}
             </Text>
             <BodyText>
@@ -253,7 +256,7 @@ function FailedCard({
       overshootLeft={false}
       renderLeftActions={() => (
         <View style={[styles.swipeAction, { backgroundColor: colors.success }]}>
-          <Text style={styles.swipeActionText}>Dismiss</Text>
+          <Text style={[styles.swipeActionText, { color: colors.onSuccess }]}>Dismiss</Text>
         </View>
       )}
       onSwipeableOpen={onDismiss}
@@ -270,7 +273,7 @@ function FailedCard({
           }
         >
           <View style={{ gap: 6 }}>
-            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
               {titleFor(publication)}
             </Text>
             <StatusBadge status="failed" />
@@ -286,13 +289,13 @@ function FailedCard({
         <View style={styles.failedActions}>
           <Button
             title="Retry"
-            variant="tinted"
+            intent="ordinary"
             onPress={onRetry}
             disabled={pending}
             loading={pending}
             style={styles.retryButton}
           />
-          <Button title="Dismiss" variant="plain" onPress={onDismiss} />
+          <Button title="Dismiss" intent="quiet" onPress={onDismiss} />
         </View>
       </Card>
     </Swipeable>
@@ -362,7 +365,6 @@ const styles = StyleSheet.create({
     width: 112,
   },
   swipeActionText: {
-    color: "#ffffff",
     fontSize: 15,
     fontWeight: "700",
   },

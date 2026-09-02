@@ -4,7 +4,7 @@ import { useColors } from "@/components/ui";
 export default function TabLayout() {
   const colors = useColors();
   return (
-    <NativeTabs tintColor={colors.tint} minimizeBehavior="onScrollDown">
+    <NativeTabs tintColor={colors.primary} minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger name="drafts">
         <NativeTabs.Trigger.Label>Drafts</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="square.and.pencil" md="edit" />

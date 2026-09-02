@@ -15,27 +15,12 @@ export const STATUS_LABEL: Record<string, string> = {
   failed: "Failed",
 };
 
-/** Semantic colors that work on light and dark backgrounds. */
-export const STATUS_COLOR: Record<string, string> = {
-  draft: "#716862",
-  ready: "#b74c05",
-  scheduled: "#856300",
-  publishing: "#a64600",
-  published: "#376b51",
-  failed: "#b3261e",
-};
-
-const STATUS_COLOR_DARK: Record<string, string> = {
-  draft: "#aea39c",
-  ready: "#e9823a",
-  scheduled: "#e6c25c",
-  publishing: "#ffb77b",
-  published: "#8fcfac",
-  failed: "#ffb4ab",
-};
-
-export function statusColor(status: string, dark: boolean): string {
-  return (dark ? STATUS_COLOR_DARK : STATUS_COLOR)[status] ?? (dark ? "#aea39c" : "#716862");
+export function statusColor(
+  status: string,
+  colors: Readonly<Record<string, string>>,
+  fallback: string,
+): string {
+  return colors[status] ?? fallback;
 }
 
 const PLATFORM_LABEL: Record<string, string> = {

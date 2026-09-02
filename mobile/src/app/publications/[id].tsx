@@ -108,7 +108,7 @@ export default function PostScreen() {
   if (publication.isLoading) {
     return (
       <Screen style={{ alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.tint} />
+        <ActivityIndicator color={colors.primary} />
       </Screen>
     );
   }
@@ -116,7 +116,7 @@ export default function PostScreen() {
   if (publication.isError || !pub) {
     return (
       <Screen style={{ padding: 20, paddingTop: 100, gap: 12 }}>
-        <BodyText style={{ color: colors.danger }}>
+        <BodyText style={{ color: colors.error }}>
           {publication.error instanceof Error ? publication.error.message : "Failed to load"}
         </BodyText>
         <Button title="Go back" onPress={() => router.back()} />
@@ -132,13 +132,13 @@ export default function PostScreen() {
       <Stack.Screen
         options={{
           title: "",
-          headerTintColor: colors.text,
+          headerTintColor: colors.onSurface,
           headerBackTitle: "Back",
         }}
       />
       <ScrollView contentContainerStyle={styles.content}>
         {actionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
             {actionError}
           </BodyText>
         ) : null}
@@ -149,7 +149,7 @@ export default function PostScreen() {
             {pub.scheduled_at ? <BodyText>{formatDateTime(pub.scheduled_at)}</BodyText> : null}
           </View>
           {pub.title ? (
-            <Text style={[styles.title, { color: colors.text }]}>{pub.title}</Text>
+            <Text style={[styles.title, { color: colors.onSurface }]}>{pub.title}</Text>
           ) : null}
           {body ? <BodyText selectable>{body}</BodyText> : null}
         </Card>
@@ -163,14 +163,18 @@ export default function PostScreen() {
                   style={[
                     styles.platformDot,
                     {
-                      backgroundColor: statusColor(rendition.status ?? "draft", colors.dark),
+                      backgroundColor: statusColor(
+                        rendition.status ?? "draft",
+                        colors.status,
+                        colors.onSurfaceVariant,
+                      ),
                     },
                   ]}
                 />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text
                     style={{
-                      color: colors.text,
+                      color: colors.onSurface,
                       fontSize: 15,
                       fontWeight: "500",
                     }}
@@ -187,7 +191,7 @@ export default function PostScreen() {
                 </BodyText>
               ) : null}
               {rendition.error_message ? (
-                <BodyText style={{ color: colors.danger, marginTop: 8 }} selectable>
+                <BodyText style={{ color: colors.error, marginTop: 8 }} selectable>
                   {rendition.error_message}
                   {rendition.error_retry_at
                     ? `\nRetrying ${formatDateTime(rendition.error_retry_at)}`
@@ -200,7 +204,7 @@ export default function PostScreen() {
                   onPress={() => void Linking.openURL(rendition.external_url!)}
                   style={styles.externalLink}
                 >
-                  <Text style={{ color: colors.tint, fontSize: 14 }}>View published post</Text>
+                  <Text style={{ color: colors.primary, fontSize: 14 }}>View published post</Text>
                 </Pressable>
               ) : null}
             </Card>
@@ -213,13 +217,13 @@ export default function PostScreen() {
             <>
               <Button
                 title="Edit"
-                variant="filled"
+                intent="primary"
                 onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id } })}
               />
               {pub.scheduled_at ? (
                 <Button
                   title="Schedule & queue"
-                  variant="tinted"
+                  intent="ordinary"
                   onPress={() =>
                     run(async () => {
                       const { error, response } = await api().POST("/publications/{id}/schedule", {
@@ -239,7 +243,7 @@ export default function PostScreen() {
             <>
               <Button
                 title="Reschedule"
-                variant="tinted"
+                intent="ordinary"
                 onPress={() =>
                   setPickerStep((current) =>
                     current ? null : firstPickerStep(Platform.OS === "android" ? "android" : "ios"),
@@ -248,7 +252,7 @@ export default function PostScreen() {
               />
               <Button
                 title="Cancel schedule"
-                variant="destructive"
+                intent="destructive"
                 onPress={() =>
                   run(async () => {
                     const { error, response } = await api().POST("/publications/{id}/cancel", {
@@ -266,7 +270,7 @@ export default function PostScreen() {
             <>
               <Button
                 title="Retry failed destinations"
-                variant="filled"
+                intent="primary"
                 onPress={() =>
                   run(async () => {
                     const { error, response } = await api().POST(
@@ -283,7 +287,7 @@ export default function PostScreen() {
                 title={
                   pub.failure_dismissed_at ? "Restore in failed posts" : "Dismiss from failed posts"
                 }
-                variant="plain"
+                intent="quiet"
                 onPress={() =>
                   run(async () => {
                     const result = pub.failure_dismissed_at
@@ -306,7 +310,7 @@ export default function PostScreen() {
           {(status === "failed" || status === "scheduled") && pub.revision !== undefined ? (
             <Button
               title="Delete post"
-              variant="destructive"
+              intent="destructive"
               onPress={() =>
                 Alert.alert("Delete post?", "This removes it from the queue permanently.", [
                   { text: "Cancel", style: "cancel" },
@@ -366,7 +370,7 @@ export default function PostScreen() {
                 }
               }}
             />
-            {reschedule.isPending ? <ActivityIndicator color={colors.tint} /> : null}
+            {reschedule.isPending ? <ActivityIndicator color={colors.primary} /> : null}
             {newDate && reschedule.isPending ? (
               <BodyText>Moving to {formatDateTime(newDate.toISOString())}...</BodyText>
             ) : null}

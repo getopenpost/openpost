@@ -43,23 +43,25 @@ export default function DestinationScreen() {
 
         {showProgress ? (
           <View accessibilityLiveRegion="polite" style={styles.progress}>
-            <ActivityIndicator color={colors.tint} />
+            <ActivityIndicator color={colors.primary} />
             <BodyText>Checking connected accounts</BodyText>
           </View>
         ) : null}
 
         {accounts.isError ? (
           <>
-            <Text style={[styles.title, { color: colors.text }]}>Could not check accounts</Text>
+            <Text style={[styles.title, { color: colors.onSurface }]}>
+              Could not check accounts
+            </Text>
             <Card style={styles.card}>
-              <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+              <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
                 {accounts.error instanceof Error
                   ? accounts.error.message
                   : "Could not load accounts"}
               </BodyText>
               <Button
                 title="Retry"
-                variant="tinted"
+                intent="ordinary"
                 loading={accounts.isFetching}
                 onPress={() => void accounts.refetch()}
               />
@@ -69,18 +71,18 @@ export default function DestinationScreen() {
 
         {!accounts.isError && state?.kind === "setup" ? (
           <>
-            <Text style={[styles.title, { color: colors.text }]}>{state.title}</Text>
+            <Text style={[styles.title, { color: colors.onSurface }]}>{state.title}</Text>
             <BodyText style={styles.subtitle}>{state.body}</BodyText>
             <Card style={styles.card}>
               <Button
                 title={state.actions[0].label}
-                variant="focal"
+                intent="focal"
                 accessibilityRole="link"
                 onPress={() => void WebBrowser.openBrowserAsync(state.actions[0].url)}
               />
               <Button
                 title={state.actions[1].label}
-                variant="tinted"
+                intent="ordinary"
                 loading={accounts.isFetching}
                 onPress={() => void accounts.refetch()}
               />
@@ -91,7 +93,7 @@ export default function DestinationScreen() {
         {!showProgress ? (
           <Button
             title={state?.kind === "setup" ? state.actions[2].label : "Back to workspaces"}
-            variant="plain"
+            intent="quiet"
             onPress={() =>
               router.replace({
                 pathname:

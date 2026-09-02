@@ -39,15 +39,17 @@ export function BottomDrawer({
       onIndexChange={(index) => {
         if (index === 0) onDismiss();
       }}
-      scrimColor="rgba(0, 0, 0, 0.62)"
+      scrimColor={colors.scrim}
       surface={
-        <View style={[StyleSheet.absoluteFill, styles.surface, { backgroundColor: colors.card }]} />
+        <View
+          style={[StyleSheet.absoluteFill, styles.surface, { backgroundColor: colors.surface }]}
+        />
       }
     >
       <Animated.View style={[styles.drawer, { maxHeight: height * 0.9 }, keyboardPaddingStyle]}>
-        <View style={[styles.handle, { backgroundColor: colors.separator }]} />
+        <View style={[styles.handle, { backgroundColor: colors.outlineVariant }]} />
         <View style={styles.heading}>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>{title}</Text>
           <Pressable
             accessibilityLabel="Close"
             accessibilityRole="button"
@@ -55,14 +57,14 @@ export function BottomDrawer({
             onPress={onDismiss}
             style={({ pressed }) => [
               styles.closeButton,
-              { backgroundColor: colors.bg },
+              { backgroundColor: colors.background },
               pressed && styles.pressed,
             ]}
           >
             <SymbolView
               name={{ ios: "xmark", android: "close" }}
               size={24}
-              tintColor={colors.text}
+              tintColor={colors.onSurface}
             />
           </Pressable>
         </View>

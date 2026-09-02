@@ -49,15 +49,15 @@ export default function ServerScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Brand style={styles.brand} />
-          <Text style={[styles.title, { color: colors.text }]}>Sign in to OpenPost</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>Sign in to OpenPost</Text>
           <BodyText style={styles.subtitle}>Choose where to sign in.</BodyText>
 
           <Card style={styles.hostedCard}>
-            <Text style={[styles.hostedTitle, { color: colors.text }]}>OpenPost Hosted</Text>
+            <Text style={[styles.hostedTitle, { color: colors.onSurface }]}>OpenPost Hosted</Text>
             <BodyText>Managed at {HOSTED_URL.replace("https://", "")}</BodyText>
             <Button
               title="Continue to sign in"
-              variant="focal"
+              intent="focal"
               disabled={busy !== null}
               loading={busy === "hosted"}
               onPress={() => void choose(HOSTED_URL, "hosted")}
@@ -66,14 +66,14 @@ export default function ServerScreen() {
           </Card>
 
           {error ? (
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </BodyText>
           ) : null}
 
           <Button
             title={showSelfHosted ? "Hide self-hosted setup" : "Connect a self-hosted server"}
-            variant="plain"
+            intent="quiet"
             accessibilityHint={`${showSelfHosted ? "Hides" : "Shows"} the self-hosted server address field`}
             accessibilityState={{ expanded: showSelfHosted }}
             disabled={busy !== null}
@@ -97,7 +97,7 @@ export default function ServerScreen() {
               <BodyText>Use the HTTPS address for your OpenPost server.</BodyText>
               <Button
                 title="Connect to server"
-                variant="tinted"
+                intent="ordinary"
                 disabled={busy !== null || url.trim().length === 0}
                 loading={busy === "custom"}
                 onPress={() => void choose(url, "custom")}

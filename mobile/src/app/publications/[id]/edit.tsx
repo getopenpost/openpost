@@ -36,6 +36,7 @@ import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { uploadAttachment, type PendingAttachment } from "@/lib/media";
 import { takePendingAttachments } from "@/lib/share";
 import { currentWorkspaceId, useAccounts, useSocialSets } from "@/lib/queries";
+import { withAlpha } from "@/theme";
 
 type Attachment = {
   localId: string;
@@ -85,7 +86,7 @@ export default function ComposeScreen() {
     return (
       <Screen style={{ alignItems: "center", justifyContent: "center" }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator color={colors.tint} />
+        <ActivityIndicator color={colors.primary} />
       </Screen>
     );
   }
@@ -94,7 +95,7 @@ export default function ComposeScreen() {
     return (
       <Screen style={{ padding: 20, paddingTop: 100, gap: 12 }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <BodyText style={{ color: colors.danger }}>
+        <BodyText style={{ color: colors.error }}>
           {publication.error instanceof Error ? publication.error.message : "Failed to load"}
         </BodyText>
         <Button title="Close" onPress={() => router.back()} />
@@ -551,18 +552,20 @@ function Composer({
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.modalHeader, { borderBottomColor: colors.separator }]}>
+      <View style={[styles.modalHeader, { borderBottomColor: colors.outlineVariant }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel editing"
           onPress={() => router.back()}
           style={styles.headerAction}
         >
-          <Text style={{ color: colors.tint, fontSize: 17 }}>Cancel</Text>
+          <Text style={{ color: colors.primary, fontSize: 17 }}>Cancel</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <StatusBadge status={pub.status} />
-          {saveAndClose.isPending ? <ActivityIndicator size="small" color={colors.tint} /> : null}
+          {saveAndClose.isPending ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -574,7 +577,7 @@ function Composer({
         >
           <Text
             style={{
-              color: saveAndClose.isPending ? colors.textSecondary : colors.tint,
+              color: saveAndClose.isPending ? colors.onSurfaceVariant : colors.primary,
               fontSize: 17,
               fontWeight: "600",
             }}
@@ -593,19 +596,19 @@ function Composer({
           </Card>
         ) : null}
         {actionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
             {actionError}
           </BodyText>
         ) : null}
 
         <View style={styles.editorHeading}>
           <View style={styles.editorHeadingCopy}>
-            <Text style={[styles.editorTitle, { color: colors.text }]}>Post</Text>
+            <Text style={[styles.editorTitle, { color: colors.onSurface }]}>Post</Text>
             <BodyText>One idea, adapted for every destination</BodyText>
           </View>
           <Button
             title={generatePost.isPending ? "Generating..." : "Generate draft"}
-            variant="tinted"
+            intent="ordinary"
             onPress={() => generatePost.mutate()}
             disabled={generatePost.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={generatePost.isPending}
@@ -621,7 +624,7 @@ function Composer({
           textAlignVertical="top"
           style={[
             styles.writingField,
-            { backgroundColor: colors.card, borderColor: colors.separator },
+            { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
           ]}
         />
 
@@ -631,14 +634,20 @@ function Composer({
               key={attachment.localId}
               style={[
                 styles.attachmentRow,
-                { backgroundColor: colors.card, borderColor: colors.separator },
+                { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
               ]}
             >
               <View style={styles.thumbWrap}>
                 {attachment.uri && attachment.mimeType.startsWith("image/") ? (
                   <Image source={{ uri: attachment.uri }} style={styles.thumb} contentFit="cover" />
                 ) : (
-                  <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                  <View
+                    style={[
+                      styles.thumb,
+                      styles.thumbPlaceholder,
+                      { backgroundColor: colors.surfaceContainerHigh },
+                    ]}
+                  >
                     <SymbolView
                       name={
                         attachment.mimeType.startsWith("video/")
@@ -646,30 +655,28 @@ function Composer({
                           : { ios: "photo", android: "image" }
                       }
                       size={24}
-                      tintColor={colors.textSecondary}
+                      tintColor={colors.onSurfaceVariant}
                     />
                   </View>
                 )}
                 {attachment.status === "uploading" ? (
-                  <View style={styles.thumbOverlay}>
-                    <ActivityIndicator size="small" color={colors.onTint} />
+                  <View style={[styles.thumbOverlay, { backgroundColor: colors.scrim }]}>
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   </View>
                 ) : attachment.status === "error" ? (
-                  <View style={[styles.thumbOverlay, { backgroundColor: `${colors.danger}99` }]}>
-                    <Text
-                      style={{
-                        color: colors.onTint,
-                        fontSize: 16,
-                        fontWeight: "700",
-                      }}
-                    >
-                      !
-                    </Text>
+                  <View
+                    style={[styles.thumbOverlay, { backgroundColor: withAlpha(colors.error, 0.6) }]}
+                  >
+                    <SymbolView
+                      name={{ ios: "exclamationmark.triangle.fill", android: "warning" }}
+                      size={18}
+                      tintColor={colors.onError}
+                    />
                   </View>
                 ) : null}
               </View>
               <View style={styles.attachmentDetails}>
-                <BodyText numberOfLines={1} style={{ color: colors.text }}>
+                <BodyText numberOfLines={1} style={{ color: colors.onSurface }}>
                   {attachment.filename}
                 </BodyText>
                 <View style={styles.attachmentActions}>
@@ -690,7 +697,7 @@ function Composer({
                   <IconButton
                     label={`Remove ${attachment.filename}`}
                     name={{ ios: "trash", android: "delete" }}
-                    color={colors.danger}
+                    color={colors.error}
                     onPress={() => removeAttachment(attachment.localId)}
                   />
                 </View>
@@ -705,14 +712,14 @@ function Composer({
             onPress={() => void pickFromLibrary()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant },
               pressed && { opacity: 0.6 },
             ]}
           >
             <SymbolView
               name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
               size={24}
-              tintColor={colors.tint}
+              tintColor={colors.primary}
             />
           </Pressable>
           <Pressable
@@ -721,14 +728,14 @@ function Composer({
             onPress={() => void takePhoto()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant },
               pressed && { opacity: 0.6 },
             ]}
           >
             <SymbolView
               name={{ ios: "camera", android: "photo_camera" }}
               size={24}
-              tintColor={colors.tint}
+              tintColor={colors.primary}
             />
           </Pressable>
         </View>
@@ -745,11 +752,11 @@ function Composer({
                 <SymbolView
                   name={{ ios: "person.2", android: "group" }}
                   size={22}
-                  tintColor={colors.tint}
+                  tintColor={colors.primary}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Social Set</Text>
+                <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Social Set</Text>
                 <BodyText numberOfLines={1}>
                   {selectedSetLabel(socialSets.data ?? [], activeSocialSetId, activeAccounts.size)}
                 </BodyText>
@@ -757,7 +764,7 @@ function Composer({
               <SymbolView
                 name={{ ios: "chevron.right", android: "chevron_right" }}
                 size={20}
-                tintColor={colors.textSecondary}
+                tintColor={colors.onSurfaceVariant}
               />
             </Card>
           )}
@@ -773,11 +780,11 @@ function Composer({
                 <SymbolView
                   name={{ ios: "calendar", android: "calendar_month" }}
                   size={22}
-                  tintColor={colors.tint}
+                  tintColor={colors.primary}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Publish time</Text>
+                <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Publish time</Text>
                 <BodyText>
                   {scheduledAt
                     ? formatDateTime(scheduledAt.toISOString())
@@ -787,7 +794,7 @@ function Composer({
               <SymbolView
                 name={{ ios: "chevron.right", android: "chevron_right" }}
                 size={20}
-                tintColor={colors.textSecondary}
+                tintColor={colors.onSurfaceVariant}
               />
             </Card>
           )}
@@ -797,14 +804,14 @@ function Composer({
           {pub.status !== "published" && pub.status !== "publishing" ? (
             <Button
               title="Publish now"
-              variant="tinted"
+              intent="ordinary"
               onPress={() => publishNow.mutate()}
               disabled={publishNow.isPending || activeAccounts.size === 0}
             />
           ) : null}
           <Button
             title="Delete draft"
-            variant="destructive"
+            intent="destructive"
             onPress={() =>
               Alert.alert("Delete draft?", "This cannot be undone.", [
                 { text: "Cancel", style: "cancel" },
@@ -823,12 +830,12 @@ function Composer({
         <View
           style={[
             styles.stickyFooter,
-            { backgroundColor: colors.bg, borderTopColor: colors.separator },
+            { backgroundColor: colors.background, borderTopColor: colors.outlineVariant },
           ]}
         >
           <Button
             title="Queue next slot"
-            variant="focal"
+            intent="focal"
             onPress={() => queueNextSlot.mutate()}
             disabled={queueNextSlot.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={queueNextSlot.isPending}
@@ -864,7 +871,7 @@ function Composer({
             </View>
           ) : null}
           <BodyText>Choose a saved set or fine-tune the accounts below.</BodyText>
-          {accounts.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
+          {accounts.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
           {(accounts.data?.length ?? 0) === 0 && !accounts.isLoading ? (
             <Card>
               <BodyText>No connected accounts. Connect them in the web app first.</BodyText>
@@ -882,8 +889,8 @@ function Composer({
                       style={({ pressed }) => [
                         styles.accountRow,
                         {
-                          backgroundColor: colors.bg,
-                          borderColor: selected ? colors.tint : colors.separator,
+                          backgroundColor: colors.background,
+                          borderColor: selected ? colors.primary : colors.outlineVariant,
                         },
                         pressed && { opacity: 0.65 },
                       ]}
@@ -892,8 +899,8 @@ function Composer({
                         style={[
                           styles.checkbox,
                           {
-                            borderColor: selected ? colors.tint : colors.separator,
-                            backgroundColor: selected ? colors.tint : "transparent",
+                            borderColor: selected ? colors.primary : colors.outlineVariant,
+                            backgroundColor: selected ? colors.primary : "transparent",
                           },
                         ]}
                       >
@@ -901,14 +908,14 @@ function Composer({
                           <SymbolView
                             name={{ ios: "checkmark", android: "check" }}
                             size={15}
-                            tintColor={colors.onTint}
+                            tintColor={colors.onPrimary}
                           />
                         ) : null}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text
                           style={{
-                            color: colors.text,
+                            color: colors.onSurface,
                             fontSize: 16,
                             fontWeight: "600",
                           }}
@@ -920,7 +927,7 @@ function Composer({
                       {selected ? (
                         <Button
                           title={expandedAccount === account.id ? "Hide" : "Customize"}
-                          variant="plain"
+                          intent="quiet"
                           onPress={() =>
                             setExpandedAccount(expandedAccount === account.id ? null : account.id)
                           }
@@ -960,13 +967,13 @@ function Composer({
       {scheduleDrawerOpen ? (
         <BottomDrawer open title="Publish time" onDismiss={() => setScheduleDrawerOpen(false)}>
           <Card style={styles.scheduleCard}>
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "600" }}>
+            <Text style={{ color: colors.onSurface, fontSize: 17, fontWeight: "600" }}>
               {scheduledAt ? formatDateTime(scheduledAt.toISOString()) : "Not scheduled"}
             </Text>
             <View style={styles.scheduleActions}>
               <Button
                 title={pickerStep ? "Hide picker" : "Pick date and time"}
-                variant="tinted"
+                intent="ordinary"
                 onPress={() =>
                   setPickerStep((current) =>
                     current ? null : firstPickerStep(Platform.OS === "android" ? "android" : "ios"),
@@ -975,12 +982,12 @@ function Composer({
               />
               <Button
                 title="Use next slot"
-                variant="tinted"
+                intent="ordinary"
                 onPress={() => nextSlot.mutate()}
                 loading={nextSlot.isPending}
               />
               {scheduledAt ? (
-                <Button title="Clear" variant="plain" onPress={() => setScheduledAt(null)} />
+                <Button title="Clear" intent="quiet" onPress={() => setScheduledAt(null)} />
               ) : null}
             </View>
             {pickerStep ? (
@@ -1001,7 +1008,7 @@ function Composer({
           </Card>
           <Button
             title="Schedule and queue"
-            variant="focal"
+            intent="focal"
             onPress={() => scheduleMutation.mutate()}
             disabled={!scheduledAt || scheduleMutation.isPending || activeAccounts.size === 0}
             loading={scheduleMutation.isPending}
@@ -1024,14 +1031,14 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         styles.chip,
         pressed && { opacity: 0.6 },
         {
-          backgroundColor: active ? `${colors.tint}26` : colors.card,
-          borderColor: active ? colors.tint : colors.separator,
+          backgroundColor: active ? withAlpha(colors.primary, 0.15) : colors.surface,
+          borderColor: active ? colors.primary : colors.outlineVariant,
         },
       ]}
     >
       <Text
         style={{
-          color: active ? colors.tint : colors.text,
+          color: active ? colors.primary : colors.onSurface,
           fontSize: 14,
           fontWeight: "500",
         }}
@@ -1095,7 +1102,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   aiButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 14,
   },
   writingField: {
@@ -1141,7 +1148,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   thumbPlaceholder: {
-    backgroundColor: "rgba(128,128,128,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1152,7 +1158,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1210,7 +1215,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   customizeButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 8,
   },
   settingCard: {

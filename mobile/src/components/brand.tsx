@@ -21,7 +21,9 @@ export function Brand({
         contentFit="contain"
         accessibilityLabel="OpenPost"
       />
-      <Text style={[styles.wordmark, compact && styles.wordmarkCompact, { color: colors.text }]}>
+      <Text
+        style={[styles.wordmark, compact && styles.wordmarkCompact, { color: colors.onSurface }]}
+      >
         OpenPost
       </Text>
     </View>

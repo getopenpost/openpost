@@ -1,3 +1,4 @@
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,50 +9,23 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { useColorScheme } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
-import { STATUS_LABEL, statusColor } from "@/lib/format";
+import { STATUS_LABEL } from "@/lib/format";
 import { pressHaptic } from "@/lib/haptics";
+import {
+  actionPresentation,
+  NATIVE_CONTROL_METRICS,
+  type NativeActionIntent,
+  type NativeColorRoles,
+  useNativeTheme,
+  withAlpha,
+} from "@/theme";
 
-export const LIGHT_COLORS = {
-  dark: false,
-  bg: "#faf8f5",
-  card: "#ffffff",
-  text: "#302b28",
-  textSecondary: "#716862",
-  separator: "#e4ded8",
-  tint: "#b74c05",
-  onTint: "#ffffff",
-  tintSoft: "#f7e9de",
-  buttonDepth: "#7e3300",
-  danger: "#b3261e",
-  inputBg: "#f3efeb",
-  success: "#376b51",
-} as const;
-
-export const DARK_COLORS = {
-  dark: true,
-  bg: "#171412",
-  card: "#211d1a",
-  text: "#f3efeb",
-  textSecondary: "#aea39c",
-  separator: "#3a332f",
-  tint: "#e9823a",
-  onTint: "#21140c",
-  tintSoft: "#3b281d",
-  buttonDepth: "#8f3a00",
-  danger: "#ffb4ab",
-  inputBg: "#2a2521",
-  success: "#8fcfac",
-} as const;
-
-export type AppColors = typeof LIGHT_COLORS | typeof DARK_COLORS;
+export type AppColors = NativeColorRoles;
 
 export function useColors(): AppColors {
-  const scheme = useColorScheme();
-  return scheme === "dark" ? DARK_COLORS : LIGHT_COLORS;
+  return useNativeTheme().manifest.colors;
 }
 
 export function Screen({
@@ -66,18 +40,29 @@ export function Screen({
   const colors = useColors();
   const edges: Edge[] = safeTop ? ["top", "left", "right"] : ["left", "right"];
   return (
-    <SafeAreaView edges={edges} style={[{ flex: 1, backgroundColor: colors.bg }, style]}>
+    <SafeAreaView edges={edges} style={[{ flex: 1, backgroundColor: colors.background }, style]}>
       {children}
     </SafeAreaView>
   );
 }
 
 export function Card({ children, style, ...props }: React.ComponentProps<typeof View>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing } = theme.manifest;
   return (
     <View
       {...props}
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.separator }, style]}
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.outlineVariant,
+          borderRadius: shape.medium,
+          paddingHorizontal: spacing.large,
+          paddingVertical: spacing.medium,
+        },
+        style,
+      ]}
     >
       {children}
     </View>
@@ -85,14 +70,13 @@ export function Card({ children, style, ...props }: React.ComponentProps<typeof 
 }
 
 export function SectionHeader({ label }: { label: string }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
   return (
     <Text
       style={[
         styles.sectionHeader,
-        {
-          color: colors.textSecondary,
-        },
+        theme.manifest.typography.labelLarge,
+        { color: theme.manifest.colors.onSurfaceVariant },
       ]}
     >
       {label}
@@ -103,7 +87,7 @@ export function SectionHeader({ label }: { label: string }) {
 export function Button({
   title,
   onPress,
-  variant = "filled",
+  intent = "primary",
   disabled,
   loading = false,
   accessibilityRole = "button",
@@ -113,7 +97,7 @@ export function Button({
 }: {
   title: string;
   onPress: () => void;
-  variant?: "filled" | "focal" | "tinted" | "plain" | "destructive";
+  intent?: NativeActionIntent;
   disabled?: boolean;
   loading?: boolean;
   accessibilityRole?: React.ComponentProps<typeof Pressable>["accessibilityRole"];
@@ -121,19 +105,10 @@ export function Button({
   accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
   style?: StyleProp<ViewStyle>;
 }) {
-  const colors = useColors();
-  const isPrimary = variant === "filled" || variant === "focal";
-  const background = isPrimary
-    ? colors.tint
-    : variant === "destructive"
-      ? "transparent"
-      : variant === "tinted"
-        ? colors.tintSoft
-        : "transparent";
-  const color = isPrimary ? colors.onTint : variant === "destructive" ? colors.danger : colors.tint;
+  const theme = useNativeTheme();
+  const presentation = actionPresentation(theme.manifest, intent);
   const inactive = disabled || loading;
-  const hasDepth = variant === "focal";
-  const hasBorder = hasDepth || variant === "tinted";
+  const hasDepth = presentation.depth > 0;
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
@@ -146,42 +121,54 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: background,
-          borderColor: isPrimary
-            ? colors.tint
-            : variant === "tinted"
-              ? `${colors.tint}66`
-              : "transparent",
-          borderBottomColor: hasDepth ? colors.buttonDepth : undefined,
-          borderBottomWidth: hasDepth ? (pressed ? 1 : 2) : undefined,
-          borderWidth: hasBorder ? (hasDepth ? 1 : StyleSheet.hairlineWidth) : 0,
-          opacity: inactive ? 0.45 : pressed && !hasDepth ? 0.68 : 1,
-          transform: pressed && hasDepth ? [{ translateY: 2 }] : undefined,
+          backgroundColor: pressed ? presentation.pressedContainer : presentation.container,
+          borderColor: presentation.border,
+          borderBottomColor: hasDepth ? presentation.depthColor : presentation.border,
+          borderBottomWidth: hasDepth
+            ? Math.max(presentation.borderWidth, pressed ? 0 : presentation.depth)
+            : presentation.borderWidth,
+          borderRadius: theme.manifest.shape.medium,
+          borderWidth: presentation.borderWidth,
+          opacity: inactive ? presentation.disabledOpacity : 1,
+          transform: pressed && hasDepth ? [{ translateY: presentation.depth }] : undefined,
         },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={color} />
+        <ActivityIndicator color={presentation.content} />
       ) : (
-        <Text style={[styles.buttonText, { color }]}>{title}</Text>
+        <Text
+          style={[
+            theme.manifest.typography.labelLarge,
+            {
+              color: presentation.content,
+              textDecorationLine: presentation.underline ? "underline" : "none",
+            },
+          ]}
+        >
+          {title}
+        </Text>
       )}
     </Pressable>
   );
 }
 
 export function TextField({ style, ...props }: React.ComponentProps<typeof TextInput>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, typography } = theme.manifest;
   return (
     <TextInput
-      placeholderTextColor={colors.textSecondary}
+      placeholderTextColor={colors.onSurfaceVariant}
       {...props}
       style={[
         styles.textField,
+        typography.bodyLarge,
         {
-          backgroundColor: colors.inputBg,
-          borderColor: colors.separator,
-          color: colors.text,
+          backgroundColor: colors.surfaceContainerHigh,
+          borderColor: colors.outline,
+          borderRadius: shape.small,
+          color: colors.onSurface,
         },
         style,
       ]}
@@ -200,7 +187,8 @@ export function IconButton({
   onPress: () => void;
   color?: string;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
   return (
     <Pressable
       accessibilityRole="button"
@@ -210,23 +198,28 @@ export function IconButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.iconButton,
-        pressed && {
-          backgroundColor: colors.tintSoft,
-        },
+        { borderRadius: theme.manifest.shape.full },
+        pressed && { backgroundColor: colors.primaryContainer },
       ]}
     >
-      <SymbolView name={name} size={24} tintColor={color ?? colors.text} />
+      <SymbolView name={name} size={24} tintColor={color ?? colors.onSurface} />
     </Pressable>
   );
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const colors = useColors();
-  const color = statusColor(status, colors.dark);
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
+  const color = colors.status[status as keyof typeof colors.status] ?? colors.onSurfaceVariant;
   return (
-    <View style={[styles.badge, { backgroundColor: `${color}26` }]}>
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: withAlpha(color, 0.15), borderRadius: theme.manifest.shape.full },
+      ]}
+    >
       <View style={[styles.badgeDot, { backgroundColor: color }]} />
-      <Text style={{ color, fontSize: 12, fontWeight: "600" }}>
+      <Text style={[theme.manifest.typography.labelMedium, { color }]}>
         {STATUS_LABEL[status] ?? status}
       </Text>
     </View>
@@ -234,9 +227,16 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function BodyText({ children, style, ...props }: React.ComponentProps<typeof Text>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
   return (
-    <Text style={[{ color: colors.textSecondary, fontSize: 14 }, style]} {...props}>
+    <Text
+      style={[
+        theme.manifest.typography.bodyMedium,
+        { color: theme.manifest.colors.onSurfaceVariant },
+        style,
+      ]}
+      {...props}
+    >
       {children}
     </Text>
   );
@@ -244,54 +244,40 @@ export function BodyText({ children, style, ...props }: React.ComponentProps<typ
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
   },
   sectionHeader: {
-    fontSize: 14,
-    fontWeight: "600",
     marginBottom: 8,
     marginHorizontal: 4,
   },
   button: {
-    minHeight: 48,
-    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: NATIVE_CONTROL_METRICS.buttonMinHeight,
     paddingHorizontal: 16,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   textField: {
-    minHeight: 52,
-    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
+    minHeight: NATIVE_CONTROL_METRICS.textFieldMinHeight,
     paddingHorizontal: 12,
-    fontSize: 16,
   },
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     alignItems: "center",
+    height: NATIVE_CONTROL_METRICS.iconButtonSize,
     justifyContent: "center",
+    width: NATIVE_CONTROL_METRICS.iconButtonSize,
   },
   badge: {
-    flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
     gap: 6,
-    borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    alignSelf: "flex-start",
   },
   badgeDot: {
-    width: 6,
-    height: 6,
     borderRadius: 3,
+    height: 6,
+    width: 6,
   },
 });

@@ -147,7 +147,7 @@ export default function DraftsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: colors.text }]}>Drafts</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>Drafts</Text>
           {workspaces.data && workspaces.data.length > 1 ? (
             <Pressable
               accessibilityRole="button"
@@ -162,9 +162,12 @@ export default function DraftsScreen() {
       </View>
 
       <View
-        style={[styles.capture, { backgroundColor: colors.card, borderColor: colors.separator }]}
+        style={[
+          styles.capture,
+          { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+        ]}
       >
-        <Text style={[styles.captureTitle, { color: colors.text }]}>Jot an idea</Text>
+        <Text style={[styles.captureTitle, { color: colors.onSurface }]}>Jot an idea</Text>
         <TextField
           value={idea}
           onChangeText={setIdea}
@@ -172,23 +175,26 @@ export default function DraftsScreen() {
           placeholder="What are you building, learning, or launching?"
           multiline
           textAlignVertical="top"
-          style={[styles.ideaField, { backgroundColor: colors.card, borderColor: "transparent" }]}
+          style={[
+            styles.ideaField,
+            { backgroundColor: colors.surface, borderColor: "transparent" },
+          ]}
         />
         {image ? (
           <View
             style={[
               styles.attachmentRow,
-              { backgroundColor: colors.card, borderColor: colors.separator },
+              { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
             ]}
           >
             <Image source={{ uri: image.uri }} style={styles.attachmentThumb} contentFit="cover" />
-            <BodyText numberOfLines={1} style={{ color: colors.text, flex: 1 }}>
+            <BodyText numberOfLines={1} style={{ color: colors.onSurface, flex: 1 }}>
               {image.filename}
             </BodyText>
             <IconButton
               label={`Remove ${image.filename}`}
               name={{ ios: "trash", android: "delete" }}
-              color={colors.danger}
+              color={colors.error}
               onPress={() => setImage(null)}
             />
           </View>
@@ -201,27 +207,27 @@ export default function DraftsScreen() {
             onPress={() => void pickImage()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant },
               pressed && { opacity: 0.6 },
             ]}
           >
             <SymbolView
               name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
               size={24}
-              tintColor={colors.tint}
+              tintColor={colors.primary}
             />
           </Pressable>
           <BodyText>{image ? "Replace image" : "Add image"}</BodyText>
         </View>
         {captureError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginTop: 6 }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error, marginTop: 6 }}>
             {captureError}
           </BodyText>
         ) : null}
         <View style={styles.captureActions}>
           <Button
             title="Generate draft"
-            variant="focal"
+            intent="focal"
             onPress={() => void quickCapture(true)}
             disabled={createDraft.isPending || idea.trim().length === 0}
             loading={createDraft.isPending}
@@ -229,7 +235,7 @@ export default function DraftsScreen() {
           />
           <Button
             title="Write it myself"
-            variant="plain"
+            intent="quiet"
             onPress={() => void quickCapture(false)}
             disabled={createDraft.isPending || (idea.trim().length === 0 && !image)}
           />
@@ -242,22 +248,24 @@ export default function DraftsScreen() {
           <RefreshControl
             refreshing={drafts.isRefetching}
             onRefresh={() => void drafts.refetch()}
-            tintColor={colors.textSecondary}
+            tintColor={colors.onSurfaceVariant}
           />
         }
       >
         {drafts.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color={colors.tint} />
+          <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
         ) : null}
         {drafts.isError ? (
           <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load drafts</Text>
+            <Text style={[styles.errorTitle, { color: colors.onSurface }]}>
+              Could not load drafts
+            </Text>
             <BodyText accessibilityRole="alert">
               {drafts.error instanceof Error
                 ? drafts.error.message
                 : "Check your connection and try again."}
             </BodyText>
-            <Button title="Try again" variant="tinted" onPress={() => void drafts.refetch()} />
+            <Button title="Try again" intent="ordinary" onPress={() => void drafts.refetch()} />
           </Card>
         ) : null}
         {list.length === 0 && !drafts.isLoading && !drafts.isError ? (
@@ -301,7 +309,7 @@ function DraftRow({ draft }: { draft: PublicationListItem }) {
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={1}>
               {excerpt}
             </Text>
             <BodyText>Edited {relativeTime(draft.updated_at)}</BodyText>
@@ -344,7 +352,7 @@ function WorkspaceMenu({
             }}
             style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
           >
-            <Text style={{ color: colors.text, fontSize: 16 }}>Switch workspace</Text>
+            <Text style={{ color: colors.onSurface, fontSize: 16 }}>Switch workspace</Text>
             <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
           </Pressable>
         ) : null}
@@ -357,7 +365,7 @@ function WorkspaceMenu({
             }}
             style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
           >
-            <Text style={{ color: colors.tint, fontSize: 16 }}>Open web app</Text>
+            <Text style={{ color: colors.primary, fontSize: 16 }}>Open web app</Text>
             <BodyText>Manage accounts and settings</BodyText>
           </Pressable>
         ) : null}
@@ -369,7 +377,7 @@ function WorkspaceMenu({
           }}
           style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
         >
-          <Text style={{ color: colors.danger, fontSize: 16 }}>Sign out</Text>
+          <Text style={{ color: colors.error, fontSize: 16 }}>Sign out</Text>
         </Pressable>
       </View>
     </BottomDrawer>

@@ -55,7 +55,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Brand compact style={styles.brand} />
-          <Text style={[styles.title, { color: colors.text }]}>Sign in</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>Sign in</Text>
           <BodyText style={styles.subtitle}>
             {mfaToken
               ? "Enter the 6-digit code from your authenticator app."
@@ -101,14 +101,14 @@ export default function LoginScreen() {
           )}
 
           {error ? (
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </BodyText>
           ) : null}
 
           <Button
             title="Continue"
-            variant="focal"
+            intent="focal"
             onPress={() => void submit()}
             disabled={busy || (mfaToken ? totpCode.length !== 6 : !email || !password)}
             loading={busy}
@@ -119,7 +119,7 @@ export default function LoginScreen() {
             <BodyText>Using single sign-on? Pair this device with a browser instead.</BodyText>
             <Button
               title="Pair with browser"
-              variant="tinted"
+              intent="ordinary"
               onPress={() => router.push("/onboarding/pair")}
               style={{ marginTop: 10 }}
             />
@@ -127,7 +127,7 @@ export default function LoginScreen() {
 
           <Button
             title="Use a different server"
-            variant="plain"
+            intent="quiet"
             onPress={() => {
               void clearServer().then(() => router.replace("/onboarding/server"));
             }}

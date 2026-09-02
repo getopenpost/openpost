@@ -100,11 +100,7 @@
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile } from '$lib/media-upload-client';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import UndoIcon from '@lucide/svelte/icons/undo-2';
-	import RedoIcon from '@lucide/svelte/icons/redo-2';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import SaveIcon from '@lucide/svelte/icons/save';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import MousePointerIcon from '@lucide/svelte/icons/mouse-pointer-2';
 	import RectangleSelectIcon from '@lucide/svelte/icons/square-dashed-mouse-pointer';
 	import LassoSelectIcon from '@lucide/svelte/icons/lasso-select';
@@ -114,7 +110,6 @@
 	import LayersIcon from '@lucide/svelte/icons/layers-3';
 	import SlidersIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -123,8 +118,6 @@
 	import BlendIcon from '@lucide/svelte/icons/blend';
 	import GroupIcon from '@lucide/svelte/icons/group';
 	import UngroupIcon from '@lucide/svelte/icons/ungroup';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis';
-	import HelpIcon from '@lucide/svelte/icons/circle-help';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import MinusIcon from '@lucide/svelte/icons/minus';
@@ -2604,7 +2597,7 @@
 			onclick={goBack}
 			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
 		>
-			<ArrowLeftIcon />
+			<ThemeIcon role="arrow-left" />
 		</Button>
 		<Menubar.Root
 			class="ml-1 hidden h-8 gap-0 border-0 bg-transparent p-0 lg:flex"
@@ -2620,8 +2613,8 @@
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
-							{#if command.id === 'save'}<SaveIcon />{/if}
-							{#if command.id === 'export_design'}<DownloadIcon />{/if}
+							{#if command.id === 'save'}<ThemeIcon role="save" />{/if}
+							{#if command.id === 'export_design'}<ThemeIcon role="download" />{/if}
 							{commandMenuLabel(command.id)}
 							{#if commandShortcut(command.id)}
 								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
@@ -2725,7 +2718,7 @@
 				<Menubar.Content class="min-w-48">
 					{#each imageEditorCommandsForCategory('help') as command (command.id)}
 						<Menubar.Item onclick={() => executeEditorCommand(command.id)}>
-							<HelpIcon />
+							<ThemeIcon role="help" />
 							{commandLabel(command.id)}
 						</Menubar.Item>
 					{/each}
@@ -2769,7 +2762,7 @@
 				disabled={!editor.canUndo}
 				aria-label={editor.undoLabel
 					? m.image_editor_undo_named({ name: editor.undoLabel })
-					: m.image_editor_undo()}><UndoIcon /></Button
+					: m.image_editor_undo()}><ThemeIcon role="undo" /></Button
 			>
 			<Button
 				variant="ghost"
@@ -2779,7 +2772,7 @@
 				disabled={!editor.canRedo}
 				aria-label={editor.redoLabel
 					? m.image_editor_redo_named({ name: editor.redoLabel })
-					: m.image_editor_redo()}><RedoIcon /></Button
+					: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
 			>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
@@ -2791,7 +2784,7 @@
 							class="size-11 md:size-11 lg:hidden"
 							aria-label={m.image_editor_more_actions()}
 						>
-							<MoreIcon />
+							<ThemeIcon role="more-horizontal" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -2802,7 +2795,7 @@
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
-							{#if command.id === 'undo'}<UndoIcon />{:else}<RedoIcon />{/if}
+							<ThemeIcon role={command.id === 'undo' ? 'undo' : 'redo'} />
 							{commandMenuLabel(command.id)}
 						</DropdownMenu.Item>
 					{/each}
@@ -2855,7 +2848,7 @@
 					<DropdownMenu.Separator />
 					{#each imageEditorCommandsForCategory('help') as command (command.id)}
 						<DropdownMenu.Item onclick={() => executeEditorCommand(command.id)}>
-							<HelpIcon />
+							<ThemeIcon role="help" />
 							{commandLabel(command.id)}
 						</DropdownMenu.Item>
 					{/each}
@@ -3830,7 +3823,7 @@
 			<div class="space-y-2 overflow-y-auto pr-1">
 				{#if historyBusy}
 					<div class="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-						<LoaderIcon class="mr-2 size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 						{m.image_editor_loading_history()}
 					</div>
 				{:else if revisions.length === 0}
@@ -3873,7 +3866,10 @@
 							disabled={historyPageBusy}
 							onclick={() => void loadMoreRevisions()}
 						>
-							{#if historyPageBusy}<LoaderIcon class="mr-2 size-4 animate-spin" />{/if}
+							{#if historyPageBusy}<ProtectedIcon
+									icon="loading"
+									class="mr-2 size-4 animate-spin"
+								/>{/if}
 							{m.notifications_load_more()}
 						</Button>
 					{/if}
@@ -3887,7 +3883,7 @@
 			<section class="min-h-0 overflow-y-auto rounded-lg border bg-muted/20 p-3" aria-live="polite">
 				{#if revisionPreviewBusy}
 					<div class="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
-						<LoaderIcon class="mr-2 size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 						{m.version_preview_loading()}
 					</div>
 				{:else if !revisionPreview}
@@ -4019,7 +4015,7 @@
 					!imageEditorRevisionHasChanges(revisionChanges)}
 				onclick={() => void restoreRevision()}
 			>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.version_restore_confirm()}
 			</Button>
 		</Dialog.Footer>
@@ -4050,7 +4046,7 @@
 				>{m.common_cancel()}</Button
 			>
 			<Button onclick={createCheckpoint} disabled={!checkpointName.trim() || historyBusy}>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.image_editor_create_checkpoint()}
 			</Button>
 		</Dialog.Footer>
@@ -4099,7 +4095,7 @@
 				>{m.common_cancel()}</Button
 			>
 			<Button onclick={saveAsTemplate} disabled={!templateName.trim() || historyBusy}>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{templateTargetID === 'new'
 					? m.image_editor_save_template_action()
 					: m.image_editor_replace_template_action()}
@@ -4396,7 +4392,7 @@
 				onclick={exportDesign}
 				disabled={exportBusy || !editor.document || !exportBudget?.allowed}
 			>
-				{#if exportBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if exportBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{exportMode === 'download'
 					? m.image_editor_download()
 					: exportMode === 'attach'

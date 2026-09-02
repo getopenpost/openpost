@@ -3,8 +3,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import PipetteIcon from '@lucide/svelte/icons/pipette';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import { hslToHex, hexToRGB, normalizeHex, rgbToHSL, rgbToHex } from '../color';
 	import type { ImageEditorHSL, ImageEditorRGB } from '../color';
 	import type { ImageEditorBrandColor } from '../types';
@@ -149,7 +149,10 @@
 							title={color.name}
 						>
 							{#if normalizeHex(color.value) === hex}
-								<CheckIcon class="absolute inset-0 m-auto size-3.5 text-white drop-shadow" />
+								<ThemeIcon
+									role="check"
+									class="absolute inset-0 m-auto size-3.5 text-white drop-shadow"
+								/>
 							{/if}
 						</button>
 					{/each}

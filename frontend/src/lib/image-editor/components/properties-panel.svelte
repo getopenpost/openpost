@@ -13,8 +13,7 @@
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import BringToFrontIcon from '@lucide/svelte/icons/bring-to-front';
 	import SendToBackIcon from '@lucide/svelte/icons/send-to-back';
 	import FlipHorizontalIcon from '@lucide/svelte/icons/flip-horizontal-2';
@@ -23,7 +22,6 @@
 	import CropIcon from '@lucide/svelte/icons/crop';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import { m } from '$lib/paraglide/messages';
 	import type { ImageEditorImageAdjustments, ImageEditorTextCurveType } from '../types';
 
@@ -407,7 +405,7 @@
 										variant="outline"
 										size="icon-sm"
 										onclick={() => editor.duplicateSelected()}
-										aria-label={m.image_editor_duplicate()}><CopyIcon /></Button
+										aria-label={m.image_editor_duplicate()}><ThemeIcon role="copy" /></Button
 									>
 								{/snippet}
 							</Tooltip.Trigger>
@@ -421,7 +419,7 @@
 										variant="destructive"
 										size="icon-sm"
 										onclick={() => editor.deleteSelected()}
-										aria-label={m.image_editor_delete_layer()}><TrashIcon /></Button
+										aria-label={m.image_editor_delete_layer()}><ThemeIcon role="delete" /></Button
 									>
 								{/snippet}
 							</Tooltip.Trigger>
@@ -439,7 +437,8 @@
 								class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
 							>
 								<span class="min-w-0 flex-1">{m.image_editor_transform()}</span>
-								<ChevronDownIcon
+								<ThemeIcon
+									role="chevron-down"
 									class={`size-3.5 transition-transform ${transformOpen ? 'rotate-180' : ''}`}
 								/>
 							</button>
@@ -1175,7 +1174,8 @@
 										>
 											<CropIcon class="size-3.5" />
 											<span class="min-w-0 flex-1">{m.image_editor_crop()}</span>
-											<ChevronDownIcon
+											<ThemeIcon
+												role="chevron-down"
 												class="size-3.5 transition-transform data-[open=true]:rotate-180"
 												data-open={cropOpen}
 											/>
@@ -1265,7 +1265,8 @@
 											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-xs font-medium hover:bg-muted"
 										>
 											<span class="min-w-0 flex-1">{m.image_editor_adjustments()}</span>
-											<ChevronDownIcon
+											<ThemeIcon
+												role="chevron-down"
 												class={`size-3.5 transition-transform ${adjustmentsOpen ? 'rotate-180' : ''}`}
 											/>
 										</button>

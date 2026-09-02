@@ -14,8 +14,7 @@
 		ImageEditorPageBackground
 	} from '../types';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import ImageIcon from '@lucide/svelte/icons/image';
 
 	let { onOpenMedia = () => undefined }: { onOpenMedia?: () => void } = $props();
@@ -324,7 +323,7 @@
 								aria-label={m.image_editor_remove_gradient_stop({ number: index + 1 })}
 								onclick={() => removeGradientStop(index)}
 							>
-								<TrashIcon />
+								<ThemeIcon role="delete" />
 							</Button>
 						</div>
 						<ImageEditorColorPicker
@@ -369,7 +368,7 @@
 				disabled={!editor.canEdit || background.gradient.stops.length >= 32}
 				onclick={addGradientStop}
 			>
-				<PlusIcon />
+				<ThemeIcon role="add" />
 				{m.image_editor_add_gradient_stop()}
 			</Button>
 		</div>

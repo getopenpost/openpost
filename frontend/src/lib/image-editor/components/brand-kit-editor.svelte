@@ -10,16 +10,13 @@
 	import { loadImageEditorBrandFontsWithReport } from '../fonts';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type {
 		ImageEditorBrandColor,
 		ImageEditorBrandFont,
 		ImageEditorBrandKit,
 		ImageEditorBrandTextStyle
 	} from '../types';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import UploadIcon from '@lucide/svelte/icons/upload';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import TypeIcon from '@lucide/svelte/icons/type';
 	import { m } from '$lib/paraglide/messages';
@@ -312,7 +309,7 @@
 							aria-label={m.brand_remove_color()}
 							onclick={() => (colors = colors.filter((_, itemIndex) => itemIndex !== index))}
 						>
-							<TrashIcon />
+							<ThemeIcon role="delete" />
 						</Button>
 					</div>
 				{/each}
@@ -326,7 +323,7 @@
 							{ id: crypto.randomUUID(), name: m.brand_new_color(), value: '#f97316' }
 						])}
 				>
-					<PlusIcon />
+					<ThemeIcon role="add" />
 					{m.brand_add_color()}
 				</Button>
 			</div>
@@ -351,7 +348,7 @@
 							onclick={() =>
 								(backgrounds = backgrounds.filter((_, itemIndex) => itemIndex !== index))}
 						>
-							<TrashIcon />
+							<ThemeIcon role="delete" />
 						</Button>
 					</div>
 				{/each}
@@ -362,7 +359,7 @@
 					onclick={() =>
 						(backgrounds = [...backgrounds, { id: crypto.randomUUID(), value: '#ffffff' }])}
 				>
-					<PlusIcon />
+					<ThemeIcon role="add" />
 					{m.brand_add_background()}
 				</Button>
 			</div>
@@ -404,7 +401,7 @@
 							aria-label={m.brand_remove_font()}
 							onclick={() => (fonts = fonts.filter((_, itemIndex) => itemIndex !== index))}
 						>
-							<TrashIcon />
+							<ThemeIcon role="delete" />
 						</Button>
 					</div>
 				{/each}
@@ -412,7 +409,7 @@
 		{/if}
 		<details class="rounded-xl border">
 			<summary class="flex min-h-12 cursor-pointer items-center gap-2 px-3 text-sm font-medium">
-				<PlusIcon class="size-4" />
+				<ThemeIcon role="add" class="size-4" />
 				{m.brand_add_font()}
 			</summary>
 			<div class="space-y-4 border-t p-3">
@@ -454,9 +451,9 @@
 					class="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border px-3 text-sm font-medium"
 				>
 					{#if uploadingFont}
-						<LoaderIcon class="mr-2 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 animate-spin" />
 					{:else}
-						<UploadIcon class="mr-2" />
+						<ThemeIcon role="upload" class="mr-2" />
 					{/if}
 					{m.brand_upload_font()}
 					<Input
@@ -478,7 +475,7 @@
 				<p class="mt-1 text-sm text-muted-foreground">{m.brand_styles_description()}</p>
 			</div>
 			<Button variant="outline" size="sm" class="min-h-11 w-full sm:w-auto" onclick={addTextStyle}
-				><PlusIcon /> {m.brand_add_style()}</Button
+				><ThemeIcon role="add" /> {m.brand_add_style()}</Button
 			>
 		</div>
 		{#each textStyles as style, index (style.id)}
@@ -589,7 +586,7 @@
 						class="min-h-11 justify-start text-destructive"
 						onclick={() => (textStyles = textStyles.filter((_, itemIndex) => itemIndex !== index))}
 					>
-						<TrashIcon />
+						<ThemeIcon role="delete" />
 						{m.brand_remove()}
 					</Button>
 				</div>

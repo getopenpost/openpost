@@ -20,9 +20,7 @@
 		ImageEditorShadowEffect
 	} from '../types';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { layer }: { layer: ImageEditorLayer } = $props();
 	const editor = useImageEditor();
@@ -199,7 +197,7 @@
 						? m.image_editor_add_drop_shadow()
 						: m.image_editor_add_inner_shadow()}
 			>
-				{#if shadow}<XIcon />{:else}<PlusIcon />{/if}
+				<ThemeIcon role={shadow ? 'remove' : 'add'} />
 			</Button>
 		</div>
 		{#if shadow}
@@ -300,7 +298,8 @@
 						{m.image_editor_effects_active({ count: activeEffectCount })}
 					</span>
 				{/if}
-				<ChevronDownIcon
+				<ThemeIcon
+					role="chevron-down"
 					class={`size-3.5 transition-transform ${effectsOpen ? 'rotate-180' : ''}`}
 				/>
 			</button>
@@ -332,7 +331,7 @@
 						aria-label={stroke ? m.image_editor_remove_border() : m.image_editor_add_border()}
 						title={stroke ? m.image_editor_remove_border() : m.image_editor_add_border()}
 					>
-						{#if stroke}<XIcon />{:else}<PlusIcon />{/if}
+						<ThemeIcon role={stroke ? 'remove' : 'add'} />
 					</Button>
 				</div>
 				{#if stroke}

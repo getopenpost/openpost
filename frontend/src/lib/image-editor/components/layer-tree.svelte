@@ -5,21 +5,15 @@
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import UnlockIcon from '@lucide/svelte/icons/lock-open';
-	import GripIcon from '@lucide/svelte/icons/grip-vertical';
 	import TypeIcon from '@lucide/svelte/icons/type';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import GroupIcon from '@lucide/svelte/icons/group';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SquareDashedIcon from '@lucide/svelte/icons/square-dashed';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import BringToFrontIcon from '@lucide/svelte/icons/bring-to-front';
 	import SendToBackIcon from '@lucide/svelte/icons/send-to-back';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
@@ -345,7 +339,7 @@
 				aria-label={m.image_editor_add_layer()}
 				title={m.image_editor_add_layer()}
 			>
-				<PlusIcon />
+				<ThemeIcon role="add" />
 			</Button>
 		</div>
 	</div>
@@ -444,7 +438,8 @@
 											? m.image_editor_expand_group({ name: layer.name })
 											: m.image_editor_collapse_group({ name: layer.name })}
 									>
-										<ChevronRightIcon
+										<ThemeIcon
+											role="chevron-right"
 											class="size-3.5 transition-transform {collapsedGroups.has(layer.id)
 												? ''
 												: 'rotate-90'}"
@@ -466,7 +461,7 @@
 									onpointercancel={(event) => finishPointerReorder(event, true)}
 									ontouchstart={(event) => startTouchReorder(event, layer.id)}
 								>
-									<GripIcon class="size-3.5" />
+									<ThemeIcon role="drag" class="size-3.5" />
 								</button>
 								<Icon class="size-3.5 shrink-0" />
 								{#if renamingID === layer.id}
@@ -536,7 +531,7 @@
 									}}
 									disabled={!editor.canEdit}
 								>
-									{#if layer.visible}<EyeIcon />{:else}<EyeOffIcon />{/if}
+									<ThemeIcon role={layer.visible ? 'eye' : 'eye-off'} />
 								</Button>
 								<Button
 									variant="ghost"
@@ -566,14 +561,14 @@
 								class="image-editor-context-item"
 								onclick={() => startContextRename(layer)}
 							>
-								<PencilIcon class="size-4" />
+								<ThemeIcon role="edit" class="size-4" />
 								{m.image_editor_rename_layer()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								class="image-editor-context-item"
 								onclick={() => editor.duplicateSelected()}
 							>
-								<CopyIcon class="size-4" />
+								<ThemeIcon role="copy" class="size-4" />
 								{m.image_editor_duplicate()}
 							</ContextMenu.Item>
 							<ContextMenu.Separator class="my-1 h-px bg-border" />
@@ -655,7 +650,7 @@
 								class="image-editor-context-item text-destructive"
 								onclick={() => editor.deleteSelected()}
 							>
-								<TrashIcon class="size-4" />
+								<ThemeIcon role="delete" class="size-4" />
 								{m.image_editor_delete_layer()}
 							</ContextMenu.Item>
 						</ContextMenu.Content>

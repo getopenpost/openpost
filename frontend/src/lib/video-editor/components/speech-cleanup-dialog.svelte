@@ -413,9 +413,9 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme flex max-h-[min(82vh,760px)] w-[min(94vw,620px)] flex-col overflow-hidden border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-0 text-[var(--video-editor-text)] shadow-2xl"
+		class="video-editor-theme flex max-h-[min(82vh,760px)] w-[min(94vw,620px)] flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl"
 	>
-		<Dialog.Header class="border-b border-[oklch(0.27_0.014_55)] px-5 pt-5 pr-12 pb-4">
+		<Dialog.Header class="border-b border-border px-5 pt-5 pr-12 pb-4">
 			<Dialog.Title class="flex items-center gap-2 text-base">
 				<ThemeIcon role="sparkles" class="size-4 text-[var(--video-editor-focus)]" />
 				{m.video_editor_cleanup_title()}
@@ -426,7 +426,7 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-			<div class="grid grid-cols-2 rounded-lg bg-[oklch(0.2_0.012_50)] p-1" role="tablist">
+			<div class="grid grid-cols-2 rounded-lg bg-muted p-1" role="tablist">
 				<Button
 					type="button"
 					variant={mode === 'fillers' ? 'secondary' : 'ghost'}
@@ -450,7 +450,7 @@
 					<p class="text-[11px] leading-4 text-[var(--video-editor-muted)]">
 						{m.video_editor_cleanup_confidence_help()}
 					</p>
-					<div class="grid grid-cols-3 gap-1 rounded-lg border border-[oklch(0.28_0.014_55)] p-1">
+					<div class="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
 						{#each FILLER_REMOVAL_PRESETS as preset (preset.id)}
 							<Button
 								type="button"
@@ -460,7 +460,7 @@
 							>
 						{/each}
 					</div>
-					<details class="rounded-lg border border-[oklch(0.28_0.014_55)] p-3">
+					<details class="rounded-lg border border-border p-3">
 						<summary class="cursor-pointer text-xs font-medium"
 							>{m.video_editor_cleanup_words()}</summary
 						>
@@ -478,7 +478,7 @@
 				</section>
 			{:else}
 				<section class="mt-4 space-y-4" aria-label={m.video_editor_silence_review()}>
-					<div class="grid grid-cols-2 gap-1 rounded-lg border border-[oklch(0.28_0.014_55)] p-1">
+					<div class="grid grid-cols-2 gap-1 rounded-lg border border-border p-1">
 						<Button
 							type="button"
 							variant={silenceMode === 'signal' ? 'secondary' : 'ghost'}
@@ -531,7 +531,7 @@
 						</label>
 					</div>
 					{#if silenceMode === 'signal'}
-						<details class="rounded-lg border border-[oklch(0.28_0.014_55)] p-3">
+						<details class="rounded-lg border border-border p-3">
 							<summary class="cursor-pointer text-xs font-medium"
 								>{m.video_editor_cleanup_detection()}</summary
 							>
@@ -598,7 +598,7 @@
 
 			{#if analyzing}
 				<div class="mt-3" aria-live="polite">
-					<div class="h-1.5 overflow-hidden rounded-full bg-[oklch(0.24_0.012_50)]">
+					<div class="h-1.5 overflow-hidden rounded-full bg-muted">
 						<div
 							class="h-full bg-[var(--video-editor-focus)] transition-[width]"
 							style:width={`${Math.round(progress * 100)}%`}
@@ -620,7 +620,7 @@
 
 			{#if analysisError}
 				<p
-					class="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+					class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 					role="alert"
 				>
 					{analysisError}
@@ -628,15 +628,13 @@
 			{/if}
 
 			{#if !reviewIsCurrent && !analyzing}
-				<p class="mt-3 text-[11px] text-amber-200" role="status">
+				<p class="mt-3 text-[11px] text-warning-foreground" role="status">
 					{m.video_editor_cleanup_settings_changed()}
 				</p>
 			{/if}
 
 			{#if !analyzing && reviewRanges.length === 0}
-				<div
-					class="mt-3 rounded-lg border border-dashed border-[oklch(0.31_0.014_55)] px-4 py-6 text-center"
-				>
+				<div class="mt-3 rounded-lg border border-dashed border-border px-4 py-6 text-center">
 					<p class="text-sm font-medium">
 						{mode === 'fillers'
 							? m.video_editor_cleanup_no_fillers()
@@ -650,10 +648,10 @@
 				</div>
 			{:else if reviewRanges.length > 0}
 				<div
-					class="mt-3 max-h-64 divide-y divide-[oklch(0.26_0.012_55)] overflow-y-auto rounded-lg border border-[oklch(0.28_0.014_55)]"
+					class="mt-3 max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border"
 				>
 					{#each reviewRanges as range (range.id)}
-						<div class="flex min-w-0 items-center gap-3 px-3 py-2.5 hover:bg-[oklch(0.2_0.012_50)]">
+						<div class="flex min-w-0 items-center gap-3 px-3 py-2.5 hover:bg-accent">
 							<button
 								type="button"
 								class="grid size-4 shrink-0 place-items-center rounded border"
@@ -662,7 +660,7 @@
 									: 'transparent'}
 								style:border-color={selectedIds.has(range.id)
 									? 'var(--video-editor-focus)'
-									: 'oklch(0.42 0.02 55)'}
+									: 'var(--border)'}
 								data-selected={selectedIds.has(range.id)}
 								aria-label={m.video_editor_cleanup_include({ label: range.label })}
 								aria-pressed={selectedIds.has(range.id)}
@@ -670,7 +668,7 @@
 							>
 								{#if selectedIds.has(range.id)}<ThemeIcon
 										role="check"
-										class="size-3 text-black"
+										class="size-3 text-selection-foreground"
 									/>{/if}
 							</button>
 							<div class="min-w-0 flex-1">
@@ -678,7 +676,7 @@
 									<p class="truncate text-xs font-medium">{range.label}</p>
 									{#if confidenceLabel(range)}
 										<span
-											class="shrink-0 rounded-full border border-white/10 px-1.5 py-0.5 text-[9px] text-[var(--video-editor-muted)]"
+											class="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[9px] text-muted-foreground"
 											data-confidence={range.filler?.audioConfidence?.level}
 										>
 											{confidenceLabel(range)}
@@ -706,9 +704,7 @@
 			{/if}
 		</div>
 
-		<Dialog.Footer
-			class="border-t border-[oklch(0.27_0.014_55)] bg-[oklch(0.17_0.012_50)] px-5 py-3"
-		>
+		<Dialog.Footer class="border-t border-border bg-card px-5 py-3">
 			<Button type="button" variant="ghost" onclick={() => (open = false)}
 				>{m.common_cancel()}</Button
 			>

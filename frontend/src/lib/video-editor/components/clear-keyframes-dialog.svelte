@@ -64,11 +64,11 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[440px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[440px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[440px] border-border bg-popover text-popover-foreground sm:max-w-[440px]"
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<DiamondMinusIcon class="size-4 text-[oklch(0.76_0.14_45)]" aria-hidden="true" />
+				<DiamondMinusIcon class="size-4 text-destructive" aria-hidden="true" />
 				{m.video_editor_clear_keyframes_title()}
 			</Dialog.Title>
 			<Dialog.Description class="text-xs leading-relaxed text-[var(--video-editor-muted)]">
@@ -88,9 +88,7 @@
 					onValueChange={(value) => (scope = value)}
 				/>
 			</label>
-			<div
-				class="rounded-md border border-[oklch(0.31_0.018_55)] bg-[oklch(0.2_0.012_50)] px-3 py-2.5 text-xs"
-			>
+			<div class="rounded-md border border-border bg-muted px-3 py-2.5 text-xs">
 				<p class="font-medium">
 					{m.video_editor_clear_keyframes_affected({ count: selectedKeyframes })}
 				</p>
@@ -98,7 +96,7 @@
 					{m.video_editor_clear_keyframes_undo_hint()}
 				</p>
 				{#if lockedItemCount > 0}
-					<p class="mt-1 text-amber-200">
+					<p class="mt-1 text-warning-foreground">
 						{m.video_editor_clear_keyframes_locked({ count: lockedItemCount })}
 					</p>
 				{/if}

@@ -172,12 +172,12 @@
 	}}
 >
 	<Dialog.Content
-		class="video-editor-theme max-h-[min(88dvh,46rem)] w-[calc(100%_-_1rem)] max-w-2xl overflow-y-auto border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-2xl"
+		class="video-editor-theme max-h-[min(88dvh,46rem)] w-[calc(100%_-_1rem)] max-w-2xl overflow-y-auto border-border bg-popover text-popover-foreground sm:max-w-2xl"
 		showCloseButton={busyId === null}
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<ProtectedIcon icon="warning" class="size-4 text-amber-400" />
+				<ProtectedIcon icon="warning" class="size-4 text-warning-foreground" />
 				{replacementFor
 					? m.video_editor_media_recovery_replacement_title({ name: replacementFor.label })
 					: m.video_editor_media_recovery_title()}
@@ -191,7 +191,7 @@
 
 		{#if error}
 			<p
-				class="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+				class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 				role="alert"
 			>
 				{error}
@@ -206,16 +206,14 @@
 				</Button>
 				{#if replacementOptions.length === 0}
 					<p
-						class="rounded-md border border-dashed border-[oklch(0.31_0.018_55)] px-3 py-6 text-center text-xs text-[var(--video-editor-muted)]"
+						class="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground"
 					>
 						{m.video_editor_media_recovery_no_replacements()}
 					</p>
 				{:else}
 					<ul class="space-y-1.5">
 						{#each replacementOptions as media (media.id)}
-							<li
-								class="flex items-center gap-3 rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.19_0.01_50)] p-2"
-							>
+							<li class="flex items-center gap-3 rounded-md border border-border bg-muted p-2">
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-xs font-medium">{media.fileName}</p>
 									<p class="text-[10px] text-[var(--video-editor-muted)]">
@@ -244,11 +242,11 @@
 						<ul class="mt-2 space-y-1.5">
 							{#each mediaRecovery.sourceIssues as issue (issue.mediaId)}
 								<li
-									class="flex flex-col gap-2 rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.19_0.01_50)] p-2.5 sm:flex-row sm:items-center"
+									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2.5 sm:flex-row sm:items-center"
 								>
 									<div class="min-w-0 flex-1">
 										<p class="truncate text-xs font-medium">{issue.fileName}</p>
-										<p class="text-[10px] text-amber-300">{issueText(issue)}</p>
+										<p class="text-[10px] text-warning-foreground">{issueText(issue)}</p>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#if issue.kind === 'permission'}
@@ -309,7 +307,7 @@
 						<ul class="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
 							{#each mediaRecovery.orphanedClips as orphan (orphan.itemId)}
 								<li
-									class="flex flex-col gap-2 rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.19_0.01_50)] p-2.5 sm:flex-row sm:items-center"
+									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2.5 sm:flex-row sm:items-center"
 								>
 									<div class="min-w-0 flex-1">
 										<p class="truncate text-xs font-medium">{orphan.label}</p>

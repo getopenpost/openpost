@@ -266,6 +266,7 @@
 		<!-- Preview -->
 		<section
 			class="relative flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.3_0.01_55)] bg-[oklch(0.12_0.008_55)] p-3"
+			data-editor-protected="capture-preview"
 			aria-label={m.record_preview_empty()}
 		>
 			{#if recorder.screenStream || recorder.cameraStream}
@@ -640,6 +641,7 @@
 							<div class="flex items-center gap-2">
 								<div
 									role="meter"
+									data-editor-protected="input-meter"
 									aria-label={m.video_editor_voiceover_input_level()}
 									aria-valuemin="0"
 									aria-valuemax="100"

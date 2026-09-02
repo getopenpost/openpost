@@ -87,7 +87,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[520px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[520px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[520px] border-border bg-popover text-popover-foreground sm:max-w-[520px]"
 	>
 		<Dialog.Header>
 			<Dialog.Title class="text-base">{m.video_editor_project_edit_title()}</Dialog.Title>
@@ -123,7 +123,7 @@
 				</span>
 			</label>
 
-			<fieldset class="rounded-lg border border-[oklch(0.3_0.018_55)] p-3">
+			<fieldset class="rounded-lg border border-border p-3">
 				<legend class="px-1 text-xs font-medium">{m.video_editor_project_canvas()}</legend>
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_8rem]">
 					<label class="grid gap-1 text-xs">

@@ -28,11 +28,11 @@
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[480px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-border bg-popover text-popover-foreground sm:max-w-[480px]"
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<ProtectedIcon icon="warning" class="size-4 text-amber-300" />
+				<ProtectedIcon icon="warning" class="size-4 text-warning-foreground" />
 				{m.video_editor_unsupported_audio_title()}
 			</Dialog.Title>
 			<Dialog.Description class="text-xs leading-relaxed text-[var(--video-editor-muted)]">
@@ -41,7 +41,7 @@
 		</Dialog.Header>
 
 		<div
-			class="mt-4 rounded-md border border-amber-400/20 bg-amber-300/5 px-3 py-2.5 text-xs text-amber-100"
+			class="mt-4 rounded-md border border-warning/20 bg-warning/5 px-3 py-2.5 text-xs text-warning-foreground"
 		>
 			{m.video_editor_unsupported_audio_consequence()}
 		</div>

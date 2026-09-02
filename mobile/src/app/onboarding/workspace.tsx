@@ -1,6 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
@@ -11,13 +11,19 @@ import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
 import { useWorkspaces } from "@/lib/queries";
 import { getServer } from "@/lib/server";
-import { completeWorkspaceSelection } from "@/lib/workspace-selection";
+import {
+  automaticWorkspaceSelectionId,
+  idleWorkspaceSelection,
+  selectWorkspaceForNavigation,
+} from "@/lib/workspace-selection";
 
 export default function WorkspaceScreen() {
   const colors = useColors();
   const { from, mode } = useLocalSearchParams<{ from?: string; mode?: string }>();
   const switching = mode === "switch";
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selection, setSelection] = useState(idleWorkspaceSelection);
+  const selectionInFlight = useRef(false);
+  const automaticAttempted = useRef<string | null>(null);
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
@@ -27,25 +33,31 @@ export default function WorkspaceScreen() {
   const hasData = workspaces.data !== undefined;
 
   const finish = useCallback(async (id: string) => {
-    setSelected(id);
-    const committed = await completeWorkspaceSelection(id, () =>
-      router.replace(destinationState(null).route),
-    );
-    if (!committed) setSelected(null);
+    if (selectionInFlight.current) return false;
+    selectionInFlight.current = true;
+    try {
+      return await selectWorkspaceForNavigation(
+        id,
+        () => router.replace(destinationState(null).route),
+        setSelection,
+      );
+    } finally {
+      selectionInFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    if (switching || selected || list.length === 0) return;
-    const stored = getWorkspaceId();
-    let automatic: string | null = null;
-    if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
-    else if (list.length === 1) automatic = list[0].id;
-    if (automatic) {
-      void completeWorkspaceSelection(automatic, () =>
-        router.replace(destinationState(null).route),
-      );
-    }
-  }, [list, selected, switching]);
+    if (switching || selection.selected || list.length === 0) return;
+    const automatic = automaticWorkspaceSelectionId(
+      list,
+      getWorkspaceId(),
+      switching,
+      automaticAttempted.current,
+    );
+    if (!automatic) return;
+    automaticAttempted.current = automatic;
+    void finish(automatic);
+  }, [finish, list, selection.selected, switching]);
 
   return (
     <Screen>
@@ -91,6 +103,15 @@ export default function WorkspaceScreen() {
             offline
           />
         ) : null}
+        {selection.error && selection.retryWorkspaceId ? (
+          <QueryNotice
+            message={selection.error}
+            retry={() => {
+              const retryWorkspaceId = selection.retryWorkspaceId;
+              if (retryWorkspaceId) void finish(retryWorkspaceId);
+            }}
+          />
+        ) : null}
 
         {hasData && list.length === 0 ? (
           <Card style={styles.emptyState}>
@@ -126,8 +147,8 @@ export default function WorkspaceScreen() {
                 <Pressable
                   key={workspace.id}
                   accessibilityRole="button"
-                  accessibilityState={{ busy: selected === workspace.id }}
-                  disabled={selected !== null}
+                  accessibilityState={{ busy: selection.selected === workspace.id }}
+                  disabled={selection.selected !== null}
                   onPress={() => {
                     void selectionHaptic();
                     void finish(workspace.id);
@@ -144,7 +165,9 @@ export default function WorkspaceScreen() {
                   <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
                     {workspace.name}
                   </Text>
-                  {selected === workspace.id ? <ActivityIndicator color={colors.tint} /> : null}
+                  {selection.selected === workspace.id ? (
+                    <ActivityIndicator color={colors.tint} />
+                  ) : null}
                 </Pressable>
               ))}
             </Card>

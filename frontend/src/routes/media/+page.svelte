@@ -565,7 +565,9 @@
 	}
 
 	async function toggleMediaTag(mediaID: string, tagID: string, selected: boolean): Promise<void> {
-		await updateMediaTagItems(selectedWorkspaceId, tagID, [mediaID], selected ? 'add' : 'remove');
+		const context = captureMediaMutationContext();
+		await updateMediaTagItems(context.workspaceID, tagID, [mediaID], selected ? 'add' : 'remove');
+		if (!mediaMutationViewIsCurrent(context)) return;
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) {
 			item.tags = selected
@@ -577,20 +579,25 @@
 				? [...new Set([...selectedMedia.tags, tagID])]
 				: selectedMedia.tags.filter((id) => id !== tagID);
 		}
-		await loadImageEditorHub(selectedWorkspaceId, true);
-		if (selected && lifecycleView === 'temporary') await loadMedia(selectedWorkspaceId);
+		await loadImageEditorHub(context.workspaceID, true);
+		if (!mediaMutationViewIsCurrent(context)) return;
+		if (selected && lifecycleView === 'temporary') await loadMedia(context.workspaceID);
 	}
 
 	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
-		const tag = await createMediaTag(selectedWorkspaceId, name);
-		await updateMediaTagItems(selectedWorkspaceId, tag.id, [mediaID], 'add');
-		await loadImageEditorHub(selectedWorkspaceId, true);
+		const context = captureMediaMutationContext();
+		const tag = await createMediaTag(context.workspaceID, name);
+		if (!mediaMutationViewIsCurrent(context)) return;
+		await updateMediaTagItems(context.workspaceID, tag.id, [mediaID], 'add');
+		if (!mediaMutationViewIsCurrent(context)) return;
+		await loadImageEditorHub(context.workspaceID, true);
+		if (!mediaMutationViewIsCurrent(context)) return;
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) item.tags = [...new Set([...item.tags, tag.id])];
 		if (selectedMedia?.id === mediaID) {
 			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
 		}
-		if (lifecycleView === 'temporary') await loadMedia(selectedWorkspaceId);
+		if (lifecycleView === 'temporary') await loadMedia(context.workspaceID);
 	}
 
 	function uploadTagID(): string | undefined {

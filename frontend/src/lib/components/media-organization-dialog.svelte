@@ -5,6 +5,11 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { createMediaTag, deleteMediaTag, updateMediaTag, type MediaTag } from '$lib/media-tags';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import HashIcon from '@lucide/svelte/icons/hash';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -31,6 +36,29 @@
 	let error = $state('');
 	let pendingDelete = $state<MediaTag | null>(null);
 	let deleteDialogOpen = $state(false);
+	let mutationSequence = 0;
+
+	interface MediaTagMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+	}
+
+	function captureMediaTagMutationView(): MediaTagMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++mutationSequence,
+			workspaceId
+		};
+	}
+
+	function mediaTagMutationViewIsCurrent(view: MediaTagMutationView): boolean {
+		return (
+			view.sequence === mutationSequence &&
+			view.workspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
 
 	function resetForm(): void {
 		editingId = '';
@@ -47,22 +75,27 @@
 	async function submit(): Promise<void> {
 		const nextName = name.trim();
 		if (!nextName) return;
+		const view = captureMediaTagMutationView();
+		const targetID = editingId;
 		saving = true;
 		error = '';
 		try {
-			if (editingId) {
-				await updateMediaTag(workspaceId, editingId, nextName);
+			if (targetID) {
+				await updateMediaTag(view.workspaceId, targetID, nextName);
+				if (!mediaTagMutationViewIsCurrent(view)) return;
 				onNotify?.(m.media_tag_updated(), 'success');
 			} else {
-				await createMediaTag(workspaceId, nextName);
+				await createMediaTag(view.workspaceId, nextName);
+				if (!mediaTagMutationViewIsCurrent(view)) return;
 				onNotify?.(m.media_tag_created(), 'success');
 			}
 			resetForm();
 			await onChanged();
 		} catch (cause) {
+			if (!mediaTagMutationViewIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.media_tag_update_failed();
 		} finally {
-			saving = false;
+			if (view.sequence === mutationSequence) saving = false;
 		}
 	}
 
@@ -72,11 +105,15 @@
 	}
 
 	async function confirmDelete(): Promise<DestructiveActionOutcome> {
-		if (!pendingDelete) return { ok: false };
-		await deleteMediaTag(workspaceId, pendingDelete.id);
-		if (editingId === pendingDelete.id) resetForm();
+		const target = pendingDelete;
+		if (!target) return { ok: false };
+		const view = captureMediaTagMutationView();
+		await deleteMediaTag(view.workspaceId, target.id);
+		if (!mediaTagMutationViewIsCurrent(view)) return { ok: false };
+		if (editingId === target.id) resetForm();
 		pendingDelete = null;
 		await onChanged();
+		if (!mediaTagMutationViewIsCurrent(view)) return { ok: false };
 		onNotify?.(m.media_tag_deleted(), 'success');
 		return { ok: true };
 	}

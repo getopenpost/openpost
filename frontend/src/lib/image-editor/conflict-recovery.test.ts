@@ -32,15 +32,21 @@ describe('Image Editor conflict recovery', () => {
 		const duplicate = vi.fn().mockResolvedValue(response('copy', 1, 'Campaign copy'));
 		const saved = response('copy', 2, 'Campaign copy');
 		const save = vi.fn(
-			async (_id: string, _revision: number, _document: ImageEditorDocument) => saved
+			async (
+				_workspaceID: string,
+				_id: string,
+				_revision: number,
+				_document: ImageEditorDocument
+			) => saved
 		);
 
-		await expect(saveImageEditorConflictCopy('source', local, { duplicate, save })).resolves.toBe(
-			saved
-		);
-		expect(duplicate).toHaveBeenCalledWith('source');
+		await expect(
+			saveImageEditorConflictCopy('workspace-1', 'source', local, { duplicate, save })
+		).resolves.toBe(saved);
+		expect(duplicate).toHaveBeenCalledWith('workspace-1', 'source');
 		expect(save).toHaveBeenCalledOnce();
-		const [copyID, copyRevision, savedDocument] = save.mock.calls[0];
+		const [workspaceID, copyID, copyRevision, savedDocument] = save.mock.calls[0];
+		expect(workspaceID).toBe('workspace-1');
 		expect(copyID).toBe('copy');
 		expect(copyRevision).toBe(1);
 		expect(savedDocument.title).toBe('Campaign copy');
@@ -56,10 +62,12 @@ describe('Image Editor conflict recovery', () => {
 		const save = vi.fn();
 
 		await expect(
-			saveImageEditorConflictCopy('source', response('source', 4, 'Campaign').document, {
-				duplicate,
-				save
-			})
+			saveImageEditorConflictCopy(
+				'workspace-1',
+				'source',
+				response('source', 4, 'Campaign').document,
+				{ duplicate, save }
+			)
 		).rejects.toThrow('offline');
 		expect(save).not.toHaveBeenCalled();
 	});

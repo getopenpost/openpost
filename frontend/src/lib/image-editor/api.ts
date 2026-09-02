@@ -1,9 +1,17 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
-import { imageEditorQueryKeys } from '@openpost/query-catalog';
+import { imageEditorQueryKeys, type ImageEditorDesignPage } from '@openpost/query-catalog';
+import type { InfiniteData } from '@tanstack/svelte-query';
 import { queryClient } from '$lib/query/client';
+import {
+	captureQueryMutationSession,
+	settleQueryMutationSession,
+	type QueryMutationSession
+} from '$lib/query/authorization-boundary';
+import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 import type {
 	ImageEditorBrandKit,
+	ImageEditorDesignSummary,
 	ImageEditorDocument,
 	ImageEditorDocumentResponse,
 	ImageEditorRevisionSummary,
@@ -18,6 +26,10 @@ type ApiImageEditorDocumentResponse = components['schemas']['ImageEditorDocument
 type ApiImageEditorTemplate = components['schemas']['ImageEditorTemplateResponse'];
 type ApiImageEditorBrandKit = components['schemas']['ImageEditorBrandKitResponse'];
 type ApiImageEditorRevisionSummary = components['schemas']['ImageEditorRevisionSummary'];
+type ImageEditorDesignListPage = ImageEditorDesignPage<ImageEditorDesignSummary>;
+type ImageEditorDesignListCache =
+	| ImageEditorDesignListPage
+	| InfiniteData<ImageEditorDesignListPage, number>;
 
 export interface CreateImageEditorDesignInput {
 	title?: string;
@@ -98,18 +110,133 @@ class ImageEditorAPIError extends Error {
 	}
 }
 
-function cacheImageEditorDesign(data: ImageEditorDocumentResponse): void {
-	queryClient.setQueryData(imageEditorQueryKeys.design(data.workspace_id, data.id), data);
-	void queryClient.invalidateQueries({
-		queryKey: imageEditorQueryKeys.designLists(data.workspace_id),
-		refetchType: 'none'
+export class ImageEditorWorkspaceMismatchError extends Error {
+	constructor() {
+		super('The Image Editor response is not in the selected workspace.');
+		this.name = 'ImageEditorWorkspaceMismatchError';
+	}
+}
+
+function requireImageEditorWorkspace<T extends { workspace_id: string }>(
+	data: T,
+	expectedWorkspaceID: string
+): T {
+	if (data.workspace_id !== expectedWorkspaceID) throw new ImageEditorWorkspaceMismatchError();
+	return data;
+}
+
+function requireImageEditorDesignIdentity(
+	design: ImageEditorDocumentResponse,
+	expectedWorkspaceID: string,
+	expectedDesignID?: string
+): ImageEditorDocumentResponse {
+	requireImageEditorWorkspace(design, expectedWorkspaceID);
+	if (expectedDesignID && design.id !== expectedDesignID) {
+		throw new ImageEditorWorkspaceMismatchError();
+	}
+	return design;
+}
+
+function requireImageEditorTemplateWorkspace(
+	template: ImageEditorTemplate,
+	expectedWorkspaceID: string
+): ImageEditorTemplate {
+	if (template.workspace_id !== expectedWorkspaceID) throw new ImageEditorWorkspaceMismatchError();
+	return template;
+}
+
+function settleImageEditorMutation(
+	session: QueryMutationSession,
+	response: Pick<Response, 'status'>
+): void {
+	settleQueryMutationSession(session, response);
+}
+
+function updateDesignPage(
+	page: ImageEditorDesignListPage,
+	update: (design: ImageEditorDesignSummary) => ImageEditorDesignSummary | null
+): ImageEditorDesignListPage {
+	const designs = page.designs
+		.map(update)
+		.filter((design): design is ImageEditorDesignSummary => design !== null);
+	return {
+		...page,
+		designs,
+		total: Math.max(0, page.total - (page.designs.length - designs.length))
+	};
+}
+
+function updateCachedDesignLists(
+	workspaceID: string,
+	update: (design: ImageEditorDesignSummary) => ImageEditorDesignSummary | null
+): void {
+	queryClient.setQueriesData<ImageEditorDesignListCache>(
+		{ queryKey: imageEditorQueryKeys.designLists(workspaceID) },
+		(current) => {
+			if (!current) return current;
+			if ('pages' in current) {
+				return { ...current, pages: current.pages.map((page) => updateDesignPage(page, update)) };
+			}
+			return updateDesignPage(current, update);
+		}
+	);
+}
+
+function updateDesignSummary(
+	current: ImageEditorDesignSummary,
+	design: ImageEditorDocumentResponse
+): ImageEditorDesignSummary {
+	return {
+		...current,
+		title: design.document.title,
+		preset_key: design.document.preset_key,
+		width_px: design.document.width_px,
+		height_px: design.document.height_px,
+		page_count: design.document.pages.length,
+		revision: design.revision,
+		cover_preview_media_id: design.cover_preview_media_id,
+		updated_at: design.updated_at
+	};
+}
+
+async function reconcileImageEditorDesign(
+	session: QueryMutationSession,
+	workspaceID: string,
+	designID: string,
+	options: {
+		design?: ImageEditorDocumentResponse;
+		updateSummary?: (design: ImageEditorDesignSummary) => ImageEditorDesignSummary | null;
+		remove?: boolean;
+		invalidateRevisions?: boolean;
+	} = {}
+): Promise<boolean> {
+	const designKey = imageEditorQueryKeys.design(workspaceID, designID);
+	const revisionKey = imageEditorQueryKeys.revisionLists(workspaceID, designID);
+	return reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: designKey }, { queryKey: imageEditorQueryKeys.designLists(workspaceID) }],
+		reconcile: () => {
+			if (options.remove) queryClient.removeQueries({ queryKey: designKey });
+			else if (options.design) queryClient.setQueryData(designKey, options.design);
+			if (options.updateSummary) updateCachedDesignLists(workspaceID, options.updateSummary);
+		},
+		invalidate: [
+			{ queryKey: imageEditorQueryKeys.designLists(workspaceID), refetchType: 'none' },
+			...(options.invalidateRevisions
+				? [{ queryKey: revisionKey, refetchType: 'none' } as const]
+				: [])
+		]
 	});
 }
 
-function invalidateImageEditorRevisions(workspaceID: string, designID: string): void {
-	void queryClient.invalidateQueries({
-		queryKey: imageEditorQueryKeys.revisionLists(workspaceID, designID),
-		refetchType: 'none'
+async function reconcileImageEditorRevisions(
+	session: QueryMutationSession,
+	workspaceID: string,
+	designID: string
+): Promise<boolean> {
+	const queryKey = imageEditorQueryKeys.revisionLists(workspaceID, designID);
+	return reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey }],
+		invalidate: [{ queryKey, refetchType: 'none' }]
 	});
 }
 
@@ -117,6 +244,7 @@ export async function createImageEditorDesign(
 	workspaceID: string,
 	input: CreateImageEditorDesignInput
 ): Promise<ImageEditorDocumentResponse> {
+	const session = captureQueryMutationSession();
 	const body: components['schemas']['CreateImageEditorDesignInputBody'] = {
 		workspace_id: workspaceID,
 		title: input.title ?? '',
@@ -126,20 +254,23 @@ export async function createImageEditorDesign(
 	};
 	if (input.source_media_id) body.source_media_id = input.source_media_id;
 	if (input.client_request_id) body.client_request_id = input.client_request_id;
-	const { data, error } = await client.POST('/image-editor/designs', { body });
+	const { data, error, response } = await client.POST('/image-editor/designs', { body });
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not create the design.'));
-	const design = imageEditorDocumentResponse(data);
-	cacheImageEditorDesign(design);
+	const design = requireImageEditorDesignIdentity(imageEditorDocumentResponse(data), workspaceID);
+	await reconcileImageEditorDesign(session, workspaceID, design.id, { design });
 	return design;
 }
 
 export async function saveImageEditorDesign(
+	workspaceID: string,
 	id: string,
 	revision: number,
 	document: ImageEditorDocument,
 	coverPreviewMediaID = '',
 	recoveryReason: 'idle' | 'export' | 'close' = 'idle'
 ): Promise<ImageEditorDocumentResponse> {
+	const session = captureQueryMutationSession();
 	const body: components['schemas']['UpdateImageEditorDesignInputBody'] = {
 		expected_revision: revision,
 		// SAFETY: ImageEditorDocument is the client mirror of ImageEditorDocumentPayload used by the generated API contract.
@@ -151,29 +282,37 @@ export async function saveImageEditorDesign(
 		params: { path: { id } },
 		body
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) {
 		throw new ImageEditorAPIError(
 			problemMessage(error, 'Could not save the design.'),
 			response.status
 		);
 	}
-	const design = imageEditorDocumentResponse(data);
-	cacheImageEditorDesign(design);
-	invalidateImageEditorRevisions(design.workspace_id, design.id);
+	const design = requireImageEditorDesignIdentity(
+		imageEditorDocumentResponse(data),
+		workspaceID,
+		id
+	);
+	await reconcileImageEditorDesign(session, workspaceID, design.id, {
+		design,
+		updateSummary: (current) =>
+			current.id === design.id ? updateDesignSummary(current, design) : current,
+		invalidateRevisions: true
+	});
 	return design;
 }
 
 export async function deleteImageEditorDesign(workspaceID: string, id: string): Promise<void> {
-	const { error } = await client.DELETE('/image-editor/designs/{id}', {
+	const session = captureQueryMutationSession();
+	const { error, response } = await client.DELETE('/image-editor/designs/{id}', {
 		params: { path: { id } }
 	});
+	settleImageEditorMutation(session, response);
 	if (error) throw new Error(problemMessage(error, 'Could not delete the design.'));
-	queryClient.removeQueries({
-		queryKey: imageEditorQueryKeys.design(workspaceID, id)
-	});
-	void queryClient.invalidateQueries({
-		queryKey: imageEditorQueryKeys.designLists(workspaceID),
-		refetchType: 'none'
+	await reconcileImageEditorDesign(session, workspaceID, id, {
+		remove: true,
+		updateSummary: (current) => (current.id === id ? null : current)
 	});
 }
 
@@ -181,14 +320,16 @@ export async function toggleImageEditorDesignFavorite(
 	workspaceID: string,
 	id: string
 ): Promise<boolean> {
-	const { data, error } = await client.PATCH('/image-editor/designs/{id}/favorite', {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.PATCH('/image-editor/designs/{id}/favorite', {
 		params: { path: { id } }
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data)
 		throw new Error(problemMessage(error, 'Could not update the design favorite.'));
-	void queryClient.invalidateQueries({
-		queryKey: imageEditorQueryKeys.designLists(workspaceID),
-		refetchType: 'none'
+	await reconcileImageEditorDesign(session, workspaceID, id, {
+		updateSummary: (current) =>
+			current.id === id ? { ...current, is_favorite: data.is_favorite } : current
 	});
 	return data.is_favorite;
 }
@@ -200,13 +341,25 @@ export async function createImageEditorTemplate(input: {
 	preview_media_id?: string;
 	document: ImageEditorDocument;
 }): Promise<ImageEditorTemplate> {
-	const { data, error } = await client.POST('/image-editor/templates', {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST('/image-editor/templates', {
 		body: imageEditorTemplateInput(input)
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not create the template.'));
-	const template = imageEditorTemplate(data);
-	void queryClient.invalidateQueries({
-		queryKey: imageEditorQueryKeys.templates(input.workspace_id)
+	const template = requireImageEditorTemplateWorkspace(
+		imageEditorTemplate(data),
+		input.workspace_id
+	);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: imageEditorQueryKeys.templates(input.workspace_id), exact: true }],
+		reconcile: () => {
+			queryClient.setQueryData<ImageEditorTemplate[]>(
+				imageEditorQueryKeys.templates(input.workspace_id),
+				(current) => (current ? [...current, template] : current)
+			);
+		},
+		invalidate: [{ queryKey: imageEditorQueryKeys.templates(input.workspace_id), exact: true }]
 	});
 	return template;
 }
@@ -221,13 +374,25 @@ export async function updateImageEditorTemplate(
 		document: ImageEditorDocument;
 	}
 ): Promise<ImageEditorTemplate> {
-	const { data, error } = await client.PATCH('/image-editor/templates/{id}', {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.PATCH('/image-editor/templates/{id}', {
 		params: { path: { id } },
 		body: imageEditorTemplateUpdateInput(input)
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not replace the template.'));
-	const template = imageEditorTemplate(data);
-	void queryClient.invalidateQueries({ queryKey: imageEditorQueryKeys.templates(workspaceID) });
+	const template = requireImageEditorTemplateWorkspace(imageEditorTemplate(data), workspaceID);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: imageEditorQueryKeys.templates(workspaceID), exact: true }],
+		reconcile: () => {
+			queryClient.setQueryData<ImageEditorTemplate[]>(
+				imageEditorQueryKeys.templates(workspaceID),
+				(current) =>
+					current?.map((candidate) => (candidate.id === template.id ? template : candidate))
+			);
+		},
+		invalidate: [{ queryKey: imageEditorQueryKeys.templates(workspaceID), exact: true }]
+	});
 	return template;
 }
 
@@ -236,13 +401,15 @@ export async function instantiateImageEditorTemplate(
 	workspaceID: string,
 	title?: string
 ): Promise<ImageEditorDocumentResponse> {
-	const { data, error } = await client.POST('/image-editor/templates/{id}/instantiate', {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST('/image-editor/templates/{id}/instantiate', {
 		params: { path: { id: templateID } },
 		body: { workspace_id: workspaceID, title: title ?? '' }
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not use the template.'));
-	const design = imageEditorDocumentResponse(data);
-	cacheImageEditorDesign(design);
+	const design = requireImageEditorDesignIdentity(imageEditorDocumentResponse(data), workspaceID);
+	await reconcileImageEditorDesign(session, workspaceID, design.id, { design });
 	return design;
 }
 
@@ -252,7 +419,8 @@ export async function saveImageEditorBrandKit(
 		'workspace_id' | 'name' | 'colors' | 'text_styles' | 'backgrounds' | 'fonts'
 	>
 ): Promise<ImageEditorBrandKit> {
-	const { data, error } = await client.PUT('/image-editor/brand-kit', {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.PUT('/image-editor/brand-kit', {
 		body: {
 			workspace_id: kit.workspace_id,
 			name: kit.name,
@@ -268,9 +436,14 @@ export async function saveImageEditorBrandKit(
 			}))
 		}
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not save the brand kit.'));
-	const brandKit = imageEditorBrandKit(data);
-	queryClient.setQueryData(imageEditorQueryKeys.brandKit(brandKit.workspace_id), brandKit);
+	const brandKit = requireImageEditorWorkspace(imageEditorBrandKit(data), kit.workspace_id);
+	const queryKey = imageEditorQueryKeys.brandKit(kit.workspace_id);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey, exact: true }],
+		reconcile: () => queryClient.setQueryData(queryKey, brandKit)
+	});
 	return brandKit;
 }
 
@@ -280,10 +453,12 @@ export async function createImageEditorCheckpoint(
 	name: string,
 	expectedRevision: number
 ): Promise<ImageEditorRevisionSummary> {
+	const session = captureQueryMutationSession();
 	const { data, error, response } = await client.POST('/image-editor/designs/{id}/revisions', {
 		params: { path: { id } },
 		body: { name, expected_revision: expectedRevision }
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) {
 		throw new ImageEditorAPIError(
 			problemMessage(error, 'Could not create the checkpoint.'),
@@ -291,7 +466,7 @@ export async function createImageEditorCheckpoint(
 		);
 	}
 	const revision = imageEditorRevisionSummary(data);
-	invalidateImageEditorRevisions(workspaceID, id);
+	await reconcileImageEditorRevisions(session, workspaceID, id);
 	return revision;
 }
 
@@ -301,6 +476,7 @@ export async function restoreImageEditorRevision(
 	revisionID: string,
 	expectedRevision: number
 ): Promise<ImageEditorDocumentResponse> {
+	const session = captureQueryMutationSession();
 	const { data, error, response } = await client.POST(
 		'/image-editor/designs/{id}/revisions/{revision_id}/restore',
 		{
@@ -308,25 +484,39 @@ export async function restoreImageEditorRevision(
 			body: { expected_revision: expectedRevision }
 		}
 	);
+	settleImageEditorMutation(session, response);
 	if (error || !data) {
 		throw new ImageEditorAPIError(
 			problemMessage(error, 'Could not restore this version.'),
 			response.status
 		);
 	}
-	const design = imageEditorDocumentResponse(data);
-	cacheImageEditorDesign(design);
-	invalidateImageEditorRevisions(workspaceID, id);
+	const design = requireImageEditorDesignIdentity(
+		imageEditorDocumentResponse(data),
+		workspaceID,
+		id
+	);
+	await reconcileImageEditorDesign(session, workspaceID, id, {
+		design,
+		updateSummary: (current) =>
+			current.id === id ? updateDesignSummary(current, design) : current,
+		invalidateRevisions: true
+	});
 	return design;
 }
 
-export async function duplicateImageEditorDesign(id: string): Promise<ImageEditorDocumentResponse> {
-	const { data, error } = await client.POST('/image-editor/designs/{id}/duplicate', {
+export async function duplicateImageEditorDesign(
+	workspaceID: string,
+	id: string
+): Promise<ImageEditorDocumentResponse> {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST('/image-editor/designs/{id}/duplicate', {
 		params: { path: { id } }
 	});
+	settleImageEditorMutation(session, response);
 	if (error || !data) throw new Error(problemMessage(error, 'Could not duplicate the design.'));
-	const design = imageEditorDocumentResponse(data);
-	cacheImageEditorDesign(design);
+	const design = requireImageEditorDesignIdentity(imageEditorDocumentResponse(data), workspaceID);
+	await reconcileImageEditorDesign(session, workspaceID, design.id, { design });
 	return design;
 }
 
@@ -337,7 +527,11 @@ export async function createImageEditorReturnToken(input: {
 	max_selection: number;
 	constraints: components['schemas']['CreateImageEditorReturnTokenInputBody']['constraints'];
 }): Promise<{ token: string; expires_at: string }> {
-	const { data, error } = await client.POST('/image-editor/return-tokens', { body: input });
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST('/image-editor/return-tokens', {
+		body: input
+	});
+	settleImageEditorMutation(session, response);
 	if (error || !data)
 		throw new Error(problemMessage(error, 'Could not open OpenPost Image Editor.'));
 	return { token: data.token, expires_at: data.expires_at };
@@ -348,10 +542,15 @@ export async function completeImageEditorReturnToken(
 	designID: string,
 	mediaIDs: string[]
 ): Promise<string> {
-	const { data, error } = await client.POST('/image-editor/return-tokens/{token}/complete', {
-		params: { path: { token } },
-		body: { design_id: designID, media_ids: mediaIDs }
-	});
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST(
+		'/image-editor/return-tokens/{token}/complete',
+		{
+			params: { path: { token } },
+			body: { design_id: designID, media_ids: mediaIDs }
+		}
+	);
+	settleImageEditorMutation(session, response);
 	if (error || !data)
 		throw new Error(problemMessage(error, 'Could not return OpenPost Image Editor exports.'));
 	return data.return_url;
@@ -365,9 +564,14 @@ export async function consumeImageEditorReturnToken(token: string): Promise<{
 	media_ids: string[];
 	constraints: components['schemas']['ConsumeImageEditorReturnTokenOutputBody']['constraints'];
 }> {
-	const { data, error } = await client.POST('/image-editor/return-tokens/{token}/consume', {
-		params: { path: { token } }
-	});
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.POST(
+		'/image-editor/return-tokens/{token}/consume',
+		{
+			params: { path: { token } }
+		}
+	);
+	settleImageEditorMutation(session, response);
 	if (error || !data)
 		throw new Error(problemMessage(error, 'Could not restore OpenPost Image Editor exports.'));
 	return {

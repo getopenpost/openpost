@@ -11,6 +11,11 @@
 		type CreateImageEditorDesignInput
 	} from '$lib/image-editor/api';
 	import { queryImageEditorConfig, queryImageEditorTemplates } from '$lib/query/image-editor';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -27,6 +32,12 @@
 		height: number;
 	}
 
+	interface CreationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
+
 	let loading = $state(true);
 	let creating = $state('');
 	let error = $state('');
@@ -36,6 +47,7 @@
 	let showAllTemplates = $state(false);
 	let customWidth = $state(1080);
 	let customHeight = $state(1080);
+	let creationSequence = 0;
 	let workspaceID = $derived(
 		$page.url.searchParams.get('workspace') || workspaceCtx.currentWorkspace?.id || ''
 	);
@@ -57,6 +69,22 @@
 		templates.filter((template) => featuredTemplateIDs.has(template.id))
 	);
 	let visibleTemplates = $derived(showAllTemplates ? templates : featuredTemplates);
+
+	function captureCreationView(): CreationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++creationSequence,
+			workspaceID
+		};
+	}
+
+	function creationViewIsCurrent(view: CreationView): boolean {
+		return (
+			view.sequence === creationSequence &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
 
 	onMount(() => {
 		void initialize();
@@ -101,6 +129,7 @@
 
 	async function createPreset(key: string): Promise<void> {
 		if (!workspaceID || creating) return;
+		const view = captureCreationView();
 		creating = key;
 		error = '';
 		try {
@@ -112,37 +141,45 @@
 				input.width_px = customWidth;
 				input.height_px = customHeight;
 			}
-			const design = await createImageEditorDesign(workspaceID, input);
+			const design = await createImageEditorDesign(view.workspaceID, input);
+			if (!creationViewIsCurrent(view)) return;
 			captureTelemetryEvent('image design created', {
 				source: key === 'custom' ? 'custom' : 'preset'
 			});
 			await openDesign(design.id);
 		} catch (cause) {
+			if (!creationViewIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.image_editor_create_failed();
-			creating = '';
+		} finally {
+			if (view.sequence === creationSequence) creating = '';
 		}
 	}
 
 	async function createTemplate(template: ImageEditorTemplate): Promise<void> {
 		if (!workspaceID || creating) return;
+		const view = captureCreationView();
 		creating = template.id;
 		error = '';
 		try {
-			const design = await instantiateImageEditorTemplate(template.id, workspaceID);
+			const design = await instantiateImageEditorTemplate(template.id, view.workspaceID);
+			if (!creationViewIsCurrent(view)) return;
 			captureTelemetryEvent('image design created', { source: 'template' });
 			await openDesign(design.id);
 		} catch (cause) {
+			if (!creationViewIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.image_editor_template_use_failed();
-			creating = '';
+		} finally {
+			if (view.sequence === creationSequence) creating = '';
 		}
 	}
 
 	async function createFromSource(): Promise<void> {
 		if (!workspaceID || creating) return;
+		const view = captureCreationView();
 		creating = 'source-media';
 		const sourceSize = fitSourceSize(sourceWidth, sourceHeight);
 		try {
-			const design = await createImageEditorDesign(workspaceID, {
+			const design = await createImageEditorDesign(view.workspaceID, {
 				title: sourceName
 					? m.image_editor_image_edit_title({ name: sourceName.replace(/\.[^.]+$/, '') })
 					: m.image_editor_media_edit_title(),
@@ -151,11 +188,14 @@
 				height_px: sourceSize.height,
 				source_media_id: sourceMediaID
 			});
+			if (!creationViewIsCurrent(view)) return;
 			captureTelemetryEvent('image design created', { source: 'media' });
 			await openDesign(design.id);
 		} catch (cause) {
+			if (!creationViewIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.image_editor_media_open_failed();
-			creating = '';
+		} finally {
+			if (view.sequence === creationSequence) creating = '';
 		}
 	}
 

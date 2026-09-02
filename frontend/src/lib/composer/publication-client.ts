@@ -4,11 +4,18 @@ import {
 	OpenPostQueryError,
 	openPostQueryKeys,
 	publicationDetailQueryOptions,
+	requirePublicationWorkspace,
 	seedPublicationDetail
 } from '@openpost/query-catalog';
 import { parseDraftConflict } from '$lib/draft-conflict';
 import { queryAPI } from '$lib/query/api';
 import { queryClient } from '$lib/query/client';
+import {
+	captureQueryMutationSession,
+	settleQueryMutationSession,
+	type QueryMutationSession
+} from '$lib/query/authorization-boundary';
+import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 import {
 	ComposerClientError,
 	type ComposerPublicationClient,
@@ -39,57 +46,66 @@ export function createComposerPublicationClient(workspaceId: string): ComposerPu
 		},
 
 		async create(createWorkspaceId, draft) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST('/publications', {
 				body: { ...draft, workspace_id: createWorkspaceId }
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await cancelPublicationQueries(createWorkspaceId, data.id);
-			seedPublicationDetail(queryClient, data, createWorkspaceId);
-			await invalidatePublicationLists(createWorkspaceId);
+			const publication = publicationForWorkspace(data, createWorkspaceId);
+			await reconcilePublicationSeed(mutationSession, publication, createWorkspaceId);
 			return { ...data, draft: publicationDraft(data) };
 		},
 
 		async update(publicationId, expectedRevision, draft) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.PUT('/publications/{id}', {
 				params: { path: { id: publicationId } },
 				body: publicationUpdate(draft, expectedRevision)
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await cancelPublicationQueries(workspaceId, publicationId);
-			seedPublicationDetail(queryClient, data, workspaceId);
-			await invalidatePublicationLists(workspaceId);
-			return data;
+			const publication = publicationForWorkspace(data, workspaceId, publicationId);
+			await reconcilePublicationSeed(mutationSession, publication, workspaceId);
+			return publication;
 		},
 
 		async validate(publicationId) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST('/publications/{id}/validate', {
 				params: { path: { id: publicationId } }
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
 			return { issues: data.issues ?? [] };
 		},
 
 		async schedule(publicationId, expectedRevision) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST('/publications/{id}/schedule', {
 				params: { path: { id: publicationId } },
 				body: { expected_revision: expectedRevision }
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await invalidatePublication(workspaceId, publicationId);
+			await reconcilePublicationInvalidation(mutationSession, workspaceId, publicationId);
 			return data;
 		},
 
 		async publishNow(publicationId, expectedRevision) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST('/publications/{id}/publish-now', {
 				params: { path: { id: publicationId } },
 				body: { expected_revision: expectedRevision }
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await invalidatePublication(workspaceId, publicationId);
+			await reconcilePublicationInvalidation(mutationSession, workspaceId, publicationId);
 			return data;
 		},
 
 		async retry(publicationId, accountId, targetKey) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST(
 				'/publications/{id}/renditions/{account_id}/retry',
 				{
@@ -99,65 +115,101 @@ export function createComposerPublicationClient(workspaceId: string): ComposerPu
 					}
 				}
 			);
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await invalidatePublication(workspaceId, publicationId);
+			await reconcilePublicationInvalidation(mutationSession, workspaceId, publicationId);
 			return data;
 		},
 
 		async cancel(publicationId, expectedRevision) {
+			const mutationSession = captureQueryMutationSession();
 			const { data, error, response } = await client.POST('/publications/{id}/cancel', {
 				params: { path: { id: publicationId } },
 				body: { expected_revision: expectedRevision }
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error || !data) throw clientError(error, response.status);
-			await invalidatePublication(workspaceId, publicationId);
+			await reconcilePublicationInvalidation(mutationSession, workspaceId, publicationId);
 			return data;
 		},
 
 		async delete(publicationId, expectedRevision) {
+			const mutationSession = captureQueryMutationSession();
 			const { error, response } = await client.DELETE('/publications/{id}', {
 				params: {
 					path: { id: publicationId },
 					query: { confirm: true, expected_revision: expectedRevision }
 				}
 			});
+			settleQueryMutationSession(mutationSession, response);
 			if (error) throw clientError(error, response.status);
-			queryClient.removeQueries({
-				queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
-				exact: true
-			});
-			await invalidatePublicationLists(workspaceId);
+			await reconcilePublicationDelete(mutationSession, workspaceId, publicationId);
 		}
 	};
 }
 
-function invalidatePublicationLists(workspaceId: string) {
-	return queryClient.invalidateQueries({
-		queryKey: openPostQueryKeys.publications.list(workspaceId),
-		refetchType: 'none'
+function publicationForWorkspace(
+	publication: Publication,
+	workspaceId: string,
+	publicationId?: string
+): Publication {
+	try {
+		const scoped = requirePublicationWorkspace(publication, workspaceId);
+		if (publicationId && scoped.id !== publicationId) {
+			throw new OpenPostQueryError('This post does not match the requested post', { status: 404 });
+		}
+		return scoped;
+	} catch (cause) {
+		throw queryClientError(cause);
+	}
+}
+
+function publicationMutationQueryPlan(workspaceId: string, publicationId: string) {
+	return {
+		detail: openPostQueryKeys.publications.detail(workspaceId, publicationId),
+		lists: openPostQueryKeys.publications.list(workspaceId)
+	};
+}
+
+async function reconcilePublicationSeed(
+	session: QueryMutationSession,
+	publication: Publication,
+	workspaceId: string
+): Promise<boolean> {
+	const keys = publicationMutationQueryPlan(workspaceId, publication.id);
+	return reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: keys.detail, exact: true }, { queryKey: keys.lists }],
+		reconcile: () => seedPublicationDetail(queryClient, publication, workspaceId),
+		invalidate: [{ queryKey: keys.lists, refetchType: 'none' }]
 	});
 }
 
-async function cancelPublicationQueries(workspaceId: string, publicationId: string) {
-	await Promise.all([
-		queryClient.cancelQueries({
-			queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
-			exact: true
-		}),
-		queryClient.cancelQueries({ queryKey: openPostQueryKeys.publications.list(workspaceId) })
-	]);
+async function reconcilePublicationInvalidation(
+	session: QueryMutationSession,
+	workspaceId: string,
+	publicationId: string
+): Promise<boolean> {
+	const keys = publicationMutationQueryPlan(workspaceId, publicationId);
+	return reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: keys.detail, exact: true }, { queryKey: keys.lists }],
+		invalidate: [
+			{ queryKey: keys.detail, exact: true, refetchType: 'none' },
+			{ queryKey: keys.lists, refetchType: 'none' }
+		]
+	});
 }
 
-async function invalidatePublication(workspaceId: string, publicationId: string) {
-	await cancelPublicationQueries(workspaceId, publicationId);
-	return Promise.all([
-		queryClient.invalidateQueries({
-			queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
-			exact: true,
-			refetchType: 'none'
-		}),
-		invalidatePublicationLists(workspaceId)
-	]);
+async function reconcilePublicationDelete(
+	session: QueryMutationSession,
+	workspaceId: string,
+	publicationId: string
+): Promise<boolean> {
+	const keys = publicationMutationQueryPlan(workspaceId, publicationId);
+	return reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: keys.detail, exact: true }, { queryKey: keys.lists }],
+		reconcile: () => queryClient.removeQueries({ queryKey: keys.detail, exact: true }),
+		invalidate: [{ queryKey: keys.lists, refetchType: 'none' }]
+	});
 }
 
 function queryClientError(cause: unknown): ComposerClientError {

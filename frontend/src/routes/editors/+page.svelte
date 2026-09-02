@@ -12,13 +12,13 @@
 		toggleImageEditorDesignFavorite
 	} from '$lib/image-editor/api';
 	import { queryImageEditorDesign } from '$lib/query/image-editor';
-	import { queryClient } from '$lib/query/client';
-	import { createInfiniteQuery, type InfiniteData } from '@tanstack/svelte-query';
 	import {
-		imageEditorDesignCatalogQueryOptions,
-		imageEditorQueryKeys,
-		type ImageEditorDesignPage
-	} from '@openpost/query-catalog';
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { createInfiniteQuery } from '@tanstack/svelte-query';
+	import { imageEditorDesignCatalogQueryOptions } from '@openpost/query-catalog';
 	import { imageEditorQueryAPI } from '$lib/query/image-editor';
 	import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
 	import {
@@ -66,6 +66,11 @@
 		item: ImageEditorDesignSummary;
 	};
 	type RenameTarget = DeleteTarget;
+	type EditorMutationView = {
+		session: QueryMutationSession;
+		workspaceID: string;
+		catalogKey: string;
+	};
 
 	const pendingDeletes = new SvelteSet<string>();
 	const videoWorkspaceGate = createWorkspaceGate();
@@ -227,43 +232,31 @@
 		toastTone = tone;
 	}
 
-	function updateCachedDesigns(
-		originWorkspaceID: string,
-		update: (design: ImageEditorDesignSummary) => ImageEditorDesignSummary | null
-	): void {
-		queryClient.setQueriesData<
-			InfiniteData<ImageEditorDesignPage<ImageEditorDesignSummary>, number>
-		>({ queryKey: imageEditorQueryKeys.designCatalogs(originWorkspaceID) }, (current) => {
-			if (!current) return current;
-			return {
-				...current,
-				pages: current.pages.map((page) => {
-					const designs = page.designs
-						.map(update)
-						.filter((design): design is ImageEditorDesignSummary => Boolean(design));
-					return {
-						...page,
-						designs,
-						total: page.total - (page.designs.length - designs.length)
-					};
-				})
-			};
-		});
+	function captureEditorMutationView(originWorkspaceID: string): EditorMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: originWorkspaceID,
+			catalogKey: activeCatalogKey
+		};
+	}
+
+	function editorMutationViewIsCurrent(view: EditorMutationView): boolean {
+		return (
+			queryMutationSessionIsCurrent(view.session) &&
+			workspaceID === view.workspaceID &&
+			activeCatalogKey === view.catalogKey
+		);
 	}
 
 	async function duplicateDesign(design: ImageEditorDesignSummary): Promise<void> {
 		const originWorkspaceID = workspaceID;
 		if (!catalog.canEditDesigns || !originWorkspaceID) return;
+		const view = captureEditorMutationView(originWorkspaceID);
 		try {
-			await duplicateImageEditorDesign(design.id);
-			await queryClient.invalidateQueries({
-				queryKey: imageEditorQueryKeys.designLists(originWorkspaceID)
-			});
-			if (workspaceID === originWorkspaceID) {
-				notify(m.image_editor_design_duplicated(), 'success');
-			}
+			await duplicateImageEditorDesign(originWorkspaceID, design.id);
+			if (editorMutationViewIsCurrent(view)) notify(m.image_editor_design_duplicated(), 'success');
 		} catch (cause) {
-			if (workspaceID !== originWorkspaceID) return;
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(errorMessage(cause, m.image_editor_design_duplicate_failed()), 'error');
 		}
 	}
@@ -271,17 +264,11 @@
 	async function toggleFavorite(design: ImageEditorDesignSummary): Promise<void> {
 		const originWorkspaceID = workspaceID;
 		if (!catalog.canEditDesigns || !originWorkspaceID) return;
+		const view = captureEditorMutationView(originWorkspaceID);
 		try {
-			const favorite = await toggleImageEditorDesignFavorite(originWorkspaceID, design.id);
-			updateCachedDesigns(originWorkspaceID, (item) =>
-				item.id === design.id ? { ...item, is_favorite: favorite } : item
-			);
-			void queryClient.invalidateQueries({
-				queryKey: imageEditorQueryKeys.designLists(originWorkspaceID),
-				refetchType: 'none'
-			});
+			await toggleImageEditorDesignFavorite(originWorkspaceID, design.id);
 		} catch (cause) {
-			if (workspaceID !== originWorkspaceID) return;
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(errorMessage(cause, m.image_editor_design_favorite_failed()), 'error');
 		}
 	}
@@ -303,16 +290,12 @@
 			return { ok: false };
 		}
 		const itemKey = pendingDeleteKey(target.workspaceID, target.kind, target.item.id);
+		const view = captureEditorMutationView(target.workspaceID);
 		pendingDeletes.add(itemKey);
 		try {
 			await deleteImageEditorDesign(target.workspaceID, target.item.id);
-			updateCachedDesigns(target.workspaceID, (design) =>
-				design.id === target.item.id ? null : design
-			);
-			await queryClient.invalidateQueries({
-				queryKey: imageEditorQueryKeys.designLists(target.workspaceID)
-			});
 			pendingDeletes.delete(itemKey);
+			if (!editorMutationViewIsCurrent(view)) return { ok: false };
 			if (deleteTarget === target) deleteTarget = null;
 			return {
 				ok: true,
@@ -320,6 +303,7 @@
 			};
 		} catch (cause) {
 			pendingDeletes.delete(itemKey);
+			if (!editorMutationViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: errorMessage(cause, m.image_editor_design_delete_failed())
@@ -343,31 +327,21 @@
 		) {
 			throw new Error(m.editors_rename_failed());
 		}
+		const view = captureEditorMutationView(target.workspaceID);
 		try {
 			const current = await queryImageEditorDesign(target.workspaceID, target.item.id);
-			const updated = await saveImageEditorDesign(
+			if (!editorMutationViewIsCurrent(view)) return;
+			await saveImageEditorDesign(
+				target.workspaceID,
 				current.id,
 				current.revision,
 				{ ...current.document, title },
 				current.cover_preview_media_id
 			);
-			updateCachedDesigns(target.workspaceID, (design) =>
-				design.id === current.id
-					? {
-							...design,
-							title: updated.document.title,
-							revision: updated.revision,
-							updated_at: updated.updated_at
-						}
-					: design
-			);
-			void queryClient.invalidateQueries({
-				queryKey: imageEditorQueryKeys.designLists(target.workspaceID),
-				refetchType: 'none'
-			});
-			if (workspaceID !== target.workspaceID || activeCatalogKey !== target.key) return;
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(m.editors_renamed(), 'success');
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			throw new Error(errorMessage(cause, m.editors_rename_failed()));
 		}
 	}

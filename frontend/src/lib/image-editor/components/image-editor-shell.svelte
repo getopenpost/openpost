@@ -102,6 +102,11 @@
 	import type { SelectionPoint } from '../selection';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile } from '$lib/media-upload-client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import UndoIcon from '@lucide/svelte/icons/undo-2';
@@ -192,6 +197,11 @@
 		recoveryReason: 'idle' | 'export' | 'close';
 	};
 	type SaveAttemptResult = 'saved' | 'retry' | 'blocked';
+	type EditorMutationView = {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly designID: string;
+	};
 	type PixelSelectionActions = {
 		copy(): ImageEditorLayer[];
 		begin(mode: 'promote' | 'cut'): boolean;
@@ -212,6 +222,7 @@
 	let pendingSave: SaveRequest | null = null;
 	let saveDrain: Promise<boolean> | null = null;
 	let saveRetryDelay = INITIAL_SAVE_RETRY_DELAY;
+	let editorViewActive = true;
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let previewPending = false;
 	let previewBusy = false;
@@ -226,6 +237,7 @@
 	let helpDialogOpen = $state(false);
 	let conflictDialogOpen = $state(false);
 	let conflictBusy = $state(false);
+	let conflictOperationSequence = 0;
 	let conflictError = $state('');
 	let conflictServerRevision = $state<number | null>(null);
 	let conflictPreservedCopy = $state.raw<ImageEditorDocumentResponse | null>(null);
@@ -234,6 +246,7 @@
 	let missingMedia = $state.raw<Array<{ mediaID: string; layerID?: string }>>([]);
 	let initialMissingMediaLoaded = false;
 	let historyDialogOpen = $state(false);
+	let historyMutationSequence = 0;
 	let checkpointDialogOpen = $state(false);
 	let templateDialogOpen = $state(false);
 	let resizeDialogOpen = $state(false);
@@ -268,6 +281,23 @@
 		cloudDesignID?: string;
 	};
 	let projectImportRecovery = $state.raw<ProjectImportRecovery | null>(null);
+
+	function captureEditorMutationView(): EditorMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: editor.workspaceID,
+			designID: editor.id
+		};
+	}
+
+	function editorMutationViewIsCurrent(view: EditorMutationView): boolean {
+		return (
+			editorViewActive &&
+			view.workspaceID === editor.workspaceID &&
+			view.designID === editor.id &&
+			(guestMode || queryMutationSessionIsCurrent(view.session))
+		);
+	}
 	let projectFileInput = $state<HTMLInputElement | null>(null);
 	let toolPreferencesReady = $state(false);
 	let guideDialogOpen = $state(false);
@@ -679,6 +709,7 @@
 		};
 		window.addEventListener('beforeunload', beforeUnload);
 		return () => {
+			editorViewActive = false;
 			unsubscribe();
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
@@ -1024,6 +1055,7 @@
 
 	async function performSave(request: SaveRequest): Promise<SaveAttemptResult> {
 		if (!editor.document || !editor.canEdit) return 'saved';
+		const view = captureEditorMutationView();
 		const submittedDocument = editor.document;
 		const errors = validateImageEditorDocument(submittedDocument);
 		if (errors.length > 0) {
@@ -1039,12 +1071,17 @@
 			const response = guestMode
 				? await saveGuestImageEditorDesign(editor.id, submittedDocument)
 				: await saveImageEditorDesign(
+						editor.workspaceID,
 						editor.id,
 						editor.revision,
 						submittedDocument,
 						request.coverPreviewMediaID ?? coverPreviewMediaID,
 						request.recoveryReason
 					);
+			if (!editorMutationViewIsCurrent(view)) {
+				finishMetric();
+				return 'blocked';
+			}
 			editor.revision = response.revision;
 			if (!guestMode && typeof BroadcastChannel !== 'undefined') {
 				const channel = new BroadcastChannel(`openpost-image-editor:${editor.id}`);
@@ -1075,6 +1112,7 @@
 			return 'saved';
 		} catch (cause) {
 			finishMetric('error');
+			if (!editorMutationViewIsCurrent(view)) return 'blocked';
 			const status = apiErrorStatus(cause);
 			const retryable = !navigator.onLine || !status || status === 429 || status >= 500;
 			if (status === 409) {
@@ -1162,11 +1200,18 @@
 
 	async function reloadServerVersion(): Promise<void> {
 		if (!editor.document || conflictBusy) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++conflictOperationSequence;
 		conflictBusy = true;
 		conflictError = '';
 		try {
-			conflictPreservedCopy ??= await saveImageEditorConflictCopy(editor.id, editor.document);
+			conflictPreservedCopy ??= await saveImageEditorConflictCopy(
+				editor.workspaceID,
+				editor.id,
+				editor.document
+			);
 			const response = await refreshImageEditorDesign(editor.workspaceID, editor.id);
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.replaceFromServer(response);
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			await clearLocalImageEditorRecovery(editor.id);
@@ -1175,21 +1220,26 @@
 			conflictPreservedCopy = null;
 			statusAnnouncement = m.image_editor_conflict_reloaded_with_copy();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			conflictError =
 				cause instanceof Error ? cause.message : m.image_editor_conflict_preserve_failed();
 			statusAnnouncement = conflictError;
 		} finally {
-			conflictBusy = false;
+			if (operationSequence === conflictOperationSequence) conflictBusy = false;
 		}
 	}
 
 	async function saveConflictAsCopy(): Promise<void> {
 		if (!editor.document || conflictBusy) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++conflictOperationSequence;
 		conflictBusy = true;
 		conflictError = '';
 		try {
 			const saved =
-				conflictPreservedCopy ?? (await saveImageEditorConflictCopy(editor.id, editor.document));
+				conflictPreservedCopy ??
+				(await saveImageEditorConflictCopy(editor.workspaceID, editor.id, editor.document));
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.load(saved);
 			conflictDialogOpen = false;
 			conflictServerRevision = null;
@@ -1197,11 +1247,12 @@
 			await clearLocalImageEditorRecovery(editor.id);
 			await goto(resolveAppPath(`/image-editor/${saved.id}`));
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			conflictError =
 				cause instanceof Error ? cause.message : m.image_editor_conflict_preserve_failed();
 			statusAnnouncement = conflictError;
 		} finally {
-			conflictBusy = false;
+			if (operationSequence === conflictOperationSequence) conflictBusy = false;
 		}
 	}
 
@@ -1270,6 +1321,7 @@
 
 	async function importProjectFile(recovery: ProjectImportRecovery): Promise<void> {
 		if (projectBusy) return;
+		const view = captureEditorMutationView();
 		projectBusy = true;
 		projectError = '';
 		const controller = new AbortController();
@@ -1331,11 +1383,14 @@
 						width_px: imported.width_px,
 						height_px: imported.height_px
 					});
+			if (!editorMutationViewIsCurrent(view)) return;
 			recovery.cloudDesignID = created.id;
-			await saveImageEditorDesign(created.id, created.revision, imported);
+			await saveImageEditorDesign(editor.workspaceID, created.id, created.revision, imported);
+			if (!editorMutationViewIsCurrent(view)) return;
 			projectImportRecovery = null;
 			await goto(resolveAppPath(`/image-editor/${created.id}`));
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			projectError =
 				cause instanceof DOMException && cause.name === 'AbortError'
 					? m.image_editor_project_import_cancelled_recoverable({
@@ -1347,9 +1402,11 @@
 						});
 			statusAnnouncement = projectError;
 		} finally {
-			projectBusy = false;
-			projectProgress = '';
-			if (projectAbort === controller) projectAbort = null;
+			if (projectAbort === controller) {
+				projectBusy = false;
+				projectProgress = '';
+				projectAbort = null;
+			}
 		}
 	}
 
@@ -1507,6 +1564,8 @@
 
 	async function createCheckpoint(): Promise<void> {
 		if (!checkpointName.trim()) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
@@ -1517,11 +1576,13 @@
 				checkpointName.trim(),
 				editor.revision
 			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			checkpointName = '';
 			checkpointDialogOpen = false;
 			await openHistory();
 			statusAnnouncement = m.image_editor_checkpoint_created();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (apiErrorStatus(cause) === 409) {
 				checkpointDialogOpen = false;
 				setHistoryDialogOpen(false);
@@ -1530,7 +1591,7 @@
 				historyError = cause instanceof Error ? cause.message : m.image_editor_checkpoint_failed();
 			}
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -1538,6 +1599,8 @@
 		if (!revisionPreview || !revisionChanges || !imageEditorRevisionHasChanges(revisionChanges)) {
 			return;
 		}
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
@@ -1548,6 +1611,7 @@
 				revisionPreview.summary.id,
 				editor.revision
 			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.load(response);
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			await clearLocalImageEditorRecovery(editor.id);
@@ -1555,6 +1619,7 @@
 			setHistoryDialogOpen(false);
 			statusAnnouncement = m.image_editor_version_restored();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (apiErrorStatus(cause) === 409) {
 				restoreConfirmOpen = false;
 				setHistoryDialogOpen(false);
@@ -1563,7 +1628,7 @@
 				historyError = cause instanceof Error ? cause.message : m.image_editor_restore_failed();
 			}
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -1577,6 +1642,8 @@
 
 	async function saveAsTemplate(): Promise<void> {
 		if (!editor.document || !templateName.trim()) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
@@ -1592,6 +1659,7 @@
 			} else {
 				await updateImageEditorTemplate(editor.workspaceID, templateTargetID, templateInput);
 			}
+			if (!editorMutationViewIsCurrent(view)) return;
 			templateDialogOpen = false;
 			templateName = '';
 			statusAnnouncement =
@@ -1599,9 +1667,10 @@
 					? m.image_editor_template_created()
 					: m.image_editor_template_replaced();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			historyError = cause instanceof Error ? cause.message : m.image_editor_template_save_failed();
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -2384,6 +2453,7 @@
 			exportError = m.image_editor_export_budget_exceeded();
 			return;
 		}
+		const view = captureEditorMutationView();
 		exportBusy = true;
 		const controller = new AbortController();
 		exportAbort = controller;
@@ -2392,6 +2462,7 @@
 		exportProgress = m.image_editor_export_saving();
 		try {
 			const saved = await saveNow();
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (!saved && exportMode !== 'download') {
 				throw new Error(m.image_editor_export_save_first());
 			}
@@ -2411,6 +2482,7 @@
 				},
 				controller.signal
 			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'download') {
 				await downloadRenderedPages(rendered, editor.document.title);
 				exportDialogOpen = false;
@@ -2456,6 +2528,7 @@
 					retentionClass: exportMode === 'attach' ? 'temporary' : 'library',
 					signal: controller.signal
 				});
+				if (!editorMutationViewIsCurrent(view)) return;
 				mediaIDs.push(uploaded.id);
 				exportSuccessfulByPage = {
 					...exportSuccessfulByPage,
@@ -2475,9 +2548,11 @@
 				});
 			}
 			await saveNow(mediaIDs[0] ?? '', 'export');
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'attach') {
 				if (!returnToken) throw new Error(m.image_editor_attach_missing());
 				const returnURL = await completeImageEditorReturnToken(returnToken, editor.id, mediaIDs);
+				if (!editorMutationViewIsCurrent(view)) return;
 				captureTelemetryEvent('image design exported', {
 					mode: exportMode,
 					pages: mediaIDs.length
@@ -2505,6 +2580,7 @@
 			finishMetric();
 		} catch (cause) {
 			finishMetric('error');
+			if (!editorMutationViewIsCurrent(view)) return;
 			exportError =
 				cause instanceof DOMException && cause.name === 'AbortError'
 					? m.image_editor_export_cancelled_resume({
@@ -2515,9 +2591,11 @@
 						: m.image_editor_export_failed();
 			statusAnnouncement = exportError;
 		} finally {
-			exportBusy = false;
-			exportProgress = '';
-			if (exportAbort === controller) exportAbort = null;
+			if (exportAbort === controller) {
+				exportBusy = false;
+				exportProgress = '';
+				exportAbort = null;
+			}
 		}
 	}
 

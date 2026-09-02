@@ -13,6 +13,11 @@
 	import { queryClient } from '$lib/query/client';
 	import { queryMediaMetadata } from '$lib/query/media';
 	import { queryVoiceProfiles } from '$lib/query/voice-profiles';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import AIWorkspaceDialog from '$lib/components/post-builder/ai-workspace-dialog.svelte';
@@ -367,6 +372,7 @@
 	let composerDestroyed = false;
 	let nextSlotRequestSequence = 0;
 	let saveGeneration = 0;
+	let saveOperationSequence = 0;
 	let composerSession: ComposerSession | null = null;
 	let unsubscribeComposerSession: (() => void) | null = null;
 	let allowNavigationOnce = false;
@@ -2529,12 +2535,16 @@
 
 	async function openImageEditorFromComposer() {
 		if (!selectedWorkspaceId) return;
+		const workspaceId = selectedWorkspaceId;
+		const generation = saveGeneration;
+		const mutationSession = captureQueryMutationSession();
 		mediaPickerOpen = false;
 		await requireSavedComposerBeforeHandoff();
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
 		const returnURL = composerHandoffReturnURL();
 		const purpose = isThread ? 'thread_segment' : 'post_media';
 		const token = await createImageEditorReturnToken({
-			workspace_id: selectedWorkspaceId,
+			workspace_id: workspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
 			purpose,
 			max_selection: composerMediaLimit,
@@ -2544,9 +2554,9 @@
 				thread_segment: mediaPickerPostIndex
 			}
 		});
-		const binding = (await sessionFor(selectedWorkspaceId, publicationId)).bindEditorHandoff(
-			token.token
-		);
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
+		const binding = (await sessionFor(workspaceId, publicationId)).bindEditorHandoff(token.token);
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
 		storeEditorHandoff(token.token, {
 			version: 2,
 			editor: 'image',
@@ -2562,7 +2572,7 @@
 		});
 		await goto(
 			resolveAppPath(
-				`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}`
+				`/image-editor/new?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
 			)
 		);
 	}
@@ -2571,15 +2581,19 @@
 		if (!$page?.url) return;
 		const token = $page.url.searchParams.get('image_editor_return');
 		if (!token) return;
+		const generation = saveGeneration;
+		const mutationSession = captureQueryMutationSession();
 		try {
 			const snapshot = loadEditorHandoff(token, 'image');
 			if (!snapshot) throw new ComposerSessionError('image_editor_return_inactive');
 			await restoreComposerHandoff(snapshot, token);
+			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if ($page.url.searchParams.get('editor_handoff_cancelled') === '1') {
 				finishEditorHandoff(token);
 				return;
 			}
 			const result = await consumeImageEditorReturnToken(token);
+			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if (snapshot.workspace_id !== result.workspace_id) {
 				throw new ComposerSessionError('image_editor_return_workspace_mismatch');
 			}
@@ -2603,6 +2617,13 @@
 			finishEditorHandoff(token);
 			notifyImageEditorReturn(result.media_ids.length);
 		} catch (cause) {
+			if (
+				composerDestroyed ||
+				generation !== saveGeneration ||
+				!queryMutationSessionIsCurrent(mutationSession)
+			) {
+				return;
+			}
 			finishEditorHandoff(token);
 			error =
 				cause instanceof Error
@@ -3469,6 +3490,19 @@
 		return saveDraftNow(options);
 	}
 
+	function saveMutationViewIsCurrent(
+		session: QueryMutationSession,
+		generation: number,
+		workspaceId: string
+	): boolean {
+		return (
+			!composerDestroyed &&
+			generation === saveGeneration &&
+			selectedWorkspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(session)
+		);
+	}
+
 	async function saveDraftNow(options: {
 		saveAsCopy?: boolean;
 		scheduledAt?: string | null;
@@ -3476,7 +3510,9 @@
 	}): Promise<string | null> {
 		if (!selectedWorkspaceId || (!hasContent && !options.allowEmpty)) return null;
 		const generation = saveGeneration;
+		const operationSequence = ++saveOperationSequence;
 		const workspaceId = selectedWorkspaceId;
+		const mutationSession = captureQueryMutationSession();
 		const startingPublicationId = options.saveAsCopy ? '' : publicationId;
 		const snapshot = getSaveSnapshot();
 		clearSavedIndicator();
@@ -3503,9 +3539,7 @@
 			const saved = await session.save();
 			const savedPublicationId = saved.id;
 
-			if (generation !== saveGeneration || selectedWorkspaceId !== workspaceId) {
-				return null;
-			}
+			if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return null;
 			const createdPublication = !startingPublicationId;
 			publicationId = savedPublicationId;
 			revision = saved.revision;
@@ -3526,14 +3560,12 @@
 			return savedPublicationId;
 		} catch (cause) {
 			console.error('Failed to save text post draft:', cause);
-			if (generation === saveGeneration && selectedWorkspaceId === workspaceId) {
+			if (saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) {
 				error = cause instanceof Error ? cause.message : m.compose_save_draft_failed();
 			}
 			return null;
 		} finally {
-			if (generation === saveGeneration && selectedWorkspaceId === workspaceId) {
-				isSaving = false;
-			}
+			if (operationSequence === saveOperationSequence) isSaving = false;
 		}
 	}
 

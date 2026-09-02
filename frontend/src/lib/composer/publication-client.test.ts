@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openPostQueryKeys, schedulingQueryKeys } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
 import { queryClient } from '$lib/query/client';
+import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-boundary';
 import { createComposerPublicationClient } from './publication-client';
-import type { PublicationDraft } from './session';
+import { ComposerClientError, type PublicationDraft } from './session';
 
 type Publication = components['schemas']['PublicationResponse'];
 
@@ -14,6 +15,10 @@ vi.spyOn(client, 'POST').mockImplementation(mocks.post);
 beforeEach(() => {
 	queryClient.clear();
 	mocks.post.mockReset();
+});
+
+afterEach(() => {
+	registerQueryAuthorizationBoundary(undefined);
 });
 
 describe('composer publication query cache', () => {
@@ -93,6 +98,72 @@ describe('composer publication query cache', () => {
 		expect(
 			queryClient.getQueryData(openPostQueryKeys.publications.detail('workspace-1', current.id))
 		).toEqual(current);
+	});
+
+	it('does not seed an old actor publication after their cache was cleared', async () => {
+		const oldIdentity = { userID: 'user-old', epoch: 1 };
+		let activeIdentity = oldIdentity;
+		registerQueryAuthorizationBoundary({
+			captureIdentity: () => activeIdentity,
+			isIdentityCurrent: (identity) => identity === activeIdentity,
+			settleUnauthorized: vi.fn()
+		});
+		let resolveCreate!: (value: { data: Publication; response: Response }) => void;
+		mocks.post.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveCreate = resolve;
+				})
+		);
+		const request = createComposerPublicationClient('workspace-1').create('workspace-1', {
+			title: 'Old actor draft',
+			content_profile: '',
+			source_text: 'Do not restore me.'
+		});
+		await vi.waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
+
+		activeIdentity = { userID: 'user-new', epoch: 2 };
+		queryClient.clear();
+		const newActorKey = openPostQueryKeys.publications.detail('workspace-2', 'publication-new');
+		queryClient.setQueryData(newActorKey, {
+			...publicationFixture(),
+			id: 'publication-new',
+			workspace_id: 'workspace-2'
+		});
+		resolveCreate({
+			data: publicationFixture(),
+			response: new Response(null, { status: 201 })
+		});
+		await request;
+
+		expect(
+			queryClient.getQueryData(
+				openPostQueryKeys.publications.detail('workspace-1', 'publication-1')
+			)
+		).toBeUndefined();
+		expect(queryClient.getQueryData(newActorKey)).toBeDefined();
+	});
+
+	it('rejects a created publication returned for another Workspace', async () => {
+		mocks.post.mockResolvedValue({
+			data: { ...publicationFixture(), workspace_id: 'workspace-2' },
+			response: new Response(null, { status: 201 })
+		});
+
+		await expect(
+			createComposerPublicationClient('workspace-1').create('workspace-1', {
+				title: 'Wrong Workspace',
+				content_profile: '',
+				source_text: 'Wrong response.'
+			})
+		).rejects.toEqual(
+			expect.objectContaining<Partial<ComposerClientError>>({ category: 'not_found' })
+		);
+		expect(
+			queryClient.getQueryData(
+				openPostQueryKeys.publications.detail('workspace-1', 'publication-1')
+			)
+		).toBeUndefined();
 	});
 });
 

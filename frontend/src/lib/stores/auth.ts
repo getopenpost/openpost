@@ -569,6 +569,7 @@ export function registerAuthQueryAuthorizationBoundary(
 ) {
 	return registerQueryAuthorizationBoundary({
 		captureIdentity: () => store.captureIdentity(),
+		isIdentityCurrent: (identity) => store.isIdentityCurrent(identity),
 		settleUnauthorized: (identity) => {
 			if (store.isIdentityCurrent(identity)) store.clearLocal();
 		}

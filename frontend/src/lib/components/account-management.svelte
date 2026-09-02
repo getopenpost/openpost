@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { get } from 'svelte/store';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { client, type SocialAccount, type ProviderInfo } from '$lib/api/client';
 	import type { AccountManagementProps } from '$lib/account-management';
 	import { Badge } from '$lib/components/ui/badge';
@@ -186,22 +185,26 @@
 	const accountSlugPattern = '[a-z0-9][a-z0-9-]{0,62}';
 	type ConnectionRequest = {
 		workspaceID: string;
-		actorID: string;
+		identity: AuthIdentityToken;
 		sequence: number;
 	};
 
+	function actorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
 	function beginConnectionRequest(): ConnectionRequest | null {
 		const workspaceID = selectedWorkspaceId;
-		const actorID = get(auth).user?.id ?? '';
-		if (!workspaceID || !actorID) return null;
-		return { workspaceID, actorID, sequence: ++connectionMutationSequence };
+		const identity = auth.captureIdentity();
+		if (!workspaceID || !identity) return null;
+		return { workspaceID, identity, sequence: ++connectionMutationSequence };
 	}
 
 	function isCurrentConnectionRequest(request: ConnectionRequest): boolean {
 		return (
 			request.sequence === connectionMutationSequence &&
 			selectedWorkspaceId === request.workspaceID &&
-			get(auth).user?.id === request.actorID
+			actorIsCurrent(request.identity)
 		);
 	}
 
@@ -433,16 +436,16 @@
 	async function confirmAccountRemoval(): Promise<DestructiveActionOutcome> {
 		const action = accountRemovalAction;
 		if (!action || selectedWorkspaceId !== action.workspaceID) return { ok: false };
-		const actorID = get(auth).user?.id ?? '';
+		const identity = auth.captureIdentity();
+		if (!identity) return { ok: false };
 		const requestSequence = ++accountRemovalRequestSequence;
 		const account = action.account;
 		const workspaceID = action.workspaceID;
 		const count = grantDestinationCount(account);
-		const isSameActor = () => Boolean(actorID) && get(auth).user?.id === actorID;
+		const isSameActor = () => actorIsCurrent(identity);
 		const isCurrentRequest = () =>
 			isSameActor() &&
 			requestSequence === accountRemovalRequestSequence &&
-			get(auth).user?.id === actorID &&
 			selectedWorkspaceId === workspaceID &&
 			accountRemovalAction === action;
 		try {
@@ -470,7 +473,7 @@
 				}
 				await invalidateAccountMutationDependencies(queryClient, workspaceID);
 			} else {
-				await refreshAccountsAfterMutation(workspaceID, actorID, isCurrentRequest);
+				await refreshAccountsAfterMutation(workspaceID, identity, isCurrentRequest);
 			}
 			if (!isCurrentRequest()) return { ok: false };
 			onAccountsChanged();
@@ -504,28 +507,24 @@
 
 	async function refreshAccountsAfterMutation(
 		workspaceID: string,
-		actorID: string,
+		identity: AuthIdentityToken,
 		shouldPresent: () => boolean = () => selectedWorkspaceId === workspaceID
 	) {
-		if (!actorID || get(auth).user?.id !== actorID) return;
+		if (!actorIsCurrent(identity)) return;
 		const queryKey = openPostQueryKeys.accounts(workspaceID);
 		await invalidateAccountMutationDependencies(queryClient, workspaceID);
-		if (get(auth).user?.id !== actorID) return;
+		if (!actorIsCurrent(identity)) return;
 		try {
 			const data = await queryClient.fetchQuery(
 				workspaceAccountsQueryOptions(queryAPI, workspaceID)
 			);
-			if (
-				get(auth).user?.id === actorID &&
-				shouldPresent() &&
-				selectedWorkspaceId === workspaceID
-			) {
+			if (actorIsCurrent(identity) && shouldPresent() && selectedWorkspaceId === workspaceID) {
 				accounts = data;
 				accountsReady = true;
 				accountsLoadError = '';
 			}
 		} catch (cause) {
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			queryClient.removeQueries({ queryKey, exact: true });
 			if (shouldPresent() && selectedWorkspaceId === workspaceID) {
 				accounts = [];
@@ -687,8 +686,8 @@
 		const account = editingAccount;
 		const workspaceID = editingWorkspaceID;
 		const requestSequence = editRequestSequence;
-		const actorID = get(auth).user?.id ?? '';
-		if (!account || !workspaceID || !actorID || accountMetadataRefreshing) return;
+		const identity = auth.captureIdentity();
+		if (!account || !workspaceID || !identity || accountMetadataRefreshing) return;
 		const slug = editAccountSlug.trim();
 		const featureChoices = editFeatures
 			.filter((feature) => feature.availability !== 'unsupported')
@@ -700,7 +699,7 @@
 			}));
 		const isCurrentEditor = () =>
 			requestSequence === editRequestSequence &&
-			get(auth).user?.id === actorID &&
+			actorIsCurrent(identity) &&
 			selectedWorkspaceId === workspaceID &&
 			editingWorkspaceID === workspaceID &&
 			editingAccount?.id === account.id;
@@ -714,18 +713,18 @@
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_update_slug_failed());
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			await queryClient.invalidateQueries({
 				queryKey: openPostQueryKeys.accounts(workspaceID),
 				exact: true
 			});
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			if (featureChoices.length > 0) {
 				const { error: featErr } = await client.POST('/account-features', {
 					body: { workspace_id: workspaceID, choices: featureChoices }
 				});
 				if (featErr) throw new Error(featErr.detail ?? m.account_setup_error_load_failed());
-				if (get(auth).user?.id !== actorID) return;
+				if (!actorIsCurrent(identity)) return;
 				await queryClient.invalidateQueries({ queryKey: featureQueryKeys.all(workspaceID) });
 				await queryClient.invalidateQueries({
 					queryKey: openPostQueryKeys.accounts(workspaceID),
@@ -756,12 +755,12 @@
 		const account = editingAccount;
 		const workspaceID = editingWorkspaceID;
 		const requestSequence = editRequestSequence;
-		const actorID = get(auth).user?.id ?? '';
-		if (!account || !workspaceID || !actorID || accountMetadataRefreshing || editAccountLoading)
+		const identity = auth.captureIdentity();
+		if (!account || !workspaceID || !identity || accountMetadataRefreshing || editAccountLoading)
 			return;
 		const isCurrentEditor = () =>
 			requestSequence === editRequestSequence &&
-			get(auth).user?.id === actorID &&
+			actorIsCurrent(identity) &&
 			selectedWorkspaceId === workspaceID &&
 			editingWorkspaceID === workspaceID &&
 			editingAccount?.id === account.id;
@@ -781,7 +780,7 @@
 				throw requestError;
 			}
 			if (!data) throw new Error(m.accounts_refresh_profile_failed());
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
 			void queryClient.invalidateQueries({
 				queryKey: openPostQueryKeys.socialSets(workspaceID),
@@ -974,7 +973,7 @@
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_login_failed());
-			await refreshAccountsAfterMutation(workspaceID, request.actorID, isCurrentRequest);
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
 			if (!isCurrentRequest()) return;
 			blueskyModalOpen = false;
 			if (data?.open_fresh_composer) {
@@ -1037,7 +1036,7 @@
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
-			await refreshAccountsAfterMutation(workspaceID, request.actorID, isCurrentRequest);
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
 			if (!isCurrentRequest()) return;
 			discordModalOpen = false;
 			if (data?.open_fresh_composer) {
@@ -1458,7 +1457,7 @@
 				}
 			);
 			if (requestError) throw new Error(requestError.detail || m.accounts_connect_failed());
-			await refreshAccountsAfterMutation(workspaceID, request.actorID, isCurrentRequest);
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
 			if (!isCurrentRequest()) return;
 			clearConnectionFailure();
 			onAccountsChanged();

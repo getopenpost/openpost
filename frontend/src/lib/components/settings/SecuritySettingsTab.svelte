@@ -146,6 +146,7 @@
 	function securityMutationIsCurrent(context: SecurityMutationContext) {
 		return (
 			context.generation === securityMutationGeneration &&
+			auth.isIdentityCurrent(context.identity) &&
 			authState.user?.id === context.userID &&
 			activeSecurityUserID === context.userID
 		);
@@ -483,6 +484,7 @@
 				body: { code }
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_email_change_failed());
+			if (!securityActorIsCurrent(context)) return;
 			const currentUser = get(auth).user;
 			if (currentUser?.id !== context.userID) return;
 			auth.setUser({ ...currentUser, email: data.email });

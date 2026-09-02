@@ -43,10 +43,11 @@
 			error = m.auth_register_legal_required();
 			return;
 		}
-		const actorID = get(auth).user?.id ?? '';
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		const requestSequence = ++submissionSequence;
 		const isCurrentRequest = () =>
-			requestSequence === submissionSequence && Boolean(actorID) && get(auth).user?.id === actorID;
+			requestSequence === submissionSequence && auth.isIdentityCurrent(identity);
 		loading = true;
 		const { data, error: responseError } = await client.POST('/auth/legal-acceptance', {
 			body: { accepted_legal: true }
@@ -58,7 +59,7 @@
 			}
 			return;
 		}
-		if (get(auth).user?.id !== actorID) return;
+		if (!auth.isIdentityCurrent(identity)) return;
 		auth.setUser(data);
 		if (!isCurrentRequest()) return;
 		loading = false;

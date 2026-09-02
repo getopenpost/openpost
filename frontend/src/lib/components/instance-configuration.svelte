@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { get } from 'svelte/store';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -229,10 +228,18 @@
 		unsets = { ...unsets, [key]: false };
 	}
 
+	function actorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	function operationIsCurrent(generation: number, identity: AuthIdentityToken) {
+		return !destroyed && generation === operationGeneration && actorIsCurrent(identity);
+	}
+
 	async function saveSettings() {
 		const generation = operationGeneration;
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		const updates: SettingUpdate[] = [];
 		for (const setting of settings) {
 			if (unsets[setting.key]) {
@@ -256,21 +263,22 @@
 			if (saveError || !data) {
 				throw new Error(saveError?.detail ?? m.settings_configuration_save_failed());
 			}
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			queryClient.setQueryData(adminQueryKeys.instanceSettings(), data);
+			if (!actorIsCurrent(identity)) return;
 			await queryClient.invalidateQueries({
 				queryKey: adminQueryKeys.updateStatus(),
 				exact: true
 			});
-			if (destroyed || generation !== operationGeneration) return;
+			if (!operationIsCurrent(generation, identity)) return;
 			applySettingsResponse(data);
 			showToast(m.settings_configuration_saved(), 'success');
 		} catch (cause) {
-			if (!destroyed && generation === operationGeneration) {
+			if (operationIsCurrent(generation, identity)) {
 				error = cause instanceof Error ? cause.message : m.settings_configuration_save_failed();
 			}
 		} finally {
-			if (!destroyed && generation === operationGeneration) saving = false;
+			if (operationIsCurrent(generation, identity)) saving = false;
 		}
 	}
 
@@ -329,10 +337,12 @@
 		return current.map((app) => (app.id === saved.id ? saved : app));
 	}
 
-	async function invalidateProviderCatalogues() {
+	async function invalidateProviderCatalogues(identity: AuthIdentityToken) {
+		if (!actorIsCurrent(identity)) return;
 		queryClient.removeQueries({
 			predicate: (query) => isAccountProvidersQueryKey(query.queryKey)
 		});
+		if (!actorIsCurrent(identity)) return;
 		await queryClient.invalidateQueries({
 			queryKey: adminQueryKeys.providerApps(),
 			exact: true,
@@ -343,8 +353,8 @@
 	async function saveProvider(event: SubmitEvent) {
 		event.preventDefault();
 		const generation = operationGeneration;
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		providerSaving = true;
 		error = '';
 		try {
@@ -362,76 +372,82 @@
 			if (saveError || !data?.app) {
 				throw new Error(saveError?.detail ?? m.settings_configuration_provider_save_failed());
 			}
-			if (get(auth).user?.id !== actorID) return;
+			if (!actorIsCurrent(identity)) return;
 			const savedApp = data.app;
 			queryClient.setQueryData<ProviderApp[]>(adminQueryKeys.providerApps(), (current) =>
 				upsertProviderApp(current ?? [], savedApp)
 			);
-			await invalidateProviderCatalogues();
-			if (destroyed || generation !== operationGeneration || get(auth).user?.id !== actorID) return;
+			await invalidateProviderCatalogues(identity);
+			if (!operationIsCurrent(generation, identity)) return;
 			providerApps = upsertProviderApp(providerApps, savedApp);
 			try {
-				providerApps = await queryClient.fetchQuery(providerAppsQueryOptions(adminQueryAPI));
+				const refreshedProviders = await queryClient.fetchQuery(
+					providerAppsQueryOptions(adminQueryAPI)
+				);
+				if (!operationIsCurrent(generation, identity)) return;
+				providerApps = refreshedProviders;
 			} catch {
-				error = m.settings_configuration_load_failed();
+				if (operationIsCurrent(generation, identity)) {
+					error = m.settings_configuration_load_failed();
+				}
 			}
-			if (destroyed || generation !== operationGeneration || get(auth).user?.id !== actorID) return;
+			if (!operationIsCurrent(generation, identity)) return;
 			resetProviderForm();
 			showToast(m.settings_configuration_provider_saved(), 'success');
 		} catch (cause) {
-			if (!destroyed && generation === operationGeneration && get(auth).user?.id === actorID) {
+			if (operationIsCurrent(generation, identity)) {
 				error =
 					cause instanceof Error ? cause.message : m.settings_configuration_provider_save_failed();
 			}
 		} finally {
-			if (!destroyed && generation === operationGeneration && get(auth).user?.id === actorID)
-				providerSaving = false;
+			if (operationIsCurrent(generation, identity)) providerSaving = false;
 		}
 	}
 
 	async function deleteProvider(): Promise<DestructiveActionOutcome> {
 		if (!deleteTarget?.deletable) return { ok: false };
 		const generation = operationGeneration;
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return { ok: false };
+		const identity = auth.captureIdentity();
+		if (!identity) return { ok: false };
 		const deletedID = deleteTarget.id;
 		try {
 			const { error: deleteError } = await client.DELETE('/admin/provider-apps/{id}', {
 				params: { path: { id: deletedID } }
 			});
+			if (!actorIsCurrent(identity)) return { ok: false };
 			if (deleteError) {
 				return {
 					ok: false,
 					message: deleteError.detail ?? m.settings_configuration_provider_delete_failed()
 				};
 			}
-			if (get(auth).user?.id !== actorID) return { ok: false };
 			queryClient.setQueryData<ProviderApp[]>(adminQueryKeys.providerApps(), (current) =>
 				current?.filter((provider) => provider.id !== deletedID)
 			);
-			await invalidateProviderCatalogues();
-			if (destroyed || generation !== operationGeneration || get(auth).user?.id !== actorID)
-				return { ok: false };
+			await invalidateProviderCatalogues(identity);
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
 			providerApps = providerApps.filter((provider) => provider.id !== deletedID);
 			if (editingProviderID === deletedID) resetProviderForm();
 			deleteTarget = null;
 		} catch {
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
 			return {
 				ok: false,
 				message: m.settings_configuration_provider_delete_failed()
 			};
 		}
 		try {
-			providerApps = await queryClient.fetchQuery(providerAppsQueryOptions(adminQueryAPI));
-			if (destroyed || generation !== operationGeneration || get(auth).user?.id !== actorID)
-				return { ok: false };
+			const refreshedProviders = await queryClient.fetchQuery(
+				providerAppsQueryOptions(adminQueryAPI)
+			);
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
+			providerApps = refreshedProviders;
 			return {
 				ok: true,
 				successMessage: m.settings_configuration_provider_deleted()
 			};
 		} catch {
-			if (destroyed || generation !== operationGeneration || get(auth).user?.id !== actorID)
-				return { ok: false };
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
 			error = m.settings_configuration_load_failed();
 			return {
 				ok: true,

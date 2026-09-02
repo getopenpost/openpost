@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { get } from 'svelte/store';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -201,15 +200,23 @@
 		drafts[next.key] = next.value;
 	}
 
-	function mutationIsCurrent(generation: number, actorID: string) {
+	function mutationActorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	function mutationIsCurrent(generation: number, identity: AuthIdentityToken) {
 		return (
-			!destroyed && active && generation === mutationGeneration && get(auth).user?.id === actorID
+			!destroyed && active && generation === mutationGeneration && mutationActorIsCurrent(identity)
 		);
 	}
 
-	async function saveValue(prompt: Prompt, value: string, generation = mutationGeneration) {
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID || !mutationIsCurrent(generation, actorID)) return null;
+	async function saveValue(
+		prompt: Prompt,
+		value: string,
+		identity: AuthIdentityToken,
+		generation = mutationGeneration
+	) {
+		if (!mutationIsCurrent(generation, identity)) return null;
 		const { data, error: responseError } = await client.PUT('/admin/ai-prompts/{key}', {
 			params: { path: { key: prompt.key } },
 			body: { value }
@@ -217,9 +224,9 @@
 		if (responseError || !data) {
 			throw new Error(responseError?.detail || m.settings_ai_prompts_save_failed());
 		}
-		if (get(auth).user?.id !== actorID) return null;
+		if (!mutationActorIsCurrent(identity)) return null;
 		projectPromptToCache(data);
-		if (!mutationIsCurrent(generation, actorID)) return null;
+		if (!mutationIsCurrent(generation, identity)) return null;
 		updatePrompt(data);
 		return data;
 	}
@@ -234,19 +241,19 @@
 	async function saveSelected() {
 		if (!selected || !selectedDirty || saving) return;
 		const generation = mutationGeneration;
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		saving = true;
 		try {
-			const saved = await saveValue(selected, selectedDraft, generation);
+			const saved = await saveValue(selected, selectedDraft, identity, generation);
 			if (!saved) return;
-			if (mutationIsCurrent(generation, actorID)) {
+			if (mutationIsCurrent(generation, identity)) {
 				showToast(m.settings_ai_prompts_saved(), 'success');
 			}
 		} catch (cause) {
-			if (mutationIsCurrent(generation, actorID)) showSaveError(cause);
+			if (mutationIsCurrent(generation, identity)) showSaveError(cause);
 		} finally {
-			if (mutationIsCurrent(generation, actorID)) saving = false;
+			if (mutationIsCurrent(generation, identity)) saving = false;
 		}
 	}
 
@@ -255,31 +262,31 @@
 		const previous = selected.value;
 		const target = selected;
 		const generation = mutationGeneration;
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		resetting = true;
 		try {
-			const reset = await saveValue(target, target.default_value, generation);
+			const reset = await saveValue(target, target.default_value, identity, generation);
 			if (!reset) return;
-			if (!mutationIsCurrent(generation, actorID)) return;
+			if (!mutationIsCurrent(generation, identity)) return;
 			showToast(m.settings_ai_prompts_reset(), 'success', {
 				actionLabel: m.settings_ai_prompts_undo(),
 				onAction: () => {
-					void saveValue(reset, previous, generation)
+					void saveValue(reset, previous, identity, generation)
 						.then((saved) => {
-							if (saved && mutationIsCurrent(generation, actorID)) {
+							if (saved && mutationIsCurrent(generation, identity)) {
 								showToast(m.settings_ai_prompts_saved(), 'success');
 							}
 						})
 						.catch((cause) => {
-							if (mutationIsCurrent(generation, actorID)) showSaveError(cause);
+							if (mutationIsCurrent(generation, identity)) showSaveError(cause);
 						});
 				}
 			});
 		} catch (cause) {
-			if (mutationIsCurrent(generation, actorID)) showSaveError(cause);
+			if (mutationIsCurrent(generation, identity)) showSaveError(cause);
 		} finally {
-			if (mutationIsCurrent(generation, actorID)) resetting = false;
+			if (mutationIsCurrent(generation, identity)) resetting = false;
 		}
 	}
 

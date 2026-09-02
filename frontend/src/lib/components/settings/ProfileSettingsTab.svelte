@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { resolveAppPath } from '$lib/app-path';
 	import { client } from '$lib/api/client';
 	import { showToast } from '$lib/toast';
@@ -60,6 +60,7 @@
 	let avatarUploaderOpen = $state(false);
 	let lastProfileUserID = $state('');
 	let avatarUploaderUserID = '';
+	let avatarUploaderIdentity: AuthIdentityToken | undefined;
 	let avatarUploaderOpenedGeneration = 0;
 	let avatarUploaderGeneration = 0;
 	let profileMutationGeneration = 0;
@@ -143,35 +144,44 @@
 		}
 	}
 
-	function profileMutationIsCurrent(userID: string, generation: number) {
+	function profileMutationIsCurrent(identity: AuthIdentityToken, generation: number) {
 		return (
 			generation === profileMutationGeneration &&
-			authState.user?.id === userID &&
-			lastProfileUserID === userID
+			auth.isIdentityCurrent(identity) &&
+			authState.user?.id === identity.userID &&
+			lastProfileUserID === identity.userID
 		);
 	}
 
 	function openAvatarUploader() {
-		const userID = get(auth).user?.id ?? '';
-		if (!userID) return;
-		avatarUploaderUserID = userID;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
+		avatarUploaderUserID = identity.userID;
+		avatarUploaderIdentity = identity;
 		avatarUploaderOpenedGeneration = ++avatarUploaderGeneration;
 		avatarUploaderOpen = true;
+	}
+
+	function avatarActorIsCurrent() {
+		return (
+			auth.isIdentityCurrent(avatarUploaderIdentity) &&
+			get(auth).user?.id === avatarUploaderUserID &&
+			lastProfileUserID === avatarUploaderUserID
+		);
 	}
 
 	function avatarUploadIsCurrent() {
 		return (
 			mounted &&
 			avatarUploaderOpenedGeneration === avatarUploaderGeneration &&
-			get(auth).user?.id === avatarUploaderUserID &&
-			lastProfileUserID === avatarUploaderUserID
+			avatarActorIsCurrent()
 		);
 	}
 
 	async function saveProfile(event: SubmitEvent) {
 		event.preventDefault();
-		const userID = authState.user?.id ?? '';
-		if (!userID || userID !== lastProfileUserID) return;
+		const identity = auth.captureIdentity();
+		if (!identity || identity.userID !== lastProfileUserID) return;
 		const generation = profileMutationGeneration;
 		const previousUsername = authState.user?.username;
 		const body = buildProfileUpdateBody({
@@ -188,8 +198,9 @@
 				body
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
+			if (!auth.isIdentityCurrent(identity)) return;
 			const currentUser = get(auth).user;
-			if (currentUser?.id !== userID) return;
+			if (currentUser?.id !== identity.userID) return;
 			auth.setUser({
 				...currentUser,
 				display_name: data.display_name,
@@ -205,7 +216,7 @@
 					exact: true
 				})
 			]);
-			if (!profileMutationIsCurrent(userID, generation)) return;
+			if (!profileMutationIsCurrent(identity, generation)) return;
 			profileDisplayName = data.display_name ?? '';
 			profileUsername = data.username ?? '';
 			profilePublic = Boolean(data.public_profile_enabled);
@@ -216,18 +227,18 @@
 			savedProfileVisibleFields = [...profileVisibleFields];
 			notify(m.settings_profile_updated());
 		} catch (error) {
-			if (profileMutationIsCurrent(userID, generation)) {
+			if (profileMutationIsCurrent(identity, generation)) {
 				profileError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 		} finally {
-			if (profileMutationIsCurrent(userID, generation)) profileBusy = false;
+			if (profileMutationIsCurrent(identity, generation)) profileBusy = false;
 		}
 	}
 
 	function handleAvatarUploaded(avatarURL: string) {
-		const actorID = avatarUploaderUserID;
+		if (!avatarActorIsCurrent()) return;
 		const user = get(auth).user;
-		if (!actorID || user?.id !== actorID) return;
+		if (!user) return;
 		evictPublicProfiles(user.username);
 		auth.setUser({ ...user, avatar_url: avatarURL });
 		void queryClient.invalidateQueries({
@@ -239,6 +250,8 @@
 
 	async function reconcileUncertainAvatarUpload() {
 		const actorID = avatarUploaderUserID;
+		const identity = avatarUploaderIdentity;
+		if (!identity || !avatarActorIsCurrent()) return;
 		const user = get(auth).user;
 		if (!actorID || user?.id !== actorID) return;
 		evictPublicProfiles(user.username);
@@ -248,8 +261,10 @@
 		const projection = auth.captureUserProjection(actorID);
 		if (!projection) return;
 		try {
-			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id);
-			if (get(auth).user?.id === actorID) auth.projectBootstrap(bootstrap, projection);
+			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id, {
+				selectionIsCurrent: () => auth.isIdentityCurrent(identity)
+			});
+			if (auth.isIdentityCurrent(identity)) auth.projectBootstrap(bootstrap, projection);
 		} catch {
 			// The invalidated bootstrap retries when the next owner mounts.
 		}
@@ -257,29 +272,31 @@
 
 	async function removeAvatar() {
 		if (!profileAvatarURL) return;
+		const identity = auth.captureIdentity();
 		const user = authState.user;
-		if (!user || user.id !== lastProfileUserID) return;
+		if (!identity || !user || identity.userID !== user.id || user.id !== lastProfileUserID) return;
 		const generation = profileMutationGeneration;
 		profileBusy = true;
 		profileError = '';
 		try {
 			const { error } = await client.DELETE('/auth/profile/avatar', {});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
+			if (!auth.isIdentityCurrent(identity)) return;
 			const currentUser = get(auth).user;
-			if (currentUser?.id !== user.id) return;
+			if (currentUser?.id !== identity.userID) return;
 			evictPublicProfiles(currentUser.username);
 			auth.setUser({ ...currentUser, avatar_url: '' });
 			await queryClient.invalidateQueries({
 				queryKey: adminQueryKeys.usersRoot()
 			});
-			if (!profileMutationIsCurrent(user.id, generation)) return;
+			if (!profileMutationIsCurrent(identity, generation)) return;
 			notify(m.settings_picture_removed());
 		} catch (error) {
-			if (profileMutationIsCurrent(user.id, generation)) {
+			if (profileMutationIsCurrent(identity, generation)) {
 				profileError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 		} finally {
-			if (profileMutationIsCurrent(user.id, generation)) profileBusy = false;
+			if (profileMutationIsCurrent(identity, generation)) profileBusy = false;
 		}
 	}
 
@@ -292,6 +309,7 @@
 			profileMutationGeneration += 1;
 			lastProfileUserID = userID;
 			avatarUploaderUserID = '';
+			avatarUploaderIdentity = undefined;
 			avatarUploaderOpen = false;
 			profileBusy = false;
 			profileError = '';

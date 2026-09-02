@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { get } from 'svelte/store';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { client } from '$lib/api/client';
 	import {
 		oidcIdentitiesQueryOptions,
@@ -150,7 +149,12 @@
 			'';
 	}
 
-	async function invalidateAuditCaches(targetOrganizationID: string) {
+	function actorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	async function invalidateAuditCaches(targetOrganizationID: string, identity: AuthIdentityToken) {
+		if (!actorIsCurrent(identity)) return;
 		await Promise.all([
 			queryClient.invalidateQueries({
 				queryKey: organizationQueryKeys.auditRoot(targetOrganizationID)
@@ -266,19 +270,22 @@
 	}
 	async function initiate() {
 		if (!nomineeUserID || confirmation !== organizationName) return;
+		const identity = auth.captureIdentity();
+		if (!identity || identity.userID !== currentUserID) return;
 		const targetOrganizationID = organizationID;
 		const targetNomineeUserID = nomineeUserID;
 		const targetConfirmation = confirmation;
 		const sequence = ++mutationSequence;
+		const mutationIsCurrent = () =>
+			sequence === mutationSequence &&
+			active &&
+			organizationID === targetOrganizationID &&
+			actorIsCurrent(identity);
 		const reauthOptions = {
 			password: passwordUsable ? password : '',
 			hasPasskey: passkeyAvailable,
 			providerID,
-			isCurrent: () =>
-				sequence === mutationSequence &&
-				active &&
-				organizationID === targetOrganizationID &&
-				get(auth).user?.id === currentUserID
+			isCurrent: mutationIsCurrent
 		};
 		busy = true;
 		error = '';
@@ -296,31 +303,36 @@
 			});
 			if (result.error || !result.data)
 				throw new Error(result.error?.detail || m.settings_ownership_initiate_failed());
-			if (get(auth).user?.id !== currentUserID) return;
+			if (!actorIsCurrent(identity)) return;
 			queryClient.setQueryData(organizationQueryKeys.ownershipTransfer(targetOrganizationID), {
 				pending: true,
 				transfer: result.data
 			});
-			await invalidateAuditCaches(targetOrganizationID);
-			if (get(auth).user?.id !== currentUserID) return;
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
-				transfer = result.data;
-				nomineeUserID = '';
-				confirmation = '';
-				password = '';
-				showToast(m.settings_ownership_initiated());
-			}
+			await invalidateAuditCaches(targetOrganizationID, identity);
+			if (!mutationIsCurrent()) return;
+			transfer = result.data;
+			nomineeUserID = '';
+			confirmation = '';
+			password = '';
+			showToast(m.settings_ownership_initiated());
 		} catch (cause) {
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+			if (mutationIsCurrent()) {
 				error = cause instanceof Error ? cause.message : m.settings_ownership_initiate_failed();
 			}
 		} finally {
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) busy = false;
+			if (mutationIsCurrent()) busy = false;
 		}
 	}
 	async function revoke() {
+		const identity = auth.captureIdentity();
+		if (!identity || identity.userID !== currentUserID) return;
 		const targetOrganizationID = organizationID;
 		const sequence = ++mutationSequence;
+		const mutationIsCurrent = () =>
+			sequence === mutationSequence &&
+			active &&
+			organizationID === targetOrganizationID &&
+			actorIsCurrent(identity);
 		busy = true;
 		error = '';
 		try {
@@ -330,22 +342,21 @@
 			if (result.error) {
 				throw new Error(result.error.detail || m.settings_ownership_revoke_failed());
 			}
-			if (get(auth).user?.id !== currentUserID) return;
+			if (!actorIsCurrent(identity)) return;
 			queryClient.setQueryData(organizationQueryKeys.ownershipTransfer(targetOrganizationID), {
 				pending: false
 			});
-			await invalidateAuditCaches(targetOrganizationID);
-			if (get(auth).user?.id !== currentUserID) return;
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+			await invalidateAuditCaches(targetOrganizationID, identity);
+			if (mutationIsCurrent()) {
 				transfer = null;
 				showToast(m.settings_ownership_revoked());
 			}
 		} catch (cause) {
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+			if (mutationIsCurrent()) {
 				error = cause instanceof Error ? cause.message : m.settings_ownership_revoke_failed();
 			}
 		} finally {
-			if (sequence === mutationSequence && organizationID === targetOrganizationID) busy = false;
+			if (mutationIsCurrent()) busy = false;
 		}
 	}
 	async function deleteOrganization(
@@ -356,10 +367,11 @@
 			reauthGrant?: string;
 		}
 	): Promise<boolean> {
-		const actorID = get(auth).user?.id ?? '';
-		if (!actorID) return false;
+		const identity = auth.captureIdentity();
+		if (!identity || identity.userID !== currentUserID) return false;
+		const actorID = identity.userID;
 		const sequence = ++mutationSequence;
-		const isSameActor = () => get(auth).user?.id === actorID;
+		const isSameActor = () => actorIsCurrent(identity);
 		const isOperationCurrent = () => sequence === mutationSequence && active && isSameActor();
 		const isCurrentRequest = () => isOperationCurrent() && organizationID === deletedID;
 		const projected = await workspaceCtx.deleteOrganization(deletedID, confirmation);
@@ -367,7 +379,9 @@
 		try {
 			const projection = auth.captureUserProjection(actorID);
 			if (!projection) return false;
-			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id);
+			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id, {
+				selectionIsCurrent: isOperationCurrent
+			});
 			if (!isSameActor()) return false;
 			if (!auth.projectBootstrap(bootstrap, projection)) return false;
 		} catch {

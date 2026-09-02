@@ -139,4 +139,3 @@ openpost grant-admin --email you@example.test
 ```
 
 The command prints the promoted account and the resulting administrator count. If it reports that no account exists for that address, check the exact email under the sign-in page's registered accounts or run it again with the address each person signs in with.
-

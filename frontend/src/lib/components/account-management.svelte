@@ -1517,11 +1517,11 @@
 										>
 									</summary>
 									<div class="border-t px-3 py-3">
-									<p class="mb-3 text-xs text-muted-foreground">
-										{viewerIsInstanceAdmin
-											? m.accounts_provider_admin_enable_self()
-											: m.accounts_provider_admin_enable()}
-									</p>
+										<p class="mb-3 text-xs text-muted-foreground">
+											{viewerIsInstanceAdmin
+												? m.accounts_provider_admin_enable_self()
+												: m.accounts_provider_admin_enable()}
+										</p>
 										<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 											{#each setupRequiredProviders as provider (providerKey(provider))}
 												<div

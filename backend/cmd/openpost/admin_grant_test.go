@@ -16,7 +16,7 @@ func TestGrantInstanceAdminPromotesExistingAccount(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	require.NoError(t, database.CreateSchema(db))
 
-	insertUser := func(t *testing.T, email string, isAdmin bool) models.User {
+	insertUser := func(t *testing.T, email string, isAdmin bool) {
 		t.Helper()
 		user := models.User{
 			ID:       "user-" + email,
@@ -26,7 +26,6 @@ func TestGrantInstanceAdminPromotesExistingAccount(t *testing.T) {
 		}
 		_, err := db.NewInsert().Model(&user).Exec(ctx)
 		require.NoError(t, err)
-		return user
 	}
 	insertUser(t, "founder@example.test", false)
 	insertUser(t, "teammate@example.test", false)

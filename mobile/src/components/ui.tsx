@@ -5,9 +5,11 @@ import {
   Text,
   TextInput,
   View,
+  type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { Image, type ImageContentFit } from "expo-image";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { STATUS_LABEL } from "@/lib/format";
@@ -15,10 +17,15 @@ import { pressHaptic } from "@/lib/haptics";
 import { ThemeIcon } from "@/components/theme-icon";
 import {
   actionPresentation,
+  buttonRadius,
+  cardPresentation,
+  inputPresentation,
   NATIVE_CONTROL_METRICS,
+  themeAssetFor,
   type NativeActionIntent,
   type NativeColorRoles,
   type NativeIconRole,
+  type NativeThemeAssetSlot,
   useNativeTheme,
   withAlpha,
 } from "@/theme";
@@ -38,27 +45,37 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
   safeTop?: boolean;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
   const edges: Edge[] = safeTop ? ["top", "left", "right"] : ["left", "right"];
   return (
-    <SafeAreaView edges={edges} style={[{ flex: 1, backgroundColor: colors.background }, style]}>
-      {children}
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.background }}>
+      <ThemeAsset slot="background-texture" contentFit="cover" style={StyleSheet.absoluteFill} />
+      <ThemeAsset slot="sidebar-decoration" style={styles.sidebarDecoration} />
+      <ThemeAsset
+        slot="header-decoration"
+        style={[styles.headerDecoration, { height: theme.manifest.shell.headerHeight }]}
+      />
+      <View
+        style={[styles.screenContent, { maxWidth: theme.manifest.shell.contentMaxWidth }, style]}
+      >
+        {children}
+      </View>
     </SafeAreaView>
   );
 }
 
 export function Card({ children, style, ...props }: React.ComponentProps<typeof View>) {
   const theme = useNativeTheme();
-  const { colors, shape, spacing } = theme.manifest;
+  const { spacing } = theme.manifest;
+  const presentation = cardPresentation(theme.manifest);
   return (
     <View
       {...props}
       style={[
         styles.card,
         {
-          backgroundColor: colors.surface,
-          borderColor: colors.outlineVariant,
-          borderRadius: shape.medium,
+          ...presentation,
           paddingHorizontal: spacing.large,
           paddingVertical: spacing.medium,
         },
@@ -174,7 +191,7 @@ export function Button({
           borderBottomWidth: hasDepth
             ? Math.max(presentation.borderWidth, pressed ? 0 : presentation.depth)
             : presentation.borderWidth,
-          borderRadius: theme.manifest.shape.medium,
+          borderRadius: buttonRadius(theme.manifest),
           borderWidth: presentation.borderWidth,
           opacity: inactive ? presentation.disabledOpacity : 1,
           paddingHorizontal: theme.manifest.spacing.large,
@@ -207,7 +224,8 @@ export function Button({
 
 export function TextField({ style, ...props }: React.ComponentProps<typeof TextInput>) {
   const theme = useNativeTheme();
-  const { colors, shape, typography } = theme.manifest;
+  const { colors, typography } = theme.manifest;
+  const presentation = inputPresentation(theme.manifest);
   return (
     <TextInput
       placeholderTextColor={colors.onSurfaceVariant}
@@ -216,15 +234,84 @@ export function TextField({ style, ...props }: React.ComponentProps<typeof TextI
         styles.textField,
         typography.bodyLarge,
         {
-          backgroundColor: colors.surfaceContainerHigh,
-          borderColor: colors.outline,
-          borderRadius: shape.small,
+          ...presentation,
           color: colors.onSurface,
           paddingHorizontal: theme.manifest.spacing.medium,
         },
         style,
       ]}
     />
+  );
+}
+
+export function ThemeAsset({
+  contentFit = "contain",
+  slot,
+  style,
+}: {
+  contentFit?: ImageContentFit;
+  slot: NativeThemeAssetSlot;
+  style?: StyleProp<ImageStyle>;
+}) {
+  const asset = themeAssetFor(useNativeTheme(), slot);
+  if (!asset) return null;
+  const isIllustration = slot === "empty-state-illustration" || slot === "loading-illustration";
+  return (
+    <Image
+      accessibilityLabel={isIllustration ? asset.alt : undefined}
+      accessibilityRole={isIllustration && asset.alt ? "image" : undefined}
+      accessible={isIllustration && Boolean(asset.alt)}
+      contentFit={contentFit}
+      pointerEvents="none"
+      source={{ uri: asset.uri }}
+      style={style}
+    />
+  );
+}
+
+export function LoadingState({ label }: { label?: string }) {
+  const theme = useNativeTheme();
+  const illustration = themeAssetFor(theme, "loading-illustration");
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="progressbar"
+      style={[styles.state, { gap: theme.manifest.spacing.medium }]}
+    >
+      {illustration ? (
+        <ThemeAsset slot="loading-illustration" style={styles.stateIllustration} />
+      ) : (
+        <ActivityIndicator color={theme.manifest.colors.primary} />
+      )}
+      {label ? <BodyText>{label}</BodyText> : null}
+    </View>
+  );
+}
+
+export function EmptyState({ body, title }: { body?: string; title: string }) {
+  const theme = useNativeTheme();
+  const recipe = theme.manifest.components.emptyState;
+  const illustration = themeAssetFor(theme, "empty-state-illustration");
+  return (
+    <View
+      style={[
+        styles.state,
+        {
+          backgroundColor: recipe === "framed" ? theme.manifest.colors.surface : "transparent",
+          borderColor: theme.manifest.colors.outlineVariant,
+          borderRadius: theme.manifest.shape.medium,
+          borderWidth: recipe === "framed" ? 1 : 0,
+          gap: theme.manifest.spacing.small,
+          padding: theme.manifest.spacing.large,
+        },
+      ]}
+    >
+      {illustration ? (
+        <ThemeAsset slot="empty-state-illustration" style={styles.stateIllustration} />
+      ) : null}
+      <ContentTitle style={styles.stateText}>{title}</ContentTitle>
+      {body ? <BodyText style={styles.stateText}>{body}</BodyText> : null}
+    </View>
   );
 }
 
@@ -299,7 +386,7 @@ export function BodyText({ children, style, ...props }: React.ComponentProps<typ
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { height: 4, width: 0 },
   },
   button: {
     alignItems: "center",
@@ -328,5 +415,36 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     height: 6,
     width: 6,
+  },
+  screenContent: {
+    alignSelf: "center",
+    flex: 1,
+    width: "100%",
+  },
+  sidebarDecoration: {
+    bottom: 0,
+    left: 0,
+    opacity: 0.96,
+    position: "absolute",
+    top: 0,
+    width: "28%",
+  },
+  headerDecoration: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  state: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stateIllustration: {
+    aspectRatio: 1.6,
+    maxHeight: 180,
+    width: "100%",
+  },
+  stateText: {
+    textAlign: "center",
   },
 });

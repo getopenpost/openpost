@@ -1,10 +1,18 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 
 import { Brand } from "@/components/brand";
-import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  LoadingState,
+  PageTitle,
+  Screen,
+  useColors,
+} from "@/components/ui";
 import { destinationState } from "@/lib/first-use";
 import { useAccounts, useWorkspaceId } from "@/lib/queries";
 import { getServer } from "@/lib/server";
@@ -41,18 +49,11 @@ export default function DestinationScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
 
-        {showProgress ? (
-          <View accessibilityLiveRegion="polite" style={styles.progress}>
-            <ActivityIndicator color={colors.primary} />
-            <BodyText>Checking connected accounts</BodyText>
-          </View>
-        ) : null}
+        {showProgress ? <LoadingState label="Checking connected accounts" /> : null}
 
         {accounts.isError ? (
           <>
-            <Text style={[styles.title, { color: colors.onSurface }]}>
-              Could not check accounts
-            </Text>
+            <PageTitle>Could not check accounts</PageTitle>
             <Card style={styles.card}>
               <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
                 {accounts.error instanceof Error
@@ -71,7 +72,7 @@ export default function DestinationScreen() {
 
         {!accounts.isError && state?.kind === "setup" ? (
           <>
-            <Text style={[styles.title, { color: colors.onSurface }]}>{state.title}</Text>
+            <PageTitle>{state.title}</PageTitle>
             <BodyText style={styles.subtitle}>{state.body}</BodyText>
             <Card style={styles.card}>
               <Button
@@ -118,20 +119,9 @@ const styles = StyleSheet.create({
   brand: {
     marginBottom: 28,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
   subtitle: {
     paddingTop: 8,
     paddingBottom: 16,
-  },
-  progress: {
-    minHeight: 160,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
   },
   card: {
     gap: 12,

@@ -1,7 +1,9 @@
 import { resolve as resolveCssColor } from "@asamuzakjp/css-color";
 
-import { BUILTIN_ICON_ROLE_MAPS, validateNativeThemeManifest } from "./builtins";
+import { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
 import {
+  NATIVE_CANVAS_TREATMENTS,
+  NATIVE_COMPONENT_RECIPE_OPTIONS,
   NATIVE_MIN_TEXT_SIZE,
   NATIVE_THEME_CONTRACT_VERSION,
   type NativeActionStyle,
@@ -17,7 +19,7 @@ import {
   type NativeThemeScheme,
 } from "./contract";
 import { deepFreeze } from "./freeze";
-import { readableThemeForeground } from "./validation";
+import { readableThemeForeground, validateNativeThemeManifest } from "./validation";
 
 const ICON_PACKS = new Set<NativeIconPackId>([
   "lucide",
@@ -226,43 +228,15 @@ function adaptScheme({
   const shape = adaptShape(value.shape);
   const spacing = adaptSpacing(value.spacing);
   const motion = adaptMotion(value.motion);
-  if (!colors || !editor || !typography || !shape || !spacing || !motion) return null;
+  const shell = adaptShell(value.shell);
+  const components = adaptComponents(value.components);
+  if (!colors || !editor || !typography || !shape || !spacing || !motion || !shell || !components)
+    return null;
 
   if (
     !isCompleteRecord(value.elevation, ["card", "popover", "dialog", "focalAction"]) ||
-    !isCompleteRecord(value.shell, [
-      "contentMaxWidth",
-      "sidebarWidth",
-      "headerHeight",
-      "mobileNavigationHeight",
-      "canvasTreatment",
-    ]) ||
-    !isCompleteRecord(value.components, [
-      "button",
-      "link",
-      "tabs",
-      "navigation",
-      "input",
-      "select",
-      "card",
-      "container",
-      "table",
-      "list",
-      "badge",
-      "chip",
-      "dialog",
-      "popover",
-      "toast",
-      "switch",
-      "checkbox",
-      "radio",
-      "toolbar",
-      "pagination",
-      "emptyState",
-      "loadingState",
-      "editorChrome",
-      "decoration",
-    ])
+    !isCompleteRecord(value.shell, Object.keys(shell)) ||
+    !isCompleteRecord(value.components, Object.keys(components))
   ) {
     return null;
   }
@@ -325,6 +299,17 @@ function adaptScheme({
     shape,
     spacing,
     motion,
+    shell,
+    components,
+    assetSlots: Object.fromEntries(
+      assets.map(({ alt, id, slot }) => [
+        slot,
+        {
+          resourceId: id,
+          ...(alt ? { alt } : {}),
+        },
+      ]),
+    ),
     decoration: {
       celebration: [
         nativeColor(value.colors.chart1),
@@ -523,6 +508,66 @@ function adaptMotion(value: Record<string, ApiThemeMotionRecipe | string>) {
   const page = motionMilliseconds(value.pageTransition);
   if (press === null || selection === null || page === null) return null;
   return { quickMs: press, standardMs: selection, emphasizedMs: page };
+}
+
+function adaptShell(value: Record<string, string>): NativeThemeManifest["shell"] | null {
+  const contentMaxWidth = cssPixels(value.contentMaxWidth);
+  const sidebarWidth = cssPixels(value.sidebarWidth);
+  const headerHeight = cssPixels(value.headerHeight);
+  const mobileNavigationHeight = cssPixels(value.mobileNavigationHeight);
+  if (
+    contentMaxWidth === null ||
+    sidebarWidth === null ||
+    headerHeight === null ||
+    mobileNavigationHeight === null ||
+    !NATIVE_CANVAS_TREATMENTS.some((candidate) => candidate === value.canvasTreatment)
+  ) {
+    return null;
+  }
+  return {
+    contentMaxWidth: clampMetric(contentMaxWidth, 320, 4096),
+    sidebarWidth: clampMetric(sidebarWidth, 160, 1024),
+    headerHeight: clampMetric(headerHeight, 44, 256),
+    mobileNavigationHeight: clampMetric(mobileNavigationHeight, 44, 256),
+    canvasTreatment: value.canvasTreatment as NativeThemeManifest["shell"]["canvasTreatment"],
+  };
+}
+
+function adaptComponents(value: Record<string, string>): NativeThemeManifest["components"] | null {
+  const components: NativeThemeManifest["components"] = {
+    button: value.button as NativeThemeManifest["components"]["button"],
+    link: value.link as NativeThemeManifest["components"]["link"],
+    tabs: value.tabs as NativeThemeManifest["components"]["tabs"],
+    navigation: value.navigation as NativeThemeManifest["components"]["navigation"],
+    input: value.input as NativeThemeManifest["components"]["input"],
+    select: value.select as NativeThemeManifest["components"]["select"],
+    card: value.card as NativeThemeManifest["components"]["card"],
+    container: value.container as NativeThemeManifest["components"]["container"],
+    table: value.table as NativeThemeManifest["components"]["table"],
+    list: value.list as NativeThemeManifest["components"]["list"],
+    badge: value.badge as NativeThemeManifest["components"]["badge"],
+    chip: value.chip as NativeThemeManifest["components"]["chip"],
+    dialog: value.dialog as NativeThemeManifest["components"]["dialog"],
+    popover: value.popover as NativeThemeManifest["components"]["popover"],
+    toast: value.toast as NativeThemeManifest["components"]["toast"],
+    switch: value.switch as NativeThemeManifest["components"]["switch"],
+    checkbox: value.checkbox as NativeThemeManifest["components"]["checkbox"],
+    radio: value.radio as NativeThemeManifest["components"]["radio"],
+    toolbar: value.toolbar as NativeThemeManifest["components"]["toolbar"],
+    pagination: value.pagination as NativeThemeManifest["components"]["pagination"],
+    emptyState: value.emptyState as NativeThemeManifest["components"]["emptyState"],
+    loadingState: value.loadingState as NativeThemeManifest["components"]["loadingState"],
+    editorChrome: value.editorChrome as NativeThemeManifest["components"]["editorChrome"],
+    decoration: value.decoration as NativeThemeManifest["components"]["decoration"],
+  };
+  for (const key of Object.keys(
+    NATIVE_COMPONENT_RECIPE_OPTIONS,
+  ) as (keyof typeof NATIVE_COMPONENT_RECIPE_OPTIONS)[]) {
+    if (!NATIVE_COMPONENT_RECIPE_OPTIONS[key].some((candidate) => candidate === components[key])) {
+      return null;
+    }
+  }
+  return components;
 }
 
 function adaptFonts(

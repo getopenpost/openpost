@@ -52,7 +52,7 @@ export function resolveNativeTheme({
     !validateNativeThemeManifest(manifest) ||
     manifest.scheme !== effectiveScheme ||
     manifest.familyId !== contract.themeId ||
-    !manifestFontsMatchResources(manifest, contract)
+    !manifestResourcesMatch(manifest, contract)
   ) {
     return workshopFallback(workspaceId, preference, effectiveScheme, "invalid-contract");
   }
@@ -84,12 +84,12 @@ export function resolveNativeTheme({
   });
 }
 
-function manifestFontsMatchResources(
+function manifestResourcesMatch(
   manifest: NativeThemeManifest,
   contract: NativeResolvedThemeContract,
 ): boolean {
   const fonts = new Map(contract.resources.fonts.map((font) => [font.id, font]));
-  return Object.values(manifest.typography).every((role) => {
+  const fontsMatch = Object.values(manifest.typography).every((role) => {
     if (!role.fontResourceId && !role.fontFamily) return true;
     if (!role.fontResourceId || !role.fontFamily) return false;
     const font = fonts.get(role.fontResourceId);
@@ -98,6 +98,16 @@ function manifestFontsMatchResources(
       font.weight === Number(role.fontWeight) &&
       font.style === "normal"
     );
+  });
+  if (!fontsMatch) return false;
+
+  const bindings = Object.entries(manifest.assetSlots);
+  if (bindings.length !== contract.resources.assets.length) return false;
+  return bindings.every(([slot, binding]) => {
+    const asset = contract.resources.assets.find(
+      (candidate) => candidate.id === binding.resourceId,
+    );
+    return asset?.slot === slot && asset.alt === binding.alt;
   });
 }
 
@@ -114,7 +124,7 @@ function workshopFallback(
       workspaceId,
       preference,
       effectiveScheme,
-      `workshop@${family.builtinVersion}:fallback:${reason}`,
+      `workshop@${family.revision}:fallback:${reason}`,
     ),
     workspaceId,
     preference,
@@ -248,9 +258,9 @@ export function nativeThemeResourcesReady(
         staged.fonts[font.id]?.family === font.family &&
         staged.fonts[font.id]?.format === font.nativeDerivative.format &&
         staged.fonts[font.id]?.derivativeIdentity === font.nativeDerivative.identity &&
-        /^file:\/\//.test(staged.fonts[font.id]?.uri ?? ""),
+        (staged.fonts[font.id]?.uri ?? "").startsWith("file://"),
     ) &&
-    required.assets.every((asset) => /^file:\/\//.test(staged.assets[asset.id] ?? ""))
+    required.assets.every((asset) => (staged.assets[asset.id] ?? "").startsWith("file://"))
   );
 }
 

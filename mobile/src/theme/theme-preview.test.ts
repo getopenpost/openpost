@@ -9,18 +9,23 @@ describe("native Appearance theme preview", () => {
     const preview = themePreviewPresentation(playroom);
 
     expect(preview).toMatchObject({
-      actionRadius: playroom.shape.medium,
+      actionRadius: playroom.shape.large,
       body: playroom.typography.bodyMedium,
       cardPadding: playroom.spacing.medium,
       cardRadius: playroom.shape.medium,
       contentGap: playroom.spacing.small,
-      focalAction: { borderWidth: 2, depth: 4 },
+      focalAction: { borderWidth: 2, depth: 5 },
       frameGap: playroom.spacing.medium,
       framePadding: playroom.spacing.large,
       frameRadius: playroom.shape.large,
       metadata: playroom.typography.labelMedium,
-      ordinaryAction: { depth: 1 },
+      ordinaryAction: { depth: 0 },
       title: playroom.typography.titleLarge,
+      buttonRecipe: "tonal",
+      cardRecipe: "outlined",
+      canvasTreatment: "playful",
+      iconPack: "phosphor",
+      card: { borderWidth: 1, elevation: 0 },
     });
   });
 
@@ -31,7 +36,10 @@ describe("native Appearance theme preview", () => {
       const preview = themePreviewPresentation(manifest);
       return JSON.stringify({
         actionRadius: preview.actionRadius,
+        buttonRecipe: preview.buttonRecipe,
         body: preview.body,
+        card: preview.card,
+        cardRecipe: preview.cardRecipe,
         cardPadding: preview.cardPadding,
         cardRadius: preview.cardRadius,
         contentGap: preview.contentGap,
@@ -42,6 +50,8 @@ describe("native Appearance theme preview", () => {
         frameGap: preview.frameGap,
         framePadding: preview.framePadding,
         frameRadius: preview.frameRadius,
+        canvasTreatment: preview.canvasTreatment,
+        iconPack: preview.iconPack,
         metadata: preview.metadata,
         ordinaryAction: {
           borderWidth: preview.ordinaryAction.borderWidth,

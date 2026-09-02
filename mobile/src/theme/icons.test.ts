@@ -107,11 +107,11 @@ test("a corrupt manifest role map selects complete Lucide for every role", async
 test("publishes a native theme snapshot only after its complete pack is staged", async () => {
   let releasePack: (() => void) | undefined;
   const requestedPack = new Promise<{ default: NativeThemeIconPack }>((resolve) => {
-    releasePack = () => resolve({ default: heroiconsSolidPack });
+    releasePack = () => resolve({ default: phosphorPack });
   });
   const registry = createNativeThemeIconRegistry(
     packLoaders((pack) =>
-      pack.id === "heroicons-solid" ? requestedPack : Promise.resolve({ default: pack }),
+      pack.id === "phosphor" ? requestedPack : Promise.resolve({ default: pack }),
     ),
   );
   const stager = createNativeThemeIconStager(registry);
@@ -129,7 +129,7 @@ test("publishes a native theme snapshot only after its complete pack is staged",
   expect(published).toEqual([]);
 
   releasePack!();
-  await expect(activation).resolves.toEqual({ status: "ready", packId: "heroicons-solid" });
+  await expect(activation).resolves.toEqual({ status: "ready", packId: "phosphor" });
   expect(published).toEqual([requested]);
 });
 

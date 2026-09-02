@@ -33,6 +33,25 @@ describe("resolved theme API adapter", () => {
     expect(manifest.shape.medium).toBe(10);
     expect(manifest.spacing.extraSmall).toBe(4);
     expect(manifest.motion.quickMs).toBe(100);
+    expect(manifest.shell).toEqual({
+      contentMaxWidth: 1152,
+      sidebarWidth: 256,
+      headerHeight: 56,
+      mobileNavigationHeight: 72,
+      canvasTreatment: "plain",
+    });
+    expect(manifest.components).toMatchObject({
+      button: "solid",
+      card: "outlined",
+      emptyState: "plain",
+      loadingState: "skeleton",
+    });
+    expect(manifest.assetSlots).toEqual({
+      "background-texture": {
+        resourceId: "texture-1",
+        alt: "Subtle paper texture",
+      },
+    });
     expect(manifest.iconography.packId).toBe("phosphor");
     expect(adapted.contract.resources.fonts).toEqual([
       {
@@ -73,6 +92,23 @@ describe("resolved theme API adapter", () => {
         workspaceId: "workspace-1",
       }),
     ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
+  test("rejects unsupported shell and component recipes instead of dropping them", () => {
+    const invalidShell = resolvedThemeFixture();
+    invalidShell.manifest.shell.canvasTreatment = "glassy" as never;
+    const invalidComponent = resolvedThemeFixture();
+    invalidComponent.manifest.components.card = "neumorphic";
+
+    for (const response of [invalidShell, invalidComponent]) {
+      expect(
+        adaptResolvedThemeResponse({
+          cacheIdentity: "theme-1:7:light",
+          response,
+          workspaceId: "workspace-1",
+        }),
+      ).toEqual({ ok: false, reason: "invalid-response" });
+    }
   });
 
   test("rejects destructive text that is unreadable on its rendered containers", () => {

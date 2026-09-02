@@ -6,6 +6,7 @@ const AUTHENTICATED_CHROME = [
   "../app/(tabs)/queue.tsx",
   "../app/appearance.tsx",
   "../app/onboarding/workspace.tsx",
+  "../app/onboarding/destination.tsx",
   "../app/publications/[id].tsx",
   "../app/publications/[id]/edit.tsx",
 ] as const;

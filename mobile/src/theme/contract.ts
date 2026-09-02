@@ -1,4 +1,4 @@
-export const NATIVE_THEME_CONTRACT_VERSION = 2 as const;
+export const NATIVE_THEME_CONTRACT_VERSION = 3 as const;
 
 export type NativeThemeScheme = "light" | "dark";
 export type NativeThemePreference = NativeThemeScheme | "system";
@@ -83,6 +83,61 @@ export type NativeThemeAssetSlot =
   | "header-decoration"
   | "empty-state-illustration"
   | "loading-illustration";
+
+export const NATIVE_CANVAS_TREATMENTS = [
+  "plain",
+  "paper",
+  "playful",
+  "garden",
+  "study",
+  "tactile",
+  "precision",
+] as const;
+export type NativeCanvasTreatment = (typeof NATIVE_CANVAS_TREATMENTS)[number];
+
+export const NATIVE_COMPONENT_RECIPE_OPTIONS = {
+  button: ["solid", "tonal", "outlined", "precise"],
+  link: ["underlined", "subtle", "plain"],
+  tabs: ["underline", "pill", "segmented"],
+  navigation: ["quiet", "tonal", "outlined"],
+  input: ["filled", "outlined", "underlined"],
+  select: ["filled", "outlined", "underlined"],
+  card: ["flat", "outlined", "paper", "lifted"],
+  container: ["flat", "outlined", "tinted"],
+  table: ["ruled", "striped", "plain"],
+  list: ["divided", "spaced", "plain"],
+  badge: ["solid", "tonal", "outlined"],
+  chip: ["solid", "tonal", "outlined"],
+  dialog: ["flat", "outlined", "elevated"],
+  popover: ["flat", "outlined", "elevated"],
+  toast: ["flat", "outlined", "elevated"],
+  switch: ["solid", "tonal", "outlined"],
+  checkbox: ["solid", "tonal", "outlined"],
+  radio: ["solid", "tonal", "outlined"],
+  toolbar: ["flat", "outlined", "floating"],
+  pagination: ["quiet", "outlined", "pill"],
+  emptyState: ["plain", "illustrated", "framed"],
+  loadingState: ["spinner", "pulse", "skeleton"],
+  editorChrome: ["neutral", "compact", "precision"],
+  decoration: ["none", "editorial", "playful", "botanical", "study", "tactile", "precision"],
+} as const;
+
+export type NativeComponentRecipes = {
+  readonly [Recipe in keyof typeof NATIVE_COMPONENT_RECIPE_OPTIONS]: (typeof NATIVE_COMPONENT_RECIPE_OPTIONS)[Recipe][number];
+};
+
+export interface NativeThemeShell {
+  readonly contentMaxWidth: number;
+  readonly sidebarWidth: number;
+  readonly headerHeight: number;
+  readonly mobileNavigationHeight: number;
+  readonly canvasTreatment: NativeCanvasTreatment;
+}
+
+export interface NativeThemeAssetBinding {
+  readonly resourceId: string;
+  readonly alt?: string;
+}
 
 export interface NativeThemeFontResource {
   readonly id: string;
@@ -239,6 +294,9 @@ export interface NativeThemeManifest {
     standardMs: number;
     emphasizedMs: number;
   }>;
+  readonly shell: NativeThemeShell;
+  readonly components: NativeComponentRecipes;
+  readonly assetSlots: Readonly<Partial<Record<NativeThemeAssetSlot, NativeThemeAssetBinding>>>;
   readonly decoration: Readonly<{
     celebration: readonly string[];
   }>;
@@ -251,7 +309,7 @@ export interface NativeThemeManifest {
 export interface NativeThemeFamily {
   readonly id: string;
   readonly displayName: string;
-  readonly builtinVersion: number;
+  readonly revision: string;
   readonly supportedSchemes: readonly NativeThemeScheme[];
   readonly manifests: Partial<Readonly<Record<NativeThemeScheme, NativeThemeManifest>>>;
 }

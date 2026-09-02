@@ -329,9 +329,7 @@ function ThemePreview() {
           style={[
             styles.previewCard,
             {
-              backgroundColor: colors.surface,
-              borderColor: colors.outlineVariant,
-              borderRadius: preview.cardRadius,
+              ...preview.card,
               gap: preview.contentGap,
               padding: preview.cardPadding,
             },

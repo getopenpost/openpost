@@ -73,6 +73,9 @@ describe("native built-in themes", () => {
         shape: manifest.shape,
         spacing: manifest.spacing,
         motion: manifest.motion,
+        shell: manifest.shell,
+        components: manifest.components,
+        iconPack: manifest.iconography.packId,
         actions: ["focal", "primary", "ordinary"].map((intent) => {
           const action = manifest.actions[intent as "focal" | "primary" | "ordinary"];
           return { borderWidth: action.borderWidth, depth: action.depth };
@@ -82,16 +85,17 @@ describe("native built-in themes", () => {
 
     expect(new Set(signatures).size).toBe(BUILTIN_THEME_IDS.length);
     expect(BUILTIN_THEME_FAMILIES.playroom.manifests.light).toMatchObject({
-      actions: { focal: { borderWidth: 2, depth: 4 } },
-      typography: { titleLarge: { fontWeight: "800" } },
+      actions: { focal: { borderWidth: 2, depth: 5 } },
+      components: { button: "tonal", emptyState: "illustrated" },
+      typography: { titleLarge: { fontWeight: "700" } },
     });
     expect(BUILTIN_THEME_FAMILIES["study-hall"].manifests.light).toMatchObject({
-      actions: { focal: { borderWidth: 2, depth: 0 } },
+      components: { navigation: "outlined", tabs: "segmented" },
       spacing: { medium: 10 },
     });
     expect(BUILTIN_THEME_FAMILIES.corkboard.manifests.light).toMatchObject({
-      actions: { focal: { borderWidth: 2, depth: 5 } },
-      shape: { medium: 9 },
+      components: { button: "precise", card: "paper" },
+      shape: { medium: 6 },
     });
   });
 

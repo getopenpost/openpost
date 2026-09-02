@@ -1,5 +1,7 @@
 import {
   ACTION_INTENTS,
+  NATIVE_CANVAS_TREATMENTS,
+  NATIVE_COMPONENT_RECIPE_OPTIONS,
   NATIVE_ICON_ROLES,
   NATIVE_MIN_TEXT_SIZE,
   PUBLICATION_STATUSES,
@@ -173,6 +175,50 @@ export function validateNativeThemeManifest(
     !boundedNumber(motion.quickMs, 0, 2000) ||
     !boundedNumber(motion.standardMs, motion.quickMs, 2000) ||
     !boundedNumber(motion.emphasizedMs, motion.standardMs, 2000)
+  ) {
+    return false;
+  }
+
+  const shell = value.shell;
+  if (
+    !shell ||
+    !boundedNumber(shell.contentMaxWidth, 320, 4096) ||
+    !boundedNumber(shell.sidebarWidth, 160, 1024) ||
+    !boundedNumber(shell.headerHeight, 44, 256) ||
+    !boundedNumber(shell.mobileNavigationHeight, 44, 256) ||
+    !NATIVE_CANVAS_TREATMENTS.some((candidate) => candidate === shell.canvasTreatment)
+  ) {
+    return false;
+  }
+
+  const components = value.components;
+  if (
+    !components ||
+    Object.keys(NATIVE_COMPONENT_RECIPE_OPTIONS).some((key) => {
+      const recipe = key as keyof typeof NATIVE_COMPONENT_RECIPE_OPTIONS;
+      return !NATIVE_COMPONENT_RECIPE_OPTIONS[recipe].some(
+        (candidate) => candidate === components[recipe],
+      );
+    })
+  ) {
+    return false;
+  }
+
+  if (
+    !value.assetSlots ||
+    Object.entries(value.assetSlots).some(
+      ([slot, binding]) =>
+        ![
+          "background-texture",
+          "sidebar-decoration",
+          "header-decoration",
+          "empty-state-illustration",
+          "loading-illustration",
+        ].includes(slot) ||
+        !binding ||
+        !boundedText(binding.resourceId, 256) ||
+        (binding.alt !== undefined && !boundedText(binding.alt, 240)),
+    )
   ) {
     return false;
   }

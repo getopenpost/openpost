@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createBuiltinThemeContract } from "./builtins";
 import type { NativeThemeManifest } from "./contract";
+import { themeAssetFor } from "./presentation";
 import { resolveEffectiveScheme, resolveNativeTheme } from "./runtime";
 
 describe("native theme runtime", () => {
@@ -62,7 +63,7 @@ describe("native theme runtime", () => {
       kind: "fallback",
       reason: "unsupported-scheme",
     });
-    expect(resolved.manifest.id).toBe("workshop-light");
+    expect(resolved.manifest.id).toBe("workshop-light-builtin-v1");
   });
 
   test("rejects an incomplete contract manifest before it reaches React Native", () => {
@@ -131,6 +132,15 @@ describe("native theme runtime", () => {
     });
     const contract = {
       ...base,
+      manifests: {
+        ...base.manifests,
+        light: {
+          ...base.manifests.light!,
+          assetSlots: {
+            "background-texture": { resourceId: "texture-1" },
+          },
+        },
+      },
       resources: {
         identity: "studio@7:resources:font-1,texture-1",
         fonts: [
@@ -256,12 +266,16 @@ describe("native theme runtime", () => {
     expect(active.source).toEqual({
       kind: "contract",
       identity: "studio@7",
-      revision: "builtin-1",
+      revision: "builtin-v1",
       resolutionSource: "builtin",
     });
     expect(active.resources?.assets).toEqual({
       "texture-1": "file:///theme/texture-1.avif",
     });
+    expect(themeAssetFor(active, "background-texture")).toEqual({
+      uri: "file:///theme/texture-1.avif",
+    });
+    expect(themeAssetFor(active, "empty-state-illustration")).toBeNull();
   });
 
   test("rejects a manifest whose custom font role is not backed by its exact descriptor", () => {

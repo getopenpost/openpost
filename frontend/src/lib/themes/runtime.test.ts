@@ -340,6 +340,22 @@ describe('WebThemeRuntime', () => {
 		expect(scope.properties.get('--action-focal')).toBe('oklch(0.55 0.155 45)');
 	});
 
+	it('never blocks product access when fallback resource staging also fails', async () => {
+		const scope = fakeScope();
+		const runtime = new WebThemeRuntime(
+			loaders({
+				loadFonts: () => Promise.reject(new Error('font subsystem unavailable')),
+				loadAssets: () => Promise.reject(new Error('image subsystem unavailable')),
+				loadIconPack: () => Promise.reject(new Error('chunk subsystem unavailable'))
+			})
+		);
+
+		await expect(runtime.apply(resolveBuiltInTheme('studio', 'light'), scope)).resolves.toBe(true);
+		expect(scope.getAttribute('data-theme-id')).toBe('workshop');
+		expect(scope.getAttribute('data-theme-fallback')).toBe('resource-failed');
+		expect(scope.properties.get('--action-focal')).toBe('oklch(0.55 0.155 45)');
+	});
+
 	it('rejects protected editor token drift as one invalid manifest', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());

@@ -792,7 +792,7 @@ const corkboardLight = scheme({
 		surface: 'oklch(0.975 0.025 82)',
 		surfaceRaised: 'oklch(0.99 0.018 82)',
 		surfaceSunken: 'oklch(0.87 0.065 70)',
-		mutedInk: 'oklch(0.48 0.045 100)',
+		mutedInk: 'oklch(0.47 0.045 100)',
 		border: 'oklch(0.76 0.065 70)',
 		focus: 'oklch(0.48 0.12 240)',
 		selection: 'oklch(0.88 0.065 235)',

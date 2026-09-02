@@ -72,6 +72,7 @@
 		"vitest-browser-svelte": "^2.2.1"
 	},
 	"dependencies": {
+		"@asamuzakjp/css-color": "3.2.0",
 		"@fontsource-variable/dm-sans": "^5.3.0",
 		"@fontsource-variable/geist": "^5.2.8",
 		"@fontsource-variable/geist-mono": "^5.2.8",

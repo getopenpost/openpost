@@ -1,31 +1,67 @@
+import { convert, isColor } from '@asamuzakjp/css-color';
 import {
 	THEME_COLOR_TOKEN_KEYS,
 	THEME_MOTION_RECIPE_KEYS,
 	THEME_TYPOGRAPHY_ROLE_KEYS,
+	type ThemeColorTokens,
 	type ThemeMotionRecipe,
 	type ThemeSchemeManifest
 } from './contracts.js';
 
-const CSS_LENGTH_PATTERN =
-	/^(?:0|-?[0-9]+(?:\.[0-9]+)?(?:px|rem|em|%|vw|vh)|clamp\([0-9a-zA-Z.%+/, -]+\))$/;
 const CSS_TIME_PATTERN = /^[0-9]+(?:\.[0-9]+)?(?:ms|s)$/;
-const CSS_TRACKING_PATTERN = /^-?[0-9]+(?:\.[0-9]+)?(?:px|rem|em)$/;
-const CSS_EASING_PATTERN =
-	/^(?:linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\([0-9., -]+\))$/;
+const CSS_LENGTH_PATTERN = /^(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))(px|rem|em|%|vw|vh)$/;
+const CSS_TRACKING_PATTERN = /^(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))(px|rem|em)$/;
+const CSS_CUBIC_BEZIER_PATTERN =
+	/^cubic-bezier\(\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))\s*,\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))\s*,\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))\s*,\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))\s*\)$/;
 const FONT_FAMILY_PATTERN = /^[a-zA-Z0-9 _.,:'-]+$/;
 const LINE_HEIGHT_PATTERN = /^[0-9]+(?:\.[0-9]+)?$/;
-const COLOR_FUNCTION_PREFIXES = [
-	'rgb(',
-	'rgba(',
-	'hsl(',
-	'hsla(',
-	'oklch(',
-	'oklab(',
-	'color-mix('
-];
-const COLOR_CHARACTERS_PATTERN = /^[ #(),.%+/_\-0-9a-zA-Z]+$/;
-const SHADOW_CHARACTERS_PATTERN = /^[ #(),.%+/_\-0-9a-zA-Z]+$/;
-const LENGTH_PART_PATTERN = /(-?[0-9]+(?:\.[0-9]+)?)(px|rem|em|%|vw|vh)/g;
+const NAMED_EASINGS = new Set(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out']);
+const STATUS_COLOR_KEYS = ['danger', 'success', 'warning', 'info'] as const;
+const MINIMUM_STATUS_COLOR_DISTANCE = 0.04;
+const MINIMUM_TEXT_CONTRAST = 4.5;
+
+interface ParsedCssLength {
+	value: number;
+	unit: 'px' | 'rem' | 'em' | '%' | 'vw' | 'vh';
+}
+
+interface RgbaColor {
+	red: number;
+	green: number;
+	blue: number;
+	alpha: number;
+}
+
+const readableColorPairs = [
+	['ink', 'canvas', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['mutedInk', 'canvas', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['ink', 'surface', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['ink', 'surfaceRaised', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['ink', 'surfaceSunken', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['selectionInk', 'selection', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['brandInk', 'brand', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['workspaceInk', 'workspace', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['dangerInk', 'danger', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['successInk', 'success', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['warningInk', 'warning', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['infoInk', 'info', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['actionFocalInk', 'actionFocal', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['actionPrimaryInk', 'actionPrimary', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['actionOrdinaryInk', 'actionOrdinary', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['actionQuietInk', 'actionQuiet', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['actionDestructiveInk', 'actionDestructive', 'canvas', 3],
+	['fieldInk', 'field', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['disabledInk', 'disabled', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['navigationActiveInk', 'navigationActive', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['sidebarInk', 'sidebar', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['sidebarActiveInk', 'sidebarActive', 'sidebar', MINIMUM_TEXT_CONTRAST],
+	['chromeInk', 'chrome', 'canvas', MINIMUM_TEXT_CONTRAST]
+] as const satisfies readonly (readonly [
+	keyof ThemeColorTokens,
+	keyof ThemeColorTokens,
+	keyof ThemeColorTokens,
+	number
+])[];
 
 const SAFE_FONT_FALLBACKS = new Set([
 	'Arial',
@@ -77,41 +113,79 @@ export function isSafeThemeCssValue(value: string): boolean {
 }
 
 export function isSafeThemeColor(value: string): boolean {
-	if (!isSafeThemeCssValue(value)) return false;
-	if (value === 'transparent' || value === 'black' || value === 'white') return true;
-	if (/^#[0-9a-fA-F]{3,4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/.test(value)) return true;
 	return (
-		COLOR_FUNCTION_PREFIXES.some((prefix) => value.startsWith(prefix)) &&
-		COLOR_CHARACTERS_PATTERN.test(value)
+		isSafeThemeCssValue(value) &&
+		isColor(value) &&
+		convert.colorToHex(value, { alpha: true }) !== null
 	);
 }
 
-function cssLengthParts(value: string): number[] | undefined {
-	if (value === '0') return [0];
-	const parts = [...value.matchAll(LENGTH_PART_PATTERN)].map((match) => {
-		const number = Number(match[1]);
-		return match[2] === 'rem' || match[2] === 'em' ? number * 16 : number;
-	});
-	return parts.length > 0 ? parts : undefined;
+function parseSimpleCssLength(value: string): ParsedCssLength | undefined {
+	if (value === '0') return { value: 0, unit: 'px' };
+	const match = CSS_LENGTH_PATTERN.exec(value);
+	if (!match) return undefined;
+	const number = Number(match[1]);
+	if (!Number.isFinite(number)) return undefined;
+	return {
+		value: number,
+		// SAFETY: CSS_LENGTH_PATTERN restricts this capture to ParsedCssLength units.
+		unit: match[2] as ParsedCssLength['unit']
+	};
+}
+
+function isParsedCssLength(value: ParsedCssLength | undefined): value is ParsedCssLength {
+	return value !== undefined;
+}
+
+function parseCssLength(value: string): readonly ParsedCssLength[] | undefined {
+	const simple = parseSimpleCssLength(value);
+	if (simple) return [simple];
+	if (!value.startsWith('clamp(') || !value.endsWith(')')) return undefined;
+	const parts = value
+		.slice('clamp('.length, -1)
+		.split(',')
+		.map((part) => parseSimpleCssLength(part.trim()));
+	if (parts.length !== 3 || !parts.every(isParsedCssLength)) return undefined;
+	return parts;
+}
+
+function absolutePixels(length: ParsedCssLength): number | undefined {
+	if (length.unit === 'px') return length.value;
+	if (length.unit === 'rem' || length.unit === 'em') return length.value * 16;
+	return undefined;
 }
 
 function isBoundedCssLength(value: string, maximum: number, allowNegative = false): boolean {
-	if (!CSS_LENGTH_PATTERN.test(value) || !isSafeThemeCssValue(value)) return false;
-	const parts = cssLengthParts(value);
-	return Boolean(
-		parts &&
-		parts.every(
-			(part) => Number.isFinite(part) && Math.abs(part) <= maximum && (allowNegative || part >= 0)
+	if (!isSafeThemeCssValue(value)) return false;
+	const lengths = parseCssLength(value);
+	if (!lengths) return false;
+	if (
+		lengths.some(
+			(length) =>
+				Math.abs(absolutePixels(length) ?? length.value) > maximum ||
+				(!allowNegative && length.value < 0) ||
+				((length.unit === '%' || length.unit === 'vw' || length.unit === 'vh') &&
+					Math.abs(length.value) > 100)
 		)
-	);
+	) {
+		return false;
+	}
+	if (lengths.length === 3) {
+		const minimum = absolutePixels(lengths[0]!);
+		const maximumValue = absolutePixels(lengths[2]!);
+		return minimum !== undefined && maximumValue !== undefined && minimum <= maximumValue;
+	}
+	return true;
 }
 
 function cssPixels(value: string): number | undefined {
-	if (value === '0') return 0;
-	const match = /^(-?[0-9]+(?:\.[0-9]+)?)(px|rem|em)$/.exec(value);
-	if (!match) return undefined;
-	const number = Number(match[1]);
-	return match[2] === 'rem' || match[2] === 'em' ? number * 16 : number;
+	const length = parseSimpleCssLength(value);
+	return length ? absolutePixels(length) : undefined;
+}
+
+function minimumCssPixels(value: string): number | undefined {
+	const lengths = parseCssLength(value);
+	return lengths ? absolutePixels(lengths[0]!) : undefined;
 }
 
 function cssMilliseconds(value: string): number | undefined {
@@ -120,18 +194,74 @@ function cssMilliseconds(value: string): number | undefined {
 	return value.endsWith('ms') ? number : number * 1000;
 }
 
+function splitCssWhitespace(value: string): string[] | undefined {
+	const parts: string[] = [];
+	let current = '';
+	let depth = 0;
+	for (const character of value) {
+		if (character === '(') depth += 1;
+		if (character === ')') depth -= 1;
+		if (depth < 0 || (character === ',' && depth === 0)) return undefined;
+		if (/\s/.test(character) && depth === 0) {
+			if (current) parts.push(current);
+			current = '';
+			continue;
+		}
+		current += character;
+	}
+	if (depth !== 0) return undefined;
+	if (current) parts.push(current);
+	return parts;
+}
+
+function isSafeShadowColor(value: string): boolean {
+	if (isSafeThemeColor(value)) return true;
+	if (!value.includes('var(--action-focal)') || /var\((?!--action-focal\))/.test(value)) {
+		return false;
+	}
+	return isSafeThemeColor(value.replaceAll('var(--action-focal)', 'black'));
+}
+
 function isSafeShadow(value: string): boolean {
-	return (
-		value === 'none' ||
-		(value.length <= 256 && isSafeThemeCssValue(value) && SHADOW_CHARACTERS_PATTERN.test(value))
-	);
+	if (value === 'none') return true;
+	if (value.length > 256 || !isSafeThemeCssValue(value)) return false;
+	const parts = splitCssWhitespace(value);
+	if (!parts) return false;
+	if (parts[0] === 'inset') parts.shift();
+	if (parts.length < 3 || parts.length > 5) return false;
+	const color = parts.pop();
+	if (!color || !isSafeShadowColor(color)) return false;
+	const lengths = parts.map(parseSimpleCssLength);
+	if (!lengths.every(isParsedCssLength)) return false;
+	const [offsetX, offsetY, blur, spread] = lengths;
+	if (!offsetX || !offsetY || (blur && blur.value < 0)) return false;
+	return [offsetX, offsetY, blur, spread].every((length) => {
+		if (!length) return true;
+		const pixels = absolutePixels(length);
+		return pixels !== undefined && Math.abs(pixels) <= 256;
+	});
 }
 
 function isSafeTypography(manifest: ThemeSchemeManifest): boolean {
+	const minimumSizes = {
+		display: 24,
+		title: 18,
+		body: 14,
+		label: 12,
+		metadata: 11,
+		code: 12
+	} as const;
 	return THEME_TYPOGRAPHY_ROLE_KEYS.every((key) => {
 		const role = manifest.typography[key];
 		const lineHeight = Number(role.lineHeight);
-		const tracking = cssPixels(role.tracking);
+		const tracking = CSS_TRACKING_PATTERN.exec(role.tracking);
+		const trackingValue = Number(tracking?.[1]);
+		const trackingUnit = tracking?.[2];
+		const hasSafeTracking =
+			Number.isFinite(trackingValue) &&
+			(trackingUnit === 'px'
+				? trackingValue >= -1 && trackingValue <= 3
+				: trackingValue >= -0.04 && trackingValue <= 0.2);
 		return (
 			FONT_FAMILY_PATTERN.test(role.family) &&
 			isSafeThemeCssValue(role.family) &&
@@ -140,14 +270,27 @@ function isSafeTypography(manifest: ThemeSchemeManifest): boolean {
 			new Set(role.fallbacks).size === role.fallbacks.length &&
 			role.fallbacks.every((fallback) => SAFE_FONT_FALLBACKS.has(fallback)) &&
 			isBoundedCssLength(role.size, 256) &&
+			(minimumCssPixels(role.size) ?? 0) >= minimumSizes[key] &&
 			LINE_HEIGHT_PATTERN.test(role.lineHeight) &&
 			lineHeight >= 1 &&
 			lineHeight <= 2.5 &&
-			CSS_TRACKING_PATTERN.test(role.tracking) &&
-			tracking !== undefined &&
-			Math.abs(tracking) <= 64
+			hasSafeTracking
 		);
 	});
+}
+
+function isSafeEasing(value: string): boolean {
+	if (NAMED_EASINGS.has(value)) return true;
+	const match = CSS_CUBIC_BEZIER_PATTERN.exec(value);
+	if (!match) return false;
+	const values = match.slice(1).map(Number);
+	return (
+		values.every((number) => Number.isFinite(number) && number >= -10 && number <= 10) &&
+		values[0]! >= 0 &&
+		values[0]! <= 1 &&
+		values[2]! >= 0 &&
+		values[2]! <= 1
+	);
 }
 
 function isSafeMotionRecipe(
@@ -161,14 +304,97 @@ function isSafeMotionRecipe(
 		duration !== undefined &&
 		duration >= 0 &&
 		duration <= 2000 &&
-		CSS_EASING_PATTERN.test(recipe.easing) &&
-		isSafeThemeCssValue(recipe.easing) &&
+		isSafeEasing(recipe.easing) &&
 		distance !== undefined &&
 		distance >= 0 &&
 		distance <= maximumDistance &&
 		recipe.opacity >= minimumOpacity &&
 		recipe.opacity <= 1
 	);
+}
+
+function toRgbaColor(value: string): RgbaColor | undefined {
+	if (!isSafeThemeColor(value)) return undefined;
+	const [red, green, blue, alpha] = convert.colorToRgb(value).map(Number);
+	if (![red, green, blue, alpha].every(Number.isFinite)) return undefined;
+	return {
+		red: Math.min(1, Math.max(0, red! / 255)),
+		green: Math.min(1, Math.max(0, green! / 255)),
+		blue: Math.min(1, Math.max(0, blue! / 255)),
+		alpha: Math.min(1, Math.max(0, alpha!))
+	};
+}
+
+function compositeColor(foreground: RgbaColor, background: RgbaColor): RgbaColor {
+	const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+	if (alpha === 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+	return {
+		red:
+			(foreground.red * foreground.alpha +
+				background.red * background.alpha * (1 - foreground.alpha)) /
+			alpha,
+		green:
+			(foreground.green * foreground.alpha +
+				background.green * background.alpha * (1 - foreground.alpha)) /
+			alpha,
+		blue:
+			(foreground.blue * foreground.alpha +
+				background.blue * background.alpha * (1 - foreground.alpha)) /
+			alpha,
+		alpha
+	};
+}
+
+function relativeLuminance(color: RgbaColor): number {
+	const linear = (channel: number) =>
+		channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+	return 0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue);
+}
+
+export function themeColorContrastRatio(
+	foreground: string,
+	background: string,
+	base = 'white'
+): number | undefined {
+	const foregroundColor = toRgbaColor(foreground);
+	const backgroundColor = toRgbaColor(background);
+	const baseColor = toRgbaColor(base);
+	if (!foregroundColor || !backgroundColor || !baseColor) return undefined;
+	const opaqueBase = compositeColor(baseColor, { red: 1, green: 1, blue: 1, alpha: 1 });
+	const compositedBackground = compositeColor(backgroundColor, opaqueBase);
+	const compositedForeground = compositeColor(foregroundColor, compositedBackground);
+	const foregroundLuminance = relativeLuminance(compositedForeground);
+	const backgroundLuminance = relativeLuminance(compositedBackground);
+	return (
+		(Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+		(Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+	);
+}
+
+function hasReadableColorPairs(colors: ThemeColorTokens): boolean {
+	return readableColorPairs.every(([foreground, background, base, minimum]) => {
+		const ratio = themeColorContrastRatio(colors[foreground], colors[background], colors[base]);
+		return ratio !== undefined && ratio >= minimum;
+	});
+}
+
+function hasDistinctStatusColors(colors: ThemeColorTokens): boolean {
+	for (let index = 0; index < STATUS_COLOR_KEYS.length; index += 1) {
+		const first = convert.colorToOklab(colors[STATUS_COLOR_KEYS[index]!] ?? '').map(Number);
+		for (let next = index + 1; next < STATUS_COLOR_KEYS.length; next += 1) {
+			const second = convert.colorToOklab(colors[STATUS_COLOR_KEYS[next]!] ?? '').map(Number);
+			if (first.length < 3 || second.length < 3 || [...first, ...second].some(Number.isNaN)) {
+				return false;
+			}
+			const distance = Math.hypot(
+				first[0]! - second[0]!,
+				first[1]! - second[1]!,
+				first[2]! - second[2]!
+			);
+			if (distance < MINIMUM_STATUS_COLOR_DISTANCE) return false;
+		}
+	}
+	return true;
 }
 
 export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): boolean {
@@ -188,9 +414,18 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 	const compactControlHeight = cssPixels(spacing.compactControlHeight);
 	const touchTarget = cssPixels(spacing.touchTarget);
 	const borderWidth = cssPixels(shape.borderWidth);
+	const pageGutter = minimumCssPixels(spacing.pageGutter);
+	const sectionGap = minimumCssPixels(spacing.sectionGap);
+	const componentGap = minimumCssPixels(spacing.componentGap);
+	const contentMaxWidth = minimumCssPixels(shell.contentMaxWidth);
+	const sidebarWidth = minimumCssPixels(shell.sidebarWidth);
+	const headerHeight = minimumCssPixels(shell.headerHeight);
+	const mobileNavigationHeight = minimumCssPixels(shell.mobileNavigationHeight);
 
 	return (
 		THEME_COLOR_TOKEN_KEYS.every((key) => isSafeThemeColor(manifest.colors[key])) &&
+		hasReadableColorPairs(manifest.colors) &&
+		hasDistinctStatusColors(manifest.colors) &&
 		isSafeTypography(manifest) &&
 		isBoundedCssLength(spacing.base, 64) &&
 		isBoundedCssLength(spacing.controlHeight, 96) &&
@@ -205,6 +440,12 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 		compactControlHeight >= 32 &&
 		touchTarget !== undefined &&
 		touchTarget >= 44 &&
+		pageGutter !== undefined &&
+		pageGutter >= 12 &&
+		sectionGap !== undefined &&
+		sectionGap >= 8 &&
+		componentGap !== undefined &&
+		componentGap >= 4 &&
 		isBoundedCssLength(shape.radius, 256) &&
 		isBoundedCssLength(shape.radiusSm, 256) &&
 		isBoundedCssLength(shape.radiusMd, 256) &&
@@ -221,6 +462,14 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 		isBoundedCssLength(shell.contentMaxWidth, 4096) &&
 		isBoundedCssLength(shell.sidebarWidth, 1024) &&
 		isBoundedCssLength(shell.headerHeight, 256) &&
-		isBoundedCssLength(shell.mobileNavigationHeight, 256)
+		isBoundedCssLength(shell.mobileNavigationHeight, 256) &&
+		contentMaxWidth !== undefined &&
+		contentMaxWidth >= 320 &&
+		sidebarWidth !== undefined &&
+		sidebarWidth >= 192 &&
+		headerHeight !== undefined &&
+		headerHeight >= 44 &&
+		mobileNavigationHeight !== undefined &&
+		mobileNavigationHeight >= 56
 	);
 }

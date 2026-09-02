@@ -693,7 +693,7 @@ export class WebThemeRuntime {
 				this.#loaders.loadFonts(activeFontFaces(candidate)),
 				this.#loaders.loadAssets(candidate.assets),
 				this.#loaders.loadIconPack(candidate.iconPack)
-			]);
+			]).catch(() => undefined);
 		}
 		return {
 			resolved: candidate,
@@ -784,7 +784,11 @@ export class WebThemeRuntime {
 			scope.dispatchEvent?.(
 				new globalThis.CustomEvent('openpost:themechange', {
 					bubbles: true,
-					detail: { id: resolved.id, iconPack: resolved.iconPack, scheme: resolved.scheme }
+					detail: {
+						id: resolved.id,
+						iconPack: resolved.iconPack,
+						scheme: resolved.scheme
+					}
 				})
 			);
 		}

@@ -33,6 +33,10 @@
 	} from '@openpost/query-catalog';
 	import { billingQueryAPI, invalidateBillingDependencies } from '$lib/query/billing';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import { auth } from '$lib/stores/auth';
 
 	let billingBusyPlan = $state('');
@@ -43,6 +47,17 @@
 	let billingStatus = $state<BillingStatus | null>(null);
 	let handledCheckoutPlan = '';
 	let loadedBillingWorkspaceID = '';
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.billing);
+	$effect(() => {
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		reportInitialLoad(
+			Boolean(
+				workspaceID &&
+				!billingLoadError &&
+				(loadedBillingWorkspaceID !== workspaceID || (billingStatusLoading && !billingStatus))
+			)
+		);
+	});
 	let billingRequestSequence = 0;
 	let billingPortalRequestSequence = 0;
 	let active = true;

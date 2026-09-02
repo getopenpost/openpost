@@ -34,6 +34,10 @@
 	} from '@openpost/query-catalog';
 	import { adminQueryAPI } from '$lib/query/admin';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Setting = components['schemas']['InstanceSettingResponse'];
 	type SettingUpdate = components['schemas']['InstanceSettingUpdateInput'];
@@ -71,6 +75,10 @@
 	let saving = $state(false);
 	let providerSaving = $state(false);
 	let error = $state('');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceConfiguration
+	);
+	$effect(() => reportInitialLoad(active && !loaded && !error && (!loadAttempted || loading)));
 	let activeSection = $state<SectionID>('accounts');
 	let response = $state<SettingsResponse | null>(null);
 	let settings = $state<Setting[]>([]);

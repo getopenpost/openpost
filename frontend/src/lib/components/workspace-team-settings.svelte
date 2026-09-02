@@ -31,6 +31,10 @@
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import type {
 		TeamMember,
 		WorkspaceAccessAuditEvent,
@@ -94,6 +98,18 @@
 	let mutationScope = '';
 
 	const canManage = $derived(team?.can_manage ?? false);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.members);
+	$effect(() =>
+		reportInitialLoad(
+			Boolean(
+				active &&
+				workspaceID &&
+				((loadedWorkspaceID !== workspaceID && !loadError) ||
+					(loading && !team) ||
+					(team?.can_manage && !auditReady && !auditError))
+			)
+		)
+	);
 	const draftDirty = $derived(Boolean(inviteEmail.trim()) || inviteRole !== 'editor');
 	const normalizedSearch = $derived(search.trim().toLocaleLowerCase());
 	const filteredMembers = $derived.by(() => {

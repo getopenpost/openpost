@@ -17,6 +17,10 @@
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import { showToast } from '$lib/toast';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -125,6 +129,17 @@
 	let loadingSchedules = $state(false);
 	let scheduleError = $state('');
 	let scheduleDataReady = $state(false);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.schedule);
+	$effect(() => {
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		reportInitialLoad(
+			Boolean(
+				workspaceID &&
+				!scheduleError &&
+				(loadedScheduleWorkspaceID !== workspaceID || (loadingSchedules && !scheduleDataReady))
+			)
+		);
+	});
 	let showSuggestSchedule = $state(false);
 	let suggestedPostsPerDay = $state(3);
 	let generatingSchedule = $state(false);

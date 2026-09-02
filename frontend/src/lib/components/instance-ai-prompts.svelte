@@ -25,6 +25,10 @@
 	} from '@openpost/query-catalog';
 	import { adminQueryAPI } from '$lib/query/admin';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Prompt = components['schemas']['AIPromptResponse'];
 	type PromptsResponse = components['schemas']['AIPromptsResponse'];
@@ -61,6 +65,10 @@
 	let mutationGeneration = 0;
 	let destroyed = false;
 	let loadAttempted = false;
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instancePrompts
+	);
+	$effect(() => reportInitialLoad(active && !loaded && !error && (!loadAttempted || loading)));
 
 	const selected = $derived(prompts.find((prompt) => prompt.key === selectedKey) ?? null);
 	const selectedDraft = $derived(selected ? (drafts[selected.key] ?? selected.value) : '');

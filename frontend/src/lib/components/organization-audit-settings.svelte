@@ -25,6 +25,10 @@
 	import FilterIcon from '@lucide/svelte/icons/filter';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { auth } from '$lib/stores/auth';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type AuditEvent = components['schemas']['AuditEvent'];
 	type Organization = components['schemas']['OrganizationResponse'];
@@ -91,6 +95,24 @@
 					filenameScope: 'organization'
 				}
 	);
+	const reportInitialLoad = registerSettingsInitialLoad(
+		instanceWide
+			? SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceAudit
+			: SETTINGS_INITIAL_LOAD_PARTICIPANT.audit
+	);
+	$effect(() => {
+		if (!active || error) {
+			reportInitialLoad(false);
+			return;
+		}
+		if (!instanceWide && !organizationsLoaded && organizations.length === 0) {
+			reportInitialLoad(true);
+			return;
+		}
+		reportInitialLoad(
+			Boolean(scope.key) && (loadedScopeKey !== scope.key || (loading && !itemsReady))
+		);
+	});
 
 	const resourceOptions = $derived([
 		{ value: '', label: m.settings_audit_all_resources() },

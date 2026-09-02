@@ -54,7 +54,8 @@ describe('shared page states', () => {
 		const screen = await render(PageLoading, {
 			layout,
 			label: 'Loading items',
-			items
+			items,
+			defer: false
 		});
 
 		const loadingItems = screen.container.querySelector(
@@ -131,6 +132,41 @@ describe('shared page states', () => {
 		expect(
 			screen.container.querySelectorAll('[data-slot="page-header-actions"] [data-slot="skeleton"]')
 		).toHaveLength(0);
+	});
+
+	it('mounts loading content once while keeping it hidden behind the page loader', async () => {
+		vi.useFakeTimers();
+		const children = createRawSnippet(() => ({
+			render: () => '<input data-testid="mounted-page-content" value="">'
+		}));
+		const props = {
+			title: 'Settings',
+			loading: true,
+			mountWhileLoading: true,
+			loadingMessage: 'Loading settings',
+			children
+		};
+		const screen = await render(PageContainer, props);
+		const mountedInput = screen.container.querySelector<HTMLInputElement>(
+			'[data-testid="mounted-page-content"]'
+		);
+
+		expect(mountedInput).not.toBeNull();
+		await expect.element(screen.getByTestId('mounted-page-content')).not.toBeVisible();
+		if (!mountedInput) throw new Error('Expected mounted page content');
+		mountedInput.value = 'preserved';
+
+		await vi.advanceTimersByTimeAsync(150);
+		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
+		await screen.rerender({ ...props, loading: false });
+
+		const revealedInput = screen.container.querySelector<HTMLInputElement>(
+			'[data-testid="mounted-page-content"]'
+		);
+		expect(revealedInput).toBe(mountedInput);
+		expect(revealedInput?.value).toBe('preserved');
+		await expect.element(screen.getByTestId('mounted-page-content')).toBeVisible();
+		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
 	});
 
 	it('keeps an empty-state action attached to a correctly nested heading', async () => {

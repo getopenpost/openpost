@@ -16,6 +16,10 @@
 	} from '@openpost/query-catalog';
 	import { adminQueryAPI } from '$lib/query/admin';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let { userID, active }: { userID: string; active: boolean } = $props();
 	let authorizationError = $state('');
@@ -28,6 +32,10 @@
 		active && Boolean(userID) && !authorizationError && updateStatusQuery.isPending
 	);
 	const error = $derived(authorizationError || updateStatusQuery.error?.message || '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceStatus
+	);
+	$effect(() => reportInitialLoad(loading && !status));
 
 	$effect(() => {
 		const cause = updateStatusQuery.error;

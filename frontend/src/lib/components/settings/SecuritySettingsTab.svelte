@@ -43,6 +43,10 @@
 		type SecurityStatus
 	} from '../../../routes/settings/settings-data';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
@@ -115,6 +119,14 @@
 	const securityDataReady = $derived(
 		securityStatusReady && linkedIdentitiesReady && linkableProvidersReady && emailChangeReady
 	);
+	const reportSecurityInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.security
+	);
+	const reportAuthSessionsInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.authSessions
+	);
+	$effect(() => reportSecurityInitialLoad(loadingSecurity && !securityDataReady));
+	$effect(() => reportAuthSessionsInitialLoad(authSessionsLoading && !authSessionsReady));
 	const passwordReauthUsable = $derived(securityStatus?.user.password_usable ?? false);
 	const reauthProviderID = $derived(activeReauthProviderID(linkedIdentities));
 	const unlinkedProviders = $derived(

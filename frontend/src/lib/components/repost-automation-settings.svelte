@@ -3,6 +3,10 @@
 	import { client } from '$lib/api/client';
 	import { repostAutomationQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -46,6 +50,8 @@
 	let saveError = $state('');
 	let savedSnapshot = $state('[]');
 	let loadedWorkspaceID = $state('');
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.reposts);
+	$effect(() => reportInitialLoad(loading && !settings));
 	let grantToRevoke = $state.raw<RepostGrant | null>(null);
 	let revokeDialogOpen = $state(false);
 

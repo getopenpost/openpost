@@ -39,6 +39,10 @@
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import { getSettingsDestination, normalizeSettingsTab } from '$lib/settings-navigation';
+	import {
+		getSettingsInitialLoadPlan,
+		provideSettingsInitialLoadBoundary
+	} from '$lib/settings-initial-load.svelte';
 	import { auth } from '$lib/stores/auth';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -83,6 +87,23 @@
 	const workspaceSettingsRequired = $derived(
 		activeSettingsTab === 'general' || activeSettingsTab === 'schedule'
 	);
+	const settingsInitialLoadPlan = $derived(
+		getSettingsInitialLoadPlan(activeSettingsTab, {
+			userID: authState.user?.id ?? '',
+			workspaceID: workspaceCtx.currentWorkspace?.id ?? '',
+			organizationID: workspaceCtx.currentWorkspace?.organization_id ?? '',
+			preferredOrganizationID: page.url.searchParams.get('organization') ?? ''
+		})
+	);
+	const settingsInitialLoad = provideSettingsInitialLoadBoundary(() => settingsInitialLoadPlan);
+	const workspaceSettingsInitialLoading = $derived(
+		workspaceSettingsRequired &&
+			!workspaceCtx.settingsError &&
+			(!workspaceCtx.currentWorkspace || workspaceCtx.settingsLoading)
+	);
+	const settingsLoading = $derived(workspaceSettingsInitialLoading || settingsInitialLoad.loading);
+
+	$effect.pre(() => settingsInitialLoad.activate(settingsInitialLoadPlan));
 
 	async function refreshMembershipBootstrap() {
 		const actorID = authState.user?.id ?? '';
@@ -178,13 +199,14 @@
 	title={activeSettingsTitle}
 	description={activeSettingsDescription}
 	icon={SettingsIcon}
-	loading={workspaceSettingsRequired &&
-		activeSettingsTab !== 'audit' &&
-		(!workspaceCtx.currentWorkspace || workspaceCtx.settingsLoading)}
-	loadingMessage={m.settings_loading_workspace()}
+	loading={settingsLoading}
+	loadingMessage={workspaceSettingsInitialLoading
+		? m.settings_loading_workspace()
+		: m.common_loading()}
 	loadingLayout="settings"
 	loadingVariant={settingsLoadingVariant}
 	loadingItems={8}
+	mountWhileLoading
 >
 	{#if workspaceSettingsRequired && workspaceCtx.settingsError && activeSettingsTab !== 'audit'}
 		<InlineNotice tone="error" message={m.settings_workspace_load_failed()}>

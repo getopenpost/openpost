@@ -24,6 +24,10 @@
 	import OrganizationDeleteDialog from '$lib/components/organization-delete-dialog.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import { showToast } from '$lib/toast';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 
@@ -75,6 +79,21 @@
 	const passwordUsable = $derived(security?.user.password_usable ?? false);
 	const passkeyAvailable = $derived((security?.passkeys?.length ?? 0) > 0);
 	const providerID = $derived(identities.find((identity) => identity.active)?.provider_id ?? '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.ownership
+	);
+	$effect(() =>
+		reportInitialLoad(
+			Boolean(
+				active &&
+				((!organizationsReady && !organizationListError) ||
+					(organizationsReady &&
+						organizationID &&
+						!error &&
+						(displayedOrganizationID !== organizationID || (loading && !pendingStateAvailable))))
+			)
+		)
+	);
 
 	$effect(() => {
 		const preferredID = preferredOrganizationID;

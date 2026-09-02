@@ -37,6 +37,10 @@
 		normalizeOrganizationAPITokenMode,
 		type OrganizationAPITokenMode
 	} from '$lib/components/organization-sso-policy';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Provider = components['schemas']['OIDCProviderAdminResponse'];
 	type Policy = components['schemas']['Policy'];
@@ -61,6 +65,10 @@
 	let loadSequence = 0;
 	let mutationSequence = 0;
 	let mutationScope = '';
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.sso);
+	$effect(() =>
+		reportInitialLoad(Boolean(active && organizationID && !error && loadedKey !== organizationID))
+	);
 	const blankProviderForm = {
 		providerID: '',
 		providerName: '',

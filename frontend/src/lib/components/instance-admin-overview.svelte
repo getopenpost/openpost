@@ -15,6 +15,10 @@
 	} from '@openpost/query-catalog';
 	import { adminQueryAPI } from '$lib/query/admin';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let authorizationError = $state('');
 	const overviewQuery = createQuery(() => ({
@@ -24,6 +28,10 @@
 	const overview = $derived(authorizationError ? null : (overviewQuery.data ?? null));
 	const overviewLoading = $derived(!authorizationError && overviewQuery.isPending);
 	const overviewError = $derived(authorizationError || overviewQuery.error?.message || '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceOverview
+	);
+	$effect(() => reportInitialLoad(overviewLoading && !overview));
 
 	$effect(() => {
 		const cause = overviewQuery.error;

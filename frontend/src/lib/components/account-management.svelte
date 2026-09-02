@@ -64,6 +64,10 @@
 	import { featureQueryAPI } from '$lib/query/features';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type ProviderEntry = ProviderInfo;
 	let {
@@ -110,6 +114,30 @@
 	let providersLoadError = $state('');
 	let providersWorkspaceID = '';
 	let providersRequestSequence = 0;
+	const reportAccountsInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.accounts
+	);
+	const reportAccountProvidersInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.accountProviders
+	);
+	$effect(() =>
+		reportAccountsInitialLoad(
+			Boolean(
+				selectedWorkspaceId &&
+				!accountsLoadError &&
+				(accountsWorkspaceID !== selectedWorkspaceId || (accountsLoading && !accountsReady))
+			)
+		)
+	);
+	$effect(() =>
+		reportAccountProvidersInitialLoad(
+			Boolean(
+				selectedWorkspaceId &&
+				!providersLoadError &&
+				(providersWorkspaceID !== selectedWorkspaceId || (providersLoading && !providersReady))
+			)
+		)
+	);
 	let mastodonModalOpen = $state(false);
 	let customMastodonInstance = $state('');
 	let customMastodonLoading = $state(false);

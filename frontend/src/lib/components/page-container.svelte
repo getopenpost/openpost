@@ -28,6 +28,8 @@
 		loadingItems?: number;
 		/** Number of controls represented in the loading header */
 		loadingActionCount?: number;
+		/** Mount content during its first load so child reads can start behind the page placeholder */
+		mountWhileLoading?: boolean;
 		/** Render only the content when the page is embedded in another shell */
 		embedded?: boolean;
 		/** Page content */
@@ -45,6 +47,7 @@
 		loadingVariant = 'profile',
 		loadingItems = 4,
 		loadingActionCount = 2,
+		mountWhileLoading = false,
 		embedded = false,
 		children
 	}: Props = $props();
@@ -54,16 +57,31 @@
 
 {#if embedded}
 	<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
-		{#if loading && loadingPlaceholder.current}
-			<PageLoading
-				layout={loadingLayout}
-				variant={loadingVariant}
-				label={loadingMessage}
-				items={loadingItems}
-				defer={false}
-			/>
-		{:else if !loading}
-			{@render children()}
+		{#if mountWhileLoading}
+			{#if loading && loadingPlaceholder.current}
+				<PageLoading
+					layout={loadingLayout}
+					variant={loadingVariant}
+					label={loadingMessage}
+					items={loadingItems}
+					defer={false}
+				/>
+			{/if}
+			<div data-slot="page-mounted-content" class="min-w-0" hidden={loading}>
+				{@render children()}
+			</div>
+		{:else}
+			{#if loading && loadingPlaceholder.current}
+				<PageLoading
+					layout={loadingLayout}
+					variant={loadingVariant}
+					label={loadingMessage}
+					items={loadingItems}
+					defer={false}
+				/>
+			{:else if !loading}
+				{@render children()}
+			{/if}
 		{/if}
 	</div>
 {:else}
@@ -83,16 +101,31 @@
 		/>
 
 		<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
-			{#if loading && loadingPlaceholder.current}
-				<PageLoading
-					layout={loadingLayout}
-					variant={loadingVariant}
-					label={loadingMessage}
-					items={loadingItems}
-					defer={false}
-				/>
-			{:else if !loading}
-				{@render children()}
+			{#if mountWhileLoading}
+				{#if loading && loadingPlaceholder.current}
+					<PageLoading
+						layout={loadingLayout}
+						variant={loadingVariant}
+						label={loadingMessage}
+						items={loadingItems}
+						defer={false}
+					/>
+				{/if}
+				<div data-slot="page-mounted-content" class="min-w-0" hidden={loading}>
+					{@render children()}
+				</div>
+			{:else}
+				{#if loading && loadingPlaceholder.current}
+					<PageLoading
+						layout={loadingLayout}
+						variant={loadingVariant}
+						label={loadingMessage}
+						items={loadingItems}
+						defer={false}
+					/>
+				{:else if !loading}
+					{@render children()}
+				{/if}
 			{/if}
 		</div>
 	</div>

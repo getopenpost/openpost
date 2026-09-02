@@ -29,6 +29,10 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import BellRingIcon from '@lucide/svelte/icons/bell-ring';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type ChannelPreference = components['schemas']['ChannelPreference'];
 	type Preferences = Record<string, ChannelPreference>;
@@ -73,6 +77,10 @@
 			? queryErrorMessage(preferencesQuery.error)
 			: ''
 	);
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications
+	);
+	$effect(() => reportInitialLoad(loading));
 	let appliedPreferences: components['schemas']['PreferenceSettings'] | undefined;
 
 	$effect(() => {

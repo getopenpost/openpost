@@ -36,6 +36,10 @@
 		type MCPActivityItem
 	} from '../../../routes/settings/settings-data';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import TerminalIcon from '@lucide/svelte/icons/terminal';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
@@ -88,6 +92,14 @@
 	const mcpActivityReady = $derived(
 		Boolean(authState.user?.id) && loadedMCPActivityUserID === authState.user?.id
 	);
+	const reportAPITokensInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.apiTokens
+	);
+	const reportMCPActivityInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.mcpActivity
+	);
+	$effect(() => reportAPITokensInitialLoad(apiTokensLoading && !apiTokensReady));
+	$effect(() => reportMCPActivityInitialLoad(mcpActivityLoading && !mcpActivityReady));
 
 	function notify(message: string, tone: 'success' | 'error' = 'success') {
 		showToast(message, tone);

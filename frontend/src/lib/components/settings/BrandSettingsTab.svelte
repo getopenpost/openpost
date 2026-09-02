@@ -9,6 +9,10 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let { workspaceID, active }: { workspaceID: string; active: boolean } = $props();
 	const brandQuery = createQuery(() => ({
@@ -24,6 +28,8 @@
 				: m.media_hub_load_failed()
 			: ''
 	);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.brand);
+	$effect(() => reportInitialLoad(loading));
 </script>
 
 {#if error}

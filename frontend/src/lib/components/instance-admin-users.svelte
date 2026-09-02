@@ -48,6 +48,10 @@
 	import { adminQueryAPI } from '$lib/query/admin';
 	import { queryClient } from '$lib/query/client';
 	import { auth } from '$lib/stores/auth';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type InstanceUser = components['schemas']['InstanceUserResponse'];
 	type InstanceUserSort =
@@ -120,6 +124,10 @@
 		!authorizationError && (usersQuery.isFetching || usersQuery.isPending)
 	);
 	const usersError = $derived(authorizationError || usersQuery.error?.message || '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceUsers
+	);
+	$effect(() => reportInitialLoad(usersLoading && !users));
 	const rowActionsDisabled = $derived(
 		Boolean(authorizationError) || usersQuery.isPlaceholderData || usersQuery.isFetching
 	);

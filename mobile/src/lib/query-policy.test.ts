@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { onlineManager, QueryClient, QueryObserver } from "@tanstack/react-query";
-import type { QueryPageResult } from "@openpost/query-catalog";
+import {
+  liveQueryStaleTime,
+  openPostQueryDefaults,
+  openPostQueryPolicy,
+  queryStaleTime,
+  type QueryPageResult,
+} from "@openpost/query-catalog";
 
 import {
   capturePublicationListCacheContext,
@@ -15,10 +21,8 @@ import {
   createOpenPostQueryError,
   networkStateIsOnline,
   OpenPostQueryError,
-  publicationQueryPolicy,
   publicationRefreshKeys,
   queryKeys,
-  queryPolicies,
   shouldRetryQuery,
 } from "./query-policy";
 import {
@@ -33,6 +37,12 @@ import {
   subscribeQueryActor,
   workspaceQueryScopeIsCurrent,
 } from "./query-session";
+
+const standardQueryPolicy = openPostQueryPolicy(queryStaleTime);
+const liveQueryPolicy = {
+  ...openPostQueryPolicy(liveQueryStaleTime),
+  refetchOnWindowFocus: true,
+};
 
 describe("mobile query keys", () => {
   test("keeps workspace data and request dimensions in canonical keys", () => {
@@ -136,13 +146,15 @@ describe("mobile query keys", () => {
 
 describe("mobile query policy", () => {
   test("runs consequential mutations once instead of queuing them for reconnect", async () => {
-    expect(queryPolicies.mutations).toEqual({
+    expect(openPostQueryDefaults.mutations).toEqual({
       networkMode: "always",
       retry: false,
       throwOnError: false,
     });
 
-    const client = new QueryClient({ defaultOptions: { mutations: queryPolicies.mutations } });
+    const client = new QueryClient({
+      defaultOptions: { mutations: openPostQueryDefaults.mutations },
+    });
     let calls = 0;
     const mutation = client.getMutationCache().build(client, {
       mutationFn: async () => {
@@ -160,24 +172,6 @@ describe("mobile query policy", () => {
       await execution;
       client.clear();
     }
-  });
-
-  test("uses explicit ordinary, reference, and live freshness", () => {
-    expect(queryPolicies.standard.staleTime).toBe(30_000);
-    expect(queryPolicies.reference.staleTime).toBe(300_000);
-    expect(queryPolicies.live.staleTime).toBe(15_000);
-    expect(queryPolicies.standard.refetchOnWindowFocus).toBe(false);
-    expect(queryPolicies.live.refetchOnWindowFocus).toBe(true);
-  });
-
-  test("opts only named publication detail reads into live refresh", () => {
-    const standard = publicationQueryPolicy("standard");
-    const live = publicationQueryPolicy("live");
-
-    expect(standard.staleTime).toBe(30_000);
-    expect(standard.refetchOnWindowFocus).toBe(false);
-    expect(live.staleTime).toBe(15_000);
-    expect(live.refetchOnWindowFocus).toBe(true);
   });
 
   test("retries one transient read but not cancelled or ordinary client failures", () => {
@@ -229,7 +223,7 @@ describe("query cache behavior", () => {
       release = resolve;
     });
     const options = {
-      ...queryPolicies.standard,
+      ...standardQueryPolicy,
       queryKey: queryKeys.publicationActivity("workspace-1", "draft"),
       queryFn: async () => {
         calls += 1;
@@ -257,7 +251,7 @@ describe("query cache behavior", () => {
     const queryFn = async () => cached;
     client.setQueryData(workspaceOneKey, cached);
     const observer = new QueryObserver(client, {
-      ...queryPolicies.standard,
+      ...standardQueryPolicy,
       enabled: false,
       queryKey: workspaceOneKey,
       queryFn,
@@ -266,7 +260,7 @@ describe("query cache behavior", () => {
 
     expect(observer.getCurrentResult().data).toEqual(cached);
     observer.setOptions({
-      ...queryPolicies.standard,
+      ...standardQueryPolicy,
       enabled: false,
       queryKey: workspaceTwoKey,
       queryFn,
@@ -286,7 +280,7 @@ describe("query cache behavior", () => {
       markStarted = resolve;
     });
     const observer = new QueryObserver<Publication[], OpenPostQueryError>(client, {
-      ...queryPolicies.live,
+      ...liveQueryPolicy,
       queryKey: queryKeys.calendarRange("workspace-1", "2026-09-01", "2026-10-01"),
       queryFn: ({ signal }) => {
         requestSignal = signal;
@@ -313,7 +307,7 @@ describe("query cache behavior", () => {
     client.setQueryData(queryKey, cached, { updatedAt: 1 });
     let calls = 0;
     const observer = new QueryObserver<Publication[], OpenPostQueryError>(client, {
-      ...queryPolicies.live,
+      ...liveQueryPolicy,
       queryKey,
       queryFn: async () => {
         calls += 1;
@@ -398,7 +392,7 @@ describe("publication cache handoff", () => {
     client.setQueryData(draftKey, publicationPage(existing), { updatedAt: 1 });
     await client.cancelQueries({ queryKey: draftKey, exact: true });
     const observer = new QueryObserver<QueryPageResult<Publication>, OpenPostQueryError>(client, {
-      ...queryPolicies.standard,
+      ...standardQueryPolicy,
       staleTime: 0,
       queryKey: draftKey,
       queryFn: ({ signal }) => {

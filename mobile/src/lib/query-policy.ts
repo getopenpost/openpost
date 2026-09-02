@@ -1,16 +1,11 @@
 import {
   createOpenPostQueryError,
-  liveQueryStaleTime,
   OpenPostQueryError,
   openPostBootstrapQueryKeys,
-  openPostQueryDefaults,
   openPostQueryKeys,
-  openPostQueryPolicy,
   openPostWorkspaceKey,
   publicationRefreshKeys,
-  queryStaleTime,
   shouldRetryQuery,
-  stableQueryStaleTime,
   type ActivityPublicationBucket,
   type PublicationRefreshRequest,
   type QueryPage,
@@ -55,20 +50,6 @@ export const queryKeys = {
   accounts: openPostQueryKeys.accounts,
   socialSets: openPostQueryKeys.socialSets,
 };
-
-export const queryPolicies = {
-  standard: openPostQueryPolicy(queryStaleTime),
-  reference: openPostQueryPolicy(stableQueryStaleTime),
-  live: {
-    ...openPostQueryPolicy(liveQueryStaleTime),
-    refetchOnWindowFocus: true,
-  },
-  mutations: openPostQueryDefaults.mutations,
-};
-
-export function publicationQueryPolicy(freshness: PublicationFreshness) {
-  return queryPolicies[freshness];
-}
 
 export function networkStateIsOnline(state: {
   isConnected?: boolean;

@@ -5,7 +5,6 @@ import {
   queryStaleTime,
   workspaceAccountsQueryOptions,
 } from "@openpost/query-catalog";
-import { QueryClient } from "@tanstack/react-query";
 
 mock.module("expo-secure-store", () => ({
   getItemAsync: async () => null,
@@ -17,14 +16,13 @@ const { accountsOptions, publicationActivityOptions } = await import("./queries"
 
 describe("shared query definition parity", () => {
   test("uses the canonical keys and freshness for mobile publications and accounts", () => {
-    const client = new QueryClient();
     const sharedScheduled = activityPublicationsQueryOptions(
       { listActivityPublications: async () => ({ items: [], total: 0, nextCursor: "" }) },
       "workspace-1",
       "scheduled",
       { limit: 100 },
     );
-    const mobileScheduled = publicationActivityOptions(client, "workspace-1", "scheduled");
+    const mobileScheduled = publicationActivityOptions("workspace-1", "scheduled");
     expect(mobileScheduled.queryKey as readonly unknown[]).toEqual(
       sharedScheduled.queryKey as readonly unknown[],
     );

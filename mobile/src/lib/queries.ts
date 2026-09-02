@@ -50,11 +50,7 @@ export function workspacesOptions() {
   });
 }
 
-export function publicationActivityOptions(
-  _queryClient: QueryClient,
-  workspaceId: string,
-  activity: PublicationActivity,
-) {
+export function publicationActivityOptions(workspaceId: string, activity: PublicationActivity) {
   return queryOptions({
     ...activityPublicationsQueryOptions(
       mobileQueryAPI,
@@ -66,12 +62,7 @@ export function publicationActivityOptions(
   });
 }
 
-export function calendarOptions(
-  _queryClient: QueryClient,
-  workspaceId: string,
-  from: string,
-  before: string,
-) {
+export function calendarOptions(workspaceId: string, from: string, before: string) {
   return queryOptions({
     ...calendarPublicationsQueryOptions(mobileQueryAPI, workspaceId, {
       from,
@@ -131,19 +122,17 @@ export function useWorkspaces() {
 }
 
 export function usePublications(activity: PublicationActivity) {
-  const queryClient = useQueryClient();
   const workspaceId = useWorkspaceId();
   return useQuery({
-    ...publicationActivityOptions(queryClient, workspaceId ?? "", activity),
+    ...publicationActivityOptions(workspaceId ?? "", activity),
     enabled: Boolean(workspaceId),
   });
 }
 
 export function useCalendarPublications(from: string, before: string) {
-  const queryClient = useQueryClient();
   const workspaceId = useWorkspaceId();
   return useQuery({
-    ...calendarOptions(queryClient, workspaceId ?? "", from, before),
+    ...calendarOptions(workspaceId ?? "", from, before),
     enabled: Boolean(workspaceId),
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[3] === workspaceId ? previousData : undefined,

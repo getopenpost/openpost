@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type ImageStyle,
   type StyleProp,
@@ -19,8 +23,11 @@ import {
   actionPresentation,
   buttonRadius,
   cardPresentation,
+  emptyStatePresentation,
   inputPresentation,
+  loadingStatePresentation,
   NATIVE_CONTROL_METRICS,
+  sidebarDecorationWidth,
   themeAssetFor,
   type NativeActionIntent,
   type NativeColorRoles,
@@ -47,11 +54,18 @@ export function Screen({
 }) {
   const theme = useNativeTheme();
   const colors = theme.manifest.colors;
+  const { width: viewportWidth } = useWindowDimensions();
   const edges: Edge[] = safeTop ? ["top", "left", "right"] : ["left", "right"];
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.background }}>
       <ThemeAsset slot="background-texture" contentFit="cover" style={StyleSheet.absoluteFill} />
-      <ThemeAsset slot="sidebar-decoration" style={styles.sidebarDecoration} />
+      <ThemeAsset
+        slot="sidebar-decoration"
+        style={[
+          styles.sidebarDecoration,
+          { width: sidebarDecorationWidth(theme.manifest, viewportWidth) },
+        ]}
+      />
       <ThemeAsset
         slot="header-decoration"
         style={[styles.headerDecoration, { height: theme.manifest.shell.headerHeight }]}
@@ -272,16 +286,89 @@ export function ThemeAsset({
 export function LoadingState({ label }: { label?: string }) {
   const theme = useNativeTheme();
   const illustration = themeAssetFor(theme, "loading-illustration");
+  const presentation = loadingStatePresentation(theme.manifest);
+  const reduceMotion = useReduceMotion();
+  const [opacity] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    opacity.stopAnimation();
+    opacity.setValue(1);
+    if (presentation.kind === "spinner" || reduceMotion || presentation.animationDuration === 0) {
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          duration: presentation.animationDuration,
+          toValue: 0.42,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          duration: presentation.animationDuration,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity, presentation.animationDuration, presentation.kind, reduceMotion]);
+
   return (
     <View
+      accessible
+      accessibilityLabel={label ?? "Loading"}
       accessibilityLiveRegion="polite"
       accessibilityRole="progressbar"
-      style={[styles.state, { gap: theme.manifest.spacing.medium }]}
+      style={[
+        styles.state,
+        {
+          gap: theme.manifest.spacing.medium,
+          padding: theme.manifest.spacing.large,
+        },
+      ]}
     >
       {illustration ? (
         <ThemeAsset slot="loading-illustration" style={styles.stateIllustration} />
-      ) : (
+      ) : null}
+      {presentation.kind === "spinner" ? (
         <ActivityIndicator color={theme.manifest.colors.primary} />
+      ) : presentation.kind === "pulse" ? (
+        <Animated.View
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.loadingPulse,
+            {
+              backgroundColor: theme.manifest.colors.primaryContainer,
+              borderRadius: theme.manifest.shape.full,
+              opacity,
+            },
+          ]}
+        />
+      ) : (
+        <Animated.View
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.loadingSkeleton, { gap: theme.manifest.spacing.small, opacity }]}
+        >
+          <View
+            style={[
+              styles.skeletonLine,
+              {
+                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
+                borderRadius: theme.manifest.shape.small,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.skeletonBlock,
+              {
+                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
+                borderRadius: theme.manifest.shape.medium,
+              },
+            ]}
+          />
+        </Animated.View>
       )}
       {label ? <BodyText>{label}</BodyText> : null}
     </View>
@@ -290,24 +377,37 @@ export function LoadingState({ label }: { label?: string }) {
 
 export function EmptyState({ body, title }: { body?: string; title: string }) {
   const theme = useNativeTheme();
-  const recipe = theme.manifest.components.emptyState;
+  const presentation = emptyStatePresentation(theme.manifest);
   const illustration = themeAssetFor(theme, "empty-state-illustration");
   return (
     <View
       style={[
         styles.state,
         {
-          backgroundColor: recipe === "framed" ? theme.manifest.colors.surface : "transparent",
+          backgroundColor: presentation.framed ? theme.manifest.colors.surface : "transparent",
           borderColor: theme.manifest.colors.outlineVariant,
           borderRadius: theme.manifest.shape.medium,
-          borderWidth: recipe === "framed" ? 1 : 0,
+          borderWidth: presentation.framed ? 1 : 0,
           gap: theme.manifest.spacing.small,
           padding: theme.manifest.spacing.large,
         },
       ]}
     >
-      {illustration ? (
+      {presentation.illustrated && illustration ? (
         <ThemeAsset slot="empty-state-illustration" style={styles.stateIllustration} />
+      ) : presentation.illustrated ? (
+        <View
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.emptyStateFallback,
+            {
+              backgroundColor: theme.manifest.colors.primaryContainer,
+              borderRadius: theme.manifest.shape.large,
+            },
+          ]}
+        >
+          <ThemeIcon role="drafts" size={36} tintColor={theme.manifest.colors.onPrimaryContainer} />
+        </View>
       ) : null}
       <ContentTitle style={styles.stateText}>{title}</ContentTitle>
       {body ? <BodyText style={styles.stateText}>{body}</BodyText> : null}
@@ -447,4 +547,44 @@ const styles = StyleSheet.create({
   stateText: {
     textAlign: "center",
   },
+  loadingPulse: {
+    height: 48,
+    width: 48,
+  },
+  loadingSkeleton: {
+    maxWidth: 360,
+    width: "100%",
+  },
+  skeletonLine: {
+    height: 18,
+    width: "62%",
+  },
+  skeletonBlock: {
+    height: 72,
+    width: "100%",
+  },
+  emptyStateFallback: {
+    alignItems: "center",
+    height: 72,
+    justifyContent: "center",
+    width: 72,
+  },
 });
+
+function useReduceMotion(): boolean {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (current) setReduceMotion(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => {
+      current = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduceMotion;
+}

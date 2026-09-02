@@ -4,7 +4,6 @@ import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   RefreshControl,
@@ -22,7 +21,9 @@ import {
   Button,
   Card,
   ContentTitle,
+  EmptyState,
   IconButton,
+  LoadingState,
   PageTitle,
   Screen,
   TextField,
@@ -290,9 +291,7 @@ export default function DraftsScreen() {
           />
         }
       >
-        {drafts.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
-        ) : null}
+        {drafts.isLoading ? <LoadingState label="Loading drafts" /> : null}
         {drafts.isError ? (
           <Card style={styles.error}>
             <ContentTitle>Could not load drafts</ContentTitle>
@@ -305,11 +304,10 @@ export default function DraftsScreen() {
           </Card>
         ) : null}
         {list.length === 0 && !drafts.isLoading && !drafts.isError ? (
-          <Card style={styles.empty}>
-            <BodyText style={{ textAlign: "center" }}>
-              No drafts yet. Capture an idea above. It saves at once and opens in the composer.
-            </BodyText>
-          </Card>
+          <EmptyState
+            title="No drafts yet"
+            body="Capture an idea above. It saves at once and opens in the composer."
+          />
         ) : null}
         {list.map((draft) => (
           <DraftRow key={draft.id} draft={draft} />
@@ -484,9 +482,6 @@ const styles = StyleSheet.create({
   captureActions: {
     alignItems: "center",
     flexDirection: "row",
-  },
-  empty: {
-    marginTop: 16,
   },
   error: {
     gap: 10,

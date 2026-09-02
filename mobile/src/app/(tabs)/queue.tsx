@@ -1,14 +1,6 @@
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -17,6 +9,8 @@ import {
   Button,
   Card,
   ContentTitle,
+  EmptyState,
+  LoadingState,
   PageTitle,
   Screen,
   StatusBadge,
@@ -125,9 +119,7 @@ export default function QueueScreen() {
           />
         }
       >
-        {scheduled.isLoading || failed.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
-        ) : null}
+        {scheduled.isLoading || failed.isLoading ? <LoadingState label="Loading queue" /> : null}
         {actionError ? (
           <BodyText
             accessibilityRole="alert"
@@ -149,9 +141,7 @@ export default function QueueScreen() {
             />
           ))}
           {(failed.data?.length ?? 0) === 0 && !failed.isLoading && !failed.isError ? (
-            <Card>
-              <BodyText style={{ textAlign: "center" }}>No failed posts.</BodyText>
-            </Card>
+            <EmptyState title="No failed posts" />
           ) : null}
         </Section>
 
@@ -161,9 +151,7 @@ export default function QueueScreen() {
             <QueueRow key={publication.id} publication={publication} />
           ))}
           {(scheduled.data?.length ?? 0) === 0 && !scheduled.isLoading && !scheduled.isError ? (
-            <Card>
-              <BodyText style={{ textAlign: "center" }}>Nothing scheduled yet.</BodyText>
-            </Card>
+            <EmptyState title="Nothing scheduled yet" />
           ) : null}
         </Section>
       </ScrollView>

@@ -1,6 +1,14 @@
 import { Redirect, router, Stack } from "expo-router";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BodyText, Card, IconButton, Screen, SectionHeader } from "@/components/ui";
@@ -14,6 +22,7 @@ import {
 import { errorHaptic, selectionHaptic } from "@/lib/haptics";
 import { getServer, subscribeServer } from "@/lib/server";
 import {
+  appearanceLayoutPresentation,
   getThemePreference,
   saveThemePreference,
   subscribeThemePreference,
@@ -46,6 +55,7 @@ export default function AppearanceScreen() {
   const preference = useSyncExternalStore(subscribeThemePreference, getThemePreference);
   const settings = useNativeThemeSettings();
   const insets = useSafeAreaInsets();
+  const appearanceLayout = appearanceLayoutPresentation(useWindowDimensions().fontScale);
   const server = useSyncExternalStore(subscribeServer, getServer);
   const token = useSyncExternalStore(subscribeToken, getToken);
   const workspaceId = useSyncExternalStore(subscribeWorkspaceId, getWorkspaceId);
@@ -96,193 +106,220 @@ export default function AppearanceScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={[
-          styles.header,
-          {
-            gap: spacing.small,
-            paddingBottom: spacing.medium,
-            paddingHorizontal: spacing.large,
-            paddingTop: spacing.medium,
-          },
-        ]}
-      >
-        <IconButton label="Back" role="back" onPress={() => router.back()} />
-        <View style={styles.headerCopy}>
-          <Text
-            accessibilityRole="header"
-            style={[typography.titleLarge, { color: colors.onSurface }]}
-          >
-            Appearance
-          </Text>
-          <BodyText>Choose how OpenPost looks on this device.</BodyText>
-        </View>
-      </View>
-
       <ScrollView
         contentContainerStyle={[
           {
-            gap: spacing.extraLarge,
             paddingBottom: Math.max(48, insets.bottom + spacing.large),
             paddingHorizontal: spacing.large,
           },
         ]}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <ThemePreview />
-
-        <View>
-          <SectionHeader label="Color scheme" />
-          <View accessibilityLabel="Color scheme" accessibilityRole="radiogroup">
-            <Card style={styles.optionList}>
-              {APPEARANCE_OPTIONS.map((option, index) => {
-                const selected = preference === option.value;
-                const pending = preferencePending === option.value;
-                return (
-                  <Pressable
-                    accessibilityLabel={`${option.label}. ${option.description}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{
-                      checked: selected,
-                      busy: pending,
-                      disabled: Boolean(preferencePending),
-                    }}
-                    disabled={Boolean(preferencePending)}
-                    key={option.value}
-                    onPress={() => void chooseAppearance(option.value)}
-                    style={({ pressed }) => [
-                      styles.optionRow,
-                      { minHeight: Math.max(52, spacing.doubleExtraLarge) },
-                      index > 0 && {
-                        borderTopColor: colors.outlineVariant,
-                        borderTopWidth: StyleSheet.hairlineWidth,
-                      },
-                      pressed && { backgroundColor: colors.surfaceContainer },
-                    ]}
-                  >
-                    <View style={styles.optionCopy}>
-                      <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
-                        {option.label}
-                      </Text>
-                      <BodyText>{option.description}</BodyText>
-                    </View>
-                    {pending ? (
-                      <ActivityIndicator color={colors.primary} />
-                    ) : selected ? (
-                      <View
-                        style={[
-                          styles.check,
-                          {
-                            backgroundColor: colors.primary,
-                            borderRadius: shape.full,
-                          },
-                        ]}
-                      >
-                        <ThemeIcon role="check" size={18} tintColor={colors.onPrimary} />
-                      </View>
-                    ) : (
-                      <View
-                        style={[
-                          styles.radio,
-                          {
-                            borderColor: colors.outline,
-                            borderRadius: shape.full,
-                          },
-                        ]}
-                      />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </Card>
-          </View>
-          {preferenceError ? (
-            <BodyText
-              accessibilityRole="alert"
-              style={{ color: colors.error, marginTop: spacing.small }}
-            >
-              {preferenceError}
-            </BodyText>
-          ) : null}
-        </View>
-
-        <View>
-          <SectionHeader label="Workspace theme" />
-          <Card
-            style={{
-              gap: spacing.medium,
-              paddingVertical: spacing.large,
-            }}
+        <View
+          style={[
+            styles.header,
+            appearanceLayout.stackContent && styles.stackedContentRow,
+            {
+              gap: spacing.small,
+              paddingBottom: spacing.medium,
+              paddingTop: spacing.medium,
+            },
+          ]}
+        >
+          <IconButton label="Back" role="back" onPress={() => router.back()} />
+          <View
+            style={[styles.headerCopy, appearanceLayout.stackContent && styles.stackedContentCopy]}
           >
-            <View style={[styles.themeSummary, { gap: spacing.medium }]}>
-              <ThemeSwatches colors={[colors.primary, colors.surfaceContainer, colors.onSurface]} />
-              <View style={styles.optionCopy}>
-                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-                  {theme.displayName}
-                </Text>
-                <BodyText>{currentThemeNote}</BodyText>
-              </View>
-            </View>
-            {settings?.locked ? (
-              <View
-                style={[
-                  styles.notice,
-                  {
-                    backgroundColor: colors.surfaceContainer,
-                    borderRadius: shape.small,
-                  },
-                ]}
-              >
-                <ThemeIcon role="workspace" size={20} tintColor={colors.onSurfaceVariant} />
-                <BodyText style={styles.noticeCopy}>
-                  Your organization uses one theme in every workspace.
-                </BodyText>
-              </View>
-            ) : settings && !settings.canManageWorkspace ? (
-              <BodyText>Ask a workspace admin to choose a different published theme.</BodyText>
-            ) : null}
-            <BodyText>Create and edit themes in OpenPost on the web.</BodyText>
-          </Card>
+            <Text
+              accessibilityRole="header"
+              lineBreakStrategyIOS="push-out"
+              maxFontSizeMultiplier={2}
+              style={[typography.titleLarge, { color: colors.onSurface }]}
+              textBreakStrategy="balanced"
+            >
+              Appearance
+            </Text>
+            <BodyText>Choose how OpenPost looks on this device.</BodyText>
+          </View>
         </View>
 
-        {settings && settings.canManageWorkspace && !settings.locked && settings.choices.length ? (
+        <View style={{ gap: spacing.extraLarge }}>
+          <ThemePreview />
+
           <View>
-            <SectionHeader label="Choose a theme" />
-            <View accessibilityLabel="Workspace theme" accessibilityRole="radiogroup">
+            <SectionHeader label="Color scheme" />
+            <View accessibilityLabel="Color scheme" accessibilityRole="radiogroup">
               <Card style={styles.optionList}>
-                {settings.choices.map((choice, index) => (
-                  <ThemeChoiceRow
-                    choice={choice}
-                    index={index}
-                    key={choice.key}
-                    loading={assignmentPending === choice.key}
-                    pending={assignmentPending !== null}
-                    onPress={() => void chooseTheme(choice)}
-                    selected={settings.selectedKey === choice.key}
-                  />
-                ))}
+                {APPEARANCE_OPTIONS.map((option, index) => {
+                  const selected = preference === option.value;
+                  const pending = preferencePending === option.value;
+                  return (
+                    <Pressable
+                      accessibilityLabel={`${option.label}. ${option.description}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{
+                        checked: selected,
+                        busy: pending,
+                        disabled: Boolean(preferencePending),
+                      }}
+                      disabled={Boolean(preferencePending)}
+                      key={option.value}
+                      onPress={() => void chooseAppearance(option.value)}
+                      style={({ pressed }) => [
+                        styles.optionRow,
+                        { minHeight: Math.max(52, spacing.doubleExtraLarge) },
+                        index > 0 && {
+                          borderTopColor: colors.outlineVariant,
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                        },
+                        pressed && { backgroundColor: colors.surfaceContainer },
+                      ]}
+                    >
+                      <View style={styles.optionCopy}>
+                        <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
+                          {option.label}
+                        </Text>
+                        <BodyText>{option.description}</BodyText>
+                      </View>
+                      {pending ? (
+                        <ActivityIndicator color={colors.primary} />
+                      ) : selected ? (
+                        <View
+                          style={[
+                            styles.check,
+                            {
+                              backgroundColor: colors.primary,
+                              borderRadius: shape.full,
+                            },
+                          ]}
+                        >
+                          <ThemeIcon role="check" size={18} tintColor={colors.onPrimary} />
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.radio,
+                            {
+                              borderColor: colors.outline,
+                              borderRadius: shape.full,
+                            },
+                          ]}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
               </Card>
             </View>
-            {settings.inherited ? (
-              <BodyText
-                style={{
-                  marginHorizontal: spacing.extraSmall,
-                  marginTop: spacing.small,
-                }}
-              >
-                This workspace follows the organization default.
-              </BodyText>
-            ) : null}
-            {assignmentError ? (
+            {preferenceError ? (
               <BodyText
                 accessibilityRole="alert"
                 style={{ color: colors.error, marginTop: spacing.small }}
               >
-                {assignmentError}
+                {preferenceError}
               </BodyText>
             ) : null}
           </View>
-        ) : null}
+
+          <View>
+            <SectionHeader label="Workspace theme" />
+            <Card
+              style={{
+                gap: spacing.medium,
+                paddingVertical: spacing.large,
+              }}
+            >
+              <View
+                style={[
+                  styles.themeSummary,
+                  appearanceLayout.stackContent && styles.stackedContentRow,
+                  { gap: spacing.medium },
+                ]}
+              >
+                <ThemeSwatches
+                  colors={[colors.primary, colors.surfaceContainer, colors.onSurface]}
+                />
+                <View
+                  style={[
+                    styles.optionCopy,
+                    appearanceLayout.stackContent && styles.stackedContentCopy,
+                  ]}
+                >
+                  <Text
+                    lineBreakStrategyIOS="push-out"
+                    style={[typography.titleMedium, { color: colors.onSurface }]}
+                    textBreakStrategy="balanced"
+                  >
+                    {theme.displayName}
+                  </Text>
+                  <BodyText>{currentThemeNote}</BodyText>
+                </View>
+              </View>
+              {settings?.locked ? (
+                <View
+                  style={[
+                    styles.notice,
+                    {
+                      backgroundColor: colors.surfaceContainer,
+                      borderRadius: shape.small,
+                    },
+                  ]}
+                >
+                  <ThemeIcon role="workspace" size={20} tintColor={colors.onSurfaceVariant} />
+                  <BodyText style={styles.noticeCopy}>
+                    Your organization uses one theme in every workspace.
+                  </BodyText>
+                </View>
+              ) : settings && !settings.canManageWorkspace ? (
+                <BodyText>Ask a workspace admin to choose a different published theme.</BodyText>
+              ) : null}
+              <BodyText>Create and edit themes in OpenPost on the web.</BodyText>
+            </Card>
+          </View>
+
+          {settings &&
+          settings.canManageWorkspace &&
+          !settings.locked &&
+          settings.choices.length ? (
+            <View>
+              <SectionHeader label="Choose a theme" />
+              <View accessibilityLabel="Workspace theme" accessibilityRole="radiogroup">
+                <Card style={styles.optionList}>
+                  {settings.choices.map((choice, index) => (
+                    <ThemeChoiceRow
+                      choice={choice}
+                      index={index}
+                      key={choice.key}
+                      loading={assignmentPending === choice.key}
+                      pending={assignmentPending !== null}
+                      onPress={() => void chooseTheme(choice)}
+                      selected={settings.selectedKey === choice.key}
+                      stackContent={appearanceLayout.stackContent}
+                    />
+                  ))}
+                </Card>
+              </View>
+              {settings.inherited ? (
+                <BodyText
+                  style={{
+                    marginHorizontal: spacing.extraSmall,
+                    marginTop: spacing.small,
+                  }}
+                >
+                  This workspace follows the organization default.
+                </BodyText>
+              ) : null}
+              {assignmentError ? (
+                <BodyText
+                  accessibilityRole="alert"
+                  style={{ color: colors.error, marginTop: spacing.small }}
+                >
+                  {assignmentError}
+                </BodyText>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -321,8 +358,14 @@ function ThemePreview() {
         </View>
       </View>
       <View style={[styles.previewBody, { gap: preview.contentGap }]}>
-        <Text style={[preview.title, { color: colors.onSurface }]}>A clear place to work</Text>
-        <Text style={[preview.body, { color: colors.onSurfaceVariant }]} numberOfLines={2}>
+        <Text
+          lineBreakStrategyIOS="push-out"
+          style={[preview.title, styles.previewText, { color: colors.onSurface }]}
+          textBreakStrategy="balanced"
+        >
+          A clear place to work
+        </Text>
+        <Text style={[preview.body, styles.previewText, { color: colors.onSurfaceVariant }]}>
           Shape drafts, reviews, and publishing around your team.
         </Text>
         <View
@@ -345,7 +388,9 @@ function ThemePreview() {
                 },
               ]}
             />
-            <Text style={[preview.metadata, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[preview.metadata, styles.previewText, { color: colors.onSurfaceVariant }]}
+            >
               Ready to review
             </Text>
           </View>
@@ -400,6 +445,7 @@ function PreviewAction({
       <Text
         style={[
           textStyle,
+          styles.previewActionLabel,
           {
             color: presentation.content,
             textDecorationLine: presentation.underline ? "underline" : "none",
@@ -419,6 +465,7 @@ function ThemeChoiceRow({
   onPress,
   pending,
   selected,
+  stackContent,
 }: {
   choice: NativeThemeChoice;
   index: number;
@@ -426,6 +473,7 @@ function ThemeChoiceRow({
   onPress: () => void;
   pending: boolean;
   selected: boolean;
+  stackContent: boolean;
 }) {
   const theme = useNativeTheme();
   const { colors, shape, typography } = theme.manifest;
@@ -444,6 +492,7 @@ function ThemeChoiceRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.optionRow,
+        stackContent && styles.stackedContentRow,
         index > 0 && {
           borderTopColor: colors.outlineVariant,
           borderTopWidth: StyleSheet.hairlineWidth,
@@ -452,7 +501,7 @@ function ThemeChoiceRow({
       ]}
     >
       <ThemeSwatches colors={swatches} />
-      <View style={styles.optionCopy}>
+      <View style={[styles.optionCopy, stackContent && styles.stackedContentCopy]}>
         <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{choice.name}</Text>
         <BodyText>{description}</BodyText>
       </View>
@@ -538,10 +587,15 @@ const styles = StyleSheet.create({
   previewAction: {
     alignItems: "center",
     justifyContent: "center",
+    maxWidth: "100%",
     minHeight: 36,
     minWidth: 88,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  previewActionLabel: {
+    flexShrink: 1,
+    textAlign: "center",
   },
   previewActions: {
     alignItems: "flex-end",
@@ -551,14 +605,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   previewBody: {
-    flex: 1,
     justifyContent: "center",
   },
   previewCard: {
     borderWidth: StyleSheet.hairlineWidth,
   },
   previewCardHeader: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 7,
   },
@@ -588,7 +641,11 @@ const styles = StyleSheet.create({
   },
   previewStatus: {
     height: 8,
+    marginTop: 4,
     width: 8,
+  },
+  previewText: {
+    flexShrink: 1,
   },
   radio: {
     borderWidth: 2,
@@ -606,6 +663,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: 1,
     width: 54,
+  },
+  stackedContentCopy: {
+    alignSelf: "stretch",
+    flex: 0,
+  },
+  stackedContentRow: {
+    alignItems: "flex-start",
+    flexDirection: "column",
   },
   themeSummary: {
     alignItems: "center",

@@ -1,22 +1,16 @@
 import { router, Stack } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   BodyText,
   Button,
   Card,
   ContentTitle,
+  EmptyState,
   IconButton,
+  LoadingState,
   PageTitle,
   Screen,
   StatusBadge,
@@ -89,6 +83,13 @@ export default function CalendarScreen() {
   const weeks = useMemo(() => calendarWeeks(month), [month]);
 
   const selectedItems = byDay.get(selectedDay) ?? [];
+  const selectedDayTitle = selectedDay
+    ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    : "Select a day";
 
   function shiftMonth(delta: number) {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
@@ -155,9 +156,7 @@ export default function CalendarScreen() {
           />
         }
       >
-        {publications.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
-        ) : null}
+        {publications.isLoading ? <LoadingState label="Loading calendar" /> : null}
         {publications.isError ? (
           <Card style={styles.error}>
             <ContentTitle>Could not load calendar</ContentTitle>
@@ -257,44 +256,41 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        <Card style={[styles.daySheet, { gap: spacing.medium }]}>
-          <ContentTitle>
-            {selectedDay
-              ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })
-              : "Select a day"}
-          </ContentTitle>
-          {selectedItems.length === 0 && !publications.isError ? (
-            <BodyText>Nothing planned.</BodyText>
+        {!publications.isLoading && !publications.isError ? (
+          selectedItems.length === 0 ? (
+            <EmptyState
+              title={selectedDayTitle}
+              body={selectedDay ? "Nothing planned." : "Choose a day to see its posts."}
+            />
           ) : (
-            selectedItems.map((item) => (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/publications/[id]",
-                    params: { id: item.id },
-                  })
-                }
-                style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
-              >
-                <View style={{ flex: 1, gap: spacing.extraSmall }}>
-                  <Text
-                    style={[typography.bodyLarge, { color: colors.onSurface }]}
-                    numberOfLines={2}
-                  >
-                    {item.title}
-                  </Text>
-                  <StatusBadge status={item.status} />
-                </View>
-              </Pressable>
-            ))
-          )}
-        </Card>
+            <Card style={[styles.daySheet, { gap: spacing.medium }]}>
+              <ContentTitle>{selectedDayTitle}</ContentTitle>
+              {selectedItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/publications/[id]",
+                      params: { id: item.id },
+                    })
+                  }
+                  style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
+                >
+                  <View style={{ flex: 1, gap: spacing.extraSmall }}>
+                    <Text
+                      style={[typography.bodyLarge, { color: colors.onSurface }]}
+                      numberOfLines={2}
+                    >
+                      {item.title}
+                    </Text>
+                    <StatusBadge status={item.status} />
+                  </View>
+                </Pressable>
+              ))}
+            </Card>
+          )
+        ) : null}
       </ScrollView>
     </Screen>
   );

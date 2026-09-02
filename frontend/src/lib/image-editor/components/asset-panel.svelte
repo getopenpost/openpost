@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { ContextMenu } from 'bits-ui';
 	import { useImageEditor } from '../editor.svelte';
-	import { listImageEditorMedia, loadImageEditorBrandKit } from '../api';
+	import { queryImageEditorBrandKit, queryImageEditorMedia } from '$lib/query/image-editor';
+	import { mediaQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { loadImageEditorBrandFonts } from '../fonts';
 	import { listGuestImageEditorMedia, storeGuestImageEditorMedia } from '../local-persistence';
 	import type { ImageEditorMediaItem } from '../types';
@@ -74,8 +76,8 @@
 				return;
 			}
 			const [nextMedia, nextBrand, tagState] = await Promise.all([
-				listImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions()),
-				loadImageEditorBrandKit(editor.workspaceID),
+				queryImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions()),
+				queryImageEditorBrandKit(editor.workspaceID),
 				listMediaTags(editor.workspaceID)
 			]);
 			media = nextMedia;
@@ -95,7 +97,7 @@
 		try {
 			media = guestMode
 				? await listGuestImageEditorMedia(editor.id, search)
-				: await listImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions());
+				: await queryImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions());
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.image_editor_search_failed();
 		} finally {
@@ -229,6 +231,9 @@
 					stockProvenance: provenance,
 					tagId: uploadTagID(),
 					prepareVideo: false
+				});
+				await queryClient.invalidateQueries({
+					queryKey: mediaQueryKeys.lists(editor.workspaceID)
 				});
 				editor.refreshMediaLibrary();
 				await loadAll();

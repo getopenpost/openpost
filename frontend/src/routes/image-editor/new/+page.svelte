@@ -8,10 +8,9 @@
 	import {
 		createImageEditorDesign,
 		instantiateImageEditorTemplate,
-		listImageEditorTemplates,
-		loadImageEditorConfig,
 		type CreateImageEditorDesignInput
 	} from '$lib/image-editor/api';
+	import { queryImageEditorConfig, queryImageEditorTemplates } from '$lib/query/image-editor';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -68,11 +67,16 @@
 		error = '';
 		const finishMetric = startImageEditorMetric('document_load');
 		try {
+			const configPromise = queryImageEditorConfig();
 			await workspaceCtx.initialize($page.url.searchParams.get('workspace') || undefined);
-			const config = await loadImageEditorConfig();
+			const requestedWorkspaceID = workspaceID;
+			const [config, workspaceTemplates] = await Promise.all([
+				configPromise,
+				requestedWorkspaceID ? queryImageEditorTemplates(requestedWorkspaceID) : Promise.resolve([])
+			]);
 			enabled = config.enabled;
 			presets = config.presets;
-			if (workspaceID && enabled) templates = await listImageEditorTemplates(workspaceID);
+			templates = config.enabled ? workspaceTemplates : [];
 			if (sourceMediaID && workspaceID && enabled) {
 				await createFromSource();
 				return;

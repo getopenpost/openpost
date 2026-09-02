@@ -17,8 +17,10 @@
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import type { MediaUploadResult } from '$lib/media-upload-client';
 	import type { MediaPickerVideoSelection } from '$lib/media-picker';
-	import { listImageEditorMedia } from '$lib/image-editor/api';
+	import { queryImageEditorMedia } from '$lib/query/image-editor';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
+	import { mediaQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { listMediaTags, type MediaTag } from '$lib/media-tags';
 	import { getLocaleTag } from '$lib/i18n';
 	import { listMemeTemplates, memeGeneratorAPI } from '$lib/meme-generator/api';
@@ -70,7 +72,7 @@
 		onCreate,
 		onCreateVideo,
 		services = {
-			listMedia: listImageEditorMedia,
+			listMedia: queryImageEditorMedia,
 			listTags: listMediaTags,
 			listTemplates: listMemeTemplates,
 			memeAPI: memeGeneratorAPI
@@ -105,7 +107,7 @@
 		onCreate?: () => void | Promise<void>;
 		onCreateVideo?: (media?: MediaPickerVideoSelection) => void | Promise<void>;
 		services?: {
-			listMedia: typeof listImageEditorMedia;
+			listMedia: typeof queryImageEditorMedia;
 			listTags: typeof listMediaTags;
 			listTemplates: typeof listMemeTemplates;
 			memeAPI: MemeGeneratorAPI;
@@ -380,6 +382,7 @@
 	}
 
 	async function handleUploaded(results: MediaUploadResult[]): Promise<void> {
+		await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.lists(workspaceId) });
 		await Promise.all([loadMedia(), loadTags()]);
 		const uploadedIDs = results.map((item) => item.id).filter(Boolean);
 		selectedIDs = multiple
@@ -450,6 +453,7 @@
 		if (confirmed === false) return false;
 		selectedIDs = nextIDs;
 		open = false;
+		void queryClient.invalidateQueries({ queryKey: mediaQueryKeys.lists(workspaceId) });
 		void Promise.all([loadMedia(), loadTags()]);
 		return true;
 	}
@@ -505,6 +509,7 @@
 			preview_url: getAuthenticatedMediaURL(uploaded.url),
 			name: uploaded.original_filename
 		});
+		void queryClient.invalidateQueries({ queryKey: mediaQueryKeys.lists(workspaceId) });
 		void Promise.all([loadMedia(), loadTags()]);
 	}
 

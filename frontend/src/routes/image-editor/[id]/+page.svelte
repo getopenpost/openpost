@@ -4,10 +4,10 @@
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import {
-		loadImageEditorBrandKit,
-		loadImageEditorConfig,
-		loadImageEditorDesign
-	} from '$lib/image-editor/api';
+		queryImageEditorBrandKit,
+		queryImageEditorConfig,
+		queryImageEditorDesign
+	} from '$lib/query/image-editor';
 	import { loadImageEditorBrandFonts } from '$lib/image-editor/fonts';
 	import { migrateGuestImageEditorDesign } from '$lib/image-editor/guest-migration';
 	import {
@@ -56,9 +56,16 @@
 		design = null;
 		guestMode = isLocalImageEditorDesignID(designID);
 		try {
-			const [config, response] = await Promise.all([
-				loadImageEditorConfig(),
-				guestMode ? loadGuestImageEditorDesign(designID) : loadImageEditorDesign(designID)
+			const configPromise = queryImageEditorConfig();
+			if (!guestMode) await workspaceCtx.initialize();
+			const requestedWorkspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+			if (!guestMode && !requestedWorkspaceID) throw new Error(m.image_editor_open_failed());
+			const [config, response, initialBrand] = await Promise.all([
+				configPromise,
+				guestMode
+					? loadGuestImageEditorDesign(designID)
+					: queryImageEditorDesign(requestedWorkspaceID, designID),
+				guestMode ? Promise.resolve(null) : queryImageEditorBrandKit(requestedWorkspaceID)
 			]);
 			if (request !== loadRequest) return;
 			if (!config.enabled) throw new Error(m.image_editor_not_enabled());
@@ -71,7 +78,11 @@
 				response.can_edit = false;
 				readOnlyReason = migration.error || m.image_editor_document_read_only();
 			}
-			const brand = guestMode ? null : await loadImageEditorBrandKit(response.workspace_id);
+			const brand = guestMode
+				? null
+				: response.workspace_id === requestedWorkspaceID
+					? initialBrand
+					: await queryImageEditorBrandKit(response.workspace_id);
 			if (brand) await loadImageEditorBrandFonts(brand);
 			if (request !== loadRequest) return;
 			brandKit = brand;

@@ -21,7 +21,7 @@
 	import { mediaQueryAPI } from '$lib/query/media';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
-	import { loadImageEditorConfig } from '$lib/image-editor/api';
+	import { queryImageEditorConfig } from '$lib/query/image-editor';
 	import { clampMediaPage } from '$lib/media-pagination';
 	import { mediaInitialLoading } from '$lib/media-initial-loading';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
@@ -478,7 +478,7 @@
 		}
 		if (cachedStorage !== undefined) storageUsage = cachedStorage;
 		hubDataReady = cachedTags !== undefined && cachedStorage !== undefined;
-		const configRequest = loadImageEditorConfig()
+		const configRequest = queryImageEditorConfig()
 			.then((config) => {
 				if (isCurrentRequest()) imageEditorEnabled = config.enabled;
 			})

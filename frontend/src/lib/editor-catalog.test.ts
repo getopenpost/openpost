@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
 import {
-	EditorCatalogCache,
-	EditorCatalogRequestGate,
 	editorCatalogKey,
-	emptyEditorCatalog,
 	mergeEditorCatalogItems,
 	resolveEditorCatalogSurface
 } from './editor-catalog';
@@ -76,68 +73,5 @@ describe('editor catalog state', () => {
 			);
 		}
 		expect(designs).toHaveLength(125);
-	});
-
-	it('aborts and rejects a slow request after its workspace is superseded', async () => {
-		const gate = new EditorCatalogRequestGate();
-		const stale = gate.begin(editorCatalogKey('workspace-a', ''));
-		let releaseStale: (value: string) => void = () => undefined;
-		const slowResponse = new Promise<string>((resolve) => {
-			releaseStale = resolve;
-		});
-		const staleCommit = slowResponse.then((value) =>
-			gate.accepts(stale, editorCatalogKey('workspace-b', '')) ? value : undefined
-		);
-		const current = gate.begin(editorCatalogKey('workspace-b', ''));
-
-		expect(stale.signal.aborted).toBe(true);
-		expect(gate.accepts(stale, current.key)).toBe(false);
-		expect(gate.accepts(current, current.key)).toBe(true);
-		releaseStale('stale workspace data');
-		await expect(staleCommit).resolves.toBeUndefined();
-	});
-
-	it('rolls an optimistic deletion back only into the originating workspace caches', () => {
-		const cache = new EditorCatalogCache();
-		const workspaceA = {
-			...emptyEditorCatalog('workspace-a', ''),
-			designs: [design('shared-id'), design('a-only')],
-			designTotal: 2,
-			designOffset: 2
-		};
-		const workspaceASearch = {
-			...emptyEditorCatalog('workspace-a', 'shared'),
-			designs: [design('shared-id')],
-			designTotal: 1,
-			designOffset: 1
-		};
-		const workspaceB = {
-			...emptyEditorCatalog('workspace-b', ''),
-			designs: [design('shared-id')],
-			designTotal: 1,
-			designOffset: 1
-		};
-		cache.write(workspaceA);
-		cache.write(workspaceASearch);
-		cache.write(workspaceB);
-
-		const rollback = cache.remove('workspace-a', 'design', 'shared-id');
-		expect(cache.read('workspace-a', '')?.designs.map((item) => item.id)).toEqual(['a-only']);
-		expect(cache.read('workspace-a', 'shared')?.designs).toEqual([]);
-		expect(cache.read('workspace-b', '')?.designs.map((item) => item.id)).toEqual(['shared-id']);
-
-		cache.restore(rollback);
-		expect(cache.read('workspace-a', '')?.designs.map((item) => item.id)).toEqual([
-			'shared-id',
-			'a-only'
-		]);
-		expect(cache.read('workspace-a', 'shared')?.designs.map((item) => item.id)).toEqual([
-			'shared-id'
-		]);
-
-		cache.invalidateWorkspace('workspace-a');
-		expect(cache.read('workspace-a', '')).toBeUndefined();
-		expect(cache.read('workspace-a', 'shared')).toBeUndefined();
-		expect(cache.read('workspace-b', '')?.designs.map((item) => item.id)).toEqual(['shared-id']);
 	});
 });

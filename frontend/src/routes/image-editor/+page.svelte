@@ -7,6 +7,11 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		imageEditorConfigQueryOptions,
+		imageEditorPublicTemplatesQueryOptions
+	} from '@openpost/query-catalog';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import { auth } from '$lib/stores/auth';
@@ -19,7 +24,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
-	import { listPublicImageEditorTemplates, loadImageEditorConfig } from '$lib/image-editor/api';
+	import { imageEditorQueryAPI } from '$lib/query/image-editor';
 	import {
 		createGuestImageEditorDesign,
 		createGuestImageEditorDesignFromImage,
@@ -40,13 +45,10 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import { showToast } from '$lib/toast';
 
 	let authState = $derived($auth);
-	let loading = $state(true);
+	let localLoading = $state(true);
 	let creating = $state('');
 	let error = $state('');
-	let loadError = $state('');
-	let enabled = $state(true);
-	let presets = $state.raw<ImageEditorPreset[]>([]);
-	let templates = $state.raw<ImageEditorTemplate[]>([]);
+	let localLoadError = $state('');
 	let recentDesigns = $state.raw<LocalImageEditorDesign[]>([]);
 	let customWidth = $state(1080);
 	let customHeight = $state(1080);
@@ -56,32 +58,66 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	let pageHeading = $state<HTMLHeadingElement | null>(null);
 	let recentHeading = $state<HTMLHeadingElement | null>(null);
 	let deleteReturnFocus = $state<HTMLElement | null>(null);
+	const configQuery = createQuery(() => imageEditorConfigQueryOptions(imageEditorQueryAPI));
+	const templatesQuery = createQuery(() =>
+		imageEditorPublicTemplatesQueryOptions(imageEditorQueryAPI)
+	);
+	let enabled = $derived(configQuery.data?.enabled ?? true);
+	let presets = $derived<ImageEditorPreset[]>(configQuery.data?.presets ?? []);
+	let templates = $derived<ImageEditorTemplate[]>(templatesQuery.data ?? []);
+	let loading = $derived(
+		localLoading ||
+			(configQuery.isPending && !configQuery.data) ||
+			(templatesQuery.isPending && !templatesQuery.data)
+	);
+	let loadError = $derived(
+		localLoadError ||
+			(configQuery.isError && !configQuery.data
+				? configQuery.error instanceof Error
+					? configQuery.error.message
+					: m.image_editor_public_load_failed()
+				: '') ||
+			(templatesQuery.isError && !templatesQuery.data
+				? templatesQuery.error instanceof Error
+					? templatesQuery.error.message
+					: m.image_editor_public_load_failed()
+				: '')
+	);
+	let backgroundLoadError = $derived(
+		(configQuery.isError && configQuery.data
+			? configQuery.error instanceof Error
+				? configQuery.error.message
+				: m.image_editor_public_load_failed()
+			: '') ||
+			(templatesQuery.isError && templatesQuery.data
+				? templatesQuery.error instanceof Error
+					? templatesQuery.error.message
+					: m.image_editor_public_load_failed()
+				: '')
+	);
 
 	onMount(() => {
-		void initialize();
+		void loadLocalDesigns();
 	});
 
-	async function initialize(): Promise<void> {
-		loading = true;
-		loadError = '';
+	async function loadLocalDesigns(): Promise<void> {
+		localLoading = true;
+		localLoadError = '';
 		try {
-			const [config, publicTemplates, localDesigns] = await Promise.all([
-				loadImageEditorConfig(),
-				listPublicImageEditorTemplates(),
-				listGuestImageEditorDesigns()
-			]);
-			enabled = config.enabled;
-			presets = config.presets;
-			templates = publicTemplates;
+			const localDesigns = await listGuestImageEditorDesigns();
 			recentDesigns = localDesigns;
 			trackPublicImageEditorEvent('image_editor_public_view', {
 				returning_guest: localDesigns.length > 0
 			});
 		} catch (cause) {
-			loadError = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
+			localLoadError = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
 		} finally {
-			loading = false;
+			localLoading = false;
 		}
+	}
+
+	async function retryLoad(): Promise<void> {
+		await Promise.all([configQuery.refetch(), templatesQuery.refetch(), loadLocalDesigns()]);
 	}
 
 	async function startPreset(preset: ImageEditorPreset): Promise<void> {
@@ -319,7 +355,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 		{:else if loadError}
 			<InlineNotice tone="error" message={loadError} class="mt-10 max-w-3xl">
 				{#snippet actions()}
-					<Button size="sm" onclick={() => void initialize()}>{m.common_retry()}</Button>
+					<Button size="sm" onclick={() => void retryLoad()}>{m.common_retry()}</Button>
 				{/snippet}
 			</InlineNotice>
 		{:else if !enabled}
@@ -331,6 +367,15 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 				</p>
 			</div>
 		{:else}
+			{#if backgroundLoadError}
+				<InlineNotice tone="warning" message={backgroundLoadError} class="mt-10 max-w-3xl">
+					{#snippet actions()}
+						<Button size="sm" variant="outline" onclick={() => void retryLoad()}
+							>{m.common_retry()}</Button
+						>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			{#if recentDesigns.length > 0}
 				<section class="mt-12" aria-labelledby="recent-designs-heading">
 					<div class="mb-4 flex items-end justify-between gap-4">

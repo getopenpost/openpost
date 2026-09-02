@@ -31,14 +31,17 @@
 		createImageEditorDesign,
 		createImageEditorCheckpoint,
 		createImageEditorTemplate,
-		getImageEditorRevision,
-		loadImageEditorDesign,
-		listImageEditorRevisions,
-		listImageEditorTemplates,
 		restoreImageEditorRevision,
 		saveImageEditorDesign,
 		updateImageEditorTemplate
 	} from '../api';
+	import {
+		queryImageEditorDesign,
+		queryImageEditorRevision,
+		queryImageEditorRevisions,
+		queryImageEditorTemplates,
+		refreshImageEditorDesign
+	} from '$lib/query/image-editor';
 	import {
 		imageEditorRevisionHasChanges,
 		summarizeImageEditorRevision,
@@ -1010,7 +1013,7 @@
 		editor.saveMessage = m.image_editor_save_conflict();
 		conflictDialogOpen = true;
 		statusAnnouncement = m.image_editor_conflict_title();
-		void loadImageEditorDesign(editor.id)
+		void refreshImageEditorDesign(editor.workspaceID, editor.id)
 			.then((latest) => {
 				if (conflictDialogOpen && latest.revision > editor.revision) {
 					conflictServerRevision = latest.revision;
@@ -1163,7 +1166,7 @@
 		conflictError = '';
 		try {
 			conflictPreservedCopy ??= await saveImageEditorConflictCopy(editor.id, editor.document);
-			const response = await loadImageEditorDesign(editor.id);
+			const response = await refreshImageEditorDesign(editor.workspaceID, editor.id);
 			editor.replaceFromServer(response);
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			await clearLocalImageEditorRecovery(editor.id);
@@ -1321,7 +1324,7 @@
 			controller.signal.throwIfAborted();
 			const imported = replaceGuestImageEditorMediaIDs(parsed.document, recovery.replacements);
 			let created = recovery.cloudDesignID
-				? await loadImageEditorDesign(recovery.cloudDesignID)
+				? await queryImageEditorDesign(editor.workspaceID, recovery.cloudDesignID)
 				: await createImageEditorDesign(editor.workspaceID, {
 						title: imported.title,
 						preset_key: 'custom',
@@ -1430,7 +1433,7 @@
 		revisionNextCursor = '';
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			const page = await listImageEditorRevisions(editor.id);
+			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id);
 			revisions = page.revisions;
 			revisionNextCursor = page.nextCursor ?? '';
 		} catch (cause) {
@@ -1445,7 +1448,9 @@
 		historyPageBusy = true;
 		historyError = '';
 		try {
-			const page = await listImageEditorRevisions(editor.id, revisionNextCursor);
+			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id, {
+				cursor: revisionNextCursor
+			});
 			const known = new Set(revisions.map((revision) => revision.id));
 			revisions = [...revisions, ...page.revisions.filter((revision) => !known.has(revision.id))];
 			revisionNextCursor = page.nextCursor ?? '';
@@ -1480,7 +1485,12 @@
 		historyError = '';
 		revisionPreviewPage = 0;
 		try {
-			const preview = await getImageEditorRevision(editor.id, revision.id, controller.signal);
+			const preview = await queryImageEditorRevision(
+				editor.workspaceID,
+				editor.id,
+				revision.id,
+				controller.signal
+			);
 			if (request === revisionPreviewRequest) revisionPreview = preview;
 		} catch (cause) {
 			if (request === revisionPreviewRequest) {
@@ -1501,7 +1511,12 @@
 		historyError = '';
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			await createImageEditorCheckpoint(editor.id, checkpointName.trim(), editor.revision);
+			await createImageEditorCheckpoint(
+				editor.workspaceID,
+				editor.id,
+				checkpointName.trim(),
+				editor.revision
+			);
 			checkpointName = '';
 			checkpointDialogOpen = false;
 			await openHistory();
@@ -1528,6 +1543,7 @@
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
 			const response = await restoreImageEditorRevision(
+				editor.workspaceID,
 				editor.id,
 				revisionPreview.summary.id,
 				editor.revision
@@ -1574,7 +1590,7 @@
 			if (templateTargetID === 'new') {
 				await createImageEditorTemplate({ workspace_id: editor.workspaceID, ...templateInput });
 			} else {
-				await updateImageEditorTemplate(templateTargetID, templateInput);
+				await updateImageEditorTemplate(editor.workspaceID, templateTargetID, templateInput);
 			}
 			templateDialogOpen = false;
 			templateName = '';
@@ -1596,7 +1612,7 @@
 		templateCategory = m.image_editor_workspace_category();
 		templateDialogOpen = true;
 		try {
-			workspaceTemplates = (await listImageEditorTemplates(editor.workspaceID)).filter(
+			workspaceTemplates = (await queryImageEditorTemplates(editor.workspaceID)).filter(
 				(template) => !template.built_in
 			);
 		} catch (cause) {

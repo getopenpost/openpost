@@ -11,6 +11,7 @@ export * from "./errors";
 export * from "./feedback";
 export * from "./features";
 export * from "./growth";
+export * from "./image-editor";
 export * from "./inbox";
 export * from "./keys";
 export * from "./media";

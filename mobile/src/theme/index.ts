@@ -9,6 +9,7 @@ export * from "./navigation";
 export * from "./native-theme-preference";
 export * from "./preference-store";
 export * from "./protected-icons";
+export * from "./resource-stage";
 export {
   NATIVE_CONTROL_METRICS,
   NATIVE_MIN_TOUCH_TARGET,

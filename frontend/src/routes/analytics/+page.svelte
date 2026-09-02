@@ -102,10 +102,15 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const analyticsFeatures = $derived(featuresQuery.data ?? []);
 	const loading = $derived(analyticsQuery.isFetching && !analyticsQuery.isFetchingNextPage);
 	const loadingMore = $derived(analyticsQuery.isFetchingNextPage);
+	const initialFeatureReadPending = $derived(
+		Boolean(overview && accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data)
+	);
 	const error = $derived(
 		analyticsQuery.isError && !analyticsQuery.data
 			? queryErrorMessage(analyticsQuery.error, m.analytics_failed_load())
-			: ''
+			: overview && accounts.length > 0 && featuresQuery.isError && !featuresQuery.data
+				? queryErrorMessage(featuresQuery.error, m.analytics_failed_load())
+				: ''
 	);
 	const backgroundError = $derived(
 		analyticsQuery.isError && analyticsQuery.data && !analyticsQuery.isFetchNextPageError
@@ -157,7 +162,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			contentItems.some((item) => Boolean(item.collected_at || item.last_synced_at))
 	);
 	const initialLoading = $derived(
-		Boolean(currentWorkspaceID) && analyticsQuery.isPending && !analyticsQuery.data && !error
+		Boolean(currentWorkspaceID) &&
+			!error &&
+			((analyticsQuery.isPending && !analyticsQuery.data) || initialFeatureReadPending)
 	);
 	const analyticsAllDisabled = $derived(
 		(overview?.accounts?.length ?? 0) > 0 &&

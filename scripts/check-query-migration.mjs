@@ -5,9 +5,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "svelte/compiler";
 import ts from "typescript";
 
-const sourceRoots = ["frontend/src"];
-const sourceExtensions = new Set([".svelte", ".ts"]);
-const queryAdapterPrefix = "frontend/src/lib/query/";
+const sourceRoots = ["frontend/src", "mobile/src"];
+const sourceExtensions = new Set([".svelte", ".ts", ".tsx"]);
+const webQueryAdapterPrefix = "frontend/src/lib/query/";
+const mobileQueryAdapters = new Set([
+  "mobile/src/lib/app-bootstrap.ts",
+  "mobile/src/lib/query-api.ts",
+]);
 
 const imperativeReadAllowlist = [
   {
@@ -29,6 +33,36 @@ const imperativeReadAllowlist = [
     file: "frontend/src/lib/components/compose-text-post.svelte",
     endpoint: "/posting-schedules/next-slot",
     count: 1,
+  },
+  {
+    file: "frontend/src/lib/media-upload-client.ts",
+    endpoint: "/media/metadata",
+    count: 1,
+    reason: "bounded post-upload processing poll with caller-owned cancellation",
+  },
+  {
+    file: "frontend/src/lib/post-builder/client.ts",
+    endpoint: "/publication-builds/{id}",
+    count: 1,
+    reason: "bounded live build-status poll resumed from a persisted operation",
+  },
+  {
+    file: "frontend/src/lib/telemetry.ts",
+    endpoint: "/telemetry/config",
+    count: 1,
+    reason: "one-shot runtime initialization applied to the telemetry module",
+  },
+  {
+    file: "mobile/src/app/publications/[id]/edit.tsx",
+    endpoint: "/posting-schedules/next-slot",
+    count: 2,
+    reason: "user-triggered current-slot lookup consumed immediately by the editor mutation",
+  },
+  {
+    file: "mobile/src/lib/server.ts",
+    endpoint: "/ready",
+    count: 1,
+    reason: "one-shot probe of a candidate server before it becomes application state",
   },
   {
     file: "frontend/src/lib/components/organization-audit-settings.svelte",
@@ -123,11 +157,14 @@ function allowlistKey(file, endpoint) {
 }
 
 function isQueryAdapter(repoPath) {
-  return repoPath.startsWith(queryAdapterPrefix) && !repoPath.endsWith(".test.ts");
+  const isTest = /\.test\.[jt]sx?$/u.test(repoPath);
+  return (
+    !isTest && (repoPath.startsWith(webQueryAdapterPrefix) || mobileQueryAdapters.has(repoPath))
+  );
 }
 
 function directCentralBoundaryNames(sourceFile) {
-  const names = new Set(["queryGET", "queryTransportRequest"]);
+  const names = new Set(["mobileQueryTransportRequest", "queryGET", "queryTransportRequest"]);
 
   function containsCentralBoundary(node, root) {
     let found = false;
@@ -228,6 +265,11 @@ function propertyName(expression) {
   return null;
 }
 
+function callableName(expression) {
+  const current = unwrapExpression(expression);
+  return ts.isIdentifier(current) ? current.text : propertyName(current);
+}
+
 function isUpperGetReference(expression) {
   const current = unwrapExpression(expression);
   if (propertyName(current) === "GET") return true;
@@ -237,31 +279,51 @@ function isUpperGetReference(expression) {
   return ts.isPropertyAccessExpression(bindTarget) && isUpperGetReference(bindTarget.expression);
 }
 
+function isNativeFetchReference(expression) {
+  const current = unwrapExpression(expression);
+  if (ts.isIdentifier(current)) return current.text === "fetch";
+  if (
+    (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) &&
+    propertyName(current) === "fetch"
+  ) {
+    const receiver = unwrapExpression(current.expression);
+    return (
+      ts.isIdentifier(receiver) &&
+      (receiver.text === "globalThis" || receiver.text === "window" || receiver.text === "self")
+    );
+  }
+  if (!ts.isCallExpression(current) || propertyName(current.expression) !== "bind") return false;
+
+  const bindTarget = unwrapExpression(current.expression);
+  return ts.isPropertyAccessExpression(bindTarget) && isNativeFetchReference(bindTarget.expression);
+}
+
 function collectSimpleAliases(sourceFile) {
-  const aliases = new Set();
+  const typedGET = new Set();
+  const rawFetch = new Set();
 
   function visit(node) {
     if (
-      ts.isVariableDeclaration(node) &&
+      (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
       ts.isIdentifier(node.name) &&
-      node.initializer &&
-      isUpperGetReference(node.initializer)
+      node.initializer
     ) {
-      aliases.add(node.name.text);
+      if (isUpperGetReference(node.initializer)) typedGET.add(node.name.text);
+      if (isNativeFetchReference(node.initializer)) rawFetch.add(node.name.text);
     }
     if (
       ts.isBinaryExpression(node) &&
       node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(node.left) &&
-      isUpperGetReference(node.right)
+      ts.isIdentifier(node.left)
     ) {
-      aliases.add(node.left.text);
+      if (isUpperGetReference(node.right)) typedGET.add(node.left.text);
+      if (isNativeFetchReference(node.right)) rawFetch.add(node.left.text);
     }
     ts.forEachChild(node, visit);
   }
 
   visit(sourceFile);
-  return aliases;
+  return { rawFetch, typedGET };
 }
 
 function getCallKind(expression, aliases) {
@@ -269,13 +331,95 @@ function getCallKind(expression, aliases) {
   const name = propertyName(current);
   if (name === "GET") return "typed";
   if (name === "get") return "lowercase";
+  if (isNativeFetchReference(current)) return "raw-fetch";
   if (!ts.isIdentifier(current)) return null;
-  if (aliases.has(current.text) || current.text === "GET") return "typed";
+  if (aliases.typedGET.has(current.text) || current.text === "GET") return "typed";
+  if (aliases.rawFetch.has(current.text)) return "raw-fetch";
   if (current.text === "get") return "lowercase";
   return null;
 }
 
+function propertyAssignmentName(property) {
+  if (!property.name) return null;
+  if (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
+    return property.name.text;
+  return null;
+}
+
+function rawFetchIsRead(call) {
+  const init = call.arguments[1];
+  if (!init) return true;
+  const current = unwrapExpression(init);
+  if (!ts.isObjectLiteralExpression(current)) return false;
+
+  let hasSpread = false;
+  for (const property of current.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      hasSpread = true;
+      continue;
+    }
+    if (!ts.isPropertyAssignment(property) || propertyAssignmentName(property) !== "method") {
+      continue;
+    }
+    const method = unwrapExpression(property.initializer);
+    if (!ts.isStringLiteral(method) && !ts.isNoSubstitutionTemplateLiteral(method)) return false;
+    return method.text.toUpperCase() === "GET";
+  }
+  return !hasSpread;
+}
+
+function dynamicPlaceholder(expression) {
+  const current = unwrapExpression(expression);
+  if (ts.isIdentifier(current)) return current.text;
+  if (ts.isPropertyAccessExpression(current)) return current.name.text;
+  if (ts.isCallExpression(current) && current.arguments[0]) {
+    return dynamicPlaceholder(current.arguments[0]);
+  }
+  return "dynamic";
+}
+
+function literalPathPattern(expression) {
+  const current = unwrapExpression(expression);
+  if (ts.isStringLiteral(current) || ts.isNoSubstitutionTemplateLiteral(current)) {
+    return current.text;
+  }
+  if (!ts.isTemplateExpression(current)) return null;
+
+  let value = current.head.text;
+  for (const span of current.templateSpans) {
+    value += `{${dynamicPlaceholder(span.expression)}}${span.literal.text}`;
+  }
+  return value;
+}
+
+function normalizeRawAPIEndpoint(path, acceptsAPIHelperPath) {
+  let endpoint = path;
+  if (!acceptsAPIHelperPath) {
+    const apiPrefixIndex = endpoint.indexOf("/api/v1");
+    if (apiPrefixIndex < 0) return null;
+    const apiPath = endpoint.slice(apiPrefixIndex);
+    if (apiPath !== "/api/v1" && !apiPath.startsWith("/api/v1/")) return null;
+    endpoint = apiPath.slice("/api/v1".length) || "/";
+  }
+  endpoint = endpoint.split(/[?#]/u, 1)[0];
+  return endpoint.startsWith("/") ? endpoint : null;
+}
+
+function rawFetchEndpoint(call) {
+  if (!rawFetchIsRead(call)) return null;
+  const resource = call.arguments[0];
+  if (!resource) return null;
+  const current = unwrapExpression(resource);
+  if (ts.isCallExpression(current) && callableName(current.expression) === "apiURL") {
+    const path = current.arguments[0] ? literalPathPattern(current.arguments[0]) : null;
+    return path ? normalizeRawAPIEndpoint(path, true) : null;
+  }
+  const path = literalPathPattern(current);
+  return path ? normalizeRawAPIEndpoint(path, false) : null;
+}
+
 function endpointForCall(call, kind) {
+  if (kind === "raw-fetch") return rawFetchEndpoint(call);
   const argument = call.arguments[0];
   if (argument && (ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument))) {
     return argument.text.startsWith("/") ? argument.text : null;
@@ -292,7 +436,7 @@ function callsInSegment(file, repoPath, originalSource, segment) {
     segment.source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const aliases = collectSimpleAliases(sourceFile);
   const boundaryNames = directCentralBoundaryNames(sourceFile);
@@ -348,7 +492,9 @@ export function findImperativeQueryViolations(
     const root = resolve(repoRoot, sourceRoot);
     for (const file of sourceFiles(root).sort()) {
       const repoPath = relative(repoRoot, file).replaceAll("\\", "/");
-      if (repoPath.startsWith(queryAdapterPrefix) && repoPath.endsWith(".test.ts")) continue;
+      if (repoPath.startsWith(webQueryAdapterPrefix) && /\.test\.[jt]sx?$/u.test(repoPath)) {
+        continue;
+      }
       const source = readFileSync(file, "utf8");
       for (const segment of scriptSegments(file, source)) {
         const segmentCalls = callsInSegment(file, repoPath, source, segment);
@@ -409,7 +555,7 @@ function main() {
   ) {
     const imperativeCount = imperativeReadAllowlist.reduce((total, item) => total + item.count, 0);
     process.stdout.write(
-      `query-migration: ${adapterCalls.length} Query adapter reads cross the central transport boundary; ${imperativeCount} intentional imperative web reads and ${pairingCalls.length} pairing read match their allowlists\n`,
+      `query-migration: ${adapterCalls.length} Query adapter reads cross the central transport boundary; ${imperativeCount} intentional imperative app reads and ${pairingCalls.length} pairing read match their allowlists\n`,
     );
     return;
   }
@@ -425,7 +571,7 @@ function main() {
 
   if (violations.length > 0) {
     process.stderr.write(
-      `query-migration: ${violations.length} cache-safe web reads still bypass the Query catalog:\n`,
+      `query-migration: ${violations.length} cache-safe app reads still bypass the Query catalog:\n`,
     );
     for (const violation of violations) {
       process.stderr.write(`- ${violation.file}:${violation.line} ${violation.endpoint}\n`);

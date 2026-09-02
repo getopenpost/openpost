@@ -4,6 +4,7 @@ import {
   type AppBootstrapCapabilityMemory,
   type AppBootstrapTransport,
 } from "./app-bootstrap-reader";
+import { mobileQueryTransportRequest } from "./query-api";
 
 const processCapabilities: AppBootstrapCapabilityMemory = new Map();
 
@@ -15,18 +16,28 @@ export const readAppBootstrap = createAppBootstrapReader(
 function createOpenApiBootstrapTransport(requestApi: Api): AppBootstrapTransport {
   return {
     getBootstrap: (preferredWorkspaceId, signal) =>
-      requestApi.GET("/app/bootstrap", {
-        signal,
-        params: {
-          query: preferredWorkspaceId ? { preferred_workspace_id: preferredWorkspaceId } : {},
-        },
-      }),
-    getCurrentUser: (signal) => requestApi.GET("/auth/me", { signal }),
-    listWorkspaces: (signal) => requestApi.GET("/workspaces", { signal }),
+      mobileQueryTransportRequest(signal, (requestSignal) =>
+        requestApi.GET("/app/bootstrap", {
+          signal: requestSignal,
+          params: {
+            query: preferredWorkspaceId ? { preferred_workspace_id: preferredWorkspaceId } : {},
+          },
+        }),
+      ),
+    getCurrentUser: (signal) =>
+      mobileQueryTransportRequest(signal, (requestSignal) =>
+        requestApi.GET("/auth/me", { signal: requestSignal }),
+      ),
+    listWorkspaces: (signal) =>
+      mobileQueryTransportRequest(signal, (requestSignal) =>
+        requestApi.GET("/workspaces", { signal: requestSignal }),
+      ),
     getWorkspaceSettings: (workspaceId, signal) =>
-      requestApi.GET("/workspaces/{id}/settings", {
-        signal,
-        params: { path: { id: workspaceId } },
-      }),
+      mobileQueryTransportRequest(signal, (requestSignal) =>
+        requestApi.GET("/workspaces/{id}/settings", {
+          signal: requestSignal,
+          params: { path: { id: workspaceId } },
+        }),
+      ),
   };
 }

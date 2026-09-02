@@ -103,6 +103,159 @@ test("finds simple aliases assigned from uppercase GET", () => {
   );
 });
 
+test("finds native API fetches through direct, assigned, and bound aliases", () => {
+  const file = "frontend/src/lib/example.ts";
+  withFixture(
+    {
+      [file]: `
+        await fetch('/api/v1/cache-safe?workspace_id=one');
+        const request = globalThis.fetch;
+        await request('/api/v1/aliased');
+        const boundRequest = window.fetch.bind(window);
+        await boundRequest(apiURL(\`/media/metadata?workspace_id=\${workspaceID}\`));
+      `,
+    },
+    (repoRoot) => {
+      assert.deepEqual(
+        scan(repoRoot).violations.map(({ endpoint }) => endpoint),
+        ["/cache-safe", "/aliased", "/media/metadata"],
+      );
+    },
+  );
+});
+
+test("ignores raw mutations, external resources, and dynamic downloads", () => {
+  const file = "frontend/src/lib/example.ts";
+  withFixture(
+    {
+      [file]: `
+        await fetch('/api/v1/media/upload-session', { method: 'POST' });
+        await fetch('https://cdn.example.test/model.bin');
+        await fetch(getAuthenticatedMediaURL(media.url), { credentials: 'include' });
+        await fetch(path, { ...init, credentials: 'include' });
+      `,
+    },
+    (repoRoot) => {
+      assert.deepEqual(scan(repoRoot).calls, []);
+    },
+  );
+});
+
+test("requires raw Query adapter fetches to cross the central transport boundary", () => {
+  withFixture(
+    {
+      "frontend/src/lib/query/media.ts": `
+        queryGET({
+          signal,
+          fallback: 'Could not load media.',
+          request: (requestSignal) => fetch('/api/v1/media/metadata', { signal: requestSignal })
+        });
+      `,
+      "frontend/src/lib/query/bypass.ts": "fetch('/api/v1/query-bypass');",
+    },
+    (repoRoot) => {
+      const result = scan(repoRoot);
+      assert.deepEqual(
+        result.adapterCalls.map(({ endpoint }) => endpoint),
+        ["/query-bypass", "/media/metadata"],
+      );
+      assert.deepEqual(
+        result.adapterViolations.map(({ file, endpoint }) => ({ file, endpoint })),
+        [{ file: "frontend/src/lib/query/bypass.ts", endpoint: "/query-bypass" }],
+      );
+    },
+  );
+});
+
+test("tracks native fetch supplied as a function parameter default", () => {
+  withFixture(
+    {
+      "frontend/src/lib/query/media.ts": `
+        function createMediaQueryAPI(rawFetch = globalThis.fetch) {
+          return {
+            getMetadata(signal) {
+              return queryGET({
+                signal,
+                request: (requestSignal) =>
+                  rawFetch('/api/v1/media/metadata', { signal: requestSignal })
+              });
+            }
+          };
+        }
+      `,
+      "frontend/src/lib/query/bypass.ts": `
+        function createBypass(rawFetch = globalThis.fetch) {
+          return rawFetch('/api/v1/query-bypass');
+        }
+      `,
+    },
+    (repoRoot) => {
+      const result = scan(repoRoot);
+      assert.deepEqual(
+        result.adapterCalls.map(({ endpoint }) => endpoint),
+        ["/query-bypass", "/media/metadata"],
+      );
+      assert.deepEqual(
+        result.adapterViolations.map(({ file, endpoint }) => ({ file, endpoint })),
+        [{ file: "frontend/src/lib/query/bypass.ts", endpoint: "/query-bypass" }],
+      );
+    },
+  );
+});
+
+test("scans mobile TSX and recognizes API paths behind a selected server origin", () => {
+  const file = "mobile/src/app/example.tsx";
+  withFixture(
+    {
+      [file]: `
+        export function Example() {
+          void api().GET('/mobile-cache-safe');
+          void fetch(\`\${serverBaseUrl}/api/v1/ready\`);
+          return <View />;
+        }
+      `,
+    },
+    (repoRoot) => {
+      const result = scan(repoRoot, { roots: ["mobile/src"] });
+      assert.deepEqual(
+        result.violations.map(({ endpoint }) => endpoint),
+        ["/mobile-cache-safe", "/ready"],
+      );
+    },
+  );
+});
+
+test("enforces the central boundary in mobile Query adapters", () => {
+  withFixture(
+    {
+      "mobile/src/lib/query-api.ts": `
+        queryGET({
+          signal,
+          request: (requestSignal) => transport.GET('/workspaces', { signal: requestSignal })
+        });
+      `,
+      "mobile/src/lib/app-bootstrap.ts": `
+        mobileQueryTransportRequest(signal, (requestSignal) =>
+          transport.GET('/app/bootstrap', { signal: requestSignal })
+        );
+      `,
+      "mobile/src/lib/example.ts": "transport.GET('/outside-query');",
+    },
+    (repoRoot) => {
+      const result = scan(repoRoot, { roots: ["mobile/src"] });
+      assert.deepEqual(
+        result.adapterCalls.map(({ endpoint }) => endpoint),
+        ["/app/bootstrap", "/workspaces"],
+      );
+      assert.deepEqual(result.adapterViolations, []);
+      assert.deepEqual(
+        result.violations.map(({ endpoint }) => endpoint),
+        ["/outside-query"],
+      );
+    },
+  );
+});
+
 test("reports dynamic endpoints", () => {
   const file = "frontend/src/lib/example.ts";
   withFixture(

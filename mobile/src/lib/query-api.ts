@@ -23,6 +23,16 @@ type QueryTransportResponse<T> = {
   response: Response;
 };
 
+export async function mobileQueryTransportRequest<T>(
+  signal: AbortSignal,
+  request: (signal: AbortSignal) => Promise<QueryTransportResponse<T>>,
+): Promise<QueryTransportResponse<T>> {
+  const identity = captureApiRequestIdentity();
+  const result = await request(signal);
+  await settleApiUnauthorized(identity, result.response);
+  return result;
+}
+
 export function createMobileQueryAPI(getTransport: () => QueryTransport): MobileQueryAPI {
   return {
     async listWorkspaces(signal) {
@@ -119,9 +129,7 @@ async function queryGET<T>({
   fallback: string;
   request: (signal: AbortSignal) => Promise<QueryTransportResponse<T>>;
 }): Promise<{ data: T; response: Response }> {
-  const identity = captureApiRequestIdentity();
-  const { data, error, response } = await request(signal);
-  await settleApiUnauthorized(identity, response);
+  const { data, error, response } = await mobileQueryTransportRequest(signal, request);
   if (error || data === null || data === undefined) {
     throw createOpenPostQueryError(response?.status, error, fallback);
   }

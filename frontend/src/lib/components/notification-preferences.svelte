@@ -8,8 +8,14 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { notificationQueryAPI } from '$lib/query/notifications';
-	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import {
@@ -49,6 +55,9 @@
 	} = $props();
 
 	let saving = $state(false);
+	let saveRequestSequence = 0;
+	let saveViewRevision = 0;
+	let mutationWorkspaceID = '';
 	let preferences = $state.raw<Preferences>({});
 	let topicDefinitions = $state.raw<NotificationTopicDefinition[]>([]);
 	const eventGroups = $derived(notificationTopicGroups(topicDefinitions));
@@ -57,7 +66,6 @@
 	let emailAddress = $state('');
 	let digestTime = $state('09:00');
 	let digestTimezone = $state('UTC');
-	const actorID = $derived($auth.user?.id ?? '');
 	const dirty = $derived(
 		JSON.stringify({ preferences, digest_time: digestTime, digest_timezone: digestTimezone }) !==
 			savedSnapshot
@@ -82,6 +90,16 @@
 	);
 	$effect(() => reportInitialLoad(loading));
 	let appliedPreferences: components['schemas']['PreferenceSettings'] | undefined;
+
+	$effect(() => {
+		const nextWorkspaceID = workspaceID;
+		if (nextWorkspaceID === mutationWorkspaceID) return;
+		untrack(() => {
+			mutationWorkspaceID = nextWorkspaceID;
+			saveViewRevision += 1;
+			saving = false;
+		});
+	});
 
 	$effect(() => {
 		const data = preferencesQuery.data;
@@ -152,33 +170,71 @@
 	}
 
 	async function save() {
-		const requestedActorID = actorID;
+		const view = {
+			session: captureQueryMutationSession(),
+			requestSequence: ++saveRequestSequence,
+			viewRevision: saveViewRevision,
+			workspaceID
+		} satisfies {
+			session: QueryMutationSession;
+			requestSequence: number;
+			viewRevision: number;
+			workspaceID: string;
+		};
 		saving = true;
-		const { data, error: apiError } = await client.PUT('/notifications/preferences', {
-			body: {
-				preferences,
-				digest_time: digestTime,
-				digest_timezone: digestTimezone
+		try {
+			const {
+				data,
+				error: apiError,
+				response
+			} = await client.PUT('/notifications/preferences', {
+				body: {
+					preferences,
+					digest_time: digestTime,
+					digest_timezone: digestTimezone
+				}
+			});
+			if (!settleQueryMutationSession(view.session, response)) return;
+			if (apiError || !data) {
+				if (saveViewIsCurrent(view)) {
+					notify(
+						apiError?.status === 400
+							? m.notifications_preferences_invalid()
+							: m.notifications_preferences_save_failed(),
+						'error'
+					);
+				}
+				return;
 			}
-		});
-		saving = false;
-		if (actorID !== requestedActorID) return;
-		if (apiError || !data) {
-			notify(
-				apiError?.status === 400
-					? m.notifications_preferences_invalid()
-					: m.notifications_preferences_save_failed(),
-				'error'
-			);
-			return;
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: notificationQueryKeys.preferences(), exact: true }],
+				reconcile: () => {
+					if (view.requestSequence !== saveRequestSequence) return;
+					queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+				}
+			});
+			if (!reconciled || !saveViewIsCurrent(view)) return;
+			applyPreferences(data);
+			notify(m.notifications_preferences_saved(), 'success');
+		} finally {
+			if (view.requestSequence === saveRequestSequence && view.viewRevision === saveViewRevision) {
+				saving = false;
+			}
 		}
-		await queryClient.cancelQueries({
-			queryKey: notificationQueryKeys.preferences(),
-			exact: true
-		});
-		queryClient.setQueryData(notificationQueryKeys.preferences(), data);
-		applyPreferences(data);
-		notify(m.notifications_preferences_saved(), 'success');
+	}
+
+	function saveViewIsCurrent(view: {
+		session: QueryMutationSession;
+		requestSequence: number;
+		viewRevision: number;
+		workspaceID: string;
+	}) {
+		return (
+			view.requestSequence === saveRequestSequence &&
+			view.viewRevision === saveViewRevision &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function queryErrorMessage(cause: unknown) {

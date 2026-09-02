@@ -8,8 +8,14 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { notificationQueryAPI } from '$lib/query/notifications';
-	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -19,6 +25,13 @@
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 
 	type NotificationMute = components['schemas']['Mute'];
+	interface MuteMutationView {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly revision: number;
+		readonly requestSequence: number;
+	}
+
 	let {
 		workspaceID = '',
 		workspaceName = '',
@@ -35,8 +48,10 @@
 	let muteEndsAt = $state(defaultMuteEnd());
 	let createRequests = $state(0);
 	let endingMuteIDs = $state.raw<Set<string>>(new Set());
+	let mutationRevision = 0;
+	let mutationRequestSequence = 0;
+	let mutationWorkspaceID = '';
 	let expiryTimer: ReturnType<typeof setTimeout> | undefined;
-	const actorID = $derived($auth.user?.id ?? '');
 	const muting = $derived(createRequests > 0);
 	const preferencesQuery = createQuery(
 		() => ({
@@ -68,6 +83,17 @@
 		untrack(() => {
 			appliedPreferences = data;
 			applyMutes(data.mutes);
+		});
+	});
+
+	$effect(() => {
+		const nextWorkspaceID = workspaceID;
+		if (nextWorkspaceID === mutationWorkspaceID) return;
+		untrack(() => {
+			mutationWorkspaceID = nextWorkspaceID;
+			mutationRevision += 1;
+			createRequests = 0;
+			endingMuteIDs = new Set();
 		});
 	});
 
@@ -115,7 +141,7 @@
 	}
 
 	async function createMute() {
-		const requestedActorID = actorID;
+		const view = captureMuteMutationView();
 		const end = new Date(muteEndsAt);
 		if (!muteEndsAt || Number.isNaN(end.getTime()) || end.getTime() <= Date.now()) {
 			notify(m.notifications_mute_invalid(), 'error');
@@ -126,58 +152,93 @@
 			return;
 		}
 		createRequests += 1;
-		const { data, error: apiError } = await client.POST('/notifications/mutes', {
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/notifications/mutes', {
 			body: {
 				scope: muteScope,
 				workspace_id: muteScope === 'workspace' ? workspaceID : undefined,
 				ends_at: end.toISOString()
 			}
 		});
-		createRequests -= 1;
-		if (actorID !== requestedActorID) return;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (view.revision === mutationRevision) {
+			createRequests = Math.max(0, createRequests - 1);
+		}
+		if (!sessionIsCurrent) return;
 		if (apiError || !data) {
-			notify(
-				apiError?.status === 400 ? m.notifications_mute_invalid() : m.notifications_mute_failed(),
-				'error'
-			);
+			if (muteMutationViewIsCurrent(view)) {
+				notify(
+					apiError?.status === 400 ? m.notifications_mute_invalid() : m.notifications_mute_failed(),
+					'error'
+				);
+			}
 			return;
 		}
-		await queryClient.cancelQueries({
-			queryKey: notificationQueryKeys.preferences(),
-			exact: true
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: notificationQueryKeys.preferences(), exact: true }],
+			reconcile: () => {
+				if (view.requestSequence !== mutationRequestSequence) return;
+				queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+			},
+			invalidate: [{ queryKey: notificationQueryKeys.preferences(), exact: true }]
 		});
-		queryClient.setQueryData(notificationQueryKeys.preferences(), data);
-		void queryClient.invalidateQueries({
-			queryKey: notificationQueryKeys.preferences(),
-			exact: true
-		});
+		if (!reconciled || !muteMutationViewIsCurrent(view)) return;
 		notify(m.notifications_mute_created(), 'success');
 	}
 
 	async function endMute(id: string) {
-		const requestedActorID = actorID;
+		const view = captureMuteMutationView();
 		endingMuteIDs = new Set(endingMuteIDs).add(id);
-		const { data, error: apiError } = await client.DELETE('/notifications/mutes/{id}', {
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.DELETE('/notifications/mutes/{id}', {
 			params: { path: { id } }
 		});
-		const remaining = new Set(endingMuteIDs);
-		remaining.delete(id);
-		endingMuteIDs = remaining;
-		if (actorID !== requestedActorID) return;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (view.revision === mutationRevision) {
+			const remaining = new Set(endingMuteIDs);
+			remaining.delete(id);
+			endingMuteIDs = remaining;
+		}
+		if (!sessionIsCurrent) return;
 		if (apiError || !data) {
-			notify(m.notifications_mute_end_failed(), 'error');
+			if (muteMutationViewIsCurrent(view)) {
+				notify(m.notifications_mute_end_failed(), 'error');
+			}
 			return;
 		}
-		await queryClient.cancelQueries({
-			queryKey: notificationQueryKeys.preferences(),
-			exact: true
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: notificationQueryKeys.preferences(), exact: true }],
+			reconcile: () => {
+				if (view.requestSequence !== mutationRequestSequence) return;
+				queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+			},
+			invalidate: [{ queryKey: notificationQueryKeys.preferences(), exact: true }]
 		});
-		queryClient.setQueryData(notificationQueryKeys.preferences(), data);
-		void queryClient.invalidateQueries({
-			queryKey: notificationQueryKeys.preferences(),
-			exact: true
-		});
+		if (!reconciled || !muteMutationViewIsCurrent(view)) return;
 		notify(m.notifications_mute_ended(), 'success');
+	}
+
+	function captureMuteMutationView(): MuteMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID,
+			revision: mutationRevision,
+			requestSequence: ++mutationRequestSequence
+		};
+	}
+
+	function muteMutationViewIsCurrent(view: MuteMutationView) {
+		return (
+			view.revision === mutationRevision &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function queryErrorMessage(cause: unknown) {

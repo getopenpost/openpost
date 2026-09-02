@@ -1,0 +1,137 @@
+<script module lang="ts">
+	export { THEME_PREVIEW_SCENES } from './theme-preview-types.js';
+	export type ThemePreviewScene = import('./theme-preview-types.js').ThemePreviewScene;
+	export type ThemePreviewViewport = import('./theme-preview-types.js').ThemePreviewViewport;
+</script>
+
+<script lang="ts">
+	import { mount, unmount, untrack } from 'svelte';
+	import {
+		mountThemePreviewDocument,
+		type ThemePreviewDocument,
+		type WebResolvedTheme
+	} from '$lib/themes';
+	import ThemePreviewSceneContent from './theme-preview-scene.svelte';
+	import type {
+		ThemePreviewScene as ThemePreviewSceneValue,
+		ThemePreviewViewport as ThemePreviewViewportValue
+	} from './theme-preview-types.js';
+
+	interface Props {
+		theme: WebResolvedTheme;
+		scene?: ThemePreviewSceneValue;
+		viewport?: ThemePreviewViewportValue;
+		label: string;
+		interactive?: boolean;
+		class?: string;
+	}
+
+	let {
+		theme,
+		scene = 'dashboard',
+		viewport = 'desktop',
+		label,
+		interactive = false,
+		class: className = ''
+	}: Props = $props();
+
+	let frame: HTMLIFrameElement | undefined = $state();
+	let preview: ThemePreviewDocument | undefined = $state();
+	let sceneInstance: ReturnType<typeof mount> | undefined;
+	let documentGeneration = 0;
+	let applyGeneration = 0;
+	let ready = $state(false);
+	const sceneProps = $state<{
+		theme: WebResolvedTheme;
+		scene: ThemePreviewSceneValue;
+		interactive: boolean;
+	}>({
+		theme: untrack(() => theme),
+		scene: untrack(() => scene),
+		interactive: untrack(() => interactive)
+	});
+
+	const viewportWidth = $derived(
+		viewport === 'phone-small' ? '20rem' : viewport === 'phone' ? '24.375rem' : '100%'
+	);
+	const themeFingerprint = $derived(JSON.stringify(theme));
+
+	$effect(() => {
+		sceneProps.scene = scene;
+		sceneProps.interactive = interactive;
+	});
+
+	function applyTheme(mountedPreview: ThemePreviewDocument, nextTheme: WebResolvedTheme) {
+		const generation = ++applyGeneration;
+		ready = false;
+		void mountedPreview.apply(nextTheme).then((applied) => {
+			if (generation !== applyGeneration || !applied) return;
+			sceneProps.theme = nextTheme;
+			ready = true;
+		});
+	}
+
+	$effect(() => {
+		const target = frame;
+		if (!target) return;
+		const initialTheme = untrack(() => theme);
+		const generation = ++documentGeneration;
+		ready = false;
+
+		void mountThemePreviewDocument(target, initialTheme)
+			.then((mountedPreview) => {
+				if (generation !== documentGeneration) {
+					mountedPreview.destroy();
+					return;
+				}
+				preview = mountedPreview;
+				sceneProps.theme = initialTheme;
+				sceneInstance = mount(ThemePreviewSceneContent, {
+					target: mountedPreview.root,
+					props: sceneProps
+				});
+				applyTheme(
+					mountedPreview,
+					untrack(() => theme)
+				);
+			})
+			.catch(() => {
+				if (generation === documentGeneration) ready = false;
+			});
+
+		return () => {
+			documentGeneration += 1;
+			applyGeneration += 1;
+			if (sceneInstance) void unmount(sceneInstance);
+			sceneInstance = undefined;
+			preview?.destroy();
+			preview = undefined;
+		};
+	});
+
+	$effect(() => {
+		void themeFingerprint;
+		const mountedPreview = preview;
+		const nextTheme = theme;
+		if (!mountedPreview) return;
+		applyTheme(mountedPreview, nextTheme);
+	});
+</script>
+
+<div
+	class={[
+		'theme-preview-frame flex min-h-0 w-full justify-center overflow-auto rounded-[var(--theme-radius-lg,var(--radius))] bg-muted/50 p-2 sm:p-3',
+		className
+	]}
+	data-preview-viewport={viewport}
+>
+	<iframe
+		bind:this={frame}
+		title={label}
+		style:width={viewportWidth}
+		class="block h-[30rem] max-w-full overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-background shadow-[var(--theme-shadow-card,none)] transition-[width,opacity] duration-200"
+		class:opacity-70={!ready}
+		aria-busy={!ready}
+		data-testid="theme-preview"
+	></iframe>
+</div>

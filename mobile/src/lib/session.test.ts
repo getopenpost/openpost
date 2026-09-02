@@ -173,13 +173,11 @@ function synchronizer(
     getServer: () => ({ baseUrl: "https://app.openpo.st", isHosted: true }),
     getToken: () => state.token,
     getWorkspaceId: () => workspaceId,
-    saveWorkspaceId: async (nextWorkspaceId) => {
-      savedWorkspaceIds.push(nextWorkspaceId);
+    commitWorkspaceId: async (nextWorkspaceId) => {
+      if (nextWorkspaceId) savedWorkspaceIds.push(nextWorkspaceId);
+      else state.clearWorkspaceCalls += 1;
       workspaceId = nextWorkspaceId;
-    },
-    clearWorkspaceId: async () => {
-      state.clearWorkspaceCalls += 1;
-      workspaceId = null;
+      return true;
     },
     clearToken: async () => {
       state.clearTokenCalls += 1;

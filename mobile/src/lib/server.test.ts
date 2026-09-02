@@ -3,7 +3,9 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import {
   activityPublicationsQueryOptions,
   liveQueryStaleTime,
+  openPostBootstrapQueryKeys,
   queryStaleTime,
+  type AppBootstrap,
   type QueryPageResult,
   workspaceAccountsQueryOptions,
 } from "@openpost/query-catalog";
@@ -12,19 +14,36 @@ import type { Publication } from "./query-cache";
 
 const values = new Map<string, string>();
 let deleteFailureKey: string | null = null;
+let workspaceWrite: {
+  operation: "delete" | "set";
+  started: Deferred<void>;
+  release: Deferred<void>;
+} | null = null;
 
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
+    const pending = workspaceWrite;
+    if (key === "openpost.workspace.id" && pending?.operation === "set") {
+      workspaceWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
     values.set(key, value);
   },
   deleteItemAsync: async (key: string) => {
     if (key === deleteFailureKey) throw new Error("SecureStore delete failed");
+    const pending = workspaceWrite;
+    if (key === "openpost.workspace.id" && pending?.operation === "delete") {
+      workspaceWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
     values.delete(key);
   },
 }));
 
-const { loadServer, setServer } = await import("./server");
+const { getServer, loadServer, setServer } = await import("./server");
 const {
   clearToken,
   clearWorkspaceId,
@@ -34,15 +53,19 @@ const {
   saveToken,
   saveWorkspaceId,
   subscribeToken,
+  subscribeWorkspaceId,
 } = await import("./api/token-store");
 const { queryClient } = await import("./query-client");
 const { accountsOptions, publicationActivityOptions, publicationOptions, workspacesOptions } =
   await import("./queries");
-const { captureApiRequestIdentity, settleApiUnauthorized } = await import("./api/client");
+const { captureApiRequestIdentity, commitWorkspaceIdForIdentity, settleApiUnauthorized } =
+  await import("./api/client");
 const { cachePublicationDetails, capturePublicationListCacheContext } =
   await import("./query-cache");
 const { queryKeys } = await import("./query-policy");
 const { captureWorkspaceQueryScope } = await import("./query-session");
+const { synchronizeSession } = await import("./session");
+const { completeWorkspaceSelection } = await import("./workspace-selection");
 
 describe("server persistence", () => {
   beforeEach(() => values.clear());
@@ -98,6 +121,186 @@ describe("token persistence", () => {
     await clearWorkspaceId();
     expect(getWorkspaceId()).toBeNull();
     expect(values.has("openpost.workspace.id")).toBe(false);
+  });
+});
+
+describe("session workspace persistence", () => {
+  for (const scenario of [
+    { name: "overwrite", operation: "set" as const, selectedWorkspaceId: "workspace-2" },
+    { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
+  ]) {
+    test(`an old bootstrap cannot ${scenario.name} the workspace after its server changes mid-write`, async () => {
+      await setServer("https://old.example.com");
+      await saveToken("token-old");
+      await saveWorkspaceId("workspace-1");
+
+      const started = deferred<void>();
+      const release = deferred<void>();
+      workspaceWrite = { operation: scenario.operation, started, release };
+      const client = new QueryClient();
+      const request = synchronizeSession(
+        {
+          queryClient: client,
+          getServer,
+          getToken,
+          getWorkspaceId,
+          commitWorkspaceId: commitWorkspaceIdForIdentity,
+          clearToken,
+          readAppBootstrap: async () => appBootstrap(scenario.selectedWorkspaceId),
+        },
+        new AbortController().signal,
+      );
+
+      await started.promise;
+      await setServer("https://new.example.com");
+      release.resolve();
+
+      await expect(request).rejects.toMatchObject({ name: "AbortError" });
+      expect(values.get("openpost.workspace.id")).toBe("workspace-1");
+      expect(getWorkspaceId()).toBe("workspace-1");
+      expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+      client.clear();
+      await clearToken();
+    });
+  }
+
+  for (const scenario of [
+    { name: "overwrite", operation: "set" as const, selectedWorkspaceId: "workspace-2" },
+    { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
+  ]) {
+    test(`an old bootstrap cannot ${scenario.name} the workspace after a token change queues mid-write`, async () => {
+      await setServer("https://identity.example.com");
+      await saveToken("token-old");
+      await saveWorkspaceId("workspace-1");
+      const snapshots: (string | null)[] = [];
+      const unsubscribe = subscribeWorkspaceId(() => snapshots.push(getWorkspaceId()));
+      const started = deferred<void>();
+      const release = deferred<void>();
+      workspaceWrite = { operation: scenario.operation, started, release };
+      const client = new QueryClient();
+      let tokenChange = Promise.resolve();
+
+      try {
+        const request = synchronizeSession(
+          {
+            queryClient: client,
+            getServer,
+            getToken,
+            getWorkspaceId,
+            commitWorkspaceId: commitWorkspaceIdForIdentity,
+            clearToken,
+            readAppBootstrap: async () => appBootstrap(scenario.selectedWorkspaceId),
+          },
+          new AbortController().signal,
+        );
+
+        await started.promise;
+        tokenChange = saveToken("token-new");
+        release.resolve();
+
+        await expect(request).rejects.toMatchObject({ name: "AbortError" });
+        await tokenChange;
+        expect(values.has("openpost.workspace.id")).toBe(false);
+        expect(getWorkspaceId()).toBeNull();
+        expect(snapshots).toEqual([null]);
+        expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+      } finally {
+        release.resolve();
+        await tokenChange;
+        unsubscribe();
+        client.clear();
+        await clearToken();
+      }
+    });
+  }
+});
+
+describe("direct workspace selection", () => {
+  test("persists, publishes, and navigates once for the current identity", async () => {
+    await setServer("https://identity.example.com");
+    await saveToken("token-current");
+    await saveWorkspaceId("workspace-1");
+    const snapshots: (string | null)[] = [];
+    const unsubscribe = subscribeWorkspaceId(() => snapshots.push(getWorkspaceId()));
+    let navigationCount = 0;
+
+    try {
+      const committed = await completeWorkspaceSelection("workspace-2", () => {
+        navigationCount += 1;
+      });
+
+      expect(committed).toBe(true);
+      expect(navigationCount).toBe(1);
+      expect(values.get("openpost.workspace.id")).toBe("workspace-2");
+      expect(getWorkspaceId()).toBe("workspace-2");
+      expect(snapshots).toEqual(["workspace-2"]);
+    } finally {
+      unsubscribe();
+      await clearToken();
+    }
+  });
+
+  test("does not persist or navigate after the server changes during its write", async () => {
+    await setServer("https://old.example.com");
+    await saveToken("token-old");
+    await saveWorkspaceId("workspace-1");
+    const snapshots: (string | null)[] = [];
+    const unsubscribe = subscribeWorkspaceId(() => snapshots.push(getWorkspaceId()));
+    const started = deferred<void>();
+    const release = deferred<void>();
+    workspaceWrite = { operation: "set", started, release };
+    let navigationCount = 0;
+
+    try {
+      const selection = completeWorkspaceSelection("workspace-2", () => {
+        navigationCount += 1;
+      });
+      await started.promise;
+      await setServer("https://new.example.com");
+      release.resolve();
+
+      expect(await selection).toBe(false);
+      expect(navigationCount).toBe(0);
+      expect(values.get("openpost.workspace.id")).toBe("workspace-1");
+      expect(getWorkspaceId()).toBe("workspace-1");
+      expect(snapshots).toEqual([]);
+    } finally {
+      release.resolve();
+      unsubscribe();
+      await clearToken();
+    }
+  });
+
+  test("does not publish or navigate when a token change queues during its write", async () => {
+    await setServer("https://identity.example.com");
+    await saveToken("token-old");
+    await saveWorkspaceId("workspace-1");
+    const snapshots: (string | null)[] = [];
+    const unsubscribe = subscribeWorkspaceId(() => snapshots.push(getWorkspaceId()));
+    const started = deferred<void>();
+    const release = deferred<void>();
+    workspaceWrite = { operation: "set", started, release };
+    let navigationCount = 0;
+
+    try {
+      const selection = completeWorkspaceSelection("workspace-2", () => {
+        navigationCount += 1;
+      });
+      await started.promise;
+      const tokenChange = saveToken("token-new");
+      release.resolve();
+
+      expect(await selection).toBe(false);
+      await tokenChange;
+      expect(navigationCount).toBe(0);
+      expect(values.has("openpost.workspace.id")).toBe(false);
+      expect(getWorkspaceId()).toBeNull();
+      expect(snapshots).toEqual([null]);
+    } finally {
+      release.resolve();
+      unsubscribe();
+      await clearToken();
+    }
   });
 });
 
@@ -299,6 +502,58 @@ function publication(
     updated_at: updatedAt,
     workspace_id: "workspace-1",
   } as Publication;
+}
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+};
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: Deferred<T>["resolve"];
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
+function appBootstrap(selectedWorkspaceId: string | null): AppBootstrap {
+  const selected = selectedWorkspaceId
+    ? {
+        avatar_url: "",
+        can_edit: true,
+        color: "#000000",
+        created_at: "2026-09-01T00:00:00Z",
+        id: selectedWorkspaceId,
+        name: "Workspace",
+        organization_id: "organization-1",
+        organization_name: "Organization",
+        role: "admin" as const,
+        sso_authenticated: true,
+        sso_identity_linked: true,
+        sso_required: false,
+      }
+    : null;
+  return {
+    authenticated: true,
+    selected_workspace_id: selectedWorkspaceId,
+    selected_workspace_settings: selected
+      ? {
+          avatar_url: "",
+          color: "#000000",
+          media_cleanup_days: 14,
+          name: selected.name,
+          random_delay_minutes: 0,
+          slot_end_hour: 17,
+          slot_interval_minutes: 60,
+          slot_start_hour: 9,
+          timezone: "UTC",
+          week_start: 1,
+        }
+      : null,
+    user: null,
+    workspaces: selected ? [selected] : [],
+  };
 }
 
 function installDeferredPublicationFetch(fallback: Publication) {

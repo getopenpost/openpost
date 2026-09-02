@@ -6,6 +6,7 @@ import {
 } from "@openpost/query-catalog";
 import type { QueryClient } from "@tanstack/react-query";
 
+import type { ApiRequestIdentity } from "./api/client";
 import type { ServerConfig } from "./server";
 
 export type SessionState = {
@@ -28,8 +29,7 @@ export type SessionSynchronizer = {
   getServer: () => ServerConfig | null;
   getToken: () => string | null;
   getWorkspaceId: () => string | null;
-  saveWorkspaceId: (workspaceId: string) => Promise<void>;
-  clearWorkspaceId: () => Promise<void>;
+  commitWorkspaceId: (workspaceId: string | null, identity: ApiRequestIdentity) => Promise<boolean>;
   clearToken: () => Promise<void>;
   readAppBootstrap: (
     serverBaseUrl: string,
@@ -77,8 +77,13 @@ export async function synchronizeSession(
     }
 
     const selectedWorkspaceId = confirmedBootstrapWorkspaceId(bootstrap);
-    if (selectedWorkspaceId) await synchronizer.saveWorkspaceId(selectedWorkspaceId);
-    else await synchronizer.clearWorkspaceId();
+    const workspaceCommitted = await synchronizer.commitWorkspaceId(selectedWorkspaceId, {
+      serverBaseUrl: server.baseUrl,
+      token,
+    });
+    if (!workspaceCommitted) {
+      throw new DOMException("The signed-in session changed", "AbortError");
+    }
 
     signal.throwIfAborted();
     if (synchronizer.getServer()?.baseUrl !== server.baseUrl || synchronizer.getToken() !== token) {

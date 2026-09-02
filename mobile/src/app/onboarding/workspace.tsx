@@ -6,11 +6,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "reac
 import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import { getWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
+import { getWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
 import { useWorkspaces } from "@/lib/queries";
 import { getServer } from "@/lib/server";
+import { completeWorkspaceSelection } from "@/lib/workspace-selection";
 
 export default function WorkspaceScreen() {
   const colors = useColors();
@@ -27,8 +28,10 @@ export default function WorkspaceScreen() {
 
   const finish = useCallback(async (id: string) => {
     setSelected(id);
-    await saveWorkspaceId(id);
-    router.replace(destinationState(null).route);
+    const committed = await completeWorkspaceSelection(id, () =>
+      router.replace(destinationState(null).route),
+    );
+    if (!committed) setSelected(null);
   }, []);
 
   useEffect(() => {
@@ -38,7 +41,9 @@ export default function WorkspaceScreen() {
     if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
     else if (list.length === 1) automatic = list[0].id;
     if (automatic) {
-      void saveWorkspaceId(automatic).then(() => router.replace(destinationState(null).route));
+      void completeWorkspaceSelection(automatic, () =>
+        router.replace(destinationState(null).route),
+      );
     }
   }, [list, selected, switching]);
 

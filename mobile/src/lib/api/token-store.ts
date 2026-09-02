@@ -7,7 +7,9 @@ let token: string | null = null;
 let workspaceId: string | null = null;
 const tokenListeners = new Set<() => void>();
 const workspaceListeners = new Set<() => void>();
-let tokenMutationTail = Promise.resolve();
+let persistenceMutationTail = Promise.resolve();
+// Invalidate an in-flight workspace commit as soon as an actor change is queued.
+let tokenMutationRevision = 0;
 
 export function getToken(): string | null {
   return token;
@@ -31,9 +33,9 @@ function notifyWorkspaceId() {
   for (const listener of workspaceListeners) listener();
 }
 
-function runTokenMutation<T>(operation: () => Promise<T>): Promise<T> {
-  const result = tokenMutationTail.then(operation, operation);
-  tokenMutationTail = result.then(
+function runPersistenceMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = persistenceMutationTail.then(operation, operation);
+  persistenceMutationTail = result.then(
     () => undefined,
     () => undefined,
   );
@@ -41,7 +43,8 @@ function runTokenMutation<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 export function loadToken(): Promise<string | null> {
-  return runTokenMutation(async () => {
+  tokenMutationRevision += 1;
+  return runPersistenceMutation(async () => {
     token = await SecureStore.getItemAsync(KEY);
     notifyToken();
     return token;
@@ -49,7 +52,8 @@ export function loadToken(): Promise<string | null> {
 }
 
 export function saveToken(value: string): Promise<void> {
-  return runTokenMutation(async () => {
+  tokenMutationRevision += 1;
+  return runPersistenceMutation(async () => {
     await SecureStore.deleteItemAsync(WORKSPACE_KEY);
     await SecureStore.setItemAsync(KEY, value);
     token = value;
@@ -60,14 +64,17 @@ export function saveToken(value: string): Promise<void> {
 }
 
 export function clearToken(): Promise<void> {
-  return runTokenMutation(clearCurrentToken);
+  tokenMutationRevision += 1;
+  return runPersistenceMutation(clearCurrentToken);
 }
 
 export function clearTokenIfCurrent(
   expectedToken: string,
   identityIsCurrent: () => boolean,
 ): Promise<boolean> {
-  return runTokenMutation(async () => {
+  if (token !== expectedToken || !identityIsCurrent()) return Promise.resolve(false);
+  tokenMutationRevision += 1;
+  return runPersistenceMutation(async () => {
     if (token !== expectedToken || !identityIsCurrent()) return false;
     await clearCurrentToken();
     return true;
@@ -83,24 +90,79 @@ async function clearCurrentToken(): Promise<void> {
   await SecureStore.deleteItemAsync(WORKSPACE_KEY);
 }
 
-export async function loadWorkspaceId(): Promise<string | null> {
-  workspaceId = await SecureStore.getItemAsync(WORKSPACE_KEY);
-  notifyWorkspaceId();
-  return workspaceId;
+export function loadWorkspaceId(): Promise<string | null> {
+  return runPersistenceMutation(async () => {
+    workspaceId = await SecureStore.getItemAsync(WORKSPACE_KEY);
+    notifyWorkspaceId();
+    return workspaceId;
+  });
 }
 
-export async function saveWorkspaceId(value: string): Promise<void> {
-  await SecureStore.setItemAsync(WORKSPACE_KEY, value);
-  workspaceId = value;
-  notifyWorkspaceId();
+export function saveWorkspaceId(value: string): Promise<void> {
+  return runPersistenceMutation(async () => {
+    await writeWorkspaceId(value);
+    publishWorkspaceId(value);
+  });
 }
 
-export async function clearWorkspaceId(): Promise<void> {
-  await SecureStore.deleteItemAsync(WORKSPACE_KEY);
-  workspaceId = null;
-  notifyWorkspaceId();
+export function clearWorkspaceId(): Promise<void> {
+  return runPersistenceMutation(async () => {
+    await writeWorkspaceId(null);
+    publishWorkspaceId(null);
+  });
+}
+
+export function commitWorkspaceIdIfCurrent(
+  value: string | null,
+  expectedToken: string,
+  identityIsCurrent: () => boolean,
+): Promise<boolean> {
+  const expectedTokenMutationRevision = tokenMutationRevision;
+  return runPersistenceMutation(async () => {
+    if (
+      !workspaceCommitIsCurrent(expectedToken, expectedTokenMutationRevision, identityIsCurrent)
+    ) {
+      return false;
+    }
+
+    const previousWorkspaceId = workspaceId;
+    await writeWorkspaceId(value);
+    if (
+      !workspaceCommitIsCurrent(expectedToken, expectedTokenMutationRevision, identityIsCurrent)
+    ) {
+      // SecureStore has no compare-and-set, so repair the write before later mutations run.
+      await writeWorkspaceId(previousWorkspaceId);
+      return false;
+    }
+
+    publishWorkspaceId(value);
+    return true;
+  });
 }
 
 export function getWorkspaceId(): string | null {
   return workspaceId;
+}
+
+function workspaceCommitIsCurrent(
+  expectedToken: string,
+  expectedTokenMutationRevision: number,
+  identityIsCurrent: () => boolean,
+): boolean {
+  return (
+    token === expectedToken &&
+    tokenMutationRevision === expectedTokenMutationRevision &&
+    identityIsCurrent()
+  );
+}
+
+function writeWorkspaceId(value: string | null): Promise<void> {
+  return value
+    ? SecureStore.setItemAsync(WORKSPACE_KEY, value)
+    : SecureStore.deleteItemAsync(WORKSPACE_KEY);
+}
+
+function publishWorkspaceId(value: string | null): void {
+  workspaceId = value;
+  notifyWorkspaceId();
 }

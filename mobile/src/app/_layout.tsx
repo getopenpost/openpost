@@ -16,14 +16,13 @@ import { getQueryActorRevision, subscribeQueryActor } from "@/lib/query-session"
 import { getServer, loadServer, subscribeServer } from "@/lib/server";
 import {
   clearToken,
-  clearWorkspaceId,
   getToken,
   getWorkspaceId,
   loadToken,
   loadWorkspaceId,
-  saveWorkspaceId,
   subscribeToken,
 } from "@/lib/api/token-store";
+import { commitWorkspaceIdForIdentity } from "@/lib/api/client";
 import { readAppBootstrap } from "@/lib/app-bootstrap";
 import { LaunchSessionProvider, type LaunchSessionState } from "@/lib/launch-session";
 import { loadSessionState, synchronizeSession } from "@/lib/session";
@@ -61,8 +60,7 @@ function useSessionReady() {
             getServer,
             getToken,
             getWorkspaceId,
-            saveWorkspaceId,
-            clearWorkspaceId,
+            commitWorkspaceId: commitWorkspaceIdForIdentity,
             clearToken,
             readAppBootstrap,
           },

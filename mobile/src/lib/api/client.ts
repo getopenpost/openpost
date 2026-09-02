@@ -2,7 +2,12 @@ import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
 
 import { getServer, subscribeServer } from "../server";
-import { clearTokenIfCurrent, getToken, subscribeToken } from "./token-store";
+import {
+  clearTokenIfCurrent,
+  commitWorkspaceIdIfCurrent,
+  getToken,
+  subscribeToken,
+} from "./token-store";
 
 export type Api = ReturnType<typeof createClient<paths>>;
 export type ApiRequestIdentity = {
@@ -45,6 +50,20 @@ export function captureApiRequestIdentity(): ApiRequestIdentity {
     serverBaseUrl: getServer()?.baseUrl ?? "",
     token: getToken(),
   };
+}
+
+export function apiRequestIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
+  return getServer()?.baseUrl === identity.serverBaseUrl && getToken() === identity.token;
+}
+
+export function commitWorkspaceIdForIdentity(
+  workspaceId: string | null,
+  identity: ApiRequestIdentity,
+): Promise<boolean> {
+  if (!identity.token) return Promise.resolve(false);
+  return commitWorkspaceIdIfCurrent(workspaceId, identity.token, () =>
+    apiRequestIdentityIsCurrent(identity),
+  );
 }
 
 export async function settleApiUnauthorized(

@@ -13570,6 +13570,13 @@
 			"PublishedThemeCatalogItem": {
 				"additionalProperties": false,
 				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/PublishedThemeCatalogItem.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
 					"manifest": {
 						"$ref": "#/components/schemas/ThemeRuntimeManifest"
 					},
@@ -18441,6 +18448,29 @@
 					"is_organization_default",
 					"assigned_workspace_count"
 				],
+				"type": "object"
+			},
+			"ThemeSummaryPage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ThemeSummaryPage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/ThemeSummary"
+						},
+						"type": "array"
+					},
+					"next_cursor": {
+						"type": "string"
+					}
+				},
+				"required": ["items"],
 				"type": "object"
 			},
 			"ThemeTypographyRoleTokens": {
@@ -42629,6 +42659,7 @@
 		},
 		"/themes": {
 			"get": {
+				"description": "Returns a bounded page of compact summaries. Fetch one theme by ID for draft and published manifests.",
 				"operationId": "list-organization-themes",
 				"parameters": [
 					{
@@ -42641,6 +42672,31 @@
 							"description": "Organization ID",
 							"type": "string"
 						}
+					},
+					{
+						"description": "Maximum summaries to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 20,
+							"description": "Maximum summaries to return",
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable name-ordered pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable name-ordered pagination",
+							"maxLength": 1024,
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -42648,10 +42704,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"items": {
-										"$ref": "#/components/schemas/Theme"
-									},
-									"type": "array"
+									"$ref": "#/components/schemas/ThemeSummaryPage"
 								}
 							}
 						},
@@ -42708,7 +42761,7 @@
 						"description": "Service Unavailable"
 					}
 				},
-				"summary": "List Organization themes",
+				"summary": "List Organization theme summaries",
 				"tags": ["Organization Themes"]
 			},
 			"post": {
@@ -42801,7 +42854,7 @@
 		},
 		"/themes/available": {
 			"get": {
-				"description": "Returns built-ins and published Organization themes without exposing drafts or asset inventory.",
+				"description": "Returns a bounded page of built-ins and published Organization themes without exposing drafts, manifests, or asset inventory.",
 				"operationId": "list-available-themes",
 				"parameters": [
 					{
@@ -42814,6 +42867,31 @@
 							"description": "Workspace ID",
 							"type": "string"
 						}
+					},
+					{
+						"description": "Maximum summaries to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 20,
+							"description": "Maximum summaries to return",
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable built-in-first pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable built-in-first pagination",
+							"maxLength": 1024,
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -42821,10 +42899,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"items": {
-										"$ref": "#/components/schemas/PublishedThemeCatalogItem"
-									},
-									"type": "array"
+									"$ref": "#/components/schemas/ThemeSummaryPage"
 								}
 							}
 						},
@@ -42881,7 +42956,123 @@
 						"description": "Service Unavailable"
 					}
 				},
-				"summary": "List themes available to a Workspace administrator",
+				"summary": "List theme summaries available to a Workspace administrator",
+				"tags": ["Organization Themes"]
+			}
+		},
+		"/themes/available/{id}": {
+			"get": {
+				"description": "Returns one immutable published manifest with authorized Workspace preview resource URLs. Built-in manifests are served by the static built-in catalog.",
+				"operationId": "get-available-custom-theme",
+				"parameters": [
+					{
+						"description": "Published custom theme ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Published custom theme ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Immutable published revision returned by the catalog summary",
+						"explode": false,
+						"in": "query",
+						"name": "revision",
+						"required": true,
+						"schema": {
+							"description": "Immutable published revision returned by the catalog summary",
+							"format": "int64",
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PublishedThemeCatalogItem"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Get one published custom theme preview",
 				"tags": ["Organization Themes"]
 			}
 		},

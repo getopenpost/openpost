@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS organization_theme_revisions (
 CREATE INDEX IF NOT EXISTS organization_theme_revisions_org_idx
   ON organization_theme_revisions (organization_id, theme_id, revision DESC);
 
+CREATE INDEX IF NOT EXISTS organization_theme_revisions_catalog_idx
+  ON organization_theme_revisions (organization_id, LOWER(name), published_at, theme_id);
+
 CREATE TABLE IF NOT EXISTS workspace_theme_assignments (
   workspace_id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,

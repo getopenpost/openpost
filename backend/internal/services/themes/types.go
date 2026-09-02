@@ -378,6 +378,11 @@ type ThemeSummary struct {
 	UpdatedAt              time.Time      `json:"updated_at,omitempty"`
 }
 
+type ThemeSummaryPage struct {
+	Items      []ThemeSummary `json:"items" nullable:"false"`
+	NextCursor string         `json:"next_cursor,omitempty"`
+}
+
 type Theme struct {
 	Summary ThemeSummary       `json:"summary"`
 	Draft   *ThemeDraft        `json:"draft,omitempty"`

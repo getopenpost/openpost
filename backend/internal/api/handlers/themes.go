@@ -34,12 +34,26 @@ func NewThemeHandler(db *bun.DB, auth middleware.Authenticator, storage mediasto
 	return &ThemeHandler{auth: auth, themes: themes.NewWithStorage(db, storage)}
 }
 
+type ThemeOrganizationListInput struct {
+	OrganizationID string `query:"organization_id" required:"true" doc:"Organization ID"`
+	Limit          int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Maximum summaries to return"`
+	Cursor         string `query:"cursor" maxLength:"1024" doc:"Opaque cursor for stable name-ordered pagination"`
+}
+
 type ThemeOrganizationInput struct {
 	OrganizationID string `query:"organization_id" required:"true" doc:"Organization ID"`
 }
 
 type AvailableThemesInput struct {
 	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID"`
+	Limit       int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Maximum summaries to return"`
+	Cursor      string `query:"cursor" maxLength:"1024" doc:"Opaque cursor for stable built-in-first pagination"`
+}
+
+type AvailableThemeDetailInput struct {
+	PathID      string `path:"id" doc:"Published custom theme ID"`
+	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID"`
+	Revision    int    `query:"revision" required:"true" minimum:"1" doc:"Immutable published revision returned by the catalog summary"`
 }
 
 type ThemePathInput struct {
@@ -129,10 +143,13 @@ type UpdateWorkspaceThemeAssignmentInput struct {
 
 type ThemeOutput struct{ Body themes.Theme }
 type ThemeListOutput struct {
-	Body []themes.Theme `nullable:"false"`
+	Body themes.ThemeSummaryPage
 }
 type AvailableThemeListOutput struct {
-	Body []themes.PublishedThemeCatalogItem `nullable:"false"`
+	Body themes.ThemeSummaryPage
+}
+type AvailableThemeDetailOutput struct {
+	Body themes.PublishedThemeCatalogItem
 }
 type BuiltInThemeListOutput struct {
 	Body []themes.BuiltInFamily `nullable:"false"`
@@ -213,8 +230,9 @@ type GetThemeAssetContentOutput struct {
 func (h *ThemeHandler) RegisterRoutes(api huma.API) {
 	auth := huma.Middlewares{middleware.AuthMiddleware(api, h.auth)}
 	huma.Register(api, huma.Operation{OperationID: "list-built-in-themes", Method: http.MethodGet, Path: themesPath + "/built-ins", Summary: "List immutable built-in themes", Tags: []string{themesTag}, Middlewares: auth}, h.listBuiltIns)
-	huma.Register(api, huma.Operation{OperationID: "list-organization-themes", Method: http.MethodGet, Path: themesPath, Summary: "List Organization themes", Tags: []string{themesTag}, Errors: []int{400, 403, 503}, Middlewares: auth}, h.list)
-	huma.Register(api, huma.Operation{OperationID: "list-available-themes", Method: http.MethodGet, Path: themesPath + "/available", Summary: "List themes available to a Workspace administrator", Description: "Returns built-ins and published Organization themes without exposing drafts or asset inventory.", Tags: []string{themesTag}, Errors: []int{400, 403, 503}, Middlewares: auth}, h.available)
+	huma.Register(api, huma.Operation{OperationID: "list-organization-themes", Method: http.MethodGet, Path: themesPath, Summary: "List Organization theme summaries", Description: "Returns a bounded page of compact summaries. Fetch one theme by ID for draft and published manifests.", Tags: []string{themesTag}, Errors: []int{400, 403, 503}, Middlewares: auth}, h.list)
+	huma.Register(api, huma.Operation{OperationID: "list-available-themes", Method: http.MethodGet, Path: themesPath + "/available", Summary: "List theme summaries available to a Workspace administrator", Description: "Returns a bounded page of built-ins and published Organization themes without exposing drafts, manifests, or asset inventory.", Tags: []string{themesTag}, Errors: []int{400, 403, 503}, Middlewares: auth}, h.available)
+	huma.Register(api, huma.Operation{OperationID: "get-available-custom-theme", Method: http.MethodGet, Path: themesPath + "/available/{id}", Summary: "Get one published custom theme preview", Description: "Returns one immutable published manifest with authorized Workspace preview resource URLs. Built-in manifests are served by the static built-in catalog.", Tags: []string{themesTag}, Errors: []int{400, 403, 404, 503}, Middlewares: auth}, h.availableDetail)
 	huma.Register(api, huma.Operation{OperationID: "create-organization-theme", Method: http.MethodPost, Path: themesPath, Summary: "Create an Organization theme draft", Tags: []string{themesTag}, Errors: []int{400, 403, 409, 503}, Middlewares: auth}, h.create)
 	huma.Register(api, huma.Operation{OperationID: "resolve-theme", Method: http.MethodGet, Path: themesPath + "/resolved", Summary: "Resolve the complete Workspace theme", Description: "Returns one complete manifest. Missing, invalid, unpublished, deleted, inaccessible, or unsupported references fall back as a whole to Workshop.", Tags: []string{themesTag}, Errors: []int{400, 403, 503}, Middlewares: auth}, h.resolve)
 	huma.Register(api, huma.Operation{OperationID: "get-organization-theme", Method: http.MethodGet, Path: themesPath + "/{id}", Summary: "Get an Organization theme and draft", Tags: []string{themesTag}, Errors: []int{400, 403, 404, 503}, Middlewares: auth}, h.get)
@@ -237,8 +255,8 @@ func (h *ThemeHandler) listBuiltIns(context.Context, *struct{}) (*BuiltInThemeLi
 	return &BuiltInThemeListOutput{Body: h.themes.ListBuiltIns()}, nil
 }
 
-func (h *ThemeHandler) list(ctx context.Context, input *ThemeOrganizationInput) (*ThemeListOutput, error) {
-	items, err := h.themes.List(ctx, themeActor(ctx), input.OrganizationID)
+func (h *ThemeHandler) list(ctx context.Context, input *ThemeOrganizationListInput) (*ThemeListOutput, error) {
+	items, err := h.themes.List(ctx, themeActor(ctx), input.OrganizationID, themes.PageOptions{Limit: input.Limit, Cursor: input.Cursor})
 	if err != nil {
 		return nil, themeError(err)
 	}
@@ -246,11 +264,19 @@ func (h *ThemeHandler) list(ctx context.Context, input *ThemeOrganizationInput) 
 }
 
 func (h *ThemeHandler) available(ctx context.Context, input *AvailableThemesInput) (*AvailableThemeListOutput, error) {
-	items, err := h.themes.Available(ctx, themeActor(ctx), input.WorkspaceID)
+	items, err := h.themes.Available(ctx, themeActor(ctx), input.WorkspaceID, themes.PageOptions{Limit: input.Limit, Cursor: input.Cursor})
 	if err != nil {
 		return nil, themeError(err)
 	}
 	return &AvailableThemeListOutput{Body: items}, nil
+}
+
+func (h *ThemeHandler) availableDetail(ctx context.Context, input *AvailableThemeDetailInput) (*AvailableThemeDetailOutput, error) {
+	item, err := h.themes.AvailableDetail(ctx, themeActor(ctx), input.WorkspaceID, input.PathID, input.Revision)
+	if err != nil {
+		return nil, themeError(err)
+	}
+	return &AvailableThemeDetailOutput{Body: item}, nil
 }
 
 func (h *ThemeHandler) create(ctx context.Context, input *CreateThemeInput) (*ThemeOutput, error) {

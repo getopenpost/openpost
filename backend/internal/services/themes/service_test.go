@@ -211,7 +211,7 @@ func TestWorkspaceBoundTokenCannotReadOrganizationThemeLibrary(t *testing.T) {
 	_, err := db.ExecContext(t.Context(), `INSERT INTO api_tokens (id, user_id, workspace_id) VALUES ('workspace-token', 'admin-1', 'workspace-1')`)
 	require.NoError(t, err)
 
-	_, err = service.List(t.Context(), Actor{UserID: "admin-1", TokenID: "workspace-token"}, "org-1")
+	_, err = service.List(t.Context(), Actor{UserID: "admin-1", TokenID: "workspace-token"}, "org-1", PageOptions{})
 	require.ErrorIs(t, err, ErrInaccessible)
 }
 
@@ -222,7 +222,7 @@ func TestOrganizationMembersCanResolveButCannotReadManagementData(t *testing.T) 
 	theme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Private draft", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
 
-	_, err = service.List(t.Context(), member, "org-1")
+	_, err = service.List(t.Context(), member, "org-1", PageOptions{})
 	require.ErrorIs(t, err, ErrInaccessible)
 	_, err = service.Get(t.Context(), member, "org-1", theme.Summary.Reference.ID)
 	require.ErrorIs(t, err, ErrInaccessible)
@@ -297,29 +297,33 @@ func TestWorkspaceAdministratorCanListOnlyPublishedAvailableThemes(t *testing.T)
 	require.NoError(t, err)
 
 	workspaceAdmin := Actor{UserID: "workspace-admin"}
-	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1")
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
 	require.NoError(t, err)
-	require.Len(t, available, 9)
-	require.Equal(t, builtInOrder, []string{available[0].Summary.Reference.ID, available[1].Summary.Reference.ID, available[2].Summary.Reference.ID, available[3].Summary.Reference.ID, available[4].Summary.Reference.ID, available[5].Summary.Reference.ID, available[6].Summary.Reference.ID, available[7].Summary.Reference.ID})
-	require.Equal(t, "Published", available[8].Summary.Name)
-	require.Zero(t, available[8].Summary.DraftRevision)
-	require.Equal(t, publishedTheme.Summary.Reference.ID, available[8].Manifest.ID)
-	require.Equal(t, "1", available[8].Manifest.Revision)
-	publishedAt := available[8].Summary.UpdatedAt
+	require.Len(t, available.Items, 9)
+	require.Equal(t, builtInOrder, []string{available.Items[0].Reference.ID, available.Items[1].Reference.ID, available.Items[2].Reference.ID, available.Items[3].Reference.ID, available.Items[4].Reference.ID, available.Items[5].Reference.ID, available.Items[6].Reference.ID, available.Items[7].Reference.ID})
+	require.Equal(t, "Published", available.Items[8].Name)
+	require.Zero(t, available.Items[8].DraftRevision)
+	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
+	require.Equal(t, publishedTheme.Summary.Reference.ID, preview.Manifest.ID)
+	require.Equal(t, "1", preview.Manifest.Revision)
+	publishedAt := available.Items[8].UpdatedAt
 	changedDraft := publishedTheme.Draft.Manifest
 	changedDraft.Description = "Unpublished activity"
 	_, err = service.UpdateDraft(t.Context(), admin, publishedTheme.Summary.Reference.ID, UpdateDraftInput{
 		OrganizationID: "org-1", ExpectedRevision: 1, Name: "Published", Manifest: changedDraft,
 	})
 	require.NoError(t, err)
-	available, err = service.Available(t.Context(), workspaceAdmin, "workspace-1")
+	available, err = service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
 	require.NoError(t, err)
-	require.Equal(t, publishedAt, available[8].Summary.UpdatedAt, "catalog timestamps must not reveal draft activity")
-	require.NotEqual(t, "Unpublished activity", available[8].Manifest.Description)
-	_, err = service.List(t.Context(), workspaceAdmin, "org-1")
+	require.Equal(t, publishedAt, available.Items[8].UpdatedAt, "catalog timestamps must not reveal draft activity")
+	preview, err = service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
+	require.NotEqual(t, "Unpublished activity", preview.Manifest.Description)
+	_, err = service.List(t.Context(), workspaceAdmin, "org-1", PageOptions{})
 	require.ErrorIs(t, err, ErrInaccessible)
 
-	_, err = service.Available(t.Context(), Actor{UserID: "member-1"}, "workspace-1")
+	_, err = service.Available(t.Context(), Actor{UserID: "member-1"}, "workspace-1", PageOptions{})
 	require.ErrorIs(t, err, ErrInaccessible)
 }
 
@@ -341,9 +345,11 @@ func TestWorkspaceAdministratorCanPreviewPublishedCatalogResources(t *testing.T)
 	require.NoError(t, err)
 
 	workspaceAdmin := Actor{UserID: "workspace-admin"}
-	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1")
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
 	require.NoError(t, err)
-	preview := available[len(available)-1]
+	require.Equal(t, theme.Summary.Reference.ID, available.Items[len(available.Items)-1].Reference.ID)
+	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
 	expectedURL := "/api/v1/theme-assets/" + asset.ID + "/content?workspace_id=workspace-1&theme_id=" + theme.Summary.Reference.ID + "&revision=1"
 	require.Equal(t, expectedURL, preview.Manifest.Assets[0].SourceURL)
 	require.Zero(t, preview.Summary.DraftRevision)
@@ -372,13 +378,11 @@ func TestAdminThemeSummaryIncludesAssignmentAndDefaultUsage(t *testing.T) {
 	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{OrganizationID: "org-1", DefaultReference: reference})
 	require.NoError(t, err)
 
-	items, err := service.List(t.Context(), actor, "org-1")
+	items, err := service.List(t.Context(), actor, "org-1", PageOptions{})
 	require.NoError(t, err)
-	require.Len(t, items, 1)
-	require.True(t, items[0].Summary.IsOrganizationDefault)
-	require.Equal(t, 1, items[0].Summary.AssignedWorkspaceCount)
-	require.NotNil(t, items[0].Draft)
-	require.NotNil(t, items[0].Latest)
+	require.Len(t, items.Items, 1)
+	require.True(t, items.Items[0].IsOrganizationDefault)
+	require.Equal(t, 1, items.Items[0].AssignedWorkspaceCount)
 }
 
 func TestListFailsClosedWhenDraftStorageIsMissing(t *testing.T) {
@@ -388,7 +392,7 @@ func TestListFailsClosedWhenDraftStorageIsMissing(t *testing.T) {
 	_, err = db.ExecContext(t.Context(), `DROP TABLE organization_theme_drafts`)
 	require.NoError(t, err)
 
-	_, err = service.List(t.Context(), Actor{UserID: "admin-1"}, "org-1")
+	_, err = service.List(t.Context(), Actor{UserID: "admin-1"}, "org-1", PageOptions{})
 	require.ErrorIs(t, err, ErrUnavailable)
 }
 
@@ -447,9 +451,9 @@ func TestResolveUsesPublishedStateWithoutBlobReadsAndFallsBackForCorruptResource
 
 	_, err = db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
 	require.NoError(t, err)
-	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1")
+	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1", PageOptions{})
 	require.NoError(t, err)
-	require.Len(t, available, len(BuiltIns()), "one corrupt custom theme must not make the whole catalog unavailable")
+	require.Len(t, available.Items, len(BuiltIns()), "one corrupt custom theme must not make the whole catalog unavailable")
 	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1"})
 	require.ErrorIs(t, err, ErrNotFound)
 }

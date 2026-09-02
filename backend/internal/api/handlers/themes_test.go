@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -77,21 +78,26 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, http.StatusOK, draftOnlyResponse.Code, draftOnlyResponse.Body.String())
 	libraryResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, libraryResponse.Code, libraryResponse.Body.String())
-	var library []themes.Theme
+	var library themes.ThemeSummaryPage
 	require.NoError(t, json.Unmarshal(libraryResponse.Body.Bytes(), &library))
-	require.Len(t, library, 2)
-	require.NotNil(t, library[1].Draft)
-	require.NotNil(t, library[1].Latest)
-	require.Equal(t, "asset:"+font.ID, library[1].Draft.Manifest.Fonts[0].SourceURL)
+	require.Len(t, library.Items, 2)
+	require.Equal(t, themeID, library.Items[1].Reference.ID)
+	require.NotContains(t, libraryResponse.Body.String(), `"manifest"`)
+	require.NotContains(t, libraryResponse.Body.String(), `"draft"`)
 
 	catalogResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1", nil)
 	require.Equal(t, http.StatusOK, catalogResponse.Code, catalogResponse.Body.String())
-	var catalog []themes.PublishedThemeCatalogItem
+	var catalog themes.ThemeSummaryPage
 	require.NoError(t, json.Unmarshal(catalogResponse.Body.Bytes(), &catalog))
-	require.Len(t, catalog, 9, "draft-only themes stay out of the published catalog")
-	publishedPreview := catalog[len(catalog)-1]
-	require.Equal(t, themeID, publishedPreview.Summary.Reference.ID)
-	require.Zero(t, publishedPreview.Summary.DraftRevision)
+	require.Len(t, catalog.Items, 9, "draft-only themes stay out of the published catalog")
+	publishedSummary := catalog.Items[len(catalog.Items)-1]
+	require.Equal(t, themeID, publishedSummary.Reference.ID)
+	require.Zero(t, publishedSummary.DraftRevision)
+	require.NotContains(t, catalogResponse.Body.String(), `"manifest"`)
+	detailResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available/"+url.PathEscape(themeID)+"?workspace_id=workspace-1&revision=1", nil)
+	require.Equal(t, http.StatusOK, detailResponse.Code, detailResponse.Body.String())
+	var publishedPreview themes.PublishedThemeCatalogItem
+	require.NoError(t, json.Unmarshal(detailResponse.Body.Bytes(), &publishedPreview))
 	previewURL := "/api/v1/theme-assets/" + decoration.ID + "/content?workspace_id=workspace-1&theme_id=" + themeID + "&revision=1"
 	require.Equal(t, previewURL, publishedPreview.Manifest.Assets[0].SourceURL)
 	require.Equal(t, "/api/v1/theme-assets/"+font.ID+"/content?workspace_id=workspace-1&theme_id="+themeID+"&revision=1&format=ttf", publishedPreview.Manifest.Fonts[0].NativeDerivative.SourceURL)
@@ -290,10 +296,140 @@ func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testin
 	require.Equal(t, http.StatusOK, resolved.Code, resolved.Body.String(), "ordinary members still read the resolved theme")
 }
 
+func TestThemeHTTPSummaryPaginationIsBoundedCompactAndComplete(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+	createdIDs := map[string]struct{}{}
+	publishedIDs := map[string]struct{}{}
+	customsToPublish := themes.DefaultThemePageLimit - len(themes.BuiltIns()) + 1
+	for index := range themes.DefaultThemePageLimit + 3 {
+		response := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
+			"organization_id": "org-1", "name": fmt.Sprintf("Theme %02d", index), "duplicate_built_in_id": "studio",
+		})
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var created themes.Theme
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
+		createdIDs[created.Summary.Reference.ID] = struct{}{}
+		if index < customsToPublish {
+			published := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(created.Summary.Reference.ID)+"/publish", map[string]any{
+				"organization_id": "org-1", "expected_draft_revision": 1, "expected_published_revision": 0,
+			})
+			require.Equal(t, http.StatusOK, published.Code, published.Body.String())
+			publishedIDs[created.Summary.Reference.ID] = struct{}{}
+		}
+	}
+
+	defaultPageResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1", nil)
+	require.Equal(t, http.StatusOK, defaultPageResponse.Code, defaultPageResponse.Body.String())
+	var defaultPage themes.ThemeSummaryPage
+	require.NoError(t, json.Unmarshal(defaultPageResponse.Body.Bytes(), &defaultPage))
+	require.Len(t, defaultPage.Items, themes.DefaultThemePageLimit)
+	require.NotEmpty(t, defaultPage.NextCursor)
+	require.Less(t, defaultPageResponse.Body.Len(), 32_000)
+	require.NotContains(t, defaultPageResponse.Body.String(), `"manifest"`)
+	require.NotContains(t, defaultPageResponse.Body.String(), `"draft"`)
+
+	maximumResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1&limit=100", nil)
+	require.Equal(t, http.StatusOK, maximumResponse.Code, maximumResponse.Body.String())
+	var maximum themes.ThemeSummaryPage
+	require.NoError(t, json.Unmarshal(maximumResponse.Body.Bytes(), &maximum))
+	require.Len(t, maximum.Items, len(createdIDs))
+
+	seen := map[string]struct{}{}
+	cursor := ""
+	for {
+		path := "/api/v1/themes?organization_id=org-1&limit=7"
+		if cursor != "" {
+			path += "&cursor=" + url.QueryEscape(cursor)
+		}
+		response := themeRequest(t, e, http.MethodGet, path, nil)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var page themes.ThemeSummaryPage
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &page))
+		for _, item := range page.Items {
+			require.Contains(t, createdIDs, item.Reference.ID)
+			require.NotContains(t, seen, item.Reference.ID)
+			seen[item.Reference.ID] = struct{}{}
+		}
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	require.Equal(t, createdIDs, seen)
+
+	for _, query := range []string{"&limit=0", "&limit=-1", "&limit=101"} {
+		response := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1"+query, nil)
+		require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
+	}
+	invalidCursor := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1&cursor=not-a-cursor", nil)
+	require.Equal(t, http.StatusBadRequest, invalidCursor.Code, invalidCursor.Body.String())
+
+	availableDefaultResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1", nil)
+	require.Equal(t, http.StatusOK, availableDefaultResponse.Code, availableDefaultResponse.Body.String())
+	var availableDefault themes.ThemeSummaryPage
+	require.NoError(t, json.Unmarshal(availableDefaultResponse.Body.Bytes(), &availableDefault))
+	require.Len(t, availableDefault.Items, themes.DefaultThemePageLimit)
+	require.NotEmpty(t, availableDefault.NextCursor)
+	require.Less(t, availableDefaultResponse.Body.Len(), 32_000)
+	require.NotContains(t, availableDefaultResponse.Body.String(), `"manifest"`)
+
+	availableMaximumResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1&limit=100", nil)
+	require.Equal(t, http.StatusOK, availableMaximumResponse.Code, availableMaximumResponse.Body.String())
+	var availableMaximum themes.ThemeSummaryPage
+	require.NoError(t, json.Unmarshal(availableMaximumResponse.Body.Bytes(), &availableMaximum))
+	require.Len(t, availableMaximum.Items, len(themes.BuiltIns())+len(publishedIDs))
+	for _, query := range []string{"&limit=0", "&limit=-1", "&limit=101"} {
+		response := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1"+query, nil)
+		require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
+	}
+}
+
+func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
+		"organization_id": "org-1", "name": "Immutable preview", "duplicate_built_in_id": "studio",
+	})
+	require.Equal(t, http.StatusOK, createdResponse.Code, createdResponse.Body.String())
+	var created themes.Theme
+	require.NoError(t, json.Unmarshal(createdResponse.Body.Bytes(), &created))
+	themeID := created.Summary.Reference.ID
+	published := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{
+		"organization_id": "org-1", "expected_draft_revision": 1, "expected_published_revision": 0,
+	})
+	require.Equal(t, http.StatusOK, published.Code, published.Body.String())
+	updated := created.Draft.Manifest
+	updated.Description = "Current preview"
+	update := themeRequest(t, e, http.MethodPut, "/api/v1/themes/"+url.PathEscape(themeID)+"/draft", map[string]any{
+		"organization_id": "org-1", "expected_revision": 1, "name": "Immutable preview", "manifest": updated,
+	})
+	require.Equal(t, http.StatusOK, update.Code, update.Body.String())
+	published = themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{
+		"organization_id": "org-1", "expected_draft_revision": 2, "expected_published_revision": 1,
+	})
+	require.Equal(t, http.StatusOK, published.Code, published.Body.String())
+
+	currentPath := "/api/v1/themes/available/" + url.PathEscape(themeID) + "?workspace_id=workspace-1&revision=2"
+	current := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, currentPath, nil)
+	require.Equal(t, http.StatusOK, current.Code, current.Body.String())
+	for _, path := range []string{
+		"/api/v1/themes/available/" + url.PathEscape(themeID) + "?workspace_id=workspace-1&revision=1",
+		"/api/v1/themes/available/missing-theme?workspace_id=workspace-1&revision=2",
+		"/api/v1/themes/available/" + url.PathEscape(themeID) + "?workspace_id=workspace-1&revision=3",
+	} {
+		response := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, path, nil)
+		require.Equal(t, http.StatusNotFound, response.Code, response.Body.String())
+	}
+	viewer := themeRequestAs(t, e, "viewer-token", http.MethodGet, currentPath, nil)
+	missingWorkspace := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available/"+url.PathEscape(themeID)+"?workspace_id=missing-workspace&revision=2", nil)
+	require.Equal(t, http.StatusForbidden, viewer.Code, viewer.Body.String())
+	require.Equal(t, viewer.Code, missingWorkspace.Code)
+	require.JSONEq(t, viewer.Body.String(), missingWorkspace.Body.String())
+}
+
 func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
 	_, _, api := newThemeTestServer(t)
 	for _, path := range []string{
-		"/themes/available", "/themes/{id}/draft", "/themes/{id}/publish",
+		"/themes/available", "/themes/available/{id}", "/themes/{id}/draft", "/themes/{id}/publish",
 		"/themes/{id}/revisions", "/themes/{id}/revisions/{revision}",
 		"/themes/resolved", "/theme-assets/{id}/content",
 	} {
@@ -306,6 +442,7 @@ func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
 		`"schemaVersion"`, `"borderStyle"`, `"navigation"`, `"pageTransition"`,
 		`"loadingState"`, `"sourceUrl"`, `"can_manage_workspace"`,
 		`"can_manage_organization"`, `"theme_id"`, `"revision"`, `"nativeDerivative"`, `"identity"`,
+		`"next_cursor"`,
 	} {
 		require.Contains(t, contract, property)
 	}
@@ -328,6 +465,10 @@ func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
 	requireEnumProperty(t, schemas, "ThemeAssetRecord", "font_style", []any{"normal", "italic"})
 	requireEnumProperty(t, schemas, "UploadThemeAssetInputBody", "media_type", []any{"font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"})
 	require.Contains(t, schemas["PublishedRevision"].(map[string]any)["properties"].(map[string]any), "source_revision")
+	pageProperties := schemas["ThemeSummaryPage"].(map[string]any)["properties"].(map[string]any)
+	require.Contains(t, pageProperties, "items")
+	require.Contains(t, pageProperties, "next_cursor")
+	require.NotContains(t, pageProperties, "manifest")
 	createRequired := schemas["CreateThemeInputBody"].(map[string]any)["required"].([]any)
 	require.NotContains(t, createRequired, "manifest")
 	publishRequired := schemas["PublishThemeInputBody"].(map[string]any)["required"].([]any)

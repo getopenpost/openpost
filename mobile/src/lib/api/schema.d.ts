@@ -4211,7 +4211,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Organization themes */
+    /**
+     * List Organization theme summaries
+     * @description Returns a bounded page of compact summaries. Fetch one theme by ID for draft and published manifests.
+     */
     get: operations["list-organization-themes"];
     put?: never;
     /** Create an Organization theme draft */
@@ -4230,10 +4233,30 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List themes available to a Workspace administrator
-     * @description Returns built-ins and published Organization themes without exposing drafts or asset inventory.
+     * List theme summaries available to a Workspace administrator
+     * @description Returns a bounded page of built-ins and published Organization themes without exposing drafts, manifests, or asset inventory.
      */
     get: operations["list-available-themes"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/available/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get one published custom theme preview
+     * @description Returns one immutable published manifest with authorized Workspace preview resource URLs. Built-in manifests are served by the static built-in catalog.
+     */
+    get: operations["get-available-custom-theme"];
     put?: never;
     post?: never;
     delete?: never;
@@ -10611,6 +10634,12 @@ export interface components {
       theme_id: string;
     };
     PublishedThemeCatalogItem: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/PublishedThemeCatalogItem.json
+       */
+      readonly $schema?: string;
       manifest: components["schemas"]["ThemeRuntimeManifest"];
       summary: components["schemas"]["ThemeSummary"];
     };
@@ -12537,6 +12566,16 @@ export interface components {
       supported_schemes: ("light" | "dark")[];
       /** Format: date-time */
       updated_at?: string;
+    };
+    ThemeSummaryPage: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/ThemeSummaryPage.json
+       */
+      readonly $schema?: string;
+      items: components["schemas"]["ThemeSummary"][];
+      next_cursor?: string;
     };
     ThemeTypographyRoleTokens: {
       fallbacks: string[];
@@ -30176,6 +30215,10 @@ export interface operations {
       query: {
         /** @description Organization ID */
         organization_id: string;
+        /** @description Maximum summaries to return */
+        limit?: number;
+        /** @description Opaque cursor for stable name-ordered pagination */
+        cursor?: string;
       };
       header?: never;
       path?: never;
@@ -30189,7 +30232,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Theme"][];
+          "application/json": components["schemas"]["ThemeSummaryPage"];
         };
       };
       /** @description Bad Request */
@@ -30322,6 +30365,10 @@ export interface operations {
       query: {
         /** @description Workspace ID */
         workspace_id: string;
+        /** @description Maximum summaries to return */
+        limit?: number;
+        /** @description Opaque cursor for stable built-in-first pagination */
+        cursor?: string;
       };
       header?: never;
       path?: never;
@@ -30335,7 +30382,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PublishedThemeCatalogItem"][];
+          "application/json": components["schemas"]["ThemeSummaryPage"];
         };
       };
       /** @description Bad Request */
@@ -30349,6 +30396,88 @@ export interface operations {
       };
       /** @description Forbidden */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-available-custom-theme": {
+    parameters: {
+      query: {
+        /** @description Workspace ID */
+        workspace_id: string;
+        /** @description Immutable published revision returned by the catalog summary */
+        revision: number;
+      };
+      header?: never;
+      path: {
+        /** @description Published custom theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedThemeCatalogItem"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

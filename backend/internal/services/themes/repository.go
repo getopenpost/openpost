@@ -146,20 +146,6 @@ func summaryFromRows(row themeRow, draft draftRow, manifest ThemeManifest) Theme
 	return ThemeSummary{Reference: ThemeReference{Kind: ReferenceCustom, ID: row.ID, Version: version}, OrganizationID: row.OrganizationID, Name: row.Name, Description: manifest.Description, IconPack: manifest.IconPack, DraftRevision: draft.Revision, PublishedRevision: row.LatestPublishedRevision, SupportedSchemes: manifest.SupportedSchemes, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
-func themeUsage(ctx context.Context, db bun.IDB, organizationID, themeID string) (bool, int, error) {
-	settings, err := loadSettings(ctx, db, organizationID)
-	if err != nil {
-		return false, 0, err
-	}
-	reference := settings.Reference()
-	isDefault := reference.Kind == ReferenceCustom && reference.ID == themeID
-	assigned, err := db.NewSelect().Model((*assignmentRow)(nil)).Where("organization_id = ? AND reference_kind = ? AND reference_id = ?", organizationID, ReferenceCustom, themeID).Count(ctx)
-	if err != nil {
-		return false, 0, fmt.Errorf("%w: load theme usage", ErrUnavailable)
-	}
-	return isDefault, assigned, nil
-}
-
 func workspaceOrganization(ctx context.Context, db bun.IDB, workspaceID string) (string, error) {
 	var row models.Workspace
 	err := db.NewSelect().Model(&row).Column("organization_id").Where("id = ?", workspaceID).Scan(ctx)

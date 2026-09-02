@@ -222,6 +222,111 @@ func (s *Service) publishedResourcesAvailable(ctx context.Context, organizationI
 	return nil
 }
 
+func (s *Service) loadPublishedResourceSets(ctx context.Context, organizationID string, themes []customSummaryRow) (map[string]map[string]assetRow, error) {
+	result, themeRevisions, hasRequirements := initializePublishedResourceSets(themes)
+	if !hasRequirements {
+		return result, nil
+	}
+	linked, linkedAssetIDs, err := s.loadPublishedResourceLinks(ctx, themeRevisions)
+	if err != nil {
+		return nil, err
+	}
+	assetsByID, err := s.loadPublishedAssets(ctx, organizationID, linkedAssetIDs)
+	if err != nil {
+		return nil, err
+	}
+	mergePublishedResourceSets(result, linked, assetsByID)
+	return result, nil
+}
+
+func initializePublishedResourceSets(themes []customSummaryRow) (map[string]map[string]assetRow, map[string]int, bool) {
+	result := make(map[string]map[string]assetRow, len(themes))
+	themeRevisions := make(map[string]int, len(themes))
+	hasRequirements := false
+	for _, theme := range themes {
+		result[theme.ThemeID] = map[string]assetRow{}
+		themeRevisions[theme.ThemeID] = theme.LatestPublishedRevision
+		manifest, err := decodeStoredManifest(theme.ManifestJSON)
+		if err == nil && len(manifestResourceRequirements(manifest)) > 0 {
+			hasRequirements = true
+		}
+	}
+	return result, themeRevisions, hasRequirements
+}
+
+func (s *Service) loadPublishedResourceLinks(ctx context.Context, themeRevisions map[string]int) (map[string]map[string]struct{}, []string, error) {
+	themeIDs := make([]string, 0, len(themeRevisions))
+	for themeID := range themeRevisions {
+		themeIDs = append(themeIDs, themeID)
+	}
+	slices.Sort(themeIDs)
+	conditions := make([]string, 0, len(themeIDs))
+	conditionArgs := make([]any, 0, len(themeIDs)*2)
+	for _, themeID := range themeIDs {
+		conditions = append(conditions, "(link.theme_id = ? AND link.revision = ?)")
+		conditionArgs = append(conditionArgs, themeID, themeRevisions[themeID])
+	}
+	var links []revisionAssetRow
+	if err := s.db.NewSelect().Model(&links).ModelTableExpr("organization_theme_revision_assets AS link").ExcludeColumn("*").
+		ColumnExpr("link.theme_id AS theme_id, link.revision AS revision, link.asset_id AS asset_id").
+		Where(strings.Join(conditions, " OR "), conditionArgs...).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, fmt.Errorf("%w: load published resource links: %v", ErrUnavailable, err)
+	}
+	linked := make(map[string]map[string]struct{}, len(themeIDs))
+	linkedAssetIDs := make([]string, 0, len(links))
+	for _, link := range links {
+		if themeRevisions[link.ThemeID] != link.Revision {
+			continue
+		}
+		if linked[link.ThemeID] == nil {
+			linked[link.ThemeID] = map[string]struct{}{}
+		}
+		linked[link.ThemeID][link.AssetID] = struct{}{}
+		linkedAssetIDs = append(linkedAssetIDs, link.AssetID)
+	}
+	slices.Sort(linkedAssetIDs)
+	linkedAssetIDs = slices.Compact(linkedAssetIDs)
+	return linked, linkedAssetIDs, nil
+}
+
+func (s *Service) loadPublishedAssets(ctx context.Context, organizationID string, linkedAssetIDs []string) (map[string]assetRow, error) {
+	if len(linkedAssetIDs) == 0 {
+		return map[string]assetRow{}, nil
+	}
+	var assets []assetRow
+	if err := s.db.NewSelect().Model(&assets).
+		Where("organization_id = ? AND id IN (?)", organizationID, bun.List(linkedAssetIDs)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("%w: load published resources: %v", ErrUnavailable, err)
+	}
+	assetsByID := make(map[string]assetRow, len(assets))
+	for _, asset := range assets {
+		assetsByID[asset.ID] = asset
+	}
+	return assetsByID, nil
+}
+
+func mergePublishedResourceSets(result map[string]map[string]assetRow, linked map[string]map[string]struct{}, assetsByID map[string]assetRow) {
+	for themeID, themeLinks := range linked {
+		for assetID := range themeLinks {
+			if asset, ok := assetsByID[assetID]; ok {
+				result[themeID][assetID] = asset
+			}
+		}
+	}
+}
+
+func validatePublishedResourceSet(manifest ThemeManifest, resources map[string]assetRow) error {
+	for assetID, requirement := range manifestResourceRequirements(manifest) {
+		row, ok := resources[assetID]
+		if !ok || validateResourceMetadata(row, requirement) != nil {
+			return errUnsafeResource
+		}
+	}
+	return nil
+}
+
 func (s *Service) replaceRevisionAssets(ctx context.Context, db bun.IDB, organizationID, themeID string, revision int, manifest ThemeManifest) error {
 	if err := validateManifestFontAvailability(manifest); err != nil {
 		return err

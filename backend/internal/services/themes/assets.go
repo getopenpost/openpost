@@ -492,15 +492,15 @@ func (s *Service) materializeResolvedResourceURLs(ctx context.Context, resolved 
 	return nil
 }
 
-func (s *Service) materializePreviewManifestURLs(ctx context.Context, manifest *ThemeRuntimeManifest, organizationID, workspaceID, themeID string, revision int) error {
+func materializePreviewManifestURLs(manifest *ThemeRuntimeManifest, workspaceID, themeID string, revision int, resources map[string]assetRow) error {
 	query := "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) +
 		"&theme_id=" + url.QueryEscape(strings.TrimSpace(themeID)) +
 		"&revision=" + strconv.Itoa(revision)
 	for index := range manifest.Fonts {
 		font := &manifest.Fonts[index]
-		row, err := s.loadRuntimeFontAsset(ctx, organizationID, font.ID)
-		if err != nil {
-			return err
+		row, ok := resources[font.ID]
+		if !ok || !validNativeFontMetadata(row) {
+			return errUnsafeResource
 		}
 		font.SourceURL = "/api/v1/theme-assets/" + url.PathEscape(font.ID) + "/content" + query
 		font.NativeDerivative = NativeFontDerivative{

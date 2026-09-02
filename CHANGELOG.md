@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.17.2] - 2026-09-02
+
+### Fixed
+
+- Exposed the hosted product, pricing, trial terms, and policy links to website review crawlers that do not run JavaScript.
+
 ## [4.17.1] - 2026-09-01
 
 ### Fixed

@@ -12,8 +12,7 @@
     "check": "bunx tsc --noEmit && expo lint && bunx expo-doctor && bun test src plugins",
     "prebuild:android": "CI=1 NODE_ENV=production expo prebuild --platform android --clean --no-install",
     "build:android:apk": "bun run prebuild:android && NODE_ENV=production ./android/gradlew -p android --no-daemon --max-workers=2 :app:assembleRelease -PreactNativeArchitectures=arm64-v8a -PopenpostDebugSigning=true",
-    "build:android:candidate": "bun run prebuild:android && NODE_ENV=production ./android/gradlew -p android --no-daemon --max-workers=2 :app:assembleRelease",
-    "generate:api": "openapi-typescript ../frontend/openapi.json -o src/lib/api/schema.d.ts"
+    "build:android:candidate": "bun run prebuild:android && NODE_ENV=production ./android/gradlew -p android --no-daemon --max-workers=2 :app:assembleRelease"
   },
   "dependencies": {
     "@expo/ui": "~57.0.15",

@@ -10,11 +10,12 @@ import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { invalidatePublicationData } from "@/lib/query-cache";
+import { initialQueryBoundaryPending } from "@/lib/query-loading";
 import { currentWorkspaceId, usePublications, type PublicationListItem } from "@/lib/queries";
 import { getWorkspaceId } from "@/lib/api/token-store";
 import {
   captureWorkspaceQueryScope,
-  querySessionIsCurrent,
+  queryActorScopeIsCurrent,
   requireCurrentQuerySession,
   workspaceQueryScopeIsCurrent,
   type WorkspaceQueryScope,
@@ -59,7 +60,7 @@ export default function QueueScreen() {
     activities: readonly ("scheduled" | "failed")[],
     calendar = false,
   ): void {
-    if (!querySessionIsCurrent(scope)) return;
+    if (!queryActorScopeIsCurrent(scope)) return;
     void invalidatePublicationData(queryClient, {
       workspaceId: scope.workspaceId,
       publicationId,
@@ -138,13 +139,10 @@ export default function QueueScreen() {
   const refreshing = scheduled.isRefetching || failed.isRefetching;
   const hasScheduledData = scheduled.data !== undefined;
   const hasFailedData = failed.data !== undefined;
-  const hasAnyData = hasScheduledData || hasFailedData;
-  const coldPending =
-    !hasAnyData &&
-    !scheduled.isError &&
-    !failed.isError &&
-    ((scheduled.isPending && scheduled.data === undefined) ||
-      (failed.isPending && failed.data === undefined));
+  const coldPending = initialQueryBoundaryPending([
+    { hasData: hasScheduledData, isError: scheduled.isError, isPending: scheduled.isPending },
+    { hasData: hasFailedData, isError: failed.isError, isPending: failed.isPending },
+  ]);
 
   function refresh() {
     void scheduled.refetch();
@@ -181,13 +179,6 @@ export default function QueueScreen() {
 
         {!coldPending ? (
           <Section title="Failed" count={failed.data?.length ?? 0}>
-            {!hasFailedData && failed.isPending ? (
-              <DelayedQueryPlaceholder
-                pending
-                shape="list"
-                offline={failed.fetchStatus === "paused"}
-              />
-            ) : null}
             {failed.isError ? (
               <QueryError query={failed} label="failed posts" hasData={hasFailedData} />
             ) : null}
@@ -223,13 +214,6 @@ export default function QueueScreen() {
 
         {!coldPending ? (
           <Section title="Upcoming" count={scheduled.data?.length ?? 0}>
-            {!hasScheduledData && scheduled.isPending ? (
-              <DelayedQueryPlaceholder
-                pending
-                shape="list"
-                offline={scheduled.fetchStatus === "paused"}
-              />
-            ) : null}
             {scheduled.isError ? (
               <QueryError query={scheduled} label="scheduled posts" hasData={hasScheduledData} />
             ) : null}

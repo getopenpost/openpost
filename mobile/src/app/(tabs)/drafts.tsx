@@ -35,7 +35,7 @@ import {
 import { getWorkspaceId } from "@/lib/api/token-store";
 import {
   captureWorkspaceQueryScope,
-  querySessionIsCurrent,
+  queryActorScopeIsCurrent,
   requireCurrentQuerySession,
   workspaceQueryScopeIsCurrent,
   type WorkspaceQueryScope,
@@ -81,12 +81,12 @@ export default function DraftsScreen() {
       return { publication: data, scope };
     },
     onSuccess: async ({ publication, scope }) => {
-      if (!querySessionIsCurrent(scope)) return;
+      if (!queryActorScopeIsCurrent(scope)) return;
       await queryClient.cancelQueries({
         queryKey: queryKeys.publicationActivity(scope.workspaceId, "draft"),
         exact: true,
       });
-      if (!querySessionIsCurrent(scope)) return;
+      if (!queryActorScopeIsCurrent(scope)) return;
       cacheCreatedPublication(queryClient, scope.workspaceId, publication);
       void invalidatePublicationData(queryClient, {
         workspaceId: scope.workspaceId,
@@ -94,7 +94,7 @@ export default function DraftsScreen() {
       });
     },
     onError: (_, { scope }) => {
-      if (!querySessionIsCurrent(scope)) return;
+      if (!queryActorScopeIsCurrent(scope)) return;
       void invalidatePublicationData(queryClient, {
         workspaceId: scope.workspaceId,
         activities: ["draft"],

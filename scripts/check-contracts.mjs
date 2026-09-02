@@ -15,7 +15,6 @@ const env = {
 const generatedPaths = [
   "frontend/openapi.json",
   "packages/api-contract/src/schema.d.ts",
-  "mobile/src/lib/api/schema.d.ts",
   "docs-site/reference/cli.md",
   "packages/n8n-nodes-openpost/generated/selectedContract.ts",
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/actions/generated/requestMappers.ts",
@@ -26,8 +25,6 @@ const before = await generatedHashes();
 
 run("bun", ["scripts/sync-docs-openapi.mjs"]);
 run("bun", ["run", "--filter", "@openpost/web", "generate:types"]);
-run("bun", ["run", "--filter", "@openpost/web", "generate:mobile-types"]);
-run("bunx", ["oxfmt", "--write", "mobile/src/lib/api/schema.d.ts"]);
 run("bun", ["scripts/generate-selected-automation-contract.mjs"]);
 const after = await generatedHashes();
 const changed = generatedPaths.filter((file) => before.get(file) !== after.get(file));
@@ -38,7 +35,7 @@ if (changed.length > 0) {
 }
 
 console.log(
-  "Generated API, shared/mobile TypeScript, docs, CLI, and selected automation contracts are current.",
+  "Generated API, shared TypeScript, docs, CLI, and selected automation contracts are current.",
 );
 
 async function generatedHashes() {

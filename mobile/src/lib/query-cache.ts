@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import type { components } from "@openpost/api-contract";
 import {
   capturePublicationDetailRequestContext,
   capturePublicationListCacheContext,
@@ -19,9 +20,8 @@ export type {
   PublicationListCacheContext,
 } from "@openpost/query-catalog";
 
-import type { components } from "./api/schema";
 import { publicationRefreshKeys, queryKeys, type PublicationRefreshRequest } from "./query-policy";
-import { querySessionIsCurrent, type WorkspaceQueryScope } from "./query-session";
+import { queryActorScopeIsCurrent, type WorkspaceQueryScope } from "./query-session";
 
 export type Publication = components["schemas"]["PublicationResponse"];
 
@@ -72,7 +72,7 @@ export function cachePublicationDetails(
   const validated = publications.map((publication) =>
     requirePublicationWorkspace(publication, scope.workspaceId),
   );
-  if (!querySessionIsCurrent(scope)) return validated;
+  if (!queryActorScopeIsCurrent(scope)) return validated;
   for (const publication of validated) {
     cachePublication(queryClient, scope.workspaceId, publication, listContext);
   }

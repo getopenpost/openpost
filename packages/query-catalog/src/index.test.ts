@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   activityPublicationsQueryOptions,
   capabilityStaleTime,
+  failedJobsQueryOptions,
   isOpenPostActivityQueryKey,
   isOpenPostDraftActivityQueryKey,
   liveQueryStaleTime,
@@ -160,6 +161,33 @@ describe("OpenPost query catalogue", () => {
         openPostQueryKeys.jobs.failedPage("workspace-1", { limit: 50 }),
       ),
     ).toBe(false);
+  });
+
+  it("uses live freshness only for changing Activity state", () => {
+    const api = {
+      listActivityPublications: vi.fn(),
+      listFailedJobs: vi.fn(),
+    };
+    const scheduled = activityPublicationsQueryOptions(api, "workspace-1", "scheduled", {
+      limit: 40,
+    });
+    const published = activityPublicationsQueryOptions(api, "workspace-1", "published", {
+      limit: 40,
+    });
+    const failedJobs = failedJobsQueryOptions(api, "workspace-1", { limit: 50 });
+
+    expect(scheduled).toMatchObject({
+      staleTime: liveQueryStaleTime,
+      refetchOnWindowFocus: true,
+    });
+    expect(failedJobs).toMatchObject({
+      staleTime: liveQueryStaleTime,
+      refetchOnWindowFocus: true,
+    });
+    expect(published).toMatchObject({
+      staleTime: queryStaleTime,
+      refetchOnWindowFocus: false,
+    });
   });
 
   it("retries one transient failure and never retries client or cancelled requests", () => {

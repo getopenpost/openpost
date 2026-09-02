@@ -20,8 +20,23 @@ interface FailedJobsQuery {
 	cursor?: string;
 }
 
+interface CalendarPublicationsQuery {
+	workspace_id: string;
+	calendar_from: string;
+	calendar_before: string;
+	limit: number;
+}
+
 export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQueryAPI {
 	return {
+		async listWorkspaces(signal) {
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load workspaces',
+				request: (requestSignal) => transport.GET('/workspaces', { signal: requestSignal })
+			});
+			return data;
+		},
 		async getPublication(_workspaceId, publicationId, signal) {
 			const { data } = await queryGET({
 				signal,
@@ -52,6 +67,21 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 					})
 			});
 			return queryPageResult(data, response);
+		},
+		async listCalendarPublications(workspaceId, range, signal) {
+			const query: CalendarPublicationsQuery = {
+				workspace_id: workspaceId,
+				calendar_from: range.from,
+				calendar_before: range.before,
+				limit: range.limit
+			};
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Unable to load calendar',
+				request: (requestSignal) =>
+					transport.GET('/publications', { params: { query }, signal: requestSignal })
+			});
+			return data;
 		},
 		async listFailedJobs(workspaceId, page, signal) {
 			const query: FailedJobsQuery = {

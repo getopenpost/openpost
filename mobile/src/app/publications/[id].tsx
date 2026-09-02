@@ -34,7 +34,8 @@ import type { PublicationActivity } from "@/lib/query-policy";
 import { getWorkspaceId } from "@/lib/api/token-store";
 import {
   captureWorkspaceQueryScope,
-  querySessionIsCurrent,
+  queryActorScopeIsCurrent,
+  requireCurrentQueryActor,
   requireCurrentQuerySession,
   workspaceQueryScopeIsCurrent,
   type WorkspaceQueryScope,
@@ -80,7 +81,7 @@ export default function PostScreen() {
       calendar?: boolean;
     },
   ) {
-    if (!querySessionIsCurrent(scope)) return;
+    if (!queryActorScopeIsCurrent(scope)) return;
     void invalidatePublicationData(queryClient, {
       workspaceId: scope.workspaceId,
       publicationId: scope.publicationId,
@@ -131,14 +132,14 @@ export default function PostScreen() {
       if (updated.error) {
         throw new Error(await errorMessage(updated.response, "Could not reschedule"));
       }
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       const revision = updated.data?.revision ?? (pub.revision ?? 0) + 1;
       const { error, response } = await requestApi.POST("/publications/{id}/schedule", {
         params: { path: { id: scope.publicationId } },
         body: { expected_revision: revision },
       });
       if (error) throw new Error(await errorMessage(response, "Could not schedule"));
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
     },
     onSuccess: (_, { scope }) => {
       if (scopeIsCurrent(scope)) {

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import {
+  activityPublicationsQueryOptions,
+  liveQueryStaleTime,
+  queryStaleTime,
+  workspaceAccountsQueryOptions,
+} from "@openpost/query-catalog";
 
 import type { Publication } from "./query-cache";
 
@@ -29,7 +35,9 @@ const {
   subscribeToken,
 } = await import("./api/token-store");
 const { queryClient } = await import("./query-client");
-const { publicationOptions } = await import("./queries");
+const { accountsOptions, publicationActivityOptions, publicationOptions, workspacesOptions } =
+  await import("./queries");
+const { captureApiRequestIdentity, settleApiUnauthorized } = await import("./api/client");
 const { cachePublicationDetails, capturePublicationListCacheContext } =
   await import("./query-cache");
 const { queryKeys } = await import("./query-policy");
@@ -207,6 +215,71 @@ describe("query session cache", () => {
     expect(queryClient.getQueryData(queryKey)).toBeUndefined();
 
     await clearToken();
+  });
+
+  test("settles a query 401 only against the server and token that started it", async () => {
+    await setServer("https://identity.example.com");
+    await saveToken("token-a");
+    const staleIdentity = captureApiRequestIdentity();
+    await saveToken("token-b");
+
+    await settleApiUnauthorized(staleIdentity, new Response(null, { status: 401 }));
+    expect(getToken()).toBe("token-b");
+
+    queryClient.setQueryData(["openpost", "v1", "actor-data"], "private");
+    await settleApiUnauthorized(captureApiRequestIdentity(), new Response(null, { status: 401 }));
+    expect(getToken()).toBeNull();
+    expect(queryClient.getQueryData(["openpost", "v1", "actor-data"])).toBeUndefined();
+  });
+
+  test("routes ordinary query 401 responses through token settlement", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ detail: "Session expired" }), {
+        status: 401,
+        headers: { "Content-Type": "application/problem+json" },
+      })) as unknown as typeof fetch;
+    try {
+      await setServer("https://expired.example.com");
+      await saveToken("expired-token");
+
+      await expect(queryClient.fetchQuery(workspacesOptions())).rejects.toBeInstanceOf(Error);
+      expect(getToken()).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+      await clearToken();
+    }
+  });
+});
+
+describe("shared query definition parity", () => {
+  test("uses the canonical keys and freshness for mobile publications and accounts", () => {
+    const client = new QueryClient();
+    const sharedScheduled = activityPublicationsQueryOptions(
+      { listActivityPublications: async () => ({ items: [], total: 0, nextCursor: "" }) },
+      "workspace-1",
+      "scheduled",
+      { limit: 100 },
+    );
+    const mobileScheduled = publicationActivityOptions(client, "workspace-1", "scheduled");
+    expect(mobileScheduled.queryKey as readonly unknown[]).toEqual(
+      sharedScheduled.queryKey as readonly unknown[],
+    );
+    expect(mobileScheduled.staleTime).toBe(liveQueryStaleTime);
+    expect(mobileScheduled.staleTime).toBe(sharedScheduled.staleTime);
+    expect(mobileScheduled.retry).toBe(sharedScheduled.retry);
+
+    const sharedAccounts = workspaceAccountsQueryOptions(
+      { listAccounts: async () => [] },
+      "workspace-1",
+    );
+    const mobileAccounts = accountsOptions("workspace-1");
+    expect(mobileAccounts.queryKey as readonly unknown[]).toEqual(
+      sharedAccounts.queryKey as readonly unknown[],
+    );
+    expect(mobileAccounts.staleTime).toBe(queryStaleTime);
+    expect(mobileAccounts.staleTime).toBe(sharedAccounts.staleTime);
+    expect(mobileAccounts.retry).toBe(sharedAccounts.retry);
   });
 });
 

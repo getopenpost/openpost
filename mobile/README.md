@@ -115,9 +115,8 @@ The release-signing plugin intentionally fails if Expo changes the Gradle templa
 
 - `src/lib/server.ts`: server state and readiness probe
 - `src/lib/api/token-store.ts`: token and workspace state in SecureStore
-- `src/lib/api/client.ts`: typed OpenAPI client
-- `src/lib/api/schema.d.ts`: generated API types
-- `../packages/api-contract/`: shared generated API declarations
+- `src/lib/api/client.ts`: typed OpenAPI client backed by the shared contract
+- `../packages/api-contract/`: the generated API declarations for web and mobile
 - `../packages/query-catalog/`: shared Query keys, policies, and read definitions
 - `src/lib/auth.ts`: login, TOTP, and pairing
 - `src/lib/media.ts`: direct upload sessions

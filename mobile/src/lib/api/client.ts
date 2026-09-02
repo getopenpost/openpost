@@ -1,10 +1,14 @@
 import createClient from "openapi-fetch";
+import type { paths } from "@openpost/api-contract";
 
-import type { paths } from "./schema";
 import { getServer, subscribeServer } from "../server";
-import { getToken, subscribeToken } from "./token-store";
+import { clearTokenIfCurrent, getToken, subscribeToken } from "./token-store";
 
 export type Api = ReturnType<typeof createClient<paths>>;
+export type ApiRequestIdentity = {
+  serverBaseUrl: string;
+  token: string | null;
+};
 
 let client: Api | null = null;
 let clientKey = "";
@@ -34,6 +38,21 @@ export function apiUrl(path: string): string {
   const server = getServer();
   if (!server) throw new Error("No server configured");
   return `${server.baseUrl}${path}`;
+}
+
+export function captureApiRequestIdentity(): ApiRequestIdentity {
+  return {
+    serverBaseUrl: getServer()?.baseUrl ?? "",
+    token: getToken(),
+  };
+}
+
+export async function settleApiUnauthorized(
+  identity: ApiRequestIdentity,
+  response: Response | undefined,
+): Promise<void> {
+  if (response?.status !== 401 || !identity.token) return;
+  await clearTokenIfCurrent(identity.token, () => getServer()?.baseUrl === identity.serverBaseUrl);
 }
 
 /** Extract a readable message from an openapi-fetch error response. */

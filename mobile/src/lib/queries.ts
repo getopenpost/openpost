@@ -1,27 +1,22 @@
+import {
+  activityPublicationsQueryOptions,
+  calendarPublicationsQueryOptions,
+  publicationDetailQueryOptions,
+  workspaceAccountsQueryOptions,
+  workspaceListQueryOptions,
+  workspaceSocialSetsQueryOptions,
+} from "@openpost/query-catalog";
 import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
-import { api } from "./api/client";
 import { getWorkspaceId, subscribeWorkspaceId } from "./api/token-store";
+import { findCachedPublication, type Publication } from "./query-cache";
+import { mobileQueryAPI } from "./query-api";
 import {
-  capturePublicationDetailRequestContext,
-  capturePublicationListCacheContext,
-  findCachedPublication,
-  cachePublicationDetails,
-  reconcilePublicationDetailResponse,
-  requirePublicationWorkspace,
-  type Publication,
-} from "./query-cache";
-import {
-  createOpenPostQueryError,
   mobileQueryDimensions,
-  publicationQueryPolicy,
-  queryKeys,
-  queryPolicies,
   type PublicationActivity,
   type PublicationFreshness,
 } from "./query-policy";
-import { captureWorkspaceQueryScope, querySessionIsCurrent } from "./query-session";
 
 export type WorkspaceSummary = {
   id: string;
@@ -47,79 +42,42 @@ export type SocialSetSummary = {
 
 export function workspacesOptions() {
   return queryOptions({
-    ...queryPolicies.reference,
-    queryKey: queryKeys.workspaces(),
-    queryFn: async ({ signal }) => {
-      const { data, error, response } = await api().GET("/workspaces", { signal });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load workspaces");
-      }
-      return data
+    ...workspaceListQueryOptions(mobileQueryAPI),
+    select: (data) =>
+      data
         .filter((workspace): workspace is NonNullable<typeof workspace> => Boolean(workspace))
-        .map((workspace) => ({ id: workspace.id, name: workspace.name }));
-    },
+        .map((workspace) => ({ id: workspace.id, name: workspace.name })),
   });
 }
 
 export function publicationActivityOptions(
-  queryClient: QueryClient,
+  _queryClient: QueryClient,
   workspaceId: string,
   activity: PublicationActivity,
 ) {
-  const policy =
-    activity === "scheduled" || activity === "failed" ? queryPolicies.live : queryPolicies.standard;
   return queryOptions({
-    ...policy,
-    queryKey: queryKeys.publicationActivity(workspaceId, activity),
-    queryFn: async ({ signal }) => {
-      const scope = captureWorkspaceQueryScope(workspaceId);
-      const listContext = capturePublicationListCacheContext(queryClient, workspaceId);
-      const { data, error, response } = await api().GET("/publications", {
-        signal,
-        params: {
-          query: {
-            workspace_id: workspaceId,
-            activity_bucket: activity,
-            limit: mobileQueryDimensions.publicationPage.limit,
-          },
-        },
-      });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load posts");
-      }
-      return cachePublicationDetails(queryClient, scope, data, listContext);
-    },
+    ...activityPublicationsQueryOptions(
+      mobileQueryAPI,
+      workspaceId,
+      activity,
+      mobileQueryDimensions.publicationPage,
+    ),
+    select: (page) => page.items,
   });
 }
 
 export function calendarOptions(
-  queryClient: QueryClient,
+  _queryClient: QueryClient,
   workspaceId: string,
   from: string,
   before: string,
 ) {
   return queryOptions({
-    ...queryPolicies.live,
-    queryKey: queryKeys.calendarRange(workspaceId, from, before),
-    queryFn: async ({ signal }) => {
-      const scope = captureWorkspaceQueryScope(workspaceId);
-      const listContext = capturePublicationListCacheContext(queryClient, workspaceId);
-      const { data, error, response } = await api().GET("/publications", {
-        signal,
-        params: {
-          query: {
-            workspace_id: workspaceId,
-            calendar_from: from,
-            calendar_before: before,
-            limit: mobileQueryDimensions.calendarLimit,
-          },
-        },
-      });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load calendar");
-      }
-      return cachePublicationDetails(queryClient, scope, data, listContext);
-    },
+    ...calendarPublicationsQueryOptions(mobileQueryAPI, workspaceId, {
+      from,
+      before,
+      limit: mobileQueryDimensions.calendarLimit,
+    }),
   });
 }
 
@@ -131,31 +89,7 @@ export function publicationOptions(
 ) {
   const cached = () => findCachedPublication(queryClient, workspaceId, publicationId);
   return queryOptions({
-    ...publicationQueryPolicy(freshness),
-    queryKey: queryKeys.publication(workspaceId, publicationId),
-    queryFn: async ({ signal }) => {
-      const scope = captureWorkspaceQueryScope(workspaceId);
-      const requestContext = capturePublicationDetailRequestContext(
-        queryClient,
-        workspaceId,
-        publicationId,
-      );
-      const { data, error, response } = await api().GET("/publications/{id}", {
-        signal,
-        params: { path: { id: publicationId } },
-      });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load post");
-      }
-      const publication = requirePublicationWorkspace(data, workspaceId);
-      if (!querySessionIsCurrent(scope)) return publication;
-      return reconcilePublicationDetailResponse(
-        queryClient,
-        workspaceId,
-        publication,
-        requestContext,
-      );
-    },
+    ...publicationDetailQueryOptions(mobileQueryAPI, workspaceId, publicationId, freshness),
     initialData: () => cached()?.data,
     initialDataUpdatedAt: () => cached()?.updatedAt,
   });
@@ -163,17 +97,9 @@ export function publicationOptions(
 
 export function accountsOptions(workspaceId: string) {
   return queryOptions({
-    ...queryPolicies.reference,
-    queryKey: queryKeys.accounts(workspaceId),
-    queryFn: async ({ signal }) => {
-      const { data, error, response } = await api().GET("/accounts", {
-        signal,
-        params: { query: { workspace_id: workspaceId } },
-      });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load accounts");
-      }
-      return data
+    ...workspaceAccountsQueryOptions(mobileQueryAPI, workspaceId),
+    select: (data) =>
+      data
         .filter((account) => Boolean(account && account.is_active))
         .map((account) => ({
           id: account.id,
@@ -181,32 +107,22 @@ export function accountsOptions(workspaceId: string) {
           slug: account.slug,
           account_username: account.account_username,
           is_active: true,
-        }));
-    },
+        })),
   });
 }
 
 export function socialSetsOptions(workspaceId: string) {
   return queryOptions({
-    ...queryPolicies.reference,
-    queryKey: queryKeys.socialSets(workspaceId),
-    queryFn: async ({ signal }) => {
-      const { data, error, response } = await api().GET("/social-sets", {
-        signal,
-        params: { query: { workspace_id: workspaceId } },
-      });
-      if (error || !data) {
-        throw createOpenPostQueryError(response?.status, error, "Could not load social sets");
-      }
-      return data
+    ...workspaceSocialSetsQueryOptions(mobileQueryAPI, workspaceId),
+    select: (data) =>
+      data
         .filter((socialSet): socialSet is NonNullable<typeof socialSet> => Boolean(socialSet))
         .map((socialSet) => ({
           id: socialSet.id,
           name: socialSet.name,
           is_default: socialSet.is_default,
           accounts: socialSet.accounts,
-        }));
-    },
+        })),
   });
 }
 

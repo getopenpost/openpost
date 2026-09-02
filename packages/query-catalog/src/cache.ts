@@ -171,3 +171,35 @@ export function reconcilePublicationDetailResponse(
   }
   return incoming;
 }
+
+export type PublicationRefreshRequest = {
+  workspaceId: string;
+  publicationId?: string;
+  activities?: readonly import("./keys").ActivityPublicationBucket[];
+  calendar?: boolean;
+};
+
+export type PublicationRefreshKey = {
+  queryKey: readonly unknown[];
+  exact?: true;
+};
+
+export function publicationRefreshKeys({
+  workspaceId,
+  publicationId,
+  activities = [],
+  calendar = false,
+}: PublicationRefreshRequest): PublicationRefreshKey[] {
+  const keys: PublicationRefreshKey[] = [];
+  if (publicationId) {
+    keys.push({
+      queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
+      exact: true,
+    });
+  }
+  for (const activity of new Set(activities)) {
+    keys.push({ queryKey: openPostQueryKeys.publications.activityAll(workspaceId, activity) });
+  }
+  if (calendar) keys.push({ queryKey: openPostQueryKeys.calendar.all(workspaceId) });
+  return keys;
+}

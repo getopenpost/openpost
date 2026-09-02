@@ -25,7 +25,9 @@ import {
   getQueryActorRevision,
   markQueryActorChanged,
   markQuerySessionChanged,
+  queryActorScopeIsCurrent,
   querySessionIsCurrent,
+  requireCurrentQueryActor,
   requireCurrentQuerySession,
   subscribeQueryActor,
   workspaceQueryScopeIsCurrent,
@@ -110,9 +112,7 @@ describe("mobile query keys", () => {
           "list",
           "activity",
           "draft",
-          { cursor: "", limit: 100 },
         ],
-        exact: true,
       },
       {
         queryKey: [
@@ -124,9 +124,7 @@ describe("mobile query keys", () => {
           "list",
           "activity",
           "scheduled",
-          { cursor: "", limit: 100 },
         ],
-        exact: true,
       },
       {
         queryKey: ["openpost", "v1", "workspace", "workspace-1", "calendar"],
@@ -633,7 +631,7 @@ describe("publication cache handoff", () => {
     }
   });
 
-  test("does not seed detail data after the signed-in session changes", () => {
+  test("reconciles the original Workspace after only the selection changes", () => {
     const client = new QueryClient();
     const staleScope = captureWorkspaceQueryScope("workspace-1");
     const listContext = capturePublicationListCacheContext(client, "workspace-1");
@@ -647,8 +645,29 @@ describe("publication cache handoff", () => {
     );
 
     expect(
+      client.getQueryData<Publication>(queryKeys.publication("workspace-1", "publication-1")),
+    ).toEqual(publication("publication-1", "draft"));
+    expect(queryActorScopeIsCurrent(staleScope)).toBe(true);
+    expect(querySessionIsCurrent(staleScope)).toBe(false);
+  });
+
+  test("does not seed detail data after the authenticated actor changes", () => {
+    const client = new QueryClient();
+    const staleScope = captureWorkspaceQueryScope("workspace-1");
+    const listContext = capturePublicationListCacheContext(client, "workspace-1");
+    markQueryActorChanged();
+
+    cachePublicationDetails(
+      client,
+      staleScope,
+      [publication("publication-1", "draft")],
+      listContext,
+    );
+
+    expect(
       client.getQueryData(queryKeys.publication("workspace-1", "publication-1")),
     ).toBeUndefined();
+    expect(queryActorScopeIsCurrent(staleScope)).toBe(false);
   });
 
   test("rejects a publication before it can poison another Workspace partition", () => {
@@ -667,7 +686,7 @@ describe("publication cache handoff", () => {
 });
 
 describe("query session scope", () => {
-  test("invalidates late callbacks while retaining safe Workspace identity", () => {
+  test("separates actor reconciliation from current Workspace UI state", () => {
     const scope = captureWorkspaceQueryScope("workspace-1");
     const actorRevisions: number[] = [];
     const unsubscribe = subscribeQueryActor(() => actorRevisions.push(getQueryActorRevision()));
@@ -676,12 +695,19 @@ describe("query session scope", () => {
     expect(workspaceQueryScopeIsCurrent(scope, "workspace-2")).toBe(false);
     expect(() => requireCurrentQuerySession(scope)).not.toThrow();
 
+    markQuerySessionChanged();
+    expect(querySessionIsCurrent(scope)).toBe(false);
+    expect(queryActorScopeIsCurrent(scope)).toBe(true);
+    expect(() => requireCurrentQueryActor(scope)).not.toThrow();
+
+    const currentScope = captureWorkspaceQueryScope("workspace-2");
+
     markQueryActorChanged();
 
     expect(actorRevisions).toEqual([getQueryActorRevision()]);
-    expect(querySessionIsCurrent(scope)).toBe(false);
-    expect(workspaceQueryScopeIsCurrent(scope, "workspace-1")).toBe(false);
-    expect(() => requireCurrentQuerySession(scope)).toThrow("signed-in session changed");
+    expect(queryActorScopeIsCurrent(currentScope)).toBe(false);
+    expect(workspaceQueryScopeIsCurrent(currentScope, "workspace-2")).toBe(false);
+    expect(() => requireCurrentQueryActor(currentScope)).toThrow("signed-in session changed");
     unsubscribe();
   });
 });

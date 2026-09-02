@@ -47,6 +47,11 @@ export const openPostQueryKeys = {
         { cursor: page.cursor ?? "", limit: page.limit },
       ] as const,
   },
+  calendar: {
+    all: (workspaceId: string) => [...openPostWorkspaceKey(workspaceId), "calendar"] as const,
+    range: (workspaceId: string, from: string, before: string, limit: number) =>
+      [...openPostWorkspaceKey(workspaceId), "calendar", "range", { before, from, limit }] as const,
+  },
   accounts: (workspaceId: string) => [...openPostWorkspaceKey(workspaceId), "accounts"] as const,
   socialSets: (workspaceId: string) =>
     [...openPostWorkspaceKey(workspaceId), "social-sets"] as const,

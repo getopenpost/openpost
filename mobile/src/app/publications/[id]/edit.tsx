@@ -42,7 +42,8 @@ import type { PublicationActivity } from "@/lib/query-policy";
 import { getWorkspaceId } from "@/lib/api/token-store";
 import {
   captureWorkspaceQueryScope,
-  querySessionIsCurrent,
+  queryActorScopeIsCurrent,
+  requireCurrentQueryActor,
   requireCurrentQuerySession,
   workspaceQueryScopeIsCurrent,
   type WorkspaceQueryScope,
@@ -280,7 +281,7 @@ function Composer({
       calendar?: boolean;
     },
   ) {
-    if (!querySessionIsCurrent(scope)) return;
+    if (!queryActorScopeIsCurrent(scope)) return;
     void invalidatePublicationData(queryClient, {
       workspaceId: scope.workspaceId,
       publicationId: scope.publicationId,
@@ -326,7 +327,7 @@ function Composer({
           client: requestApi,
           workspaceId: scope.workspaceId,
         });
-        requireCurrentQuerySession(scope);
+        requireCurrentQueryActor(scope);
         mediaIds.push(mediaId);
         if (workspaceScopeIsCurrent(scope)) {
           setAttachments((current) =>
@@ -356,7 +357,7 @@ function Composer({
     requestApi: Api,
     scheduleOverride?: Date,
   ): Promise<number> {
-    requireCurrentQuerySession(scope);
+    requireCurrentQueryActor(scope);
     let mediaChanged = false;
     for (const attachment of attachments) {
       if (!attachment.mediaId || !initialMediaIds.includes(attachment.mediaId)) {
@@ -367,7 +368,7 @@ function Composer({
     if (attachments.length !== initialMediaIds.length) mediaChanged = true;
 
     const media = await resolveAttachments(scope, requestApi);
-    requireCurrentQuerySession(scope);
+    requireCurrentQueryActor(scope);
     const desired = [...activeAccounts];
     const removed = (pub.renditions ?? []).filter(
       (rendition) =>
@@ -397,7 +398,7 @@ function Composer({
       },
     });
     if (error) throw await httpError(response, "Could not save");
-    requireCurrentQuerySession(scope);
+    requireCurrentQueryActor(scope);
     let nextRevision = updated?.revision ?? revision + 1;
 
     if (desired.length > 0) {
@@ -412,7 +413,7 @@ function Composer({
         },
       });
       if (upsert.error) throw await httpError(upsert.response, "Could not update destinations");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       nextRevision = upsert.data?.revision ?? nextRevision + 1;
     }
 
@@ -425,7 +426,7 @@ function Composer({
         },
       });
       if (removal.error) throw await httpError(removal.response, "Could not remove destination");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       nextRevision += 1;
     }
 
@@ -450,7 +451,10 @@ function Composer({
   }
 
   const saveAndClose = useMutation({
-    mutationFn: (scope: EditorMutationScope) => persist(scope, api()),
+    mutationFn: (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
+      return persist(scope, api());
+    },
     onSuccess: (_, scope) => {
       invalidate(scope, {
         activities: [scope.originalActivity],
@@ -467,6 +471,7 @@ function Composer({
 
   const scheduleMutation = useMutation({
     mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       if (!scheduledAt) throw new Error("Pick a time first");
       const requestApi = api();
       const nextRevision = await persist(scope, requestApi);
@@ -475,7 +480,7 @@ function Composer({
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not schedule");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
     },
     onSuccess: (_, scope) => {
       if (workspaceScopeIsCurrent(scope)) {
@@ -496,6 +501,7 @@ function Composer({
 
   const publishNow = useMutation({
     mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const requestApi = api();
       const nextRevision = await persist(scope, requestApi);
       const { error, response } = await requestApi.POST("/publications/{id}/publish-now", {
@@ -503,7 +509,7 @@ function Composer({
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not publish");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
     },
     onSuccess: (_, scope) => {
       if (workspaceScopeIsCurrent(scope)) {
@@ -529,7 +535,7 @@ function Composer({
         },
       });
       if (error) throw await httpError(response, "Could not delete");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
     },
     onSuccess: (_, scope) => {
       invalidate(scope, {
@@ -552,7 +558,7 @@ function Composer({
         params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       return new Date(data.slot_time);
     },
     onSuccess: (date, scope) => {
@@ -573,7 +579,7 @@ function Composer({
         params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       const slot = new Date(data.slot_time);
       if (workspaceScopeIsCurrent(scope)) {
         markEditorDirty();
@@ -585,7 +591,7 @@ function Composer({
         body: { expected_revision: nextRevision },
       });
       if (scheduled.error) throw await httpError(scheduled.response, "Could not queue post");
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       return slot;
     },
     onSuccess: (_, scope) => {
@@ -617,7 +623,7 @@ function Composer({
       });
       if (error || !data)
         throw new Error(await errorMessage(response, "Could not generate this draft"));
-      requireCurrentQuerySession(scope);
+      requireCurrentQueryActor(scope);
       return data;
     },
     onSuccess: (generated, scope) => {

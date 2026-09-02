@@ -7,6 +7,7 @@ let token: string | null = null;
 let workspaceId: string | null = null;
 const tokenListeners = new Set<() => void>();
 const workspaceListeners = new Set<() => void>();
+let tokenMutationTail = Promise.resolve();
 
 export function getToken(): string | null {
   return token;
@@ -30,22 +31,50 @@ function notifyWorkspaceId() {
   for (const listener of workspaceListeners) listener();
 }
 
-export async function loadToken(): Promise<string | null> {
-  token = await SecureStore.getItemAsync(KEY);
-  notifyToken();
-  return token;
+function runTokenMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = tokenMutationTail.then(operation, operation);
+  tokenMutationTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
-export async function saveToken(value: string): Promise<void> {
-  await SecureStore.deleteItemAsync(WORKSPACE_KEY);
-  await SecureStore.setItemAsync(KEY, value);
-  token = value;
-  workspaceId = null;
-  notifyToken();
-  notifyWorkspaceId();
+export function loadToken(): Promise<string | null> {
+  return runTokenMutation(async () => {
+    token = await SecureStore.getItemAsync(KEY);
+    notifyToken();
+    return token;
+  });
 }
 
-export async function clearToken(): Promise<void> {
+export function saveToken(value: string): Promise<void> {
+  return runTokenMutation(async () => {
+    await SecureStore.deleteItemAsync(WORKSPACE_KEY);
+    await SecureStore.setItemAsync(KEY, value);
+    token = value;
+    workspaceId = null;
+    notifyToken();
+    notifyWorkspaceId();
+  });
+}
+
+export function clearToken(): Promise<void> {
+  return runTokenMutation(clearCurrentToken);
+}
+
+export function clearTokenIfCurrent(
+  expectedToken: string,
+  identityIsCurrent: () => boolean,
+): Promise<boolean> {
+  return runTokenMutation(async () => {
+    if (token !== expectedToken || !identityIsCurrent()) return false;
+    await clearCurrentToken();
+    return true;
+  });
+}
+
+async function clearCurrentToken(): Promise<void> {
   await SecureStore.deleteItemAsync(KEY);
   token = null;
   workspaceId = null;

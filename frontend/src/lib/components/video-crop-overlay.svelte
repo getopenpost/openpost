@@ -1,5 +1,5 @@
 <script lang="ts">
-	import MoveIcon from '@lucide/svelte/icons/move';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	interface CropRect {
 		x: number;
@@ -128,7 +128,7 @@
 			onpointercancel={endDrag}
 			onkeydown={handleKeydown}
 		>
-			<MoveIcon class="size-4" />
+			<ProtectedIcon icon="editor-move" class="size-4" />
 		</button>
 	</div>
 </div>

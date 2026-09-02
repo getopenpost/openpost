@@ -1,10 +1,9 @@
 <script lang="ts">
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import type { ComposerSettingValue } from '$lib/components/compose/modes';
 	import {
 		captureVideoFrame,
@@ -113,7 +112,9 @@
 	</div>
 
 	{#if loadFailed}
-		<p class="text-xs text-destructive" role="alert">{m.compose_cover_frame_load_failed()}</p>
+		<p class="text-xs text-destructive" role="alert">
+			{m.compose_cover_frame_load_failed()}
+		</p>
 	{:else if !ready}
 		<p class="text-xs text-muted-foreground" aria-live="polite">
 			{m.compose_cover_frame_loading()}
@@ -143,7 +144,7 @@
 			onclick={applyFrame}
 		>
 			{#if applying}
-				<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" aria-hidden="true" />
 				{m.compose_cover_frame_applying()}
 			{:else}
 				{m.compose_cover_frame_use()}
@@ -152,17 +153,19 @@
 	{/if}
 
 	{#if applyFailed}
-		<p class="text-xs text-destructive" role="alert">{m.compose_cover_frame_apply_failed()}</p>
+		<p class="text-xs text-destructive" role="alert">
+			{m.compose_cover_frame_apply_failed()}
+		</p>
 	{:else if appliedTimestampMs !== null}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
-			<CheckIcon class="size-3.5 text-emerald-600" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-emerald-600" aria-hidden="true" />
 			{m.compose_cover_frame_selected({
 				time: formatCoverFrameTimestamp(appliedTimestampMs)
 			})}
 		</p>
 	{:else if mode === 'image' && typeof value === 'string' && value}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<CheckIcon class="size-3.5 text-emerald-600" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-emerald-600" aria-hidden="true" />
 			{m.compose_cover_image_selected()}
 		</p>
 	{/if}

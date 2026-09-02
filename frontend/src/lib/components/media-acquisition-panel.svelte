@@ -17,17 +17,8 @@
 	} from '$lib/video/types';
 	import type { StockAsset } from '$lib/stock-media';
 	import type { StockMediaProvenance } from '$lib/stock-media';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import FileAudioIcon from '@lucide/svelte/icons/file-audio';
-	import FileIcon from '@lucide/svelte/icons/file';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import UploadIcon from '@lucide/svelte/icons/upload';
-	import VideoIcon from '@lucide/svelte/icons/video';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	type AcquisitionMode = 'device' | 'camera' | 'stock';
 	type QueueStatus = 'ready' | 'uploading' | 'success' | 'error';
@@ -220,7 +211,10 @@
 				if (result) completed.push(result);
 			}
 			if (completed.length > 0) {
-				captureTelemetryEvent('media uploaded', { count: completed.length, source: 'upload' });
+				captureTelemetryEvent('media uploaded', {
+					count: completed.length,
+					source: 'upload'
+				});
 				await onUploaded(completed, {
 					allSucceeded: queue.length > 0 && queue.every((item) => item.status === 'success')
 				});
@@ -232,7 +226,12 @@
 	}
 
 	async function uploadOne(item: QueueItem): Promise<MediaUploadResult | null> {
-		updateItem(item.id, { status: 'uploading', progress: 0, stage: 'uploading', error: '' });
+		updateItem(item.id, {
+			status: 'uploading',
+			progress: 0,
+			stage: 'uploading',
+			error: ''
+		});
 		currentController = new AbortController();
 		try {
 			let uploadFile = item.preparedFile ?? item.file;
@@ -305,7 +304,10 @@
 		try {
 			const result = await uploadOne(item);
 			if (result) {
-				captureTelemetryEvent('media uploaded', { count: 1, source: 'stock_import' });
+				captureTelemetryEvent('media uploaded', {
+					count: 1,
+					source: 'stock_import'
+				});
 				await onUploaded([result], { allSucceeded: true });
 			} else error = queue.find((candidate) => candidate.id === item.id)?.error || '';
 		} finally {
@@ -427,7 +429,7 @@
 			<span
 				class="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/8 ring-1 ring-primary/15 transition-transform duration-200 group-hover:-translate-y-0.5"
 			>
-				<UploadIcon class="size-6 text-primary" />
+				<ThemeIcon role="upload" class="size-6 text-primary" />
 			</span>
 			<span class="text-base font-semibold">{m.media_upload_drop_title()}</span>
 			<span class="mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">
@@ -461,7 +463,10 @@
 					<div>
 						<p class="text-sm font-medium">{m.media_upload_queue()}</p>
 						<p class="text-xs text-muted-foreground">
-							{m.media_upload_queue_summary({ count: queue.length, maximum: maxFiles })}
+							{m.media_upload_queue_summary({
+								count: queue.length,
+								maximum: maxFiles
+							})}
 						</p>
 					</div>
 					{#if successfulCount > 0}
@@ -488,13 +493,13 @@
 								{:else if item.previewURL}
 									<img src={item.previewURL} alt="" class="size-full object-cover" />
 								{:else if item.file.type.startsWith('video/')}
-									<VideoIcon class="size-5 text-muted-foreground" />
+									<ProtectedIcon icon="media-video" class="size-5 text-muted-foreground" />
 								{:else if item.file.type.startsWith('audio/')}
-									<FileAudioIcon class="size-5 text-muted-foreground" />
+									<ProtectedIcon icon="media-audio" class="size-5 text-muted-foreground" />
 								{:else if item.file.type.startsWith('image/')}
-									<ImageIcon class="size-5 text-muted-foreground" />
+									<ProtectedIcon icon="media-image" class="size-5 text-muted-foreground" />
 								{:else}
-									<FileIcon class="size-5 text-muted-foreground" />
+									<ProtectedIcon icon="media-file" class="size-5 text-muted-foreground" />
 								{/if}
 							</div>
 							<div class="min-w-0">
@@ -507,7 +512,9 @@
 									</span>
 								</div>
 								{#if item.error}
-									<p class="mt-1 text-xs text-destructive" role="alert">{item.error}</p>
+									<p class="mt-1 text-xs text-destructive" role="alert">
+										{item.error}
+									</p>
 								{:else}
 									<p class="mt-1 text-xs text-muted-foreground">
 										{item.status === 'success'
@@ -534,14 +541,14 @@
 										onclick={cancelCurrent}
 										aria-label={m.video_upload_cancel()}
 									>
-										<XIcon />
+										<ThemeIcon role="close" />
 									</Button>
 								{:else if item.status === 'success'}
 									<span
 										class="flex size-8 items-center justify-center text-emerald-600 dark:text-emerald-400"
 										aria-label={m.media_upload_complete()}
 									>
-										<CheckIcon class="size-4" />
+										<ProtectedIcon icon="success" class="size-4" />
 									</span>
 								{:else if item.status === 'error' && !validateFile(item.file)}
 									<Button
@@ -550,7 +557,7 @@
 										onclick={() => retryItem(item.id)}
 										aria-label={m.common_retry()}
 									>
-										<RefreshCwIcon />
+										<ThemeIcon role="refresh" />
 									</Button>
 								{/if}
 								{#if item.status !== 'uploading'}
@@ -560,7 +567,7 @@
 										onclick={() => removeItem(item.id)}
 										aria-label={m.media_upload_remove({ name: item.file.name })}
 									>
-										<TrashIcon />
+										<ThemeIcon role="delete" />
 									</Button>
 								{/if}
 							</div>
@@ -572,16 +579,22 @@
 
 		{#if queue.length > 0}
 			<div class="flex flex-wrap items-center justify-between gap-3">
-				<p class="text-xs text-muted-foreground">{m.media_upload_paste_hint()}</p>
+				<p class="text-xs text-muted-foreground">
+					{m.media_upload_paste_hint()}
+				</p>
 				<Button onclick={uploadReady} disabled={busy || readyCount === 0 || !workspaceId}>
-					{#if busy}<LoaderIcon class="animate-spin" />{:else}<UploadIcon />{/if}
+					{#if busy}<ProtectedIcon icon="loading" class="animate-spin" />{:else}<ThemeIcon
+							role="upload"
+						/>{/if}
 					{readyCount === 1
 						? m.media_upload_one_file_action()
 						: m.media_upload_files_action({ count: readyCount })}
 				</Button>
 			</div>
 		{:else}
-			<p class="text-center text-xs text-muted-foreground">{m.media_upload_paste_hint()}</p>
+			<p class="text-center text-xs text-muted-foreground">
+				{m.media_upload_paste_hint()}
+			</p>
 		{/if}
 	</div>
 {:else if mode === 'camera'}
@@ -589,7 +602,7 @@
 		<CameraCapture onCapture={capturePhoto} />
 		{#if busy}
 			<p class="mt-3 flex items-center gap-2 text-sm text-muted-foreground" role="status">
-				<LoaderIcon class="size-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{m.media_uploading()}
 			</p>
 		{/if}

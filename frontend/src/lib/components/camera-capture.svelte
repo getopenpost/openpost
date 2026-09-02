@@ -2,11 +2,8 @@
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import SwitchCameraIcon from '@lucide/svelte/icons/switch-camera';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		onCapture,
@@ -221,7 +218,7 @@
 		{/if}
 		{#if loading}
 			<div class="absolute inset-0 flex items-center justify-center bg-neutral-950/80">
-				<LoaderIcon class="size-6 animate-spin" />
+				<ProtectedIcon icon="loading" class="size-6 animate-spin" />
 				<span class="sr-only">{m.camera_opening()}</span>
 			</div>
 		{/if}
@@ -240,7 +237,7 @@
 		>
 			<p>{error}</p>
 			<Button variant="outline" size="sm" class="mt-2" onclick={() => startCamera()}>
-				<RefreshCwIcon />
+				<ThemeIcon role="refresh" />
 				{m.common_retry()}
 			</Button>
 		</div>
@@ -269,7 +266,7 @@
 				aria-label={m.camera_switch()}
 				disabled={loading}
 			>
-				<SwitchCameraIcon />
+				<ThemeIcon role="camera-switch" />
 			</Button>
 		</div>
 		<label class="grid gap-1 text-xs text-muted-foreground">
@@ -294,12 +291,12 @@
 		{#if capturedURL}
 			<Button variant="outline" onclick={retake}>{m.camera_retake()}</Button>
 			<Button onclick={usePhoto} disabled={usingPhoto}>
-				{#if usingPhoto}<LoaderIcon class="animate-spin" />{/if}
+				{#if usingPhoto}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.camera_use_photo()}
 			</Button>
 		{:else}
 			<Button onclick={capture} disabled={loading || !stream || countdownRemaining > 0}>
-				<CameraIcon />
+				<ThemeIcon role="camera" />
 				{m.camera_take_photo()}
 			</Button>
 		{/if}

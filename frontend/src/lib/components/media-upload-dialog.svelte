@@ -4,11 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import MediaAcquisitionPanel from '$lib/components/media-acquisition-panel.svelte';
 	import type { MediaUploadResult } from '$lib/media-upload-client';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { VideoConstraint } from '$lib/video/types';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import LibraryIcon from '@lucide/svelte/icons/library';
-	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { m } from '$lib/paraglide/messages';
 
 	type SourceMode = 'device' | 'camera' | 'stock';
@@ -99,7 +96,7 @@
 				class="min-h-11 shrink-0 sm:min-h-9"
 				onclick={() => (source = 'device')}
 			>
-				<UploadIcon />
+				<ThemeIcon role="upload" />
 				{m.media_upload_device()}
 			</Button>
 			{#if accept.some((item) => item === 'image/*' || item.startsWith('image/'))}
@@ -109,7 +106,7 @@
 					class="min-h-11 shrink-0 sm:min-h-9"
 					onclick={() => (source = 'camera')}
 				>
-					<CameraIcon />
+					<ThemeIcon role="camera" />
 					{m.media_camera()}
 				</Button>
 			{/if}
@@ -120,7 +117,7 @@
 					class="min-h-11 shrink-0 sm:min-h-9"
 					onclick={() => (source = 'stock')}
 				>
-					<ImageIcon />
+					<ThemeIcon role="image" />
 					{m.stock_media()}
 				</Button>
 			{/if}
@@ -131,7 +128,7 @@
 					class="min-h-11 shrink-0 sm:min-h-9"
 					onclick={openLibrary}
 				>
-					<LibraryIcon />
+					<ThemeIcon role="media" />
 					{m.media_picker_library()}
 				</Button>
 			{/if}

@@ -279,7 +279,7 @@
 				fallbackReason: 'unsafe-resource'
 			};
 		}
-		return {
+		const resolvedTheme: WebResolvedTheme = {
 			id: theme.id,
 			revision: theme.revision,
 			name: theme.name,
@@ -295,13 +295,22 @@
 			assets: theme.assets.map((asset) => ({
 				...asset,
 				sourceUrl: previewResourceURL?.(asset.id, theme) ?? asset.sourceUrl
-			})),
-			...(previewResourceURL ? { webResourceScope: 'editor-preview' as const } : {})
+			}))
 		};
+		if (previewResourceURL) resolvedTheme.webResourceScope = 'editor-preview';
+		return resolvedTheme;
 	}
 
 	function cloneTheme(theme: ThemeManifest): ThemeManifest {
 		return structuredClone($state.snapshot(theme));
+	}
+
+	function isThemeEditorSection(value: ThemeEditorPanel): value is ThemeEditorSection {
+		return THEME_EDITOR_SECTIONS.some((section) => section === value);
+	}
+
+	function isThemeIconPackId(value: string): value is ThemeIconPackId {
+		return THEME_ICON_PACK_IDS.some((iconPack) => iconPack === value);
 	}
 
 	function applyDraft(label: string, next: ThemeManifest, coalesceKey?: string) {
@@ -326,14 +335,11 @@
 		);
 	}
 
-	function updateValue(section: ThemeEditorSection, key: string, value: string | number) {
-		const next = updateThemeSectionValue(
-			cloneTheme(draft),
-			scheme,
-			section,
-			key as never,
-			value as never
-		);
+	function updateValue<
+		Section extends ThemeEditorSection,
+		Key extends keyof ThemeSchemeManifest[Section]
+	>(section: Section, key: Key, value: ThemeSchemeManifest[Section][Key]) {
+		const next = updateThemeSectionValue(cloneTheme(draft), scheme, section, key, value);
 		applyDraft(
 			m.theme_editor_section_updated({ section: panelLabels[section].toLowerCase() }),
 			next,
@@ -349,7 +355,10 @@
 		const next = cloneTheme(draft);
 		const manifest = next.schemes[scheme];
 		if (!manifest) return;
-		(manifest.typography[role][key] as typeof value) = value;
+		manifest.typography[role] = {
+			...manifest.typography[role],
+			[key]: value
+		};
 		applyDraft(m.theme_editor_type_updated(), next, `${scheme}-typography-${role}-${key}`);
 	}
 
@@ -386,15 +395,18 @@
 		const next = cloneTheme(draft);
 		const manifest = next.schemes[scheme];
 		if (!manifest) return;
-		(manifest.motion[recipe][key] as typeof value) = value;
+		manifest.motion[recipe] = {
+			...manifest.motion[recipe],
+			[key]: value
+		};
 		applyDraft(m.theme_editor_motion_updated(), next, `${scheme}-motion-${recipe}-${key}`);
 	}
 
 	function updateIconPack(value: string) {
-		if (!THEME_ICON_PACK_IDS.includes(value as ThemeIconPackId)) return;
+		if (!isThemeIconPackId(value)) return;
 		applyDraft(m.theme_editor_icon_pack_changed(), {
 			...cloneTheme(draft),
-			iconPack: value as ThemeIconPackId
+			iconPack: value
 		});
 	}
 
@@ -415,14 +427,14 @@
 	}
 
 	function resetSection() {
-		if (!THEME_EDITOR_SECTIONS.includes(panel as ThemeEditorSection)) return;
+		if (!isThemeEditorSection(panel)) return;
 		const sectionBaseline = cloneTheme(baseline);
 		sectionBaseline.schemes[scheme] ??= cloneTheme(
 			resolveBuiltInTheme('workshop', scheme).manifest
 		);
 		applyDraft(
 			m.theme_editor_section_reset({ section: panelLabels[panel].toLowerCase() }),
-			resetThemeSection(cloneTheme(draft), sectionBaseline, scheme, panel as ThemeEditorSection)
+			resetThemeSection(cloneTheme(draft), sectionBaseline, scheme, panel)
 		);
 	}
 
@@ -431,9 +443,7 @@
 	}
 
 	function randomize() {
-		const section = THEME_EDITOR_SECTIONS.includes(panel as ThemeEditorSection)
-			? (panel as ThemeEditorSection)
-			: undefined;
+		const section = isThemeEditorSection(panel) ? panel : undefined;
 		applyDraft(
 			section
 				? m.theme_editor_section_randomized({ section: panelLabels[section].toLowerCase() })
@@ -498,12 +508,13 @@
 	}
 
 	async function copyManifest() {
-		if (typeof navigator === 'undefined' || !navigator.clipboard) {
+		const clipboard = 'navigator' in globalThis ? globalThis.navigator.clipboard : undefined;
+		if (!clipboard) {
 			operationError = m.theme_editor_clipboard_unavailable();
 			return;
 		}
 		try {
-			await navigator.clipboard.writeText(
+			await clipboard.writeText(
 				editorMode === 'manifest' ? manifestSource : serializeThemeManifest(draft)
 			);
 			operationError = '';

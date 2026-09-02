@@ -2,8 +2,13 @@ import {
 	BUNDLED_THEME_FONT_FAMILIES,
 	THEME_ASSET_SLOTS,
 	THEME_ICON_PACK_IDS,
+	THEME_SCHEMES,
 	THEME_TYPOGRAPHY_ROLE_KEYS,
 	isCompleteThemeSchemeManifest,
+	type ThemeAsset,
+	type ThemeAssetSlot,
+	type ThemeFontFace,
+	type ThemeIconPackId,
 	type ThemeManifest,
 	type ThemeScheme,
 	type ThemeSchemeManifest
@@ -91,7 +96,10 @@ export function updateThemeSectionValue<
 			name: manifest.name
 		});
 	}
-	(schemeManifest[section][key] as ThemeSchemeManifest[Section][Key]) = value;
+	schemeManifest[section] = {
+		...schemeManifest[section],
+		[key]: value
+	};
 	return next;
 }
 
@@ -109,7 +117,7 @@ export function resetThemeSection(
 			scheme
 		});
 	}
-	targetScheme[section] = structuredClone(sourceScheme[section]) as never;
+	targetScheme[section] = structuredClone(sourceScheme[section]);
 	return next;
 }
 
@@ -138,6 +146,119 @@ export function serializeThemeManifest(manifest: ThemeManifest): string {
 	return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+interface ThemeManifestInput {
+	schemaVersion?: unknown;
+	id?: unknown;
+	revision?: unknown;
+	name?: unknown;
+	description?: unknown;
+	iconPack?: unknown;
+	supportedSchemes?: unknown;
+	schemes?: unknown;
+	fonts?: unknown;
+	assets?: unknown;
+}
+
+interface ThemeSchemesInput {
+	light?: unknown;
+	dark?: unknown;
+}
+
+interface ThemeFontFaceInput {
+	id?: unknown;
+	family?: unknown;
+	sourceUrl?: unknown;
+	format?: unknown;
+	weight?: unknown;
+	style?: unknown;
+	display?: unknown;
+}
+
+interface ThemeAssetInput {
+	id?: unknown;
+	slot?: unknown;
+	sourceUrl?: unknown;
+	mimeType?: unknown;
+	alt?: unknown;
+}
+
+const themeManifestKeys = [
+	'schemaVersion',
+	'id',
+	'revision',
+	'name',
+	'description',
+	'iconPack',
+	'supportedSchemes',
+	'schemes',
+	'fonts',
+	'assets'
+] as const;
+const themeFontFaceKeys = [
+	'id',
+	'family',
+	'sourceUrl',
+	'format',
+	'weight',
+	'style',
+	'display'
+] as const;
+const themeAssetKeys = ['id', 'slot', 'sourceUrl', 'mimeType'] as const;
+const identifierPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
+const fontFamilyPattern = /^[a-zA-Z0-9 _.,:'-]+$/;
+const supportedAssetMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
+const bundledThemeFontFamilies = new Set<string>(BUNDLED_THEME_FONT_FAMILIES);
+
+function isThemeManifestInput(value: unknown): value is ThemeManifestInput {
+	return value !== null && typeof value === 'object';
+}
+
+function isThemeSchemesInput(value: unknown): value is ThemeSchemesInput {
+	return value !== null && typeof value === 'object';
+}
+
+function isThemeFontFaceInput(value: unknown): value is ThemeFontFaceInput {
+	return value !== null && typeof value === 'object';
+}
+
+function isThemeAssetInput(value: unknown): value is ThemeAssetInput {
+	return value !== null && typeof value === 'object';
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isThemeScheme(value: unknown): value is ThemeScheme {
+	return THEME_SCHEMES.some((scheme) => scheme === value);
+}
+
+function isThemeIconPackId(value: unknown): value is ThemeIconPackId {
+	return THEME_ICON_PACK_IDS.some((iconPack) => iconPack === value);
+}
+
+function isThemeAssetSlot(value: unknown): value is ThemeAssetSlot {
+	return THEME_ASSET_SLOTS.some((slot) => slot === value);
+}
+
+function isFontWeight(value: unknown): value is number {
+	return (
+		typeof value === 'number' &&
+		Number.isInteger(value) &&
+		value >= 100 &&
+		value <= 900 &&
+		value % 100 === 0
+	);
+}
+
+function isFontStyle(value: unknown): value is ThemeFontFace['style'] {
+	return value === 'normal' || value === 'italic';
+}
+
+function isFontDisplay(value: unknown): value is ThemeFontFace['display'] {
+	return value === 'swap' || value === 'fallback' || value === 'optional';
+}
+
 export function parseThemeManifest(source: string): ThemeManifest {
 	if (new TextEncoder().encode(source).byteLength > 256 * 1024) {
 		throw validationError('manifest_size', 'Manifest must be no larger than 256 KiB');
@@ -148,80 +269,76 @@ export function parseThemeManifest(source: string): ThemeManifest {
 	} catch {
 		throw validationError('invalid_json', 'Manifest is not valid JSON');
 	}
-	if (!candidate || typeof candidate !== 'object') {
+	if (!isThemeManifestInput(candidate)) {
 		throw validationError('manifest_object', 'Manifest must be an object');
 	}
-	const value = candidate as Partial<ThemeManifest>;
-	const rootKeys = [
-		'schemaVersion',
-		'id',
-		'revision',
-		'name',
-		'description',
-		'iconPack',
-		'supportedSchemes',
-		'schemes',
-		'fonts',
-		'assets'
-	];
-	assertExactRootKeys(value, rootKeys);
+	const value = candidate;
+	assertExactRootKeys(value, themeManifestKeys);
 	if (value.schemaVersion !== 1) throw validationError('schema_version', 'schemaVersion must be 1');
-	if (typeof value.id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(value.id)) {
+	if (!isString(value.id) || !identifierPattern.test(value.id)) {
 		throw validationError('id', 'id must be a stable identifier');
 	}
 	if (
-		typeof value.revision !== 'string' ||
+		!isString(value.revision) ||
 		value.revision.length > 128 ||
 		!/^[a-zA-Z0-9][a-zA-Z0-9 _.-]*$/.test(value.revision)
 	) {
 		throw validationError('revision', 'revision must be a stable identifier');
 	}
-	if (
-		typeof value.name !== 'string' ||
-		value.name.trim() === '' ||
-		themeCodePointLength(value.name) > 80
-	) {
+	if (!isString(value.name) || value.name.trim() === '' || themeCodePointLength(value.name) > 80) {
 		throw validationError('name', 'name must contain 1 to 80 characters');
 	}
-	if (typeof value.description !== 'string' || themeCodePointLength(value.description) > 240) {
+	if (!isString(value.description) || themeCodePointLength(value.description) > 240) {
 		throw validationError('description', 'description must contain at most 240 characters');
 	}
-	if (!THEME_ICON_PACK_IDS.includes(value.iconPack as (typeof THEME_ICON_PACK_IDS)[number])) {
+	if (!isThemeIconPackId(value.iconPack)) {
 		throw validationError('icon_pack', 'iconPack is not supported');
 	}
 	if (!Array.isArray(value.supportedSchemes) || value.supportedSchemes.length === 0) {
 		throw validationError('supported_schemes_empty', 'supportedSchemes must include light or dark');
 	}
-	const uniqueSchemes = new Set<ThemeScheme>();
-	for (const scheme of value.supportedSchemes) {
-		if (scheme !== 'light' && scheme !== 'dark') {
-			throw validationError('unsupported_scheme', `${String(scheme)} is not a supported scheme`, {
-				scheme: String(scheme)
+	const supportedSchemes: ThemeScheme[] = [];
+	const schemeInputs: ThemeSchemesInput = isThemeSchemesInput(value.schemes) ? value.schemes : {};
+	const schemes: Partial<Record<ThemeScheme, ThemeSchemeManifest>> = {};
+	for (const candidateScheme of value.supportedSchemes) {
+		if (!isThemeScheme(candidateScheme)) {
+			throw validationError(
+				'unsupported_scheme',
+				`${String(candidateScheme)} is not a supported scheme`,
+				{
+					scheme: String(candidateScheme)
+				}
+			);
+		}
+		if (supportedSchemes.includes(candidateScheme)) {
+			throw validationError('duplicate_scheme', `${candidateScheme} is listed more than once`, {
+				scheme: candidateScheme
 			});
 		}
-		if (uniqueSchemes.has(scheme)) {
-			throw validationError('duplicate_scheme', `${scheme} is listed more than once`, { scheme });
+		supportedSchemes.push(candidateScheme);
+		const schemeManifest = schemeInputs[candidateScheme];
+		if (!isCompleteThemeSchemeManifest(schemeManifest, candidateScheme)) {
+			throw validationError(
+				'incomplete_scheme',
+				`${candidateScheme} must contain a complete manifest`,
+				{
+					scheme: candidateScheme
+				}
+			);
 		}
-		uniqueSchemes.add(scheme);
-		if (!isCompleteThemeSchemeManifest(value.schemes?.[scheme], scheme)) {
-			throw validationError('incomplete_scheme', `${scheme} must contain a complete manifest`, {
-				scheme
-			});
-		}
+		schemes[candidateScheme] = schemeManifest;
 	}
-	for (const scheme of ['light', 'dark'] as const) {
-		if (value.schemes?.[scheme] && !uniqueSchemes.has(scheme)) {
+	for (const candidateScheme of THEME_SCHEMES) {
+		if (schemeInputs[candidateScheme] && !supportedSchemes.includes(candidateScheme)) {
 			throw validationError(
 				'undeclared_scheme',
-				`${scheme} has values but is not declared as supported`,
-				{ scheme }
+				`${candidateScheme} has values but is not declared as supported`,
+				{ scheme: candidateScheme }
 			);
 		}
 	}
-	const declaredSchemes = ['light', 'dark'].filter(
-		(scheme) => value.schemes?.[scheme as ThemeScheme]
-	);
-	if (value.supportedSchemes.join(',') !== declaredSchemes.join(',')) {
+	const declaredSchemes = THEME_SCHEMES.filter((candidateScheme) => schemeInputs[candidateScheme]);
+	if (supportedSchemes.join(',') !== declaredSchemes.join(',')) {
 		throw validationError(
 			'scheme_order',
 			'supportedSchemes must follow the light, dark manifest order'
@@ -230,16 +347,107 @@ export function parseThemeManifest(source: string): ThemeManifest {
 	if (!Array.isArray(value.fonts) || !Array.isArray(value.assets)) {
 		throw validationError('resource_arrays', 'fonts and assets must be arrays');
 	}
-	validateManifestResources(value as ThemeManifest);
-	return structuredClone(value as ThemeManifest);
+	if (value.fonts.length > 16 || value.assets.length > THEME_ASSET_SLOTS.length) {
+		throw validationError(
+			'resource_limit',
+			'resources contains too many fonts or decorative assets'
+		);
+	}
+	const manifest: ThemeManifest = {
+		schemaVersion: 1,
+		id: value.id,
+		revision: value.revision,
+		name: value.name,
+		description: value.description,
+		iconPack: value.iconPack,
+		supportedSchemes,
+		schemes,
+		fonts: parseThemeFontFaces(value.fonts),
+		assets: parseThemeAssets(value.assets)
+	};
+	validateManifestResources(manifest);
+	return structuredClone(manifest);
 }
 
-const identifierPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
-const fontFamilyPattern = /^[a-zA-Z0-9 _.,:'-]+$/;
-const supportedAssetMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
-const bundledThemeFontFamilies = new Set<string>(BUNDLED_THEME_FONT_FAMILIES);
+function parseThemeFontFaces(values: unknown[]): ThemeFontFace[] {
+	return values.map((value, index) => {
+		if (
+			!isThemeFontFaceInput(value) ||
+			!hasExactKeys(value, themeFontFaceKeys) ||
+			!isString(value.id) ||
+			!identifierPattern.test(value.id) ||
+			!isString(value.family) ||
+			!fontFamilyPattern.test(value.family) ||
+			!isString(value.sourceUrl) ||
+			value.sourceUrl !== `asset:${value.id}` ||
+			value.format !== 'woff2' ||
+			!isFontWeight(value.weight) ||
+			!isFontStyle(value.style) ||
+			!isFontDisplay(value.display)
+		) {
+			throw validationError(
+				'invalid_font',
+				`fonts[${index}] contains an invalid font face or resource reference`,
+				{ index }
+			);
+		}
+		return {
+			id: value.id,
+			family: value.family,
+			sourceUrl: value.sourceUrl,
+			format: value.format,
+			weight: value.weight,
+			style: value.style,
+			display: value.display
+		};
+	});
+}
 
-function hasExactKeys(value: object, expectedKeys: string[]): boolean {
+function parseThemeAssets(values: unknown[]): ThemeAsset[] {
+	return values.map((value, index) => {
+		if (!isThemeAssetInput(value)) {
+			throw validationError(
+				'invalid_asset',
+				`assets[${index}] contains an invalid decorative asset or resource reference`,
+				{ index }
+			);
+		}
+		const expectedKeys: string[] = [...themeAssetKeys];
+		if (value.alt !== undefined) expectedKeys.push('alt');
+		if (
+			!hasExactKeys(value, expectedKeys) ||
+			!isString(value.id) ||
+			!identifierPattern.test(value.id) ||
+			!isThemeAssetSlot(value.slot) ||
+			!isString(value.sourceUrl) ||
+			value.sourceUrl !== `asset:${value.id}` ||
+			!isString(value.mimeType) ||
+			!supportedAssetMimeTypes.has(value.mimeType) ||
+			(value.alt !== undefined && !isString(value.alt)) ||
+			(isString(value.alt) && themeCodePointLength(value.alt) > 240) ||
+			(value.slot.endsWith('illustration') && (!isString(value.alt) || !value.alt.trim()))
+		) {
+			throw validationError(
+				'invalid_asset',
+				`assets[${index}] contains an invalid decorative asset or resource reference`,
+				{ index }
+			);
+		}
+		const asset: ThemeAsset = {
+			id: value.id,
+			slot: value.slot,
+			sourceUrl: value.sourceUrl,
+			mimeType: value.mimeType
+		};
+		if (isString(value.alt)) asset.alt = value.alt;
+		return asset;
+	});
+}
+
+function hasExactKeys<Owner extends object>(
+	value: Owner,
+	expectedKeys: readonly string[]
+): boolean {
 	const keys = Object.keys(value).sort();
 	const expected = [...expectedKeys].sort();
 	return keys.length === expected.length && keys.every((key, index) => key === expected[index]);
@@ -256,7 +464,7 @@ export function takeThemeCodePoints(value: string, maximum: number): string {
 	return [...value].slice(0, maximum).join('');
 }
 
-function assertExactRootKeys(value: object, expectedKeys: string[]) {
+function assertExactRootKeys<Owner extends object>(value: Owner, expectedKeys: readonly string[]) {
 	const actual = new Set(Object.keys(value));
 	const unexpected = Object.keys(value).filter((key) => !expectedKeys.includes(key));
 	if (unexpected.length > 0) {
@@ -272,35 +480,9 @@ function assertExactRootKeys(value: object, expectedKeys: string[]) {
 }
 
 function validateManifestResources(manifest: ThemeManifest) {
-	if (manifest.fonts.length > 16 || manifest.assets.length > THEME_ASSET_SLOTS.length) {
-		throw validationError(
-			'resource_limit',
-			'resources contains too many fonts or decorative assets'
-		);
-	}
 	const resourceIDs = new Set<string>();
 	const fontFaceKeys = new Set<string>();
-	for (const [index, font] of manifest.fonts.entries()) {
-		if (
-			!font ||
-			!hasExactKeys(font, ['id', 'family', 'sourceUrl', 'format', 'weight', 'style', 'display']) ||
-			!identifierPattern.test(font.id) ||
-			!fontFamilyPattern.test(font.family) ||
-			font.sourceUrl !== `asset:${font.id}` ||
-			font.format !== 'woff2' ||
-			!Number.isInteger(font.weight) ||
-			font.weight < 100 ||
-			font.weight > 900 ||
-			font.weight % 100 !== 0 ||
-			!['normal', 'italic'].includes(font.style) ||
-			!['swap', 'fallback', 'optional'].includes(font.display)
-		) {
-			throw validationError(
-				'invalid_font',
-				`fonts[${index}] contains an invalid font face or resource reference`,
-				{ index }
-			);
-		}
+	for (const font of manifest.fonts) {
 		const faceKey = `${font.family}:${font.weight}:${font.style}`;
 		if (resourceIDs.has(font.id) || fontFaceKeys.has(faceKey)) {
 			throw validationError('duplicate_font', 'resources contains duplicate IDs or font faces');
@@ -309,30 +491,7 @@ function validateManifestResources(manifest: ThemeManifest) {
 		fontFaceKeys.add(faceKey);
 	}
 	const usedSlots = new Set<string>();
-	for (const [index, asset] of manifest.assets.entries()) {
-		if (
-			!asset ||
-			!hasExactKeys(asset, [
-				'id',
-				'slot',
-				'sourceUrl',
-				'mimeType',
-				...(asset.alt === undefined ? [] : ['alt'])
-			]) ||
-			!identifierPattern.test(asset.id) ||
-			asset.sourceUrl !== `asset:${asset.id}` ||
-			!THEME_ASSET_SLOTS.includes(asset.slot) ||
-			!supportedAssetMimeTypes.has(asset.mimeType) ||
-			(asset.alt !== undefined && typeof asset.alt !== 'string') ||
-			(asset.alt ? themeCodePointLength(asset.alt) : 0) > 240 ||
-			(asset.slot.endsWith('illustration') && !asset.alt?.trim())
-		) {
-			throw validationError(
-				'invalid_asset',
-				`assets[${index}] contains an invalid decorative asset or resource reference`,
-				{ index }
-			);
-		}
+	for (const asset of manifest.assets) {
 		if (resourceIDs.has(asset.id) || usedSlots.has(asset.slot)) {
 			throw validationError('duplicate_asset', 'resources contains duplicate IDs or asset slots');
 		}
@@ -341,7 +500,12 @@ function validateManifestResources(manifest: ThemeManifest) {
 	}
 
 	for (const scheme of manifest.supportedSchemes) {
-		const schemeManifest = manifest.schemes[scheme]!;
+		const schemeManifest = manifest.schemes[scheme];
+		if (!schemeManifest) {
+			throw validationError('incomplete_scheme', `${scheme} must contain a complete manifest`, {
+				scheme
+			});
+		}
 		for (const role of THEME_TYPOGRAPHY_ROLE_KEYS) {
 			const typography = schemeManifest.typography[role];
 			if (

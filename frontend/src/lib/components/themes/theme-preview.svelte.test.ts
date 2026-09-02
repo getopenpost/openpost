@@ -59,12 +59,9 @@ describe('ThemePreview', () => {
 			label: 'Resource staging preview',
 			runtime
 		});
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
 		await expect
-			.poll(
-				() =>
-					(screen.getByTestId('theme-preview').element() as HTMLIFrameElement).contentDocument
-						?.documentElement.dataset.themeId
-			)
+			.poll(() => frame.contentDocument?.documentElement.dataset.themeId)
 			.toBe('playroom');
 		expect(loaders.stageFonts).toHaveBeenCalledTimes(2);
 		expect(loaders.loadAssets).toHaveBeenCalledTimes(2);

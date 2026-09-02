@@ -182,7 +182,7 @@
 				fallbackReason: 'unsafe-resource'
 			};
 		}
-		return {
+		const resolvedTheme: WebResolvedTheme = {
 			id: item.manifest.id,
 			revision: item.manifest.revision,
 			name: item.manifest.name,
@@ -198,9 +198,10 @@
 			assets: item.manifest.assets.map((asset) => ({
 				...asset,
 				sourceUrl: previewResourceURL?.(asset.id, item.manifest) ?? asset.sourceUrl
-			})),
-			...(previewResourceURL ? { webResourceScope: 'editor-preview' as const } : {})
+			}))
 		};
+		if (previewResourceURL) resolvedTheme.webResourceScope = 'editor-preview';
+		return resolvedTheme;
 	}
 
 	async function deleteTheme() {

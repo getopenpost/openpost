@@ -42,6 +42,7 @@
 
 <header
 	data-slot="page-header"
+	data-theme-decoration-zone
 	data-testid="page-header"
 	class={cn('page-header flex min-w-0 flex-col gap-4', className)}
 >

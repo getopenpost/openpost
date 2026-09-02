@@ -116,6 +116,23 @@ describe('built-in themes', () => {
 		);
 	});
 
+	it('gives every non-Workshop family a distinct structural identity', () => {
+		const identities = BUILT_IN_THEMES.slice(1).map((theme) => {
+			const manifest = theme.schemes.light ?? theme.schemes.dark!;
+			return JSON.stringify({
+				canvas: manifest.shell.canvasTreatment,
+				decoration: manifest.components.decoration,
+				button: manifest.components.button,
+				navigation: manifest.components.navigation,
+				card: manifest.components.card,
+				tabs: manifest.components.tabs,
+				toolbar: manifest.components.toolbar
+			});
+		});
+
+		expect(new Set(identities).size).toBe(identities.length);
+	});
+
 	it('falls back to a complete Workshop scheme without mixing families', () => {
 		const midnightInLight = resolveBuiltInTheme('midnight', 'light');
 		const expected = WORKSHOP_FALLBACK_THEME.schemes.light!;

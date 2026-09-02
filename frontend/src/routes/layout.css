@@ -365,6 +365,10 @@
 	--theme-asset-header-decoration: none;
 	--theme-asset-empty-state-illustration: none;
 	--theme-asset-loading-illustration: none;
+	--theme-canvas-treatment: none;
+	--theme-canvas-size: auto;
+	--theme-decoration: none;
+	--theme-decoration-size: auto;
 }
 
 .dark {
@@ -630,6 +634,193 @@
 }
 
 @layer components {
+	[data-theme-canvas='plain'] {
+		--theme-canvas-treatment: none;
+		--theme-canvas-size: auto;
+	}
+
+	[data-theme-canvas='paper'] {
+		--theme-canvas-treatment: linear-gradient(
+			180deg,
+			color-mix(in oklch, var(--background) 94%, var(--selection)) 0,
+			var(--background) 14rem
+		);
+		--theme-canvas-size: 100% 100%;
+	}
+
+	[data-theme-canvas='playful'] {
+		--theme-canvas-treatment:
+			radial-gradient(
+				circle at 6% 8%,
+				color-mix(in oklch, var(--selection) 34%, transparent) 0 5.5rem,
+				transparent 5.6rem
+			),
+			radial-gradient(
+				circle at 94% 88%,
+				color-mix(in oklch, var(--info) 28%, transparent) 0 7rem,
+				transparent 7.1rem
+			);
+		--theme-canvas-size: 100% 100%;
+	}
+
+	[data-theme-canvas='garden'] {
+		--theme-canvas-treatment:
+			radial-gradient(
+				ellipse at 12% 0%,
+				color-mix(in oklch, var(--success) 22%, transparent),
+				transparent 36%
+			),
+			radial-gradient(
+				ellipse at 100% 72%,
+				color-mix(in oklch, var(--selection) 22%, transparent),
+				transparent 34%
+			);
+		--theme-canvas-size: 100% 100%;
+	}
+
+	[data-theme-canvas='study'] {
+		--theme-canvas-treatment:
+			linear-gradient(
+				90deg,
+				transparent 0 3rem,
+				color-mix(in oklch, var(--link) 14%, transparent) 3rem 3.0625rem,
+				transparent 3.0625rem
+			),
+			repeating-linear-gradient(
+				180deg,
+				transparent 0 1.7rem,
+				color-mix(in oklch, var(--border) 42%, transparent) 1.7rem 1.75rem
+			);
+		--theme-canvas-size: 100% 100%;
+	}
+
+	[data-theme-canvas='tactile'] {
+		--theme-canvas-treatment:
+			radial-gradient(
+				circle at 30% 40%,
+				color-mix(in oklch, var(--foreground) 12%, transparent) 0 0.04rem,
+				transparent 0.055rem
+			),
+			radial-gradient(
+				circle at 70% 65%,
+				color-mix(in oklch, var(--border) 30%, transparent) 0 0.045rem,
+				transparent 0.06rem
+			);
+		--theme-canvas-size: 0.8rem 0.8rem, 1.1rem 1.1rem;
+	}
+
+	[data-theme-canvas='precision'] {
+		--theme-canvas-treatment:
+			repeating-linear-gradient(
+				90deg,
+				transparent 0 1.95rem,
+				color-mix(in oklch, var(--border) 28%, transparent) 1.95rem 2rem
+			),
+			repeating-linear-gradient(
+				180deg,
+				transparent 0 1.95rem,
+				color-mix(in oklch, var(--border) 28%, transparent) 1.95rem 2rem
+			);
+		--theme-canvas-size: auto;
+	}
+
+	[data-theme-canvas] body,
+	[data-theme-canvas][data-theme-scope='preview'],
+	[data-theme-canvas] [data-theme-canvas-surface] {
+		background-image: var(--theme-asset-background-texture), var(--theme-canvas-treatment);
+		background-repeat: repeat;
+		background-size: auto, var(--theme-canvas-size);
+	}
+
+	[data-theme-decoration='none'] {
+		--theme-decoration: none;
+		--theme-decoration-size: auto;
+	}
+
+	[data-theme-decoration='editorial'] {
+		--theme-decoration: linear-gradient(
+			180deg,
+			transparent calc(100% - 0.125rem),
+			color-mix(in oklch, var(--link) 50%, transparent) calc(100% - 0.125rem)
+		);
+		--theme-decoration-size: 100% 100%;
+	}
+
+	[data-theme-decoration='playful'] {
+		--theme-decoration:
+			radial-gradient(
+				circle at 14% 16%,
+				color-mix(in oklch, var(--selection) 52%, transparent) 0 1.5rem,
+				transparent 1.55rem
+			),
+			radial-gradient(
+				circle at 88% 76%,
+				color-mix(in oklch, var(--warning) 42%, transparent) 0 1rem,
+				transparent 1.05rem
+			);
+		--theme-decoration-size: 100% 100%;
+	}
+
+	[data-theme-decoration='botanical'] {
+		--theme-decoration:
+			radial-gradient(
+				ellipse at 0% 100%,
+				color-mix(in oklch, var(--success) 30%, transparent),
+				transparent 42%
+			),
+			radial-gradient(
+				ellipse at 100% 0%,
+				color-mix(in oklch, var(--selection) 22%, transparent),
+				transparent 38%
+			);
+		--theme-decoration-size: 100% 100%;
+	}
+
+	[data-theme-decoration='study'] {
+		--theme-decoration: repeating-linear-gradient(
+			180deg,
+			transparent 0 1.45rem,
+			color-mix(in oklch, var(--border) 48%, transparent) 1.45rem 1.5rem
+		);
+		--theme-decoration-size: auto;
+	}
+
+	[data-theme-decoration='tactile'] {
+		--theme-decoration:
+			radial-gradient(
+				circle at 50% 0.75rem,
+				color-mix(in oklch, var(--action-focal) 70%, var(--foreground)) 0 0.18rem,
+				color-mix(in oklch, var(--action-focal) 25%, transparent) 0.2rem,
+				transparent 0.35rem
+			),
+			linear-gradient(
+				180deg,
+				transparent 0 2.4rem,
+				color-mix(in oklch, var(--border) 52%, transparent) 2.4rem 2.45rem,
+				transparent 2.45rem
+			);
+		--theme-decoration-size: 100% 100%;
+	}
+
+	[data-theme-decoration='precision'] {
+		--theme-decoration:
+			linear-gradient(
+				90deg,
+				color-mix(in oklch, var(--action-focal) 48%, transparent) 0 0.125rem,
+				transparent 0.125rem
+			),
+			repeating-linear-gradient(
+				180deg,
+				transparent 0 1.95rem,
+				color-mix(in oklch, var(--border) 32%, transparent) 1.95rem 2rem
+			);
+		--theme-decoration-size: 100% 100%;
+	}
+
+	[data-theme-button='solid'] [data-slot='button'][data-action-intent='focal'] {
+		box-shadow: var(--theme-shadow-focal-action);
+	}
+
 	[data-theme-button='tonal']
 		[data-slot='button']:is(
 			[data-action-intent='focal'],
@@ -664,6 +855,46 @@
 		text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
 	}
 
+	[data-theme-link='underlined'] a:not([data-slot='button']) {
+		text-decoration-line: underline;
+		text-underline-offset: 0.18em;
+	}
+
+	[data-theme-navigation='quiet'] :is([data-sidebar='menu-button'], [data-theme-navigation-item]) {
+		border-color: transparent !important;
+		background: transparent !important;
+	}
+
+	[data-theme-navigation='quiet']
+		:is([data-sidebar='menu-button'], [data-theme-navigation-item])[data-active='true'] {
+		color: var(--navigation-active-foreground);
+		box-shadow: inset 0.15rem 0 var(--navigation-active);
+	}
+
+	[data-theme-navigation='tonal']
+		:is([data-sidebar='menu-button'], [data-theme-navigation-item]):hover {
+		background: var(--navigation-hover) !important;
+	}
+
+	[data-theme-navigation='tonal']
+		:is([data-sidebar='menu-button'], [data-theme-navigation-item])[data-active='true'] {
+		background: var(--navigation-active) !important;
+		color: var(--navigation-active-foreground);
+	}
+
+	[data-theme-navigation='outlined']
+		:is([data-sidebar='menu-button'], [data-theme-navigation-item]) {
+		border: var(--theme-border-width) var(--theme-border-style) transparent;
+		background: transparent !important;
+	}
+
+	[data-theme-navigation='outlined']
+		:is([data-sidebar='menu-button'], [data-theme-navigation-item])[data-active='true'] {
+		border-color: var(--sidebar-border);
+		background: var(--surface-raised, var(--card)) !important;
+		color: var(--navigation-active-foreground);
+	}
+
 	[data-theme-tabs='pill'] [data-slot='tabs-list'],
 	[data-theme-tabs='pill'] [data-slot='tabs-trigger'] {
 		border-radius: var(--theme-radius-pill);
@@ -686,6 +917,11 @@
 
 	[data-theme-card='flat'] [data-slot='card'] {
 		border-color: transparent;
+		box-shadow: none;
+	}
+
+	[data-theme-card='outlined'] [data-slot='card'] {
+		border: var(--theme-border-width) var(--theme-border-style) var(--border);
 		box-shadow: none;
 	}
 
@@ -712,6 +948,12 @@
 		background: var(--muted);
 	}
 
+	[data-theme-container='flat'] [data-theme-container-surface] {
+		border-color: transparent;
+		background: var(--background);
+		box-shadow: none;
+	}
+
 	:is([data-theme-input='filled'], [data-theme-select='filled'])
 		:is([data-slot='input'], [data-slot='textarea'], [data-slot='select-trigger']) {
 		border-color: transparent;
@@ -726,12 +968,22 @@
 		background: transparent;
 	}
 
+	:is([data-theme-input='outlined'], [data-theme-select='outlined'])
+		:is([data-slot='input'], [data-slot='textarea'], [data-slot='select-trigger']) {
+		border: var(--theme-border-width) var(--theme-border-style) var(--field-border);
+		background: var(--field);
+	}
+
 	[data-theme-table='plain'] [data-slot='table-row'] {
 		border-color: transparent;
 	}
 
 	[data-theme-table='striped'] [data-slot='table-body'] [data-slot='table-row']:nth-child(even) {
 		background: var(--muted);
+	}
+
+	[data-theme-table='ruled'] [data-slot='table-row'] {
+		border-bottom: var(--theme-border-width) var(--theme-border-style) var(--border);
 	}
 
 	[data-theme-list='divided'] [data-slot='list'] > :not(:last-child) {
@@ -741,6 +993,15 @@
 	[data-theme-list='spaced'] [data-slot='list'] {
 		display: grid;
 		gap: var(--theme-component-gap);
+	}
+
+	[data-theme-list='plain'] [data-slot='list'] {
+		display: block;
+		gap: 0;
+	}
+
+	[data-theme-list='plain'] [data-slot='list'] > * {
+		border-color: transparent;
 	}
 
 	[data-theme-badge='solid'] [data-slot='badge'],
@@ -753,6 +1014,13 @@
 	[data-theme-badge='outlined'] [data-slot='badge'],
 	[data-theme-chip='outlined'] [data-slot='chip'] {
 		background: transparent;
+	}
+
+	[data-theme-badge='tonal'] [data-slot='badge'],
+	[data-theme-chip='tonal'] [data-slot='chip'] {
+		border-color: transparent;
+		background: var(--navigation-hover);
+		color: var(--foreground);
 	}
 
 	[data-theme-dialog='flat'] [data-slot='dialog-content'],
@@ -802,6 +1070,14 @@
 		background: var(--navigation-hover);
 	}
 
+	[data-theme-switch='solid'] [role='switch'][data-state='checked'],
+	[data-theme-checkbox='solid'] [data-slot='checkbox'][data-state='checked'],
+	[data-theme-radio='solid'] [data-slot='radio-group-item'][data-state='checked'] {
+		border-color: var(--action-focal);
+		background: var(--action-focal);
+		color: var(--action-focal-foreground);
+	}
+
 	[data-theme-toolbar='outlined'] :is([role='toolbar'], [data-slot='toolbar']) {
 		border: var(--theme-border-width) var(--theme-border-style) var(--border);
 	}
@@ -810,12 +1086,22 @@
 		box-shadow: var(--theme-shadow-popover);
 	}
 
+	[data-theme-toolbar='flat'] :is([role='toolbar'], [data-slot='toolbar']) {
+		border-color: transparent;
+		box-shadow: none;
+	}
+
 	[data-theme-pagination='pill'] [data-slot='pagination-link'] {
 		border-radius: var(--theme-radius-pill);
 	}
 
 	[data-theme-pagination='outlined'] [data-slot='pagination-link'] {
 		border-color: var(--action-ordinary-border);
+	}
+
+	[data-theme-pagination='quiet'] [data-slot='pagination-link'] {
+		border-color: transparent;
+		background: transparent;
 	}
 
 	[data-theme-empty-state='framed'] :is([data-slot='empty-state'], .theme-empty-state) {
@@ -830,6 +1116,12 @@
 		background-size: min(18rem, 70%);
 	}
 
+	[data-theme-empty-state='plain'] :is([data-slot='empty-state'], .theme-empty-state) {
+		border-color: transparent;
+		background-image: none;
+		box-shadow: none;
+	}
+
 	[data-theme-loading-state='pulse'] [data-slot='skeleton'] {
 		animation: theme-loading-pulse var(--theme-motion-loading-duration)
 			var(--theme-motion-loading-easing) infinite alternate;
@@ -838,6 +1130,12 @@
 	[data-theme-loading-state='spinner'] [data-slot='loading-indicator'] {
 		animation-duration: var(--theme-motion-loading-duration);
 		animation-timing-function: var(--theme-motion-loading-easing);
+	}
+
+	[data-theme-loading-state='skeleton'] [data-slot='skeleton'] {
+		animation: theme-loading-pulse var(--theme-motion-loading-duration)
+			var(--theme-motion-loading-easing) infinite alternate;
+		background: var(--muted);
 	}
 
 	[data-theme-loading-art] {
@@ -853,19 +1151,34 @@
 		--theme-radius-md: 0.375rem;
 	}
 
+	[data-theme-editor-chrome='neutral'] .video-editor-theme {
+		--theme-component-gap: 0.75rem;
+		--theme-radius-md: 0.625rem;
+	}
+
 	[data-slot='sidebar-inner'] {
-		background-image: var(--theme-asset-sidebar-decoration);
+		background-image: var(--theme-asset-sidebar-decoration), var(--theme-decoration);
 		background-position: left bottom;
-		background-repeat: no-repeat;
-		background-size: 100% auto;
+		background-repeat: no-repeat, repeat;
+		background-size:
+			100% auto,
+			var(--theme-decoration-size);
 	}
 
 	:is([data-slot='app-header'], [data-theme-header]) {
 		min-height: var(--theme-header-height);
-		background-image: var(--theme-asset-header-decoration);
+		background-image: var(--theme-asset-header-decoration), var(--theme-decoration);
 		background-position: right center;
-		background-repeat: no-repeat;
-		background-size: auto 100%;
+		background-repeat: no-repeat, repeat;
+		background-size:
+			auto 100%,
+			var(--theme-decoration-size);
+	}
+
+	[data-theme-decoration-zone] {
+		background-image: var(--theme-decoration);
+		background-repeat: repeat;
+		background-size: var(--theme-decoration-size);
 	}
 
 	[data-theme-content] {

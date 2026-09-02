@@ -61,6 +61,7 @@
 		class: cn(sidebarMenuButtonVariants({ variant, size }), className),
 		'data-slot': 'sidebar-menu-button',
 		'data-sidebar': 'menu-button',
+		'data-theme-navigation-item': '',
 		'data-size': size,
 		'data-active': isActive,
 		'data-cuelume-toggle': 'tick',

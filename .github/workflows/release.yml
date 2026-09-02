@@ -54,19 +54,30 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          candidate="$(gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow CI \
-            --commit "$GITHUB_SHA" \
-            --event push \
-            --limit 20 \
-            --json databaseId,conclusion \
-            --jq '[.[] | select(.conclusion == "success")][0].databaseId // empty')"
+          # The tag-triggered CI run starts alongside this release and builds
+          # every candidate artifact. Wait for it, then require success.
+          candidate=""
+          for _ in $(seq 1 30); do
+            candidate="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow CI \
+              --commit "$GITHUB_SHA" \
+              --event push \
+              --limit 20 \
+              --json databaseId,headBranch \
+              --jq '[.[] | select(.headBranch == "'"$GITHUB_REF_NAME"'")][0].databaseId // empty' 2>/dev/null || true)"
+            [[ -n "$candidate" ]] && break
+            sleep 20
+          done
           [[ -n "$candidate" ]] || {
-            echo "No successful CI run exists for tagged SHA $GITHUB_SHA." >&2
+            echo "No CI run exists for tag $GITHUB_REF_NAME on SHA $GITHUB_SHA." >&2
             exit 1
           }
           [[ "$candidate" =~ ^[0-9]+$ ]]
+          gh run watch "$candidate" \
+            --repo "$GITHUB_REPOSITORY" \
+            --exit-status \
+            --interval 30 > /dev/null
           echo "run_id=$candidate" >> "$GITHUB_OUTPUT"
       - name: Resolve artifacts from their successful CI attempts
         id: artifacts

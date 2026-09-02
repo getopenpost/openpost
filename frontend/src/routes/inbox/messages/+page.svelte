@@ -18,6 +18,7 @@
 	import { queryClient } from '$lib/query/client';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { InboxMessageQueryError, inboxQueryAPI } from '$lib/query/inbox';
+	import { mergeInboxMessages, reconcileSentInboxMessage } from '$lib/query/inbox-message-cache';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -278,23 +279,9 @@
 	function combineMessagePages(pages: MessagePage[]) {
 		return pages.reduce<DirectMessage[]>(
 			(current, page, index) =>
-				index === 0 ? (page.items ?? []) : mergeMessages(page.items ?? [], current),
+				index === 0 ? (page.items ?? []) : mergeInboxMessages(page.items ?? [], current),
 			[]
 		);
-	}
-
-	function mergeMessages(older: DirectMessage[], current: DirectMessage[]) {
-		const byID = new Map(older.map((message) => [message.id, message]));
-		for (const message of current) byID.set(message.id, message);
-		return [...byID.values()].sort((left, right) => {
-			const leftTime = new Date(left.remote_created_at || left.created_at).getTime();
-			const rightTime = new Date(right.remote_created_at || right.created_at).getTime();
-			return (
-				leftTime - rightTime ||
-				left.created_at.localeCompare(right.created_at) ||
-				left.id.localeCompare(right.id)
-			);
-		});
 	}
 
 	function messageVisibleAnchor(): { id: string; top: number } | null {
@@ -407,14 +394,12 @@
 			const pendingOlderPage = messageQuery.isFetchingNextPage
 				? messageQuery.fetchNextPage({ cancelRefetch: false })
 				: null;
-			await queryClient.cancelQueries({
-				queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace)
-			});
-			cacheSentMessage(queryKey, data);
-			if (pendingOlderPage) {
-				void pendingOlderPage.then(() => cacheSentMessage(queryKey, data));
-			}
-			void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+			await Promise.all([
+				queryClient.cancelQueries({
+					queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace)
+				}),
+				reconcileSentInboxMessage(queryClient, queryKey, data, pendingOlderPage)
+			]);
 			void queryClient.invalidateQueries({
 				queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace),
 				refetchType: 'none'
@@ -424,23 +409,6 @@
 			replyBody = '';
 			showToast(m.messages_queued(), 'success');
 		}
-	}
-
-	function cacheSentMessage(
-		queryKey: ReturnType<typeof inboxQueryKeys.messages>,
-		message: DirectMessage
-	) {
-		queryClient.setQueryData<InfiniteData<MessagePage, string>>(queryKey, (current) => {
-			if (!current) return current;
-			const pages = [...current.pages];
-			const firstPage = pages[0];
-			if (!firstPage) return current;
-			pages[0] = {
-				...firstPage,
-				items: mergeMessages([], [...(firstPage.items ?? []), message])
-			};
-			return { ...current, pages };
-		});
 	}
 
 	async function refresh() {

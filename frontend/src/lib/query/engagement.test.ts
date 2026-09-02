@@ -1,8 +1,13 @@
 import type { paths } from '@openpost/api-contract';
 import createClient from 'openapi-fetch';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAnalyticsQueryAPI } from './analytics';
+import { registerQueryAuthorizationBoundary } from './authorization-boundary';
 import { createInboxQueryAPI, InboxMessageQueryError } from './inbox';
+
+afterEach(() => {
+	registerQueryAuthorizationBoundary(undefined);
+});
 
 describe('engagement web query adapters', () => {
 	it('forwards cancellation and every analytics result parameter', async () => {
@@ -95,5 +100,31 @@ describe('engagement web query adapters', () => {
 				status: 503
 			})
 		);
+	});
+
+	it('settles a message-history 401 against the identity captured before the request', async () => {
+		const identity = { userID: 'user-1', epoch: 7 };
+		const settleUnauthorized = vi.fn();
+		registerQueryAuthorizationBoundary({ captureIdentity: () => identity, settleUnauthorized });
+		const transport = createClient<paths>({
+			baseUrl: 'https://openpost.test/api/v1',
+			fetch: vi.fn(async () =>
+				Response.json(
+					{ status: 401, detail: 'Session expired' },
+					{ status: 401, headers: { 'Content-Type': 'application/problem+json' } }
+				)
+			)
+		});
+
+		await expect(
+			createInboxQueryAPI(transport).listMessages(
+				'workspace-1',
+				'conversation-1',
+				{ limit: 200 },
+				'',
+				new AbortController().signal
+			)
+		).rejects.toMatchObject({ name: 'InboxMessageQueryError', status: 401 });
+		expect(settleUnauthorized).toHaveBeenCalledWith(identity);
 	});
 });

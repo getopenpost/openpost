@@ -6,7 +6,7 @@ import {
 	type NormalizedEngagementFilters
 } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
-import { queryGET } from './transport';
+import { queryGET, queryTransportRequest } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
 type APIProblem = components['schemas']['ErrorModel'];
@@ -49,17 +49,19 @@ export function createInboxQueryAPI(transport: QueryTransport): InboxQueryAPI {
 			return data;
 		},
 		async listMessages(workspaceId, conversationId, filters, cursor, signal) {
-			const { data, error, response } = await transport.GET('/messages/{conversation_id}', {
-				params: {
-					path: { conversation_id: conversationId },
-					query: {
-						workspace_id: workspaceId,
-						limit: filters.limit,
-						cursor: cursor || undefined
-					}
-				},
-				signal
-			});
+			const { data, error, response } = await queryTransportRequest(signal, (requestSignal) =>
+				transport.GET('/messages/{conversation_id}', {
+					params: {
+						path: { conversation_id: conversationId },
+						query: {
+							workspace_id: workspaceId,
+							limit: filters.limit,
+							cursor: cursor || undefined
+						}
+					},
+					signal: requestSignal
+				})
+			);
 			if (error || !data) throw new InboxMessageQueryError(response.status, error, response);
 			return data;
 		},

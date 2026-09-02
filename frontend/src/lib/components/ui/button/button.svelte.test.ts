@@ -8,17 +8,32 @@ function textSnippet(text: string) {
 }
 
 describe('Button', () => {
+	it('exposes stable semantic intents without leaking visual variants to callers', async () => {
+		const screen = render(Button, {
+			intent: 'ordinary',
+			children: textSnippet('Save draft')
+		});
+		const button = screen.getByRole('button', { name: 'Save draft' });
+
+		await expect.element(button).toHaveAttribute('data-action-intent', 'ordinary');
+		await expect.element(button).toHaveClass(/bg-action-ordinary/);
+	});
+
 	it('plays one cue when a primary action completes', async () => {
 		const screen = render(Button, { children: textSnippet('Publish now') });
 		const button = screen.getByRole('button', { name: 'Publish now' });
 
 		await expect.element(button).toHaveAttribute('data-cuelume-toggle', 'release');
+		await expect.element(button).toHaveAttribute('data-action-intent', 'primary');
 		await expect.element(button).not.toHaveAttribute('data-cuelume-press');
 		await expect.element(button).not.toHaveAttribute('data-cuelume-release');
 	});
 
 	it('keeps routine ghost controls quiet', async () => {
-		const screen = render(Button, { variant: 'ghost', children: textSnippet('Dismiss') });
+		const screen = render(Button, {
+			variant: 'ghost',
+			children: textSnippet('Dismiss')
+		});
 		const button = screen.getByRole('button', { name: 'Dismiss' });
 
 		await expect.element(button).not.toHaveAttribute('data-cuelume-toggle');

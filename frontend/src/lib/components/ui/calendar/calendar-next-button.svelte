@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Calendar as CalendarPrimitive } from 'bits-ui';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 	import { buttonVariants, type ButtonVariant } from '$lib/components/ui/button/index.js';
 	import { cn } from '$lib/utils.js';
 	import { m } from '$lib/paraglide/messages';
@@ -18,7 +18,7 @@
 </script>
 
 {#snippet Fallback()}
-	<ChevronRightIcon class="size-4" />
+	<ThemeIcon role="chevron-right" class="size-4" />
 {/snippet}
 
 {#snippet PrimitiveChild({ props }: { props: HTMLButtonAttributes })}

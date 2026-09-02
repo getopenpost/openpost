@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
-	import RiArrowRightSLine from 'remixicon-svelte/icons/arrow-right-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 	import { cn } from '$lib/utils.js';
 
 	let {
@@ -25,5 +25,5 @@
 	{...restProps}
 >
 	{@render children?.()}
-	<RiArrowRightSLine class="ml-auto" />
+	<ThemeIcon role="chevron-right" class="ml-auto" />
 </DropdownMenuPrimitive.SubTrigger>

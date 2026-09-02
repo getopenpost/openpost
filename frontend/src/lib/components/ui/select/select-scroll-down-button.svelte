@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Select as SelectPrimitive } from 'bits-ui';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
-	import RiArrowDownSLine from 'remixicon-svelte/icons/arrow-down-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -19,5 +19,5 @@
 	)}
 	{...restProps}
 >
-	<RiArrowDownSLine />
+	<ThemeIcon role="chevron-down" />
 </SelectPrimitive.ScrollDownButton>

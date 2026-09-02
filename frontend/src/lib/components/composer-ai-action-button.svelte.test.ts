@@ -22,7 +22,7 @@ describe('ComposerAIActionButton', () => {
 		const buttonElement = ideateButton.element();
 
 		await expect.element(ideateButton).toBeVisible();
-		expect(buttonElement.className).toContain('bg-primary');
+		expect(buttonElement.getAttribute('data-action-intent')).toBe('primary');
 		expect(screen.container.querySelectorAll('[data-ai-action-pill]')).toHaveLength(2);
 		await ideateButton.click();
 		expect(ideateProps.onclick).toHaveBeenCalledOnce();
@@ -32,7 +32,7 @@ describe('ComposerAIActionButton', () => {
 
 		await expect.element(buildButton).toBeVisible();
 		expect(buildButton.element()).toBe(buttonElement);
-		expect(buttonElement.className).toContain('bg-secondary');
+		expect(buttonElement.getAttribute('data-action-intent')).toBe('ordinary');
 		expect(screen.container.querySelectorAll('button')).toHaveLength(1);
 	});
 });

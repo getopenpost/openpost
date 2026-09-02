@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils.js';
 	import { ContextMenu as ContextMenuPrimitive } from 'bits-ui';
-	import RiArrowRightSLine from 'remixicon-svelte/icons/arrow-right-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,5 +23,5 @@
 	{...restProps}
 >
 	{@render children?.()}
-	<RiArrowRightSLine class="ml-auto" />
+	<ThemeIcon role="chevron-right" class="ml-auto" />
 </ContextMenuPrimitive.SubTrigger>

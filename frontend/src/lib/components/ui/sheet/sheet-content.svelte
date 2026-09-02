@@ -8,7 +8,7 @@
 	import SheetPortal from './sheet-portal.svelte';
 	import SheetOverlay from './sheet-overlay.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import RiCloseLine from 'remixicon-svelte/icons/close-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -51,7 +51,7 @@
 						size="icon-sm"
 						{...props}
 					>
-						<RiCloseLine />
+						<ThemeIcon role="close" />
 						<span class="sr-only">{m.common_close()}</span>
 					</Button>
 				{/snippet}

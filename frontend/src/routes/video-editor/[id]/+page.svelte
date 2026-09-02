@@ -15,6 +15,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes/contracts';
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
@@ -113,23 +115,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		switchSequence,
 		type CreateCompositeCompositionOptions
 	} from '$lib/video-editor/sequences/sequence-actions';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
-	import ImagesIcon from '@lucide/svelte/icons/images';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
-	import BetweenHorizontalStartIcon from '@lucide/svelte/icons/between-horizontal-start';
-	import CaptionsIcon from '@lucide/svelte/icons/captions';
-	import StickerIcon from '@lucide/svelte/icons/sticker';
-	import PanelsTopLeftIcon from '@lucide/svelte/icons/panels-top-left';
-	import FilmIcon from '@lucide/svelte/icons/film';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import ShapesIcon from '@lucide/svelte/icons/shapes';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import VideoIcon from '@lucide/svelte/icons/video';
 	import {
 		editorWorkspace,
 		type EditorWorkspaceId
@@ -209,6 +194,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| 'lottie'
 		| 'transcript'
 		| 'ai';
+	type LeftPanelOption = {
+		value: LeftPanel;
+		label: string;
+	} & (
+		| { iconKind: 'protected'; icon: ProtectedIconRole }
+		| { iconKind: 'theme'; icon: ThemeIconRole }
+	);
 	let leftPanel = $state<LeftPanel>('media');
 	let mediaPanelView = $state<'project' | 'scenes'>('project');
 	let mobileEditPane = $state<'assets' | 'program' | 'tools'>('program');
@@ -310,29 +302,76 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			.length
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
-	const primaryLeftPanelOptions = $derived([
-		{ value: 'media' as const, label: m.video_editor_media_pool(), icon: ImagesIcon },
-		{ value: 'stock' as const, label: m.video_editor_stock_assets(), icon: SearchIcon },
-		{ value: 'text' as const, label: m.video_editor_tool_text(), icon: TypeIcon },
-		// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
-		{ value: 'shapes' as const, label: m.video_editor_shapes(), icon: ShapesIcon },
+	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
 		{
-			value: 'backgrounds' as const,
+			value: 'media',
+			label: m.video_editor_media_pool(),
+			iconKind: 'protected',
+			icon: 'editor-media'
+		},
+		{
+			value: 'stock',
+			label: m.video_editor_stock_assets(),
+			iconKind: 'theme',
+			icon: 'search'
+		},
+		{
+			value: 'text',
+			label: m.video_editor_tool_text(),
+			iconKind: 'protected',
+			icon: 'editor-text'
+		},
+		{
+			value: 'shapes',
+			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
+			label: m.video_editor_shapes(),
+			iconKind: 'protected',
+			icon: 'editor-shapes'
+		},
+		{
+			value: 'backgrounds',
 			label: m.video_editor_backgrounds_title(),
-			icon: PanelsTopLeftIcon
+			iconKind: 'protected',
+			icon: 'editor-backgrounds'
 		},
-		{ value: 'stickers' as const, label: m.video_editor_stickers(), icon: StickerIcon },
-		{ value: 'effects' as const, label: m.video_editor_effects(), icon: WandSparklesIcon },
 		{
-			value: 'transitions' as const,
-			label: m.video_editor_transition(),
-			icon: BetweenHorizontalStartIcon
+			value: 'stickers',
+			label: m.video_editor_stickers(),
+			iconKind: 'protected',
+			icon: 'editor-stickers'
 		},
-		{ value: 'lottie' as const, label: m.video_editor_animations(), icon: FilmIcon },
-		{ value: 'transcript' as const, label: m.video_editor_transcript(), icon: CaptionsIcon }
+		{
+			value: 'effects',
+			label: m.video_editor_effects(),
+			iconKind: 'protected',
+			icon: 'editor-effects'
+		},
+		{
+			value: 'transitions',
+			label: m.video_editor_transition(),
+			iconKind: 'protected',
+			icon: 'editor-transitions'
+		},
+		{
+			value: 'lottie',
+			label: m.video_editor_animations(),
+			iconKind: 'protected',
+			icon: 'editor-animation'
+		},
+		{
+			value: 'transcript',
+			label: m.video_editor_transcript(),
+			iconKind: 'protected',
+			icon: 'editor-captions'
+		}
 	]);
-	const utilityLeftPanelOptions = $derived([
-		{ value: 'ai' as const, label: m.video_editor_local_ai(), icon: SparklesIcon }
+	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
+		{
+			value: 'ai',
+			label: m.video_editor_local_ai(),
+			iconKind: 'theme',
+			icon: 'sparkles'
+		}
 	]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
 	const leftPanelHeading = $derived(
@@ -1614,6 +1653,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	<title>{editorSession.project?.name ?? m.video_editor_title()}</title>
 </svelte:head>
 
+{#snippet leftPanelIcon(option: LeftPanelOption, className?: string)}
+	{#if option.iconKind === 'protected'}
+		<ProtectedIcon icon={option.icon} class={className} />
+	{:else}
+		<ThemeIcon role={option.icon} class={className} />
+	{/if}
+{/snippet}
+
 <svelte:window
 	onkeydowncapture={onGlobalShortcutCapture}
 	onkeydown={onKeydown}
@@ -1658,7 +1705,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				title={m.video_editor_record_screen()}
 				onclick={() => (recordingOpen = true)}
 			>
-				<VideoIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="editor-record" class="size-3.5" />
 				<span class="hidden lg:inline">{m.video_editor_record()}</span>
 			</Button>
 			<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
@@ -1671,7 +1718,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				title={m.video_editor_settings_title()}
 				onclick={() => (settingsOpen = true)}
 			>
-				<SettingsIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="settings" class="size-3.5" />
 			</Button>
 			{#if renderProject}
 				{#key renderProject.id}
@@ -1703,7 +1750,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							size="icon-xs"
 							aria-label={m.image_editor_more_actions()}
 						>
-							<MoreHorizontalIcon aria-hidden="true" />
+							<ThemeIcon role="more-horizontal" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -1744,7 +1791,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		</main>
 	{:else if editorSession.loading}
 		<main class="flex flex-1 items-center justify-center">
-			<LoaderIcon class="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+			<ProtectedIcon icon="loading" class="size-5 animate-spin motion-reduce:animate-none" />
 			<span class="sr-only">{m.editors_loading()}</span>
 		</main>
 	{:else if editorSession.loadError}
@@ -1833,7 +1880,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2"
 										>
 											{#each primaryLeftPanelOptions as option (option.value)}
-												{@const Icon = option.icon}
 												<Tooltip.Root>
 													<Tooltip.Trigger>
 														{#snippet child({ props })}
@@ -1854,7 +1900,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																onkeydown={(event) =>
 																	moveLeftPanelFocus(event, option.value, 'vertical')}
 															>
-																<Icon aria-hidden="true" />
+																{@render leftPanelIcon(option)}
 															</Button>
 														{/snippet}
 													</Tooltip.Trigger>
@@ -1866,7 +1912,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											class="flex shrink-0 flex-col items-center gap-1 border-t border-[oklch(0.25_0.015_55)] py-2"
 										>
 											{#each utilityLeftPanelOptions as option (option.value)}
-												{@const Icon = option.icon}
 												<Tooltip.Root>
 													<Tooltip.Trigger>
 														{#snippet child({ props })}
@@ -1887,7 +1932,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																onkeydown={(event) =>
 																	moveLeftPanelFocus(event, option.value, 'vertical')}
 															>
-																<Icon aria-hidden="true" />
+																{@render leftPanelIcon(option)}
 															</Button>
 														{/snippet}
 													</Tooltip.Trigger>
@@ -1909,7 +1954,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 														aria-label={m.image_editor_add_layer()}
 														title={m.image_editor_add_layer()}
 													>
-														<PlusIcon aria-hidden="true" />
+														<ThemeIcon role="add" />
 													</Button>
 												{/snippet}
 											</DropdownMenu.Trigger>
@@ -1945,7 +1990,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															variant="ghost"
 															aria-label={m.image_editor_add_layer()}
 														>
-															<PlusIcon aria-hidden="true" />
+															<ThemeIcon role="add" />
 														</Button>
 													{/snippet}
 												</DropdownMenu.Trigger>
@@ -1967,7 +2012,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										role="tablist"
 									>
 										{#each leftPanelOptions as option (option.value)}
-											{@const Icon = option.icon}
 											<button
 												type="button"
 												class:active={leftPanel === option.value}
@@ -1981,7 +2025,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												onclick={() => (leftPanel = option.value)}
 												onkeydown={(event) => moveLeftPanelFocus(event, option.value, 'horizontal')}
 											>
-												<Icon class="size-3.5" aria-hidden="true" />
+												{@render leftPanelIcon(option, 'size-3.5')}
 												{option.label}
 											</button>
 										{/each}
@@ -1995,7 +2039,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												aria-pressed={mediaPanelView === 'project'}
 												onclick={() => (mediaPanelView = 'project')}
 											>
-												<ImagesIcon class="size-3.5" aria-hidden="true" />
+												<ProtectedIcon icon="editor-media" class="size-3.5" />
 												{m.video_editor_media_tab()}
 											</button>
 											<button
@@ -2005,7 +2049,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												aria-pressed={mediaPanelView === 'scenes'}
 												onclick={() => (mediaPanelView = 'scenes')}
 											>
-												<ClapperboardIcon class="size-3.5" aria-hidden="true" />
+												<ProtectedIcon icon="editor-scenes" class="size-3.5" />
 												{m.video_editor_scenes()}
 											</button>
 										</div>
@@ -2221,7 +2265,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													variant="ghost"
 													aria-label={m.image_editor_more_actions()}
 												>
-													<MoreHorizontalIcon aria-hidden="true" />
+													<ThemeIcon role="more-horizontal" />
 												</Button>
 											{/snippet}
 										</DropdownMenu.Trigger>
@@ -2280,9 +2324,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<div class="mt-3">
 											<div class="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
 												{#if scanningScenes}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="size-3.5 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{/if}
 												{m.video_editor_scene_split()}

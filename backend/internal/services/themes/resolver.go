@@ -97,7 +97,33 @@ func resolved(family ThemeManifest, reference ThemeReference, scheme ColorScheme
 	if reference.Kind == ReferenceCustom {
 		revision = fmt.Sprintf("%d", reference.Version)
 	}
-	return ResolvedTheme{ID: family.ID, Revision: revision, Name: family.Name, IconPack: family.IconPack, Source: source, RequestedScheme: scheme, Scheme: scheme, Manifest: manifest, Fonts: runtimeFontFaces(family.Fonts), Assets: family.Assets, FallbackReason: reason, CacheIdentity: fmt.Sprintf("%s:%s:%d:%s", source, reference.ID, reference.Version, scheme)}
+	return ResolvedTheme{ID: family.ID, Revision: revision, Name: family.Name, IconPack: family.IconPack, Source: source, RequestedScheme: scheme, Scheme: scheme, Manifest: manifest, Fonts: runtimeFontFacesForScheme(family.Fonts, manifest), Assets: family.Assets, FallbackReason: reason, CacheIdentity: fmt.Sprintf("%s:%s:%d:%s", source, reference.ID, reference.Version, scheme)}
+}
+
+func runtimeFontFacesForScheme(fonts []ThemeFontFace, manifest ThemeSchemeManifest) []ThemeRuntimeFontFace {
+	type fontReference struct {
+		family string
+		weight int
+	}
+	references := map[fontReference]struct{}{}
+	for _, role := range []ThemeTypographyRoleTokens{
+		manifest.Typography.Display,
+		manifest.Typography.Title,
+		manifest.Typography.Body,
+		manifest.Typography.Label,
+		manifest.Typography.Metadata,
+		manifest.Typography.Code,
+	} {
+		references[fontReference{family: role.Family, weight: role.Weight}] = struct{}{}
+	}
+	usedFonts := make([]ThemeFontFace, 0, len(fonts))
+	for _, font := range fonts {
+		if _, used := references[fontReference{family: font.Family, weight: font.Weight}]; !used || font.Style != "normal" {
+			continue
+		}
+		usedFonts = append(usedFonts, font)
+	}
+	return runtimeFontFaces(usedFonts)
 }
 
 func runtimeFontFaces(fonts []ThemeFontFace) []ThemeRuntimeFontFace {

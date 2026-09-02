@@ -57,7 +57,6 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	updatedLight.Colors.ActionFocalHover = "#1d4ed8"
 	updatedLight.Colors.ActionFocalActive = "#1e40af"
 	updatedLight.Colors.Selection = "#bfdbfe"
-	updatedLight.Colors.Focus = "#2563eb"
 	updatedManifest := manifest
 	updatedManifest.Schemes = ThemeSchemes{Light: &updatedLight, Dark: &dark}
 	theme, err = service.UpdateDraft(t.Context(), actor, theme.Summary.Reference.ID, UpdateDraftInput{
@@ -229,10 +228,8 @@ func TestOrganizationMembersCanResolveButCannotReadManagementData(t *testing.T) 
 	require.ErrorIs(t, err, ErrInaccessible)
 	_, err = service.ListAssets(t.Context(), member, "org-1")
 	require.ErrorIs(t, err, ErrInaccessible)
-	settings, err := service.Settings(t.Context(), member, "workspace-1")
-	require.NoError(t, err)
-	require.False(t, settings.CanManageWorkspace)
-	require.False(t, settings.CanManageOrganization)
+	_, err = service.Settings(t.Context(), member, "workspace-1")
+	require.ErrorIs(t, err, ErrInaccessible)
 
 	resolved, err := service.Resolve(t.Context(), member, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
 	require.NoError(t, err)
@@ -246,19 +243,31 @@ func TestThemeSettingsExposeServerAuthorizedCapabilities(t *testing.T) {
 	_, err = db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'editor-1', 'editor', 'active'), ('workspace-1', 'workspace-admin', 'admin', 'active')`)
 	require.NoError(t, err)
 
-	tests := []struct {
+	denied := []struct {
+		name  string
+		actor Actor
+	}{
+		{"viewer", Actor{UserID: "member-1"}},
+		{"editor", Actor{UserID: "editor-1"}},
+	}
+	for _, test := range denied {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := service.Settings(t.Context(), test.actor, "workspace-1")
+			require.ErrorIs(t, err, ErrInaccessible)
+		})
+	}
+
+	allowed := []struct {
 		name                  string
 		actor                 Actor
 		canManageWorkspace    bool
 		canManageOrganization bool
 	}{
-		{"viewer", Actor{UserID: "member-1"}, false, false},
-		{"editor", Actor{UserID: "editor-1"}, false, false},
 		{"workspace admin", Actor{UserID: "workspace-admin"}, true, false},
 		{"organization admin", Actor{UserID: "admin-1"}, true, true},
 		{"workspace scoped organization admin", Actor{UserID: "admin-1", CredentialWorkspaceID: "workspace-1"}, true, false},
 	}
-	for _, test := range tests {
+	for _, test := range allowed {
 		t.Run(test.name, func(t *testing.T) {
 			settings, err := service.Settings(t.Context(), test.actor, "workspace-1")
 			require.NoError(t, err)
@@ -269,6 +278,10 @@ func TestThemeSettingsExposeServerAuthorizedCapabilities(t *testing.T) {
 
 	_, err = service.Settings(t.Context(), Actor{UserID: "admin-1", CredentialWorkspaceID: "other-workspace"}, "workspace-1")
 	require.ErrorIs(t, err, ErrInaccessible)
+	_, err = service.Settings(t.Context(), Actor{UserID: "member-1"}, "missing-workspace")
+	require.ErrorIs(t, err, ErrInaccessible, "denials must not reveal whether a Workspace exists")
+	_, err = service.Settings(t.Context(), Actor{UserID: "admin-1"}, "missing-workspace")
+	require.ErrorIs(t, err, ErrInaccessible, "management credentials must not enumerate Workspace IDs")
 }
 
 func TestWorkspaceAdministratorCanListOnlyPublishedAvailableThemes(t *testing.T) {

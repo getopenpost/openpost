@@ -121,6 +121,15 @@ func (s *Service) Settings(ctx context.Context, actor Actor, workspaceID string)
 	if err != nil {
 		return ThemeSettings{}, fmt.Errorf("%w: authorize Workspace management", ErrUnavailable)
 	}
+	canManageOrganization := false
+	if organizationErr := authorizeOrganization(ctx, s.db, actor, decision.OrganizationID); organizationErr == nil {
+		canManageOrganization = true
+	} else if !errors.Is(organizationErr, ErrInaccessible) {
+		return ThemeSettings{}, organizationErr
+	}
+	if !manageWorkspace.Allowed && !canManageOrganization {
+		return ThemeSettings{}, ErrInaccessible
+	}
 	selection, err := s.Selection(ctx, workspaceID)
 	if err != nil {
 		return ThemeSettings{}, err
@@ -137,12 +146,6 @@ func (s *Service) Settings(ctx context.Context, actor Actor, workspaceID string)
 		assigned = &ref
 	} else if !errors.Is(assignmentErr, sql.ErrNoRows) {
 		return ThemeSettings{}, fmt.Errorf("%w: load Workspace assignment", ErrUnavailable)
-	}
-	canManageOrganization := false
-	if organizationErr := authorizeOrganization(ctx, s.db, actor, selection.OrganizationID); organizationErr == nil {
-		canManageOrganization = true
-	} else if !errors.Is(organizationErr, ErrInaccessible) {
-		return ThemeSettings{}, organizationErr
 	}
 	return ThemeSettings{
 		OrganizationID: selection.OrganizationID, WorkspaceID: workspaceID,

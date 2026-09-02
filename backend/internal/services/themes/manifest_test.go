@@ -68,20 +68,38 @@ func TestBuiltInInteractiveStatesArePerceptuallyDistinct(t *testing.T) {
 	}
 }
 
-func TestDecodeManifestRejectsUnknownFieldsAndSchemaMigration(t *testing.T) {
+func TestDecodeManifestRejectsUnknownAndFutureSchemas(t *testing.T) {
 	raw, err := json.Marshal(BuiltIns()["workshop"])
 	require.NoError(t, err)
 	unknown := []byte(strings.Replace(string(raw), `"name":"Workshop"`, `"name":"Workshop","unexpected":true`, 1))
 	_, err = DecodeManifest(unknown)
 	require.ErrorIs(t, err, ErrInvalidManifest)
 
-	for _, schemaVersion := range []int{0, 2, 99} {
+	for _, schemaVersion := range []int{2, 99} {
 		manifest := BuiltIns()["workshop"]
 		manifest.SchemaVersion = schemaVersion
 		_, err = NormalizeManifest(manifest)
 		require.ErrorIs(t, err, ErrInvalidManifest)
 		require.ErrorContains(t, err, "schemaVersion")
 	}
+}
+
+func TestDecodeManifestMigratesPreviousSchemaBeforeValidation(t *testing.T) {
+	legacy := BuiltIns()["workshop"]
+	legacy.SchemaVersion = 0
+	legacy.SupportedSchemes = nil
+	raw, err := json.Marshal(legacy)
+	require.NoError(t, err)
+
+	normalized, err := DecodeManifest(raw)
+	require.NoError(t, err)
+	require.Equal(t, ManifestSchemaVersion, normalized.SchemaVersion)
+	require.Equal(t, []ColorScheme{SchemeLight, SchemeDark}, normalized.SupportedSchemes)
+
+	legacy.Schemes.Light.Colors.Ink = legacy.Schemes.Light.Colors.Canvas
+	_, err = NormalizeManifest(legacy)
+	require.ErrorIs(t, err, ErrInvalidManifest, "legacy input must still pass the complete current validator")
+	require.ErrorContains(t, err, "colors.canvasInk")
 }
 
 func TestDecodeStoredManifestRejectsClientSuppliedNativeDerivative(t *testing.T) {
@@ -118,6 +136,11 @@ func TestNormalizeSchemeManifestRejectsAdversarialTokens(t *testing.T) {
 		{"low link contrast", "colors.link", func(m *ThemeSchemeManifest) { m.Colors.Link = m.Colors.Canvas }},
 		{"low chrome contrast", "colors.chromeInk", func(m *ThemeSchemeManifest) { m.Colors.ChromeInk = m.Colors.Chrome }},
 		{"invisible focus", "colors.focus", func(m *ThemeSchemeManifest) { m.Colors.Focus = m.Colors.Canvas }},
+		{"focus hidden on focal action", "colors.focus", func(m *ThemeSchemeManifest) { m.Colors.Focus = m.Colors.ActionFocal }},
+		{"indistinguishable statuses", "colors.info", func(m *ThemeSchemeManifest) {
+			m.Colors.Info = m.Colors.Warning
+			m.Colors.InfoInk = m.Colors.WarningInk
+		}},
 		{"indistinct state", "colors.actionFocal", func(m *ThemeSchemeManifest) { m.Colors.ActionFocalActive = m.Colors.ActionFocalHover }},
 		{"perceptually indistinct state", "colors.actionFocal", func(m *ThemeSchemeManifest) { m.Colors.ActionFocalHover = "oklch(0.5501 0.155 45)" }},
 		{"destructive matches safe action", "colors.actionDestructive", func(m *ThemeSchemeManifest) {
@@ -128,12 +151,21 @@ func TestNormalizeSchemeManifestRejectsAdversarialTokens(t *testing.T) {
 		{"unsafe fallback", "typography.body.fallbacks", func(m *ThemeSchemeManifest) { m.Typography.Body.Fallbacks = []string{"remote-font"} }},
 		{"fractional weight", "typography.body.weight", func(m *ThemeSchemeManifest) { m.Typography.Body.Weight = 455 }},
 		{"negative type size", "typography.body.size", func(m *ThemeSchemeManifest) { m.Typography.Body.Size = "-1rem" }},
+		{"collapsed type size", "typography.body.size", func(m *ThemeSchemeManifest) { m.Typography.Body.Size = "0.001px" }},
 		{"unparsed clamp", "typography.display.size", func(m *ThemeSchemeManifest) { m.Typography.Display.Size = "clamp(foo)" }},
 		{"short touch target", "spacing.touchTarget", func(m *ThemeSchemeManifest) { m.Spacing.TouchTarget = "43px" }},
 		{"negative spacing", "spacing.base", func(m *ThemeSchemeManifest) { m.Spacing.Base = "-1px" }},
+		{"collapsed base spacing", "spacing.base", func(m *ThemeSchemeManifest) { m.Spacing.Base = "0" }},
+		{"collapsed page gutter", "spacing.pageGutter", func(m *ThemeSchemeManifest) { m.Spacing.PageGutter = "0" }},
+		{"collapsed section gap", "spacing.sectionGap", func(m *ThemeSchemeManifest) { m.Spacing.SectionGap = "0" }},
+		{"collapsed component gap", "spacing.componentGap", func(m *ThemeSchemeManifest) { m.Spacing.ComponentGap = "0" }},
 		{"missing border style", "shape.borderStyle", func(m *ThemeSchemeManifest) { m.Shape.BorderStyle = "" }},
 		{"negative radius", "shape.radius", func(m *ThemeSchemeManifest) { m.Shape.Radius = "-1px" }},
 		{"unbounded shell width", "shell.contentMaxWidth", func(m *ThemeSchemeManifest) { m.Shell.ContentMaxWidth = "5000px" }},
+		{"collapsed content width", "shell.contentMaxWidth", func(m *ThemeSchemeManifest) { m.Shell.ContentMaxWidth = "200px" }},
+		{"collapsed sidebar width", "shell.sidebarWidth", func(m *ThemeSchemeManifest) { m.Shell.SidebarWidth = "0.001px" }},
+		{"collapsed header height", "shell.headerHeight", func(m *ThemeSchemeManifest) { m.Shell.HeaderHeight = "1px" }},
+		{"collapsed mobile navigation", "shell.mobileNavigationHeight", func(m *ThemeSchemeManifest) { m.Shell.MobileNavigationHeight = "1px" }},
 		{"negative shell height", "shell.headerHeight", func(m *ThemeSchemeManifest) { m.Shell.HeaderHeight = "-1rem" }},
 		{"unsafe shadow grammar", "elevation.card", func(m *ThemeSchemeManifest) { m.Elevation.Card = "0 1px 2px 0 var(--evil)" }},
 		{"unsafe press opacity", "motion.press.opacity", func(m *ThemeSchemeManifest) { m.Motion.Press.Opacity = 0 }},

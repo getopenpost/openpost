@@ -76,6 +76,28 @@ func validateColorTokens(colors ThemeColorTokens) error {
 			return invalidManifest("colors.focus", fmt.Sprintf("must remain visible against %s at %.1f:1", surface.path, minimumFocusContrast))
 		}
 	}
+	for _, focalState := range []string{colors.ActionFocal, colors.ActionFocalHover, colors.ActionFocalActive} {
+		if !perceptiblyDistinct(colors.Focus, focalState, colors.Canvas) {
+			return invalidManifest("colors.focus", "must remain distinct from every focal action state")
+		}
+	}
+	statuses := []struct {
+		path                   string
+		background, foreground string
+	}{
+		{"danger", colors.Danger, colors.DangerInk},
+		{"success", colors.Success, colors.SuccessInk},
+		{"warning", colors.Warning, colors.WarningInk},
+		{"info", colors.Info, colors.InfoInk},
+	}
+	for first := range statuses {
+		for second := first + 1; second < len(statuses); second++ {
+			if !perceptiblyDistinct(statuses[first].background, statuses[second].background, colors.Canvas) &&
+				!perceptiblyDistinct(statuses[first].foreground, statuses[second].foreground, colors.Canvas) {
+				return invalidManifest("colors."+statuses[second].path, "must remain distinct from "+statuses[first].path)
+			}
+		}
+	}
 	states := []struct {
 		path                string
 		base, hover, active string

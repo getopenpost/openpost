@@ -109,11 +109,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, http.StatusForbidden, themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/themes?organization_id=org-1", nil).Code)
 	require.Equal(t, http.StatusForbidden, themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=unknown-org", nil).Code)
 	viewerSettingsResponse := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
-	require.Equal(t, http.StatusOK, viewerSettingsResponse.Code, viewerSettingsResponse.Body.String())
-	var viewerSettings themes.ThemeSettings
-	require.NoError(t, json.Unmarshal(viewerSettingsResponse.Body.Bytes(), &viewerSettings))
-	require.False(t, viewerSettings.CanManageWorkspace)
-	require.False(t, viewerSettings.CanManageOrganization)
+	require.Equal(t, http.StatusForbidden, viewerSettingsResponse.Code, viewerSettingsResponse.Body.String())
 
 	resolvedResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/resolved?workspace_id=workspace-1&scheme=light", nil)
 	require.Equal(t, http.StatusOK, resolvedResponse.Code, resolvedResponse.Body.String())
@@ -230,7 +226,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 		"organization_id": "org-1", "default_reference": map[string]any{"kind": "built_in", "id": "workshop", "version": 1}, "assignments_locked": true,
 	})
 	require.Equal(t, http.StatusOK, lockedResponse.Code, lockedResponse.Body.String())
-	lockedSettingsResponse := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
+	lockedSettingsResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
 	require.Equal(t, http.StatusOK, lockedSettingsResponse.Code, lockedSettingsResponse.Body.String())
 	var lockedSettings themes.ThemeSettings
 	require.NoError(t, json.Unmarshal(lockedSettingsResponse.Body.Bytes(), &lockedSettings))
@@ -278,6 +274,20 @@ func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
 	require.Equal(t, "Studio copy", created.Summary.Name)
 	require.Equal(t, themes.BuiltIns()["studio"].IconPack, created.Draft.Manifest.IconPack)
+}
+
+func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+	viewerKnown := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
+	viewerMissing := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=missing-workspace", nil)
+	require.Equal(t, http.StatusForbidden, viewerKnown.Code, viewerKnown.Body.String())
+	require.Equal(t, viewerKnown.Code, viewerMissing.Code)
+	require.JSONEq(t, viewerKnown.Body.String(), viewerMissing.Body.String())
+
+	workspaceAdmin := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
+	require.Equal(t, http.StatusOK, workspaceAdmin.Code, workspaceAdmin.Body.String())
+	resolved := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/themes/resolved?workspace_id=workspace-1&scheme=light", nil)
+	require.Equal(t, http.StatusOK, resolved.Code, resolved.Body.String(), "ordinary members still read the resolved theme")
 }
 
 func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {

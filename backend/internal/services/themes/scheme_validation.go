@@ -26,6 +26,16 @@ var safeFontFallbacks = map[string]struct{}{
 	"system-ui": {}, "ui-monospace": {}, "ui-serif": {},
 }
 
+const (
+	minimumTypographyPixels      = 11
+	minimumBaseSpacingPixels     = 2
+	minimumPageGutterPixels      = 8
+	minimumLayoutGapPixels       = 4
+	minimumContentMaxWidthPixels = 320
+	minimumSidebarWidthPixels    = 160
+	minimumShellBarHeightPixels  = 44
+)
+
 func NormalizeSchemeManifest(scheme ColorScheme, input ThemeSchemeManifest) (ThemeSchemeManifest, error) {
 	if !validScheme(scheme) {
 		return ThemeSchemeManifest{}, invalidManifest("scheme", "must be light or dark")
@@ -93,8 +103,8 @@ func normalizeTypography(input *ThemeTypographyTokens) error {
 		if role.Weight < 100 || role.Weight > 900 || role.Weight%100 != 0 {
 			return invalidManifest("typography."+item.path+".weight", "must be a 100-step integer weight")
 		}
-		if !boundedCSSLength(role.Size, math.SmallestNonzeroFloat64, 256) {
-			return invalidManifest("typography."+item.path+".size", "must be a positive CSS length no larger than 256px")
+		if !boundedCSSLength(role.Size, minimumTypographyPixels, 256) {
+			return invalidManifest("typography."+item.path+".size", fmt.Sprintf("must be between %dpx and 256px", minimumTypographyPixels))
 		}
 		if !lineHeightPattern.MatchString(role.LineHeight) {
 			return invalidManifest("typography."+item.path+".lineHeight", "must be a unitless line height")
@@ -118,30 +128,20 @@ func validateSpacing(input ThemeSpacingTokens) error {
 	checks := []struct {
 		path  string
 		value string
+		min   float64
 		max   float64
 	}{
-		{"base", input.Base, 64},
-		{"controlHeight", input.ControlHeight, 96},
-		{"compactControlHeight", input.CompactControlHeight, 96},
-		{"touchTarget", input.TouchTarget, 96},
-		{"pageGutter", input.PageGutter, 256},
-		{"sectionGap", input.SectionGap, 256},
-		{"componentGap", input.ComponentGap, 256},
+		{"base", input.Base, minimumBaseSpacingPixels, 64},
+		{"controlHeight", input.ControlHeight, 36, 96},
+		{"compactControlHeight", input.CompactControlHeight, 32, 96},
+		{"touchTarget", input.TouchTarget, 44, 96},
+		{"pageGutter", input.PageGutter, minimumPageGutterPixels, 256},
+		{"sectionGap", input.SectionGap, minimumLayoutGapPixels, 256},
+		{"componentGap", input.ComponentGap, minimumLayoutGapPixels, 256},
 	}
 	for _, check := range checks {
-		if !boundedCSSLength(check.value, 0, check.max) {
-			return invalidManifest("spacing."+check.path, fmt.Sprintf("must be a nonnegative CSS length no larger than %.0fpx", check.max))
-		}
-	}
-	minimums := []struct {
-		path  string
-		value string
-		px    float64
-	}{{"controlHeight", input.ControlHeight, 36}, {"compactControlHeight", input.CompactControlHeight, 32}, {"touchTarget", input.TouchTarget, 44}}
-	for _, minimum := range minimums {
-		pixels, ok := cssPixels(minimum.value)
-		if !ok || pixels < minimum.px {
-			return invalidManifest("spacing."+minimum.path, fmt.Sprintf("must be at least %.0fpx", minimum.px))
+		if !boundedCSSLength(check.value, check.min, check.max) {
+			return invalidManifest("spacing."+check.path, fmt.Sprintf("must be between %.0fpx and %.0fpx", check.min, check.max))
 		}
 	}
 	return nil
@@ -214,14 +214,17 @@ func validateShell(input ThemeShellTokens) error {
 	dimensions := []struct {
 		path  string
 		value string
+		min   float64
 		max   float64
 	}{
-		{"contentMaxWidth", input.ContentMaxWidth, 4096}, {"sidebarWidth", input.SidebarWidth, 1024},
-		{"headerHeight", input.HeaderHeight, 256}, {"mobileNavigationHeight", input.MobileNavigationHeight, 256},
+		{"contentMaxWidth", input.ContentMaxWidth, minimumContentMaxWidthPixels, 4096},
+		{"sidebarWidth", input.SidebarWidth, minimumSidebarWidthPixels, 1024},
+		{"headerHeight", input.HeaderHeight, minimumShellBarHeightPixels, 256},
+		{"mobileNavigationHeight", input.MobileNavigationHeight, minimumShellBarHeightPixels, 256},
 	}
 	for _, dimension := range dimensions {
-		if !boundedCSSLength(dimension.value, math.SmallestNonzeroFloat64, dimension.max) {
-			return invalidManifest("shell."+dimension.path, fmt.Sprintf("must be a positive CSS length no larger than %.0fpx", dimension.max))
+		if !boundedCSSLength(dimension.value, dimension.min, dimension.max) {
+			return invalidManifest("shell."+dimension.path, fmt.Sprintf("must be between %.0fpx and %.0fpx", dimension.min, dimension.max))
 		}
 	}
 	if !slices.Contains([]string{"plain", "paper", "playful", "garden", "study", "tactile", "precision"}, input.CanvasTreatment) {

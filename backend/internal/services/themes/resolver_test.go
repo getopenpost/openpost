@@ -89,6 +89,41 @@ func TestResolverDoesNotTurnOperationalFailuresIntoFallbacks(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnavailable)
 }
 
+func TestResolverReturnsOnlyFontsUsedByResolvedScheme(t *testing.T) {
+	family := BuiltIns()["workshop"]
+	family.ID = "custom-fonts"
+	family.Revision = "1"
+	family.Schemes.Light.Typography.Body.Family = "Custom Sans"
+	family.Schemes.Light.Typography.Body.Weight = 400
+	family.Schemes.Dark.Typography.Body.Family = "Custom Serif"
+	family.Schemes.Dark.Typography.Body.Weight = 600
+	family.Fonts = []ThemeFontFace{
+		{ID: "sans-400", Family: "Custom Sans", SourceURL: "asset:sans-400", Format: "woff2", Weight: 400, Style: "normal", Display: "swap"},
+		{ID: "sans-700-unused", Family: "Custom Sans", SourceURL: "asset:sans-700-unused", Format: "woff2", Weight: 700, Style: "normal", Display: "swap"},
+		{ID: "serif-600", Family: "Custom Serif", SourceURL: "asset:serif-600", Format: "woff2", Weight: 600, Style: "normal", Display: "swap"},
+	}
+	store := resolverStoreStub{
+		selection: Selection{Reference: ThemeReference{Kind: ReferenceCustom, ID: family.ID, Version: 1}},
+		revision:  &PublishedRevision{ThemeID: family.ID, Revision: 1, Manifest: family},
+	}
+
+	light, err := newResolver(store).Resolve(t.Context(), ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
+	require.NoError(t, err)
+	require.Equal(t, []string{"sans-400"}, runtimeFontIDs(light.Fonts))
+
+	dark, err := newResolver(store).Resolve(t.Context(), ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeDark})
+	require.NoError(t, err)
+	require.Equal(t, []string{"serif-600"}, runtimeFontIDs(dark.Fonts))
+}
+
+func runtimeFontIDs(fonts []ThemeRuntimeFontFace) []string {
+	result := make([]string, 0, len(fonts))
+	for _, font := range fonts {
+		result = append(result, font.ID)
+	}
+	return result
+}
+
 type resolverStoreStub struct {
 	selection   Selection
 	revision    *PublishedRevision

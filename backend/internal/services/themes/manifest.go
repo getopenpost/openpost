@@ -11,6 +11,8 @@ import (
 
 const maxManifestBytes = 256 * 1024
 
+const previousManifestSchemaVersion = 0
+
 var (
 	fontFamilyPattern = regexp.MustCompile(`^[a-zA-Z0-9 _.,:'-]+$`)
 	identifierPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$`)
@@ -43,13 +45,15 @@ func DecodeManifest(raw []byte) (ThemeManifest, error) {
 
 //nolint:gocyclo // The versioned manifest has independent required fields that remain explicit for schema review.
 func NormalizeManifest(input ThemeManifest) (ThemeManifest, error) {
+	var err error
+	input, err = migrateManifest(input)
+	if err != nil {
+		return ThemeManifest{}, err
+	}
 	input.ID = strings.TrimSpace(input.ID)
 	input.Revision = strings.TrimSpace(input.Revision)
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)
-	if input.SchemaVersion != ManifestSchemaVersion {
-		return ThemeManifest{}, invalidManifest("schemaVersion", "unsupported schema version")
-	}
 	if !identifierPattern.MatchString(input.ID) {
 		return ThemeManifest{}, invalidManifest("id", "must be a stable identifier")
 	}
@@ -94,6 +98,19 @@ func NormalizeManifest(input ThemeManifest) (ThemeManifest, error) {
 		return ThemeManifest{}, invalidManifest("manifest", "exceeds encoded size limit")
 	}
 	return input, nil
+}
+
+func migrateManifest(input ThemeManifest) (ThemeManifest, error) {
+	switch input.SchemaVersion {
+	case ManifestSchemaVersion:
+		return input, nil
+	case previousManifestSchemaVersion:
+		input.SchemaVersion = ManifestSchemaVersion
+		input.SupportedSchemes = supportedSchemes(input.Schemes)
+		return input, nil
+	default:
+		return ThemeManifest{}, invalidManifest("schemaVersion", "unsupported schema version")
+	}
 }
 
 //nolint:gocyclo // Resource normalization enforces finite font and single-slot asset contracts in one pass.

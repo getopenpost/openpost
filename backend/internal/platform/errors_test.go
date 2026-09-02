@@ -25,6 +25,33 @@ func TestNewHTTPErrorKeepsOnlySafeProviderMetadata(t *testing.T) {
 	require.NotContains(t, providerErr.Error(), "token")
 }
 
+func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
+	err := NewHTTPError(
+		http.StatusBadRequest,
+		nil,
+		[]byte(`{"error":{"code":1,"message":"An unknown error occurred.","fbtrace_id":"A1b2C3d4"}}`),
+	)
+	var providerErr *HTTPError
+	require.ErrorAs(t, err, &providerErr)
+	require.Equal(t, "An unknown error occurred.", providerErr.Message)
+	require.Equal(t, "A1b2C3d4", providerErr.TraceID)
+	require.Equal(t, `trace_id=A1b2C3d4 message="An unknown error occurred."`, ProviderErrorDiagnostic(err))
+	require.NotContains(t, providerErr.Error(), providerErr.Message)
+}
+
+func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
+	err := NewHTTPError(
+		http.StatusBadRequest,
+		nil,
+		[]byte(`{"error":{"code":1,"message":"access_token=private-token","fbtrace_id":"not a safe trace id"}}`),
+	)
+	var providerErr *HTTPError
+	require.ErrorAs(t, err, &providerErr)
+	require.Empty(t, providerErr.Message)
+	require.Empty(t, providerErr.TraceID)
+	require.Empty(t, ProviderErrorDiagnostic(err))
+}
+
 func TestNewHTTPErrorRejectsUnsafeCodes(t *testing.T) {
 	err := NewHTTPError(
 		http.StatusBadRequest,

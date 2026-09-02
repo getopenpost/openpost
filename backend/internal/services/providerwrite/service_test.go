@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -440,6 +441,7 @@ func TestDeliveryProjectionKeepsSafeFailureAndRecoveryEvidence(t *testing.T) {
 		return platform.PublishResult{RetrySafety: platform.PublishRetrySafe}, &platform.HTTPError{
 			StatusCode: 429,
 			Code:       "rate_limited",
+			Subcode:    "4279009",
 		}
 	}, nil)
 	require.Error(t, err)
@@ -448,8 +450,35 @@ func TestDeliveryProjectionKeepsSafeFailureAndRecoveryEvidence(t *testing.T) {
 	require.Equal(t, DeliveryRejected, delivery.State)
 	require.Equal(t, string(platform.PublishRetrySafe), delivery.RetrySafety)
 	require.Equal(t, "provider_rejected", delivery.SafeErrorClass)
-	require.Equal(t, "rate_limited", delivery.SafeErrorCode)
+	require.Equal(t, "rate_limited:subcode:4279009", delivery.SafeErrorCode)
 	require.Equal(t, 429, delivery.ErrorHTTPStatus)
+}
+
+func TestRejectedMetaWriteDoesNotRequireManualResolution(t *testing.T) {
+	db := newProviderDeliveryTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "meta-rejection")
+	input.PublicationID = "publication-1"
+	input.RenditionID = "rendition-1"
+
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(platform.PublishResult{RetrySafety: platform.PublishRetryNever}))
+		return platform.PublishResult{RetrySafety: platform.PublishRetryNever}, &platform.HTTPError{
+			StatusCode: http.StatusBadRequest,
+			Code:       "meta:rejected:1",
+		}
+	}, nil)
+	require.Error(t, err)
+	require.False(t, IsAmbiguous(err))
+
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusDefiniteFailure, attempt.Status)
+	delivery := loadProviderDelivery(t, db, input.RenditionID)
+	require.Equal(t, DeliveryRejected, delivery.State)
+	require.Equal(t, RecoveryRetry, DeliveryRecoveryAction(delivery))
+	require.Equal(t, "provider_rejected", delivery.SafeErrorClass)
+	require.Equal(t, "meta:rejected:1", delivery.SafeErrorCode)
+	require.Equal(t, http.StatusBadRequest, delivery.ErrorHTTPStatus)
 }
 
 func TestDeliveryProjectionUsesTheExactTargetOutcomeVocabulary(t *testing.T) {

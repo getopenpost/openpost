@@ -36,19 +36,21 @@ export async function loadToken(): Promise<string | null> {
 }
 
 export async function saveToken(value: string): Promise<void> {
+  await SecureStore.deleteItemAsync(WORKSPACE_KEY);
+  await SecureStore.setItemAsync(KEY, value);
   token = value;
   workspaceId = null;
-  await SecureStore.setItemAsync(KEY, value);
-  await SecureStore.deleteItemAsync(WORKSPACE_KEY);
   notifyToken();
   notifyWorkspaceId();
 }
 
 export async function clearToken(): Promise<void> {
+  await Promise.allSettled([
+    SecureStore.deleteItemAsync(KEY),
+    SecureStore.deleteItemAsync(WORKSPACE_KEY),
+  ]);
   token = null;
   workspaceId = null;
-  await SecureStore.deleteItemAsync(KEY);
-  await SecureStore.deleteItemAsync(WORKSPACE_KEY);
   notifyToken();
   notifyWorkspaceId();
 }
@@ -60,8 +62,8 @@ export async function loadWorkspaceId(): Promise<string | null> {
 }
 
 export async function saveWorkspaceId(value: string): Promise<void> {
-  workspaceId = value;
   await SecureStore.setItemAsync(WORKSPACE_KEY, value);
+  workspaceId = value;
   notifyWorkspaceId();
 }
 

@@ -1,28 +1,34 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   BodyText,
   Button,
   Card,
+  ContentTitle,
   PageTitle,
   Screen,
   SectionHeader,
-  useColors,
 } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { api, errorMessage } from "@/lib/api/client";
-import { getWorkspaceId, loadWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
+import { getWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
 import { getServer } from "@/lib/server";
-import { beginNativeThemeWorkspaceTransition, cancelNativeThemeWorkspaceTransition } from "@/theme";
+import { automaticWorkspaceId } from "@/lib/workspace-selection";
+import {
+  beginNativeThemeWorkspaceTransition,
+  cancelNativeThemeWorkspaceTransition,
+  useNativeTheme,
+} from "@/theme";
 
 export default function WorkspaceScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, typography } = theme.manifest;
   const { from, mode } = useLocalSearchParams<{
     from?: string;
     mode?: string;
@@ -30,6 +36,7 @@ export default function WorkspaceScreen() {
   const switching = mode === "switch";
   const [selected, setSelected] = useState<string | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const automaticSelectionAttempted = useRef(false);
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
@@ -42,10 +49,6 @@ export default function WorkspaceScreen() {
       return data.filter((w): w is NonNullable<typeof w> => Boolean(w));
     },
   });
-
-  useEffect(() => {
-    void loadWorkspaceId();
-  }, []);
 
   const list = useMemo(() => workspaces.data ?? [], [workspaces.data]);
 
@@ -64,12 +67,15 @@ export default function WorkspaceScreen() {
   }, []);
 
   useEffect(() => {
-    if (switching || selected || list.length === 0) return;
-    const stored = getWorkspaceId();
-    let automatic: string | null = null;
-    if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
-    else if (list.length === 1) automatic = list[0].id;
+    const automatic = automaticWorkspaceId({
+      automaticSelectionAttempted: automaticSelectionAttempted.current,
+      selectionPending: selected !== null,
+      storedWorkspaceId: getWorkspaceId(),
+      switching,
+      workspaces: list,
+    });
     if (automatic) {
+      automaticSelectionAttempted.current = true;
       const timer = setTimeout(() => void finish(automatic), 0);
       return () => clearTimeout(timer);
     }
@@ -103,22 +109,23 @@ export default function WorkspaceScreen() {
           </View>
         ) : null}
         {selectionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
-            {selectionError}
-          </BodyText>
+          <View style={styles.errorState}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
+              {selectionError}
+            </BodyText>
+            {list.length === 1 ? (
+              <Button
+                title="Try again"
+                intent="ordinary"
+                onPress={() => void finish(list[0]!.id)}
+              />
+            ) : null}
+          </View>
         ) : null}
 
         {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
           <Card style={styles.emptyState}>
-            <Text
-              style={{
-                color: colors.onSurface,
-                fontSize: 17,
-                fontWeight: "600",
-              }}
-            >
-              No workspaces found
-            </Text>
+            <ContentTitle>No workspaces found</ContentTitle>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
             {emptyState ? (
               <>
@@ -163,7 +170,10 @@ export default function WorkspaceScreen() {
                     pressed && { opacity: 0.5 },
                   ]}
                 >
-                  <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
+                  <Text
+                    style={[typography.bodyLarge, { color: colors.onSurface, flexShrink: 1 }]}
+                    numberOfLines={2}
+                  >
                     {workspace.name}
                   </Text>
                   {selected === workspace.id ? <ActivityIndicator color={colors.primary} /> : null}
@@ -212,11 +222,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 48,
     paddingHorizontal: 12,
-  },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    flexShrink: 1,
   },
   errorState: {
     gap: 12,

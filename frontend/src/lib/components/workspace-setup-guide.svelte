@@ -1,7 +1,14 @@
 <script lang="ts">
-	import { client } from '$lib/api/client';
+	import {
+		OpenPostQueryError,
+		workspaceSettingsQueryKeys,
+		workspaceSetupQueryOptions
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { workspaceSettingsQueryAPI } from '$lib/query/workspace-settings';
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { m } from '$lib/paraglide/messages';
 	import { ui } from '$lib/stores/ui.svelte';
@@ -17,22 +24,43 @@
 	let { workspaceID, context = 'home', wrapperClass }: Props = $props();
 	let setup = $state.raw<Setup | null>(null);
 	let loadedWorkspaceID = '';
-	let loadedRevision = -1;
+	let loadedRevision = ui.workspaceSetupRevision;
 	let requestSequence = 0;
+	let loadError = $state('');
 
-	async function loadSetup(force = false) {
-		if (!workspaceID || (!force && workspaceID === loadedWorkspaceID)) return;
-		if (workspaceID !== loadedWorkspaceID) setup = null;
+	async function loadSetup(options: { refresh?: boolean } = {}) {
+		if (!workspaceID) return;
+		const targetWorkspaceID = workspaceID;
+		const queryOptions = workspaceSetupQueryOptions(workspaceSettingsQueryAPI, targetWorkspaceID);
+		const cachedSetup = queryClient.getQueryData<Setup>(queryOptions.queryKey);
+		if (targetWorkspaceID !== loadedWorkspaceID) {
+			setup = cachedSetup ?? null;
+			loadedWorkspaceID = cachedSetup === undefined ? '' : targetWorkspaceID;
+		}
 		const sequence = ++requestSequence;
+		loadError = '';
 		try {
-			const { data } = await client.GET('/workspaces/{id}/setup', {
-				params: { path: { id: workspaceID } }
-			});
-			if (sequence !== requestSequence) return;
-			setup = data ?? null;
-			loadedWorkspaceID = workspaceID;
-		} catch {
-			// Setup guidance is optional and must never block the primary page.
+			if (options.refresh) {
+				await queryClient.invalidateQueries({
+					queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
+					exact: true
+				});
+			}
+			const data = await queryClient.fetchQuery(queryOptions);
+			if (sequence !== requestSequence || workspaceID !== targetWorkspaceID) return;
+			setup = data;
+			loadedWorkspaceID = targetWorkspaceID;
+		} catch (cause) {
+			if (sequence !== requestSequence || workspaceID !== targetWorkspaceID) return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: queryOptions.queryKey,
+					exact: true
+				});
+				setup = null;
+				loadedWorkspaceID = '';
+			}
+			loadError = cause instanceof Error ? cause.message : m.settings_action_failed();
 		}
 	}
 
@@ -40,7 +68,7 @@
 		const revision = ui.workspaceSetupRevision;
 		if (revision !== loadedRevision) {
 			loadedRevision = revision;
-			void loadSetup(true);
+			void loadSetup({ refresh: true });
 			return;
 		}
 		void loadSetup();
@@ -66,7 +94,17 @@
 	);
 </script>
 
-<svelte:window onfocus={() => void loadSetup(true)} />
+<svelte:window onfocus={() => void loadSetup()} />
+
+{#if loadError && (setup === null || setup.visible)}
+	<InlineNotice tone={setup === null ? 'error' : 'warning'} message={loadError} class="mb-3">
+		{#snippet actions()}
+			<Button variant="outline" size="sm" onclick={() => void loadSetup({ refresh: true })}>
+				{m.common_retry()}
+			</Button>
+		{/snippet}
+	</InlineNotice>
+{/if}
 
 {#if setup?.visible && setup.action_href}
 	<div class={wrapperClass}>

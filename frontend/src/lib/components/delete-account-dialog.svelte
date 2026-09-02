@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -8,6 +10,7 @@
 	import { client, type AccountDeletionImpact } from '$lib/api/client';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
 	import { m } from '$lib/paraglide/messages';
+	import { auth } from '$lib/stores/auth';
 
 	interface Props {
 		open?: boolean;
@@ -32,6 +35,8 @@
 	let currentPassword = $state('');
 	let error = $state('');
 	let pending = $state(false);
+	let requestSequence = 0;
+	let active = true;
 
 	const blockers = $derived(impact.blockers ?? []);
 	const ownershipTransfers = $derived(impact.ownership_transfers ?? []);
@@ -53,17 +58,24 @@
 
 	async function deleteAccount() {
 		if (!canDelete) return;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const sequence = ++requestSequence;
+		const isCurrentDialog = () => active && sequence === requestSequence && open;
+		const isCurrentRequest = () => isCurrentDialog() && get(auth).user?.id === actorID;
 		pending = true;
 		error = '';
 		const grant = hasPassword
 			? ''
 			: await acquireReauthGrant('account.delete', {
 					providerID: reauthProviderID,
-					hasPasskey
+					hasPasskey,
+					isCurrent: isCurrentRequest
 				}).catch((cause: Error) => {
-					error = cause.message;
+					if (isCurrentRequest()) error = cause.message;
 					return undefined;
 				});
+		if (!isCurrentRequest()) return;
 		if (grant === null || grant === undefined) {
 			pending = false;
 			return;
@@ -76,12 +88,29 @@
 			}
 		});
 		if (responseError || !data?.deleted) {
-			error = responseError?.detail ?? m.auth_login_failed();
-			pending = false;
+			if (isCurrentRequest()) {
+				error = responseError?.detail ?? m.auth_login_failed();
+				pending = false;
+			}
 			return;
 		}
+		if (get(auth).user?.id !== actorID) return;
+		auth.clearLocal();
+		localStorage.removeItem('oauth_workspace_id');
+		localStorage.removeItem('oauth_mastodon_server');
+		localStorage.removeItem('oauth_mastodon_instance_url');
+		if (!isCurrentDialog()) return;
 		await onDeleted();
 	}
+
+	$effect(() => {
+		if (!open) requestSequence += 1;
+	});
+
+	onDestroy(() => {
+		active = false;
+		requestSequence += 1;
+	});
 </script>
 
 <Dialog.Root bind:open>

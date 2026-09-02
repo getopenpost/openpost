@@ -1,11 +1,37 @@
+import {
+	notificationQueryKeys,
+	openPostQueryDefaults,
+	type NotificationQueryAPI
+} from '@openpost/query-catalog';
+import { focusManager, QueryClient } from '@tanstack/svelte-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client } from '$lib/api/client';
 import type { Notification } from './notifications.svelte';
 import { NotificationInboxStore } from './notifications.svelte';
 
-const mocks = { get: vi.fn(), post: vi.fn() };
-vi.spyOn(client, 'GET').mockImplementation(mocks.get);
+const mocks = { list: vi.fn(), post: vi.fn() };
 vi.spyOn(client, 'POST').mockImplementation(mocks.post);
+
+const queryAPI: NotificationQueryAPI = {
+	async listNotifications(workspaceID, limit, cursor, signal) {
+		const result = await mocks.list('/notifications', {
+			params: { query: { workspace_id: workspaceID, limit, cursor: cursor || undefined } },
+			signal
+		});
+		if (result.error || !result.data) throw new Error(result.error?.detail ?? 'load failed');
+		return result.data;
+	},
+	async getNotificationPreferences() {
+		throw new Error('not used by notification inbox tests');
+	}
+};
+
+function createStore() {
+	return new NotificationInboxStore(
+		new QueryClient({ defaultOptions: openPostQueryDefaults }),
+		queryAPI
+	);
+}
 
 function notification(index: number, workspaceID = 'workspace-a'): Notification {
 	return {
@@ -32,12 +58,12 @@ function deferred<T>() {
 
 describe('notification inbox store', () => {
 	beforeEach(() => {
-		mocks.get.mockReset();
+		mocks.list.mockReset();
 		mocks.post.mockReset();
 	});
 
 	it('keeps one reactive cache per workspace for the bell and feed to share', async () => {
-		mocks.get.mockImplementation(async (_path, request) => {
+		mocks.list.mockImplementation(async (_path, request) => {
 			const workspaceID = request.params.query.workspace_id;
 			return {
 				data: {
@@ -48,12 +74,13 @@ describe('notification inbox store', () => {
 				error: null
 			};
 		});
-		const store = new NotificationInboxStore();
+		const store = createStore();
 
 		await Promise.all([store.ensureLoaded('workspace-a'), store.ensureLoaded('workspace-a')]);
 		await store.ensureLoaded('workspace-b');
+		await store.ensureLoaded('workspace-a');
 
-		expect(mocks.get).toHaveBeenCalledTimes(2);
+		expect(mocks.list).toHaveBeenCalledTimes(2);
 		expect(store.snapshot('workspace-a').unreadCount).toBe(1);
 		expect(store.snapshot('workspace-a').items[0]?.workspace_id).toBe('workspace-a');
 		expect(store.snapshot('workspace-b').unreadCount).toBe(7);
@@ -61,7 +88,7 @@ describe('notification inbox store', () => {
 	});
 
 	it('keeps unread truth on a failed open and decrements only once after retry', async () => {
-		mocks.get.mockResolvedValue({
+		mocks.list.mockResolvedValue({
 			data: { items: [notification(1)], unread_count: 1, next_cursor: '' },
 			error: null
 		});
@@ -69,7 +96,7 @@ describe('notification inbox store', () => {
 			.mockResolvedValueOnce({ error: { detail: 'Forced failure' } })
 			.mockResolvedValueOnce({ error: null })
 			.mockResolvedValueOnce({ error: null });
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
 		const failed = await store.markRead('workspace-a', { ids: ['notification-001'] });
@@ -89,7 +116,7 @@ describe('notification inbox store', () => {
 
 	it('invalidates sibling workspace caches after an account-wide bulk mutation', async () => {
 		let accountWidePresent = true;
-		mocks.get.mockImplementation(async (_path, request) => {
+		mocks.list.mockImplementation(async (_path, request) => {
 			const workspaceID = request.params.query.workspace_id;
 			const items = [notification(workspaceID === 'workspace-a' ? 1 : 2, workspaceID)];
 			if (accountWidePresent) items.push(notification(3, ''));
@@ -102,7 +129,7 @@ describe('notification inbox store', () => {
 			accountWidePresent = false;
 			return { error: null };
 		});
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 		await store.ensureLoaded('workspace-b');
 
@@ -115,13 +142,13 @@ describe('notification inbox store', () => {
 		expect(store.snapshot('workspace-b').items.map((item) => item.workspace_id)).toEqual([
 			'workspace-b'
 		]);
-		expect(mocks.get).toHaveBeenCalledTimes(3);
+		expect(mocks.list).toHaveBeenCalledTimes(3);
 	});
 
 	it('retries the same failed cursor and reaches more than one hundred items without duplicates', async () => {
 		const items = Array.from({ length: 125 }, (_, index) => notification(index));
 		let cursorFailure = true;
-		mocks.get.mockImplementation(async (_path, request) => {
+		mocks.list.mockImplementation(async (_path, request) => {
 			const cursor = request.params.query.cursor ?? '0';
 			if (cursor === '30' && cursorFailure) {
 				cursorFailure = false;
@@ -139,7 +166,7 @@ describe('notification inbox store', () => {
 				error: null
 			};
 		});
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
 		const failed = await store.loadMore('workspace-a');
@@ -154,14 +181,46 @@ describe('notification inbox store', () => {
 		expect(loaded).toHaveLength(125);
 		expect(new Set(loaded.map((item) => item.id)).size).toBe(125);
 		expect(
-			mocks.get.mock.calls.filter(([, request]) => request.params.query.cursor === '30')
+			mocks.list.mock.calls.filter(([, request]) => request.params.query.cursor === '30')
 		).toHaveLength(2);
+	});
+
+	it('counts an unread notification once when it overlaps adjacent cursor pages', async () => {
+		const overlapping = notification(1);
+		const second = notification(2);
+		mocks.list.mockImplementation(async (_path, request) =>
+			request.params.query.cursor
+				? {
+						data: {
+							items: [overlapping, second],
+							unread_count: 2,
+							next_cursor: ''
+						},
+						error: null
+					}
+				: {
+						data: { items: [overlapping], unread_count: 2, next_cursor: 'next' },
+						error: null
+					}
+		);
+		mocks.post.mockResolvedValue({ error: null });
+		const store = createStore();
+		await store.ensureLoaded('workspace-a');
+		await store.loadMore('workspace-a');
+
+		expect(store.snapshot('workspace-a').items).toHaveLength(2);
+		await store.markRead('workspace-a', { ids: [overlapping.id] });
+
+		expect(store.snapshot('workspace-a').unreadCount).toBe(1);
+		expect(
+			store.snapshot('workspace-a').items.find((item) => item.id === overlapping.id)?.read_at
+		).not.toBe('');
 	});
 
 	it('merges server arrivals into the shared cache during a background refresh', async () => {
 		const first = notification(1);
 		const arrival = notification(0);
-		mocks.get
+		mocks.list
 			.mockResolvedValueOnce({
 				data: { items: [first], unread_count: 1, next_cursor: '' },
 				error: null
@@ -170,7 +229,7 @@ describe('notification inbox store', () => {
 				data: { items: [arrival, first], unread_count: 2, next_cursor: '' },
 				error: null
 			});
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 		await store.refresh('workspace-a', { background: true });
 
@@ -181,20 +240,106 @@ describe('notification inbox store', () => {
 		expect(store.snapshot('workspace-a').unreadCount).toBe(2);
 	});
 
+	it('performs one refresh when a mounted query client regains focus', async () => {
+		mocks.list.mockResolvedValue({
+			data: { items: [notification(1)], unread_count: 1, next_cursor: '' },
+			error: null
+		});
+		const cache = new QueryClient({ defaultOptions: openPostQueryDefaults });
+		const store = new NotificationInboxStore(cache, queryAPI);
+		cache.mount();
+		const stopPolling = store.startAutoRefresh('workspace-a', 60_000);
+
+		try {
+			await store.ensureLoaded('workspace-a');
+			await cache.invalidateQueries({
+				queryKey: notificationQueryKeys.inbox('workspace-a', 30),
+				exact: true,
+				refetchType: 'none'
+			});
+
+			focusManager.setFocused(false);
+			focusManager.setFocused(true);
+			await vi.waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+			window.dispatchEvent(new Event('focus'));
+			await Promise.resolve();
+
+			expect(mocks.list).toHaveBeenCalledTimes(2);
+		} finally {
+			stopPolling();
+			store.clear();
+			cache.unmount();
+			focusManager.setFocused(undefined);
+		}
+	});
+
+	it('keeps cached notifications visible through a background error and clears it on success', async () => {
+		const item = notification(1);
+		mocks.list
+			.mockResolvedValueOnce({
+				data: { items: [item], unread_count: 1, next_cursor: '' },
+				error: null
+			})
+			.mockResolvedValueOnce({ error: { detail: 'Background refresh failed' } })
+			.mockResolvedValueOnce({
+				data: { items: [item], unread_count: 1, next_cursor: '' },
+				error: null
+			});
+		const store = createStore();
+		await store.ensureLoaded('workspace-a');
+
+		expect(await store.refresh('workspace-a', { background: true })).toEqual({
+			ok: false,
+			detail: 'Background refresh failed'
+		});
+		expect(store.snapshot('workspace-a')).toMatchObject({
+			items: [item],
+			initialized: true,
+			error: 'Background refresh failed'
+		});
+
+		expect(await store.refresh('workspace-a', { background: true })).toEqual({ ok: true });
+		expect(store.snapshot('workspace-a')).toMatchObject({ items: [item], error: '' });
+	});
+
+	it('keeps a terminal first-load error until an explicit refresh', async () => {
+		mocks.list
+			.mockResolvedValueOnce({ error: { detail: 'Initial load failed' } })
+			.mockResolvedValueOnce({
+				data: { items: [], unread_count: 0, next_cursor: '' },
+				error: null
+			});
+		const store = createStore();
+
+		expect(await store.ensureLoaded('workspace-a')).toEqual({
+			ok: false,
+			detail: 'Initial load failed'
+		});
+		expect(await store.ensureLoaded('workspace-a')).toEqual({
+			ok: false,
+			detail: 'Initial load failed'
+		});
+		expect(mocks.list).toHaveBeenCalledTimes(1);
+
+		expect(await store.refresh('workspace-a')).toEqual({ ok: true });
+		expect(mocks.list).toHaveBeenCalledTimes(2);
+		expect(store.snapshot('workspace-a')).toMatchObject({ initialized: true, error: '' });
+	});
+
 	it('settles a refresh discarded after a concurrent mutation without restoring stale unread state', async () => {
 		const item = notification(1);
 		const staleRefresh = deferred<{
 			data: { items: Notification[]; unread_count: number; next_cursor: string };
 			error: null;
 		}>();
-		mocks.get
+		mocks.list
 			.mockResolvedValueOnce({
 				data: { items: [item], unread_count: 1, next_cursor: '' },
 				error: null
 			})
 			.mockReturnValueOnce(staleRefresh.promise);
 		mocks.post.mockResolvedValue({ error: null });
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
 		const refreshing = store.refresh('workspace-a');
@@ -217,14 +362,14 @@ describe('notification inbox store', () => {
 			data: { items: Notification[]; unread_count: number; next_cursor: string };
 			error: null;
 		}>();
-		mocks.get
+		mocks.list
 			.mockResolvedValueOnce({
 				data: { items: [first], unread_count: 1, next_cursor: 'next' },
 				error: null
 			})
 			.mockReturnValueOnce(staleNextPage.promise);
 		mocks.post.mockResolvedValue({ error: null });
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
 		const loadingMore = store.loadMore('workspace-a');
@@ -252,13 +397,13 @@ describe('notification inbox store', () => {
 			data: { items: Notification[]; unread_count: number; next_cursor: string };
 			error: null;
 		}>();
-		mocks.get.mockReturnValueOnce(oldAccount.promise).mockReturnValueOnce(newAccount.promise);
-		const store = new NotificationInboxStore();
+		mocks.list.mockReturnValueOnce(oldAccount.promise).mockReturnValueOnce(newAccount.promise);
+		const store = createStore();
 
 		const oldLoad = store.ensureLoaded('workspace-a');
 		store.clear();
 		const newLoad = store.ensureLoaded('workspace-a');
-		expect(mocks.get).toHaveBeenCalledTimes(2);
+		expect(mocks.list).toHaveBeenCalledTimes(2);
 
 		newAccount.resolve({
 			data: { items: [notification(2)], unread_count: 1, next_cursor: '' },
@@ -278,13 +423,13 @@ describe('notification inbox store', () => {
 	});
 
 	it('ignores a mutation response that completes after the account cache is cleared', async () => {
-		mocks.get.mockResolvedValue({
+		mocks.list.mockResolvedValue({
 			data: { items: [notification(1)], unread_count: 1, next_cursor: '' },
 			error: null
 		});
 		const mutation = deferred<{ error: null }>();
 		mocks.post.mockReturnValueOnce(mutation.promise);
-		const store = new NotificationInboxStore();
+		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
 		const markingRead = store.markRead('workspace-a', { ids: [notification(1).id] });

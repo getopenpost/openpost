@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -6,23 +7,35 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { client } from '$lib/api/client';
+	import {
+		oidcIdentitiesQueryOptions,
+		OpenPostQueryError,
+		securityStatusQueryOptions
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
 	import { m } from '$lib/paraglide/messages';
 	import type { components } from '$lib/api/types';
 
 	type DeletionPreview = components['schemas']['WorkspaceDeletionPreview'];
 	type DeletionBlocker = components['schemas']['WorkspaceDeletionBlocker'];
+	type Security = components['schemas']['SecurityStatusOutputBody'];
+	type Identity = components['schemas']['OIDCIdentitySummary'];
 
 	interface Props {
 		open?: boolean;
 		workspaceID: string;
 		workspaceName: string;
 		hasPassword: boolean;
-		onConfirm: (confirmation: {
-			confirmName: string;
-			currentPassword: string;
-			reauthGrant?: string;
-		}) => void | Promise<void>;
+		onConfirm: (
+			workspaceID: string,
+			confirmation: {
+				confirmName: string;
+				currentPassword: string;
+				reauthGrant?: string;
+			}
+		) => void | boolean | Promise<void | boolean>;
 	}
 
 	let {
@@ -36,17 +49,20 @@
 	let confirmName = $state('');
 	let currentPassword = $state('');
 	let error = $state('');
+	let capabilityError = $state('');
 	let pending = $state(false);
 	let loading = $state(false);
 	let loadedWorkspaceID = '';
 	let hasPasskey = $state(false);
 	let reauthProviderID = $state('');
+	let previewRequestSequence = 0;
 
 	const blockers = $derived(preview?.blockers ?? []);
 	const canDelete = $derived(
 		!loading &&
 			!pending &&
 			preview !== null &&
+			loadedWorkspaceID === workspaceID &&
 			blockers.length === 0 &&
 			confirmName === preview.workspace_name &&
 			(hasPassword ? currentPassword.length > 0 : Boolean(hasPasskey || reauthProviderID))
@@ -82,63 +98,150 @@
 		}
 	}
 
-	async function loadPreview() {
-		if (!workspaceID) return;
+	function clearPreviewState() {
+		preview = null;
+		confirmName = '';
+		currentPassword = '';
+		error = '';
+		capabilityError = '';
+		hasPasskey = false;
+		reauthProviderID = '';
+	}
+
+	async function loadPreview(targetWorkspaceID: string) {
+		if (!targetWorkspaceID) return;
+		const requestSequence = ++previewRequestSequence;
 		loading = true;
 		error = '';
-		const [previewResult, securityResult, identitiesResult] = await Promise.all([
-			client.GET('/workspaces/{id}/deletion-preview', {
-				params: { path: { id: workspaceID } }
-			}),
-			client.GET('/auth/security'),
-			client.GET('/auth/oidc/identities')
-		]);
-		if (previewResult.error || !previewResult.data) {
-			error = previewResult.error?.detail ?? m.workspace_delete_preview_failed();
-			preview = null;
-		} else {
+		const capabilityPromise = hasPassword
+			? Promise.resolve()
+			: loadReauthCapabilities(targetWorkspaceID, requestSequence);
+		try {
+			const previewResult = await client.GET('/workspaces/{id}/deletion-preview', {
+				params: { path: { id: targetWorkspaceID } }
+			});
+			await capabilityPromise;
+			if (requestSequence !== previewRequestSequence || !open || workspaceID !== targetWorkspaceID)
+				return;
+			if (previewResult.error || !previewResult.data) {
+				throw new Error(previewResult.error?.detail ?? m.workspace_delete_preview_failed());
+			}
 			preview = previewResult.data;
+		} catch (cause) {
+			if (requestSequence === previewRequestSequence && open && workspaceID === targetWorkspaceID) {
+				error = cause instanceof Error ? cause.message : m.workspace_delete_preview_failed();
+				preview = null;
+			}
+		} finally {
+			if (requestSequence === previewRequestSequence && open && workspaceID === targetWorkspaceID)
+				loading = false;
 		}
-		hasPasskey = (securityResult.data?.passkeys?.length ?? 0) > 0;
-		reauthProviderID =
-			identitiesResult.data?.find((identity) => identity.active)?.provider_id ?? '';
-		loading = false;
+	}
+
+	async function loadReauthCapabilities(targetWorkspaceID: string, requestSequence: number) {
+		const securityOptions = securityStatusQueryOptions(authQueryAPI);
+		const identityOptions = oidcIdentitiesQueryOptions(authQueryAPI);
+		const cachedSecurity = queryClient.getQueryData<Security>(securityOptions.queryKey);
+		const cachedIdentities = queryClient.getQueryData<Identity[]>(identityOptions.queryKey);
+		if (cachedSecurity !== undefined) hasPasskey = (cachedSecurity.passkeys?.length ?? 0) > 0;
+		if (cachedIdentities !== undefined) {
+			reauthProviderID = cachedIdentities.find((identity) => identity.active)?.provider_id ?? '';
+		}
+		const [securityResult, identityResult] = await Promise.allSettled([
+			queryClient.fetchQuery(securityOptions),
+			queryClient.fetchQuery(identityOptions)
+		]);
+		if (requestSequence !== previewRequestSequence || !open || workspaceID !== targetWorkspaceID)
+			return;
+		if (securityResult.status === 'fulfilled') {
+			hasPasskey = (securityResult.value.passkeys?.length ?? 0) > 0;
+		} else {
+			handleCapabilityFailure(securityResult.reason, securityOptions.queryKey, () => {
+				hasPasskey = false;
+			});
+		}
+		if (identityResult.status === 'fulfilled') {
+			reauthProviderID =
+				identityResult.value.find((identity) => identity.active)?.provider_id ?? '';
+		} else {
+			handleCapabilityFailure(identityResult.reason, identityOptions.queryKey, () => {
+				reauthProviderID = '';
+			});
+		}
+	}
+
+	function handleCapabilityFailure(
+		cause: unknown,
+		queryKey: readonly unknown[],
+		clear: () => void
+	) {
+		if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+			queryClient.removeQueries({ queryKey, exact: true });
+			clear();
+		}
+		capabilityError = cause instanceof Error ? cause.message : m.settings_action_failed();
+	}
+
+	function retryCapabilities() {
+		capabilityError = '';
+		void loadReauthCapabilities(workspaceID, previewRequestSequence);
 	}
 
 	function close() {
 		if (pending) return;
+		previewRequestSequence += 1;
 		open = false;
-		error = '';
-		confirmName = '';
-		currentPassword = '';
+		loading = false;
+		clearPreviewState();
 	}
 
 	async function deleteWorkspace() {
 		if (!canDelete) return;
+		const targetWorkspaceID = loadedWorkspaceID;
+		const requestSequence = previewRequestSequence;
+		const confirmation = {
+			confirmName,
+			currentPassword
+		};
+		const targetHasPassword = hasPassword;
+		const targetHasPasskey = hasPasskey;
+		const targetProviderID = reauthProviderID;
+		const isCurrentRequest = () =>
+			requestSequence === previewRequestSequence &&
+			open &&
+			workspaceID === targetWorkspaceID &&
+			loadedWorkspaceID === targetWorkspaceID;
 		pending = true;
 		error = '';
-		const grant = hasPassword
+		const grant = targetHasPassword
 			? ''
 			: await acquireReauthGrant('workspace.delete', {
-					providerID: reauthProviderID,
-					hasPasskey
+					providerID: targetProviderID,
+					hasPasskey: targetHasPasskey,
+					isCurrent: isCurrentRequest
 				}).catch((cause: Error) => {
-					error = cause.message;
+					if (isCurrentRequest()) error = cause.message;
 					return undefined;
 				});
 		if (grant === null || grant === undefined) {
 			pending = false;
 			return;
 		}
+		if (!isCurrentRequest()) {
+			pending = false;
+			return;
+		}
 		try {
-			await onConfirm({
-				confirmName,
-				currentPassword,
+			const confirmed = await onConfirm(targetWorkspaceID, {
+				...confirmation,
 				reauthGrant: grant || undefined
 			});
-			open = false;
+			if (confirmed === false) return;
+			if (workspaceID === targetWorkspaceID) open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.workspace_delete_failed();
+			if (workspaceID === targetWorkspaceID) {
+				error = cause instanceof Error ? cause.message : m.workspace_delete_failed();
+			}
 		} finally {
 			pending = false;
 		}
@@ -146,12 +249,22 @@
 
 	$effect(() => {
 		if (!open) {
+			previewRequestSequence += 1;
 			loadedWorkspaceID = '';
+			loading = false;
+			clearPreviewState();
 			return;
 		}
 		if (!workspaceID || loadedWorkspaceID === workspaceID) return;
+		previewRequestSequence += 1;
 		loadedWorkspaceID = workspaceID;
-		void loadPreview();
+		loading = false;
+		clearPreviewState();
+		void loadPreview(workspaceID);
+	});
+
+	onDestroy(() => {
+		previewRequestSequence += 1;
 	});
 </script>
 
@@ -171,15 +284,23 @@
 				{#if preview}
 					<div class="grid gap-3 sm:grid-cols-2">
 						<section class="rounded-md border p-3">
-							<p class="text-sm font-medium">{m.workspace_delete_removed_title()}</p>
+							<p class="text-sm font-medium">
+								{m.workspace_delete_removed_title()}
+							</p>
 							<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-								{#each preview.removed ?? [] as item (item)}<li>{impactMessage(item)}</li>{/each}
+								{#each preview.removed ?? [] as item (item)}<li>
+										{impactMessage(item)}
+									</li>{/each}
 							</ul>
 						</section>
 						<section class="rounded-md border p-3">
-							<p class="text-sm font-medium">{m.workspace_delete_retained_title()}</p>
+							<p class="text-sm font-medium">
+								{m.workspace_delete_retained_title()}
+							</p>
 							<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-								{#each preview.retained ?? [] as item (item)}<li>{impactMessage(item)}</li>{/each}
+								{#each preview.retained ?? [] as item (item)}<li>
+										{impactMessage(item)}
+									</li>{/each}
 							</ul>
 						</section>
 					</div>
@@ -195,12 +316,33 @@
 					<InlineNotice tone="warning">
 						<p class="font-medium">{m.workspace_delete_blockers_title()}</p>
 						<ul class="mt-1 list-disc space-y-1 pl-5">
-							{#each blockers as blocker (blocker.code)}<li>{blockerMessage(blocker)}</li>{/each}
+							{#each blockers as blocker (blocker.code)}<li>
+									{blockerMessage(blocker)}
+								</li>{/each}
 						</ul>
 					</InlineNotice>
 				{/if}
 
-				{#if error}<InlineNotice tone="error" message={error} />{/if}
+				{#if error}
+					<InlineNotice tone="error" message={error}>
+						{#if !preview}
+							{#snippet actions()}
+								<Button variant="outline" size="sm" onclick={() => void loadPreview(workspaceID)}
+									>{m.common_retry()}</Button
+								>
+							{/snippet}
+						{/if}
+					</InlineNotice>
+				{/if}
+				{#if capabilityError && !hasPassword}
+					<InlineNotice tone="warning" message={capabilityError}>
+						{#snippet actions()}
+							<Button variant="outline" size="sm" onclick={retryCapabilities}>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 
 				<div class="space-y-2">
 					<Label for="workspace-delete-name"

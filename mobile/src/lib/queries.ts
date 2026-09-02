@@ -1,24 +1,182 @@
-import { useQuery } from "@tanstack/react-query";
+import {
+  activityPublicationsQueryOptions,
+  calendarPublicationsQueryOptions,
+  publicationDetailQueryOptions,
+  workspaceAccountsQueryOptions,
+  workspaceListQueryOptions,
+  workspaceSocialSetsQueryOptions,
+} from "@openpost/query-catalog";
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
-import { api, errorMessage } from "./api/client";
 import { getWorkspaceId, subscribeWorkspaceId } from "./api/token-store";
+import { findCachedPublication, type Publication } from "./query-cache";
+import { mobileQueryAPI } from "./query-api";
+import {
+  mobileQueryDimensions,
+  type PublicationActivity,
+  type PublicationFreshness,
+} from "./query-policy";
 
 export type WorkspaceSummary = {
   id: string;
   name?: string | null;
 };
 
-export function useWorkspaces() {
-  return useQuery({
-    queryKey: ["workspaces"],
-    queryFn: async () => {
-      const { data, error, response } = await api().GET("/workspaces");
-      if (error || !data)
-        throw new Error(await errorMessage(response, "Could not load workspaces"));
-      return (data ?? []).filter((w) => Boolean(w)).map((w) => ({ id: w.id, name: w.name }));
-    },
+export type PublicationListItem = Publication;
+
+export type AccountSummary = {
+  id: string;
+  platform: string;
+  slug?: string | null;
+  account_username?: string | null;
+  is_active: boolean;
+};
+
+export type SocialSetSummary = {
+  id: string;
+  name?: string | null;
+  is_default?: boolean | null;
+  accounts?: { social_account_id: string }[] | null;
+};
+
+export function workspacesOptions() {
+  return queryOptions({
+    ...workspaceListQueryOptions(mobileQueryAPI),
+    select: (data) =>
+      data
+        .filter((workspace): workspace is NonNullable<typeof workspace> => Boolean(workspace))
+        .map((workspace) => ({ id: workspace.id, name: workspace.name })),
   });
+}
+
+export function publicationActivityOptions(workspaceId: string, activity: PublicationActivity) {
+  return queryOptions({
+    ...activityPublicationsQueryOptions(
+      mobileQueryAPI,
+      workspaceId,
+      activity,
+      mobileQueryDimensions.publicationPage,
+    ),
+    select: (page) => page.items,
+  });
+}
+
+export function calendarOptions(workspaceId: string, from: string, before: string) {
+  return queryOptions({
+    ...calendarPublicationsQueryOptions(mobileQueryAPI, workspaceId, {
+      from,
+      before,
+      limit: mobileQueryDimensions.calendarLimit,
+    }),
+  });
+}
+
+export function publicationOptions(
+  queryClient: QueryClient,
+  workspaceId: string,
+  publicationId: string,
+  freshness: PublicationFreshness = "standard",
+) {
+  const cached = () => findCachedPublication(queryClient, workspaceId, publicationId);
+  return queryOptions({
+    ...publicationDetailQueryOptions(mobileQueryAPI, workspaceId, publicationId, freshness),
+    initialData: () => cached()?.data,
+    initialDataUpdatedAt: () => cached()?.updatedAt,
+  });
+}
+
+export function accountsOptions(workspaceId: string) {
+  return queryOptions({
+    ...workspaceAccountsQueryOptions(mobileQueryAPI, workspaceId),
+    select: (data) =>
+      data
+        .filter((account) => Boolean(account && account.is_active))
+        .map((account) => ({
+          id: account.id,
+          platform: account.platform,
+          slug: account.slug,
+          account_username: account.account_username,
+          is_active: true,
+        })),
+  });
+}
+
+export function socialSetsOptions(workspaceId: string) {
+  return queryOptions({
+    ...workspaceSocialSetsQueryOptions(mobileQueryAPI, workspaceId),
+    select: (data) =>
+      data
+        .filter((socialSet): socialSet is NonNullable<typeof socialSet> => Boolean(socialSet))
+        .map((socialSet) => ({
+          id: socialSet.id,
+          name: socialSet.name,
+          is_default: socialSet.is_default,
+          accounts: socialSet.accounts,
+        })),
+  });
+}
+
+export function useWorkspaces() {
+  return useQuery(workspacesOptions());
+}
+
+export function usePublications(activity: PublicationActivity) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    ...publicationActivityOptions(workspaceId ?? "", activity),
+    enabled: Boolean(workspaceId),
+  });
+}
+
+export function useCalendarPublications(from: string, before: string) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    ...calendarOptions(workspaceId ?? "", from, before),
+    enabled: Boolean(workspaceId),
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[3] === workspaceId ? previousData : undefined,
+  });
+}
+
+export function usePublication(
+  publicationId: string,
+  freshness: PublicationFreshness = "standard",
+) {
+  const queryClient = useQueryClient();
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    ...publicationOptions(queryClient, workspaceId ?? "", publicationId, freshness),
+    enabled: Boolean(workspaceId && publicationId),
+  });
+}
+
+export function useAccounts(enabled = true) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    ...accountsOptions(workspaceId ?? ""),
+    enabled: enabled && Boolean(workspaceId),
+  });
+}
+
+export function useSocialSets(enabled = true) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    ...socialSetsOptions(workspaceId ?? ""),
+    enabled: enabled && Boolean(workspaceId),
+  });
+}
+
+export async function prefetchPublicationEditor(
+  queryClient: QueryClient,
+  workspaceId: string,
+  publicationId: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.prefetchQuery(publicationOptions(queryClient, workspaceId, publicationId)),
+    queryClient.prefetchQuery(accountsOptions(workspaceId)),
+    queryClient.prefetchQuery(socialSetsOptions(workspaceId)),
+  ]);
 }
 
 export function currentWorkspaceId(): string {
@@ -29,108 +187,4 @@ export function currentWorkspaceId(): string {
 
 export function useWorkspaceId(): string | null {
   return useSyncExternalStore(subscribeWorkspaceId, getWorkspaceId);
-}
-
-export type PublicationListItem = {
-  id: string;
-  title?: string | null;
-  status: string;
-  scheduled_at?: string | null;
-  actual_run_at?: string | null;
-  updated_at?: string | null;
-  renditions?:
-    | {
-        id?: string;
-        social_account_id?: string;
-        platform?: string;
-        status?: string;
-        body?: string;
-        error_message?: string | null;
-        external_url?: string | null;
-      }[]
-    | null;
-};
-
-export function usePublications(
-  bucket: "draft" | "scheduled" | "published" | "failed",
-  extra?: { calendar_from?: string; calendar_before?: string },
-) {
-  const workspaceId = useWorkspaceId();
-  return useQuery({
-    queryKey: ["publications", workspaceId, bucket, extra ?? {}],
-    enabled: Boolean(workspaceId),
-    queryFn: async () => {
-      if (!workspaceId) throw new Error("Choose a workspace to load posts");
-      const { data, error, response } = await api().GET("/publications", {
-        params: {
-          query: {
-            workspace_id: workspaceId,
-            activity_bucket: bucket,
-            limit: 100,
-            ...extra,
-          },
-        },
-      });
-      if (error || !data) throw new Error(await errorMessage(response, "Could not load posts"));
-      return (data ?? []) as PublicationListItem[];
-    },
-  });
-}
-
-export type AccountSummary = {
-  id: string;
-  platform: string;
-  slug?: string | null;
-  account_username?: string | null;
-  is_active: boolean;
-};
-
-export function useAccounts(enabled = true) {
-  const workspaceId = useWorkspaceId();
-  return useQuery({
-    queryKey: ["accounts", workspaceId],
-    enabled: enabled && Boolean(workspaceId),
-    queryFn: async () => {
-      if (!workspaceId) throw new Error("Choose a workspace to load accounts");
-      const { data, error, response } = await api().GET("/accounts", {
-        params: { query: { workspace_id: workspaceId } },
-      });
-      if (error || !data) throw new Error(await errorMessage(response, "Could not load accounts"));
-      return (data ?? [])
-        .filter((a) => Boolean(a && a.is_active))
-        .map((a) => ({
-          id: a.id,
-          platform: a.platform,
-          slug: a.slug,
-          account_username: a.account_username,
-          is_active: true,
-        }));
-    },
-  });
-}
-
-export type SocialSetSummary = {
-  id: string;
-  name?: string | null;
-  is_default?: boolean | null;
-  accounts?: { social_account_id: string }[] | null;
-};
-
-export function useSocialSets(enabled = true) {
-  const workspaceId = useWorkspaceId();
-  return useQuery({
-    queryKey: ["social-sets", workspaceId],
-    enabled: enabled && Boolean(workspaceId),
-    queryFn: async () => {
-      if (!workspaceId) throw new Error("Choose a workspace to load social sets");
-      const { data, error, response } = await api().GET("/social-sets", {
-        params: { query: { workspace_id: workspaceId } },
-      });
-      if (error || !data)
-        throw new Error(await errorMessage(response, "Could not load social sets"));
-      return (data ?? [])
-        .filter((s) => Boolean(s))
-        .map((s) => ({ id: s.id, name: s.name, is_default: s.is_default, accounts: s.accounts }));
-    },
-  });
 }

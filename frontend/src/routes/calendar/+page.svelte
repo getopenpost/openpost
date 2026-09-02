@@ -5,6 +5,20 @@
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { client, type SocialAccount } from '$lib/api/client';
+	import {
+		openPostQueryKeys,
+		schedulingPublicationsQueryOptions,
+		seedPublicationDetail
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
@@ -115,6 +129,7 @@
 	let draggingKey = $state('');
 	let dropTargetKey = $state('');
 	let reschedulingKey = $state('');
+	let rescheduleSequence = 0;
 	let weekDragView = $state<WeekDragView | null>(null);
 	let weekDragOverlayElement: HTMLDivElement | undefined = $state();
 	let weekScrollElement: HTMLElement | undefined = $state();
@@ -296,13 +311,13 @@
 					)
 				);
 			});
-			if (shouldRefresh) void loadCalendarData(loadKey);
+			if (shouldRefresh) void loadCalendarData(loadKey, true);
 		});
 	});
 
 	onDestroy(() => weekDragController.destroy());
 
-	async function loadCalendarData(_key: string) {
+	async function loadCalendarData(_key: string, force = false) {
 		const request = ++activeRequest;
 		loading = true;
 		loadError = '';
@@ -325,11 +340,34 @@
 			}
 
 			const requestRange = visibleRange;
+			const cachedPublicationGroups = workspaceIds.map((workspaceId) =>
+				queryClient.getQueryData<Publication[]>(
+					publicationQueryOptions(workspaceId, requestRange).queryKey
+				)
+			);
+			const cachedAccountEntries = workspaceIds.map(
+				(workspaceId) =>
+					[
+						workspaceId,
+						queryClient.getQueryData<SocialAccount[]>(openPostQueryKeys.accounts(workspaceId))
+					] as const
+			);
+			if (
+				cachedPublicationGroups.every((group): group is Publication[] => group !== undefined) &&
+				cachedAccountEntries.every(
+					(entry): entry is readonly [string, SocialAccount[]] => entry[1] !== undefined
+				)
+			) {
+				publications = cachedPublicationGroups.flat();
+				accountsByWorkspace = Object.fromEntries(cachedAccountEntries);
+				dataRevision += 1;
+				completedLoadKey = _key;
+			}
 			const [publicationGroups, accountEntries] = await Promise.all([
 				Promise.all(
-					workspaceIds.map((workspaceId) => fetchPublications(workspaceId, requestRange))
+					workspaceIds.map((workspaceId) => fetchPublications(workspaceId, requestRange, force))
 				),
-				Promise.all(workspaceIds.map(fetchAccounts))
+				Promise.all(workspaceIds.map((workspaceId) => fetchAccounts(workspaceId, force)))
 			]);
 
 			if (request !== activeRequest) return;
@@ -352,33 +390,36 @@
 		}
 	}
 
-	async function fetchPublications(workspaceId: string, range: { from: string; before: string }) {
-		const out: Publication[] = [];
-		let offset = 0;
-		while (true) {
-			const query = {
-				workspace_id: workspaceId,
-				calendar_from: range.from,
-				calendar_before: range.before,
-				limit: 200,
-				offset
-			};
-			const { data, error, response } = await client.GET('/publications', {
-				params: { query }
+	async function fetchPublications(
+		workspaceId: string,
+		range: { from: string; before: string },
+		force = false
+	) {
+		const options = publicationQueryOptions(workspaceId, range);
+		if (force) {
+			await queryClient.invalidateQueries({
+				queryKey: options.queryKey,
+				exact: true,
+				refetchType: 'none'
 			});
-			if (error) throw new Error(error.detail || m.calendar_failed_load());
-			out.push(...(data ?? []));
-			const hasMore = response.headers.get('X-Has-More') === 'true';
-			if (!hasMore) break;
-			const nextOffset = Number(response.headers.get('X-Next-Offset') ?? offset + 200);
-			if (!Number.isFinite(nextOffset) || nextOffset <= offset) break;
-			offset = nextOffset;
 		}
-		return out;
+		return queryClient.query(options);
 	}
 
-	async function fetchAccounts(workspaceId: string): Promise<[string, SocialAccount[]]> {
-		return [workspaceId, await loadWorkspaceAccounts(workspaceId)];
+	function publicationQueryOptions(workspaceId: string, range: { from: string; before: string }) {
+		return schedulingPublicationsQueryOptions(schedulingQueryAPI, workspaceId, {
+			calendarFrom: range.from,
+			calendarBefore: range.before,
+			limit: 200,
+			allPages: true
+		});
+	}
+
+	async function fetchAccounts(
+		workspaceId: string,
+		force = false
+	): Promise<[string, SocialAccount[]]> {
+		return [workspaceId, await loadWorkspaceAccounts(workspaceId, force)];
 	}
 
 	function publicationToCalendarItem(publication: Publication): CalendarItem | null {
@@ -712,8 +753,14 @@
 			return;
 		}
 		const previousPublications = publications;
-		const mutationLoadKey = loadKey;
-		const mutationDataRevision = dataRevision;
+		const view = {
+			session: captureQueryMutationSession(),
+			sequence: ++rescheduleSequence,
+			loadKey,
+			dataRevision,
+			itemKey: item.key,
+			workspaceID: item.workspaceId
+		} satisfies CalendarMutationView;
 		reschedulingKey = item.key;
 		errorMessage = '';
 		successMessage = '';
@@ -725,7 +772,7 @@
 		try {
 			if (item.publication) {
 				const publication = item.publication;
-				const { data, error } = await client.PUT('/publications/{id}', {
+				const { data, error, response } = await client.PUT('/publications/{id}', {
 					params: { path: { id: item.id } },
 					body: {
 						expected_revision: publication.revision,
@@ -739,23 +786,33 @@
 						scheduled_at: nextScheduledAt
 					}
 				});
+				if (!settleQueryMutationSession(view.session, response)) return;
 				if (error) throw new Error(error.detail || m.calendar_reschedule_failed());
+				const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+					reconcile: () => {
+						if (data) seedPublicationDetail(queryClient, data, view.workspaceID);
+					},
+					invalidate: [
+						{
+							queryKey: openPostQueryKeys.publications.list(view.workspaceID),
+							refetchType: 'none'
+						}
+					]
+				});
+				if (!reconciled || !calendarMutationViewIsCurrent(view)) return;
 				if (data) {
 					publications = publications.map((current) => (current.id === data.id ? data : current));
 				}
 			}
-			if (loadKey === mutationLoadKey) {
-				publications = publications.map((publication) =>
-					publication.id === item.id
-						? { ...publication, scheduled_at: nextScheduledAt }
-						: publication
-				);
-				dataRevision += 1;
-				successMessage = m.calendar_rescheduled({
-					title: item.title,
-					date: formatLongDateTime(nextScheduledAt)
-				});
-			}
+			if (!calendarMutationViewIsCurrent(view)) return;
+			publications = publications.map((publication) =>
+				publication.id === item.id ? { ...publication, scheduled_at: nextScheduledAt } : publication
+			);
+			dataRevision += 1;
+			successMessage = m.calendar_rescheduled({
+				title: item.title,
+				date: formatLongDateTime(nextScheduledAt)
+			});
 			const previousDateKey = workspaceDateKeyFromISO(item.occursAt, viewerTimeZone);
 			const nextDateKey = workspaceDateKeyFromISO(nextScheduledAt, viewerTimeZone);
 			ui.triggerRefresh({
@@ -764,13 +821,32 @@
 				dateKeys: [previousDateKey, nextDateKey].filter((value): value is string => Boolean(value))
 			});
 		} catch (error) {
-			if (loadKey === mutationLoadKey && dataRevision === mutationDataRevision) {
+			if (calendarMutationViewIsCurrent(view)) {
 				publications = previousPublications;
 				errorMessage = error instanceof Error ? error.message : m.calendar_reschedule_failed();
 			}
 		} finally {
-			reschedulingKey = '';
+			if (view.sequence === rescheduleSequence) reschedulingKey = '';
 		}
+	}
+
+	interface CalendarMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly loadKey: string;
+		readonly dataRevision: number;
+		readonly itemKey: string;
+		readonly workspaceID: string;
+	}
+
+	function calendarMutationViewIsCurrent(view: CalendarMutationView) {
+		return (
+			view.sequence === rescheduleSequence &&
+			view.loadKey === loadKey &&
+			view.dataRevision === dataRevision &&
+			view.itemKey === reschedulingKey &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function startOfMonth(date: Date) {
@@ -1194,7 +1270,7 @@
 										size="icon"
 										aria-label={m.calendar_refresh()}
 										disabled={loading || Boolean(reschedulingKey)}
-										onclick={() => loadCalendarData(loadKey)}
+										onclick={() => loadCalendarData(loadKey, true)}
 									>
 										<RefreshCwIcon class={cn('size-4', loading && 'animate-spin')} />
 									</Button>
@@ -1216,7 +1292,7 @@
 						variant="outline"
 						size="sm"
 						disabled={loading}
-						onclick={() => void loadCalendarData(loadKey)}
+						onclick={() => void loadCalendarData(loadKey, true)}
 					>
 						{m.common_retry()}
 					</Button>
@@ -1252,7 +1328,7 @@
 				title={m.calendar_failed_load()}
 				description={loadError}
 				actionLabel={m.common_retry()}
-				onAction={() => void loadCalendarData(loadKey)}
+				onAction={() => void loadCalendarData(loadKey, true)}
 				variant="muted"
 			/>
 		{:else}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -8,9 +10,31 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { client } from '$lib/api/client';
+	import {
+		adminQueryKeys,
+		developerQueryKeys,
+		openPostWorkspaceKey,
+		OpenPostQueryError,
+		publicProfileQueryKeys,
+		workspaceAccessAuditQueryOptions,
+		organizationQueryKeys,
+		workspaceSettingsQueryKeys,
+		workspaceTeamQueryOptions
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		removeWorkspaceQueriesAfterAccessLoss,
+		workspaceSettingsQueryAPI
+	} from '$lib/query/workspace-settings';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
+	import { auth } from '$lib/stores/auth';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import type {
 		TeamMember,
 		WorkspaceAccessAuditEvent,
@@ -27,13 +51,15 @@
 	type WorkspaceRole = 'admin' | 'editor' | 'viewer';
 	type InvitationStatus = WorkspaceInvitation['status'];
 	type TeamStatus = 'all' | 'active' | 'inactive' | 'pending' | InvitationStatus;
-	type DestructiveAction =
+	type DestructiveActionTarget =
 		| { kind: 'revoke'; invitation: WorkspaceInvitation }
 		| { kind: 'deactivate'; member: TeamMember }
 		| { kind: 'remove'; member: TeamMember };
+	type DestructiveAction = DestructiveActionTarget & { workspaceID: string };
 
 	interface Props {
 		workspaceID: string;
+		organizationID: string;
 		currentUserID: string;
 		active?: boolean;
 		onMembershipChanged?: () => void | Promise<void>;
@@ -41,6 +67,7 @@
 
 	let {
 		workspaceID,
+		organizationID,
 		currentUserID,
 		active = false,
 		onMembershipChanged = () => undefined
@@ -52,7 +79,9 @@
 	let actionError = $state('');
 	let team = $state.raw<WorkspaceTeam | null>(null);
 	let auditEvents = $state.raw<WorkspaceAccessAuditEvent[]>([]);
+	let auditReady = $state(false);
 	let auditLoading = $state(false);
+	let auditError = $state('');
 	let inviteEmail = $state('');
 	let inviteRole = $state<WorkspaceRole>('editor');
 	let search = $state('');
@@ -65,8 +94,22 @@
 	let destructiveAction = $state.raw<DestructiveAction | null>(null);
 	let requestSequence = 0;
 	let loadedWorkspaceID = '';
+	let mutationSequence = 0;
+	let mutationScope = '';
 
 	const canManage = $derived(team?.can_manage ?? false);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.members);
+	$effect(() =>
+		reportInitialLoad(
+			Boolean(
+				active &&
+				workspaceID &&
+				((loadedWorkspaceID !== workspaceID && !loadError) ||
+					(loading && !team) ||
+					(team?.can_manage && !auditReady && !auditError))
+			)
+		)
+	);
 	const draftDirty = $derived(Boolean(inviteEmail.trim()) || inviteRole !== 'editor');
 	const normalizedSearch = $derived(search.trim().toLocaleLowerCase());
 	const filteredMembers = $derived.by(() => {
@@ -112,7 +155,10 @@
 		{ value: 'queued', label: m.settings_invitation_status_queued() },
 		{ value: 'sent', label: m.settings_invitation_status_sent() },
 		{ value: 'delivered', label: m.settings_invitation_status_delivered() },
-		{ value: 'delivery_failed', label: m.settings_invitation_status_delivery_failed() },
+		{
+			value: 'delivery_failed',
+			label: m.settings_invitation_status_delivery_failed()
+		},
 		{
 			value: 'delivery_unavailable',
 			label: m.settings_invitation_status_delivery_unavailable()
@@ -136,40 +182,115 @@
 
 	$effect(() => {
 		const nextWorkspaceID = workspaceID;
+		const nextMutationScope = `${nextWorkspaceID}:${currentUserID}`;
+		if (nextMutationScope !== mutationScope) {
+			mutationScope = nextMutationScope;
+			mutationSequence += 1;
+			busyKey = '';
+		}
 		if (!active || !nextWorkspaceID || loadedWorkspaceID === nextWorkspaceID) return;
-		void loadTeam(nextWorkspaceID);
+		destructiveOpen = false;
+		destructiveAction = null;
+		void loadTeam({ targetWorkspaceID: nextWorkspaceID });
 	});
 
-	async function loadTeam(targetWorkspaceID = workspaceID, preserveCurrent = false) {
+	function presentTeam(data: {
+		members?: TeamMember[] | null;
+		invitations?: WorkspaceInvitation[] | null;
+		current_seats: number;
+		can_manage: boolean;
+	}): WorkspaceTeam {
+		return {
+			members: data.members ?? [],
+			invitations: data.invitations ?? [],
+			current_seats: data.current_seats,
+			can_manage: data.can_manage
+		};
+	}
+
+	function clearTeamAfterAuthorizationLoss(targetWorkspaceID: string) {
+		queryClient.removeQueries({
+			predicate: (query) =>
+				query.queryKey[0] === 'openpost' &&
+				query.queryKey[1] === 'v1' &&
+				query.queryKey[2] === 'workspace' &&
+				query.queryKey[3] === targetWorkspaceID &&
+				(query.queryKey[4] === 'team' || query.queryKey[4] === 'access-audit')
+		});
+		team = null;
+		auditEvents = [];
+		auditReady = false;
+		auditError = '';
+		createdInviteURL = '';
+		createdInviteDeliveryStatus = '';
+	}
+
+	function clearWorkspaceAfterMembershipLoss(targetWorkspaceID: string) {
+		removeWorkspaceQueriesAfterAccessLoss(queryClient, targetWorkspaceID);
+		clearTeamAfterAuthorizationLoss(targetWorkspaceID);
+	}
+
+	async function reconcileSelfMembershipChange(
+		targetWorkspaceID: string,
+		actorID: string,
+		accessLost: boolean
+	) {
+		if (!actorID || get(auth).user?.id !== actorID) return;
+		if (accessLost) clearWorkspaceAfterMembershipLoss(targetWorkspaceID);
+		const projection = auth.captureUserProjection(actorID);
+		if (!projection) return;
+		try {
+			const bootstrap = await workspaceCtx.loadWorkspaces();
+			if (get(auth).user?.id === actorID) auth.projectBootstrap(bootstrap, projection);
+		} catch {
+			// Mutation invalidations remain stale and retry when the next owner mounts.
+		}
+	}
+
+	async function loadTeam(
+		loadOptions: { targetWorkspaceID?: string; preserveCurrent?: boolean } = {}
+	) {
+		const targetWorkspaceID = loadOptions.targetWorkspaceID ?? workspaceID;
 		if (!targetWorkspaceID) return;
 		const sequence = ++requestSequence;
+		const workspaceChanged = loadedWorkspaceID !== targetWorkspaceID;
 		loadedWorkspaceID = targetWorkspaceID;
-		loading = true;
 		loadError = '';
 		actionError = '';
-		if (!preserveCurrent) {
+		if (workspaceChanged) {
 			team = null;
 			auditEvents = [];
+			auditReady = false;
+			auditError = '';
 			createdInviteURL = '';
 			createdInviteDeliveryStatus = '';
 		}
+		const options = workspaceTeamQueryOptions(workspaceSettingsQueryAPI, targetWorkspaceID);
+		const cachedTeam = queryClient.getQueryData<Parameters<typeof presentTeam>[0]>(
+			options.queryKey
+		);
+		if (cachedTeam !== undefined) team = presentTeam(cachedTeam);
+		else if (!loadOptions.preserveCurrent) {
+			team = null;
+		}
+		loading = !team;
+		if (team?.can_manage) void loadAudit(targetWorkspaceID, sequence);
 		try {
-			const { data, error } = await client.GET('/workspaces/{id}/team', {
-				params: { path: { id: targetWorkspaceID } }
-			});
-			if (error || !data) throw new Error(error?.detail || m.settings_team_load_failed());
+			const data = await queryClient.fetchQuery(options);
 			if (sequence !== requestSequence || workspaceID !== targetWorkspaceID) return;
-			const nextTeam: WorkspaceTeam = {
-				members: data.members ?? [],
-				invitations: data.invitations ?? [],
-				current_seats: data.current_seats,
-				can_manage: data.can_manage
-			};
+			const nextTeam = presentTeam(data);
 			team = nextTeam;
 			if (nextTeam.can_manage) void loadAudit(targetWorkspaceID, sequence);
+			else {
+				auditEvents = [];
+				auditReady = false;
+				auditError = '';
+			}
 		} catch (error) {
 			if (sequence !== requestSequence || workspaceID !== targetWorkspaceID) return;
-			loadedWorkspaceID = '';
+			if (error instanceof OpenPostQueryError && (error.status === 401 || error.status === 403)) {
+				clearTeamAfterAuthorizationLoss(targetWorkspaceID);
+			}
 			loadError = error instanceof Error ? error.message : m.settings_team_load_failed();
 		} finally {
 			if (sequence === requestSequence) loading = false;
@@ -177,18 +298,33 @@
 	}
 
 	async function loadAudit(targetWorkspaceID: string, sequence = requestSequence) {
-		auditLoading = true;
+		const options = workspaceAccessAuditQueryOptions(
+			workspaceSettingsQueryAPI,
+			targetWorkspaceID,
+			20
+		);
+		const cachedAudit = queryClient.getQueryData<WorkspaceAccessAuditEvent[]>(options.queryKey);
+		if (cachedAudit !== undefined) {
+			auditEvents = cachedAudit;
+			auditReady = true;
+		} else {
+			auditEvents = [];
+			auditReady = false;
+		}
+		auditLoading = cachedAudit === undefined;
+		auditError = '';
 		try {
-			const { data, error } = await client.GET('/workspaces/{id}/access-audit', {
-				params: { path: { id: targetWorkspaceID }, query: { limit: 20 } }
-			});
-			if (error) throw new Error(error.detail || m.settings_action_failed());
+			const data = await queryClient.fetchQuery(options);
 			if (sequence === requestSequence && workspaceID === targetWorkspaceID) {
 				auditEvents = data ?? [];
+				auditReady = true;
 			}
 		} catch (error) {
 			if (sequence === requestSequence && workspaceID === targetWorkspaceID) {
-				actionError = error instanceof Error ? error.message : m.settings_action_failed();
+				if (error instanceof OpenPostQueryError && (error.status === 401 || error.status === 403)) {
+					clearTeamAfterAuthorizationLoss(targetWorkspaceID);
+				}
+				auditError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 		} finally {
 			if (sequence === requestSequence) auditLoading = false;
@@ -199,6 +335,13 @@
 		event.preventDefault();
 		if (!canManage || !inviteEmail.trim()) return;
 		const targetWorkspaceID = workspaceID;
+		const targetOrganizationID = organizationID;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrent = () =>
+			isSameActor() && sequence === mutationSequence && workspaceID === targetWorkspaceID;
 		busyKey = 'invite';
 		actionError = '';
 		createdInviteURL = '';
@@ -209,29 +352,39 @@
 				body: { email: inviteEmail.trim(), role: inviteRole }
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return;
+			if (!isSameActor()) return;
+			await reloadAfterMutation(targetWorkspaceID, targetOrganizationID, actorID, sequence);
+			if (!isCurrent()) return;
 			const invitation = data;
 			const nextInviteURL = invitation.accept_url || '';
 			inviteEmail = '';
 			inviteRole = 'editor';
 			createdInviteURL = nextInviteURL;
 			createdInviteDeliveryStatus = invitation.email_delivery_status;
-			await reloadAfterMutation(targetWorkspaceID);
 			showToast(m.settings_invite_created());
 		} catch (error) {
-			if (workspaceID === targetWorkspaceID) {
+			if (isCurrent()) {
 				actionError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 		} finally {
-			busyKey = '';
+			if (isCurrent()) busyKey = '';
 		}
 	}
 
 	async function updateMember(
 		member: TeamMember,
-		update: { role?: WorkspaceRole; status?: 'active' | 'inactive' }
+		update: { role?: WorkspaceRole; status?: 'active' | 'inactive' },
+		targetWorkspaceID = workspaceID,
+		targetOrganizationID = organizationID
 	) {
-		const targetWorkspaceID = workspaceID;
+		if (!targetWorkspaceID || targetWorkspaceID !== workspaceID) return false;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return false;
+		const selfMutation = member.user_id === actorID;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrent = () =>
+			isSameActor() && sequence === mutationSequence && workspaceID === targetWorkspaceID;
 		busyKey = `member:${member.user_id}`;
 		actionError = '';
 		try {
@@ -240,25 +393,51 @@
 				body: update
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return false;
-			await reloadAfterMutation(targetWorkspaceID);
+			if (!isSameActor()) return false;
+			if (selfMutation && update.status === 'inactive') {
+				await invalidateMutationQueries(targetWorkspaceID, targetOrganizationID, actorID);
+				await reconcileSelfMembershipChange(targetWorkspaceID, actorID, true);
+				if (!isCurrent()) return false;
+				showToast(m.settings_member_deactivated());
+				await onMembershipChanged();
+				return isCurrent();
+			}
+			await reloadAfterMutation(targetWorkspaceID, targetOrganizationID, actorID, sequence);
+			if (selfMutation) {
+				await reconcileSelfMembershipChange(targetWorkspaceID, actorID, false);
+			}
+			if (!isCurrent()) return false;
 			if (update.role) showToast(m.settings_member_role_updated());
 			if (update.status === 'inactive') showToast(m.settings_member_deactivated());
 			if (update.status === 'active') showToast(m.settings_member_reactivated());
-			if (member.user_id === currentUserID) await onMembershipChanged();
+			if (selfMutation) {
+				await onMembershipChanged();
+				return isCurrent();
+			}
 			return true;
 		} catch (error) {
-			if (workspaceID === targetWorkspaceID) {
+			if (isCurrent()) {
 				actionError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 			return false;
 		} finally {
-			busyKey = '';
+			if (isCurrent()) busyKey = '';
 		}
 	}
 
-	async function removeMember(member: TeamMember) {
-		const targetWorkspaceID = workspaceID;
+	async function removeMember(
+		member: TeamMember,
+		targetWorkspaceID = workspaceID,
+		targetOrganizationID = organizationID
+	) {
+		if (!targetWorkspaceID || targetWorkspaceID !== workspaceID) return false;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return false;
+		const selfMutation = member.user_id === actorID;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrent = () =>
+			isSameActor() && sequence === mutationSequence && workspaceID === targetWorkspaceID;
 		busyKey = `member:${member.user_id}`;
 		actionError = '';
 		try {
@@ -266,26 +445,38 @@
 				params: { path: { id: targetWorkspaceID, user_id: member.user_id } }
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return false;
-			showToast(m.settings_member_removed());
-			if (member.user_id === currentUserID) {
+			if (!isSameActor()) return false;
+			if (selfMutation) {
+				await invalidateMutationQueries(targetWorkspaceID, targetOrganizationID, actorID);
+				await reconcileSelfMembershipChange(targetWorkspaceID, actorID, true);
+				if (!isCurrent()) return false;
+				showToast(m.settings_member_removed());
 				await onMembershipChanged();
-				return true;
+				return isCurrent();
 			}
-			await reloadAfterMutation(targetWorkspaceID);
+			await reloadAfterMutation(targetWorkspaceID, targetOrganizationID, actorID, sequence);
+			if (!isCurrent()) return false;
+			showToast(m.settings_member_removed());
 			return true;
 		} catch (error) {
-			if (workspaceID === targetWorkspaceID) {
+			if (isCurrent()) {
 				actionError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 			return false;
 		} finally {
-			busyKey = '';
+			if (isCurrent()) busyKey = '';
 		}
 	}
 
 	async function resendInvitation(invitation: WorkspaceInvitation) {
 		const targetWorkspaceID = workspaceID;
+		const targetOrganizationID = organizationID;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrent = () =>
+			isSameActor() && sequence === mutationSequence && workspaceID === targetWorkspaceID;
 		busyKey = `invitation:${invitation.id}`;
 		actionError = '';
 		createdInviteURL = '';
@@ -293,60 +484,145 @@
 		try {
 			const { data, error } = await client.POST(
 				'/workspaces/{id}/invitations/{invitation_id}/resend',
-				{ params: { path: { id: targetWorkspaceID, invitation_id: invitation.id } } }
+				{
+					params: {
+						path: { id: targetWorkspaceID, invitation_id: invitation.id }
+					}
+				}
 			);
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return;
+			if (!isSameActor()) return;
+			await reloadAfterMutation(targetWorkspaceID, targetOrganizationID, actorID, sequence);
+			if (!isCurrent()) return;
 			const nextInviteURL = data.accept_url || '';
 			createdInviteURL = nextInviteURL;
 			createdInviteDeliveryStatus = data.email_delivery_status;
-			await reloadAfterMutation(targetWorkspaceID);
 			showToast(m.settings_invitation_resent());
 		} catch (error) {
-			if (workspaceID === targetWorkspaceID) {
+			if (isCurrent()) {
 				actionError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 		} finally {
-			busyKey = '';
+			if (isCurrent()) busyKey = '';
 		}
 	}
 
-	async function revokeInvitation(invitation: WorkspaceInvitation) {
-		const targetWorkspaceID = workspaceID;
+	async function revokeInvitation(
+		invitation: WorkspaceInvitation,
+		targetWorkspaceID = workspaceID,
+		targetOrganizationID = organizationID
+	) {
+		if (!targetWorkspaceID || targetWorkspaceID !== workspaceID) return false;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return false;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrent = () =>
+			isSameActor() && sequence === mutationSequence && workspaceID === targetWorkspaceID;
 		busyKey = `invitation:${invitation.id}`;
 		actionError = '';
 		try {
 			const { error } = await client.DELETE('/workspaces/{id}/invitations/{invitation_id}', {
-				params: { path: { id: targetWorkspaceID, invitation_id: invitation.id } }
+				params: {
+					path: { id: targetWorkspaceID, invitation_id: invitation.id }
+				}
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return false;
-			await reloadAfterMutation(targetWorkspaceID);
+			if (!isSameActor()) return false;
+			await reloadAfterMutation(targetWorkspaceID, targetOrganizationID, actorID, sequence);
+			if (!isCurrent()) return false;
 			showToast(m.settings_invitation_revoked());
 			return true;
 		} catch (error) {
-			if (workspaceID === targetWorkspaceID) {
+			if (isCurrent()) {
 				actionError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
 			return false;
 		} finally {
-			busyKey = '';
+			if (isCurrent()) busyKey = '';
 		}
 	}
 
-	async function reloadAfterMutation(targetWorkspaceID: string) {
-		loadedWorkspaceID = '';
-		await loadTeam(targetWorkspaceID, true);
+	async function invalidateMutationQueries(
+		targetWorkspaceID: string,
+		targetOrganizationID: string,
+		actorID: string
+	) {
+		if (!actorID || get(auth).user?.id !== actorID) return;
+		queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
+		const invalidations = [
+			queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+			queryClient.invalidateQueries({
+				queryKey: developerQueryKeys.mcpActivityRoot()
+			}),
+			queryClient.invalidateQueries({
+				queryKey: workspaceSettingsQueryKeys.team(targetWorkspaceID)
+			}),
+			queryClient.invalidateQueries({
+				queryKey: openPostWorkspaceKey(targetWorkspaceID, 'access-audit')
+			}),
+			queryClient.invalidateQueries({
+				queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
+				exact: true
+			})
+		];
+		if (targetOrganizationID) {
+			invalidations.push(
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.auditRoot(targetOrganizationID)
+				})
+			);
+		}
+		invalidations.push(
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		);
+		await Promise.all(invalidations);
 	}
 
+	async function reloadAfterMutation(
+		targetWorkspaceID: string,
+		targetOrganizationID: string,
+		actorID: string,
+		sequence: number
+	) {
+		await invalidateMutationQueries(targetWorkspaceID, targetOrganizationID, actorID);
+		if (
+			get(auth).user?.id !== actorID ||
+			sequence !== mutationSequence ||
+			workspaceID !== targetWorkspaceID
+		)
+			return;
+		loadedWorkspaceID = '';
+		await loadTeam({ targetWorkspaceID, preserveCurrent: true });
+	}
+
+	onDestroy(() => {
+		requestSequence += 1;
+		mutationSequence += 1;
+	});
+
 	async function copyInviteURL() {
-		if (!createdInviteURL) return;
-		await navigator.clipboard.writeText(createdInviteURL);
+		const inviteURL = createdInviteURL;
+		const targetWorkspaceID = workspaceID;
+		const targetUserID = currentUserID;
+		const sequence = mutationSequence;
+		if (!inviteURL || !targetWorkspaceID || !targetUserID) return;
+		await navigator.clipboard.writeText(inviteURL);
+		if (
+			sequence !== mutationSequence ||
+			workspaceID !== targetWorkspaceID ||
+			currentUserID !== targetUserID ||
+			createdInviteURL !== inviteURL
+		) {
+			return;
+		}
 		showToast(m.settings_invite_copied());
 	}
 
-	function requestDestructiveAction(action: DestructiveAction) {
-		destructiveAction = action;
+	function requestDestructiveAction(action: DestructiveActionTarget) {
+		destructiveAction = { ...action, workspaceID };
 		destructiveOpen = true;
 	}
 
@@ -354,18 +630,18 @@
 		const action = destructiveAction;
 		if (!action) return { ok: false };
 		if (action.kind === 'revoke') {
-			const ok = await revokeInvitation(action.invitation);
+			const ok = await revokeInvitation(action.invitation, action.workspaceID);
 			const message = ok ? undefined : actionError;
 			if (!ok) actionError = '';
 			return { ok, message };
 		}
 		if (action.kind === 'deactivate') {
-			const ok = await updateMember(action.member, { status: 'inactive' });
+			const ok = await updateMember(action.member, { status: 'inactive' }, action.workspaceID);
 			const message = ok ? undefined : actionError;
 			if (!ok) actionError = '';
 			return { ok, message };
 		}
-		const ok = await removeMember(action.member);
+		const ok = await removeMember(action.member, action.workspaceID);
 		const message = ok ? undefined : actionError;
 		if (!ok) actionError = '';
 		return { ok, message };
@@ -380,10 +656,14 @@
 	function destructiveBody() {
 		if (destructiveAction?.kind === 'revoke') return m.settings_revoke_invitation_body();
 		if (destructiveAction?.kind === 'deactivate') {
-			return m.settings_member_deactivate_body({ email: destructiveAction.member.email });
+			return m.settings_member_deactivate_body({
+				email: destructiveAction.member.email
+			});
 		}
 		if (destructiveAction?.kind === 'remove') {
-			return m.settings_member_remove_body({ email: destructiveAction.member.email });
+			return m.settings_member_remove_body({
+				email: destructiveAction.member.email
+			});
 		}
 		return '';
 	}
@@ -488,7 +768,7 @@
 	}
 </script>
 
-{#if !loading && team}
+{#if team}
 	<p class="mb-4 text-sm text-muted-foreground">
 		{team.current_seats === 1
 			? m.settings_seat_reserved()
@@ -498,12 +778,16 @@
 
 {#if loadError}
 	<div data-testid="team-load-error" class="mb-4">
-		<InlineNotice tone="error" message={loadError}>
+		<InlineNotice tone={team ? 'warning' : 'error'} message={loadError}>
 			{#snippet actions()}
 				<Button
 					variant="outline"
 					size="sm"
-					onclick={() => void loadTeam(workspaceID, Boolean(createdInviteURL))}
+					onclick={() =>
+						void loadTeam({
+							targetWorkspaceID: workspaceID,
+							preserveCurrent: Boolean(createdInviteURL)
+						})}
 					disabled={loading}
 				>
 					{m.common_retry()}
@@ -518,7 +802,7 @@
 	</div>
 {/if}
 
-{#if loading}
+{#if loading && !team}
 	<PageLoading layout="grid" label={m.common_loading()} items={2} />
 {:else if team}
 	{#if canManage}
@@ -546,7 +830,9 @@
 					options={editableRoleOptions}
 					ariaLabel={m.settings_role()}
 				/>
-				<p class="text-xs text-muted-foreground">{roleDescription(inviteRole)}</p>
+				<p class="text-xs text-muted-foreground">
+					{roleDescription(inviteRole)}
+				</p>
 			</div>
 			<div class="flex items-end">
 				<Button type="submit" disabled={Boolean(busyKey) || !inviteEmail.trim()}>
@@ -560,7 +846,9 @@
 			</div>
 		</form>
 	{:else}
-		<div class="mb-5"><InlineNotice tone="info" message={m.settings_team_read_only()} /></div>
+		<div class="mb-5">
+			<InlineNotice tone="info" message={m.settings_team_read_only()} />
+		</div>
 	{/if}
 
 	{#if createdInviteURL}
@@ -629,7 +917,9 @@
 		<div class="grid gap-5 xl:grid-cols-2">
 			{#if statusFilter !== 'pending' && statusFilter !== 'expired'}
 				<div>
-					<h3 class="mb-2 text-sm font-semibold">{m.settings_members_heading()}</h3>
+					<h3 class="mb-2 text-sm font-semibold">
+						{m.settings_members_heading()}
+					</h3>
 					<div data-testid="team-members-list" class="space-y-2">
 						{#each filteredMembers as member (member.user_id)}
 							<div class="rounded-md border p-3">
@@ -642,7 +932,9 @@
 												>{/if}
 										</p>
 										<p class="mt-1 text-xs text-muted-foreground">
-											{m.settings_member_since({ date: formatDate(member.created_at) })}
+											{m.settings_member_since({
+												date: formatDate(member.created_at)
+											})}
 										</p>
 									</div>
 									<span
@@ -663,7 +955,9 @@
 										<AppSelect
 											value={member.role}
 											options={editableRoleOptions}
-											ariaLabel={m.settings_member_role_for({ email: member.email })}
+											ariaLabel={m.settings_member_role_for({
+												email: member.email
+											})}
 											disabled={Boolean(busyKey)}
 											class="w-full sm:w-40"
 											onValueChange={(role) => {
@@ -679,7 +973,11 @@
 													variant="outline"
 													size="sm"
 													disabled={Boolean(busyKey)}
-													onclick={() => requestDestructiveAction({ kind: 'deactivate', member })}
+													onclick={() =>
+														requestDestructiveAction({
+															kind: 'deactivate',
+															member
+														})}
 												>
 													{m.settings_member_deactivate()}
 												</Button>
@@ -723,13 +1021,17 @@
 
 			{#if statusFilter !== 'active' && statusFilter !== 'inactive'}
 				<div>
-					<h3 class="mb-2 text-sm font-semibold">{m.settings_pending_invitations()}</h3>
+					<h3 class="mb-2 text-sm font-semibold">
+						{m.settings_pending_invitations()}
+					</h3>
 					<div data-testid="team-invitations-list" class="space-y-2">
 						{#each filteredInvitations as invitation (invitation.id)}
 							<div class="rounded-md border p-3">
 								<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 									<div class="min-w-0">
-										<p class="truncate text-sm font-medium">{invitation.email}</p>
+										<p class="truncate text-sm font-medium">
+											{invitation.email}
+										</p>
 										<p class="mt-1 text-xs text-muted-foreground">
 											{m.settings_invitation_details({
 												role: roleLabel(invitation.role),
@@ -784,7 +1086,11 @@
 											size="sm"
 											class="text-destructive hover:text-destructive"
 											disabled={Boolean(busyKey)}
-											onclick={() => requestDestructiveAction({ kind: 'revoke', invitation })}
+											onclick={() =>
+												requestDestructiveAction({
+													kind: 'revoke',
+													invitation
+												})}
 										>
 											{m.settings_revoke()}
 										</Button>
@@ -801,19 +1107,37 @@
 	{#if canManage}
 		<div class="mt-6 border-t pt-5">
 			<div class="mb-3 flex items-start gap-3">
-				<div class="rounded-md border bg-muted/30 p-2"><HistoryIcon class="size-4" /></div>
+				<div class="rounded-md border bg-muted/30 p-2">
+					<HistoryIcon class="size-4" />
+				</div>
 				<div>
 					<h3 class="text-sm font-semibold">{m.settings_access_history()}</h3>
-					<p class="text-sm text-muted-foreground">{m.settings_access_history_body()}</p>
+					<p class="text-sm text-muted-foreground">
+						{m.settings_access_history_body()}
+					</p>
 				</div>
 			</div>
-			{#if auditLoading}
+			{#if auditError}
+				<InlineNotice tone={auditReady ? 'warning' : 'error'} message={auditError} class="mb-3">
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void loadAudit(workspaceID)}
+							disabled={auditLoading}
+						>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
+			{#if auditLoading && !auditReady}
 				<PageLoading layout="list" label={m.common_loading()} items={3} />
-			{:else if auditEvents.length === 0}
+			{:else if auditReady && auditEvents.length === 0}
 				<p class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
 					{m.settings_access_history_empty()}
 				</p>
-			{:else}
+			{:else if auditReady}
 				<ol class="space-y-2">
 					{#each auditEvents as event (event.id)}
 						<li

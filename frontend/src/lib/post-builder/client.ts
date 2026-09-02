@@ -1,4 +1,5 @@
-import { applyAPIRequestHeaders } from '$lib/api/client';
+import { applyAPIRequestHeaders, client } from '$lib/api/client';
+import { queryTransportRequest } from '$lib/query/transport';
 
 export interface PublicationBuildMediaPlan {
 	treatment: string;
@@ -120,15 +121,15 @@ export interface PublicationBuild {
 	updated_at: string;
 }
 
-export interface VoiceProfileSummary {
-	id: string;
-	name: string;
-	is_default: boolean;
+type MutationMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+interface MutationRequestInit extends RequestInit {
+	method: MutationMethod;
 }
 
-async function apiRequest<T>(
+async function apiMutationRequest<T>(
 	path: string,
-	init: RequestInit = {},
+	init: MutationRequestInit,
 	signal?: AbortSignal
 ): Promise<T> {
 	const headers = applyAPIRequestHeaders(new Headers(init.headers));
@@ -165,7 +166,7 @@ export function discoverPublicationOpportunities(
 	},
 	signal?: AbortSignal
 ): Promise<{ opportunities: PublicationOpportunity[] }> {
-	return apiRequest(
+	return apiMutationRequest(
 		'/publication-opportunities/discover',
 		{
 			method: 'POST',
@@ -179,7 +180,7 @@ export function planPublicationAngles(
 	input: PublicationBuildRequest,
 	signal?: AbortSignal
 ): Promise<{ angles: PublicationBuildAngle[] }> {
-	return apiRequest(
+	return apiMutationRequest(
 		'/publication-builds/angles',
 		{
 			method: 'POST',
@@ -194,7 +195,7 @@ export function createPublicationBuild(
 	idempotencyKey: string,
 	signal?: AbortSignal
 ): Promise<PublicationBuild> {
-	return apiRequest(
+	return apiMutationRequest(
 		'/publication-builds',
 		{
 			method: 'POST',
@@ -206,17 +207,37 @@ export function createPublicationBuild(
 }
 
 export function getPublicationBuild(id: string, signal?: AbortSignal): Promise<PublicationBuild> {
-	return apiRequest(`/publication-builds/${encodeURIComponent(id)}`, {}, signal);
+	const requestSignal = signal ?? new AbortController().signal;
+	return queryTransportRequest(requestSignal, (transportSignal) =>
+		client.GET('/publication-builds/{id}', {
+			params: { path: { id } },
+			signal: transportSignal
+		})
+	).then(({ data, error, response }) => {
+		if (error || !data) throw postBuilderRequestError(error, response.status);
+		// SAFETY: PublicationBuild narrows the generated Build state and phase strings to values
+		// enforced by the same backend endpoint without changing its response shape.
+		return data as PublicationBuild;
+	});
 }
 
 export function cancelPublicationBuild(id: string): Promise<PublicationBuild> {
-	return apiRequest(`/publication-builds/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+	return apiMutationRequest(`/publication-builds/${encodeURIComponent(id)}/cancel`, {
+		method: 'POST'
+	});
 }
 
 export function retryPublicationBuild(id: string): Promise<PublicationBuild> {
-	return apiRequest(`/publication-builds/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+	return apiMutationRequest(`/publication-builds/${encodeURIComponent(id)}/retry`, {
+		method: 'POST'
+	});
 }
 
-export function listVoiceProfiles(workspaceID: string): Promise<VoiceProfileSummary[]> {
-	return apiRequest(`/voice-profiles?workspace_id=${encodeURIComponent(workspaceID)}`);
+function postBuilderRequestError(
+	error: { detail?: string; title?: string } | undefined,
+	status: number
+): Error {
+	return new Error(
+		error?.detail || error?.title || `OpenPost could not complete this AI request (${status}).`
+	);
 }

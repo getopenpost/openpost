@@ -4,21 +4,13 @@ import { useEffect } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
 import { Brand } from "@/components/brand";
-import {
-  BodyText,
-  Button,
-  Card,
-  LoadingState,
-  PageTitle,
-  Screen,
-  useColors,
-} from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
+import { BodyText, Button, Card, PageTitle, Screen } from "@/components/ui";
 import { destinationState } from "@/lib/first-use";
 import { useAccounts, useWorkspaceId } from "@/lib/queries";
 import { getServer } from "@/lib/server";
 
 export default function DestinationScreen() {
-  const colors = useColors();
   const workspaceId = useWorkspaceId();
   const server = getServer();
   const accounts = useAccounts(Boolean(workspaceId));
@@ -41,7 +33,8 @@ export default function DestinationScreen() {
     if (readyRoute) router.replace(readyRoute);
   }, [readyRoute, server, workspaceId]);
 
-  const showProgress = !accounts.isError && (state?.kind === "checking" || state?.kind === "ready");
+  const hasData = accounts.data !== undefined;
+  const showProgress = !hasData && accounts.isPending;
 
   return (
     <Screen>
@@ -49,28 +42,34 @@ export default function DestinationScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
 
-        {showProgress ? <LoadingState label="Checking connected accounts" /> : null}
-
-        {accounts.isError ? (
-          <>
-            <PageTitle>Could not check accounts</PageTitle>
-            <Card style={styles.card}>
-              <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
-                {accounts.error instanceof Error
-                  ? accounts.error.message
-                  : "Could not load accounts"}
-              </BodyText>
-              <Button
-                title="Retry"
-                intent="ordinary"
-                loading={accounts.isFetching}
-                onPress={() => void accounts.refetch()}
-              />
-            </Card>
-          </>
+        {showProgress ? (
+          <DelayedQueryPlaceholder
+            pending
+            shape="list"
+            offline={accounts.fetchStatus === "paused"}
+          />
         ) : null}
 
-        {!accounts.isError && state?.kind === "setup" ? (
+        {accounts.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not check accounts"
+            message={
+              accounts.error instanceof Error ? accounts.error.message : "Could not load accounts"
+            }
+            retry={() => void accounts.refetch()}
+          />
+        ) : null}
+        {accounts.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh accounts. Current destinations remain visible."
+            retry={() => void accounts.refetch()}
+          />
+        ) : null}
+        {hasData && accounts.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. Current accounts remain visible." offline />
+        ) : null}
+
+        {hasData && state?.kind === "setup" ? (
           <>
             <PageTitle>{state.title}</PageTitle>
             <BodyText style={styles.subtitle}>{state.body}</BodyText>

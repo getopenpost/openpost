@@ -1,15 +1,38 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { page } from '$app/stores';
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
+	import {
+		imageEditorQueryKeys,
+		mediaListQueryOptions,
+		mediaQueryKeys,
+		reconcileMediaListItemMutation,
+		mediaStorageQueryOptions,
+		mediaTagsQueryOptions,
+		mediaUsageQueryOptions,
+		type ImageEditorConfig,
+		type MediaListResult,
+		type MediaStorage,
+		type MediaTagList
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { mediaQueryAPI } from '$lib/query/media';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
-	import { loadImageEditorConfig } from '$lib/image-editor/api';
+	import { queryImageEditorConfig } from '$lib/query/image-editor';
 	import { clampMediaPage } from '$lib/media-pagination';
+	import { mediaInitialLoading } from '$lib/media-initial-loading';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -34,12 +57,7 @@
 	import MediaOrganizationDialog from '$lib/components/media-organization-dialog.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
-	import {
-		createMediaTag,
-		listMediaTags,
-		updateMediaTagItems,
-		type MediaTag
-	} from '$lib/media-tags';
+	import { createMediaTag, updateMediaTagItems, type MediaTag } from '$lib/media-tags';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import VideoIcon from '@lucide/svelte/icons/video';
@@ -88,8 +106,8 @@
 		| '/settings?tab=brand';
 
 	type LibraryDeletionRequest =
-		| { kind: 'single'; media: MediaItem }
-		| { kind: 'batch'; ids: string[] };
+		| { kind: 'single'; media: MediaItem; context: MediaMutationContext }
+		| { kind: 'batch'; ids: string[]; context: MediaMutationContext };
 
 	let workspaces = $derived<Workspace[]>(workspaceCtx.workspaces);
 	let selectedWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -100,8 +118,10 @@
 
 	let mediaItems = $state<MediaItem[]>([]);
 	let mediaLoading = $state(false);
+	let mediaDataReady = $state(false);
+	let mediaSettledWorkspaceId = $state('');
 	let mediaRequestSequence = 0;
-	let loadedMediaViewKey = '';
+	let loadedMediaWorkspaceId = $state('');
 	let totalCount = $state(0);
 	let currentPage = $state(0);
 	const pageSize = 40;
@@ -125,11 +145,17 @@
 	let layoutMode = $state<'grid' | 'list'>('grid');
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
+	let hubError = $state('');
+	let hubDataReady = $state(false);
+	let hubSettledWorkspaceId = $state('');
+	let hubRequestSequence = 0;
+	let loadedHubWorkspaceId = $state('');
 	let organizationDialogOpen = $state(false);
 	let filterDialogOpen = $state(false);
 	let selectionOrganizationDialogOpen = $state(false);
 	let batchTagID = $state('');
 	let organizationSaving = $state(false);
+	let organizationSaveSequence = 0;
 	let storageUsage = $state({ used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 });
 	let imageEditorEnabled = $state(true);
 	let mediaCanEdit = $state(false);
@@ -140,16 +166,20 @@
 	let selectedMedia = $state<MediaItem | null>(null);
 	let mediaUsage = $state<MediaUsage[]>([]);
 	let usageLoading = $state(false);
+	let usageDataReady = $state(false);
 	let usageError = $state('');
 	let usageRequestSequence = 0;
 	let deletionBlockedByUsage = $state(false);
 	let detailAltText = $state('');
 	let detailSaving = $state(false);
+	let detailSaveSequence = 0;
 	let renameDialogOpen = $state(false);
 	let mediaToRename = $state.raw<MediaItem | null>(null);
 
 	let deleteDialogOpen = $state(false);
 	let deletionRequest = $state.raw<LibraryDeletionRequest | null>(null);
+	let workspaceViewRevision = 0;
+	let routeActive = true;
 
 	const selectedMediaIds = new SvelteSet<string>();
 	let isSelectionMode = $state(false);
@@ -158,9 +188,67 @@
 	const libraryContextItemClass =
 		'flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted data-disabled:pointer-events-none data-disabled:opacity-45';
 
+	interface MediaMutationContext {
+		session: QueryMutationSession;
+		workspaceID: string;
+		workspaceRevision: number;
+		viewKey: string;
+	}
+
 	function notify(message: string, tone: 'neutral' | 'success' | 'error' = 'neutral') {
 		toastMessage = message;
 		toastTone = tone;
+	}
+
+	function captureMediaMutationContext(): MediaMutationContext {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: selectedWorkspaceId,
+			workspaceRevision: workspaceViewRevision,
+			viewKey: mediaViewKey()
+		};
+	}
+
+	function mediaMutationActorIsCurrent(context: MediaMutationContext): boolean {
+		return queryMutationSessionIsCurrent(context.session);
+	}
+
+	function mediaMutationSurfaceIsCurrent(context: MediaMutationContext): boolean {
+		return (
+			routeActive &&
+			mediaMutationActorIsCurrent(context) &&
+			context.workspaceRevision === workspaceViewRevision &&
+			context.workspaceID === selectedWorkspaceId
+		);
+	}
+
+	function mediaMutationViewIsCurrent(context: MediaMutationContext): boolean {
+		return mediaMutationSurfaceIsCurrent(context) && context.viewKey === mediaViewKey();
+	}
+
+	async function reconcileMediaMutation(
+		context: MediaMutationContext,
+		mediaID: string,
+		update: Parameters<typeof reconcileMediaListItemMutation>[1]['update']
+	): Promise<boolean> {
+		if (!mediaMutationActorIsCurrent(context)) return false;
+
+		if (mediaMutationSurfaceIsCurrent(context)) {
+			mediaRequestSequence++;
+			mediaLoading = false;
+		}
+		const reconciled = await reconcileMediaListItemMutation(queryClient, {
+			workspaceId: context.workspaceID,
+			mediaId: mediaID,
+			update,
+			canReconcile: () => mediaMutationActorIsCurrent(context)
+		});
+		if (!reconciled) return false;
+
+		if (mediaMutationSurfaceIsCurrent(context) && !mediaMutationViewIsCurrent(context)) {
+			void loadMedia(context.workspaceID, false, captureMediaMutationContext());
+		}
+		return mediaMutationViewIsCurrent(context);
 	}
 
 	function normalizeMediaItem(item: MediaListResponseItem): MediaItem {
@@ -282,99 +370,233 @@
 		}
 	}
 
-	async function loadMedia(workspaceID = selectedWorkspaceId) {
+	async function loadMedia(
+		workspaceID = selectedWorkspaceId,
+		force = false,
+		mutationContext?: MediaMutationContext
+	) {
 		if (!workspaceID) {
 			mediaRequestSequence++;
 			mediaLoading = false;
 			mediaItems = [];
 			totalCount = 0;
-			loadedMediaViewKey = '';
+			loadedMediaWorkspaceId = '';
+			mediaDataReady = false;
+			mediaSettledWorkspaceId = '';
 			return;
 		}
+		if (workspaceID !== selectedWorkspaceId) return;
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
 		const requestKey = mediaViewKey(workspaceID);
+		const options = mediaListQueryOptions(mediaQueryAPI, workspaceID, {
+			lifecycle: lifecycleView,
+			filter,
+			sort,
+			search: appliedSearch,
+			type: mediaType,
+			source,
+			tagIds: selectedTagIDs,
+			untagged: showUntagged,
+			aspect,
+			minWidth,
+			minHeight,
+			maxWidth,
+			maxHeight,
+			dateFrom,
+			dateTo,
+			limit: pageSize,
+			offset: currentPage * pageSize
+		});
 		const requestSequence = ++mediaRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === mediaRequestSequence &&
 			selectedWorkspaceId === workspaceID &&
-			mediaViewKey(workspaceID) === requestKey;
-		if (loadedMediaViewKey !== requestKey) {
+			mediaViewKey(workspaceID) === requestKey &&
+			(!mutationContext || mediaMutationViewIsCurrent(mutationContext));
+		const cached = queryClient.getQueryData<MediaListResult>(options.queryKey);
+		if (cached) {
+			mediaItems = (cached.media ?? []).map(normalizeMediaItem);
+			totalCount = cached.total;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = true;
+		} else if (loadedMediaWorkspaceId !== workspaceID) {
 			mediaItems = [];
 			totalCount = 0;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = false;
+			mediaSettledWorkspaceId = '';
 		}
+		if (force && !mediaDataReady) mediaSettledWorkspaceId = '';
 		mediaLoading = true;
 		error = '';
 		selectedMediaIds.clear();
 		isSelectionMode = false;
 		try {
-			const { data, error: err } = await client.GET('/media', {
-				params: {
-					query: {
-						workspace_id: workspaceID,
-						lifecycle: lifecycleView,
-						filter: filter,
-						sort: sort,
-						search: appliedSearch,
-						type: mediaType,
-						source,
-						tag_ids: selectedTagIDs.join(','),
-						untagged: showUntagged,
-						aspect,
-						min_width: minWidth,
-						min_height: minHeight,
-						max_width: maxWidth,
-						max_height: maxHeight,
-						date_from: dateFrom,
-						date_to: dateTo,
-						limit: pageSize,
-						offset: currentPage * pageSize
-					}
-				}
-			});
-			if (err) throw new Error(err.detail || m.media_load_failed());
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+				if (!isCurrentRequest()) return;
+			}
+			const data = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			const nextTotalCount = data?.total ?? 0;
+			const nextTotalCount = data.total;
 			const clampedPage = clampMediaPage(currentPage, nextTotalCount, pageSize);
 			if (clampedPage !== currentPage) {
 				currentPage = clampedPage;
-				await loadMedia(workspaceID);
+				const clampedContext = mutationContext
+					? { ...mutationContext, viewKey: mediaViewKey(workspaceID) }
+					: undefined;
+				await loadMedia(workspaceID, false, clampedContext);
 				return;
 			}
-			mediaItems = (data?.media ?? []).map(normalizeMediaItem);
+			mediaItems = (data.media ?? []).map(normalizeMediaItem);
 			totalCount = nextTotalCount;
-			loadedMediaViewKey = requestKey;
+			loadedMediaWorkspaceId = workspaceID;
+			mediaDataReady = true;
+			mediaSettledWorkspaceId = workspaceID;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			error = errorMessage(e, m.media_load_failed());
+			mediaSettledWorkspaceId = workspaceID;
 		} finally {
 			if (isCurrentRequest()) mediaLoading = false;
 		}
 	}
 
-	async function loadImageEditorHub(workspaceID = selectedWorkspaceId) {
-		if (!workspaceID) return;
-		hubLoading = true;
-		try {
-			const config = await loadImageEditorConfig();
-			imageEditorEnabled = config.enabled;
-			const [tagResult, storageResult] = await Promise.all([
-				listMediaTags(workspaceID),
-				client.GET('/media/storage', { params: { query: { workspace_id: workspaceID } } })
-			]);
-			tags = tagResult.tags;
-			mediaCanEdit = tagResult.canEdit;
-			const validTagIDs = new Set(tagResult.tags.map((tag) => tag.id));
-			const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
-			if (nextSelected.length !== selectedTagIDs.length) {
-				selectedTagIDs = nextSelected;
-				currentPage = 0;
-				void loadMedia(workspaceID);
-			}
-			if (storageResult.data) storageUsage = storageResult.data;
-		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
-		} finally {
+	async function loadImageEditorHub(
+		workspaceID = selectedWorkspaceId,
+		force = false,
+		mutationContext?: MediaMutationContext
+	) {
+		if (!workspaceID) {
+			hubRequestSequence++;
 			hubLoading = false;
+			hubError = '';
+			tags = [];
+			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
+			mediaCanEdit = false;
+			loadedHubWorkspaceId = '';
+			hubDataReady = false;
+			hubSettledWorkspaceId = '';
+			return;
 		}
+		if (workspaceID !== selectedWorkspaceId) return;
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
+		const requestSequence = ++hubRequestSequence;
+		const isCurrentRequest = () =>
+			requestSequence === hubRequestSequence &&
+			selectedWorkspaceId === workspaceID &&
+			(!mutationContext || mediaMutationViewIsCurrent(mutationContext));
+		hubLoading = true;
+		hubError = '';
+		if (loadedHubWorkspaceId !== workspaceID) {
+			tags = [];
+			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
+			mediaCanEdit =
+				workspaceCtx.currentWorkspace?.id === workspaceID
+					? workspaceCtx.currentWorkspace.can_edit
+					: false;
+			loadedHubWorkspaceId = workspaceID;
+			hubDataReady = false;
+			hubSettledWorkspaceId = '';
+		}
+		const tagsOptions = mediaTagsQueryOptions(mediaQueryAPI, workspaceID);
+		const storageOptions = mediaStorageQueryOptions(mediaQueryAPI, workspaceID);
+		const cachedConfig = queryClient.getQueryData<ImageEditorConfig>(imageEditorQueryKeys.config());
+		const cachedTags = queryClient.getQueryData<MediaTagList>(tagsOptions.queryKey);
+		const cachedStorage = queryClient.getQueryData<MediaStorage>(storageOptions.queryKey);
+		let configReady = cachedConfig !== undefined;
+		let tagsReady = cachedTags !== undefined;
+		let storageReady = cachedStorage !== undefined;
+		if (cachedConfig !== undefined) imageEditorEnabled = cachedConfig.enabled;
+		if (cachedTags !== undefined) {
+			tags = cachedTags.tags ?? [];
+			mediaCanEdit = cachedTags.can_edit;
+		}
+		if (cachedStorage !== undefined) storageUsage = cachedStorage;
+		hubDataReady = configReady && tagsReady && storageReady;
+		try {
+			if (force) {
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: imageEditorQueryKeys.config(),
+						exact: true,
+						refetchType: 'none'
+					}),
+					queryClient.invalidateQueries({
+						queryKey: tagsOptions.queryKey,
+						exact: true,
+						refetchType: 'none'
+					}),
+					queryClient.invalidateQueries({
+						queryKey: storageOptions.queryKey,
+						exact: true,
+						refetchType: 'none'
+					})
+				]);
+				if (!isCurrentRequest()) return;
+			}
+			const [configResult, tagResult, storageResult] = await Promise.allSettled([
+				queryImageEditorConfig(),
+				queryClient.query(tagsOptions),
+				queryClient.query(storageOptions)
+			]);
+			if (!isCurrentRequest()) return;
+			let failure: unknown;
+			if (configResult.status === 'fulfilled') {
+				imageEditorEnabled = configResult.value.enabled;
+				configReady = true;
+			} else {
+				failure = configResult.reason;
+			}
+			if (tagResult.status === 'fulfilled') {
+				tags = tagResult.value.tags ?? [];
+				mediaCanEdit = tagResult.value.can_edit;
+				tagsReady = true;
+				const validTagIDs = new Set(tags.map((tag) => tag.id));
+				const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
+				if (nextSelected.length !== selectedTagIDs.length) {
+					selectedTagIDs = nextSelected;
+					currentPage = 0;
+					const filteredContext = mutationContext
+						? { ...mutationContext, viewKey: mediaViewKey(workspaceID) }
+						: undefined;
+					void loadMedia(workspaceID, false, filteredContext);
+				}
+			} else {
+				failure ??= tagResult.reason;
+			}
+			if (storageResult.status === 'fulfilled') {
+				storageUsage = storageResult.value;
+				storageReady = true;
+			} else {
+				failure ??= storageResult.reason;
+			}
+			hubDataReady = configReady && tagsReady && storageReady;
+			if (failure) hubError = errorMessage(failure, m.media_hub_load_failed());
+			hubSettledWorkspaceId = workspaceID;
+		} catch (cause) {
+			if (!isCurrentRequest()) return;
+			hubError = errorMessage(cause, m.media_hub_load_failed());
+			hubSettledWorkspaceId = workspaceID;
+		} finally {
+			if (isCurrentRequest()) hubLoading = false;
+		}
+	}
+
+	async function refreshMediaLists(
+		workspaceID = selectedWorkspaceId,
+		mutationContext?: MediaMutationContext
+	) {
+		await queryClient.invalidateQueries({
+			queryKey: mediaQueryKeys.lists(workspaceID),
+			refetchType: 'none'
+		});
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
+		await loadMedia(workspaceID, false, mutationContext);
 	}
 
 	function resetAssetFilters() {
@@ -407,7 +629,9 @@
 	}
 
 	async function toggleMediaTag(mediaID: string, tagID: string, selected: boolean): Promise<void> {
-		await updateMediaTagItems(tagID, [mediaID], selected ? 'add' : 'remove');
+		const context = captureMediaMutationContext();
+		await updateMediaTagItems(context.workspaceID, tagID, [mediaID], selected ? 'add' : 'remove');
+		if (!mediaMutationViewIsCurrent(context)) return;
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) {
 			item.tags = selected
@@ -419,20 +643,27 @@
 				? [...new Set([...selectedMedia.tags, tagID])]
 				: selectedMedia.tags.filter((id) => id !== tagID);
 		}
-		await loadImageEditorHub();
-		if (selected && lifecycleView === 'temporary') await loadMedia();
+		await loadImageEditorHub(context.workspaceID, true, context);
+		if (!mediaMutationViewIsCurrent(context)) return;
+		if (selected && lifecycleView === 'temporary') {
+			await loadMedia(context.workspaceID, false, context);
+		}
 	}
 
 	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
-		const tag = await createMediaTag(selectedWorkspaceId, name);
-		await updateMediaTagItems(tag.id, [mediaID], 'add');
-		await loadImageEditorHub();
+		const context = captureMediaMutationContext();
+		const tag = await createMediaTag(context.workspaceID, name);
+		if (!mediaMutationViewIsCurrent(context)) return;
+		await updateMediaTagItems(context.workspaceID, tag.id, [mediaID], 'add');
+		if (!mediaMutationViewIsCurrent(context)) return;
+		await loadImageEditorHub(context.workspaceID, true, context);
+		if (!mediaMutationViewIsCurrent(context)) return;
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) item.tags = [...new Set([...item.tags, tag.id])];
 		if (selectedMedia?.id === mediaID) {
 			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
 		}
-		if (lifecycleView === 'temporary') await loadMedia();
+		if (lifecycleView === 'temporary') await loadMedia(context.workspaceID, false, context);
 	}
 
 	function uploadTagID(): string | undefined {
@@ -460,50 +691,79 @@
 	}
 
 	async function handleLibraryUploaded(results: MediaUploadResult[]): Promise<void> {
-		await Promise.all([loadMedia(), loadImageEditorHub()]);
+		await Promise.all([
+			refreshMediaLists(selectedWorkspaceId),
+			loadImageEditorHub(selectedWorkspaceId, true)
+		]);
 		notify(uploadedCountLabel(results.length), 'success');
 		soundPreferences.play('success');
 	}
 
-	async function toggleFavorite(mediaId: string) {
+	async function toggleFavorite(
+		mediaId: string,
+		context = captureMediaMutationContext()
+	): Promise<boolean> {
+		if (!mediaMutationSurfaceIsCurrent(context)) return false;
+		const previousFavorite = mediaItems.find((media) => media.id === mediaId)?.is_favorite ?? false;
 		try {
-			const { data, error: err } = await client.PATCH('/media/{id}/favorite', {
+			const {
+				data,
+				error: err,
+				response
+			} = await client.PATCH('/media/{id}/favorite', {
 				params: { path: { id: mediaId } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return false;
 			if (err) throw new Error(err.detail || m.media_favorite_failed());
-			const item = mediaItems.find((m) => m.id === mediaId);
-			if (item) {
-				item.is_favorite = data?.is_favorite ?? !item.is_favorite;
+			const nextFavorite = data?.is_favorite ?? !previousFavorite;
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaId, (item) => ({
+				...item,
+				is_favorite: nextFavorite
+			}));
+			if (!viewIsCurrent) return false;
+
+			const item = mediaItems.find((media) => media.id === mediaId);
+			if (item) item.is_favorite = nextFavorite;
+			if (lifecycleView === 'temporary' || (filter === 'favorites' && !nextFavorite)) {
+				await loadMedia(context.workspaceID, false, context);
 			}
-			if (lifecycleView === 'temporary' || (filter === 'favorites' && !data?.is_favorite)) {
-				await loadMedia();
-			}
+			return true;
 		} catch (e) {
-			notify(errorMessage(e, m.media_favorite_failed()), 'error');
+			if (mediaMutationSurfaceIsCurrent(context)) {
+				notify(errorMessage(e, m.media_favorite_failed()), 'error');
+			}
+			return false;
 		}
 	}
 
 	async function toggleFavoriteBatch() {
+		const context = captureMediaMutationContext();
 		const ids = Array.from(selectedMediaIds);
 		for (const id of ids) {
-			await toggleFavorite(id);
+			if (!mediaMutationSurfaceIsCurrent(context)) return;
+			await toggleFavorite(id, context);
 		}
-		selectedMediaIds.clear();
-		isSelectionMode = false;
+		if (mediaMutationSurfaceIsCurrent(context)) {
+			selectedMediaIds.clear();
+			isSelectionMode = false;
+		}
 	}
 
 	async function assignSelectedOrganization(mode: 'add' | 'remove' = 'add') {
 		const id = batchTagID;
 		const mediaIDs = Array.from(selectedMediaIds);
 		if (!id || mediaIDs.length === 0) return;
+		const context = captureMediaMutationContext();
+		const sequence = ++organizationSaveSequence;
 		organizationSaving = true;
 		try {
-			const result = await client.PUT('/media/tags/{id}/items', {
-				params: { path: { id } },
-				body: { media_ids: mediaIDs, mode }
-			});
-			if (result.error) throw new Error(result.error.detail);
-			await Promise.all([loadMedia(), loadImageEditorHub()]);
+			await updateMediaTagItems(context.workspaceID, id, mediaIDs, mode);
+			if (!mediaMutationViewIsCurrent(context)) return;
+			await Promise.all([
+				refreshMediaLists(context.workspaceID, context),
+				loadImageEditorHub(context.workspaceID, true, context)
+			]);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			notify(
 				mode === 'remove'
 					? m.media_organization_removed({
@@ -518,9 +778,11 @@
 			selectionOrganizationDialogOpen = false;
 			batchTagID = '';
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_assets_organize_failed(), 'error');
+			if (mediaMutationViewIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_assets_organize_failed(), 'error');
+			}
 		} finally {
-			organizationSaving = false;
+			if (sequence === organizationSaveSequence) organizationSaving = false;
 		}
 	}
 
@@ -530,46 +792,84 @@
 			void showUsage(media);
 			return;
 		}
-		deletionRequest = { kind: 'single', media };
+		deletionRequest = { kind: 'single', media, context: captureMediaMutationContext() };
 		deleteDialogOpen = true;
 	}
 
 	function requestDeleteSelectedBatch() {
 		const ids = [...selectedDeletableIds];
 		if (ids.length === 0) return;
-		deletionRequest = { kind: 'batch', ids };
+		deletionRequest = { kind: 'batch', ids, context: captureMediaMutationContext() };
 		deleteDialogOpen = true;
 	}
 
 	async function restoreMedia(mediaId: string) {
+		const context = captureMediaMutationContext();
 		try {
-			const { error: err } = await client.POST('/media/{id}/restore', {
+			const { error: err, response } = await client.POST('/media/{id}/restore', {
 				params: { path: { id: mediaId } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (err) throw new Error(err.detail || m.media_trash_restore_failed());
-			await loadMedia();
+			const reconciled = await reconcileQueryMutation(queryClient, context.session, {
+				invalidate: [{ queryKey: mediaQueryKeys.lists(context.workspaceID), refetchType: 'none' }]
+			});
+			if (!reconciled || !mediaMutationViewIsCurrent(context)) return;
+			await loadMedia(context.workspaceID, false, context);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			notify(m.media_trash_restored(), 'success');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_trash_restore_failed(), 'error');
+			if (mediaMutationViewIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_trash_restore_failed(), 'error');
+			}
 		}
 	}
 
-	async function deleteSelectedBatch(ids: string[]) {
+	async function deleteSelectedBatch(ids: string[], context: MediaMutationContext) {
 		if (ids.length === 0) {
 			return { ok: false, remainingIDs: ids, message: m.media_deleted_none() };
 		}
+		if (!mediaMutationViewIsCurrent(context)) return { ok: false, remainingIDs: ids };
 		try {
 			const result = await requestRecoverableMediaBatchDeletion(ids, async (requestedIDs) => {
-				const { data, error: err } = await client.POST('/media/batch-delete', {
+				if (!mediaMutationActorIsCurrent(context)) {
+					return { deleted: 0, failed_ids: requestedIDs };
+				}
+				const {
+					data,
+					error: err,
+					response
+				} = await client.POST('/media/batch-delete', {
 					body: { media_ids: requestedIDs }
 				});
+				if (!settleQueryMutationSession(context.session, response)) {
+					return { deleted: 0, failed_ids: requestedIDs };
+				}
 				if (err) {
 					throw new MediaBatchDeletionRejected(err.detail || m.media_delete_failed());
 				}
 				return data ?? { deleted: 0, failed_ids: requestedIDs };
 			});
+			if (!mediaMutationActorIsCurrent(context)) {
+				return { ok: false, remainingIDs: ids };
+			}
 			const remainingIDs = remainingMediaDeletionIDs(ids, result);
-			await loadMedia();
+			const remainingIDSet = new Set(remainingIDs);
+			const reconciled = await reconcileQueryMutation(queryClient, context.session, {
+				reconcile: () => {
+					for (const deletedID of ids.filter((id) => !remainingIDSet.has(id))) {
+						queryClient.removeQueries({
+							queryKey: mediaQueryKeys.usage(context.workspaceID, deletedID),
+							exact: true
+						});
+					}
+				},
+				invalidate: [{ queryKey: mediaQueryKeys.lists(context.workspaceID), refetchType: 'none' }]
+			});
+			if (!reconciled) return { ok: false, remainingIDs: ids };
+			if (mediaMutationViewIsCurrent(context)) {
+				await loadMedia(context.workspaceID, false, context);
+			}
 
 			const failedCount = remainingIDs.length;
 			if (result.deleted === 0) {
@@ -587,6 +887,7 @@
 				successMessage: deletedCountLabel(result.deleted)
 			};
 		} catch (e) {
+			if (!mediaMutationActorIsCurrent(context)) return { ok: false, remainingIDs: ids };
 			return {
 				ok: false,
 				remainingIDs: ids,
@@ -597,18 +898,20 @@
 
 	async function confirmLibraryDeletion(): Promise<DestructiveActionOutcome> {
 		const request = deletionRequest;
-		if (!request) return { ok: false };
+		if (!request || !mediaMutationViewIsCurrent(request.context)) return { ok: false };
 		if (request.kind === 'single') {
-			const outcome = await deleteSelectedBatch([request.media.id]);
+			const outcome = await deleteSelectedBatch([request.media.id], request.context);
+			if (!mediaMutationViewIsCurrent(request.context)) return { ok: false };
 			return {
 				ok: outcome.ok,
 				message: outcome.message,
 				successMessage: outcome.successMessage
 			};
 		}
-		const outcome = await deleteSelectedBatch(request.ids);
+		const outcome = await deleteSelectedBatch(request.ids, request.context);
+		if (!mediaMutationViewIsCurrent(request.context)) return { ok: false };
 		if (!outcome.ok && deletionRequest === request) {
-			deletionRequest = { kind: 'batch', ids: outcome.remainingIDs };
+			deletionRequest = { kind: 'batch', ids: outcome.remainingIDs, context: request.context };
 		}
 		return {
 			ok: outcome.ok,
@@ -673,7 +976,10 @@
 				parentMediaId: media.id,
 				tagId: uploadTagID()
 			});
-			await loadMedia();
+			await Promise.all([
+				refreshMediaLists(selectedWorkspaceId),
+				loadImageEditorHub(selectedWorkspaceId, true)
+			]);
 			notify(m.media_duplicated(), 'success');
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_duplicate_failed(), 'error');
@@ -682,22 +988,33 @@
 
 	async function showUsage(media: MediaItem) {
 		const mediaID = media.id;
+		const workspaceID = selectedWorkspaceId;
 		const requestSequence = ++usageRequestSequence;
 		const isCurrentRequest = () =>
-			requestSequence === usageRequestSequence && usageDialogOpen && selectedMedia?.id === mediaID;
+			requestSequence === usageRequestSequence &&
+			usageDialogOpen &&
+			selectedWorkspaceId === workspaceID &&
+			selectedMedia?.id === mediaID;
 		selectedMedia = media;
 		detailAltText = media.alt_text;
 		usageDialogOpen = true;
 		usageLoading = true;
 		usageError = '';
 		mediaUsage = [];
+		usageDataReady = false;
 		try {
-			const { data, error: err } = await client.GET('/media/{id}/usage', {
-				params: { path: { id: media.id } }
-			});
-			if (err) throw new Error(err.detail || m.media_usage_load_failed());
+			const options = mediaUsageQueryOptions(mediaQueryAPI, workspaceID, media.id);
+			const cached = queryClient.getQueryData<components['schemas']['GetMediaUsageOutputBody']>(
+				options.queryKey
+			);
+			if (cached !== undefined && isCurrentRequest()) {
+				mediaUsage = (cached.usage ?? []).map(normalizeMediaUsage);
+				usageDataReady = true;
+			}
+			const data = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			mediaUsage = (data?.usage ?? []).map(normalizeMediaUsage);
+			mediaUsage = (data.usage ?? []).map(normalizeMediaUsage);
+			usageDataReady = true;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			usageError = errorMessage(e, m.media_usage_load_failed());
@@ -708,21 +1025,34 @@
 
 	async function saveDetailAltText(): Promise<void> {
 		if (!selectedMedia || detailSaving) return;
+		const context = captureMediaMutationContext();
+		const mediaID = selectedMedia.id;
+		const nextAltText = detailAltText.trim();
+		const saveSequence = ++detailSaveSequence;
 		detailSaving = true;
 		try {
-			const { error: updateError } = await client.PATCH('/media/{id}', {
-				params: { path: { id: selectedMedia.id } },
-				body: { alt_text: detailAltText.trim() }
+			const { error: updateError, response } = await client.PATCH('/media/{id}', {
+				params: { path: { id: mediaID } },
+				body: { alt_text: nextAltText }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (updateError) throw new Error(updateError.detail || m.media_alt_update_failed());
-			selectedMedia.alt_text = detailAltText.trim();
-			const item = mediaItems.find((media) => media.id === selectedMedia?.id);
-			if (item) item.alt_text = detailAltText.trim();
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
+				...item,
+				alt_text: nextAltText
+			}));
+			if (!viewIsCurrent || saveSequence !== detailSaveSequence) return;
+
+			if (selectedMedia?.id === mediaID) selectedMedia.alt_text = nextAltText;
+			const item = mediaItems.find((media) => media.id === mediaID);
+			if (item) item.alt_text = nextAltText;
 			notify(m.media_alt_saved(), 'success');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_alt_update_failed(), 'error');
+			if (mediaMutationSurfaceIsCurrent(context) && saveSequence === detailSaveSequence) {
+				notify(cause instanceof Error ? cause.message : m.media_alt_update_failed(), 'error');
+			}
 		} finally {
-			detailSaving = false;
+			if (saveSequence === detailSaveSequence) detailSaving = false;
 		}
 	}
 
@@ -734,36 +1064,72 @@
 
 	async function renameMedia(filename: string): Promise<void> {
 		if (!mediaToRename) return;
-		const mediaID = mediaToRename.id;
-		const { error: updateError } = await client.PATCH('/media/{id}', {
-			params: { path: { id: mediaID } },
-			body: { original_filename: filename }
-		});
-		if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
-
-		const current = mediaItems.find((media) => media.id === mediaID);
-		const extension = mediaToRename.original_filename.match(/\.[^.]+$/u)?.[0] ?? '';
+		const context = captureMediaMutationContext();
+		const target = mediaToRename;
+		const mediaID = target.id;
+		const extension = target.original_filename.match(/\.[^.]+$/u)?.[0] ?? '';
 		const nextFilename =
 			/\.[^.]+$/u.test(filename) || !extension ? filename : `${filename}${extension}`;
-		if (current) current.original_filename = nextFilename;
-		if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
-		mediaToRename.original_filename = nextFilename;
-		notify(m.media_renamed(), 'success');
+		try {
+			const { error: updateError, response } = await client.PATCH('/media/{id}', {
+				params: { path: { id: mediaID } },
+				body: { original_filename: filename }
+			});
+			if (!settleQueryMutationSession(context.session, response)) return;
+			if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
+
+			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
+				...item,
+				original_filename: nextFilename
+			}));
+			if (!viewIsCurrent) return;
+
+			const current = mediaItems.find((media) => media.id === mediaID);
+			if (current) current.original_filename = nextFilename;
+			if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
+			if (mediaToRename?.id === mediaID) mediaToRename.original_filename = nextFilename;
+			notify(m.media_renamed(), 'success');
+		} catch (cause) {
+			if (!mediaMutationSurfaceIsCurrent(context)) return;
+			throw cause;
+		}
 	}
 
 	async function retryVideoAnalysis(media: MediaItem): Promise<void> {
+		const context = captureMediaMutationContext();
 		try {
-			const { error: retryError } = await client.POST('/media/{id}/analysis/retry', {
+			const { error: retryError, response } = await client.POST('/media/{id}/analysis/retry', {
 				params: { path: { id: media.id } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (retryError) throw new Error(retryError.detail || m.media_video_retry_failed());
-			media.processing_status = 'processing';
-			media.processing_progress = 0;
-			media.analysis_status = 'pending';
-			media.analysis_error = '';
+			const viewIsCurrent = await reconcileMediaMutation(context, media.id, (item) => ({
+				...item,
+				processing_status: 'processing',
+				processing_progress: 0,
+				analysis_status: 'pending',
+				analysis_error: ''
+			}));
+			if (!viewIsCurrent) return;
+
+			const current = mediaItems.find((item) => item.id === media.id);
+			if (current) {
+				current.processing_status = 'processing';
+				current.processing_progress = 0;
+				current.analysis_status = 'pending';
+				current.analysis_error = '';
+			}
+			if (selectedMedia?.id === media.id) {
+				selectedMedia.processing_status = 'processing';
+				selectedMedia.processing_progress = 0;
+				selectedMedia.analysis_status = 'pending';
+				selectedMedia.analysis_error = '';
+			}
 			notify(m.media_video_retry_started(), 'neutral');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_video_retry_failed(), 'error');
+			if (mediaMutationSurfaceIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_video_retry_failed(), 'error');
+			}
 		}
 	}
 
@@ -774,8 +1140,11 @@
 		usageLoading = false;
 		usageError = '';
 		mediaUsage = [];
+		usageDataReady = false;
 		selectedMedia = null;
 		deletionBlockedByUsage = false;
+		detailSaveSequence++;
+		detailSaving = false;
 	}
 
 	function formatSize(bytes: number): string {
@@ -965,9 +1334,25 @@
 		return () => window.clearInterval(timer);
 	});
 
+	onDestroy(() => {
+		routeActive = false;
+		mediaRequestSequence++;
+		hubRequestSequence++;
+		usageRequestSequence++;
+		detailSaveSequence++;
+	});
+
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
 		untrack(() => {
+			workspaceViewRevision++;
+			organizationSaveSequence++;
+			organizationSaving = false;
+			selectionOrganizationDialogOpen = false;
+			batchTagID = '';
+			deleteDialogOpen = false;
+			deletionRequest = null;
+			if (usageDialogOpen) handleUsageDialogOpenChange(false);
 			void loadMedia(workspaceID);
 			void loadImageEditorHub(workspaceID);
 		});
@@ -1006,6 +1391,16 @@
 		].filter(Boolean).length
 	);
 	const totalPages = $derived(Math.ceil(totalCount / pageSize));
+	const initialRouteLoading = $derived(
+		mediaInitialLoading({
+			workspaceLoading: loading,
+			hasWorkspace: Boolean(selectedWorkspaceId),
+			mediaReady: mediaDataReady && loadedMediaWorkspaceId === selectedWorkspaceId,
+			mediaSettled: mediaSettledWorkspaceId === selectedWorkspaceId,
+			hubReady: hubDataReady && loadedHubWorkspaceId === selectedWorkspaceId,
+			hubSettled: hubSettledWorkspaceId === selectedWorkspaceId
+		})
+	);
 	const allMediaSelected = $derived(
 		mediaItems.length > 0 && mediaItems.every((media) => selectedMediaIds.has(media.id))
 	);
@@ -1049,7 +1444,7 @@
 	title={m.media_hub_title()}
 	description={descriptionText}
 	icon={ImageIcon}
-	{loading}
+	loading={initialRouteLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="gallery"
 >
@@ -1074,16 +1469,44 @@
 		{/if}
 	{/snippet}
 
-	{#if mediaLoading && mediaItems.length > 0}
+	{#if mediaLoading && mediaDataReady}
 		<span class="sr-only" role="status">{m.common_loading()}</span>
 	{/if}
-	{#if error && mediaItems.length > 0}
+	{#if hubLoading && (hubDataReady || hubSettledWorkspaceId === selectedWorkspaceId)}
+		<span class="sr-only" role="status">{m.common_loading()}</span>
+	{/if}
+	{#if hubError}
+		<InlineNotice tone={hubDataReady ? 'warning' : 'error'} message={hubError}>
+			{#snippet actions()}
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={hubLoading}
+					onclick={() => loadImageEditorHub(selectedWorkspaceId, true)}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
+	{#if error && mediaDataReady}
 		<InlineNotice
 			tone="error"
 			message={error}
 			dismissLabel={m.common_close()}
 			onDismiss={() => (error = '')}
-		/>
+		>
+			{#snippet actions()}
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={mediaLoading}
+					onclick={() => loadMedia(selectedWorkspaceId, true)}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
 	{/if}
 
 	<nav
@@ -1099,7 +1522,7 @@
 				onclick={() => {
 					lifecycleView = view.value;
 					currentPage = 0;
-					void loadMedia();
+					void loadMedia(selectedWorkspaceId);
 				}}
 			>
 				{view.label}
@@ -1283,12 +1706,10 @@
 		</div>
 	{/if}
 
-	{#if (mediaLoading || hubLoading) && mediaItems.length === 0}
-		<PageLoading layout="gallery" label={m.common_loading()} items={10} />
-	{:else if error && mediaItems.length === 0}
+	{#if error && !mediaDataReady}
 		<InlineNotice tone="error" message={error} class="my-2">
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => loadMedia()}>
+				<Button variant="outline" size="sm" onclick={() => loadMedia(selectedWorkspaceId, true)}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -2066,11 +2487,11 @@
 
 		<div class="space-y-2 py-4">
 			<h3 class="text-sm font-semibold">{m.media_used_by()}</h3>
-			{#if usageLoading}
+			{#if usageLoading && !usageDataReady}
 				<div class="py-4">
 					<PageLoading layout="list" label={m.common_loading()} items={3} />
 				</div>
-			{:else if usageError}
+			{:else if usageError && !usageDataReady}
 				<InlineNotice tone="error" message={usageError}>
 					{#snippet actions()}
 						<Button
@@ -2082,31 +2503,49 @@
 						</Button>
 					{/snippet}
 				</InlineNotice>
-			{:else if mediaUsage.length === 0}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					{m.media_usage_empty()}
-				</p>
 			{:else}
-				{#each mediaUsage as usage (`${usage.kind}-${usage.id}`)}
-					<div class="rounded-lg border p-3">
-						<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
-						<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
-						<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-							{#if usage.status}
-								<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
-									{mediaUsageStatusLabel(usage.status)}
-								</span>
-							{/if}
-							{#if usage.scheduled_at}
-								<span
-									>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
-										timeZone: workspaceCtx.settings.timezone || 'UTC'
-									})}</span
-								>
-							{/if}
+				{#if usageLoading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if usageError}
+					<InlineNotice tone="error" message={usageError}>
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => selectedMedia && showUsage(selectedMedia)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
+				{#if mediaUsage.length === 0}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						{m.media_usage_empty()}
+					</p>
+				{:else}
+					{#each mediaUsage as usage (`${usage.kind}-${usage.id}`)}
+						<div class="rounded-lg border p-3">
+							<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
+							<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
+							<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
+								{#if usage.status}
+									<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
+										{mediaUsageStatusLabel(usage.status)}
+									</span>
+								{/if}
+								{#if usage.scheduled_at}
+									<span
+										>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
+											timeZone: workspaceCtx.settings.timezone || 'UTC'
+										})}</span
+									>
+								{/if}
+							</div>
 						</div>
-					</div>
-				{/each}
+					{/each}
+				{/if}
 			{/if}
 		</div>
 

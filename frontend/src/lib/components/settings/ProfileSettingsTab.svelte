@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { auth } from '$lib/stores/auth';
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { resolveAppPath } from '$lib/app-path';
 	import { client } from '$lib/api/client';
 	import { showToast } from '$lib/toast';
@@ -22,6 +24,15 @@
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		adminQueryKeys,
+		authConfigurationQueryOptions,
+		publicProfileQueryKeys
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 
 	type AppearanceMode = 'system' | 'light' | 'dark';
 	const publicProfileFieldIDs = [
@@ -40,22 +51,34 @@
 	let profileUsername = $state('');
 	let profilePublic = $state(false);
 	let profileVisibleFields = $state.raw<string[]>([]);
-	let publicProfilesAvailable = $state<boolean | null>(null);
-	let publicProfilesError = $state('');
+	let savedProfileDisplayName = $state('');
+	let savedProfileUsername = $state('');
+	let savedProfilePublic = $state(false);
+	let savedProfileVisibleFields = $state.raw<string[]>([]);
 	let profileBusy = $state(false);
 	let profileError = $state('');
 	let avatarUploaderOpen = $state(false);
 	let lastProfileUserID = $state('');
+	let avatarUploaderUserID = '';
+	let avatarUploaderIdentity: AuthIdentityToken | undefined;
+	let avatarUploaderOpenedGeneration = 0;
+	let avatarUploaderGeneration = 0;
+	let profileMutationGeneration = 0;
+	let mounted = true;
+	const authConfigurationQuery = createQuery(() => authConfigurationQueryOptions(authQueryAPI));
+	const publicProfilesAvailable = $derived(
+		authConfigurationQuery.data?.public_profiles_enabled ?? null
+	);
+	const publicProfilesError = $derived(authConfigurationQuery.error?.message ?? '');
 
 	const profileEmail = $derived(authState.user?.email ?? '');
 	const profileAvatarURL = $derived(authState.user?.avatar_url ?? '');
 	const profileDirty = $derived(
-		profileDisplayName !== (authState.user?.display_name ?? '') ||
-			profileUsername !== (authState.user?.username ?? '') ||
+		profileDisplayName !== savedProfileDisplayName ||
+			profileUsername !== savedProfileUsername ||
 			(publicProfilesAvailable === true &&
-				(profilePublic !== Boolean(authState.user?.public_profile_enabled) ||
-					sortedValues(profileVisibleFields) !==
-						sortedValues(authState.user?.public_profile_visible_fields ?? publicProfileFieldIDs)))
+				(profilePublic !== savedProfilePublic ||
+					sortedValues(profileVisibleFields) !== sortedValues(savedProfileVisibleFields)))
 	);
 	const selectedPublicProfileFields = $derived(
 		publicProfileFieldIDs.filter((field) => profileVisibleFields.includes(field))
@@ -108,80 +131,220 @@
 			: profileVisibleFields.filter((value) => value !== field);
 	}
 
+	function evictPublicProfiles(...usernames: Array<string | null | undefined>) {
+		const normalizedUsernames = usernames.flatMap((value) => {
+			const username = value?.trim();
+			return username ? [username] : [];
+		});
+		for (const username of new Set(normalizedUsernames)) {
+			queryClient.removeQueries({
+				queryKey: publicProfileQueryKeys.detail(username),
+				exact: true
+			});
+		}
+	}
+
+	function profileMutationIsCurrent(identity: AuthIdentityToken, generation: number) {
+		return (
+			generation === profileMutationGeneration &&
+			auth.isIdentityCurrent(identity) &&
+			authState.user?.id === identity.userID &&
+			lastProfileUserID === identity.userID
+		);
+	}
+
+	function openAvatarUploader() {
+		const identity = auth.captureIdentity();
+		if (!identity) return;
+		avatarUploaderUserID = identity.userID;
+		avatarUploaderIdentity = identity;
+		avatarUploaderOpenedGeneration = ++avatarUploaderGeneration;
+		avatarUploaderOpen = true;
+	}
+
+	function avatarActorIsCurrent() {
+		return (
+			auth.isIdentityCurrent(avatarUploaderIdentity) &&
+			get(auth).user?.id === avatarUploaderUserID &&
+			lastProfileUserID === avatarUploaderUserID
+		);
+	}
+
+	function avatarUploadIsCurrent() {
+		return (
+			mounted &&
+			avatarUploaderOpenedGeneration === avatarUploaderGeneration &&
+			avatarActorIsCurrent()
+		);
+	}
+
 	async function saveProfile(event: SubmitEvent) {
 		event.preventDefault();
+		const identity = auth.captureIdentity();
+		if (!identity || identity.userID !== lastProfileUserID) return;
+		const generation = profileMutationGeneration;
+		const previousUsername = authState.user?.username;
+		const body = buildProfileUpdateBody({
+			displayName: profileDisplayName,
+			username: profileUsername,
+			publicProfilesAvailable,
+			publicProfileEnabled: profilePublic,
+			publicProfileVisibleFields: [...profileVisibleFields]
+		});
 		profileBusy = true;
 		profileError = '';
 		try {
 			const { data, error } = await client.PATCH('/auth/profile', {
-				body: buildProfileUpdateBody({
-					displayName: profileDisplayName,
-					username: profileUsername,
-					publicProfilesAvailable,
-					publicProfileEnabled: profilePublic,
-					publicProfileVisibleFields: profileVisibleFields
-				})
+				body
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
-			auth.setUser(data);
+			if (!auth.isIdentityCurrent(identity)) return;
+			const currentUser = get(auth).user;
+			if (currentUser?.id !== identity.userID) return;
+			auth.setUser({
+				...currentUser,
+				display_name: data.display_name,
+				username: data.username,
+				public_profile_enabled: data.public_profile_enabled,
+				public_profile_visible_fields: data.public_profile_visible_fields
+			});
+			evictPublicProfiles(previousUsername, data.username);
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+				queryClient.invalidateQueries({
+					queryKey: adminQueryKeys.aiPrompts(),
+					exact: true
+				})
+			]);
+			if (!profileMutationIsCurrent(identity, generation)) return;
 			profileDisplayName = data.display_name ?? '';
 			profileUsername = data.username ?? '';
 			profilePublic = Boolean(data.public_profile_enabled);
 			profileVisibleFields = [...(data.public_profile_visible_fields ?? publicProfileFieldIDs)];
+			savedProfileDisplayName = profileDisplayName;
+			savedProfileUsername = profileUsername;
+			savedProfilePublic = profilePublic;
+			savedProfileVisibleFields = [...profileVisibleFields];
 			notify(m.settings_profile_updated());
 		} catch (error) {
-			profileError = error instanceof Error ? error.message : m.settings_action_failed();
-		} finally {
-			profileBusy = false;
-		}
-	}
-
-	async function loadPublicProfileCapability() {
-		publicProfilesError = '';
-		publicProfilesAvailable = null;
-		try {
-			const { data, error } = await client.GET('/auth/config');
-			if (error || !data) {
-				throw new Error(error?.detail || m.settings_action_failed());
+			if (profileMutationIsCurrent(identity, generation)) {
+				profileError = error instanceof Error ? error.message : m.settings_action_failed();
 			}
-			publicProfilesAvailable = data.public_profiles_enabled;
-		} catch (error) {
-			publicProfilesAvailable = null;
-			publicProfilesError = error instanceof Error ? error.message : m.settings_action_failed();
+		} finally {
+			if (profileMutationIsCurrent(identity, generation)) profileBusy = false;
 		}
 	}
 
 	function handleAvatarUploaded(avatarURL: string) {
-		if (authState.user) auth.setUser({ ...authState.user, avatar_url: avatarURL });
+		if (!avatarActorIsCurrent()) return;
+		const user = get(auth).user;
+		if (!user) return;
+		evictPublicProfiles(user.username);
+		auth.setUser({ ...user, avatar_url: avatarURL });
+		void queryClient.invalidateQueries({
+			queryKey: adminQueryKeys.usersRoot()
+		});
+		if (!avatarUploadIsCurrent()) return;
 		notify(m.settings_picture_updated());
+	}
+
+	async function reconcileUncertainAvatarUpload() {
+		const actorID = avatarUploaderUserID;
+		const identity = avatarUploaderIdentity;
+		if (!identity || !avatarActorIsCurrent()) return;
+		const user = get(auth).user;
+		if (!actorID || user?.id !== actorID) return;
+		evictPublicProfiles(user.username);
+		void queryClient.invalidateQueries({
+			queryKey: adminQueryKeys.usersRoot()
+		});
+		const projection = auth.captureUserProjection(actorID);
+		if (!projection) return;
+		try {
+			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id, {
+				selectionIsCurrent: () => auth.isIdentityCurrent(identity)
+			});
+			if (auth.isIdentityCurrent(identity)) auth.projectBootstrap(bootstrap, projection);
+		} catch {
+			// The invalidated bootstrap retries when the next owner mounts.
+		}
 	}
 
 	async function removeAvatar() {
 		if (!profileAvatarURL) return;
+		const identity = auth.captureIdentity();
+		const user = authState.user;
+		if (!identity || !user || identity.userID !== user.id || user.id !== lastProfileUserID) return;
+		const generation = profileMutationGeneration;
 		profileBusy = true;
 		profileError = '';
 		try {
 			const { error } = await client.DELETE('/auth/profile/avatar', {});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (authState.user) auth.setUser({ ...authState.user, avatar_url: '' });
+			if (!auth.isIdentityCurrent(identity)) return;
+			const currentUser = get(auth).user;
+			if (currentUser?.id !== identity.userID) return;
+			evictPublicProfiles(currentUser.username);
+			auth.setUser({ ...currentUser, avatar_url: '' });
+			await queryClient.invalidateQueries({
+				queryKey: adminQueryKeys.usersRoot()
+			});
+			if (!profileMutationIsCurrent(identity, generation)) return;
 			notify(m.settings_picture_removed());
 		} catch (error) {
-			profileError = error instanceof Error ? error.message : m.settings_action_failed();
+			if (profileMutationIsCurrent(identity, generation)) {
+				profileError = error instanceof Error ? error.message : m.settings_action_failed();
+			}
 		} finally {
-			profileBusy = false;
+			if (profileMutationIsCurrent(identity, generation)) profileBusy = false;
 		}
 	}
 
 	$effect(() => {
 		const user = authState.user;
-		if (user?.id && user.id !== lastProfileUserID) {
-			lastProfileUserID = user.id;
-			profileDisplayName = user.display_name || '';
-			profileUsername = user.username || '';
-			profilePublic = Boolean(user.public_profile_enabled);
-			profileVisibleFields = [...(user.public_profile_visible_fields ?? publicProfileFieldIDs)];
-			void loadPublicProfileCapability();
+		const userID = user?.id ?? '';
+		const actorChanged = userID !== lastProfileUserID;
+		const preserveDraft = !actorChanged && profileDirty;
+		if (actorChanged) {
+			profileMutationGeneration += 1;
+			lastProfileUserID = userID;
+			avatarUploaderUserID = '';
+			avatarUploaderIdentity = undefined;
+			avatarUploaderOpen = false;
+			profileBusy = false;
+			profileError = '';
 		}
+		if (user && userID) {
+			const displayName = user.display_name || '';
+			const username = user.username || '';
+			const publicProfile = Boolean(user.public_profile_enabled);
+			const visibleFields = [...(user.public_profile_visible_fields ?? publicProfileFieldIDs)];
+			savedProfileDisplayName = displayName;
+			savedProfileUsername = username;
+			savedProfilePublic = publicProfile;
+			savedProfileVisibleFields = visibleFields;
+			if (!preserveDraft) {
+				profileDisplayName = displayName;
+				profileUsername = username;
+				profilePublic = publicProfile;
+				profileVisibleFields = [...visibleFields];
+			}
+		} else {
+			savedProfileDisplayName = '';
+			savedProfileUsername = '';
+			savedProfilePublic = false;
+			savedProfileVisibleFields = [];
+			profileDisplayName = '';
+			profileUsername = '';
+			profilePublic = false;
+			profileVisibleFields = [];
+		}
+	});
+
+	onDestroy(() => {
+		mounted = false;
+		avatarUploaderGeneration += 1;
+		profileMutationGeneration += 1;
 	});
 
 	$effect(() => {
@@ -194,7 +357,10 @@
 	<ProfileAvatarUploader
 		bind:open={avatarUploaderOpen}
 		onComplete={handleAvatarUploaded}
-		onError={(message) => (profileError = message)}
+		onUncertain={() => void reconcileUncertainAvatarUpload()}
+		onError={(message) => {
+			if (avatarUploadIsCurrent()) profileError = message;
+		}}
 	/>
 {/if}
 
@@ -217,7 +383,7 @@
 			<button
 				type="button"
 				data-cuelume-toggle="release"
-				onclick={() => (avatarUploaderOpen = true)}
+				onclick={openAvatarUploader}
 				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:inset-auto [@media(pointer:coarse)]:right-0 [@media(pointer:coarse)]:bottom-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-2 [@media(pointer:coarse)]:border-background [@media(pointer:coarse)]:opacity-100"
 				aria-label={m.settings_change_profile_picture()}
 			>
@@ -259,7 +425,7 @@
 			</div>
 			<p class="text-sm text-muted-foreground">{profileEmail}</p>
 			<div class="flex flex-wrap gap-2">
-				<Button type="button" variant="outline" onclick={() => (avatarUploaderOpen = true)}
+				<Button type="button" variant="outline" onclick={openAvatarUploader}
 					><CameraIcon class="mr-2 h-4 w-4" />{m.settings_change_picture()}</Button
 				>
 				{#if profileAvatarURL}<Button
@@ -285,6 +451,23 @@
 		</p>
 		<p class="mt-3 text-sm font-medium break-all">{profileEmail}</p>
 	</div>
+	{#if publicProfilesError}
+		<InlineNotice
+			tone={publicProfilesAvailable === null ? 'error' : 'warning'}
+			message={publicProfilesError}
+		>
+			{#snippet actions()}
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={() => void authConfigurationQuery.refetch()}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
 
 	{#if publicProfilesAvailable === false}
 		<InlineNotice tone="info" message={m.settings_public_profile_unavailable()} />
@@ -317,7 +500,9 @@
 			</div>
 			<div class="space-y-3 border-t pt-4">
 				<div>
-					<p class="text-sm font-medium">{m.settings_public_profile_fields()}</p>
+					<p class="text-sm font-medium">
+						{m.settings_public_profile_fields()}
+					</p>
 					<p class="mt-1 text-sm leading-6 text-muted-foreground">
 						{m.settings_public_profile_fields_description()}
 					</p>
@@ -341,7 +526,9 @@
 					/>{/if}
 			</div>
 			<div class="rounded-lg border bg-background p-4" data-testid="public-profile-preview">
-				<p class="mb-3 text-sm font-medium">{m.settings_public_profile_preview()}</p>
+				<p class="mb-3 text-sm font-medium">
+					{m.settings_public_profile_preview()}
+				</p>
 				<div class="flex items-center gap-3">
 					{#if profileAvatarURL && profileVisibleFields.includes('avatar')}<img
 							src={profileAvatarURL}
@@ -358,7 +545,9 @@
 							>
 								{profileDisplayName}
 							</p>{/if}
-						<p class="truncate text-sm text-muted-foreground">@{profileUsername}</p>
+						<p class="truncate text-sm text-muted-foreground">
+							@{profileUsername}
+						</p>
 					</div>
 				</div>
 				{#if !profilePublic}<p class="mt-3 text-sm text-muted-foreground">
@@ -371,16 +560,7 @@
 					</div>{/if}
 			</div>
 		</div>
-	{:else if publicProfilesError}
-		<InlineNotice tone="error" message={publicProfilesError}
-			>{#snippet actions()}<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onclick={() => void loadPublicProfileCapability()}>{m.common_retry()}</Button
-				>{/snippet}</InlineNotice
-		>
-	{:else}
+	{:else if !publicProfilesError}
 		<p class="rounded-xl border bg-muted/20 p-4 text-sm text-muted-foreground" aria-live="polite">
 			{m.common_loading()}
 		</p>

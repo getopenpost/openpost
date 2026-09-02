@@ -1,5 +1,10 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  captureResponsiveReview,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 const tinyPNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -381,6 +386,55 @@ test("media load failures stay distinct from a genuine empty library and can ret
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("No media found")).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("media hub failures keep upload available and retry all hub reads", async ({
+  page,
+  request,
+}, testInfo) => {
+  const seed = `media-hub-retry-${Date.now().toString(36)}-${testInfo.workerIndex}`;
+  await createAuthenticatedWorkspace(page, request, seed);
+
+  const attempts = { config: 0, tags: 0, storage: 0 };
+  await page.route("**/api/v1/image-editor/presets", (route) => {
+    attempts.config += 1;
+    if (attempts.config > 1) return route.continue();
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Image Editor setup unavailable" }),
+    });
+  });
+  await page.route("**/api/v1/media/tags?**", (route) => {
+    attempts.tags += 1;
+    if (attempts.tags > 1) return route.continue();
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Media tags unavailable" }),
+    });
+  });
+  await page.route("**/api/v1/media/storage?**", (route) => {
+    attempts.storage += 1;
+    if (attempts.storage > 1) return route.continue();
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Media storage unavailable" }),
+    });
+  });
+
+  await page.goto("/media");
+  const notice = page.getByRole("alert").filter({ hasText: "Image Editor setup unavailable" });
+  await expect(notice).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add media", exact: true })).toBeVisible();
+  await expect(page.getByText("No media found")).toBeVisible();
+  await captureResponsiveReview(page, testInfo, "media-hub-cold-error");
+
+  await notice.getByRole("button", { name: "Try again" }).click();
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add media", exact: true })).toBeVisible();
+  expect(attempts).toEqual({ config: 2, tags: 2, storage: 2 });
 });
 
 test("invitation acceptance ignores a transient failure and retries in place", async ({

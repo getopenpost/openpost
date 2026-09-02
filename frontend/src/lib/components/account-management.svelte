@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { client, type SocialAccount, type ProviderInfo } from '$lib/api/client';
 	import type { AccountManagementProps } from '$lib/account-management';
 	import { Badge } from '$lib/components/ui/badge';
@@ -46,6 +48,26 @@
 		presentProviderReadiness,
 		type ProviderReadinessPresentation
 	} from '$lib/provider-readiness';
+	import {
+		accountFeaturesQueryOptions,
+		accountProvidersQueryOptions,
+		featureQueryKeys,
+		OpenPostQueryError,
+		openPostQueryKeys,
+		publicProfileQueryKeys,
+		workspaceAccountsQueryOptions
+	} from '@openpost/query-catalog';
+	import {
+		accountCatalogQueryAPI,
+		invalidateAccountMutationDependencies
+	} from '$lib/query/accounts';
+	import { featureQueryAPI } from '$lib/query/features';
+	import { queryAPI } from '$lib/query/api';
+	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type ProviderEntry = ProviderInfo;
 	let {
@@ -63,6 +85,7 @@
 	type AccountRemovalAction = {
 		kind: AccountRemovalKind;
 		account: SocialAccount;
+		workspaceID: string;
 	};
 
 	function isConnectorAccount(account: SocialAccount): boolean {
@@ -79,14 +102,42 @@
 	let error = $state('');
 
 	let accounts = $state<SocialAccount[]>([]);
+	let accountsReady = $state(false);
 	let accountsLoading = $state(false);
 	let accountsLoadError = $state('');
 	let accountsWorkspaceID = '';
 	let accountsRequestSequence = 0;
 
 	let providerEntries = $state.raw<ProviderEntry[]>([]);
+	let providersReady = $state(false);
 	let providersLoading = $state(false);
 	let providersLoadError = $state('');
+	let providersWorkspaceID = '';
+	let providersRequestSequence = 0;
+	const reportAccountsInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.accounts
+	);
+	const reportAccountProvidersInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.accountProviders
+	);
+	$effect(() =>
+		reportAccountsInitialLoad(
+			Boolean(
+				selectedWorkspaceId &&
+				!accountsLoadError &&
+				(accountsWorkspaceID !== selectedWorkspaceId || (accountsLoading && !accountsReady))
+			)
+		)
+	);
+	$effect(() =>
+		reportAccountProvidersInitialLoad(
+			Boolean(
+				selectedWorkspaceId &&
+				!providersLoadError &&
+				(providersWorkspaceID !== selectedWorkspaceId || (providersLoading && !providersReady))
+			)
+		)
+	);
 	let mastodonModalOpen = $state(false);
 	let customMastodonInstance = $state('');
 	let customMastodonLoading = $state(false);
@@ -128,9 +179,12 @@
 
 	let editAccountDialogOpen = $state(false);
 	let editingAccount = $state<SocialAccount | null>(null);
+	let editingWorkspaceID = '';
+	let editRequestSequence = 0;
 	let editAccountSlug = $state('');
 	let editFeatureSelections = $state<Record<string, boolean>>({});
 	let editFeatures = $state<components['schemas']['FeatureStateResponse'][]>([]);
+	let editFeaturesReady = $state(false);
 	let editFeaturesLoading = $state(false);
 	let editFeaturesError = $state('');
 	let editFeaturesInitial = $state<Record<string, boolean>>({});
@@ -153,7 +207,34 @@
 	let accountMetadataRefreshError = $state('');
 	let accountRemovalDialogOpen = $state(false);
 	let accountRemovalAction = $state.raw<AccountRemovalAction | null>(null);
+	let accountRemovalRequestSequence = 0;
+	let activeAccountScope = '';
+	let connectionMutationSequence = 0;
 	const accountSlugPattern = '[a-z0-9][a-z0-9-]{0,62}';
+	type ConnectionRequest = {
+		workspaceID: string;
+		identity: AuthIdentityToken;
+		sequence: number;
+	};
+
+	function actorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	function beginConnectionRequest(): ConnectionRequest | null {
+		const workspaceID = selectedWorkspaceId;
+		const identity = auth.captureIdentity();
+		if (!workspaceID || !identity) return null;
+		return { workspaceID, identity, sequence: ++connectionMutationSequence };
+	}
+
+	function isCurrentConnectionRequest(request: ConnectionRequest): boolean {
+		return (
+			request.sequence === connectionMutationSequence &&
+			selectedWorkspaceId === request.workspaceID &&
+			actorIsCurrent(request.identity)
+		);
+	}
 
 	function clearToast() {
 		toastMessage = '';
@@ -210,9 +291,11 @@
 		lastFailedMessage = '';
 	}
 
-	async function loadAccounts(workspaceID = selectedWorkspaceId) {
+	async function loadAccounts(options: { workspaceID?: string; refresh?: boolean } = {}) {
+		const workspaceID = options.workspaceID ?? selectedWorkspaceId;
 		if (!workspaceID) {
 			accountsRequestSequence++;
+			accountsReady = false;
 			accountsLoading = false;
 			accountsLoadError = '';
 			accounts = [];
@@ -223,18 +306,37 @@
 			requestSequence === accountsRequestSequence && selectedWorkspaceId === workspaceID;
 		const workspaceChanged = accountsWorkspaceID !== workspaceID;
 		accountsWorkspaceID = workspaceID;
-		accountsLoading = true;
 		accountsLoadError = '';
-		if (workspaceChanged) accounts = [];
+		const queryKey = openPostQueryKeys.accounts(workspaceID);
+		const cachedAccounts = queryClient.getQueryData<SocialAccount[]>(queryKey);
+		if (cachedAccounts !== undefined) {
+			accounts = cachedAccounts;
+			accountsReady = true;
+		} else if (workspaceChanged) {
+			accounts = [];
+			accountsReady = false;
+		}
+		accountsLoading = !accountsReady;
 		try {
-			const { data, error: err } = await client.GET('/accounts', {
-				params: { query: { workspace_id: workspaceID } }
-			});
-			if (err) throw new Error(err.detail || m.accounts_load_failed());
+			if (options.refresh) {
+				await queryClient.invalidateQueries({
+					queryKey,
+					exact: true
+				});
+			}
+			const data = await queryClient.fetchQuery(
+				workspaceAccountsQueryOptions(queryAPI, workspaceID)
+			);
 			if (!isCurrentRequest()) return;
-			accounts = data ?? [];
+			accounts = data;
+			accountsReady = true;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({ queryKey, exact: true });
+				accounts = [];
+				accountsReady = false;
+			}
 			console.error('Failed to load accounts:', e);
 			accountsLoadError = e instanceof Error ? e.message : m.accounts_load_failed();
 		} finally {
@@ -242,22 +344,48 @@
 		}
 	}
 
-	async function loadProviders(workspaceID = selectedWorkspaceId) {
-		providersLoading = true;
+	async function loadProviders(loadOptions: { workspaceID?: string; refresh?: boolean } = {}) {
+		const workspaceID = loadOptions.workspaceID ?? selectedWorkspaceId;
+		const requestSequence = ++providersRequestSequence;
+		const isCurrentRequest = () =>
+			requestSequence === providersRequestSequence && selectedWorkspaceId === workspaceID;
+		const workspaceChanged = providersWorkspaceID !== workspaceID;
+		providersWorkspaceID = workspaceID;
 		providersLoadError = '';
+		const options = accountProvidersQueryOptions(accountCatalogQueryAPI, workspaceID);
+		const cachedProviders = queryClient.getQueryData<ProviderEntry[]>(options.queryKey);
+		if (cachedProviders !== undefined) {
+			providerEntries = cachedProviders;
+			providersReady = true;
+		} else if (workspaceChanged) {
+			providerEntries = [];
+			providersReady = false;
+		}
+		providersLoading = !providersReady;
 		try {
-			const { data, error: err } = await client.GET('/accounts/providers', {
-				params: { query: { workspace_id: workspaceID || undefined } }
-			});
-			if (err) throw new Error(err.detail ?? m.accounts_providers_load_failed());
-			providerEntries = data ?? [];
+			if (loadOptions.refresh) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true
+				});
+			}
+			const data = await queryClient.fetchQuery(options);
+			if (!isCurrentRequest()) return;
+			providerEntries = data;
+			providersReady = true;
 			if (lastFailedMessage) clearConnectionFailure();
 		} catch (e) {
+			if (!isCurrentRequest()) return;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+				providerEntries = [];
+				providersReady = false;
+			}
 			console.error('Failed to load account providers:', e);
 			providersLoadError =
 				e instanceof Error && e.message ? e.message : m.accounts_providers_load_failed();
 		} finally {
-			providersLoading = false;
+			if (isCurrentRequest()) providersLoading = false;
 		}
 	}
 
@@ -273,7 +401,8 @@
 	let hasConnectionFailure = $derived(Boolean(lastFailedMessage || providersLoadError));
 
 	function requestAccountRemoval(account: SocialAccount, kind: AccountRemovalKind) {
-		accountRemovalAction = { account, kind };
+		if (!selectedWorkspaceId) return;
+		accountRemovalAction = { account, kind, workspaceID: selectedWorkspaceId };
 		accountRemovalDialogOpen = true;
 	}
 
@@ -334,9 +463,19 @@
 
 	async function confirmAccountRemoval(): Promise<DestructiveActionOutcome> {
 		const action = accountRemovalAction;
-		if (!action) return { ok: false };
+		if (!action || selectedWorkspaceId !== action.workspaceID) return { ok: false };
+		const identity = auth.captureIdentity();
+		if (!identity) return { ok: false };
+		const requestSequence = ++accountRemovalRequestSequence;
 		const account = action.account;
+		const workspaceID = action.workspaceID;
 		const count = grantDestinationCount(account);
+		const isSameActor = () => actorIsCurrent(identity);
+		const isCurrentRequest = () =>
+			isSameActor() &&
+			requestSequence === accountRemovalRequestSequence &&
+			selectedWorkspaceId === workspaceID &&
+			accountRemovalAction === action;
 		try {
 			const result =
 				action.kind === 'disconnect-destination'
@@ -351,7 +490,20 @@
 					? m.accounts_disconnect_failed()
 					: m.accounts_remove_authorization_failed();
 			if (result.error) throw new Error(result.error.detail || fallback);
-			await loadAccounts();
+			if (!isSameActor()) return { ok: false };
+			if (action.kind === 'disconnect-destination') {
+				queryClient.setQueryData<SocialAccount[]>(
+					openPostQueryKeys.accounts(workspaceID),
+					(current) => current?.filter((candidate) => candidate.id !== account.id)
+				);
+				if (isCurrentRequest()) {
+					accounts = accounts.filter((candidate) => candidate.id !== account.id);
+				}
+				await invalidateAccountMutationDependencies(queryClient, workspaceID);
+			} else {
+				await refreshAccountsAfterMutation(workspaceID, identity, isCurrentRequest);
+			}
+			if (!isCurrentRequest()) return { ok: false };
 			onAccountsChanged();
 			const successMessage = isConnectorAccount(account)
 				? m.accounts_connector_removed_success({
@@ -368,6 +520,7 @@
 							});
 			return { ok: true, successMessage };
 		} catch (e) {
+			if (!isCurrentRequest()) return { ok: false };
 			return {
 				ok: false,
 				message:
@@ -377,6 +530,35 @@
 							? m.accounts_disconnect_failed()
 							: m.accounts_remove_authorization_failed()
 			};
+		}
+	}
+
+	async function refreshAccountsAfterMutation(
+		workspaceID: string,
+		identity: AuthIdentityToken,
+		shouldPresent: () => boolean = () => selectedWorkspaceId === workspaceID
+	) {
+		if (!actorIsCurrent(identity)) return;
+		const queryKey = openPostQueryKeys.accounts(workspaceID);
+		await invalidateAccountMutationDependencies(queryClient, workspaceID);
+		if (!actorIsCurrent(identity)) return;
+		try {
+			const data = await queryClient.fetchQuery(
+				workspaceAccountsQueryOptions(queryAPI, workspaceID)
+			);
+			if (actorIsCurrent(identity) && shouldPresent() && selectedWorkspaceId === workspaceID) {
+				accounts = data;
+				accountsReady = true;
+				accountsLoadError = '';
+			}
+		} catch (cause) {
+			if (!actorIsCurrent(identity)) return;
+			queryClient.removeQueries({ queryKey, exact: true });
+			if (shouldPresent() && selectedWorkspaceId === workspaceID) {
+				accounts = [];
+				accountsReady = false;
+				accountsLoadError = cause instanceof Error ? cause.message : m.accounts_load_failed();
+			}
 		}
 	}
 
@@ -419,86 +601,197 @@
 	}
 
 	async function openEditAccount(account: SocialAccount) {
+		const workspaceID = selectedWorkspaceId;
+		if (!workspaceID) return;
+		const requestSequence = ++editRequestSequence;
 		editingAccount = account;
+		editingWorkspaceID = workspaceID;
 		editAccountSlug = account.slug ?? '';
 		editAccountError = '';
 		accountMetadataRefreshError = '';
 		editFeatures = [];
+		editFeaturesReady = false;
 		editFeatureSelections = {};
 		editFeaturesInitial = {};
 		editFeaturesError = '';
 		editAccountDialogOpen = true;
-		editFeaturesLoading = true;
+		await loadEditFeatures(account, workspaceID, requestSequence);
+	}
+
+	function applyEditFeatures(features: components['schemas']['FeatureStateResponse'][]) {
+		editFeatures = features;
+		const offered = features.filter((feature) => feature.availability !== 'unsupported');
+		const next: Record<string, boolean> = {};
+		for (const feature of offered) {
+			next[feature.feature] = feature.stored_exists
+				? feature.stored_enabled
+				: feature.effective_enabled;
+		}
+		editFeatureSelections = { ...next };
+		editFeaturesInitial = { ...next };
+	}
+
+	async function loadEditFeatures(
+		account: SocialAccount,
+		workspaceID: string,
+		requestSequence: number,
+		refresh = false
+	) {
+		const options = accountFeaturesQueryOptions(featureQueryAPI, workspaceID, [account.id]);
+		const cachedFeatures = queryClient.getQueryData<
+			components['schemas']['FeatureStateResponse'][]
+		>(options.queryKey);
+		editFeaturesReady = cachedFeatures !== undefined;
+		if (cachedFeatures !== undefined && !accountEditDirty) applyEditFeatures(cachedFeatures);
+		editFeaturesLoading = !editFeaturesReady;
+		editFeaturesError = '';
 		try {
-			const { data, error: err } = await client.GET('/account-features', {
-				params: {
-					query: { workspace_id: selectedWorkspaceId, account_ids: account.id }
-				}
-			});
-			if (err) {
-				editFeaturesError = err.detail ?? m.account_setup_error_load_failed();
+			if (refresh) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true
+				});
+			}
+			const features = await queryClient.fetchQuery(options);
+			if (
+				requestSequence !== editRequestSequence ||
+				selectedWorkspaceId !== workspaceID ||
+				editingWorkspaceID !== workspaceID ||
+				editingAccount?.id !== account.id
+			) {
 				return;
 			}
-			editFeatures = data ?? [];
-			const offered = editFeatures.filter((f) => f.availability !== 'unsupported');
-			const next: Record<string, boolean> = {};
-			for (const f of offered) {
-				next[f.feature] = f.stored_exists ? f.stored_enabled : f.effective_enabled;
-			}
-			editFeatureSelections = { ...next };
-			editFeaturesInitial = { ...next };
+			if (!accountEditDirty) applyEditFeatures(features);
+			editFeaturesReady = true;
 		} catch (e) {
+			if (
+				requestSequence !== editRequestSequence ||
+				selectedWorkspaceId !== workspaceID ||
+				editingAccount?.id !== account.id
+			)
+				return;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+				editFeatures = [];
+				editFeaturesReady = false;
+				editFeatureSelections = {};
+				editFeaturesInitial = {};
+			}
 			editFeaturesError = e instanceof Error ? e.message : m.account_setup_error_load_failed();
 		} finally {
-			editFeaturesLoading = false;
+			if (requestSequence === editRequestSequence) editFeaturesLoading = false;
 		}
+	}
+
+	function retryEditFeatures() {
+		const account = editingAccount;
+		const workspaceID = editingWorkspaceID;
+		if (!account || !workspaceID) return;
+		void loadEditFeatures(account, workspaceID, editRequestSequence, true);
+	}
+
+	function resetAccountEditor() {
+		editRequestSequence += 1;
+		editAccountDialogOpen = false;
+		editingAccount = null;
+		editingWorkspaceID = '';
+		editFeatures = [];
+		editFeaturesReady = false;
+		editFeatureSelections = {};
+		editFeaturesInitial = {};
+		editFeaturesLoading = false;
+		editAccountLoading = false;
+		accountMetadataRefreshing = false;
 	}
 
 	function handleEditAccountDialogOpen(nextOpen: boolean) {
 		if (!nextOpen && accountEditDirty && unsavedChanges && !unsavedChanges.confirmDiscard()) return;
-		editAccountDialogOpen = nextOpen;
-		if (!nextOpen) editingAccount = null;
+		if (nextOpen) editAccountDialogOpen = true;
+		else resetAccountEditor();
 	}
 
 	async function updateAccountSlug() {
-		if (!editingAccount || accountMetadataRefreshing) return;
+		const account = editingAccount;
+		const workspaceID = editingWorkspaceID;
+		const requestSequence = editRequestSequence;
+		const identity = auth.captureIdentity();
+		if (!account || !workspaceID || !identity || accountMetadataRefreshing) return;
+		const slug = editAccountSlug.trim();
+		const featureChoices = editFeatures
+			.filter((feature) => feature.availability !== 'unsupported')
+			.map((feature) => ({
+				account_id: account.id,
+				feature: feature.feature,
+				enabled: Boolean(editFeatureSelections[feature.feature]),
+				source: 'user_save' as const
+			}));
+		const isCurrentEditor = () =>
+			requestSequence === editRequestSequence &&
+			actorIsCurrent(identity) &&
+			selectedWorkspaceId === workspaceID &&
+			editingWorkspaceID === workspaceID &&
+			editingAccount?.id === account.id;
 		editAccountLoading = true;
 		editAccountError = '';
 		try {
 			const { error: err } = await client.PATCH('/accounts/{account_id}', {
-				params: { path: { account_id: editingAccount.id } },
+				params: { path: { account_id: account.id } },
 				body: {
-					slug: editAccountSlug.trim()
+					slug
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_update_slug_failed());
-			const offered = editFeatures.filter((f) => f.availability !== 'unsupported');
-			if (offered.length > 0) {
-				const choices = offered.map((f) => ({
-					account_id: editingAccount!.id,
-					feature: f.feature,
-					enabled: Boolean(editFeatureSelections[f.feature]),
-					source: 'user_save'
-				}));
+			if (!actorIsCurrent(identity)) return;
+			await queryClient.invalidateQueries({
+				queryKey: openPostQueryKeys.accounts(workspaceID),
+				exact: true
+			});
+			if (!actorIsCurrent(identity)) return;
+			if (featureChoices.length > 0) {
 				const { error: featErr } = await client.POST('/account-features', {
-					body: { workspace_id: selectedWorkspaceId, choices }
+					body: { workspace_id: workspaceID, choices: featureChoices }
 				});
 				if (featErr) throw new Error(featErr.detail ?? m.account_setup_error_load_failed());
+				if (!actorIsCurrent(identity)) return;
+				await queryClient.invalidateQueries({ queryKey: featureQueryKeys.all(workspaceID) });
+				await queryClient.invalidateQueries({
+					queryKey: openPostQueryKeys.accounts(workspaceID),
+					exact: true
+				});
 			}
-			editAccountDialogOpen = false;
-			editingAccount = null;
-			await loadAccounts();
+			if (!isCurrentEditor()) return;
+			resetAccountEditor();
+			await loadAccounts({ workspaceID });
 		} catch (e) {
+			if (!isCurrentEditor()) return;
 			editAccountError =
 				e instanceof Error && e.message ? e.message : m.accounts_update_slug_failed();
 		} finally {
-			editAccountLoading = false;
+			if (requestSequence === editRequestSequence) editAccountLoading = false;
 		}
 	}
 
+	onDestroy(() => {
+		accountsRequestSequence += 1;
+		providersRequestSequence += 1;
+		editRequestSequence += 1;
+		connectionMutationSequence += 1;
+		accountRemovalRequestSequence += 1;
+	});
+
 	async function refreshAccountMetadata() {
 		const account = editingAccount;
-		if (!account || accountMetadataRefreshing || editAccountLoading) return;
+		const workspaceID = editingWorkspaceID;
+		const requestSequence = editRequestSequence;
+		const identity = auth.captureIdentity();
+		if (!account || !workspaceID || !identity || accountMetadataRefreshing || editAccountLoading)
+			return;
+		const isCurrentEditor = () =>
+			requestSequence === editRequestSequence &&
+			actorIsCurrent(identity) &&
+			selectedWorkspaceId === workspaceID &&
+			editingWorkspaceID === workspaceID &&
+			editingAccount?.id === account.id;
 		accountMetadataRefreshing = true;
 		accountMetadataRefreshError = '';
 		let failureMessage = m.accounts_refresh_profile_failed();
@@ -515,6 +808,20 @@
 				throw requestError;
 			}
 			if (!data) throw new Error(m.accounts_refresh_profile_failed());
+			if (!actorIsCurrent(identity)) return;
+			queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
+			void queryClient.invalidateQueries({
+				queryKey: openPostQueryKeys.socialSets(workspaceID),
+				exact: true
+			});
+			queryClient.setQueryData<SocialAccount[]>(
+				openPostQueryKeys.accounts(workspaceID),
+				(current) =>
+					current?.map((candidate) =>
+						candidate.id === account.id ? { ...candidate, ...data } : candidate
+					)
+			);
+			if (!isCurrentEditor()) return;
 			const refreshed = { ...account, ...data };
 			accounts = accounts.map((candidate) =>
 				candidate.id === account.id ? { ...candidate, ...data } : candidate
@@ -522,14 +829,16 @@
 			if (editingAccount?.id === account.id) editingAccount = refreshed;
 			onAccountsChanged();
 			showToast(
-				m.accounts_profile_refreshed({ account: accountContextLabel(refreshed) }),
+				m.accounts_profile_refreshed({
+					account: accountContextLabel(refreshed)
+				}),
 				undefined,
 				'neutral'
 			);
 		} catch {
-			accountMetadataRefreshError = failureMessage;
+			if (isCurrentEditor()) accountMetadataRefreshError = failureMessage;
 		} finally {
-			accountMetadataRefreshing = false;
+			if (requestSequence === editRequestSequence) accountMetadataRefreshing = false;
 		}
 	}
 
@@ -547,16 +856,36 @@
 	}
 
 	$effect(() => {
-		if (!loading) void loadProviders();
+		const workspaceID = selectedWorkspaceId;
+		if (workspaceID !== activeAccountScope) {
+			activeAccountScope = workspaceID;
+			connectionMutationSequence += 1;
+			accountRemovalRequestSequence += 1;
+			accountRemovalDialogOpen = false;
+			accountRemovalAction = null;
+			blueskyModalOpen = false;
+			blueskyLoading = false;
+			blueskyError = '';
+			discordModalOpen = false;
+			discordLoading = false;
+			discordError = '';
+			mastodonModalOpen = false;
+			customMastodonLoading = false;
+			mastodonError = '';
+			connectingInstallationID = '';
+		}
+		if (editingWorkspaceID && editingWorkspaceID !== workspaceID) resetAccountEditor();
+		if (!loading) void loadProviders({ workspaceID });
 	});
 
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
-		void loadAccounts(workspaceID);
+		void loadAccounts({ workspaceID });
 	});
 
 	async function connectTwitter() {
-		if (!selectedWorkspaceId) {
+		const request = beginConnectionRequest();
+		if (!request) {
 			showToast(m.accounts_create_workspace_first());
 			return;
 		}
@@ -565,19 +894,21 @@
 				params: {
 					path: { platform: 'x' },
 					query: {
-						workspace_id: selectedWorkspaceId
+						workspace_id: request.workspaceID
 					}
 				}
 			});
+			if (!isCurrentConnectionRequest(request)) return;
 			if (err) throw new Error(err.detail || m.accounts_x_connection_start_failed());
 			if (!data?.url) throw new Error(m.accounts_x_connection_start_failed());
 			clearConnectionFailure();
 			onContinue({
 				kind: 'external-oauth',
 				url: data.url,
-				workspaceID: selectedWorkspaceId
+				workspaceID: request.workspaceID
 			});
 		} catch (e) {
+			if (!isCurrentConnectionRequest(request)) return;
 			const provider = providerEntries.find((entry) => entry.platform === 'x') ?? null;
 			showConnectError(
 				e instanceof Error ? e : new Error(m.accounts_connect_failed()),
@@ -593,7 +924,8 @@
 	};
 
 	async function connectMastodon(options: MastodonConnectionOptions) {
-		if (!selectedWorkspaceId) {
+		const request = beginConnectionRequest();
+		if (!request) {
 			throw new Error(m.accounts_create_workspace_first());
 		}
 
@@ -601,18 +933,19 @@
 			params: {
 				path: { platform: 'mastodon' },
 				query: {
-					workspace_id: selectedWorkspaceId,
+					workspace_id: request.workspaceID,
 					server_name: options.serverName,
 					instance_url: options.instanceURL
 				}
 			}
 		});
+		if (!isCurrentConnectionRequest(request)) return;
 		if (err) throw new Error(err.detail || m.accounts_connect_failed());
 		if (!data?.url) throw new Error(m.accounts_connect_failed());
 		onContinue({
 			kind: 'external-oauth',
 			url: data.url,
-			workspaceID: selectedWorkspaceId,
+			workspaceID: request.workspaceID,
 			mastodon: options
 		});
 	}
@@ -652,18 +985,24 @@
 			return;
 		}
 
+		const request = beginConnectionRequest();
+		if (!request) return;
+		const workspaceID = request.workspaceID;
+		const isCurrentRequest = () => isCurrentConnectionRequest(request);
 		blueskyLoading = true;
 		blueskyError = '';
 
 		try {
 			const { data, error: err } = await client.POST('/accounts/bluesky/login', {
 				body: {
-					workspace_id: selectedWorkspaceId,
+					workspace_id: workspaceID,
 					handle: blueskyHandle.trim(),
 					app_password: blueskyAppPassword.trim()
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_login_failed());
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
+			if (!isCurrentRequest()) return;
 			blueskyModalOpen = false;
 			if (data?.open_fresh_composer) {
 				await goto(
@@ -677,16 +1016,16 @@
 				);
 				return;
 			}
-			await loadAccounts();
 			onAccountsChanged();
 		} catch (e) {
+			if (!isCurrentRequest()) return;
 			blueskyError = e instanceof Error && e.message ? e.message : m.accounts_login_failed();
 			showConnectError(
 				e instanceof Error ? e : new Error(m.accounts_login_failed()),
 				m.accounts_login_failed()
 			);
 		} finally {
-			blueskyLoading = false;
+			if (isCurrentRequest()) blueskyLoading = false;
 		}
 	}
 
@@ -711,16 +1050,22 @@
 			discordError = m.accounts_discord_url_required();
 			return;
 		}
+		const request = beginConnectionRequest();
+		if (!request) return;
+		const workspaceID = request.workspaceID;
+		const isCurrentRequest = () => isCurrentConnectionRequest(request);
 		discordLoading = true;
 		discordError = '';
 		try {
 			const { data, error: err } = await client.POST('/accounts/discord/webhook', {
 				body: {
-					workspace_id: selectedWorkspaceId,
+					workspace_id: workspaceID,
 					webhook_url: discordWebhookUrl.trim()
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
+			if (!isCurrentRequest()) return;
 			discordModalOpen = false;
 			if (data?.open_fresh_composer) {
 				await goto(
@@ -734,9 +1079,9 @@
 				);
 				return;
 			}
-			await loadAccounts();
 			onAccountsChanged();
 		} catch (requestError) {
+			if (!isCurrentRequest()) return;
 			discordError = connectErrorMessage(
 				requestError instanceof Error
 					? requestError
@@ -744,12 +1089,13 @@
 				m.accounts_discord_verify_failed()
 			);
 		} finally {
-			discordLoading = false;
+			if (isCurrentRequest()) discordLoading = false;
 		}
 	}
 
 	async function connectOAuthProvider(platform: string) {
-		if (!selectedWorkspaceId) {
+		const request = beginConnectionRequest();
+		if (!request) {
 			showToast(m.accounts_create_workspace_first());
 			return;
 		}
@@ -758,19 +1104,21 @@
 				params: {
 					path: { platform },
 					query: {
-						workspace_id: selectedWorkspaceId
+						workspace_id: request.workspaceID
 					}
 				}
 			});
+			if (!isCurrentConnectionRequest(request)) return;
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
 			if (!data?.url) throw new Error(m.accounts_connect_failed());
 			clearConnectionFailure();
 			onContinue({
 				kind: 'external-oauth',
 				url: data.url,
-				workspaceID: selectedWorkspaceId
+				workspaceID: request.workspaceID
 			});
 		} catch (e) {
+			if (!isCurrentConnectionRequest(request)) return;
 			const provider = providerEntries.find((entry) => entry.platform === platform) ?? null;
 			showConnectError(
 				e instanceof Error ? e : new Error(m.accounts_connect_failed()),
@@ -952,7 +1300,7 @@
 		}
 		if (providerReadiness(provider).action === 'retry') {
 			clearConnectionFailure();
-			void loadProviders();
+			void loadProviders({ refresh: true });
 		}
 	}
 
@@ -1009,14 +1357,17 @@
 		mastodonModalOpen = true;
 	}
 
-	async function canOpenMastodonCode(options: MastodonConnectionOptions): Promise<boolean> {
-		if (!selectedWorkspaceId) {
+	async function openMastodonCode() {
+		const options = mastodonConnectionOptions();
+		if (!options) return;
+		const request = beginConnectionRequest();
+		if (!request) {
 			mastodonError = m.accounts_create_workspace_first();
-			return false;
+			return;
 		}
 
 		const query = {
-			workspace_id: selectedWorkspaceId,
+			workspace_id: request.workspaceID,
 			server_name: options.serverName,
 			instance_url: options.instanceURL
 		};
@@ -1025,28 +1376,23 @@
 			const { error: err } = await client.GET('/accounts/{platform}/auth-url', {
 				params: { path: { platform: 'mastodon' }, query }
 			});
+			if (!isCurrentConnectionRequest(request)) return;
 			if (err) {
 				throw new Error(err.detail || m.accounts_mastodon_connection_start_failed());
 			}
-			return true;
+			onContinue({
+				kind: 'mastodon-code',
+				href: links.mastodonCallbackHref,
+				workspaceID: request.workspaceID,
+				mastodon: options
+			});
 		} catch (e) {
+			if (!isCurrentConnectionRequest(request)) return;
 			mastodonError = connectErrorMessage(
 				e instanceof Error ? e : new Error(m.accounts_connect_failed()),
 				m.accounts_connect_failed()
 			);
-			return false;
 		}
-	}
-
-	async function openMastodonCode() {
-		const options = mastodonConnectionOptions();
-		if (!options || !(await canOpenMastodonCode(options))) return;
-		onContinue({
-			kind: 'mastodon-code',
-			href: links.mastodonCallbackHref,
-			workspaceID: selectedWorkspaceId,
-			mastodon: options
-		});
 	}
 
 	function providerUsesOAuth(provider: ProviderEntry): boolean {
@@ -1124,18 +1470,24 @@
 			showToast(m.accounts_connect_failed());
 			return;
 		}
-		connectingInstallationID = provider.installation_id;
+		const request = beginConnectionRequest();
+		if (!request) return;
+		const workspaceID = request.workspaceID;
+		const installationID = provider.installation_id;
+		const isCurrentRequest = () => isCurrentConnectionRequest(request);
+		connectingInstallationID = installationID;
 		try {
 			const { data, error: requestError } = await client.POST(
 				'/accounts/connectors/{installation_id}/connections',
 				{
-					params: { path: { installation_id: provider.installation_id } },
-					body: { workspace_id: selectedWorkspaceId }
+					params: { path: { installation_id: installationID } },
+					body: { workspace_id: workspaceID }
 				}
 			);
 			if (requestError) throw new Error(requestError.detail || m.accounts_connect_failed());
+			await refreshAccountsAfterMutation(workspaceID, request.identity, isCurrentRequest);
+			if (!isCurrentRequest()) return;
 			clearConnectionFailure();
-			await loadAccounts();
 			onAccountsChanged();
 			showToast(
 				m.accounts_connector_connected({
@@ -1145,13 +1497,14 @@
 				'neutral'
 			);
 		} catch (requestError) {
+			if (!isCurrentRequest()) return;
 			showConnectError(
 				requestError instanceof Error ? requestError : new Error(m.accounts_connect_failed()),
 				m.accounts_connect_failed(),
 				provider
 			);
 		} finally {
-			connectingInstallationID = '';
+			if (isCurrentRequest()) connectingInstallationID = '';
 		}
 	}
 </script>
@@ -1223,7 +1576,7 @@
 				<div class="mb-10">
 					<SectionHeader
 						title={m.accounts_connected_channels()}
-						description={accountsLoadError
+						description={accountsLoadError && !accountsReady
 							? undefined
 							: m.accounts_connection_summary({
 									count: accounts.length,
@@ -1242,12 +1595,12 @@
 
 					{#if accountsLoadError}
 						<div data-testid="accounts-load-error">
-							<InlineNotice tone="error" message={accountsLoadError}>
+							<InlineNotice tone={accountsReady ? 'warning' : 'error'} message={accountsLoadError}>
 								{#snippet actions()}
 									<Button
 										variant="outline"
 										size="sm"
-										onclick={() => void loadAccounts()}
+										onclick={() => void loadAccounts({ refresh: true })}
 										disabled={accountsLoading}
 									>
 										{m.common_retry()}
@@ -1256,9 +1609,9 @@
 							</InlineNotice>
 						</div>
 					{/if}
-					{#if accountsLoading && accounts.length === 0}
+					{#if accountsLoading && !accountsReady}
 						<PageLoading layout="grid" label={m.common_loading()} items={3} />
-					{:else if !accountsLoadError && (!accounts || accounts.length === 0)}
+					{:else if accountsReady && accounts.length === 0}
 						<EmptyState
 							icon={UsersIcon}
 							title={m.accounts_empty_title()}
@@ -1267,7 +1620,7 @@
 							size="md"
 							headingLevel={3}
 						/>
-					{:else}
+					{:else if accountsReady}
 						<div
 							class="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-3"
 						>
@@ -1371,12 +1724,15 @@
 
 						{#if providersLoadError}
 							<div data-testid="providers-load-error" class="mb-4">
-								<InlineNotice tone="error" message={providersLoadError}>
+								<InlineNotice
+									tone={providersReady ? 'warning' : 'error'}
+									message={providersLoadError}
+								>
 									{#snippet actions()}
 										<Button
 											variant="outline"
 											size="sm"
-											onclick={() => void loadProviders()}
+											onclick={() => void loadProviders({ refresh: true })}
 											disabled={providersLoading}
 										>
 											{m.common_retry()}
@@ -1398,7 +1754,7 @@
 												<Button
 													variant="outline"
 													size="sm"
-													onclick={() => void loadProviders()}
+													onclick={() => void loadProviders({ refresh: true })}
 													disabled={providersLoading}
 												>
 													{m.common_retry()}
@@ -1412,9 +1768,9 @@
 								</InlineNotice>
 							</div>
 						{/if}
-						{#if providersLoading && providerEntries.length === 0}
+						{#if providersLoading && !providersReady}
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
-						{:else if providerEntries.length > 0}
+						{:else if providersReady && providerEntries.length > 0}
 							{#if directProviders.length > 0}
 								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 									{#each directProviders as provider (providerKey(provider))}
@@ -1763,7 +2119,9 @@
 				<div class="space-y-3 rounded-md border bg-muted/20 p-4">
 					<div class="space-y-1">
 						<p class="font-medium">{m.accounts_connect_discord_bot()}</p>
-						<p class="text-sm text-muted-foreground">{m.accounts_discord_bot_description()}</p>
+						<p class="text-sm text-muted-foreground">
+							{m.accounts_discord_bot_description()}
+						</p>
 					</div>
 					<Button class="min-h-11 w-full sm:min-h-9" type="button" onclick={connectDiscordBot}>
 						{m.accounts_connect_discord_bot()}
@@ -1886,44 +2244,51 @@
 							onDismiss={() => (accountMetadataRefreshError = '')}
 						/>
 					{/if}
-					{#if editFeaturesLoading}
+					{#if editFeaturesLoading && !editFeaturesReady}
 						<div class="rounded-lg border p-3 text-sm text-muted-foreground">
 							{m.common_loading()}
 						</div>
-					{:else if editFeaturesError}
-						<InlineNotice
-							tone="error"
-							message={editFeaturesError}
-							dismissLabel={m.common_dismiss()}
-							onDismiss={() => (editFeaturesError = '')}
-						/>
-					{:else if editFeatures.filter((f) => f.availability !== 'unsupported').length > 0}
-						<section class="space-y-3" aria-labelledby="account-feature-settings-heading">
-							<div class="space-y-1">
-								<h3 id="account-feature-settings-heading" class="text-sm font-semibold">
-									{m.account_features_details_heading()}
-								</h3>
+					{:else}
+						{#if editFeaturesError}
+							<InlineNotice
+								tone={editFeaturesReady ? 'warning' : 'error'}
+								message={editFeaturesError}
+							>
+								{#snippet actions()}
+									<Button variant="outline" size="sm" onclick={retryEditFeatures}>
+										{m.common_retry()}
+									</Button>
+								{/snippet}
+							</InlineNotice>
+						{/if}
+						{#if editFeaturesReady && editFeatures.filter((f) => f.availability !== 'unsupported').length > 0}
+							<section class="space-y-3" aria-labelledby="account-feature-settings-heading">
+								<div class="space-y-1">
+									<h3 id="account-feature-settings-heading" class="text-sm font-semibold">
+										{m.account_features_details_heading()}
+									</h3>
+									<p class="text-xs leading-5 text-muted-foreground">
+										{m.account_features_details_description()}
+									</p>
+								</div>
+								<AccountFeaturePresentation
+									accountId={editingAccount.id}
+									features={editFeatures}
+									selections={editFeatureSelections}
+									mode="details"
+									busy={editAccountLoading}
+									onToggle={(feature, checked) => {
+										editFeatureSelections = {
+											...editFeatureSelections,
+											[feature]: checked
+										};
+									}}
+								/>
 								<p class="text-xs leading-5 text-muted-foreground">
-									{m.account_features_details_description()}
+									{m.account_setup_provider_auth_note()}
 								</p>
-							</div>
-							<AccountFeaturePresentation
-								accountId={editingAccount.id}
-								features={editFeatures}
-								selections={editFeatureSelections}
-								mode="details"
-								busy={editAccountLoading}
-								onToggle={(feature, checked) => {
-									editFeatureSelections = {
-										...editFeatureSelections,
-										[feature]: checked
-									};
-								}}
-							/>
-							<p class="text-xs leading-5 text-muted-foreground">
-								{m.account_setup_provider_auth_note()}
-							</p>
-						</section>
+							</section>
+						{/if}
 					{/if}
 
 					<details class="group rounded-lg border bg-muted/10">

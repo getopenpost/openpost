@@ -11,11 +11,12 @@
 	interface Props {
 		user: InstanceUser;
 		busy: boolean;
+		disabled?: boolean;
 		onImpersonate: (user: InstanceUser) => void;
 		onChangePlan: (user: InstanceUser) => void;
 	}
 
-	let { user, busy, onImpersonate, onChangePlan }: Props = $props();
+	let { user, busy, disabled = false, onImpersonate, onChangePlan }: Props = $props();
 </script>
 
 <div class="flex items-center gap-1.5">
@@ -23,7 +24,7 @@
 		variant="outline"
 		size="sm"
 		onclick={() => onChangePlan(user)}
-		disabled={busy}
+		disabled={busy || disabled}
 		aria-label={m.settings_instance_change_plan_user({
 			user: user.display_name.trim() || user.email
 		})}
@@ -44,7 +45,7 @@
 			variant="outline"
 			size="sm"
 			onclick={() => onImpersonate(user)}
-			disabled={busy}
+			disabled={busy || disabled}
 			aria-label={m.settings_instance_impersonate_user({
 				user: user.display_name.trim() || user.email
 			})}

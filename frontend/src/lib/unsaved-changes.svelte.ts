@@ -2,15 +2,26 @@ import { createContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 
 export class UnsavedChangesContext {
-	private sources = new SvelteMap<string, string>();
+	private sources = new SvelteMap<string, { message: string; discardable: boolean }>();
 
 	get hasChanges(): boolean {
 		return this.sources.size > 0;
 	}
 
-	set(key: string, dirty: boolean, message: string): void {
-		if (dirty) this.sources.set(key, message);
-		else this.sources.delete(key);
+	get hasBlockingChanges(): boolean {
+		for (const source of this.sources.values()) {
+			if (!source.discardable) return true;
+		}
+		return false;
+	}
+
+	set(key: string, dirty: boolean, message: string, options: { discardable?: boolean } = {}): void {
+		if (dirty) {
+			this.sources.set(key, {
+				message,
+				discardable: options.discardable ?? true
+			});
+		} else this.sources.delete(key);
 	}
 
 	clear(key: string): void {
@@ -19,7 +30,19 @@ export class UnsavedChangesContext {
 
 	confirmDiscard(): boolean {
 		if (!this.hasChanges) return true;
-		return window.confirm(this.sources.values().next().value ?? 'Discard unsaved changes?');
+		let blockingSource: { message: string; discardable: boolean } | undefined;
+		for (const source of this.sources.values()) {
+			if (source.discardable) continue;
+			blockingSource = source;
+			break;
+		}
+		if (blockingSource) {
+			window.alert(blockingSource.message);
+			return false;
+		}
+		return window.confirm(
+			this.sources.values().next().value?.message ?? 'Discard unsaved changes?'
+		);
 	}
 }
 

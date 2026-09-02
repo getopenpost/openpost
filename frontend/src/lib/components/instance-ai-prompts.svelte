@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -16,6 +18,17 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import SaveIcon from '@lucide/svelte/icons/save';
+	import {
+		adminQueryKeys,
+		aiPromptsQueryOptions,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import { adminQueryAPI } from '$lib/query/admin';
+	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Prompt = components['schemas']['AIPromptResponse'];
 	type PromptsResponse = components['schemas']['AIPromptsResponse'];
@@ -49,12 +62,20 @@
 	let previewPlatform = $state('x');
 	let drafts = $state<Record<string, string>>({});
 	let requestSequence = 0;
+	let mutationGeneration = 0;
+	let destroyed = false;
+	let loadAttempted = false;
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instancePrompts
+	);
+	$effect(() => reportInitialLoad(active && !loaded && !error && (!loadAttempted || loading)));
 
 	const selected = $derived(prompts.find((prompt) => prompt.key === selectedKey) ?? null);
 	const selectedDraft = $derived(selected ? (drafts[selected.key] ?? selected.value) : '');
-	const dirty = $derived(
-		active && prompts.some((prompt) => (drafts[prompt.key] ?? prompt.value) !== prompt.value)
+	const hasLocalDrafts = $derived(
+		prompts.some((prompt) => (drafts[prompt.key] ?? prompt.value) !== prompt.value)
 	);
+	const dirty = $derived(active && hasLocalDrafts);
 	const selectedDirty = $derived(Boolean(selected && selectedDraft !== selected.value));
 	const selectedCharacterCount = $derived(Array.from(selectedDraft).length);
 	const promptOptions = $derived(
@@ -68,7 +89,10 @@
 	const previewPlatformOptions = $derived(
 		prompts
 			.filter((prompt) => prompt.kind === 'platform' && prompt.platform)
-			.map((prompt) => ({ value: prompt.platform ?? '', label: promptLabel(prompt) }))
+			.map((prompt) => ({
+				value: prompt.platform ?? '',
+				label: promptLabel(prompt)
+			}))
 	);
 	const effectivePreview = $derived.by(() => {
 		const base = prompts.find((prompt) => prompt.kind === 'base');
@@ -86,7 +110,7 @@
 	});
 
 	$effect(() => {
-		if (active && !loaded && !loading) void load();
+		if (active && !loaded && !loading && !loadAttempted) void load();
 	});
 
 	$effect(() => {
@@ -108,7 +132,9 @@
 
 	function promptDescription(prompt: Prompt) {
 		if (prompt.kind === 'base') return m.settings_ai_prompts_base_description();
-		return m.settings_ai_prompts_platform_description({ platform: promptLabel(prompt) });
+		return m.settings_ai_prompts_platform_description({
+			platform: promptLabel(prompt)
+		});
 	}
 
 	function formatDate(value: string) {
@@ -119,23 +145,40 @@
 	}
 
 	async function load() {
+		loadAttempted = true;
 		const sequence = ++requestSequence;
-		loading = true;
+		const options = aiPromptsQueryOptions(adminQueryAPI);
+		const cached = queryClient.getQueryData<PromptsResponse>(options.queryKey);
+		if (cached !== undefined && (!loaded || !hasLocalDrafts)) {
+			applyCatalogue(cached);
+			loaded = true;
+		}
+		loading = !loaded;
 		error = '';
 		try {
-			const { data, error: responseError } = await client.GET('/admin/ai-prompts');
-			if (responseError || !data) {
-				throw new Error(responseError?.detail || m.settings_ai_prompts_load_failed());
-			}
+			const data = await queryClient.fetchQuery(options);
 			if (sequence !== requestSequence) return;
-			applyCatalogue(data);
+			if (!hasLocalDrafts) applyCatalogue(data);
 			loaded = true;
 		} catch (cause) {
 			if (sequence !== requestSequence) return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+				prompts = [];
+				fixedOutputContract = '';
+				drafts = {};
+				selectedKey = '';
+				loaded = false;
+			}
 			error = cause instanceof Error ? cause.message : m.settings_ai_prompts_load_failed();
 		} finally {
 			if (sequence === requestSequence) loading = false;
 		}
+	}
+
+	function retryLoad() {
+		loadAttempted = false;
+		void load();
 	}
 
 	function applyCatalogue(data: PromptsResponse) {
@@ -147,12 +190,41 @@
 		}
 	}
 
+	function projectPromptToCache(next: Prompt) {
+		queryClient.setQueryData<PromptsResponse>(adminQueryKeys.aiPrompts(), (current) =>
+			current
+				? {
+						...current,
+						prompts: (current.prompts ?? []).map((prompt) =>
+							prompt.key === next.key ? next : prompt
+						)
+					}
+				: current
+		);
+	}
+
 	function updatePrompt(next: Prompt) {
 		prompts = prompts.map((prompt) => (prompt.key === next.key ? next : prompt));
 		drafts[next.key] = next.value;
 	}
 
-	async function saveValue(prompt: Prompt, value: string) {
+	function mutationActorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	function mutationIsCurrent(generation: number, identity: AuthIdentityToken) {
+		return (
+			!destroyed && active && generation === mutationGeneration && mutationActorIsCurrent(identity)
+		);
+	}
+
+	async function saveValue(
+		prompt: Prompt,
+		value: string,
+		identity: AuthIdentityToken,
+		generation = mutationGeneration
+	) {
+		if (!mutationIsCurrent(generation, identity)) return null;
 		const { data, error: responseError } = await client.PUT('/admin/ai-prompts/{key}', {
 			params: { path: { key: prompt.key } },
 			body: { value }
@@ -160,6 +232,9 @@
 		if (responseError || !data) {
 			throw new Error(responseError?.detail || m.settings_ai_prompts_save_failed());
 		}
+		if (!mutationActorIsCurrent(identity)) return null;
+		projectPromptToCache(data);
+		if (!mutationIsCurrent(generation, identity)) return null;
 		updatePrompt(data);
 		return data;
 	}
@@ -173,14 +248,20 @@
 
 	async function saveSelected() {
 		if (!selected || !selectedDirty || saving) return;
+		const generation = mutationGeneration;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		saving = true;
 		try {
-			await saveValue(selected, selectedDraft);
-			showToast(m.settings_ai_prompts_saved(), 'success');
+			const saved = await saveValue(selected, selectedDraft, identity, generation);
+			if (!saved) return;
+			if (mutationIsCurrent(generation, identity)) {
+				showToast(m.settings_ai_prompts_saved(), 'success');
+			}
 		} catch (cause) {
-			showSaveError(cause);
+			if (mutationIsCurrent(generation, identity)) showSaveError(cause);
 		} finally {
-			saving = false;
+			if (mutationIsCurrent(generation, identity)) saving = false;
 		}
 	}
 
@@ -188,34 +269,58 @@
 		if (!selected || !selected.overridden || selectedDirty || resetting) return;
 		const previous = selected.value;
 		const target = selected;
+		const generation = mutationGeneration;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		resetting = true;
 		try {
-			const reset = await saveValue(target, target.default_value);
+			const reset = await saveValue(target, target.default_value, identity, generation);
+			if (!reset) return;
+			if (!mutationIsCurrent(generation, identity)) return;
 			showToast(m.settings_ai_prompts_reset(), 'success', {
 				actionLabel: m.settings_ai_prompts_undo(),
 				onAction: () => {
-					void saveValue(reset, previous)
-						.then(() => showToast(m.settings_ai_prompts_saved(), 'success'))
-						.catch(showSaveError);
+					void saveValue(reset, previous, identity, generation)
+						.then((saved) => {
+							if (saved && mutationIsCurrent(generation, identity)) {
+								showToast(m.settings_ai_prompts_saved(), 'success');
+							}
+						})
+						.catch((cause) => {
+							if (mutationIsCurrent(generation, identity)) showSaveError(cause);
+						});
 				}
 			});
 		} catch (cause) {
-			showSaveError(cause);
+			if (mutationIsCurrent(generation, identity)) showSaveError(cause);
 		} finally {
-			resetting = false;
+			if (mutationIsCurrent(generation, identity)) resetting = false;
 		}
 	}
+
+	onDestroy(() => {
+		destroyed = true;
+		requestSequence += 1;
+		mutationGeneration += 1;
+	});
 </script>
 
 <div class="space-y-6" data-testid="instance-ai-prompts">
 	<InlineNotice tone="info" message={m.settings_ai_prompts_intro()} />
+	{#if error && loaded}
+		<InlineNotice tone="warning" message={error}>
+			{#snippet actions()}
+				<Button variant="outline" size="sm" onclick={retryLoad}>{m.common_retry()}</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
 
 	{#if loading && !loaded}
 		<PageLoading layout="settings" label={m.common_loading()} items={7} />
-	{:else if error}
+	{:else if error && !loaded}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => void load()}>{m.common_retry()}</Button>
+				<Button variant="outline" size="sm" onclick={retryLoad}>{m.common_retry()}</Button>
 			{/snippet}
 		</InlineNotice>
 	{:else if selected}
@@ -273,7 +378,9 @@
 						</p>
 					</div>
 					<p class="shrink-0 text-xs text-muted-foreground">
-						{m.settings_ai_prompts_default_version({ version: selected.default_version })}
+						{m.settings_ai_prompts_default_version({
+							version: selected.default_version
+						})}
 					</p>
 				</header>
 
@@ -281,7 +388,9 @@
 					<div class="flex items-end justify-between gap-4">
 						<Label for="ai-prompt-editor">{m.settings_ai_prompts_prompt()}</Label>
 						<span class="text-xs text-muted-foreground tabular-nums">
-							{m.settings_ai_prompts_characters({ count: selectedCharacterCount })}
+							{m.settings_ai_prompts_characters({
+								count: selectedCharacterCount
+							})}
 						</span>
 					</div>
 					<Textarea

@@ -701,7 +701,7 @@ jobs:
             ~/.bun/install/cache
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: android-${{ runner.os }}-${{ hashFiles('mobile/bun.lock', 'mobile/app.json', 'mobile/plugins/**') }}
+          key: android-${{ runner.os }}-${{ hashFiles('mobile/bun.lock', 'mobile/app.json', 'mobile/plugins/**', 'packages/api-contract/**', 'packages/query-catalog/**') }}
           restore-keys: android-${{ runner.os }}-
       - name: Install the standalone mobile app
         working-directory: mobile

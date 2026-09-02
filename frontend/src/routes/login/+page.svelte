@@ -13,12 +13,18 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import { m } from '$lib/paraglide/messages';
 	import { safeSameOriginRedirect } from '$lib/redirects';
-	import { onMount } from 'svelte';
-	import { client, type AuthConfiguration } from '$lib/api/client';
+	import { onDestroy, onMount } from 'svelte';
+	import { client } from '$lib/api/client';
 	import type { OIDCProvider } from '$lib/api/client';
 	import AuthProviderButtons from '$lib/components/auth-provider-buttons.svelte';
 	import BuildingIcon from '@lucide/svelte/icons/building-2';
 	import { resolveAppPath } from '$lib/app-path';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		authConfigurationQueryOptions,
+		oidcProvidersQueryOptions
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
 
 	let email = $state('');
 	let password = $state('');
@@ -29,10 +35,18 @@
 	let isLoading = $state(false);
 	let mfaToken = $state('');
 	let mfaMethods = $state<string[]>([]);
-	let authConfiguration = $state<AuthConfiguration | null>(null);
-	let oidcProviders = $state<OIDCProvider[]>([]);
 	let discoveryEmail = $state('');
 	let ssoLoading = $state('');
+	let authenticationRequestSequence = 0;
+	let discoveryRequestSequence = 0;
+	let active = true;
+	const authConfigurationQuery = createQuery(() => authConfigurationQueryOptions(authQueryAPI));
+	const oidcProvidersQuery = createQuery(() => oidcProvidersQueryOptions(authQueryAPI));
+	const authConfiguration = $derived(authConfigurationQuery.data ?? null);
+	const oidcProviders = $derived(oidcProvidersQuery.data ?? []);
+	const queryLoadError = $derived(
+		authConfigurationQuery.error?.message ?? oidcProvidersQuery.error?.message ?? ''
+	);
 	const hostedEdition =
 		typeof document !== 'undefined' &&
 		document.querySelector('meta[name="openpost-edition"]')?.getAttribute('content') === 'cloud';
@@ -40,15 +54,15 @@
 	const needsMfa = $derived(mfaToken.length > 0);
 	const visibleProviders = $derived(oidcProviders);
 
-	onMount(async () => {
-		const [configurationResult, providerResult] = await Promise.all([
-			client.GET('/auth/config'),
-			client.GET('/auth/oidc/providers')
-		]);
-		authConfiguration = configurationResult.data ?? null;
-		oidcProviders = providerResult.data ?? [];
+	onMount(() => {
 		const oidcError = $page.url.searchParams.get('oidc_error');
 		if (oidcError) error = oidcError;
+	});
+
+	onDestroy(() => {
+		active = false;
+		authenticationRequestSequence += 1;
+		discoveryRequestSequence += 1;
 	});
 
 	function loginTarget() {
@@ -62,13 +76,21 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		const requestSequence = ++authenticationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = loginTarget();
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === authenticationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		isLoading = true;
 
 		const result = await auth.login(email, password);
+		if (!isCurrentRequest()) return;
 
 		if (result.success) {
-			goto(resolveAppPath(loginTarget()));
+			goto(resolveAppPath(target));
 		} else if (result.requiresEmailVerification && result.emailVerificationID) {
 			goto(
 				resolveAppPath(
@@ -95,12 +117,20 @@
 
 	async function handleVerifyRecoveryCode(e: Event) {
 		e.preventDefault();
+		const requestSequence = ++authenticationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = loginTarget();
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === authenticationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		isLoading = true;
 
 		const result = await auth.verifyRecoveryCode(mfaToken, recoveryCode);
+		if (!isCurrentRequest()) return;
 		if (result.success) {
-			goto(resolveAppPath(loginTarget()));
+			goto(resolveAppPath(target));
 		} else {
 			error = result.error || m.auth_login_recovery_code_failed();
 		}
@@ -124,12 +154,20 @@
 
 	async function handleVerifyTOTP(e: Event) {
 		e.preventDefault();
+		const requestSequence = ++authenticationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = loginTarget();
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === authenticationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		isLoading = true;
 
 		const result = await auth.verifyTOTP(mfaToken, totpCode);
+		if (!isCurrentRequest()) return;
 		if (result.success) {
-			goto(resolveAppPath(loginTarget()));
+			goto(resolveAppPath(target));
 		} else {
 			error = result.error || m.auth_login_authenticator_failed();
 		}
@@ -138,12 +176,20 @@
 	}
 
 	async function handleVerifyPasskey() {
+		const requestSequence = ++authenticationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = loginTarget();
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === authenticationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		isLoading = true;
 
 		const result = await auth.verifyPasskey(mfaToken);
+		if (!isCurrentRequest()) return;
 		if (result.success) {
-			goto(resolveAppPath(loginTarget()));
+			goto(resolveAppPath(target));
 		} else {
 			error = result.error || m.auth_login_passkey_failed();
 		}
@@ -152,6 +198,7 @@
 	}
 
 	function resetMfa() {
+		authenticationRequestSequence += 1;
 		mfaToken = '';
 		mfaMethods = [];
 		totpCode = '';
@@ -179,16 +226,24 @@
 
 	async function discoverSSO(event: SubmitEvent) {
 		event.preventDefault();
+		const requestSequence = ++discoveryRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === discoveryRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		ssoLoading = 'discover';
 		const { data, error: discoveryError } = await client.GET('/auth/oidc/discover', {
 			params: { query: { email: discoveryEmail.trim() } }
 		});
+		if (!isCurrentRequest()) return;
 		if (discoveryError || !data?.found || !data.provider) {
 			error = discoveryError?.detail ?? m.auth_sso_not_found();
 			ssoLoading = '';
 			return;
 		}
+		if (!isCurrentRequest()) return;
 		await startOIDC(data.provider);
 	}
 </script>
@@ -204,6 +259,21 @@
 >
 	{#if error}
 		<InlineNotice tone="error" message={error} class="mb-4" />
+	{/if}
+	{#if queryLoadError}
+		<InlineNotice tone="warning" message={queryLoadError} class="mb-4">
+			{#snippet actions()}
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={() =>
+						void Promise.all([authConfigurationQuery.refetch(), oidcProvidersQuery.refetch()])}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
 	{/if}
 
 	{#if needsMfa}

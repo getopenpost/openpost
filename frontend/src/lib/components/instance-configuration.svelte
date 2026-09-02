@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -23,6 +25,19 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import TrashIcon from '@lucide/svelte/icons/trash';
+	import {
+		adminQueryKeys,
+		instanceSettingsQueryOptions,
+		isAccountProvidersQueryKey,
+		OpenPostQueryError,
+		providerAppsQueryOptions
+	} from '@openpost/query-catalog';
+	import { adminQueryAPI } from '$lib/query/admin';
+	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Setting = components['schemas']['InstanceSettingResponse'];
 	type SettingUpdate = components['schemas']['InstanceSettingUpdateInput'];
@@ -60,6 +75,10 @@
 	let saving = $state(false);
 	let providerSaving = $state(false);
 	let error = $state('');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceConfiguration
+	);
+	$effect(() => reportInitialLoad(active && !loaded && !error && (!loadAttempted || loading)));
 	let activeSection = $state<SectionID>('accounts');
 	let response = $state<SettingsResponse | null>(null);
 	let settings = $state<Setting[]>([]);
@@ -80,15 +99,27 @@
 	let providerSnapshot = $state('');
 	let deleteTarget = $state<ProviderApp | null>(null);
 	let deleteDialogOpen = $state(false);
+	let loadRequestSequence = 0;
+	let operationGeneration = 0;
+	let destroyed = false;
 
 	const sections = $derived([
 		{ id: 'accounts' as const, label: m.settings_configuration_accounts() },
 		{ id: 'billing' as const, label: m.settings_configuration_billing() },
 		{ id: 'email' as const, label: m.settings_configuration_email() },
-		{ id: 'authentication' as const, label: m.settings_configuration_authentication() },
+		{
+			id: 'authentication' as const,
+			label: m.settings_configuration_authentication()
+		},
 		{ id: 'features' as const, label: m.settings_configuration_features() },
-		{ id: 'providers' as const, label: m.settings_configuration_provider_behavior() },
-		{ id: 'provider-apps' as const, label: m.settings_configuration_provider_apps() }
+		{
+			id: 'providers' as const,
+			label: m.settings_configuration_provider_behavior()
+		},
+		{
+			id: 'provider-apps' as const,
+			label: m.settings_configuration_provider_apps()
+		}
 	]);
 	const visibleSettings = $derived(settings.filter((setting) => setting.group === activeSection));
 	const settingsDirty = $derived.by(() =>
@@ -123,27 +154,51 @@
 	});
 
 	async function load() {
-		loading = true;
+		const sequence = ++loadRequestSequence;
+		const settingsOptions = instanceSettingsQueryOptions(adminQueryAPI);
+		const providersOptions = providerAppsQueryOptions(adminQueryAPI);
+		const cachedSettings = queryClient.getQueryData<SettingsResponse>(settingsOptions.queryKey);
+		const cachedProviders = queryClient.getQueryData<ProviderApp[]>(providersOptions.queryKey);
+		if (
+			cachedSettings !== undefined &&
+			cachedProviders !== undefined &&
+			(!loaded || (!settingsDirty && !providerDirty))
+		) {
+			applySettingsResponse(cachedSettings);
+			providerApps = cachedProviders;
+			resetProviderForm();
+			loaded = true;
+		}
+		loading = !loaded;
 		loadAttempted = true;
 		error = '';
 		try {
 			const [settingsResult, providersResult] = await Promise.all([
-				client.GET('/admin/instance-settings'),
-				client.GET('/admin/provider-apps')
+				queryClient.fetchQuery(settingsOptions),
+				queryClient.fetchQuery(providersOptions)
 			]);
-			const loadError = settingsResult.error ?? providersResult.error;
-			if (loadError) {
-				error = loadError.detail ?? m.settings_configuration_load_failed();
-				return;
+			if (destroyed || sequence !== loadRequestSequence) return;
+			if (!settingsDirty && !providerDirty) {
+				applySettingsResponse(settingsResult);
+				providerApps = providersResult;
+				resetProviderForm();
 			}
-			applySettingsResponse(settingsResult.data ?? { settings: [], requires_restart: false });
-			providerApps = providersResult.data ?? [];
-			resetProviderForm();
 			loaded = true;
-		} catch {
-			error = m.settings_configuration_load_failed();
+		} catch (cause) {
+			if (destroyed || sequence !== loadRequestSequence) return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({ queryKey: adminQueryKeys.all });
+				response = null;
+				settings = [];
+				providerApps = [];
+				drafts = {};
+				originals = {};
+				unsets = {};
+				loaded = false;
+			}
+			error = cause instanceof Error ? cause.message : m.settings_configuration_load_failed();
 		} finally {
-			loading = false;
+			if (!destroyed && sequence === loadRequestSequence) loading = false;
 		}
 	}
 
@@ -181,7 +236,18 @@
 		unsets = { ...unsets, [key]: false };
 	}
 
+	function actorIsCurrent(identity: AuthIdentityToken) {
+		return auth.isIdentityCurrent(identity);
+	}
+
+	function operationIsCurrent(generation: number, identity: AuthIdentityToken) {
+		return !destroyed && generation === operationGeneration && actorIsCurrent(identity);
+	}
+
 	async function saveSettings() {
+		const generation = operationGeneration;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		const updates: SettingUpdate[] = [];
 		for (const setting of settings) {
 			if (unsets[setting.key]) {
@@ -203,15 +269,24 @@
 				body: { settings: updates }
 			});
 			if (saveError || !data) {
-				error = saveError?.detail ?? m.settings_configuration_save_failed();
-				return;
+				throw new Error(saveError?.detail ?? m.settings_configuration_save_failed());
 			}
+			if (!actorIsCurrent(identity)) return;
+			queryClient.setQueryData(adminQueryKeys.instanceSettings(), data);
+			if (!actorIsCurrent(identity)) return;
+			await queryClient.invalidateQueries({
+				queryKey: adminQueryKeys.updateStatus(),
+				exact: true
+			});
+			if (!operationIsCurrent(generation, identity)) return;
 			applySettingsResponse(data);
 			showToast(m.settings_configuration_saved(), 'success');
-		} catch {
-			error = m.settings_configuration_save_failed();
+		} catch (cause) {
+			if (operationIsCurrent(generation, identity)) {
+				error = cause instanceof Error ? cause.message : m.settings_configuration_save_failed();
+			}
 		} finally {
-			saving = false;
+			if (operationIsCurrent(generation, identity)) saving = false;
 		}
 	}
 
@@ -264,12 +339,34 @@
 		providerSnapshot = providerFormSnapshot();
 	}
 
+	function upsertProviderApp(current: ProviderApp[], saved: ProviderApp) {
+		const existingIndex = current.findIndex((app) => app.id === saved.id);
+		if (existingIndex < 0) return [...current, saved];
+		return current.map((app) => (app.id === saved.id ? saved : app));
+	}
+
+	async function invalidateProviderCatalogues(identity: AuthIdentityToken) {
+		if (!actorIsCurrent(identity)) return;
+		queryClient.removeQueries({
+			predicate: (query) => isAccountProvidersQueryKey(query.queryKey)
+		});
+		if (!actorIsCurrent(identity)) return;
+		await queryClient.invalidateQueries({
+			queryKey: adminQueryKeys.providerApps(),
+			exact: true,
+			refetchType: 'none'
+		});
+	}
+
 	async function saveProvider(event: SubmitEvent) {
 		event.preventDefault();
+		const generation = operationGeneration;
+		const identity = auth.captureIdentity();
+		if (!identity) return;
 		providerSaving = true;
 		error = '';
 		try {
-			const { error: saveError } = await client.POST('/admin/provider-apps', {
+			const { data, error: saveError } = await client.POST('/admin/provider-apps', {
 				body: {
 					provider,
 					name: provider === 'mastodon' ? providerName.trim() : undefined,
@@ -280,55 +377,90 @@
 					is_active: providerActive
 				}
 			});
-			if (saveError) {
-				error = saveError.detail ?? m.settings_configuration_provider_save_failed();
-				return;
+			if (saveError || !data?.app) {
+				throw new Error(saveError?.detail ?? m.settings_configuration_provider_save_failed());
 			}
-			const { data, error: reloadError } = await client.GET('/admin/provider-apps');
-			if (reloadError) {
-				error = reloadError.detail ?? m.settings_configuration_load_failed();
-				return;
+			if (!actorIsCurrent(identity)) return;
+			const savedApp = data.app;
+			queryClient.setQueryData<ProviderApp[]>(adminQueryKeys.providerApps(), (current) =>
+				upsertProviderApp(current ?? [], savedApp)
+			);
+			await invalidateProviderCatalogues(identity);
+			if (!operationIsCurrent(generation, identity)) return;
+			providerApps = upsertProviderApp(providerApps, savedApp);
+			try {
+				const refreshedProviders = await queryClient.fetchQuery(
+					providerAppsQueryOptions(adminQueryAPI)
+				);
+				if (!operationIsCurrent(generation, identity)) return;
+				providerApps = refreshedProviders;
+			} catch {
+				if (operationIsCurrent(generation, identity)) {
+					error = m.settings_configuration_load_failed();
+				}
 			}
-			providerApps = data ?? [];
+			if (!operationIsCurrent(generation, identity)) return;
 			resetProviderForm();
 			showToast(m.settings_configuration_provider_saved(), 'success');
-		} catch {
-			error = m.settings_configuration_provider_save_failed();
+		} catch (cause) {
+			if (operationIsCurrent(generation, identity)) {
+				error =
+					cause instanceof Error ? cause.message : m.settings_configuration_provider_save_failed();
+			}
 		} finally {
-			providerSaving = false;
+			if (operationIsCurrent(generation, identity)) providerSaving = false;
 		}
 	}
 
 	async function deleteProvider(): Promise<DestructiveActionOutcome> {
 		if (!deleteTarget?.deletable) return { ok: false };
+		const generation = operationGeneration;
+		const identity = auth.captureIdentity();
+		if (!identity) return { ok: false };
 		const deletedID = deleteTarget.id;
 		try {
 			const { error: deleteError } = await client.DELETE('/admin/provider-apps/{id}', {
 				params: { path: { id: deletedID } }
 			});
+			if (!actorIsCurrent(identity)) return { ok: false };
 			if (deleteError) {
 				return {
 					ok: false,
 					message: deleteError.detail ?? m.settings_configuration_provider_delete_failed()
 				};
 			}
+			queryClient.setQueryData<ProviderApp[]>(adminQueryKeys.providerApps(), (current) =>
+				current?.filter((provider) => provider.id !== deletedID)
+			);
+			await invalidateProviderCatalogues(identity);
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
 			providerApps = providerApps.filter((provider) => provider.id !== deletedID);
 			if (editingProviderID === deletedID) resetProviderForm();
 			deleteTarget = null;
 		} catch {
-			return { ok: false, message: m.settings_configuration_provider_delete_failed() };
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
+			return {
+				ok: false,
+				message: m.settings_configuration_provider_delete_failed()
+			};
 		}
 		try {
-			const { data, error: reloadError } = await client.GET('/admin/provider-apps');
-			if (reloadError) {
-				error = reloadError.detail ?? m.settings_configuration_load_failed();
-				return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
-			}
-			providerApps = data ?? [];
-			return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
+			const refreshedProviders = await queryClient.fetchQuery(
+				providerAppsQueryOptions(adminQueryAPI)
+			);
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
+			providerApps = refreshedProviders;
+			return {
+				ok: true,
+				successMessage: m.settings_configuration_provider_deleted()
+			};
 		} catch {
+			if (!operationIsCurrent(generation, identity)) return { ok: false };
 			error = m.settings_configuration_load_failed();
-			return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
+			return {
+				ok: true,
+				successMessage: m.settings_configuration_provider_deleted()
+			};
 		}
 	}
 
@@ -358,9 +490,15 @@
 		if (section === 'providers') return m.settings_configuration_provider_behavior_body();
 		return m.settings_configuration_provider_apps_body();
 	}
+
+	onDestroy(() => {
+		destroyed = true;
+		loadRequestSequence += 1;
+		operationGeneration += 1;
+	});
 </script>
 
-{#if loading}
+{#if loading && !loaded}
 	<PageLoading layout="list" label={m.common_loading()} items={6} />
 {:else if !loaded}
 	<div class="space-y-3" data-testid="instance-configuration">
@@ -388,16 +526,22 @@
 
 		{#if error}
 			<InlineNotice
-				tone="error"
+				tone="warning"
 				message={error}
 				onDismiss={() => (error = '')}
 				dismissLabel={m.common_dismiss()}
-			/>
+			>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryLoad}>{m.common_retry()}</Button>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 		{#if response?.requires_restart}
 			<InlineNotice tone="warning">
 				<p class="font-medium">{m.settings_configuration_restart_required()}</p>
-				<p class="mt-0.5 text-current/80">{m.settings_configuration_restart_required_body()}</p>
+				<p class="mt-0.5 text-current/80">
+					{m.settings_configuration_restart_required_body()}
+				</p>
 			</InlineNotice>
 		{/if}
 
@@ -594,7 +738,9 @@
 
 				<div class="overflow-hidden rounded-xl border bg-background">
 					<div class="border-b bg-muted/20 px-4 py-3">
-						<h3 class="font-medium">{m.settings_configuration_configured_apps()}</h3>
+						<h3 class="font-medium">
+							{m.settings_configuration_configured_apps()}
+						</h3>
 					</div>
 					{#if providerApps.length === 0}
 						<p class="p-4 text-sm text-muted-foreground">
@@ -618,9 +764,13 @@
 												</Badge>
 											{/if}
 										</div>
-										<p class="mt-1 truncate text-sm text-muted-foreground">{app.client_id}</p>
+										<p class="mt-1 truncate text-sm text-muted-foreground">
+											{app.client_id}
+										</p>
 										{#if app.instance_url}
-											<p class="mt-1 truncate text-xs text-muted-foreground">{app.instance_url}</p>
+											<p class="mt-1 truncate text-xs text-muted-foreground">
+												{app.instance_url}
+											</p>
 										{/if}
 										{#if app.shadowed_by_environment}
 											<Badge class="bg-amber-500/15 text-amber-900 dark:text-amber-100">

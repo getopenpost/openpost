@@ -151,6 +151,10 @@ const checks = {
     bun("scripts/compatibility-surfaces.mjs"),
   ]),
   "ui-consistency": stage("UI consistency", [bun("scripts/check-ui-consistency.mjs")]),
+  "query-migration": stage("Query migration", [
+    bunTest("scripts/check-query-migration.test.mjs"),
+    bun("scripts/check-query-migration.mjs"),
+  ]),
   agents: stage("agent instructions", [
     bunTest("scripts/agent-doctor.test.mjs"),
     bun("scripts/agent-doctor.mjs"),
@@ -193,6 +197,7 @@ const policyGroups = [
     "reachability",
     "compatibility",
     "ui-consistency",
+    "query-migration",
     "tasks",
   ],
 ];
@@ -408,6 +413,8 @@ function testPlan(requestedScope, requestedOptions) {
       "test",
       "--filter",
       "@openpost/web",
+      "--filter",
+      "@openpost/query-catalog",
       "--filter",
       "@openpost/telemetry",
       "--filter",

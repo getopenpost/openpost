@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,17 +25,29 @@ import {
   StatusBadge,
   TextField,
 } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { CelebrationBurst } from "@/components/celebration-burst";
 import { BottomDrawer } from "@/components/bottom-drawer";
 import { ThemeIcon } from "@/components/theme-icon";
 import { ProtectedIcon } from "@/components/protected-icon";
-import { api, errorMessage } from "@/lib/api/client";
+import { api, errorMessage, type Api } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { uploadAttachment, type PendingAttachment } from "@/lib/media";
 import { takePendingAttachments } from "@/lib/share";
-import { currentWorkspaceId, useAccounts, useSocialSets } from "@/lib/queries";
+import { invalidatePublicationData, type Publication } from "@/lib/query-cache";
+import { currentWorkspaceId, useAccounts, usePublication, useSocialSets } from "@/lib/queries";
+import type { PublicationActivity } from "@/lib/query-policy";
+import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  queryActorScopeIsCurrent,
+  requireCurrentQueryActor,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
 import { useNativeTheme, withAlpha } from "@/theme";
 
 type Attachment = {
@@ -59,14 +71,54 @@ function attachmentsFromPublication(pub: PublicationDetail): Attachment[] {
   }));
 }
 
-type PublicationDetail = NonNullable<Awaited<ReturnType<typeof fetchPublication>>>;
+type PublicationDetail = Publication;
+type AccountsQuery = ReturnType<typeof useAccounts>;
+type SocialSetsQuery = ReturnType<typeof useSocialSets>;
+type EditorMutationScope = WorkspaceQueryScope & {
+  publicationId: string;
+  originalActivity: PublicationActivity;
+  originalCalendarEntry: boolean;
+};
 
-async function fetchPublication(id: string) {
-  const { data, error, response } = await api().GET("/publications/{id}", {
-    params: { path: { id } },
-  });
-  if (error || !data) throw new Error(await errorMessage(response, "Could not load draft"));
-  return data;
+function bodyFromPublication(pub: PublicationDetail): string {
+  return pub.source_text ?? pub.renditions?.find((rendition) => rendition.body)?.body ?? "";
+}
+
+function selectedAccountsFromPublication(pub: PublicationDetail): Set<string> {
+  return new Set(
+    (pub.renditions ?? []).map((rendition) => rendition.social_account_id).filter(Boolean),
+  );
+}
+
+function renditionBodiesFromPublication(pub: PublicationDetail): Record<string, string> {
+  const bodies: Record<string, string> = {};
+  for (const rendition of pub.renditions ?? []) {
+    if (
+      rendition.social_account_id &&
+      rendition.body &&
+      rendition.body !== (pub.source_text ?? "")
+    ) {
+      bodies[rendition.social_account_id] = rendition.body;
+    }
+  }
+  return bodies;
+}
+
+function captureEditorMutationScope(
+  publicationId: string,
+  originalActivity: PublicationActivity,
+  originalCalendarEntry: boolean,
+): EditorMutationScope {
+  return {
+    ...captureWorkspaceQueryScope(currentWorkspaceId()),
+    publicationId,
+    originalActivity,
+    originalCalendarEntry,
+  };
+}
+
+function workspaceScopeIsCurrent(scope: WorkspaceQueryScope): boolean {
+  return workspaceQueryScopeIsCurrent(scope, getWorkspaceId());
 }
 
 export default function ComposeScreen() {
@@ -77,28 +129,35 @@ export default function ComposeScreen() {
     celebrate?: string;
   }>();
 
-  const publication = useQuery({
-    queryKey: ["publication", id],
-    queryFn: () => fetchPublication(id),
-  });
+  const publication = usePublication(id);
+  const accounts = useAccounts();
+  const socialSets = useSocialSets();
 
-  if (publication.isLoading) {
+  if (publication.isPending && !publication.data) {
     return (
-      <Screen style={{ alignItems: "center", justifyContent: "center" }}>
+      <Screen style={styles.coldState}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator color={colors.primary} />
+        <DelayedQueryPlaceholder
+          pending
+          shape="editor"
+          offline={publication.fetchStatus === "paused"}
+        />
       </Screen>
     );
   }
 
-  if (publication.isError || !publication.data) {
+  if (!publication.data) {
     return (
-      <Screen style={{ padding: 20, paddingTop: 100, gap: 12 }}>
+      <Screen style={styles.coldState}>
         <Stack.Screen options={{ headerShown: false }} />
-        <BodyText style={{ color: colors.error }}>
-          {publication.error instanceof Error ? publication.error.message : "Failed to load"}
-        </BodyText>
-        <Button title="Close" onPress={() => router.back()} />
+        <InitialQueryError
+          title="Could not open this draft"
+          message={
+            publication.error instanceof Error ? publication.error.message : "Failed to load"
+          }
+          retry={() => void publication.refetch()}
+          secondaryAction={{ label: "Close", onPress: () => router.back() }}
+        />
       </Screen>
     );
   }
@@ -110,6 +169,11 @@ export default function ComposeScreen() {
       celebrateOnOpen={celebrate === "1"}
       id={id}
       pub={publication.data}
+      accounts={accounts}
+      socialSets={socialSets}
+      refreshError={publication.isError}
+      refreshPaused={publication.fetchStatus === "paused"}
+      onRefreshPublication={() => void publication.refetch()}
     />
   );
 }
@@ -117,21 +181,31 @@ export default function ComposeScreen() {
 function Composer({
   id,
   pub,
+  accounts,
+  socialSets,
+  refreshError,
+  refreshPaused,
+  onRefreshPublication,
   buildOnOpen,
   celebrateOnOpen,
 }: {
   id: string;
   pub: PublicationDetail;
+  accounts: AccountsQuery;
+  socialSets: SocialSetsQuery;
+  refreshError: boolean;
+  refreshPaused: boolean;
+  onRefreshPublication: () => void;
   buildOnOpen: boolean;
   celebrateOnOpen: boolean;
 }) {
   const theme = useNativeTheme();
   const { colors, editor, typography } = theme.manifest;
   const queryClient = useQueryClient();
+  const [initialPendingAttachments] = useState(() => takePendingAttachments());
+  const editorDirty = useRef(initialPendingAttachments.length > 0);
 
-  const [body, setBody] = useState(
-    pub.source_text ?? pub.renditions?.find((rendition) => rendition.body)?.body ?? "",
-  );
+  const [body, setBody] = useState(() => bodyFromPublication(pub));
   const [revision, setRevision] = useState(pub.revision ?? 0);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(
     pub.scheduled_at ? new Date(pub.scheduled_at) : null,
@@ -141,32 +215,19 @@ function Composer({
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [selectedSocialSetId, setSelectedSocialSetId] = useState(pub.social_set_id ?? "");
   const [selectionTouched, setSelectionTouched] = useState((pub.renditions?.length ?? 0) > 0);
-  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(
-    () =>
-      new Set(
-        (pub.renditions ?? []).map((rendition) => rendition.social_account_id).filter(Boolean),
-      ),
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(() =>
+    selectedAccountsFromPublication(pub),
   );
-  const [renditionBodies, setRenditionBodies] = useState<Record<string, string>>(() => {
-    const bodies: Record<string, string> = {};
-    for (const rendition of pub.renditions ?? []) {
-      if (
-        rendition.social_account_id &&
-        rendition.body &&
-        rendition.body !== (pub.source_text ?? "")
-      ) {
-        bodies[rendition.social_account_id] = rendition.body;
-      }
-    }
-    return bodies;
-  });
+  const [renditionBodies, setRenditionBodies] = useState<Record<string, string>>(() =>
+    renditionBodiesFromPublication(pub),
+  );
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [celebrationTrigger, setCelebrationTrigger] = useState(celebrateOnOpen ? 1 : 0);
   const [attachments, setAttachments] = useState<Attachment[]>(() => [
     ...attachmentsFromPublication(pub),
-    ...takePendingAttachments().map((pending) => ({
+    ...initialPendingAttachments.map((pending) => ({
       localId: pending.localId,
       uri: pending.uri,
       mimeType: pending.mimeType,
@@ -179,8 +240,21 @@ function Composer({
   const autoBuildStarted = useRef(false);
   const celebratedIdea = useRef(celebrateOnOpen);
 
-  const accounts = useAccounts();
-  const socialSets = useSocialSets();
+  useEffect(() => {
+    if (editorDirty.current) return;
+    setBody(bodyFromPublication(pub));
+    setRevision(pub.revision ?? 0);
+    setScheduledAt(pub.scheduled_at ? new Date(pub.scheduled_at) : null);
+    setSelectedSocialSetId(pub.social_set_id ?? "");
+    setSelectionTouched((pub.renditions?.length ?? 0) > 0);
+    setSelectedAccounts(selectedAccountsFromPublication(pub));
+    setRenditionBodies(renditionBodiesFromPublication(pub));
+    setAttachments((current) => [
+      ...attachmentsFromPublication(pub),
+      ...current.filter((attachment) => !attachment.mediaId),
+    ]);
+  }, [pub]);
+
   const defaultSocialSet = socialSets.data?.find((set) => set.is_default) ?? socialSets.data?.[0];
   const defaultAccountIDs =
     defaultSocialSet?.accounts?.map((account) => account.social_account_id) ??
@@ -190,21 +264,46 @@ function Composer({
   const activeSocialSetId = selectionTouched
     ? selectedSocialSetId
     : (defaultSocialSet?.id ?? selectedSocialSetId);
+  const originalActivity = publicationActivity(pub.status);
+  const originalCalendarEntry =
+    originalActivity === "scheduled" || originalActivity === "published";
+  const destinationCatalogFailed = accounts.isError || socialSets.isError;
+  const accountsLoadedEmpty = (accounts.data?.length ?? 0) === 0 && accounts.data !== undefined;
 
-  function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ["publications"] });
-    void queryClient.invalidateQueries({ queryKey: ["calendar"] });
-    void queryClient.invalidateQueries({ queryKey: ["publication", id] });
+  function markEditorDirty(): void {
+    editorDirty.current = true;
+  }
+
+  function invalidate(
+    scope: EditorMutationScope,
+    {
+      activities,
+      calendar = false,
+    }: {
+      activities: readonly PublicationActivity[];
+      calendar?: boolean;
+    },
+  ) {
+    if (!queryActorScopeIsCurrent(scope)) return;
+    void invalidatePublicationData(queryClient, {
+      workspaceId: scope.workspaceId,
+      publicationId: scope.publicationId,
+      activities,
+      calendar,
+    });
   }
 
   async function httpError(response: Response | undefined, fallback: string): Promise<Error> {
     if (response?.status === 409) {
-      return new Error("This post changed elsewhere. Pulling the latest version...");
+      return new Error("This post changed elsewhere. Close and reopen it before trying again.");
     }
     return new Error(await errorMessage(response, fallback));
   }
 
-  async function resolveAttachments(): Promise<string[]> {
+  async function resolveAttachments(
+    scope: WorkspaceQueryScope,
+    requestApi: Api,
+  ): Promise<string[]> {
     const mediaIds: string[] = [];
     for (const attachment of attachments) {
       if (attachment.mediaId) {
@@ -212,11 +311,13 @@ function Composer({
         continue;
       }
       if (!attachment.uri) continue;
-      setAttachments((current) =>
-        current.map((item) =>
-          item.localId === attachment.localId ? { ...item, status: "uploading" } : item,
-        ),
-      );
+      if (workspaceScopeIsCurrent(scope)) {
+        setAttachments((current) =>
+          current.map((item) =>
+            item.localId === attachment.localId ? { ...item, status: "uploading" } : item,
+          ),
+        );
+      }
       try {
         const pendingAttachment: PendingAttachment = {
           localId: attachment.localId,
@@ -225,28 +326,41 @@ function Composer({
           filename: attachment.filename,
           size: attachment.size,
         };
-        const mediaId = await uploadAttachment(pendingAttachment);
+        const mediaId = await uploadAttachment(pendingAttachment, {
+          client: requestApi,
+          workspaceId: scope.workspaceId,
+        });
+        requireCurrentQueryActor(scope);
         mediaIds.push(mediaId);
-        setAttachments((current) =>
-          current.map((item) =>
-            item.localId === attachment.localId
-              ? { ...item, mediaId, status: "ready" as const }
-              : item,
-          ),
-        );
+        if (workspaceScopeIsCurrent(scope)) {
+          setAttachments((current) =>
+            current.map((item) =>
+              item.localId === attachment.localId
+                ? { ...item, mediaId, status: "ready" as const }
+                : item,
+            ),
+          );
+        }
       } catch (err) {
-        setAttachments((current) =>
-          current.map((item) =>
-            item.localId === attachment.localId ? { ...item, status: "error" as const } : item,
-          ),
-        );
+        if (workspaceScopeIsCurrent(scope)) {
+          setAttachments((current) =>
+            current.map((item) =>
+              item.localId === attachment.localId ? { ...item, status: "error" as const } : item,
+            ),
+          );
+        }
         throw err instanceof Error ? err : new Error("Could not upload attachment");
       }
     }
     return mediaIds;
   }
 
-  async function persist(scheduleOverride?: Date): Promise<number> {
+  async function persist(
+    scope: EditorMutationScope,
+    requestApi: Api,
+    scheduleOverride?: Date,
+  ): Promise<number> {
+    requireCurrentQueryActor(scope);
     let mediaChanged = false;
     for (const attachment of attachments) {
       if (!attachment.mediaId || !initialMediaIds.includes(attachment.mediaId)) {
@@ -256,7 +370,8 @@ function Composer({
     }
     if (attachments.length !== initialMediaIds.length) mediaChanged = true;
 
-    const media = await resolveAttachments();
+    const media = await resolveAttachments(scope, requestApi);
+    requireCurrentQueryActor(scope);
     const desired = [...activeAccounts];
     const removed = (pub.renditions ?? []).filter(
       (rendition) =>
@@ -271,8 +386,8 @@ function Composer({
       data: updated,
       error,
       response,
-    } = await api().PUT("/publications/{id}", {
-      params: { path: { id } },
+    } = await requestApi.PUT("/publications/{id}", {
+      params: { path: { id: scope.publicationId } },
       body: {
         expected_revision: revision,
         source_text: body,
@@ -286,11 +401,12 @@ function Composer({
       },
     });
     if (error) throw await httpError(response, "Could not save");
+    requireCurrentQueryActor(scope);
     let nextRevision = updated?.revision ?? revision + 1;
 
     if (desired.length > 0) {
-      const upsert = await api().PUT("/publications/{id}/renditions", {
-        params: { path: { id } },
+      const upsert = await requestApi.PUT("/publications/{id}/renditions", {
+        params: { path: { id: scope.publicationId } },
         body: {
           expected_revision: nextRevision,
           renditions: desired.map((accountId) => ({
@@ -300,152 +416,222 @@ function Composer({
         },
       });
       if (upsert.error) throw await httpError(upsert.response, "Could not update destinations");
+      requireCurrentQueryActor(scope);
       nextRevision = upsert.data?.revision ?? nextRevision + 1;
     }
 
     for (const rendition of removed) {
       if (!rendition.social_account_id) continue;
-      const removal = await api().DELETE("/publications/{id}/renditions/{account_id}", {
+      const removal = await requestApi.DELETE("/publications/{id}/renditions/{account_id}", {
         params: {
-          path: { id, account_id: rendition.social_account_id },
+          path: { id: scope.publicationId, account_id: rendition.social_account_id },
           query: { confirm: true, expected_revision: nextRevision },
         },
       });
       if (removal.error) throw await httpError(removal.response, "Could not remove destination");
+      requireCurrentQueryActor(scope);
       nextRevision += 1;
     }
 
-    setRevision(nextRevision);
+    if (workspaceScopeIsCurrent(scope)) setRevision(nextRevision);
     return nextRevision;
   }
 
-  function handleError(err: Error) {
-    setActionError(err.message);
-    void errorHaptic();
-    if (err.message.includes("changed elsewhere")) {
-      invalidate();
+  function handleError(
+    err: Error,
+    scope: EditorMutationScope,
+    refresh?: { activities: readonly PublicationActivity[]; calendar?: boolean },
+  ) {
+    if (workspaceScopeIsCurrent(scope)) {
+      setActionError(err.message);
+      void errorHaptic();
+    }
+    if (refresh) {
+      invalidate(scope, refresh);
+    } else if (err.message.includes("changed elsewhere")) {
+      invalidate(scope, { activities: [] });
     }
   }
 
   const saveAndClose = useMutation({
-    mutationFn: () => persist(),
-    onSuccess: () => {
-      invalidate();
-      router.back();
+    mutationFn: (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
+      return persist(scope, api());
     },
-    onError: handleError,
+    onSuccess: (_, scope) => {
+      invalidate(scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      });
+      if (workspaceScopeIsCurrent(scope)) router.back();
+    },
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      }),
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       if (!scheduledAt) throw new Error("Pick a time first");
-      const nextRevision = await persist();
-      const { error, response } = await api().POST("/publications/{id}/schedule", {
-        params: { path: { id } },
+      const requestApi = api();
+      const nextRevision = await persist(scope, requestApi);
+      const { error, response } = await requestApi.POST("/publications/{id}/schedule", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not schedule");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      void successHaptic();
-      setStatusMessage("Queued for publishing");
-      invalidate();
-      setTimeout(() => router.back(), 700);
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        setStatusMessage("Queued for publishing");
+        setTimeout(() => {
+          if (workspaceScopeIsCurrent(scope)) router.back();
+        }, 700);
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const publishNow = useMutation({
-    mutationFn: async () => {
-      const nextRevision = await persist();
-      const { error, response } = await api().POST("/publications/{id}/publish-now", {
-        params: { path: { id } },
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
+      const requestApi = api();
+      const nextRevision = await persist(scope, requestApi);
+      const { error, response } = await requestApi.POST("/publications/{id}/publish-now", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not publish");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      void successHaptic();
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        router.back();
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const deleteDraft = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const { error, response } = await api().DELETE("/publications/{id}", {
         params: {
-          path: { id },
+          path: { id: scope.publicationId },
           query: { confirm: true, expected_revision: revision },
         },
       });
       if (error) throw await httpError(response, "Could not delete");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      invalidate(scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      });
+      if (workspaceScopeIsCurrent(scope)) router.back();
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      }),
   });
 
   const nextSlot = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const { data, error, response } = await api().GET("/posting-schedules/next-slot", {
-        params: { query: { workspace_id: currentWorkspaceId() } },
+        params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
+      requireCurrentQueryActor(scope);
       return new Date(data.slot_time);
     },
-    onSuccess: (date) => {
+    onSuccess: (date, scope) => {
+      if (!workspaceScopeIsCurrent(scope)) return;
+      markEditorDirty();
       setScheduledAt(date);
       setPickerStep(null);
     },
-    onError: handleError,
+    onError: (err, scope) => handleError(err, scope),
   });
 
   const queueNextSlot = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       if (activeAccounts.size === 0) throw new Error("Choose at least one destination");
-      const { data, error, response } = await api().GET("/posting-schedules/next-slot", {
-        params: { query: { workspace_id: currentWorkspaceId() } },
+      const requestApi = api();
+      const { data, error, response } = await requestApi.GET("/posting-schedules/next-slot", {
+        params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
+      requireCurrentQueryActor(scope);
       const slot = new Date(data.slot_time);
-      setScheduledAt(slot);
-      const nextRevision = await persist(slot);
-      const scheduled = await api().POST("/publications/{id}/schedule", {
-        params: { path: { id } },
+      if (workspaceScopeIsCurrent(scope)) {
+        markEditorDirty();
+        setScheduledAt(slot);
+      }
+      const nextRevision = await persist(scope, requestApi, slot);
+      const scheduled = await requestApi.POST("/publications/{id}/schedule", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (scheduled.error) throw await httpError(scheduled.response, "Could not queue post");
+      requireCurrentQueryActor(scope);
       return slot;
     },
-    onSuccess: () => {
-      void successHaptic();
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        router.back();
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const generatePost = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const idea = body.trim();
       if (!idea) throw new Error("Jot down an idea first");
       if (activeAccounts.size === 0) throw new Error("Choose at least one destination");
       const { data, error, response } = await api().POST("/post-builder/generate", {
         body: {
-          workspace_id: currentWorkspaceId(),
+          workspace_id: scope.workspaceId,
           idea,
           social_account_ids: [...activeAccounts],
         },
       });
       if (error || !data)
         throw new Error(await errorMessage(response, "Could not generate this draft"));
+      requireCurrentQueryActor(scope);
       return data;
     },
-    onSuccess: (generated) => {
+    onSuccess: (generated, scope) => {
+      if (!workspaceScopeIsCurrent(scope)) return;
+      markEditorDirty();
       setBody(generated.source_text);
       setRenditionBodies(
         Object.fromEntries(
@@ -463,16 +649,17 @@ function Composer({
         setCelebrationTrigger((current) => current + 1);
       }
     },
-    onError: handleError,
+    onError: (err, scope) => handleError(err, scope),
   });
 
   useEffect(() => {
     if (!buildOnOpen || autoBuildStarted.current || activeAccounts.size === 0) return;
     autoBuildStarted.current = true;
-    generatePost.mutate();
-  }, [activeAccounts.size, buildOnOpen, generatePost]);
+    generatePost.mutate(captureEditorMutationScope(id, originalActivity, originalCalendarEntry));
+  }, [activeAccounts.size, buildOnOpen, generatePost, id, originalActivity, originalCalendarEntry]);
 
   function toggleAccount(accountId: string) {
+    markEditorDirty();
     void selectionHaptic();
     setSelectedAccounts(() => {
       const next = new Set(activeAccounts);
@@ -488,6 +675,7 @@ function Composer({
   }
 
   function applySocialSet(setId: string, accountIds: string[]) {
+    markEditorDirty();
     void selectionHaptic();
     setSelectedAccounts(new Set(accountIds));
     setSelectedSocialSetId(setId);
@@ -495,6 +683,7 @@ function Composer({
   }
 
   function addAttachment(asset: ImagePicker.ImagePickerAsset) {
+    markEditorDirty();
     void selectionHaptic();
     setAttachments((current) => [
       ...current,
@@ -535,10 +724,12 @@ function Composer({
   }
 
   function removeAttachment(localId: string) {
+    markEditorDirty();
     setAttachments((current) => current.filter((item) => item.localId !== localId));
   }
 
   function moveAttachment(index: number, delta: -1 | 1) {
+    markEditorDirty();
     setAttachments((current) => {
       const target = index + delta;
       if (target < 0 || target >= current.length) return current;
@@ -572,7 +763,11 @@ function Composer({
           accessibilityRole="button"
           accessibilityLabel="Save draft"
           accessibilityState={{ disabled: saveAndClose.isPending }}
-          onPress={() => saveAndClose.mutate()}
+          onPress={() =>
+            saveAndClose.mutate(
+              captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+            )
+          }
           disabled={saveAndClose.isPending}
           style={styles.headerAction}
         >
@@ -607,6 +802,15 @@ function Composer({
             {actionError}
           </BodyText>
         ) : null}
+        {refreshError ? (
+          <QueryNotice
+            message="Could not refresh this draft. You can keep editing this copy."
+            retry={onRefreshPublication}
+          />
+        ) : null}
+        {refreshPaused ? (
+          <QueryNotice message="You are offline. You can keep editing the current draft." offline />
+        ) : null}
 
         <View style={styles.editorHeading}>
           <View style={styles.editorHeadingCopy}>
@@ -621,7 +825,11 @@ function Composer({
           <Button
             title={generatePost.isPending ? "Generating..." : "Generate draft"}
             intent="ordinary"
-            onPress={() => generatePost.mutate()}
+            onPress={() =>
+              generatePost.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={generatePost.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={generatePost.isPending}
             style={styles.aiButton}
@@ -629,7 +837,10 @@ function Composer({
         </View>
         <TextField
           value={body}
-          onChangeText={setBody}
+          onChangeText={(text) => {
+            markEditorDirty();
+            setBody(text);
+          }}
           accessibilityLabel="Post text"
           placeholder="What do you want to say?"
           multiline
@@ -807,7 +1018,11 @@ function Composer({
             <Button
               title="Publish now"
               intent="ordinary"
-              onPress={() => publishNow.mutate()}
+              onPress={() =>
+                publishNow.mutate(
+                  captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                )
+              }
               disabled={publishNow.isPending || activeAccounts.size === 0}
             />
           ) : null}
@@ -820,7 +1035,10 @@ function Composer({
                 {
                   text: "Delete",
                   style: "destructive",
-                  onPress: () => deleteDraft.mutate(),
+                  onPress: () =>
+                    deleteDraft.mutate(
+                      captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                    ),
                 },
               ])
             }
@@ -841,7 +1059,11 @@ function Composer({
           <Button
             title="Queue next slot"
             intent="focal"
-            onPress={() => queueNextSlot.mutate()}
+            onPress={() =>
+              queueNextSlot.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={queueNextSlot.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={queueNextSlot.isPending}
             style={{ flex: 1 }}
@@ -876,8 +1098,32 @@ function Composer({
             </View>
           ) : null}
           <BodyText>Choose a saved set or fine-tune the accounts below.</BodyText>
-          {accounts.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
-          {(accounts.data?.length ?? 0) === 0 && !accounts.isLoading ? (
+          {(accounts.data === undefined && accounts.isPending) ||
+          (socialSets.data === undefined && socialSets.isPending) ? (
+            <DelayedQueryPlaceholder
+              pending
+              shape="list"
+              offline={accounts.fetchStatus === "paused" || socialSets.fetchStatus === "paused"}
+            />
+          ) : null}
+          {destinationCatalogFailed ? (
+            <QueryNotice
+              message={
+                accounts.data !== undefined || socialSets.data !== undefined
+                  ? "Could not refresh every destination. Current destinations remain visible."
+                  : "Could not load your Social Sets and accounts."
+              }
+              retry={() => {
+                void accounts.refetch();
+                void socialSets.refetch();
+              }}
+            />
+          ) : null}
+          {(accounts.data !== undefined || socialSets.data !== undefined) &&
+          (accounts.fetchStatus === "paused" || socialSets.fetchStatus === "paused") ? (
+            <QueryNotice message="You are offline. Current destinations remain visible." offline />
+          ) : null}
+          {accountsLoadedEmpty && !destinationCatalogFailed ? (
             <Card>
               <BodyText>No connected accounts. Connect them in the web app first.</BodyText>
             </Card>
@@ -934,12 +1180,13 @@ function Composer({
                       <TextField
                         value={renditionBodies[account.id] ?? ""}
                         accessibilityLabel={`Custom text for ${platformLabel(account.platform)}`}
-                        onChangeText={(text) =>
+                        onChangeText={(text) => {
+                          markEditorDirty();
                           setRenditionBodies((current) => ({
                             ...current,
                             [account.id]: text,
-                          }))
-                        }
+                          }));
+                        }}
                         placeholder="Leave empty to use the main post"
                         multiline
                         textAlignVertical="top"
@@ -978,11 +1225,22 @@ function Composer({
               <Button
                 title="Use next slot"
                 intent="ordinary"
-                onPress={() => nextSlot.mutate()}
+                onPress={() =>
+                  nextSlot.mutate(
+                    captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                  )
+                }
                 loading={nextSlot.isPending}
               />
               {scheduledAt ? (
-                <Button title="Clear" intent="quiet" onPress={() => setScheduledAt(null)} />
+                <Button
+                  title="Clear"
+                  intent="quiet"
+                  onPress={() => {
+                    markEditorDirty();
+                    setScheduledAt(null);
+                  }}
+                />
               ) : null}
             </View>
             {pickerStep ? (
@@ -995,6 +1253,7 @@ function Composer({
                     return;
                   }
                   const result = applyPickerValue(scheduledAt ?? nextHour(), date, pickerStep);
+                  markEditorDirty();
                   setScheduledAt(result.value);
                   setPickerStep(result.nextStep);
                 }}
@@ -1004,7 +1263,11 @@ function Composer({
           <Button
             title="Schedule and queue"
             intent="focal"
-            onPress={() => scheduleMutation.mutate()}
+            onPress={() =>
+              scheduleMutation.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={!scheduledAt || scheduleMutation.isPending || activeAccounts.size === 0}
             loading={scheduleMutation.isPending}
           />
@@ -1055,7 +1318,18 @@ function selectedSetLabel(
   return `${accountCount} ${accountCount === 1 ? "destination" : "destinations"}`;
 }
 
+function publicationActivity(status: string): PublicationActivity {
+  if (status === "scheduled" || status === "publishing") return "scheduled";
+  if (status === "published") return "published";
+  if (status === "failed") return "failed";
+  return "draft";
+}
+
 const styles = StyleSheet.create({
+  coldState: {
+    paddingHorizontal: 20,
+    paddingTop: 72,
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1184,11 +1458,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  customizeToggle: {
-    paddingHorizontal: 12,
-    minHeight: 48,
-    justifyContent: "center",
-  },
   overrideField: {
     marginTop: 4,
     minHeight: 112,
@@ -1217,10 +1486,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
-  },
-  scheduleButton: {
-    minHeight: 48,
-    paddingHorizontal: 12,
   },
   footer: {
     gap: 10,

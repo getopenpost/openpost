@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -16,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
+	"github.com/openpost/backend/internal/services/sessions"
 )
 
 type contextKey string
@@ -41,6 +43,8 @@ const (
 	bearerPrefix      = "Bearer"
 	sessionCookieName = "openpost_session"
 )
+
+var errAuthenticationUnavailable = errors.New("authentication unavailable")
 
 type Principal struct {
 	UserID      string
@@ -182,7 +186,10 @@ func (a *JWTAuthenticator) AuthenticateBearer(ctx context.Context, token string)
 	}
 	if claims.SessionID != "" && a.sessions != nil {
 		if _, err := a.sessions.ValidateSession(ctx, claims.UserID, claims.SessionID); err != nil {
-			return nil, err
+			if isInvalidSessionError(err) {
+				return nil, err
+			}
+			return nil, authenticationUnavailableError(err)
 		}
 	}
 	return &Principal{UserID: claims.UserID, Email: claims.Email, SessionID: claims.SessionID}, nil
@@ -209,13 +216,16 @@ func (s *CompositeService) AuthenticateBearer(ctx context.Context, token string)
 	if err == nil {
 		return principal, nil
 	}
-	if s.apiTokens == nil {
+	if s.apiTokens == nil || !strings.HasPrefix(strings.TrimSpace(token), apitokens.TokenPrefix+"_") {
 		return nil, err
 	}
 
 	apiPrincipal, apiErr := s.apiTokens.ValidateToken(ctx, token)
 	if apiErr != nil {
-		return nil, err
+		if isInvalidAPITokenError(apiErr) {
+			return nil, apiErr
+		}
+		return nil, authenticationUnavailableError(apiErr)
 	}
 	return &Principal{
 		UserID:      apiPrincipal.UserID,
@@ -283,10 +293,10 @@ func AuthMiddleware(api huma.API, authenticator Authenticator) func(ctx huma.Con
 	}
 }
 
-// OptionalAuthMiddleware attaches a valid REST principal when one is present
-// and otherwise continues anonymously. Use it only for read-only endpoints
-// whose response explicitly supports an unauthenticated state.
-func OptionalAuthMiddleware(authenticator Authenticator) func(ctx huma.Context, next func(huma.Context)) {
+// OptionalAuthMiddleware attaches a valid REST principal when one is present.
+// Missing and invalid credentials continue anonymously. Availability errors
+// return 503 so clients do not mistake an outage for a signed-out user.
+func OptionalAuthMiddleware(api huma.API, authenticator Authenticator) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		authHeader := ctx.Header("Authorization")
 		token, cookieAuth := requestAuthToken(authHeader, ctx.Header("Cookie"))
@@ -299,7 +309,18 @@ func OptionalAuthMiddleware(authenticator Authenticator) func(ctx huma.Context, 
 			return
 		}
 		principal, err := authenticator.AuthenticateBearer(ctx.Context(), token)
-		if err != nil || !PrincipalCanAccessREST(principal, contextOperationID(ctx)) {
+		if err != nil {
+			if ctx.Context().Err() != nil {
+				return
+			}
+			if isAuthenticationUnavailable(err) {
+				_ = huma.WriteErr(api, ctx, http.StatusServiceUnavailable, "authentication is temporarily unavailable")
+				return
+			}
+			next(ctx)
+			return
+		}
+		if !PrincipalCanAccessREST(principal, contextOperationID(ctx)) {
 			next(ctx)
 			return
 		}
@@ -507,7 +528,25 @@ func AttachPrincipal(c echo.Context, principal *Principal) {
 }
 
 func isAuthenticationUnavailable(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return errors.Is(err, errAuthenticationUnavailable) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
+func authenticationUnavailableError(err error) error {
+	return fmt.Errorf("%w: %w", errAuthenticationUnavailable, err)
+}
+
+func isInvalidSessionError(err error) bool {
+	return errors.Is(err, sessions.ErrInvalidSession) ||
+		errors.Is(err, sessions.ErrExpiredSession) ||
+		errors.Is(err, sessions.ErrRevokedSession)
+}
+
+func isInvalidAPITokenError(err error) bool {
+	return errors.Is(err, apitokens.ErrInvalidToken) ||
+		errors.Is(err, apitokens.ErrExpiredToken) ||
+		errors.Is(err, apitokens.ErrRevokedToken)
 }
 
 func requestAuthToken(authHeader, cookieHeader string) (string, bool) {

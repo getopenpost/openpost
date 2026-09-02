@@ -1,5 +1,8 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
+import { stockProvidersQueryOptions, stockSearchQueryOptions } from '@openpost/query-catalog';
+import { mediaQueryAPI } from '$lib/query/media';
+import { queryClient } from '$lib/query/client';
 
 export type StockProvider = components['schemas']['StockProviderResponse'];
 export type StockSearchPage = components['schemas']['SearchPage'];
@@ -50,37 +53,32 @@ export interface StockMediaSearchInput {
 }
 
 export async function listStockProviders(): Promise<StockProvider[]> {
-	const { data, error } = await client.GET('/stock-media/providers');
-	if (error || !data) throw new Error(error?.detail ?? 'Stock media providers could not load.');
+	const data = await queryClient.query(stockProvidersQueryOptions(mediaQueryAPI));
 	return data.providers ?? [];
 }
 
 export async function searchStockMedia(input: StockMediaSearchInput): Promise<StockSearchPage> {
-	const { data, error } = await client.GET('/stock-media/search', {
-		params: {
-			query: {
-				provider: parseStockProviderID(input.provider),
-				query: input.query,
-				kind: input.kind,
-				orientation: input.orientation,
-				size: input.size,
-				color: input.color,
-				locale: input.locale,
-				order: input.order,
-				content_filter: input.contentFilter,
-				collections: input.collections,
-				category: input.category,
-				media_subtype: input.mediaSubtype,
-				editors_choice: input.editorsChoice,
-				min_width: input.minWidth,
-				min_height: input.minHeight,
-				page: input.page ?? 1,
-				per_page: input.perPage ?? 24
-			}
-		}
-	});
-	if (error || !data) throw new Error(error?.detail ?? 'Stock media search failed.');
-	return data;
+	return queryClient.query(
+		stockSearchQueryOptions(mediaQueryAPI, {
+			provider: parseStockProviderID(input.provider),
+			query: input.query,
+			kind: input.kind,
+			orientation: input.orientation,
+			size: input.size,
+			color: input.color,
+			locale: input.locale,
+			order: input.order,
+			contentFilter: input.contentFilter,
+			collections: input.collections,
+			category: input.category,
+			mediaSubtype: input.mediaSubtype,
+			editorsChoice: input.editorsChoice,
+			minWidth: input.minWidth,
+			minHeight: input.minHeight,
+			page: input.page,
+			perPage: input.perPage
+		})
+	);
 }
 
 export async function resolveStockAsset(

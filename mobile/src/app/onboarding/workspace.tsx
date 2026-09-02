@@ -1,8 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import {
   BodyText,
@@ -14,12 +13,17 @@ import {
   SectionHeader,
 } from "@/components/ui";
 import { Brand } from "@/components/brand";
-import { api, errorMessage } from "@/lib/api/client";
-import { getWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
+import { getWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
+import { useWorkspaces } from "@/lib/queries";
 import { getServer } from "@/lib/server";
-import { automaticWorkspaceId } from "@/lib/workspace-selection";
+import {
+  automaticWorkspaceSelectionId,
+  idleWorkspaceSelection,
+  selectWorkspaceForNavigation,
+} from "@/lib/workspace-selection";
 import {
   beginNativeThemeWorkspaceTransition,
   cancelNativeThemeWorkspaceTransition,
@@ -34,52 +38,46 @@ export default function WorkspaceScreen() {
     mode?: string;
   }>();
   const switching = mode === "switch";
-  const [selected, setSelected] = useState<string | null>(null);
-  const [selectionError, setSelectionError] = useState<string | null>(null);
-  const automaticSelectionAttempted = useRef(false);
+  const [selection, setSelection] = useState(idleWorkspaceSelection);
+  const selectionInFlight = useRef(false);
+  const automaticAttempted = useRef<string | null>(null);
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
-  const workspaces = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: async () => {
-      const { data, error, response } = await api().GET("/workspaces");
-      if (error || !data)
-        throw new Error(await errorMessage(response, "Could not load workspaces"));
-      return data.filter((w): w is NonNullable<typeof w> => Boolean(w));
-    },
-  });
+  const workspaces = useWorkspaces();
 
   const list = useMemo(() => workspaces.data ?? [], [workspaces.data]);
+  const hasData = workspaces.data !== undefined;
 
   const finish = useCallback(async (id: string) => {
-    setSelected(id);
-    setSelectionError(null);
+    if (selectionInFlight.current) return false;
+    selectionInFlight.current = true;
     beginNativeThemeWorkspaceTransition(id);
     try {
-      await saveWorkspaceId(id);
-      router.replace(destinationState(null).route);
-    } catch {
-      cancelNativeThemeWorkspaceTransition(id);
-      setSelected(null);
-      setSelectionError("Could not switch workspaces. Try again.");
+      const committed = await selectWorkspaceForNavigation(
+        id,
+        () => router.replace(destinationState(null).route),
+        setSelection,
+      );
+      if (!committed) cancelNativeThemeWorkspaceTransition(id);
+      return committed;
+    } finally {
+      selectionInFlight.current = false;
     }
   }, []);
 
   useEffect(() => {
-    const automatic = automaticWorkspaceId({
-      automaticSelectionAttempted: automaticSelectionAttempted.current,
-      selectionPending: selected !== null,
-      storedWorkspaceId: getWorkspaceId(),
+    if (switching || selection.selected || list.length === 0) return;
+    const automatic = automaticWorkspaceSelectionId(
+      list,
+      getWorkspaceId(),
       switching,
-      workspaces: list,
-    });
-    if (automatic) {
-      automaticSelectionAttempted.current = true;
-      const timer = setTimeout(() => void finish(automatic), 0);
-      return () => clearTimeout(timer);
-    }
-  }, [finish, list, selected, switching]);
+      automaticAttempted.current,
+    );
+    if (!automatic) return;
+    automaticAttempted.current = automatic;
+    void finish(automatic);
+  }, [finish, list, selection.selected, switching]);
 
   return (
     <Screen>
@@ -99,31 +97,43 @@ export default function WorkspaceScreen() {
           />
         ) : null}
 
-        {workspaces.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
-        {workspaces.isError ? (
-          <View style={styles.errorState}>
-            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
-              {workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"}
-            </BodyText>
-            <Button title="Retry" intent="ordinary" onPress={() => void workspaces.refetch()} />
-          </View>
+        <DelayedQueryPlaceholder
+          pending={!hasData && workspaces.isPending}
+          shape="list"
+          offline={workspaces.fetchStatus === "paused"}
+        />
+        {workspaces.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not load workspaces"
+            message={
+              workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"
+            }
+            retry={() => void workspaces.refetch()}
+          />
         ) : null}
-        {selectionError ? (
-          <View style={styles.errorState}>
-            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
-              {selectionError}
-            </BodyText>
-            {list.length === 1 ? (
-              <Button
-                title="Try again"
-                intent="ordinary"
-                onPress={() => void finish(list[0]!.id)}
-              />
-            ) : null}
-          </View>
+        {workspaces.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh workspaces. The current list remains visible."
+            retry={() => void workspaces.refetch()}
+          />
+        ) : null}
+        {hasData && workspaces.fetchStatus === "paused" ? (
+          <QueryNotice
+            message="You are offline. The current workspace list remains visible."
+            offline
+          />
+        ) : null}
+        {selection.error && selection.retryWorkspaceId ? (
+          <QueryNotice
+            message={selection.error}
+            retry={() => {
+              const retryWorkspaceId = selection.retryWorkspaceId;
+              if (retryWorkspaceId) void finish(retryWorkspaceId);
+            }}
+          />
         ) : null}
 
-        {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
+        {hasData && list.length === 0 ? (
           <Card style={styles.emptyState}>
             <ContentTitle>No workspaces found</ContentTitle>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
@@ -155,8 +165,8 @@ export default function WorkspaceScreen() {
                 <Pressable
                   key={workspace.id}
                   accessibilityRole="button"
-                  accessibilityState={{ busy: selected === workspace.id }}
-                  disabled={selected !== null}
+                  accessibilityState={{ busy: selection.selected === workspace.id }}
+                  disabled={selection.selected !== null}
                   onPress={() => {
                     void selectionHaptic();
                     void finish(workspace.id);
@@ -176,7 +186,9 @@ export default function WorkspaceScreen() {
                   >
                     {workspace.name}
                   </Text>
-                  {selected === workspace.id ? <ActivityIndicator color={colors.primary} /> : null}
+                  {selection.selected === workspace.id ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : null}
                 </Pressable>
               ))}
             </Card>
@@ -222,9 +234,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 48,
     paddingHorizontal: 12,
-  },
-  errorState: {
-    gap: 12,
   },
   emptyState: {
     gap: 6,

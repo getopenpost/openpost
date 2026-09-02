@@ -6,10 +6,26 @@ FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
+	import {
+		accountFeaturesQueryOptions,
+		analyticsOverviewQueryOptions,
+		analyticsQueryKeys
+	} from '@openpost/query-catalog';
+	import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { analyticsQueryAPI } from '$lib/query/analytics';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { featureQueryAPI } from '$lib/query/features';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -43,12 +59,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		isBuildingAccountHistory,
 		type AnalyticsSortMode
 	} from '$lib/analytics-overview';
-	import {
-		allFeatureEffectiveDisabled,
-		collectiveDisabledReason,
-		loadFeatureStates
-	} from '$lib/feature-disabled';
-	import type { components as FeatureComponents } from '$lib/api/types';
+	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
 
 	type AnalyticsOverview = components['schemas']['Overview'];
 	type AnalyticsAccount = components['schemas']['AccountOverview'];
@@ -60,37 +71,71 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	type RangeDays = 7 | 30 | 90;
 	type ContentSource = 'all' | 'openpost' | 'external';
 	type ChartMetric = 'followers' | 'engagement' | 'views';
-	type FeatureState = FeatureComponents['schemas']['FeatureStateResponse'];
 
-	let overview = $state.raw<AnalyticsOverview | null>(null);
 	let rangeDays = $state<RangeDays>(30);
 	let selectedAccountID = $state('all');
+	let selectedAccountWorkspaceID = $state('');
 	let chartMetric = $state<ChartMetric>('views');
 	let sortMode = $state<AnalyticsSortMode>('engagement');
 	let sourceFilter = $state<ContentSource>('all');
 	let expandedContentID = $state('');
-	let loading = $state(true);
-	let loadingMore = $state(false);
 	let refreshing = $state(false);
+	let refreshSequence = 0;
 	let repurposingReferenceKey = $state('');
-	let error = $state('');
 	let toastMessage = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
-	let dataWorkspaceID = $state('');
-	let dataRequestSequence = 0;
-	let analyticsFeatures = $state.raw<FeatureState[]>([]);
 
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const queryAccountID = $derived(
+		selectedAccountWorkspaceID === currentWorkspaceID ? selectedAccountID : 'all'
+	);
+	const analyticsQuery = createInfiniteQuery(() =>
+		analyticsOverviewQueryOptions(analyticsQueryAPI, currentWorkspaceID, {
+			days: rangeDays,
+			accountId: queryAccountID === 'all' ? undefined : queryAccountID,
+			source: sourceFilter,
+			sort: sortMode,
+			limit: 50
+		})
+	);
+	const overview = $derived(combineAnalyticsPages(analyticsQuery.data?.pages ?? []));
 	const accounts = $derived(overview?.accounts ?? []);
+	const featuresQuery = createQuery(() =>
+		accountFeaturesQueryOptions(
+			featureQueryAPI,
+			currentWorkspaceID,
+			accounts.map((account) => account.id)
+		)
+	);
+	const analyticsFeatures = $derived(featuresQuery.data ?? []);
+	const loading = $derived(analyticsQuery.isFetching && !analyticsQuery.isFetchingNextPage);
+	const loadingMore = $derived(analyticsQuery.isFetchingNextPage);
+	const initialFeatureReadPending = $derived(
+		Boolean(overview && accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data)
+	);
+	const error = $derived(
+		analyticsQuery.isError && !analyticsQuery.data
+			? queryErrorMessage(analyticsQuery.error, m.analytics_failed_load())
+			: overview && accounts.length > 0 && featuresQuery.isError && !featuresQuery.data
+				? queryErrorMessage(featuresQuery.error, m.analytics_failed_load())
+				: ''
+	);
+	const backgroundError = $derived(
+		analyticsQuery.isError && analyticsQuery.data && !analyticsQuery.isFetchNextPageError
+			? queryErrorMessage(analyticsQuery.error, m.analytics_failed_load())
+			: featuresQuery.isError && overview
+				? queryErrorMessage(featuresQuery.error, m.analytics_failed_load())
+				: ''
+	);
 	const contentItems = $derived(overview?.content ?? []);
 	const analyticsInsights = $derived(overview?.insights ?? []);
 	const accountCoverage = $derived(overview?.coverage ?? []);
 	const buildingCoverage = $derived(accountCoverage.filter(isBuildingAccountHistory));
 	const hasLimitedCoverage = $derived(accountCoverage.some(hasLimitedAccountHistory));
 	const selectedAccount = $derived(
-		selectedAccountID === 'all'
+		queryAccountID === 'all'
 			? undefined
-			: (accounts.find((account) => account.id === selectedAccountID) ?? accounts[0])
+			: (accounts.find((account) => account.id === queryAccountID) ?? accounts[0])
 	);
 	const chartPoints = $derived(overview?.trends?.[chartMetric] ?? []);
 	const chartTitle = $derived(
@@ -125,7 +170,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			contentItems.some((item) => Boolean(item.collected_at || item.last_synced_at))
 	);
 	const initialLoading = $derived(
-		Boolean(currentWorkspaceID) && loading && (!overview || dataWorkspaceID !== currentWorkspaceID)
+		Boolean(currentWorkspaceID) &&
+			!error &&
+			((analyticsQuery.isPending && !analyticsQuery.data) || initialFeatureReadPending)
 	);
 	const analyticsAllDisabled = $derived(
 		(overview?.accounts?.length ?? 0) > 0 &&
@@ -189,126 +236,111 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		summaryMetrics.filter((item) => item.metric.measured === 0)
 	);
 	$effect(() => {
-		const workspaceID = currentWorkspaceID;
-		const days = rangeDays;
-		const accountID = selectedAccountID;
-		const requestedSort = sortMode;
-		const requestedSource = sourceFilter;
-		if (workspaceID)
-			void loadAnalytics(workspaceID, days, accountID, requestedSort, requestedSource);
+		if (selectedAccountWorkspaceID !== currentWorkspaceID) {
+			refreshSequence++;
+			refreshing = false;
+			selectedAccountWorkspaceID = currentWorkspaceID;
+			selectedAccountID = 'all';
+			expandedContentID = '';
+		}
+		if (
+			selectedAccountID !== 'all' &&
+			analyticsQuery.data &&
+			!accounts.some((account) => account.id === selectedAccountID)
+		) {
+			selectedAccountID = 'all';
+		}
+		if (
+			expandedContentID &&
+			analyticsQuery.data &&
+			!contentItems.some((item) => contentIdentity(item) === expandedContentID)
+		) {
+			expandedContentID = '';
+		}
 	});
 
-	async function loadAnalytics(
-		requestedWorkspaceID = currentWorkspaceID,
-		requestedDays = rangeDays,
-		requestedAccountID = selectedAccountID,
-		requestedSort = sortMode,
-		requestedSource = sourceFilter,
-		cursor = '',
-		append = false
-	) {
-		const requestSequence = ++dataRequestSequence;
-		let workspaceID = requestedWorkspaceID;
-		if (append) loadingMore = true;
-		else loading = true;
-		if (!append) error = '';
-		try {
-			if (!workspaceCtx.currentWorkspace) await workspaceCtx.initialize();
-			workspaceID ||= workspaceCtx.currentWorkspace?.id ?? '';
-			if (!workspaceID) throw new Error(m.analytics_failed_load());
-			const response = await client.GET('/analytics', {
-				params: {
-					query: {
-						workspace_id: workspaceID,
-						days: requestedDays,
-						account_id: requestedAccountID === 'all' ? undefined : requestedAccountID,
-						source: requestedSource,
-						sort: requestedSort,
-						cursor: cursor || undefined,
-						limit: 50
-					}
-				}
-			});
-			if (
-				requestSequence !== dataRequestSequence ||
-				(workspaceCtx.currentWorkspace?.id ?? '') !== workspaceID
-			) {
-				return;
-			}
-			if (response.error || !response.data) throw new Error(m.analytics_failed_load());
-			overview =
-				append && overview ? appendAnalyticsContentPage(overview, response.data) : response.data;
-			dataWorkspaceID = workspaceID;
-			void loadAnalyticsFeatures(workspaceID, response.data.accounts ?? []);
-			if (
-				selectedAccountID !== 'all' &&
-				!response.data.accounts?.some((account) => account.id === selectedAccountID)
-			) {
-				selectedAccountID = 'all';
-			}
-			if (
-				expandedContentID &&
-				!response.data.content?.some((item) => contentIdentity(item) === expandedContentID)
-			) {
-				expandedContentID = '';
-			}
-		} catch (cause) {
-			if (requestSequence !== dataRequestSequence) return;
-			if (append) {
-				toastTone = 'error';
-				toastMessage = m.analytics_load_more_failed();
-			} else error = cause instanceof Error ? cause.message : m.analytics_failed_load();
-		} finally {
-			if (requestSequence === dataRequestSequence) {
-				loading = false;
-				loadingMore = false;
-			}
-		}
-	}
-
-	function loadMoreContent() {
+	async function loadMoreContent() {
 		if (!overview?.content_next_cursor || loadingMore) return;
-		void loadAnalytics(
-			currentWorkspaceID,
-			rangeDays,
-			selectedAccountID,
-			sortMode,
-			sourceFilter,
-			overview.content_next_cursor,
-			true
-		);
-	}
-
-	async function loadAnalyticsFeatures(workspace: string, accs: AnalyticsAccount[]) {
-		analyticsFeatures = await loadFeatureStates(workspace, accs);
+		const result = await analyticsQuery.fetchNextPage();
+		if (!result.isError) return;
+		toastTone = 'error';
+		toastMessage = m.analytics_load_more_failed();
 	}
 
 	async function refreshAnalytics() {
 		if (!currentWorkspaceID || refreshing || analyticsAllDisabled) return;
+		const view = {
+			session: captureQueryMutationSession(),
+			sequence: ++refreshSequence,
+			workspaceID: currentWorkspaceID
+		} satisfies AnalyticsRefreshView;
 		refreshing = true;
 		try {
 			const response = await client.POST('/analytics/refresh', {
-				body: { workspace_id: currentWorkspaceID }
+				body: { workspace_id: view.workspaceID }
 			});
+			if (!settleQueryMutationSession(view.session, response.response)) return;
 			if (response.error || !response.data) throw new Error(m.analytics_refresh_failed());
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: analyticsQueryKeys.all(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
+			});
+			if (!reconciled || !analyticsRefreshViewIsCurrent(view)) return;
 			toastTone = 'success';
 			toastMessage = m.analytics_refresh_queued({ count: response.data.queued });
 		} catch {
-			toastTone = 'error';
-			toastMessage = m.analytics_refresh_failed();
+			if (analyticsRefreshViewIsCurrent(view)) {
+				toastTone = 'error';
+				toastMessage = m.analytics_refresh_failed();
+			}
 		} finally {
-			refreshing = false;
+			if (view.sequence === refreshSequence) refreshing = false;
 		}
+	}
+
+	interface AnalyticsRefreshView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
+
+	function analyticsRefreshViewIsCurrent(view: AnalyticsRefreshView) {
+		return (
+			view.sequence === refreshSequence &&
+			view.workspaceID === currentWorkspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	function combineAnalyticsPages(pages: AnalyticsOverview[]): AnalyticsOverview | null {
+		return pages.reduce<AnalyticsOverview | null>(
+			(combined, page) => (combined ? appendAnalyticsContentPage(combined, page) : page),
+			null
+		);
+	}
+
+	function queryErrorMessage(cause: unknown, fallback: string) {
+		return cause instanceof Error && cause.message ? cause.message : fallback;
+	}
+
+	function retryReads() {
+		if (analyticsQuery.isError) void analyticsQuery.refetch();
+		if (featuresQuery.isError) void featuresQuery.refetch();
 	}
 
 	async function repurposeContent(item: AnalyticsContent) {
 		const key = contentIdentity(item);
 		if (!currentWorkspaceID || repurposingReferenceKey) return;
+		const requestedWorkspaceID = currentWorkspaceID;
 		repurposingReferenceKey = key;
 		try {
 			const response = await client.POST('/analytics/repurpose', {
 				body: {
-					workspace_id: currentWorkspaceID,
+					workspace_id: requestedWorkspaceID,
 					reference: item.reference,
 					range: { days: rangeDays }
 				}
@@ -316,9 +348,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			if (response.error || !response.data) {
 				throw new Error(response.error?.detail || m.analytics_repurpose_failed());
 			}
+			if (currentWorkspaceID !== requestedWorkspaceID) return;
 			ui.setRepurposeHandoff(response.data);
 			await goto(resolve('/'));
 		} catch (cause) {
+			if (currentWorkspaceID !== requestedWorkspaceID) return;
 			toastTone = 'error';
 			toastMessage = cause instanceof Error ? cause.message : m.analytics_repurpose_failed();
 		} finally {
@@ -718,7 +752,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	{:else if error}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => loadAnalytics()}>
+				<Button variant="outline" size="sm" onclick={() => void analyticsQuery.refetch()}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -734,6 +768,13 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		/>
 	{:else}
 		<div class="space-y-8 transition-opacity" class:opacity-70={loading} aria-busy={loading}>
+			{#if backgroundError}
+				<InlineNotice tone="error" message={backgroundError}>
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={retryReads}>{m.common_retry()}</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			{#if showAnalyticsDisabledNotice}
 				<div data-testid="analytics-disabled-notice">
 					<InlineNotice tone="warning" message={m.analytics_feature_disabled_notice()}>

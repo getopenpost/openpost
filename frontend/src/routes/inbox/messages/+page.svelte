@@ -1,15 +1,36 @@
 <script lang="ts">
+	import {
+		accountFeaturesQueryOptions,
+		conversationsQueryOptions,
+		inboxQueryKeys,
+		messagesQueryOptions,
+		workspaceAccountsQueryOptions,
+		type ConversationPage,
+		type MessagePage
+	} from '@openpost/query-catalog';
+	import { createInfiniteQuery, createQuery, type InfiniteData } from '@tanstack/svelte-query';
 	import { onMount, tick } from 'svelte';
 	import type { Attachment as SvelteAttachment } from 'svelte/attachments';
 	import { resolve } from '$app/paths';
-	import { client, type SocialAccount } from '$lib/api/client';
+	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { queryAPI } from '$lib/query/api';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { featureQueryAPI } from '$lib/query/features';
+	import { InboxMessageQueryError, inboxQueryAPI } from '$lib/query/inbox';
+	import { mergeInboxMessages } from '$lib/query/inbox-message-cache';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -22,20 +43,13 @@
 	import * as Select from '$lib/components/ui/select';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import {
-		allFeatureEffectiveDisabled,
-		collectiveDisabledReason,
-		loadFeatureStates
-	} from '$lib/feature-disabled';
-	import type { components as FeatureComponents } from '$lib/api/types';
+	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import SendIcon from '@lucide/svelte/icons/send';
 
 	type Conversation = components['schemas']['Conversation'];
 	type DirectMessage = components['schemas']['DirectMessage'];
-	type SyncState = components['schemas']['MessageSyncState'];
-	type FeatureState = FeatureComponents['schemas']['FeatureStateResponse'];
 	type Attachment = { type: string; url: string; name?: string; thumbnail?: string };
 	type AttachmentJSONValue =
 		| string
@@ -53,41 +67,121 @@
 		return value as { [key: string]: AttachmentJSONValue };
 	}
 
-	let loading = $state(true);
-	let conversations = $state.raw<Conversation[]>([]);
-	let accounts = $state.raw<SocialAccount[]>([]);
-	let knownPlatforms = $state.raw<string[]>([]);
-	let messages = $state.raw<DirectMessage[]>([]);
-	let syncStates = $state.raw<SyncState[]>([]);
 	let selectedId = $state('');
-	let error = $state('');
-	let messageError = $state('');
-	let messageErrorReference = $state('');
+	let selectedFallback = $state.raw<Conversation | undefined>();
 	let loadedWorkspace = $state('');
-	let loadedKey = $state('');
-	let dataWorkspaceId = $state('');
-	let loadingMessages = $state(false);
-	let loadingOlderMessages = $state(false);
-	let olderMessageError = $state('');
-	let messageNextCursor = $state('');
-	let messageRequest = 0;
+	let appliedMessageScope = '';
+	let appliedMessageData: InfiniteData<MessagePage, string> | undefined;
 	let messageViewport = $state<HTMLElement>();
 	let refreshing = $state(false);
 	let sending = $state(false);
+	let refreshSequence = 0;
+	let sendSequence = 0;
 	let replyBody = $state('');
 	let archived = $state(false);
 	let platformFilter = $state('');
 	let accountFilter = $state('');
-	let nextCursor = $state('');
-	let loadingMore = $state(false);
-	let pageError = $state('');
 	let toast = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
 	let nowMs = $state(Date.now());
-	let messagingFeatures = $state.raw<FeatureState[]>([]);
 
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
-	const selected = $derived(conversations.find((conversation) => conversation.id === selectedId));
+	const querySelectedID = $derived(loadedWorkspace === workspaceId ? selectedId : '');
+	const conversationFilters = $derived({
+		platform: loadedWorkspace === workspaceId ? platformFilter : '',
+		accountId: loadedWorkspace === workspaceId ? accountFilter : '',
+		archived: loadedWorkspace === workspaceId ? archived : false,
+		limit: 100
+	});
+	const conversationsQuery = createInfiniteQuery(() =>
+		conversationsQueryOptions(inboxQueryAPI, workspaceId, conversationFilters)
+	);
+	const accountsQuery = createQuery(() => workspaceAccountsQueryOptions(queryAPI, workspaceId));
+	const accounts = $derived(accountsQuery.data ?? []);
+	const featuresQuery = createQuery(() =>
+		accountFeaturesQueryOptions(
+			featureQueryAPI,
+			workspaceId,
+			accounts.map((account) => account.id)
+		)
+	);
+	const messagingFeatures = $derived(featuresQuery.data ?? []);
+	const messageQuery = createInfiniteQuery(() =>
+		messagesQueryOptions(inboxQueryAPI, workspaceId, querySelectedID, { limit: 200 })
+	);
+	const conversations = $derived(
+		sortConversations(
+			(conversationsQuery.data?.pages ?? []).reduce<Conversation[]>(
+				(current, page) => appendConversations(current, page.items ?? []),
+				[]
+			)
+		)
+	);
+	const messages = $derived(combineMessagePages(messageQuery.data?.pages ?? []));
+	const syncStates = $derived(conversationsQuery.data?.pages[0]?.sync_states ?? []);
+	const knownPlatforms = $derived(
+		[
+			...new Set([
+				...conversations.map((conversation) => conversation.platform),
+				...accounts.map((account) => account.platform)
+			])
+		].sort()
+	);
+	const nextCursor = $derived(conversationsQuery.data?.pages.at(-1)?.next_cursor ?? '');
+	const loadingMore = $derived(conversationsQuery.isFetchingNextPage);
+	const loading = $derived(
+		(conversationsQuery.isFetching && !conversationsQuery.isFetchingNextPage) ||
+			accountsQuery.isFetching
+	);
+	const error = $derived(
+		conversationsQuery.isError && !conversationsQuery.data
+			? queryErrorMessage(conversationsQuery.error, m.messages_load_failed())
+			: ''
+	);
+	const backgroundError = $derived.by(() => {
+		if (
+			conversationsQuery.isError &&
+			conversationsQuery.data &&
+			!conversationsQuery.isFetchNextPageError
+		) {
+			return queryErrorMessage(conversationsQuery.error, m.messages_load_failed());
+		}
+		if (accountsQuery.isError)
+			return queryErrorMessage(accountsQuery.error, m.messages_load_failed());
+		if (featuresQuery.isError)
+			return queryErrorMessage(featuresQuery.error, m.messages_load_failed());
+		return '';
+	});
+	const pageError = $derived(
+		conversationsQuery.isFetchNextPageError
+			? queryErrorMessage(conversationsQuery.error, m.messages_page_failed())
+			: ''
+	);
+	const loadingMessages = $derived(
+		Boolean(querySelectedID) && messageQuery.isPending && !messageQuery.data
+	);
+	const loadingOlderMessages = $derived(messageQuery.isFetchingNextPage);
+	const messageError = $derived(
+		messageQuery.isError && !messageQuery.data ? messageQueryError(messageQuery.error) : ''
+	);
+	const messageBackgroundError = $derived(
+		messageQuery.isError && messageQuery.data && !messageQuery.isFetchNextPageError
+			? messageQueryError(messageQuery.error)
+			: ''
+	);
+	const messageErrorReference = $derived(
+		messageQuery.error instanceof InboxMessageQueryError ? messageQuery.error.requestId : ''
+	);
+	const olderMessageError = $derived(
+		messageQuery.isFetchNextPageError
+			? queryErrorMessage(messageQuery.error, m.messages_older_page_failed())
+			: ''
+	);
+	const messageNextCursor = $derived(messageQuery.data?.pages.at(-1)?.next_cursor ?? '');
+	const selected = $derived(
+		conversations.find((conversation) => conversation.id === querySelectedID) ??
+			(selectedFallback?.id === querySelectedID ? selectedFallback : undefined)
+	);
 	const replyWindowClosed = $derived(
 		Boolean(
 			selected?.messaging_window_expires_at &&
@@ -100,7 +194,11 @@
 		)
 	);
 	const initialLoading = $derived(
-		Boolean(workspaceId) && loading && dataWorkspaceId !== workspaceId
+		Boolean(workspaceId) &&
+			((conversationsQuery.isPending && !conversationsQuery.data) ||
+				(accountsQuery.isPending && !accountsQuery.data) ||
+				(accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data)) &&
+			!error
 	);
 	const messagingAllDisabled = $derived(
 		accounts.length > 0 && allFeatureEffectiveDisabled(messagingFeatures, 'messaging')
@@ -110,9 +208,6 @@
 		messagingAllDisabled && conversations.length === 0 && !loading && !error
 	);
 	const showMessagingDisabledNotice = $derived(messagingAllDisabled && conversations.length > 0);
-	const loadKey = $derived(
-		`${workspaceId}:${platformFilter}:${accountFilter}:${archived ? 'archived' : 'active'}`
-	);
 
 	onMount(() => {
 		void workspaceCtx.initialize();
@@ -122,96 +217,33 @@
 
 	$effect(() => {
 		if (workspaceId && workspaceId !== loadedWorkspace) {
+			refreshSequence++;
+			sendSequence++;
+			refreshing = false;
+			sending = false;
 			loadedWorkspace = workspaceId;
-			loadedKey = '';
-			conversations = [];
-			accounts = [];
-			knownPlatforms = [];
-			syncStates = [];
-			nextCursor = '';
-			pageError = '';
 			selectedId = '';
-			messages = [];
-			messageNextCursor = '';
-			olderMessageError = '';
-			messageRequest += 1;
+			selectedFallback = undefined;
+			appliedMessageData = undefined;
+			appliedMessageScope = '';
+			archived = false;
 			platformFilter = '';
 			accountFilter = '';
 		}
 	});
 
 	$effect(() => {
-		if (workspaceId && loadKey !== loadedKey) {
-			loadedKey = loadKey;
-			void loadConversations();
+		const data = messageQuery.data;
+		const scope = `${workspaceId}:${selectedId}`;
+		if (!data || !selectedId || (data === appliedMessageData && scope === appliedMessageScope)) {
+			return;
+		}
+		appliedMessageData = data;
+		appliedMessageScope = scope;
+		if (data.pages.length === 1) {
+			void scrollToLatestMessage(scope);
 		}
 	});
-
-	async function loadMessagingFeatures(workspace: string, accs: SocialAccount[]) {
-		messagingFeatures = await loadFeatureStates(workspace, accs);
-	}
-
-	async function loadConversations(cursor = '', append = false) {
-		if (!workspaceId) return;
-		if (append) {
-			loadingMore = true;
-			pageError = '';
-		} else {
-			loading = true;
-			loadingMore = false;
-			error = '';
-			pageError = '';
-			nextCursor = '';
-		}
-		const requestedWorkspace = workspaceId;
-		const requestedKey = loadKey;
-		const [conversationResponse, accountResponse] = await Promise.all([
-			client.GET('/messages', {
-				params: {
-					query: {
-						workspace_id: requestedWorkspace,
-						platform: platformFilter || undefined,
-						account_id: accountFilter || undefined,
-						archived,
-						limit: 100,
-						cursor: cursor || undefined
-					}
-				}
-			}),
-			client.GET('/accounts', { params: { query: { workspace_id: requestedWorkspace } } })
-		]);
-		if (requestedWorkspace !== workspaceId || requestedKey !== loadKey) return;
-		const { data, error: apiError } = conversationResponse;
-		if (apiError) {
-			if (append) pageError = apiError.detail || m.messages_page_failed();
-			else error = apiError.detail || m.messages_load_failed();
-		} else {
-			const incoming = data?.items ?? [];
-			const selectedConversation = conversations.find((item) => item.id === selectedId);
-			conversations = sortConversations(
-				append
-					? appendConversations(conversations, incoming)
-					: selectedConversation && !incoming.some((item) => item.id === selectedConversation.id)
-						? [selectedConversation, ...incoming]
-						: incoming
-			);
-			nextCursor = data?.next_cursor ?? '';
-			syncStates = data?.sync_states ?? [];
-			if (!accountResponse.error) {
-				accounts = accountResponse.data ?? [];
-				void loadMessagingFeatures(requestedWorkspace, accounts);
-			}
-			knownPlatforms = [
-				...new Set([
-					...conversations.map((conversation) => conversation.platform),
-					...accounts.map((account) => account.platform)
-				])
-			].sort();
-			dataWorkspaceId = requestedWorkspace;
-		}
-		if (append) loadingMore = false;
-		else loading = false;
-	}
 
 	function appendConversations(current: Conversation[], incoming: Conversation[]) {
 		const byID = new Map(current.map((conversation) => [conversation.id, conversation]));
@@ -237,89 +269,32 @@
 
 	async function selectConversation(conversation: Conversation) {
 		selectedId = conversation.id;
+		selectedFallback = conversation;
 		replyBody = '';
-		await Promise.all([loadMessages(conversation.id), markConversationRead(conversation)]);
+		await markConversationRead(conversation);
 	}
 
-	async function loadMessages(conversationId: string, cursor = '', prepend = false) {
-		if (!workspaceId) return;
-		const requestedWorkspace = workspaceId;
-		const requestID = ++messageRequest;
-		const anchor = prepend ? messageVisibleAnchor() : null;
-		if (prepend) {
-			loadingOlderMessages = true;
-			olderMessageError = '';
-		} else {
-			loadingMessages = true;
-			loadingOlderMessages = false;
-			messageError = '';
-			messageErrorReference = '';
-			olderMessageError = '';
-			messageNextCursor = '';
-		}
-		const {
-			data,
-			error: apiError,
-			response
-		} = await client.GET('/messages/{conversation_id}', {
-			params: {
-				path: { conversation_id: conversationId },
-				query: { workspace_id: requestedWorkspace, limit: 200, cursor: cursor || undefined }
-			}
-		});
-		if (
-			requestID !== messageRequest ||
-			selectedId !== conversationId ||
-			workspaceId !== requestedWorkspace
-		)
-			return;
-		if (apiError) {
-			if (prepend) {
-				olderMessageError = apiError.detail || m.messages_older_page_failed();
-			} else {
-				messageError =
-					apiError.status === 404
-						? m.messages_conversation_unavailable()
-						: apiError.detail || m.messages_load_failed();
-				if (apiError.status !== undefined && apiError.status >= 500) {
-					messageErrorReference = response.headers.get('x-request-id') ?? '';
-				}
-				messages = [];
-			}
-		} else {
-			const incoming = data?.items ?? [];
-			messages = prepend ? mergeMessages(incoming, messages) : incoming;
-			messageNextCursor = data?.next_cursor ?? '';
-			await tick();
-			if (prepend && anchor) restoreMessageVisibleAnchor(anchor);
-			else if (!prepend) messageViewport?.scrollTo({ top: messageViewport.scrollHeight });
-		}
-		if (prepend) loadingOlderMessages = false;
-		else loadingMessages = false;
+	async function loadOlderMessages() {
+		if (!selectedId || !messageNextCursor || loadingOlderMessages) return;
+		const anchor = messageVisibleAnchor();
+		const result = await messageQuery.fetchNextPage();
+		if (result.isError || !anchor) return;
+		await tick();
+		restoreMessageVisibleAnchor(anchor);
 	}
 
-	function loadOlderMessages() {
-		if (!selectedId || !messageNextCursor || loadingOlderMessages || olderMessageError) return;
-		void loadMessages(selectedId, messageNextCursor, true);
+	async function scrollToLatestMessage(scope: string) {
+		await tick();
+		if (`${workspaceId}:${selectedId}` !== scope) return;
+		messageViewport?.scrollTo({ top: messageViewport.scrollHeight });
 	}
 
-	function retryOlderMessages() {
-		olderMessageError = '';
-		loadOlderMessages();
-	}
-
-	function mergeMessages(older: DirectMessage[], current: DirectMessage[]) {
-		const byID = new Map(older.map((message) => [message.id, message]));
-		for (const message of current) byID.set(message.id, message);
-		return [...byID.values()].sort((left, right) => {
-			const leftTime = new Date(left.remote_created_at || left.created_at).getTime();
-			const rightTime = new Date(right.remote_created_at || right.created_at).getTime();
-			return (
-				leftTime - rightTime ||
-				left.created_at.localeCompare(right.created_at) ||
-				left.id.localeCompare(right.id)
-			);
-		});
+	function combineMessagePages(pages: MessagePage[]) {
+		return pages.reduce<DirectMessage[]>(
+			(current, page, index) =>
+				index === 0 ? (page.items ?? []) : mergeInboxMessages(page.items ?? [], current),
+			[]
+		);
 	}
 
 	function messageVisibleAnchor(): { id: string; top: number } | null {
@@ -356,74 +331,271 @@
 
 	async function markConversationRead(conversation: Conversation) {
 		if (!workspaceId || conversation.unread_count === 0) return;
-		const requestedWorkspace = workspaceId;
-		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
+		const view = captureConversationMutationView(conversation.id);
+		const { error: apiError, response } = await client.POST('/messages/{conversation_id}/state', {
 			params: { path: { conversation_id: conversation.id } },
-			body: { workspace_id: requestedWorkspace, read: true }
+			body: { workspace_id: view.workspaceID, read: true }
 		});
-		if (requestedWorkspace !== workspaceId) return;
+		if (!settleQueryMutationSession(view.session, response)) return;
 		if (apiError) {
-			showToast(m.messages_mark_read_failed(), 'error');
+			if (conversationMutationTargetIsCurrent(view)) {
+				showToast(m.messages_mark_read_failed(), 'error');
+			}
 			return;
 		}
-		conversations = conversations.map((item) =>
-			item.id === conversation.id ? { ...item, unread_count: 0 } : item
-		);
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID) }],
+			reconcile: () =>
+				updateConversations(view.queryKey, (items) =>
+					items.map((item) =>
+						item.id === view.conversationID ? { ...item, unread_count: 0 } : item
+					)
+				),
+			invalidate: [
+				{
+					queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+					refetchType: 'none'
+				}
+			]
+		});
+		if (!reconciled || !conversationMutationViewIsCurrent(view)) return;
+		if (selectedFallback?.id === view.conversationID) {
+			selectedFallback = { ...selectedFallback, unread_count: 0 };
+		}
 	}
 
 	async function setArchived(conversation: Conversation) {
 		if (!workspaceId) return;
-		const requestedWorkspace = workspaceId;
-		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
+		const view = captureConversationMutationView(conversation.id);
+		const { error: apiError, response } = await client.POST('/messages/{conversation_id}/state', {
 			params: { path: { conversation_id: conversation.id } },
-			body: { workspace_id: workspaceId, archived: !conversation.archived_at }
+			body: { workspace_id: view.workspaceID, archived: !conversation.archived_at }
 		});
-		if (requestedWorkspace !== workspaceId) return;
+		if (!settleQueryMutationSession(view.session, response)) return;
 		if (apiError) {
-			showToast(m.messages_send_failed(), 'error');
+			if (conversationMutationTargetIsCurrent(view)) showToast(m.messages_send_failed(), 'error');
 			return;
 		}
-		selectedId = '';
-		messages = [];
-		await loadConversations();
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID) }],
+			reconcile: () =>
+				updateConversations(view.queryKey, (items) =>
+					items.filter((item) => item.id !== view.conversationID)
+				),
+			invalidate: [
+				{
+					queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+					refetchType: 'none'
+				}
+			]
+		});
+		if (!reconciled || !conversationMutationViewIsCurrent(view)) return;
+		if (selectedId === view.conversationID) {
+			selectedId = '';
+			selectedFallback = undefined;
+		}
 	}
 
 	async function sendMessage() {
 		if (!workspaceId || !selected || !replyBody.trim() || replyWindowClosed || messagingAllDisabled)
 			return;
+		const view = captureConversationMutationView(selected.id);
+		const sequence = ++sendSequence;
 		sending = true;
 		const body = replyBody.trim();
-		const { data, error: apiError } = await client.POST('/messages/{conversation_id}/send', {
-			params: { path: { conversation_id: selected.id } },
-			body: { workspace_id: workspaceId, message: body }
+		const pendingOlderPage = messageQuery.isFetchingNextPage
+			? messageQuery.fetchNextPage({ cancelRefetch: false })
+			: null;
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/messages/{conversation_id}/send', {
+			params: { path: { conversation_id: view.conversationID } },
+			body: { workspace_id: view.workspaceID, message: body }
 		});
-		sending = false;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (sequence === sendSequence) sending = false;
+		if (!sessionIsCurrent) return;
 		if (apiError) {
-			showToast(apiError.detail || m.messages_send_failed(), 'error');
+			if (conversationMutationTargetIsCurrent(view)) {
+				showToast(apiError.detail || m.messages_send_failed(), 'error');
+			}
 			return;
 		}
-		if (data) messages = mergeMessages([], [...messages, data]);
-		replyBody = '';
-		showToast(m.messages_queued(), 'success');
+		if (data) {
+			const queryKey = inboxQueryKeys.messages(view.workspaceID, view.conversationID, {
+				limit: 200
+			});
+			const reconciled = await reconcileSentMessage(view, queryKey, data, pendingOlderPage);
+			if (!reconciled) return;
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
+			});
+		}
+		if (conversationMutationTargetIsCurrent(view)) {
+			replyBody = '';
+			showToast(m.messages_queued(), 'success');
+		}
 	}
 
 	async function refresh() {
 		if (!workspaceId || messagingAllDisabled) return;
+		const view = captureConversationMutationView(selectedId);
+		const sequence = ++refreshSequence;
 		refreshing = true;
-		const { data, error: apiError } = await client.POST('/messages/refresh', {
-			body: { workspace_id: workspaceId }
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/messages/refresh', {
+			body: { workspace_id: view.workspaceID }
 		});
-		refreshing = false;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (sequence === refreshSequence) refreshing = false;
+		if (!sessionIsCurrent) return;
 		const failed = apiError || data?.status === 'failed';
 		const unavailable = data?.status === 'unavailable';
-		showToast(
-			unavailable
-				? m.messaging_refresh_unavailable()
-				: failed
-					? m.messaging_refresh_failed()
-					: m.messaging_refresh_queued(),
-			failed || unavailable ? 'error' : 'success'
+		if (conversationMutationViewIsCurrent(view)) {
+			showToast(
+				unavailable
+					? m.messaging_refresh_unavailable()
+					: failed
+						? m.messaging_refresh_failed()
+						: m.messaging_refresh_queued(),
+				failed || unavailable ? 'error' : 'success'
+			);
+		}
+		if (!failed && !unavailable) {
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+						refetchType: 'none'
+					},
+					...(view.conversationID
+						? [
+								{
+									queryKey: inboxQueryKeys.messagesRoot(view.workspaceID, view.conversationID),
+									refetchType: 'none' as const
+								}
+							]
+						: [])
+				]
+			});
+		}
+	}
+
+	type ConversationQueryKey = ReturnType<typeof inboxQueryKeys.conversations>;
+
+	interface ConversationMutationView {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly conversationID: string;
+		readonly queryKey: ConversationQueryKey;
+		readonly viewKey: string;
+	}
+
+	function conversationViewKey() {
+		return JSON.stringify([workspaceId, platformFilter, accountFilter, archived]);
+	}
+
+	function captureConversationMutationView(conversationID: string): ConversationMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: workspaceId,
+			conversationID,
+			queryKey: inboxQueryKeys.conversations(workspaceId, conversationFilters),
+			viewKey: conversationViewKey()
+		};
+	}
+
+	function conversationMutationViewIsCurrent(view: ConversationMutationView) {
+		return (
+			view.workspaceID === workspaceId &&
+			view.viewKey === conversationViewKey() &&
+			queryMutationSessionIsCurrent(view.session)
 		);
+	}
+
+	function conversationMutationTargetIsCurrent(view: ConversationMutationView) {
+		return conversationMutationViewIsCurrent(view) && selectedId === view.conversationID;
+	}
+
+	async function reconcileSentMessage(
+		view: ConversationMutationView,
+		queryKey: ReturnType<typeof inboxQueryKeys.messages>,
+		message: DirectMessage,
+		pendingOlderPage: Promise<unknown> | null
+	) {
+		const reconcile = () => {
+			queryClient.setQueryData<InfiniteData<MessagePage, string>>(queryKey, (current) => {
+				if (!current?.pages[0]) return current;
+				const pages = [...current.pages];
+				pages[0] = {
+					...pages[0],
+					items: mergeInboxMessages([], [...(pages[0].items ?? []), message])
+				};
+				return { ...current, pages };
+			});
+		};
+		const apply = () =>
+			reconcileQueryMutation(queryClient, view.session, {
+				cancel: pendingOlderPage ? undefined : [{ queryKey, exact: true }],
+				reconcile,
+				invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+			});
+		const reconciled = await apply();
+		if (pendingOlderPage) {
+			void pendingOlderPage
+				.then(async () => {
+					await reconcileQueryMutation(queryClient, view.session, {
+						reconcile,
+						invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+					});
+				})
+				.catch(() => undefined);
+		}
+		return reconciled;
+	}
+
+	function updateConversations(
+		queryKey: ReturnType<typeof inboxQueryKeys.conversations>,
+		updateItems: (items: Conversation[]) => Conversation[]
+	) {
+		queryClient.setQueryData<InfiniteData<ConversationPage, string>>(queryKey, (data) =>
+			data
+				? {
+						...data,
+						pages: data.pages.map((page) => ({
+							...page,
+							items: updateItems(page.items ?? [])
+						}))
+					}
+				: data
+		);
+	}
+
+	function queryErrorMessage(cause: unknown, fallback: string) {
+		return cause instanceof Error && cause.message ? cause.message : fallback;
+	}
+
+	function retryReads() {
+		if (conversationsQuery.isError) void conversationsQuery.refetch();
+		if (accountsQuery.isError) void accountsQuery.refetch();
+		if (featuresQuery.isError) void featuresQuery.refetch();
+	}
+
+	function messageQueryError(cause: unknown) {
+		if (cause instanceof InboxMessageQueryError && cause.status === 404) {
+			return m.messages_conversation_unavailable();
+		}
+		return queryErrorMessage(cause, m.messages_load_failed());
 	}
 
 	function showToast(message: string, tone: 'success' | 'error') {
@@ -524,7 +696,7 @@
 	title={m.messages_heading()}
 	description={m.messages_description()}
 	icon={InboxIcon}
-	loading={false}
+	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
 >
@@ -542,6 +714,13 @@
 
 	<div class="space-y-5">
 		<CommunicationsNavigation active="messages" />
+		{#if backgroundError}
+			<InlineNotice tone="error" message={backgroundError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryReads}>{m.common_retry()}</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 
 		{#if showMessagingDisabledNotice}
 			<div data-testid="messages-disabled-notice">
@@ -640,12 +819,10 @@
 			</label>
 		</div>
 
-		{#if initialLoading}
-			<PageLoading layout="list" label={m.common_loading()} items={6} />
-		{:else if error && !messagingAllDisabled}
+		{#if error && !messagingAllDisabled}
 			<InlineNotice tone="error" message={error}>
 				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={() => void loadConversations()}>
+					<Button variant="outline" size="sm" onclick={() => void conversationsQuery.refetch()}>
 						{m.common_retry()}
 					</Button>
 				{/snippet}
@@ -667,7 +844,7 @@
 					{messagingReason}
 				</p>
 			{/if}
-		{:else if conversations.length === 0}
+		{:else if conversationsQuery.data && conversations.length === 0}
 			<EmptyState
 				icon={InboxIcon}
 				title={m.messages_empty_title()}
@@ -781,11 +958,7 @@
 										</p>
 									{/if}
 									{#snippet actions()}
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => void loadMessages(selected.id)}
-										>
+										<Button variant="outline" size="sm" onclick={() => void messageQuery.refetch()}>
 											<RefreshIcon class="mr-1.5 size-3.5" />
 											{m.common_retry()}
 										</Button>
@@ -794,12 +967,23 @@
 							{:else if loadingMessages}
 								<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
 							{:else}
+								{#if messageBackgroundError}
+									<InlineNotice tone="error" message={messageBackgroundError}>
+										{#snippet actions()}
+											<Button
+												variant="outline"
+												size="sm"
+												onclick={() => void messageQuery.refetch()}>{m.common_retry()}</Button
+											>
+										{/snippet}
+									</InlineNotice>
+								{/if}
 								{#if messageNextCursor || olderMessageError}
 									<div class="flex flex-col items-center gap-2" {@attach observeOlderMessages}>
 										{#if olderMessageError}
 											<InlineNotice tone="error" message={olderMessageError}>
 												{#snippet actions()}
-													<Button variant="outline" size="sm" onclick={retryOlderMessages}>
+													<Button variant="outline" size="sm" onclick={loadOlderMessages}>
 														{m.common_retry()}
 													</Button>
 												{/snippet}
@@ -923,7 +1107,7 @@
 						<Button
 							variant="outline"
 							size="sm"
-							onclick={() => void loadConversations(nextCursor, true)}
+							onclick={() => void conversationsQuery.fetchNextPage()}
 						>
 							{m.common_retry()}
 						</Button>
@@ -934,7 +1118,7 @@
 					<Button
 						variant="outline"
 						disabled={loadingMore}
-						onclick={() => void loadConversations(nextCursor, true)}
+						onclick={() => void conversationsQuery.fetchNextPage()}
 					>
 						{loadingMore ? m.common_loading() : m.messages_load_older_conversations()}
 					</Button>

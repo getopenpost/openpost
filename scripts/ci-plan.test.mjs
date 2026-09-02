@@ -49,6 +49,17 @@ test("mobile API contract changes run the native Android path", () => {
   assert.equal(plan.android, true);
 });
 
+test("shared Query packages run both web and native validation", () => {
+  for (const file of [
+    "packages/api-contract/src/schema.d.ts",
+    "packages/query-catalog/src/options.ts",
+  ]) {
+    const plan = planCI([file], manifest);
+    assert.equal(plan.frontend, true, file);
+    assert.equal(plan.android, true, file);
+  }
+});
+
 test("n8n package changes run the dedicated package gate", () => {
   const plan = planCI(["packages/n8n-nodes-openpost/README.md"], manifest);
   assert.equal(plan.n8n, true);

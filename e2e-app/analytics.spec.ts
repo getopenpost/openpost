@@ -800,8 +800,13 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   await expect(
     page.getByRole("button", { name: "Published elsewhere", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  const requestsBeforeCachedSelection = requestedSources.length;
   await page.getByRole("button", { name: "All content", exact: true }).click();
-  await expect.poll(() => requestedSources.at(-1)).toBe("all");
+  await expect(page.getByRole("button", { name: "All content", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(requestedSources).toHaveLength(requestsBeforeCachedSelection);
   await walkthrough.getByRole("button", { name: "Show destination details" }).click();
   await expect(walkthrough.getByText("Published with OpenPost", { exact: true })).toBeVisible();
   await expect(walkthrough.getByRole("button", { name: "Hide destination details" })).toBeVisible();

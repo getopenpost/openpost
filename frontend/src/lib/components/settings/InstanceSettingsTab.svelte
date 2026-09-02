@@ -4,19 +4,54 @@
 	import InstanceAdminOverview from '$lib/components/instance-admin-overview.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
-	import { client } from '$lib/api/client';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
-	import type { UpdateStatus } from '../../../routes/settings/settings-data';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import ServerCogIcon from '@lucide/svelte/icons/server-cog';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		adminQueryKeys,
+		OpenPostQueryError,
+		updateStatusQueryOptions
+	} from '@openpost/query-catalog';
+	import { adminQueryAPI } from '$lib/query/admin';
+	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let { userID, active }: { userID: string; active: boolean } = $props();
-	let status = $state.raw<UpdateStatus | null>(null);
-	let loading = $state(false);
-	let error = $state('');
-	let loadedUserID = '';
-	let requestSequence = 0;
+	let authorizationError = $state('');
+	const updateStatusQuery = createQuery(() => ({
+		...updateStatusQueryOptions(adminQueryAPI),
+		enabled: active && Boolean(userID) && !authorizationError
+	}));
+	const status = $derived(authorizationError ? null : (updateStatusQuery.data ?? null));
+	const loading = $derived(
+		active && Boolean(userID) && !authorizationError && updateStatusQuery.isPending
+	);
+	const error = $derived(authorizationError || updateStatusQuery.error?.message || '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceStatus
+	);
+	$effect(() => reportInitialLoad(loading && !status));
+
+	$effect(() => {
+		const cause = updateStatusQuery.error;
+		if (!(cause instanceof OpenPostQueryError) || (cause.status !== 401 && cause.status !== 403))
+			return;
+		authorizationError = cause.message;
+		queryClient.removeQueries({
+			queryKey: adminQueryKeys.updateStatus(),
+			exact: true
+		});
+	});
+
+	async function retryUpdateStatus() {
+		authorizationError = '';
+		await updateStatusQuery.refetch();
+	}
 
 	function shortBuild(value: string) {
 		const normalized = value.trim();
@@ -36,33 +71,6 @@
 			timeStyle: 'short'
 		}).format(new Date(value));
 	}
-
-	async function load() {
-		if (!userID) return;
-		const sequence = ++requestSequence;
-		loadedUserID = userID;
-		loading = true;
-		error = '';
-		try {
-			const { data, error: responseError } = await client.GET('/admin/update-status');
-			if (responseError || !data) {
-				throw new Error(responseError?.detail || m.settings_instance_status_load_failed());
-			}
-			if (sequence !== requestSequence) return;
-			status = data;
-		} catch (cause) {
-			if (sequence !== requestSequence) return;
-			loadedUserID = '';
-			status = null;
-			error = cause instanceof Error ? cause.message : m.settings_instance_status_load_failed();
-		} finally {
-			if (sequence === requestSequence) loading = false;
-		}
-	}
-
-	$effect(() => {
-		if (active && userID && loadedUserID !== userID) void load();
-	});
 </script>
 
 <div class="space-y-6">
@@ -75,15 +83,16 @@
 			class="mb-4"
 		/>
 
-		{#if loading}
-			<PageLoading layout="list" label={m.common_loading()} items={3} />
-		{:else if error}
-			<InlineNotice tone="error" message={error}>
+		{#if error}
+			<InlineNotice tone={status ? 'warning' : 'error'} message={error}>
 				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={() => void load()}>{m.common_retry()}</Button
+					<Button variant="outline" size="sm" onclick={retryUpdateStatus}>{m.common_retry()}</Button
 					>
 				{/snippet}
 			</InlineNotice>
+		{/if}
+		{#if loading && !status}
+			<PageLoading layout="list" label={m.common_loading()} items={3} />
 		{:else if status}
 			<div class="space-y-4" data-testid="instance-update-status">
 				{#if status.state === 'update_available'}
@@ -91,9 +100,13 @@
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<p class="font-medium">
-									{m.settings_instance_update_available({ version: status.latest_version ?? '' })}
+									{m.settings_instance_update_available({
+										version: status.latest_version ?? ''
+									})}
 								</p>
-								<p class="mt-0.5 text-current/80">{m.settings_instance_update_available_body()}</p>
+								<p class="mt-0.5 text-current/80">
+									{m.settings_instance_update_available_body()}
+								</p>
 							</div>
 							{#if status.release_url}
 								<Button
@@ -128,11 +141,15 @@
 
 				<dl class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
 					<div class="min-w-0">
-						<dt class="text-sm text-muted-foreground">{m.settings_instance_running_version()}</dt>
+						<dt class="text-sm text-muted-foreground">
+							{m.settings_instance_running_version()}
+						</dt>
 						<dd class="mt-1 font-medium">{status.running_version}</dd>
 					</div>
 					<div class="min-w-0">
-						<dt class="text-sm text-muted-foreground">{m.settings_instance_configured_check()}</dt>
+						<dt class="text-sm text-muted-foreground">
+							{m.settings_instance_configured_check()}
+						</dt>
 						<dd class="mt-1 font-medium">
 							{status.configured_enabled ? m.settings_value_enabled() : m.settings_value_disabled()}
 							<span class="font-normal text-muted-foreground">
@@ -141,31 +158,39 @@
 						</dd>
 					</div>
 					<div class="min-w-0">
-						<dt class="text-sm text-muted-foreground">{m.settings_instance_effective_check()}</dt>
+						<dt class="text-sm text-muted-foreground">
+							{m.settings_instance_effective_check()}
+						</dt>
 						<dd class="mt-1 font-medium">
 							{status.effective_enabled ? m.settings_value_enabled() : m.settings_value_disabled()}
 							{#if status.requires_restart}
-								<span class="text-warning-foreground font-normal">
+								<span class="font-normal text-warning-foreground">
 									· {m.settings_configuration_pending()}</span
 								>
 							{/if}
 						</dd>
 					</div>
 					<div class="min-w-0">
-						<dt class="text-sm text-muted-foreground">{m.settings_instance_running_build()}</dt>
+						<dt class="text-sm text-muted-foreground">
+							{m.settings_instance_running_build()}
+						</dt>
 						<dd class="mt-1 truncate font-mono text-sm" title={status.running_build}>
 							{shortBuild(status.running_build)}
 						</dd>
 					</div>
 					{#if status.latest_version}
 						<div class="min-w-0">
-							<dt class="text-sm text-muted-foreground">{m.settings_instance_latest_version()}</dt>
+							<dt class="text-sm text-muted-foreground">
+								{m.settings_instance_latest_version()}
+							</dt>
 							<dd class="mt-1 font-medium">{status.latest_version}</dd>
 						</div>
 					{/if}
 					{#if status.checked_at}
 						<div class="min-w-0">
-							<dt class="text-sm text-muted-foreground">{m.settings_instance_last_checked()}</dt>
+							<dt class="text-sm text-muted-foreground">
+								{m.settings_instance_last_checked()}
+							</dt>
 							<dd class="mt-1">{formatDateTime(status.checked_at)}</dd>
 						</div>
 					{/if}

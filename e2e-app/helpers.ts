@@ -1,7 +1,36 @@
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Page, TestInfo } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 export const password = "password-1234";
+
+const reviewViewports = [
+  { name: "desktop", width: 1600, height: 900 },
+  { name: "390", width: 390, height: 844 },
+  { name: "320", width: 320, height: 900 },
+] as const;
+
+export async function captureResponsiveReview(
+  page: Page,
+  testInfo: TestInfo,
+  surface: string,
+): Promise<void> {
+  const initialViewport = page.viewportSize();
+  for (const viewport of reviewViewports) {
+    await page.setViewportSize(viewport);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`${surface}-${viewport.name}.png`),
+      fullPage: true,
+    });
+  }
+  if (initialViewport) await page.setViewportSize(initialViewport);
+}
 
 function registrationHash(seed: string): number {
   let hash = 0;

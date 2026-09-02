@@ -1,6 +1,8 @@
 import { m } from '$lib/paraglide/messages';
-import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
+import { accountFeaturesQueryOptions } from '@openpost/query-catalog';
+import { featureQueryAPI } from '$lib/query/features';
+import { queryClient } from '$lib/query/client';
 
 export type FeatureKey = 'messaging' | 'engagement' | 'analytics' | 'grow';
 export type FeatureState = components['schemas']['FeatureStateResponse'];
@@ -127,13 +129,14 @@ export async function loadFeatureStates(
 	accounts: { id: string }[]
 ): Promise<FeatureState[]> {
 	if (!workspaceID || accounts.length === 0) return [];
-	const ids = accounts.map((a) => a.id).join(',');
 	try {
-		const res = await client.GET('/account-features', {
-			params: { query: { workspace_id: workspaceID, account_ids: ids } }
-		});
-		if (res.error || !res.data) return [];
-		return res.data;
+		return await queryClient.fetchQuery(
+			accountFeaturesQueryOptions(
+				featureQueryAPI,
+				workspaceID,
+				accounts.map((account) => account.id)
+			)
+		);
 	} catch {
 		return [];
 	}

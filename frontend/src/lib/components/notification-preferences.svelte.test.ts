@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { client } from '$lib/api/client';
+import { notificationQueryKeys } from '@openpost/query-catalog';
+import { client, type User } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
+import { auth } from '$lib/stores/auth';
 import NotificationPreferences from './notification-preferences.svelte';
 import NotificationMutes from './notification-mutes.svelte';
 
@@ -13,9 +16,23 @@ const mocks = {
 	showToast: vi.fn()
 };
 vi.spyOn(client, 'GET').mockImplementation(mocks.get);
-vi.spyOn(client, 'PUT').mockImplementation(mocks.put);
-vi.spyOn(client, 'POST').mockImplementation(mocks.post);
-vi.spyOn(client, 'DELETE').mockImplementation(mocks.delete);
+vi.spyOn(client, 'PUT').mockImplementation(async (path, options) =>
+	withResponse(await mocks.put(path, options))
+);
+vi.spyOn(client, 'POST').mockImplementation(async (path, options) =>
+	withResponse(await mocks.post(path, options))
+);
+vi.spyOn(client, 'DELETE').mockImplementation(async (path, options) =>
+	withResponse(await mocks.delete(path, options))
+);
+
+function withResponse<T extends object>(result: T): T & { response: Response } {
+	return {
+		...result,
+		response:
+			'response' in result && result.response instanceof Response ? result.response : new Response()
+	};
+}
 
 function preferences() {
 	return {
@@ -74,6 +91,8 @@ function deferred<T>() {
 
 describe('NotificationPreferences', () => {
 	beforeEach(() => {
+		queryClient.clear();
+		auth.setUser(user('user-a'));
 		mocks.get.mockReset();
 		mocks.put.mockReset();
 		mocks.post.mockReset();
@@ -81,7 +100,31 @@ describe('NotificationPreferences', () => {
 		mocks.showToast.mockReset();
 	});
 
-	afterEach(() => vi.useRealTimers());
+	afterEach(() => {
+		vi.mocked(queryClient.cancelQueries).mockRestore?.();
+		vi.useRealTimers();
+	});
+
+	it('reuses a parent-owned preference query without starting a nested read', async () => {
+		queryClient.setQueryData(notificationQueryKeys.preferences(), {
+			mutes: [
+				{
+					id: 'parent-mute',
+					scope: 'account',
+					starts_at: '2026-08-14T11:00:00Z',
+					ends_at: '2035-08-14T13:00:00Z'
+				}
+			]
+		});
+
+		const screen = await render(NotificationMutes, {
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+
+		await expect.element(screen.getByLabelText('Active mutes')).toBeVisible();
+		expect(mocks.get).not.toHaveBeenCalled();
+	});
 
 	it('removes an expired Mute and refreshes while the page stays open', async () => {
 		vi.useFakeTimers();
@@ -266,6 +309,245 @@ describe('NotificationPreferences', () => {
 		await expect.element(screen.getByText(/2036/)).toBeVisible();
 	});
 
+	it('does not apply a saved preference response after the actor changes during cancellation', async () => {
+		const initial = notificationSettings([], 'UTC');
+		const savedForOldActor = notificationSettings([], 'Europe/Lisbon');
+		const currentActorSettings = notificationSettings([], 'America/New_York');
+		mocks.get.mockResolvedValue({ data: initial });
+		mocks.put.mockResolvedValue({ data: savedForOldActor });
+		const cancellation = deferred<void>();
+		const cancelSpy = vi
+			.spyOn(queryClient, 'cancelQueries')
+			.mockImplementationOnce(() => cancellation.promise);
+
+		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
+		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByRole('button', { name: 'Save preferences' }).click();
+		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
+
+		auth.setUser(user('user-b'));
+		queryClient.setQueryData(notificationQueryKeys.preferences(), currentActorSettings);
+		cancellation.resolve();
+
+		await expect.element(screen.getByRole('button', { name: 'Save preferences' })).toBeEnabled();
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
+			currentActorSettings
+		);
+		expect(mocks.showToast).not.toHaveBeenCalledWith('Preferences saved.', 'success');
+		cancelSpy.mockRestore();
+	});
+
+	it('does not apply a created Mute after the actor changes during cancellation', async () => {
+		const initial = notificationSettings([]);
+		const oldActorResult = notificationSettings([
+			{
+				id: 'old-actor-mute',
+				scope: 'account',
+				starts_at: '2026-08-14T11:00:00Z',
+				ends_at: '2035-08-14T13:00:00Z'
+			}
+		]);
+		const currentActorSettings = notificationSettings([]);
+		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
+		mocks.post.mockResolvedValue({ data: oldActorResult });
+		const cancellation = deferred<void>();
+		const cancelSpy = vi
+			.spyOn(queryClient, 'cancelQueries')
+			.mockImplementationOnce(() => cancellation.promise);
+
+		const screen = await render(NotificationMutes, {
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await screen.getByRole('button', { name: 'Start mute' }).click();
+		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
+
+		auth.setUser(user('user-b'));
+		queryClient.setQueryData(notificationQueryKeys.preferences(), currentActorSettings);
+		cancellation.resolve();
+
+		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
+			currentActorSettings
+		);
+		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute started.', 'success');
+		cancelSpy.mockRestore();
+	});
+
+	it('does not apply an ended Mute after the actor changes during cancellation', async () => {
+		const mute = {
+			id: 'actor-a-mute',
+			scope: 'account' as const,
+			starts_at: '2026-08-14T11:00:00Z',
+			ends_at: '2035-08-14T13:00:00Z'
+		};
+		const initial = notificationSettings([mute]);
+		const currentActorSettings = notificationSettings([
+			{ ...mute, id: 'actor-b-mute', ends_at: '2036-08-14T13:00:00Z' }
+		]);
+		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
+		mocks.delete.mockResolvedValue({ data: notificationSettings([]) });
+		const cancellation = deferred<void>();
+		const cancelSpy = vi
+			.spyOn(queryClient, 'cancelQueries')
+			.mockImplementationOnce(() => cancellation.promise);
+
+		const screen = await render(NotificationMutes, {
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await screen.getByRole('button', { name: 'End now' }).click();
+		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
+
+		auth.setUser(user('user-b'));
+		queryClient.setQueryData(notificationQueryKeys.preferences(), currentActorSettings);
+		cancellation.resolve();
+
+		await expect.element(screen.getByRole('button', { name: 'End now' })).toBeEnabled();
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
+			currentActorSettings
+		);
+		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute ended.', 'success');
+		cancelSpy.mockRestore();
+	});
+
+	it('keeps the newest preference save and releases busy state when the Workspace changes', async () => {
+		const initial = notificationSettings([], 'UTC');
+		const savedForWorkspaceA = notificationSettings([], 'Europe/Lisbon');
+		const savedForWorkspaceB = notificationSettings([], 'America/New_York');
+		const firstSave = deferred<{ data: typeof savedForWorkspaceA }>();
+		const secondSave = deferred<{ data: typeof savedForWorkspaceB }>();
+		mocks.get.mockResolvedValue({ data: initial });
+		mocks.put.mockReturnValueOnce(firstSave.promise).mockReturnValueOnce(secondSave.promise);
+
+		const screen = await render(NotificationPreferences, {
+			workspaceID: 'workspace-a',
+			workspaceName: 'Workspace A',
+			notify: mocks.showToast
+		});
+		const timezone = screen.getByLabelText('Timezone');
+		await timezone.fill('Europe/Lisbon');
+		await screen.getByRole('button', { name: 'Save preferences' }).click();
+		await vi.waitFor(() => expect(mocks.put).toHaveBeenCalledOnce());
+
+		await screen.rerender({
+			workspaceID: 'workspace-b',
+			workspaceName: 'Workspace B',
+			notify: mocks.showToast
+		});
+		await expect.element(screen.getByRole('button', { name: 'Save preferences' })).toBeEnabled();
+		await timezone.fill('America/New_York');
+		await screen.getByRole('button', { name: 'Save preferences' }).click();
+		secondSave.resolve({ data: savedForWorkspaceB });
+		await vi.waitFor(() =>
+			expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
+				savedForWorkspaceB
+			)
+		);
+
+		firstSave.resolve({ data: savedForWorkspaceA });
+		await vi.waitFor(() => expect(mocks.put).toHaveBeenCalledTimes(2));
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
+			savedForWorkspaceB
+		);
+		expect(mocks.showToast).toHaveBeenCalledTimes(1);
+	});
+
+	it('releases Create Mute busy state when the Workspace changes', async () => {
+		const initial = notificationSettings([]);
+		const created = notificationSettings([
+			{
+				id: 'workspace-a-mute',
+				scope: 'workspace',
+				workspace_id: 'workspace-a',
+				workspace_name: 'Workspace A',
+				starts_at: '2026-08-14T11:00:00Z',
+				ends_at: '2035-08-14T13:00:00Z'
+			}
+		]);
+		const create = deferred<{ data: typeof created }>();
+		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
+		mocks.post.mockReturnValue(create.promise);
+
+		const screen = await render(NotificationMutes, {
+			workspaceID: 'workspace-a',
+			workspaceName: 'Workspace A',
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await screen.getByRole('button', { name: 'Start mute' }).click();
+		await vi.waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
+		await screen.rerender({
+			workspaceID: 'workspace-b',
+			workspaceName: 'Workspace B',
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
+
+		create.resolve({ data: created });
+		await vi.waitFor(() =>
+			expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(created)
+		);
+		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
+		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute started.', 'success');
+	});
+
+	it('releases End Mute busy state when the Workspace changes', async () => {
+		const mute = {
+			id: 'workspace-a-mute',
+			scope: 'workspace' as const,
+			workspace_id: 'workspace-a',
+			workspace_name: 'Workspace A',
+			starts_at: '2026-08-14T11:00:00Z',
+			ends_at: '2035-08-14T13:00:00Z'
+		};
+		const initial = notificationSettings([mute]);
+		const ended = notificationSettings([]);
+		const end = deferred<{ data: typeof ended }>();
+		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
+		mocks.delete.mockReturnValue(end.promise);
+
+		const screen = await render(NotificationMutes, {
+			workspaceID: 'workspace-a',
+			workspaceName: 'Workspace A',
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await screen.getByRole('button', { name: 'End now' }).click();
+		await expect.element(screen.getByRole('button', { name: 'Ending…' })).toBeDisabled();
+		await screen.rerender({
+			workspaceID: 'workspace-b',
+			workspaceName: 'Workspace B',
+			notify: mocks.showToast,
+			queryStatus: 'parent'
+		});
+		await expect.element(screen.getByRole('button', { name: 'End now' })).toBeEnabled();
+
+		end.resolve({ data: ended });
+		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
+		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute ended.', 'success');
+	});
+
+	it('settles an unauthorized preference save before touching cached or visible state', async () => {
+		mocks.get.mockResolvedValue({ data: notificationSettings([]) });
+		mocks.put.mockResolvedValue({
+			error: { status: 401, detail: 'Signed out' },
+			response: new Response(null, { status: 401 })
+		});
+		let authenticated = true;
+		const unsubscribe = auth.subscribe((state) => (authenticated = state.isAuthenticated));
+
+		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
+		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByRole('button', { name: 'Save preferences' }).click();
+
+		await vi.waitFor(() => expect(authenticated).toBe(false));
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toBeUndefined();
+		expect(mocks.showToast).not.toHaveBeenCalled();
+		unsubscribe();
+	});
+
 	it('creates and ends a visible Workspace Mute without changing saved preferences', async () => {
 		await page.viewport(390, 844);
 		const initial = preferences();
@@ -439,6 +721,43 @@ describe('NotificationPreferences', () => {
 			.toBeDisabled();
 	});
 
+	it('keeps saved preferences visible through a background error and clears the notice on retry', async () => {
+		const saved = {
+			preferences: preferences(),
+			topic_definitions: topicDefinitions(),
+			email_available: true,
+			email_address: 'founder@example.com',
+			digest_time: '09:00',
+			digest_timezone: 'Europe/Lisbon',
+			digest_configured: true,
+			mutes: []
+		};
+		mocks.get.mockResolvedValueOnce({ data: saved }).mockResolvedValueOnce({
+			error: { detail: 'Preferences refresh failed' },
+			response: new Response(null, { status: 400 })
+		});
+
+		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
+		await expect
+			.element(screen.getByText('Email notifications go to founder@example.com.'))
+			.toBeVisible();
+
+		await queryClient.invalidateQueries({
+			queryKey: notificationQueryKeys.preferences(),
+			exact: true
+		});
+
+		await expect.element(screen.getByText('Preferences refresh failed')).toBeVisible();
+		await expect
+			.element(screen.getByText('Email notifications go to founder@example.com.'))
+			.toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+
+		mocks.get.mockResolvedValue({ data: saved });
+		await screen.getByRole('button', { name: 'Try again' }).click();
+		await expect.element(screen.getByText('Preferences refresh failed')).not.toBeInTheDocument();
+	});
+
 	it('defaults only a new choice to 09:00 in the browser timezone', async () => {
 		mocks.get.mockResolvedValue({
 			data: {
@@ -510,3 +829,41 @@ describe('NotificationPreferences', () => {
 		);
 	});
 });
+
+function notificationSettings(
+	mutes: Array<{
+		id: string;
+		scope: 'account' | 'workspace';
+		workspace_id?: string;
+		workspace_name?: string;
+		starts_at: string;
+		ends_at: string;
+	}>,
+	timezone = 'UTC'
+) {
+	return {
+		preferences: preferences(),
+		topic_definitions: topicDefinitions(),
+		email_available: true,
+		email_address: 'founder@example.com',
+		digest_time: '09:00',
+		digest_timezone: timezone,
+		digest_configured: true,
+		mutes
+	};
+}
+
+function user(id: string): User {
+	return {
+		id,
+		email: `${id}@example.com`,
+		username: id,
+		public_profile_enabled: false,
+		is_admin: false,
+		is_managed: false,
+		has_password: true,
+		legal_acceptance_required: false,
+		email_verified: true,
+		created_at: '2026-09-01T10:00:00Z'
+	};
+}

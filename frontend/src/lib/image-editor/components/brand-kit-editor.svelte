@@ -7,6 +7,11 @@
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import { uploadMediaFile } from '$lib/media-upload-client';
 	import { saveImageEditorBrandKit } from '../api';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import { loadImageEditorBrandFontsWithReport } from '../fonts';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
@@ -30,6 +35,12 @@
 	interface BrandFontFileMetadata {
 		mimeType: string;
 		format: string;
+	}
+
+	interface BrandKitSaveView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
 	}
 
 	let {
@@ -56,9 +67,18 @@
 	let fontLicenseAcknowledged = $state(false);
 	let savedSnapshot = $state('');
 	const failedFontIDs = new SvelteSet<string>();
+	let saveSequence = 0;
 	const unsavedChanges = getOptionalUnsavedChanges();
 	const editorSnapshot = $derived(JSON.stringify({ name, colors, backgrounds, textStyles, fonts }));
 	const dirty = $derived(Boolean(savedSnapshot) && editorSnapshot !== savedSnapshot);
+
+	function brandKitSaveIsCurrent(view: BrandKitSaveView): boolean {
+		return (
+			view.sequence === saveSequence &&
+			view.workspaceID === kit.workspace_id &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
 
 	function initializeEditor() {
 		if (initialized) return;
@@ -238,6 +258,11 @@
 	}
 
 	async function save() {
+		const view: BrandKitSaveView = {
+			session: captureQueryMutationSession(),
+			sequence: ++saveSequence,
+			workspaceID: kit.workspace_id
+		};
 		saving = true;
 		error = '';
 		success = '';
@@ -250,13 +275,15 @@
 				backgrounds: backgrounds.map((background) => background.value),
 				fonts
 			});
+			if (!brandKitSaveIsCurrent(view)) return;
 			onSaved(saved);
 			savedSnapshot = editorSnapshot;
 			success = m.brand_saved();
 		} catch (cause) {
+			if (!brandKitSaveIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.brand_save_failed();
 		} finally {
-			saving = false;
+			if (view.sequence === saveSequence) saving = false;
 		}
 	}
 </script>

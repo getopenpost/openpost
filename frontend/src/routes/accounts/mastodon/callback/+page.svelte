@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { client } from '$lib/api/client';
+	import { auth } from '$lib/stores/auth';
+	import { invalidateAccountMutationDependencies } from '$lib/query/accounts';
+	import { queryClient } from '$lib/query/client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -24,6 +28,13 @@
 	let error = $state('');
 	let pageLoading = $state(true);
 	let cancelHref = $state('/settings?tab=accounts');
+	let submitSequence = 0;
+	let active = true;
+
+	onDestroy(() => {
+		active = false;
+		submitSequence += 1;
+	});
 
 	onMount(() => {
 		const params = new URLSearchParams(window.location.search);
@@ -57,13 +68,21 @@
 			return;
 		}
 
+		const sequence = ++submitSequence;
+		const actorID = get(auth).user?.id ?? '';
+		const targetWorkspaceID = workspaceId;
+		const isCurrentRequest = () =>
+			active &&
+			sequence === submitSequence &&
+			get(auth).user?.id === actorID &&
+			workspaceId === targetWorkspaceID;
 		loading = true;
 		error = '';
 
 		try {
 			const { data, error: err } = await client.POST('/accounts/mastodon/exchange', {
 				body: {
-					workspace_id: workspaceId,
+					workspace_id: targetWorkspaceID,
 					server_name: serverName,
 					instance_url: instanceURL,
 					code: code.trim()
@@ -73,7 +92,11 @@
 			if (!data?.workspace_id || !data.account_id) {
 				throw new Error(m.accounts_mastodon_callback_exchange_failed());
 			}
+			if (get(auth).user?.id !== actorID) return;
+			await invalidateAccountMutationDependencies(queryClient, data.workspace_id);
+			if (!isCurrentRequest()) return;
 			pageLoading = true;
+			clearAccountManagementContinuation();
 			await goto(
 				resolveAppPath(
 					continuationHrefForNormalizedConnection({
@@ -83,12 +106,12 @@
 					})
 				)
 			);
-			clearAccountManagementContinuation();
 		} catch (e) {
-			await goto(resolveAppPath(accountManagementReturnHref('failed', workspaceId)));
+			if (!isCurrentRequest()) return;
 			clearAccountManagementContinuation();
+			await goto(resolveAppPath(accountManagementReturnHref('failed', targetWorkspaceID)));
 		} finally {
-			loading = false;
+			if (isCurrentRequest()) loading = false;
 		}
 	}
 </script>
@@ -106,7 +129,9 @@
 	<div class="space-y-4">
 		{#if serverName || instanceURL}
 			<p class="text-sm text-muted-foreground">
-				{m.accounts_mastodon_callback_server({ server: serverName || instanceURL })}
+				{m.accounts_mastodon_callback_server({
+					server: serverName || instanceURL
+				})}
 			</p>
 		{/if}
 

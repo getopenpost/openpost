@@ -1,6 +1,20 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
+	import { repostAutomationQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -43,8 +57,18 @@
 	let saveError = $state('');
 	let savedSnapshot = $state('[]');
 	let loadedWorkspaceID = $state('');
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.reposts);
+	$effect(() => reportInitialLoad(loading && !settings));
 	let grantToRevoke = $state.raw<RepostGrant | null>(null);
 	let revokeDialogOpen = $state(false);
+	let mutationWorkspaceID = '';
+	let mutationSequence = 0;
+
+	interface RepostMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
 
 	const dirty = $derived(policySnapshot(policies) !== savedSnapshot);
 	const accounts = $derived(settings?.accounts ?? []);
@@ -81,28 +105,69 @@
 	});
 
 	$effect(() => {
+		if (mutationWorkspaceID !== workspaceID) {
+			mutationWorkspaceID = workspaceID;
+			mutationSequence += 1;
+			saving = false;
+			saveError = '';
+			grantToRevoke = null;
+			revokeDialogOpen = false;
+		}
 		if (!workspaceID || loadedWorkspaceID === workspaceID) return;
 		loadedWorkspaceID = workspaceID;
 		void loadSettings(workspaceID);
 	});
 
-	async function loadSettings(id = workspaceID) {
+	function captureRepostMutationView(): RepostMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++mutationSequence,
+			workspaceID
+		};
+	}
+
+	function repostMutationViewIsCurrent(view: RepostMutationView): boolean {
+		return (
+			view.sequence === mutationSequence &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	async function loadSettings(id = workspaceID, force = false) {
+		if (!id || id !== workspaceID) return;
 		loading = true;
 		loadError = '';
+		if (settings?.workspace_id !== id) settings = null;
 		try {
-			const { data, error } = await client.GET('/repost-automation', {
-				params: { query: { workspace_id: id } }
-			});
-			if (error || !data) throw new Error(error?.detail || m.repost_load_failed());
+			const options = repostAutomationQueryOptions(schedulingQueryAPI, id);
+			const preserveLocalEdits = settings?.workspace_id === id && dirty;
+			const cached = queryClient.getQueryData<RepostSettings>(options.queryKey);
+			const appliedCached = Boolean(cached && id === workspaceID && !preserveLocalEdits);
+			if (cached && id === workspaceID && !preserveLocalEdits) applySettings(cached);
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const data = await queryClient.query(options);
 			if (id !== workspaceID) return;
-			settings = data;
-			policies = (data.policies ?? []).map(normalizePolicy);
-			savedSnapshot = policySnapshot(policies);
+			if (preserveLocalEdits || (appliedCached && dirty)) return;
+			applySettings(data);
 		} catch (cause) {
+			if (id !== workspaceID) return;
 			loadError = cause instanceof Error ? cause.message : m.repost_load_failed();
 		} finally {
 			if (id === workspaceID) loading = false;
 		}
+	}
+
+	function applySettings(data: RepostSettings) {
+		settings = data;
+		policies = (data.policies ?? []).map(normalizePolicy);
+		savedSnapshot = policySnapshot(policies);
 	}
 
 	async function saveSettings() {
@@ -112,21 +177,36 @@
 			saveError = validation;
 			return;
 		}
+		const view = captureRepostMutationView();
+		const nextPolicies = $state.snapshot(policies);
 		saving = true;
 		saveError = '';
 		try {
-			const { data, error } = await client.PUT('/repost-automation', {
-				body: { workspace_id: workspaceID, policies: $state.snapshot(policies) }
+			const { data, error, response } = await client.PUT('/repost-automation', {
+				body: { workspace_id: view.workspaceID, policies: nextPolicies }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (error || !data) throw new Error(error?.detail || m.repost_save_failed());
-			settings = data;
-			policies = (data.policies ?? []).map(normalizePolicy);
-			savedSnapshot = policySnapshot(policies);
+			if (data.workspace_id !== view.workspaceID) throw new Error(m.repost_save_failed());
+			await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [
+					{
+						queryKey: schedulingQueryKeys.repostAutomation(view.workspaceID),
+						exact: true
+					}
+				],
+				reconcile: () => {
+					queryClient.setQueryData(schedulingQueryKeys.repostAutomation(view.workspaceID), data);
+				}
+			});
+			if (!repostMutationViewIsCurrent(view)) return;
+			applySettings(data);
 			showToast(m.repost_saved());
 		} catch (cause) {
+			if (!repostMutationViewIsCurrent(view)) return;
 			saveError = cause instanceof Error ? cause.message : m.repost_save_failed();
 		} finally {
-			saving = false;
+			if (view.sequence === mutationSequence) saving = false;
 		}
 	}
 
@@ -206,18 +286,38 @@
 	}
 
 	async function revokeGrant(): Promise<DestructiveActionOutcome> {
-		if (!grantToRevoke) return { ok: false };
-		const { error } = await client.DELETE('/repost-account-grants/{grant_id}', {
-			params: {
-				path: { grant_id: grantToRevoke.id },
-				query: { workspace_id: workspaceID }
+		const grant = grantToRevoke;
+		if (!grant) return { ok: false };
+		const view = captureRepostMutationView();
+		try {
+			const { error, response } = await client.DELETE('/repost-account-grants/{grant_id}', {
+				params: {
+					path: { grant_id: grant.id },
+					query: { workspace_id: view.workspaceID }
+				}
+			});
+			settleQueryMutationSession(view.session, response);
+			if (error) {
+				if (!repostMutationViewIsCurrent(view)) return { ok: false };
+				return { ok: false, message: error.detail || m.repost_revoke_failed() };
 			}
-		});
-		if (error) {
-			return { ok: false, message: error.detail || m.repost_revoke_failed() };
+			const queryKey = schedulingQueryKeys.repostAutomation(view.workspaceID);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey, exact: true }],
+				invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+			});
+			if (!reconciled || !repostMutationViewIsCurrent(view)) return { ok: false };
+			await loadSettings(view.workspaceID);
+			if (!repostMutationViewIsCurrent(view)) return { ok: false };
+			grantToRevoke = null;
+			return { ok: true, successMessage: m.repost_access_revoked() };
+		} catch (cause) {
+			if (!repostMutationViewIsCurrent(view)) return { ok: false };
+			return {
+				ok: false,
+				message: cause instanceof Error ? cause.message : m.repost_revoke_failed()
+			};
 		}
-		await loadSettings();
-		return { ok: true, successMessage: m.repost_access_revoked() };
 	}
 
 	function normalizePolicy(policy: components['schemas']['PolicyResponse']): RepostPolicy {
@@ -302,12 +402,22 @@
 		<p class="mt-1 text-current/75">{m.repost_analytics_notice()}</p>
 	</InlineNotice>
 
-	{#if loading}
-		<PageLoading layout="list" label={m.common_loading()} items={4} />
-	{:else if loadError}
+	{#if loadError && settings}
 		<InlineNotice tone="error" message={loadError}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => void loadSettings()}>
+				<Button variant="outline" size="sm" onclick={() => void loadSettings(workspaceID, true)}>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
+
+	{#if loading && !settings}
+		<PageLoading layout="list" label={m.common_loading()} items={4} />
+	{:else if loadError && !settings}
+		<InlineNotice tone="error" message={loadError}>
+			{#snippet actions()}
+				<Button variant="outline" size="sm" onclick={() => void loadSettings(workspaceID, true)}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}

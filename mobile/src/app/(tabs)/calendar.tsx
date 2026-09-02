@@ -1,24 +1,21 @@
 import { router, Stack } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import {
   BodyText,
-  Button,
   Card,
   ContentTitle,
   EmptyState,
   IconButton,
-  LoadingState,
   PageTitle,
   Screen,
   StatusBadge,
 } from "@/components/ui";
-import { api, errorMessage } from "@/lib/api/client";
 import { calendarWeeks } from "@/lib/calendar";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
-import { useWorkspaceId } from "@/lib/queries";
+import { useCalendarPublications } from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
 
 const WEEKDAYS = [
@@ -37,30 +34,10 @@ export default function CalendarScreen() {
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState<string>(() => dayKey(today));
-  const workspaceId = useWorkspaceId();
 
   const monthStart = month;
   const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 1);
-
-  const publications = useQuery({
-    queryKey: ["calendar", workspaceId, dayKey(monthStart), dayKey(monthEnd)],
-    enabled: Boolean(workspaceId),
-    queryFn: async () => {
-      if (!workspaceId) throw new Error("Choose a workspace to load the calendar");
-      const { data, error, response } = await api().GET("/publications", {
-        params: {
-          query: {
-            workspace_id: workspaceId,
-            calendar_from: monthStart.toISOString(),
-            calendar_before: monthEnd.toISOString(),
-            limit: 200,
-          },
-        },
-      });
-      if (error || !data) throw new Error(await errorMessage(response, "Could not load calendar"));
-      return data ?? [];
-    },
-  });
+  const publications = useCalendarPublications(monthStart.toISOString(), monthEnd.toISOString());
 
   const byDay = useMemo(() => {
     const map = new Map<string, { id: string; title: string; status: string }[]>();
@@ -90,6 +67,8 @@ export default function CalendarScreen() {
         day: "numeric",
       })
     : "Select a day";
+  const hasData = publications.data !== undefined;
+  const coldPending = !hasData && publications.isPending;
 
   function shiftMonth(delta: number) {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
@@ -156,140 +135,151 @@ export default function CalendarScreen() {
           />
         }
       >
-        {publications.isLoading ? <LoadingState label="Loading calendar" /> : null}
-        {publications.isError ? (
-          <Card style={styles.error}>
-            <ContentTitle>Could not load calendar</ContentTitle>
-            <BodyText accessibilityRole="alert">
-              {publications.error instanceof Error
+        <DelayedQueryPlaceholder
+          pending={coldPending}
+          shape="calendar"
+          offline={publications.fetchStatus === "paused"}
+        />
+        {publications.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not load calendar"
+            message={
+              publications.error instanceof Error
                 ? publications.error.message
-                : "Check your connection and try again."}
-            </BodyText>
-            <Button
-              title="Try again"
-              intent="ordinary"
-              onPress={() => void publications.refetch()}
-            />
-          </Card>
+                : "Check your connection and try again."
+            }
+            retry={() => void publications.refetch()}
+          />
+        ) : null}
+        {publications.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh the calendar. Current dates remain visible."
+            retry={() => void publications.refetch()}
+          />
+        ) : null}
+        {hasData && publications.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. Current calendar dates remain visible." offline />
         ) : null}
 
-        <View style={styles.weekdays}>
-          {WEEKDAYS.map(([shortLabel, label], index) => (
-            <Text
-              accessibilityLabel={label}
-              key={`${shortLabel}-${index}`}
-              style={[styles.weekday, typography.labelMedium, { color: colors.onSurfaceVariant }]}
-            >
-              {shortLabel}
-            </Text>
-          ))}
-        </View>
+        {hasData ? (
+          <>
+            <View style={styles.weekdays}>
+              {WEEKDAYS.map(([shortLabel, label], index) => (
+                <Text
+                  accessibilityLabel={label}
+                  key={`${shortLabel}-${index}`}
+                  style={[styles.weekday, typography.labelMedium, { color: colors.onSurfaceVariant }]}
+                >
+                  {shortLabel}
+                </Text>
+              ))}
+            </View>
 
-        <View style={styles.grid}>
-          {weeks.map((week, weekIndex) => (
-            <View key={`week-${weekIndex}`} style={styles.weekRow}>
-              {week.map((date, dayIndex) => {
-                if (!date) {
-                  return <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />;
-                }
-                const key = dayKey(date);
-                const items = byDay.get(key) ?? [];
-                const isToday = key === dayKey(today);
-                const isSelected = key === selectedDay;
-                return (
-                  <Pressable
-                    key={key}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${date.toLocaleDateString("en", {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                    })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
-                    accessibilityState={{ selected: isSelected }}
-                    onPress={() => setSelectedDay(key)}
-                    style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
-                  >
-                    <View
-                      style={[
-                        styles.dayCircle,
-                        { borderRadius: shape.full },
-                        isSelected && { backgroundColor: colors.primary },
-                        !isSelected &&
-                          isToday && {
-                            borderWidth: 1.5,
-                            borderColor: colors.primary,
-                          },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          typography.bodyMedium,
-                          { color: colors.onSurface },
-                          isSelected && typography.labelLarge,
-                          isSelected && { color: colors.onPrimary },
-                        ]}
+            <View style={styles.grid}>
+              {weeks.map((week, weekIndex) => (
+                <View key={`week-${weekIndex}`} style={styles.weekRow}>
+                  {week.map((date, dayIndex) => {
+                    if (!date) {
+                      return <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />;
+                    }
+                    const key = dayKey(date);
+                    const items = byDay.get(key) ?? [];
+                    const isToday = key === dayKey(today);
+                    const isSelected = key === selectedDay;
+                    return (
+                      <Pressable
+                        key={key}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${date.toLocaleDateString("en", {
+                          weekday: "long",
+                          month: "long",
+                          day: "numeric",
+                        })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => setSelectedDay(key)}
+                        style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
                       >
-                        {date.getDate()}
-                      </Text>
-                    </View>
-                    <View style={styles.dots}>
-                      {items.slice(0, 3).map((item) => (
                         <View
-                          key={item.id}
                           style={[
-                            styles.dot,
-                            {
-                              backgroundColor: statusColor(
-                                item.status,
-                                colors.status,
-                                colors.onSurfaceVariant,
-                              ),
-                            },
+                            styles.dayCircle,
+                            { borderRadius: shape.full },
+                            isSelected && { backgroundColor: colors.primary },
+                            !isSelected &&
+                              isToday && {
+                                borderWidth: 1.5,
+                                borderColor: colors.primary,
+                              },
                           ]}
-                        />
-                      ))}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyMedium,
+                              { color: colors.onSurface },
+                              isSelected && typography.labelLarge,
+                              isSelected && { color: colors.onPrimary },
+                            ]}
+                          >
+                            {date.getDate()}
+                          </Text>
+                        </View>
+                        <View style={styles.dots}>
+                          {items.slice(0, 3).map((item) => (
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.dot,
+                                {
+                                  backgroundColor: statusColor(
+                                    item.status,
+                                    colors.status,
+                                    colors.onSurfaceVariant,
+                                  ),
+                                },
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+
+            {selectedItems.length === 0 ? (
+              <EmptyState
+                title={selectedDayTitle}
+                body={selectedDay ? "Nothing planned." : "Choose a day to see its posts."}
+              />
+            ) : (
+              <Card style={[styles.daySheet, { gap: spacing.medium }]}>
+                <ContentTitle>{selectedDayTitle}</ContentTitle>
+                {selectedItems.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/publications/[id]",
+                        params: { id: item.id },
+                      })
+                    }
+                    style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
+                  >
+                    <View style={{ flex: 1, gap: spacing.extraSmall }}>
+                      <Text
+                        style={[typography.bodyLarge, { color: colors.onSurface }]}
+                        numberOfLines={2}
+                      >
+                        {item.title}
+                      </Text>
+                      <StatusBadge status={item.status} />
                     </View>
                   </Pressable>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-
-        {!publications.isLoading && !publications.isError ? (
-          selectedItems.length === 0 ? (
-            <EmptyState
-              title={selectedDayTitle}
-              body={selectedDay ? "Nothing planned." : "Choose a day to see its posts."}
-            />
-          ) : (
-            <Card style={[styles.daySheet, { gap: spacing.medium }]}>
-              <ContentTitle>{selectedDayTitle}</ContentTitle>
-              {selectedItems.map((item) => (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/publications/[id]",
-                      params: { id: item.id },
-                    })
-                  }
-                  style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
-                >
-                  <View style={{ flex: 1, gap: spacing.extraSmall }}>
-                    <Text
-                      style={[typography.bodyLarge, { color: colors.onSurface }]}
-                      numberOfLines={2}
-                    >
-                      {item.title}
-                    </Text>
-                    <StatusBadge status={item.status} />
-                  </View>
-                </Pressable>
-              ))}
-            </Card>
-          )
+                ))}
+              </Card>
+            )}
+          </>
         ) : null}
       </ScrollView>
     </Screen>
@@ -367,10 +357,6 @@ const styles = StyleSheet.create({
   },
   daySheet: {
     marginTop: 16,
-  },
-  error: {
-    gap: 12,
-    marginBottom: 16,
   },
   itemRow: {
     flexDirection: "row",

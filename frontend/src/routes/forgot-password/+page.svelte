@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -8,22 +7,19 @@
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
-	import { client, type AuthConfiguration } from '$lib/api/client';
+	import { client } from '$lib/api/client';
 	import { m } from '$lib/paraglide/messages';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { authConfigurationQueryOptions } from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
 
 	let email = $state('');
 	let error = $state('');
 	let loading = $state(false);
-	let configurationLoading = $state(true);
 	let submitted = $state(false);
-	let authConfiguration = $state<AuthConfiguration | null>(null);
-
-	onMount(async () => {
-		const { data, error: responseError } = await client.GET('/auth/config');
-		if (responseError || !data) error = responseError?.detail ?? m.auth_config_load_failed();
-		else authConfiguration = data;
-		configurationLoading = false;
-	});
+	const authConfigurationQuery = createQuery(() => authConfigurationQueryOptions(authQueryAPI));
+	const authConfiguration = $derived(authConfigurationQuery.data ?? null);
+	const configurationLoading = $derived(authConfigurationQuery.isPending);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -70,6 +66,24 @@
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mb-4" />
 		{/if}
+		{#if authConfigurationQuery.isError}
+			<InlineNotice
+				tone={authConfiguration ? 'warning' : 'error'}
+				message={authConfigurationQuery.error?.message ?? m.auth_config_load_failed()}
+				class="mb-4"
+			>
+				{#snippet actions()}
+					<Button
+						type="button"
+						variant="outline"
+						class="mb-4"
+						onclick={() => void authConfigurationQuery.refetch()}
+					>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 
 		{#if !configurationLoading && authConfiguration && !authConfiguration.password_reset_enabled}
 			<InlineNotice tone="warning" class="mb-4">
@@ -77,7 +91,9 @@
 				{#if authConfiguration.support_email}
 					<p class="mt-1">
 						<a class="font-medium underline" href={`mailto:${authConfiguration.support_email}`}>
-							{m.auth_forgot_contact_support({ email: authConfiguration.support_email })}
+							{m.auth_forgot_contact_support({
+								email: authConfiguration.support_email
+							})}
 						</a>
 					</p>
 				{/if}

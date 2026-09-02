@@ -1,11 +1,23 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { auth } from '$lib/stores/auth';
 	import { client } from '$lib/api/client';
+	import type { AuthConfiguration } from '$lib/api/client';
+	import {
+		authConfigurationQueryOptions,
+		authQueryKeys,
+		organizationQueryKeys,
+		OpenPostQueryError,
+		workspaceCreationCachePlan
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { executeQueryCachePlan } from '$lib/query/cache-plan';
+	import { queryClient } from '$lib/query/client';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -37,6 +49,7 @@
 	let isSubmitting = $state(false);
 	let choiceLoading = $state(false);
 	let loadError = $state('');
+	let configurationBackgroundError = $state('');
 	let submitError = $state('');
 	let authReady = $state(false);
 	let pageLoading = $state(true);
@@ -49,6 +62,16 @@
 	let choiceErrorCode = $state<PurchaseChoiceErrorCode | null>(null);
 	let purchaseChoiceRequired = $state(true);
 	let onboardingLoadSequence = 0;
+	let onboardingSubmissionSequence = 0;
+	let purchaseChoiceRequestSequence = 0;
+	let active = true;
+
+	onDestroy(() => {
+		active = false;
+		onboardingLoadSequence += 1;
+		onboardingSubmissionSequence += 1;
+		purchaseChoiceRequestSequence += 1;
+	});
 
 	function loginTarget() {
 		return `/login?redirect=${encodeURIComponent(`${page.url.pathname}${page.url.search}`)}`;
@@ -68,6 +91,29 @@
 		const redirect = safeSameOriginRedirect(page.url, '');
 		if (redirect) params.set('redirect', redirect);
 		return `/checkout?${params}`;
+	}
+
+	async function invalidateWorkspaceInventory() {
+		await executeQueryCachePlan(queryClient, workspaceCreationCachePlan());
+	}
+
+	async function invalidateWelcomeAudit(workspaceID: string) {
+		const organizationID =
+			workspaceCtx.workspaces.find((workspace) => workspace.id === workspaceID)?.organization_id ??
+			'';
+		const invalidations = [
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		];
+		if (organizationID) {
+			invalidations.push(
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.auditRoot(organizationID)
+				})
+			);
+		}
+		await Promise.all(invalidations);
 	}
 
 	onMount(() => {
@@ -90,6 +136,7 @@
 		const requestSequence = ++onboardingLoadSequence;
 		pageLoading = true;
 		loadError = '';
+		configurationBackgroundError = '';
 		try {
 			await workspaceCtx.initialize();
 			if (requestSequence !== onboardingLoadSequence) return;
@@ -99,15 +146,30 @@
 				return;
 			}
 			if (!managedAccount) {
-				const { data: authConfiguration, error: authConfigurationError } =
-					await client.GET('/auth/config');
-				if (authConfigurationError || !authConfiguration) {
-					throw new Error(authConfigurationError?.detail || m.onboarding_load_failed());
+				const configurationOptions = authConfigurationQueryOptions(authQueryAPI);
+				const cachedConfiguration = queryClient.getQueryData<AuthConfiguration>(
+					authQueryKeys.configuration()
+				);
+				if (cachedConfiguration) {
+					await applyAuthConfiguration(cachedConfiguration);
+					pageLoading = false;
 				}
-				// Hosted signup has always required an explicit purchase choice. Keep that
-				// default when older or proxied auth/config responses omit the field.
-				purchaseChoiceRequired = authConfiguration.purchase_choice_required !== false;
-				if (purchaseChoiceRequired) await loadPurchaseChoice();
+				try {
+					await applyAuthConfiguration(await queryClient.fetchQuery(configurationOptions));
+				} catch (cause) {
+					if (
+						cause instanceof OpenPostQueryError &&
+						(cause.status === 401 || cause.status === 403)
+					) {
+						queryClient.removeQueries({
+							queryKey: configurationOptions.queryKey,
+							exact: true
+						});
+						throw cause;
+					}
+					if (!cachedConfiguration) throw cause;
+					configurationBackgroundError = m.onboarding_load_failed();
+				}
 			}
 		} catch (caught) {
 			if (requestSequence !== onboardingLoadSequence) return;
@@ -118,12 +180,32 @@
 		}
 	}
 
+	async function applyAuthConfiguration(configuration: AuthConfiguration) {
+		// Hosted signup has always required an explicit purchase choice. Keep that
+		// default when older or proxied auth/config responses omit the field.
+		purchaseChoiceRequired = configuration.purchase_choice_required !== false;
+		if (purchaseChoiceRequired && !purchaseChoice && !choiceErrorCode) {
+			await loadPurchaseChoice();
+		}
+	}
+
 	async function loadPurchaseChoice() {
-		const planID = hostedPlanFromSearchParams(page.url.searchParams);
-		const period = billingPeriodFromSearchParams(page.url.searchParams);
+		const actorID = get(auth).user?.id ?? '';
+		const requestSequence = ++purchaseChoiceRequestSequence;
+		const sourceURL = new URL(page.url);
+		const route = `${sourceURL.pathname}${sourceURL.search}`;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === purchaseChoiceRequestSequence &&
+			Boolean(actorID) &&
+			get(auth).user?.id === actorID &&
+			`${window.location.pathname}${window.location.search}` === route;
+		const planID = hostedPlanFromSearchParams(sourceURL.searchParams);
+		const period = billingPeriodFromSearchParams(sourceURL.searchParams);
 		if (planID) selectedPlanID = planID;
 		if (period) billingPeriod = period;
-		const result = await resolvePurchaseChoice(page.url.searchParams);
+		const result = await resolvePurchaseChoice(sourceURL.searchParams);
+		if (!isCurrentRequest()) return;
 		purchaseChoice = result.choice ?? null;
 		choiceErrorCode = result.errorCode ?? null;
 		if (result.error && !result.errorCode) loadError = result.error;
@@ -131,26 +213,39 @@
 
 	async function choosePurchase(nextPlan: HostedPlanID, nextPeriod: BillingPeriod) {
 		if (choiceLoading) return;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const requestSequence = ++purchaseChoiceRequestSequence;
+		const sourceURL = new URL(page.url);
+		const route = `${sourceURL.pathname}${sourceURL.search}`;
+		const isCurrentOperation = () =>
+			active && requestSequence === purchaseChoiceRequestSequence && get(auth).user?.id === actorID;
+		const isCurrentRequest = () =>
+			isCurrentOperation() && `${window.location.pathname}${window.location.search}` === route;
 		choiceLoading = true;
 		submitError = '';
 		try {
 			const { data, error } = await client.POST('/billing/purchase-choice', {
 				body: { plan_id: nextPlan, billing_period: nextPeriod }
 			});
+			if (!isCurrentRequest()) return;
 			if (error || !data) throw new Error(error?.detail || m.purchase_choice_unavailable());
 			selectedPlanID = nextPlan;
 			billingPeriod = nextPeriod;
 			purchaseChoice = data;
 			choiceErrorCode = null;
-			const params = new URLSearchParams(page.url.searchParams);
+			const params = new URLSearchParams(sourceURL.searchParams);
 			params.set('plan', data.plan_id);
 			params.set('billing_period', data.billing_period);
 			params.set('purchase_choice', data.token);
-			window.history.replaceState({}, '', `${page.url.pathname}?${params}`);
+			if (!isCurrentRequest()) return;
+			window.history.replaceState({}, '', `${sourceURL.pathname}?${params}`);
 		} catch (caught) {
-			submitError = caught instanceof Error ? caught.message : m.purchase_choice_unavailable();
+			if (isCurrentRequest()) {
+				submitError = caught instanceof Error ? caught.message : m.purchase_choice_unavailable();
+			}
 		} finally {
-			choiceLoading = false;
+			if (isCurrentOperation()) choiceLoading = false;
 		}
 	}
 
@@ -160,6 +255,14 @@
 			return;
 		isSubmitting = true;
 		submitError = '';
+		const actorID = get(auth).user?.id ?? '';
+		const submissionSequence = ++onboardingSubmissionSequence;
+		const isCurrentSubmission = () =>
+			active &&
+			submissionSequence === onboardingSubmissionSequence &&
+			Boolean(actorID) &&
+			get(auth).user?.id === actorID;
+		const isSameActor = () => Boolean(actorID) && get(auth).user?.id === actorID;
 		try {
 			if (!purchaseChoiceRequired) {
 				const { data, error } = await client.POST('/workspaces', {
@@ -168,7 +271,15 @@
 				if (error || !data?.id) {
 					throw new Error(error?.detail || m.onboarding_create_failed());
 				}
-				await workspaceCtx.loadWorkspaces(data.id);
+				if (!isSameActor()) return;
+				await invalidateWorkspaceInventory();
+				const projection = auth.captureUserProjection(actorID);
+				if (!projection) return;
+				const bootstrap = await workspaceCtx.loadWorkspaces(data.id, {
+					selectionIsCurrent: isCurrentSubmission
+				});
+				if (!isSameActor() || !auth.projectBootstrap(bootstrap, projection)) return;
+				if (!isCurrentSubmission()) return;
 				await goto(resolveAppPath('/'));
 				return;
 			}
@@ -188,12 +299,25 @@
 				choiceErrorCode = error ? purchaseChoiceErrorCode(error) : null;
 				throw new Error(error?.detail || m.onboarding_create_failed());
 			}
-			await workspaceCtx.initialize(data.workspace_id);
+			if (!isSameActor()) return;
+			await Promise.all([
+				invalidateWorkspaceInventory(),
+				invalidateWelcomeAudit(data.workspace_id)
+			]);
+			const projection = auth.captureUserProjection(actorID);
+			if (!projection) return;
+			const bootstrap = await workspaceCtx.loadWorkspaces(data.workspace_id, {
+				selectionIsCurrent: isCurrentSubmission
+			});
+			if (!isSameActor() || !auth.projectBootstrap(bootstrap, projection)) return;
+			if (!isCurrentSubmission()) return;
 			await goto(resolveAppPath(checkoutTarget(data.checkout.id, confirmedPurchaseChoice)));
 		} catch (caught) {
-			submitError = caught instanceof Error ? caught.message : m.onboarding_create_failed();
+			if (isCurrentSubmission()) {
+				submitError = caught instanceof Error ? caught.message : m.onboarding_create_failed();
+			}
 		} finally {
-			isSubmitting = false;
+			if (isCurrentSubmission()) isSubmitting = false;
 		}
 	}
 </script>
@@ -213,6 +337,15 @@
 	{#snippet icon()}<RocketIcon class="size-6" />{/snippet}
 
 	<div class="space-y-5">
+		{#if configurationBackgroundError}
+			<InlineNotice tone="warning" message={configurationBackgroundError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void loadWelcome()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		{#if loadError}
 			<div data-testid="onboarding-load-error">
 				<InlineNotice tone="error" message={loadError}>
@@ -230,7 +363,9 @@
 					organization: managedOrganizationName || m.onboarding_managed_organization()
 				})}
 			/>
-			<p class="text-sm leading-6 text-muted-foreground">{m.onboarding_managed_help()}</p>
+			<p class="text-sm leading-6 text-muted-foreground">
+				{m.onboarding_managed_help()}
+			</p>
 		{:else if purchaseChoiceRequired && choiceErrorCode}
 			<PurchaseChoiceError code={choiceErrorCode} />
 		{:else if purchaseChoiceRequired ? purchaseChoice : true}
@@ -247,7 +382,9 @@
 						placeholder={m.onboarding_workspace_placeholder()}
 						autocomplete="organization"
 					/>
-					<p class="text-xs leading-5 text-muted-foreground">{m.onboarding_workspace_hint()}</p>
+					<p class="text-xs leading-5 text-muted-foreground">
+						{m.onboarding_workspace_hint()}
+					</p>
 				</div>
 
 				{#if purchaseChoiceRequired}

@@ -1099,7 +1099,8 @@ func (h *AuthHandler) SessionState(api huma.API) {
 		Summary:     "Get optional web session state",
 		Description: "Returns an anonymous state instead of an authorization error when no valid session is present.",
 		Tags:        []string{tagAuth},
-		Middlewares: huma.Middlewares{middleware.OptionalAuthMiddleware(h.authenticator)},
+		Middlewares: huma.Middlewares{middleware.OptionalAuthMiddleware(api, h.authenticator)},
+		Errors:      []int{503},
 	}, func(ctx context.Context, _ *struct{}) (*AuthSessionStateOutput, error) {
 		out := &AuthSessionStateOutput{}
 		userID := middleware.GetUserID(ctx)
@@ -1979,11 +1980,7 @@ func (h *AuthHandler) RemovePasskey(api huma.API) {
 }
 
 func (h *AuthHandler) getUserByID(ctx context.Context, userID string) (*models.User, error) {
-	user := new(models.User)
-	if err := h.db.NewSelect().Model(user).Where("id = ?", userID).Scan(ctx); err != nil {
-		return nil, err
-	}
-	return user, nil
+	return h.appReadModel().user(ctx, userID)
 }
 
 func (h *AuthHandler) issueAuthResponse(ctx context.Context, user *models.User) (*AuthOutput, error) {
@@ -2244,29 +2241,7 @@ func (h *AuthHandler) securityStatusResponse(ctx context.Context, userID string)
 }
 
 func (h *AuthHandler) toUserProfile(user *models.User) *UserProfile {
-	hasPassword := strings.TrimSpace(user.PasswordHash) != ""
-	return &UserProfile{
-		ID:                         user.ID,
-		Email:                      user.Email,
-		Username:                   user.Username,
-		DisplayName:                user.DisplayName,
-		AvatarURL:                  user.AvatarURL,
-		PublicProfileEnabled:       user.PublicProfile,
-		PublicProfileVisibleFields: publicprofiles.Parse(user.PublicProfileVisibilityJSON).Fields(),
-		ComposerExperience:         normalizedComposerExperience(user.ComposerExperience),
-		IsAdmin:                    user.IsAdmin,
-		HasPassword:                hasPassword,
-		PasswordUsable:             hasPassword,
-		TermsVersion:               user.TermsVersion,
-		PrivacyVersion:             user.PrivacyVersion,
-		LegalAcceptedAt:            user.LegalAcceptedAt,
-		EmailVerified:              !user.EmailVerifiedAt.IsZero(),
-		LegalAcceptanceRequired: h.accountPolicy.Required &&
-			(user.LegalAcceptedAt.IsZero() ||
-				user.TermsVersion != h.accountPolicy.TermsVersion ||
-				user.PrivacyVersion != h.accountPolicy.PrivacyVersion),
-		CreatedAt: user.CreatedAt,
-	}
+	return h.appReadModel().userProfileFromModel(user)
 }
 
 func normalizedComposerExperience(value string) string {
@@ -2277,22 +2252,11 @@ func normalizedComposerExperience(value string) string {
 }
 
 func (h *AuthHandler) profileForUser(ctx context.Context, user *models.User) *UserProfile {
-	profile := h.toUserProfile(user)
-	if h.identity == nil {
-		return profile
-	}
-	passwordAllowed, err := h.identity.PasswordCredentialAllowed(ctx, user.ID)
-	if err != nil {
-		profile.PasswordUsable = false
-	} else {
-		profile.PasswordUsable = profile.HasPassword && passwordAllowed
-	}
-	managed, organizationName, err := h.identity.ManagedUserState(ctx, user.ID)
-	if err == nil {
-		profile.IsManaged = managed
-		profile.ManagedOrganizationName = organizationName
-	}
-	return profile
+	return h.appReadModel().profileForUser(ctx, user)
+}
+
+func (h *AuthHandler) appReadModel() appReadModel {
+	return appReadModel{db: h.db, accountPolicy: h.accountPolicy, identity: h.identity}
 }
 
 func (h *AuthHandler) authorizeSensitiveAction(

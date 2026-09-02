@@ -168,6 +168,15 @@ func (s *Service) Resolve(ctx context.Context, actor Actor, input ResolveInput) 
 		return ResolvedTheme{}, err
 	}
 	if err := s.materializeResolvedResourceURLs(ctx, &resolved, input.WorkspaceID); err != nil {
+		if errors.Is(err, errUnsafeResource) || errors.Is(err, errResourceFailed) {
+			reason := FallbackUnsafeResource
+			if errors.Is(err, errResourceFailed) {
+				reason = FallbackResourceFailed
+			}
+			fallback := workshopFallback(input.Scheme, reason)
+			fallback.organizationID = decision.OrganizationID
+			return fallback, nil
+		}
 		return ResolvedTheme{}, err
 	}
 	return resolved, nil

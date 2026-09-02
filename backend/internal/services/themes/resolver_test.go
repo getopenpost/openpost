@@ -104,6 +104,6 @@ func (s resolverStoreStub) published(context.Context, string, string, int) (*Pub
 	return s.revision, s.loadErr
 }
 
-func (s resolverStoreStub) resourcesAvailable(context.Context, string, ThemeManifest) error {
+func (s resolverStoreStub) publishedResourcesAvailable(context.Context, string, string, int, ThemeManifest) error {
 	return s.resourceErr
 }

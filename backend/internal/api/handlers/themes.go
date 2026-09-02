@@ -3,7 +3,9 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -47,10 +49,10 @@ type ThemePathInput struct {
 
 type CreateThemeInput struct {
 	Body struct {
-		OrganizationID     string               `json:"organization_id" doc:"Organization ID"`
-		Name               string               `json:"name" minLength:"1" maxLength:"80" doc:"Theme family name"`
-		Manifest           themes.ThemeManifest `json:"manifest" doc:"Complete family manifest with light and/or dark schemes"`
-		DuplicateBuiltInID string               `json:"duplicate_built_in_id,omitempty" doc:"Built-in family to copy into an editable draft"`
+		OrganizationID     string                `json:"organization_id" doc:"Organization ID"`
+		Name               string                `json:"name" minLength:"1" maxLength:"80" doc:"Theme family name"`
+		Manifest           *themes.ThemeManifest `json:"manifest,omitempty" doc:"Complete family manifest with light and/or dark schemes; omit when duplicating a built-in"`
+		DuplicateBuiltInID string                `json:"duplicate_built_in_id,omitempty" doc:"Built-in family to copy into an editable draft"`
 	}
 }
 
@@ -67,16 +69,19 @@ type UpdateThemeDraftInput struct {
 type PublishThemeInput struct {
 	PathID string `path:"id" doc:"Organization theme ID"`
 	Body   struct {
-		OrganizationID        string `json:"organization_id" doc:"Organization ID"`
-		ExpectedDraftRevision int    `json:"expected_draft_revision" minimum:"1" doc:"Draft revision being published"`
+		OrganizationID            string `json:"organization_id" doc:"Organization ID"`
+		ExpectedDraftRevision     int    `json:"expected_draft_revision" minimum:"1" doc:"Draft revision being published"`
+		ExpectedPublishedRevision int    `json:"expected_published_revision" minimum:"0" doc:"Published head loaded by the editor; zero publishes the first revision"`
 	}
 }
 
 type RollbackThemeInput struct {
 	PathID string `path:"id" doc:"Organization theme ID"`
 	Body   struct {
-		OrganizationID string `json:"organization_id" doc:"Organization ID"`
-		SourceRevision int    `json:"source_revision" minimum:"1" doc:"Published revision to copy into a new head revision"`
+		OrganizationID            string `json:"organization_id" doc:"Organization ID"`
+		SourceRevision            int    `json:"source_revision" minimum:"1" doc:"Prior published revision to copy into a new head revision"`
+		ExpectedDraftRevision     int    `json:"expected_draft_revision" minimum:"1" doc:"Draft revision loaded before rollback"`
+		ExpectedPublishedRevision int    `json:"expected_published_revision" minimum:"1" doc:"Published head loaded before rollback"`
 	}
 }
 
@@ -123,13 +128,19 @@ type UpdateWorkspaceThemeAssignmentInput struct {
 }
 
 type ThemeOutput struct{ Body themes.Theme }
-type ThemeListOutput struct{ Body []themes.Theme }
-type AvailableThemeListOutput struct {
-	Body []themes.PublishedThemeCatalogItem
+type ThemeListOutput struct {
+	Body []themes.Theme `nullable:"false"`
 }
-type BuiltInThemeListOutput struct{ Body []themes.BuiltInFamily }
+type AvailableThemeListOutput struct {
+	Body []themes.PublishedThemeCatalogItem `nullable:"false"`
+}
+type BuiltInThemeListOutput struct {
+	Body []themes.BuiltInFamily `nullable:"false"`
+}
 type ThemeRevisionOutput struct{ Body themes.PublishedRevision }
-type ThemeRevisionListOutput struct{ Body []themes.PublishedRevision }
+type ThemeRevisionListOutput struct {
+	Body []themes.PublishedRevision `nullable:"false"`
+}
 type ThemeSettingsOutput struct{ Body themes.ThemeSettings }
 type OrganizationThemeSettingsOutput struct {
 	Body themes.OrganizationThemeSettings
@@ -144,6 +155,7 @@ type ResolvedThemeOutput struct {
 	Status       int
 	ETag         string `header:"ETag"`
 	CacheControl string `header:"Cache-Control"`
+	Vary         string `header:"Vary"`
 	Body         themes.ResolvedTheme
 }
 
@@ -152,7 +164,7 @@ type UploadThemeAssetInput struct {
 		OrganizationID      string                `json:"organization_id" doc:"Organization ID"`
 		Kind                themes.ThemeAssetKind `json:"kind" enum:"font,background,texture,illustration" doc:"Theme asset role"`
 		Name                string                `json:"name" minLength:"1" maxLength:"120" doc:"Asset label"`
-		MediaType           string                `json:"media_type" doc:"Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity"`
+		MediaType           string                `json:"media_type" enum:"font/woff2,image/png,image/jpeg,image/webp,image/avif" doc:"Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity"`
 		FontFamily          string                `json:"font_family,omitempty" doc:"Font family for a WOFF2 upload"`
 		FontStyle           string                `json:"font_style,omitempty" enum:"normal,italic" doc:"Font style for a WOFF2 upload"`
 		FontWeight          int                   `json:"font_weight,omitempty" minimum:"100" maximum:"900" doc:"100-step font weight for a WOFF2 upload"`
@@ -168,7 +180,9 @@ type DeleteThemeAssetInput struct {
 }
 
 type ThemeAssetOutput struct{ Body themes.ThemeAssetRecord }
-type ThemeAssetListOutput struct{ Body []themes.ThemeAssetRecord }
+type ThemeAssetListOutput struct {
+	Body []themes.ThemeAssetRecord `nullable:"false"`
+}
 type DeleteThemeAssetOutput struct {
 	Body struct {
 		Deleted bool `json:"deleted"`
@@ -179,8 +193,8 @@ type GetThemeAssetContentInput struct {
 	PathID         string `path:"id" doc:"Theme asset ID"`
 	OrganizationID string `query:"organization_id,omitempty" doc:"Organization scope for library and editor previews"`
 	WorkspaceID    string `query:"workspace_id,omitempty" doc:"Workspace scope for resolved runtime resources"`
-	ThemeID        string `query:"theme_id,omitempty" doc:"Published theme ID for an unassigned Workspace administrator preview"`
-	Revision       int    `query:"revision,omitempty" minimum:"1" doc:"Published theme revision for an unassigned Workspace administrator preview"`
+	ThemeID        string `query:"theme_id,omitempty" doc:"Exact published theme ID for runtime staging or a Workspace administrator preview"`
+	Revision       int    `query:"revision,omitempty" minimum:"1" doc:"Exact immutable published revision for runtime staging or a Workspace administrator preview"`
 	Format         string `query:"format,omitempty" enum:"ttf,otf" doc:"Native SFNT derivative format for mobile; omit for the original WOFF2 or raster resource"`
 	IfNoneMatch    string `header:"If-None-Match" doc:"Opaque asset checksum"`
 }
@@ -191,6 +205,7 @@ type GetThemeAssetContentOutput struct {
 	ContentType         string `header:"Content-Type"`
 	ContentLength       string `header:"Content-Length"`
 	ETag                string `header:"ETag"`
+	Vary                string `header:"Vary"`
 	XContentTypeOptions string `header:"X-Content-Type-Options"`
 	Body                []byte
 }
@@ -239,7 +254,11 @@ func (h *ThemeHandler) available(ctx context.Context, input *AvailableThemesInpu
 }
 
 func (h *ThemeHandler) create(ctx context.Context, input *CreateThemeInput) (*ThemeOutput, error) {
-	item, err := h.themes.Create(ctx, themeActor(ctx), themes.CreateInput{OrganizationID: input.Body.OrganizationID, Name: input.Body.Name, Manifest: input.Body.Manifest, DuplicateBuiltInID: input.Body.DuplicateBuiltInID})
+	manifest := themes.ThemeManifest{}
+	if input.Body.Manifest != nil {
+		manifest = *input.Body.Manifest
+	}
+	item, err := h.themes.Create(ctx, themeActor(ctx), themes.CreateInput{OrganizationID: input.Body.OrganizationID, Name: input.Body.Name, Manifest: manifest, DuplicateBuiltInID: input.Body.DuplicateBuiltInID})
 	if err != nil {
 		return nil, themeError(err)
 	}
@@ -279,7 +298,11 @@ func (h *ThemeHandler) updateDraft(ctx context.Context, input *UpdateThemeDraftI
 }
 
 func (h *ThemeHandler) publish(ctx context.Context, input *PublishThemeInput) (*ThemeRevisionOutput, error) {
-	item, err := h.themes.Publish(ctx, themeActor(ctx), input.PathID, themes.PublishInput{OrganizationID: input.Body.OrganizationID, ExpectedDraftRevision: input.Body.ExpectedDraftRevision})
+	item, err := h.themes.Publish(ctx, themeActor(ctx), input.PathID, themes.PublishInput{
+		OrganizationID:            input.Body.OrganizationID,
+		ExpectedDraftRevision:     input.Body.ExpectedDraftRevision,
+		ExpectedPublishedRevision: input.Body.ExpectedPublishedRevision,
+	})
 	if err != nil {
 		return nil, themeError(err)
 	}
@@ -287,7 +310,12 @@ func (h *ThemeHandler) publish(ctx context.Context, input *PublishThemeInput) (*
 }
 
 func (h *ThemeHandler) rollback(ctx context.Context, input *RollbackThemeInput) (*ThemeRevisionOutput, error) {
-	item, err := h.themes.Rollback(ctx, themeActor(ctx), input.PathID, themes.RollbackInput{OrganizationID: input.Body.OrganizationID, SourceRevision: input.Body.SourceRevision})
+	item, err := h.themes.Rollback(ctx, themeActor(ctx), input.PathID, themes.RollbackInput{
+		OrganizationID:            input.Body.OrganizationID,
+		SourceRevision:            input.Body.SourceRevision,
+		ExpectedDraftRevision:     input.Body.ExpectedDraftRevision,
+		ExpectedPublishedRevision: input.Body.ExpectedPublishedRevision,
+	})
 	if err != nil {
 		return nil, themeError(err)
 	}
@@ -313,9 +341,9 @@ func (h *ThemeHandler) resolve(ctx context.Context, input *ResolveThemeInput) (*
 	}
 	etag := fmt.Sprintf(`"%s"`, item.CacheIdentity)
 	if strings.TrimSpace(input.IfNoneMatch) == etag {
-		return &ResolvedThemeOutput{Status: http.StatusNotModified, ETag: etag, CacheControl: "private, no-cache"}, nil
+		return &ResolvedThemeOutput{Status: http.StatusNotModified, ETag: etag, CacheControl: "private, no-cache", Vary: "Authorization, Cookie"}, nil
 	}
-	return &ResolvedThemeOutput{Status: http.StatusOK, ETag: etag, CacheControl: "private, no-cache", Body: item}, nil
+	return &ResolvedThemeOutput{Status: http.StatusOK, ETag: etag, CacheControl: "private, no-cache", Vary: "Authorization, Cookie", Body: item}, nil
 }
 
 func (h *ThemeHandler) settings(ctx context.Context, input *ThemeSettingsInput) (*ThemeSettingsOutput, error) {
@@ -387,13 +415,17 @@ func (h *ThemeHandler) getAssetContent(ctx context.Context, input *GetThemeAsset
 	}
 	defer content.Reader.Close()
 	if strings.TrimSpace(input.IfNoneMatch) == content.ETag {
-		return &GetThemeAssetContentOutput{Status: http.StatusNotModified, CacheControl: "private, max-age=3600, immutable", ETag: content.ETag, XContentTypeOptions: "nosniff"}, nil
+		return &GetThemeAssetContentOutput{Status: http.StatusNotModified, CacheControl: "private, no-cache", ETag: content.ETag, Vary: "Authorization, Cookie", XContentTypeOptions: "nosniff"}, nil
 	}
 	data, err := io.ReadAll(io.LimitReader(content.Reader, content.SizeBytes+1))
 	if err != nil || int64(len(data)) != content.SizeBytes {
 		return nil, huma.Error503ServiceUnavailable("theme asset content unavailable")
 	}
-	return &GetThemeAssetContentOutput{Status: http.StatusOK, CacheControl: "private, max-age=3600, immutable", ContentType: content.MediaType, ContentLength: fmt.Sprintf("%d", content.SizeBytes), ETag: content.ETag, XContentTypeOptions: "nosniff", Body: data}, nil
+	checksum := sha256.Sum256(data)
+	if !strings.EqualFold(hex.EncodeToString(checksum[:]), content.ChecksumSHA256) {
+		return nil, huma.Error503ServiceUnavailable("theme asset content unavailable")
+	}
+	return &GetThemeAssetContentOutput{Status: http.StatusOK, CacheControl: "private, no-cache", ContentType: content.MediaType, ContentLength: fmt.Sprintf("%d", content.SizeBytes), ETag: content.ETag, Vary: "Authorization, Cookie", XContentTypeOptions: "nosniff", Body: data}, nil
 }
 
 func themeActor(ctx context.Context) themes.Actor {

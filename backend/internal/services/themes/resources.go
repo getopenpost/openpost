@@ -3,8 +3,10 @@ package themes
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"path"
 	"slices"
 	"strings"
 
@@ -15,6 +17,8 @@ var (
 	errUnsafeResource = errors.New("theme references an unsafe resource")
 	errResourceFailed = errors.New("theme resource is unavailable")
 )
+
+const sha256HexLength = 64
 
 var bundledFontFamilies = map[string]struct{}{
 	"Anton": {}, "Arial": {}, "Bebas Neue": {}, "Courier New": {},
@@ -86,6 +90,9 @@ func manifestResourceRequirements(manifest ThemeManifest) map[string]resourceReq
 
 //nolint:gocyclo // Each finite resource kind has independent ownership, MIME, dimension, and font metadata invariants.
 func validateResourceMetadata(row assetRow, requirement resourceRequirement) error {
+	if !validStoredAssetMetadata(row) {
+		return fmt.Errorf("%w: stored resource metadata is invalid", ErrInvalidManifest)
+	}
 	if requirement.font != nil {
 		font := requirement.font
 		if row.Kind != AssetFont || row.MediaType != "font/woff2" || row.FontFamily != font.Family || row.FontStyle != font.Style || row.FontWeight != font.Weight || !row.LicenseAcknowledged || !validNativeFontMetadata(row) {
@@ -110,7 +117,64 @@ func validNativeFontMetadata(row assetRow) bool {
 	return row.NativeObjectKey != "" &&
 		nativeFormat(row.NativeMediaType) != "" &&
 		row.NativeSizeBytes > 0 && row.NativeSizeBytes <= maxDecodedThemeFontBytes &&
-		len(row.NativeChecksumSHA256) == 64
+		validSHA256(row.NativeChecksumSHA256)
+}
+
+func validStoredAssetMetadata(row assetRow) bool {
+	if row.ID == "" || path.Base(row.ID) != row.ID || row.OrganizationID == "" || path.Base(row.OrganizationID) != row.OrganizationID ||
+		row.SizeBytes < 1 || !validSHA256(row.ChecksumSHA256) {
+		return false
+	}
+	objectPrefix := path.Join("theme-assets", row.OrganizationID, row.ID)
+	switch row.Kind {
+	case AssetFont:
+		return validStoredFontMetadata(row, objectPrefix)
+	case AssetBackground, AssetTexture, AssetIllustration:
+		return validStoredRasterMetadata(row, objectPrefix)
+	default:
+		return false
+	}
+}
+
+func validStoredFontMetadata(row assetRow, objectPrefix string) bool {
+	return row.MediaType == "font/woff2" && row.ObjectKey == objectPrefix+".woff2" && row.SizeBytes <= maxThemeFontBytes &&
+		fontFamilyPattern.MatchString(row.FontFamily) && !strings.Contains(row.FontFamily, ":") &&
+		(row.FontStyle == "normal" || row.FontStyle == "italic") &&
+		row.FontWeight >= 100 && row.FontWeight <= 900 && row.FontWeight%100 == 0 &&
+		row.LicenseAcknowledged && validNativeFontMetadata(row) &&
+		row.NativeObjectKey == objectPrefix+"."+nativeFormat(row.NativeMediaType)
+}
+
+func validStoredRasterMetadata(row assetRow, objectPrefix string) bool {
+	if row.SizeBytes > maxThemeImageBytes || row.Width < 1 || row.Height < 1 ||
+		row.Width > 8192 || row.Height > 8192 || int64(row.Width)*int64(row.Height) > 32_000_000 {
+		return false
+	}
+	extension, supported := storedRasterExtension(row.MediaType)
+	return supported && row.ObjectKey == objectPrefix+extension
+}
+
+func storedRasterExtension(mediaType string) (string, bool) {
+	switch mediaType {
+	case "image/png":
+		return ".png", true
+	case "image/jpeg":
+		return ".jpg", true
+	case "image/webp":
+		return ".webp", true
+	case "image/avif":
+		return ".avif", true
+	default:
+		return "", false
+	}
+}
+
+func validSHA256(value string) bool {
+	if len(value) != sha256HexLength {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func resourceObjectKeys(row assetRow) []string {
@@ -121,7 +185,11 @@ func resourceObjectKeys(row assetRow) []string {
 	return keys
 }
 
-func (s *Service) resourcesAvailable(ctx context.Context, organizationID string, manifest ThemeManifest) error {
+// publishedResourcesAvailable verifies the immutable database evidence recorded
+// at publish time. Blob existence is proved before the revision commits and is
+// checked again by client staging when the exact resource is fetched. Ordinary
+// theme resolution must not turn into one remote storage operation per asset.
+func (s *Service) publishedResourcesAvailable(ctx context.Context, organizationID, themeID string, revision int, manifest ThemeManifest) error {
 	requirements := manifestResourceRequirements(manifest)
 	if len(requirements) == 0 {
 		return nil
@@ -129,12 +197,18 @@ func (s *Service) resourcesAvailable(ctx context.Context, organizationID string,
 	if s == nil || s.db == nil {
 		return ErrUnavailable
 	}
-	if s.storage == nil {
-		return errResourceFailed
-	}
 	for assetID, requirement := range requirements {
+		linked, err := s.db.NewSelect().Model((*revisionAssetRow)(nil)).
+			Where("theme_id = ? AND revision = ? AND asset_id = ?", themeID, revision, assetID).
+			Exists(ctx)
+		if err != nil {
+			return fmt.Errorf("%w: load published resource link", ErrUnavailable)
+		}
+		if !linked {
+			return errUnsafeResource
+		}
 		var row assetRow
-		err := s.db.NewSelect().Model(&row).Where("id = ? AND organization_id = ?", assetID, organizationID).Scan(ctx)
+		err = s.db.NewSelect().Model(&row).Where("id = ? AND organization_id = ?", assetID, organizationID).Scan(ctx)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errUnsafeResource
 		}
@@ -143,15 +217,6 @@ func (s *Service) resourcesAvailable(ctx context.Context, organizationID string,
 		}
 		if err := validateResourceMetadata(row, requirement); err != nil {
 			return errUnsafeResource
-		}
-		for _, objectKey := range resourceObjectKeys(row) {
-			reader, err := s.storage.Open(ctx, objectKey)
-			if err != nil {
-				return errResourceFailed
-			}
-			if err := reader.Close(); err != nil {
-				return errResourceFailed
-			}
 		}
 	}
 	return nil

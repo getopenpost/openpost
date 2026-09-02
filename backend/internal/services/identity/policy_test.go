@@ -216,6 +216,13 @@ func TestEvaluateOrganizationAccessRejectsWorkspaceBoundTokens(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
+
+	f.insertToken(t, "other-organization-token", "", "other-org", "", time.Time{})
+	decision, err = EvaluateOrganizationAccess(
+		ctx, f.db, f.workspace.OrganizationID, f.user.ID, "", "other-organization-token",
+	)
+	require.NoError(t, err)
+	require.False(t, decision.Allowed, "an Organization-bound token must not cross into another Organization when SSO is optional")
 }
 
 func TestEvaluateOrganizationAccessRequiresBrowserSSOAssurance(t *testing.T) {

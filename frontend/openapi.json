@@ -4566,7 +4566,7 @@
 					},
 					"manifest": {
 						"$ref": "#/components/schemas/ThemeManifest",
-						"description": "Complete family manifest with light and/or dark schemes"
+						"description": "Complete family manifest with light and/or dark schemes; omit when duplicating a built-in"
 					},
 					"name": {
 						"description": "Theme family name",
@@ -4579,7 +4579,7 @@
 						"type": "string"
 					}
 				},
-				"required": ["organization_id", "name", "manifest"],
+				"required": ["organization_id", "name"],
 				"type": "object"
 			},
 			"CreateUserImpersonationLinkOutputBody": {
@@ -13518,12 +13518,18 @@
 						"minimum": 1,
 						"type": "integer"
 					},
+					"expected_published_revision": {
+						"description": "Published head loaded by the editor; zero publishes the first revision",
+						"format": "int64",
+						"minimum": 0,
+						"type": "integer"
+					},
 					"organization_id": {
 						"description": "Organization ID",
 						"type": "string"
 					}
 				},
-				"required": ["organization_id", "expected_draft_revision"],
+				"required": ["organization_id", "expected_draft_revision", "expected_published_revision"],
 				"type": "object"
 			},
 			"PublishedRevision": {
@@ -13547,6 +13553,10 @@
 						"type": "string"
 					},
 					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"source_revision": {
 						"format": "int64",
 						"type": "integer"
 					},
@@ -15424,18 +15434,26 @@
 						"items": {
 							"$ref": "#/components/schemas/ThemeAsset"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"fallbackReason": {
+						"enum": [
+							"missing-theme",
+							"invalid-manifest",
+							"unsafe-resource",
+							"unsupported-scheme",
+							"resource-failed"
+						],
 						"type": "string"
 					},
 					"fonts": {
 						"items": {
 							"$ref": "#/components/schemas/ThemeRuntimeFontFace"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"iconPack": {
+						"enum": ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"],
 						"type": "string"
 					},
 					"id": {
@@ -15448,15 +15466,18 @@
 						"type": "string"
 					},
 					"requestedScheme": {
+						"enum": ["light", "dark"],
 						"type": "string"
 					},
 					"revision": {
 						"type": "string"
 					},
 					"scheme": {
+						"enum": ["light", "dark"],
 						"type": "string"
 					},
 					"source": {
+						"enum": ["builtin", "organization", "fallback"],
 						"type": "string"
 					}
 				},
@@ -15639,18 +15660,35 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"expected_draft_revision": {
+						"description": "Draft revision loaded before rollback",
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"expected_published_revision": {
+						"description": "Published head loaded before rollback",
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
 					"organization_id": {
 						"description": "Organization ID",
 						"type": "string"
 					},
 					"source_revision": {
-						"description": "Published revision to copy into a new head revision",
+						"description": "Prior published revision to copy into a new head revision",
 						"format": "int64",
 						"minimum": 1,
 						"type": "integer"
 					}
 				},
-				"required": ["organization_id", "source_revision"],
+				"required": [
+					"organization_id",
+					"source_revision",
+					"expected_draft_revision",
+					"expected_published_revision"
+				],
 				"type": "object"
 			},
 			"Rule": {
@@ -17168,6 +17206,7 @@
 						"type": "string"
 					},
 					"mimeType": {
+						"enum": ["image/png", "image/jpeg", "image/webp", "image/avif"],
 						"type": "string"
 					},
 					"slot": {
@@ -17211,6 +17250,7 @@
 						"type": "string"
 					},
 					"font_style": {
+						"enum": ["normal", "italic"],
 						"type": "string"
 					},
 					"font_weight": {
@@ -17225,12 +17265,14 @@
 						"type": "string"
 					},
 					"kind": {
+						"enum": ["font", "background", "texture", "illustration"],
 						"type": "string"
 					},
 					"license_acknowledged": {
 						"type": "boolean"
 					},
 					"media_type": {
+						"enum": ["font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"],
 						"type": "string"
 					},
 					"name": {
@@ -17833,7 +17875,7 @@
 						"items": {
 							"$ref": "#/components/schemas/ThemeAsset"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"description": {
 						"type": "string"
@@ -17842,9 +17884,10 @@
 						"items": {
 							"$ref": "#/components/schemas/ThemeFontFace"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"iconPack": {
+						"enum": ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"],
 						"type": "string"
 					},
 					"id": {
@@ -17857,6 +17900,7 @@
 						"type": "string"
 					},
 					"schemaVersion": {
+						"enum": [1],
 						"format": "int64",
 						"type": "integer"
 					},
@@ -17865,9 +17909,10 @@
 					},
 					"supportedSchemes": {
 						"items": {
+							"enum": ["light", "dark"],
 							"type": "string"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					}
 				},
 				"required": [
@@ -18042,6 +18087,7 @@
 						"type": "string"
 					},
 					"kind": {
+						"enum": ["built_in", "custom"],
 						"type": "string"
 					},
 					"version": {
@@ -18106,7 +18152,7 @@
 						"items": {
 							"$ref": "#/components/schemas/ThemeAsset"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"description": {
 						"type": "string"
@@ -18115,9 +18161,10 @@
 						"items": {
 							"$ref": "#/components/schemas/ThemeRuntimeFontFace"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"iconPack": {
+						"enum": ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"],
 						"type": "string"
 					},
 					"id": {
@@ -18130,6 +18177,7 @@
 						"type": "string"
 					},
 					"schemaVersion": {
+						"enum": [1],
 						"format": "int64",
 						"type": "integer"
 					},
@@ -18138,9 +18186,10 @@
 					},
 					"supportedSchemes": {
 						"items": {
+							"enum": ["light", "dark"],
 							"type": "string"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					}
 				},
 				"required": [
@@ -18351,6 +18400,7 @@
 						"type": "integer"
 					},
 					"icon_pack": {
+						"enum": ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"],
 						"type": "string"
 					},
 					"is_organization_default": {
@@ -18371,9 +18421,10 @@
 					},
 					"supported_schemes": {
 						"items": {
+							"enum": ["light", "dark"],
 							"type": "string"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"updated_at": {
 						"format": "date-time",
@@ -18399,7 +18450,7 @@
 						"items": {
 							"type": "string"
 						},
-						"type": ["array", "null"]
+						"type": "array"
 					},
 					"family": {
 						"type": "string"
@@ -19239,6 +19290,7 @@
 					},
 					"media_type": {
 						"description": "Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity",
+						"enum": ["font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"],
 						"type": "string"
 					},
 					"name": {
@@ -41856,7 +41908,7 @@
 									"items": {
 										"$ref": "#/components/schemas/ThemeAssetRecord"
 									},
-									"type": ["array", "null"]
+									"type": "array"
 								}
 							}
 						},
@@ -42152,22 +42204,22 @@
 						}
 					},
 					{
-						"description": "Published theme ID for an unassigned Workspace administrator preview",
+						"description": "Exact published theme ID for runtime staging or a Workspace administrator preview",
 						"explode": false,
 						"in": "query",
 						"name": "theme_id",
 						"schema": {
-							"description": "Published theme ID for an unassigned Workspace administrator preview",
+							"description": "Exact published theme ID for runtime staging or a Workspace administrator preview",
 							"type": "string"
 						}
 					},
 					{
-						"description": "Published theme revision for an unassigned Workspace administrator preview",
+						"description": "Exact immutable published revision for runtime staging or a Workspace administrator preview",
 						"explode": false,
 						"in": "query",
 						"name": "revision",
 						"schema": {
-							"description": "Published theme revision for an unassigned Workspace administrator preview",
+							"description": "Exact immutable published revision for runtime staging or a Workspace administrator preview",
 							"format": "int64",
 							"minimum": 1,
 							"type": "integer"
@@ -42222,6 +42274,11 @@
 								}
 							},
 							"ETag": {
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Vary": {
 								"schema": {
 									"type": "string"
 								}
@@ -42594,7 +42651,7 @@
 									"items": {
 										"$ref": "#/components/schemas/Theme"
 									},
-									"type": ["array", "null"]
+									"type": "array"
 								}
 							}
 						},
@@ -42767,7 +42824,7 @@
 									"items": {
 										"$ref": "#/components/schemas/PublishedThemeCatalogItem"
 									},
-									"type": ["array", "null"]
+									"type": "array"
 								}
 							}
 						},
@@ -42839,7 +42896,7 @@
 									"items": {
 										"$ref": "#/components/schemas/ThemeManifest"
 									},
-									"type": ["array", "null"]
+									"type": "array"
 								}
 							}
 						},
@@ -42915,6 +42972,11 @@
 								}
 							},
 							"ETag": {
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Vary": {
 								"schema": {
 									"type": "string"
 								}
@@ -43456,7 +43518,7 @@
 									"items": {
 										"$ref": "#/components/schemas/PublishedRevision"
 									},
-									"type": ["array", "null"]
+									"type": "array"
 								}
 							}
 						},

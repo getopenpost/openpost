@@ -92,27 +92,49 @@ func (s *Service) Available(ctx context.Context, actor Actor, workspaceID string
 		return nil, fmt.Errorf("%w: list available themes", ErrUnavailable)
 	}
 	for _, row := range rows {
-		published, err := s.published(ctx, organizationID, row.ID, row.LatestPublishedRevision)
-		if err != nil {
-			return nil, fmt.Errorf("%w: load available theme", ErrUnavailable)
+		item, available, itemErr := s.availableCustomTheme(ctx, organizationID, workspaceID, row)
+		if itemErr != nil {
+			return nil, itemErr
 		}
-		isDefault, assigned, usageErr := themeUsage(ctx, s.db, organizationID, row.ID)
-		if usageErr != nil {
-			return nil, usageErr
+		if available {
+			result = append(result, item)
 		}
-		manifest := runtimeManifest(published.Manifest)
-		if err := s.materializePreviewManifestURLs(ctx, &manifest, organizationID, workspaceID, row.ID, row.LatestPublishedRevision); err != nil {
-			return nil, err
-		}
-		result = append(result, PublishedThemeCatalogItem{Summary: ThemeSummary{
-			Reference:      ThemeReference{Kind: ReferenceCustom, ID: row.ID, Version: row.LatestPublishedRevision},
-			OrganizationID: organizationID, Name: published.Manifest.Name, Description: published.Manifest.Description,
-			IconPack: published.Manifest.IconPack, PublishedRevision: row.LatestPublishedRevision,
-			SupportedSchemes: published.Manifest.SupportedSchemes, IsOrganizationDefault: isDefault,
-			AssignedWorkspaceCount: assigned, CreatedAt: row.CreatedAt, UpdatedAt: published.PublishedAt,
-		}, Manifest: manifest})
 	}
 	return result, nil
+}
+
+func (s *Service) availableCustomTheme(ctx context.Context, organizationID, workspaceID string, row themeRow) (PublishedThemeCatalogItem, bool, error) {
+	published, err := s.published(ctx, organizationID, row.ID, row.LatestPublishedRevision)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) || errors.Is(err, errStoredManifest) {
+			return PublishedThemeCatalogItem{}, false, nil
+		}
+		return PublishedThemeCatalogItem{}, false, fmt.Errorf("%w: load available theme", ErrUnavailable)
+	}
+	if err := s.publishedResourcesAvailable(ctx, organizationID, row.ID, row.LatestPublishedRevision, published.Manifest); err != nil {
+		if errors.Is(err, errUnsafeResource) || errors.Is(err, errResourceFailed) {
+			return PublishedThemeCatalogItem{}, false, nil
+		}
+		return PublishedThemeCatalogItem{}, false, err
+	}
+	isDefault, assigned, err := themeUsage(ctx, s.db, organizationID, row.ID)
+	if err != nil {
+		return PublishedThemeCatalogItem{}, false, err
+	}
+	manifest := runtimeManifest(published.Manifest)
+	if err := s.materializePreviewManifestURLs(ctx, &manifest, organizationID, workspaceID, row.ID, row.LatestPublishedRevision); err != nil {
+		if errors.Is(err, errUnsafeResource) || errors.Is(err, errResourceFailed) {
+			return PublishedThemeCatalogItem{}, false, nil
+		}
+		return PublishedThemeCatalogItem{}, false, err
+	}
+	return PublishedThemeCatalogItem{Summary: ThemeSummary{
+		Reference:      ThemeReference{Kind: ReferenceCustom, ID: row.ID, Version: row.LatestPublishedRevision},
+		OrganizationID: organizationID, Name: published.Manifest.Name, Description: published.Manifest.Description,
+		IconPack: published.Manifest.IconPack, PublishedRevision: row.LatestPublishedRevision,
+		SupportedSchemes: published.Manifest.SupportedSchemes, IsOrganizationDefault: isDefault,
+		AssignedWorkspaceCount: assigned, CreatedAt: row.CreatedAt, UpdatedAt: published.PublishedAt,
+	}, Manifest: manifest}, true, nil
 }
 
 func runtimeManifest(manifest ThemeManifest) ThemeRuntimeManifest {

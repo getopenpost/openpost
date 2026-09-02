@@ -9,7 +9,7 @@ import (
 type resolutionStore interface {
 	Selection(context.Context, string) (Selection, error)
 	published(context.Context, string, string, int) (*PublishedRevision, error)
-	resourcesAvailable(context.Context, string, ThemeManifest) error
+	publishedResourcesAvailable(context.Context, string, string, int, ThemeManifest) error
 }
 
 type resolver struct{ store resolutionStore }
@@ -71,7 +71,7 @@ func (r *resolver) resolveReference(ctx context.Context, organizationID string, 
 	if revision == nil || revision.Revision != reference.Version {
 		return workshopFallback(scheme, FallbackUnpublished), nil
 	}
-	if err := r.store.resourcesAvailable(ctx, organizationID, revision.Manifest); err != nil {
+	if err := r.store.publishedResourcesAvailable(ctx, organizationID, reference.ID, reference.Version, revision.Manifest); err != nil {
 		switch {
 		case errors.Is(err, errUnsafeResource):
 			return workshopFallback(scheme, FallbackUnsafeResource), nil

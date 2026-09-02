@@ -58,8 +58,10 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, "header-decoration", created.Draft.Manifest.Assets[0].Slot)
 
 	themeID := created.Summary.Reference.ID
-	publishResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{"organization_id": "org-1", "expected_draft_revision": 1})
+	publishResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{"organization_id": "org-1", "expected_draft_revision": 1, "expected_published_revision": 0})
 	require.Equal(t, http.StatusOK, publishResponse.Code, publishResponse.Body.String())
+	stalePublishResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{"organization_id": "org-1", "expected_draft_revision": 1, "expected_published_revision": 0})
+	require.Equal(t, http.StatusConflict, stalePublishResponse.Code, stalePublishResponse.Body.String())
 	settingsResponse := themeRequest(t, e, http.MethodPut, "/api/v1/theme-settings/organization", map[string]any{
 		"organization_id": "org-1", "default_reference": map[string]any{"kind": "custom", "id": themeID, "version": 1}, "assignments_locked": false,
 	})
@@ -102,7 +104,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	previewNative := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, publishedPreview.Manifest.Fonts[0].NativeDerivative.SourceURL, nil)
 	require.Equal(t, http.StatusOK, previewNative.Code, previewNative.Body.String())
 	require.Equal(t, "font/ttf", previewNative.Header().Get("Content-Type"))
-	require.Equal(t, http.StatusNotFound, themeRequestAs(t, e, "viewer-token", http.MethodGet, publishedPreview.Manifest.Fonts[0].NativeDerivative.SourceURL, nil).Code)
+	require.Equal(t, http.StatusOK, themeRequestAs(t, e, "viewer-token", http.MethodGet, publishedPreview.Manifest.Fonts[0].NativeDerivative.SourceURL, nil).Code, "members may stage the exact revision selected for their Workspace")
 	require.Equal(t, http.StatusForbidden, themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1", nil).Code)
 	require.Equal(t, http.StatusForbidden, themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/themes?organization_id=org-1", nil).Code)
 	require.Equal(t, http.StatusForbidden, themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=unknown-org", nil).Code)
@@ -119,12 +121,14 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.NoError(t, json.Unmarshal(resolvedResponse.Body.Bytes(), &resolved))
 	require.Equal(t, themes.IconPhosphor, resolved.IconPack)
 	require.Equal(t, "Roboto", resolved.Manifest.Typography.Body.Family)
-	require.Equal(t, "/api/v1/theme-assets/"+font.ID+"/content?workspace_id=workspace-1", resolved.Fonts[0].SourceURL)
-	require.Equal(t, "/api/v1/theme-assets/"+font.ID+"/content?workspace_id=workspace-1&format=ttf", resolved.Fonts[0].NativeDerivative.SourceURL)
+	require.Equal(t, "/api/v1/theme-assets/"+font.ID+"/content?workspace_id=workspace-1&theme_id="+themeID+"&revision=1", resolved.Fonts[0].SourceURL)
+	require.Equal(t, "/api/v1/theme-assets/"+font.ID+"/content?workspace_id=workspace-1&theme_id="+themeID+"&revision=1&format=ttf", resolved.Fonts[0].NativeDerivative.SourceURL)
 	require.Equal(t, "ttf", resolved.Fonts[0].NativeDerivative.Format)
 	require.NotEmpty(t, resolved.Fonts[0].NativeDerivative.Identity)
-	require.Equal(t, "/api/v1/theme-assets/"+decoration.ID+"/content?workspace_id=workspace-1", resolved.Assets[0].SourceURL)
+	require.Equal(t, "/api/v1/theme-assets/"+decoration.ID+"/content?workspace_id=workspace-1&theme_id="+themeID+"&revision=1", resolved.Assets[0].SourceURL)
 	require.NotEmpty(t, resolvedResponse.Header().Get("ETag"))
+	require.Equal(t, "private, no-cache", resolvedResponse.Header().Get("Cache-Control"))
+	require.Equal(t, "Authorization, Cookie", resolvedResponse.Header().Get("Vary"))
 	resolvedNative := themeRequestAs(t, e, "viewer-token", http.MethodGet, resolved.Fonts[0].NativeDerivative.SourceURL, nil)
 	require.Equal(t, http.StatusOK, resolvedNative.Code, resolvedNative.Body.String())
 	require.Equal(t, "font/ttf", resolvedNative.Header().Get("Content-Type"))
@@ -135,6 +139,8 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	e.ServeHTTP(resolvedConditionalResponse, resolvedConditionalRequest)
 	require.Equal(t, http.StatusNotModified, resolvedConditionalResponse.Code, resolvedConditionalResponse.Body.String())
 	require.Empty(t, resolvedConditionalResponse.Body.Bytes())
+	require.Equal(t, "private, no-cache", resolvedConditionalResponse.Header().Get("Cache-Control"))
+	require.Equal(t, "Authorization, Cookie", resolvedConditionalResponse.Header().Get("Vary"))
 
 	contentResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets/"+decoration.ID+"/content?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, contentResponse.Code, contentResponse.Body.String())
@@ -142,6 +148,8 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, "image/png", contentResponse.Header().Get("Content-Type"))
 	require.Equal(t, "nosniff", contentResponse.Header().Get("X-Content-Type-Options"))
 	require.NotEmpty(t, contentResponse.Header().Get("ETag"))
+	require.Equal(t, "private, no-cache", contentResponse.Header().Get("Cache-Control"))
+	require.Equal(t, "Authorization, Cookie", contentResponse.Header().Get("Vary"))
 	cookieRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/theme-assets/"+decoration.ID+"/content?organization_id=org-1", nil)
 	cookieRequest.AddCookie(&http.Cookie{Name: "openpost_session", Value: "web-token"})
 	cookieResponse := httptest.NewRecorder()
@@ -155,6 +163,8 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	e.ServeHTTP(conditionalResponse, conditionalRequest)
 	require.Equal(t, http.StatusNotModified, conditionalResponse.Code, conditionalResponse.Body.String())
 	require.Empty(t, conditionalResponse.Body.Bytes())
+	require.Equal(t, "private, no-cache", conditionalResponse.Header().Get("Cache-Control"))
+	require.Equal(t, "Authorization, Cookie", conditionalResponse.Header().Get("Vary"))
 	nativeContent := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets/"+font.ID+"/content?organization_id=org-1&format=ttf", nil)
 	require.Equal(t, http.StatusOK, nativeContent.Code, nativeContent.Body.String())
 	require.Equal(t, "font/ttf", nativeContent.Header().Get("Content-Type"))
@@ -162,7 +172,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 
 	guardedAssetDelete := themeRequest(t, e, http.MethodDelete, "/api/v1/theme-assets/"+decoration.ID+"?organization_id=org-1&confirm=true", nil)
 	require.Equal(t, http.StatusConflict, guardedAssetDelete.Code, guardedAssetDelete.Body.String())
-	updatedManifest := manifest
+	updatedManifest := themes.BuiltIns()["workshop"]
 	updatedManifest.Description = "Published update"
 	updatedResponse := themeRequest(t, e, http.MethodPut, "/api/v1/themes/"+url.PathEscape(themeID)+"/draft", map[string]any{
 		"organization_id": "org-1", "expected_revision": 1, "name": "Launch kit", "manifest": updatedManifest,
@@ -172,7 +182,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 		"organization_id": "org-1", "expected_revision": 1, "name": "Launch kit", "manifest": updatedManifest,
 	})
 	require.Equal(t, http.StatusConflict, staleUpdate.Code, staleUpdate.Body.String())
-	publishSecond := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{"organization_id": "org-1", "expected_draft_revision": 2})
+	publishSecond := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{"organization_id": "org-1", "expected_draft_revision": 2, "expected_published_revision": 1})
 	require.Equal(t, http.StatusOK, publishSecond.Code, publishSecond.Body.String())
 	settingsAfterPublish := themeRequest(t, e, http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
 	require.Equal(t, http.StatusOK, settingsAfterPublish.Code, settingsAfterPublish.Body.String())
@@ -183,6 +193,9 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, 2, advancedSettings.WorkspaceSelection.Version)
 	require.True(t, advancedSettings.CanManageWorkspace)
 	require.True(t, advancedSettings.CanManageOrganization)
+	oldRevisionContent := themeRequestAs(t, e, "viewer-token", http.MethodGet, resolved.Assets[0].SourceURL, nil)
+	require.Equal(t, http.StatusOK, oldRevisionContent.Code, oldRevisionContent.Body.String())
+	require.Equal(t, decorationBytes, oldRevisionContent.Body.Bytes(), "a concurrent same-family publish must not break in-flight staging of an immutable revision")
 
 	revisionsResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, revisionsResponse.Code, revisionsResponse.Body.String())
@@ -192,11 +205,19 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Equal(t, 2, revisions[0].Revision)
 	firstRevision := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions/1?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, firstRevision.Code, firstRevision.Body.String())
-	rollbackResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/rollback", map[string]any{"organization_id": "org-1", "source_revision": 1})
+	rollbackResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/rollback", map[string]any{
+		"organization_id": "org-1", "source_revision": 1, "expected_draft_revision": 2, "expected_published_revision": 2,
+	})
 	require.Equal(t, http.StatusOK, rollbackResponse.Code, rollbackResponse.Body.String())
 	var rolledBack themes.PublishedRevision
 	require.NoError(t, json.Unmarshal(rollbackResponse.Body.Bytes(), &rolledBack))
 	require.Equal(t, 3, rolledBack.Revision)
+	require.NotNil(t, rolledBack.SourceRevision)
+	require.Equal(t, 1, *rolledBack.SourceRevision)
+	staleRollbackResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/rollback", map[string]any{
+		"organization_id": "org-1", "source_revision": 1, "expected_draft_revision": 2, "expected_published_revision": 2,
+	})
+	require.Equal(t, http.StatusConflict, staleRollbackResponse.Code, staleRollbackResponse.Body.String())
 	themeAfterRollback := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, themeAfterRollback.Code, themeAfterRollback.Body.String())
 	var rollbackState themes.Theme
@@ -219,7 +240,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 
 	var linked int
 	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM organization_theme_revision_assets WHERE theme_id = ?", themeID).Scan(t.Context(), &linked))
-	require.Equal(t, 6, linked)
+	require.Equal(t, 4, linked)
 	deletedTheme := themeRequest(t, e, http.MethodDelete, "/api/v1/themes/"+url.PathEscape(themeID)+"?organization_id=org-1&confirm=true", nil)
 	require.Equal(t, http.StatusOK, deletedTheme.Code, deletedTheme.Body.String())
 	require.Equal(t, http.StatusNotFound, themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"?organization_id=org-1", nil).Code)
@@ -232,6 +253,12 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	unusedContent := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets/"+unused.ID+"/content?organization_id=org-1", nil)
 	require.Equal(t, http.StatusOK, unusedContent.Code, unusedContent.Body.String())
 	require.Equal(t, unusedBytes, unusedContent.Body.Bytes())
+	_, err := db.NewUpdate().Table("organization_theme_assets").
+		Set("checksum_sha256 = ?", "0000000000000000000000000000000000000000000000000000000000000000").
+		Where("id = ?", unused.ID).Exec(t.Context())
+	require.NoError(t, err)
+	corruptContent := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets/"+unused.ID+"/content?organization_id=org-1", nil)
+	require.Equal(t, http.StatusServiceUnavailable, corruptContent.Code, corruptContent.Body.String())
 	deleted := themeRequest(t, e, http.MethodDelete, "/api/v1/theme-assets/"+unused.ID+"?organization_id=org-1&confirm=true", nil)
 	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
 	missing := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets/"+unused.ID+"/content?organization_id=org-1", nil)
@@ -239,6 +266,18 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 
 	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM organization_theme_revision_assets WHERE theme_id = ?", themeID).Scan(t.Context(), &linked))
 	require.Zero(t, linked)
+}
+
+func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+	response := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
+		"organization_id": "org-1", "name": "Studio copy", "duplicate_built_in_id": "studio",
+	})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var created themes.Theme
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
+	require.Equal(t, "Studio copy", created.Summary.Name)
+	require.Equal(t, themes.BuiltIns()["studio"].IconPack, created.Draft.Manifest.IconPack)
 }
 
 func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
@@ -268,6 +307,39 @@ func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
 	require.NotContains(t, storedFont, "nativeDerivative")
 	runtimeFont := schemas["ThemeRuntimeFontFace"].(map[string]any)["properties"].(map[string]any)
 	require.Contains(t, runtimeFont, "nativeDerivative")
+	requireEnumProperty(t, schemas, "ThemeReference", "kind", []any{"built_in", "custom"})
+	requireEnumProperty(t, schemas, "ThemeManifest", "schemaVersion", []any{float64(1)})
+	requireEnumProperty(t, schemas, "ThemeManifest", "iconPack", []any{"lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"})
+	requireArrayEnumProperty(t, schemas, "ThemeManifest", "supportedSchemes", []any{"light", "dark"})
+	requireEnumProperty(t, schemas, "ThemeSummary", "icon_pack", []any{"lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"})
+	requireArrayEnumProperty(t, schemas, "ThemeSummary", "supported_schemes", []any{"light", "dark"})
+	requireEnumProperty(t, schemas, "ThemeAssetRecord", "kind", []any{"font", "background", "texture", "illustration"})
+	requireEnumProperty(t, schemas, "ThemeAssetRecord", "media_type", []any{"font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"})
+	requireEnumProperty(t, schemas, "ThemeAssetRecord", "font_style", []any{"normal", "italic"})
+	requireEnumProperty(t, schemas, "UploadThemeAssetInputBody", "media_type", []any{"font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"})
+	require.Contains(t, schemas["PublishedRevision"].(map[string]any)["properties"].(map[string]any), "source_revision")
+	createRequired := schemas["CreateThemeInputBody"].(map[string]any)["required"].([]any)
+	require.NotContains(t, createRequired, "manifest")
+	publishRequired := schemas["PublishThemeInputBody"].(map[string]any)["required"].([]any)
+	require.Contains(t, publishRequired, "expected_draft_revision")
+	require.Contains(t, publishRequired, "expected_published_revision")
+	rollbackRequired := schemas["RollbackThemeInputBody"].(map[string]any)["required"].([]any)
+	require.Contains(t, rollbackRequired, "source_revision")
+	require.Contains(t, rollbackRequired, "expected_draft_revision")
+	require.Contains(t, rollbackRequired, "expected_published_revision")
+}
+
+func requireEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {
+	t.Helper()
+	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)
+	require.Equal(t, expected, property["enum"], schemaName+"."+propertyName)
+}
+
+func requireArrayEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {
+	t.Helper()
+	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)
+	require.Equal(t, "array", property["type"], schemaName+"."+propertyName+" must not accept null")
+	require.Equal(t, expected, property["items"].(map[string]any)["enum"], schemaName+"."+propertyName)
 }
 
 func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {
@@ -290,7 +362,8 @@ func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {
 	}
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewThemeHandler(db, themeTestAuthenticator{}, mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")).RegisterRoutes(api)
+	storage := mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
+	NewThemeHandler(db, themeTestAuthenticator{}, storage).RegisterRoutes(api)
 	return e, db, api
 }
 

@@ -2,8 +2,10 @@ package themes
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -36,7 +38,7 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	require.Zero(t, theme.Summary.PublishedRevision)
 
 	published, err := service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{
-		OrganizationID: "org-1", ExpectedDraftRevision: 1,
+		OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, published.Revision)
@@ -70,7 +72,7 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	require.ErrorIs(t, err, ErrRevisionConflict)
 
 	published, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{
-		OrganizationID: "org-1", ExpectedDraftRevision: 2,
+		OrganizationID: "org-1", ExpectedDraftRevision: 2, ExpectedPublishedRevision: 1,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 2, published.Revision)
@@ -83,10 +85,18 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	require.Equal(t, "2", resolved.Revision)
 
 	rolledBack, err := service.Rollback(t.Context(), actor, theme.Summary.Reference.ID, RollbackInput{
-		OrganizationID: "org-1", SourceRevision: 1,
+		OrganizationID: "org-1", SourceRevision: 1, ExpectedDraftRevision: 2, ExpectedPublishedRevision: 2,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 3, rolledBack.Revision, "rollback creates a new immutable revision")
+	require.Equal(t, 1, *rolledBack.SourceRevision)
+	rolledBackRevision, err := service.GetRevision(t.Context(), actor, "org-1", theme.Summary.Reference.ID, 3)
+	require.NoError(t, err)
+	require.Equal(t, 1, *rolledBackRevision.SourceRevision)
+	_, err = service.Rollback(t.Context(), actor, theme.Summary.Reference.ID, RollbackInput{
+		OrganizationID: "org-1", SourceRevision: 1, ExpectedDraftRevision: 2, ExpectedPublishedRevision: 2,
+	})
+	require.ErrorIs(t, err, ErrRevisionConflict, "a stale rollback must not create another head or overwrite its refreshed draft")
 	resolved, err = service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
 	require.NoError(t, err)
 	require.Equal(t, light.Colors.ActionFocal, resolved.Manifest.Colors.ActionFocal)
@@ -103,7 +113,7 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	})
 	require.NoError(t, err)
 	require.Equal(t, 4, rolledBackTheme.Draft.Revision)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 4})
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 4, ExpectedPublishedRevision: 3})
 	require.NoError(t, err)
 	latest, err := service.GetRevision(t.Context(), actor, "org-1", theme.Summary.Reference.ID, 4)
 	require.NoError(t, err)
@@ -118,12 +128,49 @@ func TestThemeLifecyclePublishesImmutableRevisionsAndAdvancesSelections(t *testi
 	require.Equal(t, 4, revisions)
 }
 
+func TestPublishConsumesExpectedPublishedHeadOnlyOnce(t *testing.T) {
+	service, db := newThemeTestService(t)
+	actor := Actor{UserID: "admin-1"}
+	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "One publish", DuplicateBuiltInID: "studio"})
+	require.NoError(t, err)
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			_, publishErr := service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{
+				OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0,
+			})
+			results <- publishErr
+		}()
+	}
+	close(start)
+	var succeeded, conflicted int
+	for range 2 {
+		publishErr := <-results
+		switch {
+		case publishErr == nil:
+			succeeded++
+		case errors.Is(publishErr, ErrRevisionConflict):
+			conflicted++
+		default:
+			require.NoError(t, publishErr)
+		}
+	}
+	require.Equal(t, 1, succeeded)
+	require.Equal(t, 1, conflicted)
+	revisions, err := db.NewSelect().Model((*revisionRow)(nil)).Where("theme_id = ?", theme.Summary.Reference.ID).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, revisions)
+}
+
 func TestWorkspaceAssignmentLockAndDeleteGuards(t *testing.T) {
 	service, _ := newThemeTestService(t)
 	actor := Actor{UserID: "admin-1"}
 	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Custom", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 	custom := ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1}
 
@@ -157,6 +204,15 @@ func TestOrganizationMembersCannotMutateThemeLibrary(t *testing.T) {
 	_, err := service.Create(t.Context(), Actor{UserID: "member-1"}, CreateInput{
 		OrganizationID: "org-1", Name: "Not allowed", Manifest: BuiltIns()["workshop"],
 	})
+	require.ErrorIs(t, err, ErrInaccessible)
+}
+
+func TestWorkspaceBoundTokenCannotReadOrganizationThemeLibrary(t *testing.T) {
+	service, db := newThemeTestService(t)
+	_, err := db.ExecContext(t.Context(), `INSERT INTO api_tokens (id, user_id, workspace_id) VALUES ('workspace-token', 'admin-1', 'workspace-1')`)
+	require.NoError(t, err)
+
+	_, err = service.List(t.Context(), Actor{UserID: "admin-1", TokenID: "workspace-token"}, "org-1")
 	require.ErrorIs(t, err, ErrInaccessible)
 }
 
@@ -222,7 +278,7 @@ func TestWorkspaceAdministratorCanListOnlyPublishedAvailableThemes(t *testing.T)
 	require.NoError(t, err)
 	publishedTheme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Published", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), admin, publishedTheme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), admin, publishedTheme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 	_, err = service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Draft only", DuplicateBuiltInID: "notebook"})
 	require.NoError(t, err)
@@ -268,7 +324,7 @@ func TestWorkspaceAdministratorCanPreviewPublishedCatalogResources(t *testing.T)
 	manifest.Assets = []ThemeAsset{{ID: asset.ID, Slot: "header-decoration", SourceURL: "asset:" + asset.ID, MimeType: "image/png", Alt: "Preview"}}
 	theme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Previewable", Manifest: manifest})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), admin, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), admin, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 
 	workspaceAdmin := Actor{UserID: "workspace-admin"}
@@ -295,7 +351,7 @@ func TestAdminThemeSummaryIncludesAssignmentAndDefaultUsage(t *testing.T) {
 	actor := Actor{UserID: "admin-1"}
 	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Used", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 	reference := ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1}
 	_, err = service.AssignWorkspace(t.Context(), actor, WorkspaceAssignmentInput{WorkspaceID: "workspace-1", Reference: &reference})
@@ -328,7 +384,7 @@ func TestResolveFallsBackForCorruptStoredManifest(t *testing.T) {
 	actor := Actor{UserID: "admin-1"}
 	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Corrupt later", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{OrganizationID: "org-1", DefaultReference: ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1}})
 	require.NoError(t, err)
@@ -340,6 +396,49 @@ func TestResolveFallsBackForCorruptStoredManifest(t *testing.T) {
 	require.Equal(t, ResolutionFallback, resolved.Source)
 	require.Equal(t, FallbackInvalidManifest, resolved.FallbackReason)
 	require.Equal(t, Workshop(SchemeLight), resolved.Manifest)
+}
+
+func TestResolveUsesPublishedStateWithoutBlobReadsAndFallsBackForCorruptResourceMetadata(t *testing.T) {
+	service, db := newThemeTestService(t)
+	storage := mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
+	service.storage = storage
+	actor := Actor{UserID: "admin-1"}
+	asset, err := service.UploadAsset(t.Context(), actor, UploadAssetInput{
+		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Stored art", MediaType: "image/png", Content: bytes.NewReader(pngImage(t, 32, 24)),
+	})
+	require.NoError(t, err)
+	manifest := BuiltIns()["workshop"]
+	manifest.Assets = []ThemeAsset{{ID: asset.ID, Slot: "header-decoration", SourceURL: "asset:" + asset.ID, MimeType: "image/png", Alt: "Stored art"}}
+	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Stored resources", Manifest: manifest})
+	require.NoError(t, err)
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
+	require.NoError(t, err)
+	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
+		OrganizationID: "org-1", DefaultReference: ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1},
+	})
+	require.NoError(t, err)
+
+	service.storage = failingOpenStorage{BlobStorage: storage}
+	resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
+	require.NoError(t, err)
+	require.Equal(t, ResolutionOrganization, resolved.Source, "ordinary resolution must use immutable database evidence instead of remote blob reads")
+	require.Contains(t, resolved.Assets[0].SourceURL, "theme_id="+theme.Summary.Reference.ID+"&revision=1")
+
+	_, err = db.NewUpdate().Model((*assetRow)(nil)).Set("checksum_sha256 = ?", "not-a-checksum").Where("id = ?", asset.ID).Exec(t.Context())
+	require.NoError(t, err)
+	resolved, err = service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
+	require.NoError(t, err)
+	require.Equal(t, ResolutionFallback, resolved.Source)
+	require.Equal(t, FallbackUnsafeResource, resolved.FallbackReason)
+	require.Equal(t, Workshop(SchemeLight), resolved.Manifest)
+
+	_, err = db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
+	require.NoError(t, err)
+	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1")
+	require.NoError(t, err)
+	require.Len(t, available, len(BuiltIns()), "one corrupt custom theme must not make the whole catalog unavailable")
+	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1"})
+	require.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestThemeFontUploadValidatesWOFF2AndDeletesThroughDurableJob(t *testing.T) {
@@ -434,6 +533,12 @@ func TestThemeRasterUploadValidatesDimensions(t *testing.T) {
 		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Header only", MediaType: "image/png", Content: bytes.NewReader([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}),
 	})
 	require.ErrorIs(t, err, ErrInvalidAsset)
+	truncated := pngImage(t, 32, 24)
+	truncated = truncated[:len(truncated)-12]
+	_, err = service.UploadAsset(t.Context(), actor, UploadAssetInput{
+		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Truncated PNG", MediaType: "image/png", Content: bytes.NewReader(truncated),
+	})
+	require.ErrorIs(t, err, ErrInvalidAsset)
 
 	avifBytes, err := os.ReadFile("testdata/valid-rotated.avif")
 	require.NoError(t, err)
@@ -451,6 +556,21 @@ func TestThemeRasterUploadValidatesDimensions(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidAsset)
 }
 
+func TestThemeUploadQueuesCleanupWhenCompensatingBlobDeleteFails(t *testing.T) {
+	service, db := newThemeTestService(t)
+	service.storage = deleteFailingStorage{BlobStorage: mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")}
+	_, err := db.ExecContext(t.Context(), `DROP TABLE organization_theme_assets`)
+	require.NoError(t, err)
+
+	_, err = service.UploadAsset(t.Context(), Actor{UserID: "admin-1"}, UploadAssetInput{
+		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Uncommitted", MediaType: "image/png", Content: bytes.NewReader(pngImage(t, 16, 16)),
+	})
+	require.ErrorIs(t, err, ErrUnavailable)
+	var payload string
+	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Where("type = ?", "storage_delete").Scan(t.Context(), &payload))
+	require.Contains(t, payload, "theme-assets/org-1/")
+}
+
 func TestPublishRejectsMissingAndCrossOrganizationFontResources(t *testing.T) {
 	service, db := newThemeTestService(t)
 	service.storage = mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
@@ -460,7 +580,7 @@ func TestPublishRejectsMissingAndCrossOrganizationFontResources(t *testing.T) {
 	missing.Schemes.Light.Typography.Body.Family = "Missing Sans"
 	theme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Missing font", Manifest: missing})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), admin, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
+	_, err = service.Publish(t.Context(), admin, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.ErrorIs(t, err, ErrInvalidManifest)
 	require.ErrorContains(t, err, "no matching normal Organization WOFF2 face")
 
@@ -519,6 +639,7 @@ func newThemeTestService(t *testing.T) (*Service, *bun.DB) {
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	sqlDB, err := sql.Open("sqlite3", dsn)
 	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	createThemeTestTables(t, db)
@@ -540,6 +661,7 @@ func createThemeTestTables(t *testing.T, db *bun.DB) {
 		`CREATE TABLE organization_members (organization_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL, created_at DATETIME, PRIMARY KEY (organization_id, user_id))`,
 		`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')`,
 		`CREATE TABLE workspace_members (workspace_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL, created_at DATETIME, updated_at DATETIME, deactivated_at DATETIME, PRIMARY KEY (workspace_id, user_id))`,
+		`CREATE TABLE api_tokens (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, workspace_id TEXT NOT NULL DEFAULT '', organization_id TEXT NOT NULL DEFAULT '')`,
 		`CREATE TABLE organization_theme_settings (organization_id TEXT PRIMARY KEY, default_reference_kind TEXT NOT NULL, default_reference_id TEXT NOT NULL, default_reference_version INTEGER NOT NULL, assignments_locked BOOLEAN NOT NULL, updated_by TEXT NOT NULL, updated_at DATETIME NOT NULL)`,
 		`CREATE TABLE organization_themes (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, latest_published_revision INTEGER NOT NULL, created_by TEXT NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, UNIQUE (organization_id, normalized_name), UNIQUE (id, organization_id))`,
 		`CREATE TABLE organization_theme_drafts (theme_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, revision INTEGER NOT NULL, name TEXT NOT NULL, manifest_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at DATETIME NOT NULL, FOREIGN KEY (theme_id, organization_id) REFERENCES organization_themes(id, organization_id) ON DELETE CASCADE)`,
@@ -554,6 +676,22 @@ func createThemeTestTables(t *testing.T, db *bun.DB) {
 		_, err := db.Exec(statement)
 		require.NoError(t, err, statement)
 	}
+}
+
+type failingOpenStorage struct {
+	mediastore.BlobStorage
+}
+
+func (failingOpenStorage) Open(context.Context, string) (io.ReadCloser, error) {
+	return nil, errors.New("unexpected blob read")
+}
+
+type deleteFailingStorage struct {
+	mediastore.BlobStorage
+}
+
+func (deleteFailingStorage) Delete(context.Context, string) error {
+	return errors.New("transient delete failure")
 }
 
 func seedThemeTestAccess(t *testing.T, db *bun.DB) {

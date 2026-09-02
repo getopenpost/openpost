@@ -91,13 +91,16 @@ type UpdateDraftInput struct {
 }
 
 type PublishInput struct {
-	OrganizationID        string
-	ExpectedDraftRevision int
+	OrganizationID            string
+	ExpectedDraftRevision     int
+	ExpectedPublishedRevision int
 }
 
 type RollbackInput struct {
-	OrganizationID string
-	SourceRevision int
+	OrganizationID            string
+	SourceRevision            int
+	ExpectedDraftRevision     int
+	ExpectedPublishedRevision int
 }
 
 type DeleteInput struct {

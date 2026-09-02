@@ -281,6 +281,7 @@ func decodeWOFF2Tables(content []byte) (map[string][]byte, error) {
 	directory := make([]woff2Table, 0, numTables)
 	seen := make(map[string]struct{}, numTables)
 	var decodedLength uint64
+	expectedSFNTSize := minimumSFNTSize
 	for range numTables {
 		if offset >= len(content) {
 			return nil, fmt.Errorf("WOFF2 table directory is truncated")
@@ -323,7 +324,14 @@ func decodeWOFF2Tables(content []byte) (map[string][]byte, error) {
 		if decodedLength > totalSFNTSize || decodedLength > maxDecodedThemeFontBytes {
 			return nil, fmt.Errorf("WOFF2 table data exceeds its decoded size")
 		}
+		expectedSFNTSize += (uint64(originalLength) + 3) &^ 3
+		if expectedSFNTSize > maxDecodedThemeFontBytes {
+			return nil, fmt.Errorf("WOFF2 original tables exceed the decoded size limit")
+		}
 		directory = append(directory, woff2Table{tag: tag, originalLength: originalLength, transformedLength: transformedLength, transformed: transformed})
+	}
+	if expectedSFNTSize != totalSFNTSize {
+		return nil, fmt.Errorf("WOFF2 declared SFNT size does not match its table directory")
 	}
 	if compressedSize > uint64(len(content)-offset) {
 		return nil, fmt.Errorf("WOFF2 compressed payload is truncated")

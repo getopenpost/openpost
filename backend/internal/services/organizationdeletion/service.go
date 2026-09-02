@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"path"
 	"strings"
 	"time"
 
@@ -212,13 +213,19 @@ func prepareBoundaryDeletion(ctx context.Context, tx bun.Tx, organizationID stri
 	}
 	for _, asset := range themeAssets {
 		for _, key := range []string{asset.ObjectKey, asset.NativeObjectKey} {
-			if strings.TrimSpace(key) != "" {
+			if validThemeCleanupObjectKey(organizationID, key) {
 				keys = append(keys, key)
 			}
 		}
 	}
 	_, err = workspacedeletion.EnqueueStorageCleanup(ctx, tx, keys)
 	return err
+}
+
+func validThemeCleanupObjectKey(organizationID, objectKey string) bool {
+	objectKey = strings.TrimSpace(objectKey)
+	prefix := path.Join("theme-assets", strings.TrimSpace(organizationID)) + "/"
+	return len(objectKey) > len(prefix) && path.Clean(objectKey) == objectKey && strings.HasPrefix(objectKey, prefix)
 }
 
 func deleteOrganizationData(ctx context.Context, tx bun.Tx, organizationID string, workspaceIDs []string) error {
@@ -288,6 +295,9 @@ func deleteTransferNotifications(ctx context.Context, tx bun.Tx, transferIDs []s
 }
 
 func deleteOrganizationRows(ctx context.Context, tx bun.Tx, organizationID string) error {
+	if err := deleteOrganizationThemeRows(ctx, tx, organizationID); err != nil {
+		return err
+	}
 	for _, deletion := range []struct {
 		model any
 		where string
@@ -307,6 +317,24 @@ func deleteOrganizationRows(ctx context.Context, tx bun.Tx, organizationID strin
 		{(*models.OrganizationMember)(nil), "organization_id = ?", []any{organizationID}},
 	} {
 		if _, err := tx.NewDelete().Model(deletion.model).Where(deletion.where, deletion.args...).Exec(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func deleteOrganizationThemeRows(ctx context.Context, tx bun.Tx, organizationID string) error {
+	for _, statement := range []string{
+		`DELETE FROM organization_theme_draft_assets WHERE theme_id IN (SELECT id FROM organization_themes WHERE organization_id = ?)`,
+		`DELETE FROM organization_theme_revision_assets WHERE theme_id IN (SELECT id FROM organization_themes WHERE organization_id = ?)`,
+		`DELETE FROM organization_theme_drafts WHERE organization_id = ?`,
+		`DELETE FROM organization_theme_revisions WHERE organization_id = ?`,
+		`DELETE FROM organization_theme_assets WHERE organization_id = ?`,
+		`DELETE FROM workspace_theme_assignments WHERE organization_id = ?`,
+		`DELETE FROM organization_theme_settings WHERE organization_id = ?`,
+		`DELETE FROM organization_themes WHERE organization_id = ?`,
+	} {
+		if _, err := tx.NewRaw(statement, organizationID).Exec(ctx); err != nil {
 			return err
 		}
 	}

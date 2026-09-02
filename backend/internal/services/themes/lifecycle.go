@@ -14,8 +14,8 @@ import (
 //nolint:gocyclo // Publishing validates the draft and resources, appends one revision, and advances all references atomically.
 func (s *Service) Publish(ctx context.Context, actor Actor, themeID string, input PublishInput) (PublishedRevision, error) {
 	organizationID := strings.TrimSpace(input.OrganizationID)
-	if organizationID == "" || input.ExpectedDraftRevision < 1 {
-		return PublishedRevision{}, fmt.Errorf("%w: organization_id and expected draft revision are required", ErrInvalidInput)
+	if organizationID == "" || input.ExpectedDraftRevision < 1 || input.ExpectedPublishedRevision < 0 {
+		return PublishedRevision{}, fmt.Errorf("%w: organization_id and expected draft and published revisions are required", ErrInvalidInput)
 	}
 	if s == nil || s.db == nil {
 		return PublishedRevision{}, ErrUnavailable
@@ -31,6 +31,9 @@ func (s *Service) Publish(ctx context.Context, actor Actor, themeID string, inpu
 		theme, loadErr := s.loadTheme(txCtx, db, organizationID, themeID)
 		if loadErr != nil {
 			return loadErr
+		}
+		if theme.LatestPublishedRevision != input.ExpectedPublishedRevision {
+			return ErrRevisionConflict
 		}
 		draft, loadErr := s.loadDraft(txCtx, db, organizationID, themeID)
 		if loadErr != nil {
@@ -81,8 +84,9 @@ func (s *Service) Publish(ctx context.Context, actor Actor, themeID string, inpu
 //nolint:gocyclo // Rollback atomically creates a new head, resets the draft, relinks assets, and advances references.
 func (s *Service) Rollback(ctx context.Context, actor Actor, themeID string, input RollbackInput) (PublishedRevision, error) {
 	organizationID := strings.TrimSpace(input.OrganizationID)
-	if organizationID == "" || input.SourceRevision < 1 {
-		return PublishedRevision{}, fmt.Errorf("%w: organization_id and source_revision are required", ErrInvalidInput)
+	if organizationID == "" || input.SourceRevision < 1 || input.ExpectedDraftRevision < 1 ||
+		input.ExpectedPublishedRevision < 1 || input.SourceRevision >= input.ExpectedPublishedRevision {
+		return PublishedRevision{}, fmt.Errorf("%w: organization_id, a prior source revision, and expected draft and published revisions are required", ErrInvalidInput)
 	}
 	if s == nil || s.db == nil {
 		return PublishedRevision{}, ErrUnavailable
@@ -99,9 +103,15 @@ func (s *Service) Rollback(ctx context.Context, actor Actor, themeID string, inp
 		if loadErr != nil {
 			return loadErr
 		}
+		if theme.LatestPublishedRevision != input.ExpectedPublishedRevision {
+			return ErrRevisionConflict
+		}
 		draft, loadErr := s.loadDraft(txCtx, db, organizationID, themeID)
 		if loadErr != nil {
 			return loadErr
+		}
+		if draft.Revision != input.ExpectedDraftRevision {
+			return ErrRevisionConflict
 		}
 		source, loadErr := s.loadRevision(txCtx, db, organizationID, themeID, input.SourceRevision)
 		if loadErr != nil {
@@ -164,7 +174,7 @@ func (s *Service) Rollback(ctx context.Context, actor Actor, themeID string, inp
 		if assetErr := s.replaceDraftAssets(txCtx, db, organizationID, themeID, draftManifest); assetErr != nil {
 			return assetErr
 		}
-		published = PublishedRevision{ThemeID: themeID, Revision: next, Manifest: manifest, PublishedBy: actor.UserID, PublishedAt: now}
+		published = PublishedRevision{ThemeID: themeID, Revision: next, SourceRevision: &sourceRevision, Manifest: manifest, PublishedBy: actor.UserID, PublishedAt: now}
 		return nil
 	})
 	if err != nil {
@@ -234,7 +244,7 @@ func (s *Service) published(ctx context.Context, organizationID, themeID string,
 	if err != nil {
 		return nil, err
 	}
-	return &PublishedRevision{ThemeID: themeID, Revision: row.Revision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt}, nil
+	return &PublishedRevision{ThemeID: themeID, Revision: row.Revision, SourceRevision: row.SourceRevision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt}, nil
 }
 
 func (s *Service) ListRevisions(ctx context.Context, actor Actor, organizationID, themeID string) ([]PublishedRevision, error) {
@@ -262,7 +272,7 @@ func (s *Service) ListRevisions(ctx context.Context, actor Actor, organizationID
 		if err != nil {
 			return nil, fmt.Errorf("%w: decode published theme revision", ErrUnavailable)
 		}
-		result = append(result, PublishedRevision{ThemeID: themeID, Revision: row.Revision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt})
+		result = append(result, PublishedRevision{ThemeID: themeID, Revision: row.Revision, SourceRevision: row.SourceRevision, Manifest: manifest, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt})
 	}
 	return result, nil
 }

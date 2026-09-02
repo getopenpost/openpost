@@ -23,6 +23,7 @@ import (
 
 	"github.com/gen2brain/avif"
 	"github.com/openpost/backend/internal/jobregistry"
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
@@ -33,8 +34,9 @@ import (
 )
 
 const (
-	maxThemeFontBytes  = 2 * 1024 * 1024
-	maxThemeImageBytes = 5 * 1024 * 1024
+	maxThemeFontBytes       = 2 * 1024 * 1024
+	maxThemeImageBytes      = 5 * 1024 * 1024
+	themeAssetCleanupWindow = 30 * time.Second
 )
 
 type assetRow struct {
@@ -87,10 +89,11 @@ type UploadAssetInput struct {
 }
 
 type AssetContent struct {
-	Reader    io.ReadCloser
-	MediaType string
-	SizeBytes int64
-	ETag      string
+	Reader         io.ReadCloser
+	MediaType      string
+	SizeBytes      int64
+	ChecksumSHA256 string
+	ETag           string
 }
 
 type AssetAccessScope struct {
@@ -179,7 +182,7 @@ func (s *Service) UploadAsset(ctx context.Context, actor Actor, input UploadAsse
 	if len(native.Content) > 0 {
 		nativeObjectKey = path.Join("theme-assets", organizationID, id+"."+native.Format)
 		if _, err := s.storage.Save(ctx, nativeObjectKey, bytes.NewReader(native.Content)); err != nil {
-			_ = mediastore.DeleteForCleanup(ctx, s.storage, objectKey)
+			s.cleanupUncommittedAssetBlobs(ctx, objectKey)
 			return ThemeAssetRecord{}, fmt.Errorf("%w: store native font derivative", ErrUnavailable)
 		}
 	}
@@ -199,13 +202,28 @@ func (s *Service) UploadAsset(ctx context.Context, actor Actor, input UploadAsse
 		return insertErr
 	})
 	if err != nil {
-		_ = mediastore.DeleteForCleanup(ctx, s.storage, objectKey)
-		if nativeObjectKey != "" {
-			_ = mediastore.DeleteForCleanup(ctx, s.storage, nativeObjectKey)
-		}
+		s.cleanupUncommittedAssetBlobs(ctx, objectKey, nativeObjectKey)
 		return ThemeAssetRecord{}, writeError(err, "create theme asset")
 	}
 	return s.assetFromRow(row), nil
+}
+
+func (s *Service) cleanupUncommittedAssetBlobs(ctx context.Context, objectKeys ...string) {
+	failed := make([]string, 0, len(objectKeys))
+	for _, objectKey := range objectKeys {
+		if objectKey == "" {
+			continue
+		}
+		if err := mediastore.DeleteForCleanup(ctx, s.storage, objectKey); err != nil {
+			failed = append(failed, objectKey)
+		}
+	}
+	if len(failed) == 0 || s.db == nil {
+		return
+	}
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), themeAssetCleanupWindow)
+	defer cancel()
+	_, _ = jobregistry.EnqueueStorageDeletes(cleanupCtx, s.db, failed)
 }
 
 //nolint:gocyclo // Deletion keeps authorization, draft/revision reachability guards, and blob cleanup in one boundary.
@@ -277,8 +295,8 @@ func (s *Service) OpenAsset(ctx context.Context, actor Actor, assetID string, sc
 	}
 	organizationScope := scope.OrganizationID != "" && scope.WorkspaceID == "" && scope.ThemeID == "" && scope.Revision == 0
 	resolvedScope := scope.OrganizationID == "" && scope.WorkspaceID != "" && scope.ThemeID == "" && scope.Revision == 0
-	previewScope := scope.OrganizationID == "" && scope.WorkspaceID != "" && scope.ThemeID != "" && scope.Revision > 0
-	if assetID == "" || (!organizationScope && !resolvedScope && !previewScope) {
+	publishedScope := scope.OrganizationID == "" && scope.WorkspaceID != "" && scope.ThemeID != "" && scope.Revision > 0
+	if assetID == "" || (!organizationScope && !resolvedScope && !publishedScope) {
 		return AssetContent{}, fmt.Errorf("%w: asset_id and one complete Organization, resolved Workspace, or published preview scope are required", ErrInvalidInput)
 	}
 	if s == nil || s.db == nil || s.storage == nil {
@@ -291,12 +309,11 @@ func (s *Service) OpenAsset(ctx context.Context, actor Actor, assetID string, sc
 		}
 		return AssetContent{}, fmt.Errorf("%w: load theme asset", ErrUnavailable)
 	}
+	if !validStoredAssetMetadata(row) {
+		return AssetContent{}, ErrNotFound
+	}
 	if scope.WorkspaceID != "" {
-		level := workspaceaccess.LevelRead
-		if previewScope {
-			level = workspaceaccess.LevelAdminister
-		}
-		decision, err := workspaceaccess.NewAuthorizer(s.db).Authorize(ctx, scope.WorkspaceID, workspaceActor(actor), level)
+		decision, err := workspaceaccess.NewAuthorizer(s.db).Authorize(ctx, scope.WorkspaceID, workspaceActor(actor), workspaceaccess.LevelRead)
 		if err != nil {
 			return AssetContent{}, fmt.Errorf("%w: authorize theme asset", ErrUnavailable)
 		}
@@ -313,7 +330,19 @@ func (s *Service) OpenAsset(ctx context.Context, actor Actor, assetID string, sc
 				return AssetContent{}, ErrNotFound
 			}
 			themeID, revision = selection.Reference.ID, selection.Reference.Version
-		} else if _, revisionErr := s.loadRevision(ctx, s.db, decision.OrganizationID, themeID, revision); revisionErr != nil {
+		} else if decision.Role != models.WorkspaceRoleAdmin {
+			selection, selectionErr := s.Selection(ctx, scope.WorkspaceID)
+			if selectionErr != nil {
+				return AssetContent{}, selectionErr
+			}
+			// One previous revision keeps client staging stable when a publish
+			// commits between resolving the manifest and fetching its resources.
+			if selection.OrganizationID != row.OrganizationID || selection.Reference.Kind != ReferenceCustom ||
+				selection.Reference.ID != themeID || selection.Reference.Version < revision || selection.Reference.Version-revision > 1 {
+				return AssetContent{}, ErrNotFound
+			}
+		}
+		if _, revisionErr := s.loadRevision(ctx, s.db, decision.OrganizationID, themeID, revision); revisionErr != nil {
 			if errors.Is(revisionErr, ErrNotFound) {
 				return AssetContent{}, ErrNotFound
 			}
@@ -348,7 +377,7 @@ func (s *Service) OpenAsset(ctx context.Context, actor Actor, assetID string, sc
 	if err != nil {
 		return AssetContent{}, fmt.Errorf("%w: open theme asset", ErrUnavailable)
 	}
-	return AssetContent{Reader: reader, MediaType: mediaType, SizeBytes: sizeBytes, ETag: `"sha256-` + checksum + `"`}, nil
+	return AssetContent{Reader: reader, MediaType: mediaType, SizeBytes: sizeBytes, ChecksumSHA256: checksum, ETag: `"sha256-` + checksum + `"`}, nil
 }
 
 //nolint:gocyclo // Font metadata fields are independently validated against parsed WOFF2 metadata at this upload boundary.
@@ -411,6 +440,15 @@ func validateRasterDimensions(mediaType string, content []byte) (int, int, error
 	if width < 1 || height < 1 || width > 8192 || height > 8192 || int64(width)*int64(height) > 32_000_000 {
 		return 0, 0, fmt.Errorf("%w: raster dimensions must be at most 8192px per side and 32 megapixels", ErrInvalidAsset)
 	}
+	var decoded image.Image
+	if mediaType == "image/avif" {
+		decoded, err = avif.Decode(bytes.NewReader(content))
+	} else {
+		decoded, _, err = image.Decode(bytes.NewReader(content))
+	}
+	if err != nil || decoded.Bounds().Dx() != width || decoded.Bounds().Dy() != height {
+		return 0, 0, fmt.Errorf("%w: raster image content is incomplete or invalid", ErrInvalidAsset)
+	}
 	return width, height, nil
 }
 
@@ -426,21 +464,30 @@ func (s *Service) assetFromRow(row assetRow) ThemeAssetRecord {
 }
 
 func (s *Service) materializeResolvedResourceURLs(ctx context.Context, resolved *ResolvedTheme, workspaceID string) error {
-	workspaceID = url.QueryEscape(strings.TrimSpace(workspaceID))
+	if resolved.Source != ResolutionOrganization {
+		return nil
+	}
+	revision, err := strconv.Atoi(resolved.Revision)
+	if err != nil || revision < 1 || strings.TrimSpace(resolved.ID) == "" {
+		return errUnsafeResource
+	}
+	query := "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) +
+		"&theme_id=" + url.QueryEscape(resolved.ID) +
+		"&revision=" + strconv.Itoa(revision)
 	for index := range resolved.Fonts {
 		font := &resolved.Fonts[index]
 		row, err := s.loadRuntimeFontAsset(ctx, resolved.organizationID, font.ID)
 		if err != nil {
 			return err
 		}
-		font.SourceURL = "/api/v1/theme-assets/" + url.PathEscape(font.ID) + "/content?workspace_id=" + workspaceID
+		font.SourceURL = "/api/v1/theme-assets/" + url.PathEscape(font.ID) + "/content" + query
 		font.NativeDerivative = NativeFontDerivative{
 			SourceURL: font.SourceURL + "&format=" + nativeFormat(row.NativeMediaType),
 			Format:    nativeFormat(row.NativeMediaType), Identity: row.NativeChecksumSHA256,
 		}
 	}
 	for index := range resolved.Assets {
-		resolved.Assets[index].SourceURL = "/api/v1/theme-assets/" + url.PathEscape(resolved.Assets[index].ID) + "/content?workspace_id=" + workspaceID
+		resolved.Assets[index].SourceURL = "/api/v1/theme-assets/" + url.PathEscape(resolved.Assets[index].ID) + "/content" + query
 	}
 	return nil
 }
@@ -471,13 +518,13 @@ func (s *Service) loadRuntimeFontAsset(ctx context.Context, organizationID, asse
 	var row assetRow
 	err := s.db.NewSelect().Model(&row).Where("id = ? AND organization_id = ? AND kind = ?", assetID, organizationID, AssetFont).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return assetRow{}, fmt.Errorf("%w: resolved font derivative is missing", ErrUnavailable)
+		return assetRow{}, errUnsafeResource
 	}
 	if err != nil {
 		return assetRow{}, fmt.Errorf("%w: load resolved font derivative", ErrUnavailable)
 	}
-	if nativeFormat(row.NativeMediaType) == "" || row.NativeObjectKey == "" || row.NativeSizeBytes < 1 || len(row.NativeChecksumSHA256) != 64 {
-		return assetRow{}, fmt.Errorf("%w: resolved font derivative metadata is invalid", ErrUnavailable)
+	if !validNativeFontMetadata(row) {
+		return assetRow{}, errUnsafeResource
 	}
 	return row, nil
 }

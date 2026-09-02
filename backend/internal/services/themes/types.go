@@ -42,7 +42,7 @@ const (
 )
 
 type ThemeReference struct {
-	Kind    ReferenceKind `json:"kind"`
+	Kind    ReferenceKind `json:"kind" enum:"built_in,custom"`
 	ID      string        `json:"id"`
 	Version int           `json:"version" minimum:"1"`
 }
@@ -152,7 +152,7 @@ type ThemeProtectedEditorTokens struct {
 
 type ThemeTypographyRoleTokens struct {
 	Family     string   `json:"family"`
-	Fallbacks  []string `json:"fallbacks"`
+	Fallbacks  []string `json:"fallbacks" nullable:"false"`
 	Weight     int      `json:"weight" minimum:"100" maximum:"900"`
 	Size       string   `json:"size"`
 	LineHeight string   `json:"lineHeight"`
@@ -305,7 +305,7 @@ type ThemeAsset struct {
 	ID        string `json:"id"`
 	Slot      string `json:"slot" enum:"background-texture,sidebar-decoration,header-decoration,empty-state-illustration,loading-illustration"`
 	SourceURL string `json:"sourceUrl"`
-	MimeType  string `json:"mimeType"`
+	MimeType  string `json:"mimeType" enum:"image/png,image/jpeg,image/webp,image/avif"`
 	Alt       string `json:"alt,omitempty"`
 }
 
@@ -322,43 +322,44 @@ func (s ThemeSchemes) For(scheme ColorScheme) *ThemeSchemeManifest {
 }
 
 type ThemeManifest struct {
-	SchemaVersion    int             `json:"schemaVersion"`
+	SchemaVersion    int             `json:"schemaVersion" enum:"1"`
 	ID               string          `json:"id"`
 	Revision         string          `json:"revision"`
 	Name             string          `json:"name"`
 	Description      string          `json:"description"`
-	IconPack         IconPack        `json:"iconPack"`
-	SupportedSchemes []ColorScheme   `json:"supportedSchemes"`
+	IconPack         IconPack        `json:"iconPack" enum:"lucide,heroicons-outline,heroicons-solid,phosphor,tabler"`
+	SupportedSchemes []ColorScheme   `json:"supportedSchemes" enum:"light,dark" nullable:"false"`
 	Schemes          ThemeSchemes    `json:"schemes"`
-	Fonts            []ThemeFontFace `json:"fonts"`
-	Assets           []ThemeAsset    `json:"assets"`
+	Fonts            []ThemeFontFace `json:"fonts" nullable:"false"`
+	Assets           []ThemeAsset    `json:"assets" nullable:"false"`
 }
 
 // ThemeRuntimeManifest is the published preview contract. It mirrors the
 // stored family manifest but enriches font resources with server-owned native
 // derivatives for mobile.
 type ThemeRuntimeManifest struct {
-	SchemaVersion    int                    `json:"schemaVersion"`
+	SchemaVersion    int                    `json:"schemaVersion" enum:"1"`
 	ID               string                 `json:"id"`
 	Revision         string                 `json:"revision"`
 	Name             string                 `json:"name"`
 	Description      string                 `json:"description"`
-	IconPack         IconPack               `json:"iconPack"`
-	SupportedSchemes []ColorScheme          `json:"supportedSchemes"`
+	IconPack         IconPack               `json:"iconPack" enum:"lucide,heroicons-outline,heroicons-solid,phosphor,tabler"`
+	SupportedSchemes []ColorScheme          `json:"supportedSchemes" enum:"light,dark" nullable:"false"`
 	Schemes          ThemeSchemes           `json:"schemes"`
-	Fonts            []ThemeRuntimeFontFace `json:"fonts"`
-	Assets           []ThemeAsset           `json:"assets"`
+	Fonts            []ThemeRuntimeFontFace `json:"fonts" nullable:"false"`
+	Assets           []ThemeAsset           `json:"assets" nullable:"false"`
 }
 
 type BuiltInFamily = ThemeManifest
 type SchemeManifests = ThemeSchemes
 
 type PublishedRevision struct {
-	ThemeID     string        `json:"theme_id"`
-	Revision    int           `json:"revision"`
-	Manifest    ThemeManifest `json:"manifest"`
-	PublishedBy string        `json:"published_by"`
-	PublishedAt time.Time     `json:"published_at"`
+	ThemeID        string        `json:"theme_id"`
+	Revision       int           `json:"revision"`
+	SourceRevision *int          `json:"source_revision,omitempty"`
+	Manifest       ThemeManifest `json:"manifest"`
+	PublishedBy    string        `json:"published_by"`
+	PublishedAt    time.Time     `json:"published_at"`
 }
 
 type ThemeSummary struct {
@@ -366,11 +367,11 @@ type ThemeSummary struct {
 	OrganizationID         string         `json:"organization_id,omitempty"`
 	Name                   string         `json:"name"`
 	Description            string         `json:"description"`
-	IconPack               IconPack       `json:"icon_pack"`
+	IconPack               IconPack       `json:"icon_pack" enum:"lucide,heroicons-outline,heroicons-solid,phosphor,tabler"`
 	BuiltIn                bool           `json:"built_in"`
 	DraftRevision          int            `json:"draft_revision,omitempty"`
 	PublishedRevision      int            `json:"published_revision,omitempty"`
-	SupportedSchemes       []ColorScheme  `json:"supported_schemes"`
+	SupportedSchemes       []ColorScheme  `json:"supported_schemes" enum:"light,dark" nullable:"false"`
 	IsOrganizationDefault  bool           `json:"is_organization_default"`
 	AssignedWorkspaceCount int            `json:"assigned_workspace_count"`
 	CreatedAt              time.Time      `json:"created_at,omitempty"`
@@ -430,14 +431,14 @@ type ResolvedTheme struct {
 	ID              string                 `json:"id"`
 	Revision        string                 `json:"revision"`
 	Name            string                 `json:"name"`
-	IconPack        IconPack               `json:"iconPack"`
-	Source          ResolutionSource       `json:"source"`
-	RequestedScheme ColorScheme            `json:"requestedScheme"`
-	Scheme          ColorScheme            `json:"scheme"`
+	IconPack        IconPack               `json:"iconPack" enum:"lucide,heroicons-outline,heroicons-solid,phosphor,tabler"`
+	Source          ResolutionSource       `json:"source" enum:"builtin,organization,fallback"`
+	RequestedScheme ColorScheme            `json:"requestedScheme" enum:"light,dark"`
+	Scheme          ColorScheme            `json:"scheme" enum:"light,dark"`
 	Manifest        ThemeSchemeManifest    `json:"manifest"`
-	Fonts           []ThemeRuntimeFontFace `json:"fonts"`
-	Assets          []ThemeAsset           `json:"assets"`
-	FallbackReason  FallbackReason         `json:"fallbackReason,omitempty"`
+	Fonts           []ThemeRuntimeFontFace `json:"fonts" nullable:"false"`
+	Assets          []ThemeAsset           `json:"assets" nullable:"false"`
+	FallbackReason  FallbackReason         `json:"fallbackReason,omitempty" enum:"missing-theme,invalid-manifest,unsafe-resource,unsupported-scheme,resource-failed"`
 	CacheIdentity   string                 `json:"-"`
 	organizationID  string
 }
@@ -471,9 +472,9 @@ const (
 type ThemeAssetRecord struct {
 	ID                  string         `json:"id"`
 	OrganizationID      string         `json:"organization_id"`
-	Kind                ThemeAssetKind `json:"kind"`
+	Kind                ThemeAssetKind `json:"kind" enum:"font,background,texture,illustration"`
 	Name                string         `json:"name"`
-	MediaType           string         `json:"media_type"`
+	MediaType           string         `json:"media_type" enum:"font/woff2,image/png,image/jpeg,image/webp,image/avif"`
 	ObjectKey           string         `json:"-"`
 	URL                 string         `json:"url,omitempty"`
 	SizeBytes           int64          `json:"size_bytes"`
@@ -481,7 +482,7 @@ type ThemeAssetRecord struct {
 	Height              int            `json:"height,omitempty"`
 	ChecksumSHA256      string         `json:"checksum_sha256"`
 	FontFamily          string         `json:"font_family,omitempty"`
-	FontStyle           string         `json:"font_style,omitempty"`
+	FontStyle           string         `json:"font_style,omitempty" enum:"normal,italic"`
 	FontWeight          int            `json:"font_weight,omitempty"`
 	LicenseAcknowledged bool           `json:"license_acknowledged,omitempty"`
 	CreatedBy           string         `json:"created_by"`

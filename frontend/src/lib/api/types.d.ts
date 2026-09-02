@@ -6747,8 +6747,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Built-in family to copy into an editable draft */
             duplicate_built_in_id?: string;
-            /** @description Complete family manifest with light and/or dark schemes */
-            manifest: components["schemas"]["ThemeManifest"];
+            /** @description Complete family manifest with light and/or dark schemes; omit when duplicating a built-in */
+            manifest?: components["schemas"]["ThemeManifest"];
             /** @description Theme family name */
             name: string;
             /** @description Organization ID */
@@ -10535,6 +10535,11 @@ export interface components {
              * @description Draft revision being published
              */
             expected_draft_revision: number;
+            /**
+             * Format: int64
+             * @description Published head loaded by the editor; zero publishes the first revision
+             */
+            expected_published_revision: number;
             /** @description Organization ID */
             organization_id: string;
         };
@@ -10551,6 +10556,8 @@ export interface components {
             published_by: string;
             /** Format: int64 */
             revision: number;
+            /** Format: int64 */
+            source_revision?: number;
             theme_id: string;
         };
         PublishedThemeCatalogItem: {
@@ -11350,17 +11357,22 @@ export interface components {
              * @example https://example.com/schemas/ResolvedTheme.json
              */
             readonly $schema?: string;
-            assets: components["schemas"]["ThemeAsset"][] | null;
-            fallbackReason?: string;
-            fonts: components["schemas"]["ThemeRuntimeFontFace"][] | null;
-            iconPack: string;
+            assets: components["schemas"]["ThemeAsset"][];
+            /** @enum {string} */
+            fallbackReason?: "missing-theme" | "invalid-manifest" | "unsafe-resource" | "unsupported-scheme" | "resource-failed";
+            fonts: components["schemas"]["ThemeRuntimeFontFace"][];
+            /** @enum {string} */
+            iconPack: "lucide" | "heroicons-outline" | "heroicons-solid" | "phosphor" | "tabler";
             id: string;
             manifest: components["schemas"]["ThemeSchemeManifest"];
             name: string;
-            requestedScheme: string;
+            /** @enum {string} */
+            requestedScheme: "light" | "dark";
             revision: string;
-            scheme: string;
-            source: string;
+            /** @enum {string} */
+            scheme: "light" | "dark";
+            /** @enum {string} */
+            source: "builtin" | "organization" | "fallback";
         };
         RestoreImageEditorRevisionInputBody: {
             /**
@@ -11446,11 +11458,21 @@ export interface components {
              * @example https://example.com/schemas/RollbackThemeInputBody.json
              */
             readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Draft revision loaded before rollback
+             */
+            expected_draft_revision: number;
+            /**
+             * Format: int64
+             * @description Published head loaded before rollback
+             */
+            expected_published_revision: number;
             /** @description Organization ID */
             organization_id: string;
             /**
              * Format: int64
-             * @description Published revision to copy into a new head revision
+             * @description Prior published revision to copy into a new head revision
              */
             source_revision: number;
         };
@@ -12069,7 +12091,8 @@ export interface components {
         ThemeAsset: {
             alt?: string;
             id: string;
-            mimeType: string;
+            /** @enum {string} */
+            mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/avif";
             /** @enum {string} */
             slot: "background-texture" | "sidebar-decoration" | "header-decoration" | "empty-state-illustration" | "loading-illustration";
             sourceUrl: string;
@@ -12086,15 +12109,18 @@ export interface components {
             created_at: string;
             created_by: string;
             font_family?: string;
-            font_style?: string;
+            /** @enum {string} */
+            font_style?: "normal" | "italic";
             /** Format: int64 */
             font_weight?: number;
             /** Format: int64 */
             height?: number;
             id: string;
-            kind: string;
+            /** @enum {string} */
+            kind: "font" | "background" | "texture" | "illustration";
             license_acknowledged?: boolean;
-            media_type: string;
+            /** @enum {string} */
+            media_type: "font/woff2" | "image/png" | "image/jpeg" | "image/webp" | "image/avif";
             name: string;
             organization_id: string;
             /** Format: int64 */
@@ -12272,17 +12298,21 @@ export interface components {
             weight: number;
         };
         ThemeManifest: {
-            assets: components["schemas"]["ThemeAsset"][] | null;
+            assets: components["schemas"]["ThemeAsset"][];
             description: string;
-            fonts: components["schemas"]["ThemeFontFace"][] | null;
-            iconPack: string;
+            fonts: components["schemas"]["ThemeFontFace"][];
+            /** @enum {string} */
+            iconPack: "lucide" | "heroicons-outline" | "heroicons-solid" | "phosphor" | "tabler";
             id: string;
             name: string;
             revision: string;
-            /** Format: int64 */
-            schemaVersion: number;
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            schemaVersion: 1;
             schemes: components["schemas"]["ThemeSchemes"];
-            supportedSchemes: string[] | null;
+            supportedSchemes: ("light" | "dark")[];
         };
         ThemeMotionRecipe: {
             distance: string;
@@ -12326,7 +12356,8 @@ export interface components {
         };
         ThemeReference: {
             id: string;
-            kind: string;
+            /** @enum {string} */
+            kind: "built_in" | "custom";
             /** Format: int64 */
             version: number;
         };
@@ -12345,17 +12376,21 @@ export interface components {
             weight: number;
         };
         ThemeRuntimeManifest: {
-            assets: components["schemas"]["ThemeAsset"][] | null;
+            assets: components["schemas"]["ThemeAsset"][];
             description: string;
-            fonts: components["schemas"]["ThemeRuntimeFontFace"][] | null;
-            iconPack: string;
+            fonts: components["schemas"]["ThemeRuntimeFontFace"][];
+            /** @enum {string} */
+            iconPack: "lucide" | "heroicons-outline" | "heroicons-solid" | "phosphor" | "tabler";
             id: string;
             name: string;
             revision: string;
-            /** Format: int64 */
-            schemaVersion: number;
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            schemaVersion: 1;
             schemes: components["schemas"]["ThemeSchemes"];
-            supportedSchemes: string[] | null;
+            supportedSchemes: ("light" | "dark")[];
         };
         ThemeSchemeManifest: {
             colors: components["schemas"]["ThemeColorTokens"];
@@ -12416,19 +12451,20 @@ export interface components {
             description: string;
             /** Format: int64 */
             draft_revision?: number;
-            icon_pack: string;
+            /** @enum {string} */
+            icon_pack: "lucide" | "heroicons-outline" | "heroicons-solid" | "phosphor" | "tabler";
             is_organization_default: boolean;
             name: string;
             organization_id?: string;
             /** Format: int64 */
             published_revision?: number;
             reference: components["schemas"]["ThemeReference"];
-            supported_schemes: string[] | null;
+            supported_schemes: ("light" | "dark")[];
             /** Format: date-time */
             updated_at?: string;
         };
         ThemeTypographyRoleTokens: {
-            fallbacks: string[] | null;
+            fallbacks: string[];
             family: string;
             lineHeight: string;
             size: string;
@@ -12839,8 +12875,11 @@ export interface components {
             kind: "font" | "background" | "texture" | "illustration";
             /** @description Confirms the Organization may use the uploaded font */
             license_acknowledged?: boolean;
-            /** @description Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity */
-            media_type: string;
+            /**
+             * @description Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity
+             * @enum {string}
+             */
+            media_type: "font/woff2" | "image/png" | "image/jpeg" | "image/webp" | "image/avif";
             /** @description Asset label */
             name: string;
             /** @description Organization ID */
@@ -29391,7 +29430,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ThemeAssetRecord"][] | null;
+                    "application/json": components["schemas"]["ThemeAssetRecord"][];
                 };
             };
             /** @description Bad Request */
@@ -29608,9 +29647,9 @@ export interface operations {
                 organization_id?: string;
                 /** @description Workspace scope for resolved runtime resources */
                 workspace_id?: string;
-                /** @description Published theme ID for an unassigned Workspace administrator preview */
+                /** @description Exact published theme ID for runtime staging or a Workspace administrator preview */
                 theme_id?: string;
-                /** @description Published theme revision for an unassigned Workspace administrator preview */
+                /** @description Exact immutable published revision for runtime staging or a Workspace administrator preview */
                 revision?: number;
                 /** @description Native SFNT derivative format for mobile; omit for the original WOFF2 or raster resource */
                 format?: "ttf" | "otf";
@@ -29634,6 +29673,7 @@ export interface operations {
                     "Content-Length"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Vary?: string;
                     "X-Content-Type-Options"?: string;
                     [name: string]: unknown;
                 };
@@ -29942,7 +29982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Theme"][] | null;
+                    "application/json": components["schemas"]["Theme"][];
                 };
             };
             /** @description Bad Request */
@@ -30088,7 +30128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublishedThemeCatalogItem"][] | null;
+                    "application/json": components["schemas"]["PublishedThemeCatalogItem"][];
                 };
             };
             /** @description Bad Request */
@@ -30153,7 +30193,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ThemeManifest"][] | null;
+                    "application/json": components["schemas"]["ThemeManifest"][];
                 };
             };
             /** @description Error */
@@ -30189,6 +30229,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     ETag?: string;
+                    Vary?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -30614,7 +30655,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublishedRevision"][] | null;
+                    "application/json": components["schemas"]["PublishedRevision"][];
                 };
             };
             /** @description Bad Request */

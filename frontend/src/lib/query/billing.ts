@@ -1,14 +1,7 @@
 import type { QueryClient } from '@tanstack/query-core';
-import {
-	adminQueryKeys,
-	type BillingQueryAPI,
-	isAccountFeaturesQueryKey,
-	isBillingStatusQueryKey,
-	isWorkspaceSetupQueryKey,
-	organizationQueryKeys,
-	publicProfileQueryKeys
-} from '@openpost/query-catalog';
+import { billingMutationCachePlan, type BillingQueryAPI } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { executeQueryCachePlan } from './cache-plan';
 import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
@@ -45,28 +38,5 @@ export async function invalidateBillingDependencies(
 	cache: Pick<QueryClient, 'invalidateQueries' | 'removeQueries'>,
 	scope: { workspaceID: string; organizationID: string }
 ) {
-	cache.removeQueries({ queryKey: publicProfileQueryKeys.all() });
-	const invalidations = [
-		cache.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-		cache.invalidateQueries({
-			predicate: (query) => isAccountFeaturesQueryKey(query.queryKey)
-		}),
-		cache.invalidateQueries({
-			predicate: (query) => isBillingStatusQueryKey(query.queryKey)
-		}),
-		cache.invalidateQueries({
-			predicate: (query) => isWorkspaceSetupQueryKey(query.queryKey)
-		}),
-		cache.invalidateQueries({
-			queryKey: organizationQueryKeys.instanceAuditRoot()
-		})
-	];
-	if (scope.organizationID) {
-		invalidations.push(
-			cache.invalidateQueries({
-				queryKey: organizationQueryKeys.auditRoot(scope.organizationID)
-			})
-		);
-	}
-	await Promise.all(invalidations);
+	await executeQueryCachePlan(cache, billingMutationCachePlan(scope.organizationID));
 }

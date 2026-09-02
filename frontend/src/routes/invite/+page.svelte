@@ -12,15 +12,10 @@
 	import { get } from 'svelte/store';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import {
-		adminQueryKeys,
-		authQueryKeys,
-		developerQueryKeys,
-		openPostBootstrapQueryKeys,
-		openPostWorkspaceKey,
-		organizationQueryKeys,
-		publicProfileQueryKeys,
-		workspaceSettingsQueryKeys
+		workspaceInvitationAcceptanceCachePlan,
+		workspaceInvitationRefreshCachePlan
 	} from '@openpost/query-catalog';
+	import { executeQueryCachePlan } from '$lib/query/cache-plan';
 	import { queryClient } from '$lib/query/client';
 	import { m } from '$lib/paraglide/messages';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
@@ -55,52 +50,10 @@
 	}
 
 	async function invalidateAcceptedWorkspaceDependencies(targetWorkspaceID: string) {
-		queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
-		await Promise.all([
-			queryClient.invalidateQueries({
-				queryKey: openPostBootstrapQueryKeys.appRoot()
-			}),
-			queryClient.invalidateQueries({
-				queryKey: openPostBootstrapQueryKeys.workspaces(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-			queryClient.invalidateQueries({
-				queryKey: developerQueryKeys.mcpActivityRoot()
-			}),
-			queryClient.invalidateQueries({
-				queryKey: organizationQueryKeys.all(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				predicate: (query) =>
-					query.queryKey[0] === 'openpost' &&
-					query.queryKey[1] === 'v1' &&
-					query.queryKey[2] === 'organization'
-			}),
-			queryClient.invalidateQueries({
-				queryKey: authQueryKeys.linkableOIDCProviders(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				queryKey: authQueryKeys.security(),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				queryKey: workspaceSettingsQueryKeys.team(targetWorkspaceID),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
-				exact: true
-			}),
-			queryClient.invalidateQueries({
-				queryKey: openPostWorkspaceKey(targetWorkspaceID, 'access-audit')
-			}),
-			queryClient.invalidateQueries({
-				queryKey: organizationQueryKeys.instanceAuditRoot()
-			})
-		]);
+		await executeQueryCachePlan(
+			queryClient,
+			workspaceInvitationAcceptanceCachePlan(targetWorkspaceID)
+		);
 	}
 
 	async function refreshAcceptedWorkspace(
@@ -133,51 +86,10 @@
 			const organizationID =
 				workspaceCtx.workspaces.find((workspace) => workspace.id === targetWorkspaceID)
 					?.organization_id ?? '';
-			queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
-			const invalidations = [
-				queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-				queryClient.invalidateQueries({
-					queryKey: developerQueryKeys.mcpActivityRoot()
-				}),
-				queryClient.invalidateQueries({
-					queryKey: organizationQueryKeys.all(),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: authQueryKeys.linkableOIDCProviders(),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: authQueryKeys.security(),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: workspaceSettingsQueryKeys.team(targetWorkspaceID),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
-					exact: true
-				}),
-				queryClient.invalidateQueries({
-					queryKey: openPostWorkspaceKey(targetWorkspaceID, 'access-audit')
-				}),
-				queryClient.invalidateQueries({
-					queryKey: organizationQueryKeys.instanceAuditRoot()
-				})
-			];
-			if (organizationID) {
-				invalidations.push(
-					queryClient.invalidateQueries({
-						queryKey: organizationQueryKeys.team(organizationID),
-						exact: true
-					}),
-					queryClient.invalidateQueries({
-						queryKey: organizationQueryKeys.auditRoot(organizationID)
-					})
-				);
-			}
-			await Promise.all(invalidations);
+			await executeQueryCachePlan(
+				queryClient,
+				workspaceInvitationRefreshCachePlan(targetWorkspaceID, organizationID)
+			);
 		} catch (e) {
 			if (isCurrentRequest()) {
 				console.error('Failed to refresh workspaces after accepting invitation:', e);

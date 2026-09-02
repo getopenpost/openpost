@@ -82,6 +82,10 @@ export function isOrganizationAuditQueryKey(queryKey: readonly unknown[]): boole
   );
 }
 
+export function isOrganizationDetailQueryKey(queryKey: readonly unknown[]): boolean {
+  return queryKey[0] === "openpost" && queryKey[1] === "v1" && queryKey[2] === "organization";
+}
+
 export function organizationsQueryOptions(api: Pick<OrganizationQueryAPI, "listOrganizations">) {
   const queryKey = organizationQueryKeys.all();
   return {

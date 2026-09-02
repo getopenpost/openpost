@@ -1,12 +1,10 @@
 import type { QueryClient } from '@tanstack/query-core';
 import {
-	authQueryKeys,
-	developerQueryKeys,
-	isBillingStatusQueryKey,
-	organizationQueryKeys,
+	organizationIdentityMutationCachePlan,
 	type OrganizationQueryAPI
 } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { executeQueryCachePlan } from './cache-plan';
 import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
@@ -129,28 +127,5 @@ export async function invalidateOrganizationIdentityDependencies(
 	cache: Pick<QueryClient, 'invalidateQueries'>,
 	organizationID: string
 ) {
-	await Promise.all([
-		cache.invalidateQueries({
-			queryKey: organizationQueryKeys.detailRoot(organizationID)
-		}),
-		cache.invalidateQueries({
-			queryKey: organizationQueryKeys.instanceAuditRoot()
-		}),
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.linkableOIDCProviders(),
-			exact: true
-		}),
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.oidcIdentities(),
-			exact: true
-		}),
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.sessions(),
-			exact: true
-		}),
-		cache.invalidateQueries({ queryKey: developerQueryKeys.mcpActivityRoot() }),
-		cache.invalidateQueries({
-			predicate: (query) => isBillingStatusQueryKey(query.queryKey)
-		})
-	]);
+	await executeQueryCachePlan(cache, organizationIdentityMutationCachePlan(organizationID));
 }

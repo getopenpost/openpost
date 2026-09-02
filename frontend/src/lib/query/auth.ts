@@ -1,12 +1,11 @@
 import type { QueryClient } from '@tanstack/query-core';
 import {
-	adminQueryKeys,
-	authQueryKeys,
-	organizationQueryKeys,
-	type AuthQueryAPI,
-	workspaceSettingsQueryKeys
+	emailChangeCachePlan,
+	passwordChangeCachePlan,
+	type AuthQueryAPI
 } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { executeQueryCachePlan } from './cache-plan';
 import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
@@ -79,16 +78,7 @@ export const authQueryAPI = createAuthQueryAPI(client);
 export async function invalidatePasswordChangeDependencies(
 	cache: Pick<QueryClient, 'invalidateQueries'>
 ) {
-	await Promise.all([
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.security(),
-			exact: true
-		}),
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.sessions(),
-			exact: true
-		})
-	]);
+	await executeQueryCachePlan(cache, passwordChangeCachePlan());
 }
 
 export async function invalidateEmailChangeDependencies(
@@ -98,35 +88,11 @@ export async function invalidateEmailChangeDependencies(
 		organizationIDs: readonly string[];
 	}
 ) {
-	const workspaceIDs = [...new Set(scope.workspaceIDs.filter(Boolean))];
-	const organizationIDs = [...new Set(scope.organizationIDs.filter(Boolean))];
-	await Promise.all([
-		cache.invalidateQueries({
-			queryKey: authQueryKeys.sessions(),
-			exact: true
-		}),
-		cache.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-		cache.invalidateQueries({
-			queryKey: adminQueryKeys.aiPrompts(),
-			exact: true
-		}),
-		...workspaceIDs.map((workspaceID) =>
-			cache.invalidateQueries({
-				queryKey: workspaceSettingsQueryKeys.team(workspaceID),
-				exact: true
-			})
-		),
-		...organizationIDs.map((organizationID) =>
-			cache.invalidateQueries({
-				queryKey: organizationQueryKeys.team(organizationID),
-				exact: true
-			})
-		),
-		...organizationIDs.map((organizationID) =>
-			cache.invalidateQueries({
-				queryKey: organizationQueryKeys.ownershipTransfer(organizationID),
-				exact: true
-			})
-		)
-	]);
+	await executeQueryCachePlan(
+		cache,
+		emailChangeCachePlan({
+			workspaceIds: scope.workspaceIDs,
+			organizationIds: scope.organizationIDs
+		})
+	);
 }

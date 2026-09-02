@@ -1,13 +1,7 @@
 import type { QueryClient } from '@tanstack/query-core';
-import {
-	adminQueryKeys,
-	featureQueryKeys,
-	openPostQueryKeys,
-	publicProfileQueryKeys,
-	type AccountCatalogQueryAPI,
-	workspaceSettingsQueryKeys
-} from '@openpost/query-catalog';
+import { accountMutationCachePlan, type AccountCatalogQueryAPI } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { executeQueryCachePlan } from './cache-plan';
 import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
@@ -35,21 +29,5 @@ export async function invalidateAccountMutationDependencies(
 	cache: Pick<QueryClient, 'invalidateQueries' | 'removeQueries'>,
 	workspaceID: string
 ) {
-	cache.removeQueries({ queryKey: publicProfileQueryKeys.all() });
-	await Promise.all([
-		cache.invalidateQueries({
-			queryKey: openPostQueryKeys.accounts(workspaceID),
-			exact: true
-		}),
-		cache.invalidateQueries({
-			queryKey: openPostQueryKeys.socialSets(workspaceID),
-			exact: true
-		}),
-		cache.invalidateQueries({ queryKey: featureQueryKeys.all(workspaceID) }),
-		cache.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
-		cache.invalidateQueries({
-			queryKey: workspaceSettingsQueryKeys.setup(workspaceID),
-			exact: true
-		})
-	]);
+	await executeQueryCachePlan(cache, accountMutationCachePlan(workspaceID));
 }

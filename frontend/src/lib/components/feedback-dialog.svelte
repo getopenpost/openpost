@@ -22,7 +22,7 @@
 
 	type FeedbackCategory = 'bug' | 'idea' | 'question';
 
-	let open = $state(false);
+	let open = $derived(ui.isFeedbackOpen);
 	let sending = $state(false);
 	let error = $state('');
 	let success = $state(false);
@@ -45,10 +45,6 @@
 	});
 	const loading = $derived(feedbackConfigQuery.isPending || feedbackConfigQuery.isFetching);
 	const visibleError = $derived(error || (feedbackConfigQuery.error?.message ?? ''));
-
-	$effect(() => {
-		open = ui.isFeedbackOpen;
-	});
 
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;

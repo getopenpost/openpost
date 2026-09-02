@@ -1,11 +1,8 @@
 <script lang="ts">
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type {
 		AIMemeRecommendationCandidate,
 		AIMemeRecommendationCopy,
@@ -98,8 +95,12 @@
 	aria-labelledby={`${uid}-title`}
 >
 	<header class="max-w-2xl">
-		<h2 id={`${uid}-title`} class="text-base font-semibold tracking-tight">{copy.title}</h2>
-		<p class="mt-1 text-sm leading-5 text-muted-foreground">{copy.description}</p>
+		<h2 id={`${uid}-title`} class="text-base font-semibold tracking-tight">
+			{copy.title}
+		</h2>
+		<p class="mt-1 text-sm leading-5 text-muted-foreground">
+			{copy.description}
+		</p>
 	</header>
 
 	{#if selectedCandidate}
@@ -122,7 +123,7 @@
 						<div
 							class="grid max-w-64 place-items-center gap-2 px-4 text-center text-sm text-muted-foreground"
 						>
-							<ImageIcon class="size-6" />
+							<ThemeIcon role="image" class="size-6" />
 							<p>{copy.previewUnavailable}</p>
 							<Button
 								variant="ghost"
@@ -132,10 +133,10 @@
 									void runAction(`retry:${selectedCandidate.id}`, selectedCandidate, onRetry)}
 							>
 								{#if activeAction === `retry:${selectedCandidate.id}`}
-									<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+									<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 									{copy.retryingLabel}
 								{:else}
-									<RefreshIcon />
+									<ThemeIcon role="refresh" />
 									{copy.retryLabel}
 								{/if}
 							</Button>
@@ -143,7 +144,9 @@
 					{/if}
 				</div>
 				<div class="min-w-0 border-t border-border p-3">
-					<p class="text-xs font-medium text-primary">{copy.recommendedLabel}</p>
+					<p class="text-xs font-medium text-primary">
+						{copy.recommendedLabel}
+					</p>
 					<h3 class="mt-1 text-sm font-semibold break-words">
 						{selectedCandidate.suggestion.template.name}
 					</h3>
@@ -162,7 +165,9 @@
 
 			{#if alternatives.length > 0}
 				<div class="min-w-0">
-					<h3 class="text-xs font-medium text-muted-foreground">{copy.alternativesLabel}</h3>
+					<h3 class="text-xs font-medium text-muted-foreground">
+						{copy.alternativesLabel}
+					</h3>
 					<div class="mt-2 grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-1">
 						{#each alternatives as candidate, index (candidate.id)}
 							<div class="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
@@ -189,7 +194,7 @@
 											{:else if previewState(candidate) === 'loading'}
 												<Skeleton class="size-full rounded-none" />
 											{:else}
-												<ImageIcon class="size-5 text-muted-foreground" />
+												<ThemeIcon role="image" class="size-5 text-muted-foreground" />
 											{/if}
 										</span>
 										<span class="min-w-0">
@@ -214,10 +219,13 @@
 											onclick={() => void runAction(`retry:${candidate.id}`, candidate, onRetry)}
 										>
 											{#if activeAction === `retry:${candidate.id}`}
-												<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+												<ProtectedIcon
+													icon="loading"
+													class="animate-spin motion-reduce:animate-none"
+												/>
 												{copy.retryingLabel}
 											{:else}
-												<RefreshIcon />
+												<ThemeIcon role="refresh" />
 												{copy.retryLabel}
 											{/if}
 										</Button>
@@ -242,10 +250,10 @@
 				onclick={() => void runAction('edit', selectedCandidate, onEdit)}
 			>
 				{#if activeAction === 'edit'}
-					<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+					<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 					{copy.editingLabel}
 				{:else}
-					<PencilIcon />
+					<ThemeIcon role="edit" />
 					{copy.editLabel}
 				{/if}
 			</Button>
@@ -255,7 +263,7 @@
 				onclick={() => void runAction('use', selectedCandidate, onUse)}
 			>
 				{#if activeAction === 'use'}
-					<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+					<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 					{copy.usingLabel}
 				{:else}
 					{copy.useLabel}
@@ -264,7 +272,7 @@
 		</div>
 	{:else}
 		<div class="mt-4 rounded-lg border border-dashed border-border px-4 py-8 text-center">
-			<ImageIcon class="mx-auto size-7 text-muted-foreground" />
+			<ThemeIcon role="image" class="mx-auto size-7 text-muted-foreground" />
 			<h3 class="mt-2 text-sm font-semibold">{copy.emptyTitle}</h3>
 			<p class="mx-auto mt-1 max-w-md text-sm leading-5 text-muted-foreground">
 				{copy.emptyDescription}

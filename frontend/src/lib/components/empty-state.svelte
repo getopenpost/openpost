@@ -1,10 +1,22 @@
 <script lang="ts">
 	import type { IconComponent } from '$lib/component-types';
 	import { Button } from '$lib/components/ui/button';
+	import type { ThemeIconRole } from '$lib/themes';
+	import { ThemeIcon } from '$lib/themes/icons';
 
-	interface Props {
-		/** Icon component to display */
-		icon: IconComponent;
+	type IconProps =
+		| {
+				/** Custom or protected icon component to display */
+				icon: IconComponent;
+				themeIconRole?: never;
+		  }
+		| {
+				icon?: never;
+				/** Semantic icon role resolved from the active organization theme */
+				themeIconRole: ThemeIconRole;
+		  };
+
+	type Props = IconProps & {
 		/** Main title text */
 		title: string;
 		/** Description text */
@@ -21,10 +33,11 @@
 		size?: 'sm' | 'md' | 'lg';
 		/** Heading level within the surrounding page hierarchy */
 		headingLevel?: 2 | 3 | 4;
-	}
+	};
 
 	let {
 		icon: Icon,
+		themeIconRole,
 		title,
 		description,
 		actionLabel,
@@ -55,7 +68,11 @@
 	]} {sizeClasses[size]}"
 >
 	<div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-		<Icon class="size-5 text-muted-foreground" />
+		{#if themeIconRole}
+			<ThemeIcon role={themeIconRole} class="size-5 text-muted-foreground" />
+		{:else if Icon}
+			<Icon class="size-5 text-muted-foreground" />
+		{/if}
 	</div>
 	<div class="min-w-0 flex-1">
 		{#if headingLevel === 3}
@@ -66,7 +83,9 @@
 			<h2 class="text-sm font-semibold">{title}</h2>
 		{/if}
 		{#if description}
-			<p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
+			<p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">
+				{description}
+			</p>
 		{/if}
 	</div>
 	{#if actionLabel}

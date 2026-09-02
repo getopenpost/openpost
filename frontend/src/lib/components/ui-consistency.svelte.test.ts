@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
 import ImageIcon from '@lucide/svelte/icons/image';
@@ -12,6 +12,14 @@ import PageHeader from './page-header.svelte';
 import PageLoading from './page-loading.svelte';
 import * as Sidebar from './ui/sidebar';
 import '../../routes/layout.css';
+
+const originalIconPack = document.documentElement.getAttribute('data-theme-icon-pack');
+
+afterEach(() => {
+	if (originalIconPack)
+		document.documentElement.setAttribute('data-theme-icon-pack', originalIconPack);
+	else document.documentElement.removeAttribute('data-theme-icon-pack');
+});
 
 function textSnippet(text: string) {
 	return createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
@@ -176,6 +184,18 @@ describe('shared page states', () => {
 		expect(onAction).toHaveBeenCalledOnce();
 	});
 
+	it('lets shared empty states resolve semantic icons from the active theme', async () => {
+		document.documentElement.setAttribute('data-theme-icon-pack', 'phosphor');
+		const screen = await render(EmptyState, {
+			themeIconRole: 'image',
+			title: 'No media yet'
+		});
+		const icon = screen.container.querySelector('[data-theme-icon="image"]');
+
+		expect(icon).not.toBeNull();
+		await vi.waitFor(() => expect(icon?.getAttribute('data-icon-pack')).toBe('phosphor'));
+	});
+
 	it('renders an error toast with a dismiss action', async () => {
 		const onDismiss = vi.fn();
 		await render(Toaster);
@@ -206,7 +226,10 @@ describe('shared page states', () => {
 	});
 
 	it('keeps destructive confirmation open when the action reports failure', async () => {
-		const onConfirm = vi.fn(async () => ({ ok: false, message: 'The server rejected deletion.' }));
+		const onConfirm = vi.fn(async () => ({
+			ok: false,
+			message: 'The server rejected deletion.'
+		}));
 		const screen = await render(DestructiveConfirmDialog, {
 			open: true,
 			title: 'Delete all notifications?',

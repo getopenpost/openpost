@@ -1,9 +1,8 @@
 <script lang="ts">
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { AIAngle, AIAngleGridCopy } from './ai-workspace-types';
 
 	interface Props {
@@ -34,8 +33,12 @@
 
 <section class="space-y-4" aria-labelledby={`${uid}-heading`}>
 	<div class="space-y-1">
-		<h2 id={`${uid}-heading`} class="text-base font-semibold tracking-tight">{copy.heading}</h2>
-		<p class="max-w-3xl text-sm leading-6 text-muted-foreground">{copy.description}</p>
+		<h2 id={`${uid}-heading`} class="text-base font-semibold tracking-tight">
+			{copy.heading}
+		</h2>
+		<p class="max-w-3xl text-sm leading-6 text-muted-foreground">
+			{copy.description}
+		</p>
 	</div>
 
 	{#if loading && angles.length === 0}
@@ -56,7 +59,7 @@
 		</div>
 	{:else if angles.length === 0}
 		<EmptyState
-			icon={SparklesIcon}
+			themeIconRole="sparkles"
 			title={copy.emptyTitle}
 			description={copy.emptyDescription}
 			variant="muted"
@@ -91,14 +94,16 @@
 									<span class="text-xs font-medium text-primary">{copy.recommended}</span>
 								{/if}
 							</div>
-							<p class="mt-1.5 text-sm leading-6 text-muted-foreground">{angle.premise}</p>
+							<p class="mt-1.5 text-sm leading-6 text-muted-foreground">
+								{angle.premise}
+							</p>
 						</div>
 						{#if selected}
 							<span
 								class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
 								aria-hidden="true"
 							>
-								<CheckIcon class="size-3.5" />
+								<ThemeIcon role="check" class="size-3.5" />
 								<span class="sr-only">{copy.selected}</span>
 							</span>
 						{/if}

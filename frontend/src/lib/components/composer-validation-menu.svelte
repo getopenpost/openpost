@@ -3,8 +3,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { cn } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
-	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import type { ComposerIssue } from './compose/validation';
 
 	interface Props {
@@ -49,9 +48,9 @@
 					data-testid="composer-validation-control"
 				>
 					{#if hasErrors}
-						<CircleAlertIcon class="size-4" />
+						<ProtectedIcon icon="error" class="size-4" />
 					{:else}
-						<TriangleAlertIcon class="size-4" />
+						<ProtectedIcon icon="warning" class="size-4" />
 					{/if}
 				</Button>
 			{/snippet}
@@ -73,9 +72,9 @@
 					>
 						{#snippet issueContent()}
 							{#if issue.severity === 'error'}
-								<CircleAlertIcon class="mt-0.5 size-4 shrink-0" />
+								<ProtectedIcon icon="error" class="mt-0.5 size-4 shrink-0" />
 							{:else}
-								<TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
+								<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0" />
 							{/if}
 							<span class="min-w-0 flex-1">
 								{#if issue.targetLabel}

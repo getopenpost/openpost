@@ -2,8 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface PollConstraints {
 		min_items?: number;
@@ -77,7 +76,7 @@
 						aria-label={m.compose_poll_remove_option({ number: index + 1 })}
 						onclick={() => removeOption(index)}
 					>
-						<XIcon class="size-4" />
+						<ThemeIcon role="remove" class="size-4" />
 					</Button>
 				{/if}
 			</div>
@@ -93,7 +92,7 @@
 					disabled={options.length >= maximum}
 					onclick={addOption}
 				>
-					<PlusIcon class="size-4" />
+					<ThemeIcon role="add" class="size-4" />
 					{m.compose_poll_add_option()}
 				</Button>
 				<Button
@@ -126,7 +125,7 @@
 		class="mt-2 h-11 gap-2 sm:h-9"
 		onclick={() => onChange(Array(minimum).fill('').join('\n'))}
 	>
-		<PlusIcon class="size-4" />
+		<ThemeIcon role="add" class="size-4" />
 		{m.compose_add_poll()}
 	</Button>
 {/if}

@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
-	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SendIcon from '@lucide/svelte/icons/send';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
 		scheduleLabel: string;
@@ -61,9 +57,9 @@
 		data-testid="composer-primary-delivery-action"
 	>
 		{#if busy || quickScheduleBusy}
-			<LoaderIcon class="size-3.5 shrink-0 animate-spin" />
+			<ProtectedIcon icon="loading" class="size-3.5 shrink-0 animate-spin" />
 		{:else}
-			<CalendarClockIcon class="size-3.5 shrink-0" />
+			<ThemeIcon role="calendar" class="size-3.5 shrink-0" />
 		{/if}
 		<span class="truncate">{quickScheduleLabel}</span>
 	</Button>
@@ -81,17 +77,17 @@
 					aria-label={moreLabel}
 					data-testid="composer-delivery-menu"
 				>
-					<ChevronDownIcon class="size-3.5" />
+					<ThemeIcon role="chevron-down" class="size-3.5" />
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-56" align="end">
 			<DropdownMenu.Item disabled={!canOpenSchedule} onclick={onSchedule}>
-				<CalendarClockIcon class="size-4" />
+				<ThemeIcon role="calendar" class="size-4" />
 				{scheduleLabel}
 			</DropdownMenu.Item>
 			<DropdownMenu.Item disabled={!canPublish} onclick={onPublish}>
-				<SendIcon class="size-4" />
+				<ThemeIcon role="send" class="size-4" />
 				{publishLabel}
 			</DropdownMenu.Item>
 			{#if onDelete}
@@ -103,9 +99,9 @@
 					data-testid="composer-delete"
 				>
 					{#if deleting}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
-						<Trash2Icon class="size-4" />
+						<ThemeIcon role="delete" class="size-4" />
 					{/if}
 					{deleteLabel}
 				</DropdownMenu.Item>

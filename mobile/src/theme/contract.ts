@@ -38,11 +38,6 @@ export const NATIVE_ICON_ROLES = [
   "video",
   "account",
   "notification",
-  "warning",
-  "error",
-  "success",
-  "play",
-  "pause",
   "undo",
   "redo",
 ] as const;

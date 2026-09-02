@@ -1,9 +1,17 @@
 import { expect, test } from "bun:test";
 
 import { createBuiltinThemeContract } from "./builtins";
-import type { NativeThemeManifest } from "./contract";
+import { NATIVE_ICON_ROLES, type NativeThemeManifest } from "./contract";
 import { resolveNativeThemeSymbol } from "./icons";
 import { resolveNativeTheme } from "./runtime";
+
+test("keeps status and media-control glyphs outside organization icon packs", () => {
+  expect(NATIVE_ICON_ROLES).not.toContain("warning");
+  expect(NATIVE_ICON_ROLES).not.toContain("error");
+  expect(NATIVE_ICON_ROLES).not.toContain("success");
+  expect(NATIVE_ICON_ROLES).not.toContain("play");
+  expect(NATIVE_ICON_ROLES).not.toContain("pause");
+});
 
 test("a contract icon-pack mapping changes the native semantic symbol selection", () => {
   const originalContract = createBuiltinThemeContract({

@@ -664,7 +664,11 @@ function Composer({
                   <View
                     style={[styles.thumbOverlay, { backgroundColor: withAlpha(colors.error, 0.6) }]}
                   >
-                    <ThemeIcon role="warning" size={18} tintColor={colors.onError} />
+                    <SymbolView
+                      name={{ ios: "exclamationmark.triangle.fill", android: "warning" }}
+                      size={18}
+                      tintColor={colors.onError}
+                    />
                   </View>
                 ) : null}
               </View>

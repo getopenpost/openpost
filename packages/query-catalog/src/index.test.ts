@@ -217,7 +217,7 @@ describe("OpenPost query catalogue", () => {
   });
 
   it("deduplicates publication reads and passes TanStack's request signal to the API", async () => {
-    const publication = { id: "publication-1" } as Publication;
+    const publication = { id: "publication-1", workspace_id: "workspace-1" } as Publication;
     const getPublication = vi.fn(async () => publication);
     const queryClient = new QueryClient({ defaultOptions: openPostQueryDefaults });
     const options = publicationDetailQueryOptions(

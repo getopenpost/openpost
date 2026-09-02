@@ -1,6 +1,6 @@
 import type { components } from "@openpost/api-contract";
 import type { QueryFunctionContext } from "@tanstack/query-core";
-import { seedPublicationDetail } from "./cache";
+import { capturePublicationListCacheContext, seedPublicationDetail } from "./cache";
 import { openPostWorkspaceKey } from "./keys";
 import { openPostQueryPolicy, queryStaleTime } from "./policies";
 
@@ -105,10 +105,11 @@ export function schedulingPublicationsQueryOptions(
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
+      const listContext = capturePublicationListCacheContext(client, workspaceId);
       const publications = await api.listPublications(workspaceId, normalized, signal);
       signal.throwIfAborted();
       for (const publication of publications) {
-        seedPublicationDetail(client, publication, workspaceId);
+        seedPublicationDetail(client, publication, workspaceId, listContext);
       }
       return publications;
     },

@@ -1,6 +1,11 @@
 import type { QueryFunctionContext } from "@tanstack/query-core";
 import type { OpenPostQueryAPI } from "./api";
-import { seedPublicationDetail } from "./cache";
+import {
+  capturePublicationDetailRequestContext,
+  capturePublicationListCacheContext,
+  reconcilePublicationDetailResponse,
+  seedPublicationDetail,
+} from "./cache";
 import { openPostQueryKeys, type ActivityPublicationBucket, type QueryPage } from "./keys";
 import { capabilityStaleTime, openPostQueryPolicy, queryStaleTime } from "./policies";
 
@@ -14,8 +19,16 @@ export function publicationDetailQueryOptions(
     ...openPostQueryPolicy(queryStaleTime),
     queryKey,
     enabled: Boolean(workspaceId && publicationId),
-    queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
-      api.getPublication(workspaceId, publicationId, signal),
+    queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
+      const requestContext = capturePublicationDetailRequestContext(
+        client,
+        workspaceId,
+        publicationId,
+      );
+      const publication = await api.getPublication(workspaceId, publicationId, signal);
+      signal.throwIfAborted();
+      return reconcilePublicationDetailResponse(client, workspaceId, publication, requestContext);
+    },
   };
 }
 
@@ -32,6 +45,7 @@ export function activityPublicationsQueryOptions(
     queryKey,
     enabled: Boolean(workspaceId),
     queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
+      const listContext = capturePublicationListCacheContext(client, workspaceId);
       const result = await api.listActivityPublications(
         workspaceId,
         bucket,
@@ -40,7 +54,7 @@ export function activityPublicationsQueryOptions(
       );
       signal.throwIfAborted();
       for (const publication of result.items) {
-        seedPublicationDetail(client, publication, workspaceId);
+        seedPublicationDetail(client, publication, workspaceId, listContext);
       }
       return result;
     },

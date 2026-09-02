@@ -55,6 +55,45 @@ describe('composer publication query cache', () => {
 		expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
 		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
 	});
+
+	it('cancels an older list before reconciling a successful mutation', async () => {
+		const stale = publicationFixture();
+		const current = { ...stale, revision: 2, title: 'Current title' };
+		const listKey = schedulingQueryKeys.publications('workspace-1', { status: 'draft' });
+		let resolveList!: (value: Publication[]) => void;
+		let listSignal: AbortSignal | undefined;
+		const listResponse = new Promise<Publication[]>((resolve) => {
+			resolveList = resolve;
+		});
+		const pendingList = queryClient
+			.fetchQuery({
+				queryKey: listKey,
+				queryFn: ({ signal }) => {
+					listSignal = signal;
+					return listResponse;
+				}
+			})
+			.catch(() => undefined);
+		await vi.waitFor(() => expect(listSignal).toBeInstanceOf(AbortSignal));
+		mocks.post.mockResolvedValue({
+			data: current,
+			response: new Response(null, { status: 201 })
+		});
+
+		await createComposerPublicationClient('workspace-1').create('workspace-1', {
+			title: 'Current title',
+			content_profile: '',
+			source_text: 'We shipped it.'
+		});
+		resolveList([stale]);
+		await pendingList;
+
+		expect(listSignal?.aborted).toBe(true);
+		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+		expect(
+			queryClient.getQueryData(openPostQueryKeys.publications.detail('workspace-1', current.id))
+		).toEqual(current);
+	});
 });
 
 function publicationFixture(): Publication {

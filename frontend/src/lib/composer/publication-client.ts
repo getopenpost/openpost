@@ -43,6 +43,7 @@ export function createComposerPublicationClient(workspaceId: string): ComposerPu
 				body: { ...draft, workspace_id: createWorkspaceId }
 			});
 			if (error || !data) throw clientError(error, response.status);
+			await cancelPublicationQueries(createWorkspaceId, data.id);
 			seedPublicationDetail(queryClient, data, createWorkspaceId);
 			await invalidatePublicationLists(createWorkspaceId);
 			return { ...data, draft: publicationDraft(data) };
@@ -54,6 +55,7 @@ export function createComposerPublicationClient(workspaceId: string): ComposerPu
 				body: publicationUpdate(draft, expectedRevision)
 			});
 			if (error || !data) throw clientError(error, response.status);
+			await cancelPublicationQueries(workspaceId, publicationId);
 			seedPublicationDetail(queryClient, data, workspaceId);
 			await invalidatePublicationLists(workspaceId);
 			return data;
@@ -136,7 +138,18 @@ function invalidatePublicationLists(workspaceId: string) {
 	});
 }
 
-function invalidatePublication(workspaceId: string, publicationId: string) {
+async function cancelPublicationQueries(workspaceId: string, publicationId: string) {
+	await Promise.all([
+		queryClient.cancelQueries({
+			queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),
+			exact: true
+		}),
+		queryClient.cancelQueries({ queryKey: openPostQueryKeys.publications.list(workspaceId) })
+	]);
+}
+
+async function invalidatePublication(workspaceId: string, publicationId: string) {
+	await cancelPublicationQueries(workspaceId, publicationId);
 	return Promise.all([
 		queryClient.invalidateQueries({
 			queryKey: openPostQueryKeys.publications.detail(workspaceId, publicationId),

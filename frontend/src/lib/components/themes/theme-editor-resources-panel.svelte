@@ -5,9 +5,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import { getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { THEME_ASSET_SLOTS, type ThemeAssetSlot, type ThemeManifest } from '$lib/themes';
 	import { isThemeFontInUse, themeCodePointLength } from './theme-editor-model';
-	import { humanizeThemeToken } from './theme-editor-presenter';
+	import {
+		themeEditorTokenLabel,
+		themeEditorValueLabel,
+		parseThemeExternalErrorMessage
+	} from './theme-editor-presenter';
 	import type { ThemeFontUploadInput, ThemeResourceActions } from './theme-editor-types';
 
 	const MAX_THEME_FONT_BYTES = 2 * 1024 * 1024;
@@ -20,9 +25,18 @@
 		onAdopt: (theme: ThemeManifest, message: string) => void;
 		onError: (message: string) => void;
 		onPendingChange: (operation: 'upload-font' | 'upload-asset' | 'remove-resource' | null) => void;
+		locale?: Locale;
 	}
 
-	let { theme, busy = false, actions = {}, onAdopt, onError, onPendingChange }: Props = $props();
+	let {
+		theme,
+		busy = false,
+		actions = {},
+		onAdopt,
+		onError,
+		onPendingChange,
+		locale = getLocale()
+	}: Props = $props();
 
 	let fontFamily = $state('');
 	let fontWeight = $state(400);
@@ -85,7 +99,7 @@
 			fontFamily = '';
 			licenseAcknowledged = false;
 		} catch (error) {
-			onError(error instanceof Error ? error.message : m.theme_editor_font_upload_failed());
+			onError(parseThemeExternalErrorMessage(error, m.theme_editor_font_upload_failed(), locale));
 		} finally {
 			onPendingChange(null);
 		}
@@ -105,10 +119,13 @@
 				{ slot: assetSlot, alt: assetAlt.trim() },
 				structuredClone($state.snapshot(theme))
 			);
-			onAdopt(result, m.theme_editor_asset_uploaded({ asset: humanizeThemeToken(assetSlot) }));
+			onAdopt(
+				result,
+				m.theme_editor_asset_uploaded({ asset: themeEditorTokenLabel(assetSlot, locale) })
+			);
 			assetAlt = '';
 		} catch (error) {
-			onError(error instanceof Error ? error.message : m.theme_editor_image_upload_failed());
+			onError(parseThemeExternalErrorMessage(error, m.theme_editor_image_upload_failed(), locale));
 		} finally {
 			onPendingChange(null);
 		}
@@ -127,7 +144,9 @@
 			deleteDialogOpen = false;
 			deleteCandidate = null;
 		} catch (error) {
-			onError(error instanceof Error ? error.message : m.theme_editor_resource_remove_failed());
+			onError(
+				parseThemeExternalErrorMessage(error, m.theme_editor_resource_remove_failed(), locale)
+			);
 		} finally {
 			onPendingChange(null);
 		}
@@ -160,10 +179,10 @@
 			<label class="grid gap-1.5 text-xs font-medium">
 				{m.theme_editor_style()}
 				<Select.Root bind:value={fontStyle}>
-					<Select.Trigger class="w-full">{fontStyle}</Select.Trigger>
+					<Select.Trigger class="w-full">{themeEditorValueLabel(fontStyle, locale)}</Select.Trigger>
 					<Select.Content>
-						<Select.Item value="normal">normal</Select.Item>
-						<Select.Item value="italic">italic</Select.Item>
+						<Select.Item value="normal">{themeEditorValueLabel('normal', locale)}</Select.Item>
+						<Select.Item value="italic">{themeEditorValueLabel('italic', locale)}</Select.Item>
 					</Select.Content>
 				</Select.Root>
 			</label>
@@ -171,11 +190,11 @@
 		<label class="grid gap-1.5 text-xs font-medium">
 			{m.theme_editor_loading()}
 			<Select.Root bind:value={fontDisplay}>
-				<Select.Trigger class="w-full">{fontDisplay}</Select.Trigger>
+				<Select.Trigger class="w-full">{themeEditorValueLabel(fontDisplay, locale)}</Select.Trigger>
 				<Select.Content>
-					<Select.Item value="swap">swap</Select.Item>
-					<Select.Item value="fallback">fallback</Select.Item>
-					<Select.Item value="optional">optional</Select.Item>
+					<Select.Item value="swap">{themeEditorValueLabel('swap', locale)}</Select.Item>
+					<Select.Item value="fallback">{themeEditorValueLabel('fallback', locale)}</Select.Item>
+					<Select.Item value="optional">{themeEditorValueLabel('optional', locale)}</Select.Item>
 				</Select.Content>
 			</Select.Root>
 		</label>
@@ -216,10 +235,10 @@
 		<label class="grid gap-1.5 text-xs font-medium">
 			{m.theme_editor_slot()}
 			<Select.Root bind:value={assetSlot}>
-				<Select.Trigger class="w-full">{assetSlot}</Select.Trigger>
+				<Select.Trigger class="w-full">{themeEditorTokenLabel(assetSlot, locale)}</Select.Trigger>
 				<Select.Content>
 					{#each THEME_ASSET_SLOTS as slot (slot)}
-						<Select.Item value={slot}>{humanizeThemeToken(slot)}</Select.Item>
+						<Select.Item value={slot}>{themeEditorTokenLabel(slot, locale)}</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
@@ -251,7 +270,7 @@
 		{/if}
 		{#if assetSlotInUse}
 			<p class="text-xs text-warning">
-				{m.theme_editor_slot_in_use({ slot: humanizeThemeToken(assetSlot).toLowerCase() })}
+				{m.theme_editor_slot_in_use({ slot: themeEditorTokenLabel(assetSlot, locale) })}
 			</p>
 		{/if}
 	</div>
@@ -264,7 +283,9 @@
 						{'family' in resource ? resource.family : resource.alt || resource.id}
 					</p>
 					<p class="text-xs text-muted-foreground">
-						{'format' in resource ? m.theme_editor_font() : resource.slot}
+						{'format' in resource
+							? m.theme_editor_font()
+							: themeEditorTokenLabel(resource.slot, locale)}
 					</p>
 				</div>
 				<Button

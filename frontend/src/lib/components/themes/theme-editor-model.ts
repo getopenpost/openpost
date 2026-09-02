@@ -22,6 +22,57 @@ export const THEME_EDITOR_SECTIONS = [
 
 export type ThemeEditorSection = (typeof THEME_EDITOR_SECTIONS)[number];
 
+export type ThemeEditorValidationCode =
+	| 'scheme_unsupported'
+	| 'scheme_not_shared'
+	| 'theme_id'
+	| 'theme_name'
+	| 'manifest_size'
+	| 'invalid_json'
+	| 'manifest_object'
+	| 'schema_version'
+	| 'id'
+	| 'revision'
+	| 'name'
+	| 'description'
+	| 'icon_pack'
+	| 'supported_schemes_empty'
+	| 'unsupported_scheme'
+	| 'duplicate_scheme'
+	| 'incomplete_scheme'
+	| 'undeclared_scheme'
+	| 'scheme_order'
+	| 'resource_arrays'
+	| 'character_limit'
+	| 'unknown_fields'
+	| 'required_field'
+	| 'resource_limit'
+	| 'invalid_font'
+	| 'duplicate_font'
+	| 'invalid_asset'
+	| 'duplicate_asset'
+	| 'missing_font_face'
+	| 'random_seed';
+
+export class ThemeEditorValidationError extends Error {
+	constructor(
+		readonly code: ThemeEditorValidationCode,
+		readonly values: Readonly<Record<string, string | number>>,
+		message: string
+	) {
+		super(message);
+		this.name = 'ThemeEditorValidationError';
+	}
+}
+
+function validationError(
+	code: ThemeEditorValidationCode,
+	message: string,
+	values: Readonly<Record<string, string | number>> = {}
+) {
+	return new ThemeEditorValidationError(code, values, message);
+}
+
 export function updateThemeSectionValue<
 	Section extends ThemeEditorSection,
 	Key extends keyof ThemeSchemeManifest[Section]
@@ -34,7 +85,12 @@ export function updateThemeSectionValue<
 ): ThemeManifest {
 	const next = structuredClone(manifest);
 	const schemeManifest = next.schemes[scheme];
-	if (!schemeManifest) throw new Error(`${scheme} is not supported by ${manifest.name}`);
+	if (!schemeManifest) {
+		throw validationError('scheme_unsupported', `${scheme} is not supported by ${manifest.name}`, {
+			scheme,
+			name: manifest.name
+		});
+	}
 	(schemeManifest[section][key] as ThemeSchemeManifest[Section][Key]) = value;
 	return next;
 }
@@ -48,7 +104,11 @@ export function resetThemeSection(
 	const next = structuredClone(manifest);
 	const sourceScheme = baseline.schemes[scheme];
 	const targetScheme = next.schemes[scheme];
-	if (!sourceScheme || !targetScheme) throw new Error(`${scheme} is not available in both themes`);
+	if (!sourceScheme || !targetScheme) {
+		throw validationError('scheme_not_shared', `${scheme} is not available in both themes`, {
+			scheme
+		});
+	}
 	targetScheme[section] = structuredClone(sourceScheme[section]) as never;
 	return next;
 }
@@ -61,10 +121,10 @@ export function duplicateThemeManifest(
 	const normalizedID = id.trim();
 	const normalizedName = name.trim();
 	if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(normalizedID)) {
-		throw new Error('Theme ID must use lowercase letters, numbers, and hyphens');
+		throw validationError('theme_id', 'Theme ID must use lowercase letters, numbers, and hyphens');
 	}
 	if (normalizedName.length === 0 || themeCodePointLength(normalizedName) > 80) {
-		throw new Error('Theme name must contain 1 to 80 characters');
+		throw validationError('theme_name', 'Theme name must contain 1 to 80 characters');
 	}
 	return {
 		...structuredClone(manifest),
@@ -80,15 +140,17 @@ export function serializeThemeManifest(manifest: ThemeManifest): string {
 
 export function parseThemeManifest(source: string): ThemeManifest {
 	if (new TextEncoder().encode(source).byteLength > 256 * 1024) {
-		throw new Error('Manifest must be no larger than 256 KiB');
+		throw validationError('manifest_size', 'Manifest must be no larger than 256 KiB');
 	}
 	let candidate: unknown;
 	try {
 		candidate = JSON.parse(source);
-	} catch (error) {
-		throw new Error(error instanceof Error ? error.message : 'Manifest is not valid JSON');
+	} catch {
+		throw validationError('invalid_json', 'Manifest is not valid JSON');
 	}
-	if (!candidate || typeof candidate !== 'object') throw new Error('Manifest must be an object');
+	if (!candidate || typeof candidate !== 'object') {
+		throw validationError('manifest_object', 'Manifest must be an object');
+	}
 	const value = candidate as Partial<ThemeManifest>;
 	const rootKeys = [
 		'schemaVersion',
@@ -103,56 +165,70 @@ export function parseThemeManifest(source: string): ThemeManifest {
 		'assets'
 	];
 	assertExactRootKeys(value, rootKeys);
-	if (value.schemaVersion !== 1) throw new Error('schemaVersion must be 1');
+	if (value.schemaVersion !== 1) throw validationError('schema_version', 'schemaVersion must be 1');
 	if (typeof value.id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(value.id)) {
-		throw new Error('id must be a stable identifier');
+		throw validationError('id', 'id must be a stable identifier');
 	}
 	if (
 		typeof value.revision !== 'string' ||
 		value.revision.length > 128 ||
 		!/^[a-zA-Z0-9][a-zA-Z0-9 _.-]*$/.test(value.revision)
 	) {
-		throw new Error('revision must be a stable identifier');
+		throw validationError('revision', 'revision must be a stable identifier');
 	}
 	if (
 		typeof value.name !== 'string' ||
 		value.name.trim() === '' ||
 		themeCodePointLength(value.name) > 80
 	) {
-		throw new Error('name must contain 1 to 80 characters');
+		throw validationError('name', 'name must contain 1 to 80 characters');
 	}
 	if (typeof value.description !== 'string' || themeCodePointLength(value.description) > 240) {
-		throw new Error('description must contain at most 240 characters');
+		throw validationError('description', 'description must contain at most 240 characters');
 	}
 	if (!THEME_ICON_PACK_IDS.includes(value.iconPack as (typeof THEME_ICON_PACK_IDS)[number])) {
-		throw new Error('iconPack is not supported');
+		throw validationError('icon_pack', 'iconPack is not supported');
 	}
 	if (!Array.isArray(value.supportedSchemes) || value.supportedSchemes.length === 0) {
-		throw new Error('supportedSchemes must include light or dark');
+		throw validationError('supported_schemes_empty', 'supportedSchemes must include light or dark');
 	}
 	const uniqueSchemes = new Set<ThemeScheme>();
 	for (const scheme of value.supportedSchemes) {
-		if (scheme !== 'light' && scheme !== 'dark')
-			throw new Error(`${String(scheme)} is not a supported scheme`);
-		if (uniqueSchemes.has(scheme)) throw new Error(`${scheme} is listed more than once`);
+		if (scheme !== 'light' && scheme !== 'dark') {
+			throw validationError('unsupported_scheme', `${String(scheme)} is not a supported scheme`, {
+				scheme: String(scheme)
+			});
+		}
+		if (uniqueSchemes.has(scheme)) {
+			throw validationError('duplicate_scheme', `${scheme} is listed more than once`, { scheme });
+		}
 		uniqueSchemes.add(scheme);
 		if (!isCompleteThemeSchemeManifest(value.schemes?.[scheme], scheme)) {
-			throw new Error(`${scheme} must contain a complete manifest`);
+			throw validationError('incomplete_scheme', `${scheme} must contain a complete manifest`, {
+				scheme
+			});
 		}
 	}
 	for (const scheme of ['light', 'dark'] as const) {
 		if (value.schemes?.[scheme] && !uniqueSchemes.has(scheme)) {
-			throw new Error(`${scheme} has values but is not declared as supported`);
+			throw validationError(
+				'undeclared_scheme',
+				`${scheme} has values but is not declared as supported`,
+				{ scheme }
+			);
 		}
 	}
 	const declaredSchemes = ['light', 'dark'].filter(
 		(scheme) => value.schemes?.[scheme as ThemeScheme]
 	);
 	if (value.supportedSchemes.join(',') !== declaredSchemes.join(',')) {
-		throw new Error('supportedSchemes must follow the light, dark manifest order');
+		throw validationError(
+			'scheme_order',
+			'supportedSchemes must follow the light, dark manifest order'
+		);
 	}
 	if (!Array.isArray(value.fonts) || !Array.isArray(value.assets)) {
-		throw new Error('fonts and assets must be arrays');
+		throw validationError('resource_arrays', 'fonts and assets must be arrays');
 	}
 	validateManifestResources(value as ThemeManifest);
 	return structuredClone(value as ThemeManifest);
@@ -175,7 +251,7 @@ export function themeCodePointLength(value: string): number {
 
 export function takeThemeCodePoints(value: string, maximum: number): string {
 	if (!Number.isInteger(maximum) || maximum < 0) {
-		throw new Error('Character limit must be a non-negative integer');
+		throw validationError('character_limit', 'Character limit must be a non-negative integer');
 	}
 	return [...value].slice(0, maximum).join('');
 }
@@ -184,15 +260,23 @@ function assertExactRootKeys(value: object, expectedKeys: string[]) {
 	const actual = new Set(Object.keys(value));
 	const unexpected = Object.keys(value).filter((key) => !expectedKeys.includes(key));
 	if (unexpected.length > 0) {
-		throw new Error(`Manifest contains unknown or missing fields: ${unexpected.join(', ')}`);
+		throw validationError(
+			'unknown_fields',
+			`Manifest contains unknown or missing fields: ${unexpected.join(', ')}`,
+			{ fields: unexpected.join(', ') }
+		);
 	}
 	const missing = expectedKeys.find((key) => !actual.has(key));
-	if (missing) throw new Error(`${missing} is required`);
+	if (missing)
+		throw validationError('required_field', `${missing} is required`, { field: missing });
 }
 
 function validateManifestResources(manifest: ThemeManifest) {
 	if (manifest.fonts.length > 16 || manifest.assets.length > THEME_ASSET_SLOTS.length) {
-		throw new Error('resources contains too many fonts or decorative assets');
+		throw validationError(
+			'resource_limit',
+			'resources contains too many fonts or decorative assets'
+		);
 	}
 	const resourceIDs = new Set<string>();
 	const fontFaceKeys = new Set<string>();
@@ -211,11 +295,15 @@ function validateManifestResources(manifest: ThemeManifest) {
 			!['normal', 'italic'].includes(font.style) ||
 			!['swap', 'fallback', 'optional'].includes(font.display)
 		) {
-			throw new Error(`fonts[${index}] contains an invalid font face or resource reference`);
+			throw validationError(
+				'invalid_font',
+				`fonts[${index}] contains an invalid font face or resource reference`,
+				{ index }
+			);
 		}
 		const faceKey = `${font.family}:${font.weight}:${font.style}`;
 		if (resourceIDs.has(font.id) || fontFaceKeys.has(faceKey)) {
-			throw new Error('resources contains duplicate IDs or font faces');
+			throw validationError('duplicate_font', 'resources contains duplicate IDs or font faces');
 		}
 		resourceIDs.add(font.id);
 		fontFaceKeys.add(faceKey);
@@ -239,12 +327,14 @@ function validateManifestResources(manifest: ThemeManifest) {
 			(asset.alt ? themeCodePointLength(asset.alt) : 0) > 240 ||
 			(asset.slot.endsWith('illustration') && !asset.alt?.trim())
 		) {
-			throw new Error(
-				`assets[${index}] contains an invalid decorative asset or resource reference`
+			throw validationError(
+				'invalid_asset',
+				`assets[${index}] contains an invalid decorative asset or resource reference`,
+				{ index }
 			);
 		}
 		if (resourceIDs.has(asset.id) || usedSlots.has(asset.slot)) {
-			throw new Error('resources contains duplicate IDs or asset slots');
+			throw validationError('duplicate_asset', 'resources contains duplicate IDs or asset slots');
 		}
 		resourceIDs.add(asset.id);
 		usedSlots.add(asset.slot);
@@ -263,7 +353,11 @@ function validateManifestResources(manifest: ThemeManifest) {
 						font.style === 'normal'
 				)
 			) {
-				throw new Error(`${scheme} ${role} has no matching bundled or uploaded font face`);
+				throw validationError(
+					'missing_font_face',
+					`${scheme} ${role} has no matching bundled or uploaded font face`,
+					{ scheme, role }
+				);
 			}
 		}
 	}
@@ -327,10 +421,17 @@ export function randomizeThemeManifest(
 	seed: number,
 	section?: ThemeEditorSection
 ): ThemeManifest {
-	if (!Number.isSafeInteger(seed)) throw new Error('Randomization seed must be a safe integer');
+	if (!Number.isSafeInteger(seed)) {
+		throw validationError('random_seed', 'Randomization seed must be a safe integer');
+	}
 	const next = structuredClone(manifest);
 	const target = next.schemes[scheme];
-	if (!target) throw new Error(`${scheme} is not supported by ${manifest.name}`);
+	if (!target) {
+		throw validationError('scheme_unsupported', `${scheme} is not supported by ${manifest.name}`, {
+			scheme,
+			name: manifest.name
+		});
+	}
 	const random = seededRandom(seed);
 	const shouldChange = (candidate: ThemeEditorSection) =>
 		section === undefined || section === candidate;

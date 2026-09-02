@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { switchLocale } from '$lib/i18n';
+import { m } from '$lib/paraglide/messages';
 import { getBuiltInTheme } from '$lib/themes';
 import ThemeEditor from './theme-editor.svelte';
 import { duplicateThemeManifest } from './theme-editor-model';
+import { themePreviewCopy } from './theme-preview-copy';
 import '../../../routes/layout.css';
 
 function previewFrame(element: Element): HTMLIFrameElement {
@@ -13,6 +16,8 @@ function previewFrame(element: Element): HTMLIFrameElement {
 }
 
 describe('ThemeEditor', () => {
+	afterEach(() => switchLocale('en', { reload: false }));
+
 	it('labels editor modes, schemes, and preview controls as distinct groups', async () => {
 		const initialTheme = duplicateThemeManifest(
 			getBuiltInTheme('workshop'),
@@ -93,9 +98,9 @@ describe('ThemeEditor', () => {
 		);
 		const screen = render(ThemeEditor, { initialTheme });
 
-		await screen.getByRole('button', { name: /Dark fallback/ }).click();
+		await screen.getByRole('button', { name: /Dark Fallback/ }).click();
 		await expect.element(screen.getByText('This theme does not support dark.')).toBeVisible();
-		await expect.element(screen.getByText('Workshop dark fallback')).toBeVisible();
+		await expect.element(screen.getByText('Workshop fallback · dark')).toBeVisible();
 	});
 
 	it('keeps scheme order canonical when light is added to a dark-only theme', async () => {
@@ -107,7 +112,7 @@ describe('ThemeEditor', () => {
 		);
 		const screen = render(ThemeEditor, { initialTheme, onSave });
 
-		await screen.getByRole('button', { name: /Light fallback/ }).click();
+		await screen.getByRole('button', { name: /Light Fallback/ }).click();
 		await screen.getByRole('button', { name: 'Add light' }).click();
 		await screen.getByLabelText('Canvas').fill('#F1F5FF');
 		await screen.getByRole('button', { name: 'Reset section' }).click();
@@ -342,5 +347,27 @@ describe('ThemeEditor', () => {
 			})
 		);
 		await expect.element(screen.getByText('No uploaded resources.')).toBeVisible();
+	});
+
+	it('updates an already mounted editor and its preview after the app locale changes', async () => {
+		const initialTheme = duplicateThemeManifest(
+			getBuiltInTheme('workshop'),
+			'northstar',
+			'Northstar'
+		);
+		const screen = render(ThemeEditor, { initialTheme });
+		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
+
+		switchLocale('pt', { reload: false });
+
+		await expect
+			.element(screen.getByRole('group', { name: m.theme_editor_mode({}, { locale: 'pt' }) }))
+			.toBeVisible();
+		await expect
+			.poll(() => {
+				const frame = screen.getByTestId('theme-preview').element();
+				return frame instanceof HTMLIFrameElement ? frame.contentDocument?.body.textContent : '';
+			})
+			.toContain(themePreviewCopy('pt').scenes.dashboard.eyebrow);
 	});
 });

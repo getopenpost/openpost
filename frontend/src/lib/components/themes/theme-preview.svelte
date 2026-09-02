@@ -5,7 +5,9 @@
 </script>
 
 <script lang="ts">
-	import { mount, unmount, untrack } from 'svelte';
+	import { mount, onMount, unmount, untrack } from 'svelte';
+	import { getCurrentLocale, onLocaleChange } from '$lib/i18n';
+	import type { Locale } from '$lib/paraglide/runtime';
 	import {
 		mountThemePreviewDocument,
 		type ThemePreviewDocument,
@@ -25,6 +27,7 @@
 		label: string;
 		interactive?: boolean;
 		runtime?: WebThemeRuntime;
+		locale?: Locale;
 		class?: string;
 	}
 
@@ -35,9 +38,11 @@
 		label,
 		interactive = false,
 		runtime,
+		locale: requestedLocale,
 		class: className = ''
 	}: Props = $props();
 
+	let activeLocale = $state(untrack(() => requestedLocale ?? getCurrentLocale()));
 	let frame: HTMLIFrameElement | undefined = $state();
 	let preview: ThemePreviewDocument | undefined = $state();
 	let sceneInstance: ReturnType<typeof mount> | undefined;
@@ -48,10 +53,12 @@
 		theme: WebResolvedTheme;
 		scene: ThemePreviewSceneValue;
 		interactive: boolean;
+		locale: Locale;
 	}>({
 		theme: untrack(() => theme),
 		scene: untrack(() => scene),
-		interactive: untrack(() => interactive)
+		interactive: untrack(() => interactive),
+		locale: untrack(() => activeLocale)
 	});
 
 	const viewportWidth = $derived(
@@ -62,7 +69,16 @@
 	$effect(() => {
 		sceneProps.scene = scene;
 		sceneProps.interactive = interactive;
+		sceneProps.locale = activeLocale;
 	});
+	$effect(() => {
+		if (requestedLocale) activeLocale = requestedLocale;
+	});
+	onMount(() =>
+		onLocaleChange((locale) => {
+			if (!requestedLocale) activeLocale = locale;
+		})
+	);
 
 	function applyTheme(mountedPreview: ThemePreviewDocument, nextTheme: WebResolvedTheme) {
 		const generation = ++applyGeneration;

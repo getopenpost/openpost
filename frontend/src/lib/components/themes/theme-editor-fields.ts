@@ -1,5 +1,6 @@
-import type { ThemeColorToken, ThemeComponentRecipe } from '$lib/themes';
 import { m } from '$lib/paraglide/messages';
+import { getLocale, type Locale } from '$lib/paraglide/runtime';
+import type { ThemeColorToken, ThemeComponentRecipe } from '$lib/themes';
 
 export interface ThemeEditorFieldGroup<Field extends string> {
 	id: string;
@@ -8,11 +9,18 @@ export interface ThemeEditorFieldGroup<Field extends string> {
 	fields: readonly Field[];
 }
 
-export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>[] = [
+interface ThemeEditorFieldGroupDefinition<Field extends string> {
+	id: string;
+	label: (locale: Locale) => string;
+	description: (locale: Locale) => string;
+	fields: readonly Field[];
+}
+
+const colorGroupDefinitions: readonly ThemeEditorFieldGroupDefinition<ThemeColorToken>[] = [
 	{
 		id: 'foundation',
-		label: m.theme_editor_group_foundation(),
-		description: m.theme_editor_group_foundation_description(),
+		label: (locale) => m.theme_editor_group_foundation({}, { locale }),
+		description: (locale) => m.theme_editor_group_foundation_description({}, { locale }),
 		fields: [
 			'canvas',
 			'ink',
@@ -31,14 +39,14 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'identity',
-		label: m.theme_editor_group_identity(),
-		description: m.theme_editor_group_identity_description(),
+		label: (locale) => m.theme_editor_group_identity({}, { locale }),
+		description: (locale) => m.theme_editor_group_identity_description({}, { locale }),
 		fields: ['brand', 'brandInk', 'workspace', 'workspaceInk']
 	},
 	{
 		id: 'feedback',
-		label: m.theme_editor_group_feedback(),
-		description: m.theme_editor_group_feedback_description(),
+		label: (locale) => m.theme_editor_group_feedback({}, { locale }),
+		description: (locale) => m.theme_editor_group_feedback_description({}, { locale }),
 		fields: [
 			'danger',
 			'dangerInk',
@@ -52,8 +60,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'actions',
-		label: m.theme_editor_group_actions(),
-		description: m.theme_editor_group_actions_description(),
+		label: (locale) => m.theme_editor_group_actions({}, { locale }),
+		description: (locale) => m.theme_editor_group_actions_description({}, { locale }),
 		fields: [
 			'actionFocal',
 			'actionFocalInk',
@@ -82,8 +90,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'controls',
-		label: m.theme_editor_group_controls(),
-		description: m.theme_editor_group_controls_description(),
+		label: (locale) => m.theme_editor_group_controls({}, { locale }),
+		description: (locale) => m.theme_editor_group_controls_description({}, { locale }),
 		fields: [
 			'disabled',
 			'disabledInk',
@@ -99,8 +107,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'chrome',
-		label: m.theme_editor_group_chrome(),
-		description: m.theme_editor_group_chrome_description(),
+		label: (locale) => m.theme_editor_group_chrome({}, { locale }),
+		description: (locale) => m.theme_editor_group_chrome_description({}, { locale }),
 		fields: [
 			'navigationHover',
 			'navigationActive',
@@ -120,41 +128,62 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'charts',
-		label: m.theme_editor_group_charts(),
-		description: m.theme_editor_group_charts_description(),
+		label: (locale) => m.theme_editor_group_charts({}, { locale }),
+		description: (locale) => m.theme_editor_group_charts_description({}, { locale }),
 		fields: ['chart1', 'chart2', 'chart3', 'chart4', 'chart5']
 	}
 ];
 
-export const THEME_COMPONENT_GROUPS: readonly ThemeEditorFieldGroup<ThemeComponentRecipe>[] = [
-	{
-		id: 'actions-navigation',
-		label: m.theme_editor_group_actions_navigation(),
-		description: m.theme_editor_group_actions_navigation_description(),
-		fields: ['button', 'link', 'tabs', 'navigation']
-	},
-	{
-		id: 'form-controls',
-		label: m.theme_editor_group_form_controls(),
-		description: m.theme_editor_group_form_controls_description(),
-		fields: ['input', 'select', 'switch', 'checkbox', 'radio']
-	},
-	{
-		id: 'content',
-		label: m.theme_editor_group_content(),
-		description: m.theme_editor_group_content_description(),
-		fields: ['card', 'container', 'table', 'list', 'badge', 'chip', 'pagination']
-	},
-	{
-		id: 'temporary-layers',
-		label: m.theme_editor_group_layers(),
-		description: m.theme_editor_group_layers_description(),
-		fields: ['dialog', 'popover', 'toast', 'toolbar']
-	},
-	{
-		id: 'states-decoration',
-		label: m.theme_editor_group_states(),
-		description: m.theme_editor_group_states_description(),
-		fields: ['emptyState', 'loadingState', 'editorChrome', 'decoration']
-	}
-];
+const componentGroupDefinitions: readonly ThemeEditorFieldGroupDefinition<ThemeComponentRecipe>[] =
+	[
+		{
+			id: 'actions-navigation',
+			label: (locale) => m.theme_editor_group_actions_navigation({}, { locale }),
+			description: (locale) => m.theme_editor_group_actions_navigation_description({}, { locale }),
+			fields: ['button', 'link', 'tabs', 'navigation']
+		},
+		{
+			id: 'form-controls',
+			label: (locale) => m.theme_editor_group_form_controls({}, { locale }),
+			description: (locale) => m.theme_editor_group_form_controls_description({}, { locale }),
+			fields: ['input', 'select', 'switch', 'checkbox', 'radio']
+		},
+		{
+			id: 'content',
+			label: (locale) => m.theme_editor_group_content({}, { locale }),
+			description: (locale) => m.theme_editor_group_content_description({}, { locale }),
+			fields: ['card', 'container', 'table', 'list', 'badge', 'chip', 'pagination']
+		},
+		{
+			id: 'temporary-layers',
+			label: (locale) => m.theme_editor_group_layers({}, { locale }),
+			description: (locale) => m.theme_editor_group_layers_description({}, { locale }),
+			fields: ['dialog', 'popover', 'toast', 'toolbar']
+		},
+		{
+			id: 'states-decoration',
+			label: (locale) => m.theme_editor_group_states({}, { locale }),
+			description: (locale) => m.theme_editor_group_states_description({}, { locale }),
+			fields: ['emptyState', 'loadingState', 'editorChrome', 'decoration']
+		}
+	];
+
+function localizeGroups<Field extends string>(
+	definitions: readonly ThemeEditorFieldGroupDefinition<Field>[],
+	locale: Locale
+): readonly ThemeEditorFieldGroup<Field>[] {
+	return definitions.map((group) => ({
+		id: group.id,
+		label: group.label(locale),
+		description: group.description(locale),
+		fields: group.fields
+	}));
+}
+
+export function themeColorGroups(locale: Locale = getLocale()) {
+	return localizeGroups(colorGroupDefinitions, locale);
+}
+
+export function themeComponentGroups(locale: Locale = getLocale()) {
+	return localizeGroups(componentGroupDefinitions, locale);
+}

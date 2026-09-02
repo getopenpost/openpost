@@ -1,40 +1,28 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type { WebResolvedTheme } from '$lib/themes';
+	import { themePreviewCopy } from './theme-preview-copy.js';
 	import type { ThemePreviewScene } from './theme-preview-types.js';
 
 	interface Props {
 		theme: WebResolvedTheme;
 		scene?: ThemePreviewScene;
 		interactive?: boolean;
+		locale?: Locale;
 	}
 
-	let { theme, scene = 'dashboard', interactive = false }: Props = $props();
-	const sceneCopy = {
-		shell: { eyebrow: 'Workspace shell', title: 'Northstar' },
-		dashboard: { eyebrow: 'Good afternoon', title: 'Keep the week moving' },
-		cards: { eyebrow: 'Content library', title: 'Ideas in motion' },
-		composer: { eyebrow: 'New publication', title: 'Share the launch' },
-		calendar: { eyebrow: 'Publishing plan', title: 'September' },
-		tables: { eyebrow: 'Performance', title: 'Published content' },
-		settings: { eyebrow: 'Workspace settings', title: 'Northstar' },
-		forms: { eyebrow: 'Workspace details', title: 'Profile and defaults' },
-		dialog: { eyebrow: 'Confirmation', title: 'Dialog and overlay' },
-		notices: { eyebrow: 'System feedback', title: 'Notices and status' },
-		empty: { eyebrow: 'First-run state', title: 'Nothing scheduled yet' },
-		loading: { eyebrow: 'Loading state', title: 'Preparing your workspace' },
-		'image-editor': { eyebrow: 'Image editor', title: 'Protected editor chrome' },
-		'video-editor': { eyebrow: 'Video editor', title: 'Protected editor chrome' }
-	} satisfies Record<ThemePreviewScene, { eyebrow: string; title: string }>;
+	let { theme, scene = 'dashboard', interactive = false, locale = getLocale() }: Props = $props();
 	const createActionScenes = new Set<ThemePreviewScene>([
 		'dashboard',
 		'cards',
 		'calendar',
 		'tables'
 	]);
-	const activeCopy = $derived(sceneCopy[scene]);
+	const copy = $derived(themePreviewCopy(locale));
+	const activeCopy = $derived(copy.scenes[scene]);
 	const emptyStateAsset = $derived(
 		theme.assets.find((asset) => asset.slot === 'empty-state-illustration')
 	);
@@ -60,8 +48,8 @@
 			style="width: min(var(--theme-sidebar-width, 16rem), 34%);"
 		>
 			<Logo showText width={92} height={20} class="mb-5" />
-			<nav class="space-y-1" aria-label="Preview navigation">
-				{#each [['Home', 'home'], ['Compose', 'compose'], ['Calendar', 'calendar'], ['Media', 'media']] as item, index (item[0])}
+			<nav class="space-y-1" aria-label={copy.previewNavigation}>
+				{#each copy.desktopNavigation as item, index (item.role)}
 					<div
 						data-theme-type="label"
 						class={[
@@ -71,20 +59,17 @@
 								: 'text-sidebar-foreground/65'
 						]}
 					>
-						<ThemeIcon
-							role={item[1] as 'home' | 'compose' | 'calendar' | 'media'}
-							class="size-3.5"
-						/>
-						{item[0]}
+						<ThemeIcon role={item.role} class="size-3.5" />
+						{item.label}
 					</div>
 				{/each}
 			</nav>
 			<div
 				class="mt-auto rounded-[var(--theme-radius-md,var(--radius))] border border-sidebar-border p-2"
 			>
-				<p data-theme-type="label">Northstar</p>
+				<p data-theme-type="label">{copy.workspaceName}</p>
 				<p data-theme-type="metadata" class="mt-0.5 text-sidebar-foreground/60">
-					3 scheduled today
+					{copy.scheduledToday}
 				</p>
 			</div>
 		</aside>
@@ -103,11 +88,11 @@
 					class="preview-desktop-meta flex items-center gap-2 text-muted-foreground"
 				>
 					<span class="size-1.5 rounded-full bg-success"></span>
-					All systems ready
+					{copy.allSystemsReady}
 				</div>
 				<div class="ml-auto flex items-center gap-2">
 					<span data-theme-type="metadata" class="hidden text-muted-foreground sm:inline"
-						>Sep 12</span
+						>{copy.date}</span
 					>
 					<div
 						data-theme-type="label"
@@ -180,7 +165,7 @@
 						</div>
 						{#if showCreateAction}
 							<Button size="sm" intent="focal" disabled={!interactive}
-								><ThemeIcon role="compose" class="size-3.5" /> Create post</Button
+								><ThemeIcon role="compose" class="size-3.5" /> {copy.createPost}</Button
 							>
 						{/if}
 					</div>
@@ -190,23 +175,23 @@
 							data-slot="card"
 							class="rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card p-3 shadow-[var(--theme-shadow-card,none)]"
 						>
-							<p id="preview-composer-label" data-theme-type="label">Draft</p>
+							<p id="preview-composer-label" data-theme-type="label">{copy.draft}</p>
 							<div
 								id="preview-composer"
 								role="textbox"
 								aria-readonly="true"
 								aria-labelledby="preview-composer-label"
+								data-preview-copy="composer-body"
 								data-theme-type="body"
 								class="mt-2 min-h-28 rounded-[var(--theme-radius-md,var(--radius))] border border-input bg-background p-3"
 							>
-								We rebuilt the onboarding path around one clear first win. Here is what changed and
-								what we learned.
+								{copy.composerBody}
 							</div>
 							<div class="mt-3 flex items-center justify-between gap-2">
 								<span data-theme-type="metadata" class="text-muted-foreground"
-									>LinkedIn · Bluesky · Threads</span
+									>{copy.composerDestinations}</span
 								>
-								<Button size="sm" intent="primary" disabled={!interactive}>Review</Button>
+								<Button size="sm" intent="primary" disabled={!interactive}>{copy.review}</Button>
 							</div>
 						</section>
 					{:else if scene === 'calendar'}
@@ -229,9 +214,9 @@
 								class="grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card p-4"
 							>
 								<div>
-									<p data-theme-type="label">One workspace, one complete visual system</p>
+									<p data-theme-type="label">{copy.shellStatement}</p>
 									<p data-theme-type="body" class="mt-1 max-w-md text-muted-foreground">
-										The canvas, navigation, actions, type, and density change together.
+										{copy.shellDescription}
 									</p>
 								</div>
 								<div
@@ -239,7 +224,7 @@
 								></div>
 							</div>
 							<div class="grid grid-cols-3 gap-2">
-								{#each ['Navigation', 'Content', 'Actions'] as layer (layer)}
+								{#each copy.shellLayers as layer (layer)}
 									<div
 										class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-2.5"
 									>
@@ -251,19 +236,19 @@
 						</div>
 					{:else if scene === 'cards'}
 						<div class="preview-card-grid grid grid-cols-3 gap-2.5">
-							{#each [['Launch notes', 'Ready', 'var(--chart-1)'], ['Behind the build', 'Draft', 'var(--chart-2)'], ['Customer lesson', 'Scheduled', 'var(--chart-3)']] as card (card[0])}
+							{#each copy.cards as card (card.title)}
 								<article
 									data-slot="card"
 									class="overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card shadow-[var(--theme-shadow-card,none)]"
 								>
 									<div
 										class="h-20"
-										style:background={`color-mix(in srgb, ${card[2]} 22%, var(--card))`}
+										style:background={`color-mix(in srgb, ${card.color} 22%, var(--card))`}
 									></div>
 									<div class="p-3">
-										<p data-theme-type="label">{card[0]}</p>
+										<p data-theme-type="label">{card.title}</p>
 										<p data-theme-type="metadata" class="mt-1 text-muted-foreground">
-											{card[1]} · 2 channels
+											{card.status} · {copy.channels}
 										</p>
 									</div>
 								</article>
@@ -273,21 +258,26 @@
 						<div
 							class="overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card"
 						>
-							<table data-theme-type="metadata" class="w-full border-collapse text-left">
+							<table
+								data-theme-type="metadata"
+								class="w-full table-fixed border-collapse text-left"
+							>
 								<thead class="bg-muted text-muted-foreground">
 									<tr>
-										<th class="px-3 py-2 font-medium">Publication</th>
-										<th class="px-3 py-2 font-medium">Status</th>
-										<th class="px-3 py-2 text-right font-medium">Reach</th>
+										<th class="w-[46%] px-3 py-2 font-medium">{copy.tableHeaders.publication}</th>
+										<th class="w-[34%] px-3 py-2 font-medium">{copy.tableHeaders.status}</th>
+										<th class="w-[20%] px-3 py-2 text-right font-medium"
+											>{copy.tableHeaders.reach}</th
+										>
 									</tr>
 								</thead>
 								<tbody data-slot="table-body" class="divide-y divide-border">
-									{#each [['Launch notes', 'Published', '12.4k'], ['Build log', 'Scheduled', '—'], ['Customer lesson', 'Draft', '—']] as row (row[0])}
+									{#each copy.tableRows as row (row.publication)}
 										<tr data-slot="table-row">
-											<td class="px-3 py-2.5 font-medium">{row[0]}</td>
-											<td class="px-3 py-2.5 text-muted-foreground">{row[1]}</td>
+											<td class="px-3 py-2.5 font-medium break-words">{row.publication}</td>
+											<td class="px-3 py-2.5 break-words text-muted-foreground">{row.status}</td>
 											<td data-theme-type="code" class="px-3 py-2.5 text-right tabular-nums"
-												>{row[2]}</td
+												>{row.reach}</td
 											>
 										</tr>
 									{/each}
@@ -299,12 +289,12 @@
 							data-slot="card"
 							class="divide-y divide-border rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card px-3"
 						>
-							{#each ['Default timezone', 'Publishing safeguards', 'Team approvals', 'Notifications'] as setting, index (setting)}
+							{#each copy.settings as setting, index (setting)}
 								<div class="flex min-h-12 items-center justify-between gap-3 py-2">
 									<div>
 										<p data-theme-type="label">{setting}</p>
 										<p data-theme-type="metadata" class="text-muted-foreground">
-											{index % 2 === 0 ? 'Workspace default' : 'Enabled'}
+											{index % 2 === 0 ? copy.workspaceDefault : copy.enabled}
 										</p>
 									</div>
 									<div class="h-5 w-9 rounded-full bg-[var(--action-primary)] p-0.5">
@@ -319,7 +309,7 @@
 							onsubmit={(event) => event.preventDefault()}
 						>
 							<label data-theme-type="label" class="grid gap-1.5">
-								Workspace name
+								{copy.workspaceNameLabel}
 								<input
 									data-slot="input"
 									data-theme-type="body"
@@ -329,7 +319,7 @@
 								/>
 							</label>
 							<label data-theme-type="label" class="grid gap-1.5">
-								Default timezone
+								{copy.defaultTimezone}
 								<select
 									data-slot="select-trigger"
 									data-theme-type="body"
@@ -340,8 +330,10 @@
 								</select>
 							</label>
 							<div class="flex flex-wrap justify-end gap-2 pt-1">
-								<Button size="sm" intent="quiet" disabled={!interactive}>Cancel</Button>
-								<Button size="sm" intent="primary" disabled={!interactive}>Save changes</Button>
+								<Button size="sm" intent="quiet" disabled={!interactive}>{copy.cancel}</Button>
+								<Button size="sm" intent="primary" disabled={!interactive}
+									>{copy.saveChanges}</Button
+								>
 							</div>
 						</form>
 					{:else if scene === 'dialog'}
@@ -358,32 +350,36 @@
 								<div
 									data-slot="dialog-content"
 									role="dialog"
-									aria-label="Delete draft"
+									aria-label={copy.deleteDraftLabel}
 									class="w-full max-w-72 rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-popover p-4 text-popover-foreground shadow-[var(--theme-shadow-dialog,none)]"
 								>
-									<p data-theme-type="title">Delete this draft?</p>
+									<p data-theme-type="title">{copy.deleteDraftTitle}</p>
 									<p data-theme-type="body" class="mt-1 text-muted-foreground">
-										This removes the draft from every destination. Published posts stay live.
+										{copy.deleteDraftDescription}
 									</p>
 									<div class="mt-4 flex justify-end gap-2">
-										<Button size="sm" intent="quiet" disabled={!interactive}>Keep draft</Button>
-										<Button size="sm" intent="destructive" disabled={!interactive}>Delete</Button>
+										<Button size="sm" intent="quiet" disabled={!interactive}
+											>{copy.keepDraft}</Button
+										>
+										<Button size="sm" intent="destructive" disabled={!interactive}
+											>{copy.delete}</Button
+										>
 									</div>
 								</div>
 							</div>
 						</div>
 					{:else if scene === 'notices'}
 						<div class="space-y-2.5">
-							{#each [['success', 'Published on LinkedIn', 'The post is live and ready to inspect.'], ['warning', 'One destination needs review', 'Threads shortened the caption to fit its limit.'], ['danger', 'Bluesky could not publish', 'Reconnect the account, then retry this rendition.'], ['info', 'Draft saved', 'Your latest edits are available to the team.']] as notice (notice[1])}
+							{#each copy.notices as notice (notice.title)}
 								<div
 									data-slot="toast"
 									class="grid grid-cols-[0.4rem_1fr] overflow-hidden rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card"
 								>
-									<div style:background={`var(--${notice[0]})`}></div>
+									<div style:background={`var(--${notice.tone})`}></div>
 									<div class="p-3">
-										<p data-theme-type="label">{notice[1]}</p>
+										<p data-theme-type="label">{notice.title}</p>
 										<p data-theme-type="metadata" class="mt-0.5 text-muted-foreground">
-											{notice[2]}
+											{notice.description}
 										</p>
 									</div>
 								</div>
@@ -408,17 +404,17 @@
 										<ThemeIcon role="compose" class="size-6" />
 									</div>
 								{/if}
-								<p data-theme-type="title">Plan your first post</p>
+								<p data-theme-type="title">{copy.emptyTitle}</p>
 								<p data-theme-type="body" class="mt-1 text-muted-foreground">
-									Start from an idea, then tailor one rendition for each destination.
+									{copy.emptyDescription}
 								</p>
 								<Button class="mt-4" size="sm" intent="focal" disabled={!interactive}
-									>Create post</Button
+									>{copy.createPost}</Button
 								>
 							</div>
 						</div>
 					{:else if scene === 'loading'}
-						<div class="space-y-3" aria-busy="true" aria-label="Loading workspace preview">
+						<div class="space-y-3" aria-busy="true" aria-label={copy.loadingWorkspace}>
 							{#if loadingAsset}
 								<img
 									data-theme-loading-art
@@ -442,7 +438,7 @@
 								></div>
 							</div>
 							<p data-theme-type="metadata" class="text-center text-muted-foreground">
-								Loading publications…
+								{copy.loadingPublications}
 							</p>
 						</div>
 					{:else}
@@ -453,13 +449,13 @@
 							>
 								<div class="flex items-center justify-between gap-3">
 									<div>
-										<p data-theme-type="metadata" class="text-muted-foreground">This week</p>
-										<p data-theme-type="display" class="mt-1 tabular-nums">12 posts</p>
+										<p data-theme-type="metadata" class="text-muted-foreground">{copy.thisWeek}</p>
+										<p data-theme-type="display" class="mt-1 tabular-nums">{copy.postCount}</p>
 									</div>
 									<span
 										data-theme-type="label"
 										class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-success"
-										>On track</span
+										>{copy.onTrack}</span
 									>
 								</div>
 								<div class="mt-5 flex h-20 items-end gap-1.5">
@@ -475,9 +471,9 @@
 								data-slot="card"
 								class="rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card p-3 shadow-[var(--theme-shadow-card,none)]"
 							>
-								<p data-theme-type="label">Ready to publish</p>
+								<p data-theme-type="label">{copy.readyToPublish}</p>
 								<div class="mt-3 space-y-2">
-									{#each ['Launch notes', 'Behind the build', 'Customer lesson'] as item, index (item)}
+									{#each copy.readyItems as item, index (item)}
 										<div
 											class="flex items-center gap-2 rounded-[var(--theme-radius-sm,var(--radius))] bg-muted p-2"
 										>
@@ -500,21 +496,18 @@
 		<nav
 			data-slot="mobile-bottom-nav"
 			class="preview-mobile-navigation absolute inset-x-0 bottom-0 hidden border-t border-border bg-background px-1"
-			aria-label="Preview mobile navigation"
+			aria-label={copy.previewMobileNavigation}
 		>
 			<ul class="grid min-h-full grid-cols-5">
-				{#each [['Home', 'home'], ['New', 'compose'], ['Plan', 'calendar'], ['Media', 'media'], ['More', 'menu']] as item, index (item[0])}
+				{#each copy.mobileNavigation as item, index (item.role)}
 					<li class="min-w-0">
 						<div
 							data-theme-navigation-item
 							data-active={index === 0}
 							class="flex min-h-[var(--theme-touch-target)] flex-col items-center justify-center gap-1 rounded-[var(--theme-radius-sm)] px-1"
 						>
-							<ThemeIcon
-								role={item[1] as 'home' | 'compose' | 'calendar' | 'media' | 'menu'}
-								class="size-4"
-							/>
-							<span data-theme-type="label" class="max-w-full truncate">{item[0]}</span>
+							<ThemeIcon role={item.role} class="size-4" />
+							<span data-theme-type="label" class="max-w-full truncate">{item.label}</span>
 						</div>
 					</li>
 				{/each}

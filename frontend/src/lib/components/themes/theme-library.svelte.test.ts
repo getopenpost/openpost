@@ -1,14 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { switchLocale } from '$lib/i18n';
+import { m } from '$lib/paraglide/messages';
 import { getBuiltInTheme } from '$lib/themes';
 import ThemeLibrary from './theme-library.svelte';
 import { duplicateThemeManifest } from './theme-editor-model';
 import { builtInThemeReference } from './theme-library-model';
+import { themePreviewCopy } from './theme-preview-copy';
 import '../../../routes/layout.css';
 
 const workshop = builtInThemeReference('workshop');
 
 describe('ThemeLibrary', () => {
+	afterEach(() => switchLocale('en', { reload: false }));
+
 	it('shows the current workspace choice and applies another built-in theme', async () => {
 		const onSelect = vi.fn();
 		const screen = render(ThemeLibrary, {
@@ -20,9 +25,9 @@ describe('ThemeLibrary', () => {
 		});
 
 		await expect
-			.element(screen.getByRole('button', { name: /Studio light/ }))
+			.element(screen.getByRole('button', { name: /^Studio / }))
 			.toHaveAttribute('aria-pressed', 'true');
-		await screen.getByRole('button', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /^Notebook / }).click();
 		expect(onSelect).not.toHaveBeenCalled();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 		expect(onSelect).toHaveBeenCalledWith(builtInThemeReference('notebook'));
@@ -33,7 +38,7 @@ describe('ThemeLibrary', () => {
 			selectedReference: workshop
 		});
 
-		await screen.getByRole('button', { name: /Midnight dark/ }).click();
+		await screen.getByRole('button', { name: /^Midnight / }).click();
 		await expect.element(screen.getByRole('heading', { name: 'Midnight' })).toBeVisible();
 	});
 
@@ -47,7 +52,7 @@ describe('ThemeLibrary', () => {
 			onInherit
 		});
 
-		await screen.getByRole('button', { name: /Workshop light/ }).click();
+		await screen.getByRole('button', { name: /^Workshop / }).click();
 		await screen.getByRole('button', { name: 'Use organization default' }).click();
 
 		expect(onInherit).toHaveBeenCalledOnce();
@@ -60,7 +65,7 @@ describe('ThemeLibrary', () => {
 			canManageWorkspace: true
 		});
 
-		await screen.getByRole('button', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /^Notebook / }).click();
 		const assignment = screen.getByRole('button', { name: 'Use Notebook' });
 		await expect.element(assignment).toBeDisabled();
 		await expect
@@ -97,7 +102,7 @@ describe('ThemeLibrary', () => {
 			onCreate
 		});
 
-		await screen.getByRole('button', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /^Notebook / }).click();
 		await screen.getByRole('button', { name: 'Duplicate' }).click();
 		await expect.element(screen.getByLabelText('Theme name')).toHaveValue('Notebook copy');
 		await screen.getByRole('button', { name: 'Create draft' }).click();
@@ -216,11 +221,28 @@ describe('ThemeLibrary', () => {
 			onSelect: vi.fn().mockRejectedValue(new Error('The workspace changed on another device'))
 		});
 
-		await screen.getByRole('button', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /^Notebook / }).click();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 
 		await expect
 			.element(screen.getByRole('alert'))
 			.toHaveTextContent('The workspace changed on another device');
+	});
+
+	it('updates its mounted controls and product preview after the app locale changes', async () => {
+		const screen = render(ThemeLibrary, { selectedReference: workshop });
+		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
+
+		switchLocale('de', { reload: false });
+
+		await expect
+			.element(screen.getByRole('heading', { name: m.theme_library_heading({}, { locale: 'de' }) }))
+			.toBeVisible();
+		await expect
+			.poll(() => {
+				const frame = screen.getByTestId('theme-preview').element();
+				return frame instanceof HTMLIFrameElement ? frame.contentDocument?.body.textContent : '';
+			})
+			.toContain(themePreviewCopy('de').scenes.dashboard.eyebrow);
 	});
 });

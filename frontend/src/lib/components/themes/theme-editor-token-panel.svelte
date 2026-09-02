@@ -2,6 +2,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import { getLocale, type Locale } from '$lib/paraglide/runtime';
 	import {
 		BUNDLED_THEME_FONTS,
 		BUNDLED_THEME_FONT_IDS,
@@ -19,8 +20,12 @@
 		type ThemeSpacingTokens,
 		type ThemeTypographyRole
 	} from '$lib/themes';
-	import { THEME_COLOR_GROUPS, THEME_COMPONENT_GROUPS } from './theme-editor-fields';
-	import { humanizeThemeToken } from './theme-editor-presenter';
+	import { themeColorGroups, themeComponentGroups } from './theme-editor-fields';
+	import {
+		themeEditorIconPackLabel,
+		themeEditorTokenLabel,
+		themeEditorValueLabel
+	} from './theme-editor-presenter';
 	import type { ThemeEditorSection } from './theme-editor-model';
 	import type {
 		ThemeMotionUpdater,
@@ -37,6 +42,7 @@
 		onUpdateFontFamily: (role: ThemeTypographyRole, family: string) => void;
 		onUpdateMotion: ThemeMotionUpdater;
 		onUpdateIconPack: (pack: ThemeIconPackId) => void;
+		locale?: Locale;
 	}
 
 	let {
@@ -47,8 +53,11 @@
 		onUpdateTypography,
 		onUpdateFontFamily,
 		onUpdateMotion,
-		onUpdateIconPack
+		onUpdateIconPack,
+		locale = getLocale()
 	}: Props = $props();
+	const colorGroups = $derived(themeColorGroups(locale));
+	const componentGroups = $derived(themeComponentGroups(locale));
 
 	const typographyFields = [
 		['size', () => m.theme_editor_size()],
@@ -94,7 +103,7 @@
 
 {#if panel === 'colors'}
 	<div class="space-y-3">
-		{#each THEME_COLOR_GROUPS as group (group.id)}
+		{#each colorGroups as group (group.id)}
 			<details
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={group.id === 'foundation'}
@@ -106,7 +115,7 @@
 				<div class="mt-3 grid gap-3">
 					{#each group.fields as field (field)}
 						<label class="grid gap-1.5 text-xs font-medium" for={`theme-color-${field}`}>
-							<span>{humanizeThemeToken(field)}</span>
+							<span>{themeEditorTokenLabel(field, locale)}</span>
 							<span class="flex items-center gap-2">
 								<span
 									class="size-8 shrink-0 rounded-[var(--theme-radius-sm,var(--radius))] border border-border"
@@ -139,7 +148,7 @@
 				open={role === 'body'}
 			>
 				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{humanizeThemeToken(role)}</summary
+					>{themeEditorTokenLabel(role, locale)}</summary
 				>
 				<div class="mt-3 grid gap-3">
 					<label class="grid gap-1.5 text-xs font-medium">
@@ -217,9 +226,13 @@
 				value={manifest.spacing.density}
 				onValueChange={(value) => value && onUpdateValue('spacing', 'density', value)}
 			>
-				<Select.Trigger class="w-full">{manifest.spacing.density}</Select.Trigger>
+				<Select.Trigger class="w-full"
+					>{themeEditorValueLabel(manifest.spacing.density, locale)}</Select.Trigger
+				>
 				<Select.Content>
-					{#each THEME_DENSITIES as value (value)}<Select.Item {value}>{value}</Select.Item>{/each}
+					{#each THEME_DENSITIES as value (value)}<Select.Item {value}
+							>{themeEditorValueLabel(value, locale)}</Select.Item
+						>{/each}
 				</Select.Content>
 			</Select.Root>
 		</label>
@@ -250,9 +263,12 @@
 				value={manifest.shape.borderStyle}
 				onValueChange={(value) => value && onUpdateValue('shape', 'borderStyle', value)}
 			>
-				<Select.Trigger class="w-full">{manifest.shape.borderStyle}</Select.Trigger>
+				<Select.Trigger class="w-full"
+					>{themeEditorValueLabel(manifest.shape.borderStyle, locale)}</Select.Trigger
+				>
 				<Select.Content>
-					{#each THEME_BORDER_STYLES as value (value)}<Select.Item {value}>{value}</Select.Item
+					{#each THEME_BORDER_STYLES as value (value)}<Select.Item {value}
+							>{themeEditorValueLabel(value, locale)}</Select.Item
 						>{/each}
 				</Select.Content>
 			</Select.Root>
@@ -278,7 +294,7 @@
 				open={recipe === 'press'}
 			>
 				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{humanizeThemeToken(recipe)}</summary
+					>{themeEditorTokenLabel(recipe, locale)}</summary
 				>
 				<div class="mt-3 grid grid-cols-2 gap-3">
 					{#each motionFields as field (field[0])}
@@ -306,7 +322,9 @@
 			</details>
 		{/each}
 		<p class="text-xs leading-relaxed text-muted-foreground">
-			{m.theme_editor_reduced_motion({ mode: manifest.motion.reducedMotion })}
+			{m.theme_editor_reduced_motion({
+				mode: themeEditorValueLabel(manifest.motion.reducedMotion, locale)
+			})}
 		</p>
 	</div>
 {:else if panel === 'shell'}
@@ -326,9 +344,12 @@
 				value={manifest.shell.canvasTreatment}
 				onValueChange={(value) => value && onUpdateValue('shell', 'canvasTreatment', value)}
 			>
-				<Select.Trigger class="w-full">{manifest.shell.canvasTreatment}</Select.Trigger>
+				<Select.Trigger class="w-full"
+					>{themeEditorValueLabel(manifest.shell.canvasTreatment, locale)}</Select.Trigger
+				>
 				<Select.Content>
-					{#each THEME_CANVAS_TREATMENTS as value (value)}<Select.Item {value}>{value}</Select.Item
+					{#each THEME_CANVAS_TREATMENTS as value (value)}<Select.Item {value}
+							>{themeEditorValueLabel(value, locale)}</Select.Item
 						>{/each}
 				</Select.Content>
 			</Select.Root>
@@ -336,7 +357,7 @@
 	</div>
 {:else if panel === 'components'}
 	<div class="space-y-3">
-		{#each THEME_COMPONENT_GROUPS as group (group.id)}
+		{#each componentGroups as group (group.id)}
 			<details
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={group.id === 'actions-navigation'}
@@ -348,15 +369,17 @@
 				<div class="mt-3 grid gap-3">
 					{#each group.fields as field (field)}
 						<label class="grid gap-1.5 text-xs font-medium">
-							{humanizeThemeToken(field)}
+							{themeEditorTokenLabel(field, locale)}
 							<Select.Root
 								value={String(manifest.components[field])}
 								onValueChange={(value) => value && onUpdateValue('components', field, value)}
 							>
-								<Select.Trigger class="w-full">{manifest.components[field]}</Select.Trigger>
+								<Select.Trigger class="w-full"
+									>{themeEditorValueLabel(manifest.components[field], locale)}</Select.Trigger
+								>
 								<Select.Content>
 									{#each THEME_COMPONENT_RECIPE_OPTIONS[field] as value (value)}
-										<Select.Item {value}>{value}</Select.Item>
+										<Select.Item {value}>{themeEditorValueLabel(value, locale)}</Select.Item>
 									{/each}
 								</Select.Content>
 							</Select.Root>
@@ -379,7 +402,7 @@
 					class="flex min-h-11 w-full items-center justify-between rounded-[var(--theme-radius-md,var(--radius))] border border-border px-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-ring aria-pressed:bg-accent"
 					onclick={() => onUpdateIconPack(pack)}
 				>
-					<span>{pack.replaceAll('-', ' ')}</span>
+					<span>{themeEditorIconPackLabel(pack, locale)}</span>
 					<span class="text-xs text-muted-foreground">{m.theme_editor_complete_pack()}</span>
 				</button>
 			{/each}

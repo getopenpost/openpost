@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import type { Locale } from '$lib/paraglide/runtime';
 	import type { ThemeScheme, ThemeSchemeManifest } from '$lib/themes';
 	import {
 		sameThemeReference,
 		themeReferenceKey,
 		type ThemeReference
 	} from './theme-library-model';
+	import { themeSchemeLabel } from './theme-editor-presenter';
 	import type { ThemeLibraryItem } from './theme-library-types';
 
 	interface Props {
@@ -14,6 +16,7 @@
 		previewReference: ThemeReference;
 		organizationDefaultReference: ThemeReference;
 		scheme: ThemeScheme;
+		locale: Locale;
 		busy?: boolean;
 		onPreview: (reference: ThemeReference) => void;
 	}
@@ -24,6 +27,7 @@
 		previewReference,
 		organizationDefaultReference,
 		scheme,
+		locale,
 		busy = false,
 		onPreview
 	}: Props = $props();
@@ -37,13 +41,15 @@
 
 <div class="space-y-4">
 	<div>
-		<h3 class="font-semibold">{m.theme_library_builtins()}</h3>
-		<p class="mt-1 text-sm text-muted-foreground">{m.theme_library_builtins_description()}</p>
+		<h3 class="font-semibold">{m.theme_library_builtins({}, { locale })}</h3>
+		<p class="mt-1 text-sm text-muted-foreground">
+			{m.theme_library_builtins_description({}, { locale })}
+		</p>
 	</div>
 	<div
 		class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
 		role="group"
-		aria-label={m.theme_library_builtins()}
+		aria-label={m.theme_library_builtins({}, { locale })}
 	>
 		{#each items as item (themeReferenceKey(item.reference))}
 			{@const preview = thumbnail(item)}
@@ -77,14 +83,18 @@
 					<div class="min-w-0">
 						<p class="truncate text-sm font-semibold">{item.manifest.name}</p>
 						<p class="mt-0.5 text-xs text-muted-foreground">
-							{item.manifest.supportedSchemes.join(' + ')}
+							{item.manifest.supportedSchemes
+								.map((value) => themeSchemeLabel(value, locale))
+								.join(' + ')}
 						</p>
 					</div>
 					{#if sameThemeReference(item.reference, selectedReference)}
-						<span class="text-xs font-medium text-success">{m.theme_library_applied()}</span>
+						<span class="text-xs font-medium text-success"
+							>{m.theme_library_applied({}, { locale })}</span
+						>
 					{:else if sameThemeReference(item.reference, organizationDefaultReference)}
 						<span class="text-xs font-medium text-muted-foreground"
-							>{m.theme_library_default()}</span
+							>{m.theme_library_default({}, { locale })}</span
 						>
 					{/if}
 				</div>

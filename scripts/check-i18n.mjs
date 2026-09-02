@@ -19,6 +19,10 @@ for (const locale of locales) {
 const referenceLocale = settings.baseLocale;
 const referenceCatalog = catalogs.get(referenceLocale);
 const referenceKeys = new Set(Object.keys(referenceCatalog));
+const unchangedThemeMessages = new Set([
+  // Product name. Its surrounding copy is localized where context is needed.
+  "theme_library_workshop",
+]);
 let failed = false;
 
 async function sourceFiles(directory) {
@@ -44,6 +48,10 @@ function placeholders(message) {
 
 function sameList(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isSingleWord(message) {
+  return /^[\p{L}\p{N}]+(?:[-/][\p{L}\p{N}]+)*$/u.test(message.trim());
 }
 
 function translationArtifact(message) {
@@ -114,6 +122,27 @@ for (const locale of locales.filter((locale) => locale !== referenceLocale)) {
     failed = true;
     console.error(`${locale}.json contains invalid translation artifacts:`);
     for (const [key, reason] of invalidMessages) console.error(`  ${key}: ${reason}`);
+  }
+
+  const themeKeys = [...referenceKeys].filter((key) => key.startsWith("theme_"));
+  const unchangedThemeKeys = themeKeys.filter(
+    (key) => !unchangedThemeMessages.has(key) && catalog[key] === referenceCatalog[key],
+  );
+  const untranslatedThemeMessages = unchangedThemeKeys.filter(
+    (key) => !isSingleWord(referenceCatalog[key]),
+  );
+  if (untranslatedThemeMessages.length > 0) {
+    failed = true;
+    console.error(`${locale}.json leaves multiword theme messages in English:`);
+    console.error(`  ${untranslatedThemeMessages.join(", ")}`);
+  }
+
+  const unchangedThemeLimit = Math.max(12, Math.floor(themeKeys.length / 10));
+  if (unchangedThemeKeys.length > unchangedThemeLimit) {
+    failed = true;
+    console.error(
+      `${locale}.json leaves ${unchangedThemeKeys.length} theme messages in English; the limit is ${unchangedThemeLimit}.`,
+    );
   }
 
   if (catalog.language_label === referenceCatalog.language_label) {

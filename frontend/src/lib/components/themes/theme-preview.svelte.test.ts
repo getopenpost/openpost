@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { switchLocale } from '$lib/i18n';
 import { resolveBuiltInTheme, WebThemeRuntime, type ThemeRuntimeLoaders } from '$lib/themes';
 import ThemePreview, { THEME_PREVIEW_SCENES } from './theme-preview.svelte';
+import { themePreviewCopy } from './theme-preview-copy';
 import '../../../routes/layout.css';
 
 const PHONE_VIEWPORTS = [
@@ -27,6 +29,8 @@ function horizontalOverflow(frame: HTMLIFrameElement) {
 }
 
 describe('ThemePreview', () => {
+	afterEach(() => switchLocale('en', { reload: false }));
+
 	it('stages initial resources once and only restages for a changed theme', async () => {
 		const loaders: ThemeRuntimeLoaders = {
 			stageFonts: vi.fn(async () => ({ release: vi.fn() })),
@@ -88,7 +92,7 @@ describe('ThemePreview', () => {
 	});
 
 	it.each(PHONE_VIEWPORTS)(
-		'keeps every scene inside an exact $width px $viewport canvas',
+		'keeps long translated copy in every scene inside an exact $width px $viewport canvas',
 		async ({ viewport, width }) => {
 			const theme = resolveBuiltInTheme('playroom', 'light');
 			const label = `${width} preview`;
@@ -96,7 +100,8 @@ describe('ThemePreview', () => {
 				theme,
 				scene: THEME_PREVIEW_SCENES[0],
 				viewport,
-				label
+				label,
+				locale: 'de'
 			});
 			screen.container.style.width = '280px';
 
@@ -109,7 +114,7 @@ describe('ThemePreview', () => {
 				.toBe(true);
 
 			for (const scene of THEME_PREVIEW_SCENES) {
-				await screen.rerender({ theme, scene, viewport, label });
+				await screen.rerender({ theme, scene, viewport, label, locale: 'de' });
 				const frame = previewFrame(screen.getByTestId('theme-preview').element());
 				await expect
 					.poll(() =>
@@ -120,9 +125,36 @@ describe('ThemePreview', () => {
 					.toBe(scene);
 				await expect.poll(() => Number.parseFloat(getComputedStyle(frame).width)).toBe(width);
 				await expect.poll(() => horizontalOverflow(frame)).toEqual({ document: 0, scene: 0 });
+				if (scene === 'composer') {
+					const composerCopy = frame.contentDocument?.querySelector<HTMLElement>(
+						'[data-preview-copy="composer-body"]'
+					)?.textContent;
+					expect(composerCopy?.trim().length).toBeGreaterThan(
+						themePreviewCopy('en').composerBody.length
+					);
+				}
 			}
 		}
 	);
+
+	it('updates an already mounted standalone preview after the app locale changes', async () => {
+		const screen = render(ThemePreview, {
+			theme: resolveBuiltInTheme('workshop', 'light'),
+			scene: 'dashboard',
+			label: 'Locale preview'
+		});
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
+		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
+		expect(frame.contentDocument?.body.textContent).toContain(
+			themePreviewCopy('en').scenes.dashboard.eyebrow
+		);
+
+		switchLocale('de', { reload: false });
+
+		await expect
+			.poll(() => frame.contentDocument?.body.textContent)
+			.toContain(themePreviewCopy('de').scenes.dashboard.eyebrow);
+	});
 
 	it.each([
 		['notebook', 'light', 'Source Serif 4', '28px'],

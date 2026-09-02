@@ -691,6 +691,8 @@ const cloudGardenLight = scheme({
 		selectionInk: 'oklch(0.25 0.08 155)',
 		actionFocal: 'oklch(0.24 0.045 160)',
 		actionFocalInk: 'oklch(0.98 0.015 155)',
+		actionFocalHover: 'oklch(0.19 0.04 160)',
+		actionFocalActive: 'oklch(0.14 0.025 160)',
 		actionPrimary: 'oklch(0.32 0.08 155)',
 		actionPrimaryInk: 'oklch(0.98 0.015 155)',
 		actionOrdinary: 'oklch(0.94 0.04 155)',

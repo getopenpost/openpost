@@ -753,6 +753,47 @@ describe('workspace settings state', () => {
 		expect(context.currentWorkspace?.color).toBe('#2563eb');
 	});
 
+	it('does not project a save after switching away and back to the same workspace', async () => {
+		const save = deferred<{
+			data: null;
+			error: null;
+			response: Response;
+		}>();
+		mocks.get.mockImplementation(
+			(_path: string, options?: { params?: { path?: { id?: string } } }) =>
+				Promise.resolve({
+					data:
+						options?.params?.path?.id === workspaceB.id
+							? settings('Europe/Paris')
+							: settings('Europe/Lisbon'),
+					error: null
+				})
+		);
+		mocks.patch.mockReturnValueOnce(save.promise);
+		const context = new WorkspaceContext();
+		await context.setWorkspace(workspaceA);
+
+		const pendingSave = context.saveSettings({ name: 'Late server save' });
+		await context.setWorkspace(workspaceB);
+		await context.setWorkspace(workspaceA);
+		context.settings.name = 'Current local draft';
+
+		save.resolve({
+			data: null,
+			error: null,
+			response: new Response(null, { status: 204 })
+		});
+		await pendingSave;
+
+		expect(context.settings.name).toBe('Current local draft');
+		expect(context.savedSettings.name).toBe(workspaceA.name);
+		expect(context.currentWorkspace?.name).toBe(workspaceA.name);
+		expect(localStorage.getItem('openpost_current_workspace')).toContain(workspaceA.name);
+		expect(
+			queryClient.getQueryData(openPostBootstrapQueryKeys.workspaceSettings(workspaceA.id))
+		).not.toMatchObject({ name: 'Late server save' });
+	});
+
 	it('marks workspace setup stale after the workspace name changes', async () => {
 		mocks.get.mockResolvedValueOnce({
 			data: settings('Europe/Lisbon'),

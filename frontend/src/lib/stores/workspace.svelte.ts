@@ -110,6 +110,7 @@ export class WorkspaceContext {
 	private initializePromise: Promise<void> | null = null;
 	private bootstrapRequestGeneration = 0;
 	private settingsRequestSequence = 0;
+	private settingsSaveGeneration = 0;
 	private workspaceSwitchRequestSequence = 0;
 	private workspaceSwitchGuardPending = false;
 	private stateEpoch = 0;
@@ -214,6 +215,7 @@ export class WorkspaceContext {
 	reset() {
 		this.stateEpoch += 1;
 		this.bootstrapRequestGeneration += 1;
+		this.settingsSaveGeneration += 1;
 		this.workspaceSwitchRequestSequence += 1;
 		this.workspaceSwitchGuardPending = false;
 		this.initializePromise = null;
@@ -531,7 +533,14 @@ export class WorkspaceContext {
 		}
 		const stateEpoch = this.stateEpoch;
 		const workspaceID = this.currentWorkspace.id;
+		const workspaceSelectionRevision = this.workspaceSwitchRequestSequence;
+		const saveGeneration = ++this.settingsSaveGeneration;
 		const settingsKey = openPostBootstrapQueryKeys.workspaceSettings(workspaceID);
+		const canProjectSave = () =>
+			stateEpoch === this.stateEpoch &&
+			workspaceSelectionRevision === this.workspaceSwitchRequestSequence &&
+			saveGeneration === this.settingsSaveGeneration &&
+			this.currentWorkspace?.id === workspaceID;
 
 		try {
 			const { error } = await client.PATCH('/workspaces/{id}/settings', {
@@ -545,8 +554,9 @@ export class WorkspaceContext {
 					error.detail || m.workspace_settings_save_failed()
 				);
 			}
+			const projectSave = canProjectSave();
 			const cachedSettings = queryClient.getQueryData<LoadedWorkspaceSettings>(settingsKey);
-			if (cachedSettings) {
+			if (projectSave && cachedSettings) {
 				queryClient.setQueryData(settingsKey, {
 					...cachedSettings,
 					...updates,
@@ -575,7 +585,7 @@ export class WorkspaceContext {
 				queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
 			}
 			await Promise.all(invalidations);
-			if (stateEpoch !== this.stateEpoch) return;
+			if (!canProjectSave()) return;
 			this.workspaces = this.workspaces.map((workspace) =>
 				workspace.id === workspaceID
 					? {

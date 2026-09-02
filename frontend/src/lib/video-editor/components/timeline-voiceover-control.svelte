@@ -5,18 +5,12 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Popover from '$lib/components/ui/popover';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 	import { toast } from 'svelte-sonner';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import HeadphonesIcon from '@lucide/svelte/icons/headphones';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 	import MicIcon from '@lucide/svelte/icons/mic';
-	import MinusIcon from '@lucide/svelte/icons/minus';
-	import PauseIcon from '@lucide/svelte/icons/pause';
-	import PlayIcon from '@lucide/svelte/icons/play';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SquareIcon from '@lucide/svelte/icons/square';
-	import XIcon from '@lucide/svelte/icons/x';
 
 	let {
 		projectId,
@@ -101,7 +95,7 @@
 				onclick={start}
 			>
 				{#if voiceoverRecorder.status === 'requesting'}
-					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+					<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 				{:else}
 					<MicIcon class="size-3.5 text-red-400" aria-hidden="true" />
 				{/if}
@@ -116,7 +110,7 @@
 							disabled={voiceoverRecorder.status === 'requesting'}
 							aria-label={m.video_editor_voiceover_settings()}
 						>
-							<ChevronDownIcon class="size-3" aria-hidden="true" />
+							<ThemeIcon role="chevron-down" class="size-3" />
 						</Button>
 					{/snippet}
 				</Popover.Trigger>
@@ -189,7 +183,7 @@
 								onclick={() =>
 									voiceoverRecorder.setSyncOffsetMs(voiceoverRecorder.syncOffsetMs - 10)}
 							>
-								<MinusIcon aria-hidden="true" />
+								<ThemeIcon role="remove" />
 							</Button>
 							<span class="w-14 text-center font-mono tabular-nums">
 								{voiceoverRecorder.syncOffsetMs > 0 ? '+' : ''}{voiceoverRecorder.syncOffsetMs} ms
@@ -201,7 +195,7 @@
 								onclick={() =>
 									voiceoverRecorder.setSyncOffsetMs(voiceoverRecorder.syncOffsetMs + 10)}
 							>
-								<PlusIcon aria-hidden="true" />
+								<ThemeIcon role="add" />
 							</Button>
 						</div>
 					</div>
@@ -230,7 +224,7 @@
 				<span
 					class="flex min-h-11 items-center gap-1 px-1 text-xs text-muted-foreground md:min-h-7"
 				>
-					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+					<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 					{m.video_editor_voiceover_saving()}
 				</span>
 			{:else}
@@ -256,9 +250,9 @@
 							: voiceoverRecorder.pause()}
 				>
 					{#if voiceoverRecorder.status === 'paused'}
-						<PlayIcon aria-hidden="true" />
+						<ProtectedIcon icon="play" />
 					{:else}
-						<PauseIcon aria-hidden="true" />
+						<ProtectedIcon icon="pause" />
 					{/if}
 				</Button>
 				<Button
@@ -275,7 +269,7 @@
 					aria-label={m.video_editor_voiceover_cancel()}
 					onclick={() => voiceoverRecorder.cancel()}
 				>
-					<XIcon aria-hidden="true" />
+					<ThemeIcon role="close" />
 				</Button>
 			{/if}
 		</div>

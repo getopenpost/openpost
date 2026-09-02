@@ -2,6 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { resolveMediaBlob } from '$lib/video-editor/media/import.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -16,13 +17,9 @@
 	} from '$lib/video-editor/source-monitor/source-edit';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import Music2Icon from '@lucide/svelte/icons/music-2';
-	import PauseIcon from '@lucide/svelte/icons/pause';
-	import PlayIcon from '@lucide/svelte/icons/play';
 	import RepeatIcon from '@lucide/svelte/icons/repeat-2';
 	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
 	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
-	import XIcon from '@lucide/svelte/icons/x';
 	import {
 		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
@@ -752,7 +749,7 @@
 			aria-label={m.video_editor_source_close()}
 			onclick={onclose}
 		>
-			<XIcon class="size-3.5" aria-hidden="true" />
+			<ThemeIcon role="close" class="size-3.5" />
 		</button>
 	</header>
 
@@ -791,7 +788,7 @@
 		{:else if kind === 'audio'}
 			<div class="flex size-full max-h-[360px] min-h-48 flex-col p-3 text-[oklch(0.66_0.015_55)]">
 				<div class="mb-2 flex items-center justify-center gap-2 text-xs">
-					<Music2Icon class="size-4" aria-hidden="true" />
+					<ProtectedIcon icon="media-audio" class="size-4" />
 					<span>{m.video_editor_source_audio_only()}</span>
 				</div>
 				{#if media}
@@ -936,9 +933,9 @@
 				title={formatShortcutBinding(keyboardShortcuts.bindings.PLAY_PAUSE)}
 				onclick={() => void togglePlayback()}
 			>
-				{#if playing}<PauseIcon class="size-3.5" aria-hidden="true" />{:else}<PlayIcon
+				{#if playing}<ProtectedIcon icon="pause" class="size-3.5" />{:else}<ProtectedIcon
+						icon="play"
 						class="size-3.5"
-						aria-hidden="true"
 					/>{/if}
 			</button>
 			<button

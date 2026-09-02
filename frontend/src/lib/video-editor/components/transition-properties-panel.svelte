@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type {
 		TimelineTransition,
 		TransitionDirection,
@@ -25,8 +26,6 @@
 		TransitionDefinition,
 		TransitionParameterDefinition
 	} from '$lib/video-editor/transitions/types';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	let {
 		transitionId,
@@ -328,7 +327,7 @@
 					})}
 					onclick={resetDuration}
 				>
-					<RotateCcwIcon class="size-3.5" />
+					<ThemeIcon role="undo" class="size-3.5" />
 				</Button>
 			</div>
 		</div>
@@ -451,7 +450,7 @@
 							})}
 							onclick={() => resetProperty(parameter)}
 						>
-							<RotateCcwIcon class="size-3.5" />
+							<ThemeIcon role="undo" class="size-3.5" />
 						</Button>
 					</div>
 				{/each}
@@ -461,14 +460,14 @@
 					class="justify-start"
 					onclick={() => commit({ properties: defaultProperties(definition) })}
 				>
-					<RotateCcwIcon class="size-3.5" />
+					<ThemeIcon role="undo" class="size-3.5" />
 					{m.video_editor_transition_reset_parameters()}
 				</Button>
 			</div>
 		{/if}
 
 		<Button size="sm" variant="outline" class="mt-1 justify-start" onclick={remove}>
-			<Trash2Icon class="size-3.5" />
+			<ThemeIcon role="delete" class="size-3.5" />
 			{m.video_editor_transition_delete()}
 		</Button>
 	</section>

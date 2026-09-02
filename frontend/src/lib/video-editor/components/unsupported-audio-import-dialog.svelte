@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { m } from '$lib/paraglide/messages';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	let {
 		open = $bindable(false),
@@ -32,7 +32,7 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<AlertTriangleIcon class="size-4 text-amber-300" aria-hidden="true" />
+				<ProtectedIcon icon="warning" class="size-4 text-amber-300" />
 				{m.video_editor_unsupported_audio_title()}
 			</Dialog.Title>
 			<Dialog.Description class="text-xs leading-relaxed text-[var(--video-editor-muted)]">

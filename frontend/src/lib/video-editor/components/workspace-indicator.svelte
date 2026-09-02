@@ -2,12 +2,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
 	import { m } from '$lib/paraglide/messages';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { WorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import FolderIcon from '@lucide/svelte/icons/folder-open';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 
 	let { gate }: { gate: WorkspaceGate } = $props();
 	let open = $state(false);
@@ -48,11 +44,11 @@
 					aria-expanded={open}
 					title={m.video_editor_workspace_folder()}
 				>
-					<FolderIcon class="size-3.5 shrink-0" aria-hidden="true" />
+					<ThemeIcon role="workspace" class="size-3.5 shrink-0" />
 					<span class="truncate">{gate.workspaceName}</span>
-					<ChevronDownIcon
+					<ThemeIcon
+						role="chevron-down"
 						class={`size-3.5 shrink-0 text-[var(--video-editor-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
-						aria-hidden="true"
 					/>
 				</Button>
 			{/snippet}
@@ -78,9 +74,9 @@
 					<div
 						class="flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[oklch(0.23_0.012_55)] max-[640px]:min-h-11"
 					>
-						<FolderIcon
+						<ThemeIcon
+							role="workspace"
 							class="size-3.5 shrink-0 text-[var(--video-editor-muted)]"
-							aria-hidden="true"
 						/>
 						<span class="min-w-0 flex-1 truncate text-xs" title={workspace.name}>
 							{workspace.name}
@@ -89,7 +85,7 @@
 							<span
 								class="flex shrink-0 items-center gap-1 text-[10px] text-[var(--video-editor-focus)]"
 							>
-								<CheckIcon class="size-3" aria-hidden="true" />
+								<ThemeIcon role="check" class="size-3" />
 								{m.video_editor_workspace_active()}
 							</span>
 						{/if}
@@ -137,7 +133,7 @@
 								aria-label={m.video_editor_workspace_remove_named({ name: workspace.name })}
 								onclick={() => (confirmRemoveId = workspace.id)}
 							>
-								<TrashIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="delete" class="size-3.5" />
 							</Button>
 						{/if}
 					</div>
@@ -153,7 +149,7 @@
 				disabled={gate.busy}
 				onclick={addWorkspace}
 			>
-				<PlusIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="add" class="size-3.5" />
 				{m.video_editor_workspace_add()}
 			</Button>
 			{#if gate.error}

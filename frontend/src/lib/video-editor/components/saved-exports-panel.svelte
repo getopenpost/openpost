@@ -4,13 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { m } from '$lib/paraglide/messages';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import FileAudioIcon from '@lucide/svelte/icons/file-audio';
-	import FileVideoIcon from '@lucide/svelte/icons/file-video';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import {
 		deleteExportEntry,
 		listExportEntries,
@@ -184,10 +179,7 @@
 			onclick={() => void load()}
 			aria-label={m.video_editor_saved_exports_refresh()}
 		>
-			<RefreshIcon
-				class={loading ? 'animate-spin motion-reduce:animate-none' : ''}
-				aria-hidden="true"
-			/>
+			<ThemeIcon role="refresh" class={loading ? 'animate-spin motion-reduce:animate-none' : ''} />
 			{m.common_refresh()}
 		</Button>
 	</div>
@@ -215,7 +207,7 @@
 				class="flex items-center justify-center gap-2 py-10 text-sm text-[var(--video-editor-muted)]"
 				role="status"
 			>
-				<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
 				{m.common_loading()}
 			</div>
 		{:else if entries?.length === 0}
@@ -241,14 +233,14 @@
 											aria-hidden="true"
 										/>
 									{:else if isAudioFile(entry.name)}
-										<FileAudioIcon
+										<ProtectedIcon
+											icon="media-audio"
 											class="size-4 shrink-0 text-[var(--video-editor-muted)]"
-											aria-hidden="true"
 										/>
 									{:else}
-										<FileVideoIcon
+										<ProtectedIcon
+											icon="media-video"
 											class="size-4 shrink-0 text-[var(--video-editor-muted)]"
-											aria-hidden="true"
 										/>
 									{/if}
 									<div class="min-w-0 flex-1">
@@ -272,12 +264,12 @@
 												})}
 											>
 												{#if busyPath === pathKey(entry)}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{:else}
-													<DownloadIcon aria-hidden="true" />
+													<ThemeIcon role="download" />
 												{/if}
 											</Button>
 										{/if}
@@ -288,7 +280,7 @@
 											onclick={() => requestDelete(entry)}
 											aria-label={m.video_editor_saved_exports_delete_named({ name: entry.name })}
 										>
-											<TrashIcon aria-hidden="true" />
+											<ThemeIcon role="delete" />
 										</Button>
 									</div>
 								</div>

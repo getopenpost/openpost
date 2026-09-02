@@ -4,23 +4,17 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { TimelineTrack } from '$lib/video-editor/project/types';
 	import {
 		eventMatchesShortcut,
 		formatShortcutAriaKey
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import LockOpenIcon from '@lucide/svelte/icons/lock-open';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/more-horizontal';
-	import Link2Icon from '@lucide/svelte/icons/link-2';
 	import RadioIcon from '@lucide/svelte/icons/radio';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import UngroupIcon from '@lucide/svelte/icons/ungroup';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
@@ -190,7 +184,8 @@
 					: m.video_editor_track_group_collapse()}
 				onclick={oncollapse}
 			>
-				{#if track.isCollapsed}<ChevronRightIcon class="size-3.5" />{:else}<ChevronDownIcon
+				{#if track.isCollapsed}<ThemeIcon role="chevron-right" class="size-3.5" />{:else}<ThemeIcon
+						role="chevron-down"
 						class="size-3.5"
 					/>{/if}
 			</Button>
@@ -243,7 +238,8 @@
 					: m.video_editor_track_show()}
 			onclick={onvisibility}
 		>
-			{#if effectiveTrack.visible}<EyeIcon class="size-3.5" />{:else}<EyeOffIcon
+			{#if effectiveTrack.visible}<ThemeIcon role="eye" class="size-3.5" />{:else}<ThemeIcon
+					role="eye-off"
 					class="size-3.5"
 				/>{/if}
 		</Button>
@@ -285,7 +281,7 @@
 				title={m.video_editor_track_more_actions()}
 				onclick={toggleMore}
 			>
-				<MoreHorizontalIcon class="size-3.5" />
+				<ThemeIcon role="more-horizontal" class="size-3.5" />
 			</button>
 			{#if moreOpen}
 				<Portal>
@@ -329,7 +325,7 @@
 								data-active={track.syncLock !== false}
 								onclick={() => runMoreAction(onsynclock)}
 							>
-								<Link2Icon class="size-4" />
+								<ThemeIcon role="link" class="size-4" />
 								{track.syncLock !== false
 									? m.video_editor_track_sync_unlock()
 									: m.video_editor_track_sync_lock()}
@@ -353,7 +349,7 @@
 							title={canDelete ? undefined : m.video_editor_track_keep_one()}
 							onclick={() => runMoreAction(track.isGroup ? ondeletegroup : ondelete)}
 						>
-							<Trash2Icon class="size-4" />
+							<ThemeIcon role="delete" class="size-4" />
 							{track.isGroup ? m.video_editor_track_group_delete() : m.video_editor_track_delete()}
 						</button>
 					</div>

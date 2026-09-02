@@ -6,6 +6,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import {
 		MAX_PROJECT_HEIGHT,
 		MAX_PROJECT_WIDTH,
@@ -22,7 +23,6 @@
 		type ProjectDetailsUpdate
 	} from '$lib/video-editor/project/project-details';
 	import type { Project } from '$lib/video-editor/project/types';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 
 	let {
 		open = $bindable(false),
@@ -178,9 +178,9 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" class="min-h-11" disabled={!canSave || saving}>
-					{#if saving}<LoaderIcon
+					{#if saving}<ProtectedIcon
+							icon="loading"
 							class="size-4 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{m.video_editor_project_save_changes()}
 				</Button>

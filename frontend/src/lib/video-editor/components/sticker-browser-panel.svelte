@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { showToast } from '$lib/toast';
 	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -16,9 +17,6 @@
 		type FluentEmojiCatalog,
 		type FluentEmojiSticker
 	} from '$lib/video-editor/stickers/fluent-emoji';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import SearchIcon from '@lucide/svelte/icons/search';
 
 	const PAGE_SIZE = 60;
 	let {
@@ -90,9 +88,9 @@
 	<div class="border-b border-[oklch(0.25_0.015_55)] p-2">
 		<label class="relative block">
 			<span class="sr-only">{m.video_editor_stickers_search()}</span>
-			<SearchIcon
+			<ThemeIcon
+				role="search"
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
-				aria-hidden="true"
 			/>
 			<Input
 				class="h-8 w-full rounded bg-[oklch(0.2_0.01_50)] pl-7 text-xs"
@@ -107,7 +105,7 @@
 			class="flex flex-1 items-center justify-center gap-2 p-4 text-xs text-[oklch(0.65_0.015_55)]"
 			role="status"
 		>
-			<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+			<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
 			{m.video_editor_stickers_loading()}
 		</div>
 	{:else if status === 'error'}
@@ -151,15 +149,15 @@
 							</span>
 							{#if inserting === sticker.name}
 								<span class="absolute inset-0 flex items-center justify-center bg-black/55">
-									<LoaderIcon
+									<ProtectedIcon
+										icon="loading"
 										class="size-4 animate-spin text-white motion-reduce:animate-none"
-										aria-hidden="true"
 									/>
 								</span>
 							{:else}
-								<PlusIcon
+								<ThemeIcon
+									role="add"
 									class="absolute top-1 right-1 size-3 text-white opacity-0 group-hover:opacity-100"
-									aria-hidden="true"
 								/>
 							{/if}
 						</button>

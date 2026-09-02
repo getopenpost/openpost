@@ -2,11 +2,9 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 
 	let copied = $state(false);
 	let copyError = $state(false);
@@ -195,11 +193,11 @@
 		<div class="p-4">
 			<div class="flex flex-wrap gap-2">
 				<Button size="sm" variant="outline" onclick={() => void copyReport()}>
-					{#if copied}<CheckIcon />{:else}<CopyIcon />{/if}
+					{#if copied}<ProtectedIcon icon="success" />{:else}<ThemeIcon role="copy" />{/if}
 					{copied ? m.video_editor_diagnostics_copied() : m.video_editor_diagnostics_copy()}
 				</Button>
 				<Button size="sm" variant="ghost" onclick={() => previewDiagnostics.resetCounters()}>
-					<RotateCcwIcon />
+					<ThemeIcon role="refresh" />
 					{m.video_editor_diagnostics_reset()}
 				</Button>
 			</div>

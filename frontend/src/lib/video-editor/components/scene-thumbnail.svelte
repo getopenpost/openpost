@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { getSceneThumbnail } from '$lib/video-editor/workspace-fs/scene-analysis';
-	import FilmIcon from '@lucide/svelte/icons/film';
 
 	let {
 		relPath,
@@ -58,6 +58,6 @@
 	{#if url}
 		<img src={url} {alt} class="size-full object-cover" draggable="false" />
 	{:else}
-		<FilmIcon class="size-4 text-[oklch(0.5_0.015_55)]" aria-hidden="true" />
+		<ProtectedIcon icon="editor-scenes" class="size-4 text-[oklch(0.5_0.015_55)]" />
 	{/if}
 </div>

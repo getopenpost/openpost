@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import {
 		createSequence,
@@ -12,9 +13,6 @@
 		switchSequence
 	} from '$lib/video-editor/sequences/sequence-actions';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
-	import FilmIcon from '@lucide/svelte/icons/film';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
 
 	let { onswitch, onedit }: { onswitch: () => void; onedit: () => void } = $props();
 	let editingId = $state<string | null>(null);
@@ -101,7 +99,7 @@
 			: 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white'}"
 		onclick={() => activate(null)}
 	>
-		<FilmIcon class="size-3.5" aria-hidden="true" />
+		<ProtectedIcon icon="editor-scenes" class="size-3.5" />
 		{m.video_editor_main_sequence()}
 	</button>
 
@@ -147,7 +145,7 @@
 							aria-label={`${m.video_editor_sequence_close()}: ${tab.name}`}
 							onclick={() => close(tab.id)}
 						>
-							<XIcon class="size-3" aria-hidden="true" />
+							<ThemeIcon role="close" class="size-3" />
 						</button>
 					{/if}
 				</div>
@@ -190,6 +188,6 @@
 		title={m.video_editor_new_sequence()}
 		onclick={add}
 	>
-		<PlusIcon class="size-3.5" aria-hidden="true" />
+		<ThemeIcon role="add" class="size-3.5" />
 	</button>
 </nav>

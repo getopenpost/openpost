@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -17,7 +18,6 @@
 		MIN_PROJECT_WIDTH
 	} from '$lib/video-editor/project/project-presets';
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 
 	let { onedit }: { onedit: () => void } = $props();
 
@@ -167,7 +167,7 @@
 					class="min-h-11 lg:min-h-8"
 					onclick={resetDimensions}
 				>
-					<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="undo" class="size-3.5" />
 					{activeComposite
 						? m.video_editor_motion_canvas_reset()
 						: m.video_editor_project_canvas_reset()}
@@ -214,7 +214,7 @@
 					title={m.video_editor_project_canvas_background_reset()}
 					onclick={resetBackground}
 				>
-					<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="undo" class="size-3.5" />
 				</Button>
 			</div>
 		</div>

@@ -4,16 +4,10 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { renderQueueRunner } from '../export/render-queue-runner';
 	import { renderQueueStore, type RenderQueueJob } from '../export/render-queue-store';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ListVideoIcon from '@lucide/svelte/icons/list-video';
-	import PauseIcon from '@lucide/svelte/icons/pause';
-	import PlayIcon from '@lucide/svelte/icons/play';
-	import RotateIcon from '@lucide/svelte/icons/rotate-ccw';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import XIcon from '@lucide/svelte/icons/x';
 	import SavedExportsPanel from './saved-exports-panel.svelte';
 	import RenderProgress from './render-progress.svelte';
 	import type { RenderExportProgress } from '../media/render-export';
@@ -130,8 +124,10 @@
 						disabled={activeCount === 0}
 						onclick={() => renderQueueStore.setPaused(!$renderQueueStore.isPaused)}
 					>
-						{#if $renderQueueStore.isPaused}<PlayIcon
-							/>{m.video_editor_queue_resume()}{:else}<PauseIcon
+						{#if $renderQueueStore.isPaused}<ProtectedIcon
+								icon="play"
+							/>{m.video_editor_queue_resume()}{:else}<ProtectedIcon
+								icon="pause"
 							/>{m.video_editor_queue_pause()}{/if}
 					</Button>
 					<Button
@@ -195,32 +191,33 @@
 																size="icon-xs"
 																aria-label={m.video_editor_queue_move_up()}
 																onclick={() => renderQueueStore.move(job.id, -1)}
-																><ChevronUpIcon /></Button
+																><ThemeIcon role="chevron-up" /></Button
 															><Button
 																variant="ghost"
 																size="icon-xs"
 																aria-label={m.video_editor_queue_move_down()}
 																onclick={() => renderQueueStore.move(job.id, 1)}
-																><ChevronDownIcon /></Button
+																><ThemeIcon role="chevron-down" /></Button
 															>{/if}
 														{#if job.status === 'failed' || job.status === 'cancelled'}<Button
 																variant="ghost"
 																size="icon-xs"
 																aria-label={m.video_editor_queue_retry()}
 																onclick={() => renderQueueStore.retry(job.id)}
-																><RotateIcon /></Button
+																><ThemeIcon role="refresh" /></Button
 															>{/if}
 														{#if job.status === 'queued' || job.status === 'rendering'}<Button
 																variant="ghost"
 																size="icon-xs"
 																aria-label={m.video_editor_queue_cancel()}
-																onclick={() => renderQueueRunner.cancel(job.id)}><XIcon /></Button
+																onclick={() => renderQueueRunner.cancel(job.id)}
+																><ThemeIcon role="close" /></Button
 															>{:else}<Button
 																variant="ghost"
 																size="icon-xs"
 																aria-label={m.video_editor_queue_remove()}
 																onclick={() => renderQueueStore.remove(job.id)}
-																><TrashIcon /></Button
+																><ThemeIcon role="delete" /></Button
 															>{/if}
 													</div>
 												</div>

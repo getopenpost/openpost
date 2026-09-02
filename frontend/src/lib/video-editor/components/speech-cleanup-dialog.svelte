@@ -4,10 +4,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlayIcon from '@lucide/svelte/icons/play';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { analyzeSilenceSignal } from '$lib/video-editor/media/silence';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -420,7 +417,7 @@
 	>
 		<Dialog.Header class="border-b border-[oklch(0.27_0.014_55)] px-5 pt-5 pr-12 pb-4">
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<SparklesIcon class="size-4 text-[var(--video-editor-focus)]" aria-hidden="true" />
+				<ThemeIcon role="sparkles" class="size-4 text-[var(--video-editor-focus)]" />
 				{m.video_editor_cleanup_title()}
 			</Dialog.Title>
 			<Dialog.Description class="max-w-lg text-xs leading-relaxed text-[var(--video-editor-muted)]">
@@ -591,9 +588,9 @@
 					disabled={analyzing}
 					onclick={() => void analyze()}
 				>
-					{#if analyzing}<LoaderIcon
+					{#if analyzing}<ProtectedIcon
+							icon="loading"
 							class="size-3.5 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{m.video_editor_cleanup_update()}
 				</Button>
@@ -671,9 +668,9 @@
 								aria-pressed={selectedIds.has(range.id)}
 								onclick={() => toggleRange(range.id)}
 							>
-								{#if selectedIds.has(range.id)}<CheckIcon
+								{#if selectedIds.has(range.id)}<ThemeIcon
+										role="check"
 										class="size-3 text-black"
-										aria-hidden="true"
 									/>{/if}
 							</button>
 							<div class="min-w-0 flex-1">
@@ -701,7 +698,7 @@
 								aria-label={m.video_editor_cleanup_preview({ label: range.label })}
 								onclick={() => previewRange(range)}
 							>
-								<PlayIcon class="size-3.5" aria-hidden="true" />
+								<ProtectedIcon icon="play" class="size-3.5" />
 							</Button>
 						</div>
 					{/each}

@@ -8,15 +8,10 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import BoldIcon from '@lucide/svelte/icons/bold';
 	import ItalicIcon from '@lucide/svelte/icons/italic';
 	import UnderlineIcon from '@lucide/svelte/icons/underline';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
 	import { execute } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -551,16 +546,16 @@
 				clearWordSelection();
 			}}
 		>
-			<ScissorsIcon class="size-3" aria-hidden="true" />
+			<ProtectedIcon icon="editor-cut" class="size-3" />
 			{m.video_editor_edit_by_transcript()}
 		</Button>
 	</div>
 	{#if subtitleItems.length > 0 && !editVideoMode}
 		<div class="mx-1 flex min-w-0 items-center gap-1" role="search">
 			<div class="relative min-w-24 flex-1">
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
-					aria-hidden="true"
 				/>
 				<Input
 					class="h-7 w-full min-w-0 pr-7 pl-7 text-[10px]"
@@ -589,7 +584,7 @@
 							activeSearchMatch = 0;
 						}}
 					>
-						<XIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="close" class="size-3" />
 					</button>
 				{/if}
 			</div>
@@ -613,7 +608,7 @@
 						aria-label={m.video_editor_transcript_search_previous()}
 						onclick={() => focusSearchMatch(activeSearchMatch - 1)}
 					>
-						<ChevronUpIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="chevron-up" class="size-3" />
 					</Button>
 					<Button
 						type="button"
@@ -623,7 +618,7 @@
 						aria-label={m.video_editor_transcript_search_next()}
 						onclick={() => focusSearchMatch(activeSearchMatch + 1)}
 					>
-						<ChevronDownIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="chevron-down" class="size-3" />
 					</Button>
 				</div>
 			{/if}
@@ -870,7 +865,7 @@
 								aria-label={m.video_editor_transcript_delete_line()}
 								onclick={() => deleteCue(item, cue.id)}
 							>
-								<Trash2Icon class="size-3" />
+								<ThemeIcon role="delete" class="size-3" />
 							</Button>
 						</div>
 						<div class="mt-1 grid grid-cols-2 gap-1">
@@ -985,7 +980,7 @@
 													deleteWord(item, cue, word.id);
 												}}
 											>
-												<Trash2Icon class="size-3" aria-hidden="true" />
+												<ThemeIcon role="delete" class="size-3" />
 											</Button>
 										</div>
 									</div>

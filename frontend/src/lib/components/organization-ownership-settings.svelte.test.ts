@@ -61,7 +61,8 @@ describe('OrganizationOwnershipSettings', () => {
 		});
 		await vi.waitFor(() =>
 			expect(mocks.get).toHaveBeenCalledWith('/organizations/{id}/team', {
-				params: { path: { id: 'org-alpha' } }
+				params: { path: { id: 'org-alpha' } },
+				signal: expect.any(AbortSignal)
 			})
 		);
 
@@ -73,7 +74,8 @@ describe('OrganizationOwnershipSettings', () => {
 		await expect.element(screen.getByText(/beta-owner@example.com/)).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Delete Organization' })).toBeVisible();
 		expect(mocks.get).toHaveBeenCalledWith('/organizations/{id}/team', {
-			params: { path: { id: 'org-beta' } }
+			params: { path: { id: 'org-beta' } },
+			signal: expect.any(AbortSignal)
 		});
 
 		alphaTeam.resolve(team('alpha-owner', 'alpha-owner@example.com'));

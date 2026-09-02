@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
 import { createBuiltinThemeContract } from "./builtins";
-import { NATIVE_ICON_ROLES, type NativeThemeManifest } from "./contract";
+import { NATIVE_ICON_ROLES } from "./contract";
 import { resolveNativeThemeSymbol } from "./icons";
 import { resolveNativeTheme } from "./runtime";
 
@@ -13,26 +13,17 @@ test("keeps status and media-control glyphs outside organization icon packs", ()
   expect(NATIVE_ICON_ROLES).not.toContain("pause");
 });
 
-test("a contract icon-pack mapping changes the native semantic symbol selection", () => {
+test("themes can change icon packs without changing a control's meaning", () => {
   const originalContract = createBuiltinThemeContract({
     familyId: "workshop",
     identity: "workshop@1",
     workspaceId: "workspace-1",
   });
-  const originalManifest = originalContract.manifests.light!;
-  const remappedManifest: NativeThemeManifest = {
-    ...originalManifest,
-    iconography: {
-      packId: "heroicons-solid",
-      roles: { ...originalManifest.iconography.roles, edit: "trash" },
-    },
-  };
-  const remappedContract = {
-    ...originalContract,
-    identity: "custom-revision-2",
-    revision: "revision-2",
-    manifests: { light: remappedManifest },
-  };
+  const remappedContract = createBuiltinThemeContract({
+    familyId: "playroom",
+    identity: "playroom@1",
+    workspaceId: "workspace-1",
+  });
 
   const original = resolveNativeTheme({
     contract: originalContract,
@@ -53,9 +44,9 @@ test("a contract icon-pack mapping changes the native semantic symbol selection"
     sourceGlyphId: "pencil",
   });
   expect(resolveNativeThemeSymbol(remapped.manifest, "edit")).toMatchObject({
-    name: { ios: "trash", android: "delete" },
+    name: { ios: "pencil", android: "edit" },
     packId: "heroicons-solid",
-    sourceGlyphId: "trash",
+    sourceGlyphId: "pencil-square",
     type: "hierarchical",
   });
 });

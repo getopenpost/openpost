@@ -1,12 +1,8 @@
 import {
-  ACTION_INTENTS,
-  NATIVE_ICON_ROLES,
   NATIVE_THEME_CONTRACT_VERSION,
-  PUBLICATION_STATUSES,
   type NativeActionStyle,
   type NativeColorRoles,
   type NativeIconPackId,
-  type NativeIconRole,
   type NativeProtectedEditorRoles,
   type NativeResolvedThemeContract,
   type NativeTextRole,
@@ -15,6 +11,10 @@ import {
   type NativeThemeScheme,
 } from "./contract";
 import { deepFreeze, withAlpha } from "./freeze";
+import { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
+
+export { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
+export { validateNativeThemeManifest } from "./validation";
 
 export const BUILTIN_THEME_IDS = [
   "workshop",
@@ -41,111 +41,6 @@ const ICON_PACK_BY_FAMILY: Readonly<Record<BuiltinThemeId, NativeIconPackId>> = 
   corkboard: "phosphor",
   midnight: "tabler",
 };
-
-const LUCIDE_ICON_ROLES: Readonly<Record<NativeIconRole, string>> = {
-  add: "plus",
-  back: "arrow-left",
-  next: "arrow-right",
-  disclosure: "chevron-right",
-  close: "x",
-  menu: "menu",
-  more: "ellipsis",
-  search: "search",
-  settings: "settings",
-  edit: "pencil",
-  delete: "trash-2",
-  check: "check",
-  retry: "rotate-cw",
-  calendar: "calendar-days",
-  queue: "clock-3",
-  drafts: "file-pen-line",
-  workspace: "panels-top-left",
-  link: "external-link",
-  upload: "upload",
-  download: "download",
-  image: "image",
-  video: "video",
-  account: "circle-user-round",
-  notification: "bell",
-  undo: "undo-2",
-  redo: "redo-2",
-};
-
-const HEROICON_ROLES: Readonly<Record<NativeIconRole, string>> = {
-  ...LUCIDE_ICON_ROLES,
-  disclosure: "chevron-right",
-  close: "x-mark",
-  menu: "bars-3",
-  more: "ellipsis-horizontal",
-  search: "magnifying-glass",
-  settings: "cog-6-tooth",
-  edit: "pencil-square",
-  delete: "trash",
-  retry: "arrow-path",
-  queue: "clock",
-  drafts: "document-text",
-  workspace: "squares-2x2",
-  link: "arrow-top-right-on-square",
-  upload: "arrow-up-tray",
-  download: "arrow-down-tray",
-  image: "photo",
-  video: "video-camera",
-  account: "user-circle",
-  undo: "arrow-uturn-left",
-  redo: "arrow-uturn-right",
-};
-
-export const BUILTIN_ICON_ROLE_MAPS: Readonly<
-  Record<NativeIconPackId, Readonly<Record<NativeIconRole, string>>>
-> = deepFreeze({
-  lucide: LUCIDE_ICON_ROLES,
-  "heroicons-outline": HEROICON_ROLES,
-  "heroicons-solid": HEROICON_ROLES,
-  phosphor: {
-    ...LUCIDE_ICON_ROLES,
-    disclosure: "caret-right",
-    close: "x",
-    menu: "list",
-    more: "dots-three",
-    search: "magnifying-glass",
-    settings: "gear",
-    edit: "pencil-simple",
-    delete: "trash",
-    retry: "arrow-clockwise",
-    calendar: "calendar-blank",
-    queue: "clock",
-    drafts: "note-pencil",
-    workspace: "squares-four",
-    link: "arrow-square-out",
-    upload: "upload-simple",
-    download: "download-simple",
-    video: "video-camera",
-    account: "user-circle",
-    undo: "arrow-u-up-left",
-    redo: "arrow-u-up-right",
-  },
-  tabler: {
-    ...LUCIDE_ICON_ROLES,
-    disclosure: "chevron-right",
-    close: "x",
-    menu: "menu-2",
-    more: "dots",
-    settings: "settings",
-    edit: "edit",
-    delete: "trash",
-    retry: "refresh",
-    calendar: "calendar",
-    queue: "clock",
-    drafts: "file-pencil",
-    workspace: "layout-dashboard",
-    upload: "upload",
-    download: "download",
-    image: "photo",
-    account: "user-circle",
-    undo: "arrow-back-up",
-    redo: "arrow-forward-up",
-  },
-});
 
 const TYPE_ROLES = deepFreeze({
   displayLarge: textRole(57, 64, "400", -1.4),
@@ -587,130 +482,6 @@ export function createBuiltinThemeContract({
   });
 }
 
-export function validateNativeThemeManifest(
-  value: NativeThemeManifest | null | undefined,
-): value is NativeThemeManifest {
-  if (!value || !isText(value.id) || !isText(value.familyId) || !isText(value.displayName)) {
-    return false;
-  }
-  if (value.scheme !== "light" && value.scheme !== "dark") return false;
-
-  const colors = value.colors;
-  const colorKeys = [
-    "background",
-    "surface",
-    "surfaceContainer",
-    "surfaceContainerHigh",
-    "onSurface",
-    "onSurfaceVariant",
-    "outline",
-    "outlineVariant",
-    "primary",
-    "onPrimary",
-    "primaryContainer",
-    "onPrimaryContainer",
-    "secondaryContainer",
-    "onSecondaryContainer",
-    "error",
-    "onError",
-    "errorContainer",
-    "onErrorContainer",
-    "success",
-    "onSuccess",
-    "warning",
-    "onWarning",
-    "link",
-    "focus",
-    "scrim",
-    "shadow",
-  ] as const;
-  if (!colors || colorKeys.some((key) => !isText(colors[key]))) return false;
-  if (PUBLICATION_STATUSES.some((status) => !isText(colors.status?.[status]))) return false;
-
-  if (
-    ACTION_INTENTS.some((intent) => {
-      const action = value.actions?.[intent];
-      return (
-        !action ||
-        !isText(action.container) ||
-        !isText(action.content) ||
-        !isText(action.border) ||
-        !isText(action.pressedContainer) ||
-        !isText(action.depthColor) ||
-        !isNumber(action.borderWidth) ||
-        !isNumber(action.depth) ||
-        !isNumber(action.disabledOpacity) ||
-        typeof action.underline !== "boolean"
-      );
-    })
-  ) {
-    return false;
-  }
-
-  const editorKeys = [
-    "canvas",
-    "canvasGrid",
-    "canvasSelection",
-    "canvasSelectionText",
-    "transparencyLight",
-    "transparencyDark",
-    "timeline",
-    "timelineTrack",
-    "timelinePlayhead",
-    "waveform",
-    "handle",
-    "safeArea",
-    "mediaScrim",
-  ] as const;
-  if (editorKeys.some((key) => !isText(value.editor?.[key]))) return false;
-
-  const typeKeys = [
-    "displayLarge",
-    "headlineLarge",
-    "titleLarge",
-    "titleMedium",
-    "bodyLarge",
-    "bodyMedium",
-    "bodySmall",
-    "labelLarge",
-    "labelMedium",
-  ] as const;
-  if (
-    typeKeys.some((key) => {
-      const role = value.typography?.[key];
-      return (
-        !role ||
-        !isNumber(role.fontSize) ||
-        !isNumber(role.lineHeight) ||
-        !isNumber(role.letterSpacing) ||
-        !isText(role.fontWeight)
-      );
-    })
-  ) {
-    return false;
-  }
-
-  return (
-    numericRoles(value.shape, ["extraSmall", "small", "medium", "large", "extraLarge", "full"]) &&
-    numericRoles(value.spacing, [
-      "extraSmall",
-      "small",
-      "medium",
-      "large",
-      "extraLarge",
-      "doubleExtraLarge",
-    ]) &&
-    numericRoles(value.motion, ["quickMs", "standardMs", "emphasizedMs"]) &&
-    Array.isArray(value.decoration?.celebration) &&
-    value.decoration.celebration.length > 0 &&
-    value.decoration.celebration.every(isText) &&
-    ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"].includes(
-      value.iconography?.packId,
-    ) &&
-    NATIVE_ICON_ROLES.every((role) => isText(value.iconography?.roles?.[role]))
-  );
-}
-
 function textRole(
   fontSize: number,
   lineHeight: number,
@@ -836,18 +607,4 @@ function family(
     (scheme) => manifests[scheme] !== undefined,
   );
   return { id, displayName, builtinVersion: 1, supportedSchemes, manifests };
-}
-
-function isText(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function numericRoles(value: unknown, keys: readonly string[]): boolean {
-  if (!value || typeof value !== "object") return false;
-  const roles = value as Record<string, unknown>;
-  return keys.every((key) => isNumber(roles[key]));
 }

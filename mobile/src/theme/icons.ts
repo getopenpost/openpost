@@ -1,6 +1,6 @@
 import type { SymbolViewProps } from "expo-symbols";
 
-import { BUILTIN_ICON_ROLE_MAPS } from "./builtins";
+import { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
 import {
   NATIVE_ICON_ROLES,
   type NativeIconPackId,

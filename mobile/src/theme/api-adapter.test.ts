@@ -38,9 +38,11 @@ describe("resolved theme API adapter", () => {
         nativeDerivative: {
           format: "ttf",
           identity: "8f".repeat(32),
-          sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&format=ttf",
+          sourceUrl:
+            "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7&format=ttf",
         },
-        sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1",
+        sourceUrl:
+          "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7",
         style: "normal",
         weight: 400,
       },
@@ -66,6 +68,22 @@ describe("resolved theme API adapter", () => {
         workspaceId: "workspace-1",
       }),
     ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
+  test("uses the theme text role when an accent is unsafe as native status text", () => {
+    const response = resolvedThemeFixture();
+    response.manifest.colors.actionFocal = "oklch(0.8 0.1 80)";
+    response.manifest.colors.actionFocalInk = response.manifest.colors.ink;
+
+    const adapted = adaptResolvedThemeResponse({
+      cacheIdentity: "theme-1:7:light",
+      response,
+      workspaceId: "workspace-1",
+    });
+
+    expect(adapted.ok).toBe(true);
+    if (!adapted.ok) return;
+    expect(adapted.contract.manifests.light!.colors.status.publishing).toBe("#897047ff");
   });
 
   test("rejects a response for a different requested scheme", () => {
@@ -107,6 +125,53 @@ describe("resolved theme API adapter", () => {
         workspaceId: "workspace-1",
       }),
     ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
+  test("rejects an illustration without alternative text", () => {
+    const response = resolvedThemeFixture();
+    response.assets[0]!.slot = "empty-state-illustration" as never;
+    response.assets[0]!.alt = undefined as never;
+
+    expect(
+      adaptResolvedThemeResponse({
+        cacheIdentity: "theme-1:7:light",
+        response,
+        workspaceId: "workspace-1",
+      }),
+    ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
+  test("rejects a resource URL outside the exact resolved revision", () => {
+    const response = resolvedThemeFixture();
+    response.assets[0]!.sourceUrl =
+      "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=6";
+
+    expect(
+      adaptResolvedThemeResponse({
+        cacheIdentity: "theme-1:7:light",
+        response,
+        workspaceId: "workspace-1",
+      }),
+    ).toEqual({ ok: false, reason: "invalid-response" });
+  });
+
+  test("rejects a derivative URL with missing or extra query scope", () => {
+    const missing = resolvedThemeFixture();
+    missing.fonts[0]!.nativeDerivative.sourceUrl =
+      "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&format=ttf";
+    const extra = resolvedThemeFixture();
+    extra.fonts[0]!.nativeDerivative.sourceUrl =
+      "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7&format=ttf&cache=1";
+
+    for (const response of [missing, extra]) {
+      expect(
+        adaptResolvedThemeResponse({
+          cacheIdentity: "theme-1:7:light",
+          response,
+          workspaceId: "workspace-1",
+        }),
+      ).toEqual({ ok: false, reason: "invalid-response" });
+    }
   });
 
   test("clamps desktop-safe dimensions to usable native metrics", () => {
@@ -333,10 +398,12 @@ function resolvedThemeFixture() {
       {
         id: "font-1",
         family: "Example Sans",
-        sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1",
+        sourceUrl:
+          "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7",
         format: "woff2" as const,
         nativeDerivative: {
-          sourceUrl: "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&format=ttf",
+          sourceUrl:
+            "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7&format=ttf",
           format: "ttf" as const,
           identity: "8f".repeat(32),
         },
@@ -349,7 +416,8 @@ function resolvedThemeFixture() {
       {
         id: "texture-1",
         slot: "background-texture" as const,
-        sourceUrl: "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1",
+        sourceUrl:
+          "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7",
         mimeType: "image/avif",
         alt: "Subtle paper texture",
       },

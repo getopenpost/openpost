@@ -16,6 +16,7 @@ import {
   type NativeThemeScheme,
 } from "./contract";
 import { deepFreeze } from "./freeze";
+import { readableThemeForeground } from "./validation";
 
 const ICON_PACKS = new Set<NativeIconPackId>([
   "lucide",
@@ -38,6 +39,11 @@ const ASSET_MEDIA_TYPES = new Set<NativeThemeAssetResource["mimeType"]>([
   "image/jpeg",
   "image/webp",
   "image/avif",
+]);
+
+const ILLUSTRATION_SLOTS = new Set<NativeThemeAssetResource["slot"]>([
+  "empty-state-illustration",
+  "loading-illustration",
 ]);
 
 export interface ApiThemeTypographyRole {
@@ -130,8 +136,13 @@ export function adaptResolvedThemeResponse({
     }
 
     const iconPack = response.iconPack as NativeIconPackId;
-    const fonts = adaptFonts(response.fonts, workspaceId);
-    const assets = adaptAssets(response.assets, workspaceId);
+    const resourceScope = {
+      revision: response.revision,
+      themeId: response.id,
+      workspaceId,
+    };
+    const fonts = adaptFonts(response.fonts, resourceScope);
+    const assets = adaptAssets(response.assets, resourceScope);
     if (!fonts || !assets) return invalidResponse();
 
     const manifest = adaptScheme({
@@ -288,17 +299,17 @@ function adaptScheme({
       }),
       quiet: action({
         container: nativeColor(value.colors.actionQuiet),
-        content: nativeColor(value.colors.actionQuietInk),
+        content: readableSurfaceColor(nativeColor(value.colors.actionQuietInk), colors),
         pressedContainer: nativeColor(value.colors.actionQuietActive),
       }),
       destructive: action({
         container: nativeColor(value.colors.actionDestructive),
-        content: nativeColor(value.colors.actionDestructiveInk),
+        content: readableSurfaceColor(nativeColor(value.colors.actionDestructiveInk), colors),
         pressedContainer: nativeColor(value.colors.actionDestructiveActive),
       }),
       link: action({
         container: "#00000000",
-        content: nativeColor(value.colors.actionLink),
+        content: readableSurfaceColor(nativeColor(value.colors.actionLink), colors),
         pressedContainer: nativeColor(value.colors.actionLinkHover),
         underline: true,
       }),
@@ -326,12 +337,17 @@ function adaptScheme({
 }
 
 function adaptColors(value: Record<string, string>): NativeColorRoles | null {
+  const background = nativeColor(value.canvas);
+  const surface = nativeColor(value.surface);
+  const onSurface = nativeColor(value.ink);
+  const readable = (candidate: string) =>
+    readableThemeForeground(candidate, onSurface, background, surface);
   const mapped = {
-    background: nativeColor(value.canvas),
-    surface: nativeColor(value.surface),
+    background,
+    surface,
     surfaceContainer: nativeColor(value.surfaceSunken),
     surfaceContainerHigh: nativeColor(value.surfaceRaised),
-    onSurface: nativeColor(value.ink),
+    onSurface,
     onSurfaceVariant: nativeColor(value.mutedInk),
     outline: nativeColor(value.border),
     outlineVariant: nativeColor(value.input),
@@ -341,7 +357,7 @@ function adaptColors(value: Record<string, string>): NativeColorRoles | null {
     onPrimaryContainer: nativeColor(value.navigationActiveInk),
     secondaryContainer: nativeColor(value.selection),
     onSecondaryContainer: nativeColor(value.selectionInk),
-    error: nativeColor(value.danger),
+    error: readable(nativeColor(value.danger)),
     onError: nativeColor(value.dangerInk),
     errorContainer: nativeColor(value.actionDestructive),
     onErrorContainer: nativeColor(value.actionDestructiveInk),
@@ -349,20 +365,24 @@ function adaptColors(value: Record<string, string>): NativeColorRoles | null {
     onSuccess: nativeColor(value.successInk),
     warning: nativeColor(value.warning),
     onWarning: nativeColor(value.warningInk),
-    link: nativeColor(value.link),
+    link: readable(nativeColor(value.link)),
     focus: nativeColor(value.focus),
     scrim: nativeColor(value.scrim),
     shadow: nativeColor(value.ink),
     status: {
-      draft: nativeColor(value.mutedInk),
-      ready: nativeColor(value.infoInk),
-      scheduled: nativeColor(value.warningInk),
-      publishing: nativeColor(value.actionFocal),
-      published: nativeColor(value.successInk),
-      failed: nativeColor(value.danger),
+      draft: readable(nativeColor(value.mutedInk)),
+      ready: readable(nativeColor(value.infoInk)),
+      scheduled: readable(nativeColor(value.warningInk)),
+      publishing: readable(nativeColor(value.actionFocal)),
+      published: readable(nativeColor(value.successInk)),
+      failed: readable(nativeColor(value.danger)),
     },
   };
   return allNativeColors(mapped) ? mapped : null;
+}
+
+function readableSurfaceColor(candidate: string, colors: NativeColorRoles): string {
+  return readableThemeForeground(candidate, colors.onSurface, colors.background, colors.surface);
 }
 
 function adaptEditor(
@@ -456,13 +476,18 @@ function adaptShape(value: Record<string, string>): NativeThemeManifest["shape"]
     full: cssPixels(value.radiusPill),
   };
   if (!allFiniteMetrics(mapped)) return null;
+  const extraSmall = clampMetric(mapped.extraSmall!, 0, 16);
+  const small = clampMetric(Math.max(mapped.small!, extraSmall), 0, 20);
+  const medium = clampMetric(Math.max(mapped.medium!, small), 0, 32);
+  const large = clampMetric(Math.max(mapped.large!, medium), 0, 32);
+  const extraLarge = clampMetric(Math.max(mapped.extraLarge!, large), 0, 32);
   return {
-    extraSmall: clampMetric(mapped.extraSmall!, 0, 16),
-    small: clampMetric(mapped.small!, 0, 20),
-    medium: clampMetric(mapped.medium!, 0, 32),
-    large: clampMetric(mapped.large!, 0, 32),
-    extraLarge: clampMetric(mapped.extraLarge!, 0, 32),
-    full: clampMetric(mapped.full!, 0, 999),
+    extraSmall,
+    small,
+    medium,
+    large,
+    extraLarge,
+    full: clampMetric(Math.max(mapped.full!, extraLarge), 0, 999),
   };
 }
 
@@ -500,7 +525,7 @@ function adaptMotion(value: Record<string, ApiThemeMotionRecipe | string>) {
 
 function adaptFonts(
   values: ApiResolvedThemeResponse["fonts"],
-  workspaceId: string,
+  resourceScope: ThemeResourceScope,
 ): readonly NativeThemeFontResource[] | null {
   if (!Array.isArray(values) || values.length > 16) return null;
   const seen = new Set<string>();
@@ -510,13 +535,13 @@ function adaptFonts(
       !isText(value.id) ||
       seen.has(value.id) ||
       !isText(value.family) ||
-      !validResourceUrl(value.sourceUrl, value.id, workspaceId) ||
+      !validResourceUrl(value.sourceUrl, value.id, resourceScope) ||
       value.format !== "woff2" ||
       !value.nativeDerivative ||
       !validNativeFontUrl(
         value.nativeDerivative.sourceUrl,
         value.id,
-        workspaceId,
+        resourceScope,
         value.nativeDerivative.format,
       ) ||
       !/^[0-9a-f]{64}$/i.test(value.nativeDerivative.identity) ||
@@ -550,7 +575,7 @@ function adaptFonts(
 
 function adaptAssets(
   values: ApiResolvedThemeResponse["assets"],
-  workspaceId: string,
+  resourceScope: ThemeResourceScope,
 ): readonly NativeThemeAssetResource[] | null {
   if (!Array.isArray(values) || values.length > ASSET_SLOTS.size) return null;
   const seen = new Set<string>();
@@ -563,8 +588,9 @@ function adaptAssets(
       slots.has(value.slot) ||
       !ASSET_SLOTS.has(value.slot as NativeThemeAssetResource["slot"]) ||
       !ASSET_MEDIA_TYPES.has(value.mimeType as NativeThemeAssetResource["mimeType"]) ||
-      !validResourceUrl(value.sourceUrl, value.id, workspaceId) ||
-      (value.alt !== undefined && typeof value.alt !== "string")
+      !validResourceUrl(value.sourceUrl, value.id, resourceScope) ||
+      (value.alt !== undefined && (!isText(value.alt) || Array.from(value.alt).length > 240)) ||
+      (ILLUSTRATION_SLOTS.has(value.slot as NativeThemeAssetResource["slot"]) && !isText(value.alt))
     ) {
       return null;
     }
@@ -581,7 +607,17 @@ function adaptAssets(
   return result;
 }
 
-function validResourceUrl(value: string, resourceId: string, workspaceId: string): boolean {
+interface ThemeResourceScope {
+  revision: string;
+  themeId: string;
+  workspaceId: string;
+}
+
+function validResourceUrl(
+  value: string,
+  resourceId: string,
+  { revision, themeId, workspaceId }: ThemeResourceScope,
+): boolean {
   try {
     const url = new URL(value, "https://openpost.invalid");
     const parameters = [...url.searchParams.entries()];
@@ -589,9 +625,10 @@ function validResourceUrl(value: string, resourceId: string, workspaceId: string
       url.origin === "https://openpost.invalid" &&
       !url.hash &&
       url.pathname === `/api/v1/theme-assets/${encodeURIComponent(resourceId)}/content` &&
-      parameters.length === 1 &&
-      parameters[0][0] === "workspace_id" &&
-      parameters[0][1] === workspaceId
+      parameters.length === 3 &&
+      url.searchParams.get("workspace_id") === workspaceId &&
+      url.searchParams.get("theme_id") === themeId &&
+      url.searchParams.get("revision") === revision
     );
   } catch {
     return false;
@@ -601,7 +638,7 @@ function validResourceUrl(value: string, resourceId: string, workspaceId: string
 function validNativeFontUrl(
   value: string,
   resourceId: string,
-  workspaceId: string,
+  { revision, themeId, workspaceId }: ThemeResourceScope,
   format: string,
 ): boolean {
   if (format !== "ttf" && format !== "otf") return false;
@@ -612,8 +649,10 @@ function validNativeFontUrl(
       url.origin === "https://openpost.invalid" &&
       !url.hash &&
       url.pathname === `/api/v1/theme-assets/${encodeURIComponent(resourceId)}/content` &&
-      parameters.length === 2 &&
+      parameters.length === 4 &&
       url.searchParams.get("workspace_id") === workspaceId &&
+      url.searchParams.get("theme_id") === themeId &&
+      url.searchParams.get("revision") === revision &&
       url.searchParams.get("format") === format
     );
   } catch {

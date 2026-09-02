@@ -6,7 +6,7 @@ import {
   builtinThemeForScheme,
   validateNativeThemeManifest,
 } from "./builtins";
-import { NATIVE_ICON_ROLES } from "./contract";
+import { NATIVE_ICON_ROLES, type NativeThemeManifest } from "./contract";
 
 describe("native built-in themes", () => {
   test("ships every built-in family with complete declared schemes", () => {
@@ -58,6 +58,57 @@ describe("native built-in themes", () => {
           contrastRatio(manifest.actions.focal.content, manifest.actions.focal.container),
         ).toBeGreaterThanOrEqual(4.5);
       }
+    }
+  });
+
+  test("rejects unsafe native values before React Native receives them", () => {
+    const manifest = structuredClone(BUILTIN_THEME_FAMILIES.workshop.manifests.light!);
+    const invalidManifests = [
+      { ...manifest, colors: { ...manifest.colors, primary: "not-a-color" } },
+      {
+        ...manifest,
+        colors: { ...manifest.colors, onPrimary: manifest.colors.primary },
+      },
+      {
+        ...manifest,
+        typography: {
+          ...manifest.typography,
+          bodyMedium: { ...manifest.typography.bodyMedium, fontWeight: "750" },
+        },
+      },
+      {
+        ...manifest,
+        typography: {
+          ...manifest.typography,
+          bodyMedium: { ...manifest.typography.bodyMedium, fontSize: 4000 },
+        },
+      },
+      { ...manifest, spacing: { ...manifest.spacing, medium: -1 } },
+      {
+        ...manifest,
+        colors: {
+          ...manifest.colors,
+          status: { ...manifest.colors.status, published: manifest.colors.background },
+        },
+      },
+      {
+        ...manifest,
+        actions: {
+          ...manifest.actions,
+          focal: { ...manifest.actions.focal, disabledOpacity: 4 },
+        },
+      },
+      {
+        ...manifest,
+        iconography: {
+          ...manifest.iconography,
+          roles: { ...manifest.iconography.roles, edit: manifest.iconography.roles.delete },
+        },
+      },
+    ];
+
+    for (const invalid of invalidManifests) {
+      expect(validateNativeThemeManifest(invalid as NativeThemeManifest)).toBe(false);
     }
   });
 });

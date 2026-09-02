@@ -90,6 +90,39 @@ describe("native theme runtime", () => {
     });
   });
 
+  test("falls back when a complete-looking manifest has unsafe native values", () => {
+    const contract = createBuiltinThemeContract({
+      familyId: "studio",
+      identity: "studio@unsafe",
+      workspaceId: "workspace-1",
+    });
+    const manifest = contract.manifests.light!;
+
+    const resolved = resolveNativeTheme({
+      contract: {
+        ...contract,
+        manifests: {
+          light: {
+            ...manifest,
+            colors: {
+              ...manifest.colors,
+              primary: "invalid-color",
+            },
+          },
+        },
+      },
+      preference: "light",
+      systemScheme: "light",
+      workspaceId: "workspace-1",
+    });
+
+    expect(resolved.familyId).toBe("workshop");
+    expect(resolved.source).toEqual({
+      kind: "fallback",
+      reason: "invalid-contract",
+    });
+  });
+
   test("activates a resource-backed theme only after the exact complete set is staged", () => {
     const base = createBuiltinThemeContract({
       familyId: "studio",

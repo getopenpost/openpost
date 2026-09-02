@@ -1,5 +1,9 @@
-import { openPostQueryDefaults, type NotificationQueryAPI } from '@openpost/query-catalog';
-import { QueryClient } from '@tanstack/svelte-query';
+import {
+	notificationQueryKeys,
+	openPostQueryDefaults,
+	type NotificationQueryAPI
+} from '@openpost/query-catalog';
+import { focusManager, QueryClient } from '@tanstack/svelte-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client } from '$lib/api/client';
 import type { Notification } from './notifications.svelte';
@@ -234,6 +238,39 @@ describe('notification inbox store', () => {
 			first.id
 		]);
 		expect(store.snapshot('workspace-a').unreadCount).toBe(2);
+	});
+
+	it('performs one refresh when a mounted query client regains focus', async () => {
+		mocks.list.mockResolvedValue({
+			data: { items: [notification(1)], unread_count: 1, next_cursor: '' },
+			error: null
+		});
+		const cache = new QueryClient({ defaultOptions: openPostQueryDefaults });
+		const store = new NotificationInboxStore(cache, queryAPI);
+		cache.mount();
+		const stopPolling = store.startAutoRefresh('workspace-a', 60_000);
+
+		try {
+			await store.ensureLoaded('workspace-a');
+			await cache.invalidateQueries({
+				queryKey: notificationQueryKeys.inbox('workspace-a', 30),
+				exact: true,
+				refetchType: 'none'
+			});
+
+			focusManager.setFocused(false);
+			focusManager.setFocused(true);
+			await vi.waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+			window.dispatchEvent(new Event('focus'));
+			await Promise.resolve();
+
+			expect(mocks.list).toHaveBeenCalledTimes(2);
+		} finally {
+			stopPolling();
+			store.clear();
+			cache.unmount();
+			focusManager.setFocused(undefined);
+		}
 	});
 
 	it('keeps cached notifications visible through a background error and clears it on success', async () => {

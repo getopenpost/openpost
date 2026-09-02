@@ -250,10 +250,8 @@ export class NotificationInboxStore {
 			}
 		};
 		const interval = window.setInterval(refreshWhenVisible, intervalMilliseconds);
-		window.addEventListener('focus', refreshWhenVisible);
 		return () => {
 			window.clearInterval(interval);
-			window.removeEventListener('focus', refreshWhenVisible);
 		};
 	}
 

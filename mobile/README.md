@@ -30,10 +30,10 @@ bun install --frozen-lockfile
 bun run check
 ```
 
-`bun run check` runs TypeScript, Expo lint, Expo Doctor, and the mobile unit tests. Regenerate the API types after the backend contract changes:
+`bun run check` runs TypeScript, Expo lint, Expo Doctor, and the mobile unit tests. `packages/api-contract` owns the generated declarations shared by web and mobile. After a backend contract change, regenerate them from the repository root:
 
 ```sh
-bun run generate:api
+bun run --filter @openpost/web generate:types
 ```
 
 ## Run on Android

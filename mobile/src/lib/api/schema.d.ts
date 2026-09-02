@@ -4101,6 +4101,290 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/theme-assets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Organization theme assets */
+    get: operations["list-theme-assets"];
+    put?: never;
+    /** Upload a validated theme asset */
+    post: operations["upload-theme-asset"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/theme-assets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete an unused theme asset */
+    delete: operations["delete-theme-asset"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/theme-assets/{id}/content": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read an authorized theme asset */
+    get: operations["get-theme-asset-content"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/theme-assignments/{workspace_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set or clear a Workspace theme override */
+    put: operations["update-workspace-theme-assignment"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/theme-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get effective Workspace theme settings */
+    get: operations["get-theme-settings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/theme-settings/organization": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Organization theme default and lock */
+    put: operations["update-organization-theme-settings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Organization themes */
+    get: operations["list-organization-themes"];
+    put?: never;
+    /** Create an Organization theme draft */
+    post: operations["create-organization-theme"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/available": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List themes available to a Workspace administrator
+     * @description Returns built-ins and published Organization themes without exposing drafts or asset inventory.
+     */
+    get: operations["list-available-themes"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/built-ins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List immutable built-in themes */
+    get: operations["list-built-in-themes"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/resolved": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Resolve the complete Workspace theme
+     * @description Returns one complete manifest. Missing, invalid, unpublished, deleted, inaccessible, or unsupported references fall back as a whole to Workshop.
+     */
+    get: operations["resolve-theme"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get an Organization theme and draft */
+    get: operations["get-organization-theme"];
+    put?: never;
+    post?: never;
+    /** Delete an unused Organization theme */
+    delete: operations["delete-organization-theme"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}/draft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Replace a theme draft */
+    put: operations["update-theme-draft"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}/publish": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Publish an immutable theme revision
+     * @description Advances existing Organization and Workspace references for this theme family atomically.
+     */
+    post: operations["publish-theme"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List immutable published revisions */
+    get: operations["list-theme-revisions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}/revisions/{revision}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get an immutable published revision */
+    get: operations["get-theme-revision"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/themes/{id}/rollback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Roll back as a new immutable revision */
+    post: operations["rollback-theme"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/version": {
     parameters: {
       query?: never;
@@ -6490,6 +6774,22 @@ export interface components {
       /** @description Target workspace ID */
       workspace_id: string;
     };
+    CreateThemeInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/CreateThemeInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Built-in family to copy into an editable draft */
+      duplicate_built_in_id?: string;
+      /** @description Complete family manifest with light and/or dark schemes */
+      manifest: components["schemas"]["ThemeManifest"];
+      /** @description Theme family name */
+      name: string;
+      /** @description Organization ID */
+      organization_id: string;
+    };
     CreateUserImpersonationLinkOutputBody: {
       /**
        * Format: uri
@@ -6711,6 +7011,24 @@ export interface components {
       readonly $schema?: string;
       /** @description Whether the server must restart before adapter changes apply */
       requires_restart: boolean;
+    };
+    DeleteThemeAssetOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/DeleteThemeAssetOutputBody.json
+       */
+      readonly $schema?: string;
+      deleted: boolean;
+    };
+    DeleteThemeOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/DeleteThemeOutputBody.json
+       */
+      readonly $schema?: string;
+      deleted: boolean;
     };
     DeleteVoiceProfileOutputBody: {
       /**
@@ -8963,6 +9281,12 @@ export interface components {
       scope: "account" | "workspace";
       workspace_id?: string;
     };
+    NativeFontDerivative: {
+      /** @enum {string} */
+      format: "ttf" | "otf";
+      identity: string;
+      sourceUrl: string;
+    };
     NextAvailableSlotOutputBody: {
       /**
        * Format: uri
@@ -9365,6 +9689,17 @@ export interface components {
       /** Format: int64 */
       current_seats: number;
       members: components["schemas"]["OrganizationMemberResponse"][] | null;
+    };
+    OrganizationThemeSettings: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/OrganizationThemeSettings.json
+       */
+      readonly $schema?: string;
+      assignments_locked: boolean;
+      default_reference: components["schemas"]["ThemeReference"];
+      organization_id: string;
     };
     OutputProfile: {
       allowed_mimes?: string[] | null;
@@ -10238,6 +10573,40 @@ export interface components {
       issues: components["schemas"]["ValidationIssue"][] | null;
       valid: boolean;
     };
+    PublishThemeInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/PublishThemeInputBody.json
+       */
+      readonly $schema?: string;
+      /**
+       * Format: int64
+       * @description Draft revision being published
+       */
+      expected_draft_revision: number;
+      /** @description Organization ID */
+      organization_id: string;
+    };
+    PublishedRevision: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/PublishedRevision.json
+       */
+      readonly $schema?: string;
+      manifest: components["schemas"]["ThemeManifest"];
+      /** Format: date-time */
+      published_at: string;
+      published_by: string;
+      /** Format: int64 */
+      revision: number;
+      theme_id: string;
+    };
+    PublishedThemeCatalogItem: {
+      manifest: components["schemas"]["ThemeRuntimeManifest"];
+      summary: components["schemas"]["ThemeSummary"];
+    };
     PublishingOptionsOutputBody: {
       /**
        * Format: uri
@@ -11024,6 +11393,25 @@ export interface components {
       label: string;
       publishable: boolean;
     };
+    ResolvedTheme: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/ResolvedTheme.json
+       */
+      readonly $schema?: string;
+      assets: components["schemas"]["ThemeAsset"][] | null;
+      fallbackReason?: string;
+      fonts: components["schemas"]["ThemeRuntimeFontFace"][] | null;
+      iconPack: string;
+      id: string;
+      manifest: components["schemas"]["ThemeSchemeManifest"];
+      name: string;
+      requestedScheme: string;
+      revision: string;
+      scheme: string;
+      source: string;
+    };
     RestoreImageEditorRevisionInputBody: {
       /**
        * Format: uri
@@ -11100,6 +11488,21 @@ export interface components {
        */
       readonly $schema?: string;
       revoked: boolean;
+    };
+    RollbackThemeInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/RollbackThemeInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Organization ID */
+      organization_id: string;
+      /**
+       * Format: int64
+       * @description Published revision to copy into a new head revision
+       */
+      source_revision: number;
     };
     Rule: {
       /**
@@ -11710,6 +12113,407 @@ export interface components {
       recommended_max_length?: number;
       required: boolean;
     };
+    Theme: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/Theme.json
+       */
+      readonly $schema?: string;
+      draft?: components["schemas"]["ThemeDraft"];
+      latest_published?: components["schemas"]["PublishedRevision"];
+      summary: components["schemas"]["ThemeSummary"];
+    };
+    ThemeAsset: {
+      alt?: string;
+      id: string;
+      mimeType: string;
+      /** @enum {string} */
+      slot:
+        | "background-texture"
+        | "sidebar-decoration"
+        | "header-decoration"
+        | "empty-state-illustration"
+        | "loading-illustration";
+      sourceUrl: string;
+    };
+    ThemeAssetRecord: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/ThemeAssetRecord.json
+       */
+      readonly $schema?: string;
+      checksum_sha256: string;
+      /** Format: date-time */
+      created_at: string;
+      created_by: string;
+      font_family?: string;
+      font_style?: string;
+      /** Format: int64 */
+      font_weight?: number;
+      /** Format: int64 */
+      height?: number;
+      id: string;
+      kind: string;
+      license_acknowledged?: boolean;
+      media_type: string;
+      name: string;
+      organization_id: string;
+      /** Format: int64 */
+      size_bytes: number;
+      url?: string;
+      /** Format: int64 */
+      width?: number;
+    };
+    ThemeColorTokens: {
+      actionDestructive: string;
+      actionDestructiveActive: string;
+      actionDestructiveHover: string;
+      actionDestructiveInk: string;
+      actionFocal: string;
+      actionFocalActive: string;
+      actionFocalHover: string;
+      actionFocalInk: string;
+      actionLink: string;
+      actionLinkHover: string;
+      actionOrdinary: string;
+      actionOrdinaryActive: string;
+      actionOrdinaryBorder: string;
+      actionOrdinaryHover: string;
+      actionOrdinaryInk: string;
+      actionPrimary: string;
+      actionPrimaryActive: string;
+      actionPrimaryHover: string;
+      actionPrimaryInk: string;
+      actionQuiet: string;
+      actionQuietActive: string;
+      actionQuietHover: string;
+      actionQuietInk: string;
+      border: string;
+      brand: string;
+      brandInk: string;
+      browserChrome: string;
+      browserSurface: string;
+      canvas: string;
+      cardHover: string;
+      caret: string;
+      chart1: string;
+      chart2: string;
+      chart3: string;
+      chart4: string;
+      chart5: string;
+      chrome: string;
+      chromeInk: string;
+      danger: string;
+      dangerInk: string;
+      disabled: string;
+      disabledInk: string;
+      field: string;
+      fieldBorder: string;
+      fieldDisabled: string;
+      fieldDisabledInk: string;
+      fieldFocus: string;
+      fieldHover: string;
+      fieldInk: string;
+      focus: string;
+      info: string;
+      infoInk: string;
+      ink: string;
+      input: string;
+      link: string;
+      mutedInk: string;
+      navigationActive: string;
+      navigationActiveInk: string;
+      navigationHover: string;
+      overlay: string;
+      scrim: string;
+      selection: string;
+      selectionInk: string;
+      sidebar: string;
+      sidebarActive: string;
+      sidebarActiveInk: string;
+      sidebarBorder: string;
+      sidebarInk: string;
+      success: string;
+      successInk: string;
+      surface: string;
+      surfaceRaised: string;
+      surfaceSunken: string;
+      warning: string;
+      warningInk: string;
+      workspace: string;
+      workspaceInk: string;
+    };
+    ThemeComponentRecipes: {
+      /** @enum {string} */
+      badge: "solid" | "tonal" | "outlined";
+      /** @enum {string} */
+      button: "solid" | "tonal" | "outlined" | "precise";
+      /** @enum {string} */
+      card: "flat" | "outlined" | "paper" | "lifted";
+      /** @enum {string} */
+      checkbox: "solid" | "tonal" | "outlined";
+      /** @enum {string} */
+      chip: "solid" | "tonal" | "outlined";
+      /** @enum {string} */
+      container: "flat" | "outlined" | "tinted";
+      /** @enum {string} */
+      decoration:
+        | "none"
+        | "editorial"
+        | "playful"
+        | "botanical"
+        | "study"
+        | "tactile"
+        | "precision";
+      /** @enum {string} */
+      dialog: "flat" | "outlined" | "elevated";
+      /** @enum {string} */
+      editorChrome: "neutral" | "compact" | "precision";
+      /** @enum {string} */
+      emptyState: "plain" | "illustrated" | "framed";
+      /** @enum {string} */
+      input: "filled" | "outlined" | "underlined";
+      /** @enum {string} */
+      link: "underlined" | "subtle" | "plain";
+      /** @enum {string} */
+      list: "divided" | "spaced" | "plain";
+      /** @enum {string} */
+      loadingState: "spinner" | "pulse" | "skeleton";
+      /** @enum {string} */
+      navigation: "quiet" | "tonal" | "outlined";
+      /** @enum {string} */
+      pagination: "quiet" | "outlined" | "pill";
+      /** @enum {string} */
+      popover: "flat" | "outlined" | "elevated";
+      /** @enum {string} */
+      radio: "solid" | "tonal" | "outlined";
+      /** @enum {string} */
+      select: "filled" | "outlined" | "underlined";
+      /** @enum {string} */
+      switch: "solid" | "tonal" | "outlined";
+      /** @enum {string} */
+      table: "ruled" | "striped" | "plain";
+      /** @enum {string} */
+      tabs: "underline" | "pill" | "segmented";
+      /** @enum {string} */
+      toast: "flat" | "outlined" | "elevated";
+      /** @enum {string} */
+      toolbar: "flat" | "outlined" | "floating";
+    };
+    ThemeCornerTokens: {
+      /** @enum {string} */
+      borderStyle: "solid" | "dashed";
+      borderWidth: string;
+      radius: string;
+      radiusLg: string;
+      radiusMd: string;
+      radiusMedia: string;
+      radiusPill: string;
+      radiusSm: string;
+    };
+    ThemeDraft: {
+      manifest: components["schemas"]["ThemeManifest"];
+      /** Format: int64 */
+      revision: number;
+      theme_id: string;
+      /** Format: date-time */
+      updated_at: string;
+      updated_by: string;
+    };
+    ThemeElevationTokens: {
+      card: string;
+      dialog: string;
+      focalAction: string;
+      popover: string;
+    };
+    ThemeFontFace: {
+      /** @enum {string} */
+      display: "swap" | "fallback" | "optional";
+      family: string;
+      /** @enum {string} */
+      format: "woff2";
+      id: string;
+      sourceUrl: string;
+      /** @enum {string} */
+      style: "normal" | "italic";
+      /** Format: int64 */
+      weight: number;
+    };
+    ThemeManifest: {
+      assets: components["schemas"]["ThemeAsset"][] | null;
+      description: string;
+      fonts: components["schemas"]["ThemeFontFace"][] | null;
+      iconPack: string;
+      id: string;
+      name: string;
+      revision: string;
+      /** Format: int64 */
+      schemaVersion: number;
+      schemes: components["schemas"]["ThemeSchemes"];
+      supportedSchemes: string[] | null;
+    };
+    ThemeMotionRecipe: {
+      distance: string;
+      duration: string;
+      easing: string;
+      /** Format: double */
+      opacity: number;
+    };
+    ThemeMotionTokens: {
+      entry: components["schemas"]["ThemeMotionRecipe"];
+      exit: components["schemas"]["ThemeMotionRecipe"];
+      hover: components["schemas"]["ThemeMotionRecipe"];
+      loading: components["schemas"]["ThemeMotionRecipe"];
+      pageTransition: components["schemas"]["ThemeMotionRecipe"];
+      press: components["schemas"]["ThemeMotionRecipe"];
+      /** @enum {string} */
+      reducedMotion: "instant" | "crossfade";
+      selection: components["schemas"]["ThemeMotionRecipe"];
+    };
+    ThemeProtectedEditorTokens: {
+      canvasGrid: string;
+      canvasHandle: string;
+      canvasPasteboard: string;
+      canvasSafeArea: string;
+      canvasSelection: string;
+      editorBorder: string;
+      editorCanvas: string;
+      editorControl: string;
+      editorControlHover: string;
+      editorFocus: string;
+      editorFocusBorder: string;
+      editorMuted: string;
+      editorPanel: string;
+      editorText: string;
+      protectedGlyph: string;
+      timelineClip: string;
+      timelinePlayhead: string;
+      timelineSelection: string;
+      timelineTrack: string;
+      timelineWaveform: string;
+    };
+    ThemeReference: {
+      id: string;
+      kind: string;
+      /** Format: int64 */
+      version: number;
+    };
+    ThemeRuntimeFontFace: {
+      /** @enum {string} */
+      display: "swap" | "fallback" | "optional";
+      family: string;
+      /** @enum {string} */
+      format: "woff2";
+      id: string;
+      nativeDerivative: components["schemas"]["NativeFontDerivative"];
+      sourceUrl: string;
+      /** @enum {string} */
+      style: "normal" | "italic";
+      /** Format: int64 */
+      weight: number;
+    };
+    ThemeRuntimeManifest: {
+      assets: components["schemas"]["ThemeAsset"][] | null;
+      description: string;
+      fonts: components["schemas"]["ThemeRuntimeFontFace"][] | null;
+      iconPack: string;
+      id: string;
+      name: string;
+      revision: string;
+      /** Format: int64 */
+      schemaVersion: number;
+      schemes: components["schemas"]["ThemeSchemes"];
+      supportedSchemes: string[] | null;
+    };
+    ThemeSchemeManifest: {
+      colors: components["schemas"]["ThemeColorTokens"];
+      components: components["schemas"]["ThemeComponentRecipes"];
+      elevation: components["schemas"]["ThemeElevationTokens"];
+      motion: components["schemas"]["ThemeMotionTokens"];
+      protectedEditor: components["schemas"]["ThemeProtectedEditorTokens"];
+      shape: components["schemas"]["ThemeCornerTokens"];
+      shell: components["schemas"]["ThemeShellTokens"];
+      spacing: components["schemas"]["ThemeSpacingTokens"];
+      typography: components["schemas"]["ThemeTypographyTokens"];
+    };
+    ThemeSchemes: {
+      dark?: components["schemas"]["ThemeSchemeManifest"];
+      light?: components["schemas"]["ThemeSchemeManifest"];
+    };
+    ThemeSettings: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/ThemeSettings.json
+       */
+      readonly $schema?: string;
+      assignments_locked: boolean;
+      can_manage_organization: boolean;
+      can_manage_workspace: boolean;
+      effective_selection: components["schemas"]["ThemeReference"];
+      organization_default: components["schemas"]["ThemeReference"];
+      organization_id: string;
+      workspace_id: string;
+      workspace_selection?: components["schemas"]["ThemeReference"];
+    };
+    ThemeShellTokens: {
+      /** @enum {string} */
+      canvasTreatment: "plain" | "paper" | "playful" | "garden" | "study" | "tactile" | "precision";
+      contentMaxWidth: string;
+      headerHeight: string;
+      mobileNavigationHeight: string;
+      sidebarWidth: string;
+    };
+    ThemeSpacingTokens: {
+      base: string;
+      compactControlHeight: string;
+      componentGap: string;
+      controlHeight: string;
+      /** @enum {string} */
+      density: "compact" | "comfortable" | "spacious";
+      pageGutter: string;
+      sectionGap: string;
+      touchTarget: string;
+    };
+    ThemeSummary: {
+      /** Format: int64 */
+      assigned_workspace_count: number;
+      built_in: boolean;
+      /** Format: date-time */
+      created_at?: string;
+      description: string;
+      /** Format: int64 */
+      draft_revision?: number;
+      icon_pack: string;
+      is_organization_default: boolean;
+      name: string;
+      organization_id?: string;
+      /** Format: int64 */
+      published_revision?: number;
+      reference: components["schemas"]["ThemeReference"];
+      supported_schemes: string[] | null;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    ThemeTypographyRoleTokens: {
+      fallbacks: string[] | null;
+      family: string;
+      lineHeight: string;
+      size: string;
+      tracking: string;
+      /** Format: int64 */
+      weight: number;
+    };
+    ThemeTypographyTokens: {
+      body: components["schemas"]["ThemeTypographyRoleTokens"];
+      code: components["schemas"]["ThemeTypographyRoleTokens"];
+      display: components["schemas"]["ThemeTypographyRoleTokens"];
+      label: components["schemas"]["ThemeTypographyRoleTokens"];
+      metadata: components["schemas"]["ThemeTypographyRoleTokens"];
+      title: components["schemas"]["ThemeTypographyRoleTokens"];
+    };
     ToggleImageEditorDesignFavoriteOutputBody: {
       /**
        * Format: uri
@@ -11832,6 +12636,20 @@ export interface components {
       readonly $schema?: string;
       name: string;
     };
+    UpdateOrganizationThemeSettingsInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/UpdateOrganizationThemeSettingsInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Force every Workspace to inherit the Organization default */
+      assignments_locked: boolean;
+      /** @description Published Organization default */
+      default_reference: components["schemas"]["ThemeReference"];
+      /** @description Organization ID */
+      organization_id: string;
+    };
     UpdatePostingScheduleInputBody: {
       /**
        * Format: uri
@@ -11937,6 +12755,25 @@ export interface components {
        */
       state: "current" | "update_available" | "stale" | "unavailable" | "disabled" | "development";
     };
+    UpdateThemeDraftInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/UpdateThemeDraftInputBody.json
+       */
+      readonly $schema?: string;
+      /**
+       * Format: int64
+       * @description Draft revision loaded by the editor
+       */
+      expected_revision: number;
+      /** @description Complete replacement family manifest */
+      manifest: components["schemas"]["ThemeManifest"];
+      /** @description Theme family name */
+      name: string;
+      /** @description Organization ID */
+      organization_id: string;
+    };
     UpdateVoiceProfileInputBody: {
       /**
        * Format: uri
@@ -12033,6 +12870,51 @@ export interface components {
       timezone: string;
       /** Format: int64 */
       week_start: number;
+    };
+    UpdateWorkspaceThemeAssignmentInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/UpdateWorkspaceThemeAssignmentInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Published override; null restores Organization inheritance */
+      reference?: components["schemas"]["ThemeReference"];
+    };
+    UploadThemeAssetInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/UploadThemeAssetInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Base64-encoded WOFF2 or raster file */
+      content_base64: string;
+      /** @description Font family for a WOFF2 upload */
+      font_family?: string;
+      /**
+       * @description Font style for a WOFF2 upload
+       * @enum {string}
+       */
+      font_style?: "normal" | "italic";
+      /**
+       * Format: int64
+       * @description 100-step font weight for a WOFF2 upload
+       */
+      font_weight?: number;
+      /**
+       * @description Theme asset role
+       * @enum {string}
+       */
+      kind: "font" | "background" | "texture" | "illustration";
+      /** @description Confirms the Organization may use the uploaded font */
+      license_acknowledged?: boolean;
+      /** @description Static font/woff2 or supported raster image media type; variable fonts are rejected for mobile parity */
+      media_type: string;
+      /** @description Asset label */
+      name: string;
+      /** @description Organization ID */
+      organization_id: string;
     };
     UpsertRenditionsInputBody: {
       /**
@@ -28684,6 +29566,1478 @@ export interface operations {
       };
       /** @description Error */
       default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-theme-assets": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeAssetRecord"][] | null;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "upload-theme-asset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UploadThemeAssetInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeAssetRecord"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "delete-theme-asset": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+        /** @description Explicit deletion confirmation */
+        confirm: boolean;
+      };
+      header?: never;
+      path: {
+        /** @description Theme asset ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteThemeAssetOutputBody"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-theme-asset-content": {
+    parameters: {
+      query?: {
+        /** @description Organization scope for library and editor previews */
+        organization_id?: string;
+        /** @description Workspace scope for resolved runtime resources */
+        workspace_id?: string;
+        /** @description Published theme ID for an unassigned Workspace administrator preview */
+        theme_id?: string;
+        /** @description Published theme revision for an unassigned Workspace administrator preview */
+        revision?: number;
+        /** @description Native SFNT derivative format for mobile; omit for the original WOFF2 or raster resource */
+        format?: "ttf" | "otf";
+      };
+      header?: {
+        /** @description Opaque asset checksum */
+        "If-None-Match"?: string;
+      };
+      path: {
+        /** @description Theme asset ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          "Cache-Control"?: string;
+          "Content-Length"?: string;
+          "Content-Type"?: string;
+          ETag?: string;
+          "X-Content-Type-Options"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": string;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-workspace-theme-assignment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Workspace ID */
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateWorkspaceThemeAssignmentInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeSettings"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-theme-settings": {
+    parameters: {
+      query: {
+        /** @description Workspace ID */
+        workspace_id: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeSettings"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-organization-theme-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateOrganizationThemeSettingsInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OrganizationThemeSettings"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-organization-themes": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Theme"][] | null;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "create-organization-theme": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateThemeInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Theme"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-available-themes": {
+    parameters: {
+      query: {
+        /** @description Workspace ID */
+        workspace_id: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedThemeCatalogItem"][] | null;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-built-in-themes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThemeManifest"][] | null;
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "resolve-theme": {
+    parameters: {
+      query: {
+        /** @description Workspace ID */
+        workspace_id: string;
+        /** @description Effective light or dark scheme already chosen from the user's system preference */
+        scheme: "light" | "dark";
+      };
+      header?: {
+        /** @description Resolved theme cache identity */
+        "If-None-Match"?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          "Cache-Control"?: string;
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResolvedTheme"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-organization-theme": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+      };
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Theme"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "delete-organization-theme": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+        /** @description Explicit deletion confirmation */
+        confirm: boolean;
+      };
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteThemeOutputBody"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-theme-draft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateThemeDraftInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Theme"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "publish-theme": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublishThemeInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedRevision"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-theme-revisions": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+      };
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedRevision"][] | null;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-theme-revision": {
+    parameters: {
+      query: {
+        /** @description Organization ID */
+        organization_id: string;
+      };
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+        /** @description Immutable published revision */
+        revision: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedRevision"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "rollback-theme": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Organization theme ID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RollbackThemeInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedRevision"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

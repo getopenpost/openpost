@@ -1,6 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -29,6 +28,7 @@ import {
 import { CelebrationBurst } from "@/components/celebration-burst";
 import { BottomDrawer } from "@/components/bottom-drawer";
 import { ThemeIcon } from "@/components/theme-icon";
+import { ProtectedIcon } from "@/components/protected-icon";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
@@ -666,7 +666,7 @@ function Composer({
                       { backgroundColor: colors.surfaceContainerHigh },
                     ]}
                   >
-                    <ThemeIcon
+                    <ProtectedIcon
                       role={attachment.mimeType.startsWith("video/") ? "video" : "image"}
                       size={24}
                       tintColor={colors.onSurfaceVariant}
@@ -689,14 +689,8 @@ function Composer({
                     accessibilityRole="alert"
                     style={[styles.thumbOverlay, { backgroundColor: editor.mediaScrim }]}
                   >
-                    <SymbolView
-                      accessibilityElementsHidden
-                      accessible={false}
-                      importantForAccessibility="no-hide-descendants"
-                      name={{
-                        ios: "exclamationmark.triangle.fill",
-                        android: "warning",
-                      }}
+                    <ProtectedIcon
+                      role="warning"
                       size={18}
                       tintColor={editor.canvasSelectionText}
                     />
@@ -744,11 +738,7 @@ function Composer({
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
-              size={24}
-              tintColor={colors.primary}
-            />
+            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -760,11 +750,7 @@ function Composer({
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "camera", android: "photo_camera" }}
-              size={24}
-              tintColor={colors.primary}
-            />
+            <ProtectedIcon role="camera" size={24} tintColor={colors.primary} />
           </Pressable>
         </View>
 

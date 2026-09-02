@@ -32,10 +32,6 @@ export const NATIVE_ICON_ROLES = [
   "drafts",
   "workspace",
   "link",
-  "upload",
-  "download",
-  "image",
-  "video",
   "account",
   "notification",
   "undo",
@@ -283,6 +279,7 @@ export type NativeThemeFallbackReason =
   | "invalid-contract"
   | "stale-contract"
   | "unsupported-scheme"
+  | "icons-unavailable"
   | "resources-unavailable";
 
 export interface NativeThemeSnapshot {

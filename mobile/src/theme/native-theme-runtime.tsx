@@ -1,4 +1,11 @@
-import { createContext, useContext, useMemo, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import { useColorScheme } from "react-native";
 
 import type {
@@ -8,7 +15,13 @@ import type {
   NativeThemeScheme,
   NativeThemeSnapshot,
 } from "./contract";
-import { resolveNativeTheme } from "./runtime";
+import {
+  activateNativeThemeSnapshotIcons,
+  createNativeThemeIconStager,
+  isNativeThemeIconPackLoaded,
+  type NativeThemeIconStager,
+} from "./icons";
+import { resolveNativeTheme, resolveNativeThemeFallback } from "./runtime";
 
 const DEFAULT_THEME = resolveNativeTheme({
   contract: null,
@@ -41,7 +54,7 @@ export function NativeThemeRuntime({
   const systemScheme =
     systemSchemeOverride ??
     (detectedScheme === "dark" ? "dark" : detectedScheme === "light" ? "light" : null);
-  const snapshot = useMemo(
+  const requestedSnapshot = useMemo(
     () =>
       resolveNativeTheme({
         contract,
@@ -52,10 +65,43 @@ export function NativeThemeRuntime({
       }),
     [contract, preference, stagedResources, systemScheme, workspaceId],
   );
+  const [stager] = useState<NativeThemeIconStager>(createNativeThemeIconStager);
+  const [activeSnapshot, setActiveSnapshot] = useState(() =>
+    isNativeThemeIconPackLoaded(requestedSnapshot.manifest.iconography.packId)
+      ? requestedSnapshot
+      : iconFallbackFor(requestedSnapshot),
+  );
+
+  useEffect(() => {
+    let current = true;
+    void activateNativeThemeSnapshotIcons({
+      fallback: () => iconFallbackFor(requestedSnapshot),
+      isCurrent: () => current,
+      publish: setActiveSnapshot,
+      snapshot: requestedSnapshot,
+      stager,
+    });
+    return () => {
+      current = false;
+    };
+  }, [requestedSnapshot, stager]);
+
+  const snapshot = isNativeThemeIconPackLoaded(requestedSnapshot.manifest.iconography.packId)
+    ? requestedSnapshot
+    : activeSnapshot;
 
   return <NativeThemeContext.Provider value={snapshot}>{children}</NativeThemeContext.Provider>;
 }
 
 export function useNativeTheme(): NativeThemeSnapshot {
   return useContext(NativeThemeContext);
+}
+
+function iconFallbackFor(snapshot: NativeThemeSnapshot): NativeThemeSnapshot {
+  return resolveNativeThemeFallback({
+    effectiveScheme: snapshot.effectiveScheme,
+    preference: snapshot.preference,
+    reason: "icons-unavailable",
+    workspaceId: snapshot.workspaceId,
+  });
 }

@@ -1,6 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { ProtectedIcon } from "@/components/protected-icon";
 import { useShareIntentContext } from "expo-share-intent";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
@@ -250,11 +250,7 @@ export default function DraftsScreen() {
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
-              size={24}
-              tintColor={colors.primary}
-            />
+            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
           </Pressable>
           <BodyText>{image ? "Replace image" : "Add image"}</BodyText>
         </View>

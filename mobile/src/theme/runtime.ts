@@ -127,6 +127,20 @@ function workshopFallback(
   });
 }
 
+export function resolveNativeThemeFallback({
+  effectiveScheme,
+  preference,
+  reason,
+  workspaceId,
+}: {
+  effectiveScheme: NativeThemeScheme;
+  preference: NativeThemePreference;
+  reason: NativeThemeFallbackReason;
+  workspaceId: string | null;
+}): NativeThemeSnapshot {
+  return workshopFallback(workspaceId, preference, effectiveScheme, reason);
+}
+
 function activationKey(
   workspaceId: string | null,
   preference: NativeThemePreference,

@@ -1,21 +1,65 @@
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import { SvgXml, type SvgProps } from "react-native-svg";
 
-import { resolveNativeThemeSymbol, type NativeIconRole, useNativeTheme } from "@/theme";
+import type { NativeIconRole } from "@/theme/contract";
+import { resolveNativeThemeIcon } from "@/theme/icons";
+import { useNativeTheme } from "@/theme/native-theme-runtime";
 
-export function ThemeIcon({
-  role,
-  type,
-  ...props
-}: Omit<SymbolViewProps, "name" | "role"> & { role: NativeIconRole }) {
-  const selection = resolveNativeThemeSymbol(useNativeTheme().manifest, role);
+export interface ThemeIconProps extends Omit<
+  SvgProps,
+  | "accessibilityElementsHidden"
+  | "accessibilityLabel"
+  | "accessibilityRole"
+  | "accessible"
+  | "color"
+  | "height"
+  | "importantForAccessibility"
+  | "role"
+  | "width"
+> {
+  readonly label?: string;
+  readonly role: NativeIconRole;
+  readonly size?: number;
+  readonly tintColor?: string;
+}
+
+export function ThemeIcon({ label, role, size = 24, tintColor, ...props }: ThemeIconProps) {
+  const theme = useNativeTheme();
+  const selection = resolveNativeThemeIcon(theme.manifest, role);
   return (
-    <SymbolView
+    <NativeThemeIconGlyph
       {...props}
-      accessibilityElementsHidden
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
-      name={selection.name}
-      type={type ?? selection.type}
+      color={tintColor ?? theme.manifest.colors.onSurface}
+      label={label}
+      selection={selection}
+      size={size}
+    />
+  );
+}
+
+export function NativeThemeIconGlyph({
+  color,
+  label,
+  selection,
+  size = 24,
+  ...props
+}: Omit<ThemeIconProps, "role" | "tintColor"> & {
+  readonly color: string;
+  readonly selection: ReturnType<typeof resolveNativeThemeIcon>;
+}) {
+  const xml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${selection.data.viewBox}">${selection.data.body}</svg>`;
+  return (
+    <SvgXml
+      {...props}
+      accessibilityElementsHidden={label ? undefined : true}
+      accessibilityLabel={label}
+      accessibilityRole={label ? "image" : undefined}
+      accessible={Boolean(label)}
+      color={color}
+      focusable={false}
+      height={size}
+      importantForAccessibility={label ? "yes" : "no-hide-descendants"}
+      width={size}
+      xml={xml}
     />
   );
 }

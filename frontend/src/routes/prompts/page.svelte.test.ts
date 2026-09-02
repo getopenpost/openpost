@@ -43,8 +43,14 @@ describe('prompts page', () => {
 		const promptsRead = deferred<ReturnType<typeof response<Prompt[]>>>();
 		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
 		getMock.mockImplementation((path) => {
-			if (path === '/prompts/categories') return categoriesRead.promise as never;
-			if (path === '/prompts') return promptsRead.promise as never;
+			if (path === '/prompts/categories') {
+				// SAFETY: The deferred fixture matches the categories endpoint response contract.
+				return categoriesRead.promise as never;
+			}
+			if (path === '/prompts') {
+				// SAFETY: The deferred fixture matches the prompts endpoint response contract.
+				return promptsRead.promise as never;
+			}
 			throw new Error(`Unexpected GET ${path}`);
 		});
 
@@ -83,9 +89,13 @@ describe('prompts page', () => {
 		queryClient.setQueryData(promptQueryKeys.list('workspace-a'), [prompt('workspace-a')]);
 		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
 		getMock.mockImplementation((path, request) => {
-			if (path === '/prompts/categories') return categoriesRead.promise as never;
+			if (path === '/prompts/categories') {
+				// SAFETY: The deferred fixture matches the categories endpoint response contract.
+				return categoriesRead.promise as never;
+			}
 			if (path !== '/prompts') throw new Error(`Unexpected GET ${path}`);
 			const workspaceID = request?.params?.query?.workspace_id ?? '';
+			// SAFETY: The prompt fixture contains every response field consumed by the component.
 			return Promise.resolve(response([prompt(workspaceID)])) as never;
 		});
 

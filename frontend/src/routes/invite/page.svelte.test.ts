@@ -51,6 +51,7 @@ describe('invitation acceptance refresh recovery', () => {
 			data: { workspace_id: acceptedWorkspace.id, role: 'editor' },
 			error: null
 		});
+		// SAFETY: This mutable fixture models only the typed Workspace collection used by the page.
 		const workspace = {
 			workspaces: [] as Workspace[],
 			loadWorkspaces: vi

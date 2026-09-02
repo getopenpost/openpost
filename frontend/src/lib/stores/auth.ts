@@ -5,7 +5,7 @@ import { client, type User } from '$lib/api/client';
 import {
 	appBootstrapQueryOptions,
 	authQueryKeys,
-	openPostQueryKeys,
+	openPostBootstrapQueryKeys,
 	seedAppBootstrap,
 	type AppBootstrap,
 	type AppBootstrapQueryAPI,
@@ -111,7 +111,7 @@ export function createAuthStore(dependencyOverrides: Partial<AuthStoreDependenci
 	let authActionGeneration = 0;
 	let authActionTail = Promise.resolve();
 	let userProjectionRevision = 0;
-	const bootstrapRoot = [...openPostQueryKeys.all, 'app', 'bootstrap'] as const;
+	const bootstrapRoot = openPostBootstrapQueryKeys.appRoot();
 	const settleIdentity = (userID: string | null, supersedeAuthActions = false) => {
 		initializeGeneration += 1;
 		const identityChanged = identitySettled && activeUserID !== userID;

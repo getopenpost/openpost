@@ -10,7 +10,6 @@ import {
 	isBillingStatusQueryKey,
 	OpenPostQueryError,
 	openPostBootstrapQueryKeys,
-	openPostQueryKeys,
 	openPostWorkspaceKey,
 	organizationQueryKeys,
 	publicProfileQueryKeys,
@@ -62,7 +61,6 @@ export interface WorkspaceSwitchRequest {
 export type WorkspaceSwitchGuard = (request: WorkspaceSwitchRequest) => boolean | Promise<boolean>;
 
 const STORAGE_KEY = 'openpost_current_workspace';
-const APP_BOOTSTRAP_QUERY_ROOT = [...openPostQueryKeys.all, 'app', 'bootstrap'] as const;
 type LoadedWorkspaceSettings = NonNullable<AppBootstrapWorkspaceSettings>;
 
 function defaultWorkspaceSettings(): WorkspaceSettings {
@@ -230,7 +228,7 @@ export class WorkspaceContext {
 
 	private invalidateBootstrapCache() {
 		return queryClient.invalidateQueries({
-			queryKey: APP_BOOTSTRAP_QUERY_ROOT
+			queryKey: openPostBootstrapQueryKeys.appRoot()
 		});
 	}
 

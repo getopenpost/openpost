@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
+import { createServerChoice, serverChoiceErrorMessage } from "@/lib/server-choice";
 import { HOSTED_URL, probeServer, setServer } from "@/lib/server";
 
 export default function ServerScreen() {
@@ -23,21 +24,30 @@ export default function ServerScreen() {
   const [showSelfHosted, setShowSelfHosted] = useState(false);
   const [busy, setBusy] = useState<"hosted" | "custom" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [serverChoice] = useState(() =>
+    createServerChoice({ probe: probeServer, persist: setServer }),
+  );
 
   async function choose(target: string, kind: "hosted" | "custom") {
+    const operation = serverChoice.start(target);
+    if (!operation) return;
     setBusy(kind);
     setError(null);
-    const result = await probeServer(target);
-    if (!result.ok) {
-      setBusy(null);
-      setError(result.error);
+    try {
+      const result = await operation;
+      if (result.status === "failed") {
+        setError(result.message);
+        void errorHaptic();
+        return;
+      }
+      void successHaptic();
+      router.replace(params.from === "settings" ? "/" : "/onboarding/login");
+    } catch (cause) {
+      setError(serverChoiceErrorMessage(cause));
       void errorHaptic();
-      return;
+    } finally {
+      setBusy(null);
     }
-    await setServer(result.baseUrl);
-    void successHaptic();
-    setBusy(null);
-    router.replace(params.from === "settings" ? "/" : "/onboarding/login");
   }
 
   return (

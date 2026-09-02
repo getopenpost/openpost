@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import type { MediaTag } from '$lib/media-tags';
 	import HashIcon from '@lucide/svelte/icons/hash';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -69,7 +69,7 @@
 			onclick={onManage}
 			aria-label={m.media_manage_tags()}
 		>
-			<SettingsIcon />
+			<ThemeIcon role="settings" />
 		</Button>
 	{/if}
 </div>

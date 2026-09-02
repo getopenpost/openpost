@@ -12,9 +12,7 @@
 		mapReasonChips,
 		followButtonState
 	} from '$lib/growth-helpers';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import XIcon from '@lucide/svelte/icons/x';
-	import UserIcon from '@lucide/svelte/icons/user';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		recommendation: RecommendationView;
@@ -132,7 +130,7 @@
 				class="rounded-full bg-muted text-xs font-medium text-muted-foreground"
 				aria-hidden="true"
 			>
-				<UserIcon class="size-5" />
+				<ThemeIcon role="user" class="size-5" />
 			</Avatar.Fallback>
 		</Avatar.Root>
 		<div class="min-w-0 flex-1">
@@ -223,7 +221,7 @@
 			aria-label={m.grow_open_profile_label({ handle })}
 			title={m.grow_open_profile()}
 		>
-			<ExternalLinkIcon class="size-4" />
+			<ThemeIcon role="external-link" class="size-4" />
 		</Button>
 		<Button
 			variant="ghost"
@@ -233,7 +231,7 @@
 			aria-label={m.grow_dismiss_label({ handle })}
 			title={m.grow_dismiss()}
 		>
-			<XIcon class="size-4" />
+			<ThemeIcon role="close" class="size-4" />
 		</Button>
 	</div>
 </article>

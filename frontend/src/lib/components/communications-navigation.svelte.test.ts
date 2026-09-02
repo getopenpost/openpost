@@ -11,5 +11,11 @@ describe('CommunicationsNavigation', () => {
 		for (const tab of await tabs.all()) {
 			await expect.element(tab).toHaveAttribute('data-cuelume-toggle', 'toggle');
 		}
+		const icons = navigation.element().querySelectorAll('[data-theme-icon]');
+		expect(Array.from(icons, (icon) => icon.getAttribute('data-theme-icon'))).toEqual([
+			'communications',
+			'mail',
+			'notification'
+		]);
 	});
 });

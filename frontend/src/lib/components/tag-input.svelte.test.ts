@@ -32,7 +32,11 @@ describe('TagInput', () => {
 			}
 		});
 
-		await screen.getByRole('button', { name: 'Remove OpenPost' }).click();
+		const remove = screen.getByRole('button', { name: 'Remove OpenPost' });
+		expect(
+			remove.element().querySelector('[data-theme-icon]')?.getAttribute('data-theme-icon')
+		).toBe('remove');
+		await remove.click();
 
 		expect(onChange).toHaveBeenCalledWith('social publishing');
 	});

@@ -11,7 +11,7 @@
 	import SocialAccountIdentity from './social-account-identity.svelte';
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { onDestroy } from 'svelte';
 	import InlineNotice from './inline-notice.svelte';
 	import PollBuilder from './compose/poll-builder.svelte';
@@ -269,7 +269,7 @@
 					{#snippet actions()}
 						{#if onRetry}
 							<Button type="button" variant="outline" size="sm" onclick={onRetry}>
-								<RotateCcwIcon class="size-3.5" />
+								<ThemeIcon role="refresh" class="size-3.5" />
 								{m.common_retry()}
 							</Button>
 						{/if}

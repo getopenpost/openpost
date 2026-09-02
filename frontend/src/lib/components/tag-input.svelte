@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		id: string;
@@ -73,7 +73,7 @@
 				aria-label={m.compose_remove_tag({ tag })}
 				onclick={() => removeTag(index)}
 			>
-				<XIcon class="size-3" />
+				<ThemeIcon role="remove" class="size-3" />
 			</Button>
 		</span>
 	{/each}

@@ -4,11 +4,9 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import type { MediaTag } from '$lib/media-tags';
 	import HashIcon from '@lucide/svelte/icons/hash';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TagIcon from '@lucide/svelte/icons/tag';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		tags,
@@ -78,7 +76,7 @@
 					onclick={() => void toggle(tag.id, !selectedIds.includes(tag.id))}
 				>
 					{#if busyTagId === tag.id}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
 						<span
 							class="flex size-4 shrink-0 items-center justify-center rounded-sm border {selectedIds.includes(
@@ -88,7 +86,7 @@
 								: 'border-input'}"
 							aria-hidden="true"
 						>
-							{#if selectedIds.includes(tag.id)}<CheckIcon class="size-3" />{/if}
+							{#if selectedIds.includes(tag.id)}<ThemeIcon role="check" class="size-3" />{/if}
 						</span>
 					{/if}
 					<HashIcon class="size-3.5 text-muted-foreground" />
@@ -114,7 +112,9 @@
 					disabled={creating || !newTagName.trim()}
 					aria-label={m.media_create_tag()}
 				>
-					{#if creating}<LoaderIcon class="animate-spin" />{:else}<PlusIcon />{/if}
+					{#if creating}<ProtectedIcon icon="loading" class="animate-spin" />{:else}<ThemeIcon
+							role="add"
+						/>{/if}
 				</Button>
 			</form>
 		{/if}

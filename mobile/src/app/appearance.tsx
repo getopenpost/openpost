@@ -22,6 +22,7 @@ import {
   useNativeTheme,
   useNativeThemeSettings,
 } from "@/theme";
+import { themeAvailabilityMessage, themeChoiceDescription } from "@/theme/appearance";
 
 const APPEARANCE_OPTIONS: readonly {
   value: NativeThemePreference;
@@ -82,20 +83,10 @@ export default function AppearanceScreen() {
     }
   }
 
-  const currentThemeNote = useMemo(() => {
-    if (theme.source.kind === "contract") {
-      return theme.source.resolutionSource === "fallback"
-        ? "Workshop replaced a workspace theme that could not be applied safely."
-        : "Applied to this workspace";
-    }
-    if (theme.source.reason === "contract-unavailable") {
-      return "Workshop is shown until this workspace theme is ready.";
-    }
-    if (theme.source.reason === "resources-unavailable") {
-      return "Workshop is shown while this theme finishes loading.";
-    }
-    return "Workshop replaced a theme that could not be applied safely.";
-  }, [theme.source]);
+  const currentThemeNote = useMemo(
+    () => themeAvailabilityMessage(theme.source, theme.effectiveScheme),
+    [theme.effectiveScheme, theme.source],
+  );
 
   if (!server || !token || !workspaceId) return <Redirect href="/" />;
 
@@ -115,7 +106,12 @@ export default function AppearanceScreen() {
       >
         <IconButton label="Back" role="back" onPress={() => router.back()} />
         <View style={styles.headerCopy}>
-          <Text style={[typography.titleLarge, { color: colors.onSurface }]}>Appearance</Text>
+          <Text
+            accessibilityRole="header"
+            style={[typography.titleLarge, { color: colors.onSurface }]}
+          >
+            Appearance
+          </Text>
           <BodyText>Choose how OpenPost looks on this device.</BodyText>
         </View>
       </View>
@@ -344,18 +340,18 @@ function ThemeChoiceRow({
 }) {
   const theme = useNativeTheme();
   const { colors, shape, typography } = theme.manifest;
-  const supportsCurrentScheme = choice.supportedSchemes.includes(theme.effectiveScheme);
   const swatches = choice.swatches ?? [colors.primary, colors.surfaceContainer, colors.onSurface];
+  const description = themeChoiceDescription(choice, theme.effectiveScheme);
   return (
     <Pressable
-      accessibilityLabel={`${choice.name}. ${choice.description ?? "Published workspace theme"}`}
+      accessibilityLabel={`${choice.name}. ${description}`}
       accessibilityRole="radio"
       accessibilityState={{
         checked: selected,
         busy: loading,
-        disabled: !supportsCurrentScheme || pending,
+        disabled: pending,
       }}
-      disabled={!supportsCurrentScheme || pending}
+      disabled={pending}
       onPress={onPress}
       style={({ pressed }) => [
         styles.optionRow,
@@ -364,17 +360,12 @@ function ThemeChoiceRow({
           borderTopWidth: StyleSheet.hairlineWidth,
         },
         pressed && { backgroundColor: colors.surfaceContainer },
-        !supportsCurrentScheme && { opacity: 0.5 },
       ]}
     >
       <ThemeSwatches colors={swatches} />
       <View style={styles.optionCopy}>
         <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{choice.name}</Text>
-        <BodyText>
-          {supportsCurrentScheme
-            ? (choice.description ?? "Ready for this workspace")
-            : `Does not include ${theme.effectiveScheme} mode`}
-        </BodyText>
+        <BodyText>{description}</BodyText>
       </View>
       {loading ? (
         <ActivityIndicator color={colors.primary} />
@@ -396,7 +387,8 @@ function ThemeSwatches({ colors }: { colors: readonly [string, string, string] }
       style={[
         styles.swatches,
         {
-          borderColor: theme.manifest.colors.outlineVariant,
+          backgroundColor: theme.manifest.colors.outline,
+          borderColor: theme.manifest.colors.outline,
           borderRadius: theme.manifest.shape.small,
         },
       ]}
@@ -416,7 +408,7 @@ const styles = StyleSheet.create({
     width: 28,
   },
   header: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
   },
   headerCopy: {
@@ -511,10 +503,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   swatches: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     flexDirection: "row",
+    gap: 1,
     height: 42,
     overflow: "hidden",
+    padding: 1,
     width: 54,
   },
   themeSummary: {

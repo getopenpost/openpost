@@ -25,7 +25,6 @@ import {
   SectionHeader,
   StatusBadge,
   TextField,
-  useColors,
 } from "@/components/ui";
 import { CelebrationBurst } from "@/components/celebration-burst";
 import { BottomDrawer } from "@/components/bottom-drawer";
@@ -37,7 +36,7 @@ import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { uploadAttachment, type PendingAttachment } from "@/lib/media";
 import { takePendingAttachments } from "@/lib/share";
 import { currentWorkspaceId, useAccounts, useSocialSets } from "@/lib/queries";
-import { withAlpha } from "@/theme";
+import { useNativeTheme, withAlpha } from "@/theme";
 
 type Attachment = {
   localId: string;
@@ -71,7 +70,7 @@ async function fetchPublication(id: string) {
 }
 
 export default function ComposeScreen() {
-  const colors = useColors();
+  const colors = useNativeTheme().manifest.colors;
   const { id, build, celebrate } = useLocalSearchParams<{
     id: string;
     build?: string;
@@ -126,7 +125,8 @@ function Composer({
   buildOnOpen: boolean;
   celebrateOnOpen: boolean;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, editor, typography } = theme.manifest;
   const queryClient = useQueryClient();
 
   const [body, setBody] = useState(
@@ -560,7 +560,7 @@ function Composer({
           onPress={() => router.back()}
           style={styles.headerAction}
         >
-          <Text style={{ color: colors.primary, fontSize: 17 }}>Cancel</Text>
+          <Text style={[typography.bodyLarge, { color: colors.primary }]}>Cancel</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <StatusBadge status={pub.status} />
@@ -577,11 +577,12 @@ function Composer({
           style={styles.headerAction}
         >
           <Text
-            style={{
-              color: saveAndClose.isPending ? colors.onSurfaceVariant : colors.primary,
-              fontSize: 17,
-              fontWeight: "600",
-            }}
+            style={[
+              typography.labelLarge,
+              {
+                color: saveAndClose.isPending ? colors.onSurfaceVariant : colors.primary,
+              },
+            ]}
           >
             Done
           </Text>
@@ -591,7 +592,12 @@ function Composer({
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {statusMessage ? (
           <Card accessibilityRole="alert">
-            <BodyText style={[styles.successText, { color: colors.success, textAlign: "center" }]}>
+            <BodyText
+              style={[
+                typography.labelLarge,
+                { color: colors.status.published, textAlign: "center" },
+              ]}
+            >
               {statusMessage}
             </BodyText>
           </Card>
@@ -604,7 +610,12 @@ function Composer({
 
         <View style={styles.editorHeading}>
           <View style={styles.editorHeadingCopy}>
-            <Text style={[styles.editorTitle, { color: colors.onSurface }]}>Post</Text>
+            <Text
+              accessibilityRole="header"
+              style={[typography.titleLarge, { color: colors.onSurface }]}
+            >
+              Post
+            </Text>
             <BodyText>One idea, adapted for every destination</BodyText>
           </View>
           <Button
@@ -625,7 +636,10 @@ function Composer({
           textAlignVertical="top"
           style={[
             styles.writingField,
-            { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.outlineVariant,
+            },
           ]}
         />
 
@@ -635,7 +649,10 @@ function Composer({
               key={attachment.localId}
               style={[
                 styles.attachmentRow,
-                { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.outlineVariant,
+                },
               ]}
             >
               <View style={styles.thumbWrap}>
@@ -657,17 +674,31 @@ function Composer({
                   </View>
                 )}
                 {attachment.status === "uploading" ? (
-                  <View style={[styles.thumbOverlay, { backgroundColor: colors.scrim }]}>
-                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  <View
+                    accessible
+                    accessibilityLabel={`Uploading ${attachment.filename}`}
+                    accessibilityRole="progressbar"
+                    style={[styles.thumbOverlay, { backgroundColor: editor.mediaScrim }]}
+                  >
+                    <ActivityIndicator size="small" color={editor.canvasSelectionText} />
                   </View>
                 ) : attachment.status === "error" ? (
                   <View
-                    style={[styles.thumbOverlay, { backgroundColor: withAlpha(colors.error, 0.6) }]}
+                    accessible
+                    accessibilityLabel={`Upload failed for ${attachment.filename}`}
+                    accessibilityRole="alert"
+                    style={[styles.thumbOverlay, { backgroundColor: editor.mediaScrim }]}
                   >
                     <SymbolView
-                      name={{ ios: "exclamationmark.triangle.fill", android: "warning" }}
+                      accessibilityElementsHidden
+                      accessible={false}
+                      importantForAccessibility="no-hide-descendants"
+                      name={{
+                        ios: "exclamationmark.triangle.fill",
+                        android: "warning",
+                      }}
                       size={18}
-                      tintColor={colors.onError}
+                      tintColor={editor.canvasSelectionText}
                     />
                   </View>
                 ) : null}
@@ -749,7 +780,9 @@ function Composer({
                 <ThemeIcon role="account" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Social Set</Text>
+                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
+                  Social Set
+                </Text>
                 <BodyText numberOfLines={1}>
                   {selectedSetLabel(socialSets.data ?? [], activeSocialSetId, activeAccounts.size)}
                 </BodyText>
@@ -769,7 +802,9 @@ function Composer({
                 <ThemeIcon role="calendar" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.onSurface }]}>Publish time</Text>
+                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
+                  Publish time
+                </Text>
                 <BodyText>
                   {scheduledAt
                     ? formatDateTime(scheduledAt.toISOString())
@@ -811,7 +846,10 @@ function Composer({
         <View
           style={[
             styles.stickyFooter,
-            { backgroundColor: colors.background, borderTopColor: colors.outlineVariant },
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.outlineVariant,
+            },
           ]}
         >
           <Button
@@ -890,13 +928,7 @@ function Composer({
                         ) : null}
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text
-                          style={{
-                            color: colors.onSurface,
-                            fontSize: 16,
-                            fontWeight: "600",
-                          }}
-                        >
+                        <Text style={[typography.labelLarge, { color: colors.onSurface }]}>
                           {accountHandle(account.account_username, account.slug)}
                         </Text>
                         <BodyText>{platformLabel(account.platform)}</BodyText>
@@ -944,7 +976,7 @@ function Composer({
       {scheduleDrawerOpen ? (
         <BottomDrawer open title="Publish time" onDismiss={() => setScheduleDrawerOpen(false)}>
           <Card style={styles.scheduleCard}>
-            <Text style={{ color: colors.onSurface, fontSize: 17, fontWeight: "600" }}>
+            <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
               {scheduledAt ? formatDateTime(scheduledAt.toISOString()) : "Not scheduled"}
             </Text>
             <View style={styles.scheduleActions}>
@@ -998,7 +1030,8 @@ function Composer({
 }
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, typography } = theme.manifest;
   return (
     <Pressable
       accessibilityRole="button"
@@ -1013,13 +1046,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         },
       ]}
     >
-      <Text
-        style={{
-          color: active ? colors.primary : colors.onSurface,
-          fontSize: 14,
-          fontWeight: "500",
-        }}
-      >
+      <Text style={[typography.labelMedium, { color: active ? colors.primary : colors.onSurface }]}>
         {label}
       </Text>
     </Pressable>
@@ -1073,18 +1100,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  editorTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-  },
   aiButton: {
     minHeight: 48,
     paddingHorizontal: 14,
   },
   writingField: {
-    fontSize: 18,
-    lineHeight: 28,
     minHeight: 260,
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -1147,9 +1167,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  successText: {
-    fontWeight: "600",
-  },
   chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1206,10 +1223,6 @@ const styles = StyleSheet.create({
     height: 42,
     justifyContent: "center",
     width: 42,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: "700",
   },
   scheduleCard: {
     gap: 10,

@@ -26,7 +26,6 @@ import {
   PageTitle,
   Screen,
   TextField,
-  useColors,
 } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
@@ -300,9 +299,7 @@ export default function DraftsScreen() {
         ) : null}
         {drafts.isError ? (
           <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.onSurface }]}>
-              Could not load drafts
-            </Text>
+            <ContentTitle>Could not load drafts</ContentTitle>
             <BodyText accessibilityRole="alert">
               {drafts.error instanceof Error
                 ? drafts.error.message
@@ -335,7 +332,6 @@ function MenuButton({ onOpen }: { onOpen: () => void }) {
 }
 
 function DraftRow({ draft }: { draft: PublicationListItem }) {
-  const colors = useColors();
   const excerpt = firstRenditionBody(draft) ?? draft.title ?? "Untitled draft";
   return (
     <Pressable
@@ -351,9 +347,7 @@ function DraftRow({ draft }: { draft: PublicationListItem }) {
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={1}>
-              {excerpt}
-            </Text>
+            <ContentTitle numberOfLines={1}>{excerpt}</ContentTitle>
             <BodyText>Edited {relativeTime(draft.updated_at)}</BodyText>
           </View>
         </Card>
@@ -376,12 +370,13 @@ function WorkspaceMenu({
   onClose: () => void;
   workspaces: { id: string; name?: string | null }[];
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, spacing, typography } = theme.manifest;
   const server = getServer();
   const activeWorkspace = workspaces.find((workspace) => workspace.id === getWorkspaceId());
   return (
     <BottomDrawer onDismiss={onClose} open title="Workspace">
-      <View style={styles.menu}>
+      <View style={[styles.menu, { gap: spacing.extraSmall }]}>
         {workspaces.length > 1 ? (
           <Pressable
             accessibilityRole="button"
@@ -392,9 +387,15 @@ function WorkspaceMenu({
                 params: { mode: "switch" },
               });
             }}
-            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+            style={({ pressed }) => [
+              styles.menuRow,
+              { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+              pressed && { opacity: 0.5 },
+            ]}
           >
-            <Text style={{ color: colors.onSurface, fontSize: 16 }}>Switch workspace</Text>
+            <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
+              Switch workspace
+            </Text>
             <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
           </Pressable>
         ) : null}
@@ -404,9 +405,13 @@ function WorkspaceMenu({
             onClose();
             router.push("/appearance");
           }}
-          style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+          style={({ pressed }) => [
+            styles.menuRow,
+            { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+            pressed && { opacity: 0.5 },
+          ]}
         >
-          <Text style={{ color: colors.onSurface, fontSize: 16 }}>Appearance</Text>
+          <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>Appearance</Text>
           <BodyText>Theme and light or dark mode</BodyText>
         </Pressable>
         {server ? (
@@ -416,9 +421,13 @@ function WorkspaceMenu({
               onClose();
               void Linking.openURL(server.baseUrl);
             }}
-            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+            style={({ pressed }) => [
+              styles.menuRow,
+              { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+              pressed && { opacity: 0.5 },
+            ]}
           >
-            <Text style={{ color: colors.primary, fontSize: 16 }}>Open web app</Text>
+            <Text style={[typography.bodyLarge, { color: colors.primary }]}>Open web app</Text>
             <BodyText>Manage accounts and settings</BodyText>
           </Pressable>
         ) : null}
@@ -428,9 +437,13 @@ function WorkspaceMenu({
             onClose();
             void signOut().then(() => router.replace("/"));
           }}
-          style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+          style={({ pressed }) => [
+            styles.menuRow,
+            { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+            pressed && { opacity: 0.5 },
+          ]}
         >
-          <Text style={{ color: colors.error, fontSize: 16 }}>Sign out</Text>
+          <Text style={[typography.bodyLarge, { color: colors.error }]}>Sign out</Text>
         </Pressable>
       </View>
     </BottomDrawer>
@@ -483,25 +496,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 16,
   },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
   row: {
     paddingVertical: 14,
   },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
   menu: {
     width: "100%",
-    gap: 4,
   },
   menuRow: {
     minHeight: 48,
     justifyContent: "center",
-    paddingHorizontal: 14,
-    gap: 2,
   },
 });

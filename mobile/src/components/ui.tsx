@@ -74,6 +74,7 @@ export function SectionHeader({ label }: { label: string }) {
   const theme = useNativeTheme();
   return (
     <Text
+      accessibilityRole="header"
       style={[
         theme.manifest.typography.labelLarge,
         {
@@ -88,11 +89,16 @@ export function SectionHeader({ label }: { label: string }) {
   );
 }
 
-export function PageTitle({ style, ...props }: React.ComponentProps<typeof Text>) {
+export function PageTitle({
+  accessibilityRole = "header",
+  style,
+  ...props
+}: React.ComponentProps<typeof Text>) {
   const theme = useNativeTheme();
   return (
     <Text
       {...props}
+      accessibilityRole={accessibilityRole}
       style={[
         theme.manifest.typography.headlineLarge,
         { color: theme.manifest.colors.onSurface },
@@ -102,11 +108,16 @@ export function PageTitle({ style, ...props }: React.ComponentProps<typeof Text>
   );
 }
 
-export function ContentTitle({ style, ...props }: React.ComponentProps<typeof Text>) {
+export function ContentTitle({
+  accessibilityRole = "header",
+  style,
+  ...props
+}: React.ComponentProps<typeof Text>) {
   const theme = useNativeTheme();
   return (
     <Text
       {...props}
+      accessibilityRole={accessibilityRole}
       style={[
         theme.manifest.typography.titleMedium,
         { color: theme.manifest.colors.onSurface },

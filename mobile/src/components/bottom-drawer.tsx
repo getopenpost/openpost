@@ -67,7 +67,10 @@ export function BottomDrawer({
         <View
           style={[styles.heading, { paddingHorizontal: spacing.large, paddingTop: spacing.medium }]}
         >
-          <Text style={[styles.title, typography.titleLarge, { color: colors.onSurface }]}>
+          <Text
+            accessibilityRole="header"
+            style={[styles.title, typography.titleLarge, { color: colors.onSurface }]}
+          >
             {title}
           </Text>
           <Pressable

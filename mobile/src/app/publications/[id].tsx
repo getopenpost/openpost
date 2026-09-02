@@ -14,22 +14,16 @@ import {
   View,
 } from "react-native";
 
-import {
-  BodyText,
-  Button,
-  Card,
-  Screen,
-  StatusBadge,
-  SectionHeader,
-  useColors,
-} from "@/components/ui";
+import { BodyText, Button, Card, Screen, StatusBadge, SectionHeader } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { formatDateTime, platformLabel, statusColor } from "@/lib/format";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
+import { useNativeTheme } from "@/theme";
 
 export default function PostScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, spacing, typography } = theme.manifest;
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [pickerStep, setPickerStep] = useState<PickerStep | null>(null);
@@ -136,26 +130,41 @@ export default function PostScreen() {
           headerBackTitle: "Back",
         }}
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={{
+          gap: spacing.large,
+          padding: spacing.large,
+          paddingBottom: spacing.doubleExtraLarge + spacing.extraLarge,
+        }}
+      >
         {actionError ? (
           <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
             {actionError}
           </BodyText>
         ) : null}
 
-        <Card style={styles.headerCard}>
-          <View style={styles.headerRow}>
+        <Card style={{ gap: spacing.small }}>
+          <View style={[styles.headerRow, { gap: spacing.small }]}>
             <StatusBadge status={status} />
             {pub.scheduled_at ? <BodyText>{formatDateTime(pub.scheduled_at)}</BodyText> : null}
           </View>
           {pub.title ? (
-            <Text style={[styles.title, { color: colors.onSurface }]}>{pub.title}</Text>
+            <Text
+              accessibilityRole="header"
+              style={[typography.titleLarge, { color: colors.onSurface }]}
+            >
+              {pub.title}
+            </Text>
           ) : null}
-          {body ? <BodyText selectable>{body}</BodyText> : null}
+          {body ? (
+            <BodyText selectable style={{ color: colors.onSurface }}>
+              {body}
+            </BodyText>
+          ) : null}
         </Card>
 
         <SectionHeader label={`Destinations · ${pub.renditions?.length ?? 0}`} />
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: spacing.small }}>
           {(pub.renditions ?? []).map((rendition) => (
             <Card key={rendition.id}>
               <View style={styles.renditionRow}>
@@ -171,14 +180,8 @@ export default function PostScreen() {
                     },
                   ]}
                 />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
-                    style={{
-                      color: colors.onSurface,
-                      fontSize: 15,
-                      fontWeight: "500",
-                    }}
-                  >
+                <View style={{ flex: 1, gap: spacing.extraSmall }}>
+                  <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
                     {platformLabel(rendition.platform ?? "")}
                     {rendition.target_key ? ` · ${rendition.target_key}` : ""}
                   </Text>
@@ -204,7 +207,9 @@ export default function PostScreen() {
                   onPress={() => void Linking.openURL(rendition.external_url!)}
                   style={styles.externalLink}
                 >
-                  <Text style={{ color: colors.primary, fontSize: 14 }}>View published post</Text>
+                  <Text style={[typography.labelLarge, { color: colors.primary }]}>
+                    View published post
+                  </Text>
                 </Pressable>
               ) : null}
             </Card>
@@ -212,13 +217,18 @@ export default function PostScreen() {
         </View>
 
         <SectionHeader label="Actions" />
-        <View style={styles.actions}>
+        <View style={{ gap: spacing.small }}>
           {status === "draft" || status === "ready" ? (
             <>
               <Button
                 title="Edit"
                 intent="primary"
-                onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: "/publications/[id]/edit",
+                    params: { id },
+                  })
+                }
               />
               {pub.scheduled_at ? (
                 <Button
@@ -349,7 +359,7 @@ export default function PostScreen() {
         </View>
 
         {pickerStep && status === "scheduled" ? (
-          <Card style={{ marginTop: 12, gap: 10 }}>
+          <Card style={{ marginTop: spacing.medium, gap: spacing.small }}>
             <DateTimePicker
               value={newDate ?? (pub.scheduled_at ? new Date(pub.scheduled_at) : nextHour())}
               mode={pickerStep}
@@ -388,25 +398,11 @@ function nextHour(): Date {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 60,
-  },
-  headerCard: {
-    gap: 10,
-  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 8,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: -0.3,
   },
   renditionRow: {
     flexDirection: "row",
@@ -417,9 +413,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 32,
     borderRadius: 4,
-  },
-  actions: {
-    gap: 10,
   },
   externalLink: {
     minHeight: 48,

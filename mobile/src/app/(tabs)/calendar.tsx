@@ -15,16 +15,17 @@ import {
   BodyText,
   Button,
   Card,
+  ContentTitle,
   IconButton,
   PageTitle,
   Screen,
   StatusBadge,
-  useColors,
 } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { calendarWeeks } from "@/lib/calendar";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
 import { useWorkspaceId } from "@/lib/queries";
+import { useNativeTheme } from "@/theme";
 
 const WEEKDAYS = [
   ["S", "Sunday"],
@@ -37,7 +38,8 @@ const WEEKDAYS = [
 ] as const;
 
 export default function CalendarScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState<string>(() => dayKey(today));
@@ -96,12 +98,21 @@ export default function CalendarScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingBottom: spacing.medium,
+            paddingHorizontal: spacing.extraLarge,
+            paddingTop: spacing.large,
+          },
+        ]}
+      >
         <PageTitle style={styles.title}>
           {month.toLocaleDateString("en", { month: "long" })}
           <Text style={{ color: colors.onSurfaceVariant }}> {month.getFullYear()}</Text>
         </PageTitle>
-        <View style={styles.nav}>
+        <View style={[styles.nav, { gap: spacing.extraSmall }]}>
           <IconButton
             label="Previous month"
             role="back"
@@ -117,7 +128,7 @@ export default function CalendarScreen() {
             }}
             style={({ pressed }) => [styles.todayButton, pressed && { opacity: 0.65 }]}
           >
-            <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "600" }}>Today</Text>
+            <Text style={[typography.labelLarge, { color: colors.primary }]}>Today</Text>
           </Pressable>
           <IconButton
             label="Next month"
@@ -129,7 +140,13 @@ export default function CalendarScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: spacing.large,
+            paddingBottom: spacing.doubleExtraLarge + spacing.large,
+          },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={publications.isRefetching}
@@ -143,9 +160,7 @@ export default function CalendarScreen() {
         ) : null}
         {publications.isError ? (
           <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.onSurface }]}>
-              Could not load calendar
-            </Text>
+            <ContentTitle>Could not load calendar</ContentTitle>
             <BodyText accessibilityRole="alert">
               {publications.error instanceof Error
                 ? publications.error.message
@@ -164,7 +179,7 @@ export default function CalendarScreen() {
             <Text
               accessibilityLabel={label}
               key={`${shortLabel}-${index}`}
-              style={[styles.weekday, { color: colors.onSurfaceVariant }]}
+              style={[styles.weekday, typography.labelMedium, { color: colors.onSurfaceVariant }]}
             >
               {shortLabel}
             </Text>
@@ -198,6 +213,7 @@ export default function CalendarScreen() {
                     <View
                       style={[
                         styles.dayCircle,
+                        { borderRadius: shape.full },
                         isSelected && { backgroundColor: colors.primary },
                         !isSelected &&
                           isToday && {
@@ -208,12 +224,10 @@ export default function CalendarScreen() {
                     >
                       <Text
                         style={[
-                          styles.dayNumber,
+                          typography.bodyMedium,
                           { color: colors.onSurface },
-                          isSelected && {
-                            color: colors.onPrimary,
-                            fontWeight: "700",
-                          },
+                          isSelected && typography.labelLarge,
+                          isSelected && { color: colors.onPrimary },
                         ]}
                       >
                         {date.getDate()}
@@ -243,8 +257,8 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        <Card style={styles.daySheet}>
-          <Text style={[styles.daySheetTitle, { color: colors.onSurface }]}>
+        <Card style={[styles.daySheet, { gap: spacing.medium }]}>
+          <ContentTitle>
             {selectedDay
               ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en", {
                   weekday: "long",
@@ -252,7 +266,7 @@ export default function CalendarScreen() {
                   day: "numeric",
                 })
               : "Select a day"}
-          </Text>
+          </ContentTitle>
           {selectedItems.length === 0 && !publications.isError ? (
             <BodyText>Nothing planned.</BodyText>
           ) : (
@@ -268,13 +282,9 @@ export default function CalendarScreen() {
                 }
                 style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
               >
-                <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flex: 1, gap: spacing.extraSmall }}>
                   <Text
-                    style={{
-                      color: colors.onSurface,
-                      fontSize: 15,
-                      fontWeight: "500",
-                    }}
+                    style={[typography.bodyLarge, { color: colors.onSurface }]}
                     numberOfLines={2}
                   >
                     {item.title}
@@ -302,9 +312,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
   },
   title: {
     flex: 1,
@@ -312,7 +319,6 @@ const styles = StyleSheet.create({
   nav: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
   },
   todayButton: {
     minHeight: 48,
@@ -323,8 +329,6 @@ const styles = StyleSheet.create({
   content: {
     width: "100%",
     alignSelf: "stretch",
-    padding: 16,
-    paddingBottom: 40,
   },
   weekdays: {
     width: "100%",
@@ -334,8 +338,6 @@ const styles = StyleSheet.create({
   weekday: {
     flex: 1,
     textAlign: "center",
-    fontSize: 12,
-    fontWeight: "600",
   },
   grid: {
     width: "100%",
@@ -353,12 +355,8 @@ const styles = StyleSheet.create({
   dayCircle: {
     width: 34,
     height: 34,
-    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-  },
-  dayNumber: {
-    fontSize: 15,
   },
   dots: {
     flexDirection: "row",
@@ -373,19 +371,10 @@ const styles = StyleSheet.create({
   },
   daySheet: {
     marginTop: 16,
-    gap: 12,
   },
   error: {
     gap: 12,
     marginBottom: 16,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  daySheetTitle: {
-    fontSize: 16,
-    fontWeight: "700",
   },
   itemRow: {
     flexDirection: "row",

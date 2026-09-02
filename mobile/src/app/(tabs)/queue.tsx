@@ -12,14 +12,24 @@ import {
 import { useState } from "react";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
-import { BodyText, Button, Card, PageTitle, Screen, StatusBadge, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  ContentTitle,
+  PageTitle,
+  Screen,
+  StatusBadge,
+} from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { usePublications, type PublicationListItem } from "@/lib/queries";
+import { useNativeTheme } from "@/theme";
 
 export default function QueueScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<PublicationListItem | null>(null);
@@ -91,12 +101,22 @@ export default function QueueScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
+      <View
+        style={{
+          paddingBottom: spacing.small,
+          paddingHorizontal: spacing.extraLarge,
+          paddingTop: spacing.large,
+        }}
+      >
         <PageTitle>Queue</PageTitle>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={{
+          gap: spacing.extraLarge,
+          padding: spacing.extraLarge,
+          paddingBottom: spacing.doubleExtraLarge + spacing.small,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -109,7 +129,10 @@ export default function QueueScreen() {
           <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
         ) : null}
         {actionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.error, marginBottom: 8 }}>
+          <BodyText
+            accessibilityRole="alert"
+            style={{ color: colors.error, marginBottom: spacing.small }}
+          >
             {actionError}
           </BodyText>
         ) : null}
@@ -146,10 +169,22 @@ export default function QueueScreen() {
       </ScrollView>
       {dismissed ? (
         <View
-          style={[styles.undoBar, { backgroundColor: colors.onSurface }]}
+          style={[
+            styles.undoBar,
+            {
+              backgroundColor: colors.onSurface,
+              borderRadius: shape.medium,
+              bottom: spacing.large,
+              left: spacing.extraLarge,
+              paddingLeft: spacing.large,
+              right: spacing.extraLarge,
+            },
+          ]}
           accessibilityRole="alert"
         >
-          <Text style={{ color: colors.background, flex: 1 }}>Failed post dismissed</Text>
+          <Text style={[typography.bodyMedium, { color: colors.background, flex: 1 }]}>
+            Failed post dismissed
+          </Text>
           <Button
             title="Undo"
             intent="quiet"
@@ -170,10 +205,9 @@ function QueryError({
   query: { error: Error | null; refetch: () => unknown };
   label: string;
 }) {
-  const colors = useColors();
   return (
     <Card style={styles.error}>
-      <Text style={[styles.errorTitle, { color: colors.onSurface }]}>Could not load {label}</Text>
+      <ContentTitle>Could not load {label}</ContentTitle>
       <BodyText accessibilityRole="alert">
         {query.error?.message ?? "Check your connection and try again."}
       </BodyText>
@@ -191,10 +225,20 @@ function Section({
   count: number;
   children: React.ReactNode;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, spacing, typography } = theme.manifest;
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant }]}>
+    <View style={{ gap: spacing.small }}>
+      <Text
+        accessibilityRole="header"
+        style={[
+          typography.labelMedium,
+          {
+            color: colors.onSurfaceVariant,
+            marginHorizontal: spacing.extraSmall,
+          },
+        ]}
+      >
         {title.toUpperCase()}
         {count > 0 ? ` · ${count}` : ""}
       </Text>
@@ -204,7 +248,8 @@ function Section({
 }
 
 function QueueRow({ publication }: { publication: PublicationListItem }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, spacing, typography } = theme.manifest;
   const platforms = distinctPlatforms(publication);
   return (
     <Pressable
@@ -217,9 +262,15 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
       }
     >
       {({ pressed }) => (
-        <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
+        <Card
+          style={[
+            styles.row,
+            { gap: spacing.medium, paddingVertical: spacing.large },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          <View style={{ flex: 1, gap: spacing.extraSmall }}>
+            <Text style={[typography.bodyLarge, { color: colors.onSurface }]} numberOfLines={2}>
               {titleFor(publication)}
             </Text>
             <BodyText>
@@ -245,7 +296,8 @@ function FailedCard({
   onDismiss: () => void;
   pending: boolean;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const errors = (publication.renditions ?? [])
     .filter((rendition) => rendition.status === "failed")
     .map((rendition) => ({
@@ -258,13 +310,22 @@ function FailedCard({
       leftThreshold={72}
       overshootLeft={false}
       renderLeftActions={() => (
-        <View style={[styles.swipeAction, { backgroundColor: colors.success }]}>
-          <Text style={[styles.swipeActionText, { color: colors.onSuccess }]}>Dismiss</Text>
+        <View
+          style={[
+            styles.swipeAction,
+            {
+              backgroundColor: colors.success,
+              borderRadius: shape.medium,
+              paddingHorizontal: spacing.extraLarge,
+            },
+          ]}
+        >
+          <Text style={[typography.labelLarge, { color: colors.onSuccess }]}>Dismiss</Text>
         </View>
       )}
       onSwipeableOpen={onDismiss}
     >
-      <Card style={styles.row}>
+      <Card style={[styles.row, { gap: spacing.medium, paddingVertical: spacing.large }]}>
         <Pressable
           accessibilityRole="button"
           style={{ flex: 1 }}
@@ -275,8 +336,8 @@ function FailedCard({
             })
           }
         >
-          <View style={{ gap: 6 }}>
-            <Text style={[styles.rowTitle, { color: colors.onSurface }]} numberOfLines={2}>
+          <View style={{ gap: spacing.small }}>
+            <Text style={[typography.bodyLarge, { color: colors.onSurface }]} numberOfLines={2}>
               {titleFor(publication)}
             </Text>
             <StatusBadge status="failed" />
@@ -289,7 +350,7 @@ function FailedCard({
             <BodyText>{relativeTime(publication.updated_at)}</BodyText>
           </View>
         </Pressable>
-        <View style={styles.failedActions}>
+        <View style={[styles.failedActions, { gap: spacing.extraSmall }]}>
           <Button
             title="Retry"
             intent="ordinary"
@@ -322,68 +383,30 @@ function distinctPlatforms(publication: PublicationListItem): string[] {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-    marginHorizontal: 4,
-  },
-  content: {
-    padding: 20,
-    gap: 20,
-    paddingBottom: 40,
-  },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 14,
-  },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "500",
   },
   retryButton: {
     paddingHorizontal: 12,
   },
   failedActions: {
     alignItems: "stretch",
-    gap: 2,
   },
   swipeAction: {
     alignItems: "flex-start",
-    borderRadius: 12,
     justifyContent: "center",
-    paddingHorizontal: 20,
     width: 112,
-  },
-  swipeActionText: {
-    fontSize: 15,
-    fontWeight: "700",
   },
   undoBar: {
     alignItems: "center",
-    borderRadius: 14,
-    bottom: 18,
     flexDirection: "row",
-    left: 20,
-    paddingLeft: 16,
     position: "absolute",
-    right: 20,
   },
   undoButton: {
     minHeight: 48,
   },
   error: {
     gap: 12,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
   },
 });

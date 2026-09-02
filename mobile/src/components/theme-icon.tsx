@@ -8,5 +8,14 @@ export function ThemeIcon({
   ...props
 }: Omit<SymbolViewProps, "name" | "role"> & { role: NativeIconRole }) {
   const selection = resolveNativeThemeSymbol(useNativeTheme().manifest, role);
-  return <SymbolView {...props} name={selection.name} type={type ?? selection.type} />;
+  return (
+    <SymbolView
+      {...props}
+      accessibilityElementsHidden
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      name={selection.name}
+      type={type ?? selection.type}
+    />
+  );
 }

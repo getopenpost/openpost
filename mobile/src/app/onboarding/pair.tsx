@@ -141,8 +141,8 @@ export default function PairScreen() {
 
         {phase === "approved" ? (
           <View accessibilityRole="alert" style={styles.approved}>
-            <ActivityIndicator color={colors.success} />
-            <BodyText style={{ color: colors.success }}>This device is ready.</BodyText>
+            <ActivityIndicator color={colors.status.published} />
+            <BodyText style={{ color: colors.status.published }}>This device is ready.</BodyText>
           </View>
         ) : null}
 

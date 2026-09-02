@@ -25,6 +25,7 @@ Load only the branch the task needs:
 | Interaction sounds                                                      | `cuelume`                                                                                           |
 | Repository ownership or an unfamiliar seam                              | `docs/agents/repository-map.md`, then confirm its paths and symbols with `rg`                       |
 | Go HTTP or OpenAPI work                                                 | `huma`; for TypeScript consumers, also use `openapi-typescript`                                     |
+| Server-state reads, cache keys, invalidation, or loading boundaries     | `docs/specs/server-state-query-migration.md`                                                        |
 | Deployment, runtime configuration, release workflows, or revision proof | `docs/agents/deployable-inventory.md`                                                               |
 | n8n package release                                                     | `docs/agents/n8n-package-release.md`                                                                |
 | Video Editor, Quick Cut, or Recorder                                    | `docs/specs/video-editors-rebuild.md` and the relevant rows in `docs/specs/freecut-parity-audit.md` |
@@ -44,6 +45,7 @@ For reference implementations, read `references/README.md` before inspecting a c
 - Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `backend/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
+- `@openpost/query-catalog` owns cache-safe remote reads across web and mobile. Mutations reconcile through its affected keys; each route owns one cold loading boundary and keeps cached state visible while refreshing.
 - API, CLI, MCP, and product surfaces share terms, authorization, and workspace boundaries. For a contract change, edit its source and regenerate every consumer.
 - AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.

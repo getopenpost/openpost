@@ -8,7 +8,7 @@
         "@expo/ui": "~57.0.15",
         "@openpost/api-contract": "file:../packages/api-contract",
         "@openpost/query-catalog": "file:../packages/query-catalog",
-        "@react-native-community/datetimepicker": "^9.1.0",
+        "@react-native-community/datetimepicker": "9.1.0",
         "@swmansion/react-native-bottom-sheet": "0.16.2",
         "@tanstack/query-core": "5.102.8",
         "@tanstack/react-query": "5.102.8",
@@ -375,7 +375,7 @@
 
     "@radix-ui/react-use-layout-effect": ["@radix-ui/react-use-layout-effect@1.1.4", "", { "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-K20DkRkUwDnxEYMBPcg3Y6voLkEy5p5QQmszZgLngKKiC7dzBR/aEuK3w1qlx2JWDUNH6FluahYdgR3BP+QbYw=="],
 
-    "@react-native-community/datetimepicker": ["@react-native-community/datetimepicker@9.2.0", "", { "dependencies": { "invariant": "^2.2.4" }, "peerDependencies": { "expo": ">=52.0.0", "react": "*", "react-native": "*", "react-native-windows": "*" }, "optionalPeers": ["expo", "react-native-windows"] }, "sha512-kSjzw0Zlsqlm7QHJ09uG3M4g4ZDfBLT0PvSq8mR2rNF3a02GGDufm1SASPy1whXYK+tlDp8Ung0CilT1GmBzYA=="],
+    "@react-native-community/datetimepicker": ["@react-native-community/datetimepicker@9.1.0", "", { "dependencies": { "invariant": "^2.2.4" }, "peerDependencies": { "expo": ">=52.0.0", "react": "*", "react-native": "*", "react-native-windows": "*" }, "optionalPeers": ["expo", "react-native-windows"] }, "sha512-eadbnk+I2vxvW30iTAsm/qlCnMMAadkifIMYNEB2lzhxN/SvlKc7S2V4k5DyrwjdCbqdcMk3t9K6fnUMcAV34w=="],
 
     "@react-native-masked-view/masked-view": ["@react-native-masked-view/masked-view@0.3.2", "", { "peerDependencies": { "react": ">=16", "react-native": ">=0.57" } }, "sha512-XwuQoW7/GEgWRMovOQtX3A4PrXhyaZm0lVUiY8qJDvdngjLms9Cpdck6SmGAUNqQwcj2EadHC1HwL0bEyoa/SQ=="],
 
@@ -1703,7 +1703,7 @@
 
     "@openpost/api-contract/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "@openpost/query-catalog/@openpost/api-contract": ["@openpost/api-contract@file:../packages/api-contract", {}],
+    "@openpost/query-catalog/@openpost/api-contract": ["@openpost/api-contract@file:../packages/api-contract", { "devDependencies": { "typescript": "5.9.3" } }],
 
     "@openpost/query-catalog/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

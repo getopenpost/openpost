@@ -133,67 +133,69 @@ export default function AppearanceScreen() {
 
         <View>
           <SectionHeader label="Color scheme" />
-          <Card style={styles.optionList}>
-            {APPEARANCE_OPTIONS.map((option, index) => {
-              const selected = preference === option.value;
-              const pending = preferencePending === option.value;
-              return (
-                <Pressable
-                  accessibilityLabel={`${option.label}. ${option.description}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{
-                    checked: selected,
-                    busy: pending,
-                    disabled: Boolean(preferencePending),
-                  }}
-                  disabled={Boolean(preferencePending)}
-                  key={option.value}
-                  onPress={() => void chooseAppearance(option.value)}
-                  style={({ pressed }) => [
-                    styles.optionRow,
-                    { minHeight: Math.max(52, spacing.doubleExtraLarge) },
-                    index > 0 && {
-                      borderTopColor: colors.outlineVariant,
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                    },
-                    pressed && { backgroundColor: colors.surfaceContainer },
-                  ]}
-                >
-                  <View style={styles.optionCopy}>
-                    <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
-                      {option.label}
-                    </Text>
-                    <BodyText>{option.description}</BodyText>
-                  </View>
-                  {pending ? (
-                    <ActivityIndicator color={colors.primary} />
-                  ) : selected ? (
-                    <View
-                      style={[
-                        styles.check,
-                        {
-                          backgroundColor: colors.primary,
-                          borderRadius: shape.full,
-                        },
-                      ]}
-                    >
-                      <ThemeIcon role="check" size={18} tintColor={colors.onPrimary} />
+          <View accessibilityLabel="Color scheme" accessibilityRole="radiogroup">
+            <Card style={styles.optionList}>
+              {APPEARANCE_OPTIONS.map((option, index) => {
+                const selected = preference === option.value;
+                const pending = preferencePending === option.value;
+                return (
+                  <Pressable
+                    accessibilityLabel={`${option.label}. ${option.description}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      checked: selected,
+                      busy: pending,
+                      disabled: Boolean(preferencePending),
+                    }}
+                    disabled={Boolean(preferencePending)}
+                    key={option.value}
+                    onPress={() => void chooseAppearance(option.value)}
+                    style={({ pressed }) => [
+                      styles.optionRow,
+                      { minHeight: Math.max(52, spacing.doubleExtraLarge) },
+                      index > 0 && {
+                        borderTopColor: colors.outlineVariant,
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                      },
+                      pressed && { backgroundColor: colors.surfaceContainer },
+                    ]}
+                  >
+                    <View style={styles.optionCopy}>
+                      <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
+                        {option.label}
+                      </Text>
+                      <BodyText>{option.description}</BodyText>
                     </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.radio,
-                        {
-                          borderColor: colors.outline,
-                          borderRadius: shape.full,
-                        },
-                      ]}
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-          </Card>
+                    {pending ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : selected ? (
+                      <View
+                        style={[
+                          styles.check,
+                          {
+                            backgroundColor: colors.primary,
+                            borderRadius: shape.full,
+                          },
+                        ]}
+                      >
+                        <ThemeIcon role="check" size={18} tintColor={colors.onPrimary} />
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.radio,
+                          {
+                            borderColor: colors.outline,
+                            borderRadius: shape.full,
+                          },
+                        ]}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </Card>
+          </View>
           {preferenceError ? (
             <BodyText
               accessibilityRole="alert"
@@ -246,19 +248,21 @@ export default function AppearanceScreen() {
         {settings && settings.canManageWorkspace && !settings.locked && settings.choices.length ? (
           <View>
             <SectionHeader label="Choose a theme" />
-            <Card style={styles.optionList}>
-              {settings.choices.map((choice, index) => (
-                <ThemeChoiceRow
-                  choice={choice}
-                  index={index}
-                  key={choice.key}
-                  loading={assignmentPending === choice.key}
-                  pending={assignmentPending !== null}
-                  onPress={() => void chooseTheme(choice)}
-                  selected={settings.selectedKey === choice.key}
-                />
-              ))}
-            </Card>
+            <View accessibilityLabel="Workspace theme" accessibilityRole="radiogroup">
+              <Card style={styles.optionList}>
+                {settings.choices.map((choice, index) => (
+                  <ThemeChoiceRow
+                    choice={choice}
+                    index={index}
+                    key={choice.key}
+                    loading={assignmentPending === choice.key}
+                    pending={assignmentPending !== null}
+                    onPress={() => void chooseTheme(choice)}
+                    selected={settings.selectedKey === choice.key}
+                  />
+                ))}
+              </Card>
+            </View>
             {settings.inherited ? (
               <BodyText
                 style={{
@@ -337,7 +341,10 @@ function ThemePreview() {
             <View
               style={[
                 styles.previewStatus,
-                { backgroundColor: colors.primaryContainer, borderRadius: shape.full },
+                {
+                  backgroundColor: colors.primaryContainer,
+                  borderRadius: shape.full,
+                },
               ]}
             />
             <Text style={[preview.metadata, { color: colors.onSurfaceVariant }]}>

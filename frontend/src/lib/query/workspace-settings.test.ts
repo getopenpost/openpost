@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { paths } from '@openpost/api-contract';
 import { openPostWorkspaceKey } from '@openpost/query-catalog';
+import { QueryClient } from '@tanstack/query-core';
+import createClient from 'openapi-fetch';
 import {
 	createWorkspaceSettingsQueryAPI,
 	removeWorkspaceQueriesAfterAccessLoss
@@ -7,40 +10,40 @@ import {
 
 describe('Workspace settings query API', () => {
 	it('forwards Workspace scope, limits, and cancellation', async () => {
-		const GET = vi.fn().mockResolvedValue({
-			data: [],
-			response: new Response(null, { status: 200 })
+		const requests: Request[] = [];
+		const fetchMock = vi.fn(async (request: Request) => {
+			requests.push(request);
+			return Response.json([]);
 		});
-		const api = createWorkspaceSettingsQueryAPI({ GET } as never);
-		const signal = new AbortController().signal;
+		const api = createWorkspaceSettingsQueryAPI(
+			createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetchMock })
+		);
+		const controller = new AbortController();
 
-		await api.getWorkspaceTeam('workspace-1', signal);
-		await api.listWorkspaceAccessAudit('workspace-1', 20, signal);
-		await api.getWorkspaceSetup('workspace-1', signal);
-		await api.getWorkspaceSettings('workspace-1', signal);
+		await api.getWorkspaceTeam('workspace-1', controller.signal);
+		await api.listWorkspaceAccessAudit('workspace-1', 20, controller.signal);
+		await api.getWorkspaceSetup('workspace-1', controller.signal);
+		await api.getWorkspaceSettings('workspace-1', controller.signal);
 
-		expect(GET).toHaveBeenNthCalledWith(1, '/workspaces/{id}/team', {
-			params: { path: { id: 'workspace-1' } },
-			signal
+		expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+			'/api/v1/workspaces/workspace-1/team',
+			'/api/v1/workspaces/workspace-1/access-audit',
+			'/api/v1/workspaces/workspace-1/setup',
+			'/api/v1/workspaces/workspace-1/settings'
+		]);
+		expect(Object.fromEntries(new URL(requests[1]!.url).searchParams)).toEqual({
+			limit: '20'
 		});
-		expect(GET).toHaveBeenNthCalledWith(2, '/workspaces/{id}/access-audit', {
-			params: { path: { id: 'workspace-1' }, query: { limit: 20 } },
-			signal
-		});
-		expect(GET).toHaveBeenNthCalledWith(3, '/workspaces/{id}/setup', {
-			params: { path: { id: 'workspace-1' } },
-			signal
-		});
-		expect(GET).toHaveBeenNthCalledWith(4, '/workspaces/{id}/settings', {
-			params: { path: { id: 'workspace-1' } },
-			signal
-		});
+		expect(requests.every((request) => !request.signal.aborted)).toBe(true);
+		controller.abort();
+		expect(requests.every((request) => request.signal.aborted)).toBe(true);
 	});
 
 	it('removes every cached workspace view after confirmed access loss', () => {
-		const removeQueries = vi.fn();
+		const client = new QueryClient();
+		const removeQueries = vi.spyOn(client, 'removeQueries');
 
-		removeWorkspaceQueriesAfterAccessLoss({ removeQueries } as never, 'workspace-1');
+		removeWorkspaceQueriesAfterAccessLoss(client, 'workspace-1');
 
 		expect(removeQueries).toHaveBeenCalledWith({
 			queryKey: openPostWorkspaceKey('workspace-1')

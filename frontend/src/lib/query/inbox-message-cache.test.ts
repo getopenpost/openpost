@@ -61,11 +61,22 @@ function infiniteData(items: DirectMessage[]): InfiniteData<MessagePage, string>
 }
 
 function message(id: string, time: string): DirectMessage {
+	const timestamp = `2026-09-02T${time}Z`;
 	return {
+		attachments_json: '[]',
+		author_remote_id: 'author-1',
+		body: `Message ${id}`,
+		conversation_id: 'conversation-1',
+		created_at: timestamp,
+		direction: 'outbound',
+		error_message: '',
 		id,
-		created_at: `2026-09-02T${time}Z`,
-		remote_created_at: `2026-09-02T${time}Z`
-	} as DirectMessage;
+		remote_created_at: timestamp,
+		remote_message_id: `remote-${id}`,
+		send_status: 'sent',
+		updated_at: timestamp,
+		workspace_id: 'workspace-1'
+	};
 }
 
 function messageIDs(client: QueryClient, queryKey: readonly unknown[]) {

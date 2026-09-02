@@ -1,3 +1,4 @@
+import type { paths } from '@openpost/api-contract';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	adminQueryKeys,
@@ -5,33 +6,41 @@ import {
 	publicProfileQueryKeys,
 	workspaceSettingsQueryKeys
 } from '@openpost/query-catalog';
+import { QueryClient } from '@tanstack/query-core';
+import createClient from 'openapi-fetch';
 import { createAccountCatalogQueryAPI, invalidateAccountMutationDependencies } from './accounts';
 
 describe('account catalogue query API', () => {
 	it('forwards Workspace and cancellation', async () => {
-		const GET = vi.fn().mockResolvedValueOnce({
-			data: [{ id: 'provider-1' }],
-			response: new Response(null, { status: 200 })
+		let request: Request | undefined;
+		const fetchMock = vi.fn(async (nextRequest: Request) => {
+			request = nextRequest;
+			return Response.json([{ id: 'provider-1' }]);
 		});
-		const api = createAccountCatalogQueryAPI({ GET } as never);
-		const signal = new AbortController().signal;
+		const api = createAccountCatalogQueryAPI(
+			createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetchMock })
+		);
+		const controller = new AbortController();
 
-		await api.listAccountProviders('workspace-1', signal);
+		await api.listAccountProviders('workspace-1', controller.signal);
 
-		expect(GET).toHaveBeenNthCalledWith(1, '/accounts/providers', {
-			params: { query: { workspace_id: 'workspace-1' } },
-			signal
+		expect(request).toBeDefined();
+		const url = new URL(request!.url);
+		expect(url.pathname).toBe('/api/v1/accounts/providers');
+		expect(Object.fromEntries(url.searchParams)).toEqual({
+			workspace_id: 'workspace-1'
 		});
+		expect(request?.signal.aborted).toBe(false);
+		controller.abort();
+		expect(request?.signal.aborted).toBe(true);
 	});
 
 	it('invalidates every account-dependent view after a connection mutation', async () => {
-		const invalidateQueries = vi.fn().mockResolvedValue(undefined);
-		const removeQueries = vi.fn();
+		const client = new QueryClient();
+		const invalidateQueries = vi.spyOn(client, 'invalidateQueries');
+		const removeQueries = vi.spyOn(client, 'removeQueries');
 
-		await invalidateAccountMutationDependencies(
-			{ invalidateQueries, removeQueries } as never,
-			'workspace-1'
-		);
+		await invalidateAccountMutationDependencies(client, 'workspace-1');
 
 		expect(removeQueries).toHaveBeenCalledWith({
 			queryKey: publicProfileQueryKeys.all()

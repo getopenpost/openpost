@@ -1,3 +1,4 @@
+import type { paths } from '@openpost/api-contract';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	adminQueryKeys,
@@ -5,6 +6,8 @@ import {
 	organizationQueryKeys,
 	workspaceSettingsQueryKeys
 } from '@openpost/query-catalog';
+import { QueryClient } from '@tanstack/query-core';
+import createClient from 'openapi-fetch';
 import {
 	createAuthQueryAPI,
 	invalidateEmailChangeDependencies,
@@ -17,63 +20,56 @@ describe('auth query API', () => {
 		const providers = [{ id: 'provider-1' }];
 		const security = { passkeys: [] };
 		const identities = [{ id: 'identity-1' }];
-		const emailChange = { pending: undefined };
+		const emailChange = {};
 		const sessions = [{ id: 'session-1' }];
-		const GET = vi
-			.fn()
-			.mockResolvedValueOnce({
-				data: configuration,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: providers,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: security,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: identities,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: providers,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: emailChange,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: sessions,
-				response: new Response(null, { status: 200 })
-			});
-		const api = createAuthQueryAPI({ GET } as never);
-		const signal = new AbortController().signal;
-
-		await expect(api.getAuthConfiguration(signal)).resolves.toBe(configuration);
-		await expect(api.listOIDCProviders(signal)).resolves.toBe(providers);
-		await expect(api.getSecurityStatus(signal)).resolves.toBe(security);
-		await expect(api.listOIDCIdentities(signal)).resolves.toBe(identities);
-		await expect(api.listLinkableOIDCProviders(signal)).resolves.toBe(providers);
-		await expect(api.getEmailChangeStatus(signal)).resolves.toBe(emailChange);
-		await expect(api.listAuthSessions(signal)).resolves.toBe(sessions);
-		expect(GET).toHaveBeenNthCalledWith(1, '/auth/config', { signal });
-		expect(GET).toHaveBeenNthCalledWith(2, '/auth/oidc/providers', { signal });
-		expect(GET).toHaveBeenNthCalledWith(3, '/auth/security', { signal });
-		expect(GET).toHaveBeenNthCalledWith(4, '/auth/oidc/identities', { signal });
-		expect(GET).toHaveBeenNthCalledWith(5, '/auth/oidc/link-providers', {
-			signal
+		const responses = [
+			configuration,
+			providers,
+			security,
+			identities,
+			providers,
+			emailChange,
+			sessions
+		];
+		const requests: Request[] = [];
+		let responseIndex = 0;
+		const fetchMock = vi.fn(async (request: Request) => {
+			requests.push(request);
+			const response = responses[responseIndex];
+			responseIndex += 1;
+			return Response.json(response);
 		});
-		expect(GET).toHaveBeenNthCalledWith(6, '/auth/email-change', { signal });
-		expect(GET).toHaveBeenNthCalledWith(7, '/auth/sessions', { signal });
+		const api = createAuthQueryAPI(
+			createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetchMock })
+		);
+		const controller = new AbortController();
+
+		await expect(api.getAuthConfiguration(controller.signal)).resolves.toEqual(configuration);
+		await expect(api.listOIDCProviders(controller.signal)).resolves.toEqual(providers);
+		await expect(api.getSecurityStatus(controller.signal)).resolves.toEqual(security);
+		await expect(api.listOIDCIdentities(controller.signal)).resolves.toEqual(identities);
+		await expect(api.listLinkableOIDCProviders(controller.signal)).resolves.toEqual(providers);
+		await expect(api.getEmailChangeStatus(controller.signal)).resolves.toEqual(emailChange);
+		await expect(api.listAuthSessions(controller.signal)).resolves.toEqual(sessions);
+		expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+			'/api/v1/auth/config',
+			'/api/v1/auth/oidc/providers',
+			'/api/v1/auth/security',
+			'/api/v1/auth/oidc/identities',
+			'/api/v1/auth/oidc/link-providers',
+			'/api/v1/auth/email-change',
+			'/api/v1/auth/sessions'
+		]);
+		expect(requests.every((request) => !request.signal.aborted)).toBe(true);
+		controller.abort();
+		expect(requests.every((request) => request.signal.aborted)).toBe(true);
 	});
 
 	it('invalidates security status and revoked sessions after a password change', async () => {
-		const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+		const client = new QueryClient();
+		const invalidateQueries = vi.spyOn(client, 'invalidateQueries');
 
-		await invalidatePasswordChangeDependencies({ invalidateQueries } as never);
+		await invalidatePasswordChangeDependencies(client);
 
 		expect(invalidateQueries).toHaveBeenCalledWith({
 			queryKey: authQueryKeys.security(),
@@ -86,9 +82,10 @@ describe('auth query API', () => {
 	});
 
 	it('invalidates every email projection after a confirmed email change', async () => {
-		const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+		const client = new QueryClient();
+		const invalidateQueries = vi.spyOn(client, 'invalidateQueries');
 
-		await invalidateEmailChangeDependencies({ invalidateQueries } as never, {
+		await invalidateEmailChangeDependencies(client, {
 			workspaceIDs: ['workspace-1', 'workspace-1', 'workspace-2'],
 			organizationIDs: ['organization-1', 'organization-1']
 		});

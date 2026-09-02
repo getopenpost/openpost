@@ -1,20 +1,26 @@
+import type { paths } from '@openpost/api-contract';
+import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 import { createPublicProfileQueryAPI } from './public-profiles';
 
 describe('public profile query API', () => {
 	it('loads the named profile with the request signal', async () => {
 		const profile = { username: 'founder' };
-		const GET = vi.fn(async () => ({
-			data: profile,
-			response: new Response(null, { status: 200 })
-		}));
-		const api = createPublicProfileQueryAPI({ GET } as never);
-		const signal = new AbortController().signal;
-
-		await expect(api.getPublicProfile('founder', signal)).resolves.toBe(profile);
-		expect(GET).toHaveBeenCalledWith('/public/profiles/{username}', {
-			params: { path: { username: 'founder' } },
-			signal
+		let request: Request | undefined;
+		const fetchMock = vi.fn(async (nextRequest: Request) => {
+			request = nextRequest;
+			return Response.json(profile);
 		});
+		const api = createPublicProfileQueryAPI(
+			createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetchMock })
+		);
+		const controller = new AbortController();
+
+		await expect(api.getPublicProfile('founder', controller.signal)).resolves.toEqual(profile);
+		expect(request).toBeDefined();
+		expect(new URL(request!.url).pathname).toBe('/api/v1/public/profiles/founder');
+		expect(request?.signal.aborted).toBe(false);
+		controller.abort();
+		expect(request?.signal.aborted).toBe(true);
 	});
 });

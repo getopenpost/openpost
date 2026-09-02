@@ -1,5 +1,8 @@
+import type { paths } from '@openpost/api-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { authQueryKeys, developerQueryKeys, organizationQueryKeys } from '@openpost/query-catalog';
+import { QueryClient } from '@tanstack/query-core';
+import createClient from 'openapi-fetch';
 import {
 	createOrganizationQueryAPI,
 	invalidateOrganizationIdentityDependencies
@@ -7,53 +10,51 @@ import {
 
 describe('organization query API', () => {
 	it('forwards organization scope, filters, and cancellation', async () => {
-		const GET = vi.fn().mockResolvedValue({
-			data: [],
-			response: new Response(null, { status: 200 })
+		const requests: Request[] = [];
+		const fetchMock = vi.fn(async (request: Request) => {
+			requests.push(request);
+			return Response.json([]);
 		});
-		const api = createOrganizationQueryAPI({ GET } as never);
-		const signal = new AbortController().signal;
+		const api = createOrganizationQueryAPI(
+			createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetchMock })
+		);
+		const controller = new AbortController();
 		const query = { action: 'member.updated', limit: 50 };
 
-		await api.listOrganizations(signal);
-		await api.listIdentityProviders('organization-1', signal);
-		await api.listIdentityAuditEvents('organization-1', 20, signal);
-		await api.listOrganizationAuditEvents('organization-1', query, signal);
-		await api.listInstanceAuditEvents(query, signal);
+		await api.listOrganizations(controller.signal);
+		await api.listIdentityProviders('organization-1', controller.signal);
+		await api.listIdentityAuditEvents('organization-1', 20, controller.signal);
+		await api.listOrganizationAuditEvents('organization-1', query, controller.signal);
+		await api.listInstanceAuditEvents(query, controller.signal);
 
-		expect(GET).toHaveBeenNthCalledWith(1, '/organizations', { signal });
-		expect(GET).toHaveBeenNthCalledWith(2, '/organizations/{organization_id}/identity-providers', {
-			params: { path: { organization_id: 'organization-1' } },
-			signal
+		expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+			'/api/v1/organizations',
+			'/api/v1/organizations/organization-1/identity-providers',
+			'/api/v1/organizations/organization-1/identity-audit-events',
+			'/api/v1/organizations/organization-1/audit-events',
+			'/api/v1/admin/audit-events'
+		]);
+		expect(Object.fromEntries(new URL(requests[2]!.url).searchParams)).toEqual({
+			limit: '20'
 		});
-		expect(GET).toHaveBeenNthCalledWith(
-			3,
-			'/organizations/{organization_id}/identity-audit-events',
-			{
-				params: {
-					path: { organization_id: 'organization-1' },
-					query: { limit: 20 }
-				},
-				signal
-			}
-		);
-		expect(GET).toHaveBeenNthCalledWith(4, '/organizations/{id}/audit-events', {
-			params: { path: { id: 'organization-1' }, query },
-			signal
+		expect(Object.fromEntries(new URL(requests[3]!.url).searchParams)).toEqual({
+			action: 'member.updated',
+			limit: '50'
 		});
-		expect(GET).toHaveBeenNthCalledWith(5, '/admin/audit-events', {
-			params: { query },
-			signal
+		expect(Object.fromEntries(new URL(requests[4]!.url).searchParams)).toEqual({
+			action: 'member.updated',
+			limit: '50'
 		});
+		expect(requests.every((request) => !request.signal.aborted)).toBe(true);
+		controller.abort();
+		expect(requests.every((request) => request.signal.aborted)).toBe(true);
 	});
 
 	it('invalidates every identity view after organization SSO changes', async () => {
-		const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+		const client = new QueryClient();
+		const invalidateQueries = vi.spyOn(client, 'invalidateQueries');
 
-		await invalidateOrganizationIdentityDependencies(
-			{ invalidateQueries } as never,
-			'organization-1'
-		);
+		await invalidateOrganizationIdentityDependencies(client, 'organization-1');
 
 		expect(invalidateQueries).toHaveBeenCalledWith({
 			queryKey: organizationQueryKeys.detailRoot('organization-1')

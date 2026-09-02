@@ -12,18 +12,48 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 	import { ArrowRight } from '@lucide/svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { client, type PublicProfile } from '$lib/api/client';
 	import { m } from '$lib/paraglide/messages';
 	import { getPlatformName } from '$lib/utils';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		authConfigurationQueryOptions,
+		OpenPostQueryError,
+		publicProfileQueryOptions,
+		type PublicProfile
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { publicProfileQueryAPI } from '$lib/query/public-profiles';
 
 	type ActivityCell = NonNullable<PublicProfile['activity']>[number] | null;
 
-	let profile = $state.raw<PublicProfile | null>(null);
-	let loadState = $state<'loading' | 'ready' | 'disabled' | 'not-found' | 'error'>('loading');
-	let activeLoadController: AbortController | null = null;
-	let loadGeneration = 0;
 	const username = $derived(page.params.username ?? '');
+	const authConfigurationQuery = createQuery(() => authConfigurationQueryOptions(authQueryAPI));
+	const profileQuery = createQuery(() =>
+		publicProfileQueryOptions(publicProfileQueryAPI, username)
+	);
+	const profile = $derived(profileQuery.data ?? null);
+	const loadState = $derived.by<'loading' | 'ready' | 'disabled' | 'not-found' | 'error'>(() => {
+		if (authConfigurationQuery.isPending && !authConfigurationQuery.data) return 'loading';
+		if (authConfigurationQuery.data?.public_profiles_enabled === false) return 'disabled';
+		if (authConfigurationQuery.isError && !authConfigurationQuery.data) return 'error';
+		if (profileQuery.error instanceof OpenPostQueryError) {
+			if (profileQuery.error.status === 403) return 'disabled';
+			if (profileQuery.error.status === 404) return 'not-found';
+		}
+		if (profile) return 'ready';
+		if (profileQuery.isPending) return 'loading';
+		if (profileQuery.isError) return 'error';
+		return 'loading';
+	});
+	const backgroundError = $derived(
+		loadState === 'ready'
+			? (authConfigurationQuery.error?.message ?? profileQuery.error?.message ?? '')
+			: loadState === 'disabled' && authConfigurationQuery.data?.public_profiles_enabled === false
+				? (authConfigurationQuery.error?.message ?? '')
+				: ''
+	);
 	const profileName = $derived(profile?.display_name || profile?.username || 'OpenPost');
 	const title = $derived(profile ? `${profileName} (@${profile.username})` : 'Public profile');
 	const activityCells = $derived.by<ActivityCell[]>(() => {
@@ -43,7 +73,10 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 			if (date.getUTCMonth() === previousMonth) continue;
 			previousMonth = date.getUTCMonth();
 			labels.push({
-				label: new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' }).format(date),
+				label: new Intl.DateTimeFormat(undefined, {
+					month: 'short',
+					timeZone: 'UTC'
+				}).format(date),
 				column: Math.floor((padding + index) / 7) + 1
 			});
 		}
@@ -70,57 +103,6 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 		});
 		return () => cancelAnimationFrame(frame);
 	};
-
-	$effect(() => {
-		const requestedUsername = username;
-		const controller = startProfileLoad(requestedUsername);
-		return () => {
-			controller.abort();
-			activeLoadController?.abort();
-			activeLoadController = null;
-		};
-	});
-
-	function startProfileLoad(requestedUsername: string): AbortController {
-		activeLoadController?.abort();
-		const controller = new AbortController();
-		activeLoadController = controller;
-		loadGeneration += 1;
-		void loadProfile(requestedUsername, controller.signal, loadGeneration);
-		return controller;
-	}
-
-	async function loadProfile(requestedUsername: string, signal: AbortSignal, generation: number) {
-		loadState = 'loading';
-		profile = null;
-		try {
-			const [configuration, result] = await Promise.all([
-				client.GET('/auth/config', { signal }),
-				client.GET('/public/profiles/{username}', {
-					params: { path: { username: requestedUsername } },
-					signal
-				})
-			]);
-			if (signal.aborted || generation !== loadGeneration) return;
-			if (configuration.data?.public_profiles_enabled !== true) {
-				loadState = configuration.data?.public_profiles_enabled === false ? 'disabled' : 'error';
-				return;
-			}
-			if (result.response.status === 403) {
-				loadState = 'disabled';
-				return;
-			}
-			if (result.data) {
-				profile = result.data;
-				loadState = 'ready';
-				return;
-			}
-			loadState = result.response.status === 404 ? 'not-found' : 'error';
-		} catch {
-			if (signal.aborted || generation !== loadGeneration) return;
-			loadState = 'error';
-		}
-	}
 
 	function formatNumber(value: number): string {
 		return new Intl.NumberFormat(undefined, {
@@ -181,9 +163,24 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 				</div>
 			</div>
 		{:else if loadState === 'disabled'}
+			{#if backgroundError}
+				<InlineNotice tone="warning" message={backgroundError} class="mb-6">
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void authConfigurationQuery.refetch()}
+						>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			<div class="mx-auto grid min-h-[55dvh] max-w-xl place-items-center text-center">
 				<div>
-					<p class="text-sm font-medium text-primary">{m.public_profile_disabled_title()}</p>
+					<p class="text-sm font-medium text-primary">
+						{m.public_profile_disabled_title()}
+					</p>
 					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
 						{m.public_profile_disabled_body()}
 					</h1>
@@ -192,7 +189,9 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 		{:else if loadState === 'not-found'}
 			<div class="mx-auto grid min-h-[55dvh] max-w-xl place-items-center text-center">
 				<div>
-					<p class="text-sm font-medium text-primary">{m.public_profile_unavailable_title()}</p>
+					<p class="text-sm font-medium text-primary">
+						{m.public_profile_unavailable_title()}
+					</p>
 					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
 						{m.public_profile_unavailable_body()}
 					</h1>
@@ -202,15 +201,35 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 		{:else if loadState === 'error'}
 			<div class="mx-auto grid min-h-[55dvh] max-w-xl place-items-center text-center">
 				<div>
-					<p class="text-sm font-medium text-primary">{m.public_profile_error_title()}</p>
+					<p class="text-sm font-medium text-primary">
+						{m.public_profile_error_title()}
+					</p>
 					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
 						{m.public_profile_error_body()}
 					</h1>
-					<Button class="mt-8" onclick={() => startProfileLoad(username)}>{m.common_retry()}</Button
+					<Button
+						class="mt-8"
+						onclick={() =>
+							void Promise.all([authConfigurationQuery.refetch(), profileQuery.refetch()])}
+						>{m.common_retry()}</Button
 					>
 				</div>
 			</div>
 		{:else if profile}
+			{#if backgroundError}
+				<InlineNotice tone="warning" message={backgroundError} class="mb-6">
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() =>
+								void Promise.all([authConfigurationQuery.refetch(), profileQuery.refetch()])}
+						>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			<section class="profile-intro text-center" aria-labelledby="profile-name">
 				<div class="mx-auto size-20 overflow-hidden rounded-2xl border bg-muted">
 					{#if profile.avatar_url}
@@ -306,9 +325,10 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 				</section>
 			{:else if profile.joined_at}
 				<p class="mt-6 text-center text-sm text-muted-foreground">
-					Joined {new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
-						new Date(profile.joined_at)
-					)}
+					Joined {new Intl.DateTimeFormat(undefined, {
+						month: 'long',
+						year: 'numeric'
+					}).format(new Date(profile.joined_at))}
 				</p>
 			{/if}
 

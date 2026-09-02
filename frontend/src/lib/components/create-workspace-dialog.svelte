@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -8,6 +9,14 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { auth } from '$lib/stores/auth';
+	import { get } from 'svelte/store';
+	import {
+		adminQueryKeys,
+		openPostBootstrapQueryKeys,
+		organizationQueryKeys
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -18,6 +27,8 @@
 	let workspaceName = $state('');
 	let error = $state('');
 	let pending = $state(false);
+	let requestSequence = 0;
+	let active = true;
 	const canCreate = $derived(Boolean(workspaceName.trim()) && !pending);
 
 	function reset() {
@@ -42,6 +53,14 @@
 
 		pending = true;
 		error = '';
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) {
+			pending = false;
+			return;
+		}
+		const sequence = ++requestSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isCurrentRequest = () => active && sequence === requestSequence && open && isSameActor();
 		try {
 			const organizationID = workspaceCtx.currentWorkspace?.organization_id?.trim() ?? '';
 			const body: components['schemas']['CreateWorkspaceInputBody'] = { name };
@@ -52,16 +71,54 @@
 			if (responseError || !data?.id) {
 				throw new Error(responseError?.detail || m.onboarding_create_failed());
 			}
-			await workspaceCtx.loadWorkspaces(data.id);
+			if (!isSameActor()) return;
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: openPostBootstrapQueryKeys.appRoot()
+				}),
+				queryClient.invalidateQueries({
+					queryKey: openPostBootstrapQueryKeys.workspaces(),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: adminQueryKeys.overview(),
+					exact: true
+				}),
+				queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.all(),
+					exact: true
+				})
+			]);
+			const projection = auth.captureUserProjection(actorID);
+			if (!projection) return;
+			const bootstrap = await workspaceCtx.loadWorkspaces(data.id, {
+				selectionIsCurrent: isCurrentRequest
+			});
+			if (!isSameActor() || !auth.projectBootstrap(bootstrap, projection)) return;
+			if (!isCurrentRequest()) return;
 			open = false;
 			reset();
 		} catch (cause) {
-			error =
-				cause instanceof Error && cause.message ? cause.message : m.onboarding_create_failed();
+			if (isCurrentRequest()) {
+				error =
+					cause instanceof Error && cause.message ? cause.message : m.onboarding_create_failed();
+			}
 		} finally {
-			pending = false;
+			if (isCurrentRequest()) pending = false;
 		}
 	}
+
+	$effect(() => {
+		if (open) return;
+		requestSequence += 1;
+		pending = false;
+	});
+
+	onDestroy(() => {
+		active = false;
+		requestSequence += 1;
+	});
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>

@@ -1,6 +1,12 @@
 import { OpenPostQueryError } from '@openpost/query-catalog';
 import { describe, expect, it, vi } from 'vitest';
 import { queryGET, queryPageResult } from './transport';
+import { registerQueryAuthorizationBoundary } from './authorization-boundary';
+import { afterEach } from 'vitest';
+
+afterEach(() => {
+	registerQueryAuthorizationBoundary(undefined);
+});
 
 describe('web query transport', () => {
 	it('passes the request signal through and returns typed data with response metadata', async () => {
@@ -75,5 +81,46 @@ describe('web query transport', () => {
 		});
 
 		await expect(request).rejects.toBe(abortError);
+	});
+
+	it('settles a query 401 against the identity captured before the request', async () => {
+		const capturedIdentity = { userID: 'user-a', epoch: 4 };
+		const settleUnauthorized = vi.fn();
+		registerQueryAuthorizationBoundary({
+			captureIdentity: () => capturedIdentity,
+			settleUnauthorized
+		});
+
+		const request = queryGET({
+			signal: new AbortController().signal,
+			fallback: 'Unable to load security settings',
+			request: async () => ({
+				error: { detail: 'Session expired' },
+				response: new Response(null, { status: 401 })
+			})
+		});
+
+		await expect(request).rejects.toMatchObject({ status: 401 });
+		expect(settleUnauthorized).toHaveBeenCalledWith(capturedIdentity);
+	});
+
+	it('keeps a forbidden query scoped to its resource', async () => {
+		const settleUnauthorized = vi.fn();
+		registerQueryAuthorizationBoundary({
+			captureIdentity: () => ({ userID: 'user-a', epoch: 4 }),
+			settleUnauthorized
+		});
+
+		const request = queryGET({
+			signal: new AbortController().signal,
+			fallback: 'Unable to load workspace settings',
+			request: async () => ({
+				error: { detail: 'Forbidden' },
+				response: new Response(null, { status: 403 })
+			})
+		});
+
+		await expect(request).rejects.toMatchObject({ status: 403 });
+		expect(settleUnauthorized).not.toHaveBeenCalled();
 	});
 });

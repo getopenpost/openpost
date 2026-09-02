@@ -3042,6 +3042,7 @@
 	"settings_token_secret_label": "Novo token de API",
 	"settings_token_copy_success": "Token de API copiado.",
 	"settings_token_copy_failed": "Não foi possível copiar o token. Copia-o manualmente antes de fechares esta mensagem.",
+	"settings_token_creation_pending": "Espera que a criação do token de API termine antes de saíres desta página.",
 	"settings_token_name_required": "Introduz um nome que identifique este token.",
 	"settings_token_expiry": "Validade",
 	"settings_token_expiry_description": "Por predefinição, os tokens expiram ao fim de 90 dias. Escolhe um período mais curto quando possível; o máximo é um ano.",

@@ -1,8 +1,24 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { resolveAppPath } from '$lib/app-path';
-	import { auth } from '$lib/stores/auth';
+	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { client } from '$lib/api/client';
+	import {
+		authQueryKeys,
+		authSessionsQueryOptions,
+		emailChangeStatusQueryOptions,
+		isOrganizationAuditQueryKey,
+		linkableOIDCProvidersQueryOptions,
+		OpenPostQueryError,
+		organizationQueryKeys,
+		oidcIdentitiesQueryOptions,
+		securityStatusQueryOptions
+	} from '@openpost/query-catalog';
+	import { authQueryAPI, invalidateEmailChangeDependencies } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
 	import { createPasskeyCredential } from '$lib/auth/webauthn';
 	import { acquireReauthGrant, startOIDCIdentityLink } from '$lib/auth/reauth';
 	import { copyAuthenticatorSetupKey, isAuthenticatorCodeReady } from '$lib/authenticator-setup';
@@ -48,8 +64,10 @@
 	let securityBusy = $state(false);
 	let securityError = $state('');
 	let authSessions = $state.raw<AuthSessionSummary[]>([]);
+	let authSessionsReady = $state(false);
 	let authSessionsLoading = $state(true);
 	let authSessionsError = $state('');
+	let authSessionsRequestSequence = 0;
 	let authSessionBusyID = $state('');
 	let totpCurrentPassword = $state('');
 	let passkeyCurrentPassword = $state('');
@@ -66,21 +84,37 @@
 	let recoveryCodesRemaining = $state<number | null>(null);
 	let newPasskeyName = $state('');
 	let securityStatus = $state<SecurityStatus | null>(null);
+	let securityStatusReady = $state(false);
 	let linkedIdentities = $state.raw<OIDCIdentitySummary[]>([]);
+	let linkedIdentitiesReady = $state(false);
 	let linkableProviders = $state.raw<OIDCProviderSummary[]>([]);
+	let linkableProvidersReady = $state(false);
 	let identityPassword = $state('');
 	let identityBusy = $state('');
 	let emailChangePending = $state.raw<EmailChangeSummary | null>(null);
+	let emailChangeReady = $state(false);
 	let emailChangeNewEmail = $state('');
 	let emailChangeCode = $state('');
 	let emailChangePassword = $state('');
 	let emailChangeBusy = $state(false);
 	let emailChangeError = $state('');
 	let loadedSecurityUserID = '';
+	let securityRequestSequence = 0;
 	let destructiveDialogOpen = $state(false);
 	let destructiveAction = $state.raw<SecurityDestructiveAction | null>(null);
+	let securityMutationGeneration = 0;
+	let activeSecurityUserID = '';
+
+	interface SecurityMutationContext {
+		userID: string;
+		generation: number;
+		identity: AuthIdentityToken;
+	}
 
 	const passkeyCount = $derived((securityStatus?.passkeys ?? []).length);
+	const securityDataReady = $derived(
+		securityStatusReady && linkedIdentitiesReady && linkableProvidersReady && emailChangeReady
+	);
 	const passwordReauthUsable = $derived(securityStatus?.user.password_usable ?? false);
 	const reauthProviderID = $derived(activeReauthProviderID(linkedIdentities));
 	const unlinkedProviders = $derived(
@@ -101,6 +135,90 @@
 	function notify(message: string, tone: 'success' | 'error' = 'success') {
 		showToast(message, tone);
 	}
+
+	function beginSecurityMutation(): SecurityMutationContext | null {
+		const userID = authState.user?.id ?? '';
+		const identity = auth.captureIdentity();
+		if (!userID || userID !== activeSecurityUserID || !identity) return null;
+		return { userID, generation: securityMutationGeneration, identity };
+	}
+
+	function securityMutationIsCurrent(context: SecurityMutationContext) {
+		return (
+			context.generation === securityMutationGeneration &&
+			authState.user?.id === context.userID &&
+			activeSecurityUserID === context.userID
+		);
+	}
+
+	function securityActorIsCurrent(context: SecurityMutationContext) {
+		return auth.isIdentityCurrent(context.identity);
+	}
+
+	async function invalidateSecurityAuditCaches(context: SecurityMutationContext) {
+		if (!securityActorIsCurrent(context)) return;
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			}),
+			queryClient.invalidateQueries({
+				predicate: (query) => isOrganizationAuditQueryKey(query.queryKey)
+			})
+		]);
+	}
+
+	async function refreshIdentityBootstrap(context: SecurityMutationContext) {
+		if (!securityActorIsCurrent(context)) return '';
+		try {
+			const preferredWorkspaceID = workspaceCtx.currentWorkspace?.id;
+			const projection = auth.captureUserProjection(context.userID);
+			if (!projection) return '';
+			const bootstrap = await workspaceCtx.loadWorkspaces(preferredWorkspaceID);
+			if (!securityActorIsCurrent(context)) return '';
+			if (!auth.projectBootstrap(bootstrap, projection)) return '';
+			return '';
+		} catch (cause) {
+			return cause instanceof Error ? cause.message : m.settings_action_failed();
+		}
+	}
+
+	function isAuthorizationLoss(cause: unknown) {
+		return cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403);
+	}
+
+	function resetActorScopedSecurityState() {
+		securityMutationGeneration += 1;
+		securityBusy = false;
+		securityError = '';
+		authSessionBusyID = '';
+		totpCurrentPassword = '';
+		passkeyCurrentPassword = '';
+		totpSetupChallengeId = '';
+		totpManualEntryKey = '';
+		totpQRCodeDataURL = '';
+		totpCode = '';
+		totpSetupError = '';
+		totpSetupKeyCopyState = 'idle';
+		recoveryCodeFlow = null;
+		recoveryCodeChallengeId = '';
+		recoveryCodes = [];
+		recoveryCodesSaved = false;
+		recoveryCodesRemaining = null;
+		newPasskeyName = '';
+		identityPassword = '';
+		identityBusy = '';
+		emailChangeNewEmail = '';
+		emailChangeCode = '';
+		emailChangePassword = '';
+		emailChangeBusy = false;
+		emailChangeError = '';
+		destructiveDialogOpen = false;
+		destructiveAction = null;
+	}
+
+	onDestroy(() => {
+		securityMutationGeneration += 1;
+	});
 
 	function requestSecurityAction(action: SecurityDestructiveAction) {
 		destructiveAction = action;
@@ -172,54 +290,129 @@
 			: m.settings_recovery_codes_remaining({ count });
 	}
 
-	async function loadSecurityStatus() {
-		loadingSecurity = true;
+	async function loadSecurityStatus(loadOptions: { refresh?: boolean } = {}) {
+		const userID = authState.user?.id ?? '';
+		if (!userID) return;
+		const requestSequence = ++securityRequestSequence;
+		const isCurrentRequest = () =>
+			requestSequence === securityRequestSequence && authState.user?.id === userID;
+		const securityOptions = securityStatusQueryOptions(authQueryAPI);
+		const identitiesOptions = oidcIdentitiesQueryOptions(authQueryAPI);
+		const providersOptions = linkableOIDCProvidersQueryOptions(authQueryAPI);
+		const emailChangeOptions = emailChangeStatusQueryOptions(authQueryAPI);
+		const cachedSecurity = queryClient.getQueryData<SecurityStatus>(securityOptions.queryKey);
+		const cachedIdentities = queryClient.getQueryData<OIDCIdentitySummary[]>(
+			identitiesOptions.queryKey
+		);
+		const cachedProviders = queryClient.getQueryData<OIDCProviderSummary[]>(
+			providersOptions.queryKey
+		);
+		const cachedEmailChange = queryClient.getQueryData<{
+			pending?: EmailChangeSummary | null;
+		}>(emailChangeOptions.queryKey);
+		securityStatusReady = cachedSecurity !== undefined;
+		linkedIdentitiesReady = cachedIdentities !== undefined;
+		linkableProvidersReady = cachedProviders !== undefined;
+		emailChangeReady = cachedEmailChange !== undefined;
+		if (cachedSecurity !== undefined) securityStatus = cachedSecurity;
+		if (cachedIdentities !== undefined) linkedIdentities = cachedIdentities;
+		if (cachedProviders !== undefined) linkableProviders = cachedProviders;
+		if (cachedEmailChange !== undefined) emailChangePending = cachedEmailChange.pending ?? null;
+		loadingSecurity = !securityDataReady;
 		securityError = '';
 		try {
-			const [securityResult, identityResult, providerResult, emailChangeResult] = await Promise.all(
-				[
-					client.GET('/auth/security'),
-					client.GET('/auth/oidc/identities'),
-					client.GET('/auth/oidc/link-providers'),
-					client.GET('/auth/email-change')
-				]
-			);
-			if (securityResult.error || !securityResult.data) {
-				throw new Error(securityResult.error?.detail || m.settings_action_failed());
+			if (loadOptions.refresh) {
+				await Promise.all(
+					[securityOptions, identitiesOptions, providersOptions, emailChangeOptions].map(
+						(options) => queryClient.invalidateQueries({ queryKey: options.queryKey })
+					)
+				);
 			}
-			if (identityResult.error) {
-				throw new Error(identityResult.error.detail || m.settings_action_failed());
+			const results = await Promise.allSettled([
+				queryClient.fetchQuery(securityOptions),
+				queryClient.fetchQuery(identitiesOptions),
+				queryClient.fetchQuery(providersOptions),
+				queryClient.fetchQuery(emailChangeOptions)
+			]);
+			if (!isCurrentRequest()) return;
+			const [security, identities, providers, emailChange] = results;
+			if (security.status === 'fulfilled') {
+				securityStatus = security.value;
+				securityStatusReady = true;
 			}
-			if (providerResult.error) {
-				throw new Error(providerResult.error.detail || m.settings_action_failed());
+			if (identities.status === 'fulfilled') {
+				linkedIdentities = identities.value;
+				linkedIdentitiesReady = true;
 			}
-			if (emailChangeResult.error) {
-				throw new Error(emailChangeResult.error.detail || m.settings_action_failed());
+			if (providers.status === 'fulfilled') {
+				linkableProviders = providers.value;
+				linkableProvidersReady = true;
 			}
-			securityStatus = securityResult.data;
-			linkedIdentities = identityResult.data ?? [];
-			linkableProviders = providerResult.data ?? [];
-			emailChangePending = emailChangeResult.data?.pending ?? null;
-		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (emailChange.status === 'fulfilled') {
+				emailChangePending = emailChange.value.pending ?? null;
+				emailChangeReady = true;
+			}
+			if (security.status === 'rejected' && isAuthorizationLoss(security.reason)) {
+				securityStatus = null;
+				securityStatusReady = false;
+				queryClient.removeQueries({
+					queryKey: securityOptions.queryKey,
+					exact: true
+				});
+			}
+			if (identities.status === 'rejected' && isAuthorizationLoss(identities.reason)) {
+				linkedIdentities = [];
+				linkedIdentitiesReady = false;
+				queryClient.removeQueries({
+					queryKey: identitiesOptions.queryKey,
+					exact: true
+				});
+			}
+			if (providers.status === 'rejected' && isAuthorizationLoss(providers.reason)) {
+				linkableProviders = [];
+				linkableProvidersReady = false;
+				queryClient.removeQueries({
+					queryKey: providersOptions.queryKey,
+					exact: true
+				});
+			}
+			if (emailChange.status === 'rejected' && isAuthorizationLoss(emailChange.reason)) {
+				emailChangePending = null;
+				emailChangeReady = false;
+				queryClient.removeQueries({
+					queryKey: emailChangeOptions.queryKey,
+					exact: true
+				});
+			}
+			const failure = results.find((result) => result.status === 'rejected');
+			if (failure?.status === 'rejected') {
+				securityError =
+					failure.reason instanceof Error ? failure.reason.message : m.settings_action_failed();
+			}
 		} finally {
-			loadingSecurity = false;
+			if (isCurrentRequest()) loadingSecurity = false;
 		}
 	}
 
 	async function beginEmailChange() {
 		if (!emailChangeNewEmail.trim()) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const newEmail = emailChangeNewEmail.trim();
+		const reauthOptions = {
+			password: passwordReauthUsable ? emailChangePassword : '',
+			providerID: reauthProviderID,
+			hasPasskey: passkeyCount > 0,
+			isCurrent: () => securityMutationIsCurrent(context)
+		};
 		emailChangeBusy = true;
 		emailChangeError = '';
 		try {
-			const grant = await acquireReauthGrant('identity.email.change', {
-				password: passwordReauthUsable ? emailChangePassword : '',
-				providerID: reauthProviderID,
-				hasPasskey: passkeyCount > 0
-			});
+			const grant = await acquireReauthGrant('identity.email.change', reauthOptions);
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const result = await client.POST('/auth/email-change', {
-				body: { new_email: emailChangeNewEmail.trim(), reauth_grant: grant }
+				body: { new_email: newEmail, reauth_grant: grant }
 			});
 			if (result.error || !result.data) {
 				if (result.response.status === 409) throw new Error(m.settings_email_change_conflict());
@@ -228,51 +421,98 @@
 				}
 				throw new Error(result.error?.detail || m.settings_email_change_failed());
 			}
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.emailChange(), {
+				pending: result.data
+			});
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			emailChangePending = result.data;
 			emailChangeNewEmail = '';
 			emailChangePassword = '';
 			notify(m.settings_email_change_sent());
 		} catch (error) {
-			emailChangeError = error instanceof Error ? error.message : m.settings_email_change_failed();
+			if (securityMutationIsCurrent(context)) {
+				emailChangeError =
+					error instanceof Error ? error.message : m.settings_email_change_failed();
+			}
 		} finally {
-			emailChangeBusy = false;
+			if (securityMutationIsCurrent(context)) emailChangeBusy = false;
 		}
 	}
 
 	async function resendEmailChange() {
 		if (!emailChangePending) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const pendingID = emailChangePending.id;
 		emailChangeBusy = true;
 		emailChangeError = '';
 		try {
 			const { data, error } = await client.POST('/auth/email-change/{id}/resend', {
-				params: { path: { id: emailChangePending.id } }
+				params: { path: { id: pendingID } }
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_email_change_failed());
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.emailChange(), { pending: data });
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			emailChangePending = data;
 			notify(m.settings_email_change_sent());
 		} catch (error) {
-			emailChangeError = error instanceof Error ? error.message : m.settings_email_change_failed();
+			if (securityMutationIsCurrent(context)) {
+				emailChangeError =
+					error instanceof Error ? error.message : m.settings_email_change_failed();
+			}
 		} finally {
-			emailChangeBusy = false;
+			if (securityMutationIsCurrent(context)) emailChangeBusy = false;
 		}
 	}
 
 	async function confirmEmailChange() {
 		if (!emailChangePending || emailChangeCode.length !== 6) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const pendingID = emailChangePending.id;
+		const code = emailChangeCode;
 		emailChangeBusy = true;
 		emailChangeError = '';
 		try {
 			const { data, error } = await client.POST('/auth/email-change/{id}/confirm', {
-				params: { path: { id: emailChangePending.id } },
-				body: { code: emailChangeCode }
+				params: { path: { id: pendingID } },
+				body: { code }
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_email_change_failed());
-			if (authState.user) auth.setUser({ ...authState.user, email: data.email });
+			const currentUser = get(auth).user;
+			if (currentUser?.id !== context.userID) return;
+			auth.setUser({ ...currentUser, email: data.email });
+			queryClient.setQueryData(authQueryKeys.emailChange(), {
+				pending: undefined
+			});
+			queryClient.setQueryData<SecurityStatus>(authQueryKeys.security(), (current) =>
+				current ? { ...current, user: { ...current.user, email: data.email } } : current
+			);
+			const workspaceIDs = workspaceCtx.workspaces.map((workspace) => workspace.id);
+			const organizationIDs = workspaceCtx.workspaces.map((workspace) => workspace.organization_id);
+			await Promise.all([
+				invalidateEmailChangeDependencies(queryClient, {
+					workspaceIDs,
+					organizationIDs
+				}),
+				invalidateSecurityAuditCaches(context)
+			]);
+			if (!securityMutationIsCurrent(context)) return;
 			emailChangePending = null;
 			emailChangeCode = '';
 			securityStatus = securityStatus
-				? { ...securityStatus, user: { ...securityStatus.user, email: data.email } }
+				? {
+						...securityStatus,
+						user: { ...securityStatus.user, email: data.email }
+					}
 				: securityStatus;
+			if (securityStatus) {
+				queryClient.setQueryData(authQueryKeys.security(), securityStatus);
+			}
 			notify(
 				data.revoked_sessions === 1
 					? m.settings_email_change_completed_one()
@@ -280,59 +520,86 @@
 			);
 			await loadAuthSessions();
 		} catch (error) {
-			emailChangeError = error instanceof Error ? error.message : m.settings_email_change_failed();
+			if (securityMutationIsCurrent(context)) {
+				emailChangeError =
+					error instanceof Error ? error.message : m.settings_email_change_failed();
+			}
 		} finally {
-			emailChangeBusy = false;
+			if (securityMutationIsCurrent(context)) emailChangeBusy = false;
 		}
 	}
 
 	async function cancelEmailChange() {
 		if (!emailChangePending) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const pendingID = emailChangePending.id;
 		emailChangeBusy = true;
 		emailChangeError = '';
 		try {
 			const { error } = await client.DELETE('/auth/email-change/{id}', {
-				params: { path: { id: emailChangePending.id } }
+				params: { path: { id: pendingID } }
 			});
 			if (error) throw new Error(error.detail || m.settings_email_change_failed());
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.emailChange(), {
+				pending: undefined
+			});
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			emailChangePending = null;
 			emailChangeCode = '';
 			notify(m.settings_email_change_canceled());
 		} catch (error) {
-			emailChangeError = error instanceof Error ? error.message : m.settings_email_change_failed();
+			if (securityMutationIsCurrent(context)) {
+				emailChangeError =
+					error instanceof Error ? error.message : m.settings_email_change_failed();
+			}
 		} finally {
-			emailChangeBusy = false;
+			if (securityMutationIsCurrent(context)) emailChangeBusy = false;
 		}
 	}
 
 	async function linkIdentity(providerID: string) {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const reauthOptions = {
+			password: passwordReauthUsable ? identityPassword : '',
+			providerID: reauthProviderID,
+			hasPasskey: passkeyCount > 0,
+			isCurrent: () => securityMutationIsCurrent(context)
+		};
 		identityBusy = `link-${providerID}`;
 		securityError = '';
 		try {
-			const grant = await acquireReauthGrant('identity.link', {
-				password: passwordReauthUsable ? identityPassword : '',
-				providerID: reauthProviderID,
-				hasPasskey: passkeyCount > 0
-			});
+			const grant = await acquireReauthGrant('identity.link', reauthOptions);
 			if (grant === null) return;
-			await startOIDCIdentityLink(providerID, grant);
+			if (!securityMutationIsCurrent(context)) return;
+			await startOIDCIdentityLink(providerID, grant, () => securityMutationIsCurrent(context));
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			identityBusy = '';
+			if (securityMutationIsCurrent(context)) identityBusy = '';
 		}
 	}
 
 	async function unlinkIdentity(identityID: string) {
+		const context = beginSecurityMutation();
+		if (!context) return false;
+		const reauthOptions = {
+			password: passwordReauthUsable ? identityPassword : '',
+			providerID: reauthProviderID,
+			hasPasskey: passkeyCount > 0,
+			isCurrent: () => securityMutationIsCurrent(context)
+		};
 		identityBusy = `unlink-${identityID}`;
 		securityError = '';
 		try {
-			const grant = await acquireReauthGrant('identity.unlink', {
-				password: passwordReauthUsable ? identityPassword : '',
-				providerID: reauthProviderID,
-				hasPasskey: passkeyCount > 0
-			});
+			const grant = await acquireReauthGrant('identity.unlink', reauthOptions);
 			if (grant === null) return false;
+			if (!securityMutationIsCurrent(context)) return false;
 			const result = await client.DELETE('/auth/oidc/identities/{identity_id}', {
 				params: { path: { identity_id: identityID } },
 				body: { reauth_grant: grant }
@@ -343,33 +610,77 @@
 				}
 				throw new Error(result.error.detail || m.settings_identity_unlink_failed());
 			}
+			if (!securityActorIsCurrent(context)) return false;
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: authQueryKeys.security() }),
+				queryClient.invalidateQueries({
+					queryKey: authQueryKeys.oidcIdentities()
+				}),
+				queryClient.invalidateQueries({
+					queryKey: authQueryKeys.linkableOIDCProviders()
+				}),
+				invalidateSecurityAuditCaches(context)
+			]);
+			const bootstrapError = await refreshIdentityBootstrap(context);
+			if (!securityMutationIsCurrent(context)) return false;
 			identityPassword = '';
 			await loadSecurityStatus();
+			if (!securityMutationIsCurrent(context)) return false;
 			notify(m.settings_identity_unlinked());
+			if (bootstrapError) securityError = bootstrapError;
 			return true;
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_identity_unlink_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_identity_unlink_failed();
+			}
 			return false;
 		} finally {
-			identityBusy = '';
+			if (securityMutationIsCurrent(context)) identityBusy = '';
 		}
 	}
 
-	async function loadAuthSessions() {
-		authSessionsLoading = true;
+	async function loadAuthSessions(loadOptions: { refresh?: boolean } = {}) {
+		const userID = authState.user?.id ?? '';
+		if (!userID) return;
+		const requestSequence = ++authSessionsRequestSequence;
+		const isCurrentRequest = () =>
+			requestSequence === authSessionsRequestSequence && authState.user?.id === userID;
+		const options = authSessionsQueryOptions(authQueryAPI);
+		const cachedSessions = queryClient.getQueryData<AuthSessionSummary[]>(options.queryKey);
+		if (cachedSessions !== undefined) {
+			authSessions = cachedSessions;
+			authSessionsReady = true;
+		}
+		authSessionsLoading = !authSessionsReady;
 		authSessionsError = '';
 		try {
-			const { data, error: err } = await client.GET('/auth/sessions');
-			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (loadOptions.refresh) {
+				await queryClient.invalidateQueries({ queryKey: options.queryKey });
+			}
+			const data = await queryClient.fetchQuery(options);
+			if (!isCurrentRequest()) return;
 			authSessions = data;
+			authSessionsReady = true;
 		} catch (e) {
+			if (!isCurrentRequest()) return;
+			if (isAuthorizationLoss(e)) {
+				authSessions = [];
+				authSessionsReady = false;
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+			}
 			authSessionsError = e instanceof Error ? e.message : m.settings_action_failed();
 		} finally {
-			authSessionsLoading = false;
+			if (isCurrentRequest()) authSessionsLoading = false;
 		}
+	}
+
+	async function refreshPasswordState() {
+		await Promise.all([loadSecurityStatus(), loadAuthSessions()]);
 	}
 
 	async function revokeAuthSession(session: AuthSessionSummary) {
+		const context = beginSecurityMutation();
+		if (!context) return false;
 		authSessionBusyID = session.id;
 		authSessionsError = '';
 		try {
@@ -377,41 +688,70 @@
 				params: { path: { session_id: session.id } }
 			});
 			if (err) throw new Error(err.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return false;
+			await invalidateSecurityAuditCaches(context);
+			if (!securityActorIsCurrent(context)) return false;
 			if (data?.revoked_current || session.current) {
-				await auth.logout();
-				await goto(resolveAppPath('/login'));
-				return true;
+				const shouldNavigate = securityMutationIsCurrent(context);
+				const route = shouldNavigate ? `${window.location.pathname}${window.location.search}` : '';
+				auth.clearLocal();
+				if (
+					shouldNavigate &&
+					!get(auth).user &&
+					`${window.location.pathname}${window.location.search}` === route
+				) {
+					await goto(resolveAppPath('/login'));
+				}
+				return false;
 			}
+			await queryClient.invalidateQueries({
+				queryKey: authQueryKeys.sessions()
+			});
+			if (!securityMutationIsCurrent(context)) return false;
 			await loadAuthSessions();
+			if (!securityMutationIsCurrent(context)) return false;
 			notify(m.settings_session_revoked());
 			return true;
 		} catch (e) {
-			authSessionsError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				authSessionsError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 			return false;
 		} finally {
-			authSessionBusyID = '';
+			if (securityMutationIsCurrent(context)) authSessionBusyID = '';
 		}
 	}
 
 	async function startTOTPSetup() {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const currentPassword = totpCurrentPassword;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		totpSetupError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.totp.setup', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const { data, error: err } = await client.POST('/auth/security/totp/setup', {
 				body: {
-					current_password: totpCurrentPassword,
+					current_password: currentPassword,
 					reauth_grant: grant || undefined
 				}
 			});
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return;
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			clearRecoveryCodeStage();
 			totpSetupChallengeId = data.challenge_id;
 			totpManualEntryKey = data.manual_entry_key;
@@ -420,27 +760,36 @@
 			totpSetupKeyCopyState = 'idle';
 			totpCurrentPassword = '';
 		} catch (e) {
-			totpSetupError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				totpSetupError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function confirmTOTPSetup() {
 		if (!totpSetupChallengeId) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const challengeID = totpSetupChallengeId;
+		const code = totpCode;
 		securityBusy = true;
 		securityError = '';
 		totpSetupError = '';
 		try {
 			const { data, error: err } = await client.POST('/auth/security/totp/confirm', {
 				body: {
-					challenge_id: totpSetupChallengeId,
-					code: totpCode
+					challenge_id: challengeID,
+					code
 				}
 			});
 			if (err || !data?.recovery_codes?.length) {
 				throw new Error(err?.detail || m.settings_action_failed());
 			}
+			if (!securityActorIsCurrent(context)) return;
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			recoveryCodeFlow = 'setup';
 			recoveryCodeChallengeId = data.challenge_id;
 			recoveryCodes = data.recovery_codes;
@@ -451,9 +800,11 @@
 			totpCode = '';
 			totpSetupKeyCopyState = 'idle';
 		} catch (e) {
-			totpSetupError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				totpSetupError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
@@ -510,11 +861,16 @@
 	}
 
 	async function copyRecoveryCodes() {
+		const context = beginSecurityMutation();
+		const text = recoveryCodesText();
+		if (!context || recoveryCodes.length === 0) return;
 		securityError = '';
 		try {
-			await navigator.clipboard.writeText(recoveryCodesText());
+			await navigator.clipboard.writeText(text);
+			if (!securityMutationIsCurrent(context) || recoveryCodesText() !== text) return;
 			notify(m.settings_recovery_codes_copied());
 		} catch {
+			if (!securityMutationIsCurrent(context) || recoveryCodesText() !== text) return;
 			securityError = m.settings_recovery_codes_copy_failed();
 		}
 	}
@@ -522,7 +878,9 @@
 	function downloadRecoveryCodes() {
 		securityError = '';
 		try {
-			const blob = new Blob([recoveryCodesText()], { type: 'text/plain;charset=utf-8' });
+			const blob = new Blob([recoveryCodesText()], {
+				type: 'text/plain;charset=utf-8'
+			});
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement('a');
 			anchor.href = url;
@@ -539,86 +897,116 @@
 
 	async function activateRecoveryCodes() {
 		if (!recoveryCodeChallengeId || !recoveryCodeFlow || !recoveryCodesSaved) return;
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const challengeID = recoveryCodeChallengeId;
+		const flow = recoveryCodeFlow;
 		securityBusy = true;
 		securityError = '';
 		try {
 			const result =
-				recoveryCodeFlow === 'setup'
+				flow === 'setup'
 					? await client.POST('/auth/security/totp/enable', {
 							body: {
-								challenge_id: recoveryCodeChallengeId,
+								challenge_id: challengeID,
 								recovery_codes_saved: true
 							}
 						})
 					: await client.POST('/auth/security/totp/recovery-codes/activate', {
 							body: {
-								challenge_id: recoveryCodeChallengeId,
+								challenge_id: challengeID,
 								recovery_codes_saved: true
 							}
 						});
 			if (result.error || !result.data) {
 				throw new Error(result.error?.detail || m.settings_action_failed());
 			}
-			const completedFlow = recoveryCodeFlow;
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.security(), result.data);
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			securityStatus = result.data;
 			clearRecoveryCodeStage();
 			clearTOTPSetupStage();
 			recoveryCodesRemaining = null;
 			notify(
-				completedFlow === 'setup'
+				flow === 'setup'
 					? m.settings_authenticator_enabled_notice()
 					: m.settings_recovery_codes_replaced()
 			);
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function checkRecoveryCodeStatus() {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const currentPassword = totpCurrentPassword;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.totp.recovery.inspect', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const { data, error: err } = await client.POST('/auth/security/totp/recovery-codes/status', {
 				body: {
-					current_password: totpCurrentPassword,
+					current_password: currentPassword,
 					reauth_grant: grant || undefined
 				}
 			});
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return;
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			recoveryCodesRemaining = data.remaining;
 			totpCurrentPassword = '';
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function regenerateRecoveryCodes() {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const currentPassword = totpCurrentPassword;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.totp.recovery.regenerate', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const { data, error: err } = await client.POST(
 				'/auth/security/totp/recovery-codes/regenerate',
 				{
 					body: {
-						current_password: totpCurrentPassword,
+						current_password: currentPassword,
 						reauth_grant: grant || undefined
 					}
 				}
@@ -626,6 +1014,9 @@
 			if (err || !data?.recovery_codes?.length) {
 				throw new Error(err?.detail || m.settings_action_failed());
 			}
+			if (!securityActorIsCurrent(context)) return;
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			recoveryCodeFlow = 'regenerate';
 			recoveryCodeChallengeId = data.challenge_id;
 			recoveryCodes = data.recovery_codes;
@@ -633,30 +1024,44 @@
 			recoveryCodesRemaining = null;
 			totpCurrentPassword = '';
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function disableTOTP() {
+		const context = beginSecurityMutation();
+		if (!context) return false;
+		const currentPassword = totpCurrentPassword;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.totp.disable', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return false;
+			if (!securityMutationIsCurrent(context)) return false;
 			const { data, error: err } = await client.POST('/auth/security/totp/disable', {
 				body: {
-					current_password: totpCurrentPassword,
+					current_password: currentPassword,
 					reauth_grant: grant || undefined
 				}
 			});
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return false;
+			queryClient.setQueryData(authQueryKeys.security(), data);
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return false;
 			securityStatus = data;
 			totpCurrentPassword = '';
 			recoveryCodesRemaining = null;
@@ -664,30 +1069,41 @@
 			notify(m.settings_authenticator_disabled_notice());
 			return true;
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 			return false;
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function addPasskey() {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const currentPassword = passkeyCurrentPassword;
+		const passkeyName = newPasskeyName;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.passkey.add', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const { data: beginData, error: beginError } = await client.POST(
 				'/auth/security/passkeys/begin',
 				{
 					body: {
-						current_password: passkeyCurrentPassword,
-						name: newPasskeyName,
+						current_password: currentPassword,
+						name: passkeyName,
 						reauth_grant: grant || undefined
 					}
 				}
@@ -695,56 +1111,78 @@
 			if (beginError || !beginData) {
 				throw new Error(beginError?.detail || m.settings_action_failed());
 			}
+			if (!securityMutationIsCurrent(context)) return;
 
 			const credential = await createPasskeyCredential(beginData.options);
+			if (!securityMutationIsCurrent(context)) return;
 			const { data, error: err } = await client.POST('/auth/security/passkeys/finish', {
 				body: {
 					challenge_id: beginData.challenge_id,
-					name: newPasskeyName,
+					name: passkeyName,
 					credential
 				}
 			});
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.security(), data);
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			securityStatus = data;
 			passkeyCurrentPassword = '';
 			newPasskeyName = '';
 			notify(m.settings_passkey_added());
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
 	async function removePasskey(passkeyId: string) {
+		const context = beginSecurityMutation();
+		if (!context) return;
+		const currentPassword = passkeyCurrentPassword;
+		const targetPasswordReauthUsable = passwordReauthUsable;
+		const targetReauthProviderID = reauthProviderID;
+		const targetHasPasskey = passkeyCount > 0;
 		securityBusy = true;
 		securityError = '';
 		try {
-			const grant = passwordReauthUsable
+			const grant = targetPasswordReauthUsable
 				? ''
 				: await acquireReauthGrant('security.passkey.remove', {
-						providerID: reauthProviderID,
-						hasPasskey: passkeyCount > 0
+						providerID: targetReauthProviderID,
+						hasPasskey: targetHasPasskey,
+						isCurrent: () => securityMutationIsCurrent(context)
 					});
 			if (grant === null) return;
+			if (!securityMutationIsCurrent(context)) return;
 			const { data, error: err } = await client.POST(
 				'/auth/security/passkeys/{passkey_id}/remove',
 				{
 					params: { path: { passkey_id: passkeyId } },
 					body: {
-						current_password: passkeyCurrentPassword,
+						current_password: currentPassword,
 						reauth_grant: grant || undefined
 					}
 				}
 			);
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (!securityActorIsCurrent(context)) return;
+			queryClient.setQueryData(authQueryKeys.security(), data);
+			await invalidateSecurityAuditCaches(context);
+			if (!securityMutationIsCurrent(context)) return;
 			securityStatus = data;
 			passkeyCurrentPassword = '';
 			notify(m.settings_passkey_removed());
 		} catch (e) {
-			securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (securityMutationIsCurrent(context)) {
+				securityError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			securityBusy = false;
+			if (securityMutationIsCurrent(context)) securityBusy = false;
 		}
 	}
 
@@ -811,14 +1249,45 @@
 
 	$effect(() => {
 		const userID = authState.user?.id ?? '';
-		if (!authState.isAuthenticated || !userID || loadedSecurityUserID === userID) return;
+		if (userID !== activeSecurityUserID) {
+			activeSecurityUserID = userID;
+			resetActorScopedSecurityState();
+			securityRequestSequence += 1;
+			authSessionsRequestSequence += 1;
+			securityStatus = null;
+			securityStatusReady = false;
+			linkedIdentities = [];
+			linkedIdentitiesReady = false;
+			linkableProviders = [];
+			linkableProvidersReady = false;
+			emailChangePending = null;
+			emailChangeReady = false;
+			authSessions = [];
+			authSessionsReady = false;
+			loadedSecurityUserID = '';
+		}
+		if (!authState.isAuthenticated || !userID) {
+			loadingSecurity = false;
+			authSessionsLoading = false;
+			return;
+		}
+		if (loadedSecurityUserID === userID) return;
+		securityRequestSequence += 1;
+		authSessionsRequestSequence += 1;
 		loadedSecurityUserID = userID;
 		void loadSecurityStatus();
 		void loadAuthSessions();
 	});
 
 	$effect(() => {
-		unsavedChanges?.set('security-settings', securityDraftDirty, securityDraftMessage);
+		unsavedChanges?.set(
+			'security-settings',
+			securityDraftDirty ||
+				securityBusy ||
+				emailChangeBusy ||
+				Boolean(identityBusy || authSessionBusyID),
+			securityDraftMessage
+		);
 		return () => unsavedChanges?.clear('security-settings');
 	});
 </script>
@@ -930,10 +1399,35 @@
 	</div>
 {/snippet}
 
-{#if loadingSecurity}
+{#if loadingSecurity && !securityDataReady}
 	<PageLoading layout="grid" label={m.common_loading()} items={2} />
+{:else if !securityDataReady || !securityStatus}
+	<InlineNotice tone="error" message={securityError || m.settings_action_failed()}>
+		{#snippet actions()}
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => void loadSecurityStatus({ refresh: true })}
+			>
+				{m.common_retry()}
+			</Button>
+		{/snippet}
+	</InlineNotice>
 {:else}
 	<div class="space-y-4">
+		{#if securityError}
+			<InlineNotice tone="warning" message={securityError}>
+				{#snippet actions()}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => void loadSecurityStatus({ refresh: true })}
+					>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		<div class="border-y py-3">
 			<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<div>
@@ -965,7 +1459,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					onclick={loadAuthSessions}
+					onclick={() => void loadAuthSessions({ refresh: true })}
 					disabled={authSessionsLoading}
 				>
 					{#if authSessionsLoading}
@@ -976,16 +1470,20 @@
 			</div>
 
 			{#if authSessionsError}
-				<InlineNotice tone="error" message={authSessionsError} class="mb-3" />
+				<InlineNotice
+					tone={authSessionsReady ? 'warning' : 'error'}
+					message={authSessionsError}
+					class="mb-3"
+				/>
 			{/if}
 
-			{#if authSessionsLoading && authSessions.length === 0}
+			{#if authSessionsLoading && !authSessionsReady}
 				<PageLoading layout="list" label={m.common_loading()} items={2} />
-			{:else if authSessions.length === 0 && !authSessionsError}
+			{:else if authSessionsReady && authSessions.length === 0}
 				<p class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
 					{m.settings_no_sessions()}
 				</p>
-			{:else}
+			{:else if authSessionsReady}
 				<div class="space-y-2" data-testid="auth-session-list">
 					{#each authSessions as session (session.id)}
 						<div
@@ -1045,7 +1543,9 @@
 			</summary>
 			<div class="border-t p-4">
 				<div class="mb-4 rounded-md border bg-muted/20 px-3 py-2">
-					<p class="text-xs text-muted-foreground">{m.settings_email_address()}</p>
+					<p class="text-xs text-muted-foreground">
+						{m.settings_email_address()}
+					</p>
 					<p class="mt-1 text-sm font-medium break-all">
 						{securityStatus?.user.email ?? profileEmail}
 					</p>
@@ -1175,7 +1675,9 @@
 						/>
 					</div>
 				{:else if !passwordReauthUsable && (linkedIdentities.length || unlinkedProviders.length)}
-					<p class="mb-3 text-sm text-muted-foreground">{m.settings_step_up_body()}</p>
+					<p class="mb-3 text-sm text-muted-foreground">
+						{m.settings_step_up_body()}
+					</p>
 				{/if}
 
 				<div class="space-y-2">
@@ -1191,7 +1693,9 @@
 									{identity.provider_name} · {identity.linked_email ?? securityStatus?.user.email}
 								</p>
 								<p class="mt-1 text-xs text-muted-foreground">
-									{m.settings_identity_linked_on({ date: formatDate(identity.created_at) })}
+									{m.settings_identity_linked_on({
+										date: formatDate(identity.created_at)
+									})}
 									{#if identity.last_login_at}
 										· {m.settings_identity_last_used({
 											date: formatDateTime(identity.last_login_at)
@@ -1229,7 +1733,9 @@
 						{/each}
 					</div>
 				{:else if linkedIdentities.length === 0}
-					<p class="text-sm text-muted-foreground">{m.settings_no_linkable_identities()}</p>
+					<p class="text-sm text-muted-foreground">
+						{m.settings_no_linkable_identities()}
+					</p>
 				{/if}
 			</div>
 		</details>
@@ -1342,7 +1848,8 @@
 								class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
 								data-testid="totp-setup-steps"
 							>
-								{m.settings_totp_setup_step_add()} → {m.settings_totp_setup_step_code()} → {m.settings_totp_setup_step_recovery()}
+								{m.settings_totp_setup_step_add()} → {m.settings_totp_setup_step_code()}
+								→ {m.settings_totp_setup_step_recovery()}
 							</div>
 						{/if}
 						{#if totpSetupError}
@@ -1550,7 +2057,9 @@
 							</div>
 						{/each}
 					{:else}
-						<p class="text-sm text-muted-foreground">{m.settings_no_passkeys()}</p>
+						<p class="text-sm text-muted-foreground">
+							{m.settings_no_passkeys()}
+						</p>
 					{/if}
 				</div>
 			</div>
@@ -1561,11 +2070,8 @@
 			hasPassword={passwordReauthUsable}
 			{reauthProviderID}
 			hasPasskey={passkeyCount > 0}
+			onPasswordChanged={refreshPasswordState}
 		/>
-
-		{#if securityError}
-			<InlineNotice tone="error" message={securityError} />
-		{/if}
 	</div>
 {/if}
 

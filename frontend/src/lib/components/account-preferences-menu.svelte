@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { get } from 'svelte/store';
 	import { resolveAppPath } from '$lib/app-path';
 	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
@@ -66,8 +67,14 @@
 	}
 
 	async function handleLogout() {
+		const route = `${window.location.pathname}${window.location.search}`;
 		onNavigate?.();
-		await auth.logout();
+		if (
+			!(await auth.logout()) ||
+			get(auth).user ||
+			`${window.location.pathname}${window.location.search}` !== route
+		)
+			return;
 		await goto(resolveAppPath('/login'));
 	}
 </script>

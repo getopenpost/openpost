@@ -16,21 +16,13 @@
 	import CheckIcon from '@lucide/svelte/icons/circle-check';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import XIcon from '@lucide/svelte/icons/x';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { feedbackConfigQueryOptions } from '@openpost/query-catalog';
+	import { feedbackQueryAPI } from '$lib/query/feedback';
 
 	type FeedbackCategory = 'bug' | 'idea' | 'question';
-	type FeedbackConfig = {
-		enabled: boolean;
-		recipient?: string;
-		support_url?: string;
-		app_version: string;
-		max_message_characters: number;
-		max_screenshot_bytes: number;
-		diagnostic_categories: string[];
-	};
 
 	let open = $state(false);
-	let config = $state<FeedbackConfig | null>(null);
-	let loading = $state(false);
 	let sending = $state(false);
 	let error = $state('');
 	let success = $state(false);
@@ -43,41 +35,25 @@
 	let screenshotError = $state('');
 	let includeDiagnostics = $state(false);
 	let diagnosticsPreview = $state<FeedbackDiagnosticsSnapshot | null>(null);
-	let loadSequence = 0;
+	const feedbackConfigQuery = createQuery(() => ({
+		...feedbackConfigQueryOptions(feedbackQueryAPI),
+		enabled: open
+	}));
+	const config = $derived.by(() => {
+		const data = feedbackConfigQuery.data;
+		return data ? { ...data, diagnostic_categories: data.diagnostic_categories ?? [] } : null;
+	});
+	const loading = $derived(feedbackConfigQuery.isPending || feedbackConfigQuery.isFetching);
+	const visibleError = $derived(error || (feedbackConfigQuery.error?.message ?? ''));
 
 	$effect(() => {
 		open = ui.isFeedbackOpen;
-		if (open) void loadConfig();
 	});
 
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
 		if (!isOpen) {
-			loadSequence++;
 			ui.closeFeedback();
-		}
-	}
-
-	async function loadConfig() {
-		const sequence = ++loadSequence;
-		loading = true;
-		error = '';
-		try {
-			const { data, error: configError } = await client.GET('/feedback/config');
-			if (sequence !== loadSequence || !ui.isFeedbackOpen) return;
-			if (configError || !data) {
-				throw new Error(configError?.detail || m.feedback_load_failed());
-			}
-			config = {
-				...data,
-				diagnostic_categories: data.diagnostic_categories ?? []
-			};
-		} catch (cause) {
-			if (sequence === loadSequence) {
-				error = cause instanceof Error ? cause.message : m.feedback_load_failed();
-			}
-		} finally {
-			if (sequence === loadSequence) loading = false;
 		}
 	}
 
@@ -244,6 +220,23 @@
 			<Dialog.Title>{m.feedback_title()}</Dialog.Title>
 			<Dialog.Description>{m.feedback_description()}</Dialog.Description>
 		</Dialog.Header>
+		{#if config && feedbackConfigQuery.isError}
+			<InlineNotice
+				tone="warning"
+				message={feedbackConfigQuery.error?.message ?? m.feedback_load_failed()}
+			>
+				{#snippet actions()}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={() => void feedbackConfigQuery.refetch()}
+					>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 
 		{#if loading && !config}
 			<div class="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
@@ -251,7 +244,18 @@
 				{m.feedback_loading()}
 			</div>
 		{:else if !config}
-			<InlineNotice tone="error" message={error || m.feedback_load_failed()} />
+			<InlineNotice tone="error" message={visibleError || m.feedback_load_failed()}>
+				{#snippet actions()}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={() => void feedbackConfigQuery.refetch()}
+					>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{:else if !config.enabled}
 			<div class="space-y-4 py-2">
 				<InlineNotice tone="info">

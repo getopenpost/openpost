@@ -3042,6 +3042,7 @@
 	"settings_token_secret_label": "New API token",
 	"settings_token_copy_success": "API token copied.",
 	"settings_token_copy_failed": "The token could not be copied. Copy it manually before closing this message.",
+	"settings_token_creation_pending": "API 토큰 생성이 완료될 때까지 이 페이지를 벗어나지 마세요.",
 	"settings_token_name_required": "Enter a name that identifies this token.",
 	"settings_token_expiry": "Expiration",
 	"settings_token_expiry_description": "Tokens expire after 90 days by default. Choose a shorter period when possible; the maximum is one year.",

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import type { components } from '$lib/api/types';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
@@ -9,6 +11,17 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Label } from '$lib/components/ui/label';
 	import { m } from '$lib/paraglide/messages';
+	import { client } from '$lib/api/client';
+	import {
+		adminQueryKeys,
+		isAccountFeaturesQueryKey,
+		isBillingStatusQueryKey,
+		isWorkspaceSetupQueryKey,
+		organizationQueryKeys,
+		publicProfileQueryKeys
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { auth } from '$lib/stores/auth';
 
 	type InstanceUser = components['schemas']['InstanceUserResponse'];
 
@@ -16,7 +29,6 @@
 		open: boolean;
 		user: InstanceUser | null;
 		onOpenChange: (open: boolean) => void;
-		onPlanChanged: () => void;
 	}
 
 	const planOptions = [
@@ -47,12 +59,14 @@
 		}
 	];
 
-	let { open, user, onOpenChange, onPlanChanged }: Props = $props();
+	let { open, user, onOpenChange }: Props = $props();
 
 	let selectedPlan = $state('');
 	let saving = $state(false);
 	let error = $state('');
 	let success = $state(false);
+	let closeTimer: ReturnType<typeof setTimeout> | undefined;
+	let requestSequence = 0;
 
 	const currentPlanIDs = $derived(user?.plan_ids ?? []);
 	const currentPlan = $derived(currentPlanIDs.length > 0 ? currentPlanIDs[0] : '');
@@ -63,6 +77,9 @@
 
 	function handleOpenChange(isOpen: boolean) {
 		if (!isOpen) {
+			requestSequence += 1;
+			if (closeTimer !== undefined) clearTimeout(closeTimer);
+			closeTimer = undefined;
 			selectedPlan = '';
 			saving = false;
 			error = '';
@@ -71,59 +88,98 @@
 		onOpenChange(isOpen);
 	}
 
+	async function reconcilePlanChange(actorID: string) {
+		if (!actorID || get(auth).user?.id !== actorID) return;
+		queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
+		await Promise.all([
+			queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+			queryClient.invalidateQueries({
+				predicate: (query) => isAccountFeaturesQueryKey(query.queryKey)
+			}),
+			queryClient.invalidateQueries({
+				predicate: (query) => isBillingStatusQueryKey(query.queryKey)
+			}),
+			queryClient.invalidateQueries({
+				predicate: (query) => isWorkspaceSetupQueryKey(query.queryKey)
+			}),
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		]);
+	}
+
 	async function savePlan() {
 		if (!user || !selectedPlan) return;
+		const targetUser = user;
+		const actorID = get(auth).user?.id ?? '';
+		const sequence = ++requestSequence;
 
 		saving = true;
 		error = '';
 		success = false;
 
-		const { error: apiError } = await (
-			await import('$lib/api/client')
-		).client.PUT('/admin/users/{user_id}/plan', {
-			params: { path: { user_id: user.id } },
-			body: { plan_id: selectedPlan }
-		});
-
-		saving = false;
-		if (apiError) {
-			error = apiError.detail?.trim() || m.settings_instance_change_plan_failed();
-			return;
+		try {
+			const { error: apiError } = await client.PUT('/admin/users/{user_id}/plan', {
+				params: { path: { user_id: targetUser.id } },
+				body: { plan_id: selectedPlan }
+			});
+			if (apiError) {
+				throw new Error(apiError.detail?.trim() || m.settings_instance_change_plan_failed());
+			}
+			await reconcilePlanChange(actorID);
+			if (sequence !== requestSequence || !open || user?.id !== targetUser.id) return;
+			success = true;
+			closeTimer = setTimeout(() => {
+				closeTimer = undefined;
+				handleOpenChange(false);
+			}, 1000);
+		} catch (cause) {
+			if (sequence === requestSequence && user?.id === targetUser.id) {
+				error = cause instanceof Error ? cause.message : m.settings_instance_change_plan_failed();
+			}
+		} finally {
+			if (sequence === requestSequence && user?.id === targetUser.id) saving = false;
 		}
-
-		success = true;
-		setTimeout(() => {
-			handleOpenChange(false);
-			onPlanChanged();
-		}, 1000);
 	}
 
 	async function removePlan() {
 		if (!user) return;
+		const targetUser = user;
+		const actorID = get(auth).user?.id ?? '';
+		const sequence = ++requestSequence;
 
 		saving = true;
 		error = '';
 		success = false;
 
-		const { error: apiError } = await (
-			await import('$lib/api/client')
-		).client.PUT('/admin/users/{user_id}/plan', {
-			params: { path: { user_id: user.id } },
-			body: { plan_id: '' }
-		});
-
-		saving = false;
-		if (apiError) {
-			error = apiError.detail?.trim() || m.settings_instance_change_plan_failed();
-			return;
+		try {
+			const { error: apiError } = await client.PUT('/admin/users/{user_id}/plan', {
+				params: { path: { user_id: targetUser.id } },
+				body: { plan_id: '' }
+			});
+			if (apiError) {
+				throw new Error(apiError.detail?.trim() || m.settings_instance_change_plan_failed());
+			}
+			await reconcilePlanChange(actorID);
+			if (sequence !== requestSequence || !open || user?.id !== targetUser.id) return;
+			success = true;
+			closeTimer = setTimeout(() => {
+				closeTimer = undefined;
+				handleOpenChange(false);
+			}, 1000);
+		} catch (cause) {
+			if (sequence === requestSequence && user?.id === targetUser.id) {
+				error = cause instanceof Error ? cause.message : m.settings_instance_change_plan_failed();
+			}
+		} finally {
+			if (sequence === requestSequence && user?.id === targetUser.id) saving = false;
 		}
-
-		success = true;
-		setTimeout(() => {
-			handleOpenChange(false);
-			onPlanChanged();
-		}, 1000);
 	}
+
+	onDestroy(() => {
+		requestSequence += 1;
+		if (closeTimer !== undefined) clearTimeout(closeTimer);
+	});
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>

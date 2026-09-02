@@ -6,6 +6,13 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { auth } from '$lib/stores/auth';
+	import { get } from 'svelte/store';
+	import {
+		isBillingStatusQueryKey,
+		isWorkspaceSetupQueryKey,
+		organizationQueryKeys
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -67,6 +74,8 @@
 	}
 	async function complete(action: 'accept' | 'decline') {
 		const expectedTransferID = transferID;
+		const actorID = authState.user?.id ?? '';
+		const resolvedOrganizationID = transfer?.organization_id ?? '';
 		busy = true;
 		error = '';
 		const result =
@@ -77,12 +86,51 @@
 				: await client.POST('/organization-ownership-transfers/decline', {
 						body: { id: expectedTransferID }
 					});
-		if (loadedTransferID !== expectedTransferID) return;
-		busy = false;
 		if (result.error || !result.data) {
-			error = result.error?.detail || m.ownership_transfer_action_failed();
+			if (loadedTransferID === expectedTransferID) {
+				busy = false;
+				error = result.error?.detail || m.ownership_transfer_action_failed();
+			}
 			return;
 		}
+		if (!actorID || get(auth).user?.id !== actorID) return;
+		const organizationID = result.data.organization_id || resolvedOrganizationID;
+		const invalidations = [
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.all(),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		];
+		if (action === 'accept') {
+			invalidations.push(
+				queryClient.invalidateQueries({
+					predicate: (query) => isBillingStatusQueryKey(query.queryKey)
+				}),
+				queryClient.invalidateQueries({
+					predicate: (query) => isWorkspaceSetupQueryKey(query.queryKey)
+				})
+			);
+		}
+		if (organizationID) {
+			invalidations.push(
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.detailRoot(organizationID)
+				}),
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.ownershipTransfer(organizationID),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.auditRoot(organizationID)
+				})
+			);
+		}
+		await Promise.all(invalidations);
+		if (loadedTransferID !== expectedTransferID) return;
+		busy = false;
 		transfer = result.data;
 		outcome = action === 'accept' ? 'accepted' : 'declined';
 	}
@@ -117,7 +165,9 @@
 				})}
 			</p>
 			<p class="text-sm text-muted-foreground">
-				{m.ownership_transfer_expiry({ date: new Date(transfer.expires_at).toLocaleString() })}
+				{m.ownership_transfer_expiry({
+					date: new Date(transfer.expires_at).toLocaleString()
+				})}
 			</p>
 			<div class="flex flex-wrap gap-2">
 				<Button disabled={busy} onclick={() => void complete('accept')}

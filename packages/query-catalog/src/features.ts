@@ -19,6 +19,16 @@ export const featureQueryKeys = {
     [...featureQueryKeys.all(workspaceId), normalizeAccountIds(accountIds)] as const,
 };
 
+export function isAccountFeaturesQueryKey(queryKey: readonly unknown[]): boolean {
+  return (
+    queryKey[0] === "openpost" &&
+    queryKey[1] === "v1" &&
+    queryKey[2] === "workspace" &&
+    typeof queryKey[3] === "string" &&
+    queryKey[4] === "account-features"
+  );
+}
+
 export function accountFeaturesQueryOptions(
   api: Pick<FeatureQueryAPI, "listAccountFeatures">,
   workspaceId: string,

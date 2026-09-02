@@ -1,7 +1,17 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { client } from '$lib/api/client';
+	import {
+		apiTokensQueryOptions,
+		developerQueryKeys,
+		mcpActivityQueryOptions,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import { developerQueryAPI } from '$lib/query/developer';
+	import { queryClient } from '$lib/query/client';
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { showToast } from '$lib/toast';
@@ -58,18 +68,33 @@
 	);
 	let createdAPIToken = $state('');
 	let apiTokenCopyState = $state<'idle' | 'copied' | 'failed'>('idle');
-	let loadedAPITokensUserID = '';
+	let loadedAPITokensUserID = $state('');
+	let attemptedAPITokensUserID = '';
 	let apiTokensRequestUserID = '';
-	let loadedMCPActivityUserID = '';
+	let loadedMCPActivityUserID = $state('');
+	let attemptedMCPActivityUserID = '';
 	let apiTokensRequestSequence = 0;
+	let mcpActivityRequestSequence = 0;
+	let mcpActivityRequestUserID = '';
+	let tokenMutationSequence = 0;
+	let tokenCreationSequence = 0;
+	let activeDeveloperUserID = '';
+	let activeDeveloperWorkspaceID = '';
 	let revokeDialogOpen = $state(false);
 	let pendingTokenID = $state('');
+	const apiTokensReady = $derived(
+		Boolean(authState.user?.id) && loadedAPITokensUserID === authState.user?.id
+	);
+	const mcpActivityReady = $derived(
+		Boolean(authState.user?.id) && loadedMCPActivityUserID === authState.user?.id
+	);
 
 	function notify(message: string, tone: 'success' | 'error' = 'success') {
 		showToast(message, tone);
 	}
 
 	function requestTokenRevocation(tokenID: string) {
+		if (!activeDeveloperUserID) return;
 		pendingTokenID = tokenID;
 		revokeDialogOpen = true;
 	}
@@ -123,19 +148,30 @@
 
 	async function loadAPITokens(userID = authState.user?.id ?? '') {
 		if (!userID) return;
+		attemptedAPITokensUserID = userID;
 		const requestSequence = ++apiTokensRequestSequence;
 		apiTokensRequestUserID = userID;
-		apiTokensLoading = true;
-		apiTokensLoadError = '';
 		if (loadedAPITokensUserID && loadedAPITokensUserID !== userID) apiTokens = [];
+		const options = apiTokensQueryOptions(developerQueryAPI);
+		const cached = queryClient.getQueryData<APITokenSummary[]>(options.queryKey);
+		if (cached !== undefined) {
+			apiTokens = cached;
+			loadedAPITokensUserID = userID;
+		}
+		apiTokensLoading = cached === undefined && loadedAPITokensUserID !== userID;
+		apiTokensLoadError = '';
 		try {
-			const { data, error: err } = await client.GET('/api-tokens');
-			if (err || !data) throw new Error(err?.detail || m.settings_tokens_load_failed());
+			const data = await queryClient.fetchQuery(options);
 			if (requestSequence !== apiTokensRequestSequence || authState.user?.id !== userID) return;
 			apiTokens = data;
 			loadedAPITokensUserID = userID;
 		} catch (e) {
 			if (requestSequence !== apiTokensRequestSequence || authState.user?.id !== userID) return;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+				apiTokens = [];
+				loadedAPITokensUserID = '';
+			}
 			apiTokensLoadError = e instanceof Error ? e.message : m.settings_tokens_load_failed();
 		} finally {
 			if (requestSequence === apiTokensRequestSequence) {
@@ -145,23 +181,57 @@
 		}
 	}
 
-	async function loadMCPActivity() {
-		mcpActivityLoading = true;
+	async function loadMCPActivity(loadOptions: { refresh?: boolean; userID?: string } = {}) {
+		const userID = loadOptions.userID ?? authState.user?.id ?? '';
+		if (!userID) return;
+		attemptedMCPActivityUserID = userID;
+		const requestSequence = ++mcpActivityRequestSequence;
+		mcpActivityRequestUserID = userID;
+		if (loadedMCPActivityUserID && loadedMCPActivityUserID !== userID) mcpActivity = [];
+		const options = mcpActivityQueryOptions(developerQueryAPI, 8);
+		const cached = queryClient.getQueryData<MCPActivityItem[]>(options.queryKey);
+		if (cached !== undefined) {
+			mcpActivity = cached;
+			loadedMCPActivityUserID = userID;
+		}
+		mcpActivityLoading = cached === undefined && loadedMCPActivityUserID !== userID;
 		mcpActivityError = '';
 		try {
-			const { data, error: err } = await client.GET('/mcp/activity', {
-				params: { query: { limit: 8 } }
-			});
-			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (loadOptions.refresh) {
+				await queryClient.invalidateQueries({ queryKey: options.queryKey });
+			}
+			const data = await queryClient.fetchQuery(options);
+			if (requestSequence !== mcpActivityRequestSequence || authState.user?.id !== userID) return;
 			mcpActivity = data;
+			loadedMCPActivityUserID = userID;
 		} catch (e) {
+			if (requestSequence !== mcpActivityRequestSequence || authState.user?.id !== userID) return;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+				mcpActivity = [];
+				loadedMCPActivityUserID = '';
+			}
 			mcpActivityError = e instanceof Error ? e.message : m.settings_action_failed();
 		} finally {
-			mcpActivityLoading = false;
+			if (requestSequence === mcpActivityRequestSequence) {
+				mcpActivityRequestUserID = '';
+				mcpActivityLoading = false;
+			}
 		}
 	}
 
 	async function createAPIToken() {
+		const userID = authState.user?.id ?? '';
+		if (!userID || userID !== activeDeveloperUserID) return;
+		const selectedWorkspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		if (selectedWorkspaceID !== activeDeveloperWorkspaceID) return;
+		const creationSequence = ++tokenCreationSequence;
+		const isCurrentCreation = () =>
+			creationSequence === tokenCreationSequence &&
+			authState.user?.id === userID &&
+			activeDeveloperUserID === userID &&
+			activeDeveloperWorkspaceID === selectedWorkspaceID &&
+			(workspaceCtx.currentWorkspace?.id ?? '') === selectedWorkspaceID;
 		apiTokenBusy = true;
 		apiTokenError = '';
 		createdAPIToken = '';
@@ -172,32 +242,39 @@
 			apiTokenBusy = false;
 			return;
 		}
-		const workspaceID =
-			apiTokenWorkspaceScope === 'current' ? (workspaceCtx.currentWorkspace?.id ?? '') : '';
+		const workspaceID = apiTokenWorkspaceScope === 'current' ? selectedWorkspaceID : '';
 		const expiresAt = apiTokenExpiresAt(apiTokenExpiryPreset, apiTokenCustomExpiry);
 		if (!expiresAt) {
 			apiTokenError = m.settings_token_expiry_description();
 			apiTokenBusy = false;
 			return;
 		}
+		const body = {
+			name,
+			scope: apiTokenScope,
+			workspace_id: workspaceID,
+			expires_at: expiresAt
+		};
 		try {
 			const { data, error: err } = await client.POST('/api-tokens', {
-				body: {
-					name,
-					scope: apiTokenScope,
-					workspace_id: workspaceID,
-					expires_at: expiresAt
-				}
+				body
 			});
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
+			if (get(auth).user?.id !== userID) return;
+			await queryClient.invalidateQueries({
+				queryKey: developerQueryKeys.apiTokens()
+			});
+			if (!isCurrentCreation()) return;
 			createdAPIToken = data.token;
 			apiTokenName = '';
 			savedAPITokenDraft = apiTokenDraftSnapshot();
-			await loadAPITokens();
+			await loadAPITokens(userID);
 		} catch (e) {
-			apiTokenError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (isCurrentCreation()) {
+				apiTokenError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 		} finally {
-			apiTokenBusy = false;
+			if (isCurrentCreation()) apiTokenBusy = false;
 		}
 	}
 
@@ -212,17 +289,35 @@
 	}
 
 	async function copyCreatedAPIToken() {
+		const userID = authState.user?.id ?? '';
+		const creationSequence = tokenCreationSequence;
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		const token = createdAPIToken;
+		const isCurrentRequest = () =>
+			Boolean(token) &&
+			creationSequence === tokenCreationSequence &&
+			authState.user?.id === userID &&
+			activeDeveloperUserID === userID &&
+			activeDeveloperWorkspaceID === workspaceID &&
+			(workspaceCtx.currentWorkspace?.id ?? '') === workspaceID &&
+			createdAPIToken === token;
+		if (!userID || !isCurrentRequest()) return;
 		try {
-			await navigator.clipboard.writeText(createdAPIToken);
+			await navigator.clipboard.writeText(token);
+			if (!isCurrentRequest()) return;
 			apiTokenCopyState = 'copied';
 			notify(m.settings_token_copy_success());
 		} catch {
+			if (!isCurrentRequest()) return;
 			apiTokenCopyState = 'failed';
 			apiTokenError = m.settings_token_copy_failed();
 		}
 	}
 
 	async function revokeAPIToken(tokenID: string) {
+		const userID = authState.user?.id ?? '';
+		if (!userID || userID !== activeDeveloperUserID) return false;
+		const mutationSequence = ++tokenMutationSequence;
 		apiTokenBusy = true;
 		apiTokenError = '';
 		try {
@@ -230,15 +325,69 @@
 				params: { path: { id: tokenID } }
 			});
 			if (err) throw new Error(err.detail || m.settings_action_failed());
-			await loadAPITokens();
+			if (get(auth).user?.id !== userID) return false;
+			await queryClient.invalidateQueries({
+				queryKey: developerQueryKeys.apiTokens()
+			});
+			if (
+				mutationSequence !== tokenMutationSequence ||
+				authState.user?.id !== userID ||
+				activeDeveloperUserID !== userID
+			)
+				return false;
+			await loadAPITokens(userID);
+			if (
+				mutationSequence !== tokenMutationSequence ||
+				authState.user?.id !== userID ||
+				activeDeveloperUserID !== userID
+			)
+				return false;
 			notify(m.settings_token_revoked());
 			return true;
 		} catch (e) {
-			apiTokenError = e instanceof Error ? e.message : m.settings_action_failed();
+			if (
+				mutationSequence === tokenMutationSequence &&
+				authState.user?.id === userID &&
+				activeDeveloperUserID === userID
+			) {
+				apiTokenError = e instanceof Error ? e.message : m.settings_action_failed();
+			}
 			return false;
 		} finally {
-			apiTokenBusy = false;
+			if (
+				mutationSequence === tokenMutationSequence &&
+				authState.user?.id === userID &&
+				activeDeveloperUserID === userID
+			)
+				apiTokenBusy = false;
 		}
+	}
+
+	function resetActorScopedState() {
+		tokenMutationSequence += 1;
+		tokenCreationSequence += 1;
+		apiTokenBusy = false;
+		apiTokenError = '';
+		createdAPIToken = '';
+		apiTokenCopyState = 'idle';
+		revokeDialogOpen = false;
+		pendingTokenID = '';
+		apiTokenName = 'OpenPost MCP';
+		apiTokenScope = 'mcp:read';
+		apiTokenWorkspaceScope = 'current';
+		apiTokenExpiryPreset = '90';
+		apiTokenCustomExpiry = '';
+		savedAPITokenDraft = apiTokenDraftSnapshot();
+	}
+
+	function retryAPITokens() {
+		attemptedAPITokensUserID = '';
+		void loadAPITokens();
+	}
+
+	function retryMCPActivity() {
+		attemptedMCPActivityUserID = '';
+		void loadMCPActivity({ refresh: true });
 	}
 
 	function formatDateTime(value: string): string {
@@ -278,19 +427,63 @@
 
 	$effect(() => {
 		const userID = authState.user?.id ?? '';
-		if (!authState.isAuthenticated || !userID) return;
-		if (loadedAPITokensUserID !== userID && apiTokensRequestUserID !== userID) {
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		if (userID !== activeDeveloperUserID) {
+			activeDeveloperUserID = userID;
+			resetActorScopedState();
+		}
+		if (workspaceID !== activeDeveloperWorkspaceID) {
+			activeDeveloperWorkspaceID = workspaceID;
+			tokenCreationSequence += 1;
+			apiTokenBusy = false;
+			apiTokenError = '';
+			createdAPIToken = '';
+			apiTokenCopyState = 'idle';
+		}
+		if (!authState.isAuthenticated || !userID) {
+			apiTokensRequestSequence += 1;
+			mcpActivityRequestSequence += 1;
+			loadedAPITokensUserID = '';
+			attemptedAPITokensUserID = '';
+			apiTokensRequestUserID = '';
+			loadedMCPActivityUserID = '';
+			attemptedMCPActivityUserID = '';
+			mcpActivityRequestUserID = '';
+			apiTokens = [];
+			mcpActivity = [];
+			apiTokensLoading = false;
+			mcpActivityLoading = false;
+			apiTokensLoadError = '';
+			mcpActivityError = '';
+			return;
+		}
+		if (attemptedAPITokensUserID !== userID && apiTokensRequestUserID !== userID) {
 			void loadAPITokens(userID);
 		}
-		if (loadedMCPActivityUserID !== userID) {
-			loadedMCPActivityUserID = userID;
-			void loadMCPActivity();
+		if (attemptedMCPActivityUserID !== userID && mcpActivityRequestUserID !== userID) {
+			void loadMCPActivity({ userID });
 		}
+	});
+
+	onDestroy(() => {
+		apiTokensRequestSequence += 1;
+		mcpActivityRequestSequence += 1;
+		tokenMutationSequence += 1;
+		tokenCreationSequence += 1;
 	});
 
 	$effect(() => {
 		unsavedChanges?.set('developer-settings', developerDraftDirty, m.settings_unsaved_changes());
-		return () => unsavedChanges?.clear('developer-settings');
+		unsavedChanges?.set(
+			'developer-token-creation',
+			apiTokenBusy,
+			m.settings_token_creation_pending(),
+			{ discardable: false }
+		);
+		return () => {
+			unsavedChanges?.clear('developer-settings');
+			unsavedChanges?.clear('developer-token-creation');
+		};
 	});
 </script>
 
@@ -313,14 +506,9 @@
 
 {#if apiTokensLoadError}
 	<div data-testid="api-tokens-load-error" class="mb-4">
-		<InlineNotice tone="error" message={apiTokensLoadError}>
+		<InlineNotice tone={apiTokensReady ? 'warning' : 'error'} message={apiTokensLoadError}>
 			{#snippet actions()}
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => void loadAPITokens()}
-					disabled={apiTokensLoading}
-				>
+				<Button variant="outline" size="sm" onclick={retryAPITokens} disabled={apiTokensLoading}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -464,9 +652,9 @@
 	</div>
 {/if}
 
-{#if apiTokensLoading && apiTokens.length === 0}
+{#if apiTokensLoading && !apiTokensReady}
 	<PageLoading layout="list" label={m.common_loading()} items={2} />
-{:else if apiTokens.length === 0 && !apiTokensLoadError}
+{:else if apiTokensReady && apiTokens.length === 0}
 	<p class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
 		{m.settings_no_tokens()}
 	</p>
@@ -494,7 +682,9 @@
 						{m.settings_token_prefix()}
 						<span class="font-mono">{token.token_prefix}</span> ·
 						{apiTokenScopeLabel(token.scope)} ·
-						{m.settings_token_created({ date: formatDateTime(token.created_at) })}
+						{m.settings_token_created({
+							date: formatDateTime(token.created_at)
+						})}
 						{#if token.workspace_id}
 							· {m.settings_token_workspace()}
 							<span class="font-mono">{token.workspace_id}</span>
@@ -506,7 +696,9 @@
 						{m.settings_expires()}
 						{token.expires_at ? formatDateTime(token.expires_at) : m.settings_never()}
 						· {token.last_used_at
-							? m.settings_token_last_used({ date: formatDateTime(token.last_used_at) })
+							? m.settings_token_last_used({
+									date: formatDateTime(token.last_used_at)
+								})
 							: m.settings_token_never_used()}
 					</p>
 				</div>
@@ -545,7 +737,7 @@
 				{m.settings_mcp_activity_body()}
 			</p>
 		</div>
-		<Button variant="outline" size="sm" onclick={loadMCPActivity} disabled={mcpActivityLoading}>
+		<Button variant="outline" size="sm" onclick={retryMCPActivity} disabled={mcpActivityLoading}>
 			{#if mcpActivityLoading}
 				<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
 			{/if}
@@ -555,20 +747,20 @@
 
 	{#if mcpActivityError}
 		<div data-testid="mcp-activity-error" class="mb-3">
-			<InlineNotice tone="error" message={mcpActivityError} />
+			<InlineNotice tone={mcpActivityReady ? 'warning' : 'error'} message={mcpActivityError} />
 		</div>
 	{/if}
 
-	{#if mcpActivityLoading && mcpActivity.length === 0}
+	{#if mcpActivityLoading && !mcpActivityReady}
 		<PageLoading layout="list" label={m.common_loading()} items={2} />
-	{:else if mcpActivity.length === 0 && !mcpActivityError}
+	{:else if mcpActivityReady && mcpActivity.length === 0}
 		<p
 			data-testid="mcp-activity-empty"
 			class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground"
 		>
 			{m.settings_no_mcp_activity()}
 		</p>
-	{:else}
+	{:else if mcpActivityReady}
 		<div data-testid="mcp-activity-list" class="space-y-2">
 			{#each mcpActivity as call (call.id)}
 				<div class="rounded-md border px-3 py-3">

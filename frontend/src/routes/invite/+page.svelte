@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -8,7 +9,19 @@
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
 	import { auth } from '$lib/stores/auth';
+	import { get } from 'svelte/store';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import {
+		adminQueryKeys,
+		authQueryKeys,
+		developerQueryKeys,
+		openPostBootstrapQueryKeys,
+		openPostWorkspaceKey,
+		organizationQueryKeys,
+		publicProfileQueryKeys,
+		workspaceSettingsQueryKeys
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { m } from '$lib/paraglide/messages';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import UsersIcon from '@lucide/svelte/icons/users';
@@ -29,6 +42,11 @@
 	let workspaceRefreshRequestSequence = 0;
 	const invitationPending = $derived(loading || (!accepted && !error));
 
+	onDestroy(() => {
+		invitationRequestSequence += 1;
+		workspaceRefreshRequestSequence += 1;
+	});
+
 	function loginRedirect() {
 		const query = invitationID
 			? `id=${encodeURIComponent(invitationID)}`
@@ -36,27 +54,135 @@
 		return `/login?redirect=${encodeURIComponent(`/invite?${query}`)}`;
 	}
 
+	async function invalidateAcceptedWorkspaceDependencies(targetWorkspaceID: string) {
+		queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: openPostBootstrapQueryKeys.appRoot()
+			}),
+			queryClient.invalidateQueries({
+				queryKey: openPostBootstrapQueryKeys.workspaces(),
+				exact: true
+			}),
+			queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+			queryClient.invalidateQueries({
+				queryKey: developerQueryKeys.mcpActivityRoot()
+			}),
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.all(),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				predicate: (query) =>
+					query.queryKey[0] === 'openpost' &&
+					query.queryKey[1] === 'v1' &&
+					query.queryKey[2] === 'organization'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: authQueryKeys.linkableOIDCProviders(),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				queryKey: authQueryKeys.security(),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				queryKey: workspaceSettingsQueryKeys.team(targetWorkspaceID),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
+				exact: true
+			}),
+			queryClient.invalidateQueries({
+				queryKey: openPostWorkspaceKey(targetWorkspaceID, 'access-audit')
+			}),
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		]);
+	}
+
 	async function refreshAcceptedWorkspace(
 		targetWorkspaceID: string,
-		acceptanceRequestSequence = invitationRequestSequence,
-		acceptedInvitation = invitationKey
+		actorID: string,
+		acceptanceRequestSequence: number,
+		acceptedInvitation: string
 	) {
-		if (!targetWorkspaceID || !accepted) return;
+		if (!targetWorkspaceID || !actorID || get(auth).user?.id !== actorID) return;
 		const refreshRequestSequence = ++workspaceRefreshRequestSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
 		const isCurrentRequest = () =>
 			refreshRequestSequence === workspaceRefreshRequestSequence &&
 			acceptanceRequestSequence === invitationRequestSequence &&
-			invitationKey === acceptedInvitation &&
-			accepted &&
-			workspaceID === targetWorkspaceID;
-		workspaceRefreshPending = true;
-		workspaceRefreshError = '';
+			isSameActor() &&
+			invitationKey === acceptedInvitation;
+		if (isCurrentRequest()) {
+			workspaceRefreshPending = true;
+			workspaceRefreshError = '';
+		}
 		try {
-			await workspaceCtx.initialize(targetWorkspaceID);
+			const projection = auth.captureUserProjection(actorID);
+			if (!projection) return;
+			const bootstrap = await workspaceCtx.loadWorkspaces(targetWorkspaceID, {
+				selectionIsCurrent: isCurrentRequest
+			});
+			if (!isSameActor()) return;
+			if (!auth.projectBootstrap(bootstrap, projection)) return;
+			if (!isSameActor()) return;
+			const organizationID =
+				workspaceCtx.workspaces.find((workspace) => workspace.id === targetWorkspaceID)
+					?.organization_id ?? '';
+			queryClient.removeQueries({ queryKey: publicProfileQueryKeys.all() });
+			const invalidations = [
+				queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot() }),
+				queryClient.invalidateQueries({
+					queryKey: developerQueryKeys.mcpActivityRoot()
+				}),
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.all(),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: authQueryKeys.linkableOIDCProviders(),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: authQueryKeys.security(),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: workspaceSettingsQueryKeys.team(targetWorkspaceID),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: workspaceSettingsQueryKeys.setup(targetWorkspaceID),
+					exact: true
+				}),
+				queryClient.invalidateQueries({
+					queryKey: openPostWorkspaceKey(targetWorkspaceID, 'access-audit')
+				}),
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.instanceAuditRoot()
+				})
+			];
+			if (organizationID) {
+				invalidations.push(
+					queryClient.invalidateQueries({
+						queryKey: organizationQueryKeys.team(organizationID),
+						exact: true
+					}),
+					queryClient.invalidateQueries({
+						queryKey: organizationQueryKeys.auditRoot(organizationID)
+					})
+				);
+			}
+			await Promise.all(invalidations);
 		} catch (e) {
-			if (!isCurrentRequest()) return;
-			console.error('Failed to refresh workspaces after accepting invitation:', e);
-			workspaceRefreshError = m.invite_workspace_refresh_failed();
+			if (isCurrentRequest()) {
+				console.error('Failed to refresh workspaces after accepting invitation:', e);
+				workspaceRefreshError = m.invite_workspace_refresh_failed();
+			}
 		} finally {
 			if (isCurrentRequest()) workspaceRefreshPending = false;
 		}
@@ -65,8 +191,13 @@
 	async function acceptInvitation(key: string, retry = false) {
 		if (!key || (!retry && attemptedInvitation === key)) return;
 		const requestSequence = ++invitationRequestSequence;
+		const actorID = authState.user?.id ?? '';
 		const isCurrentRequest = () =>
-			requestSequence === invitationRequestSequence && invitationKey === key;
+			requestSequence === invitationRequestSequence &&
+			Boolean(actorID) &&
+			get(auth).user?.id === actorID &&
+			invitationKey === key;
+		const isSameActor = () => Boolean(actorID) && get(auth).user?.id === actorID;
 		attemptedInvitation = key;
 		workspaceRefreshRequestSequence++;
 		loading = true;
@@ -86,12 +217,15 @@
 			if (apiError || !data) {
 				throw new Error(apiError?.detail || m.invite_accept_failed());
 			}
+			if (!isSameActor()) return;
+			await invalidateAcceptedWorkspaceDependencies(data.workspace_id);
+			if (!isSameActor()) return;
+			await refreshAcceptedWorkspace(data.workspace_id, actorID, requestSequence, key);
 			if (!isCurrentRequest()) return;
 			workspaceID = data.workspace_id;
 			role = data.role;
 			accepted = true;
 			loading = false;
-			await refreshAcceptedWorkspace(data.workspace_id, requestSequence, key);
 		} catch (cause) {
 			if (!isCurrentRequest()) return;
 			accepted = false;
@@ -176,7 +310,9 @@
 		<div class="space-y-4">
 			<div class="rounded-md border bg-muted/30 p-4 text-sm">
 				<p class="font-medium">{m.invite_workspace_joined()}</p>
-				<p class="mt-1 font-mono text-xs text-muted-foreground">{workspaceID}</p>
+				<p class="mt-1 font-mono text-xs text-muted-foreground">
+					{workspaceID}
+				</p>
 			</div>
 			{#if workspaceRefreshError}
 				<div data-testid="invite-workspace-refresh-error">

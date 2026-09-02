@@ -1,4 +1,8 @@
 import { createOpenPostQueryError, type QueryPageResult } from '@openpost/query-catalog';
+import {
+	captureQueryAuthorizationIdentity,
+	settleQueryUnauthorized
+} from './authorization-boundary';
 
 export interface QueryTransportResponse<T> {
 	data?: T | null;
@@ -17,7 +21,9 @@ export async function queryGET<T>({
 	fallback,
 	request
 }: QueryGETOptions<T>): Promise<{ data: T; response: Response }> {
+	const authorizationIdentity = captureQueryAuthorizationIdentity();
 	const { data, error, response } = await request(signal);
+	if (response?.status === 401) settleQueryUnauthorized(authorizationIdentity);
 	if (error || data === null || data === undefined) {
 		throw createOpenPostQueryError(response.status, error, fallback);
 	}

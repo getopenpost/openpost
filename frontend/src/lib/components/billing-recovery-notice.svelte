@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { client } from '$lib/api/client';
 	import { Button } from '$lib/components/ui/button';
@@ -11,67 +13,133 @@
 	} from '$lib/billing-recovery';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		billingQueryKeys,
+		billingStatusQueryOptions,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import { billingQueryAPI, invalidateBillingDependencies } from '$lib/query/billing';
+	import { queryClient } from '$lib/query/client';
+	import { auth } from '$lib/stores/auth';
 
 	interface Props {
 		workspaceID: string;
 	}
 
 	let { workspaceID }: Props = $props();
-	let status = $state<BillingRecoveryStatus | null>(null);
 	let recoveryBusy = $state(false);
 	let recoveryError = $state('');
-	let requestSequence = 0;
 	let activeWorkspaceID = '';
+	let recoveryRequestSequence = 0;
+	let active = true;
+	let authorizationError = $state('');
+	let billingPortalReturnScope = $state<{
+		workspaceID: string;
+		organizationID: string;
+	} | null>(null);
+
+	onDestroy(() => {
+		active = false;
+		recoveryRequestSequence += 1;
+	});
+	const billingStatusQuery = createQuery(
+		() => ({
+			...billingStatusQueryOptions(billingQueryAPI, workspaceID),
+			enabled: Boolean(workspaceID) && !authorizationError
+		}),
+		() => queryClient
+	);
+	const status = $derived.by<BillingRecoveryStatus | null>(() => {
+		const parsed =
+			!authorizationError && billingStatusQuery.data
+				? parseBillingRecoveryStatus(billingStatusQuery.data)
+				: null;
+		return parsed?.workspace_id === workspaceID ? parsed : null;
+	});
 
 	const recoveryDate = $derived(formatRecoveryDate(status?.past_due_since));
 
 	$effect(() => {
-		void refreshStatus(workspaceID);
-	});
-
-	async function refreshStatus(targetWorkspaceID = workspaceID) {
-		if (targetWorkspaceID !== activeWorkspaceID) {
-			activeWorkspaceID = targetWorkspaceID;
-			requestSequence += 1;
-			status = null;
+		if (workspaceID !== activeWorkspaceID) {
+			activeWorkspaceID = workspaceID;
+			authorizationError = '';
+			recoveryRequestSequence += 1;
 			recoveryBusy = false;
 			recoveryError = '';
 		}
-		if (!targetWorkspaceID) return;
-		const currentRequest = ++requestSequence;
-		const { data, error } = await client.GET('/billing/status', {
-			params: { query: { workspace_id: targetWorkspaceID } }
+		if (status && status.status.toLowerCase() !== 'past_due') recoveryError = '';
+	});
+
+	$effect(() => {
+		const cause = billingStatusQuery.error;
+		if (!(cause instanceof OpenPostQueryError) || (cause.status !== 401 && cause.status !== 403))
+			return;
+		authorizationError = cause.message;
+		queryClient.removeQueries({
+			queryKey: billingQueryKeys.status(workspaceID),
+			exact: true
 		});
-		if (currentRequest !== requestSequence || targetWorkspaceID !== workspaceID) return;
-		if (error || !data) return;
-		const nextStatus = parseBillingRecoveryStatus(data);
-		if (!nextStatus || nextStatus.workspace_id !== targetWorkspaceID) return;
-		status = nextStatus;
-		if (status.status.toLowerCase() !== 'past_due') recoveryError = '';
+	});
+
+	async function refreshStatus(includePortalDependencies = false) {
+		if (!workspaceID) return;
+		const returnScope = includePortalDependencies ? billingPortalReturnScope : null;
+		if (returnScope) {
+			billingPortalReturnScope = null;
+			await invalidateBillingDependencies(queryClient, returnScope);
+		} else {
+			await queryClient.invalidateQueries({
+				queryKey: billingQueryKeys.status(workspaceID),
+				exact: true,
+				refetchType: 'none'
+			});
+		}
+		await billingStatusQuery.refetch();
+	}
+
+	async function retryStatus() {
+		authorizationError = '';
+		await refreshStatus();
 	}
 
 	function refreshAfterReturn() {
-		if (document.visibilityState === 'visible') void refreshStatus();
+		if (document.visibilityState === 'visible') void refreshStatus(true);
 	}
 
 	async function openPaymentRecovery() {
+		const actorID = get(auth).user?.id ?? '';
 		const targetWorkspaceID = workspaceID;
-		if (!targetWorkspaceID || !status?.can_manage_billing || recoveryBusy) return;
+		const organizationID = status?.organization_id ?? '';
+		const route = `${window.location.pathname}${window.location.search}`;
+		if (!actorID || !targetWorkspaceID || !status?.can_manage_billing || recoveryBusy) return;
+		const requestSequence = ++recoveryRequestSequence;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === recoveryRequestSequence &&
+			targetWorkspaceID === workspaceID &&
+			get(auth).user?.id === actorID &&
+			`${window.location.pathname}${window.location.search}` === route;
 		recoveryBusy = true;
 		recoveryError = '';
 		try {
 			const { data, error } = await client.POST('/billing/portal', {
 				body: billingPortalBody(targetWorkspaceID, 'update_payment_method')
 			});
+			if (!isCurrentRequest()) return;
 			if (error || !data?.url) throw new Error(error?.detail || m.billing_recovery_open_failed());
-			if (targetWorkspaceID !== workspaceID) return;
+			billingPortalReturnScope = {
+				workspaceID: targetWorkspaceID,
+				organizationID
+			};
+			if (!isCurrentRequest()) return;
 			window.location.assign(data.url);
 		} catch (cause) {
-			if (targetWorkspaceID === workspaceID) {
+			if (isCurrentRequest()) {
 				recoveryError = cause instanceof Error ? cause.message : m.billing_recovery_open_failed();
 			}
 		} finally {
-			if (targetWorkspaceID === workspaceID) recoveryBusy = false;
+			if (isCurrentRequest()) recoveryBusy = false;
 		}
 	}
 
@@ -89,6 +157,19 @@
 <svelte:window onfocus={refreshAfterReturn} onpageshow={refreshAfterReturn} />
 <svelte:document onvisibilitychange={refreshAfterReturn} />
 
+{#if workspaceID && (authorizationError || billingStatusQuery.isError)}
+	<InlineNotice
+		tone="warning"
+		message={authorizationError || billingStatusQuery.error?.message || m.settings_action_failed()}
+		class="rounded-none border-x-0 border-t-0 px-4 py-3 md:px-6"
+	>
+		{#snippet actions()}
+			<Button variant="outline" size="sm" onclick={retryStatus}>
+				{m.common_retry()}
+			</Button>
+		{/snippet}
+	</InlineNotice>
+{/if}
 {#if status && requiresBillingRecovery(status)}
 	<InlineNotice tone="error" class="rounded-none border-x-0 border-t-0 px-4 py-3 md:px-6">
 		<div
@@ -99,10 +180,14 @@
 				<p class="font-semibold">{m.billing_recovery_notice_title()}</p>
 				<p class="mt-0.5 text-sm">{m.billing_recovery_notice_body()}</p>
 				{#if recoveryDate}
-					<p class="mt-0.5 text-xs">{m.billing_recovery_notice_since({ date: recoveryDate })}</p>
+					<p class="mt-0.5 text-xs">
+						{m.billing_recovery_notice_since({ date: recoveryDate })}
+					</p>
 				{/if}
 				{#if !status.can_manage_billing}
-					<p class="mt-1 text-sm font-medium">{m.billing_recovery_notice_member_action()}</p>
+					<p class="mt-1 text-sm font-medium">
+						{m.billing_recovery_notice_member_action()}
+					</p>
 				{/if}
 				{#if recoveryError}
 					<p class="mt-1 text-sm font-medium">{recoveryError}</p>

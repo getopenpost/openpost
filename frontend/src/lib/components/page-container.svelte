@@ -60,6 +60,7 @@
 				variant={loadingVariant}
 				label={loadingMessage}
 				items={loadingItems}
+				defer={false}
 			/>
 		{:else if !loading}
 			{@render children()}
@@ -88,6 +89,7 @@
 					variant={loadingVariant}
 					label={loadingMessage}
 					items={loadingItems}
+					defer={false}
 				/>
 			{:else if !loading}
 				{@render children()}

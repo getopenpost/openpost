@@ -1,5 +1,20 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
+	import { auth } from '$lib/stores/auth';
 	import { client } from '$lib/api/client';
+	import {
+		oidcIdentitiesQueryOptions,
+		OpenPostQueryError,
+		organizationQueryKeys,
+		organizationsQueryOptions,
+		organizationTeamQueryOptions,
+		ownershipTransferQueryOptions,
+		securityStatusQueryOptions
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { organizationQueryAPI } from '$lib/query/organizations';
+	import { queryClient } from '$lib/query/client';
 	import type { components } from '$lib/api/types';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
 	import { Button } from '$lib/components/ui/button';
@@ -16,6 +31,8 @@
 	type Member = components['schemas']['OrganizationMemberResponse'];
 	type Organization = components['schemas']['OrganizationResponse'];
 	type Transfer = components['schemas']['OwnershipTransferResponse'];
+	type OrganizationTeam = components['schemas']['OrganizationTeamOutputBody'];
+	type PendingTransfer = components['schemas']['PendingOwnershipTransferResponse'];
 	type Security = components['schemas']['SecurityStatusOutputBody'];
 	type Identity = components['schemas']['OIDCIdentitySummary'];
 	interface Props {
@@ -26,8 +43,13 @@
 	}
 	let { preferredOrganizationID = '', currentUserID, active = false, onDeleted }: Props = $props();
 	let loadedOrganizationID = '';
+	let displayedOrganizationID = '';
 	let organizationsLoaded = false;
+	let organizationsReady = $state(false);
+	let organizationListError = $state('');
 	let organizationLoadGeneration = 0;
+	let mutationSequence = 0;
+	let mutationScope = '';
 	let loading = $state(false),
 		busy = $state(false),
 		deleteDialogOpen = $state(false),
@@ -70,153 +92,339 @@
 		)
 			organizationID = preferredID;
 	});
+	onDestroy(() => {
+		organizationLoadGeneration += 1;
+		mutationSequence += 1;
+	});
 	$effect(() => {
+		const targetOrganizationID = active ? organizationID : '';
+		if (targetOrganizationID !== mutationScope) {
+			mutationScope = targetOrganizationID;
+			mutationSequence += 1;
+			busy = false;
+			deleteDialogOpen = false;
+		}
 		if (active && organizationID && loadedOrganizationID !== organizationID) {
 			loadedOrganizationID = organizationID;
 			void loadOrganization();
 		}
 	});
 	async function loadOrganizations() {
-		loading = true;
-		pendingStateAvailable = false;
-		error = '';
-		const result = await client.GET('/organizations');
-		if (result.error) {
-			error = result.error.detail || m.settings_ownership_load_failed();
-			loading = false;
-			return;
+		const queryOptions = organizationsQueryOptions(organizationQueryAPI);
+		const cachedOrganizations = queryClient.getQueryData<Organization[]>(queryOptions.queryKey);
+		if (cachedOrganizations !== undefined) {
+			applyOrganizations(cachedOrganizations);
+			organizationsReady = true;
 		}
-		organizations = (result.data ?? []).filter((organization) => organization.role === 'owner');
+		loading = cachedOrganizations === undefined;
+		organizationListError = '';
+		try {
+			applyOrganizations(await queryClient.fetchQuery(queryOptions));
+			organizationsReady = true;
+			return true;
+		} catch (cause) {
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: queryOptions.queryKey,
+					exact: true
+				});
+				organizations = [];
+				organizationID = '';
+				pendingStateAvailable = false;
+				organizationsReady = false;
+			}
+			organizationListError =
+				cause instanceof Error ? cause.message : m.settings_ownership_load_failed();
+			return false;
+		} finally {
+			loading = false;
+		}
+	}
+
+	function applyOrganizations(data: Organization[]) {
+		organizations = data.filter((organization) => organization.role === 'owner');
 		organizationID =
+			organizations.find((organization) => organization.id === organizationID)?.id ??
 			organizations.find((organization) => organization.id === preferredOrganizationID)?.id ??
 			organizations[0]?.id ??
 			'';
-		if (!organizationID) loading = false;
+	}
+
+	async function invalidateAuditCaches(targetOrganizationID: string) {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.auditRoot(targetOrganizationID)
+			}),
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			})
+		]);
 	}
 	async function retryLoad() {
-		if (organizationID) {
+		const organizationsLoadedSuccessfully = await loadOrganizations();
+		if (organizationsLoadedSuccessfully && organizationID) {
+			loadedOrganizationID = organizationID;
 			await loadOrganization();
-			return;
 		}
-		await loadOrganizations();
 	}
 	async function loadOrganization() {
 		const expectedOrganizationID = organizationID;
 		const loadGeneration = ++organizationLoadGeneration;
-		loading = true;
-		pendingStateAvailable = false;
+		const scopeChanged = displayedOrganizationID !== expectedOrganizationID;
 		error = '';
 		nomineeUserID = '';
 		confirmation = '';
 		password = '';
-		members = [];
-		transfer = null;
-		security = null;
-		identities = [];
-		const [team, pending, securityResult, identityResult] = await Promise.all([
-			client.GET('/organizations/{id}/team', {
-				params: { path: { id: expectedOrganizationID } }
-			}),
-			client.GET('/organizations/{id}/ownership-transfer', {
-				params: { path: { id: expectedOrganizationID } }
-			}),
-			client.GET('/auth/security'),
-			client.GET('/auth/oidc/identities')
-		]);
-		if (loadGeneration !== organizationLoadGeneration || expectedOrganizationID !== organizationID)
-			return;
-		if (team.error || pending.error || securityResult.error || identityResult.error) {
-			error =
-				team.error?.detail ||
-				pending.error?.detail ||
-				securityResult.error?.detail ||
-				identityResult.error?.detail ||
-				m.settings_ownership_load_failed();
-			loading = false;
-			return;
+		if (scopeChanged) {
+			pendingStateAvailable = false;
+			members = [];
+			transfer = null;
+			security = null;
+			identities = [];
 		}
-		members = team.data?.members ?? [];
-		transfer = pending.data?.transfer ?? null;
-		pendingStateAvailable = true;
-		security = securityResult.data ?? null;
-		identities = identityResult.data ?? [];
-		loading = false;
+		const teamOptions = organizationTeamQueryOptions(organizationQueryAPI, expectedOrganizationID);
+		const transferOptions = ownershipTransferQueryOptions(
+			organizationQueryAPI,
+			expectedOrganizationID
+		);
+		const securityOptions = securityStatusQueryOptions(authQueryAPI);
+		const identityOptions = oidcIdentitiesQueryOptions(authQueryAPI);
+		const cachedTeam = queryClient.getQueryData<OrganizationTeam>(teamOptions.queryKey);
+		const cachedTransfer = queryClient.getQueryData<PendingTransfer>(transferOptions.queryKey);
+		const cachedSecurity = queryClient.getQueryData<Security>(securityOptions.queryKey);
+		const cachedIdentities = queryClient.getQueryData<Identity[]>(identityOptions.queryKey);
+		if (
+			cachedTeam !== undefined &&
+			cachedTransfer !== undefined &&
+			cachedSecurity !== undefined &&
+			cachedIdentities !== undefined
+		) {
+			members = cachedTeam.members ?? [];
+			transfer = cachedTransfer.transfer ?? null;
+			security = cachedSecurity;
+			identities = cachedIdentities;
+			pendingStateAvailable = true;
+			displayedOrganizationID = expectedOrganizationID;
+		}
+		loading = !pendingStateAvailable;
+		try {
+			const [team, pending, securityResult, identityResult] = await Promise.all([
+				queryClient.fetchQuery(teamOptions),
+				queryClient.fetchQuery(transferOptions),
+				queryClient.fetchQuery(securityOptions),
+				queryClient.fetchQuery(identityOptions)
+			]);
+			if (
+				loadGeneration !== organizationLoadGeneration ||
+				expectedOrganizationID !== organizationID
+			)
+				return;
+			members = team.members ?? [];
+			transfer = pending.transfer ?? null;
+			pendingStateAvailable = true;
+			displayedOrganizationID = expectedOrganizationID;
+			security = securityResult;
+			identities = identityResult;
+		} catch (cause) {
+			if (
+				loadGeneration !== organizationLoadGeneration ||
+				expectedOrganizationID !== organizationID
+			)
+				return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: organizationQueryKeys.detailRoot(expectedOrganizationID)
+				});
+				queryClient.removeQueries({
+					queryKey: organizationQueryKeys.all(),
+					exact: true
+				});
+				queryClient.removeQueries({
+					queryKey: securityOptions.queryKey,
+					exact: true
+				});
+				queryClient.removeQueries({
+					queryKey: identityOptions.queryKey,
+					exact: true
+				});
+				organizations = [];
+				members = [];
+				transfer = null;
+				security = null;
+				identities = [];
+				pendingStateAvailable = false;
+				displayedOrganizationID = '';
+			}
+			error = cause instanceof Error ? cause.message : m.settings_ownership_load_failed();
+		} finally {
+			if (
+				loadGeneration === organizationLoadGeneration &&
+				expectedOrganizationID === organizationID
+			)
+				loading = false;
+		}
 	}
 	async function initiate() {
 		if (!nomineeUserID || confirmation !== organizationName) return;
+		const targetOrganizationID = organizationID;
+		const targetNomineeUserID = nomineeUserID;
+		const targetConfirmation = confirmation;
+		const sequence = ++mutationSequence;
+		const reauthOptions = {
+			password: passwordUsable ? password : '',
+			hasPasskey: passkeyAvailable,
+			providerID,
+			isCurrent: () =>
+				sequence === mutationSequence &&
+				active &&
+				organizationID === targetOrganizationID &&
+				get(auth).user?.id === currentUserID
+		};
 		busy = true;
 		error = '';
 		try {
-			const grant = await acquireReauthGrant('organization.ownership.transfer', {
-				password: passwordUsable ? password : '',
-				hasPasskey: passkeyAvailable,
-				providerID
-			});
+			const grant = await acquireReauthGrant('organization.ownership.transfer', reauthOptions);
 			if (grant === null) return;
+			if (!reauthOptions.isCurrent()) return;
 			const result = await client.POST('/organizations/{id}/ownership-transfer', {
-				params: { path: { id: organizationID } },
+				params: { path: { id: targetOrganizationID } },
 				body: {
-					nominee_user_id: nomineeUserID,
-					confirm_organization_name: confirmation,
+					nominee_user_id: targetNomineeUserID,
+					confirm_organization_name: targetConfirmation,
 					reauth_grant: grant
 				}
 			});
 			if (result.error || !result.data)
 				throw new Error(result.error?.detail || m.settings_ownership_initiate_failed());
-			transfer = result.data;
-			nomineeUserID = '';
-			confirmation = '';
-			password = '';
-			showToast(m.settings_ownership_initiated());
+			if (get(auth).user?.id !== currentUserID) return;
+			queryClient.setQueryData(organizationQueryKeys.ownershipTransfer(targetOrganizationID), {
+				pending: true,
+				transfer: result.data
+			});
+			await invalidateAuditCaches(targetOrganizationID);
+			if (get(auth).user?.id !== currentUserID) return;
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+				transfer = result.data;
+				nomineeUserID = '';
+				confirmation = '';
+				password = '';
+				showToast(m.settings_ownership_initiated());
+			}
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.settings_ownership_initiate_failed();
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+				error = cause instanceof Error ? cause.message : m.settings_ownership_initiate_failed();
+			}
 		} finally {
-			busy = false;
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) busy = false;
 		}
 	}
 	async function revoke() {
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
 		busy = true;
 		error = '';
-		const result = await client.DELETE('/organizations/{id}/ownership-transfer', {
-			params: { path: { id: organizationID } }
-		});
-		busy = false;
-		if (result.error) {
-			error = result.error.detail || m.settings_ownership_revoke_failed();
-			return;
+		try {
+			const result = await client.DELETE('/organizations/{id}/ownership-transfer', {
+				params: { path: { id: targetOrganizationID } }
+			});
+			if (result.error) {
+				throw new Error(result.error.detail || m.settings_ownership_revoke_failed());
+			}
+			if (get(auth).user?.id !== currentUserID) return;
+			queryClient.setQueryData(organizationQueryKeys.ownershipTransfer(targetOrganizationID), {
+				pending: false
+			});
+			await invalidateAuditCaches(targetOrganizationID);
+			if (get(auth).user?.id !== currentUserID) return;
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+				transfer = null;
+				showToast(m.settings_ownership_revoked());
+			}
+		} catch (cause) {
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) {
+				error = cause instanceof Error ? cause.message : m.settings_ownership_revoke_failed();
+			}
+		} finally {
+			if (sequence === mutationSequence && organizationID === targetOrganizationID) busy = false;
 		}
-		transfer = null;
-		showToast(m.settings_ownership_revoked());
 	}
-	async function deleteOrganization(confirmation: {
-		confirmName: string;
-		currentPassword: string;
-		reauthGrant?: string;
-	}) {
-		const deletedID = organizationID;
-		await workspaceCtx.deleteOrganization(deletedID, confirmation);
+	async function deleteOrganization(
+		deletedID: string,
+		confirmation: {
+			confirmName: string;
+			currentPassword: string;
+			reauthGrant?: string;
+		}
+	): Promise<boolean> {
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return false;
+		const sequence = ++mutationSequence;
+		const isSameActor = () => get(auth).user?.id === actorID;
+		const isOperationCurrent = () => sequence === mutationSequence && active && isSameActor();
+		const isCurrentRequest = () => isOperationCurrent() && organizationID === deletedID;
+		const projected = await workspaceCtx.deleteOrganization(deletedID, confirmation);
+		if (!projected || !isSameActor()) return false;
+		try {
+			const projection = auth.captureUserProjection(actorID);
+			if (!projection) return false;
+			const bootstrap = await workspaceCtx.loadWorkspaces(workspaceCtx.currentWorkspace?.id);
+			if (!isSameActor()) return false;
+			if (!auth.projectBootstrap(bootstrap, projection)) return false;
+		} catch {
+			// Deletion succeeded. The invalidated bootstrap will retry on the next load.
+		}
+		if (!isCurrentRequest()) return false;
+		const deletedCurrentOrganization = organizationID === deletedID;
 		organizations = organizations.filter((organization) => organization.id !== deletedID);
-		organizationID = organizations[0]?.id ?? '';
-		loadedOrganizationID = '';
+		queryClient.setQueryData<Organization[]>(organizationQueryKeys.all(), (current) =>
+			current?.filter((organization) => organization.id !== deletedID)
+		);
+		queryClient.removeQueries({
+			queryKey: organizationQueryKeys.detailRoot(deletedID)
+		});
+		if (deletedCurrentOrganization) {
+			organizationID = organizations[0]?.id ?? '';
+			loadedOrganizationID = '';
+			displayedOrganizationID = '';
+			pendingStateAvailable = false;
+			members = [];
+			transfer = null;
+			security = null;
+			identities = [];
+		}
+		if (!isOperationCurrent()) return false;
 		showToast(m.organization_delete_success());
 		await onDeleted?.();
+		return true;
 	}
 </script>
 
-{#if loading}<PageLoading layout="settings" variant="cards" label={m.common_loading()} items={2} />
+{#if loading && !pendingStateAvailable}<PageLoading
+		layout="settings"
+		variant="cards"
+		label={m.common_loading()}
+		items={2}
+	/>
 {:else}<div class="space-y-6">
-		{#if error}<InlineNotice tone="error" message={error}
+		{#if organizationListError}<InlineNotice
+				tone={organizationsReady ? 'warning' : 'error'}
+				message={organizationListError}
 				>{#snippet actions()}<Button variant="outline" size="sm" onclick={() => void retryLoad()}
 						>{m.common_retry()}</Button
 					>{/snippet}</InlineNotice
 			>{/if}
-		{#if organizations.length === 0}<InlineNotice
+		{#if error}<InlineNotice tone={pendingStateAvailable ? 'warning' : 'error'} message={error}
+				>{#snippet actions()}<Button variant="outline" size="sm" onclick={() => void retryLoad()}
+						>{m.common_retry()}</Button
+					>{/snippet}</InlineNotice
+			>{/if}
+		{#if organizationsReady && organizations.length === 0}<InlineNotice
 				tone="info"
 				message={m.settings_ownership_owner_only()}
 			/>
-		{:else}<div class="space-y-2 rounded-lg border p-4">
+		{:else if organizationsReady}<div class="space-y-2 rounded-lg border p-4">
 				<Label for="ownership-organization">{m.settings_ownership_organization()}</Label>
-				<Select.Root type="single" bind:value={organizationID}>
+				<Select.Root type="single" bind:value={organizationID} disabled={busy}>
 					<Select.Trigger id="ownership-organization" class="w-full">
 						{selectedOrganization?.name ?? m.settings_ownership_choose_organization()}
 					</Select.Trigger>
@@ -269,7 +477,9 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="ownership-confirm"
-							>{m.settings_ownership_confirm({ organization: organizationName })}</Label
+							>{m.settings_ownership_confirm({
+								organization: organizationName
+							})}</Label
 						><Input id="ownership-confirm" bind:value={confirmation} autocomplete="off" />
 					</div>
 					{#if passwordUsable}<div class="space-y-2">
@@ -293,8 +503,12 @@
 					class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
 				>
 					<div>
-						<p class="text-sm font-medium text-destructive">{m.organization_delete_title()}</p>
-						<p class="text-sm text-muted-foreground">{m.organization_delete_description()}</p>
+						<p class="text-sm font-medium text-destructive">
+							{m.organization_delete_title()}
+						</p>
+						<p class="text-sm text-muted-foreground">
+							{m.organization_delete_description()}
+						</p>
 					</div>
 					<Button variant="destructive" class="shrink-0" onclick={() => (deleteDialogOpen = true)}
 						>{m.organization_delete_confirm()}</Button

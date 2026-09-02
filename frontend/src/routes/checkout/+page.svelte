@@ -28,6 +28,15 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
 	import { resolveAppPath } from '$lib/app-path';
+	import {
+		billingCheckoutConfigQueryOptions,
+		OpenPostQueryError,
+		organizationQueryKeys,
+		workspaceSettingsQueryKeys
+	} from '@openpost/query-catalog';
+	import { billingQueryAPI, invalidateBillingDependencies } from '$lib/query/billing';
+	import { queryClient } from '$lib/query/client';
+	import { auth } from '$lib/stores/auth';
 
 	type BillingURL = components['schemas']['BillingURLResponse'];
 	type BrowserCheckoutConfig = components['schemas']['BillingCheckoutConfigResponse'];
@@ -41,18 +50,22 @@
 	let checkoutMode = $state<CheckoutMode>('attempt');
 	let checkoutState = $state<CheckoutState>('loading');
 	let error = $state('');
+	let checkoutConfigWarning = $state('');
 	let boundAttemptID = $state('');
 	let transactionID = $state('');
 	let requestSequence = 0;
 	let stopped = false;
 	let paddlePromise: Promise<Paddle | undefined> | null = null;
 	let paddleConfiguration = '';
+	let checkoutWorkspaceID = '';
+	let checkoutOrganizationID = '';
 
 	function paddleLocale(): 'en' | 'pt' {
 		return getLocaleTag().toLowerCase().startsWith('pt') ? 'pt' : 'en';
 	}
 
 	function handlePaddleEvent(event: PaddleEventData) {
+		if (stopped) return;
 		if (event.name === 'checkout.loaded') {
 			checkoutState = 'ready';
 			return;
@@ -65,6 +78,7 @@
 		if (event.name === 'checkout.completed' && checkoutState !== 'confirming') {
 			if (checkoutMode === 'transaction') {
 				checkoutState = 'success';
+				void invalidateBillingAndAudit();
 				return;
 			}
 			void confirmSubscription();
@@ -74,6 +88,42 @@
 			checkoutState = 'error';
 			error = m.checkout_embed_failed();
 		}
+	}
+
+	async function invalidateBillingAndAudit() {
+		const workspaceID = checkoutWorkspaceID || workspaceCtx.currentWorkspace?.id || '';
+		const organizationID = checkoutOrganizationID || organizationIDForWorkspace(workspaceID);
+		await invalidateBillingDependencies(queryClient, {
+			workspaceID,
+			organizationID
+		});
+	}
+
+	function organizationIDForWorkspace(workspaceID: string) {
+		return (
+			workspaceCtx.workspaces.find((workspace) => workspace.id === workspaceID)?.organization_id ??
+			''
+		);
+	}
+
+	async function invalidateCheckoutAudit(workspaceID: string, organizationID: string) {
+		const invalidations = [
+			queryClient.invalidateQueries({
+				queryKey: organizationQueryKeys.instanceAuditRoot()
+			}),
+			queryClient.invalidateQueries({
+				queryKey: workspaceSettingsQueryKeys.setup(workspaceID),
+				exact: true
+			})
+		];
+		if (organizationID) {
+			invalidations.push(
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.auditRoot(organizationID)
+				})
+			);
+		}
+		await Promise.all(invalidations);
 	}
 
 	async function initializePaddleForCheckout(config: BrowserCheckoutConfig): Promise<Paddle> {
@@ -109,6 +159,8 @@
 
 	async function createCheckout() {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		const organizationID = workspaceCtx.currentWorkspace?.organization_id ?? '';
+		const identity = auth.captureIdentity();
 		if (!workspaceID) {
 			checkoutState = 'error';
 			error = m.checkout_workspace_missing();
@@ -128,7 +180,6 @@
 					return_path: safeSameOriginRedirect(page.url, '')
 				}
 			});
-			if (sequence !== requestSequence || stopped) return;
 			if (
 				apiError ||
 				!data?.id ||
@@ -138,6 +189,14 @@
 			) {
 				throw new Error(apiError?.detail || m.checkout_load_failed());
 			}
+			const targetWorkspaceID = data.workspace_id || workspaceID;
+			const targetOrganizationID = organizationIDForWorkspace(targetWorkspaceID) || organizationID;
+			if (auth.isIdentityCurrent(identity)) {
+				await invalidateCheckoutAudit(targetWorkspaceID, targetOrganizationID);
+			}
+			if (sequence !== requestSequence || stopped || !auth.isIdentityCurrent(identity)) return;
+			checkoutWorkspaceID = targetWorkspaceID;
+			checkoutOrganizationID = targetOrganizationID;
 			checkout = data;
 			const instance = await initializePaddleForCheckout(data);
 			if (sequence !== requestSequence || stopped) return;
@@ -173,6 +232,8 @@
 			const period = normalizeBillingPeriod(data.billing_period);
 			if (!planID || !period) throw new Error(m.checkout_load_failed());
 			selectedPlanID = planID;
+			checkoutWorkspaceID = data.workspace_id || workspaceCtx.currentWorkspace?.id || '';
+			checkoutOrganizationID = organizationIDForWorkspace(checkoutWorkspaceID);
 			billingPeriod = period;
 			checkout = data;
 			const instance = await initializePaddleForCheckout(data);
@@ -213,57 +274,125 @@
 		});
 	}
 
-	async function loadManagedTransaction() {
+	async function loadManagedTransaction(loadOptions: { refresh?: boolean } = {}) {
+		checkoutWorkspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		checkoutOrganizationID = workspaceCtx.currentWorkspace?.organization_id ?? '';
 		const sequence = ++requestSequence;
 		checkoutState = 'loading';
 		error = '';
+		checkoutConfigWarning = '';
+		const options = billingCheckoutConfigQueryOptions(billingQueryAPI);
+		const cachedConfig = queryClient.getQueryData<BrowserCheckoutConfig>(options.queryKey);
+		if (cachedConfig && !loadOptions.refresh) {
+			try {
+				await openManagedTransaction(cachedConfig, sequence);
+				void queryClient.fetchQuery(options).catch((caught) => {
+					if (sequence !== requestSequence || stopped) return;
+					handleCheckoutConfigRefreshFailure(caught, options.queryKey);
+				});
+				return;
+			} catch {
+				if (sequence !== requestSequence || stopped) return;
+				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
+			}
+		}
 		try {
-			const { data: config, error: apiError } = await client.GET('/billing/checkout/config');
-			if (apiError || !config) throw new Error(apiError?.detail || m.checkout_load_failed());
-			const instance = await initializePaddleForCheckout(config);
-			if (sequence !== requestSequence || stopped) return;
-			checkoutState = 'opening';
-			instance.Checkout.open({
-				transactionId: transactionID,
-				settings: {
-					displayMode: 'overlay',
-					variant: 'one-page',
-					theme: 'light',
-					locale: paddleLocale()
-				}
-			});
+			if (loadOptions.refresh) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true
+				});
+			}
+			const config = await queryClient.fetchQuery(options);
+			await openManagedTransaction(config, sequence);
 		} catch (caught) {
 			if (sequence !== requestSequence || stopped) return;
+			const authoritativeFailure = handleCheckoutConfigRefreshFailure(caught, options.queryKey);
+			if (cachedConfig && !authoritativeFailure) {
+				try {
+					await openManagedTransaction(cachedConfig, sequence);
+					return;
+				} catch {
+					if (sequence !== requestSequence || stopped) return;
+					queryClient.removeQueries({
+						queryKey: options.queryKey,
+						exact: true
+					});
+				}
+			}
 			checkoutState = 'error';
 			error = caught instanceof Error && caught.message ? caught.message : m.checkout_load_failed();
 		}
 	}
 
+	async function openManagedTransaction(config: BrowserCheckoutConfig, sequence: number) {
+		const instance = await initializePaddleForCheckout(config);
+		if (sequence !== requestSequence || stopped) return;
+		checkoutState = 'opening';
+		instance.Checkout.open({
+			transactionId: transactionID,
+			settings: {
+				displayMode: 'overlay',
+				variant: 'one-page',
+				theme: 'light',
+				locale: paddleLocale()
+			}
+		});
+	}
+
+	function handleCheckoutConfigRefreshFailure(
+		cause: unknown,
+		queryKey: readonly unknown[]
+	): boolean {
+		const authoritativeFailure =
+			cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403);
+		if (authoritativeFailure) {
+			queryClient.removeQueries({ queryKey, exact: true });
+		}
+		checkoutConfigWarning =
+			cause instanceof Error && cause.message ? cause.message : m.checkout_load_failed();
+		return authoritativeFailure;
+	}
+
 	function retryCheckout() {
-		if (checkoutMode === 'transaction') return loadManagedTransaction();
+		if (checkoutMode === 'transaction') return loadManagedTransaction({ refresh: true });
 		if (boundAttemptID) return loadBoundCheckout(boundAttemptID);
 		return createCheckout();
 	}
 
 	async function loadCheckoutReturn(attemptID: string) {
-		const { data, error: apiError } = await client.GET('/billing/checkout/{attempt_id}/return', {
-			params: { path: { attempt_id: attemptID } }
-		});
-		if (apiError || !data) return null;
-		return data;
+		try {
+			const { data, error: apiError } = await client.GET('/billing/checkout/{attempt_id}/return', {
+				params: { path: { attempt_id: attemptID } }
+			});
+			if (apiError || !data) return null;
+			return data;
+		} catch {
+			return null;
+		}
 	}
 
 	async function confirmSubscription() {
+		const identity = auth.captureIdentity();
+		const sequence = ++requestSequence;
 		checkoutState = 'confirming';
 		error = '';
+		const isCurrentRequest = () =>
+			!stopped && sequence === requestSequence && auth.isIdentityCurrent(identity);
+		if (!identity) {
+			checkoutState = 'error';
+			error = m.checkout_confirmation_delayed();
+			return;
+		}
 		const attemptID = checkout?.id || page.url.searchParams.get('attempt') || '';
 		if (!attemptID) {
 			checkoutState = 'error';
 			error = m.checkout_confirmation_delayed();
 			return;
 		}
-		for (let attempt = 0; attempt < 30 && !stopped; attempt += 1) {
+		for (let attempt = 0; attempt < 30 && isCurrentRequest(); attempt += 1) {
 			const result = await loadCheckoutReturn(attemptID);
+			if (!isCurrentRequest()) return;
 			if (result?.status === 'failed') {
 				checkoutState = 'error';
 				error = m.checkout_confirmation_delayed();
@@ -271,12 +400,18 @@
 			}
 			if (result?.status === 'success') {
 				checkoutState = 'success';
-				if (result.return_path) await goto(resolveAppPath(result.return_path));
+				await invalidateBillingAndAudit();
+				if (!isCurrentRequest()) return;
+				if (result.return_path) {
+					if (!isCurrentRequest()) return;
+					await goto(resolveAppPath(result.return_path));
+				}
 				return;
 			}
 			await new Promise((resolvePromise) => window.setTimeout(resolvePromise, 1000));
+			if (!isCurrentRequest()) return;
 		}
-		if (!stopped) {
+		if (isCurrentRequest()) {
 			checkoutState = 'error';
 			error = m.checkout_confirmation_delayed();
 		}
@@ -305,24 +440,33 @@
 		const workspaceReady = workspaceCtx.currentWorkspace?.id
 			? Promise.resolve()
 			: workspaceCtx.initialize();
-		void workspaceReady.then(async () => {
-			if (!workspaceCtx.currentWorkspace?.id) {
-				const target = new URL(onboardingPathForPlan(selectedPlanID, billingPeriod), page.url);
-				const redirect = safeSameOriginRedirect(page.url, '');
-				if (redirect) target.searchParams.set('redirect', redirect);
-				await goto(resolveAppPath(`${target.pathname}${target.search}`));
-				return;
-			}
-			if (page.url.searchParams.get('status') === 'success') {
-				void confirmSubscription();
-				return;
-			}
-			if (boundAttemptID) {
-				void loadBoundCheckout(boundAttemptID);
-				return;
-			}
-			void createCheckout();
-		});
+		void workspaceReady
+			.then(async () => {
+				if (stopped) return;
+				if (!workspaceCtx.currentWorkspace?.id) {
+					const target = new URL(onboardingPathForPlan(selectedPlanID, billingPeriod), page.url);
+					const redirect = safeSameOriginRedirect(page.url, '');
+					if (redirect) target.searchParams.set('redirect', redirect);
+					if (stopped) return;
+					await goto(resolveAppPath(`${target.pathname}${target.search}`));
+					return;
+				}
+				if (page.url.searchParams.get('status') === 'success') {
+					void confirmSubscription();
+					return;
+				}
+				if (boundAttemptID) {
+					void loadBoundCheckout(boundAttemptID);
+					return;
+				}
+				void createCheckout();
+			})
+			.catch((caught) => {
+				if (stopped) return;
+				checkoutState = 'error';
+				error =
+					caught instanceof Error && caught.message ? caught.message : m.checkout_load_failed();
+			});
 		return () => {
 			stopped = true;
 			requestSequence += 1;
@@ -387,8 +531,12 @@
 				{:else if checkoutState === 'confirming'}
 					<LoaderCircleIcon class="size-10 animate-spin text-primary" />
 					<div class="space-y-2" role="status">
-						<h1 class="text-xl font-semibold">{m.checkout_confirming_heading()}</h1>
-						<p class="text-sm/6 text-muted-foreground">{m.checkout_confirming_description()}</p>
+						<h1 class="text-xl font-semibold">
+							{m.checkout_confirming_heading()}
+						</h1>
+						<p class="text-sm/6 text-muted-foreground">
+							{m.checkout_confirming_description()}
+						</p>
 					</div>
 				{:else}
 					<div
@@ -397,7 +545,9 @@
 						<LockIcon class="size-7" />
 					</div>
 					<div class="space-y-2">
-						<h1 class="text-2xl font-semibold tracking-tight">{m.checkout_managed_heading()}</h1>
+						<h1 class="text-2xl font-semibold tracking-tight">
+							{m.checkout_managed_heading()}
+						</h1>
 						<p class="text-sm/6 text-muted-foreground">
 							{checkoutMode === 'transaction'
 								? m.checkout_managed_link_description()
@@ -406,12 +556,26 @@
 					</div>
 					{#if checkoutState === 'error'}
 						<div class="w-full space-y-4 text-left">
+							{#if checkoutConfigWarning}
+								<InlineNotice tone="warning" message={checkoutConfigWarning} />
+							{/if}
 							<InlineNotice tone="error" message={error} />
 							<Button class="w-full" size="lg" onclick={() => void retryCheckout()}
 								>{m.common_retry()}</Button
 							>
 						</div>
 					{:else}
+						{#if checkoutConfigWarning}
+							<div class="w-full space-y-3 text-left">
+								<InlineNotice tone="warning" message={checkoutConfigWarning} />
+								<Button
+									class="w-full"
+									variant="outline"
+									onclick={() => void loadManagedTransaction({ refresh: true })}
+									>{m.common_retry()}</Button
+								>
+							</div>
+						{/if}
 						<div class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
 							<LoaderCircleIcon class="size-4 animate-spin" />
 							{checkoutState === 'loading' ? m.checkout_loading() : m.checkout_opening_secure()}

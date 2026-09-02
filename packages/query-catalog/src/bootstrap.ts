@@ -18,12 +18,13 @@ export function normalizePreferredWorkspaceId(workspaceId: string | null | undef
 }
 
 export const openPostBootstrapQueryKeys = {
+  appRoot: () => [...openPostQueryKeys.all, "app", "bootstrap"] as const,
   app: (preferredWorkspaceId?: string | null) =>
     [
-      ...openPostQueryKeys.all,
-      "app",
-      "bootstrap",
-      { preferredWorkspaceId: normalizePreferredWorkspaceId(preferredWorkspaceId) },
+      ...openPostBootstrapQueryKeys.appRoot(),
+      {
+        preferredWorkspaceId: normalizePreferredWorkspaceId(preferredWorkspaceId),
+      },
     ] as const,
   workspaces: () => [...openPostQueryKeys.all, "workspaces"] as const,
   workspaceSettings: (workspaceId: string) =>

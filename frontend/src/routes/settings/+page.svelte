@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -47,6 +49,15 @@
 	let destructiveDialogOpen = $state(false);
 	let accountFeedback = $state<AccountManagementFeedback | null>(null);
 	let handledAccountURL = '';
+	let accountURLRequestSequence = 0;
+	let workspaceDeletionRequestSequence = 0;
+	let active = true;
+
+	onDestroy(() => {
+		active = false;
+		accountURLRequestSequence += 1;
+		workspaceDeletionRequestSequence += 1;
+	});
 
 	const accountLinks = {
 		createPublicationHref: '/',
@@ -69,32 +80,60 @@
 	const settingsLoadingVariant = $derived(activeSettingsDestination.loadingVariant);
 	const activeSettingsTitle = $derived(activeSettingsDestination.title);
 	const activeSettingsDescription = $derived(activeSettingsDestination.description);
-	const workspaceSettingsRequired = $derived(activeSettingsDestination.group === 'workspace');
+	const workspaceSettingsRequired = $derived(
+		activeSettingsTab === 'general' || activeSettingsTab === 'schedule'
+	);
+
+	async function refreshMembershipBootstrap() {
+		const actorID = authState.user?.id ?? '';
+		const projection = auth.captureUserProjection(actorID);
+		if (!projection) return;
+		const bootstrap = await workspaceCtx.loadWorkspaces();
+		if (authState.user?.id === actorID) auth.projectBootstrap(bootstrap, projection);
+	}
 
 	$effect(() => {
 		const url = page.url;
 		const href = `${url.pathname}${url.search}${url.hash}`;
-		if (activeSettingsTab !== 'accounts' || href === handledAccountURL) return;
-		handledAccountURL = href;
-		void initializeAccountsURL(new URL(url));
+		const actorID = authState.user?.id ?? '';
+		if (activeSettingsTab !== 'accounts' || !actorID) {
+			accountURLRequestSequence += 1;
+			handledAccountURL = '';
+			return;
+		}
+		const handledKey = `${actorID}:${href}`;
+		if (handledKey === handledAccountURL) return;
+		const requestSequence = ++accountURLRequestSequence;
+		handledAccountURL = handledKey;
+		void initializeAccountsURL(new URL(url), actorID, requestSequence);
 	});
 
-	async function initializeAccountsURL(url: URL) {
+	async function initializeAccountsURL(url: URL, actorID: string, requestSequence: number) {
 		const interpreted = interpretAccountManagementURL(url);
+		const cleanHref = interpreted.cleanHref;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === accountURLRequestSequence &&
+			authState.user?.id === actorID &&
+			activeSettingsTab === 'accounts' &&
+			`${page.url.pathname}${page.url.search}${page.url.hash}` === cleanHref;
 		accountFeedback = presentAccountManagementFeedback(interpreted.feedback);
 		if (interpreted.cleanHref !== `${url.pathname}${url.search}${url.hash}`) {
-			handledAccountURL = interpreted.cleanHref;
+			handledAccountURL = `${actorID}:${interpreted.cleanHref}`;
 			replaceState(resolveAppPath(interpreted.cleanHref), {});
 		}
+		if (!isCurrentRequest()) return;
 		try {
 			if (
 				interpreted.workspaceID &&
 				workspaceCtx.currentWorkspace?.id !== interpreted.workspaceID
 			) {
-				await workspaceCtx.initialize(interpreted.workspaceID);
+				await workspaceCtx.initialize(interpreted.workspaceID, {
+					selectionIsCurrent: isCurrentRequest
+				});
 			}
 		} catch (error) {
-			console.error('Failed to restore OAuth workspace:', error);
+			if (isCurrentRequest()) console.error('Failed to restore OAuth workspace:', error);
 		}
 	}
 
@@ -107,16 +146,27 @@
 		void goto(resolveAppPath(continuation.href));
 	}
 
-	async function deleteCurrentWorkspace(confirmation: {
-		confirmName: string;
-		currentPassword: string;
-		reauthGrant?: string;
-	}) {
-		const workspace = workspaceCtx.currentWorkspace;
-		if (!workspace) return;
-		await workspaceCtx.deleteWorkspace(workspace.id, confirmation);
+	async function deleteCurrentWorkspace(
+		workspaceID: string,
+		confirmation: {
+			confirmName: string;
+			currentPassword: string;
+			reauthGrant?: string;
+		}
+	) {
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return false;
+		const requestSequence = ++workspaceDeletionRequestSequence;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === workspaceDeletionRequestSequence &&
+			get(auth).user?.id === actorID;
+		const projected = await workspaceCtx.deleteWorkspace(workspaceID, confirmation);
+		if (!projected || !isCurrentRequest()) return false;
 		showToast(m.workspace_delete_success());
+		if (!isCurrentRequest()) return false;
 		await goto(resolve('/'));
+		return isCurrentRequest();
 	}
 </script>
 
@@ -146,6 +196,15 @@
 		</InlineNotice>
 	{:else}
 		<div class="min-w-0 space-y-8">
+			{#if workspaceSettingsRequired && workspaceCtx.settingsBackgroundError}
+				<InlineNotice tone="warning" message={m.settings_workspace_load_failed()}>
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			<SettingsNavigation
 				active={activeSettingsTab}
 				showInstance={Boolean(authState.user?.is_admin)}
@@ -184,9 +243,10 @@
 				{:else if activeSettingsTab === 'members'}
 					<WorkspaceTeamSettings
 						workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
+						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
 						currentUserID={authState.user?.id ?? ''}
 						active
-						onMembershipChanged={() => workspaceCtx.loadWorkspaces()}
+						onMembershipChanged={refreshMembershipBootstrap}
 					/>
 				{:else if activeSettingsTab === 'plan'}
 					<BillingSettingsTab />

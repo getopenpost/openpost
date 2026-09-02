@@ -34,6 +34,18 @@ describe('ThemeIcon', () => {
 		await expect.element(icon).toHaveAttribute('aria-hidden', 'true');
 	});
 
+	it('renders the Workshop fallback while a selected pack is not loaded', async () => {
+		const screen = render(ThemeIcon, {
+			role: 'settings',
+			pack: 'tabler',
+			'data-testid': 'fallback-theme-icon'
+		});
+		const icon = screen.getByTestId('fallback-theme-icon');
+
+		await expect.element(icon).not.toBeEmptyDOMElement();
+		await expect.element(icon).not.toHaveAttribute('data-loading');
+	});
+
 	it('follows the closest runtime scope when a theme switches', async () => {
 		document.documentElement.setAttribute('data-theme-icon-pack', 'lucide');
 		const screen = render(ThemeIcon, {

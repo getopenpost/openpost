@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { THEME_ICON_PACK_IDS, THEME_ICON_ROLES } from '../contracts.js';
-import { loadThemeIconPack } from './registry.js';
+import lucidePack from './packs/lucide.generated.js';
+import { createThemeIconRegistry, getThemeIcon, loadThemeIconPack } from './registry.js';
 
 describe('theme icon registry', () => {
 	it('maps every semantic role in every selectable pack', async () => {
@@ -32,5 +33,37 @@ describe('theme icon registry', () => {
 		]) {
 			expect(themeableRoles).not.toContain(protectedRole);
 		}
+	});
+
+	it('always exposes the embedded Workshop icon synchronously', () => {
+		const registry = createThemeIconRegistry({
+			lucide: async () => ({ default: lucidePack }),
+			'heroicons-outline': async () => ({ default: lucidePack }),
+			'heroicons-solid': async () => ({ default: lucidePack }),
+			phosphor: async () => ({ default: lucidePack }),
+			tabler: async () => ({ default: lucidePack })
+		});
+
+		expect(registry.getIcon('tabler', 'settings')).toEqual(lucidePack.icons.settings);
+		expect(getThemeIcon('lucide', 'settings')).toEqual(lucidePack.icons.settings);
+	});
+
+	it('drops a rejected pack request so a later activation can retry', async () => {
+		const failed = vi.fn(() => Promise.reject(new Error('chunk unavailable')));
+		const recovered = vi.fn(async () => ({ default: lucidePack }));
+		let loader = failed;
+		const registry = createThemeIconRegistry({
+			lucide: async () => ({ default: lucidePack }),
+			'heroicons-outline': async () => ({ default: lucidePack }),
+			'heroicons-solid': async () => ({ default: lucidePack }),
+			phosphor: async () => ({ default: lucidePack }),
+			tabler: () => loader()
+		});
+
+		await expect(registry.loadPack('tabler')).rejects.toThrow('chunk unavailable');
+		loader = recovered;
+		await expect(registry.loadPack('tabler')).resolves.toEqual(lucidePack);
+		expect(failed).toHaveBeenCalledOnce();
+		expect(recovered).toHaveBeenCalledOnce();
 	});
 });

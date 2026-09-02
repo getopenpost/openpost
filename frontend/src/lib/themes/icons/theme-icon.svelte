@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { SVGAttributes } from 'svelte/elements';
 	import { THEME_ICON_PACK_IDS, type ThemeIconPackId, type ThemeIconRole } from '../contracts.js';
-	import { loadThemeIcon } from './registry.js';
+	import { getThemeIcon, loadThemeIcon } from './registry.js';
 	import type { ThemeIconData } from './types.js';
 
 	type Props = Omit<SVGAttributes<SVGSVGElement>, 'role'> & {
@@ -22,9 +22,10 @@
 	}: Props = $props();
 	let element = $state<SVGSVGElement>();
 	let inheritedPack = $state<ThemeIconPackId>('lucide');
-	let icon = $state<ThemeIconData>();
+	let loadedIcon = $state<ThemeIconData>();
 	let request = 0;
 	const selectedPack = $derived(pack ?? inheritedPack);
+	const icon = $derived(loadedIcon ?? getThemeIcon(selectedPack, role));
 
 	function isThemeIconPackId(value: string | null): value is ThemeIconPackId {
 		return value !== null && THEME_ICON_PACK_IDS.some((candidate) => candidate === value);
@@ -58,9 +59,15 @@
 
 	$effect(() => {
 		const currentRequest = ++request;
-		loadThemeIcon(selectedPack, role).then((loaded) => {
-			if (currentRequest === request) icon = loaded;
-		});
+		loadedIcon = undefined;
+		loadThemeIcon(selectedPack, role).then(
+			(loaded) => {
+				if (currentRequest === request) loadedIcon = loaded;
+			},
+			() => {
+				if (currentRequest === request) loadedIcon = getThemeIcon('lucide', role);
+			}
+		);
 	});
 </script>
 
@@ -69,7 +76,7 @@
 	class={className}
 	{width}
 	{height}
-	viewBox={icon?.viewBox ?? '0 0 24 24'}
+	viewBox={icon.viewBox}
 	fill="currentColor"
 	xmlns="http://www.w3.org/2000/svg"
 	focusable="false"
@@ -78,12 +85,9 @@
 	aria-hidden={label ? undefined : 'true'}
 	data-theme-icon={role}
 	data-icon-pack={selectedPack}
-	data-loading={icon ? undefined : ''}
 	{...restProps}
 >
-	{#if icon}
-		<!-- Icon bodies are compiled from pinned, local Iconify JSON packages. -->
-		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		{@html icon.body}
-	{/if}
+	<!-- Icon bodies are compiled from pinned, local Iconify JSON packages. -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html icon.body}
 </svg>

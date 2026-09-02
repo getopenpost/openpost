@@ -40,7 +40,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[480px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-border bg-popover text-popover-foreground sm:max-w-[480px]"
 		showCloseButton={!working}
 	>
 		<form onsubmit={submit}>
@@ -70,7 +70,7 @@
 				/>
 				{#if error}
 					<p
-						class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+						class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 						role="alert"
 					>
 						{error}

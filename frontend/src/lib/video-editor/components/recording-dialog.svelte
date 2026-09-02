@@ -422,7 +422,7 @@
 
 		<div class="space-y-4 py-2">
 			<!-- Preflight -->
-			<fieldset class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
+			<fieldset class="space-y-3 rounded-lg border border-border p-3">
 				<legend class="px-1 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
 					{m.video_editor_recording_setup()}
 				</legend>
@@ -430,7 +430,7 @@
 				<div class="grid gap-3 sm:grid-cols-3">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -440,7 +440,7 @@
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -450,7 +450,7 @@
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
 					>
 						<Checkbox
 							bind:checked={includeMic}
@@ -573,7 +573,7 @@
 						{#if !hasDisplayMedia}
 							<p
 								role="alert"
-								class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200"
+								class="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning-foreground"
 							>
 								{m.video_editor_record_display_unsupported()}
 							</p>
@@ -582,7 +582,7 @@
 							<p
 								role="status"
 								aria-live="polite"
-								class="rounded-md bg-[oklch(0.18_0.01_55)] p-2 text-xs text-muted-foreground"
+								class="rounded-md bg-muted p-2 text-xs text-muted-foreground"
 							>
 								{systemAudioStatusText}
 							</p>
@@ -608,7 +608,7 @@
 								/>
 							</div>
 						{:else}
-							<p class="rounded-md bg-[oklch(0.18_0.01_55)] p-2 text-xs text-muted-foreground">
+							<p class="rounded-md bg-muted p-2 text-xs text-muted-foreground">
 								{m.video_editor_record_cursor_unsupported_hint()}
 							</p>
 						{/if}
@@ -720,7 +720,7 @@
 				{#if !hasSelection}
 					<p
 						role="alert"
-						class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200"
+						class="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning-foreground"
 					>
 						{m.video_editor_recording_select_source()}
 					</p>
@@ -729,7 +729,7 @@
 				{#if recorder.error}
 					<div
 						role="alert"
-						class="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200"
+						class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
 					>
 						{localizedRecorderError()}
 					</div>
@@ -738,22 +738,14 @@
 
 			<!-- Countdown / Progress -->
 			{#if requestingActive}
-				<div
-					role="status"
-					aria-live="polite"
-					class="space-y-3 rounded-lg bg-[oklch(0.18_0.01_55)] p-4 text-center"
-				>
+				<div role="status" aria-live="polite" class="space-y-3 rounded-lg bg-muted p-4 text-center">
 					<p class="text-sm">{m.video_editor_recording_waiting()}</p>
 					<Button variant="ghost" class="min-h-11" onclick={handleCancel}>
 						{m.common_cancel()}
 					</Button>
 				</div>
 			{:else if countdownActive}
-				<div
-					role="status"
-					aria-live="polite"
-					class="rounded-lg bg-[oklch(0.18_0.01_55)] p-6 text-center"
-				>
+				<div role="status" aria-live="polite" class="rounded-lg bg-muted p-6 text-center">
 					<p class="font-mono text-5xl tabular-nums">
 						{recorder.countdownRemaining}
 					</p>
@@ -767,7 +759,7 @@
 					</p>
 				</div>
 			{:else if recordingActive || stoppingActive}
-				<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
+				<div class="space-y-3 rounded-lg border border-border p-3">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<span aria-live="polite" class="flex items-center gap-2 font-mono text-lg tabular-nums">
 							<span
@@ -783,7 +775,7 @@
 
 					<div class="grid gap-2 text-xs">
 						{#if includeScreen}
-							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
+							<div class="flex justify-between rounded bg-muted px-2 py-1.5">
 								<span>{m.record_source_screen()}</span><span class="font-mono tabular-nums"
 									>{m.video_editor_recording_chunks({
 										count: recorder.counters.screen.chunks
@@ -792,7 +784,7 @@
 							</div>
 						{/if}
 						{#if includeCamera}
-							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
+							<div class="flex justify-between rounded bg-muted px-2 py-1.5">
 								<span>{m.record_source_camera()}</span><span class="font-mono tabular-nums"
 									>{m.video_editor_recording_chunks({
 										count: recorder.counters.camera.chunks
@@ -802,12 +794,13 @@
 						{/if}
 						{#if includeMic}
 							<div
-								class="flex flex-wrap items-center justify-between gap-2 rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5"
+								class="flex flex-wrap items-center justify-between gap-2 rounded bg-muted px-2 py-1.5"
 							>
 								<span>{m.record_source_audio()}</span>
 								<div class="flex items-center gap-2">
 									<div
 										role="meter"
+										data-editor-protected="input-meter"
 										aria-label={m.video_editor_voiceover_input_level()}
 										aria-valuemin="0"
 										aria-valuemax="100"
@@ -856,20 +849,17 @@
 
 			<!-- Recovery -->
 			{#if recoveryUrls.length > 0}
-				<div
-					role="status"
-					class="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs"
-				>
-					<p class="font-medium text-amber-100">
+				<div role="status" class="rounded-md border border-warning/30 bg-warning/10 p-3 text-xs">
+					<p class="font-medium text-warning-foreground">
 						{m.video_editor_recovery_available()}
 					</p>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each recoveryUrls as r (r.url)}
-							<div class="flex flex-col gap-1 rounded bg-black/20 p-2">
+							<div class="flex flex-col gap-1 rounded bg-warning/5 p-2">
 								<a
 									href={r.url}
 									download={r.name}
-									class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
+									class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-ring"
 								>
 									{m.video_editor_recording_download({
 										source: sourceLabel(r.kind)
@@ -878,9 +868,9 @@
 								{#if r.capture}
 									{@const statusText = artifactStatusText(r.capture)}
 									{#if statusText}
-										<p role="status" class="text-[11px] text-amber-100">{statusText}</p>
+										<p role="status" class="text-[11px] text-warning-foreground">{statusText}</p>
 									{/if}
-									<p class="text-[11px] text-amber-200">
+									<p class="text-[11px] text-warning-foreground">
 										{m.video_editor_record_cursor_mode()}: {localizedCursor(r.capture.cursorActual)}
 									</p>
 								{/if}
@@ -893,7 +883,7 @@
 						</Button>
 						<Button
 							variant="outline"
-							class="min-h-11 border-amber-300/50! bg-black/20! text-amber-50! shadow-none! hover:bg-black/30! hover:text-white!"
+							class="min-h-11 border-warning/50! bg-warning/10! text-warning-foreground! shadow-none! hover:bg-warning/15! hover:text-warning-foreground!"
 							disabled={inserting}
 							onclick={handleDiscardRecovery}
 						>

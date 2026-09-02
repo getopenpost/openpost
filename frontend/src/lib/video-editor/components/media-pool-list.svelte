@@ -1036,13 +1036,13 @@
 	use:assetSelectionSurfaceAction
 >
 	<div
-		class="pointer-events-none absolute z-20 rounded-sm border border-[var(--video-editor-focus)] bg-[var(--video-editor-focus)]/12 shadow-[0_0_0_1px_oklch(0.12_0.01_50_/_0.5)]"
+		class="pointer-events-none absolute z-20 rounded-sm border border-selection bg-selection/12 shadow-sm"
 		data-asset-marquee
 		aria-hidden="true"
 		hidden
 	></div>
 	<div
-		class="sticky top-0 z-10 -mx-2 space-y-1.5 border-b border-[oklch(0.25_0.012_55)] bg-[oklch(0.135_0.008_50)] px-2 pb-2"
+		class="sticky top-0 z-10 -mx-2 space-y-1.5 border-b border-border bg-card px-2 pb-2"
 		data-marquee-ignore
 	>
 		<div class="flex items-center gap-1.5">
@@ -1050,13 +1050,13 @@
 				<span class="sr-only">{m.video_editor_media_search()}</span>
 				<ThemeIcon
 					role="search"
-					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
+					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					type="search"
 					bind:value={query}
 					placeholder={m.video_editor_media_search()}
-					class="h-8 w-full rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.18_0.008_50)] pr-2 pl-7 text-xs placeholder:text-[oklch(0.54_0.012_55)] focus-visible:border-[var(--video-editor-focus)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)]/25"
+					class="h-8 w-full rounded-md border border-field-border bg-field pr-2 pl-7 text-xs text-field-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
 				/>
 			</label>
 			<Button
@@ -1087,7 +1087,7 @@
 				<Select.Root type="single" value={filter} onValueChange={changeFilter}>
 					<Select.Trigger
 						aria-label={m.video_editor_media_filter()}
-						class="h-7! w-full! rounded-md! border-[oklch(0.28_0.014_55)]! bg-[oklch(0.18_0.008_50)]! px-1.5! py-0! text-[10px]! text-[var(--video-editor-text)]! shadow-none! hover:translate-y-0! hover:bg-[oklch(0.21_0.01_50)]! aria-expanded:translate-y-0!"
+						class="h-7! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
 					>
 						{filter === 'all'
 							? m.video_editor_media_filter_all()
@@ -1100,7 +1100,7 @@
 										: m.video_editor_media_filter_lottie()}
 					</Select.Trigger>
 					<Select.Content
-						class="video-editor-theme rounded-md! border-[oklch(0.31_0.018_55)]! bg-[oklch(0.16_0.012_50)]! text-[var(--video-editor-text)]! shadow-lg!"
+						class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
 					>
 						<Select.Item value="all">{m.video_editor_media_filter_all()}</Select.Item>
 						<Select.Item value="video">{m.video_editor_media_filter_video()}</Select.Item>
@@ -1114,7 +1114,7 @@
 				<Select.Root type="single" value={sort} onValueChange={changeSort}>
 					<Select.Trigger
 						aria-label={m.video_editor_media_sort()}
-						class="h-7! w-full! rounded-md! border-[oklch(0.28_0.014_55)]! bg-[oklch(0.18_0.008_50)]! px-1.5! py-0! text-[10px]! text-[var(--video-editor-text)]! shadow-none! hover:translate-y-0! hover:bg-[oklch(0.21_0.01_50)]! aria-expanded:translate-y-0!"
+						class="h-7! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
 					>
 						{sort === 'added'
 							? m.video_editor_media_sort_added()
@@ -1125,7 +1125,7 @@
 									: m.video_editor_media_sort_size()}
 					</Select.Trigger>
 					<Select.Content
-						class="video-editor-theme rounded-md! border-[oklch(0.31_0.018_55)]! bg-[oklch(0.16_0.012_50)]! text-[var(--video-editor-text)]! shadow-lg!"
+						class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
 					>
 						<Select.Item value="added">{m.video_editor_media_sort_added()}</Select.Item>
 						<Select.Item value="name">{m.video_editor_media_sort_name()}</Select.Item>
@@ -1148,7 +1148,7 @@
 				/>
 			{/if}
 			<div
-				class="flex shrink-0 overflow-hidden rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.18_0.008_50)]"
+				class="flex shrink-0 overflow-hidden rounded-md border border-border bg-muted"
 				role="group"
 				aria-label={m.video_editor_media_view()}
 			>
@@ -1157,7 +1157,7 @@
 					variant="ghost"
 					size="icon-xs"
 					class="size-7! rounded-none! {assetViewMode === 'grid'
-						? 'bg-[oklch(0.66_0.14_45_/_0.18)] text-[oklch(0.86_0.08_65)]'
+						? 'bg-selection text-selection-foreground'
 						: ''}"
 					aria-label={m.media_grid_view()}
 					title={m.media_grid_view()}
@@ -1171,7 +1171,7 @@
 					variant="ghost"
 					size="icon-xs"
 					class="size-7! rounded-none! {assetViewMode === 'list'
-						? 'bg-[oklch(0.66_0.14_45_/_0.18)] text-[oklch(0.86_0.08_65)]'
+						? 'bg-selection text-selection-foreground'
 						: ''}"
 					aria-label={m.media_compact_view()}
 					title={m.media_compact_view()}
@@ -1184,7 +1184,7 @@
 		</div>
 		{#if selectedAssetCount > 0}
 			<div
-				class="flex min-w-0 items-center gap-1.5 rounded-md border border-[oklch(0.34_0.025_50)] bg-[oklch(0.2_0.012_50)] px-1.5 py-1"
+				class="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted px-1.5 py-1"
 				role="status"
 				aria-label={m.video_editor_media_selected_count({ count: selectedAssetCount })}
 			>
@@ -1212,7 +1212,7 @@
 					type="button"
 					variant="ghost"
 					size="icon-xs"
-					class="size-7! shrink-0 text-red-300 hover:text-red-200"
+					class="size-7! shrink-0 text-destructive hover:text-destructive"
 					aria-label={m.video_editor_assets_delete_selected({ count: selectedAssetCount })}
 					title={m.video_editor_assets_delete_selected({ count: selectedAssetCount })}
 					onclick={confirmSelectedAssetDelete}
@@ -1235,10 +1235,10 @@
 	</div>
 	{#if mediaRecovery.issueCount > 0}
 		<div
-			class="my-2 flex items-center gap-2 rounded-md border border-amber-400/25 bg-amber-400/10 px-2 py-1.5 text-amber-100"
+			class="my-2 flex items-center gap-2 rounded-md border border-warning/25 bg-warning/10 px-2 py-1.5 text-warning-foreground"
 			role="status"
 		>
-			<ProtectedIcon icon="warning" class="size-3.5 shrink-0 text-amber-300" />
+			<ProtectedIcon icon="warning" class="size-3.5 shrink-0 text-warning-foreground" />
 			<p class="min-w-0 flex-1 text-[10px]">
 				{m.video_editor_media_recovery_warning({ count: mediaRecovery.issueCount })}
 			</p>
@@ -1257,7 +1257,7 @@
 		<section class="mb-2" aria-labelledby="video-editor-sequences-heading">
 			<h3
 				id="video-editor-sequences-heading"
-				class="px-1 py-1.5 text-[10px] font-medium tracking-wider text-[oklch(0.62_0.015_55)] uppercase"
+				class="px-1 py-1.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
 			>
 				{m.video_editor_sequences()}
 			</h3>
@@ -1285,16 +1285,16 @@
 									ondragstart={(event) => startCompositionDrag(event, sequence)}
 									ondragend={clearActiveMediaDrag}
 									title={m.video_editor_media_drag_hint()}
-									class="group cursor-grab gap-2 rounded-md bg-[oklch(0.19_0.01_50)] p-1.5 hover:bg-[oklch(0.22_0.01_50)] active:cursor-grabbing {assetViewMode ===
+									class="group cursor-grab gap-2 rounded-md bg-card p-1.5 hover:bg-card-hover active:cursor-grabbing {assetViewMode ===
 									'grid'
 										? 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] content-start'
 										: 'flex items-center'} {selectedSequenceIds.has(sequence.id) ||
 									assetMarqueePreviewSelected('sequence', sequence.id)
-										? 'bg-[oklch(0.25_0.025_50)] ring-1 ring-[oklch(0.66_0.14_45_/_0.7)]'
+										? 'bg-selection text-selection-foreground ring-1 ring-selection'
 										: ''}"
 								>
 									<span
-										class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-[oklch(0.26_0.025_250)] {assetViewMode ===
+										class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--canvas-pasteboard)] {assetViewMode ===
 										'grid'
 											? 'col-span-2 aspect-video w-full'
 											: 'size-10'}"
@@ -1312,7 +1312,7 @@
 									{#if editingSequenceId === sequence.id}
 										<Input
 											bind:ref={sequenceRenameInput}
-											class="h-9 min-w-0 flex-1 bg-[oklch(0.16_0.01_50)] px-2 text-xs"
+											class="h-9 min-w-0 flex-1 bg-field px-2 text-xs text-field-foreground"
 											aria-label={m.common_rename()}
 											bind:value={sequenceNameDraft}
 											onblur={() => commitSequenceRename(sequence)}
@@ -1330,14 +1330,14 @@
 									{:else}
 										<button
 											type="button"
-											class="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											class="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
 											title={m.video_editor_sequence_open()}
 											aria-label={`${m.video_editor_sequence_open()}: ${sequence.name}`}
 											aria-pressed={selectedSequenceIds.has(sequence.id)}
 											onclick={(event) => selectSequence(event, sequence)}
 										>
 											<span class="block truncate text-xs font-medium">{sequence.name}</span>
-											<span class="block text-[10px] text-[oklch(0.62_0.015_55)]">
+											<span class="block text-[10px] text-muted-foreground">
 												{sequence.durationInFrames}f · {sequence.width}×{sequence.height}
 											</span>
 										</button>
@@ -1349,7 +1349,7 @@
 													{...props}
 													variant="ghost"
 													size="icon-xs"
-													class="size-11! text-[oklch(0.68_0.015_55)] opacity-70 hover:bg-white/10 hover:text-white hover:opacity-100 focus:opacity-100 sm:size-7!"
+													class="size-11! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7!"
 													aria-label={`${m.video_editor_sequence_options()}: ${sequence.name}`}
 												>
 													<ThemeIcon role="more-horizontal" class="size-3.5" />
@@ -1372,7 +1372,7 @@
 											</DropdownMenu.Item>
 											<DropdownMenu.Separator />
 											<DropdownMenu.Item
-												class="text-red-300 focus:text-red-200"
+												class="text-destructive focus:text-destructive"
 												onclick={() =>
 													selectedSequenceIds.has(sequence.id) && selectedAssetCount > 1
 														? confirmSelectedAssetDelete()
@@ -1425,7 +1425,7 @@
 		<section aria-labelledby={`video-editor-media-${group.kind}`}>
 			<h3
 				id={`video-editor-media-${group.kind}`}
-				class="flex items-center justify-between px-1 py-1.5 text-[10px] font-medium tracking-wider text-[oklch(0.62_0.015_55)] uppercase"
+				class="flex items-center justify-between px-1 py-1.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
 			>
 				<span>{groupLabel(group.kind)}</span>
 				<span class="tabular-nums">{group.media.length}</span>
@@ -1463,19 +1463,18 @@
 										: entry?.status === 'ready'
 											? m.video_editor_media_drag_hint()
 											: undefined}
-									class="group gap-1 rounded-md p-1 hover:bg-[oklch(0.22_0.01_50)] {assetViewMode ===
-									'grid'
+									class="group gap-1 rounded-md p-1 hover:bg-card-hover {assetViewMode === 'grid'
 										? 'grid min-w-0 grid-cols-3 content-start'
 										: 'flex items-center'} {selectedMediaIds.has(id) ||
 									assetMarqueePreviewSelected('media', id)
-										? 'bg-[oklch(0.25_0.025_50)] ring-1 ring-[oklch(0.66_0.14_45_/_0.7)]'
+										? 'bg-selection text-selection-foreground ring-1 ring-selection'
 										: ''} {entry?.status === 'ready' && !issue
 										? 'cursor-grab active:cursor-grabbing'
-										: ''} {issue ? 'bg-amber-400/8 ring-1 ring-amber-400/25' : ''}"
+										: ''} {issue ? 'bg-warning/8 ring-1 ring-warning/25' : ''}"
 								>
 									<button
 										type="button"
-										class="min-w-0 rounded p-0.5 text-left focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-60 {assetViewMode ===
+										class="min-w-0 rounded p-0.5 text-left focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 {assetViewMode ===
 										'grid'
 											? 'col-span-3 grid w-full grid-cols-1 gap-1'
 											: 'flex flex-1 items-center gap-2'}"
@@ -1486,7 +1485,7 @@
 										title={issue ? sourceIssueLabel(issue) : m.video_editor_source_monitor()}
 									>
 										<span
-											class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-[oklch(0.22_0.01_50)] {assetViewMode ===
+											class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--canvas-pasteboard)] {assetViewMode ===
 											'grid'
 												? 'aspect-video w-full'
 												: 'size-10'}"
@@ -1503,7 +1502,7 @@
 											{:else if entry?.media.tags.includes('audio')}
 												<ProtectedIcon icon="media-audio" class="size-4" />
 											{:else if entry?.status === 'failed'}
-												<span class="text-xs text-red-400">!</span>
+												<span class="text-xs text-destructive">!</span>
 											{:else}
 												<ProtectedIcon icon="media-video" class="size-4" />
 											{/if}
@@ -1512,7 +1511,7 @@
 											<span class="block truncate text-xs font-medium">{entry?.media.fileName}</span
 											>
 											{#if issue}
-												<span class="flex items-center gap-1 text-[11px] text-amber-300">
+												<span class="flex items-center gap-1 text-[11px] text-warning-foreground">
 													{#if recoveryBusyIds.has(id)}
 														<ProtectedIcon
 															icon="loading"
@@ -1524,7 +1523,7 @@
 													<span class="truncate">{sourceIssueLabel(issue)}</span>
 												</span>
 											{:else if entry?.status === 'ready'}
-												<span class="block text-[11px] text-[oklch(0.65_0.015_55)]">
+												<span class="block text-[11px] text-muted-foreground">
 													{formatMediaListSummary(entry.media)}
 												</span>
 											{/if}
@@ -1547,7 +1546,7 @@
 														{...props}
 														variant="ghost"
 														size="icon-xs"
-														class="size-11! text-[oklch(0.68_0.015_55)] opacity-70 hover:bg-white/10 hover:text-white hover:opacity-100 focus:opacity-100 sm:size-7! {assetViewMode ===
+														class="size-11! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! {assetViewMode ===
 														'grid'
 															? 'justify-self-center'
 															: ''}"
@@ -1601,7 +1600,7 @@
 													</DropdownMenu.Item>
 													{#if transcriptionService.sourceTranscriptStatus(id) === 'ready' && !sourceTranscriptTask(id)}
 														<DropdownMenu.Item
-															class="text-red-300 focus:text-red-200"
+															class="text-destructive focus:text-destructive"
 															onclick={() => void removeSourceTranscript(entry.media)}
 														>
 															<ThemeIcon role="delete" class="size-4" />
@@ -1722,7 +1721,7 @@
 									{/if}
 									<button
 										type="button"
-										class="flex size-11 shrink-0 items-center justify-center rounded text-[oklch(0.68_0.015_55)] opacity-70 hover:bg-white/10 hover:text-white hover:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30 sm:size-7 {assetViewMode ===
+										class="flex size-11 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30 sm:size-7 {assetViewMode ===
 										'grid'
 											? 'justify-self-center'
 											: ''}"
@@ -1906,12 +1905,12 @@
 		</section>
 	{/each}
 	{#if mediaPool.order.length === 0}
-		<div class="px-2 py-6 text-center text-xs text-[oklch(0.65_0.015_55)]">
+		<div class="px-2 py-6 text-center text-xs text-muted-foreground">
 			<ThemeIcon role="image-add" class="mx-auto mb-2 size-5" />
 			{m.video_editor_media_empty()}
 		</div>
 	{:else if visibleMedia.length === 0}
-		<p class="px-2 py-6 text-center text-xs text-[oklch(0.65_0.015_55)]">
+		<p class="px-2 py-6 text-center text-xs text-muted-foreground">
 			{m.video_editor_media_no_results()}
 		</p>
 	{/if}

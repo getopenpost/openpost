@@ -88,15 +88,15 @@
 </script>
 
 <nav
-	class="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55)] px-2 py-1 text-xs"
+	class="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-2 py-1 text-xs"
 	aria-label={m.video_editor_sequences()}
 >
 	<button
 		type="button"
-		class="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] {sequenceStore.activeSequenceId ===
+		class="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1 focus-visible:outline-2 focus-visible:outline-ring {sequenceStore.activeSequenceId ===
 		null
-			? 'bg-[oklch(0.26_0.018_55)] text-white'
-			: 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white'}"
+			? 'bg-selection text-selection-foreground'
+			: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
 		onclick={() => activate(null)}
 	>
 		<ProtectedIcon icon="editor-scenes" class="size-3.5" />
@@ -110,8 +110,8 @@
 					role="group"
 					aria-label={tab.name}
 					class="group flex shrink-0 items-center rounded {sequenceStore.activeSequenceId === tab.id
-						? 'bg-[oklch(0.26_0.018_55)] text-white'
-						: 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white'}"
+						? 'bg-selection text-selection-foreground'
+						: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
 					draggable="true"
 					ondragstart={() => (draggedId = tab.id)}
 					ondragover={(event) => event.preventDefault()}
@@ -120,7 +120,7 @@
 					{#if editingId === tab.id}
 						<Input
 							bind:ref={renameInput}
-							class="mx-2 h-7 w-28 rounded-none border-0 border-b border-[oklch(0.66_0.14_45)] bg-transparent px-0 py-1 text-xs shadow-none focus-visible:ring-0"
+							class="mx-2 h-7 w-28 rounded-none border-0 border-b border-ring bg-transparent px-0 py-1 text-xs shadow-none focus-visible:ring-0"
 							bind:value={draftName}
 							onblur={() => commitRename(tab.id)}
 							onkeydown={(event) => {
@@ -131,7 +131,7 @@
 					{:else}
 						<button
 							type="button"
-							class="max-w-40 truncate py-1 pl-2.5 text-left focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="max-w-40 truncate py-1 pl-2.5 text-left focus-visible:outline-2 focus-visible:outline-ring"
 							title={tab.name}
 							onclick={() => activate(tab.id)}
 							ondblclick={() => beginRename(tab.id, tab.name)}
@@ -141,7 +141,7 @@
 						</button>
 						<button
 							type="button"
-							class="mx-0.5 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-white/10 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="mx-0.5 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-accent focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
 							aria-label={`${m.video_editor_sequence_close()}: ${tab.name}`}
 							onclick={() => close(tab.id)}
 						>
@@ -183,7 +183,7 @@
 
 	<button
 		type="button"
-		class="shrink-0 rounded p-1.5 text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring"
 		aria-label={m.video_editor_new_sequence()}
 		title={m.video_editor_new_sequence()}
 		onclick={add}

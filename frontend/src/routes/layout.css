@@ -25,23 +25,18 @@
 @import '@fontsource/roboto-slab/latin-700.css';
 
 .video-editor-theme {
-	--background: var(--editor-canvas);
-	--foreground: var(--editor-text);
-	--card: var(--editor-panel);
-	--card-foreground: var(--editor-text);
-	--popover: var(--editor-panel);
-	--popover-foreground: var(--editor-text);
-	--primary: var(--editor-focus);
-	--primary-foreground: var(--editor-canvas);
-	--secondary: var(--editor-control);
-	--secondary-foreground: var(--editor-text);
-	--muted: var(--editor-control);
-	--muted-foreground: var(--editor-muted);
-	--accent: var(--editor-control-hover);
-	--accent-foreground: var(--editor-text);
-	--border: var(--editor-border);
-	--input: var(--editor-control);
-	--ring: var(--editor-focus);
+	--video-editor-canvas: var(--background);
+	--video-editor-panel: var(--card);
+	--video-editor-control: var(--action-ordinary);
+	--video-editor-control-hover: var(--action-ordinary-hover);
+	--video-editor-border: var(--border);
+	--video-editor-muted: var(--muted-foreground);
+	--video-editor-text: var(--foreground);
+	--video-editor-focus: var(--ring);
+	--video-editor-focus-border: var(--ring);
+}
+
+.editor-protected-surface {
 	--video-editor-canvas: var(--editor-canvas);
 	--video-editor-panel: var(--editor-panel);
 	--video-editor-control: var(--editor-control);

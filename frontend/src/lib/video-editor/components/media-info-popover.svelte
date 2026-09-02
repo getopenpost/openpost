@@ -61,7 +61,7 @@
 				type="button"
 				variant="ghost"
 				size="icon-xs"
-				class="text-[oklch(0.68_0.015_55)] opacity-70 hover:bg-white/10 hover:text-white hover:opacity-100 focus:opacity-100"
+				class="text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100"
 				aria-label={`${m.video_editor_media_info()}: ${media.fileName}`}
 				title={m.video_editor_media_info()}
 			>
@@ -72,9 +72,9 @@
 	<Popover.Content
 		align="end"
 		side="bottom"
-		class="video-editor-theme max-h-[min(80vh,32rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-3 text-[var(--video-editor-text)]"
+		class="video-editor-theme max-h-[min(80vh,32rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto border-border bg-popover p-3 text-popover-foreground"
 	>
-		<div class="border-b border-[oklch(0.28_0.014_55)] pb-2">
+		<div class="border-b border-border pb-2">
 			<p class="text-sm font-medium break-words">{media.fileName}</p>
 			<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]">{media.id}</p>
 		</div>

@@ -154,7 +154,7 @@
 </script>
 
 <div
-	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-[oklch(0.25_0.015_55)] px-2 py-1.5 sm:gap-2 sm:px-3"
+	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-border px-2 py-1.5 sm:gap-2 sm:px-3"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -288,7 +288,7 @@
 		</Button>
 	</div>
 
-	<span class="rounded bg-[oklch(0.18_0.008_55)] px-2 py-0.5 font-mono text-xs tabular-nums">
+	<span class="rounded bg-muted px-2 py-0.5 font-mono text-xs tabular-nums">
 		{timecode} <span class="text-muted-foreground max-[359px]:hidden">/ {totalFrames}</span>
 	</span>
 

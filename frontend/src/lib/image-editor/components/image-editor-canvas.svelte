@@ -2205,7 +2205,8 @@
 
 <div
 	{@attach attachViewport}
-	class="image-editor-pasteboard relative size-full min-h-0 touch-none overflow-hidden bg-neutral-800 dark:bg-neutral-950"
+	class="editor-protected-surface image-editor-pasteboard relative size-full min-h-0 touch-none overflow-hidden bg-neutral-800 dark:bg-neutral-950"
+	data-editor-protected="canvas"
 	class:cursor-grab={(editor.activeTool === 'hand' || spacePressed) && !panning}
 	class:cursor-grabbing={panning}
 	class:cursor-move={Boolean(editor.floatingPixelSelection) && !panning}

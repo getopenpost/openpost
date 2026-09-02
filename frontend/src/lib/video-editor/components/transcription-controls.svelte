@@ -74,37 +74,35 @@
 	}
 </script>
 
-<div
-	class="grid grid-cols-2 gap-1 rounded-md border border-[oklch(0.25_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5"
->
-	<div class="col-span-2 text-[10px] text-[oklch(0.66_0.015_55)]">
+<div class="grid grid-cols-2 gap-1 rounded-md border border-border bg-card p-1.5">
+	<div class="col-span-2 text-[10px] text-muted-foreground">
 		<label for="transcription-model">{m.video_editor_transcribe_model()}</label>
 		<Select.Root type="single" bind:value={model} disabled={busy}>
 			<Select.Trigger
 				id="transcription-model"
 				aria-label={m.video_editor_transcribe_model()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionModelUiLabel(model)}</span>
 			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
 				{#each TRANSCRIPTION_MODEL_OPTIONS as option}
 					<Select.Item value={option.value}>{transcriptionModelUiLabel(option.value)}</Select.Item>
 				{/each}
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<div class="text-[10px] text-[oklch(0.66_0.015_55)]">
+	<div class="text-[10px] text-muted-foreground">
 		<label for="transcription-language">{m.video_editor_transcribe_language()}</label>
 		<Select.Root type="single" bind:value={language} disabled={busy}>
 			<Select.Trigger
 				id="transcription-language"
 				aria-label={m.video_editor_transcribe_language()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
 			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
 				{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
 					<Select.Item value={option.value}
 						>{transcriptionLanguageUiLabel(option.value)}</Select.Item
@@ -113,7 +111,7 @@
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<div class="text-[10px] text-[oklch(0.66_0.015_55)]">
+	<div class="text-[10px] text-muted-foreground">
 		<label for="transcription-quality">{m.video_editor_transcribe_quality()}</label>
 		<Select.Root
 			type="single"
@@ -123,11 +121,11 @@
 			<Select.Trigger
 				id="transcription-quality"
 				aria-label={m.video_editor_transcribe_quality()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
 			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
 				{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
 					<Select.Item value={option.value}
 						>{transcriptionQuantizationUiLabel(option.value)}</Select.Item
@@ -136,12 +134,12 @@
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<p class="col-span-2 text-[9px] leading-tight text-[oklch(0.58_0.012_55)]">
+	<p class="col-span-2 text-[9px] leading-tight text-muted-foreground">
 		{transcriptionModelUiDescription(model)}
 	</p>
 	{#if fallback}
 		<p
-			class="col-span-2 rounded bg-[oklch(0.24_0.045_65)] px-1.5 py-1 text-[10px] text-[oklch(0.84_0.08_70)]"
+			class="col-span-2 rounded bg-warning/10 px-1.5 py-1 text-[10px] text-warning-foreground"
 			role="status"
 		>
 			{fallback.fallbackReason === 'out-of-memory'
@@ -155,7 +153,7 @@
 	{/if}
 	{#if busy && status === 'queued'}
 		<p
-			class="col-span-2 rounded bg-[oklch(0.22_0.015_55)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.02_55)]"
+			class="col-span-2 rounded bg-muted px-1.5 py-1 text-[10px] text-muted-foreground"
 			role="status"
 		>
 			{m.video_editor_transcribe_queued({
@@ -166,7 +164,7 @@
 	{/if}
 	{#if busy && progress}
 		<div class="col-span-2" aria-live="polite">
-			<div class="mb-0.5 flex items-center justify-between text-[9px] text-[oklch(0.66_0.015_55)]">
+			<div class="mb-0.5 flex items-center justify-between text-[9px] text-muted-foreground">
 				<span>{stageLabel(progress)}{backend ? ` · ${backend.toUpperCase()}` : ''}</span>
 				<span>
 					{Math.round(progress.progress * 100)}%
@@ -176,7 +174,7 @@
 				</span>
 			</div>
 			<div
-				class="h-1 overflow-hidden rounded-full bg-[oklch(0.27_0.012_55)]"
+				class="h-1 overflow-hidden rounded-full bg-muted"
 				role="progressbar"
 				aria-label={stageLabel(progress)}
 				aria-valuemin="0"
@@ -184,7 +182,7 @@
 				aria-valuenow={Math.round(progress.progress * 100)}
 			>
 				<div
-					class="h-full rounded-full bg-[oklch(0.66_0.14_45)] transition-[width]"
+					class="h-full rounded-full bg-primary transition-[width]"
 					style:width={`${Math.max(2, progress.progress * 100)}%`}
 				></div>
 			</div>

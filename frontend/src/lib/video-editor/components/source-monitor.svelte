@@ -728,7 +728,7 @@
 
 <section
 	bind:this={monitorElement}
-	class="flex min-h-0 min-w-0 flex-1 flex-col border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.115_0.008_55)]"
+	class="flex min-h-0 min-w-0 flex-1 flex-col border-r border-border bg-card"
 	aria-label={m.video_editor_source_monitor()}
 	data-source-monitor
 	onmouseenter={handleSourceMouseEnter}
@@ -736,16 +736,16 @@
 	onfocusin={handleSourceFocusIn}
 	onfocusout={handleSourceFocusOut}
 >
-	<header class="flex h-9 shrink-0 items-center gap-2 border-b border-[oklch(0.23_0.012_55)] px-3">
-		<span class="text-xs font-medium text-[oklch(0.72_0.015_55)]">
+	<header class="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+		<span class="text-xs font-medium text-muted-foreground">
 			{m.video_editor_source_monitor()}
 		</span>
-		<span class="min-w-0 flex-1 truncate text-xs text-[oklch(0.82_0.012_55)]">
+		<span class="min-w-0 flex-1 truncate text-xs text-foreground">
 			{media?.fileName ?? m.video_editor_source_missing()}
 		</span>
 		<button
 			type="button"
-			class="rounded p-1 text-[oklch(0.68_0.015_55)] hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+			class="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			aria-label={m.video_editor_source_close()}
 			onclick={onclose}
 		>
@@ -753,7 +753,10 @@
 		</button>
 	</header>
 
-	<div class="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-black">
+	<div
+		class="editor-protected-surface relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-[var(--canvas-pasteboard)]"
+		data-editor-protected="source-media"
+	>
 		{#if playing && sourceShuttleActive}
 			<div class="absolute top-2 left-2 z-10">
 				<ShuttleIndicator
@@ -763,9 +766,9 @@
 			</div>
 		{/if}
 		{#if loadError}
-			<p class="max-w-xs px-4 text-center text-xs text-red-300">{loadError}</p>
+			<p class="max-w-xs px-4 text-center text-xs text-destructive">{loadError}</p>
 		{:else if !sourceUrl}
-			<p class="text-xs text-[oklch(0.62_0.015_55)]">
+			<p class="text-xs text-[var(--editor-muted)]">
 				{proxyProgress === null
 					? m.video_editor_source_loading()
 					: `${m.video_editor_proxy_preparing()} ${Math.round(proxyProgress * 100)}%`}
@@ -786,13 +789,13 @@
 				<audio bind:this={proxyAudioElement} src={sourceAudioUrl} preload="auto"></audio>
 			{/if}
 		{:else if kind === 'audio'}
-			<div class="flex size-full max-h-[360px] min-h-48 flex-col p-3 text-[oklch(0.66_0.015_55)]">
+			<div class="flex size-full max-h-[360px] min-h-48 flex-col p-3 text-[var(--editor-muted)]">
 				<div class="mb-2 flex items-center justify-center gap-2 text-xs">
 					<ProtectedIcon icon="media-audio" class="size-4" />
 					<span>{m.video_editor_source_audio_only()}</span>
 				</div>
 				{#if media}
-					<div class="min-h-0 flex-1 overflow-hidden rounded border border-white/10">
+					<div class="min-h-0 flex-1 overflow-hidden rounded border border-[var(--editor-border)]">
 						<SourceAudioWaveform
 							{media}
 							durationSeconds={durationFrames / sourceFps}
@@ -820,11 +823,11 @@
 		{/if}
 	</div>
 
-	<div class="shrink-0 space-y-2 border-t border-[oklch(0.23_0.012_55)] p-2.5">
-		<div class="flex items-center gap-2 font-mono text-[10px] text-[oklch(0.72_0.01_55)]">
+	<div class="shrink-0 space-y-2 border-t border-border p-2.5">
+		<div class="flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
 			<button
 				type="button"
-				class="rounded bg-[oklch(0.18_0.01_55)] px-1.5 py-1 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="rounded bg-muted px-1.5 py-1 hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 				onclick={() => (showFrames = !showFrames)}
 				aria-label={showFrames
 					? m.video_editor_source_show_timecode()
@@ -832,17 +835,17 @@
 			>
 				{displayPosition}
 			</button>
-			<span class="text-[oklch(0.48_0.01_55)]">/</span>
+			<span class="text-muted-foreground/60">/</span>
 			<span>{displayDuration}</span>
 			<span class="ml-auto">{sourceFps.toFixed(sourceFps % 1 === 0 ? 0 : 2)} fps</span>
 		</div>
 
 		<div bind:this={stripElement} class="relative h-5">
-			<div class="absolute inset-x-0 top-2 h-1 rounded-full bg-[oklch(0.25_0.01_55)]"></div>
+			<div class="absolute inset-x-0 top-2 h-1 rounded-full bg-[var(--timeline-track)]"></div>
 			{#if marksActive}
 				<button
 					type="button"
-					class="absolute top-1.5 z-20 h-2 cursor-grab rounded-full bg-[oklch(0.66_0.14_45)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.82_0.13_55)] active:cursor-grabbing"
+					class="absolute top-1.5 z-20 h-2 cursor-grab rounded-full bg-[var(--timeline-selection)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canvas-handle)] active:cursor-grabbing"
 					style={`left:${selectionLeft}%;width:${selectionWidth}%`}
 					aria-label={m.video_editor_source_move_range()}
 					onpointerdown={startRangeDrag}
@@ -866,10 +869,10 @@
 		</div>
 
 		<div class="grid grid-cols-2 gap-2 text-[10px]">
-			<label class="flex items-center gap-1.5 text-[oklch(0.68_0.015_55)]">
-				<span class="w-4 font-semibold text-[oklch(0.82_0.012_55)]">I</span>
+			<label class="flex items-center gap-1.5 text-muted-foreground">
+				<span class="w-4 font-semibold text-foreground">I</span>
 				<Slider
-					class="min-w-0 flex-1 accent-[oklch(0.66_0.14_45)]"
+					class="min-w-0 flex-1 accent-[var(--timeline-playhead)]"
 					min={0}
 					max={Math.max(0, outPoint - 1)}
 					value={inPoint}
@@ -881,10 +884,10 @@
 				/>
 				<span class="w-9 text-right font-mono">{inPoint}f</span>
 			</label>
-			<label class="flex items-center gap-1.5 text-[oklch(0.68_0.015_55)]">
-				<span class="w-4 font-semibold text-[oklch(0.82_0.012_55)]">O</span>
+			<label class="flex items-center gap-1.5 text-muted-foreground">
+				<span class="w-4 font-semibold text-foreground">O</span>
 				<Slider
-					class="min-w-0 flex-1 accent-[oklch(0.66_0.14_45)]"
+					class="min-w-0 flex-1 accent-[var(--timeline-playhead)]"
 					min={inPoint + 1}
 					max={durationFrames}
 					value={outPoint}
@@ -1047,15 +1050,15 @@
 		height: 18px;
 		border: 0;
 		border-radius: 1px;
-		background: oklch(0.9 0.02 45);
-		box-shadow: 0 0 0 1px oklch(0.1 0 0);
+		background: var(--timeline-playhead);
+		box-shadow: 0 0 0 1px var(--canvas-pasteboard);
 	}
 	.transport-button,
 	.mark-button,
 	.edit-button {
 		border-radius: 0.3rem;
-		color: oklch(0.72 0.012 55);
-		background: oklch(0.18 0.01 55);
+		color: var(--action-ordinary-foreground);
+		background: var(--action-ordinary);
 	}
 	.transport-button {
 		display: grid;
@@ -1064,8 +1067,8 @@
 		height: 1.75rem;
 	}
 	.transport-button.primary {
-		color: white;
-		background: oklch(0.63 0.16 45);
+		color: var(--action-primary-foreground);
+		background: var(--action-primary);
 	}
 	.transport-button:disabled {
 		opacity: 0.4;
@@ -1077,14 +1080,14 @@
 	.transport-button:hover,
 	.mark-button:hover,
 	.edit-button:hover:not(:disabled) {
-		color: white;
-		background: oklch(0.27 0.025 45);
+		color: var(--foreground);
+		background: var(--action-ordinary-hover);
 	}
 	.transport-button:focus-visible,
 	.mark-button:focus-visible,
 	.edit-button:focus-visible,
 	.patch-row :global(button:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--ring);
 		outline-offset: 1px;
 	}
 	.patch-row {
@@ -1093,7 +1096,7 @@
 		align-items: center;
 		gap: 0.35rem;
 		border-radius: 0.35rem;
-		background: oklch(0.16 0.008 55);
+		background: var(--muted);
 		padding: 0.3rem;
 	}
 	.patch-row.disabled {
@@ -1102,7 +1105,7 @@
 	.patch-badge {
 		font-size: 0.625rem;
 		font-weight: 700;
-		color: oklch(0.86 0.012 55);
+		color: var(--foreground);
 	}
 	.edit-button {
 		display: flex;
@@ -1117,6 +1120,6 @@
 	}
 	.edit-button kbd {
 		font: inherit;
-		color: oklch(0.55 0.01 55);
+		color: var(--muted-foreground);
 	}
 </style>

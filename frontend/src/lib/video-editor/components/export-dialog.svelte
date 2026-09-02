@@ -621,7 +621,7 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="video-editor-theme !block max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
-		overlayProps={{ class: 'bg-black/70' }}
+		overlayProps={{ class: 'bg-scrim' }}
 		showCloseButton={!rendering}
 		onInteractOutside={(event) => {
 			if (rendering) event.preventDefault();
@@ -634,7 +634,7 @@
 			>{m.video_editor_export_title()}</Dialog.Title
 		>
 		<div class="mt-4 grid grid-cols-2 gap-3">
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_format()}<AppSelect
 					class="mt-1 h-9 w-full text-sm"
 					value={format}
@@ -644,7 +644,7 @@
 				/>
 			</label>
 			{#if videoFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]"
+				<label class="text-xs text-muted-foreground"
 					>{m.video_editor_export_codec()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={codec}
@@ -658,7 +658,7 @@
 					/>
 				</label>
 			{/if}
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{#if isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')}
 					{m.video_editor_export_jpeg_quality()}
 				{:else}
@@ -672,7 +672,7 @@
 					onValueChange={setQuality}
 				/>
 			</label>
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_resolution()}<AppSelect
 					class="mt-1 h-9 w-full text-sm"
 					bind:value={resolution}
@@ -681,7 +681,7 @@
 				/>
 			</label>
 			{#if !isSequenceFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_subtitles()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={subtitleMode}
@@ -692,7 +692,7 @@
 				</label>
 			{/if}
 			{#if isSequenceFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_sequence_destination()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={sequenceDestination}
@@ -713,7 +713,7 @@
 				{m.video_editor_export_sequence_file_pattern({ pattern: sequenceFilePattern })}
 			</p>
 			{#if sequenceDestination === 'directory' && !getDirectoryPickerAvailable()}
-				<p class="mt-1 text-[11px] text-amber-200">
+				<p class="mt-1 text-[11px] text-warning-foreground">
 					{m.video_editor_export_sequence_directory_unavailable()}
 				</p>
 			{/if}
@@ -744,11 +744,11 @@
 						class="mt-0.5 size-4 shrink-0 animate-spin text-[var(--video-editor-muted)] motion-reduce:animate-none"
 					/>
 				{:else if summarizePreflightSeverity(preflight.checks) === 'error'}
-					<ProtectedIcon icon="error" class="mt-0.5 size-4 shrink-0 text-red-300" />
+					<ProtectedIcon icon="error" class="mt-0.5 size-4 shrink-0 text-destructive" />
 				{:else if summarizePreflightSeverity(preflight.checks) === 'warning'}
-					<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0 text-amber-300" />
+					<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0 text-warning-foreground" />
 				{:else}
-					<ProtectedIcon icon="success" class="mt-0.5 size-4 shrink-0 text-emerald-300" />
+					<ProtectedIcon icon="success" class="mt-0.5 size-4 shrink-0 text-success" />
 				{/if}
 				<div class="min-w-0 flex-1">
 					<p class="text-xs font-medium">
@@ -779,9 +779,9 @@
 							class={[
 								'text-[11px]',
 								check.severity === 'error'
-									? 'text-red-200'
+									? 'text-destructive'
 									: check.severity === 'warning'
-										? 'text-amber-200'
+										? 'text-warning-foreground'
 										: 'text-[var(--video-editor-muted)]'
 							]}
 						>

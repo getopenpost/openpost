@@ -3303,6 +3303,7 @@
 			</ContextMenu.Root>
 			<div
 				class="timeline-content"
+				data-editor-protected="composition-timeline"
 				bind:this={scrollEl}
 				onscroll={handleScroll}
 				onwheel={handleWheel}

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { resolveBuiltInTheme, WebThemeRuntime, type ThemeRuntimeLoaders } from '$lib/themes';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
 import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 import type { Project, TimelineTrack } from '$lib/video-editor/project/types';
@@ -13,6 +14,7 @@ import proResFixtureUrl from '../media/fixtures/prores-proxy.mov?url';
 import { clearWaveformCache } from '$lib/video-editor/media/waveform-client';
 import { saveWaveform } from '$lib/video-editor/media/waveform-persistence';
 import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
+import '../../../routes/layout.css';
 
 const videoTrack: TimelineTrack = {
 	id: 'video',
@@ -54,6 +56,16 @@ const source: MediaMetadata = {
 	audioCodec: 'aac',
 	tags: ['video']
 };
+
+function themeRuntime(): WebThemeRuntime {
+	const loaders: ThemeRuntimeLoaders = {
+		stageFonts: async () => ({ release: () => undefined }),
+		loadAssets: async () => undefined,
+		loadIconPack: async () => undefined,
+		setBrowserSurface: () => () => undefined
+	};
+	return new WebThemeRuntime(loaders);
+}
 
 async function setSlider(slider: Element, value: number): Promise<void> {
 	if (!(slider instanceof HTMLElement)) throw new Error('Slider control is missing.');
@@ -120,6 +132,50 @@ afterEach(() => {
 });
 
 describe('SourceMonitor', () => {
+	it('themes chrome while keeping source media protected across schemes and widths', async () => {
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const monitor = screen.getByRole('region', { name: 'Source' }).element();
+		const media = screen.container.querySelector<HTMLElement>(
+			'[data-editor-protected="source-media"]'
+		);
+		if (!(monitor instanceof HTMLElement) || !media) {
+			throw new Error('Source Monitor theme surfaces are missing.');
+		}
+		screen.container.style.height = '720px';
+		const runtime = themeRuntime();
+		const chromeColors = new Set<string>();
+
+		for (const [family, scheme] of [
+			['notebook', 'light'],
+			['midnight', 'dark']
+		] as const) {
+			await runtime.applyScoped(resolveBuiltInTheme(family, scheme), screen.container);
+			for (const width of [1440, 390, 320]) {
+				await page.viewport(width, width === 1440 ? 900 : 720);
+				screen.container.style.width = `${width}px`;
+				await vi.waitFor(() => expect(monitor.clientWidth).toBeGreaterThan(0));
+				expect(monitor.scrollWidth).toBeLessThanOrEqual(monitor.clientWidth);
+				const scopeStyle = getComputedStyle(screen.container);
+				const chromeColor = getComputedStyle(monitor).backgroundColor;
+				const protectedColor = getComputedStyle(media).backgroundColor;
+				expect(chromeColor).toBe(scopeStyle.getPropertyValue('--card').trim());
+				expect(protectedColor).toBe(scopeStyle.getPropertyValue('--canvas-pasteboard').trim());
+				expect(protectedColor).not.toBe(chromeColor);
+				chromeColors.add(chromeColor);
+				await page.screenshot({
+					element: monitor,
+					path: `../../../../.svelte-kit/editor-chrome-${scheme}-${width}.png`
+				});
+			}
+		}
+
+		expect(chromeColors.size).toBe(2);
+	});
+
 	it('uses Space for source playback without clicking the focused play button', async () => {
 		const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
 		const screen = await render(SourceMonitor, {

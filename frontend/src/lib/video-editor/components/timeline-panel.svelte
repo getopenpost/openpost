@@ -5470,7 +5470,8 @@
 					onpointermove={rememberTimelinePointer}
 					onpointerleave={forgetTimelinePointer}
 					onwheel={onTimelineWheel}
-					class="relative min-h-24 flex-1 overflow-auto pb-2"
+					class="editor-protected-surface relative min-h-24 flex-1 overflow-auto pb-2"
+					data-editor-protected="timeline"
 					role="region"
 					aria-label={m.video_editor_timeline()}
 				>

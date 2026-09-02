@@ -63,7 +63,7 @@
 				<ListIcon class="size-3.5" aria-hidden="true" />
 				{#if timelineStore.markers.length > 0}
 					<span
-						class="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-[oklch(0.66_0.14_45)] px-0.5 text-center text-[8px] leading-3.5 font-semibold text-black"
+						class="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-selection px-0.5 text-center text-[8px] leading-3.5 font-semibold text-selection-foreground"
 						aria-hidden="true"
 					>
 						{timelineStore.markers.length > 99 ? '99+' : timelineStore.markers.length}
@@ -75,16 +75,16 @@
 	<Popover.Content
 		align="start"
 		side="top"
-		class="video-editor-theme w-72 max-w-[calc(100vw-1rem)] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-0 text-[var(--video-editor-text)]"
+		class="video-editor-theme w-72 max-w-[calc(100vw-1rem)] border-border bg-popover p-0 text-popover-foreground"
 	>
-		<div class="flex items-center justify-between border-b border-[oklch(0.28_0.014_55)] px-3 py-2">
+		<div class="flex items-center justify-between border-b border-border px-3 py-2">
 			<div>
 				<p class="text-xs font-semibold">{m.video_editor_marker_list()}</p>
 				<p class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_marker_list_count({ count: timelineStore.markers.length })}
 				</p>
 			</div>
-			<FlagIcon class="size-4 text-[oklch(0.72_0.12_45)]" aria-hidden="true" />
+			<FlagIcon class="size-4 text-[var(--timeline-playhead)]" aria-hidden="true" />
 		</div>
 
 		{#if sortedMarkers.length === 0}
@@ -100,16 +100,16 @@
 					{@const name = markerName(marker, index)}
 					<div
 						class="group flex min-h-9 items-stretch rounded-md"
-						class:bg-[oklch(0.24_0.02_50)]={timelineStore.selectedMarkerId === marker.id}
+						class:bg-selection={timelineStore.selectedMarkerId === marker.id}
 					>
 						<button
 							type="button"
-							class="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 text-left hover:bg-white/5 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11"
+							class="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 text-left hover:bg-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 							aria-pressed={timelineStore.selectedMarkerId === marker.id}
 							onclick={() => chooseMarker(marker)}
 						>
 							<span
-								class="size-2.5 shrink-0 rounded-full border border-black/25"
+								class="size-2.5 shrink-0 rounded-full border border-[var(--canvas-pasteboard)]/25"
 								style={`background:${marker.color}`}
 								aria-hidden="true"
 							></span>
@@ -120,7 +120,7 @@
 						</button>
 						<button
 							type="button"
-							class="grid w-8 shrink-0 place-items-center rounded-r-md text-[var(--video-editor-muted)] opacity-70 hover:bg-red-500/10 hover:text-red-300 focus-visible:z-10 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-red-400 [@media(pointer:coarse)]:w-11"
+							class="grid w-8 shrink-0 place-items-center rounded-r-md text-muted-foreground opacity-70 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive [@media(pointer:coarse)]:w-11"
 							aria-label={m.video_editor_marker_list_remove({ name })}
 							onclick={() => deleteMarker(marker.id)}
 						>
@@ -129,12 +129,12 @@
 					</div>
 				{/each}
 			</div>
-			<div class="border-t border-[oklch(0.28_0.014_55)] p-2">
+			<div class="border-t border-border p-2">
 				<Button
 					type="button"
 					variant="ghost"
 					size="sm"
-					class="w-full justify-center text-red-300 hover:bg-red-500/10 hover:text-red-200"
+					class="w-full justify-center text-destructive hover:bg-destructive/10 hover:text-destructive"
 					onclick={clearMarkers}
 				>
 					{m.video_editor_marker_list_clear()}

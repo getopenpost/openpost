@@ -298,7 +298,7 @@
 {#if item}
 	<div class="flex flex-col gap-3" aria-label={m.video_editor_clip_properties()}>
 		{#if item.type === 'adjustment'}
-			<p class="text-xs leading-relaxed text-[oklch(0.7_0.01_55)]">
+			<p class="text-xs leading-relaxed text-muted-foreground">
 				{m.video_editor_adjustment_layer_hint()}
 			</p>
 		{:else if item.type !== 'audio'}
@@ -336,20 +336,20 @@
 
 			{#if audioItem}
 				<section>
-					<details class="mt-2 rounded-md border border-white/10 bg-black/10">
+					<details class="mt-2 rounded-md border border-border bg-muted/40">
 						<summary
-							class="flex min-h-8 cursor-pointer list-none items-center justify-between px-2 text-[10px] text-white/70 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="flex min-h-8 cursor-pointer list-none items-center justify-between px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
 						>
-							<span>{m.video_editor_audio_fade_shape()}</span><span class="text-white/40"
+							<span>{m.video_editor_audio_fade_shape()}</span><span class="text-muted-foreground/70"
 								>{m.video_editor_audio_fade_shape_description()}</span
 							>
 						</summary>
-						<div class="grid grid-cols-2 gap-1 border-t border-white/10 p-2">
+						<div class="grid grid-cols-2 gap-1 border-t border-border p-2">
 							{#each [{ label: m.video_editor_audio_fade_in_curve(), field: 'audioFadeInCurve', value: audioItem.audioFadeInCurve ?? 0, min: -1, max: 1 }, { label: m.video_editor_audio_fade_out_curve(), field: 'audioFadeOutCurve', value: audioItem.audioFadeOutCurve ?? 0, min: -1, max: 1 }, { label: m.video_editor_audio_fade_in_bias(), field: 'audioFadeInCurveX', value: audioItem.audioFadeInCurveX ?? 0.52, min: 0.04, max: 0.96 }, { label: m.video_editor_audio_fade_out_bias(), field: 'audioFadeOutCurveX', value: audioItem.audioFadeOutCurveX ?? 0.52, min: 0.04, max: 0.96 }] as control (control.field)}
-								<label class="text-[10px] text-white/60">
+								<label class="text-[10px] text-muted-foreground">
 									{control.label}
 									<Input
-										class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+										class="mt-0.5 h-8 w-full bg-field text-xs text-field-foreground"
 										type="number"
 										min={control.min}
 										max={control.max}
@@ -373,14 +373,14 @@
 						<AudioDuckingPanel item={audioItem} {onedit} />
 					</div>
 					<div
-						class="mt-2 rounded-md border border-white/10 bg-black/10 p-2"
+						class="mt-2 rounded-md border border-border bg-muted/40 p-2"
 						data-testid="noise-reduction-panel"
 					>
 						<div class="flex items-center justify-between gap-2">
-							<h4 class="text-[10px] font-semibold tracking-wider text-white/70 uppercase">
+							<h4 class="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
 								{m.video_editor_audio_noise_title()}
 							</h4>
-							<span class="text-[10px] text-white/40"
+							<span class="text-[10px] text-muted-foreground/70"
 								>{m.video_editor_audio_noise_description()}</span
 							>
 						</div>
@@ -397,18 +397,18 @@
 												audioNoiseReductionAmount: nr.amount
 											})}
 									/>
-									<Label class="text-[11px] text-white/80"
+									<Label class="text-[11px] text-foreground"
 										>{m.video_editor_audio_noise_enable()}</Label
 									>
 								</div>
-								<span class="ml-auto text-[10px] text-white/50" aria-live="polite">
+								<span class="ml-auto text-[10px] text-muted-foreground" aria-live="polite">
 									{nr.enabled
 										? m.video_editor_audio_noise_applied({ amount: String(nr.amount) })
 										: m.video_editor_audio_noise_bypassed()}
 								</span>
 							</div>
 							<div class="mt-2 space-y-1">
-								<Label for={`nr-${audioItem.id}`} class="text-[10px] text-white/60"
+								<Label for={`nr-${audioItem.id}`} class="text-[10px] text-muted-foreground"
 									>{m.video_editor_audio_noise_amount()}</Label
 								>
 								<Slider
@@ -430,7 +430,7 @@
 										});
 									}}
 								/>
-								<p class="mt-1 text-[10px] leading-snug text-white/40">
+								<p class="mt-1 text-[10px] leading-snug text-muted-foreground/70">
 									{m.video_editor_audio_noise_amount_hint({
 										amount: String(nrDraftAmount ?? nr.amount)
 									})}
@@ -444,17 +444,15 @@
 
 		{#if item.type === 'text'}
 			<section>
-				<h3
-					class="mb-1 text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
-				>
+				<h3 class="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
 					{m.video_editor_tool_text()}
 				</h3>
 				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} />
 				<div class="mt-2 grid grid-cols-2 gap-1">
 					{#each textFields as field (field.property)}
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
+						<label class="text-[10px] text-muted-foreground"
 							>{field.label}<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
+								class="mt-0.5 w-full rounded bg-field px-1.5 py-1 text-xs text-field-foreground"
 								type="number"
 								min={field.min}
 								max={field.max}
@@ -467,7 +465,7 @@
 					{/each}
 				</div>
 				<div class="mt-1 grid grid-cols-2 gap-1">
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
+					<label class="text-[10px] text-muted-foreground"
 						>{m.video_editor_text_color()}<Input
 							class="block h-8 w-full rounded bg-transparent"
 							type="color"
@@ -475,7 +473,7 @@
 							onchange={(event) => commitText({ color: event.currentTarget.value })}
 						/></label
 					>
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
+					<label class="text-[10px] text-muted-foreground"
 						>{m.video_editor_text_background()}<Input
 							class="block h-8 w-full rounded bg-transparent"
 							type="color"
@@ -483,13 +481,13 @@
 							onchange={(event) => commitText({ backgroundColor: event.currentTarget.value })}
 						/><button
 							type="button"
-							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-[oklch(0.62_0.01_55)] hover:bg-[oklch(0.28_0.015_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-40"
+							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-40"
 							disabled={!item.backgroundColor}
 							onclick={() => commitText({ backgroundColor: undefined })}
 							>{m.video_editor_text_clear_background()}</button
 						></label
 					>
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
+					<label class="text-[10px] text-muted-foreground"
 						>{m.video_editor_text_stroke_color()}<Input
 							class="block h-8 w-full rounded bg-transparent"
 							type="color"
@@ -497,7 +495,7 @@
 							onchange={(event) => commitText({ strokeColor: event.currentTarget.value })}
 						/></label
 					>
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
+					<label class="text-[10px] text-muted-foreground"
 						>{m.video_editor_text_shadow_color()}<Input
 							class="block h-8 w-full rounded bg-transparent"
 							type="color"
@@ -507,7 +505,7 @@
 					>
 				</div>
 				<div class="mt-1 grid grid-cols-2 gap-1">
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+					<label class="text-[10px] text-muted-foreground">
 						{m.video_editor_text_alignment()}
 						<AppSelect
 							value={item.textAlign ?? 'center'}
@@ -520,7 +518,7 @@
 								})}
 						/>
 					</label>
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+					<label class="text-[10px] text-muted-foreground">
 						{m.video_editor_text_vertical_alignment()}
 						<AppSelect
 							value={item.verticalAlign ?? 'middle'}

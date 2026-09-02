@@ -4,11 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { Input } from '$lib/components/ui/input';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import PlayIcon from '@lucide/svelte/icons/play';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { CutMode, QuickCutSegment, QuickCutSource } from '../types';
 	import { formatTimecode, parseTimecode } from '../model';
 
@@ -127,7 +123,7 @@
 										onclick={() => onMove(index, index - 1)}
 										class="min-h-9 min-w-9"
 									>
-										<ChevronUpIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="chevron-up" class="size-4" />
 									</Button>
 									<Button
 										size="icon-xs"
@@ -137,7 +133,7 @@
 										onclick={() => onMove(index, index + 1)}
 										class="min-h-9 min-w-9"
 									>
-										<ChevronDownIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="chevron-down" class="size-4" />
 									</Button>
 								{/if}
 								<Button
@@ -147,7 +143,7 @@
 									onclick={() => onRemove(seg.id)}
 									class="min-h-9 min-w-9 text-muted-foreground hover:text-destructive"
 								>
-									<TrashIcon class="size-4" aria-hidden="true" />
+									<ThemeIcon role="delete" class="size-4" />
 								</Button>
 							</div>
 						</div>
@@ -222,7 +218,7 @@
 								onclick={() => onPreview(seg.id)}
 								class="min-h-11 gap-1.5 md:min-h-9"
 							>
-								<PlayIcon class="size-3.5" aria-hidden="true" />
+								<ProtectedIcon icon="play" class="size-3.5" />
 								{m.quick_cut_preview()}
 							</Button>
 							<Button
@@ -231,7 +227,7 @@
 								onclick={() => onExport(seg)}
 								class="min-h-11 gap-1.5 md:min-h-9"
 							>
-								<DownloadIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="download" class="size-3.5" />
 								{m.quick_cut_export()}
 							</Button>
 						</div>

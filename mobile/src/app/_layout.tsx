@@ -15,14 +15,18 @@ import { configureNativeQueryLifecycle } from "@/lib/query-lifecycle";
 import { getQueryActorRevision, subscribeQueryActor } from "@/lib/query-session";
 import { getServer, loadServer, subscribeServer } from "@/lib/server";
 import {
-  clearToken,
   getToken,
   getWorkspaceId,
   loadToken,
   loadWorkspaceId,
   subscribeToken,
 } from "@/lib/api/token-store";
-import { commitWorkspaceIdForIdentity } from "@/lib/api/client";
+import {
+  apiRequestIdentityIsCurrent,
+  captureApiRequestIdentity,
+  clearTokenForIdentity,
+  commitWorkspaceIdForIdentity,
+} from "@/lib/api/client";
 import { readAppBootstrap } from "@/lib/app-bootstrap";
 import { LaunchSessionProvider, type LaunchSessionState } from "@/lib/launch-session";
 import { loadSessionState, synchronizeSession } from "@/lib/session";
@@ -60,8 +64,10 @@ function useSessionReady() {
             getServer,
             getToken,
             getWorkspaceId,
+            captureIdentity: captureApiRequestIdentity,
+            identityIsCurrent: apiRequestIdentityIsCurrent,
             commitWorkspaceId: commitWorkspaceIdForIdentity,
-            clearToken,
+            clearToken: clearTokenForIdentity,
             readAppBootstrap,
           },
           controller.signal,

@@ -29,8 +29,10 @@ export type SessionSynchronizer = {
   getServer: () => ServerConfig | null;
   getToken: () => string | null;
   getWorkspaceId: () => string | null;
+  captureIdentity: () => ApiRequestIdentity;
+  identityIsCurrent: (identity: ApiRequestIdentity) => boolean;
   commitWorkspaceId: (workspaceId: string | null, identity: ApiRequestIdentity) => Promise<boolean>;
-  clearToken: () => Promise<void>;
+  clearToken: (identity: ApiRequestIdentity) => Promise<boolean>;
   readAppBootstrap: (
     serverBaseUrl: string,
     preferredWorkspaceId: string | null,
@@ -50,6 +52,8 @@ export async function synchronizeSession(
   const server = synchronizer.getServer();
   const token = synchronizer.getToken();
   if (!server || !token) return currentSessionState(synchronizer);
+  const identity = synchronizer.captureIdentity();
+  if (identity.serverBaseUrl !== server.baseUrl || identity.token !== token) throw sessionChanged();
 
   const preferredWorkspaceId = synchronizer.getWorkspaceId();
   const options = appBootstrapQueryOptions(
@@ -67,33 +71,31 @@ export async function synchronizeSession(
   try {
     const bootstrap = await synchronizer.queryClient.fetchQuery(options);
     signal.throwIfAborted();
-    if (synchronizer.getServer()?.baseUrl !== server.baseUrl || synchronizer.getToken() !== token) {
-      throw new DOMException("The signed-in session changed", "AbortError");
-    }
+    if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
 
     if (!bootstrap.authenticated) {
-      await synchronizer.clearToken();
+      const cleared = await synchronizer.clearToken(identity);
+      if (!cleared) throw sessionChanged();
       return currentSessionState(synchronizer);
     }
 
     const selectedWorkspaceId = confirmedBootstrapWorkspaceId(bootstrap);
-    const workspaceCommitted = await synchronizer.commitWorkspaceId(selectedWorkspaceId, {
-      serverBaseUrl: server.baseUrl,
-      token,
-    });
+    const workspaceCommitted = await synchronizer.commitWorkspaceId(selectedWorkspaceId, identity);
     if (!workspaceCommitted) {
-      throw new DOMException("The signed-in session changed", "AbortError");
+      throw sessionChanged();
     }
 
     signal.throwIfAborted();
-    if (synchronizer.getServer()?.baseUrl !== server.baseUrl || synchronizer.getToken() !== token) {
-      throw new DOMException("The signed-in session changed", "AbortError");
-    }
+    if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
     seedAppBootstrap(synchronizer.queryClient, bootstrap);
     return currentSessionState(synchronizer);
   } finally {
     signal.removeEventListener("abort", cancel);
   }
+}
+
+function sessionChanged(): DOMException {
+  return new DOMException("The signed-in session changed", "AbortError");
 }
 
 function currentSessionState(loaders: {

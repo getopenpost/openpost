@@ -13,6 +13,8 @@ export type ServerConfig = {
 const KEY = "openpost.server.baseUrl";
 let current: ServerConfig | null = null;
 const listeners = new Set<() => void>();
+let persistenceTail = Promise.resolve();
+let mutationRevision = 0;
 
 export function subscribeServer(listener: () => void): () => void {
   listeners.add(listener);
@@ -23,33 +25,94 @@ export function getServer(): ServerConfig | null {
   return current;
 }
 
-async function notify() {
+export function getServerMutationRevision(): number {
+  return mutationRevision;
+}
+
+function notify() {
   for (const listener of listeners) listener();
 }
 
-export async function loadServer(): Promise<ServerConfig | null> {
-  const stored = await SecureStore.getItemAsync(KEY);
-  const baseUrl = stored ? normalizeServerUrl(stored) : null;
-  current = baseUrl ? { baseUrl, isHosted: baseUrl === HOSTED_URL } : null;
-  await notify();
-  return current;
+function runPersistenceOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = persistenceTail.then(operation, operation);
+  persistenceTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
-export async function setServer(rawUrl: string): Promise<ServerConfig> {
+export function loadServer(): Promise<ServerConfig | null> {
+  const expectedMutationRevision = mutationRevision;
+  return runPersistenceOperation(async () => {
+    const stored = await SecureStore.getItemAsync(KEY);
+    if (mutationRevision !== expectedMutationRevision) return current;
+
+    const baseUrl = stored ? normalizeServerUrl(stored) : null;
+    current = baseUrl ? { baseUrl, isHosted: baseUrl === HOSTED_URL } : null;
+    notify();
+    return current;
+  });
+}
+
+export function setServer(rawUrl: string): Promise<ServerConfig> {
   const normalized = normalizeServerUrl(rawUrl);
   if (!normalized) {
-    throw new Error("Enter a valid server address, e.g. openpost.example.com");
+    return Promise.reject(new Error("Enter a valid server address, e.g. openpost.example.com"));
   }
-  await SecureStore.setItemAsync(KEY, normalized);
-  current = { baseUrl: normalized, isHosted: normalized === HOSTED_URL };
-  await notify();
-  return current;
+  const next = { baseUrl: normalized, isHosted: normalized === HOSTED_URL };
+  const operationRevision = ++mutationRevision;
+  return runPersistenceOperation(async () => {
+    requireCurrentServerOperation(operationRevision);
+    const previousStored = await SecureStore.getItemAsync(KEY);
+    requireCurrentServerOperation(operationRevision);
+    try {
+      await SecureStore.setItemAsync(KEY, normalized);
+    } catch (cause) {
+      await writeStoredServer(previousStored);
+      throw cause;
+    }
+    if (mutationRevision !== operationRevision) {
+      await writeStoredServer(previousStored);
+      throw sessionChanged();
+    }
+    current = next;
+    notify();
+    return next;
+  });
 }
 
-export async function clearServer(): Promise<void> {
-  await SecureStore.deleteItemAsync(KEY);
-  current = null;
-  await notify();
+export function clearServer(): Promise<void> {
+  const operationRevision = ++mutationRevision;
+  return runPersistenceOperation(async () => {
+    requireCurrentServerOperation(operationRevision);
+    const previousStored = await SecureStore.getItemAsync(KEY);
+    requireCurrentServerOperation(operationRevision);
+    try {
+      await SecureStore.deleteItemAsync(KEY);
+    } catch (cause) {
+      await writeStoredServer(previousStored);
+      throw cause;
+    }
+    if (mutationRevision !== operationRevision) {
+      await writeStoredServer(previousStored);
+      throw sessionChanged();
+    }
+    current = null;
+    notify();
+  });
+}
+
+function requireCurrentServerOperation(expectedRevision: number): void {
+  if (mutationRevision !== expectedRevision) throw sessionChanged();
+}
+
+function writeStoredServer(value: string | null): Promise<void> {
+  return value ? SecureStore.setItemAsync(KEY, value) : SecureStore.deleteItemAsync(KEY);
+}
+
+function sessionChanged(): DOMException {
+  return new DOMException("The selected server changed", "AbortError");
 }
 
 /** Validate an instance before committing to it. */

@@ -1,18 +1,23 @@
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
 
-import { getServer, subscribeServer } from "../server";
+import { getServer, getServerMutationRevision, subscribeServer } from "../server";
 import {
-  clearTokenIfCurrent,
+  commitTokenIfCurrent,
   commitWorkspaceIdIfCurrent,
   getToken,
+  getTokenMutationRevision,
+  getWorkspaceMutationRevision,
   subscribeToken,
 } from "./token-store";
 
 export type Api = ReturnType<typeof createClient<paths>>;
 export type ApiRequestIdentity = {
   serverBaseUrl: string;
+  serverMutationRevision: number;
   token: string | null;
+  tokenMutationRevision: number;
+  workspaceMutationRevision: number;
 };
 
 let client: Api | null = null;
@@ -48,12 +53,42 @@ export function apiUrl(path: string): string {
 export function captureApiRequestIdentity(): ApiRequestIdentity {
   return {
     serverBaseUrl: getServer()?.baseUrl ?? "",
+    serverMutationRevision: getServerMutationRevision(),
     token: getToken(),
+    tokenMutationRevision: getTokenMutationRevision(),
+    workspaceMutationRevision: getWorkspaceMutationRevision(),
   };
 }
 
 export function apiRequestIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
-  return getServer()?.baseUrl === identity.serverBaseUrl && getToken() === identity.token;
+  return (
+    getServer()?.baseUrl === identity.serverBaseUrl &&
+    getServerMutationRevision() === identity.serverMutationRevision &&
+    getToken() === identity.token &&
+    getTokenMutationRevision() === identity.tokenMutationRevision
+  );
+}
+
+function apiServerIdentityIsCurrent(identity: ApiRequestIdentity): boolean {
+  return (
+    getServer()?.baseUrl === identity.serverBaseUrl &&
+    getServerMutationRevision() === identity.serverMutationRevision
+  );
+}
+
+export function commitTokenForIdentity(
+  token: string,
+  identity: ApiRequestIdentity,
+): Promise<boolean> {
+  return commitTokenIfCurrent(token, identity.token, identity.tokenMutationRevision, () =>
+    apiServerIdentityIsCurrent(identity),
+  );
+}
+
+export function clearTokenForIdentity(identity: ApiRequestIdentity): Promise<boolean> {
+  return commitTokenIfCurrent(null, identity.token, identity.tokenMutationRevision, () =>
+    apiServerIdentityIsCurrent(identity),
+  );
 }
 
 export function commitWorkspaceIdForIdentity(
@@ -61,8 +96,12 @@ export function commitWorkspaceIdForIdentity(
   identity: ApiRequestIdentity,
 ): Promise<boolean> {
   if (!identity.token) return Promise.resolve(false);
-  return commitWorkspaceIdIfCurrent(workspaceId, identity.token, () =>
-    apiRequestIdentityIsCurrent(identity),
+  return commitWorkspaceIdIfCurrent(
+    workspaceId,
+    identity.token,
+    identity.tokenMutationRevision,
+    identity.workspaceMutationRevision,
+    () => apiServerIdentityIsCurrent(identity),
   );
 }
 
@@ -71,7 +110,7 @@ export async function settleApiUnauthorized(
   response: Response | undefined,
 ): Promise<void> {
   if (response?.status !== 401 || !identity.token) return;
-  await clearTokenIfCurrent(identity.token, () => getServer()?.baseUrl === identity.serverBaseUrl);
+  await clearTokenForIdentity(identity);
 }
 
 /** Extract a readable message from an openapi-fetch error response. */

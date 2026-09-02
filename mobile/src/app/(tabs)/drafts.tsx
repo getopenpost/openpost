@@ -393,6 +393,8 @@ function WorkspaceMenu({
   workspaces: { id: string; name?: string | null }[];
 }) {
   const colors = useColors();
+  const [signOutBusy, setSignOutBusy] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const server = getServer();
   const activeWorkspace = workspaces.find((workspace) => workspace.id === getWorkspaceId());
   return (
@@ -429,14 +431,35 @@ function WorkspaceMenu({
         ) : null}
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ busy: signOutBusy, disabled: signOutBusy }}
+          disabled={signOutBusy}
           onPress={() => {
-            onClose();
-            void signOut().then(() => router.replace("/"));
+            setSignOutBusy(true);
+            setSignOutError(null);
+            void signOut()
+              .then((committed) => {
+                if (!committed) {
+                  setSignOutError("Your session changed. Try again.");
+                  setSignOutBusy(false);
+                  return;
+                }
+                onClose();
+                router.replace("/");
+              })
+              .catch(() => {
+                setSignOutError("Could not sign out. Try again.");
+                setSignOutBusy(false);
+              });
           }}
           style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
         >
           <Text style={{ color: colors.danger, fontSize: 16 }}>Sign out</Text>
         </Pressable>
+        {signOutError ? (
+          <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            {signOutError}
+          </BodyText>
+        ) : null}
       </View>
     </BottomDrawer>
   );

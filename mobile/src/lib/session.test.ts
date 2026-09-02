@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { openPostBootstrapQueryKeys, type AppBootstrap } from "@openpost/query-catalog";
 import { QueryClient } from "@tanstack/react-query";
 
@@ -8,6 +8,63 @@ import {
   type SessionLoaders,
   type SessionSynchronizer,
 } from "./session";
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+};
+
+const storedIdentity = new Map<string, string>();
+let pendingTokenWrite: { started: Deferred<void>; release: Deferred<void> } | null = null;
+let pendingWorkspaceWrite: {
+  operation: "delete" | "set";
+  started: Deferred<void>;
+  release: Deferred<void>;
+} | null = null;
+
+mock.module("expo-secure-store", () => ({
+  getItemAsync: async (key: string) => storedIdentity.get(key) ?? null,
+  setItemAsync: async (key: string, value: string) => {
+    const pending = key === "openpost.auth.token" ? pendingTokenWrite : null;
+    if (pending) {
+      pendingTokenWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
+    const workspacePending =
+      key === "openpost.workspace.id" && pendingWorkspaceWrite?.operation === "set"
+        ? pendingWorkspaceWrite
+        : null;
+    if (workspacePending) {
+      pendingWorkspaceWrite = null;
+      workspacePending.started.resolve();
+      await workspacePending.release.promise;
+    }
+    storedIdentity.set(key, value);
+  },
+  deleteItemAsync: async (key: string) => {
+    const pending =
+      key === "openpost.workspace.id" && pendingWorkspaceWrite?.operation === "delete"
+        ? pendingWorkspaceWrite
+        : null;
+    if (pending) {
+      pendingWorkspaceWrite = null;
+      pending.started.resolve();
+      await pending.release.promise;
+    }
+    storedIdentity.delete(key);
+  },
+}));
+
+const { getServer, setServer } = await import("./server");
+const { getToken, getWorkspaceId, loadToken, loadWorkspaceId } = await import("./api/token-store");
+const {
+  apiRequestIdentityIsCurrent,
+  captureApiRequestIdentity,
+  clearTokenForIdentity,
+  commitTokenForIdentity,
+  commitWorkspaceIdForIdentity,
+} = await import("./api/client");
 
 test("restores the selected workspace before a signed-in session becomes ready", async () => {
   let workspaceId: string | null = null;
@@ -32,6 +89,13 @@ test("restores the selected workspace before a signed-in session becomes ready",
 });
 
 describe("authenticated session bootstrap", () => {
+  afterEach(() => {
+    pendingTokenWrite?.release.resolve();
+    pendingWorkspaceWrite?.release.resolve();
+    pendingTokenWrite = null;
+    pendingWorkspaceWrite = null;
+  });
+
   test("reuses a fresh bootstrap result for the same session and preference", async () => {
     const queryClient = new QueryClient();
     const state = synchronizer(queryClient, { bootstrap: bootstrap() });
@@ -149,6 +213,113 @@ describe("authenticated session bootstrap", () => {
     expect(queryClient.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
     queryClient.clear();
   });
+
+  test("does not clear a newer token when an old bootstrap reports anonymous", async () => {
+    storedIdentity.clear();
+    storedIdentity.set("openpost.auth.token", "token-old");
+    storedIdentity.set("openpost.workspace.id", "workspace-old");
+    await loadToken();
+    await loadWorkspaceId();
+    await setServer("https://anonymous-bootstrap.example.com");
+    const bootstrapStarted = deferred<void>();
+    const releaseBootstrap = deferred<AppBootstrap>();
+    const client = new QueryClient();
+    const synchronization = synchronizeSession(
+      {
+        queryClient: client,
+        getServer: () => ({ baseUrl: "https://anonymous-bootstrap.example.com", isHosted: false }),
+        getToken,
+        getWorkspaceId,
+        captureIdentity: captureApiRequestIdentity,
+        identityIsCurrent: apiRequestIdentityIsCurrent,
+        commitWorkspaceId: commitWorkspaceIdForIdentity,
+        clearToken: clearTokenForIdentity,
+        readAppBootstrap: async () => {
+          bootstrapStarted.resolve();
+          return releaseBootstrap.promise;
+        },
+      },
+      new AbortController().signal,
+    );
+    await bootstrapStarted.promise;
+    const tokenWriteStarted = deferred<void>();
+    const releaseTokenWrite = deferred<void>();
+    pendingTokenWrite = { started: tokenWriteStarted, release: releaseTokenWrite };
+    const newerLogin = commitTokenForIdentity("token-new", captureApiRequestIdentity());
+    await tokenWriteStarted.promise;
+    releaseBootstrap.resolve({
+      authenticated: false,
+      selected_workspace_id: null,
+      selected_workspace_settings: null,
+      user: null,
+      workspaces: [],
+    });
+    releaseTokenWrite.resolve();
+
+    expect(await newerLogin).toBe(true);
+    await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
+    expect(getToken()).toBe("token-new");
+    expect(storedIdentity.get("openpost.auth.token")).toBe("token-new");
+    expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+    client.clear();
+  });
+
+  for (const scenario of [
+    { name: "overwrite", operation: "set" as const, selectedWorkspaceId: "workspace-new" },
+    { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
+  ]) {
+    test(`does not ${scenario.name} the Workspace after its server changes mid-write`, async () => {
+      await hydrateStoredIdentity("token-old", "workspace-old");
+      await setServer("https://old-bootstrap.example.com");
+      const started = deferred<void>();
+      const release = deferred<void>();
+      pendingWorkspaceWrite = { operation: scenario.operation, started, release };
+      const client = new QueryClient();
+      const synchronization = synchronizeSession(
+        actualSynchronizer(client, bootstrapFor(scenario.selectedWorkspaceId)),
+        new AbortController().signal,
+      );
+
+      await started.promise;
+      await setServer("https://new-bootstrap.example.com");
+      release.resolve();
+
+      await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
+      expect(storedIdentity.get("openpost.workspace.id")).toBe("workspace-old");
+      expect(getWorkspaceId()).toBe("workspace-old");
+      expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+      client.clear();
+    });
+  }
+
+  for (const scenario of [
+    { name: "overwrite", operation: "set" as const, selectedWorkspaceId: "workspace-new" },
+    { name: "clear", operation: "delete" as const, selectedWorkspaceId: null },
+  ]) {
+    test(`does not ${scenario.name} the Workspace after a token change queues mid-write`, async () => {
+      await hydrateStoredIdentity("token-old", "workspace-old");
+      await setServer("https://token-bootstrap.example.com");
+      const started = deferred<void>();
+      const release = deferred<void>();
+      pendingWorkspaceWrite = { operation: scenario.operation, started, release };
+      const client = new QueryClient();
+      const synchronization = synchronizeSession(
+        actualSynchronizer(client, bootstrapFor(scenario.selectedWorkspaceId)),
+        new AbortController().signal,
+      );
+
+      await started.promise;
+      const newerLogin = commitTokenForIdentity("token-new", captureApiRequestIdentity());
+      release.resolve();
+
+      await expect(synchronization).rejects.toMatchObject({ name: "AbortError" });
+      expect(await newerLogin).toBe(true);
+      expect(storedIdentity.has("openpost.workspace.id")).toBe(false);
+      expect(getWorkspaceId()).toBeNull();
+      expect(client.getQueryData(openPostBootstrapQueryKeys.workspaces())).toBeUndefined();
+      client.clear();
+    });
+  }
 });
 
 function synchronizer(
@@ -173,6 +344,15 @@ function synchronizer(
     getServer: () => ({ baseUrl: "https://app.openpo.st", isHosted: true }),
     getToken: () => state.token,
     getWorkspaceId: () => workspaceId,
+    captureIdentity: () => ({
+      serverBaseUrl: "https://app.openpo.st",
+      serverMutationRevision: 0,
+      token: state.token,
+      tokenMutationRevision: 0,
+      workspaceMutationRevision: 0,
+    }),
+    identityIsCurrent: (identity) =>
+      identity.serverBaseUrl === "https://app.openpo.st" && identity.token === state.token,
     commitWorkspaceId: async (nextWorkspaceId) => {
       if (nextWorkspaceId) savedWorkspaceIds.push(nextWorkspaceId);
       else state.clearWorkspaceCalls += 1;
@@ -183,6 +363,7 @@ function synchronizer(
       state.clearTokenCalls += 1;
       state.token = null;
       workspaceId = null;
+      return true;
     },
     readAppBootstrap: async () => {
       state.bootstrapCalls += 1;
@@ -226,4 +407,53 @@ function bootstrap(): AppBootstrap {
       },
     ],
   };
+}
+
+function bootstrapFor(selectedWorkspaceId: string | null): AppBootstrap {
+  if (!selectedWorkspaceId) {
+    return {
+      ...bootstrap(),
+      selected_workspace_id: null,
+      selected_workspace_settings: null,
+      workspaces: [],
+    };
+  }
+  const result = bootstrap();
+  const workspace = { ...result.workspaces[0], id: selectedWorkspaceId };
+  return {
+    ...result,
+    selected_workspace_id: selectedWorkspaceId,
+    selected_workspace_settings: { ...result.selected_workspace_settings!, name: workspace.name },
+    workspaces: [workspace],
+  };
+}
+
+function actualSynchronizer(queryClient: QueryClient, result: AppBootstrap): SessionSynchronizer {
+  return {
+    queryClient,
+    getServer,
+    getToken,
+    getWorkspaceId,
+    captureIdentity: captureApiRequestIdentity,
+    identityIsCurrent: apiRequestIdentityIsCurrent,
+    commitWorkspaceId: commitWorkspaceIdForIdentity,
+    clearToken: clearTokenForIdentity,
+    readAppBootstrap: async () => result,
+  };
+}
+
+async function hydrateStoredIdentity(token: string, workspaceId: string): Promise<void> {
+  storedIdentity.clear();
+  storedIdentity.set("openpost.auth.token", token);
+  storedIdentity.set("openpost.workspace.id", workspaceId);
+  await loadToken();
+  await loadWorkspaceId();
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: Deferred<T>["resolve"];
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }

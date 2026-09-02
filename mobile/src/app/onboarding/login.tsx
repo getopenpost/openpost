@@ -46,6 +46,17 @@ export default function LoginScreen() {
     }
   }
 
+  async function chooseAnotherServer() {
+    setError(null);
+    try {
+      await clearServer();
+      router.replace("/onboarding/server");
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setError("Could not change the server. Try again.");
+    }
+  }
+
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
@@ -128,9 +139,7 @@ export default function LoginScreen() {
           <Button
             title="Use a different server"
             variant="plain"
-            onPress={() => {
-              void clearServer().then(() => router.replace("/onboarding/server"));
-            }}
+            onPress={() => void chooseAnotherServer()}
           />
         </ScrollView>
       </KeyboardAvoidingView>

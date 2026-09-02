@@ -24,6 +24,13 @@
 	import { queryClient } from '$lib/query/client';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { inboxQueryAPI } from '$lib/query/inbox';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -58,12 +65,16 @@
 	type Publication = components['schemas']['PublicationResponse'];
 	type EngagementQueryKey = ReturnType<typeof inboxQueryKeys.engagement>;
 	type EngagementMutationScope = {
+		session: QueryMutationSession;
 		workspaceID: string;
+		itemID: string;
 		queryKey: EngagementQueryKey;
 		unreadOnly: boolean;
+		viewKey: string;
 	};
 
 	let refreshing = $state(false);
+	let refreshSequence = 0;
 	let unreadOnly = $state(false);
 	let archived = $state(false);
 	let platformFilter = $state('');
@@ -77,7 +88,10 @@
 	let replyItemId = $state('');
 	let replyBody = $state('');
 	let actionInFlight = $state('');
+	let actionRequestSequence = 0;
+	let appliedActionViewKey = '';
 	let confirmItem = $state.raw<EngagementItem | null>(null);
+	let confirmScope = $state.raw<EngagementMutationScope | null>(null);
 	let confirmAction = $state<'hide' | 'delete'>('delete');
 	let confirmDialogOpen = $state(false);
 	let toast = $state('');
@@ -277,6 +291,14 @@
 
 	$effect(() => {
 		if (workspaceId && workspaceId !== publicationWorkspaceId) {
+			refreshSequence++;
+			refreshing = false;
+			actionInFlight = '';
+			replyItemId = '';
+			replyBody = '';
+			confirmItem = null;
+			confirmScope = null;
+			confirmDialogOpen = false;
 			publicationWorkspaceId = workspaceId;
 			selectedPublication = null;
 			publicationFilter = '';
@@ -284,6 +306,14 @@
 			publicationSearch = '';
 			publicationQuerySearch = '';
 		}
+	});
+
+	$effect(() => {
+		const nextViewKey = engagementViewKey();
+		if (nextViewKey === appliedActionViewKey) return;
+		appliedActionViewKey = nextViewKey;
+		actionRequestSequence += 1;
+		actionInFlight = '';
 	});
 
 	function searchPublications(search: string) {
@@ -329,15 +359,22 @@
 
 	async function refresh() {
 		if (!workspaceId || engagementAllDisabled) return;
-		const requestedWorkspaceID = workspaceId;
+		const view = captureEngagementMutationView('', unreadOnly);
+		const sequence = ++refreshSequence;
 		refreshing = true;
-		const { data, error: apiError } = await client.POST('/engagement/refresh', {
-			body: { workspace_id: requestedWorkspaceID }
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/engagement/refresh', {
+			body: { workspace_id: view.workspaceID }
 		});
-		refreshing = false;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (sequence === refreshSequence) refreshing = false;
+		if (!sessionIsCurrent) return;
 		const failed = apiError || data?.status === 'failed';
 		const unavailable = data?.status === 'unavailable';
-		if (workspaceId === requestedWorkspaceID) {
+		if (engagementMutationViewIsCurrent(view)) {
 			showToast(
 				unavailable
 					? m.engagement_refresh_unavailable()
@@ -348,9 +385,13 @@
 			);
 		}
 		if (!failed && !unavailable) {
-			void queryClient.invalidateQueries({
-				queryKey: inboxQueryKeys.engagementRoot(requestedWorkspaceID),
-				refetchType: 'none'
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.engagementRoot(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
 			});
 		}
 	}
@@ -361,58 +402,66 @@
 		announce = true,
 		scope?: EngagementMutationScope
 	) {
-		const requestedWorkspaceID = scope?.workspaceID ?? workspaceId;
-		if (!requestedWorkspaceID || (!scope && engagementAllDisabled)) return false;
-		const queryKey =
-			scope?.queryKey ?? inboxQueryKeys.engagement(requestedWorkspaceID, engagementFilters);
-		const requestedUnreadOnly = scope?.unreadOnly ?? unreadOnly;
-		if (requestedWorkspaceID === workspaceId) actionInFlight = item.id;
-		const { error: apiError } = await client.POST('/engagement/state', {
-			body: { workspace_id: requestedWorkspaceID, ids: [item.id], ...state }
-		});
-		const scopeIsCurrent = requestedWorkspaceID === workspaceId;
-		if (scopeIsCurrent && actionInFlight === item.id) actionInFlight = '';
-		if (apiError) {
-			if (announce && scopeIsCurrent) showToast(m.engagement_action_failed(), 'error');
-			return false;
+		const view = scope ?? captureEngagementMutationView(item.id, unreadOnly);
+		if (!view.workspaceID || (!scope && engagementAllDisabled)) return false;
+		const managesBusyState = scope === undefined;
+		const requestSequence = managesBusyState ? ++actionRequestSequence : 0;
+		if (managesBusyState && engagementMutationViewIsCurrent(view)) actionInFlight = item.id;
+		try {
+			const { error: apiError, response } = await client.POST('/engagement/state', {
+				body: { workspace_id: view.workspaceID, ids: [item.id], ...state }
+			});
+			if (!settleQueryMutationSession(view.session, response)) return false;
+			const scopeIsCurrent = engagementMutationViewIsCurrent(view);
+			if (apiError) {
+				if (announce && scopeIsCurrent) showToast(m.engagement_action_failed(), 'error');
+				return false;
+			}
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: inboxQueryKeys.engagementRoot(view.workspaceID) }],
+				reconcile: () => {
+					if (state.archived !== undefined || (state.read && view.unreadOnly)) {
+						updateEngagementData(view.queryKey, (page) => ({
+							...page,
+							items: (page.items ?? []).filter((candidate) => candidate.id !== item.id),
+							total: Math.max(0, page.total - 1)
+						}));
+					} else if (state.read !== undefined) {
+						updateEngagementData(view.queryKey, (page) => ({
+							...page,
+							items: (page.items ?? []).map((candidate) =>
+								candidate.id === item.id
+									? {
+											...candidate,
+											read_at: state.read ? new Date().toISOString() : undefined
+										}
+									: candidate
+							)
+						}));
+					}
+				},
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.engagementRoot(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
+			});
+			if (!reconciled) return false;
+			if (announce && engagementMutationViewIsCurrent(view)) {
+				showToast(
+					state.archived === true
+						? m.engagement_archived_success()
+						: state.archived === false
+							? m.engagement_restored_success()
+							: m.engagement_read_success(),
+					'success'
+				);
+			}
+			return true;
+		} finally {
+			if (managesBusyState && requestSequence === actionRequestSequence) actionInFlight = '';
 		}
-		await queryClient.cancelQueries({
-			queryKey: inboxQueryKeys.engagementRoot(requestedWorkspaceID)
-		});
-		if (state.archived !== undefined || (state.read && requestedUnreadOnly)) {
-			updateEngagementData(queryKey, (page) => ({
-				...page,
-				items: (page.items ?? []).filter((candidate) => candidate.id !== item.id),
-				total: Math.max(0, page.total - 1)
-			}));
-		} else if (state.read !== undefined) {
-			updateEngagementData(queryKey, (page) => ({
-				...page,
-				items: (page.items ?? []).map((candidate) =>
-					candidate.id === item.id
-						? {
-								...candidate,
-								read_at: state.read ? new Date().toISOString() : undefined
-							}
-						: candidate
-				)
-			}));
-		}
-		void queryClient.invalidateQueries({
-			queryKey: inboxQueryKeys.engagementRoot(requestedWorkspaceID),
-			refetchType: 'none'
-		});
-		if (announce && scopeIsCurrent) {
-			showToast(
-				state.archived === true
-					? m.engagement_archived_success()
-					: state.archived === false
-						? m.engagement_restored_success()
-						: m.engagement_read_success(),
-				'success'
-			);
-		}
-		return true;
 	}
 
 	async function queueAction(
@@ -421,56 +470,92 @@
 		announce = true
 	) {
 		if (!workspaceId || engagementAllDisabled) return false;
-		const requestedWorkspaceID = workspaceId;
-		const queryKey = inboxQueryKeys.engagement(requestedWorkspaceID, engagementFilters);
-		const scope = { workspaceID: requestedWorkspaceID, queryKey, unreadOnly };
+		const scope = captureEngagementMutationView(item.id, unreadOnly);
+		const requestSequence = ++actionRequestSequence;
 		actionInFlight = item.id;
 		try {
-			const { error: apiError } = await client.POST('/engagement/{item_id}/actions', {
+			const { error: apiError, response } = await client.POST('/engagement/{item_id}/actions', {
 				params: { path: { item_id: item.id } },
 				body: {
-					workspace_id: requestedWorkspaceID,
+					workspace_id: scope.workspaceID,
 					action,
 					message: action === 'reply' ? replyBody.trim() : undefined
 				}
 			});
+			if (!settleQueryMutationSession(scope.session, response)) return false;
 			if (apiError) {
-				if (announce && workspaceId === requestedWorkspaceID) {
+				if (announce && engagementMutationViewIsCurrent(scope)) {
 					showToast(apiError.detail || m.engagement_action_failed(), 'error');
 				}
 				return false;
 			}
+			if (action === 'reply' && engagementMutationViewIsCurrent(scope) && replyItemId === item.id) {
+				replyItemId = '';
+				replyBody = '';
+			}
+			if (action === 'like' || action === 'unlike') {
+				const liked = action === 'like';
+				const reconciled = await reconcileQueryMutation(queryClient, scope.session, {
+					cancel: [{ queryKey: inboxQueryKeys.engagementRoot(scope.workspaceID) }],
+					reconcile: () =>
+						updateEngagementData(scope.queryKey, (page) => ({
+							...page,
+							items: (page.items ?? []).map((candidate) =>
+								candidate.id === item.id
+									? { ...candidate, liked, can_like: !liked, can_unlike: liked }
+									: candidate
+							)
+						}))
+				});
+				if (!reconciled) return false;
+			}
+			const stateUpdated = await setState(item, { read: true }, false, scope);
+			if (!stateUpdated) return false;
+			if (announce && engagementMutationViewIsCurrent(scope)) {
+				showToast(m.engagement_action_queued(), 'success');
+			}
+			return engagementMutationViewIsCurrent(scope);
 		} catch {
-			if (announce && workspaceId === requestedWorkspaceID) {
+			if (announce && engagementMutationViewIsCurrent(scope)) {
 				showToast(m.engagement_action_failed(), 'error');
 			}
 			return false;
 		} finally {
-			if (workspaceId === requestedWorkspaceID && actionInFlight === item.id) actionInFlight = '';
+			if (requestSequence === actionRequestSequence) actionInFlight = '';
 		}
-		if (action === 'reply' && workspaceId === requestedWorkspaceID && replyItemId === item.id) {
-			replyItemId = '';
-			replyBody = '';
-		}
-		if (action === 'like' || action === 'unlike') {
-			await queryClient.cancelQueries({
-				queryKey: inboxQueryKeys.engagementRoot(requestedWorkspaceID)
-			});
-			const liked = action === 'like';
-			updateEngagementData(queryKey, (page) => ({
-				...page,
-				items: (page.items ?? []).map((candidate) =>
-					candidate.id === item.id
-						? { ...candidate, liked, can_like: !liked, can_unlike: liked }
-						: candidate
-				)
-			}));
-		}
-		await setState(item, { read: true }, false, scope);
-		if (announce && workspaceId === requestedWorkspaceID) {
-			showToast(m.engagement_action_queued(), 'success');
-		}
-		return true;
+	}
+
+	function engagementViewKey() {
+		return JSON.stringify([
+			workspaceId,
+			platformFilter,
+			accountFilter,
+			publicationFilter,
+			unreadOnly,
+			archived
+		]);
+	}
+
+	function captureEngagementMutationView(
+		itemID: string,
+		requestedUnreadOnly: boolean
+	): EngagementMutationScope {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: workspaceId,
+			itemID,
+			queryKey: inboxQueryKeys.engagement(workspaceId, engagementFilters),
+			unreadOnly: requestedUnreadOnly,
+			viewKey: engagementViewKey()
+		};
+	}
+
+	function engagementMutationViewIsCurrent(view: EngagementMutationScope) {
+		return (
+			view.workspaceID === workspaceId &&
+			view.viewKey === engagementViewKey() &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function updateEngagementData(
@@ -499,16 +584,30 @@
 
 	function requestProviderAction(item: EngagementItem, action: 'hide' | 'delete') {
 		confirmItem = item;
+		confirmScope = captureEngagementMutationView(item.id, unreadOnly);
 		confirmAction = action;
 		confirmDialogOpen = true;
 	}
 
 	async function confirmProviderAction(): Promise<DestructiveActionOutcome> {
 		const item = confirmItem;
+		const scope = confirmScope;
 		const action = confirmAction;
-		if (!item) return { ok: false };
+		if (!item || !scope || scope.itemID !== item.id || !engagementMutationViewIsCurrent(scope)) {
+			return { ok: false };
+		}
 		const completed = await queueAction(item, action, false);
-		if (completed) confirmItem = null;
+		if (
+			confirmItem?.id !== item.id ||
+			confirmScope !== scope ||
+			!engagementMutationViewIsCurrent(scope)
+		) {
+			return { ok: false };
+		}
+		if (completed) {
+			confirmItem = null;
+			confirmScope = null;
+		}
 		return {
 			ok: completed,
 			message: completed ? undefined : m.engagement_action_failed(),

@@ -20,13 +20,19 @@
 		type MediaTagList
 	} from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { mediaQueryAPI } from '$lib/query/media';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
 	import { queryImageEditorConfig } from '$lib/query/image-editor';
 	import { clampMediaPage } from '$lib/media-pagination';
 	import { mediaInitialLoading } from '$lib/media-initial-loading';
-	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -100,8 +106,8 @@
 		| '/settings?tab=brand';
 
 	type LibraryDeletionRequest =
-		| { kind: 'single'; media: MediaItem }
-		| { kind: 'batch'; ids: string[] };
+		| { kind: 'single'; media: MediaItem; context: MediaMutationContext }
+		| { kind: 'batch'; ids: string[]; context: MediaMutationContext };
 
 	let workspaces = $derived<Workspace[]>(workspaceCtx.workspaces);
 	let selectedWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -149,6 +155,7 @@
 	let selectionOrganizationDialogOpen = $state(false);
 	let batchTagID = $state('');
 	let organizationSaving = $state(false);
+	let organizationSaveSequence = 0;
 	let storageUsage = $state({ used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 });
 	let imageEditorEnabled = $state(true);
 	let mediaCanEdit = $state(false);
@@ -182,7 +189,7 @@
 		'flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted data-disabled:pointer-events-none data-disabled:opacity-45';
 
 	interface MediaMutationContext {
-		identity: AuthIdentityToken | undefined;
+		session: QueryMutationSession;
 		workspaceID: string;
 		workspaceRevision: number;
 		viewKey: string;
@@ -195,7 +202,7 @@
 
 	function captureMediaMutationContext(): MediaMutationContext {
 		return {
-			identity: auth.captureIdentity(),
+			session: captureQueryMutationSession(),
 			workspaceID: selectedWorkspaceId,
 			workspaceRevision: workspaceViewRevision,
 			viewKey: mediaViewKey()
@@ -203,7 +210,7 @@
 	}
 
 	function mediaMutationActorIsCurrent(context: MediaMutationContext): boolean {
-		return auth.isIdentityCurrent(context.identity);
+		return queryMutationSessionIsCurrent(context.session);
 	}
 
 	function mediaMutationSurfaceIsCurrent(context: MediaMutationContext): boolean {
@@ -226,7 +233,7 @@
 	): Promise<boolean> {
 		if (!mediaMutationActorIsCurrent(context)) return false;
 
-		if (context.workspaceID === selectedWorkspaceId) {
+		if (mediaMutationSurfaceIsCurrent(context)) {
 			mediaRequestSequence++;
 			mediaLoading = false;
 		}
@@ -238,8 +245,8 @@
 		});
 		if (!reconciled) return false;
 
-		if (context.workspaceID === selectedWorkspaceId && !mediaMutationViewIsCurrent(context)) {
-			void loadMedia(context.workspaceID);
+		if (mediaMutationSurfaceIsCurrent(context) && !mediaMutationViewIsCurrent(context)) {
+			void loadMedia(context.workspaceID, false, captureMediaMutationContext());
 		}
 		return mediaMutationViewIsCurrent(context);
 	}
@@ -363,7 +370,11 @@
 		}
 	}
 
-	async function loadMedia(workspaceID = selectedWorkspaceId, force = false) {
+	async function loadMedia(
+		workspaceID = selectedWorkspaceId,
+		force = false,
+		mutationContext?: MediaMutationContext
+	) {
 		if (!workspaceID) {
 			mediaRequestSequence++;
 			mediaLoading = false;
@@ -375,6 +386,7 @@
 			return;
 		}
 		if (workspaceID !== selectedWorkspaceId) return;
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
 		const requestKey = mediaViewKey(workspaceID);
 		const options = mediaListQueryOptions(mediaQueryAPI, workspaceID, {
 			lifecycle: lifecycleView,
@@ -399,7 +411,8 @@
 		const isCurrentRequest = () =>
 			requestSequence === mediaRequestSequence &&
 			selectedWorkspaceId === workspaceID &&
-			mediaViewKey(workspaceID) === requestKey;
+			mediaViewKey(workspaceID) === requestKey &&
+			(!mutationContext || mediaMutationViewIsCurrent(mutationContext));
 		const cached = queryClient.getQueryData<MediaListResult>(options.queryKey);
 		if (cached) {
 			mediaItems = (cached.media ?? []).map(normalizeMediaItem);
@@ -425,6 +438,7 @@
 					exact: true,
 					refetchType: 'none'
 				});
+				if (!isCurrentRequest()) return;
 			}
 			const data = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
@@ -432,7 +446,10 @@
 			const clampedPage = clampMediaPage(currentPage, nextTotalCount, pageSize);
 			if (clampedPage !== currentPage) {
 				currentPage = clampedPage;
-				await loadMedia(workspaceID);
+				const clampedContext = mutationContext
+					? { ...mutationContext, viewKey: mediaViewKey(workspaceID) }
+					: undefined;
+				await loadMedia(workspaceID, false, clampedContext);
 				return;
 			}
 			mediaItems = (data.media ?? []).map(normalizeMediaItem);
@@ -449,7 +466,11 @@
 		}
 	}
 
-	async function loadImageEditorHub(workspaceID = selectedWorkspaceId, force = false) {
+	async function loadImageEditorHub(
+		workspaceID = selectedWorkspaceId,
+		force = false,
+		mutationContext?: MediaMutationContext
+	) {
 		if (!workspaceID) {
 			hubRequestSequence++;
 			hubLoading = false;
@@ -463,9 +484,12 @@
 			return;
 		}
 		if (workspaceID !== selectedWorkspaceId) return;
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
 		const requestSequence = ++hubRequestSequence;
 		const isCurrentRequest = () =>
-			requestSequence === hubRequestSequence && selectedWorkspaceId === workspaceID;
+			requestSequence === hubRequestSequence &&
+			selectedWorkspaceId === workspaceID &&
+			(!mutationContext || mediaMutationViewIsCurrent(mutationContext));
 		hubLoading = true;
 		hubError = '';
 		if (loadedHubWorkspaceId !== workspaceID) {
@@ -513,6 +537,7 @@
 						refetchType: 'none'
 					})
 				]);
+				if (!isCurrentRequest()) return;
 			}
 			const [configResult, tagResult, storageResult] = await Promise.allSettled([
 				queryImageEditorConfig(),
@@ -536,7 +561,10 @@
 				if (nextSelected.length !== selectedTagIDs.length) {
 					selectedTagIDs = nextSelected;
 					currentPage = 0;
-					void loadMedia(workspaceID);
+					const filteredContext = mutationContext
+						? { ...mutationContext, viewKey: mediaViewKey(workspaceID) }
+						: undefined;
+					void loadMedia(workspaceID, false, filteredContext);
 				}
 			} else {
 				failure ??= tagResult.reason;
@@ -559,12 +587,16 @@
 		}
 	}
 
-	async function refreshMediaLists(workspaceID = selectedWorkspaceId) {
+	async function refreshMediaLists(
+		workspaceID = selectedWorkspaceId,
+		mutationContext?: MediaMutationContext
+	) {
 		await queryClient.invalidateQueries({
 			queryKey: mediaQueryKeys.lists(workspaceID),
 			refetchType: 'none'
 		});
-		await loadMedia(workspaceID);
+		if (mutationContext && !mediaMutationViewIsCurrent(mutationContext)) return;
+		await loadMedia(workspaceID, false, mutationContext);
 	}
 
 	function resetAssetFilters() {
@@ -611,9 +643,11 @@
 				? [...new Set([...selectedMedia.tags, tagID])]
 				: selectedMedia.tags.filter((id) => id !== tagID);
 		}
-		await loadImageEditorHub(context.workspaceID, true);
+		await loadImageEditorHub(context.workspaceID, true, context);
 		if (!mediaMutationViewIsCurrent(context)) return;
-		if (selected && lifecycleView === 'temporary') await loadMedia(context.workspaceID);
+		if (selected && lifecycleView === 'temporary') {
+			await loadMedia(context.workspaceID, false, context);
+		}
 	}
 
 	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
@@ -622,14 +656,14 @@
 		if (!mediaMutationViewIsCurrent(context)) return;
 		await updateMediaTagItems(context.workspaceID, tag.id, [mediaID], 'add');
 		if (!mediaMutationViewIsCurrent(context)) return;
-		await loadImageEditorHub(context.workspaceID, true);
+		await loadImageEditorHub(context.workspaceID, true, context);
 		if (!mediaMutationViewIsCurrent(context)) return;
 		const item = mediaItems.find((media) => media.id === mediaID);
 		if (item) item.tags = [...new Set([...item.tags, tag.id])];
 		if (selectedMedia?.id === mediaID) {
 			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
 		}
-		if (lifecycleView === 'temporary') await loadMedia(context.workspaceID);
+		if (lifecycleView === 'temporary') await loadMedia(context.workspaceID, false, context);
 	}
 
 	function uploadTagID(): string | undefined {
@@ -672,9 +706,14 @@
 		if (!mediaMutationSurfaceIsCurrent(context)) return false;
 		const previousFavorite = mediaItems.find((media) => media.id === mediaId)?.is_favorite ?? false;
 		try {
-			const { data, error: err } = await client.PATCH('/media/{id}/favorite', {
+			const {
+				data,
+				error: err,
+				response
+			} = await client.PATCH('/media/{id}/favorite', {
 				params: { path: { id: mediaId } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return false;
 			if (err) throw new Error(err.detail || m.media_favorite_failed());
 			const nextFavorite = data?.is_favorite ?? !previousFavorite;
 			const viewIsCurrent = await reconcileMediaMutation(context, mediaId, (item) => ({
@@ -686,7 +725,7 @@
 			const item = mediaItems.find((media) => media.id === mediaId);
 			if (item) item.is_favorite = nextFavorite;
 			if (lifecycleView === 'temporary' || (filter === 'favorites' && !nextFavorite)) {
-				await loadMedia(context.workspaceID);
+				await loadMedia(context.workspaceID, false, context);
 			}
 			return true;
 		} catch (e) {
@@ -714,17 +753,17 @@
 		const id = batchTagID;
 		const mediaIDs = Array.from(selectedMediaIds);
 		if (!id || mediaIDs.length === 0) return;
+		const context = captureMediaMutationContext();
+		const sequence = ++organizationSaveSequence;
 		organizationSaving = true;
 		try {
-			const result = await client.PUT('/media/tags/{id}/items', {
-				params: { path: { id } },
-				body: { media_ids: mediaIDs, mode }
-			});
-			if (result.error) throw new Error(result.error.detail);
+			await updateMediaTagItems(context.workspaceID, id, mediaIDs, mode);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			await Promise.all([
-				refreshMediaLists(selectedWorkspaceId),
-				loadImageEditorHub(selectedWorkspaceId, true)
+				refreshMediaLists(context.workspaceID, context),
+				loadImageEditorHub(context.workspaceID, true, context)
 			]);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			notify(
 				mode === 'remove'
 					? m.media_organization_removed({
@@ -739,9 +778,11 @@
 			selectionOrganizationDialogOpen = false;
 			batchTagID = '';
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_assets_organize_failed(), 'error');
+			if (mediaMutationViewIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_assets_organize_failed(), 'error');
+			}
 		} finally {
-			organizationSaving = false;
+			if (sequence === organizationSaveSequence) organizationSaving = false;
 		}
 	}
 
@@ -751,53 +792,84 @@
 			void showUsage(media);
 			return;
 		}
-		deletionRequest = { kind: 'single', media };
+		deletionRequest = { kind: 'single', media, context: captureMediaMutationContext() };
 		deleteDialogOpen = true;
 	}
 
 	function requestDeleteSelectedBatch() {
 		const ids = [...selectedDeletableIds];
 		if (ids.length === 0) return;
-		deletionRequest = { kind: 'batch', ids };
+		deletionRequest = { kind: 'batch', ids, context: captureMediaMutationContext() };
 		deleteDialogOpen = true;
 	}
 
 	async function restoreMedia(mediaId: string) {
+		const context = captureMediaMutationContext();
 		try {
-			const { error: err } = await client.POST('/media/{id}/restore', {
+			const { error: err, response } = await client.POST('/media/{id}/restore', {
 				params: { path: { id: mediaId } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (err) throw new Error(err.detail || m.media_trash_restore_failed());
-			await refreshMediaLists(selectedWorkspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, context.session, {
+				invalidate: [{ queryKey: mediaQueryKeys.lists(context.workspaceID), refetchType: 'none' }]
+			});
+			if (!reconciled || !mediaMutationViewIsCurrent(context)) return;
+			await loadMedia(context.workspaceID, false, context);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			notify(m.media_trash_restored(), 'success');
 		} catch (cause) {
-			notify(cause instanceof Error ? cause.message : m.media_trash_restore_failed(), 'error');
+			if (mediaMutationViewIsCurrent(context)) {
+				notify(cause instanceof Error ? cause.message : m.media_trash_restore_failed(), 'error');
+			}
 		}
 	}
 
-	async function deleteSelectedBatch(ids: string[]) {
+	async function deleteSelectedBatch(ids: string[], context: MediaMutationContext) {
 		if (ids.length === 0) {
 			return { ok: false, remainingIDs: ids, message: m.media_deleted_none() };
 		}
+		if (!mediaMutationViewIsCurrent(context)) return { ok: false, remainingIDs: ids };
 		try {
 			const result = await requestRecoverableMediaBatchDeletion(ids, async (requestedIDs) => {
-				const { data, error: err } = await client.POST('/media/batch-delete', {
+				if (!mediaMutationActorIsCurrent(context)) {
+					return { deleted: 0, failed_ids: requestedIDs };
+				}
+				const {
+					data,
+					error: err,
+					response
+				} = await client.POST('/media/batch-delete', {
 					body: { media_ids: requestedIDs }
 				});
+				if (!settleQueryMutationSession(context.session, response)) {
+					return { deleted: 0, failed_ids: requestedIDs };
+				}
 				if (err) {
 					throw new MediaBatchDeletionRejected(err.detail || m.media_delete_failed());
 				}
 				return data ?? { deleted: 0, failed_ids: requestedIDs };
 			});
+			if (!mediaMutationActorIsCurrent(context)) {
+				return { ok: false, remainingIDs: ids };
+			}
 			const remainingIDs = remainingMediaDeletionIDs(ids, result);
 			const remainingIDSet = new Set(remainingIDs);
-			for (const deletedID of ids.filter((id) => !remainingIDSet.has(id))) {
-				queryClient.removeQueries({
-					queryKey: mediaQueryKeys.usage(selectedWorkspaceId, deletedID),
-					exact: true
-				});
+			const reconciled = await reconcileQueryMutation(queryClient, context.session, {
+				reconcile: () => {
+					for (const deletedID of ids.filter((id) => !remainingIDSet.has(id))) {
+						queryClient.removeQueries({
+							queryKey: mediaQueryKeys.usage(context.workspaceID, deletedID),
+							exact: true
+						});
+					}
+				},
+				invalidate: [{ queryKey: mediaQueryKeys.lists(context.workspaceID), refetchType: 'none' }]
+			});
+			if (!reconciled) return { ok: false, remainingIDs: ids };
+			if (mediaMutationViewIsCurrent(context)) {
+				await loadMedia(context.workspaceID, false, context);
 			}
-			await refreshMediaLists(selectedWorkspaceId);
 
 			const failedCount = remainingIDs.length;
 			if (result.deleted === 0) {
@@ -815,6 +887,7 @@
 				successMessage: deletedCountLabel(result.deleted)
 			};
 		} catch (e) {
+			if (!mediaMutationActorIsCurrent(context)) return { ok: false, remainingIDs: ids };
 			return {
 				ok: false,
 				remainingIDs: ids,
@@ -825,18 +898,20 @@
 
 	async function confirmLibraryDeletion(): Promise<DestructiveActionOutcome> {
 		const request = deletionRequest;
-		if (!request) return { ok: false };
+		if (!request || !mediaMutationViewIsCurrent(request.context)) return { ok: false };
 		if (request.kind === 'single') {
-			const outcome = await deleteSelectedBatch([request.media.id]);
+			const outcome = await deleteSelectedBatch([request.media.id], request.context);
+			if (!mediaMutationViewIsCurrent(request.context)) return { ok: false };
 			return {
 				ok: outcome.ok,
 				message: outcome.message,
 				successMessage: outcome.successMessage
 			};
 		}
-		const outcome = await deleteSelectedBatch(request.ids);
+		const outcome = await deleteSelectedBatch(request.ids, request.context);
+		if (!mediaMutationViewIsCurrent(request.context)) return { ok: false };
 		if (!outcome.ok && deletionRequest === request) {
-			deletionRequest = { kind: 'batch', ids: outcome.remainingIDs };
+			deletionRequest = { kind: 'batch', ids: outcome.remainingIDs, context: request.context };
 		}
 		return {
 			ok: outcome.ok,
@@ -956,10 +1031,11 @@
 		const saveSequence = ++detailSaveSequence;
 		detailSaving = true;
 		try {
-			const { error: updateError } = await client.PATCH('/media/{id}', {
+			const { error: updateError, response } = await client.PATCH('/media/{id}', {
 				params: { path: { id: mediaID } },
 				body: { alt_text: nextAltText }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (updateError) throw new Error(updateError.detail || m.media_alt_update_failed());
 			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
 				...item,
@@ -995,10 +1071,11 @@
 		const nextFilename =
 			/\.[^.]+$/u.test(filename) || !extension ? filename : `${filename}${extension}`;
 		try {
-			const { error: updateError } = await client.PATCH('/media/{id}', {
+			const { error: updateError, response } = await client.PATCH('/media/{id}', {
 				params: { path: { id: mediaID } },
 				body: { original_filename: filename }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
 
 			const viewIsCurrent = await reconcileMediaMutation(context, mediaID, (item) => ({
@@ -1021,9 +1098,10 @@
 	async function retryVideoAnalysis(media: MediaItem): Promise<void> {
 		const context = captureMediaMutationContext();
 		try {
-			const { error: retryError } = await client.POST('/media/{id}/analysis/retry', {
+			const { error: retryError, response } = await client.POST('/media/{id}/analysis/retry', {
 				params: { path: { id: media.id } }
 			});
+			if (!settleQueryMutationSession(context.session, response)) return;
 			if (retryError) throw new Error(retryError.detail || m.media_video_retry_failed());
 			const viewIsCurrent = await reconcileMediaMutation(context, media.id, (item) => ({
 				...item,
@@ -1268,6 +1346,12 @@
 		const workspaceID = selectedWorkspaceId;
 		untrack(() => {
 			workspaceViewRevision++;
+			organizationSaveSequence++;
+			organizationSaving = false;
+			selectionOrganizationDialogOpen = false;
+			batchTagID = '';
+			deleteDialogOpen = false;
+			deletionRequest = null;
 			if (usageDialogOpen) handleUsageDialogOpenChange(false);
 			void loadMedia(workspaceID);
 			void loadImageEditorHub(workspaceID);

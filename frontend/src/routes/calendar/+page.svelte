@@ -11,6 +11,13 @@
 		seedPublicationDetail
 	} from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
@@ -122,6 +129,7 @@
 	let draggingKey = $state('');
 	let dropTargetKey = $state('');
 	let reschedulingKey = $state('');
+	let rescheduleSequence = 0;
 	let weekDragView = $state<WeekDragView | null>(null);
 	let weekDragOverlayElement: HTMLDivElement | undefined = $state();
 	let weekScrollElement: HTMLElement | undefined = $state();
@@ -745,8 +753,14 @@
 			return;
 		}
 		const previousPublications = publications;
-		const mutationLoadKey = loadKey;
-		const mutationDataRevision = dataRevision;
+		const view = {
+			session: captureQueryMutationSession(),
+			sequence: ++rescheduleSequence,
+			loadKey,
+			dataRevision,
+			itemKey: item.key,
+			workspaceID: item.workspaceId
+		} satisfies CalendarMutationView;
 		reschedulingKey = item.key;
 		errorMessage = '';
 		successMessage = '';
@@ -758,7 +772,7 @@
 		try {
 			if (item.publication) {
 				const publication = item.publication;
-				const { data, error } = await client.PUT('/publications/{id}', {
+				const { data, error, response } = await client.PUT('/publications/{id}', {
 					params: { path: { id: item.id } },
 					body: {
 						expected_revision: publication.revision,
@@ -772,24 +786,33 @@
 						scheduled_at: nextScheduledAt
 					}
 				});
+				if (!settleQueryMutationSession(view.session, response)) return;
 				if (error) throw new Error(error.detail || m.calendar_reschedule_failed());
+				const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+					reconcile: () => {
+						if (data) seedPublicationDetail(queryClient, data, view.workspaceID);
+					},
+					invalidate: [
+						{
+							queryKey: openPostQueryKeys.publications.list(view.workspaceID),
+							refetchType: 'none'
+						}
+					]
+				});
+				if (!reconciled || !calendarMutationViewIsCurrent(view)) return;
 				if (data) {
-					seedPublicationDetail(queryClient, data, item.workspaceId);
 					publications = publications.map((current) => (current.id === data.id ? data : current));
 				}
 			}
-			if (loadKey === mutationLoadKey) {
-				publications = publications.map((publication) =>
-					publication.id === item.id
-						? { ...publication, scheduled_at: nextScheduledAt }
-						: publication
-				);
-				dataRevision += 1;
-				successMessage = m.calendar_rescheduled({
-					title: item.title,
-					date: formatLongDateTime(nextScheduledAt)
-				});
-			}
+			if (!calendarMutationViewIsCurrent(view)) return;
+			publications = publications.map((publication) =>
+				publication.id === item.id ? { ...publication, scheduled_at: nextScheduledAt } : publication
+			);
+			dataRevision += 1;
+			successMessage = m.calendar_rescheduled({
+				title: item.title,
+				date: formatLongDateTime(nextScheduledAt)
+			});
 			const previousDateKey = workspaceDateKeyFromISO(item.occursAt, viewerTimeZone);
 			const nextDateKey = workspaceDateKeyFromISO(nextScheduledAt, viewerTimeZone);
 			ui.triggerRefresh({
@@ -797,18 +820,33 @@
 				scopes: ['activity', 'calendar'],
 				dateKeys: [previousDateKey, nextDateKey].filter((value): value is string => Boolean(value))
 			});
-			await queryClient.invalidateQueries({
-				queryKey: openPostQueryKeys.publications.list(item.workspaceId),
-				refetchType: 'none'
-			});
 		} catch (error) {
-			if (loadKey === mutationLoadKey && dataRevision === mutationDataRevision) {
+			if (calendarMutationViewIsCurrent(view)) {
 				publications = previousPublications;
 				errorMessage = error instanceof Error ? error.message : m.calendar_reschedule_failed();
 			}
 		} finally {
-			reschedulingKey = '';
+			if (view.sequence === rescheduleSequence) reschedulingKey = '';
 		}
+	}
+
+	interface CalendarMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly loadKey: string;
+		readonly dataRevision: number;
+		readonly itemKey: string;
+		readonly workspaceID: string;
+	}
+
+	function calendarMutationViewIsCurrent(view: CalendarMutationView) {
+		return (
+			view.sequence === rescheduleSequence &&
+			view.loadKey === loadKey &&
+			view.dataRevision === dataRevision &&
+			view.itemKey === reschedulingKey &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function startOfMonth(date: Date) {

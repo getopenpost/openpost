@@ -19,6 +19,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { client } from '$lib/api/client';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { growthQueryAPI } from '$lib/query/growth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -420,73 +427,86 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	async function handleRefresh() {
 		if (!workspaceID || !selectedAccountID || busy || isStaleDisabled) return;
-		const requestedWorkspaceID = workspaceID;
-		const requestedAccountID = selectedAccountID;
+		const view = captureGrowthMutationView();
 		const requestedPlatform = selectedAccount?.platform ?? '';
 		const requestedGenerationID = currentGenerationID;
-		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
 		try {
 			const res = await client.POST('/growth/refresh', {
-				body: { workspace_id: requestedWorkspaceID, account_id: requestedAccountID }
+				body: { workspace_id: view.workspaceID, account_id: view.accountID }
 			});
+			if (!settleQueryMutationSession(view.session, res.response)) return;
 			if (res.error) throw res.error;
 			const now = new Date().toISOString();
-			await queryClient.cancelQueries({ queryKey, exact: true });
-			queryClient.setQueryData<GrowthResult>(queryKey, (current) => {
-				if (!current) return current;
-				const queuedState: SyncStateView = current?.sync_state
-					? { ...current.sync_state, status: 'queued', updated_at: now }
-					: {
-							id: '',
-							workspace_id: requestedWorkspaceID,
-							social_account_id: requestedAccountID,
-							platform: requestedPlatform,
-							status: 'queued',
-							current_generation_id: requestedGenerationID,
-							created_at: now,
-							updated_at: now
+			await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: view.queryKey, exact: true }],
+				reconcile: () => {
+					queryClient.setQueryData<GrowthResult>(view.queryKey, (current) => {
+						if (!current) return current;
+						const queuedState: SyncStateView = current.sync_state
+							? { ...current.sync_state, status: 'queued', updated_at: now }
+							: {
+									id: '',
+									workspace_id: view.workspaceID,
+									social_account_id: view.accountID,
+									platform: requestedPlatform,
+									status: 'queued',
+									current_generation_id: requestedGenerationID,
+									created_at: now,
+									updated_at: now
+								};
+						return {
+							items: current.items ?? [],
+							follow_updates: current.follow_updates ?? [],
+							sync_state: queuedState
 						};
-				return {
-					items: current?.items ?? [],
-					follow_updates: current?.follow_updates ?? [],
-					sync_state: queuedState
-				};
+					});
+				},
+				invalidate: [{ queryKey: view.queryKey, exact: true }]
 			});
-			void queryClient.invalidateQueries({ queryKey, exact: true });
 		} catch {
-			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
+			if (!growthMutationViewIsCurrent(view)) return;
 			toastMessage = m.grow_refresh_failed();
 			toastTone = 'error';
-			setTimeout(() => (toastMessage = ''), 3000);
+			scheduleGrowthToastClear(view);
 		}
 	}
 
 	async function handleFollow(id: string) {
 		if (!workspaceID || !selectedAccountID || isStaleDisabled) return;
-		const requestedWorkspaceID = workspaceID;
-		const requestedAccountID = selectedAccountID;
-		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
+		const view = captureGrowthMutationView();
 		const previousItem = items.find((item) => item.id === id);
 		items = items.map((item) => (item.id === id ? { ...item, follow_state: 'pending' } : item));
 		pendingSessionIds = new Set(pendingSessionIds).add(id);
-		await queryClient.cancelQueries({ queryKey, exact: true });
-		updateGrowthItems(queryKey, (current) =>
-			current.map((item) => (item.id === id ? { ...item, follow_state: 'pending' } : item))
-		);
 		try {
+			const optimistic = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: view.queryKey, exact: true }],
+				reconcile: () =>
+					updateGrowthItems(view.queryKey, (current) =>
+						current.map((item) => (item.id === id ? { ...item, follow_state: 'pending' } : item))
+					)
+			});
+			if (!optimistic) return;
 			const res = await client.POST('/growth/{recommendation_id}/follow', {
 				params: { path: { recommendation_id: id } },
-				body: { workspace_id: requestedWorkspaceID }
+				body: { workspace_id: view.workspaceID }
 			});
+			if (!settleQueryMutationSession(view.session, res.response)) return;
 			if (res.error) throw res.error;
-			void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: view.queryKey, exact: true, refetchType: 'none' }]
+			});
 		} catch {
-			updateGrowthItems(queryKey, (current) =>
-				previousItem
-					? current.map((item) => (item.id === previousItem.id ? previousItem : item))
-					: current
-			);
-			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
+			if (!queryMutationSessionIsCurrent(view.session)) return;
+			const rolledBack = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: view.queryKey, exact: true }],
+				reconcile: () =>
+					updateGrowthItems(view.queryKey, (current) =>
+						previousItem
+							? current.map((item) => (item.id === previousItem.id ? previousItem : item))
+							: current
+					)
+			});
+			if (!rolledBack || !growthMutationViewIsCurrent(view)) return;
 			if (previousItem) {
 				items = items.map((item) => (item.id === previousItem.id ? previousItem : item));
 			}
@@ -496,15 +516,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			const handle = previousItem ? `@${previousItem.handle}` : '';
 			toastMessage = m.grow_follow_failed({ handle });
 			toastTone = 'error';
-			setTimeout(() => (toastMessage = ''), 3000);
+			scheduleGrowthToastClear(view);
 		}
 	}
 
 	async function handleDismiss(id: string) {
 		if (!workspaceID || !selectedAccountID) return;
-		const requestedWorkspaceID = workspaceID;
-		const requestedAccountID = selectedAccountID;
-		const queryKey = growthQueryKeys.account(requestedWorkspaceID, requestedAccountID);
+		const view = captureGrowthMutationView();
 		const previousIndex = items.findIndex((item) => item.id === id);
 		const previousItem = items[previousIndex];
 		const wasPending = pendingSessionIds.has(id);
@@ -514,26 +532,69 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			next.delete(id);
 			pendingSessionIds = next;
 		}
-		await queryClient.cancelQueries({ queryKey, exact: true });
-		updateGrowthItems(queryKey, (current) => current.filter((item) => item.id !== id));
 		try {
+			const optimistic = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: view.queryKey, exact: true }],
+				reconcile: () =>
+					updateGrowthItems(view.queryKey, (current) => current.filter((item) => item.id !== id))
+			});
+			if (!optimistic) return;
 			const res = await client.POST('/growth/{recommendation_id}/dismiss', {
 				params: { path: { recommendation_id: id } },
-				body: { workspace_id: requestedWorkspaceID }
+				body: { workspace_id: view.workspaceID }
 			});
+			if (!settleQueryMutationSession(view.session, res.response)) return;
 			if (res.error) throw res.error;
-			void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: view.queryKey, exact: true, refetchType: 'none' }]
+			});
 		} catch {
-			updateGrowthItems(queryKey, (current) =>
-				restoreRecommendation(current, previousItem, previousIndex)
-			);
-			if (workspaceID !== requestedWorkspaceID || selectedAccountID !== requestedAccountID) return;
+			if (!queryMutationSessionIsCurrent(view.session)) return;
+			const rolledBack = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: view.queryKey, exact: true }],
+				reconcile: () =>
+					updateGrowthItems(view.queryKey, (current) =>
+						restoreRecommendation(current, previousItem, previousIndex)
+					)
+			});
+			if (!rolledBack || !growthMutationViewIsCurrent(view)) return;
 			items = restoreRecommendation(items, previousItem, previousIndex);
 			if (wasPending) pendingSessionIds = new Set(pendingSessionIds).add(id);
 			toastMessage = m.grow_dismiss_failed();
 			toastTone = 'error';
-			setTimeout(() => (toastMessage = ''), 3000);
+			scheduleGrowthToastClear(view);
 		}
+	}
+
+	interface GrowthMutationView {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly accountID: string;
+		readonly queryKey: ReturnType<typeof growthQueryKeys.account>;
+	}
+
+	function captureGrowthMutationView(): GrowthMutationView {
+		const accountID = selectedAccountID ?? '';
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID,
+			accountID,
+			queryKey: growthQueryKeys.account(workspaceID, accountID)
+		};
+	}
+
+	function growthMutationViewIsCurrent(view: GrowthMutationView) {
+		return (
+			view.workspaceID === workspaceID &&
+			view.accountID === selectedAccountID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	function scheduleGrowthToastClear(view: GrowthMutationView) {
+		setTimeout(() => {
+			if (growthMutationViewIsCurrent(view)) toastMessage = '';
+		}, 3000);
 	}
 
 	function updateGrowthItems(

@@ -109,6 +109,45 @@ describe('media tag mutations', () => {
 		);
 		expect(queryClient.getQueryData<MediaTagList>(queryKey)?.tags).toEqual([original]);
 	});
+
+	it("does not invalidate the next actor's Media cache after assignment cancellation settles", async () => {
+		let currentIdentity = { userID: 'user-a', epoch: 1 };
+		const unregister = registerQueryAuthorizationBoundary({
+			captureIdentity: () => currentIdentity,
+			isIdentityCurrent: (identity) =>
+				identity?.userID === currentIdentity.userID && identity.epoch === currentIdentity.epoch,
+			settleUnauthorized: vi.fn()
+		});
+		const tagKey = mediaQueryKeys.tags('workspace-1');
+		const mediaKey = mediaQueryKeys.list('workspace-1', {});
+		const cancellation = deferred<void>();
+		const cancelSpy = vi
+			.spyOn(queryClient, 'cancelQueries')
+			.mockImplementationOnce(() => cancellation.promise);
+		mocks.put.mockResolvedValue({
+			data: { count: 1 },
+			response: new Response(null, { status: 200 })
+		});
+
+		const mutation = updateMediaTagItems('workspace-1', 'tag-1', ['media-1'], 'add');
+		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalled());
+
+		currentIdentity = { userID: 'user-b', epoch: 2 };
+		queryClient.clear();
+		const currentTags = tagList(tagFixture('actor-b-tag', 'Current actor'));
+		const currentMedia = { media: [], total: 0 };
+		queryClient.setQueryData(tagKey, currentTags);
+		queryClient.setQueryData(mediaKey, currentMedia);
+		cancellation.resolve();
+
+		await expect(mutation).resolves.toBe(1);
+		expect(queryClient.getQueryData(tagKey)).toEqual(currentTags);
+		expect(queryClient.getQueryData(mediaKey)).toEqual(currentMedia);
+		expect(queryClient.getQueryState(tagKey)?.isInvalidated).toBe(false);
+		expect(queryClient.getQueryState(mediaKey)?.isInvalidated).toBe(false);
+		cancelSpy.mockRestore();
+		unregister();
+	});
 });
 
 function tagFixture(id: string, name: string): MediaTag {
@@ -123,4 +162,12 @@ function tagFixture(id: string, name: string): MediaTag {
 
 function tagList(...tags: MediaTag[]): MediaTagList {
 	return { tags, can_edit: true };
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
 }

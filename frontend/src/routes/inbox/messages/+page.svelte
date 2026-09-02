@@ -16,9 +16,16 @@
 	import type { components } from '$lib/api/types';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { InboxMessageQueryError, inboxQueryAPI } from '$lib/query/inbox';
-	import { mergeInboxMessages, reconcileSentInboxMessage } from '$lib/query/inbox-message-cache';
+	import { mergeInboxMessages } from '$lib/query/inbox-message-cache';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -68,6 +75,8 @@
 	let messageViewport = $state<HTMLElement>();
 	let refreshing = $state(false);
 	let sending = $state(false);
+	let refreshSequence = 0;
+	let sendSequence = 0;
 	let replyBody = $state('');
 	let archived = $state(false);
 	let platformFilter = $state('');
@@ -208,6 +217,10 @@
 
 	$effect(() => {
 		if (workspaceId && workspaceId !== loadedWorkspace) {
+			refreshSequence++;
+			sendSequence++;
+			refreshing = false;
+			sending = false;
 			loadedWorkspace = workspaceId;
 			selectedId = '';
 			selectedFallback = undefined;
@@ -318,52 +331,66 @@
 
 	async function markConversationRead(conversation: Conversation) {
 		if (!workspaceId || conversation.unread_count === 0) return;
-		const requestedWorkspace = workspaceId;
-		const queryKey = inboxQueryKeys.conversations(requestedWorkspace, conversationFilters);
-		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
+		const view = captureConversationMutationView(conversation.id);
+		const { error: apiError, response } = await client.POST('/messages/{conversation_id}/state', {
 			params: { path: { conversation_id: conversation.id } },
-			body: { workspace_id: requestedWorkspace, read: true }
+			body: { workspace_id: view.workspaceID, read: true }
 		});
+		if (!settleQueryMutationSession(view.session, response)) return;
 		if (apiError) {
-			if (requestedWorkspace === workspaceId) showToast(m.messages_mark_read_failed(), 'error');
+			if (conversationMutationTargetIsCurrent(view)) {
+				showToast(m.messages_mark_read_failed(), 'error');
+			}
 			return;
 		}
-		await queryClient.cancelQueries({
-			queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace)
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID) }],
+			reconcile: () =>
+				updateConversations(view.queryKey, (items) =>
+					items.map((item) =>
+						item.id === view.conversationID ? { ...item, unread_count: 0 } : item
+					)
+				),
+			invalidate: [
+				{
+					queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+					refetchType: 'none'
+				}
+			]
 		});
-		updateConversations(queryKey, (items) =>
-			items.map((item) => (item.id === conversation.id ? { ...item, unread_count: 0 } : item))
-		);
-		if (requestedWorkspace === workspaceId && selectedFallback?.id === conversation.id) {
+		if (!reconciled || !conversationMutationViewIsCurrent(view)) return;
+		if (selectedFallback?.id === view.conversationID) {
 			selectedFallback = { ...selectedFallback, unread_count: 0 };
 		}
-		void queryClient.invalidateQueries({
-			queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace),
-			refetchType: 'none'
-		});
 	}
 
 	async function setArchived(conversation: Conversation) {
 		if (!workspaceId) return;
-		const requestedWorkspace = workspaceId;
-		const queryKey = inboxQueryKeys.conversations(requestedWorkspace, conversationFilters);
-		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
+		const view = captureConversationMutationView(conversation.id);
+		const { error: apiError, response } = await client.POST('/messages/{conversation_id}/state', {
 			params: { path: { conversation_id: conversation.id } },
-			body: { workspace_id: requestedWorkspace, archived: !conversation.archived_at }
+			body: { workspace_id: view.workspaceID, archived: !conversation.archived_at }
 		});
+		if (!settleQueryMutationSession(view.session, response)) return;
 		if (apiError) {
-			if (requestedWorkspace === workspaceId) showToast(m.messages_send_failed(), 'error');
+			if (conversationMutationTargetIsCurrent(view)) showToast(m.messages_send_failed(), 'error');
 			return;
 		}
-		await queryClient.cancelQueries({
-			queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace)
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID) }],
+			reconcile: () =>
+				updateConversations(view.queryKey, (items) =>
+					items.filter((item) => item.id !== view.conversationID)
+				),
+			invalidate: [
+				{
+					queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+					refetchType: 'none'
+				}
+			]
 		});
-		updateConversations(queryKey, (items) => items.filter((item) => item.id !== conversation.id));
-		void queryClient.invalidateQueries({
-			queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace),
-			refetchType: 'none'
-		});
-		if (requestedWorkspace === workspaceId && selectedId === conversation.id) {
+		if (!reconciled || !conversationMutationViewIsCurrent(view)) return;
+		if (selectedId === view.conversationID) {
 			selectedId = '';
 			selectedFallback = undefined;
 		}
@@ -372,40 +399,46 @@
 	async function sendMessage() {
 		if (!workspaceId || !selected || !replyBody.trim() || replyWindowClosed || messagingAllDisabled)
 			return;
-		const requestedWorkspace = workspaceId;
-		const requestedConversationID = selected.id;
+		const view = captureConversationMutationView(selected.id);
+		const sequence = ++sendSequence;
 		sending = true;
 		const body = replyBody.trim();
-		const { data, error: apiError } = await client.POST('/messages/{conversation_id}/send', {
-			params: { path: { conversation_id: requestedConversationID } },
-			body: { workspace_id: requestedWorkspace, message: body }
+		const pendingOlderPage = messageQuery.isFetchingNextPage
+			? messageQuery.fetchNextPage({ cancelRefetch: false })
+			: null;
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/messages/{conversation_id}/send', {
+			params: { path: { conversation_id: view.conversationID } },
+			body: { workspace_id: view.workspaceID, message: body }
 		});
-		sending = false;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (sequence === sendSequence) sending = false;
+		if (!sessionIsCurrent) return;
 		if (apiError) {
-			if (workspaceId === requestedWorkspace && selectedId === requestedConversationID) {
+			if (conversationMutationTargetIsCurrent(view)) {
 				showToast(apiError.detail || m.messages_send_failed(), 'error');
 			}
 			return;
 		}
 		if (data) {
-			const queryKey = inboxQueryKeys.messages(requestedWorkspace, requestedConversationID, {
+			const queryKey = inboxQueryKeys.messages(view.workspaceID, view.conversationID, {
 				limit: 200
 			});
-			const pendingOlderPage = messageQuery.isFetchingNextPage
-				? messageQuery.fetchNextPage({ cancelRefetch: false })
-				: null;
-			await Promise.all([
-				queryClient.cancelQueries({
-					queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace)
-				}),
-				reconcileSentInboxMessage(queryClient, queryKey, data, pendingOlderPage)
-			]);
-			void queryClient.invalidateQueries({
-				queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace),
-				refetchType: 'none'
+			const reconciled = await reconcileSentMessage(view, queryKey, data, pendingOlderPage);
+			if (!reconciled) return;
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
 			});
 		}
-		if (workspaceId === requestedWorkspace && selectedId === requestedConversationID) {
+		if (conversationMutationTargetIsCurrent(view)) {
 			replyBody = '';
 			showToast(m.messages_queued(), 'success');
 		}
@@ -413,16 +446,22 @@
 
 	async function refresh() {
 		if (!workspaceId || messagingAllDisabled) return;
-		const requestedWorkspace = workspaceId;
-		const requestedConversationID = selectedId;
+		const view = captureConversationMutationView(selectedId);
+		const sequence = ++refreshSequence;
 		refreshing = true;
-		const { data, error: apiError } = await client.POST('/messages/refresh', {
-			body: { workspace_id: requestedWorkspace }
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/messages/refresh', {
+			body: { workspace_id: view.workspaceID }
 		});
-		refreshing = false;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (sequence === refreshSequence) refreshing = false;
+		if (!sessionIsCurrent) return;
 		const failed = apiError || data?.status === 'failed';
 		const unavailable = data?.status === 'unavailable';
-		if (workspaceId === requestedWorkspace) {
+		if (conversationMutationViewIsCurrent(view)) {
 			showToast(
 				unavailable
 					? m.messaging_refresh_unavailable()
@@ -433,17 +472,96 @@
 			);
 		}
 		if (!failed && !unavailable) {
-			void queryClient.invalidateQueries({
-				queryKey: inboxQueryKeys.conversationsRoot(requestedWorkspace),
-				refetchType: 'none'
+			await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: inboxQueryKeys.conversationsRoot(view.workspaceID),
+						refetchType: 'none'
+					},
+					...(view.conversationID
+						? [
+								{
+									queryKey: inboxQueryKeys.messagesRoot(view.workspaceID, view.conversationID),
+									refetchType: 'none' as const
+								}
+							]
+						: [])
+				]
 			});
-			if (requestedConversationID) {
-				void queryClient.invalidateQueries({
-					queryKey: inboxQueryKeys.messagesRoot(requestedWorkspace, requestedConversationID),
-					refetchType: 'none'
-				});
-			}
 		}
+	}
+
+	type ConversationQueryKey = ReturnType<typeof inboxQueryKeys.conversations>;
+
+	interface ConversationMutationView {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly conversationID: string;
+		readonly queryKey: ConversationQueryKey;
+		readonly viewKey: string;
+	}
+
+	function conversationViewKey() {
+		return JSON.stringify([workspaceId, platformFilter, accountFilter, archived]);
+	}
+
+	function captureConversationMutationView(conversationID: string): ConversationMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: workspaceId,
+			conversationID,
+			queryKey: inboxQueryKeys.conversations(workspaceId, conversationFilters),
+			viewKey: conversationViewKey()
+		};
+	}
+
+	function conversationMutationViewIsCurrent(view: ConversationMutationView) {
+		return (
+			view.workspaceID === workspaceId &&
+			view.viewKey === conversationViewKey() &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	function conversationMutationTargetIsCurrent(view: ConversationMutationView) {
+		return conversationMutationViewIsCurrent(view) && selectedId === view.conversationID;
+	}
+
+	async function reconcileSentMessage(
+		view: ConversationMutationView,
+		queryKey: ReturnType<typeof inboxQueryKeys.messages>,
+		message: DirectMessage,
+		pendingOlderPage: Promise<unknown> | null
+	) {
+		const reconcile = () => {
+			queryClient.setQueryData<InfiniteData<MessagePage, string>>(queryKey, (current) => {
+				if (!current?.pages[0]) return current;
+				const pages = [...current.pages];
+				pages[0] = {
+					...pages[0],
+					items: mergeInboxMessages([], [...(pages[0].items ?? []), message])
+				};
+				return { ...current, pages };
+			});
+		};
+		const apply = () =>
+			reconcileQueryMutation(queryClient, view.session, {
+				cancel: pendingOlderPage ? undefined : [{ queryKey, exact: true }],
+				reconcile,
+				invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+			});
+		const reconciled = await apply();
+		if (pendingOlderPage) {
+			void pendingOlderPage
+				.then(async () => {
+					await reconcileQueryMutation(queryClient, view.session, {
+						reconcile,
+						invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+					});
+				})
+				.catch(() => undefined);
+		}
+		return reconciled;
 	}
 
 	function updateConversations(

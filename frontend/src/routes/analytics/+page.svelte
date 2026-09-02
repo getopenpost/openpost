@@ -18,6 +18,13 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import type { components } from '$lib/api/types';
 	import { analyticsQueryAPI } from '$lib/query/analytics';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -73,6 +80,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	let sourceFilter = $state<ContentSource>('all');
 	let expandedContentID = $state('');
 	let refreshing = $state(false);
+	let refreshSequence = 0;
 	let repurposingReferenceKey = $state('');
 	let toastMessage = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
@@ -229,6 +237,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	);
 	$effect(() => {
 		if (selectedAccountWorkspaceID !== currentWorkspaceID) {
+			refreshSequence++;
+			refreshing = false;
 			selectedAccountWorkspaceID = currentWorkspaceID;
 			selectedAccountID = 'all';
 			expandedContentID = '';
@@ -259,29 +269,51 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 	async function refreshAnalytics() {
 		if (!currentWorkspaceID || refreshing || analyticsAllDisabled) return;
-		const requestedWorkspaceID = currentWorkspaceID;
+		const view = {
+			session: captureQueryMutationSession(),
+			sequence: ++refreshSequence,
+			workspaceID: currentWorkspaceID
+		} satisfies AnalyticsRefreshView;
 		refreshing = true;
 		try {
 			const response = await client.POST('/analytics/refresh', {
-				body: { workspace_id: requestedWorkspaceID }
+				body: { workspace_id: view.workspaceID }
 			});
+			if (!settleQueryMutationSession(view.session, response.response)) return;
 			if (response.error || !response.data) throw new Error(m.analytics_refresh_failed());
-			void queryClient.invalidateQueries({
-				queryKey: analyticsQueryKeys.all(requestedWorkspaceID),
-				refetchType: 'none'
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [
+					{
+						queryKey: analyticsQueryKeys.all(view.workspaceID),
+						refetchType: 'none'
+					}
+				]
 			});
-			if (currentWorkspaceID === requestedWorkspaceID) {
-				toastTone = 'success';
-				toastMessage = m.analytics_refresh_queued({ count: response.data.queued });
-			}
+			if (!reconciled || !analyticsRefreshViewIsCurrent(view)) return;
+			toastTone = 'success';
+			toastMessage = m.analytics_refresh_queued({ count: response.data.queued });
 		} catch {
-			if (currentWorkspaceID === requestedWorkspaceID) {
+			if (analyticsRefreshViewIsCurrent(view)) {
 				toastTone = 'error';
 				toastMessage = m.analytics_refresh_failed();
 			}
 		} finally {
-			refreshing = false;
+			if (view.sequence === refreshSequence) refreshing = false;
 		}
+	}
+
+	interface AnalyticsRefreshView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
+
+	function analyticsRefreshViewIsCurrent(view: AnalyticsRefreshView) {
+		return (
+			view.sequence === refreshSequence &&
+			view.workspaceID === currentWorkspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function combineAnalyticsPages(pages: AnalyticsOverview[]): AnalyticsOverview | null {

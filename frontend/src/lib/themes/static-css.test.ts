@@ -12,6 +12,10 @@ function declarations(selector: string): Map<string, string> {
 	);
 }
 
+function layoutCss(): string {
+	return readFileSync(new URL('../../routes/layout.css', import.meta.url), 'utf8');
+}
+
 function normalized(value: string): string {
 	return value.replaceAll(/['"]/g, '').replaceAll(/\s+/g, ' ').trim();
 }
@@ -27,5 +31,20 @@ describe('embedded Workshop CSS', () => {
 		for (const [property, value] of Object.entries(expected)) {
 			expect(normalized(actual.get(property) ?? ''), property).toBe(normalized(value));
 		}
+	});
+
+	it('activates theme reduced-motion recipes only for an operating-system preference', () => {
+		const css = layoutCss();
+		const mediaStart = css.indexOf('@media (prefers-reduced-motion: reduce)');
+		expect(mediaStart).toBeGreaterThanOrEqual(0);
+		const beforeMedia = css.slice(0, mediaStart);
+		const reducedMotionRules = css.slice(mediaStart, css.indexOf('@media (pointer: coarse)'));
+
+		expect(beforeMedia).not.toContain("[data-theme-reduced-motion='instant']");
+		expect(beforeMedia).not.toContain("[data-theme-reduced-motion='crossfade']");
+		expect(reducedMotionRules).toContain("[data-theme-reduced-motion='instant']");
+		expect(reducedMotionRules).toContain("[data-theme-reduced-motion='crossfade']");
+		expect(reducedMotionRules).toContain('--theme-motion-entry-distance: 0px');
+		expect(reducedMotionRules).toContain('transition-duration: 120ms !important');
 	});
 });

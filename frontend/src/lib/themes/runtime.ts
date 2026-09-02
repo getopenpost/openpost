@@ -14,14 +14,19 @@ import {
 	type ThemeAsset,
 	type ThemeAssetSlot,
 	type ThemeComponentRecipe,
-	type ThemeFontFace,
 	type ThemeIconPackId,
 	type ThemeMotionRecipe,
 	type ThemeScheme,
 	type ThemeSchemeManifest,
-	type ThemeTypographyRoleTokens
+	type ThemeTypographyRoleTokens,
+	type WebResolvedTheme
 } from './contracts.js';
-import { isAvailableThemeFontFamily } from './bundled-fonts.js';
+import {
+	createThemeFontPlan,
+	stageThemeFontPlan,
+	type ThemeFontPlan,
+	type ThemeFontStage
+} from './font-stage.js';
 import { PROTECTED_EDITOR_TOKENS } from './protected.js';
 import { isSafeThemeSchemeManifestValues } from './validation.js';
 
@@ -41,15 +46,16 @@ export interface ThemeScope {
 }
 
 export interface ThemeRuntimeLoaders {
-	loadFonts(fonts: readonly ThemeFontFace[]): Promise<void>;
+	stageFonts(plan: ThemeFontPlan): Promise<ThemeFontStage>;
 	loadAssets(assets: readonly ThemeAsset[]): Promise<void>;
 	loadIconPack(pack: ThemeIconPackId): Promise<void>;
-	setBrowserSurface(color: string): void;
+	setBrowserSurface(color: string): () => void;
 }
 
 interface PreparedTheme {
-	resolved: ResolvedTheme;
+	resolved: WebResolvedTheme;
 	variables: ThemeCssVariables;
+	fontStage: ThemeFontStage;
 }
 
 export interface ThemeCssVariables {
@@ -300,7 +306,7 @@ export function isOpaqueThemeResourceUrl(
 	}
 }
 
-function hasSafeResources(theme: ResolvedTheme): boolean {
+function hasSafeResources(theme: WebResolvedTheme): boolean {
 	const assetSlots = new Set<ThemeAssetSlot>();
 	return (
 		theme.fonts.every(
@@ -319,17 +325,8 @@ function hasSafeResources(theme: ResolvedTheme): boolean {
 				approvedThemeAssetMimeTypes.has(asset.mimeType) && isOpaqueThemeResourceUrl(asset.sourceUrl)
 			);
 		}) &&
-		THEME_TYPOGRAPHY_ROLE_KEYS.every((role) =>
-			isAvailableThemeFontFamily(theme.manifest.typography[role].family, theme.fonts)
-		)
+		createThemeFontPlan(theme) !== null
 	);
-}
-
-function activeFontFaces(theme: ResolvedTheme): ThemeFontFace[] {
-	const activeFamilies = new Set(
-		THEME_TYPOGRAPHY_ROLE_KEYS.map((role) => theme.manifest.typography[role].family)
-	);
-	return theme.fonts.filter((font) => activeFamilies.has(font.family));
 }
 
 function cssUrl(url: string): string {
@@ -374,13 +371,24 @@ function cssFontFamily(family: string, fallbacks: readonly string[]): string {
 	return [family, ...fallbacks].map(cssFontName).join(', ');
 }
 
-function typographyCssVariables(typography: ThemeSchemeManifest['typography']): ThemeCssVariables {
-	const displayFamily = cssFontFamily(typography.display.family, typography.display.fallbacks);
-	const titleFamily = cssFontFamily(typography.title.family, typography.title.fallbacks);
-	const bodyFamily = cssFontFamily(typography.body.family, typography.body.fallbacks);
-	const labelFamily = cssFontFamily(typography.label.family, typography.label.fallbacks);
-	const metadataFamily = cssFontFamily(typography.metadata.family, typography.metadata.fallbacks);
-	const codeFamily = cssFontFamily(typography.code.family, typography.code.fallbacks);
+function typographyCssVariables(
+	typography: ThemeSchemeManifest['typography'],
+	familyNames: ReadonlyMap<string, string>
+): ThemeCssVariables {
+	const family = (source: string) => familyNames.get(source) ?? source;
+	const displayFamily = cssFontFamily(
+		family(typography.display.family),
+		typography.display.fallbacks
+	);
+	const titleFamily = cssFontFamily(family(typography.title.family), typography.title.fallbacks);
+	const bodyFamily = cssFontFamily(family(typography.body.family), typography.body.fallbacks);
+	const labelFamily = cssFontFamily(family(typography.label.family), typography.label.fallbacks);
+	const metadataFamily = cssFontFamily(
+		family(typography.metadata.family),
+		typography.metadata.fallbacks
+	);
+	const codeFamily = cssFontFamily(family(typography.code.family), typography.code.fallbacks);
+	const wordmarkFamily = cssFontFamily('Manrope Variable', ['Manrope', 'system-ui', 'sans-serif']);
 	return {
 		'--theme-type-display-family': displayFamily,
 		'--theme-type-display-weight': `${typography.display.weight}`,
@@ -413,7 +421,7 @@ function typographyCssVariables(typography: ThemeSchemeManifest['typography']): 
 		'--theme-type-code-line-height': typography.code.lineHeight,
 		'--theme-type-code-tracking': typography.code.tracking,
 		'--theme-font-sans': bodyFamily,
-		'--theme-font-brand': titleFamily,
+		'--theme-font-brand': wordmarkFamily,
 		'--theme-font-display': displayFamily,
 		'--theme-font-mono': codeFamily,
 		'--theme-font-body-weight': `${typography.body.weight}`,
@@ -462,7 +470,10 @@ function motionCssVariables(motion: ThemeSchemeManifest['motion']): ThemeCssVari
 	};
 }
 
-export function themeSchemeToCssVariables(theme: ResolvedTheme): ThemeCssVariables {
+export function themeSchemeToCssVariables(
+	theme: WebResolvedTheme,
+	familyNames = createThemeFontPlan(theme)?.familyNames ?? new Map<string, string>()
+): ThemeCssVariables {
 	if (!isCompleteThemeSchemeManifest(theme.manifest, theme.scheme)) {
 		throw new Error('Theme manifest is incomplete');
 	}
@@ -555,7 +566,7 @@ export function themeSchemeToCssVariables(theme: ResolvedTheme): ThemeCssVariabl
 		'--sidebar-accent-foreground': colors.selectionInk,
 		'--sidebar-border': colors.sidebarBorder,
 		'--sidebar-ring': colors.focus,
-		...typographyCssVariables(typography),
+		...typographyCssVariables(typography, familyNames),
 		'--theme-space': spacing.base,
 		'--theme-control-height': spacing.controlHeight,
 		'--theme-compact-control-height': spacing.compactControlHeight,
@@ -604,21 +615,6 @@ export function themeSchemeToCssVariables(theme: ResolvedTheme): ThemeCssVariabl
 	};
 }
 
-async function defaultLoadFonts(fonts: readonly ThemeFontFace[]): Promise<void> {
-	if (!('FontFace' in globalThis) || !('document' in globalThis)) return;
-	await Promise.all(
-		fonts.map(async (font) => {
-			const face = new globalThis.FontFace(font.family, cssUrl(font.sourceUrl), {
-				weight: `${font.weight}`,
-				style: font.style,
-				display: font.display
-			});
-			await face.load();
-			globalThis.document.fonts.add(face);
-		})
-	);
-}
-
 async function defaultLoadAssets(assets: readonly ThemeAsset[]): Promise<void> {
 	if (!('Image' in globalThis)) return;
 	await Promise.all(
@@ -639,26 +635,38 @@ async function defaultLoadIconPack(pack: ThemeIconPackId): Promise<void> {
 	await loadThemeIconPack(pack);
 }
 
-function defaultSetBrowserSurface(color: string): void {
-	if (!('document' in globalThis)) return;
+function defaultSetBrowserSurface(color: string): () => void {
+	if (!('document' in globalThis)) return () => undefined;
 	let meta = globalThis.document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+	const originalMeta = meta;
+	const originalContent = meta?.content;
 	if (!meta) {
 		meta = globalThis.document.createElement('meta');
 		meta.name = 'theme-color';
 		globalThis.document.head.append(meta);
 	}
 	meta.content = color;
+	let restored = false;
+	return () => {
+		if (restored || meta.content !== color) return;
+		restored = true;
+		if (originalMeta) {
+			originalMeta.content = originalContent ?? '';
+		} else {
+			meta.remove();
+		}
+	};
 }
 
 export const browserThemeRuntimeLoaders: ThemeRuntimeLoaders = {
-	loadFonts: defaultLoadFonts,
+	stageFonts: stageThemeFontPlan,
 	loadAssets: defaultLoadAssets,
 	loadIconPack: defaultLoadIconPack,
 	setBrowserSurface: defaultSetBrowserSurface
 };
 
 function fallbackTheme(
-	theme: ResolvedTheme,
+	theme: WebResolvedTheme,
 	reason: 'invalid-manifest' | 'unsafe-resource' | 'resource-failed'
 ): ResolvedTheme {
 	const fallback = resolveBuiltInTheme('workshop', theme.requestedScheme);
@@ -670,47 +678,65 @@ export class WebThemeRuntime {
 	readonly #generations = new WeakMap<object, number>();
 	readonly #managedVariables = new WeakMap<object, Set<string>>();
 	readonly #originalDarkState = new WeakMap<object, boolean>();
+	readonly #restoreBrowserSurface = new WeakMap<object, () => void>();
+	readonly #fontStages = new WeakMap<object, ThemeFontStage>();
 
 	constructor(loaders: ThemeRuntimeLoaders = browserThemeRuntimeLoaders) {
 		this.#loaders = loaders;
 	}
 
-	async prepare(theme: ResolvedTheme): Promise<PreparedTheme> {
+	async prepare(theme: WebResolvedTheme): Promise<PreparedTheme> {
 		let candidate = isCompleteThemeSchemeManifest(theme.manifest, theme.scheme)
 			? hasSafeResources(theme)
 				? theme
 				: fallbackTheme(theme, 'unsafe-resource')
 			: fallbackTheme(theme, 'invalid-manifest');
+		let fontStage: ThemeFontStage;
+		let fontPlan = createThemeFontPlan(candidate)!;
 		try {
-			await Promise.all([
-				this.#loaders.loadFonts(activeFontFaces(candidate)),
-				this.#loaders.loadAssets(candidate.assets),
-				this.#loaders.loadIconPack(candidate.iconPack)
-			]);
+			fontStage = await this.#stageResources(candidate, fontPlan);
 		} catch {
 			candidate = fallbackTheme(candidate, 'resource-failed');
-			await Promise.all([
-				this.#loaders.loadFonts(activeFontFaces(candidate)),
-				this.#loaders.loadAssets(candidate.assets),
-				this.#loaders.loadIconPack(candidate.iconPack)
-			]).catch(() => undefined);
+			fontPlan = createThemeFontPlan(candidate)!;
+			fontStage = await this.#stageResources(candidate, fontPlan).catch(() => ({
+				release: () => undefined
+			}));
 		}
 		return {
 			resolved: candidate,
-			variables: themeSchemeToCssVariables(candidate)
+			variables: themeSchemeToCssVariables(candidate, fontPlan.familyNames),
+			fontStage
 		};
 	}
 
-	async apply(theme: ResolvedTheme, scope: ThemeScope): Promise<boolean> {
+	async #stageResources(theme: WebResolvedTheme, fontPlan: ThemeFontPlan): Promise<ThemeFontStage> {
+		const fontStage = await this.#loaders.stageFonts(fontPlan);
+		try {
+			await Promise.all([
+				this.#loaders.loadAssets(theme.assets),
+				this.#loaders.loadIconPack(theme.iconPack)
+			]);
+			return fontStage;
+		} catch (error) {
+			fontStage.release();
+			throw error;
+		}
+	}
+
+	async apply(theme: WebResolvedTheme, scope: ThemeScope): Promise<boolean> {
 		return this.#apply(theme, scope, 'application');
 	}
 
-	async applyScoped(theme: ResolvedTheme, scope: ThemeScope): Promise<boolean> {
+	async applyScoped(theme: WebResolvedTheme, scope: ThemeScope): Promise<boolean> {
 		return this.#apply(theme, scope, 'preview');
 	}
 
 	clear(scope: ThemeScope): void {
 		this.#generations.set(scope, (this.#generations.get(scope) ?? 0) + 1);
+		this.#fontStages.get(scope)?.release();
+		this.#fontStages.delete(scope);
+		this.#restoreBrowserSurface.get(scope)?.();
+		this.#restoreBrowserSurface.delete(scope);
 		for (const property of this.#managedVariables.get(scope) ?? [])
 			scope.style.removeProperty(property);
 		this.#managedVariables.delete(scope);
@@ -735,14 +761,17 @@ export class WebThemeRuntime {
 	}
 
 	async #apply(
-		theme: ResolvedTheme,
+		theme: WebResolvedTheme,
 		scope: ThemeScope,
 		scopeKind: 'application' | 'preview'
 	): Promise<boolean> {
 		const generation = (this.#generations.get(scope) ?? 0) + 1;
 		this.#generations.set(scope, generation);
 		const prepared = await this.prepare(theme);
-		if (this.#generations.get(scope) !== generation) return false;
+		if (this.#generations.get(scope) !== generation) {
+			prepared.fontStage.release();
+			return false;
+		}
 
 		const previousVariables = this.#managedVariables.get(scope) ?? new Set<string>();
 		const nextVariables = new Set(Object.keys(prepared.variables));
@@ -753,6 +782,8 @@ export class WebThemeRuntime {
 			scope.style.setProperty(property, value);
 		}
 		this.#managedVariables.set(scope, nextVariables);
+		this.#fontStages.get(scope)?.release();
+		this.#fontStages.set(scope, prepared.fontStage);
 
 		const { resolved } = prepared;
 		if (!this.#originalDarkState.has(scope) && scope.classList) {
@@ -778,7 +809,11 @@ export class WebThemeRuntime {
 		}
 
 		if (scopeKind === 'application') {
-			this.#loaders.setBrowserSurface(resolved.manifest.colors.browserChrome);
+			this.#restoreBrowserSurface.get(scope)?.();
+			this.#restoreBrowserSurface.set(
+				scope,
+				this.#loaders.setBrowserSurface(resolved.manifest.colors.browserChrome)
+			);
 		}
 		if ('CustomEvent' in globalThis) {
 			scope.dispatchEvent?.(

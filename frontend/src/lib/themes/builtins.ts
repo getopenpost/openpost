@@ -1027,7 +1027,7 @@ export function resolveBuiltInTheme(
 			requestedScheme,
 			scheme: requestedScheme,
 			manifest: cloneScheme(selected),
-			fonts: structuredClone(requested.fonts),
+			fonts: [],
 			assets: structuredClone(requested.assets)
 		};
 	}

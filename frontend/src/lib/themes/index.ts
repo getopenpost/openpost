@@ -1,5 +1,6 @@
 export * from './contracts.js';
 export * from './bundled-fonts.js';
+export * from './font-stage.js';
 export * from './protected.js';
 export * from './builtins.js';
 export * from './runtime.js';

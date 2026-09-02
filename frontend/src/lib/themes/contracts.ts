@@ -389,6 +389,16 @@ export interface ThemeFontFace {
 	display: 'swap' | 'fallback' | 'optional';
 }
 
+export interface ThemeNativeFontDerivative {
+	sourceUrl: string;
+	format: 'ttf' | 'otf';
+	identity: string;
+}
+
+export interface ThemeRuntimeFontFace extends ThemeFontFace {
+	nativeDerivative: ThemeNativeFontDerivative;
+}
+
 export const THEME_ASSET_SLOTS = [
 	'background-texture',
 	'sidebar-decoration',
@@ -436,7 +446,14 @@ export interface ResolvedTheme {
 	requestedScheme: ThemeScheme;
 	scheme: ThemeScheme;
 	manifest: ThemeSchemeManifest;
-	fonts: ThemeFontFace[];
+	fonts: ThemeRuntimeFontFace[];
 	assets: ThemeAsset[];
 	fallbackReason?: ThemeFallbackReason;
 }
+
+// Draft previews use the stored WOFF2 face contract. A resolved API theme is
+// assignable to this web-only view, while native-only derivatives remain a
+// required part of the canonical ResolvedTheme contract for mobile.
+export type WebResolvedTheme = Omit<ResolvedTheme, 'fonts'> & {
+	fonts: ThemeFontFace[];
+};

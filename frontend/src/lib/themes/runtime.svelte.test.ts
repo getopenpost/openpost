@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveBuiltInTheme } from './builtins.js';
-import { WebThemeRuntime, type ThemeRuntimeLoaders } from './runtime.js';
+import {
+	WebThemeRuntime,
+	browserThemeRuntimeLoaders,
+	type ThemeRuntimeLoaders
+} from './runtime.js';
 
 const scopes: HTMLElement[] = [];
 
@@ -13,10 +17,10 @@ function scope(): HTMLElement {
 
 function loaders(): ThemeRuntimeLoaders {
 	return {
-		loadFonts: vi.fn(async () => undefined),
+		stageFonts: vi.fn(async () => ({ release: vi.fn() })),
 		loadAssets: vi.fn(async () => undefined),
 		loadIconPack: vi.fn(async () => undefined),
-		setBrowserSurface: vi.fn()
+		setBrowserSurface: vi.fn(() => vi.fn())
 	};
 }
 
@@ -25,6 +29,21 @@ afterEach(() => {
 });
 
 describe('scoped WebThemeRuntime', () => {
+	it('restores the document theme-color meta element it temporarily owns', () => {
+		const existing = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+		const originalContent = existing?.content;
+		const restore = browserThemeRuntimeLoaders.setBrowserSurface('oklch(0.2 0.1 40)');
+		const themed = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+
+		expect(themed?.content).toBe('oklch(0.2 0.1 40)');
+		restore();
+		if (existing) {
+			expect(existing.content).toBe(originalContent);
+		} else {
+			expect(document.querySelector('meta[name="theme-color"]')).toBeNull();
+		}
+	});
+
 	it('applies a complete preview without leaking variables or scheme state to the page root', async () => {
 		const preview = scope();
 		const originalRootTheme = document.documentElement.getAttribute('data-theme-id');

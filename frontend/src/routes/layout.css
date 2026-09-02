@@ -189,7 +189,7 @@
 	--theme-type-code-line-height: 1.45;
 	--theme-type-code-tracking: 0em;
 	--theme-font-sans: var(--theme-type-body-family);
-	--theme-font-brand: var(--theme-type-title-family);
+	--theme-font-brand: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
 	--theme-font-display: var(--theme-type-display-family);
 	--theme-font-mono: var(--theme-type-code-family);
 	--theme-font-body-weight: var(--theme-type-body-weight);
@@ -487,7 +487,7 @@
 	--theme-type-code-line-height: 1.45;
 	--theme-type-code-tracking: 0em;
 	--theme-font-sans: 'Geist Variable', 'Geist', system-ui, -apple-system, sans-serif;
-	--theme-font-brand: 'Geist Variable', 'Geist', system-ui, -apple-system, sans-serif;
+	--theme-font-brand: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
 	--theme-font-display: 'Geist Variable', 'Geist', system-ui, -apple-system, sans-serif;
 	--theme-font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
 	--theme-font-body-weight: 400;
@@ -977,15 +977,32 @@
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 	}
-}
 
-[data-theme-reduced-motion='instant'] *,
-[data-theme-reduced-motion='instant'] *::before,
-[data-theme-reduced-motion='instant'] *::after {
-	scroll-behavior: auto !important;
-	animation-duration: 0.01ms !important;
-	animation-iteration-count: 1 !important;
-	transition-duration: 0.01ms !important;
+	[data-theme-reduced-motion='instant'] *,
+	[data-theme-reduced-motion='instant'] *::before,
+	[data-theme-reduced-motion='instant'] *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+
+	[data-theme-reduced-motion='crossfade'] {
+		--theme-motion-press-distance: 0px;
+		--theme-motion-hover-distance: 0px;
+		--theme-motion-selection-distance: 0px;
+		--theme-motion-entry-distance: 0px;
+		--theme-motion-exit-distance: 0px;
+		--theme-motion-loading-distance: 0px;
+		--theme-motion-page-transition-distance: 0px;
+	}
+
+	[data-theme-reduced-motion='crossfade'] *,
+	[data-theme-reduced-motion='crossfade'] *::before,
+	[data-theme-reduced-motion='crossfade'] *::after {
+		animation-duration: 120ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 120ms !important;
+	}
 }
 
 @media (pointer: coarse) {

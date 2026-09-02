@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveBuiltInTheme } from './builtins.js';
-import type { ThemeFontFace } from './contracts.js';
+import type { ThemeFontFace, WebResolvedTheme } from './contracts.js';
+import type { ThemeFontPlanEntry } from './font-stage.js';
 import {
 	WebThemeRuntime,
 	isOpaqueThemeResourceUrl,
@@ -39,10 +40,10 @@ function fakeScope(): ThemeScope & {
 
 function loaders(overrides: Partial<ThemeRuntimeLoaders> = {}): ThemeRuntimeLoaders {
 	return {
-		loadFonts: vi.fn(async () => undefined),
+		stageFonts: vi.fn(async () => ({ release: vi.fn() })),
 		loadAssets: vi.fn(async () => undefined),
 		loadIconPack: vi.fn(async () => undefined),
-		setBrowserSurface: vi.fn(),
+		setBrowserSurface: vi.fn(() => vi.fn()),
 		...overrides
 	};
 }
@@ -91,7 +92,7 @@ describe('WebThemeRuntime', () => {
 		const scope = fakeScope();
 		const runtimeLoaders = loaders();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = resolveBuiltInTheme('notebook', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
 		selected.assets.push({
 			id: 'remote-paper',
 			slot: 'background-texture',
@@ -107,7 +108,7 @@ describe('WebThemeRuntime', () => {
 
 	it('accepts only scoped opaque raster asset routes for previews', async () => {
 		const runtime = new WebThemeRuntime(loaders());
-		const selected = resolveBuiltInTheme('notebook', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
 		selected.assets.push({
 			id: 'unsafe-vector',
 			slot: 'header-decoration',
@@ -132,7 +133,7 @@ describe('WebThemeRuntime', () => {
 	it('accepts only discrete uploaded font weights from 100 through 900', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());
-		const selected = resolveBuiltInTheme('notebook', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
 		selected.fonts.push({
 			id: 'body-font',
 			family: 'Organization Sans',
@@ -151,7 +152,7 @@ describe('WebThemeRuntime', () => {
 		const runtimeLoaders = loaders();
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = resolveBuiltInTheme('studio', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
 		selected.manifest.typography.body.family = 'Organization Sans';
 		const face: ThemeFontFace = {
 			id: 'organization-sans-400',
@@ -167,7 +168,16 @@ describe('WebThemeRuntime', () => {
 
 		expect(await runtime.apply(selected, scope)).toBe(true);
 		expect(scope.getAttribute('data-theme-fallback')).toBeNull();
-		expect(runtimeLoaders.loadFonts).toHaveBeenCalledWith([face]);
+		const uploaded = (vi.mocked(runtimeLoaders.stageFonts).mock.calls[0]?.[0].entries ?? []).filter(
+			(entry: ThemeFontPlanEntry) => entry.kind === 'uploaded'
+		);
+		expect(uploaded).toEqual([
+			expect.objectContaining({
+				sourceFamily: face.family,
+				sourceUrl: face.sourceUrl,
+				weight: face.weight
+			})
+		]);
 
 		selected.fonts[0] = {
 			...face,
@@ -181,7 +191,7 @@ describe('WebThemeRuntime', () => {
 	it('rejects unapproved primary families without an uploaded face', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());
-		const selected = resolveBuiltInTheme('studio', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
 		selected.manifest.typography.body.family = 'Remote CSS Font';
 
 		expect(await runtime.apply(selected, scope)).toBe(true);
@@ -215,7 +225,7 @@ describe('WebThemeRuntime', () => {
 		const runtimeLoaders = loaders();
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = resolveBuiltInTheme('studio', 'light');
+		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
 		selected.manifest.typography.body.family = 'Organization Sans';
 		const organizationFace: ThemeFontFace = {
 			id: 'organization-sans-400',
@@ -235,7 +245,19 @@ describe('WebThemeRuntime', () => {
 		});
 
 		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(runtimeLoaders.loadFonts).toHaveBeenCalledWith([organizationFace]);
+		const uploaded = (vi.mocked(runtimeLoaders.stageFonts).mock.calls[0]?.[0].entries ?? []).filter(
+			(entry: ThemeFontPlanEntry) => entry.kind === 'uploaded'
+		);
+		expect(uploaded).toEqual([
+			expect.objectContaining({
+				sourceFamily: organizationFace.family,
+				sourceUrl: organizationFace.sourceUrl,
+				weight: organizationFace.weight
+			})
+		]);
+		expect(scope.properties.get('--theme-font-sans')).toContain('OpenPost Theme builtin:studio');
+		expect(scope.properties.get('--theme-font-brand')).toContain('Manrope Variable');
+		expect(scope.properties.get('--theme-font-brand')).not.toContain('Organization Sans');
 	});
 
 	it('keeps the current scope intact until all theme resources are ready', async () => {
@@ -243,7 +265,14 @@ describe('WebThemeRuntime', () => {
 		const scope = fakeScope();
 		scope.setAttribute('data-theme-id', 'workshop');
 		scope.style.setProperty('--background', 'old-canvas');
-		const runtime = new WebThemeRuntime(loaders({ loadFonts: () => fonts.promise }));
+		const runtime = new WebThemeRuntime(
+			loaders({
+				stageFonts: async () => {
+					await fonts.promise;
+					return { release: vi.fn() };
+				}
+			})
+		);
 		const pending = runtime.apply(resolveBuiltInTheme('studio', 'light'), scope);
 
 		expect(scope.getAttribute('data-theme-id')).toBe('workshop');
@@ -271,6 +300,36 @@ describe('WebThemeRuntime', () => {
 		firstPack.resolve();
 		expect(await first).toBe(false);
 		expect(scope.getAttribute('data-theme-id')).toBe('notebook');
+	});
+
+	it('releases staged fonts after stale preparation, replacement, and clear', async () => {
+		const firstPack = deferred();
+		const releases = [vi.fn(), vi.fn(), vi.fn()];
+		const stageFonts = vi
+			.fn()
+			.mockResolvedValueOnce({ release: releases[0] })
+			.mockResolvedValueOnce({ release: releases[1] })
+			.mockResolvedValueOnce({ release: releases[2] });
+		const scope = fakeScope();
+		const runtime = new WebThemeRuntime(
+			loaders({
+				stageFonts,
+				loadIconPack: (pack) => (pack === 'lucide' ? firstPack.promise : Promise.resolve())
+			})
+		);
+
+		const stale = runtime.apply(resolveBuiltInTheme('workshop', 'light'), scope);
+		expect(await runtime.apply(resolveBuiltInTheme('notebook', 'light'), scope)).toBe(true);
+		firstPack.resolve();
+		expect(await stale).toBe(false);
+		expect(releases[0]).toHaveBeenCalledOnce();
+		expect(releases[1]).not.toHaveBeenCalled();
+
+		expect(await runtime.apply(resolveBuiltInTheme('playroom', 'light'), scope)).toBe(true);
+		expect(releases[1]).toHaveBeenCalledOnce();
+		expect(releases[2]).not.toHaveBeenCalled();
+		runtime.clear(scope);
+		expect(releases[2]).toHaveBeenCalledOnce();
 	});
 
 	it('uses the same isolated runtime for editor previews without changing browser chrome', async () => {
@@ -301,6 +360,27 @@ describe('WebThemeRuntime', () => {
 		expect(selected.manifest.colors.browserChrome).not.toBe(
 			selected.manifest.colors.browserSurface
 		);
+	});
+
+	it('restores browser chrome when an application scope is replaced or cleared', async () => {
+		const firstRestore = vi.fn();
+		const secondRestore = vi.fn();
+		const setBrowserSurface = vi
+			.fn()
+			.mockReturnValueOnce(firstRestore)
+			.mockReturnValueOnce(secondRestore);
+		const scope = fakeScope();
+		const runtime = new WebThemeRuntime(loaders({ setBrowserSurface }));
+
+		await runtime.apply(resolveBuiltInTheme('workshop', 'light'), scope);
+		expect(firstRestore).not.toHaveBeenCalled();
+
+		await runtime.apply(resolveBuiltInTheme('midnight', 'dark'), scope);
+		expect(firstRestore).toHaveBeenCalledOnce();
+		expect(secondRestore).not.toHaveBeenCalled();
+
+		runtime.clear(scope);
+		expect(secondRestore).toHaveBeenCalledOnce();
 	});
 
 	it('maps a resolved scheme to all browser and protected editor variables', () => {
@@ -344,7 +424,7 @@ describe('WebThemeRuntime', () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(
 			loaders({
-				loadFonts: () => Promise.reject(new Error('font subsystem unavailable')),
+				stageFonts: () => Promise.reject(new Error('font subsystem unavailable')),
 				loadAssets: () => Promise.reject(new Error('image subsystem unavailable')),
 				loadIconPack: () => Promise.reject(new Error('chunk subsystem unavailable'))
 			})

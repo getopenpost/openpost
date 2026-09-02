@@ -48,6 +48,14 @@ function loaders(overrides: Partial<ThemeRuntimeLoaders> = {}): ThemeRuntimeLoad
 	};
 }
 
+function organizationTheme(family: 'studio' | 'notebook' = 'studio'): WebResolvedTheme {
+	const theme: WebResolvedTheme = resolveBuiltInTheme(family, 'light');
+	theme.id = 'theme-id';
+	theme.revision = '2';
+	theme.source = 'organization';
+	return theme;
+}
+
 describe('WebThemeRuntime', () => {
 	it('accepts only same-origin opaque resource URLs', () => {
 		expect(
@@ -67,32 +75,91 @@ describe('WebThemeRuntime', () => {
 		).toBe(false);
 	});
 
-	it('accepts only ordinary scope or immutable workspace preview query shapes', () => {
+	it('accepts only the exact immutable workspace revision query shape', () => {
 		const assetPath = '/api/v1/theme-assets/opaque-id/content';
-		expect(isOpaqueThemeResourceUrl(`${assetPath}?workspace_id=workspace-id`)).toBe(true);
-		expect(isOpaqueThemeResourceUrl(`${assetPath}?organization_id=organization-id`)).toBe(true);
+		const resourceScope = { kind: 'published', themeId: 'theme-id', revision: '2' } as const;
 		expect(
 			isOpaqueThemeResourceUrl(
-				`${assetPath}?workspace_id=workspace-id&theme_id=theme-id&revision=2`
+				`${assetPath}?workspace_id=workspace-id&theme_id=theme-id&revision=2`,
+				resourceScope
 			)
 		).toBe(true);
+		expect(
+			isOpaqueThemeResourceUrl(
+				`${assetPath}?workspace_id=workspace-id&theme_id=other-theme&revision=2`,
+				resourceScope
+			)
+		).toBe(false);
+		expect(
+			isOpaqueThemeResourceUrl(
+				`${assetPath}?workspace_id=workspace-id&theme_id=theme-id&revision=3`,
+				resourceScope
+			)
+		).toBe(false);
 		for (const unsafeQuery of [
 			'',
+			'?workspace_id=workspace-id',
+			'?organization_id=organization-id',
 			'?workspace_id=workspace-id&theme_id=theme-id',
 			'?organization_id=organization-id&theme_id=theme-id&revision=2',
 			'?workspace_id=workspace-id&workspace_id=second',
 			'?workspace_id=workspace-id&theme_id=theme-id&revision=0',
 			'?workspace_id=workspace-id&unexpected=value'
 		]) {
-			expect(isOpaqueThemeResourceUrl(`${assetPath}${unsafeQuery}`), unsafeQuery).toBe(false);
+			expect(
+				isOpaqueThemeResourceUrl(`${assetPath}${unsafeQuery}`, resourceScope),
+				unsafeQuery
+			).toBe(false);
 		}
+	});
+
+	it('accepts the organization asset route only for an explicit editor preview scope', () => {
+		const editorUrl = '/api/v1/theme-assets/opaque-id/content?organization_id=organization-id';
+		expect(isOpaqueThemeResourceUrl(editorUrl, { kind: 'editor-preview' })).toBe(true);
+		expect(
+			isOpaqueThemeResourceUrl(editorUrl, {
+				kind: 'published',
+				themeId: 'theme-id',
+				revision: '2'
+			})
+		).toBe(false);
+		expect(isOpaqueThemeResourceUrl(`${editorUrl}&revision=2`, { kind: 'editor-preview' })).toBe(
+			false
+		);
+	});
+
+	it('stages organization-scoped resources only in marked editor previews', async () => {
+		const resource = {
+			id: 'draft-paper',
+			slot: 'background-texture' as const,
+			sourceUrl: '/api/v1/theme-assets/draft-paper/content?organization_id=organization-id',
+			mimeType: 'image/png'
+		};
+		const editorPreview = organizationTheme('notebook');
+		editorPreview.revision = 'draft-3';
+		editorPreview.webResourceScope = 'editor-preview';
+		editorPreview.assets = [resource];
+		const runtime = new WebThemeRuntime(loaders());
+		const previewScope = fakeScope();
+
+		expect(await runtime.applyScoped(editorPreview, previewScope)).toBe(true);
+		expect(previewScope.getAttribute('data-theme-fallback')).toBeNull();
+
+		const applicationScope = fakeScope();
+		expect(await runtime.apply(editorPreview, applicationScope)).toBe(true);
+		expect(applicationScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
+
+		const unmarkedPreview = { ...editorPreview, webResourceScope: 'published' as const };
+		const unmarkedScope = fakeScope();
+		expect(await runtime.applyScoped(unmarkedPreview, unmarkedScope)).toBe(true);
+		expect(unmarkedScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
 	});
 
 	it('uses a distinct fallback reason for unsafe resource references', async () => {
 		const scope = fakeScope();
 		const runtimeLoaders = loaders();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
+		const selected = organizationTheme('notebook');
 		selected.assets.push({
 			id: 'remote-paper',
 			slot: 'background-texture',
@@ -133,11 +200,12 @@ describe('WebThemeRuntime', () => {
 	it('accepts only discrete uploaded font weights from 100 through 900', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());
-		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
+		const selected = organizationTheme('notebook');
 		selected.fonts.push({
 			id: 'body-font',
 			family: 'Organization Sans',
-			sourceUrl: '/api/v1/theme-assets/opaque-id/content?organization_id=organization-id',
+			sourceUrl:
+				'/api/v1/theme-assets/opaque-id/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 			format: 'woff2',
 			weight: 450,
 			style: 'normal',
@@ -152,7 +220,7 @@ describe('WebThemeRuntime', () => {
 		const runtimeLoaders = loaders();
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
+		const selected = organizationTheme();
 		selected.manifest.typography.body.family = 'Organization Sans';
 		const face: ThemeFontFace = {
 			id: 'organization-sans-400',
@@ -201,18 +269,20 @@ describe('WebThemeRuntime', () => {
 	it('rejects duplicate single-value asset slots', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());
-		const selected = resolveBuiltInTheme('notebook', 'light');
+		const selected = organizationTheme('notebook');
 		selected.assets.push(
 			{
 				id: 'paper-a',
 				slot: 'background-texture',
-				sourceUrl: '/api/v1/theme-assets/paper-a/content?organization_id=organization-id',
+				sourceUrl:
+					'/api/v1/theme-assets/paper-a/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 				mimeType: 'image/png'
 			},
 			{
 				id: 'paper-b',
 				slot: 'background-texture',
-				sourceUrl: '/api/v1/theme-assets/paper-b/content?organization_id=organization-id',
+				sourceUrl:
+					'/api/v1/theme-assets/paper-b/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 				mimeType: 'image/png'
 			}
 		);
@@ -225,13 +295,13 @@ describe('WebThemeRuntime', () => {
 		const runtimeLoaders = loaders();
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
+		const selected = organizationTheme();
 		selected.manifest.typography.body.family = 'Organization Sans';
 		const organizationFace: ThemeFontFace = {
 			id: 'organization-sans-400',
 			family: 'Organization Sans',
 			sourceUrl:
-				'/api/v1/theme-assets/organization-sans-400/content?organization_id=organization-id',
+				'/api/v1/theme-assets/organization-sans-400/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 			format: 'woff2',
 			weight: 400,
 			style: 'normal',
@@ -241,7 +311,8 @@ describe('WebThemeRuntime', () => {
 			...organizationFace,
 			id: 'unused-serif-400',
 			family: 'Unused Serif',
-			sourceUrl: '/api/v1/theme-assets/unused-serif-400/content?organization_id=organization-id'
+			sourceUrl:
+				'/api/v1/theme-assets/unused-serif-400/content?workspace_id=workspace-id&theme_id=theme-id&revision=2'
 		});
 
 		expect(await runtime.apply(selected, scope)).toBe(true);
@@ -255,7 +326,9 @@ describe('WebThemeRuntime', () => {
 				weight: organizationFace.weight
 			})
 		]);
-		expect(scope.properties.get('--theme-font-sans')).toContain('OpenPost Theme builtin:studio');
+		expect(scope.properties.get('--theme-font-sans')).toContain(
+			'OpenPost Theme organization:theme-id:2'
+		);
 		expect(scope.properties.get('--theme-font-brand')).toContain('Manrope Variable');
 		expect(scope.properties.get('--theme-font-brand')).not.toContain('Organization Sans');
 	});

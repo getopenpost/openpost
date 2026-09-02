@@ -13,11 +13,11 @@ import {
 	type ThemeFontFaceHandle
 } from './font-stage.js';
 
-function storedFace(family: string, weight: number): ThemeFontFace {
+function storedFace(family: string, weight: number, revision = '1'): ThemeFontFace {
 	return {
 		id: `${family.toLowerCase().replaceAll(' ', '-')}-${weight}`,
 		family,
-		sourceUrl: `/api/v1/theme-assets/font-${weight}/content?organization_id=organization-id`,
+		sourceUrl: `/api/v1/theme-assets/font-${weight}/content?workspace_id=workspace-id&theme_id=organization-theme&revision=${revision}`,
 		format: 'woff2',
 		weight,
 		style: 'normal',
@@ -31,7 +31,7 @@ function uploadedPreview(revision = '1'): WebResolvedTheme {
 	theme.revision = revision;
 	theme.source = 'organization';
 	theme.manifest.typography.body.family = 'Organization Sans';
-	theme.fonts = [storedFace('Organization Sans', 400)];
+	theme.fonts = [storedFace('Organization Sans', 400, revision)];
 	return theme;
 }
 
@@ -41,7 +41,8 @@ describe('web theme font staging', () => {
 		const runtime: ThemeRuntimeFontFace = {
 			...stored,
 			nativeDerivative: {
-				sourceUrl: '/api/v1/theme-assets/native-font/content?workspace_id=workspace-id',
+				sourceUrl:
+					'/api/v1/theme-assets/native-font/content?workspace_id=workspace-id&theme_id=organization-theme&revision=1&format=ttf',
 				format: 'ttf',
 				identity: 'a'.repeat(64)
 			}

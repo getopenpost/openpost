@@ -456,4 +456,5 @@ export interface ResolvedTheme {
 // required part of the canonical ResolvedTheme contract for mobile.
 export type WebResolvedTheme = Omit<ResolvedTheme, 'fonts'> & {
 	fonts: ThemeFontFace[];
+	webResourceScope?: 'published' | 'editor-preview';
 };

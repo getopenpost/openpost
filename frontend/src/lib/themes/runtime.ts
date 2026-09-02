@@ -24,6 +24,7 @@ import {
 import {
 	createThemeFontPlan,
 	stageThemeFontPlan,
+	themeFontEnvironmentForDocument,
 	type ThemeFontPlan,
 	type ThemeFontStage
 } from './font-stage.js';
@@ -271,8 +272,13 @@ const approvedThemeAssetMimeTypes = new Set([
 	'image/avif'
 ]);
 
+export type WebThemeResourceScope =
+	| { kind: 'published'; themeId: string; revision: string }
+	| { kind: 'editor-preview' };
+
 export function isOpaqueThemeResourceUrl(
 	sourceUrl: string,
+	resourceScope: WebThemeResourceScope,
 	origin = 'location' in globalThis ? globalThis.location.origin : undefined
 ): boolean {
 	if (!isSameOriginThemeResourceUrl(sourceUrl, origin)) return false;
@@ -289,24 +295,37 @@ export function isOpaqueThemeResourceUrl(
 		const isOpaqueId = (value: string | undefined) =>
 			Boolean(value && /^[A-Za-z0-9_-]+$/.test(value));
 
-		if (organizationIds.length === 1) {
-			return parsed.searchParams.size === 1 && isOpaqueId(organizationIds[0]);
+		if (resourceScope.kind === 'editor-preview') {
+			return (
+				parsed.searchParams.size === 1 &&
+				organizationIds.length === 1 &&
+				isOpaqueId(organizationIds[0])
+			);
 		}
 		if (workspaceIds.length !== 1 || !isOpaqueId(workspaceIds[0])) return false;
-		if (parsed.searchParams.size === 1) return true;
 		return (
 			parsed.searchParams.size === 3 &&
 			themeIds.length === 1 &&
 			isOpaqueId(themeIds[0]) &&
 			revisions.length === 1 &&
-			/^[1-9][0-9]*$/.test(revisions[0] ?? '')
+			/^[1-9][0-9]*$/.test(revisions[0] ?? '') &&
+			themeIds[0] === resourceScope.themeId &&
+			revisions[0] === resourceScope.revision
 		);
 	} catch {
 		return false;
 	}
 }
 
-function hasSafeResources(theme: WebResolvedTheme): boolean {
+function hasSafeResources(
+	theme: WebResolvedTheme,
+	runtimeScope: 'application' | 'preview'
+): boolean {
+	if (theme.webResourceScope === 'editor-preview' && runtimeScope !== 'preview') return false;
+	const resourceScope: WebThemeResourceScope =
+		theme.webResourceScope === 'editor-preview'
+			? { kind: 'editor-preview' }
+			: { kind: 'published', themeId: theme.id, revision: theme.revision };
 	const assetSlots = new Set<ThemeAssetSlot>();
 	return (
 		theme.fonts.every(
@@ -316,13 +335,14 @@ function hasSafeResources(theme: WebResolvedTheme): boolean {
 				font.weight >= 100 &&
 				font.weight <= 900 &&
 				font.weight % 100 === 0 &&
-				isOpaqueThemeResourceUrl(font.sourceUrl)
+				isOpaqueThemeResourceUrl(font.sourceUrl, resourceScope)
 		) &&
 		theme.assets.every((asset) => {
 			if (assetSlots.has(asset.slot)) return false;
 			assetSlots.add(asset.slot);
 			return (
-				approvedThemeAssetMimeTypes.has(asset.mimeType) && isOpaqueThemeResourceUrl(asset.sourceUrl)
+				approvedThemeAssetMimeTypes.has(asset.mimeType) &&
+				isOpaqueThemeResourceUrl(asset.sourceUrl, resourceScope)
 			);
 		}) &&
 		createThemeFontPlan(theme) !== null
@@ -615,13 +635,18 @@ export function themeSchemeToCssVariables(
 	};
 }
 
-async function defaultLoadAssets(assets: readonly ThemeAsset[]): Promise<void> {
-	if (!('Image' in globalThis)) return;
+type ImageConstructor = new () => HTMLImageElement;
+
+async function loadAssetsWith(
+	assets: readonly ThemeAsset[],
+	ImageClass: ImageConstructor | undefined
+): Promise<void> {
+	if (!ImageClass) return;
 	await Promise.all(
 		assets.map(
 			(asset) =>
 				new Promise<void>((resolve, reject) => {
-					const image = new globalThis.Image();
+					const image = new ImageClass();
 					image.onload = () => resolve();
 					image.onerror = () => reject(new Error(`Could not load theme asset ${asset.id}`));
 					image.src = asset.sourceUrl;
@@ -635,15 +660,15 @@ async function defaultLoadIconPack(pack: ThemeIconPackId): Promise<void> {
 	await loadThemeIconPack(pack);
 }
 
-function defaultSetBrowserSurface(color: string): () => void {
-	if (!('document' in globalThis)) return () => undefined;
-	let meta = globalThis.document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+function setBrowserSurfaceIn(targetDocument: Document | undefined, color: string): () => void {
+	if (!targetDocument) return () => undefined;
+	let meta = targetDocument.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 	const originalMeta = meta;
 	const originalContent = meta?.content;
 	if (!meta) {
-		meta = globalThis.document.createElement('meta');
+		meta = targetDocument.createElement('meta');
 		meta.name = 'theme-color';
-		globalThis.document.head.append(meta);
+		targetDocument.head.append(meta);
 	}
 	meta.content = color;
 	let restored = false;
@@ -658,12 +683,25 @@ function defaultSetBrowserSurface(color: string): () => void {
 	};
 }
 
-export const browserThemeRuntimeLoaders: ThemeRuntimeLoaders = {
-	stageFonts: stageThemeFontPlan,
-	loadAssets: defaultLoadAssets,
-	loadIconPack: defaultLoadIconPack,
-	setBrowserSurface: defaultSetBrowserSurface
-};
+export function createBrowserThemeRuntimeLoaders(
+	targetDocument = 'document' in globalThis ? globalThis.document : undefined
+): ThemeRuntimeLoaders {
+	const targetWindow = targetDocument?.defaultView;
+	const ImageClass: ImageConstructor | undefined =
+		targetWindow?.Image ?? ('Image' in globalThis ? globalThis.Image : undefined);
+	return {
+		stageFonts: (plan) =>
+			stageThemeFontPlan(
+				plan,
+				targetDocument ? themeFontEnvironmentForDocument(targetDocument) : null
+			),
+		loadAssets: (assets) => loadAssetsWith(assets, ImageClass),
+		loadIconPack: defaultLoadIconPack,
+		setBrowserSurface: (color) => setBrowserSurfaceIn(targetDocument, color)
+	};
+}
+
+export const browserThemeRuntimeLoaders = createBrowserThemeRuntimeLoaders();
 
 function fallbackTheme(
 	theme: WebResolvedTheme,
@@ -685,9 +723,12 @@ export class WebThemeRuntime {
 		this.#loaders = loaders;
 	}
 
-	async prepare(theme: WebResolvedTheme): Promise<PreparedTheme> {
+	async prepare(
+		theme: WebResolvedTheme,
+		runtimeScope: 'application' | 'preview' = 'application'
+	): Promise<PreparedTheme> {
 		let candidate = isCompleteThemeSchemeManifest(theme.manifest, theme.scheme)
-			? hasSafeResources(theme)
+			? hasSafeResources(theme, runtimeScope)
 				? theme
 				: fallbackTheme(theme, 'unsafe-resource')
 			: fallbackTheme(theme, 'invalid-manifest');
@@ -767,7 +808,7 @@ export class WebThemeRuntime {
 	): Promise<boolean> {
 		const generation = (this.#generations.get(scope) ?? 0) + 1;
 		this.#generations.set(scope, generation);
-		const prepared = await this.prepare(theme);
+		const prepared = await this.prepare(theme, scopeKind);
 		if (this.#generations.get(scope) !== generation) {
 			prepared.fontStage.release();
 			return false;

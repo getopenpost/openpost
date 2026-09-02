@@ -107,19 +107,22 @@ function cssFontName(name: string): string {
 	return JSON.stringify(name);
 }
 
-function browserFontEnvironment(): ThemeFontEnvironment | null {
-	if (!('FontFace' in globalThis) || !('document' in globalThis)) return null;
+export function themeFontEnvironmentForDocument(
+	targetDocument: Document,
+	FontFaceConstructor = targetDocument.defaultView?.FontFace
+): ThemeFontEnvironment | null {
+	if (!FontFaceConstructor) return null;
 	const handles = new WeakMap<ThemeFontFaceHandle, FontFace>();
 	return {
 		async loadBundled(entry) {
-			const faces = await globalThis.document.fonts.load(
+			const faces = await targetDocument.fonts.load(
 				`${entry.style} ${entry.weight} 1em ${cssFontName(entry.runtimeFamily)}`
 			);
 			return faces.length > 0;
 		},
 		createUploaded(entry) {
 			if (!entry.sourceUrl) throw new Error('Uploaded theme font is missing its web source');
-			const face = new globalThis.FontFace(
+			const face = new FontFaceConstructor(
 				entry.runtimeFamily,
 				`url(${JSON.stringify(entry.sourceUrl)})`,
 				{
@@ -139,13 +142,18 @@ function browserFontEnvironment(): ThemeFontEnvironment | null {
 		add(handle) {
 			const face = handles.get(handle);
 			if (!face) throw new Error('Unknown staged theme font');
-			globalThis.document.fonts.add(face);
+			targetDocument.fonts.add(face);
 		},
 		delete(handle) {
 			const face = handles.get(handle);
-			if (face) globalThis.document.fonts.delete(face);
+			if (face) targetDocument.fonts.delete(face);
 		}
 	};
+}
+
+function browserFontEnvironment(): ThemeFontEnvironment | null {
+	if (!('document' in globalThis)) return null;
+	return themeFontEnvironmentForDocument(globalThis.document);
 }
 
 export async function stageThemeFontPlan(

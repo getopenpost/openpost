@@ -63,7 +63,7 @@
 	class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/96 px-2 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden"
 	aria-label={m.sidebar_primary_navigation()}
 >
-	<ul class="grid grid-cols-5">
+	<ul class="grid min-h-[calc(var(--theme-mobile-navigation-height)-0.6rem)] grid-cols-5">
 		{#each items as item (item.id)}
 			{@const icon = iconFor(item.id)}
 			{@const active = isNavigationItemActive(item, pathname)}
@@ -74,7 +74,7 @@
 					data-active={active}
 					data-cuelume-toggle={item.id === 'new' ? 'release' : 'tick'}
 					class={[
-						'flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.625rem] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+						'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 						item.id === 'new'
 							? 'text-primary'
 							: active
@@ -91,7 +91,7 @@
 					>
 						<ThemeIcon role={icon} class={item.id === 'new' ? 'size-5' : 'size-4'} />
 					</span>
-					<span class="max-w-full truncate leading-none">{labelFor(item.id)}</span>
+					<span data-theme-type="label" class="max-w-full truncate">{labelFor(item.id)}</span>
 				</button>
 			</li>
 		{/each}
@@ -105,7 +105,7 @@
 							data-theme-navigation-item
 							data-active={moreActive}
 							class={[
-								'flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.625rem] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 								moreActive ? 'bg-accent text-foreground' : 'text-muted-foreground'
 							]}
 							aria-current={moreActive ? 'page' : undefined}
@@ -114,7 +114,7 @@
 							<span class="flex size-5 items-center justify-center">
 								<ThemeIcon role="menu" class="size-4" />
 							</span>
-							<span class="max-w-full truncate leading-none">{m.sidebar_more()}</span>
+							<span data-theme-type="label" class="max-w-full truncate">{m.sidebar_more()}</span>
 						</button>
 					{/snippet}
 				</DropdownMenu.Trigger>

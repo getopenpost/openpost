@@ -42,30 +42,33 @@
 
 <header
 	data-slot="page-header"
-	data-theme-decoration-zone
+	data-theme-header
 	data-testid="page-header"
-	class={cn('page-header flex min-w-0 flex-col gap-4', className)}
+	class={cn('page-header flex min-w-0 flex-col', className)}
 >
 	<div class={cn('min-w-0', contentClass)}>
 		{#if eyebrow}
-			<div class="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+			<div data-theme-type="label" class="mb-1 flex items-center gap-2 text-muted-foreground">
 				{#if Icon}
 					<Icon class="size-4 shrink-0" />
 				{/if}
 				<span>{eyebrow}</span>
 			</div>
 		{/if}
-		<h1 class="flex items-center gap-2.5 text-xl leading-7 font-semibold tracking-tight">
+		<h1 data-theme-type="title" class="flex items-center gap-2.5">
 			{#if Icon && !eyebrow}
 				<Icon class="size-5 shrink-0 text-primary" />
 			{/if}
 			<span class={cn('min-w-0 break-words', titleClass)}>{title}</span>
 		</h1>
 		{#if description}
-			<p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
+			<p data-theme-type="body" class="mt-1 max-w-2xl text-muted-foreground">{description}</p>
 		{/if}
 		{#if meta}
-			<div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+			<div
+				data-theme-type="metadata"
+				class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground"
+			>
 				{@render meta()}
 			</div>
 		{/if}

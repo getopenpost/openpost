@@ -50,7 +50,7 @@
 </script>
 
 {#if embedded}
-	<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
+	<div data-slot="page-content" data-theme-type="body" class="min-w-0" aria-busy={loading}>
 		{#if loading}
 			<PageLoading
 				layout={loadingLayout}
@@ -63,14 +63,10 @@
 		{/if}
 	</div>
 {:else}
-	<div
-		data-slot="page-container"
-		class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
-		style="container-type: inline-size;"
-	>
+	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
 		<PageHeader {title} icon={Icon} {description} {actions} {loading} {loadingActionCount} />
 
-		<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
+		<div data-slot="page-content" data-theme-type="body" class="min-w-0" aria-busy={loading}>
 			{#if loading}
 				<PageLoading
 					layout={loadingLayout}

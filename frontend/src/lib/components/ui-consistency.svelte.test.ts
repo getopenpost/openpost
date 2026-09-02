@@ -1,12 +1,44 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { createRawSnippet } from 'svelte';
 import ImageIcon from '@lucide/svelte/icons/image';
+import { resolveBuiltInTheme, WebThemeRuntime, type ThemeRuntimeLoaders } from '$lib/themes';
 import AppToast from './app-toast.svelte';
 import { Toaster } from './ui/sonner';
 import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 import EmptyState from './empty-state.svelte';
+import PageContainer from './page-container.svelte';
 import PageHeader from './page-header.svelte';
 import PageLoading from './page-loading.svelte';
+import * as Sidebar from './ui/sidebar';
+import '../../routes/layout.css';
+
+function textSnippet(text: string) {
+	return createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
+}
+
+function themedContent() {
+	return createRawSnippet(() => ({
+		render: () =>
+			'<div><p data-testid="runtime-display" data-theme-type="display">12 posts</p><code data-testid="runtime-code" data-theme-type="code">POST /api/v1/publications</code></div>'
+	}));
+}
+
+function sidebarProbe() {
+	return createRawSnippet(() => ({
+		render: () => '<div data-testid="sidebar-width-probe" style="width:var(--sidebar-width)"></div>'
+	}));
+}
+
+function themeRuntime() {
+	const loaders: ThemeRuntimeLoaders = {
+		stageFonts: async () => ({ release: () => undefined }),
+		loadAssets: async () => undefined,
+		loadIconPack: async () => undefined,
+		setBrowserSurface: () => () => undefined
+	};
+	return new WebThemeRuntime(loaders);
+}
 
 describe('shared page states', () => {
 	it('renders one semantic page heading with its supporting copy', async () => {
@@ -22,6 +54,77 @@ describe('shared page states', () => {
 		await expect
 			.element(screen.getByTestId('page-header'))
 			.toHaveAttribute('data-slot', 'page-header');
+	});
+
+	it.each([
+		['notebook', 'light', 'Source Serif 4', '28px'],
+		['midnight', 'dark', 'Inter Tight', '24px']
+	] as const)(
+		'applies %s typography and spacing through shared page chrome',
+		async (family, scheme, titleFamily, sectionGap) => {
+			const theme = resolveBuiltInTheme(family, scheme);
+			const screen = render(PageContainer, {
+				title: `${theme.name} workspace`,
+				description: 'One complete visual system.',
+				children: themedContent()
+			});
+			const container = screen.container.querySelector<HTMLElement>(
+				'[data-slot="page-container"]'
+			)!;
+			await themeRuntime().applyScoped(theme, container);
+
+			const title = screen.getByRole('heading', { level: 1 }).element();
+			const description = screen.getByText('One complete visual system.').element();
+			const display = screen.getByTestId('runtime-display').element();
+			const code = screen.getByTestId('runtime-code').element();
+			const header = screen.getByTestId('page-header').element();
+
+			expect(getComputedStyle(container).gap).toBe(sectionGap);
+			expect(getComputedStyle(container).maxWidth).toBe('1152px');
+			expect(Number.parseFloat(getComputedStyle(container).paddingLeft)).toBeGreaterThanOrEqual(16);
+			expect(getComputedStyle(header).minHeight).toBe('56px');
+			expect(getComputedStyle(title).fontFamily).toContain(titleFamily);
+			expect(getComputedStyle(title).fontWeight).toBe(
+				String(theme.manifest.typography.title.weight)
+			);
+			expect(getComputedStyle(description).fontSize).toBe('14px');
+			expect(getComputedStyle(description).lineHeight).toBe('21px');
+			expect(getComputedStyle(display).fontWeight).toBe(
+				String(theme.manifest.typography.display.weight)
+			);
+			expect(getComputedStyle(code).fontFamily).toContain('Geist Mono');
+		}
+	);
+
+	it('applies label and metadata roles to real page header content', async () => {
+		const theme = resolveBuiltInTheme('notebook', 'light');
+		const screen = render(PageHeader, {
+			title: 'Publishing plan',
+			eyebrow: 'September',
+			description: 'Review the next scheduled posts.',
+			meta: textSnippet('Updated 5 minutes ago')
+		});
+		const header = screen.getByTestId('page-header').element();
+		await themeRuntime().applyScoped(theme, header);
+
+		expect(getComputedStyle(screen.getByText('September').element()).fontSize).toBe('13px');
+		expect(getComputedStyle(screen.getByText('September').element()).fontWeight).toBe('600');
+		expect(getComputedStyle(screen.getByText('Updated 5 minutes ago').element()).fontSize).toBe(
+			'12px'
+		);
+		expect(getComputedStyle(screen.getByText('Updated 5 minutes ago').element()).lineHeight).toBe(
+			'16.2px'
+		);
+	});
+
+	it('resolves the desktop sidebar through the theme shell width', async () => {
+		const screen = render(Sidebar.Provider, { children: sidebarProbe() });
+		const wrapper = screen.container.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]')!;
+		await themeRuntime().applyScoped(resolveBuiltInTheme('midnight', 'dark'), wrapper);
+
+		expect(getComputedStyle(screen.getByTestId('sidebar-width-probe').element()).width).toBe(
+			'256px'
+		);
 	});
 
 	it('announces a content-shaped loading state without adding another heading', async () => {

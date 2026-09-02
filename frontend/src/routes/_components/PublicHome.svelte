@@ -82,10 +82,7 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 				class="mx-auto grid w-full max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:px-8"
 			>
 				<div>
-					<h1
-						id="public-home-title"
-						class="max-w-4xl text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance sm:text-6xl"
-					>
+					<h1 id="public-home-title" data-theme-type="display" class="max-w-4xl text-balance">
 						{m.public_home_title()}
 					</h1>
 					<p class="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">

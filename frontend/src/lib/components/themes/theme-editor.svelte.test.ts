@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { getBuiltInTheme } from '$lib/themes';
 import ThemeEditor from './theme-editor.svelte';
 import { duplicateThemeManifest } from './theme-editor-model';
 import '../../../routes/layout.css';
+
+function previewFrame(element: Element): HTMLIFrameElement {
+	if (!(element instanceof HTMLIFrameElement))
+		throw new Error('Theme preview iframe is unavailable');
+	return element;
+}
 
 describe('ThemeEditor', () => {
 	it('labels editor modes, schemes, and preview controls as distinct groups', async () => {
@@ -26,6 +33,24 @@ describe('ThemeEditor', () => {
 		await expect.element(screen.getByRole('group', { name: 'Icon pack' })).toBeVisible();
 	});
 
+	it('keeps disclosure controls touch-sized and visibly focusable', async () => {
+		const initialTheme = duplicateThemeManifest(
+			getBuiltInTheme('workshop'),
+			'northstar',
+			'Northstar'
+		);
+		const screen = render(ThemeEditor, { initialTheme });
+		const summary = screen.getByText('Foundation', { exact: true }).element();
+		if (!(summary instanceof HTMLElement)) throw new Error('Theme disclosure is unavailable');
+
+		expect(summary.tagName).toBe('SUMMARY');
+		expect(Number.parseFloat(getComputedStyle(summary).minHeight)).toBeGreaterThanOrEqual(44);
+		summary.focus();
+		await userEvent.keyboard('{Tab}{Shift>}{Tab}{/Shift}');
+		expect(document.activeElement).toBe(summary);
+		expect(getComputedStyle(summary).outlineStyle).not.toBe('none');
+	});
+
 	it('edits the real scoped preview and can undo the complete change', async () => {
 		const initialTheme = duplicateThemeManifest(
 			getBuiltInTheme('workshop'),
@@ -38,7 +63,7 @@ describe('ThemeEditor', () => {
 		await canvas.fill('#F1F5FF');
 		await expect.element(screen.getByText('Unsaved changes')).toBeVisible();
 		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
-		const preview = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+		const preview = previewFrame(screen.getByTestId('theme-preview').element());
 		await expect
 			.poll(() => ({
 				background: preview.contentDocument?.documentElement.style.getPropertyValue('--background'),

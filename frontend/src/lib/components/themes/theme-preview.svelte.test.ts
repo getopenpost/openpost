@@ -9,6 +9,12 @@ const PHONE_VIEWPORTS = [
 	{ viewport: 'phone-small', width: 320 }
 ] as const;
 
+function previewFrame(element: Element): HTMLIFrameElement {
+	if (!(element instanceof HTMLIFrameElement))
+		throw new Error('Theme preview iframe is unavailable');
+	return element;
+}
+
 function horizontalOverflow(frame: HTMLIFrameElement) {
 	const previewDocument = frame.contentDocument;
 	const scene = previewDocument?.querySelector<HTMLElement>('[data-preview-scene]');
@@ -71,7 +77,7 @@ describe('ThemePreview', () => {
 
 		await expect.element(screen.getByTitle(label)).toBeVisible();
 		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
-		const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
 		await expect
 			.poll(() =>
 				frame.contentDocument
@@ -104,7 +110,7 @@ describe('ThemePreview', () => {
 
 			for (const scene of THEME_PREVIEW_SCENES) {
 				await screen.rerender({ theme, scene, viewport, label });
-				const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+				const frame = previewFrame(screen.getByTestId('theme-preview').element());
 				await expect
 					.poll(() =>
 						frame.contentDocument
@@ -118,6 +124,52 @@ describe('ThemePreview', () => {
 		}
 	);
 
+	it.each([
+		['notebook', 'light', 'Source Serif 4', '28px'],
+		['midnight', 'dark', 'Inter Tight', '24px']
+	] as const)(
+		'uses the shared shell and semantic type roles for %s',
+		async (family, scheme, titleFamily, sectionGap) => {
+			const theme = resolveBuiltInTheme(family, scheme);
+			const screen = render(ThemePreview, {
+				theme,
+				scene: 'tables',
+				label: `${theme.name} shell preview`
+			});
+			await expect
+				.element(screen.getByTestId('theme-preview'))
+				.toHaveAttribute('aria-busy', 'false');
+			const frame = previewFrame(screen.getByTestId('theme-preview').element());
+			const previewDocument = frame.contentDocument!;
+			const pageContainer = previewDocument.querySelector<HTMLElement>(
+				'[data-slot="page-container"]'
+			)!;
+			const appHeader = previewDocument.querySelector<HTMLElement>('[data-slot="app-header"]')!;
+			const sidebar = previewDocument.querySelector<HTMLElement>('[data-slot="sidebar"]')!;
+			const mobileNavigation = previewDocument.querySelector<HTMLElement>(
+				'[data-slot="mobile-bottom-nav"]'
+			)!;
+			const title = previewDocument.querySelector<HTMLElement>('[data-theme-type="title"]')!;
+			const metadata = previewDocument.querySelector<HTMLElement>('[data-theme-type="metadata"]')!;
+			const code = previewDocument.querySelector<HTMLElement>('[data-theme-type="code"]')!;
+
+			expect(pageContainer).not.toBeNull();
+			expect(appHeader).not.toBeNull();
+			expect(sidebar).not.toBeNull();
+			expect(mobileNavigation).not.toBeNull();
+			expect(getComputedStyle(pageContainer).gap).toBe(sectionGap);
+			expect(getComputedStyle(appHeader).minHeight).toBe('56px');
+			expect(getComputedStyle(sidebar).width).toContain('256px');
+			expect(getComputedStyle(mobileNavigation).minHeight).toBe('72px');
+			expect(getComputedStyle(title).fontFamily).toContain(titleFamily);
+			expect(getComputedStyle(title).fontWeight).toBe(
+				String(theme.manifest.typography.title.weight)
+			);
+			expect(getComputedStyle(metadata).fontSize).toBe('12px');
+			expect(getComputedStyle(code).fontFamily).toContain('Geist Mono');
+		}
+	);
+
 	it('keeps preview fixture labels valid and small copy readable', async () => {
 		const screen = render(ThemePreview, {
 			theme: resolveBuiltInTheme('workshop', 'light'),
@@ -125,7 +177,7 @@ describe('ThemePreview', () => {
 			label: 'Composer accessibility preview'
 		});
 		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
-		const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
 
 		await expect
 			.poll(() => frame.contentDocument?.querySelector('[role="textbox"]'))
@@ -135,7 +187,11 @@ describe('ThemePreview', () => {
 		expect(document.querySelector('[role="textbox"]')?.getAttribute('aria-labelledby')).toBe(
 			'preview-composer-label'
 		);
-		const compactText = [...document.querySelectorAll<HTMLElement>('[class*="text-["]')];
+		const compactText = [
+			...document.querySelectorAll<HTMLElement>(
+				'[data-theme-type="metadata"], [data-theme-type="label"]'
+			)
+		];
 		expect(compactText.length).toBeGreaterThan(0);
 		expect(
 			Math.min(
@@ -153,7 +209,7 @@ describe('ThemePreview', () => {
 
 		await expect.element(screen.getByTitle('Protected video editor preview')).toBeVisible();
 		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
-		const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
 		expect(
 			frame.contentDocument?.querySelector('[data-protected-editor-chrome="video-editor"]')
 		).not.toBeNull();

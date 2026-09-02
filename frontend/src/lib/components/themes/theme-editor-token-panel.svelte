@@ -99,7 +99,9 @@
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={group.id === 'foundation'}
 			>
-				<summary class="cursor-pointer text-sm font-semibold">{group.label}</summary>
+				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
+					>{group.label}</summary
+				>
 				<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
 				<div class="mt-3 grid gap-3">
 					{#each group.fields as field (field)}
@@ -136,7 +138,9 @@
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={role === 'body'}
 			>
-				<summary class="cursor-pointer text-sm font-semibold">{humanizeThemeToken(role)}</summary>
+				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
+					>{humanizeThemeToken(role)}</summary
+				>
 				<div class="mt-3 grid gap-3">
 					<label class="grid gap-1.5 text-xs font-medium">
 						{m.theme_editor_family()}
@@ -273,7 +277,9 @@
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={recipe === 'press'}
 			>
-				<summary class="cursor-pointer text-sm font-semibold">{humanizeThemeToken(recipe)}</summary>
+				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
+					>{humanizeThemeToken(recipe)}</summary
+				>
 				<div class="mt-3 grid grid-cols-2 gap-3">
 					{#each motionFields as field (field[0])}
 						<label class="grid gap-1.5 text-xs font-medium">
@@ -335,7 +341,9 @@
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
 				open={group.id === 'actions-navigation'}
 			>
-				<summary class="cursor-pointer text-sm font-semibold">{group.label}</summary>
+				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
+					>{group.label}</summary
+				>
 				<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
 				<div class="mt-3 grid gap-3">
 					{#each group.fields as field (field)}

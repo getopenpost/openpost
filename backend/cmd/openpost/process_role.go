@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type processRole string
 
@@ -14,18 +17,25 @@ const (
 	processRoleMaintenance processRole = "maintenance"
 )
 
-const processUsage = "usage: openpost [all|web|worker|migrate|check-config|rotate-encryption-key]"
+const processUsage = "usage: openpost [all|web|worker|migrate|check-config|grant-admin --email <address>|rotate-encryption-key]"
 
 type processCommand struct {
 	role                processRole
 	checkConfig         bool
 	rotateEncryptionKey bool
+	grantAdminEmail     string
 	showHelp            bool
 }
 
 func parseProcessCommand(args []string) (processCommand, error) {
 	if len(args) == 0 {
 		return processCommand{role: processRoleAll}, nil
+	}
+	if args[0] == "grant-admin" {
+		if len(args) != 3 || args[1] != "--email" || strings.TrimSpace(args[2]) == "" {
+			return processCommand{}, fmt.Errorf("grant-admin requires --email <address>\n%s", processUsage)
+		}
+		return processCommand{role: processRoleMaintenance, grantAdminEmail: strings.TrimSpace(args[2])}, nil
 	}
 	if len(args) != 1 {
 		return processCommand{}, fmt.Errorf("%s", processUsage)

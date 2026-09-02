@@ -1779,6 +1779,8 @@
 	"accounts_provider_unavailable": "Unavailable",
 	"accounts_provider_ask_admin": "Ask admin",
 	"accounts_provider_admin_enable": "Your instance administrator needs to enable this platform.",
+	"accounts_provider_admin_enable_self": "이 인스턴스의 관리자입니다. 인스턴스 설정에서 이 플랫폼들을 사용하도록 설정하세요.",
+	"accounts_provider_admin_configure": "설정",
 	"accounts_provider_retry_readiness": "Retry check",
 	"provider_readiness_label_unsupported": "Not implemented",
 	"provider_readiness_label_disabled": "Disabled",

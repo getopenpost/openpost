@@ -1779,6 +1779,8 @@
 	"accounts_provider_unavailable": "Unavailable",
 	"accounts_provider_ask_admin": "Ask admin",
 	"accounts_provider_admin_enable": "Your instance administrator needs to enable this platform.",
+	"accounts_provider_admin_enable_self": "Vous êtes l'administrateur de cette instance. Activez ces plateformes dans les paramètres de l'instance.",
+	"accounts_provider_admin_configure": "Configurer",
 	"accounts_provider_retry_readiness": "Retry check",
 	"provider_readiness_label_unsupported": "Not implemented",
 	"provider_readiness_label_disabled": "Disabled",

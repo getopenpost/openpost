@@ -12,6 +12,13 @@
 		schedulingQueryKeys
 	} from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { prefetchDraftComposerData } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
@@ -55,6 +62,7 @@
 	let draftPendingDelete = $state<PlannerDraft | null>(null);
 	let deletingDraftId = $state('');
 	let draftDeleteReturnFocus = $state<HTMLElement | null>(null);
+	let draftMutationSequence = 0;
 	let overviewRequest = 0;
 	let draftsRequest = 0;
 	let overviewWorkspaceKey = '';
@@ -65,6 +73,13 @@
 	let renderedWeekCount = $state(12);
 	let focusedDayKey = $state('');
 	let visibleCalendarDayKey = $state('');
+
+	interface DraftDeleteView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+		readonly draft: PlannerDraft;
+	}
 	const weeksPerBatch = 8;
 	const calendarWeekHeight = 36;
 	const draftContextItemClass =
@@ -221,6 +236,10 @@
 		}
 		const workspaceChanged = draftsWorkspaceId !== currentWorkspaceId;
 		if (workspaceChanged) {
+			draftMutationSequence += 1;
+			deleteDraftDialogOpen = false;
+			draftPendingDelete = null;
+			deletingDraftId = '';
 			drafts = [];
 			draftsWorkspaceId = currentWorkspaceId;
 			draftsDataReady = false;
@@ -291,36 +310,52 @@
 	async function deleteDraft(): Promise<DestructiveActionOutcome> {
 		const draft = draftPendingDelete;
 		if (!draft || deletingDraftId) return { ok: false };
+		const view: DraftDeleteView = {
+			session: captureQueryMutationSession(),
+			sequence: ++draftMutationSequence,
+			workspaceId,
+			draft
+		};
 		deletingDraftId = draft.id;
 		try {
-			const { error } = await client.DELETE('/publications/{id}', {
+			const { error, response } = await client.DELETE('/publications/{id}', {
 				params: {
-					path: { id: draft.id },
-					query: { confirm: true, expected_revision: draft.revision }
+					path: { id: view.draft.id },
+					query: { confirm: true, expected_revision: view.draft.revision }
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (error) {
+				if (!draftDeleteViewIsCurrent(view)) return { ok: false };
 				throw new Error(error.detail || m.sidebar_delete_draft_failed());
 			}
 
-			drafts = drafts.filter((candidate) => candidate.id !== draft.id);
-			queryClient.setQueriesData<Publication[]>(
-				{ queryKey: schedulingQueryKeys.publicationLists(workspaceId) },
-				(current) => current?.filter((publication) => publication.id !== draft.id)
-			);
-			queryClient.removeQueries({
-				queryKey: openPostQueryKeys.publications.detail(workspaceId, draft.id),
-				exact: true
+			const listKey = schedulingQueryKeys.publicationLists(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: listKey }],
+				reconcile: () => {
+					queryClient.setQueriesData<Publication[]>({ queryKey: listKey }, (current) =>
+						current?.filter((publication) => publication.id !== view.draft.id)
+					);
+					queryClient.removeQueries({
+						queryKey: openPostQueryKeys.publications.detail(view.workspaceId, view.draft.id),
+						exact: true
+					});
+				},
+				invalidate: [
+					{
+						queryKey: openPostQueryKeys.publications.list(view.workspaceId),
+						refetchType: 'none'
+					}
+				]
 			});
-			await queryClient.invalidateQueries({
-				queryKey: openPostQueryKeys.publications.list(workspaceId),
-				refetchType: 'none'
-			});
+			if (!reconciled || !draftDeleteViewIsCurrent(view)) return { ok: false };
+			drafts = drafts.filter((candidate) => candidate.id !== view.draft.id);
 			ui.triggerRefresh({
-				workspaceId,
+				workspaceId: view.workspaceId,
 				scopes: ['activity', 'calendar', 'drafts']
 			});
-			if (page.url.pathname === draft.href) onNavigate('/');
+			if (page.url.pathname === view.draft.href) onNavigate('/');
 			draftPendingDelete = null;
 			return {
 				ok: true,
@@ -328,13 +363,22 @@
 				returnFocus: draftDeleteReturnFocus
 			};
 		} catch (error) {
+			if (!draftDeleteViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: error instanceof Error ? error.message : m.sidebar_delete_draft_failed()
 			};
 		} finally {
-			deletingDraftId = '';
+			if (view.sequence === draftMutationSequence) deletingDraftId = '';
 		}
+	}
+
+	function draftDeleteViewIsCurrent(view: DraftDeleteView): boolean {
+		return (
+			view.sequence === draftMutationSequence &&
+			view.workspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function openPlannerDay(date: CalendarDate) {

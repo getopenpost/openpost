@@ -8,6 +8,13 @@
 		type Prompt
 	} from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { promptQueryAPI } from '$lib/query/prompts';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
@@ -42,7 +49,15 @@
 	let toastTone = $state<'success' | 'error'>('success');
 	let deleteDialogOpen = $state(false);
 	let promptToDelete = $state.raw<Prompt | null>(null);
+	let mutationSequence = 0;
+	let mutationWorkspaceID = '';
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+
+	interface PromptMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
 	const promptsQuery = createQuery(() => ({
 		...promptsQueryOptions(
 			promptQueryAPI,
@@ -63,30 +78,69 @@
 		queryErrorMessage(categoriesQuery.error, m.prompts_load_failed())
 	);
 
+	$effect(() => {
+		if (mutationWorkspaceID === workspaceID) return;
+		mutationWorkspaceID = workspaceID;
+		mutationSequence += 1;
+		showAddPrompt = false;
+		newPromptText = '';
+		newPromptExample = '';
+		newPromptCategory = '';
+		submitting = false;
+		toastMessage = '';
+		deleteDialogOpen = false;
+		promptToDelete = null;
+	});
+
+	function capturePromptMutationView(): PromptMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++mutationSequence,
+			workspaceID
+		};
+	}
+
+	function promptMutationViewIsCurrent(view: PromptMutationView): boolean {
+		return (
+			view.sequence === mutationSequence &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
 	async function addPrompt() {
 		if (!workspaceCtx.currentWorkspace || !newPromptText.trim() || !newPromptCategory) return;
+		const view = capturePromptMutationView();
+		const text = newPromptText.trim();
+		const example = newPromptExample.trim();
+		const category = newPromptCategory;
 		submitting = true;
 		try {
-			const { error: err } = await client.POST('/prompts', {
+			const { error: err, response } = await client.POST('/prompts', {
 				body: {
-					workspace_id: workspaceCtx.currentWorkspace.id,
-					text: newPromptText.trim(),
-					example: newPromptExample.trim(),
-					category: newPromptCategory
+					workspace_id: view.workspaceID,
+					text,
+					example,
+					category
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err) throw new Error(err.detail || m.prompts_create_failed());
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: promptQueryKeys.lists(view.workspaceID) }]
+			});
+			if (!reconciled || !promptMutationViewIsCurrent(view)) return;
 			showAddPrompt = false;
 			newPromptText = '';
 			newPromptExample = '';
 			toastTone = 'success';
 			toastMessage = m.prompts_created();
-			await queryClient.invalidateQueries({ queryKey: promptQueryKeys.lists(workspaceID) });
 		} catch (e) {
+			if (!promptMutationViewIsCurrent(view)) return;
 			toastTone = 'error';
 			toastMessage = e instanceof Error ? e.message : m.prompts_create_failed();
 		} finally {
-			submitting = false;
+			if (view.sequence === mutationSequence) submitting = false;
 		}
 	}
 
@@ -98,14 +152,21 @@
 	async function deletePrompt(): Promise<DestructiveActionOutcome> {
 		const prompt = promptToDelete;
 		if (!prompt) return { ok: false };
+		const view = capturePromptMutationView();
 		try {
-			const { error: err } = await client.DELETE('/prompts/{id}', {
+			const { error: err, response } = await client.DELETE('/prompts/{id}', {
 				params: { path: { id: prompt.id } }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err) throw new Error(err.detail || m.prompts_delete_failed());
-			await queryClient.invalidateQueries({ queryKey: promptQueryKeys.lists(workspaceID) });
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: promptQueryKeys.lists(view.workspaceID) }]
+			});
+			if (!reconciled || !promptMutationViewIsCurrent(view)) return { ok: false };
+			promptToDelete = null;
 			return { ok: true, successMessage: m.prompts_deleted() };
 		} catch (e) {
+			if (!promptMutationViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: e instanceof Error ? e.message : m.prompts_delete_failed()

@@ -10,6 +10,13 @@
 	import { client } from '$lib/api/client';
 	import { openPostQueryKeys, schedulingPublicationsQueryOptions } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
@@ -43,6 +50,17 @@
 	let loadRequestSequence = 0;
 	let postsWorkspaceId = '';
 	let postsDataReady = $state(false);
+	let deleteMutationContext = '';
+	let deleteMutationSequence = 0;
+
+	interface DayPostsDeleteView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+		readonly date: string;
+		readonly post: Publication;
+		readonly returnFocus: HTMLElement | null;
+	}
 
 	const currentDate = $derived<DateValue | undefined>(ui.dayPostsDate);
 	const dateStr = $derived(currentDate ? currentDate.toString() : '');
@@ -73,13 +91,48 @@
 		}
 	});
 
+	$effect(() => {
+		const context = `${ui.isDayPostsOpen ? 'open' : 'closed'}:${currentWorkspaceId}:${dateStr}`;
+		if (context === deleteMutationContext) return;
+		deleteMutationContext = context;
+		deleteMutationSequence += 1;
+		deleteDialogOpen = false;
+		postToDelete = null;
+	});
+
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
 		if (!isOpen) {
 			loadRequestSequence++;
+			deleteMutationSequence++;
 			loading = false;
+			deleteDialogOpen = false;
+			postToDelete = null;
 			ui.closeDayPosts();
 		}
+	}
+
+	function captureDayPostsDeleteView(post: Publication): DayPostsDeleteView | undefined {
+		if (!ui.isDayPostsOpen || !dateStr || post.workspace_id !== currentWorkspaceId)
+			return undefined;
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++deleteMutationSequence,
+			workspaceId: currentWorkspaceId,
+			date: dateStr,
+			post,
+			returnFocus: deleteReturnFocus
+		};
+	}
+
+	function dayPostsDeleteViewIsCurrent(view: DayPostsDeleteView) {
+		return (
+			view.sequence === deleteMutationSequence &&
+			ui.isDayPostsOpen &&
+			currentWorkspaceId === view.workspaceId &&
+			dateStr === view.date &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	async function loadPosts(date: string, workspaceId = currentWorkspaceId, force = false) {
@@ -228,35 +281,41 @@
 	async function handleDelete(): Promise<DestructiveActionOutcome> {
 		const post = postToDelete;
 		if (!post) return { ok: false };
+		const view = captureDayPostsDeleteView(post);
+		if (!view) return { ok: false };
 		try {
-			const { error: responseError } = await client.DELETE('/publications/{id}', {
+			const { error: responseError, response } = await client.DELETE('/publications/{id}', {
 				params: {
-					path: { id: post.id },
-					query: { confirm: true, expected_revision: post.revision }
+					path: { id: view.post.id },
+					query: { confirm: true, expected_revision: view.post.revision }
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (responseError) throw new Error(responseError.detail || m.day_posts_delete_failed());
-			queryClient.removeQueries({
-				queryKey: openPostQueryKeys.publications.detail(post.workspace_id, post.id),
-				exact: true
+			const detailKey = openPostQueryKeys.publications.detail(view.workspaceId, view.post.id);
+			const listKey = openPostQueryKeys.publications.list(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: detailKey, exact: true }, { queryKey: listKey }],
+				reconcile: () => queryClient.removeQueries({ queryKey: detailKey, exact: true }),
+				invalidate: [{ queryKey: listKey, refetchType: 'none' }]
 			});
-			await queryClient.invalidateQueries({
-				queryKey: openPostQueryKeys.publications.list(post.workspace_id),
-				refetchType: 'none'
-			});
-			await loadPosts(dateStr, post.workspace_id);
+			if (!reconciled) return { ok: false };
 			ui.triggerRefresh({
-				workspaceId: post.workspace_id,
+				workspaceId: view.workspaceId,
 				scopes: ['activity', 'calendar', 'drafts'],
-				dateKeys: dateStr ? [dateStr] : []
+				dateKeys: [view.date]
 			});
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
+			await loadPosts(view.date, view.workspaceId);
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
 			postToDelete = null;
 			return {
 				ok: true,
 				successMessage: m.day_posts_delete_success(),
-				returnFocus: deleteReturnFocus
+				returnFocus: view.returnFocus
 			};
 		} catch (cause) {
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: cause instanceof Error ? cause.message : m.day_posts_delete_failed()

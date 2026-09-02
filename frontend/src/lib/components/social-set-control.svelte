@@ -1,10 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { client, type SocialAccount } from '$lib/api/client';
+	import { loadWorkspaceSocialSets } from '$lib/api/performance-cache';
+	import { openPostQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import {
-		invalidateWorkspaceSocialSets,
-		loadWorkspaceSocialSets
-	} from '$lib/api/performance-cache';
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import type { components } from '$lib/api/types';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
@@ -72,6 +78,16 @@
 	let pickerOpen = $state(false);
 	let pendingCustomAccount = $state<SocialAccount | null>(null);
 	let customAccountConfirmOpen = $state(false);
+	let loadSequence = 0;
+	let mutationSequence = 0;
+	let mutationWorkspaceId = '';
+
+	interface SocialSetMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+		readonly editorId: string;
+	}
 
 	const selectedAccounts = $derived(
 		selectedAccountIds
@@ -99,22 +115,58 @@
 		if (workspaceId && workspaceId !== loadedWorkspaceId) void loadSets();
 	});
 
+	$effect(() => {
+		if (workspaceId === mutationWorkspaceId) return;
+		mutationWorkspaceId = workspaceId;
+		mutationSequence += 1;
+		manageOpen = false;
+		editorId = '';
+		editorName = '';
+		editorDefault = false;
+		editorAccountIds = [];
+		saving = false;
+		deleting = false;
+		deleteOpen = false;
+		error = '';
+	});
+
+	function captureSocialSetMutationView(): SocialSetMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++mutationSequence,
+			workspaceId,
+			editorId
+		};
+	}
+
+	function socialSetMutationViewIsCurrent(view: SocialSetMutationView): boolean {
+		return (
+			view.sequence === mutationSequence &&
+			view.workspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
 	async function loadSets(force = false) {
 		const requestedWorkspace = workspaceId;
 		if (!requestedWorkspace) return;
+		const requestSequence = ++loadSequence;
+		if (loadedWorkspaceId !== requestedWorkspace) sets = [];
 		loadedWorkspaceId = requestedWorkspace;
 		loading = true;
 		error = '';
 		try {
-			sets = await loadWorkspaceSocialSets(requestedWorkspace, force);
+			const loadedSets = await loadWorkspaceSocialSets(requestedWorkspace, force);
+			if (requestSequence !== loadSequence || workspaceId !== requestedWorkspace) return;
+			sets = loadedSets;
 		} catch (cause) {
-			if (workspaceId !== requestedWorkspace) return;
+			if (requestSequence !== loadSequence || workspaceId !== requestedWorkspace) return;
 			error = cause instanceof Error && cause.message ? cause.message : m.social_set_load_failed();
 			return;
 		} finally {
-			if (workspaceId === requestedWorkspace) loading = false;
+			if (requestSequence === loadSequence && workspaceId === requestedWorkspace) loading = false;
 		}
-		if (workspaceId !== requestedWorkspace) return;
+		if (requestSequence !== loadSequence || workspaceId !== requestedWorkspace) return;
 		if (selectedSetId) {
 			// The publication already owns a destination snapshot. Loading the
 			// reusable set must never replace that snapshot with current membership.
@@ -161,69 +213,98 @@
 
 	async function saveSet() {
 		if (!editorName.trim() || saving) return;
-		const creating = !editorId;
+		const view = captureSocialSetMutationView();
+		const creating = !view.editorId;
+		const name = editorName.trim();
+		const isDefault = editorDefault;
+		const accounts = editorAccounts();
 		saving = true;
 		error = '';
 		try {
-			if (editorId) {
-				const { error: saveError } = await client.PUT('/social-sets/{id}', {
-					params: { path: { id: editorId } },
+			let savedID = view.editorId;
+			if (view.editorId) {
+				const { error: saveError, response } = await client.PUT('/social-sets/{id}', {
+					params: { path: { id: view.editorId } },
 					body: {
-						name: editorName.trim(),
-						is_default: editorDefault,
-						accounts: editorAccounts()
+						name,
+						is_default: isDefault,
+						accounts
 					}
 				});
+				settleQueryMutationSession(view.session, response);
 				if (saveError) throw new Error(saveError.detail || m.social_set_save_failed());
 			} else {
-				const { data, error: saveError } = await client.POST('/social-sets', {
+				const {
+					data,
+					error: saveError,
+					response
+				} = await client.POST('/social-sets', {
 					body: {
-						workspace_id: workspaceId,
-						name: editorName.trim(),
-						is_default: editorDefault,
-						accounts: editorAccounts()
+						workspace_id: view.workspaceId,
+						name,
+						is_default: isDefault,
+						accounts
 					}
 				});
-				if (saveError) throw new Error(saveError.detail || m.social_set_save_failed());
-				editorId = data.id;
-				selectedSetId = data.id;
+				settleQueryMutationSession(view.session, response);
+				if (saveError || !data) throw new Error(saveError?.detail || m.social_set_save_failed());
+				if (data.workspace_id !== view.workspaceId) throw new Error(m.social_set_save_failed());
+				savedID = data.id;
 			}
-			invalidateWorkspaceSocialSets(workspaceId);
-			await loadSets(true);
-			const saved = sets.find((set) => set.id === editorId) ?? null;
+			const queryKey = openPostQueryKeys.socialSets(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey, exact: true }],
+				invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+			});
+			if (!reconciled || !socialSetMutationViewIsCurrent(view)) return;
+			editorId = savedID;
+			if (creating) selectedSetId = savedID;
+			await loadSets();
+			if (!socialSetMutationViewIsCurrent(view)) return;
+			const saved = sets.find((set) => set.id === savedID) ?? null;
 			if (creating && saved) onApply(saved);
 		} catch (cause) {
+			if (!socialSetMutationViewIsCurrent(view)) return;
 			error = cause instanceof Error ? cause.message : m.social_set_save_failed();
 		} finally {
-			saving = false;
+			if (view.sequence === mutationSequence) saving = false;
 		}
 	}
 
 	async function deleteSet(): Promise<DestructiveActionOutcome> {
 		if (!editorId || deleting) return { ok: false };
+		const view = captureSocialSetMutationView();
 		deleting = true;
 		error = '';
 		try {
-			const { error: deleteError } = await client.DELETE('/social-sets/{id}', {
-				params: { path: { id: editorId }, query: { confirm: true } }
+			const { error: deleteError, response } = await client.DELETE('/social-sets/{id}', {
+				params: { path: { id: view.editorId }, query: { confirm: true } }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (deleteError) throw new Error(deleteError.detail || m.social_set_delete_failed());
-			if (selectedSetId === editorId) {
+			const queryKey = openPostQueryKeys.socialSets(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey, exact: true }],
+				invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+			});
+			if (!reconciled || !socialSetMutationViewIsCurrent(view)) return { ok: false };
+			if (selectedSetId === view.editorId) {
 				selectedSetId = '';
 				onApply(null);
 			}
 			deleteOpen = false;
 			startNewSet();
-			invalidateWorkspaceSocialSets(workspaceId);
-			await loadSets(true);
+			await loadSets();
+			if (!socialSetMutationViewIsCurrent(view)) return { ok: false };
 			return { ok: true };
 		} catch (cause) {
+			if (!socialSetMutationViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: cause instanceof Error ? cause.message : m.social_set_delete_failed()
 			};
 		} finally {
-			deleting = false;
+			if (view.sequence === mutationSequence) deleting = false;
 		}
 	}
 

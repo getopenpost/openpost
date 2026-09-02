@@ -124,6 +124,66 @@ test("finds native API fetches through direct, assigned, and bound aliases", () 
   );
 });
 
+test("finds typed and raw reads inside Svelte markup expressions", () => {
+  const file = "frontend/src/routes/example/+page.svelte";
+  withFixture(
+    {
+      [file]: `<script lang="ts">
+        const typedRequest = client.GET;
+        const rawRequest = globalThis.fetch;
+      </script>
+      <button onclick={() => typedRequest('/markup-typed')}>
+        {rawRequest('/api/v1/markup-raw')}
+      </button>`,
+    },
+    (repoRoot) => {
+      assert.deepEqual(
+        scan(repoRoot).violations.map(({ endpoint }) => endpoint),
+        ["/markup-typed", "/markup-raw"],
+      );
+    },
+  );
+});
+
+test("treats uncertain raw fetch initialization as a read", () => {
+  const file = "frontend/src/lib/example.ts";
+  withFixture(
+    {
+      [file]: `
+        const request = globalThis.fetch;
+        await request('/api/v1/identifier-init', requestInit);
+        await fetch('/api/v1/dynamic-method', { method });
+        await fetch('/api/v1/overridden-method', { method: 'DELETE', ...requestInit });
+        await fetch('/api/v1/head-read', { method: 'HEAD' });
+      `,
+    },
+    (repoRoot) => {
+      assert.deepEqual(
+        scan(repoRoot).violations.map(({ endpoint }) => endpoint),
+        ["/identifier-init", "/dynamic-method", "/overridden-method", "/head-read"],
+      );
+    },
+  );
+});
+
+test("ignores raw fetches whose mutation method is statically decisive", () => {
+  const file = "frontend/src/lib/example.ts";
+  withFixture(
+    {
+      [file]: `
+        const request = window.fetch.bind(window);
+        await request('/api/v1/post', { method: 'POST' });
+        await fetch('/api/v1/patch', { ...requestInit, method: \`PATCH\` });
+        await fetch('/api/v1/delete', { method: 'DELETE' as const });
+        await fetch('/api/v1/put', { method: 'PUT', credentials: 'include' });
+      `,
+    },
+    (repoRoot) => {
+      assert.deepEqual(scan(repoRoot).calls, []);
+    },
+  );
+});
+
 test("ignores raw mutations, external resources, and dynamic downloads", () => {
   const file = "frontend/src/lib/example.ts";
   withFixture(

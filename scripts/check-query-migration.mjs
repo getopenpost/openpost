@@ -7,6 +7,7 @@ import ts from "typescript";
 
 const sourceRoots = ["frontend/src", "mobile/src"];
 const sourceExtensions = new Set([".svelte", ".ts", ".tsx"]);
+const rawFetchMutationMethods = new Set(["DELETE", "PATCH", "POST", "PUT"]);
 const webQueryAdapterPrefix = "frontend/src/lib/query/";
 const mobileQueryAdapters = new Set([
   "mobile/src/lib/app-bootstrap.ts",
@@ -225,7 +226,7 @@ function scriptSegments(file, source) {
   if (!file.endsWith(".svelte")) return [{ offset: 0, source }];
 
   const parsed = parse(source, { filename: file, modern: true });
-  return [parsed.module, parsed.instance].flatMap((script) =>
+  const segments = [parsed.module, parsed.instance].flatMap((script) =>
     script
       ? [
           {
@@ -235,6 +236,34 @@ function scriptSegments(file, source) {
         ]
       : [],
   );
+
+  const visited = new WeakSet();
+  function collectMarkupExpressions(value) {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+    if (
+      value !== parsed.fragment &&
+      value.loc &&
+      Number.isInteger(value.start) &&
+      Number.isInteger(value.end)
+    ) {
+      segments.push({
+        offset: value.start,
+        source: source.slice(value.start, value.end),
+      });
+      return;
+    }
+    for (const child of Object.values(value)) {
+      if (Array.isArray(child)) {
+        for (const item of child) collectMarkupExpressions(item);
+      } else {
+        collectMarkupExpressions(child);
+      }
+    }
+  }
+
+  collectMarkupExpressions(parsed.fragment);
+  return segments.sort((left, right) => left.offset - right.offset);
 }
 
 function unwrapExpression(expression) {
@@ -350,22 +379,24 @@ function rawFetchIsRead(call) {
   const init = call.arguments[1];
   if (!init) return true;
   const current = unwrapExpression(init);
-  if (!ts.isObjectLiteralExpression(current)) return false;
+  if (!ts.isObjectLiteralExpression(current)) return true;
 
-  let hasSpread = false;
-  for (const property of current.properties) {
-    if (ts.isSpreadAssignment(property)) {
-      hasSpread = true;
+  for (const property of [...current.properties].reverse()) {
+    if (ts.isSpreadAssignment(property)) return true;
+
+    const name = propertyAssignmentName(property);
+    if (name === null) {
+      if (property.name && ts.isComputedPropertyName(property.name)) return true;
       continue;
     }
-    if (!ts.isPropertyAssignment(property) || propertyAssignmentName(property) !== "method") {
-      continue;
-    }
+    if (name !== "method") continue;
+    if (!ts.isPropertyAssignment(property)) return true;
+
     const method = unwrapExpression(property.initializer);
-    if (!ts.isStringLiteral(method) && !ts.isNoSubstitutionTemplateLiteral(method)) return false;
-    return method.text.toUpperCase() === "GET";
+    if (!ts.isStringLiteral(method) && !ts.isNoSubstitutionTemplateLiteral(method)) return true;
+    return !rawFetchMutationMethods.has(method.text.toUpperCase());
   }
-  return !hasSpread;
+  return true;
 }
 
 function dynamicPlaceholder(expression) {
@@ -430,7 +461,7 @@ function endpointForCall(call, kind) {
   return kind === "typed" ? "<dynamic>" : null;
 }
 
-function callsInSegment(file, repoPath, originalSource, segment) {
+function callsInSegment(file, repoPath, originalSource, segment, fileAliases) {
   const sourceFile = ts.createSourceFile(
     file,
     segment.source,
@@ -439,6 +470,8 @@ function callsInSegment(file, repoPath, originalSource, segment) {
     file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const aliases = collectSimpleAliases(sourceFile);
+  for (const name of fileAliases.typedGET) aliases.typedGET.add(name);
+  for (const name of fileAliases.rawFetch) aliases.rawFetch.add(name);
   const boundaryNames = directCentralBoundaryNames(sourceFile);
   const calls = [];
 
@@ -496,8 +529,22 @@ export function findImperativeQueryViolations(
         continue;
       }
       const source = readFileSync(file, "utf8");
-      for (const segment of scriptSegments(file, source)) {
-        const segmentCalls = callsInSegment(file, repoPath, source, segment);
+      const segments = scriptSegments(file, source);
+      const fileAliases = { rawFetch: new Set(), typedGET: new Set() };
+      for (const segment of segments) {
+        const sourceFile = ts.createSourceFile(
+          file,
+          segment.source,
+          ts.ScriptTarget.Latest,
+          true,
+          file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+        );
+        const aliases = collectSimpleAliases(sourceFile);
+        for (const name of aliases.typedGET) fileAliases.typedGET.add(name);
+        for (const name of aliases.rawFetch) fileAliases.rawFetch.add(name);
+      }
+      for (const segment of segments) {
+        const segmentCalls = callsInSegment(file, repoPath, source, segment, fileAliases);
         if (isQueryAdapter(repoPath)) adapterCalls.push(...segmentCalls);
         else calls.push(...segmentCalls);
       }

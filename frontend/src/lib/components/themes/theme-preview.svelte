@@ -118,18 +118,22 @@
 	});
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex (phone previews need keyboard-scrollable overflow) -->
 <div
 	class={[
-		'theme-preview-frame flex min-h-0 w-full justify-center overflow-auto rounded-[var(--theme-radius-lg,var(--radius))] bg-muted/50 p-2 sm:p-3',
+		'theme-preview-frame min-h-0 w-full overflow-x-auto overflow-y-hidden rounded-[var(--theme-radius-lg,var(--radius))] bg-muted/50 p-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none sm:p-3',
 		className
 	]}
+	role={viewport === 'desktop' ? undefined : 'region'}
+	aria-label={viewport === 'desktop' ? undefined : label}
+	tabindex={viewport === 'desktop' ? undefined : 0}
 	data-preview-viewport={viewport}
 >
 	<iframe
 		bind:this={frame}
 		title={label}
 		style:width={viewportWidth}
-		class="block h-[30rem] max-w-full overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-background shadow-[var(--theme-shadow-card,none)] transition-[width,opacity] duration-200"
+		class="mx-auto block h-[30rem] max-w-none overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-background shadow-[var(--theme-shadow-card,none)] transition-[width,opacity] duration-200"
 		class:opacity-70={!ready}
 		aria-busy={!ready}
 		data-testid="theme-preview"

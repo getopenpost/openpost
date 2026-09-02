@@ -4,6 +4,22 @@ import { resolveBuiltInTheme } from '$lib/themes';
 import ThemePreview, { THEME_PREVIEW_SCENES } from './theme-preview.svelte';
 import '../../../routes/layout.css';
 
+const PHONE_VIEWPORTS = [
+	{ viewport: 'phone', width: 390 },
+	{ viewport: 'phone-small', width: 320 }
+] as const;
+
+function horizontalOverflow(frame: HTMLIFrameElement) {
+	const previewDocument = frame.contentDocument;
+	const scene = previewDocument?.querySelector<HTMLElement>('[data-preview-scene]');
+	if (!previewDocument || !scene) return null;
+	return {
+		document:
+			previewDocument.documentElement.scrollWidth - previewDocument.documentElement.clientWidth,
+		scene: scene.scrollWidth - scene.clientWidth
+	};
+}
+
 describe('ThemePreview', () => {
 	it.each(THEME_PREVIEW_SCENES)('renders the %s product scene', async (scene) => {
 		const label = `Workshop ${scene} preview`;
@@ -25,27 +41,42 @@ describe('ThemePreview', () => {
 			.toBe(scene);
 	});
 
-	it('uses exact 390px and 320px phone canvases', async () => {
-		const theme = resolveBuiltInTheme('playroom', 'light');
-		const phone = render(ThemePreview, {
-			theme,
-			viewport: 'phone',
-			label: '390 preview'
-		});
-		await expect
-			.element(phone.getByTestId('theme-preview'))
-			.toHaveAttribute('style', 'width: 24.375rem;');
+	it.each(PHONE_VIEWPORTS)(
+		'keeps every scene inside an exact $width px $viewport canvas',
+		async ({ viewport, width }) => {
+			const theme = resolveBuiltInTheme('playroom', 'light');
+			const label = `${width} preview`;
+			const screen = render(ThemePreview, {
+				theme,
+				scene: THEME_PREVIEW_SCENES[0],
+				viewport,
+				label
+			});
+			screen.container.style.width = '280px';
 
-		phone.unmount();
-		const smallPhone = render(ThemePreview, {
-			theme,
-			viewport: 'phone-small',
-			label: '320 preview'
-		});
-		await expect
-			.element(smallPhone.getByTestId('theme-preview'))
-			.toHaveAttribute('style', 'width: 20rem;');
-	});
+			const scrollRegion = screen.getByRole('region', { name: label });
+			await expect.element(scrollRegion).toHaveAttribute('tabindex', '0');
+			scrollRegion.element().focus();
+			expect(document.activeElement).toBe(scrollRegion.element());
+			await expect
+				.poll(() => scrollRegion.element().scrollWidth > scrollRegion.element().clientWidth)
+				.toBe(true);
+
+			for (const scene of THEME_PREVIEW_SCENES) {
+				await screen.rerender({ theme, scene, viewport, label });
+				const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+				await expect
+					.poll(() =>
+						frame.contentDocument
+							?.querySelector('[data-preview-scene]')
+							?.getAttribute('data-preview-scene')
+					)
+					.toBe(scene);
+				await expect.poll(() => Number.parseFloat(getComputedStyle(frame).width)).toBe(width);
+				await expect.poll(() => horizontalOverflow(frame)).toEqual({ document: 0, scene: 0 });
+			}
+		}
+	);
 
 	it('keeps media-editor chrome behind the protected token boundary', async () => {
 		const screen = render(ThemePreview, {

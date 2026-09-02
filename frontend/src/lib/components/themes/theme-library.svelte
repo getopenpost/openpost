@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Select from '$lib/components/ui/select';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import { m } from '$lib/paraglide/messages';
 	import {
 		BUILT_IN_THEMES,
 		resolveBuiltInTheme,
@@ -14,6 +12,9 @@
 	} from '$lib/themes';
 	import ThemePreview from './theme-preview.svelte';
 	import { themeCodePointLength } from './theme-editor-model';
+	import ThemeLibraryBuiltins from './theme-library-builtins.svelte';
+	import ThemeLibraryCreateDialog from './theme-library-create-dialog.svelte';
+	import ThemeLibraryOrganizationList from './theme-library-organization-list.svelte';
 	import {
 		builtInManifestReference,
 		sameThemeFamily,
@@ -22,19 +23,8 @@
 		WORKSHOP_REFERENCE,
 		type ThemeReference
 	} from './theme-library-model';
+	import type { CreateThemeInput, ThemeLibraryItem } from './theme-library-types';
 
-	export interface ThemeLibraryItem {
-		manifest: ThemeManifest;
-		reference: ThemeReference;
-		source: 'builtin' | 'organization';
-		state?: 'draft' | 'published';
-		hasDraftChanges?: boolean;
-		assignedWorkspaces?: number;
-	}
-	export interface CreateThemeInput {
-		name: string;
-		source: ThemeReference;
-	}
 	const localBuiltInThemes: ThemeLibraryItem[] = BUILT_IN_THEMES.map((manifest) => ({
 		manifest,
 		reference: builtInManifestReference(manifest.id, manifest.revision),
@@ -118,11 +108,11 @@
 	const selectedPreview = $derived(resolvePreview(selectedItem, scheme));
 	const selectedFallbackMessage = $derived(
 		selectedPreview.fallbackReason === 'unsupported-scheme'
-			? `${selectedItem.manifest.name} has no complete ${scheme} scheme. OpenPost will use Workshop ${scheme} instead.`
+			? m.theme_library_preview_unsupported({ name: selectedItem.manifest.name, scheme })
 			: selectedPreview.fallbackReason === 'unsafe-resource' ||
 				  selectedPreview.fallbackReason === 'resource-failed'
-				? `${selectedItem.manifest.name} has a font or illustration that cannot be previewed safely. OpenPost will use Workshop ${scheme} instead.`
-				: `${selectedItem.manifest.name} is incomplete. OpenPost will use Workshop ${scheme} instead.`
+				? m.theme_library_preview_unsafe({ name: selectedItem.manifest.name, scheme })
+				: m.theme_library_preview_incomplete({ name: selectedItem.manifest.name, scheme })
 	);
 	const selectedCanAssign = $derived(selectedItem.state !== 'draft');
 	const selectedIsOrganizationDefault = $derived(
@@ -142,7 +132,7 @@
 	const libraryBusy = $derived(busy || pendingAction);
 	const defaultName = $derived(
 		allItems.find((item) => sameThemeReference(item.reference, organizationDefaultReference))
-			?.manifest.name ?? 'Workshop'
+			?.manifest.name ?? m.theme_library_workshop()
 	);
 
 	$effect(() => {
@@ -195,46 +185,9 @@
 		};
 	}
 
-	function thumbnailScheme(item: ThemeLibraryItem) {
-		return (
-			item.manifest.schemes[scheme] ?? item.manifest.schemes[item.manifest.supportedSchemes[0]]
-		);
-	}
-
-	function navigateThemeOptions(event: KeyboardEvent) {
-		if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
-			return;
-		}
-		const listbox = (event.currentTarget as HTMLElement).closest('[role="listbox"]');
-		const options = [
-			...(listbox?.querySelectorAll<HTMLElement>('[role="option"]:not(:disabled)') ?? [])
-		];
-		const current = options.indexOf(event.currentTarget as HTMLElement);
-		if (current < 0 || options.length === 0) return;
-		event.preventDefault();
-		const columns = matchMedia('(min-width: 64rem)').matches
-			? 4
-			: matchMedia('(min-width: 40rem)').matches
-				? 2
-				: 1;
-		const next =
-			event.key === 'Home'
-				? 0
-				: event.key === 'End'
-					? options.length - 1
-					: event.key === 'ArrowLeft'
-						? current - 1
-						: event.key === 'ArrowRight'
-							? current + 1
-							: event.key === 'ArrowUp'
-								? current - columns
-								: current + columns;
-		options[Math.max(0, Math.min(options.length - 1, next))]?.focus();
-	}
-
 	async function deleteTheme() {
 		if (!deleteCandidate || !onDelete) {
-			return { ok: false, message: 'This theme cannot be deleted right now.' };
+			return { ok: false, message: m.theme_library_delete_unavailable() };
 		}
 		try {
 			await onDelete(deleteCandidate.manifest.id);
@@ -244,14 +197,14 @@
 		} catch (error) {
 			return {
 				ok: false,
-				message: error instanceof Error ? error.message : 'OpenPost could not delete this theme.'
+				message: error instanceof Error ? error.message : m.theme_library_delete_failed()
 			};
 		}
 	}
 
 	async function confirmLock() {
 		if (!onToggleLock) {
-			return { ok: false, message: 'Organization theme settings are unavailable right now.' };
+			return { ok: false, message: m.theme_library_settings_unavailable() };
 		}
 		try {
 			await onToggleLock(true);
@@ -260,7 +213,7 @@
 		} catch (error) {
 			return {
 				ok: false,
-				message: error instanceof Error ? error.message : 'OpenPost could not lock theme selection.'
+				message: error instanceof Error ? error.message : m.theme_library_lock_failed()
 			};
 		}
 	}
@@ -283,8 +236,7 @@
 			createDialogOpen = false;
 			createName = '';
 		} catch (error) {
-			createError =
-				error instanceof Error ? error.message : 'OpenPost could not create this theme.';
+			createError = error instanceof Error ? error.message : m.theme_library_create_failed();
 		} finally {
 			pendingAction = false;
 		}
@@ -313,18 +265,17 @@
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div class="max-w-2xl">
 			<h2 id="theme-library-heading" class="text-lg font-semibold tracking-tight">
-				Organization theme
+				{m.theme_library_heading()}
 			</h2>
 			<p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-				Choose how OpenPost looks for this workspace. Organization admins can publish custom themes
-				and decide whether workspaces may choose their own.
+				{m.theme_library_description()}
 			</p>
 		</div>
 		{#if canManageOrganization}
 			<Button
 				intent="focal"
 				onclick={() => openCreateDialog(workshopReference)}
-				disabled={!onCreate || libraryBusy}>Create theme</Button
+				disabled={!onCreate || libraryBusy}>{m.theme_library_create_theme()}</Button
 			>
 		{/if}
 	</div>
@@ -347,23 +298,27 @@
 						<span
 							class="rounded-[var(--theme-radius-pill,999px)] bg-muted px-2 py-0.5 text-xs text-muted-foreground"
 							>{selectedItem.source === 'builtin'
-								? 'Built-in'
+								? m.theme_library_builtin()
 								: selectedItem.hasDraftChanges
-									? 'Draft changes'
-									: (selectedItem.state ?? 'published')}</span
+									? m.theme_library_draft_changes()
+									: selectedItem.state === 'draft'
+										? m.theme_library_draft()
+										: m.theme_library_published()}</span
 						>
 					</div>
 					<p class="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
 						{selectedItem.manifest.description}
 					</p>
 				</div>
-				<span class="text-xs text-muted-foreground">Revision {selectedItem.manifest.revision}</span>
+				<span class="text-xs text-muted-foreground">
+					{m.theme_editor_revision({ revision: selectedItem.manifest.revision })}
+				</span>
 			</div>
 			<ThemePreview
 				theme={selectedPreview}
 				scene="dashboard"
 				viewport="desktop"
-				label={`${selectedPreview.name} dashboard preview`}
+				label={m.theme_library_dashboard_preview({ name: selectedPreview.name })}
 			/>
 			{#if selectedPreview.fallbackReason}
 				<p
@@ -378,20 +333,20 @@
 			class="flex flex-col divide-y divide-border rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card px-4"
 		>
 			<div class="py-4">
-				<p class="text-xs font-medium text-muted-foreground">This workspace</p>
+				<p class="text-xs font-medium text-muted-foreground">{m.theme_library_this_workspace()}</p>
 				<div class="mt-1 flex items-center justify-between gap-3">
 					<div>
 						<p class="font-semibold">{activeItem.manifest.name}</p>
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{workspaceSelectionLocked || workspaceInherits
-								? `Set by organization · ${defaultName}`
-								: 'Workspace selection'}
+								? m.theme_library_set_by_organization({ name: defaultName })
+								: m.theme_library_workspace_selection()}
 						</p>
 					</div>
 					<span
 						class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-xs font-medium text-success"
 					>
-						Active
+						{m.theme_library_active()}
 					</span>
 				</div>
 			</div>
@@ -399,9 +354,9 @@
 			<div class="py-4">
 				<div class="flex items-start justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium">Organization default</p>
+						<p class="text-sm font-medium">{m.theme_library_organization_default()}</p>
 						<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-							New workspaces start with {defaultName}.
+							{m.theme_library_new_workspaces_default({ name: defaultName })}
 						</p>
 					</div>
 					{#if canManageOrganization && selectedCanAssign && !sameThemeReference(previewReference, organizationDefaultReference)}
@@ -411,11 +366,11 @@
 							onclick={() =>
 								void runAction(
 									() => onSetDefault?.(previewReference),
-									'OpenPost could not change the organization default.'
+									m.theme_library_default_change_failed()
 								)}
 							disabled={libraryBusy}
 						>
-							Make default
+							{m.theme_library_make_default()}
 						</Button>
 					{/if}
 				</div>
@@ -424,24 +379,21 @@
 			<div class="py-4">
 				<div class="flex items-center justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium">Lock workspace selection</p>
+						<p class="text-sm font-medium">{m.theme_library_lock_workspace()}</p>
 						<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-							Use the organization default everywhere and clear workspace overrides.
+							{m.theme_library_lock_description()}
 						</p>
 					</div>
 					<button
 						type="button"
 						role="switch"
 						aria-checked={workspaceSelectionLocked}
-						aria-label="Lock workspace theme selection"
+						aria-label={m.theme_library_lock_label()}
 						disabled={!canManageOrganization || libraryBusy}
 						class="group relative h-11 w-14 shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
 						onclick={() => {
 							if (workspaceSelectionLocked) {
-								void runAction(
-									() => onToggleLock?.(false),
-									'OpenPost could not unlock workspace theme selection.'
-								);
+								void runAction(() => onToggleLock?.(false), m.theme_library_unlock_failed());
 								return;
 							}
 							lockDialogOpen = true;
@@ -465,283 +417,110 @@
 						onclick={() =>
 							void runAction(
 								selectedIsOrganizationDefault ? onInherit : () => onSelect?.(previewReference),
-								'OpenPost could not change this workspace theme.'
+								m.theme_library_workspace_change_failed()
 							)}
 						disabled={!selectedCanAssign ||
 							!canManageWorkspace ||
 							workspaceSelectionLocked ||
 							!assignmentActionAvailable ||
 							libraryBusy}
-						title={selectedItem.state === 'draft'
-							? 'Publish this theme before assigning it'
-							: workspaceSelectionLocked
-								? 'The organization has locked workspace theme selection'
-								: undefined}
+						aria-describedby={selectedItem.state === 'draft' || workspaceSelectionLocked
+							? 'theme-assignment-disabled-reason'
+							: undefined}
 					>
 						{selectedIsOrganizationDefault
-							? 'Use organization default'
-							: `Use ${selectedItem.manifest.name}`}
+							? m.theme_library_use_default()
+							: m.theme_library_use_theme({ name: selectedItem.manifest.name })}
 					</Button>
+					{#if selectedItem.state === 'draft' || workspaceSelectionLocked}
+						<p
+							id="theme-assignment-disabled-reason"
+							class="basis-full text-xs text-muted-foreground"
+						>
+							{selectedItem.state === 'draft'
+								? m.theme_library_publish_before_assigning()
+								: m.theme_library_selection_locked()}
+						</p>
+					{/if}
 				{/if}
 				<Button
 					intent="ordinary"
-					onclick={() => openCreateDialog(previewReference, `${selectedItem.manifest.name} copy`)}
+					onclick={() =>
+						openCreateDialog(
+							previewReference,
+							m.theme_library_copy_name({ name: selectedItem.manifest.name })
+						)}
 					disabled={!canManageOrganization || !onCreate || libraryBusy}
 				>
-					Duplicate
+					{m.theme_library_duplicate()}
 				</Button>
 				{#if selectedItem.source === 'organization'}
 					<Button
 						intent="quiet"
 						onclick={() =>
-							void runAction(
-								() => onEdit?.(previewReference.id),
-								'OpenPost could not open this theme.'
-							)}
+							void runAction(() => onEdit?.(previewReference.id), m.theme_library_open_failed())}
 						disabled={!canManageOrganization || libraryBusy}
 					>
-						Edit theme
+						{m.theme_library_edit_theme()}
 					</Button>
 				{/if}
 			</div>
 		</div>
 	</div>
 
-	<div class="space-y-4">
-		<div>
-			<h3 class="font-semibold">Built-in themes</h3>
-			<p class="mt-1 text-sm text-muted-foreground">
-				Immutable, versioned starting points. Duplicate one to make it yours.
-			</p>
-		</div>
-		<div
-			class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-			role="listbox"
-			aria-label="Built-in themes"
-		>
-			{#each effectiveBuiltInThemes as item (themeReferenceKey(item.reference))}
-				{@const preview = thumbnailScheme(item)}
-				<button
-					type="button"
-					role="option"
-					aria-selected={sameThemeReference(item.reference, previewReference)}
-					disabled={libraryBusy}
-					onclick={() => (previewReference = item.reference)}
-					onkeydown={navigateThemeOptions}
-					class="group min-h-32 overflow-hidden rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card text-left transition-[border-color,box-shadow,transform] hover:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default aria-selected:border-ring aria-selected:ring-2 aria-selected:ring-ring/20"
-				>
-					<div class="h-20 p-3" style:background={preview?.colors.canvas ?? 'var(--background)'}>
-						<div
-							class="flex h-full overflow-hidden rounded-md border"
-							style:background={preview?.colors.surface ?? 'var(--card)'}
-							style:border-color={preview?.colors.border ?? 'var(--border)'}
-						>
-							<div
-								class="w-1/4"
-								style:background={preview?.colors.sidebar ?? 'var(--sidebar)'}
-							></div>
-							<div class="flex flex-1 flex-col justify-between p-2">
-								<div
-									class="h-1.5 w-3/5 rounded-full"
-									style:background={preview?.colors.ink ?? 'var(--foreground)'}
-								></div>
-								<div
-									class="h-4 w-1/2 rounded"
-									style:background={preview?.colors.actionFocal ?? 'var(--primary)'}
-								></div>
-							</div>
-						</div>
-					</div>
-					<div class="flex items-start justify-between gap-2 px-3 py-2.5">
-						<div class="min-w-0">
-							<p class="truncate text-sm font-semibold">{item.manifest.name}</p>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{item.manifest.supportedSchemes.join(' + ')}
-							</p>
-						</div>
-						{#if sameThemeReference(item.reference, selectedReference)}
-							<span class="text-xs font-medium text-success">Applied</span>
-						{:else if sameThemeReference(item.reference, organizationDefaultReference)}
-							<span class="text-xs font-medium text-muted-foreground">Default</span>
-						{/if}
-					</div>
-				</button>
-			{/each}
-		</div>
-	</div>
+	<ThemeLibraryBuiltins
+		items={effectiveBuiltInThemes}
+		{selectedReference}
+		{previewReference}
+		{organizationDefaultReference}
+		{scheme}
+		busy={libraryBusy}
+		onPreview={(reference) => (previewReference = reference)}
+	/>
 
-	<div class="space-y-4 border-t border-border pt-6">
-		<div class="flex flex-wrap items-end justify-between gap-3">
-			<div>
-				<h3 class="font-semibold">Organization themes</h3>
-				<p class="mt-1 text-sm text-muted-foreground">
-					Published themes are available to every workspace in this organization.
-				</p>
-			</div>
-			{#if canManageOrganization}
-				<Button
-					size="sm"
-					intent="ordinary"
-					onclick={() => openCreateDialog(workshopReference)}
-					disabled={!onCreate || libraryBusy}>New theme</Button
-				>
-			{/if}
-		</div>
-
-		{#if organizationThemes.length === 0}
-			<div
-				class="flex min-h-32 items-center justify-between gap-4 rounded-[var(--theme-radius-lg,var(--radius))] border border-dashed border-border p-4"
-			>
-				<div>
-					<p class="text-sm font-medium">No custom themes yet</p>
-					<p class="mt-1 text-sm text-muted-foreground">
-						Duplicate a built-in theme, then shape it around your organization.
-					</p>
-				</div>
-				{#if canManageOrganization}
-					<Button
-						intent="primary"
-						onclick={() => openCreateDialog(workshopReference, 'Workshop copy')}
-						disabled={!onCreate || libraryBusy}>Start with Workshop</Button
-					>
-				{/if}
-			</div>
-		{:else}
-			<div class="divide-y divide-border border-y border-border">
-				{#each organizationThemes as item (themeReferenceKey(item.reference))}
-					<div class="flex flex-wrap items-center justify-between gap-3 py-3">
-						<div class="min-w-0">
-							<div class="flex flex-wrap items-center gap-2">
-								<p class="font-medium">{item.manifest.name}</p>
-								<span
-									class="rounded-[var(--theme-radius-pill,999px)] bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-									>{item.hasDraftChanges ? 'Draft changes' : (item.state ?? 'published')}</span
-								>
-							</div>
-							<p class="mt-1 text-sm text-muted-foreground">
-								Revision {item.manifest.revision} · {item.assignedWorkspaces ?? 0} workspaces
-							</p>
-						</div>
-						<div class="flex gap-2">
-							<Button
-								size="sm"
-								intent="ordinary"
-								onclick={() => (previewReference = item.reference)}
-								disabled={libraryBusy}>Preview</Button
-							>
-							<Button
-								size="sm"
-								intent="quiet"
-								onclick={() =>
-									void runAction(
-										() => onEdit?.(item.manifest.id),
-										'OpenPost could not open this theme.'
-									)}
-								disabled={!canManageOrganization || libraryBusy}>Edit</Button
-							>
-							<Button
-								size="sm"
-								intent="destructive"
-								onclick={() => {
-									deleteCandidate = item;
-									deleteDialogOpen = true;
-								}}
-								disabled={!canManageOrganization ||
-									libraryBusy ||
-									sameThemeFamily(item.reference, organizationDefaultReference) ||
-									(item.assignedWorkspaces ?? 0) > 0}
-								title={sameThemeFamily(item.reference, organizationDefaultReference)
-									? 'Choose another organization default before deleting this theme'
-									: (item.assignedWorkspaces ?? 0) > 0
-										? 'Move every assigned workspace before deleting this theme'
-										: undefined}>Delete</Button
-							>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
+	<ThemeLibraryOrganizationList
+		items={organizationThemes}
+		{organizationDefaultReference}
+		canManage={canManageOrganization}
+		busy={libraryBusy}
+		canCreate={Boolean(onCreate)}
+		onNew={() => openCreateDialog(workshopReference)}
+		onStartWithWorkshop={() => openCreateDialog(workshopReference, m.theme_library_workshop_copy())}
+		onPreview={(reference) => (previewReference = reference)}
+		onEdit={(themeID) => void runAction(() => onEdit?.(themeID), m.theme_library_open_failed())}
+		onDeleteRequest={(item) => {
+			deleteCandidate = item;
+			deleteDialogOpen = true;
+		}}
+	/>
 </section>
 
-<Dialog.Root bind:open={createDialogOpen}>
-	<Dialog.Content aria-busy={pendingAction} showCloseButton={false} class="sm:max-w-md">
-		<form
-			class="space-y-4"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void createTheme();
-			}}
-		>
-			<Dialog.Header>
-				<Dialog.Title>Create organization theme</Dialog.Title>
-				<Dialog.Description>
-					Start with a complete theme, then change only the parts that should feel like your
-					organization.
-				</Dialog.Description>
-			</Dialog.Header>
-			<label class="grid gap-1.5 text-sm font-medium" for="theme-create-name">
-				Theme name
-				<Input
-					id="theme-create-name"
-					bind:value={createName}
-					autocomplete="off"
-					disabled={pendingAction}
-					autofocus
-				/>
-				<span class="text-xs font-normal text-muted-foreground tabular-nums">
-					{themeCodePointLength(createName.trim())}/80
-				</span>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium" for="theme-create-source">
-				Starting point
-				<Select.Root
-					value={themeReferenceKey(createSourceReference)}
-					onValueChange={(value) => {
-						const source = allItems.find((item) => themeReferenceKey(item.reference) === value);
-						if (source) createSourceReference = source.reference;
-					}}
-				>
-					<Select.Trigger id="theme-create-source" class="w-full" aria-label="Starting point"
-						>{createSourceItem.manifest.name}</Select.Trigger
-					>
-					<Select.Content>
-						{#each copySourceItems as item (themeReferenceKey(item.reference))}
-							<Select.Item value={themeReferenceKey(item.reference)}>
-								{item.manifest.name}{item.state === 'draft' ? ' draft' : ''}
-							</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</label>
-			{#if createError}<p class="text-sm text-destructive" role="alert">{createError}</p>{/if}
-			<Dialog.Footer>
-				<Button
-					type="button"
-					intent="quiet"
-					disabled={pendingAction}
-					onclick={() => (createDialogOpen = false)}>Cancel</Button
-				>
-				<Button type="submit" intent="focal" disabled={pendingAction || !createNameValid}>
-					{pendingAction ? 'Creating…' : 'Create draft'}
-				</Button>
-			</Dialog.Footer>
-		</form>
-	</Dialog.Content>
-</Dialog.Root>
+<ThemeLibraryCreateDialog
+	bind:open={createDialogOpen}
+	bind:name={createName}
+	bind:source={createSourceReference}
+	sourceItem={createSourceItem}
+	items={copySourceItems}
+	busy={pendingAction}
+	error={createError}
+	valid={createNameValid}
+	onSubmit={() => void createTheme()}
+/>
 
 <DestructiveConfirmDialog
 	bind:open={deleteDialogOpen}
-	title={deleteCandidate ? `Delete ${deleteCandidate.manifest.name}?` : 'Delete theme?'}
-	description="This permanently removes the draft and its revision history. This cannot be undone."
-	confirmLabel="Delete theme"
+	title={deleteCandidate
+		? m.theme_library_delete_title({ name: deleteCandidate.manifest.name })
+		: m.theme_library_delete_fallback_title()}
+	description={m.theme_library_delete_description()}
+	confirmLabel={m.theme_library_delete_theme()}
 	onConfirm={deleteTheme}
 />
 
 <DestructiveConfirmDialog
 	bind:open={lockDialogOpen}
-	title="Lock theme selection?"
-	description="Every workspace will switch to the organization default. Existing workspace choices will be cleared and cannot be restored automatically."
-	confirmLabel="Lock and clear choices"
+	title={m.theme_library_lock_title()}
+	description={m.theme_library_lock_confirm_description()}
+	confirmLabel={m.theme_library_lock_confirm()}
 	onConfirm={confirmLock}
 />

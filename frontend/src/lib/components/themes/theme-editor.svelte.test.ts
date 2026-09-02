@@ -6,6 +6,26 @@ import { duplicateThemeManifest } from './theme-editor-model';
 import '../../../routes/layout.css';
 
 describe('ThemeEditor', () => {
+	it('labels editor modes, schemes, and preview controls as distinct groups', async () => {
+		const initialTheme = duplicateThemeManifest(
+			getBuiltInTheme('workshop'),
+			'northstar',
+			'Northstar'
+		);
+		const screen = render(ThemeEditor, { initialTheme });
+
+		await expect.element(screen.getByRole('group', { name: 'Editor mode' })).toBeVisible();
+		await expect.element(screen.getByRole('group', { name: 'Scheme to edit' })).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Preview color scheme' }))
+			.toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Preview scene' })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Preview viewport' })).toBeVisible();
+
+		await screen.getByRole('button', { name: 'Icons' }).click();
+		await expect.element(screen.getByRole('group', { name: 'Icon pack' })).toBeVisible();
+	});
+
 	it('edits the real scoped preview and can undo the complete change', async () => {
 		const initialTheme = duplicateThemeManifest(
 			getBuiltInTheme('workshop'),

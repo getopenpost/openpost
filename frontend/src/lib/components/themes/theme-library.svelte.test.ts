@@ -20,9 +20,9 @@ describe('ThemeLibrary', () => {
 		});
 
 		await expect
-			.element(screen.getByRole('option', { name: /Studio light/ }))
-			.toHaveAttribute('aria-selected', 'true');
-		await screen.getByRole('option', { name: /Notebook light/ }).click();
+			.element(screen.getByRole('button', { name: /Studio light/ }))
+			.toHaveAttribute('aria-pressed', 'true');
+		await screen.getByRole('button', { name: /Notebook light/ }).click();
 		expect(onSelect).not.toHaveBeenCalled();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 		expect(onSelect).toHaveBeenCalledWith(builtInThemeReference('notebook'));
@@ -33,7 +33,7 @@ describe('ThemeLibrary', () => {
 			selectedReference: workshop
 		});
 
-		await screen.getByRole('option', { name: /Midnight dark/ }).click();
+		await screen.getByRole('button', { name: /Midnight dark/ }).click();
 		await expect.element(screen.getByRole('heading', { name: 'Midnight' })).toBeVisible();
 	});
 
@@ -47,7 +47,7 @@ describe('ThemeLibrary', () => {
 			onInherit
 		});
 
-		await screen.getByRole('option', { name: /Workshop light/ }).click();
+		await screen.getByRole('button', { name: /Workshop light/ }).click();
 		await screen.getByRole('button', { name: 'Use organization default' }).click();
 
 		expect(onInherit).toHaveBeenCalledOnce();
@@ -60,9 +60,16 @@ describe('ThemeLibrary', () => {
 			canManageWorkspace: true
 		});
 
-		await screen.getByRole('option', { name: /Notebook light/ }).click();
-		await expect.element(screen.getByRole('button', { name: 'Use Notebook' })).toBeDisabled();
+		await screen.getByRole('button', { name: /Notebook light/ }).click();
+		const assignment = screen.getByRole('button', { name: 'Use Notebook' });
+		await expect.element(assignment).toBeDisabled();
+		await expect
+			.element(assignment)
+			.toHaveAttribute('aria-describedby', 'theme-assignment-disabled-reason');
 		await expect.element(screen.getByText(/Set by organization/)).toBeVisible();
+		await expect
+			.element(screen.getByText('The organization has locked workspace theme selection.'))
+			.toBeVisible();
 	});
 
 	it('requires confirmation before clearing workspace theme choices', async () => {
@@ -90,7 +97,7 @@ describe('ThemeLibrary', () => {
 			onCreate
 		});
 
-		await screen.getByRole('option', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /Notebook light/ }).click();
 		await screen.getByRole('button', { name: 'Duplicate' }).click();
 		await expect.element(screen.getByLabelText('Theme name')).toHaveValue('Notebook copy');
 		await screen.getByRole('button', { name: 'Create draft' }).click();
@@ -209,7 +216,7 @@ describe('ThemeLibrary', () => {
 			onSelect: vi.fn().mockRejectedValue(new Error('The workspace changed on another device'))
 		});
 
-		await screen.getByRole('option', { name: /Notebook light/ }).click();
+		await screen.getByRole('button', { name: /Notebook light/ }).click();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 
 		await expect

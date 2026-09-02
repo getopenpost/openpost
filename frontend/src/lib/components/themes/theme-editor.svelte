@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Input } from '$lib/components/ui/input';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -12,23 +11,13 @@
 	import {
 		BUNDLED_THEME_FONTS,
 		BUNDLED_THEME_FONT_IDS,
-		THEME_BORDER_STYLES,
-		THEME_CANVAS_TREATMENTS,
 		THEME_ICON_PACK_IDS,
-		THEME_ASSET_SLOTS,
-		THEME_COMPONENT_RECIPE_OPTIONS,
-		THEME_DENSITIES,
-		THEME_MOTION_RECIPE_KEYS,
-		THEME_TYPOGRAPHY_ROLE_KEYS,
 		resolveBuiltInTheme,
-		type ThemeAssetSlot,
 		type ThemeIconPackId,
 		type ThemeManifest,
 		type ThemeMotionRecipeName,
 		type ThemeScheme,
 		type ThemeSchemeManifest,
-		type ThemeShellTokens,
-		type ThemeSpacingTokens,
 		type ThemeTypographyRole,
 		type WebResolvedTheme
 	} from '$lib/themes';
@@ -39,7 +28,6 @@
 	} from './theme-preview.svelte';
 	import {
 		THEME_EDITOR_SECTIONS,
-		isThemeFontInUse,
 		parseThemeManifest,
 		randomizeThemeManifest,
 		resetThemeSection,
@@ -50,37 +38,16 @@
 		updateThemeSectionValue,
 		type ThemeEditorSection
 	} from './theme-editor-model';
-	import { THEME_COLOR_GROUPS, THEME_COMPONENT_GROUPS } from './theme-editor-fields';
-
-	type ThemeEditorPanel = ThemeEditorSection | 'icons' | 'assets' | 'revisions';
-	const MAX_THEME_FONT_BYTES = 2 * 1024 * 1024;
-	const MAX_THEME_IMAGE_BYTES = 5 * 1024 * 1024;
-
-	export interface ThemeRevisionItem {
-		revision: number;
-		label: string;
-		publishedAt: string;
-		publishedBy?: string;
-		current?: boolean;
-	}
-
-	export interface ThemeValidationIssue {
-		path: string;
-		message: string;
-	}
-
-	export interface ThemeFontUploadInput {
-		family: string;
-		weight: number;
-		style: 'normal' | 'italic';
-		display: 'swap' | 'fallback' | 'optional';
-		licenseAcknowledged: boolean;
-	}
-
-	export interface ThemeAssetUploadInput {
-		slot: ThemeAssetSlot;
-		alt: string;
-	}
+	import ThemeEditorResourcesPanel from './theme-editor-resources-panel.svelte';
+	import ThemeEditorRevisionsPanel from './theme-editor-revisions-panel.svelte';
+	import ThemeEditorTokenPanel from './theme-editor-token-panel.svelte';
+	import type {
+		ThemeAssetUploadInput,
+		ThemeEditorPanel,
+		ThemeFontUploadInput,
+		ThemeRevisionItem,
+		ThemeValidationIssue
+	} from './theme-editor-types';
 
 	interface Props {
 		initialTheme: ThemeManifest;
@@ -151,20 +118,11 @@
 		| 'remove-resource'
 		| null = $state(null);
 	let randomSeed = $state(42017);
-	let licenseAcknowledged = $state(false);
-	let fontFamily = $state('');
-	let fontWeight = $state(400);
-	let fontStyle: ThemeFontUploadInput['style'] = $state('normal');
-	let fontDisplay: ThemeFontUploadInput['display'] = $state('swap');
-	let assetSlot: ThemeAssetSlot = $state('background-texture');
-	let assetAlt = $state('');
 	let historyVersion = $state(0);
 	let rollbackCandidate = $state<ThemeRevisionItem | null>(null);
 	let rollbackDialogOpen = $state(false);
 	let reloadDialogOpen = $state(false);
 	let removeSchemeDialogOpen = $state(false);
-	let resourceDeleteCandidate = $state<{ id: string; label: string } | null>(null);
-	let resourceDeleteDialogOpen = $state(false);
 	let history = new ImageEditorHistory<ThemeManifest>(cloneTheme, 100);
 	const unsavedChanges = getOptionalUnsavedChanges();
 
@@ -195,18 +153,21 @@
 	);
 	const previewFallbackMessage = $derived(
 		previewTheme.fallbackReason === 'unsupported-scheme'
-			? `${draft.name} does not support ${effectivePreviewScheme}. The preview uses Workshop ${effectivePreviewScheme}.`
+			? m.theme_editor_preview_unsupported({
+					name: draft.name,
+					scheme: effectivePreviewScheme
+				})
 			: previewTheme.fallbackReason === 'unsafe-resource' ||
 				  previewTheme.fallbackReason === 'resource-failed'
-				? 'A linked font or illustration has no safe preview URL. The preview uses Workshop.'
-				: 'Fallback preview is on. OpenPost is showing the complete Workshop theme.'
+				? m.theme_editor_preview_unsafe_resource()
+				: m.theme_editor_preview_fallback()
 	);
 	const localValidationError = $derived.by(() => {
 		try {
 			parseThemeManifest(serializeThemeManifest(draft));
 			return '';
 		} catch (error) {
-			return error instanceof Error ? error.message : 'The draft manifest is invalid';
+			return error instanceof Error ? error.message : m.theme_editor_manifest_invalid();
 		}
 	});
 	const issueCount = $derived(
@@ -214,37 +175,20 @@
 	);
 	const editorBusy = $derived(busy || pendingOperation !== null);
 	const randomSeedValid = $derived(Number.isSafeInteger(randomSeed));
-	const assetSlotInUse = $derived(draft.assets.some((asset) => asset.slot === assetSlot));
-	const assetNeedsAlt = $derived(
-		assetSlot === 'empty-state-illustration' || assetSlot === 'loading-illustration'
-	);
-	const assetAltValid = $derived(
-		themeCodePointLength(assetAlt) <= 240 && (!assetNeedsAlt || Boolean(assetAlt.trim()))
-	);
-	const fontFamilyValid = $derived(/^[a-zA-Z0-9 _.,'-]+$/.test(fontFamily.trim()));
-	const fontWeightValid = $derived(
-		Number.isInteger(fontWeight) && fontWeight >= 100 && fontWeight <= 900 && fontWeight % 100 === 0
-	);
-	const fontFaceAlreadyUploaded = $derived(
-		draft.fonts.some(
-			(font) =>
-				font.family === fontFamily.trim() && font.weight === fontWeight && font.style === fontStyle
-		)
-	);
 
-	const panelLabels: Record<ThemeEditorPanel, string> = {
-		colors: 'Color',
-		typography: 'Type',
-		spacing: 'Spacing',
-		shape: 'Shape',
-		elevation: 'Depth',
-		motion: 'Motion',
-		shell: 'Shell',
-		components: 'Components',
-		icons: 'Icons',
-		assets: 'Fonts & assets',
-		revisions: 'Revisions'
-	};
+	const panelLabels: Record<ThemeEditorPanel, string> = $derived({
+		colors: m.theme_editor_panel_color(),
+		typography: m.theme_editor_panel_type(),
+		spacing: m.theme_editor_panel_spacing(),
+		shape: m.theme_editor_panel_geometry(),
+		elevation: m.theme_editor_panel_depth(),
+		motion: m.theme_editor_panel_motion(),
+		shell: m.theme_editor_panel_shell(),
+		components: m.theme_editor_panel_components(),
+		icons: m.theme_editor_panel_icons(),
+		assets: m.theme_editor_panel_assets(),
+		revisions: m.theme_editor_panel_revisions()
+	});
 	const guidedPanels: ThemeEditorPanel[] = [
 		...THEME_EDITOR_SECTIONS,
 		'icons',
@@ -356,7 +300,7 @@
 	function updateMetadata(key: 'name' | 'description', value: string) {
 		const maximum = key === 'name' ? 80 : 240;
 		applyDraft(
-			key === 'name' ? 'Rename theme' : 'Update description',
+			key === 'name' ? m.theme_editor_renamed() : m.theme_editor_description_updated(),
 			{ ...cloneTheme(draft), [key]: takeThemeCodePoints(value, maximum) },
 			`theme-${key}`
 		);
@@ -370,7 +314,11 @@
 			key as never,
 			value as never
 		);
-		applyDraft(`Update ${panelLabels[section].toLowerCase()}`, next, `${scheme}-${section}-${key}`);
+		applyDraft(
+			m.theme_editor_section_updated({ section: panelLabels[section].toLowerCase() }),
+			next,
+			`${scheme}-${section}-${key}`
+		);
 	}
 
 	function updateTypographyRole(
@@ -382,7 +330,7 @@
 		const manifest = next.schemes[scheme];
 		if (!manifest) return;
 		(manifest.typography[role][key] as typeof value) = value;
-		applyDraft('Update type', next, `${scheme}-typography-${role}-${key}`);
+		applyDraft(m.theme_editor_type_updated(), next, `${scheme}-typography-${role}-${key}`);
 	}
 
 	function updateFontFamily(role: ThemeTypographyRole, family: string) {
@@ -407,7 +355,7 @@
 				manifest.typography[role].weight = uploadedWeights[0];
 			}
 		}
-		applyDraft('Change typeface', next, `${scheme}-typography-${role}-family`);
+		applyDraft(m.theme_editor_typeface_changed(), next, `${scheme}-typography-${role}-family`);
 	}
 
 	function updateMotionRecipe(
@@ -419,19 +367,12 @@
 		const manifest = next.schemes[scheme];
 		if (!manifest) return;
 		(manifest.motion[recipe][key] as typeof value) = value;
-		applyDraft('Update motion', next, `${scheme}-motion-${recipe}-${key}`);
-	}
-
-	function humanizeToken(value: string): string {
-		return value
-			.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-			.replaceAll('-', ' ')
-			.replace(/^./, (letter) => letter.toUpperCase());
+		applyDraft(m.theme_editor_motion_updated(), next, `${scheme}-motion-${recipe}-${key}`);
 	}
 
 	function updateIconPack(value: string) {
 		if (!THEME_ICON_PACK_IDS.includes(value as ThemeIconPackId)) return;
-		applyDraft('Change icon pack', {
+		applyDraft(m.theme_editor_icon_pack_changed(), {
 			...cloneTheme(draft),
 			iconPack: value as ThemeIconPackId
 		});
@@ -440,13 +381,17 @@
 	function undo() {
 		draft = history.undo(cloneTheme(draft));
 		historyVersion += 1;
-		statusMessage = history.redoLabel ? `Undid ${history.redoLabel}` : 'Undid change';
+		statusMessage = history.redoLabel
+			? m.theme_editor_undid({ change: history.redoLabel })
+			: m.theme_editor_undo_done();
 	}
 
 	function redo() {
 		draft = history.redo(cloneTheme(draft));
 		historyVersion += 1;
-		statusMessage = history.undoLabel ? `Redid ${history.undoLabel}` : 'Redid change';
+		statusMessage = history.undoLabel
+			? m.theme_editor_redid({ change: history.undoLabel })
+			: m.theme_editor_redo_done();
 	}
 
 	function resetSection() {
@@ -456,13 +401,13 @@
 			resolveBuiltInTheme('workshop', scheme).manifest
 		);
 		applyDraft(
-			`Reset ${panelLabels[panel].toLowerCase()}`,
+			m.theme_editor_section_reset({ section: panelLabels[panel].toLowerCase() }),
 			resetThemeSection(cloneTheme(draft), sectionBaseline, scheme, panel as ThemeEditorSection)
 		);
 	}
 
 	function resetTheme() {
-		applyDraft('Reset theme', cloneTheme(baseline));
+		applyDraft(m.theme_editor_theme_reset(), cloneTheme(baseline));
 	}
 
 	function randomize() {
@@ -470,14 +415,19 @@
 			? (panel as ThemeEditorSection)
 			: undefined;
 		applyDraft(
-			section ? `Randomize ${panelLabels[section].toLowerCase()}` : 'Randomize theme',
+			section
+				? m.theme_editor_section_randomized({ section: panelLabels[section].toLowerCase() })
+				: m.theme_editor_theme_randomized(),
 			randomizeThemeManifest(cloneTheme(draft), scheme, randomSeed, section)
 		);
 		randomSeed += 1;
 	}
 
 	function randomizeAll() {
-		applyDraft('Randomize theme', randomizeThemeManifest(cloneTheme(draft), scheme, randomSeed));
+		applyDraft(
+			m.theme_editor_theme_randomized(),
+			randomizeThemeManifest(cloneTheme(draft), scheme, randomSeed)
+		);
 		randomSeed += 1;
 	}
 
@@ -489,7 +439,7 @@
 		next.supportedSchemes = (['light', 'dark'] as const).filter(
 			(candidate) => candidate === scheme || next.supportedSchemes.includes(candidate)
 		);
-		applyDraft(`Add ${scheme} scheme`, next);
+		applyDraft(m.theme_editor_scheme_added({ scheme }), next);
 	}
 
 	function removeScheme() {
@@ -497,23 +447,23 @@
 		const next = cloneTheme(draft);
 		delete next.schemes[scheme];
 		next.supportedSchemes = next.supportedSchemes.filter((candidate) => candidate !== scheme);
-		applyDraft(`Remove ${scheme} scheme`, next);
+		applyDraft(m.theme_editor_scheme_removed({ scheme }), next);
 		removeSchemeDialogOpen = false;
 	}
 
 	function applyManifestSource(): boolean {
 		try {
 			const parsed = parseThemeManifest(manifestSource);
-			if (parsed.id !== draft.id) throw new Error('Theme ID is managed by OpenPost');
+			if (parsed.id !== draft.id) throw new Error(m.theme_editor_id_managed());
 			if (parsed.revision !== draft.revision) {
-				throw new Error('Theme revision is managed by OpenPost');
+				throw new Error(m.theme_editor_revision_managed());
 			}
-			applyDraft('Apply manifest', parsed);
+			applyDraft(m.theme_editor_manifest_applied(), parsed);
 			manifestSource = serializeThemeManifest(parsed);
 			manifestError = '';
 			return true;
 		} catch (error) {
-			manifestError = error instanceof Error ? error.message : 'Manifest is invalid';
+			manifestError = error instanceof Error ? error.message : m.theme_editor_manifest_invalid();
 			return false;
 		}
 	}
@@ -527,7 +477,7 @@
 
 	async function copyManifest() {
 		if (typeof navigator === 'undefined' || !navigator.clipboard) {
-			operationError = 'Clipboard access is unavailable in this browser';
+			operationError = m.theme_editor_clipboard_unavailable();
 			return;
 		}
 		try {
@@ -535,9 +485,9 @@
 				editorMode === 'manifest' ? manifestSource : serializeThemeManifest(draft)
 			);
 			operationError = '';
-			statusMessage = 'Manifest copied';
+			statusMessage = m.theme_editor_manifest_copied();
 		} catch {
-			operationError = 'OpenPost could not copy the manifest to the clipboard';
+			operationError = m.theme_editor_manifest_copy_failed();
 		}
 	}
 
@@ -552,83 +502,6 @@
 		statusMessage = message;
 	}
 
-	async function uploadFont(file: File) {
-		if (
-			!onUploadFont ||
-			pendingOperation ||
-			!fontFamilyValid ||
-			!fontWeightValid ||
-			fontFaceAlreadyUploaded ||
-			!licenseAcknowledged
-		)
-			return;
-		if (file.size < 1 || file.size > MAX_THEME_FONT_BYTES) {
-			operationError = 'Choose a WOFF2 font that is 2 MB or smaller';
-			return;
-		}
-		pendingOperation = 'upload-font';
-		operationError = '';
-		try {
-			const result = await onUploadFont(
-				file,
-				{
-					family: fontFamily.trim(),
-					weight: fontWeight,
-					style: fontStyle,
-					display: fontDisplay,
-					licenseAcknowledged
-				},
-				cloneTheme(draft)
-			);
-			adoptServerTheme(result, `${fontFamily.trim()} uploaded`);
-			fontFamily = '';
-			licenseAcknowledged = false;
-		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not upload the font';
-		} finally {
-			pendingOperation = null;
-		}
-	}
-
-	async function uploadAsset(file: File) {
-		if (!onUploadAsset || pendingOperation || assetSlotInUse || !assetAltValid) return;
-		if (file.size < 1 || file.size > MAX_THEME_IMAGE_BYTES) {
-			operationError = 'Choose an image that is 5 MB or smaller';
-			return;
-		}
-		pendingOperation = 'upload-asset';
-		operationError = '';
-		try {
-			const result = await onUploadAsset(
-				file,
-				{ slot: assetSlot, alt: assetAlt.trim() },
-				cloneTheme(draft)
-			);
-			adoptServerTheme(result, `${humanizeToken(assetSlot)} uploaded`);
-			assetAlt = '';
-		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not upload the image';
-		} finally {
-			pendingOperation = null;
-		}
-	}
-
-	async function removeResource() {
-		if (!onRemoveResource || !resourceDeleteCandidate || pendingOperation) return;
-		pendingOperation = 'remove-resource';
-		operationError = '';
-		try {
-			const result = await onRemoveResource(resourceDeleteCandidate.id, cloneTheme(draft));
-			adoptServerTheme(result, `${resourceDeleteCandidate.label} removed`);
-			resourceDeleteDialogOpen = false;
-			resourceDeleteCandidate = null;
-		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not remove the resource';
-		} finally {
-			pendingOperation = null;
-		}
-	}
-
 	async function save() {
 		if (!onSave || pendingOperation) return;
 		pendingOperation = 'save';
@@ -638,9 +511,9 @@
 			if (result) draft = cloneTheme(result);
 			savedFingerprint = themeEditorFingerprint(draft);
 			manifestSource = serializeThemeManifest(draft);
-			statusMessage = 'Draft saved';
+			statusMessage = m.theme_editor_draft_saved();
 		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not save the draft';
+			operationError = error instanceof Error ? error.message : m.theme_editor_draft_save_failed();
 		} finally {
 			pendingOperation = null;
 		}
@@ -655,9 +528,9 @@
 			if (result) draft = cloneTheme(result);
 			savedFingerprint = themeEditorFingerprint(draft);
 			manifestSource = serializeThemeManifest(draft);
-			statusMessage = 'Theme published';
+			statusMessage = m.theme_editor_theme_published();
 		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not publish the theme';
+			operationError = error instanceof Error ? error.message : m.theme_editor_publish_failed();
 		} finally {
 			pendingOperation = null;
 		}
@@ -669,10 +542,10 @@
 		operationError = '';
 		try {
 			const result = await onRollback(revision);
-			adoptServerTheme(result, `Restored revision ${revision}`);
+			adoptServerTheme(result, m.theme_editor_revision_restored({ revision }));
 			return true;
 		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not restore the revision';
+			operationError = error instanceof Error ? error.message : m.theme_editor_restore_failed();
 			return false;
 		} finally {
 			pendingOperation = null;
@@ -692,10 +565,10 @@
 		pendingOperation = 'reload';
 		try {
 			const result = await onReload();
-			adoptServerTheme(result, 'Theme reloaded');
+			adoptServerTheme(result, m.theme_editor_theme_reloaded());
 			return true;
 		} catch (error) {
-			operationError = error instanceof Error ? error.message : 'Could not reload the theme';
+			operationError = error instanceof Error ? error.message : m.theme_editor_reload_failed();
 			return false;
 		} finally {
 			pendingOperation = null;
@@ -704,6 +577,48 @@
 
 	async function confirmReload() {
 		if (await reload()) reloadDialogOpen = false;
+	}
+
+	function previewSchemeLabel(value: typeof previewScheme): string {
+		switch (value) {
+			case 'editing':
+				return m.theme_editor_editing_scheme();
+			case 'system':
+				return m.sidebar_appearance_system();
+			case 'light':
+				return m.sidebar_appearance_light();
+			case 'dark':
+				return m.sidebar_appearance_dark();
+			case 'fallback':
+				return m.theme_editor_fallback();
+		}
+	}
+
+	function previewSceneLabel(value: ThemePreviewScene): string {
+		return {
+			shell: m.theme_preview_scene_shell(),
+			dashboard: m.theme_preview_scene_dashboard(),
+			cards: m.theme_preview_scene_cards(),
+			composer: m.theme_preview_scene_composer(),
+			calendar: m.theme_preview_scene_calendar(),
+			settings: m.theme_preview_scene_settings(),
+			forms: m.theme_preview_scene_forms(),
+			tables: m.theme_preview_scene_tables(),
+			dialog: m.theme_preview_scene_dialog(),
+			notices: m.theme_preview_scene_notices(),
+			empty: m.theme_preview_scene_empty(),
+			loading: m.theme_preview_scene_loading(),
+			'image-editor': m.theme_preview_scene_image_editor(),
+			'video-editor': m.theme_preview_scene_video_editor()
+		}[value];
+	}
+
+	function previewViewportLabel(value: ThemePreviewViewport): string {
+		return value === 'desktop'
+			? m.theme_editor_desktop()
+			: value === 'phone'
+				? m.theme_editor_phone_width()
+				: m.theme_editor_small_phone_width();
 	}
 </script>
 
@@ -720,51 +635,59 @@
 			<Input
 				value={draft.name}
 				oninput={(event) => updateMetadata('name', event.currentTarget.value)}
-				aria-label="Theme name"
+				aria-label={m.theme_library_theme_name()}
 				class="border-transparent bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:px-2"
 			/>
 			<p class="mt-0.5 text-xs text-muted-foreground">
-				{hasUnsavedWork ? 'Unsaved changes' : `Revision ${draft.revision}`}
+				{hasUnsavedWork
+					? m.theme_editor_unsaved_changes()
+					: m.theme_editor_revision({ revision: draft.revision })}
 				{#if issueCount > 0}
-					· {issueCount} issues{/if}
+					· {m.theme_editor_issue_count({ count: issueCount })}{/if}
 			</p>
 		</div>
 
 		<div
 			class="flex min-h-11 items-center rounded-[var(--theme-radius-md,var(--radius))] bg-muted p-1"
-			aria-label="Editor mode"
+			role="group"
+			aria-label={m.theme_editor_mode()}
 		>
 			<button
 				type="button"
 				class="min-h-11 rounded-[var(--theme-radius-sm,var(--radius))] px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:bg-background aria-pressed:shadow-sm"
 				aria-pressed={editorMode === 'guided'}
-				onclick={() => selectEditorMode('guided')}>Guided</button
+				onclick={() => selectEditorMode('guided')}>{m.theme_editor_guided()}</button
 			>
 			<button
 				type="button"
 				class="min-h-11 rounded-[var(--theme-radius-sm,var(--radius))] px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:bg-background aria-pressed:shadow-sm"
 				aria-pressed={editorMode === 'manifest'}
-				onclick={() => selectEditorMode('manifest')}>Manifest</button
+				onclick={() => selectEditorMode('manifest')}>{m.theme_editor_manifest()}</button
 			>
 		</div>
 
 		<div class="flex flex-wrap items-center gap-2">
-			<Button size="sm" intent="quiet" onclick={undo} disabled={!canUndo || editorBusy}>Undo</Button
+			<Button size="sm" intent="quiet" onclick={undo} disabled={!canUndo || editorBusy}
+				>{m.theme_editor_undo()}</Button
 			>
-			<Button size="sm" intent="quiet" onclick={redo} disabled={!canRedo || editorBusy}>Redo</Button
+			<Button size="sm" intent="quiet" onclick={redo} disabled={!canRedo || editorBusy}
+				>{m.theme_editor_redo()}</Button
 			>
 			<Button
 				size="sm"
 				intent="ordinary"
 				onclick={() => void save()}
-				disabled={!onSave || !dirty || manifestSourceDirty || editorBusy}>Save draft</Button
+				disabled={!onSave || !dirty || manifestSourceDirty || editorBusy}
+				>{m.theme_editor_save_draft()}</Button
 			>
 			<Button
 				size="sm"
 				intent="focal"
 				onclick={() => void publish()}
 				disabled={!onPublish || !canPublish || editorBusy || manifestSourceDirty || issueCount > 0}
-				>{pendingOperation === 'publish' ? 'Publishing…' : 'Publish'}</Button
+				>{pendingOperation === 'publish'
+					? m.theme_editor_publishing()
+					: m.theme_editor_publish()}</Button
 			>
 		</div>
 	</header>
@@ -778,13 +701,13 @@
 			{#if onReload}
 				<div class="flex flex-wrap gap-2">
 					<Button size="sm" intent="quiet" onclick={() => void copyManifest()} disabled={editorBusy}
-						>Copy manifest</Button
+						>{m.theme_editor_copy_manifest()}</Button
 					>
 					<Button
 						size="sm"
 						intent="ordinary"
 						onclick={() => (reloadDialogOpen = true)}
-						disabled={editorBusy}>Reload latest</Button
+						disabled={editorBusy}>{m.theme_editor_reload_latest()}</Button
 					>
 				</div>
 			{/if}
@@ -797,7 +720,7 @@
 	>
 		<div class="flex items-center justify-between gap-3">
 			<label id="theme-description-label" for="theme-description" class="text-xs font-medium"
-				>Theme description</label
+				>{m.theme_editor_description()}</label
 			>
 			<span class="text-xs text-muted-foreground tabular-nums"
 				>{themeCodePointLength(draft.description)}/240</span
@@ -808,7 +731,7 @@
 			value={draft.description}
 			rows={2}
 			oninput={(event) => updateMetadata('description', event.currentTarget.value)}
-			placeholder="What should this theme feel like?"
+			placeholder={m.theme_editor_description_placeholder()}
 			class="min-h-16 resize-y"
 		/>
 	</section>
@@ -817,7 +740,7 @@
 		{#if editorMode === 'guided'}
 			<nav
 				class="flex gap-1 overflow-x-auto border-b border-border pb-2 xl:block xl:space-y-1 xl:overflow-visible xl:border-r xl:border-b-0 xl:pr-3 xl:pb-0"
-				aria-label="Theme sections"
+				aria-label={m.theme_editor_sections()}
 			>
 				{#each guidedPanels as candidate (candidate)}
 					<button
@@ -836,17 +759,21 @@
 					<div>
 						<h2 id="theme-panel-heading" class="font-semibold">{panelLabels[panel]}</h2>
 						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-							Changes update the real product preview.
+							{m.theme_editor_changes_preview()}
 						</p>
 					</div>
 					{#if THEME_EDITOR_SECTIONS.includes(panel as ThemeEditorSection) && schemeManifest}
 						<Button size="sm" intent="quiet" onclick={resetSection} disabled={editorBusy}
-							>Reset section</Button
+							>{m.theme_editor_reset_section()}</Button
 						>
 					{/if}
 				</div>
 
-				<div class="grid grid-cols-2 gap-2" aria-label="Scheme to edit">
+				<div
+					class="grid grid-cols-2 gap-2"
+					role="group"
+					aria-label={m.theme_editor_scheme_to_edit()}
+				>
 					{#each ['light', 'dark'] as candidate (candidate)}
 						<button
 							type="button"
@@ -854,9 +781,9 @@
 							aria-pressed={scheme === candidate}
 							onclick={() => (scheme = candidate as ThemeScheme)}
 						>
-							{candidate === 'light' ? 'Light' : 'Dark'}
+							{candidate === 'light' ? m.sidebar_appearance_light() : m.sidebar_appearance_dark()}
 							{#if !draft.schemes[candidate as ThemeScheme]}<span
-									class="ml-1 text-xs font-normal opacity-65">fallback</span
+									class="ml-1 text-xs font-normal opacity-65">{m.theme_editor_fallback()}</span
 								>{/if}
 						</button>
 					{/each}
@@ -864,7 +791,7 @@
 				{#if schemeManifest && draft.supportedSchemes.length > 1}
 					<div class="flex justify-end">
 						<Button size="sm" intent="destructive" onclick={() => (removeSchemeDialogOpen = true)}>
-							Remove {scheme} scheme
+							{m.theme_editor_remove_scheme({ scheme })}
 						</Button>
 					</div>
 				{/if}
@@ -873,534 +800,57 @@
 					<div
 						class="rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-muted/55 p-4"
 					>
-						<p class="text-sm font-medium">This theme does not support {scheme}.</p>
+						<p class="text-sm font-medium">
+							{m.theme_editor_scheme_unsupported({ scheme })}
+						</p>
 						<p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-							OpenPost uses the complete Workshop {scheme} theme instead. Add a scheme only if you plan
-							to design every role.
+							{m.theme_editor_scheme_unsupported_description({ scheme })}
 						</p>
-						<Button class="mt-3" size="sm" intent="primary" onclick={addScheme}>Add {scheme}</Button
+						<Button class="mt-3" size="sm" intent="primary" onclick={addScheme}
+							>{m.theme_editor_add_scheme({ scheme })}</Button
 						>
-					</div>
-				{:else if panel === 'colors'}
-					<div class="space-y-3">
-						{#each THEME_COLOR_GROUPS as group (group.id)}
-							<details
-								class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
-								open={group.id === 'foundation'}
-							>
-								<summary class="cursor-pointer text-sm font-semibold">{group.label}</summary>
-								<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-									{group.description}
-								</p>
-								<div class="mt-3 grid gap-3">
-									{#each group.fields as field (field)}
-										<label class="grid gap-1.5 text-xs font-medium" for={`theme-color-${field}`}>
-											<span>{humanizeToken(field)}</span>
-											<span class="flex items-center gap-2">
-												<span
-													class="size-8 shrink-0 rounded-[var(--theme-radius-sm,var(--radius))] border border-border"
-													style:background={schemeManifest.colors[field]}
-												></span>
-												<Input
-													id={`theme-color-${field}`}
-													value={schemeManifest.colors[field]}
-													oninput={(event) =>
-														updateValue('colors', field, event.currentTarget.value)}
-													class="font-mono"
-												/>
-											</span>
-										</label>
-									{/each}
-								</div>
-							</details>
-						{/each}
-					</div>
-				{:else if panel === 'typography'}
-					<div class="space-y-3">
-						{#each THEME_TYPOGRAPHY_ROLE_KEYS as role (role)}
-							{@const uploadedWeights = draft.fonts
-								.filter(
-									(font) =>
-										font.family === schemeManifest.typography[role].family &&
-										font.style === 'normal'
-								)
-								.map((font) => font.weight)
-								.sort((left, right) => left - right)}
-							<details
-								class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
-								open={role === 'body'}
-							>
-								<summary class="cursor-pointer text-sm font-semibold">{humanizeToken(role)}</summary
-								>
-								<div class="mt-3 grid gap-3">
-									<label class="grid gap-1.5 text-xs font-medium"
-										>Family
-										<Select.Root
-											value={schemeManifest.typography[role].family}
-											onValueChange={(value) => value && updateFontFamily(role, value)}
-										>
-											<Select.Trigger class="w-full"
-												>{schemeManifest.typography[role].family}</Select.Trigger
-											>
-											<Select.Content>
-												{#each BUNDLED_THEME_FONT_IDS as fontID (fontID)}
-													{@const bundledFont = BUNDLED_THEME_FONTS[fontID]}
-													<Select.Item value={bundledFont.family}>{bundledFont.label}</Select.Item>
-												{/each}
-												{#each [...new Set(draft.fonts
-															.filter((font) => font.style === 'normal')
-															.map((font) => font.family))] as family (family)}
-													<Select.Item value={family}>{family} · uploaded</Select.Item>
-												{/each}
-											</Select.Content>
-										</Select.Root>
-										<span class="font-normal text-muted-foreground"
-											>{schemeManifest.typography[role].fallbacks.join(', ')}</span
-										>
-									</label>
-									<div class="grid grid-cols-2 gap-3">
-										<label class="grid gap-1.5 text-xs font-medium"
-											>Weight
-											{#if uploadedWeights.length > 0}
-												<Select.Root
-													value={String(schemeManifest.typography[role].weight)}
-													onValueChange={(value) =>
-														value && updateTypographyRole(role, 'weight', Number(value))}
-												>
-													<Select.Trigger class="w-full"
-														>{schemeManifest.typography[role].weight}</Select.Trigger
-													>
-													<Select.Content>
-														{#each uploadedWeights as weight (weight)}
-															<Select.Item value={String(weight)}>{weight}</Select.Item>
-														{/each}
-													</Select.Content>
-												</Select.Root>
-											{:else}
-												<Input
-													type="number"
-													min="100"
-													max="900"
-													step="100"
-													value={schemeManifest.typography[role].weight}
-													oninput={(event) =>
-														updateTypographyRole(role, 'weight', Number(event.currentTarget.value))}
-												/>
-											{/if}
-										</label>
-										{#each [['size', 'Size'], ['lineHeight', 'Line height'], ['tracking', 'Tracking']] as field (field[0])}
-											<label class="grid gap-1.5 text-xs font-medium"
-												>{field[1]}<Input
-													value={String(
-														schemeManifest.typography[role][
-															field[0] as 'size' | 'lineHeight' | 'tracking'
-														]
-													)}
-													oninput={(event) =>
-														updateTypographyRole(
-															role,
-															field[0] as 'size' | 'lineHeight' | 'tracking',
-															event.currentTarget.value
-														)}
-												/></label
-											>
-										{/each}
-									</div>
-								</div>
-							</details>
-						{/each}
-					</div>
-				{:else if panel === 'spacing'}
-					<div class="space-y-4">
-						<label class="grid gap-1.5 text-xs font-medium"
-							>Density
-							<Select.Root
-								value={schemeManifest.spacing.density}
-								onValueChange={(value) => value && updateValue('spacing', 'density', value)}
-							>
-								<Select.Trigger class="w-full">{schemeManifest.spacing.density}</Select.Trigger>
-								<Select.Content
-									>{#each THEME_DENSITIES as value (value)}<Select.Item {value}>{value}</Select.Item
-										>{/each}</Select.Content
-								>
-							</Select.Root>
-						</label>
-						{#each [['base', 'Base unit'], ['controlHeight', 'Control height'], ['compactControlHeight', 'Compact control height'], ['touchTarget', 'Touch target'], ['pageGutter', 'Page gutter'], ['sectionGap', 'Section gap'], ['componentGap', 'Component gap']] as field (field[0])}
-							<label class="grid gap-1.5 text-xs font-medium"
-								>{field[1]}<Input
-									value={String(schemeManifest.spacing[field[0] as keyof ThemeSpacingTokens])}
-									oninput={(event) => updateValue('spacing', field[0], event.currentTarget.value)}
-								/></label
-							>
-						{/each}
-					</div>
-				{:else if panel === 'shape'}
-					<div class="space-y-4">
-						{#each [['radius', 'Base radius'], ['radiusSm', 'Small controls'], ['radiusMd', 'Controls'], ['radiusLg', 'Containers'], ['radiusMedia', 'Media'], ['radiusPill', 'Pills'], ['borderWidth', 'Border width']] as field (field[0])}
-							<label class="grid gap-1.5 text-xs font-medium"
-								>{field[1]}<Input
-									value={String(
-										schemeManifest.shape[field[0] as keyof typeof schemeManifest.shape]
-									)}
-									oninput={(event) => updateValue('shape', field[0], event.currentTarget.value)}
-								/></label
-							>
-						{/each}
-						<label class="grid gap-1.5 text-xs font-medium"
-							>Border style
-							<Select.Root
-								value={schemeManifest.shape.borderStyle}
-								onValueChange={(value) => value && updateValue('shape', 'borderStyle', value)}
-							>
-								<Select.Trigger class="w-full">{schemeManifest.shape.borderStyle}</Select.Trigger>
-								<Select.Content
-									>{#each THEME_BORDER_STYLES as value (value)}<Select.Item {value}
-											>{value}</Select.Item
-										>{/each}</Select.Content
-								>
-							</Select.Root>
-						</label>
-					</div>
-				{:else if panel === 'elevation'}
-					<div class="space-y-4">
-						{#each [['card', 'Resting card'], ['popover', 'Popover'], ['dialog', 'Dialog'], ['focalAction', 'Focal action']] as field (field[0])}
-							<label class="grid gap-1.5 text-xs font-medium"
-								>{field[1]}<Input
-									value={String(
-										schemeManifest.elevation[field[0] as keyof typeof schemeManifest.elevation]
-									)}
-									oninput={(event) => updateValue('elevation', field[0], event.currentTarget.value)}
-								/></label
-							>
-						{/each}
-					</div>
-				{:else if panel === 'motion'}
-					<div class="space-y-3">
-						{#each THEME_MOTION_RECIPE_KEYS as recipe (recipe)}
-							<details
-								class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
-								open={recipe === 'press'}
-							>
-								<summary class="cursor-pointer text-sm font-semibold"
-									>{humanizeToken(recipe)}</summary
-								>
-								<div class="mt-3 grid grid-cols-2 gap-3">
-									{#each [['duration', 'Duration'], ['easing', 'Easing'], ['distance', 'Distance']] as field (field[0])}
-										<label class="grid gap-1.5 text-xs font-medium"
-											>{field[1]}<Input
-												value={String(
-													schemeManifest.motion[recipe][
-														field[0] as 'duration' | 'easing' | 'distance'
-													]
-												)}
-												oninput={(event) =>
-													updateMotionRecipe(
-														recipe,
-														field[0] as 'duration' | 'easing' | 'distance',
-														event.currentTarget.value
-													)}
-											/></label
-										>
-									{/each}
-									<label class="grid gap-1.5 text-xs font-medium"
-										>Opacity<Input
-											type="number"
-											min="0"
-											max="1"
-											step="0.05"
-											value={schemeManifest.motion[recipe].opacity}
-											oninput={(event) =>
-												updateMotionRecipe(recipe, 'opacity', Number(event.currentTarget.value))}
-										/></label
-									>
-								</div>
-							</details>
-						{/each}
-						<p class="text-xs leading-relaxed text-muted-foreground">
-							Reduced motion uses {schemeManifest.motion.reducedMotion}. Preview it with your
-							operating system preference.
-						</p>
-					</div>
-				{:else if panel === 'shell'}
-					<div class="space-y-4">
-						{#each [['contentMaxWidth', 'Content width'], ['sidebarWidth', 'Sidebar width'], ['headerHeight', 'Header height'], ['mobileNavigationHeight', 'Mobile navigation']] as field (field[0])}
-							<label class="grid gap-1.5 text-xs font-medium"
-								>{field[1]}<Input
-									value={String(schemeManifest.shell[field[0] as keyof ThemeShellTokens])}
-									oninput={(event) => updateValue('shell', field[0], event.currentTarget.value)}
-								/></label
-							>
-						{/each}
-						<label class="grid gap-1.5 text-xs font-medium"
-							>Canvas treatment
-							<Select.Root
-								value={schemeManifest.shell.canvasTreatment}
-								onValueChange={(value) => value && updateValue('shell', 'canvasTreatment', value)}
-							>
-								<Select.Trigger class="w-full"
-									>{schemeManifest.shell.canvasTreatment}</Select.Trigger
-								>
-								<Select.Content
-									>{#each THEME_CANVAS_TREATMENTS as value (value)}<Select.Item {value}
-											>{value}</Select.Item
-										>{/each}</Select.Content
-								>
-							</Select.Root>
-						</label>
-					</div>
-				{:else if panel === 'components'}
-					<div class="space-y-3">
-						{#each THEME_COMPONENT_GROUPS as group (group.id)}
-							<details
-								class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
-								open={group.id === 'actions-navigation'}
-							>
-								<summary class="cursor-pointer text-sm font-semibold">{group.label}</summary>
-								<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-									{group.description}
-								</p>
-								<div class="mt-3 grid gap-3">
-									{#each group.fields as field (field)}
-										<label class="grid gap-1.5 text-xs font-medium"
-											>{humanizeToken(field)}
-											<Select.Root
-												value={String(schemeManifest.components[field])}
-												onValueChange={(value) => value && updateValue('components', field, value)}
-											>
-												<Select.Trigger class="w-full"
-													>{schemeManifest.components[field]}</Select.Trigger
-												>
-												<Select.Content>
-													{#each THEME_COMPONENT_RECIPE_OPTIONS[field] as value (value)}
-														<Select.Item {value}>{value}</Select.Item>
-													{/each}
-												</Select.Content>
-											</Select.Root>
-										</label>
-									{/each}
-								</div>
-							</details>
-						{/each}
-					</div>
-				{:else if panel === 'icons'}
-					<div class="space-y-4">
-						<p class="text-sm leading-relaxed text-muted-foreground">
-							Every semantic role switches together. Provider marks and specialized editor glyphs
-							stay protected.
-						</p>
-						<div class="space-y-2" role="radiogroup" aria-label="Icon pack">
-							{#each THEME_ICON_PACK_IDS as pack (pack)}
-								<button
-									type="button"
-									role="radio"
-									aria-checked={draft.iconPack === pack}
-									class="flex min-h-11 w-full items-center justify-between rounded-[var(--theme-radius-md,var(--radius))] border border-border px-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-checked:border-ring aria-checked:bg-accent"
-									onclick={() => updateIconPack(pack)}
-								>
-									<span>{pack.replaceAll('-', ' ')}</span><span
-										class="text-xs text-muted-foreground">Complete pack</span
-									>
-								</button>
-							{/each}
-						</div>
 					</div>
 				{:else if panel === 'assets'}
-					<div class="space-y-5">
-						<div
-							class="space-y-3 rounded-[var(--theme-radius-md,var(--radius))] border border-border p-3"
-						>
-							<div class="space-y-1">
-								<label class="text-xs font-medium" for="theme-font-upload"
-									>Upload a static WOFF2 font</label
-								>
-								<p class="text-xs leading-relaxed text-muted-foreground">
-									Maximum 2 MB. Variable fonts are not supported because OpenPost also prepares a
-									native-safe copy for mobile.
-								</p>
-							</div>
-							<Input bind:value={fontFamily} placeholder="Font family" aria-label="Font family" />
-							{#if fontFamily.trim() && !fontFamilyValid}<p class="text-xs text-destructive">
-									Use letters, numbers, spaces, commas, periods, apostrophes, or hyphens.
-								</p>{/if}
-							<div class="grid grid-cols-2 gap-2">
-								<label class="grid gap-1.5 text-xs font-medium"
-									>Weight<Input
-										type="number"
-										min="100"
-										max="900"
-										step="100"
-										bind:value={fontWeight}
-									/></label
-								>
-								<label class="grid gap-1.5 text-xs font-medium"
-									>Style<Select.Root bind:value={fontStyle}
-										><Select.Trigger class="w-full">{fontStyle}</Select.Trigger><Select.Content
-											><Select.Item value="normal">normal</Select.Item><Select.Item value="italic"
-												>italic</Select.Item
-											></Select.Content
-										></Select.Root
-									></label
-								>
-							</div>
-							<label class="grid gap-1.5 text-xs font-medium"
-								>Loading<Select.Root bind:value={fontDisplay}
-									><Select.Trigger class="w-full">{fontDisplay}</Select.Trigger><Select.Content
-										><Select.Item value="swap">swap</Select.Item><Select.Item value="fallback"
-											>fallback</Select.Item
-										><Select.Item value="optional">optional</Select.Item></Select.Content
-									></Select.Root
-								></label
-							>
-							<Input
-								id="theme-font-upload"
-								type="file"
-								accept=".woff2,font/woff2"
-								disabled={!onUploadFont ||
-									!fontFamilyValid ||
-									!fontWeightValid ||
-									fontFaceAlreadyUploaded ||
-									!licenseAcknowledged ||
-									editorBusy}
-								onchange={(event) => {
-									const file = event.currentTarget.files?.[0];
-									event.currentTarget.value = '';
-									if (file) void uploadFont(file);
-								}}
-							/>
-							{#if fontFaceAlreadyUploaded}<p class="text-xs text-warning">
-									That family, weight, and style is already uploaded.
-								</p>{/if}
-							<div class="flex min-h-11 items-center gap-2">
-								<Checkbox id="theme-font-license" bind:checked={licenseAcknowledged} />
-								<label
-									for="theme-font-license"
-									class="text-xs leading-relaxed text-muted-foreground"
-								>
-									I have the right to use this font.
-								</label>
-							</div>
-						</div>
-						<div
-							class="space-y-3 rounded-[var(--theme-radius-md,var(--radius))] border border-border p-3"
-						>
-							<label class="text-xs font-medium" for="theme-asset-upload"
-								>Upload decorative image</label
-							>
-							<p class="text-xs leading-relaxed text-muted-foreground">
-								PNG, JPEG, WebP, or AVIF. Maximum 5 MB, 32 megapixels, and 8192px per side.
-							</p>
-							<label class="grid gap-1.5 text-xs font-medium"
-								>Slot<Select.Root bind:value={assetSlot}
-									><Select.Trigger class="w-full">{assetSlot}</Select.Trigger><Select.Content
-										>{#each THEME_ASSET_SLOTS as slot (slot)}<Select.Item value={slot}
-												>{humanizeToken(slot)}</Select.Item
-											>{/each}</Select.Content
-									></Select.Root
-								></label
-							>
-							<Input
-								bind:value={assetAlt}
-								placeholder="Alt text when the image conveys meaning"
-								aria-label="Decorative image alt text"
-							/>
-							<p class="text-right text-xs text-muted-foreground tabular-nums">
-								{themeCodePointLength(assetAlt)}/240
-							</p>
-							<Input
-								id="theme-asset-upload"
-								type="file"
-								accept="image/png,image/jpeg,image/webp,image/avif"
-								disabled={!onUploadAsset || assetSlotInUse || !assetAltValid || editorBusy}
-								onchange={(event) => {
-									const file = event.currentTarget.files?.[0];
-									event.currentTarget.value = '';
-									if (file) void uploadAsset(file);
-								}}
-							/>
-							{#if assetNeedsAlt && !assetAlt.trim()}<p class="text-xs text-muted-foreground">
-									Add alt text for this in-product illustration.
-								</p>{/if}
-							{#if themeCodePointLength(assetAlt) > 240}<p class="text-xs text-destructive">
-									Alt text must contain at most 240 characters.
-								</p>{/if}
-							{#if assetSlotInUse}<p class="text-xs text-warning">
-									Remove the current {humanizeToken(assetSlot).toLowerCase()} before uploading another.
-								</p>{/if}
-						</div>
-						<div class="divide-y divide-border border-y border-border">
-							{#each [...draft.fonts, ...draft.assets] as resource (resource.id)}
-								<div class="flex items-center justify-between gap-3 py-2.5">
-									<div class="min-w-0">
-										<p class="truncate text-sm font-medium">
-											{'family' in resource ? resource.family : resource.alt || resource.id}
-										</p>
-										<p class="text-xs text-muted-foreground">
-											{'format' in resource ? 'Font' : resource.slot}
-										</p>
-									</div>
-									<Button
-										size="sm"
-										intent="destructive"
-										disabled={!onRemoveResource ||
-											editorBusy ||
-											('family' in resource && isThemeFontInUse(draft, resource.id))}
-										title={'family' in resource && isThemeFontInUse(draft, resource.id)
-											? 'Choose another font for every type role before removing this face'
-											: undefined}
-										onclick={() => {
-											resourceDeleteCandidate = {
-												id: resource.id,
-												label: 'family' in resource ? resource.family : resource.alt || resource.id
-											};
-											resourceDeleteDialogOpen = true;
-										}}>Remove</Button
-									>
-								</div>
-							{/each}
-							{#if draft.fonts.length + draft.assets.length === 0}<p
-									class="py-4 text-sm text-muted-foreground"
-								>
-									No uploaded resources.
-								</p>{/if}
-						</div>
-					</div>
+					<ThemeEditorResourcesPanel
+						theme={draft}
+						busy={editorBusy}
+						actions={{
+							uploadFont: onUploadFont,
+							uploadAsset: onUploadAsset,
+							remove: onRemoveResource
+						}}
+						onAdopt={adoptServerTheme}
+						onError={(message) => (operationError = message)}
+						onPendingChange={(operation) => (pendingOperation = operation)}
+					/>
 				{:else if panel === 'revisions'}
-					<div class="divide-y divide-border border-y border-border">
-						{#each revisions as revision (revision.revision)}
-							<div class="flex items-center justify-between gap-3 py-3">
-								<div>
-									<p class="text-sm font-medium">
-										{revision.label}{#if revision.current}
-											· Current{/if}
-									</p>
-									<p class="mt-0.5 text-xs text-muted-foreground">
-										{revision.publishedAt}{#if revision.publishedBy}
-											· {revision.publishedBy}{/if}
-									</p>
-								</div>
-								{#if !revision.current}<Button
-										size="sm"
-										intent="ordinary"
-										onclick={() => {
-											rollbackCandidate = revision;
-											rollbackDialogOpen = true;
-										}}>Restore</Button
-									>{/if}
-							</div>
-						{/each}
-						{#if revisions.length === 0}<p class="py-4 text-sm text-muted-foreground">
-								Publish the first revision to start history.
-							</p>{/if}
-					</div>
+					<ThemeEditorRevisionsPanel
+						{revisions}
+						onRestore={(revision) => {
+							rollbackCandidate = revision;
+							rollbackDialogOpen = true;
+						}}
+					/>
+				{:else}
+					<ThemeEditorTokenPanel
+						panel={panel as ThemeEditorSection | 'icons'}
+						theme={draft}
+						manifest={schemeManifest}
+						onUpdateValue={updateValue}
+						onUpdateTypography={updateTypographyRole}
+						onUpdateFontFamily={updateFontFamily}
+						onUpdateMotion={updateMotionRecipe}
+						onUpdateIconPack={updateIconPack}
+					/>
 				{/if}
 
 				<div class="space-y-3 border-t border-border pt-4">
 					{#if THEME_EDITOR_SECTIONS.includes(panel as ThemeEditorSection)}
 						<label class="grid gap-1.5 text-xs font-medium"
-							>Random seed<Input type="number" bind:value={randomSeed} /></label
+							>{m.theme_editor_random_seed()}<Input type="number" bind:value={randomSeed} /></label
 						>
 						{#if !randomSeedValid}<p class="text-xs text-destructive">
-								Use a whole number for deterministic randomization.
+								{m.theme_editor_random_seed_error()}
 							</p>{/if}
 					{/if}
 					<div class="flex flex-wrap gap-2">
@@ -1410,20 +860,23 @@
 								intent="ordinary"
 								onclick={randomize}
 								disabled={!schemeManifest || !randomSeedValid || editorBusy}
-								>Randomize {panelLabels[panel].toLowerCase()}</Button
+								>{m.theme_editor_randomize_section({
+									section: panelLabels[panel].toLowerCase()
+								})}</Button
 							>
 							<Button
 								size="sm"
 								intent="quiet"
 								onclick={randomizeAll}
-								disabled={!schemeManifest || !randomSeedValid || editorBusy}>Randomize theme</Button
+								disabled={!schemeManifest || !randomSeedValid || editorBusy}
+								>{m.theme_editor_randomize_theme()}</Button
 							>
 							<Button size="sm" intent="quiet" onclick={resetTheme} disabled={editorBusy}
-								>Reset theme</Button
+								>{m.theme_editor_reset_theme()}</Button
 							>
 						{/if}
 						<Button size="sm" intent="quiet" onclick={() => void copyManifest()}
-							>Copy manifest</Button
+							>{m.theme_editor_copy_manifest()}</Button
 						>
 					</div>
 				</div>
@@ -1432,27 +885,28 @@
 			<section class="min-w-0 space-y-3 xl:col-span-2" aria-labelledby="manifest-heading">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div>
-						<h2 id="manifest-heading" class="font-semibold">Full manifest</h2>
+						<h2 id="manifest-heading" class="font-semibold">{m.theme_editor_full_manifest()}</h2>
 						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-							Edit the complete visual document. OpenPost keeps the theme ID and revision; unknown
-							or missing roles cannot be published.
+							{m.theme_editor_full_manifest_description()}
 						</p>
 					</div>
 					<div class="flex gap-2">
-						<Button size="sm" intent="quiet" onclick={() => void copyManifest()}>Copy</Button
-						><Button size="sm" intent="primary" onclick={applyManifestSource}>Apply manifest</Button
+						<Button size="sm" intent="quiet" onclick={() => void copyManifest()}
+							>{m.common_copy()}</Button
+						><Button size="sm" intent="primary" onclick={applyManifestSource}
+							>{m.theme_editor_apply_manifest()}</Button
 						>
 					</div>
 				</div>
 				<Textarea
 					bind:value={manifestSource}
 					class="min-h-[42rem] resize-y font-mono text-xs"
-					aria-label="Theme manifest JSON"
+					aria-label={m.theme_editor_manifest_json()}
 					aria-invalid={Boolean(manifestError)}
 				/>
 				{#if manifestSourceDirty && !manifestError}
 					<p class="text-xs text-muted-foreground" role="status">
-						Apply the manifest before saving or publishing.
+						{m.theme_editor_apply_before_save()}
 					</p>
 				{/if}
 				{#if manifestError}<p class="text-sm text-destructive" role="alert">{manifestError}</p>{/if}
@@ -1465,11 +919,14 @@
 		>
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h2 id="preview-heading" class="font-semibold">Product preview</h2>
+					<h2 id="preview-heading" class="font-semibold">{m.theme_editor_product_preview()}</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
 						{previewTheme.fallbackReason
-							? `Workshop ${effectivePreviewScheme} fallback`
-							: `${draft.name} · ${effectivePreviewScheme}`}
+							? m.theme_editor_workshop_fallback({ scheme: effectivePreviewScheme })
+							: m.theme_editor_preview_name({
+									name: draft.name,
+									scheme: effectivePreviewScheme
+								})}
 					</p>
 				</div>
 				<div class="flex flex-wrap gap-2">
@@ -1478,30 +935,36 @@
 						onValueChange={(value) =>
 							value && (previewScheme = value as ThemeScheme | 'editing' | 'system' | 'fallback')}
 					>
-						<Select.Trigger size="sm">{previewScheme}</Select.Trigger>
+						<Select.Trigger size="sm" aria-label={m.theme_editor_preview_scheme()}
+							>{previewSchemeLabel(previewScheme)}</Select.Trigger
+						>
 						<Select.Content>
-							<Select.Item value="editing">Editing scheme</Select.Item>
-							<Select.Item value="system">System</Select.Item>
-							<Select.Item value="light">Light</Select.Item>
-							<Select.Item value="dark">Dark</Select.Item>
-							<Select.Item value="fallback">Fallback</Select.Item>
+							<Select.Item value="editing">{m.theme_editor_editing_scheme()}</Select.Item>
+							<Select.Item value="system">{m.sidebar_appearance_system()}</Select.Item>
+							<Select.Item value="light">{m.sidebar_appearance_light()}</Select.Item>
+							<Select.Item value="dark">{m.sidebar_appearance_dark()}</Select.Item>
+							<Select.Item value="fallback">{m.theme_editor_fallback()}</Select.Item>
 						</Select.Content>
 					</Select.Root>
 					<Select.Root
 						value={scene}
 						onValueChange={(value) => value && (scene = value as ThemePreviewScene)}
-						><Select.Trigger size="sm">{scene}</Select.Trigger><Select.Content
+						><Select.Trigger size="sm" aria-label={m.theme_editor_preview_scene()}
+							>{previewSceneLabel(scene)}</Select.Trigger
+						><Select.Content
 							>{#each THEME_PREVIEW_SCENES as value (value)}<Select.Item {value}
-									>{value}</Select.Item
+									>{previewSceneLabel(value)}</Select.Item
 								>{/each}</Select.Content
 						></Select.Root
 					>
 					<Select.Root
 						value={viewport}
 						onValueChange={(value) => value && (viewport = value as ThemePreviewViewport)}
-						><Select.Trigger size="sm">{viewport}</Select.Trigger><Select.Content
-							><Select.Item value="desktop">Desktop</Select.Item><Select.Item value="phone"
-								>390px</Select.Item
+						><Select.Trigger size="sm" aria-label={m.theme_editor_preview_viewport()}
+							>{previewViewportLabel(viewport)}</Select.Trigger
+						><Select.Content
+							><Select.Item value="desktop">{m.theme_editor_desktop()}</Select.Item><Select.Item
+								value="phone">390px</Select.Item
 							><Select.Item value="phone-small">320px</Select.Item></Select.Content
 						></Select.Root
 					>
@@ -1511,7 +974,11 @@
 				theme={previewTheme}
 				{scene}
 				{viewport}
-				label={`${draft.name} ${effectivePreviewScheme} ${scene} preview`}
+				label={m.theme_editor_preview_label({
+					name: draft.name,
+					scheme: effectivePreviewScheme,
+					scene: previewSceneLabel(scene)
+				})}
 				interactive
 			/>
 			{#if previewTheme.fallbackReason}<p
@@ -1522,7 +989,7 @@
 				</p>{/if}
 			{#if validationIssues.length > 0}<div
 					class="space-y-2 rounded-[var(--theme-radius-lg,var(--radius))] border border-destructive/35 bg-destructive/8 p-3"
-					aria-label="Validation issues"
+					aria-label={m.theme_editor_validation_issues()}
 				>
 					{#each validationIssues as issue (`${issue.path}:${issue.message}`)}<p class="text-xs">
 							<span class="font-mono font-semibold">{issue.path}</span>
@@ -1533,7 +1000,7 @@
 					class="rounded-[var(--theme-radius-lg,var(--radius))] border border-destructive/35 bg-destructive/8 p-3 text-xs"
 					role="alert"
 				>
-					The current draft is incomplete: {localValidationError}
+					{m.theme_editor_draft_incomplete({ error: localValidationError })}
 				</div>{/if}
 		</section>
 	</div>
@@ -1548,54 +1015,27 @@
 		aria-busy={pendingOperation === 'rollback'}
 	>
 		<Dialog.Header>
-			<Dialog.Title>Restore {rollbackCandidate?.label ?? 'this revision'}?</Dialog.Title>
-			<Dialog.Description>
-				OpenPost will publish its complete manifest as a new revision and make it the active draft.
-				Existing history stays available.
-			</Dialog.Description>
+			<Dialog.Title>
+				{m.theme_editor_restore_title({
+					revision: rollbackCandidate?.label ?? m.theme_editor_this_revision()
+				})}
+			</Dialog.Title>
+			<Dialog.Description>{m.theme_editor_restore_description()}</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
 			<Button
 				intent="quiet"
 				disabled={pendingOperation === 'rollback'}
-				onclick={() => (rollbackDialogOpen = false)}>Cancel</Button
+				onclick={() => (rollbackDialogOpen = false)}>{m.common_cancel()}</Button
 			>
 			<Button
 				intent="primary"
 				disabled={pendingOperation === 'rollback'}
 				onclick={() => void confirmRollback()}
 			>
-				{pendingOperation === 'rollback' ? 'Restoring…' : 'Restore revision'}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={resourceDeleteDialogOpen}>
-	<Dialog.Content
-		showCloseButton={false}
-		class="sm:max-w-md"
-		aria-busy={pendingOperation === 'remove-resource'}
-	>
-		<Dialog.Header>
-			<Dialog.Title>Remove {resourceDeleteCandidate?.label ?? 'this resource'}?</Dialog.Title>
-			<Dialog.Description>
-				The draft will stop using this upload. OpenPost will reject the change if a typography or
-				asset role still depends on it.
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button
-				intent="quiet"
-				disabled={pendingOperation === 'remove-resource'}
-				onclick={() => (resourceDeleteDialogOpen = false)}>Keep resource</Button
-			>
-			<Button
-				intent="destructive"
-				disabled={pendingOperation === 'remove-resource'}
-				onclick={() => void removeResource()}
-			>
-				{pendingOperation === 'remove-resource' ? 'Removing…' : 'Remove resource'}
+				{pendingOperation === 'rollback'
+					? m.theme_editor_restoring()
+					: m.theme_editor_restore_revision()}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -1604,15 +1044,17 @@
 <Dialog.Root bind:open={removeSchemeDialogOpen}>
 	<Dialog.Content showCloseButton={false} class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Remove the {scheme} scheme?</Dialog.Title>
-			<Dialog.Description>
-				All {scheme} values in this draft will be removed. People using {scheme} appearance will see the
-				complete Workshop {scheme} theme instead.
-			</Dialog.Description>
+			<Dialog.Title>{m.theme_editor_remove_scheme_title({ scheme })}</Dialog.Title>
+			<Dialog.Description>{m.theme_editor_remove_scheme_description({ scheme })}</Dialog.Description
+			>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button intent="quiet" onclick={() => (removeSchemeDialogOpen = false)}>Keep scheme</Button>
-			<Button intent="destructive" onclick={removeScheme}>Remove scheme</Button>
+			<Button intent="quiet" onclick={() => (removeSchemeDialogOpen = false)}
+				>{m.theme_editor_keep_scheme()}</Button
+			>
+			<Button intent="destructive" onclick={removeScheme}
+				>{m.theme_editor_remove_scheme_action()}</Button
+			>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -1624,24 +1066,23 @@
 		aria-busy={pendingOperation === 'reload'}
 	>
 		<Dialog.Header>
-			<Dialog.Title>Discard local changes?</Dialog.Title>
-			<Dialog.Description>
-				Reloading replaces this editor with the latest server draft. Copy the manifest first if you
-				want to keep these changes.
-			</Dialog.Description>
+			<Dialog.Title>{m.theme_editor_discard_title()}</Dialog.Title>
+			<Dialog.Description>{m.theme_editor_discard_description()}</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
 			<Button
 				intent="quiet"
 				disabled={pendingOperation === 'reload'}
-				onclick={() => (reloadDialogOpen = false)}>Keep editing</Button
+				onclick={() => (reloadDialogOpen = false)}>{m.theme_editor_keep_editing()}</Button
 			>
 			<Button
 				intent="destructive"
 				disabled={pendingOperation === 'reload'}
 				onclick={() => void confirmReload()}
 			>
-				{pendingOperation === 'reload' ? 'Reloading…' : 'Discard and reload'}
+				{pendingOperation === 'reload'
+					? m.theme_editor_reloading()
+					: m.theme_editor_discard_reload()}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

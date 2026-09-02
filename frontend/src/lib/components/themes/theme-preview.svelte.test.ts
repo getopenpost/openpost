@@ -78,6 +78,32 @@ describe('ThemePreview', () => {
 		}
 	);
 
+	it('keeps preview fixture labels valid and small copy readable', async () => {
+		const screen = render(ThemePreview, {
+			theme: resolveBuiltInTheme('workshop', 'light'),
+			scene: 'composer',
+			label: 'Composer accessibility preview'
+		});
+		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
+		const frame = screen.getByTestId('theme-preview').element() as HTMLIFrameElement;
+
+		await expect
+			.poll(() => frame.contentDocument?.querySelector('[role="textbox"]'))
+			.not.toBeNull();
+		const document = frame.contentDocument!;
+		expect(document.querySelector('label[for="preview-composer"]')).toBeNull();
+		expect(document.querySelector('[role="textbox"]')?.getAttribute('aria-labelledby')).toBe(
+			'preview-composer-label'
+		);
+		const compactText = [...document.querySelectorAll<HTMLElement>('[class*="text-["]')];
+		expect(compactText.length).toBeGreaterThan(0);
+		expect(
+			Math.min(
+				...compactText.map((element) => Number.parseFloat(getComputedStyle(element).fontSize))
+			)
+		).toBeGreaterThanOrEqual(11);
+	});
+
 	it('keeps media-editor chrome behind the protected token boundary', async () => {
 		const screen = render(ThemePreview, {
 			theme: resolveBuiltInTheme('midnight', 'dark'),

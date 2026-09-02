@@ -1,4 +1,5 @@
 import type { ThemeColorToken, ThemeComponentRecipe } from '$lib/themes';
+import { m } from '$lib/paraglide/messages';
 
 export interface ThemeEditorFieldGroup<Field extends string> {
 	id: string;
@@ -10,8 +11,8 @@ export interface ThemeEditorFieldGroup<Field extends string> {
 export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>[] = [
 	{
 		id: 'foundation',
-		label: 'Foundation',
-		description: 'Canvas, text, surfaces, borders, focus, and selection.',
+		label: m.theme_editor_group_foundation(),
+		description: m.theme_editor_group_foundation_description(),
 		fields: [
 			'canvas',
 			'ink',
@@ -30,14 +31,14 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'identity',
-		label: 'Identity',
-		description: 'Organization expression and protected workspace recognition.',
+		label: m.theme_editor_group_identity(),
+		description: m.theme_editor_group_identity_description(),
 		fields: ['brand', 'brandInk', 'workspace', 'workspaceInk']
 	},
 	{
 		id: 'feedback',
-		label: 'Feedback',
-		description: 'Meaning stays consistent across success, warning, error, and information.',
+		label: m.theme_editor_group_feedback(),
+		description: m.theme_editor_group_feedback_description(),
 		fields: [
 			'danger',
 			'dangerInk',
@@ -51,8 +52,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'actions',
-		label: 'Actions',
-		description: 'Focal, primary, ordinary, quiet, destructive, and link treatments.',
+		label: m.theme_editor_group_actions(),
+		description: m.theme_editor_group_actions_description(),
 		fields: [
 			'actionFocal',
 			'actionFocalInk',
@@ -81,8 +82,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'controls',
-		label: 'Controls',
-		description: 'Fields, disabled content, card hover, and their interactive states.',
+		label: m.theme_editor_group_controls(),
+		description: m.theme_editor_group_controls_description(),
 		fields: [
 			'disabled',
 			'disabledInk',
@@ -98,8 +99,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'chrome',
-		label: 'Navigation and chrome',
-		description: 'Navigation, sidebar, app chrome, and browser surfaces.',
+		label: m.theme_editor_group_chrome(),
+		description: m.theme_editor_group_chrome_description(),
 		fields: [
 			'navigationHover',
 			'navigationActive',
@@ -119,8 +120,8 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 	},
 	{
 		id: 'charts',
-		label: 'Charts',
-		description: 'Ordered data-series colors. They do not replace status colors.',
+		label: m.theme_editor_group_charts(),
+		description: m.theme_editor_group_charts_description(),
 		fields: ['chart1', 'chart2', 'chart3', 'chart4', 'chart5']
 	}
 ];
@@ -128,32 +129,32 @@ export const THEME_COLOR_GROUPS: readonly ThemeEditorFieldGroup<ThemeColorToken>
 export const THEME_COMPONENT_GROUPS: readonly ThemeEditorFieldGroup<ThemeComponentRecipe>[] = [
 	{
 		id: 'actions-navigation',
-		label: 'Actions and navigation',
-		description: 'Buttons, links, tabs, and navigation.',
+		label: m.theme_editor_group_actions_navigation(),
+		description: m.theme_editor_group_actions_navigation_description(),
 		fields: ['button', 'link', 'tabs', 'navigation']
 	},
 	{
 		id: 'form-controls',
-		label: 'Form controls',
-		description: 'Inputs, selects, switches, checkboxes, and radios.',
+		label: m.theme_editor_group_form_controls(),
+		description: m.theme_editor_group_form_controls_description(),
 		fields: ['input', 'select', 'switch', 'checkbox', 'radio']
 	},
 	{
 		id: 'content',
-		label: 'Content',
-		description: 'Cards, containers, tables, lists, badges, chips, and pagination.',
+		label: m.theme_editor_group_content(),
+		description: m.theme_editor_group_content_description(),
 		fields: ['card', 'container', 'table', 'list', 'badge', 'chip', 'pagination']
 	},
 	{
 		id: 'temporary-layers',
-		label: 'Temporary layers',
-		description: 'Dialogs, popovers, toasts, and toolbars.',
+		label: m.theme_editor_group_layers(),
+		description: m.theme_editor_group_layers_description(),
 		fields: ['dialog', 'popover', 'toast', 'toolbar']
 	},
 	{
 		id: 'states-decoration',
-		label: 'States and decoration',
-		description: 'Empty, loading, editor chrome, and bounded decoration recipes.',
+		label: m.theme_editor_group_states(),
+		description: m.theme_editor_group_states_description(),
 		fields: ['emptyState', 'loadingState', 'editorChrome', 'decoration']
 	}
 ];

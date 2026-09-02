@@ -29,7 +29,16 @@ export const BUILTIN_THEME_IDS = [
 export type BuiltinThemeId = (typeof BUILTIN_THEME_IDS)[number];
 
 type Palette = NativeColorRoles;
-type ThemeShape = "precise" | "soft" | "round" | "paper";
+
+interface NativeThemePersonality {
+  readonly typography: NativeThemeManifest["typography"];
+  readonly shape: NativeThemeManifest["shape"];
+  readonly spacing: NativeThemeManifest["spacing"];
+  readonly motion: NativeThemeManifest["motion"];
+  readonly actions: Readonly<
+    Record<"focal" | "primary" | "ordinary", Readonly<{ borderWidth: number; depth: number }>>
+  >;
+}
 
 const ICON_PACK_BY_FAMILY: Readonly<Record<BuiltinThemeId, NativeIconPackId>> = {
   workshop: "lucide",
@@ -42,63 +51,176 @@ const ICON_PACK_BY_FAMILY: Readonly<Record<BuiltinThemeId, NativeIconPackId>> = 
   midnight: "tabler",
 };
 
-const TYPE_ROLES = deepFreeze({
-  displayLarge: textRole(57, 64, "400", -1.4),
-  headlineLarge: textRole(32, 40, "600", -0.5),
-  titleLarge: textRole(24, 30, "700", -0.35),
-  titleMedium: textRole(18, 24, "600", -0.1),
-  bodyLarge: textRole(16, 24, "400", 0.1),
-  bodyMedium: textRole(14, 20, "400", 0.15),
-  bodySmall: textRole(12, 16, "400", 0.2),
-  labelLarge: textRole(16, 20, "600", 0.1),
-  labelMedium: textRole(12, 16, "600", 0.25),
-});
-
-const SHAPES = deepFreeze({
-  precise: {
-    extraSmall: 4,
-    small: 8,
-    medium: 12,
-    large: 16,
-    extraLarge: 24,
-    full: 999,
+const BUILTIN_PERSONALITIES = deepFreeze({
+  workshop: {
+    typography: {
+      displayLarge: textRole(57, 64, "400", -1.4),
+      headlineLarge: textRole(32, 40, "600", -0.5),
+      titleLarge: textRole(24, 30, "700", -0.35),
+      titleMedium: textRole(18, 24, "600", -0.1),
+      bodyLarge: textRole(16, 24, "400", 0.1),
+      bodyMedium: textRole(14, 20, "400", 0.15),
+      bodySmall: textRole(12, 16, "400", 0.2),
+      labelLarge: textRole(16, 20, "600", 0.1),
+      labelMedium: textRole(12, 16, "600", 0.25),
+    },
+    shape: shapeScale(6, 10, 14, 18, 26),
+    spacing: spacingScale(4, 8, 12, 16, 24, 32),
+    motion: motionScale(120, 220, 360),
+    actions: {
+      focal: { borderWidth: 1, depth: 2 },
+      primary: { borderWidth: 0, depth: 0 },
+      ordinary: { borderWidth: 1, depth: 0 },
+    },
   },
-  soft: {
-    extraSmall: 6,
-    small: 10,
-    medium: 14,
-    large: 18,
-    extraLarge: 26,
-    full: 999,
+  studio: {
+    typography: {
+      displayLarge: textRole(52, 58, "500", -1.1),
+      headlineLarge: textRole(30, 36, "600", -0.45),
+      titleLarge: textRole(22, 28, "600", -0.3),
+      titleMedium: textRole(17, 22, "600", -0.1),
+      bodyLarge: textRole(16, 23, "400", 0),
+      bodyMedium: textRole(14, 20, "400", 0.1),
+      bodySmall: textRole(12, 16, "400", 0.15),
+      labelLarge: textRole(15, 20, "600", 0.05),
+      labelMedium: textRole(12, 16, "600", 0.2),
+    },
+    shape: shapeScale(5, 9, 12, 15, 22),
+    spacing: spacingScale(4, 8, 12, 16, 24, 32),
+    motion: motionScale(100, 180, 300),
+    actions: {
+      focal: { borderWidth: 1, depth: 1 },
+      primary: { borderWidth: 0, depth: 0 },
+      ordinary: { borderWidth: 0, depth: 0 },
+    },
   },
-  round: {
-    extraSmall: 8,
-    small: 12,
-    medium: 16,
-    large: 22,
-    extraLarge: 30,
-    full: 999,
+  notebook: {
+    typography: {
+      displayLarge: textRole(50, 58, "500", -0.4),
+      headlineLarge: textRole(31, 39, "600", -0.2),
+      titleLarge: textRole(23, 30, "600", -0.1),
+      titleMedium: textRole(18, 25, "600", 0),
+      bodyLarge: textRole(17, 27, "400", 0),
+      bodyMedium: textRole(15, 24, "400", 0.05),
+      bodySmall: textRole(12, 19, "400", 0.1),
+      labelLarge: textRole(15, 21, "600", 0.2),
+      labelMedium: textRole(12, 17, "600", 0.3),
+    },
+    shape: shapeScale(3, 6, 10, 14, 20),
+    spacing: spacingScale(4, 9, 13, 18, 28, 40),
+    motion: motionScale(120, 240, 400),
+    actions: {
+      focal: { borderWidth: 1, depth: 1 },
+      primary: { borderWidth: 1, depth: 0 },
+      ordinary: { borderWidth: 1, depth: 0 },
+    },
   },
-  paper: {
-    extraSmall: 3,
-    small: 6,
-    medium: 10,
-    large: 14,
-    extraLarge: 20,
-    full: 999,
+  playroom: {
+    typography: {
+      displayLarge: textRole(56, 60, "800", -0.8),
+      headlineLarge: textRole(34, 40, "800", -0.35),
+      titleLarge: textRole(25, 30, "800", -0.2),
+      titleMedium: textRole(19, 24, "700", 0),
+      bodyLarge: textRole(16, 24, "500", 0.1),
+      bodyMedium: textRole(14, 21, "500", 0.15),
+      bodySmall: textRole(12, 17, "500", 0.2),
+      labelLarge: textRole(16, 20, "700", 0.2),
+      labelMedium: textRole(12, 16, "700", 0.3),
+    },
+    shape: shapeScale(8, 12, 16, 22, 30),
+    spacing: spacingScale(4, 10, 14, 20, 28, 40),
+    motion: motionScale(140, 260, 420),
+    actions: {
+      focal: { borderWidth: 2, depth: 4 },
+      primary: { borderWidth: 0, depth: 2 },
+      ordinary: { borderWidth: 0, depth: 1 },
+    },
   },
-} satisfies Record<ThemeShape, NativeThemeManifest["shape"]>);
-
-const SPACING = deepFreeze({
-  extraSmall: 4,
-  small: 8,
-  medium: 12,
-  large: 16,
-  extraLarge: 24,
-  doubleExtraLarge: 32,
-});
-
-const MOTION = deepFreeze({ quickMs: 120, standardMs: 220, emphasizedMs: 360 });
+  "cloud-garden": {
+    typography: {
+      displayLarge: textRole(54, 62, "500", -1),
+      headlineLarge: textRole(31, 39, "600", -0.25),
+      titleLarge: textRole(23, 29, "600", -0.15),
+      titleMedium: textRole(18, 24, "600", 0),
+      bodyLarge: textRole(16, 25, "400", 0.1),
+      bodyMedium: textRole(14, 22, "400", 0.15),
+      bodySmall: textRole(12, 18, "400", 0.2),
+      labelLarge: textRole(15, 21, "600", 0.15),
+      labelMedium: textRole(12, 17, "600", 0.25),
+    },
+    shape: shapeScale(8, 12, 16, 20, 28),
+    spacing: spacingScale(4, 9, 13, 18, 28, 40),
+    motion: motionScale(160, 300, 480),
+    actions: {
+      focal: { borderWidth: 1, depth: 3 },
+      primary: { borderWidth: 0, depth: 1 },
+      ordinary: { borderWidth: 0, depth: 2 },
+    },
+  },
+  "study-hall": {
+    typography: {
+      displayLarge: textRole(48, 54, "600", -0.8),
+      headlineLarge: textRole(29, 34, "600", -0.3),
+      titleLarge: textRole(21, 26, "700", -0.2),
+      titleMedium: textRole(17, 22, "600", 0),
+      bodyLarge: textRole(15, 21, "400", 0.05),
+      bodyMedium: textRole(13, 18, "400", 0.1),
+      bodySmall: textRole(11, 15, "400", 0.15),
+      labelLarge: textRole(14, 18, "700", 0.2),
+      labelMedium: textRole(11, 15, "700", 0.3),
+    },
+    shape: shapeScale(4, 8, 10, 12, 18),
+    spacing: spacingScale(3, 6, 10, 14, 20, 28),
+    motion: motionScale(90, 170, 280),
+    actions: {
+      focal: { borderWidth: 2, depth: 0 },
+      primary: { borderWidth: 2, depth: 0 },
+      ordinary: { borderWidth: 1, depth: 0 },
+    },
+  },
+  corkboard: {
+    typography: {
+      displayLarge: textRole(50, 56, "700", -0.7),
+      headlineLarge: textRole(30, 36, "700", -0.25),
+      titleLarge: textRole(22, 28, "700", -0.1),
+      titleMedium: textRole(18, 23, "700", 0),
+      bodyLarge: textRole(16, 24, "400", 0.1),
+      bodyMedium: textRole(14, 20, "400", 0.15),
+      bodySmall: textRole(11, 16, "400", 0.2),
+      labelLarge: textRole(15, 19, "700", 0.25),
+      labelMedium: textRole(11, 15, "700", 0.35),
+    },
+    shape: shapeScale(3, 6, 9, 12, 18),
+    spacing: spacingScale(4, 7, 11, 15, 22, 30),
+    motion: motionScale(130, 230, 380),
+    actions: {
+      focal: { borderWidth: 2, depth: 5 },
+      primary: { borderWidth: 1, depth: 2 },
+      ordinary: { borderWidth: 1, depth: 3 },
+    },
+  },
+  midnight: {
+    typography: {
+      displayLarge: textRole(49, 54, "500", -1.2),
+      headlineLarge: textRole(29, 34, "500", -0.7),
+      titleLarge: textRole(21, 26, "600", -0.5),
+      titleMedium: textRole(17, 21, "600", -0.25),
+      bodyLarge: textRole(15, 21, "400", 0.1),
+      bodyMedium: textRole(13, 18, "400", 0.15),
+      bodySmall: textRole(11, 15, "400", 0.25),
+      labelLarge: textRole(14, 18, "600", 0.5),
+      labelMedium: textRole(11, 15, "600", 0.55),
+    },
+    shape: shapeScale(2, 5, 8, 10, 16),
+    spacing: spacingScale(3, 6, 9, 13, 20, 28),
+    motion: motionScale(80, 140, 240),
+    actions: {
+      focal: { borderWidth: 1, depth: 2 },
+      primary: { borderWidth: 1, depth: 0 },
+      ordinary: { borderWidth: 1, depth: 0 },
+    },
+  },
+} satisfies Record<BuiltinThemeId, NativeThemePersonality>);
 
 const LIGHT_EDITOR_ROLES: NativeProtectedEditorRoles = deepFreeze({
   canvas: "#E9ECEF",
@@ -401,36 +523,29 @@ const MIDNIGHT_DARK: Palette = palette({
 export const BUILTIN_THEME_FAMILIES: Readonly<Record<BuiltinThemeId, NativeThemeFamily>> =
   deepFreeze({
     workshop: family("workshop", "Workshop", {
-      light: manifest("workshop", "Workshop", "light", WORKSHOP_LIGHT, "soft"),
-      dark: manifest("workshop", "Workshop", "dark", WORKSHOP_DARK, "soft"),
+      light: manifest("workshop", "Workshop", "light", WORKSHOP_LIGHT),
+      dark: manifest("workshop", "Workshop", "dark", WORKSHOP_DARK),
     }),
     studio: family("studio", "Studio", {
-      light: manifest("studio", "Studio", "light", STUDIO_LIGHT, "round"),
+      light: manifest("studio", "Studio", "light", STUDIO_LIGHT),
     }),
     notebook: family("notebook", "Notebook", {
-      light: manifest("notebook", "Notebook", "light", NOTEBOOK_LIGHT, "paper", "#945F00"),
+      light: manifest("notebook", "Notebook", "light", NOTEBOOK_LIGHT, "#945F00"),
     }),
     playroom: family("playroom", "Playroom", {
-      light: manifest("playroom", "Playroom", "light", PLAYROOM_LIGHT, "round"),
+      light: manifest("playroom", "Playroom", "light", PLAYROOM_LIGHT),
     }),
     "cloud-garden": family("cloud-garden", "Cloud Garden", {
-      light: manifest(
-        "cloud-garden",
-        "Cloud Garden",
-        "light",
-        CLOUD_GARDEN_LIGHT,
-        "soft",
-        "#173D32",
-      ),
+      light: manifest("cloud-garden", "Cloud Garden", "light", CLOUD_GARDEN_LIGHT, "#173D32"),
     }),
     "study-hall": family("study-hall", "Study Hall", {
-      light: manifest("study-hall", "Study Hall", "light", STUDY_HALL_LIGHT, "soft"),
+      light: manifest("study-hall", "Study Hall", "light", STUDY_HALL_LIGHT),
     }),
     corkboard: family("corkboard", "Corkboard", {
-      light: manifest("corkboard", "Corkboard", "light", CORKBOARD_LIGHT, "paper"),
+      light: manifest("corkboard", "Corkboard", "light", CORKBOARD_LIGHT),
     }),
     midnight: family("midnight", "Midnight", {
-      dark: manifest("midnight", "Midnight", "dark", MIDNIGHT_DARK, "precise"),
+      dark: manifest("midnight", "Midnight", "dark", MIDNIGHT_DARK),
     }),
   });
 
@@ -491,6 +606,35 @@ function textRole(
   return { fontSize, fontWeight, letterSpacing, lineHeight };
 }
 
+function shapeScale(
+  extraSmall: number,
+  small: number,
+  medium: number,
+  large: number,
+  extraLarge: number,
+): NativeThemeManifest["shape"] {
+  return { extraSmall, small, medium, large, extraLarge, full: 999 };
+}
+
+function spacingScale(
+  extraSmall: number,
+  small: number,
+  medium: number,
+  large: number,
+  extraLarge: number,
+  doubleExtraLarge: number,
+): NativeThemeManifest["spacing"] {
+  return { extraSmall, small, medium, large, extraLarge, doubleExtraLarge };
+}
+
+function motionScale(
+  quickMs: number,
+  standardMs: number,
+  emphasizedMs: number,
+): NativeThemeManifest["motion"] {
+  return { quickMs, standardMs, emphasizedMs };
+}
+
 function palette(
   value: Omit<NativeColorRoles, "scrim" | "shadow"> &
     Partial<Pick<NativeColorRoles, "scrim" | "shadow">>,
@@ -518,19 +662,19 @@ function manifest(
   displayName: string,
   scheme: NativeThemeScheme,
   colors: Palette,
-  shape: ThemeShape,
   focalColor = colors.primary,
 ): NativeThemeManifest {
+  const personality = BUILTIN_PERSONALITIES[familyId];
+  const depthColor = scheme === "dark" ? "#0A0B09" : withAlpha(colors.onSurface, 0.72);
   const focalContent =
     scheme === "dark" && focalColor === colors.primary ? colors.onPrimary : "#FFFFFF";
   const focal = actionStyle({
     container: focalColor,
     content: focalContent,
     pressedContainer: focalColor,
-    depthColor: scheme === "dark" ? "#0A0B09" : withAlpha(colors.onSurface, 0.72),
+    depthColor,
     border: focalColor,
-    borderWidth: 1,
-    depth: 2,
+    ...personality.actions.focal,
   });
   return deepFreeze({
     id: `${familyId}-${scheme}`,
@@ -544,11 +688,17 @@ function manifest(
         container: colors.primary,
         content: colors.onPrimary,
         pressedContainer: colors.primary,
+        border: colors.primary,
+        depthColor,
+        ...personality.actions.primary,
       }),
       ordinary: actionStyle({
         container: colors.primaryContainer,
         content: colors.onPrimaryContainer,
         pressedContainer: colors.secondaryContainer,
+        border: colors.outline,
+        depthColor,
+        ...personality.actions.ordinary,
       }),
       quiet: actionStyle({
         container: "transparent",
@@ -568,10 +718,10 @@ function manifest(
       }),
     },
     editor: scheme === "dark" ? DARK_EDITOR_ROLES : LIGHT_EDITOR_ROLES,
-    typography: TYPE_ROLES,
-    shape: SHAPES[shape],
-    spacing: SPACING,
-    motion: MOTION,
+    typography: personality.typography,
+    shape: personality.shape,
+    spacing: personality.spacing,
+    motion: personality.motion,
     decoration: {
       celebration: [colors.primary, colors.link, colors.primaryContainer, colors.surface],
     },

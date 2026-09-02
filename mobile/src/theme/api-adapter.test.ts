@@ -177,6 +177,7 @@ describe("resolved theme API adapter", () => {
   test("clamps desktop-safe dimensions to usable native metrics", () => {
     const response = resolvedThemeFixture();
     response.manifest.typography.title.size = "16rem";
+    response.manifest.typography.metadata.size = "0.5rem";
     response.manifest.shape.radiusMd = "16rem";
     response.manifest.spacing.sectionGap = "16rem";
 
@@ -189,9 +190,30 @@ describe("resolved theme API adapter", () => {
     expect(adapted.ok).toBe(true);
     if (!adapted.ok) return;
     expect(adapted.contract.manifests.light!.typography.titleLarge.fontSize).toBe(64);
+    expect(adapted.contract.manifests.light!.typography.bodySmall.fontSize).toBe(11);
     expect(adapted.contract.manifests.light!.shape.medium).toBe(32);
     expect(adapted.contract.manifests.light!.spacing.extraLarge).toBe(32);
     expect(adapted.contract.manifests.light!.spacing.doubleExtraLarge).toBe(48);
+  });
+
+  test("carries focal action elevation into the native presentation", () => {
+    const response = resolvedThemeFixture();
+    response.manifest.elevation.focalAction =
+      "0 5px 14px -8px color-mix(in oklch, black 72%, transparent)";
+
+    const adapted = adaptResolvedThemeResponse({
+      cacheIdentity: "theme-1:7:light",
+      response,
+      workspaceId: "workspace-1",
+    });
+
+    expect(adapted.ok).toBe(true);
+    if (!adapted.ok) return;
+    const manifest = adapted.contract.manifests.light!;
+    expect(manifest.actions.focal).toMatchObject({
+      depth: 5,
+      depthColor: manifest.colors.shadow,
+    });
   });
 });
 

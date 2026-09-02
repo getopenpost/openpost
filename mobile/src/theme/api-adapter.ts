@@ -2,6 +2,7 @@ import { resolve as resolveCssColor } from "@asamuzakjp/css-color";
 
 import { BUILTIN_ICON_ROLE_MAPS, validateNativeThemeManifest } from "./builtins";
 import {
+  NATIVE_MIN_TEXT_SIZE,
   NATIVE_THEME_CONTRACT_VERSION,
   type NativeActionStyle,
   type NativeColorRoles,
@@ -267,7 +268,9 @@ function adaptScheme({
   }
 
   const borderWidth = cssPixels(value.shape.borderWidth);
-  if (borderWidth === null || borderWidth < 0 || borderWidth > 4) return null;
+  const focalDepth = nativeElevationDepth(value.elevation.focalAction);
+  if (borderWidth === null || borderWidth < 0 || borderWidth > 4 || focalDepth === null)
+    return null;
 
   const manifest: NativeThemeManifest = {
     id: `${familyId}-${scheme}-${revision}`,
@@ -281,6 +284,8 @@ function adaptScheme({
         borderWidth,
         container: nativeColor(value.colors.actionFocal),
         content: nativeColor(value.colors.actionFocalInk),
+        depth: focalDepth,
+        depthColor: colors.shadow,
         pressedContainer: nativeColor(value.colors.actionFocalActive),
       }),
       primary: action({
@@ -450,7 +455,7 @@ function textRole(
   ) {
     return null;
   }
-  const fontSize = clampMetric(parsedFontSize, 10, 64);
+  const fontSize = clampMetric(parsedFontSize, NATIVE_MIN_TEXT_SIZE, 64);
   const letterSpacing = cssTrackingPixels(value.tracking, fontSize);
   if (letterSpacing === null) return null;
   const face = fonts.find(
@@ -698,11 +703,23 @@ function motionMilliseconds(value: ApiThemeMotionRecipe | string | undefined): n
   return Number.isFinite(duration) && duration >= 0 && duration <= 2000 ? duration : null;
 }
 
+function nativeElevationDepth(value: string): number | null {
+  const tokens = value.trim().split(/\s+/);
+  if (tokens.length === 1 && tokens[0] === "none") return 0;
+  const offsetIndex = tokens[0] === "inset" ? 1 : 0;
+  const horizontalOffset = cssPixels(tokens[offsetIndex]);
+  const verticalOffset = cssPixels(tokens[offsetIndex + 1]);
+  if (horizontalOffset === null || verticalOffset === null) return null;
+  return clampMetric(Math.max(0, verticalOffset), 0, 8);
+}
+
 function action({
   border = "#00000000",
   borderWidth = 0,
   container,
   content,
+  depth = 0,
+  depthColor = "#00000000",
   pressedContainer,
   underline = false,
 }: {
@@ -710,6 +727,8 @@ function action({
   borderWidth?: number;
   container: string;
   content: string;
+  depth?: number;
+  depthColor?: string;
   pressedContainer: string;
   underline?: boolean;
 }): NativeActionStyle {
@@ -719,8 +738,8 @@ function action({
     container,
     content,
     pressedContainer,
-    depthColor: "#00000000",
-    depth: 0,
+    depthColor,
+    depth,
     disabledOpacity: 0.42,
     underline,
   };

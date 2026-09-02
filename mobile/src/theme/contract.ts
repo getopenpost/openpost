@@ -59,6 +59,8 @@ export const PUBLICATION_STATUSES = [
 ] as const;
 export type NativePublicationStatus = (typeof PUBLICATION_STATUSES)[number];
 
+export const NATIVE_MIN_TEXT_SIZE = 11;
+
 export type NativeFontWeight =
   | "100"
   | "200"

@@ -17,6 +17,9 @@ import {
   getThemePreference,
   saveThemePreference,
   subscribeThemePreference,
+  themePreviewPresentation,
+  type NativeActionStyle,
+  type NativeTextRole,
   type NativeThemeChoice,
   type NativeThemePreference,
   useNativeTheme,
@@ -283,7 +286,8 @@ export default function AppearanceScreen() {
 
 function ThemePreview() {
   const theme = useNativeTheme();
-  const { colors, shape, spacing, typography } = theme.manifest;
+  const { colors, shape } = theme.manifest;
+  const preview = themePreviewPresentation(theme.manifest);
   return (
     <View
       accessible
@@ -293,32 +297,112 @@ function ThemePreview() {
         {
           backgroundColor: colors.background,
           borderColor: colors.outlineVariant,
-          borderRadius: shape.large,
-          padding: spacing.large,
+          borderRadius: preview.frameRadius,
+          gap: preview.frameGap,
+          padding: preview.framePadding,
         },
       ]}
     >
       <View style={styles.previewChrome}>
-        <View style={[styles.previewMark, { backgroundColor: colors.primary }]} />
+        <View
+          style={[
+            styles.previewMark,
+            { backgroundColor: colors.primary, borderRadius: shape.extraSmall },
+          ]}
+        />
         <View style={[styles.previewLine, { backgroundColor: colors.onSurface }]} />
         <View style={styles.previewDots}>
           <View style={[styles.previewDot, { backgroundColor: colors.outlineVariant }]} />
           <View style={[styles.previewDot, { backgroundColor: colors.outlineVariant }]} />
         </View>
       </View>
-      <View style={[styles.previewBody, { gap: spacing.small }]}>
-        <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-          A clear place to work
+      <View style={[styles.previewBody, { gap: preview.contentGap }]}>
+        <Text style={[preview.title, { color: colors.onSurface }]}>A clear place to work</Text>
+        <Text style={[preview.body, { color: colors.onSurfaceVariant }]} numberOfLines={2}>
+          Shape drafts, reviews, and publishing around your team.
         </Text>
-        <View style={[styles.previewText, { backgroundColor: colors.onSurfaceVariant }]} />
-        <View style={[styles.previewTextShort, { backgroundColor: colors.outline }]} />
         <View
           style={[
-            styles.previewAction,
-            { backgroundColor: colors.primary, borderRadius: shape.medium },
+            styles.previewCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.outlineVariant,
+              borderRadius: preview.cardRadius,
+              gap: preview.contentGap,
+              padding: preview.cardPadding,
+            },
           ]}
-        />
+        >
+          <View style={styles.previewCardHeader}>
+            <View
+              style={[
+                styles.previewStatus,
+                { backgroundColor: colors.primaryContainer, borderRadius: shape.full },
+              ]}
+            />
+            <Text style={[preview.metadata, { color: colors.onSurfaceVariant }]}>
+              Ready to review
+            </Text>
+          </View>
+          <View style={styles.previewActions}>
+            <PreviewAction
+              label="Review"
+              presentation={preview.ordinaryAction}
+              radius={preview.actionRadius}
+              textStyle={preview.metadata}
+            />
+            <PreviewAction
+              label="New draft"
+              presentation={preview.focalAction}
+              radius={preview.actionRadius}
+              textStyle={preview.metadata}
+            />
+          </View>
+        </View>
       </View>
+    </View>
+  );
+}
+
+function PreviewAction({
+  label,
+  presentation,
+  radius,
+  textStyle,
+}: {
+  label: string;
+  presentation: NativeActionStyle;
+  radius: number;
+  textStyle: NativeTextRole;
+}) {
+  const hasDepth = presentation.depth > 0;
+  return (
+    <View
+      style={[
+        styles.previewAction,
+        {
+          backgroundColor: presentation.container,
+          borderBottomColor: hasDepth ? presentation.depthColor : presentation.border,
+          borderBottomWidth: hasDepth
+            ? Math.max(presentation.borderWidth, presentation.depth)
+            : presentation.borderWidth,
+          borderColor: presentation.border,
+          borderRadius: radius,
+          borderWidth: presentation.borderWidth,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          textStyle,
+          {
+            color: presentation.content,
+            textDecorationLine: presentation.underline ? "underline" : "none",
+          },
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -443,19 +527,35 @@ const styles = StyleSheet.create({
   },
   preview: {
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 18,
-    minHeight: 188,
+    minHeight: 236,
     overflow: "hidden",
   },
   previewAction: {
-    alignSelf: "flex-start",
-    height: 36,
-    marginTop: 8,
-    width: 104,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 88,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewActions: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "flex-end",
   },
   previewBody: {
     flex: 1,
     justifyContent: "center",
+  },
+  previewCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  previewCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
   },
   previewChrome: {
     alignItems: "center",
@@ -478,21 +578,12 @@ const styles = StyleSheet.create({
     width: 54,
   },
   previewMark: {
-    borderRadius: 4,
     height: 14,
     width: 14,
   },
-  previewText: {
-    borderRadius: 3,
-    height: 7,
-    opacity: 0.5,
-    width: "82%",
-  },
-  previewTextShort: {
-    borderRadius: 3,
-    height: 7,
-    opacity: 0.55,
-    width: "58%",
+  previewStatus: {
+    height: 8,
+    width: 8,
   },
   radio: {
     borderWidth: 2,

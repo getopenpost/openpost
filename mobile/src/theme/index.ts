@@ -12,6 +12,8 @@ export {
   NATIVE_CONTROL_METRICS,
   NATIVE_MIN_TOUCH_TARGET,
   actionPresentation,
+  themePreviewPresentation,
+  type NativeThemePreviewPresentation,
 } from "./presentation";
 export * from "./runtime";
 export * from "./settings-context";

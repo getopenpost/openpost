@@ -1,6 +1,7 @@
 import {
   ACTION_INTENTS,
   NATIVE_ICON_ROLES,
+  NATIVE_MIN_TEXT_SIZE,
   PUBLICATION_STATUSES,
   type NativeIconPackId,
   type NativeTextRole,
@@ -236,7 +237,7 @@ export function readableThemeForeground(
 function validTextRole(value: NativeTextRole | null | undefined): boolean {
   if (
     !value ||
-    !boundedNumber(value.fontSize, 10, 64) ||
+    !boundedNumber(value.fontSize, NATIVE_MIN_TEXT_SIZE, 64) ||
     !boundedNumber(value.lineHeight, value.fontSize, value.fontSize * 2.5) ||
     !boundedNumber(value.letterSpacing, value.fontSize * -0.04, value.fontSize * 0.2) ||
     !/^[1-9]00$/.test(value.fontWeight)

@@ -6,7 +6,7 @@ import {
   builtinThemeForScheme,
   validateNativeThemeManifest,
 } from "./builtins";
-import { NATIVE_ICON_ROLES, type NativeThemeManifest } from "./contract";
+import { NATIVE_ICON_ROLES, NATIVE_MIN_TEXT_SIZE, type NativeThemeManifest } from "./contract";
 
 describe("native built-in themes", () => {
   test("ships every built-in family with complete declared schemes", () => {
@@ -61,6 +61,40 @@ describe("native built-in themes", () => {
     }
   });
 
+  test("gives every family a distinct native structural personality", () => {
+    const signatures = BUILTIN_THEME_IDS.map((familyId) => {
+      const family = BUILTIN_THEME_FAMILIES[familyId];
+      const manifest = family.manifests.light ?? family.manifests.dark!;
+      for (const role of Object.values(manifest.typography)) {
+        expect(role.fontSize).toBeGreaterThanOrEqual(NATIVE_MIN_TEXT_SIZE);
+      }
+      return JSON.stringify({
+        typography: manifest.typography,
+        shape: manifest.shape,
+        spacing: manifest.spacing,
+        motion: manifest.motion,
+        actions: ["focal", "primary", "ordinary"].map((intent) => {
+          const action = manifest.actions[intent as "focal" | "primary" | "ordinary"];
+          return { borderWidth: action.borderWidth, depth: action.depth };
+        }),
+      });
+    });
+
+    expect(new Set(signatures).size).toBe(BUILTIN_THEME_IDS.length);
+    expect(BUILTIN_THEME_FAMILIES.playroom.manifests.light).toMatchObject({
+      actions: { focal: { borderWidth: 2, depth: 4 } },
+      typography: { titleLarge: { fontWeight: "800" } },
+    });
+    expect(BUILTIN_THEME_FAMILIES["study-hall"].manifests.light).toMatchObject({
+      actions: { focal: { borderWidth: 2, depth: 0 } },
+      spacing: { medium: 10 },
+    });
+    expect(BUILTIN_THEME_FAMILIES.corkboard.manifests.light).toMatchObject({
+      actions: { focal: { borderWidth: 2, depth: 5 } },
+      shape: { medium: 9 },
+    });
+  });
+
   test("rejects unsafe native values before React Native receives them", () => {
     const manifest = structuredClone(BUILTIN_THEME_FAMILIES.workshop.manifests.light!);
     const invalidManifests = [
@@ -81,6 +115,16 @@ describe("native built-in themes", () => {
         typography: {
           ...manifest.typography,
           bodyMedium: { ...manifest.typography.bodyMedium, fontSize: 4000 },
+        },
+      },
+      {
+        ...manifest,
+        typography: {
+          ...manifest.typography,
+          bodySmall: {
+            ...manifest.typography.bodySmall,
+            fontSize: NATIVE_MIN_TEXT_SIZE - 1,
+          },
         },
       },
       { ...manifest, spacing: { ...manifest.spacing, medium: -1 } },

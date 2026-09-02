@@ -10,16 +10,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import SaveIcon from '@lucide/svelte/icons/save';
-	import XIcon from '@lucide/svelte/icons/x';
 	import CrosshairIcon from '@lucide/svelte/icons/crosshair';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		EFFECT_DEFINITIONS,
 		type GpuEffect,
@@ -547,7 +539,7 @@
 				aria-expanded={showPresetSave}
 				onclick={() => (showPresetSave = !showPresetSave)}
 			>
-				<SaveIcon class="size-3.5" />
+				<ThemeIcon role="save" class="size-3.5" />
 			</button>
 			<button
 				type="button"
@@ -560,7 +552,8 @@
 					: m.video_editor_effects_enable_all()}
 				onclick={toggleAllEffects}
 			>
-				{#if allEffectsEnabled}<EyeOffIcon class="size-3.5" />{:else}<EyeIcon
+				{#if allEffectsEnabled}<ThemeIcon role="eye-off" class="size-3.5" />{:else}<ThemeIcon
+						role="eye"
 						class="size-3.5"
 					/>{/if}
 			</button>
@@ -585,7 +578,7 @@
 				disabled={!presetName.trim() || effects.length === 0}
 				onclick={saveCurrentPreset}
 			>
-				<SaveIcon class="size-3" />{m.video_editor_effects_preset_save()}
+				<ThemeIcon role="save" class="size-3" />{m.video_editor_effects_preset_save()}
 			</button>
 			<button
 				type="button"
@@ -594,7 +587,7 @@
 				title={m.common_cancel()}
 				onclick={() => (showPresetSave = false)}
 			>
-				<XIcon class="size-3" />
+				<ThemeIcon role="close" class="size-3" />
 			</button>
 		</div>
 	{/if}
@@ -629,9 +622,9 @@
 										onclick={() => toggleEffectCollapsed(effect.id)}
 									>
 										{#if collapsedEffects.has(effect.id)}
-											<ChevronRightIcon class="size-3.5 shrink-0" />
+											<ThemeIcon role="chevron-right" class="size-3.5 shrink-0" />
 										{:else}
-											<ChevronDownIcon class="size-3.5 shrink-0" />
+											<ThemeIcon role="chevron-down" class="size-3.5 shrink-0" />
 										{/if}
 										<span class="truncate">{effectLabel(effect)}</span>
 										{#if collapsedEffects.has(effect.id) && !isEffectAtDefaults(effect)}
@@ -653,7 +646,7 @@
 											title={m.video_editor_effects_move_up()}
 											onclick={() => moveStackEffect(effect.id, -1)}
 										>
-											<ChevronUpIcon class="size-3" />
+											<ThemeIcon role="chevron-up" class="size-3" />
 										</button>
 										<button
 											type="button"
@@ -663,7 +656,7 @@
 											title={m.video_editor_effects_move_down()}
 											onclick={() => moveStackEffect(effect.id, 1)}
 										>
-											<ChevronDownIcon class="size-3" />
+											<ThemeIcon role="chevron-down" class="size-3" />
 										</button>
 										<button
 											type="button"
@@ -673,7 +666,7 @@
 											title={m.video_editor_effects_reset()}
 											onclick={() => resetStackEffect(effect.id)}
 										>
-											<RotateCcwIcon class="size-3" />
+											<ThemeIcon role="undo" class="size-3" />
 										</button>
 										<button
 											type="button"
@@ -687,9 +680,9 @@
 											onclick={() => toggleStackEffect(effect)}
 										>
 											{#if effect.enabled}
-												<EyeIcon class="size-3" />
+												<ThemeIcon role="eye" class="size-3" />
 											{:else}
-												<EyeOffIcon class="size-3" />
+												<ThemeIcon role="eye-off" class="size-3" />
 											{/if}
 										</button>
 										<button
@@ -699,7 +692,7 @@
 											title={m.video_editor_effects_remove()}
 											onclick={() => removeStackEffect(effect.id)}
 										>
-											<Trash2Icon class="size-3" />
+											<ThemeIcon role="delete" class="size-3" />
 										</button>
 									</div>
 								</div>

@@ -25,27 +25,12 @@
 		compoundThumbnailSignature
 	} from '$lib/video-editor/sequences/compound-thumbnail';
 	import { showToast } from '$lib/toast';
-	import FilmIcon from '@lucide/svelte/icons/film';
-	import ImageIcon from '@lucide/svelte/icons/image-plus';
-	import LinkIcon from '@lucide/svelte/icons/link';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import Music2Icon from '@lucide/svelte/icons/music-2';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import XIcon from '@lucide/svelte/icons/x';
 	import LayersIcon from '@lucide/svelte/icons/layers-3';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import CaptionsIcon from '@lucide/svelte/icons/captions';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import GridIcon from '@lucide/svelte/icons/layout-grid';
 	import ListIcon from '@lucide/svelte/icons/list';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { Input } from '$lib/components/ui/input';
@@ -1063,9 +1048,9 @@
 		<div class="flex items-center gap-1.5">
 			<label class="relative min-w-0 flex-1">
 				<span class="sr-only">{m.video_editor_media_search()}</span>
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
-					aria-hidden="true"
 				/>
 				<Input
 					type="search"
@@ -1082,7 +1067,7 @@
 				title={m.video_editor_media_import_url()}
 				onclick={() => (urlImportOpen = true)}
 			>
-				<LinkIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="link" class="size-3.5" />
 			</Button>
 			{#if onimport}
 				<Button
@@ -1093,7 +1078,7 @@
 					title={m.video_editor_import_media()}
 					onclick={onimport}
 				>
-					<FolderOpenIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="upload" class="size-3.5" />
 				</Button>
 			{/if}
 		</div>
@@ -1232,7 +1217,7 @@
 					title={m.video_editor_assets_delete_selected({ count: selectedAssetCount })}
 					onclick={confirmSelectedAssetDelete}
 				>
-					<TrashIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="delete" class="size-3.5" />
 				</Button>
 				<Button
 					type="button"
@@ -1243,7 +1228,7 @@
 					title={m.video_editor_media_clear_selection()}
 					onclick={clearAssetSelection}
 				>
-					<XIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="close" class="size-3.5" />
 				</Button>
 			</div>
 		{/if}
@@ -1253,7 +1238,7 @@
 			class="my-2 flex items-center gap-2 rounded-md border border-amber-400/25 bg-amber-400/10 px-2 py-1.5 text-amber-100"
 			role="status"
 		>
-			<AlertTriangleIcon class="size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
+			<ProtectedIcon icon="warning" class="size-3.5 shrink-0 text-amber-300" />
 			<p class="min-w-0 flex-1 text-[10px]">
 				{m.video_editor_media_recovery_warning({ count: mediaRecovery.issueCount })}
 			</p>
@@ -1367,22 +1352,22 @@
 													class="size-11! text-[oklch(0.68_0.015_55)] opacity-70 hover:bg-white/10 hover:text-white hover:opacity-100 focus:opacity-100 sm:size-7!"
 													aria-label={`${m.video_editor_sequence_options()}: ${sequence.name}`}
 												>
-													<MoreIcon class="size-3.5" aria-hidden="true" />
+													<ThemeIcon role="more-horizontal" class="size-3.5" />
 												</Button>
 											{/snippet}
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content class="video-editor-theme" align="end">
 											<DropdownMenu.Item onclick={() => placeSequence(sequence)}>
-												<PlusIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="add" class="size-4" />
 												{m.video_editor_media_place()}
 											</DropdownMenu.Item>
 											<DropdownMenu.Separator />
 											<DropdownMenu.Item onclick={() => void beginSequenceRename(sequence)}>
-												<PencilIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="edit" class="size-4" />
 												{m.common_rename()}
 											</DropdownMenu.Item>
 											<DropdownMenu.Item onclick={() => duplicateComposition(sequence)}>
-												<CopyIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="copy" class="size-4" />
 												{m.video_editor_sequence_duplicate()}
 											</DropdownMenu.Item>
 											<DropdownMenu.Separator />
@@ -1393,7 +1378,7 @@
 														? confirmSelectedAssetDelete()
 														: confirmSequenceDelete(sequence)}
 											>
-												<TrashIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="delete" class="size-4" />
 												{m.common_delete()}
 											</DropdownMenu.Item>
 										</DropdownMenu.Content>
@@ -1407,16 +1392,16 @@
 								{m.video_editor_sequence_open()}
 							</ContextMenu.Item>
 							<ContextMenu.Item onclick={() => placeSequence(sequence)}>
-								<PlusIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="add" class="size-4" />
 								{m.video_editor_media_place()}
 							</ContextMenu.Item>
 							<ContextMenu.Separator />
 							<ContextMenu.Item onclick={() => void beginSequenceRename(sequence)}>
-								<PencilIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="edit" class="size-4" />
 								{m.common_rename()}
 							</ContextMenu.Item>
 							<ContextMenu.Item onclick={() => duplicateComposition(sequence)}>
-								<CopyIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="copy" class="size-4" />
 								{m.video_editor_sequence_duplicate()}
 							</ContextMenu.Item>
 							<ContextMenu.Separator />
@@ -1427,7 +1412,7 @@
 										? confirmSelectedAssetDelete()
 										: confirmSequenceDelete(sequence)}
 							>
-								<TrashIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="delete" class="size-4" />
 								{m.common_delete()}
 							</ContextMenu.Item>
 						</ContextMenu.Content>
@@ -1507,20 +1492,20 @@
 												: 'size-10'}"
 										>
 											{#if entry?.status === 'importing'}
-												<LoaderIcon
+												<ProtectedIcon
+													icon="loading"
 													class="size-4 animate-spin motion-reduce:animate-none"
-													aria-hidden="true"
 												/>
 											{:else if objectUrls[id] && !entry?.media.tags.includes('audio')}
 												<img src={objectUrls[id]} alt="" class="size-full object-cover" />
 											{:else if entry?.media.tags.includes('lottie')}
-												<SparklesIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="sparkles" class="size-4" />
 											{:else if entry?.media.tags.includes('audio')}
-												<Music2Icon class="size-4" aria-hidden="true" />
+												<ProtectedIcon icon="media-audio" class="size-4" />
 											{:else if entry?.status === 'failed'}
 												<span class="text-xs text-red-400">!</span>
 											{:else}
-												<FilmIcon class="size-4" aria-hidden="true" />
+												<ProtectedIcon icon="media-video" class="size-4" />
 											{/if}
 										</span>
 										<span class="min-w-0 flex-1">
@@ -1529,12 +1514,12 @@
 											{#if issue}
 												<span class="flex items-center gap-1 text-[11px] text-amber-300">
 													{#if recoveryBusyIds.has(id)}
-														<LoaderIcon
+														<ProtectedIcon
+															icon="loading"
 															class="size-3 animate-spin motion-reduce:animate-none"
-															aria-hidden="true"
 														/>
 													{:else}
-														<AlertTriangleIcon class="size-3" aria-hidden="true" />
+														<ProtectedIcon icon="warning" class="size-3" />
 													{/if}
 													<span class="truncate">{sourceIssueLabel(issue)}</span>
 												</span>
@@ -1570,7 +1555,7 @@
 															name: entry.media.fileName
 														})}
 													>
-														<MoreIcon class="size-3.5" aria-hidden="true" />
+														<ThemeIcon role="more-horizontal" class="size-3.5" />
 													</Button>
 												{/snippet}
 											</DropdownMenu.Trigger>
@@ -1581,7 +1566,7 @@
 															disabled={recoveryBusyIds.has(id)}
 															onclick={() => void grantSourceAccess(entry.media)}
 														>
-															<LinkIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="link" class="size-4" />
 															{m.video_editor_media_recovery_grant()}
 														</DropdownMenu.Item>
 													{/if}
@@ -1589,7 +1574,7 @@
 														disabled={recoveryBusyIds.has(id)}
 														onclick={() => void locateSourceFile(entry.media)}
 													>
-														<FolderOpenIcon class="size-4" aria-hidden="true" />
+														<ThemeIcon role="search" class="size-4" />
 														{m.video_editor_media_recovery_locate()}
 													</DropdownMenu.Item>
 													<DropdownMenu.Separator />
@@ -1603,14 +1588,14 @@
 														onclick={() => void runSourceTranscriptAction(entry.media)}
 													>
 														{#if sourceTranscriptTask(id)?.status === 'cancelling'}
-															<LoaderIcon
+															<ProtectedIcon
+																icon="loading"
 																class="size-4 animate-spin motion-reduce:animate-none"
-																aria-hidden="true"
 															/>
 														{:else if sourceTranscriptTask(id)}
-															<XIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="close" class="size-4" />
 														{:else}
-															<CaptionsIcon class="size-4" aria-hidden="true" />
+															<ProtectedIcon icon="editor-captions" class="size-4" />
 														{/if}
 														{sourceTranscriptActionLabel(id)}
 													</DropdownMenu.Item>
@@ -1619,7 +1604,7 @@
 															class="text-red-300 focus:text-red-200"
 															onclick={() => void removeSourceTranscript(entry.media)}
 														>
-															<TrashIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="delete" class="size-4" />
 															{m.video_editor_source_transcript_delete()}
 														</DropdownMenu.Item>
 													{/if}
@@ -1629,7 +1614,7 @@
 														disabled={Boolean(issue)}
 														onclick={() => openSubtitlePicker(entry.media)}
 													>
-														<CaptionsIcon class="size-4" aria-hidden="true" />
+														<ProtectedIcon icon="editor-captions" class="size-4" />
 														{m.video_editor_extract_embedded_subtitles()}
 													</DropdownMenu.Item>
 												{/if}
@@ -1640,9 +1625,9 @@
 														onclick={() => void analyzeMedia(entry.media)}
 													>
 														{#if sceneBrowser.progress(id)}
-															<XIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="close" class="size-4" />
 														{:else}
-															<SparklesIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="sparkles" class="size-4" />
 														{/if}
 														{sceneAnalysisLabel(entry.media)}
 													</DropdownMenu.Item>
@@ -1655,16 +1640,16 @@
 														onclick={() => runProxyAction(entry.media)}
 													>
 														{#if proxyTask(id)?.status === 'cancelling'}
-															<LoaderIcon
+															<ProtectedIcon
+																icon="loading"
 																class="size-4 animate-spin motion-reduce:animate-none"
-																aria-hidden="true"
 															/>
 														{:else if proxyTask(id)}
-															<XIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="close" class="size-4" />
 														{:else if mediaProxy(id)}
-															<TrashIcon class="size-4" aria-hidden="true" />
+															<ThemeIcon role="delete" class="size-4" />
 														{:else}
-															<FilmIcon class="size-4" aria-hidden="true" />
+															<ProtectedIcon icon="media-video" class="size-4" />
 														{/if}
 														{proxyActionLabel(entry.media)}
 													</DropdownMenu.Item>
@@ -1729,7 +1714,7 @@
 															? confirmSelectedAssetDelete()
 															: confirmMediaDelete(entry.media)}
 												>
-													<TrashIcon class="size-4" aria-hidden="true" />
+													<ThemeIcon role="delete" class="size-4" />
 													{m.common_delete()}
 												</DropdownMenu.Item>
 											</DropdownMenu.Content>
@@ -1746,7 +1731,7 @@
 										title={m.video_editor_media_place()}
 										onclick={() => entry && placeMedia(entry.media)}
 									>
-										<PlusIcon class="size-3.5" aria-hidden="true" />
+										<ThemeIcon role="add" class="size-3.5" />
 									</button>
 								</li>
 							{/snippet}
@@ -1759,7 +1744,7 @@
 											disabled={recoveryBusyIds.has(id)}
 											onclick={() => void grantSourceAccess(entry.media)}
 										>
-											<LinkIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="link" class="size-4" />
 											{m.video_editor_media_recovery_grant()}
 										</ContextMenu.Item>
 									{/if}
@@ -1767,17 +1752,17 @@
 										disabled={recoveryBusyIds.has(id)}
 										onclick={() => void locateSourceFile(entry.media)}
 									>
-										<FolderOpenIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="search" class="size-4" />
 										{m.video_editor_media_recovery_locate()}
 									</ContextMenu.Item>
 									<ContextMenu.Separator />
 								{/if}
 								<ContextMenu.Item disabled={Boolean(issue)} onclick={() => onsourceopen(id)}>
-									<FilmIcon class="size-4" aria-hidden="true" />
+									<ProtectedIcon icon="media-video" class="size-4" />
 									{m.video_editor_source_monitor()}
 								</ContextMenu.Item>
 								<ContextMenu.Item disabled={Boolean(issue)} onclick={() => placeMedia(entry.media)}>
-									<PlusIcon class="size-4" aria-hidden="true" />
+									<ThemeIcon role="add" class="size-4" />
 									{m.video_editor_media_place()}
 								</ContextMenu.Item>
 								{#if canTranscribeSource(entry.media)}
@@ -1790,14 +1775,14 @@
 										onclick={() => void runSourceTranscriptAction(entry.media)}
 									>
 										{#if sourceTranscriptTask(id)?.status === 'cancelling'}
-											<LoaderIcon
+											<ProtectedIcon
+												icon="loading"
 												class="size-4 animate-spin motion-reduce:animate-none"
-												aria-hidden="true"
 											/>
 										{:else if sourceTranscriptTask(id)}
-											<XIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="close" class="size-4" />
 										{:else}
-											<CaptionsIcon class="size-4" aria-hidden="true" />
+											<ProtectedIcon icon="editor-captions" class="size-4" />
 										{/if}
 										{sourceTranscriptActionLabel(id)}
 									</ContextMenu.Item>
@@ -1806,7 +1791,7 @@
 											variant="destructive"
 											onclick={() => void removeSourceTranscript(entry.media)}
 										>
-											<TrashIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="delete" class="size-4" />
 											{m.video_editor_source_transcript_delete()}
 										</ContextMenu.Item>
 									{/if}
@@ -1819,7 +1804,7 @@
 										disabled={Boolean(issue)}
 										onclick={() => openSubtitlePicker(entry.media)}
 									>
-										<CaptionsIcon class="size-4" aria-hidden="true" />
+										<ProtectedIcon icon="editor-captions" class="size-4" />
 										{m.video_editor_extract_embedded_subtitles()}
 									</ContextMenu.Item>
 								{/if}
@@ -1829,9 +1814,9 @@
 										onclick={() => void analyzeMedia(entry.media)}
 									>
 										{#if sceneBrowser.progress(id)}
-											<XIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="close" class="size-4" />
 										{:else}
-											<SparklesIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="sparkles" class="size-4" />
 										{/if}
 										{sceneAnalysisLabel(entry.media)}
 									</ContextMenu.Item>
@@ -1844,16 +1829,16 @@
 										onclick={() => runProxyAction(entry.media)}
 									>
 										{#if proxyTask(id)?.status === 'cancelling'}
-											<LoaderIcon
+											<ProtectedIcon
+												icon="loading"
 												class="size-4 animate-spin motion-reduce:animate-none"
-												aria-hidden="true"
 											/>
 										{:else if proxyTask(id)}
-											<XIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="close" class="size-4" />
 										{:else if mediaProxy(id)}
-											<TrashIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="delete" class="size-4" />
 										{:else}
-											<FilmIcon class="size-4" aria-hidden="true" />
+											<ProtectedIcon icon="media-video" class="size-4" />
 										{/if}
 										{proxyActionLabel(entry.media)}
 									</ContextMenu.Item>
@@ -1910,7 +1895,7 @@
 											? confirmSelectedAssetDelete()
 											: confirmMediaDelete(entry.media)}
 								>
-									<TrashIcon class="size-4" aria-hidden="true" />
+									<ThemeIcon role="delete" class="size-4" />
 									{m.common_delete()}
 								</ContextMenu.Item>
 							</ContextMenu.Content>
@@ -1922,7 +1907,7 @@
 	{/each}
 	{#if mediaPool.order.length === 0}
 		<div class="px-2 py-6 text-center text-xs text-[oklch(0.65_0.015_55)]">
-			<ImageIcon class="mx-auto mb-2 size-5" aria-hidden="true" />
+			<ThemeIcon role="image-add" class="mx-auto mb-2 size-5" />
 			{m.video_editor_media_empty()}
 		</div>
 	{:else if visibleMedia.length === 0}

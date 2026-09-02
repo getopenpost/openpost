@@ -15,11 +15,9 @@
 </script>
 
 <script lang="ts">
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import EffectThumbnail from './effect-thumbnail.svelte';
 
 	let {
@@ -98,9 +96,9 @@
 				ondragend={onDragEnd}
 				{disabled}
 			>
-				{#if triggerLabel}<PlusIcon class="size-3 shrink-0" />{/if}
+				{#if triggerLabel}<ThemeIcon role="add" class="size-3 shrink-0" />{/if}
 				<span class="truncate">{triggerLabel ?? selectedLabel}</span>
-				<ChevronDownIcon class="size-3 shrink-0 opacity-60" />
+				<ThemeIcon role="chevron-down" class="size-3 shrink-0 opacity-60" />
 			</button>
 		{/snippet}
 	</Popover.Trigger>
@@ -146,7 +144,7 @@
 										onpointerdown={(event) => event.preventDefault()}
 										onclick={(event) => removeOption(event, option)}
 									>
-										<Trash2Icon class="size-3" />
+										<ThemeIcon role="delete" class="size-3" />
 									</button>
 								{/if}
 							</Command.Item>

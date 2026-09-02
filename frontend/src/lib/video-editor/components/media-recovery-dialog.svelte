@@ -22,13 +22,7 @@
 		relinkOrphanedClip,
 		relinkOrphanedClips
 	} from '$lib/video-editor/timeline/actions/media-recovery';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let { onedit = () => undefined }: { onedit?: () => void } = $props();
 
@@ -183,7 +177,7 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<AlertTriangleIcon class="size-4 text-amber-400" aria-hidden="true" />
+				<ProtectedIcon icon="warning" class="size-4 text-amber-400" />
 				{replacementFor
 					? m.video_editor_media_recovery_replacement_title({ name: replacementFor.label })
 					: m.video_editor_media_recovery_title()}
@@ -207,7 +201,7 @@
 		{#if replacementFor}
 			<div class="mt-4 space-y-3">
 				<Button type="button" variant="ghost" size="sm" onclick={() => (replacementFor = null)}>
-					<ArrowLeftIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="arrow-left" class="size-3.5" />
 					{m.common_back()}
 				</Button>
 				{#if replacementOptions.length === 0}
@@ -263,9 +257,9 @@
 												disabled={busyId !== null}
 												onclick={() => void grantAccess(issue)}
 											>
-												{#if busyId === issue.mediaId}<LoaderIcon
+												{#if busyId === issue.mediaId}<ProtectedIcon
+														icon="loading"
 														class="size-3.5 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>{/if}
 												{m.video_editor_media_recovery_grant()}
 											</Button>
@@ -276,7 +270,7 @@
 											disabled={busyId !== null}
 											onclick={() => void locateFile(issue)}
 										>
-											<FolderOpenIcon class="size-3.5" aria-hidden="true" />
+											<ThemeIcon role="search" class="size-3.5" />
 											{m.video_editor_media_recovery_locate()}
 										</Button>
 									</div>
@@ -304,10 +298,10 @@
 									disabled={busyId !== null}
 									onclick={() => void autoMatch()}
 								>
-									{#if busyId === 'auto-match'}<LoaderIcon
+									{#if busyId === 'auto-match'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
-											aria-hidden="true"
-										/>{:else}<WandIcon class="size-3.5" aria-hidden="true" />{/if}
+										/>{:else}<ThemeIcon role="sparkles" class="size-3.5" />{/if}
 									{m.video_editor_media_recovery_auto_match()}
 								</Button>
 							{/if}
@@ -328,7 +322,7 @@
 											disabled={busyId !== null}
 											onclick={() => (replacementFor = orphan)}
 										>
-											<SearchIcon class="size-3.5" aria-hidden="true" />
+											<ThemeIcon role="search" class="size-3.5" />
 											{m.video_editor_media_recovery_choose()}
 										</Button>
 										<Button
@@ -337,7 +331,7 @@
 											disabled={busyId !== null}
 											onclick={() => void removeOrphans([orphan.itemId])}
 										>
-											<TrashIcon class="size-3.5" aria-hidden="true" />
+											<ThemeIcon role="delete" class="size-3.5" />
 											{m.video_editor_media_recovery_remove()}
 										</Button>
 									</div>
@@ -352,7 +346,7 @@
 							onclick={() =>
 								void removeOrphans(mediaRecovery.orphanedClips.map((orphan) => orphan.itemId))}
 						>
-							<TrashIcon class="size-3.5" aria-hidden="true" />
+							<ThemeIcon role="delete" class="size-3.5" />
 							{m.video_editor_media_recovery_remove_all()}
 						</Button>
 					</section>

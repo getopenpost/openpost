@@ -4,14 +4,8 @@
 	import { m } from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
 	import { agentStore } from '$lib/video-editor/agent/store.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SendIcon from '@lucide/svelte/icons/send';
-	import XIcon from '@lucide/svelte/icons/x';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const suggestions: Array<{ key: string; text: string }> = [
 		{ key: 'silence', text: m.video_editor_agent_suggestion_silence() },
@@ -82,13 +76,6 @@
 		}
 	}
 
-	function stepIcon(status: string): typeof CheckIcon {
-		if (status === 'running') return LoaderIcon;
-		if (status === 'done') return CheckIcon;
-		if (status === 'error') return TriangleAlertIcon;
-		return CircleDashedIcon;
-	}
-
 	onMount(() => {
 		textareaRef?.focus();
 	});
@@ -97,7 +84,7 @@
 <div class="flex h-full min-h-0 flex-col" data-testid="agent-chat-panel">
 	{#if !agentStore.supported}
 		<div class="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-			<SparklesIcon class="size-6 text-[oklch(0.55_0.015_55)]" aria-hidden="true" />
+			<ThemeIcon role="sparkles" class="size-6 text-[oklch(0.55_0.015_55)]" />
 			<p class="text-sm font-medium text-[oklch(0.92_0.005_85)]">
 				{m.video_editor_agent_unavailable_title()}
 			</p>
@@ -152,7 +139,7 @@
 					role="status"
 					aria-live="polite"
 				>
-					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+					<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 					{#if agentStore.modelStatus === 'loading'}
 						<span>{m.video_editor_agent_loading_model({ percent: agentStore.loadPercent })}</span>
 					{:else}
@@ -175,19 +162,19 @@
 						{#each agentStore.plan as step, index (index)}
 							<li class="flex items-start gap-2 text-xs">
 								{#if step.status === 'running'}
-									<LoaderIcon
+									<ProtectedIcon
+										icon="loading"
 										class="mt-0.5 size-3.5 shrink-0 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
-										aria-hidden="true"
 									/>
 								{:else if step.status === 'done'}
-									<CheckIcon
+									<ProtectedIcon
+										icon="success"
 										class="mt-0.5 size-3.5 shrink-0 text-[oklch(0.62_0.04_145)]"
-										aria-hidden="true"
 									/>
 								{:else if step.status === 'error'}
-									<TriangleAlertIcon
+									<ProtectedIcon
+										icon="warning"
 										class="mt-0.5 size-3.5 shrink-0 text-[oklch(0.57_0.22_25)]"
-										aria-hidden="true"
 									/>
 								{:else if step.status === 'skipped'}
 									<CircleDashedIcon
@@ -247,18 +234,15 @@
 								class="h-11 gap-1.5 text-[oklch(0.65_0.015_55)] md:h-7"
 								onclick={() => agentStore.dismissPlan()}
 								data-testid="agent-discard-plan"
-								><XIcon
-									class="size-3.5"
-									aria-hidden="true"
-								/>{m.video_editor_agent_discard()}</Button
+								><ThemeIcon role="close" class="size-3.5" />{m.video_editor_agent_discard()}</Button
 							>
 						</div>
 					{/if}
 					{#if agentStore.phase === 'running'}
 						<p class="mt-2 flex items-center gap-1.5 text-[11px] text-[oklch(0.65_0.015_55)]">
-							<LoaderIcon
+							<ProtectedIcon
+								icon="loading"
 								class="size-3 animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
 							/>{m.video_editor_agent_running()}
 						</p>
 					{/if}
@@ -312,7 +296,7 @@
 						class="size-11 shrink-0 md:size-9"
 						onclick={() => agentStore.cancel()}
 						aria-label={m.video_editor_agent_cancel_label()}
-						><XIcon class="size-4" aria-hidden="true" /></Button
+						><ThemeIcon role="close" class="size-4" /></Button
 					>
 				{:else}
 					<Button
@@ -321,7 +305,7 @@
 						disabled={!canSend}
 						onclick={() => send(input)}
 						aria-label={m.video_editor_agent_send_label()}
-						data-testid="agent-send"><SendIcon class="size-4" aria-hidden="true" /></Button
+						data-testid="agent-send"><ThemeIcon role="send" class="size-4" /></Button
 					>
 				{/if}
 			</div>
@@ -338,7 +322,7 @@
 						disabled={agentStore.phase === 'running'}
 						data-testid="agent-clear"
 					>
-						<TrashIcon class="size-3" aria-hidden="true" />{m.video_editor_agent_clear()}
+						<ThemeIcon role="delete" class="size-3" />{m.video_editor_agent_clear()}
 					</Button>
 				</div>
 			{/if}

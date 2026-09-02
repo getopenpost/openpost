@@ -1,8 +1,5 @@
 <script lang="ts">
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
 	import {
@@ -77,7 +74,7 @@
 			aria-label={m.video_editor_effects_reset()}
 			onclick={reset}
 		>
-			<RotateCcwIcon class="size-3" />
+			<ThemeIcon role="undo" class="size-3" />
 		</button>
 		<button
 			type="button"
@@ -90,9 +87,9 @@
 			onclick={toggle}
 		>
 			{#if effect?.enabled}
-				<EyeIcon class="size-3" />
+				<ThemeIcon role="eye" class="size-3" />
 			{:else}
-				<EyeOffIcon class="size-3" />
+				<ThemeIcon role="eye-off" class="size-3" />
 			{/if}
 		</button>
 		<button
@@ -103,7 +100,7 @@
 			aria-label={m.video_editor_effects_remove()}
 			onclick={remove}
 		>
-			<Trash2Icon class="size-3" />
+			<ThemeIcon role="delete" class="size-3" />
 		</button>
 	</div>
 </header>

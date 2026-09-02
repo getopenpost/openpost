@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { KeyframeProperty } from '$lib/video-editor/project/types';
 	import {
@@ -185,7 +184,7 @@
 				title={m.common_delete()}
 				onclick={deleteSelected}
 			>
-				<Trash2Icon class="size-3" />
+				<ThemeIcon role="delete" class="size-3" />
 			</button>
 		</div>
 	</header>
@@ -220,7 +219,7 @@
 					title={m.video_editor_keyframe_sheet_add({ property: label(activeProperty) })}
 					onclick={() => addKeyframe(activeProperty!)}
 				>
-					<PlusIcon class="size-3" />
+					<ThemeIcon role="add" class="size-3" />
 				</button>
 			</div>
 			<div class="min-h-0 flex-1 overflow-hidden">

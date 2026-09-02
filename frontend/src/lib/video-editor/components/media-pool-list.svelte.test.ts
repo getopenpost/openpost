@@ -110,6 +110,31 @@ afterEach(() => {
 });
 
 describe('MediaPoolList', () => {
+	it('themes media actions while keeping source-type glyphs protected', async () => {
+		const previousPack = document.documentElement.getAttribute('data-theme-icon-pack');
+		document.documentElement.setAttribute('data-theme-icon-pack', 'tabler');
+		mediaPool.loadAll([
+			media('video', 'Interview.mp4', ['video']),
+			media('audio', 'Theme.wav', ['audio'])
+		]);
+
+		try {
+			const screen = await render(MediaPoolList, { projectId: 'project' });
+			const searchIcon = screen.container.querySelector('[data-theme-icon="search"]');
+			expect(searchIcon?.getAttribute('data-icon-pack')).toBe('tabler');
+			expect(screen.container.querySelector('[data-protected-icon="media-video"]')).not.toBeNull();
+			const audioIcon = screen.container.querySelector('[data-protected-icon="media-audio"]');
+			expect(audioIcon).not.toBeNull();
+			expect(audioIcon?.getAttribute('data-icon-pack')).toBeNull();
+		} finally {
+			if (previousPack) {
+				document.documentElement.setAttribute('data-theme-icon-pack', previousPack);
+			} else {
+				document.documentElement.removeAttribute('data-theme-icon-pack');
+			}
+		}
+	});
+
 	it('starts exact keyboard and touch placement for ready media', async () => {
 		const timeline = createEmptyTimeline();
 		sequenceStore.load(timeline, { width: 1920, height: 1080, fps: 30 });

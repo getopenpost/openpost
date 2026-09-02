@@ -8,11 +8,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MusicIcon from '@lucide/svelte/icons/music';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import XIcon from '@lucide/svelte/icons/x';
 	import FlagIcon from '@lucide/svelte/icons/flag';
 	import ScissorsIcon from '@lucide/svelte/icons/scissors';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { effectiveMediaTracks } from '$lib/video-editor/timeline/utils/track-groups';
 	import {
@@ -200,7 +198,7 @@
 				aria-label={m.video_editor_beat_cancel()}
 				onclick={cancel}
 			>
-				<XIcon class="size-3.5" />
+				<ThemeIcon role="close" class="size-3.5" />
 				{m.video_editor_beat_cancel()}
 			</Button>
 		{:else}
@@ -224,10 +222,7 @@
 	<div aria-live="polite" aria-atomic="true" class="min-h-5 text-xs">
 		{#if service.isAnalyzing}
 			<span class="inline-flex items-center gap-1.5 text-[oklch(0.75_0.12_220)]">
-				<LoaderCircleIcon
-					class="size-3.5 animate-spin motion-reduce:animate-none"
-					aria-hidden="true"
-				/>
+				<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 				{service.progress ?? m.video_editor_beat_analyzing()}
 			</span>
 		{:else if service.status === 'success' && service.lastResult}
@@ -341,7 +336,7 @@
 							disabled={targetClipCount === 0}
 							onclick={syncClips}
 						>
-							<CheckIcon class="size-3.5" />
+							<ProtectedIcon icon="success" class="size-3.5" />
 							{m.video_editor_beat_sync_action({ count: targetClipCount })}
 						</Button>
 					</div>

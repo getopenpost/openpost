@@ -3,10 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions-store.svelte';
 	import {
@@ -236,7 +233,7 @@
 							aria-label={m.video_editor_bento_delete_preset({ name: preset.name })}
 							onclick={() => deletePreset(preset.id)}
 						>
-							<Trash2Icon class="size-3.5" />
+							<ThemeIcon role="delete" class="size-3.5" />
 						</button>
 					</div>
 				{/each}
@@ -293,7 +290,7 @@
 									aria-label={m.video_editor_bento_move_earlier({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index - 1)}
 								>
-									<ChevronUpIcon class="size-3.5" />
+									<ThemeIcon role="chevron-up" class="size-3.5" />
 								</button>
 								<button
 									type="button"
@@ -302,7 +299,7 @@
 									aria-label={m.video_editor_bento_move_later({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index + 1)}
 								>
-									<ChevronDownIcon class="size-3.5" />
+									<ThemeIcon role="chevron-down" class="size-3.5" />
 								</button>
 							</div>
 						{/each}
@@ -324,7 +321,7 @@
 			<div
 				class="flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/8 p-3 text-xs text-amber-100"
 			>
-				<AlertTriangleIcon class="mt-0.5 size-4 shrink-0" />
+				<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0" />
 				<p>{m.video_editor_bento_motion_warning()}</p>
 			</div>
 

@@ -29,10 +29,7 @@
 		summarizePreflightSeverity,
 		type ExportPreflightCheck
 	} from '$lib/video-editor/media/export-preflight';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import XCircleIcon from '@lucide/svelte/icons/circle-x';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		buildRenderQueueJob,
 		buildSegmentRenderQueueJobs,
@@ -43,9 +40,6 @@
 	import { renderQueueStore } from '../export/render-queue-store';
 	import RenderQueuePanel from './render-queue-panel.svelte';
 	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import ListPlusIcon from '@lucide/svelte/icons/list-plus';
 	import RenderProgress from './render-progress.svelte';
 	import {
 		sanitizeSequenceBaseName,
@@ -609,7 +603,7 @@
 	onclick={() => (open = true)}
 >
 	{#if responsiveTrigger}
-		<DownloadIcon aria-hidden="true" />
+		<ThemeIcon role="download" />
 		<span class="hidden sm:inline">{triggerLabel ?? m.video_editor_export_title()}</span>
 	{:else if triggerLabel}
 		{triggerLabel}
@@ -745,16 +739,16 @@
 		>
 			<div class="flex items-start gap-2">
 				{#if preflight.pending}
-					<LoaderIcon
+					<ProtectedIcon
+						icon="loading"
 						class="mt-0.5 size-4 shrink-0 animate-spin text-[var(--video-editor-muted)] motion-reduce:animate-none"
-						aria-hidden="true"
 					/>
 				{:else if summarizePreflightSeverity(preflight.checks) === 'error'}
-					<XCircleIcon class="mt-0.5 size-4 shrink-0 text-red-300" aria-hidden="true" />
+					<ProtectedIcon icon="error" class="mt-0.5 size-4 shrink-0 text-red-300" />
 				{:else if summarizePreflightSeverity(preflight.checks) === 'warning'}
-					<AlertTriangleIcon class="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+					<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0 text-amber-300" />
 				{:else}
-					<CheckCircleIcon class="mt-0.5 size-4 shrink-0 text-emerald-300" aria-hidden="true" />
+					<ProtectedIcon icon="success" class="mt-0.5 size-4 shrink-0 text-emerald-300" />
 				{/if}
 				<div class="min-w-0 flex-1">
 					<p class="text-xs font-medium">
@@ -811,9 +805,9 @@
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Button {...props} variant="outline" disabled={!canOpenQueueMenu}>
-								<ListPlusIcon aria-hidden="true" />
+								<ThemeIcon role="add" />
 								{m.video_editor_queue_add()}
-								<ChevronDownIcon aria-hidden="true" />
+								<ThemeIcon role="chevron-down" />
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>

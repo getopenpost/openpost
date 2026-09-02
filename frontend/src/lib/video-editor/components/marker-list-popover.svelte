@@ -9,7 +9,7 @@
 	import type { TimelineMarker } from '$lib/video-editor/project/types';
 	import FlagIcon from '@lucide/svelte/icons/flag';
 	import ListIcon from '@lucide/svelte/icons/list';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		onselect,
@@ -124,7 +124,7 @@
 							aria-label={m.video_editor_marker_list_remove({ name })}
 							onclick={() => deleteMarker(marker.id)}
 						>
-							<TrashIcon class="size-3.5" aria-hidden="true" />
+							<ThemeIcon role="delete" class="size-3.5" />
 						</button>
 					</div>
 				{/each}

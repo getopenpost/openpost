@@ -1,8 +1,8 @@
 <script lang="ts">
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import PipetteIcon from '@lucide/svelte/icons/pipette';
 	import { onMount } from 'svelte';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		hueAmountFromWheelChannels,
@@ -524,7 +524,7 @@
 						aria-label={`Reset ${gpuParamLabel(param)}`}
 						onclick={() => resetParameter(name)}
 					>
-						<RotateCcwIcon class="size-2.5" />
+						<ThemeIcon role="undo" class="size-2.5" />
 					</button>
 				</div>
 			{/if}
@@ -551,7 +551,7 @@
 						title={`Reset ${label(descriptor.level)}`}
 						onclick={() => resetWheel(descriptor)}
 					>
-						<RotateCcwIcon class="size-3" />
+						<ThemeIcon role="undo" class="size-3" />
 					</button>
 				</div>
 				<div
@@ -682,7 +682,7 @@
 						aria-label={`Reset ${gpuParamLabel(param)}`}
 						onclick={() => resetParameter(name)}
 					>
-						<RotateCcwIcon class="size-2.5" />
+						<ThemeIcon role="undo" class="size-2.5" />
 					</button>
 				</div>
 			{/if}

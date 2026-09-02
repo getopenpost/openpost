@@ -12,14 +12,11 @@
 		soundPreferences,
 		type InterfaceSoundTheme
 	} from '$lib/stores/sound-preferences.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RotateIcon from '@lucide/svelte/icons/rotate-ccw';
 	import RowsIcon from '@lucide/svelte/icons/rows-3';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import type { ThemeIconRole } from '$lib/themes';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import {
@@ -74,11 +71,16 @@
 	const media = $derived(mediaPool.mediaList);
 	const missingProxyCount = $derived(recommendedProxyMedia(media).length);
 	const proxyCount = $derived(projectProxyCount(media));
-	const sections: Array<{ id: Section; label: () => string; icon: typeof SettingsIcon }> = [
-		{ id: 'general', label: m.video_editor_settings_general, icon: SettingsIcon },
+	const sections: Array<{
+		id: Section;
+		label: () => string;
+		icon?: typeof HardDriveIcon;
+		themeIcon?: ThemeIconRole;
+	}> = [
+		{ id: 'general', label: m.video_editor_settings_general, themeIcon: 'settings' },
 		{ id: 'timeline', label: m.video_editor_settings_timeline, icon: RowsIcon },
 		{ id: 'shortcuts', label: m.video_editor_settings_shortcuts, icon: KeyboardIcon },
-		{ id: 'ai', label: m.video_editor_settings_ai, icon: SparklesIcon },
+		{ id: 'ai', label: m.video_editor_settings_ai, themeIcon: 'sparkles' },
 		{ id: 'storage', label: m.video_editor_settings_storage, icon: HardDriveIcon }
 	];
 
@@ -196,7 +198,7 @@
 			</div>
 			{#if section !== 'shortcuts'}
 				<Button type="button" variant="ghost" size="sm" onclick={resetSettings}>
-					<RotateIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="undo" class="size-3.5" />
 					{m.video_editor_settings_reset()}
 				</Button>
 			{/if}
@@ -217,7 +219,11 @@
 						data-cuelume-toggle="tick"
 						onclick={() => (section = item.id)}
 					>
-						<Icon class="size-3.5" aria-hidden="true" />
+						{#if item.themeIcon}
+							<ThemeIcon role={item.themeIcon} class="size-3.5" />
+						{:else if Icon}
+							<Icon class="size-3.5" aria-hidden="true" />
+						{/if}
 						{item.label()}
 					</button>
 				{/each}
@@ -571,7 +577,8 @@
 											generateRecommendedProxies(media, onProgress)
 										)}
 								>
-									{#if working === 'generate-proxies'}<LoaderIcon
+									{#if working === 'generate-proxies'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('generate-proxies', m.video_editor_settings_generate())}
@@ -593,7 +600,8 @@
 										disabled={working !== null || media.length === 0}
 										onclick={() => (confirmCacheClear = true)}
 									>
-										{#if working === 'cache'}<LoaderIcon
+										{#if working === 'cache'}<ProtectedIcon
+												icon="loading"
 												class="size-3.5 animate-spin motion-reduce:animate-none"
 											/>{/if}
 										{actionText('cache', m.video_editor_settings_clear())}
@@ -649,7 +657,8 @@
 											regenerateProjectThumbnails(media, onProgress)
 										)}
 								>
-									{#if working === 'thumbnails'}<LoaderIcon
+									{#if working === 'thumbnails'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('thumbnails', m.video_editor_settings_regenerate())}
@@ -673,7 +682,8 @@
 											deleteProjectProxies(media, onProgress)
 										)}
 								>
-									{#if working === 'delete-proxies'}<LoaderIcon
+									{#if working === 'delete-proxies'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('delete-proxies', m.common_delete())}
@@ -683,7 +693,7 @@
 
 						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
 							<div class="mb-2 flex items-center gap-2">
-								<SparklesIcon class="size-3.5 text-[var(--video-editor-focus)]" />
+								<ThemeIcon role="sparkles" class="size-3.5 text-[var(--video-editor-focus)]" />
 								<div>
 									<p class="text-sm font-medium">{m.video_editor_settings_local_models()}</p>
 									<p class="text-xs text-[var(--video-editor-muted)]">
@@ -701,12 +711,13 @@
 		<Dialog.Footer class="border-t border-[oklch(0.27_0.014_55)] px-5 py-3">
 			{#if working}<span
 					class="mr-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
-					><LoaderIcon
+					><ProtectedIcon
+						icon="loading"
 						class="size-3.5 animate-spin motion-reduce:animate-none"
 					/>{m.video_editor_settings_working()}</span
 				>{/if}
 			<Button type="button" onclick={() => (open = false)}>
-				{#if feedback?.tone === 'success'}<CheckIcon class="size-3.5" />{/if}
+				{#if feedback?.tone === 'success'}<ProtectedIcon icon="success" class="size-3.5" />{/if}
 				{m.common_done()}
 			</Button>
 		</Dialog.Footer>

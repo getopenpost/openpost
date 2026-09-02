@@ -14,15 +14,7 @@
 		type LottieBrowseCategory,
 		type LottieFilesAnimation
 	} from '$lib/video-editor/lottie/lottiefiles-api';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import FilmIcon from '@lucide/svelte/icons/film';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const PAGE_SIZE = 24;
 	const categories: LottieBrowseCategory[] = ['featured', 'popular', 'recent'];
@@ -146,9 +138,9 @@
 	<div class="flex flex-col gap-2 border-b border-[oklch(0.25_0.015_55)] p-2">
 		<label class="relative block">
 			<span class="sr-only">{m.video_editor_lottiefiles_search()}</span>
-			<SearchIcon
+			<ThemeIcon
+				role="search"
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
-				aria-hidden="true"
 			/>
 			<Input
 				class="h-8 w-full rounded bg-[oklch(0.2_0.01_50)] pr-8 pl-7 text-xs"
@@ -162,7 +154,7 @@
 					aria-label={m.video_editor_lottiefiles_clear()}
 					onclick={() => (inputValue = '')}
 				>
-					<XIcon class="size-3" aria-hidden="true" />
+					<ThemeIcon role="close" class="size-3" />
 				</button>
 			{/if}
 		</label>
@@ -189,9 +181,9 @@
 	<div class="min-h-0 flex-1 overflow-y-auto p-2">
 		{#if status === 'loading' && items.length === 0}
 			<div class="flex h-24 items-center justify-center">
-				<LoaderIcon
+				<ProtectedIcon
+					icon="loading"
 					class="size-5 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
-					aria-hidden="true"
 				/>
 			</div>
 		{:else if status === 'error'}
@@ -240,30 +232,33 @@
 									onerror={() => (previewFailedIds = withId(previewFailedIds, animation.id, true))}
 								/>
 							{:else}
-								<FilmIcon class="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-black/50" />
+								<ProtectedIcon
+									icon="editor-animation"
+									class="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-black/50"
+								/>
 							{/if}
 							{#if !isImporting && (!isImported || oninserted) && !isFailed}
 								<span
 									class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
 								>
-									<PlusIcon class="size-5 text-white" aria-hidden="true" />
+									<ThemeIcon role="add" class="size-5 text-white" />
 								</span>
 							{:else if isImporting}
 								<span class="absolute inset-0 flex items-center justify-center bg-black/45">
-									<LoaderIcon
+									<ProtectedIcon
+										icon="loading"
 										class="size-5 animate-spin text-white motion-reduce:animate-none"
-										aria-hidden="true"
 									/>
 								</span>
 							{:else if isImported}
 								<span
 									class="absolute top-1 right-1 rounded-full bg-[oklch(0.66_0.14_45)] p-0.5 text-black"
 								>
-									<CheckIcon class="size-3" aria-hidden="true" />
+									<ProtectedIcon icon="success" class="size-3" />
 								</span>
 							{:else}
 								<span class="absolute inset-0 flex items-center justify-center bg-red-950/40">
-									<RotateCcwIcon class="size-5 text-white" aria-hidden="true" />
+									<ThemeIcon role="refresh" class="size-5 text-white" />
 								</span>
 							{/if}
 						</button>
@@ -290,7 +285,7 @@
 				aria-label={m.video_editor_lottiefiles_previous()}
 				onclick={() => void loadPage(page - 1)}
 			>
-				<ChevronLeftIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="chevron-left" class="size-4" />
 			</button>
 			<span class="text-[10px] text-[oklch(0.62_0.01_55)] tabular-nums">
 				{m.video_editor_lottiefiles_page({ page: page + 1, total: totalPages })}
@@ -302,7 +297,7 @@
 				aria-label={m.video_editor_lottiefiles_next()}
 				onclick={() => void loadPage(page + 1)}
 			>
-				<ChevronRightIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="chevron-right" class="size-4" />
 			</button>
 		</div>
 	{/if}

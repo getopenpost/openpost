@@ -25,8 +25,7 @@
 		mixerGainToDb,
 		type MeterBallistics
 	} from '$lib/video-editor/audio/mixer-utils';
-	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
 	import AudioEqPanel from './audio-eq-panel.svelte';
 	import type { AudioEqSettings } from '$lib/video-editor/audio/types';
@@ -410,7 +409,7 @@
 					<span class="min-w-0 flex-1 truncate text-[10px] font-medium" title={track.name}
 						>{track.name}</span
 					>
-					{#if locked}<LockIcon class="size-3 shrink-0 text-amber-300/80" />{/if}
+					{#if locked}<ThemeIcon role="lock" class="size-3 shrink-0 text-amber-300/80" />{/if}
 				</div>
 				<div class="grid grid-cols-3 gap-1">
 					<button
@@ -583,7 +582,7 @@
 					aria-label={m.common_close()}
 					onclick={() => (eqTarget = null)}
 				>
-					<XIcon class="size-4" />
+					<ThemeIcon role="close" class="size-4" />
 				</button>
 			</div>
 			{#if eqTarget.kind === 'master'}

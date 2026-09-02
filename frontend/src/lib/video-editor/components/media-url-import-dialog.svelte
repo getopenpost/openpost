@@ -3,8 +3,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
-	import LinkIcon from '@lucide/svelte/icons/link';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		open = $bindable(false),
@@ -47,7 +46,7 @@
 		<form onsubmit={submit}>
 			<Dialog.Header>
 				<Dialog.Title class="flex items-center gap-2 text-base">
-					<LinkIcon class="size-4 text-[var(--video-editor-focus)]" aria-hidden="true" />
+					<ThemeIcon role="link" class="size-4 text-[var(--video-editor-focus)]" />
 					{m.video_editor_media_import_url()}
 				</Dialog.Title>
 				<Dialog.Description class="text-xs text-[var(--video-editor-muted)]">
@@ -84,9 +83,9 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" disabled={working || !url.trim()}>
-					{#if working}<LoaderIcon
+					{#if working}<ProtectedIcon
+							icon="loading"
 							class="size-3.5 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{working
 						? m.video_editor_media_import_url_working()

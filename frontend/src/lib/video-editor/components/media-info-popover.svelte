@@ -8,7 +8,7 @@
 		formatMediaDuration
 	} from '$lib/video-editor/media/library-view';
 	import type { MediaMetadata } from '$lib/video-editor/media/types';
-	import InfoIcon from '@lucide/svelte/icons/info';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	let { media }: { media: MediaMetadata } = $props();
 
@@ -65,7 +65,7 @@
 				aria-label={`${m.video_editor_media_info()}: ${media.fileName}`}
 				title={m.video_editor_media_info()}
 			>
-				<InfoIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="info" class="size-3.5" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>

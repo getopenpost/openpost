@@ -1,15 +1,12 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import CopyIcon from '@lucide/svelte/icons/copy';
 	import ClipboardPasteIcon from '@lucide/svelte/icons/clipboard-paste';
-	import SaveIcon from '@lucide/svelte/icons/save';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import Columns2Icon from '@lucide/svelte/icons/columns-2';
-	import EyeIcon from '@lucide/svelte/icons/eye';
 	import CircleOffIcon from '@lucide/svelte/icons/circle-off';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
@@ -242,7 +239,7 @@
 						aria-pressed={colorPreviewStore.comparisonMode === 'after'}
 						onclick={() => setComparison('after')}
 					>
-						<EyeIcon class="size-3" />{m.video_editor_color_after()}
+						<ThemeIcon role="eye" class="size-3" />{m.video_editor_color_after()}
 					</button>
 					<button
 						type="button"
@@ -298,7 +295,7 @@
 					disabled={grade.length === 0}
 					onclick={copyGrade}
 				>
-					<CopyIcon class="size-3.5" />{m.video_editor_color_copy_grade()}
+					<ThemeIcon role="copy" class="size-3.5" />{m.video_editor_color_copy_grade()}
 				</button>
 				<button
 					type="button"
@@ -327,7 +324,7 @@
 					aria-expanded={showPresetSave}
 					onclick={() => (showPresetSave = !showPresetSave)}
 				>
-					<SaveIcon class="size-3.5" />
+					<ThemeIcon role="save" class="size-3.5" />
 				</button>
 			</div>
 			{#if showPresetSave}
@@ -350,7 +347,7 @@
 						aria-label={m.video_editor_color_save_preset()}
 						onclick={savePreset}
 					>
-						<SaveIcon class="size-3.5" />
+						<ThemeIcon role="save" class="size-3.5" />
 					</button>
 				</div>
 			{/if}
@@ -385,7 +382,7 @@
 										deletePreset(preset);
 									}}
 								>
-									<Trash2Icon class="size-3" />
+									<ThemeIcon role="delete" class="size-3" />
 								</button>
 							</div>
 						{/each}

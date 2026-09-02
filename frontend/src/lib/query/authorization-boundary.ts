@@ -1,6 +1,11 @@
+export interface QueryAuthorizationIdentity {
+	userID: string;
+	epoch: number;
+}
+
 export interface QueryAuthorizationBoundary {
-	captureIdentity: () => unknown;
-	settleUnauthorized: (identity: unknown) => void;
+	captureIdentity: () => QueryAuthorizationIdentity | undefined;
+	settleUnauthorized: (identity: QueryAuthorizationIdentity | undefined) => void;
 }
 
 let boundary: QueryAuthorizationBoundary | undefined;
@@ -19,6 +24,6 @@ export function captureQueryAuthorizationIdentity() {
 	return boundary?.captureIdentity();
 }
 
-export function settleQueryUnauthorized(identity: unknown) {
+export function settleQueryUnauthorized(identity: QueryAuthorizationIdentity | undefined) {
 	boundary?.settleUnauthorized(identity);
 }

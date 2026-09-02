@@ -586,16 +586,14 @@ export class WorkspaceContext {
 			}
 			await Promise.all(invalidations);
 			if (!canProjectSave()) return;
-			this.workspaces = this.workspaces.map((workspace) =>
-				workspace.id === workspaceID
-					? {
-							...workspace,
-							...(updates.name === undefined ? {} : { name: updates.name }),
-							...(updates.avatar_url === undefined ? {} : { avatar_url: updates.avatar_url }),
-							...(updates.color === undefined ? {} : { color: updates.color })
-						}
-					: workspace
-			);
+			this.workspaces = this.workspaces.map((workspace) => {
+				if (workspace.id !== workspaceID) return workspace;
+				const updated = { ...workspace };
+				if (updates.name !== undefined) updated.name = updates.name;
+				if (updates.avatar_url !== undefined) updated.avatar_url = updates.avatar_url;
+				if (updates.color !== undefined) updated.color = updates.color;
+				return updated;
+			});
 			this.syncWorkspaceListCache();
 
 			const currentWorkspace = this.currentWorkspace;

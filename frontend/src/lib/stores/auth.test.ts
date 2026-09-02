@@ -28,6 +28,23 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
+function workspace(id: string): AppBootstrap['workspaces'][number] {
+	return {
+		id,
+		name: id,
+		avatar_url: '',
+		color: '#f97316',
+		created_at: '2026-08-09T00:00:00Z',
+		organization_id: '',
+		organization_name: '',
+		role: 'admin',
+		can_edit: true,
+		sso_authenticated: false,
+		sso_identity_linked: false,
+		sso_required: false
+	};
+}
+
 describe('auth recovery-code verification', () => {
 	afterEach(() => {
 		auth.clearLocal();
@@ -193,7 +210,7 @@ describe('auth recovery-code verification', () => {
 		const staleBootstrap: AppBootstrap = {
 			authenticated: true,
 			user: bootstrapUser,
-			workspaces: [{ id: 'workspace-after-password-change' }] as AppBootstrap['workspaces'],
+			workspaces: [workspace('workspace-after-password-change')],
 			selected_workspace_id: 'workspace-after-password-change',
 			selected_workspace_settings: null
 		};
@@ -300,7 +317,7 @@ describe('auth recovery-code verification', () => {
 				{
 					authenticated: true,
 					user: secondUser,
-					workspaces: [{ id: 'second-workspace' }] as AppBootstrap['workspaces'],
+					workspaces: [workspace('second-workspace')],
 					selected_workspace_id: 'second-workspace',
 					selected_workspace_settings: null
 				},
@@ -1079,7 +1096,7 @@ describe('auth recovery-code verification', () => {
 		resolveBootstrap({
 			authenticated: true,
 			user: initialUser,
-			workspaces: [{ id: 'stale-workspace' }] as AppBootstrap['workspaces'],
+			workspaces: [workspace('stale-workspace')],
 			selected_workspace_id: 'stale-workspace',
 			selected_workspace_settings: null
 		});

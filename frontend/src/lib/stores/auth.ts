@@ -13,7 +13,10 @@ import {
 } from '@openpost/query-catalog';
 import type { QueryClient } from '@tanstack/svelte-query';
 import { appBootstrapQueryAPI } from '$lib/query/bootstrap';
-import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-boundary';
+import {
+	registerQueryAuthorizationBoundary,
+	type QueryAuthorizationIdentity
+} from '$lib/query/authorization-boundary';
 import { queryClient } from '$lib/query/client';
 import { getPasskeyAssertion } from '$lib/auth/webauthn';
 import { notificationInbox } from '$lib/stores/notifications.svelte';
@@ -52,10 +55,7 @@ interface UserProjectionToken {
 	baselineUser: User;
 }
 
-export interface AuthIdentityToken {
-	userID: string;
-	epoch: number;
-}
+export type AuthIdentityToken = QueryAuthorizationIdentity;
 
 export interface AuthStoreDependencies {
 	isBrowser: boolean;
@@ -570,8 +570,7 @@ export function registerAuthQueryAuthorizationBoundary(
 	return registerQueryAuthorizationBoundary({
 		captureIdentity: () => store.captureIdentity(),
 		settleUnauthorized: (identity) => {
-			const token = identity as AuthIdentityToken | undefined;
-			if (store.isIdentityCurrent(token)) store.clearLocal();
+			if (store.isIdentityCurrent(identity)) store.clearLocal();
 		}
 	});
 }
@@ -587,25 +586,75 @@ function snapshotUser(user: User): User {
 }
 
 function mergeUserProjection(serverUser: User, baselineUser: User, projectedUser: User): User {
-	const merged = { ...serverUser } as Record<string, unknown>;
-	const baseline = baselineUser as unknown as Record<string, unknown>;
-	const projected = projectedUser as unknown as Record<string, unknown>;
-	const keys = new Set([...Object.keys(baseline), ...Object.keys(projected)]);
-
-	for (const key of keys) {
-		const baselineHasKey = Object.hasOwn(baseline, key);
-		const projectedHasKey = Object.hasOwn(projected, key);
-		if (baselineHasKey === projectedHasKey && userFieldEquals(baseline[key], projected[key])) {
-			continue;
-		}
-		if (projectedHasKey) merged[key] = projected[key];
-		else delete merged[key];
+	const merged = { ...serverUser };
+	for (const field of projectedUserFields) {
+		applyProjectedUserField(merged, baselineUser, projectedUser, field);
 	}
-
-	return merged as User;
+	for (const field of optionalProjectedUserFields) {
+		applyOptionalProjectedUserField(merged, baselineUser, projectedUser, field);
+	}
+	return merged;
 }
 
-function userFieldEquals(left: unknown, right: unknown) {
+const projectedUserFields = [
+	'avatar_url',
+	'composer_experience',
+	'created_at',
+	'display_name',
+	'email',
+	'email_verified',
+	'has_password',
+	'id',
+	'is_admin',
+	'is_managed',
+	'legal_acceptance_required',
+	'password_usable',
+	'public_profile_enabled',
+	'public_profile_visible_fields',
+	'username'
+] as const satisfies readonly (keyof User)[];
+
+const optionalProjectedUserFields = [
+	'legal_accepted_at',
+	'managed_organization_name',
+	'privacy_version',
+	'terms_version'
+] as const satisfies readonly (keyof User)[];
+
+type ProjectedUserField = (typeof projectedUserFields)[number];
+type OptionalProjectedUserField = (typeof optionalProjectedUserFields)[number];
+
+function applyProjectedUserField<K extends ProjectedUserField>(
+	merged: User,
+	baseline: User,
+	projected: User,
+	field: K
+) {
+	if (!userFieldEquals(baseline[field], projected[field])) merged[field] = projected[field];
+}
+
+function applyOptionalProjectedUserField<K extends OptionalProjectedUserField>(
+	merged: User,
+	baseline: User,
+	projected: User,
+	field: K
+) {
+	const baselineHasField = Object.hasOwn(baseline, field);
+	const projectedHasField = Object.hasOwn(projected, field);
+	if (
+		baselineHasField === projectedHasField &&
+		userFieldEquals(baseline[field], projected[field])
+	) {
+		return;
+	}
+	if (!projectedHasField) {
+		delete merged[field];
+		return;
+	}
+	merged[field] = projected[field];
+}
+
+function userFieldEquals<T>(left: T, right: T) {
 	if (!Array.isArray(left) || !Array.isArray(right)) return Object.is(left, right);
 	return (
 		left.length === right.length && left.every((value, index) => Object.is(value, right[index]))

@@ -13,6 +13,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import { getPlatformName } from '$lib/utils';
@@ -155,12 +156,8 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 
 	<main class="profile-shell py-6 sm:py-8">
 		{#if loadState === 'loading'}
-			<div class="grid min-h-[55dvh] place-items-center" aria-live="polite">
-				<div class="activity-loader" aria-label="Loading public profile">
-					{#each Array(16) as _, index (index)}
-						<i style:--delay={`${index * 45}ms`}></i>
-					{/each}
-				</div>
+			<div class="min-h-[55dvh] py-4">
+				<PageLoading layout="public-profile" label={m.common_loading()} items={4} />
 			</div>
 		{:else if loadState === 'disabled'}
 			{#if backgroundError}
@@ -502,21 +499,6 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 		color: var(--foreground);
 	}
 
-	.activity-loader {
-		display: grid;
-		grid-template-columns: repeat(4, 0.8rem);
-		gap: 0.3rem;
-	}
-
-	.activity-loader i {
-		width: 0.8rem;
-		height: 0.8rem;
-		border-radius: 0.2rem;
-		background: var(--primary);
-		animation: loader-cell 1.3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-		animation-delay: var(--delay);
-	}
-
 	@keyframes cell-resolve {
 		from {
 			opacity: 0.45;
@@ -527,18 +509,6 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 			opacity: 1;
 			transform: scale(1);
 			filter: blur(0);
-		}
-	}
-
-	@keyframes loader-cell {
-		0%,
-		100% {
-			opacity: 0.2;
-			transform: translateY(0);
-		}
-		45% {
-			opacity: 1;
-			transform: translateY(-0.35rem);
 		}
 	}
 
@@ -557,8 +527,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.activity-grid i,
-		.activity-loader i {
+		.activity-grid i {
 			animation: none;
 		}
 	}

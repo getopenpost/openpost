@@ -16,7 +16,11 @@
 		queryMutationSessionIsCurrent,
 		type QueryMutationSession
 	} from '$lib/query/authorization-boundary';
+	import { queryClient } from '$lib/query/client';
+	import { imageEditorQueryKeys, type ImageEditorConfig } from '@openpost/query-catalog';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -39,6 +43,12 @@
 	}
 
 	let loading = $state(true);
+	let refreshing = $state(false);
+	let configReady = $state(false);
+	let templatesReady = $state(false);
+	let templatesWorkspaceID = $state('');
+	let loadError = $state('');
+	let backgroundError = $state('');
 	let creating = $state('');
 	let error = $state('');
 	let enabled = $state(true);
@@ -69,6 +79,10 @@
 		templates.filter((template) => featuredTemplateIDs.has(template.id))
 	);
 	let visibleTemplates = $derived(showAllTemplates ? templates : featuredTemplates);
+	let usableContent = $derived(
+		configReady &&
+			(!enabled || (Boolean(workspaceID) && templatesReady && templatesWorkspaceID === workspaceID))
+	);
 
 	function captureCreationView(): CreationView {
 		return {
@@ -91,20 +105,49 @@
 	});
 
 	async function initialize(): Promise<void> {
-		loading = true;
+		hydrateCachedState(workspaceID);
+		loading = !usableContent;
+		refreshing = usableContent;
+		loadError = '';
+		backgroundError = '';
 		error = '';
 		const finishMetric = startImageEditorMetric('document_load');
+		let loadFailed = false;
 		try {
 			const configPromise = queryImageEditorConfig();
 			await workspaceCtx.initialize($page.url.searchParams.get('workspace') || undefined);
 			const requestedWorkspaceID = workspaceID;
-			const [config, workspaceTemplates] = await Promise.all([
+			if (!requestedWorkspaceID) throw new Error(m.image_editor_open_failed());
+			hydrateCachedState(requestedWorkspaceID);
+			loading = !usableContent;
+			refreshing = usableContent;
+			const templatesPromise = queryImageEditorTemplates(requestedWorkspaceID);
+			const [configResult, templatesResult] = await Promise.allSettled([
 				configPromise,
-				requestedWorkspaceID ? queryImageEditorTemplates(requestedWorkspaceID) : Promise.resolve([])
+				templatesPromise
 			]);
-			enabled = config.enabled;
-			presets = config.presets;
-			templates = config.enabled ? workspaceTemplates : [];
+			let failure: unknown;
+			if (configResult.status === 'fulfilled') {
+				applyConfig(configResult.value);
+			} else {
+				failure = configResult.reason;
+			}
+			if (templatesResult.status === 'fulfilled') {
+				templates = templatesResult.value;
+				templatesReady = true;
+				templatesWorkspaceID = requestedWorkspaceID;
+			} else if (configResult.status !== 'fulfilled' || configResult.value.enabled) {
+				failure ??= templatesResult.reason;
+			}
+			if (failure) {
+				loadFailed = true;
+				const message = failure instanceof Error ? failure.message : m.image_editor_open_failed();
+				if (usableContent) backgroundError = message;
+				else loadError = message;
+				return;
+			}
+			loading = false;
+			refreshing = true;
 			if (sourceMediaID && workspaceID && enabled) {
 				await createFromSource();
 				return;
@@ -120,11 +163,36 @@
 				await createPreset(requestedPreset);
 			}
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.image_editor_open_failed();
+			loadFailed = true;
+			const message = cause instanceof Error ? cause.message : m.image_editor_open_failed();
+			if (usableContent) backgroundError = message;
+			else loadError = message;
 		} finally {
-			finishMetric(error ? 'error' : 'success');
+			finishMetric(loadFailed ? 'error' : 'success');
 			loading = false;
+			refreshing = false;
 		}
+	}
+
+	function hydrateCachedState(requestedWorkspaceID: string): void {
+		const config = queryClient.getQueryData<ImageEditorConfig>(imageEditorQueryKeys.config());
+		if (config) applyConfig(config);
+		if (!requestedWorkspaceID || !config?.enabled) return;
+		const cachedTemplates = queryClient.getQueryData<ImageEditorTemplate[]>(
+			imageEditorQueryKeys.templates(requestedWorkspaceID)
+		);
+		if (cachedTemplates) {
+			templates = cachedTemplates;
+			templatesReady = true;
+			templatesWorkspaceID = requestedWorkspaceID;
+		}
+	}
+
+	function applyConfig(config: ImageEditorConfig): void {
+		enabled = config.enabled;
+		presets = config.presets;
+		if (!config.enabled) templates = [];
+		configReady = true;
 	}
 
 	async function createPreset(key: string): Promise<void> {
@@ -309,12 +377,30 @@
 	</header>
 
 	<main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-		{#if loading}
-			<div class="flex min-h-[60dvh] items-center justify-center text-muted-foreground">
-				<LoaderIcon class="mr-2 size-5 animate-spin" />
-				{m.image_editor_load()}
+		{#if loading && !usableContent}
+			<div class="min-h-[60dvh]">
+				<PageLoading layout="sections" label={m.image_editor_load()} items={4} />
+			</div>
+		{:else if loadError && !usableContent}
+			<div class="mx-auto flex min-h-[60dvh] max-w-xl items-center">
+				<InlineNotice tone="error" message={loadError} class="w-full">
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={initialize}>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
 			</div>
 		{:else if !enabled}
+			{#if backgroundError}
+				<InlineNotice tone="warning" message={backgroundError} class="mx-auto mb-5 max-w-lg">
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={initialize}>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			<div class="mx-auto max-w-lg rounded-2xl border bg-card p-8 text-center">
 				<PaletteIcon class="mx-auto mb-4 size-8 text-muted-foreground" />
 				<h2 class="text-xl font-semibold">{m.image_editor_not_enabled()}</h2>
@@ -326,10 +412,32 @@
 				>
 			</div>
 		{:else}
+			{#if refreshing}
+				<span class="sr-only" role="status">{m.image_editor_load()}</span>
+			{/if}
+			{#if backgroundError}
+				<InlineNotice
+					tone="warning"
+					message={backgroundError}
+					class="mb-5"
+					dismissLabel={m.common_close()}
+					onDismiss={() => (backgroundError = '')}
+				>
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={initialize}>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
 			{#if error}
-				<div class="mb-5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-					{error}
-				</div>
+				<InlineNotice
+					tone="error"
+					message={error}
+					class="mb-5"
+					dismissLabel={m.common_close()}
+					onDismiss={() => (error = '')}
+				/>
 			{/if}
 
 			<section aria-labelledby="templates-heading">

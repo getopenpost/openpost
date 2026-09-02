@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { captureResponsiveReview } from "./helpers";
 
 async function routePublicProfileDocumentFixture(page: Page, username: string) {
   await page.route(`**/u/${username}`, async (route) => {
@@ -6,6 +7,21 @@ async function routePublicProfileDocumentFixture(page: Page, username: string) {
     expect(response.status()).toBe(404);
     await route.fulfill({ response, status: 200 });
   });
+}
+
+async function navigateWithinApp(page: Page, path: string) {
+  await page.evaluate((href) => {
+    document
+      .querySelectorAll('[data-testid="profile-navigation"]')
+      .forEach((node) => node.remove());
+    const link = document.createElement("a");
+    link.href = href;
+    link.textContent = `Open ${href}`;
+    link.dataset.testid = "profile-navigation";
+    document.body.append(link);
+  }, path);
+  await page.getByTestId("profile-navigation").click();
+  await page.waitForURL(`**${path}`);
 }
 
 function profileActivity() {
@@ -135,6 +151,109 @@ test("public publishing profile fits a desktop viewport", async ({ page }) => {
   }));
   expect(activityWidths.field).toBeGreaterThanOrEqual(activityWidths.scroll - 1);
   expect(consoleErrors).toEqual([]);
+});
+
+test("public profile defers its cold placeholder for quick reads", async ({ page }, testInfo) => {
+  await routePublicProfileDocumentFixture(page, "quick-profile");
+  await page.route("**/api/v1/auth/config", (route) =>
+    route.fulfill({ json: { public_profiles_enabled: true } }),
+  );
+  let markRequestStarted = () => undefined;
+  const requestStarted = new Promise<void>((resolve) => {
+    markRequestStarted = resolve;
+  });
+  let releaseProfile = () => undefined;
+  const profileGate = new Promise<void>((resolve) => {
+    releaseProfile = resolve;
+  });
+  await page.route("**/api/v1/public/profiles/quick-profile", async (route) => {
+    markRequestStarted();
+    await profileGate;
+    await route.fulfill({
+      json: {
+        username: "quick-profile",
+        visible_fields: ["display_name"],
+        display_name: "Quick profile",
+      },
+    });
+  });
+
+  await page.goto("/u/quick-profile");
+  await requestStarted;
+  await page.waitForTimeout(75);
+  await expect(page.getByTestId("page-loading")).toHaveCount(0);
+  await expect(page.getByTestId("page-loading")).toBeVisible();
+  await expect(page.getByTestId("page-loading")).toHaveAttribute("data-layout", "public-profile");
+  await captureResponsiveReview(page, testInfo, "public-profile-cold-loading");
+  releaseProfile();
+  await expect(page.getByRole("heading", { name: "Quick profile" })).toBeVisible();
+  await expect(page.getByTestId("page-loading")).toHaveCount(0);
+});
+
+test("public profile keeps cached content through a failed background refresh", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const actualNow = Date.now.bind(Date);
+    const clock = window as Window & { queryTestOffset?: number };
+    clock.queryTestOffset = 0;
+    Date.now = () => actualNow() + (clock.queryTestOffset ?? 0);
+  });
+  await routePublicProfileDocumentFixture(page, "cached-profile");
+  await routePublicProfileDocumentFixture(page, "other-profile");
+  await page.route("**/api/v1/auth/config", (route) =>
+    route.fulfill({ json: { public_profiles_enabled: true } }),
+  );
+
+  let cachedAttempts = 0;
+  let refreshFails = true;
+  await page.route("**/api/v1/public/profiles/*", (route) => {
+    const username = new URL(route.request().url()).pathname.split("/").at(-1);
+    if (username === "other-profile") {
+      return route.fulfill({
+        json: {
+          username,
+          visible_fields: ["display_name"],
+          display_name: "Other profile",
+        },
+      });
+    }
+    cachedAttempts += 1;
+    if (cachedAttempts > 1 && refreshFails) {
+      return route.fulfill({
+        status: 400,
+        contentType: "application/problem+json",
+        body: JSON.stringify({ detail: "Cached profile refresh failed" }),
+      });
+    }
+    return route.fulfill({
+      json: {
+        username: "cached-profile",
+        visible_fields: ["display_name"],
+        display_name: "Cached profile",
+      },
+    });
+  });
+
+  await page.goto("/u/cached-profile");
+  await expect(page.getByRole("heading", { name: "Cached profile" })).toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { queryTestOffset?: number }).queryTestOffset = 31_000;
+  });
+  await navigateWithinApp(page, "/u/other-profile");
+  await expect(page.getByRole("heading", { name: "Other profile" })).toBeVisible();
+  await navigateWithinApp(page, "/u/cached-profile");
+
+  await expect(page.getByRole("heading", { name: "Cached profile" })).toBeVisible();
+  const notice = page.getByRole("status").filter({ hasText: "Cached profile refresh failed" });
+  await expect(notice).toBeVisible();
+  await expect(page.getByText("Profile could not be loaded")).toHaveCount(0);
+
+  refreshFails = false;
+  await notice.getByRole("button", { name: "Try again" }).click();
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Cached profile" })).toBeVisible();
+  expect(cachedAttempts).toBe(3);
 });
 
 test("public profile distinguishes disabled, private, and transient failure states", async ({

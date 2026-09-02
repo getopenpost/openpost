@@ -47,6 +47,29 @@ describe('shared page states', () => {
 		await expect.element(screen.getByRole('heading')).not.toBeInTheDocument();
 	});
 
+	it('reserves the public profile hierarchy while it loads', async () => {
+		const screen = await render(PageLoading, {
+			layout: 'public-profile',
+			label: 'Loading profile',
+			defer: false
+		});
+
+		await expect
+			.element(screen.getByTestId('page-loading'))
+			.toHaveAttribute('data-layout', 'public-profile');
+		await expect.element(screen.getByText('Loading profile')).toBeInTheDocument();
+		expect(screen.container.querySelectorAll('[data-slot="profile-loading-intro"]')).toHaveLength(
+			1
+		);
+		expect(screen.container.querySelectorAll('[data-slot="profile-loading-stat"]')).toHaveLength(5);
+		expect(
+			screen.container.querySelectorAll('[data-slot="profile-loading-activity"]')
+		).toHaveLength(1);
+		expect(
+			screen.container.querySelectorAll('[data-slot="profile-loading-insights"]')
+		).toHaveLength(1);
+	});
+
 	it.each([
 		['grid', 3],
 		['gallery', 2]

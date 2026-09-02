@@ -7,12 +7,14 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
 	import {
+		imageEditorQueryKeys,
 		mediaListQueryOptions,
 		mediaQueryKeys,
 		reconcileMediaListItemMutation,
 		mediaStorageQueryOptions,
 		mediaTagsQueryOptions,
 		mediaUsageQueryOptions,
+		type ImageEditorConfig,
 		type MediaListResult,
 		type MediaStorage,
 		type MediaTagList
@@ -111,9 +113,9 @@
 	let mediaItems = $state<MediaItem[]>([]);
 	let mediaLoading = $state(false);
 	let mediaDataReady = $state(false);
-	let mediaSettledWorkspaceId = '';
+	let mediaSettledWorkspaceId = $state('');
 	let mediaRequestSequence = 0;
-	let loadedMediaWorkspaceId = '';
+	let loadedMediaWorkspaceId = $state('');
 	let totalCount = $state(0);
 	let currentPage = $state(0);
 	const pageSize = 40;
@@ -136,10 +138,12 @@
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
 	let tags = $state<MediaTag[]>([]);
+	let hubLoading = $state(false);
+	let hubError = $state('');
 	let hubDataReady = $state(false);
-	let hubSettledWorkspaceId = '';
+	let hubSettledWorkspaceId = $state('');
 	let hubRequestSequence = 0;
-	let loadedHubWorkspaceId = '';
+	let loadedHubWorkspaceId = $state('');
 	let organizationDialogOpen = $state(false);
 	let filterDialogOpen = $state(false);
 	let selectionOrganizationDialogOpen = $state(false);
@@ -448,6 +452,8 @@
 	async function loadImageEditorHub(workspaceID = selectedWorkspaceId, force = false) {
 		if (!workspaceID) {
 			hubRequestSequence++;
+			hubLoading = false;
+			hubError = '';
 			tags = [];
 			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
 			mediaCanEdit = false;
@@ -460,36 +466,42 @@
 		const requestSequence = ++hubRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === hubRequestSequence && selectedWorkspaceId === workspaceID;
+		hubLoading = true;
+		hubError = '';
 		if (loadedHubWorkspaceId !== workspaceID) {
 			tags = [];
 			storageUsage = { used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 };
-			mediaCanEdit = false;
+			mediaCanEdit =
+				workspaceCtx.currentWorkspace?.id === workspaceID
+					? workspaceCtx.currentWorkspace.can_edit
+					: false;
 			loadedHubWorkspaceId = workspaceID;
 			hubDataReady = false;
 			hubSettledWorkspaceId = '';
 		}
 		const tagsOptions = mediaTagsQueryOptions(mediaQueryAPI, workspaceID);
 		const storageOptions = mediaStorageQueryOptions(mediaQueryAPI, workspaceID);
+		const cachedConfig = queryClient.getQueryData<ImageEditorConfig>(imageEditorQueryKeys.config());
 		const cachedTags = queryClient.getQueryData<MediaTagList>(tagsOptions.queryKey);
 		const cachedStorage = queryClient.getQueryData<MediaStorage>(storageOptions.queryKey);
+		let configReady = cachedConfig !== undefined;
+		let tagsReady = cachedTags !== undefined;
+		let storageReady = cachedStorage !== undefined;
+		if (cachedConfig !== undefined) imageEditorEnabled = cachedConfig.enabled;
 		if (cachedTags !== undefined) {
 			tags = cachedTags.tags ?? [];
 			mediaCanEdit = cachedTags.can_edit;
 		}
 		if (cachedStorage !== undefined) storageUsage = cachedStorage;
-		hubDataReady = cachedTags !== undefined && cachedStorage !== undefined;
-		const configRequest = queryImageEditorConfig()
-			.then((config) => {
-				if (isCurrentRequest()) imageEditorEnabled = config.enabled;
-			})
-			.catch((cause) => {
-				if (isCurrentRequest()) {
-					notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
-				}
-			});
+		hubDataReady = configReady && tagsReady && storageReady;
 		try {
 			if (force) {
 				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: imageEditorQueryKeys.config(),
+						exact: true,
+						refetchType: 'none'
+					}),
 					queryClient.invalidateQueries({
 						queryKey: tagsOptions.queryKey,
 						exact: true,
@@ -502,29 +514,49 @@
 					})
 				]);
 			}
-			const [tagResult, storageResult] = await Promise.all([
+			const [configResult, tagResult, storageResult] = await Promise.allSettled([
+				queryImageEditorConfig(),
 				queryClient.query(tagsOptions),
 				queryClient.query(storageOptions)
 			]);
 			if (!isCurrentRequest()) return;
-			tags = tagResult.tags ?? [];
-			mediaCanEdit = tagResult.can_edit;
-			const validTagIDs = new Set(tags.map((tag) => tag.id));
-			const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
-			if (nextSelected.length !== selectedTagIDs.length) {
-				selectedTagIDs = nextSelected;
-				currentPage = 0;
-				void loadMedia(workspaceID);
+			let failure: unknown;
+			if (configResult.status === 'fulfilled') {
+				imageEditorEnabled = configResult.value.enabled;
+				configReady = true;
+			} else {
+				failure = configResult.reason;
 			}
-			storageUsage = storageResult;
-			hubDataReady = true;
+			if (tagResult.status === 'fulfilled') {
+				tags = tagResult.value.tags ?? [];
+				mediaCanEdit = tagResult.value.can_edit;
+				tagsReady = true;
+				const validTagIDs = new Set(tags.map((tag) => tag.id));
+				const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
+				if (nextSelected.length !== selectedTagIDs.length) {
+					selectedTagIDs = nextSelected;
+					currentPage = 0;
+					void loadMedia(workspaceID);
+				}
+			} else {
+				failure ??= tagResult.reason;
+			}
+			if (storageResult.status === 'fulfilled') {
+				storageUsage = storageResult.value;
+				storageReady = true;
+			} else {
+				failure ??= storageResult.reason;
+			}
+			hubDataReady = configReady && tagsReady && storageReady;
+			if (failure) hubError = errorMessage(failure, m.media_hub_load_failed());
 			hubSettledWorkspaceId = workspaceID;
 		} catch (cause) {
 			if (!isCurrentRequest()) return;
-			notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
+			hubError = errorMessage(cause, m.media_hub_load_failed());
 			hubSettledWorkspaceId = workspaceID;
+		} finally {
+			if (isCurrentRequest()) hubLoading = false;
 		}
-		await configRequest;
 	}
 
 	async function refreshMediaLists(workspaceID = selectedWorkspaceId) {
@@ -1356,13 +1388,41 @@
 	{#if mediaLoading && mediaDataReady}
 		<span class="sr-only" role="status">{m.common_loading()}</span>
 	{/if}
+	{#if hubLoading && (hubDataReady || hubSettledWorkspaceId === selectedWorkspaceId)}
+		<span class="sr-only" role="status">{m.common_loading()}</span>
+	{/if}
+	{#if hubError}
+		<InlineNotice tone={hubDataReady ? 'warning' : 'error'} message={hubError}>
+			{#snippet actions()}
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={hubLoading}
+					onclick={() => loadImageEditorHub(selectedWorkspaceId, true)}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
+	{/if}
 	{#if error && mediaDataReady}
 		<InlineNotice
 			tone="error"
 			message={error}
 			dismissLabel={m.common_close()}
 			onDismiss={() => (error = '')}
-		/>
+		>
+			{#snippet actions()}
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={mediaLoading}
+					onclick={() => loadMedia(selectedWorkspaceId, true)}
+				>
+					{m.common_retry()}
+				</Button>
+			{/snippet}
+		</InlineNotice>
 	{/if}
 
 	<nav

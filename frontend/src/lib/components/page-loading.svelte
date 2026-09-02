@@ -7,6 +7,7 @@
 		| 'grid'
 		| 'gallery'
 		| 'sections'
+		| 'public-profile'
 		| 'settings'
 		| 'composer'
 		| 'calendar';
@@ -29,6 +30,7 @@
 	}: Props = $props();
 
 	const itemKeys = $derived(Array.from({ length: items }, (_, index) => `loading-${index}`));
+	const profileStatKeys = Array.from({ length: 5 }, (_, index) => `profile-stat-${index}`);
 	const calendarDayKeys = Array.from({ length: 42 }, (_, index) => `calendar-${index}`);
 	const delayedVisibility = createDelayedVisibility(() => defer);
 </script>
@@ -90,6 +92,55 @@
 						</div>
 					</section>
 				{/each}
+			</div>
+		{:else if layout === 'public-profile'}
+			<div class="flex flex-col">
+				<div data-slot="profile-loading-intro" class="flex flex-col items-center py-1">
+					<Skeleton class="size-20 rounded-2xl" />
+					<Skeleton class="mt-4 h-8 w-48 max-w-3/5" />
+					<Skeleton class="mt-2 h-4 w-28" />
+				</div>
+
+				<div class="mt-6 overflow-hidden rounded-xl border">
+					<div class="grid grid-cols-2 sm:grid-cols-5">
+						{#each profileStatKeys as key (key)}
+							<div
+								data-slot="profile-loading-stat"
+								class="profile-loading-stat flex min-h-18 flex-col items-center justify-center gap-2 p-4"
+							>
+								<Skeleton class="h-5 w-14" />
+								<Skeleton class="h-3 w-20 max-w-full" />
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<div data-slot="profile-loading-activity" class="mt-8">
+					<div class="flex items-center justify-between gap-4">
+						<Skeleton class="h-5 w-40" />
+						<Skeleton class="h-3 w-24" />
+					</div>
+					<div class="mt-4 overflow-hidden">
+						<Skeleton class="h-28 min-w-[48rem] rounded-md" />
+					</div>
+				</div>
+
+				<div
+					data-slot="profile-loading-insights"
+					class="mt-8 grid gap-8 border-t pt-6 md:grid-cols-2"
+				>
+					{#each ['platforms', 'workspaces'] as section (section)}
+						<div class="space-y-3">
+							<Skeleton class="h-4 w-40" />
+							{#each itemKeys.slice(0, 3) as key (`${section}-${key}`)}
+								<div class="flex h-9 items-center justify-between gap-4 border-b">
+									<Skeleton class="h-4 w-32 max-w-3/5" />
+									<Skeleton class="h-3 w-14" />
+								</div>
+							{/each}
+						</div>
+					{/each}
+				</div>
 			</div>
 		{:else if layout === 'settings'}
 			<div class="grid min-w-0 items-start gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
@@ -205,6 +256,10 @@
 {/if}
 
 <style>
+	.profile-loading-stat + .profile-loading-stat {
+		border-left: 1px solid var(--border);
+	}
+
 	.calendar-loading-shell {
 		height: 100%;
 		min-height: 30rem;
@@ -214,6 +269,22 @@
 	@media (min-width: 90rem) {
 		.calendar-loading-shell {
 			max-height: min(52rem, calc(100dvh - 10rem));
+		}
+	}
+
+	@media (max-width: 639px) {
+		.profile-loading-stat:nth-child(odd) {
+			border-left: 0;
+		}
+
+		.profile-loading-stat {
+			border-bottom: 1px solid var(--border);
+		}
+
+		.profile-loading-stat:last-child {
+			grid-column: 1 / -1;
+			border-bottom: 0;
+			border-left: 0;
 		}
 	}
 </style>

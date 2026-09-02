@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  captureResponsiveReview,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 const tinyPNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -47,6 +52,26 @@ async function openImageVersionHistory(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Version history", exact: true }).click();
 }
 
+async function navigateImageEditorClient(page: Page, path: string): Promise<void> {
+  await page.evaluate((href) => {
+    document
+      .querySelectorAll('[data-testid="image-editor-test-navigation"]')
+      .forEach((node) => node.remove());
+    const link = document.createElement("a");
+    link.href = href;
+    link.textContent = `Open ${href}`;
+    link.dataset.testid = "image-editor-test-navigation";
+    document.body.append(link);
+  }, path);
+  await page.getByTestId("image-editor-test-navigation").evaluate((link) => {
+    if (!(link instanceof HTMLAnchorElement))
+      throw new Error("Test navigation link was unavailable");
+    link.click();
+  });
+  await page.waitForURL(`**${path}`);
+  await page.getByTestId("image-editor-test-navigation").evaluate((link) => link.remove());
+}
+
 test.beforeEach(({ page }) => {
   page.on("pageerror", (error) =>
     console.error(`[Image Editor page error] ${error.stack ?? error.message}`),
@@ -56,6 +81,160 @@ test.beforeEach(({ page }) => {
       console.error(`[Image Editor console error] ${message.text()}`);
     }
   });
+});
+
+test("new design loads config and templates together before revealing content", async ({
+  page,
+  request,
+}, testInfo) => {
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `image-cold-${unique}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Image cold loading");
+  await authenticatePage(page, auth.token);
+
+  let markConfigStarted = () => undefined;
+  const configStarted = new Promise<void>((resolve) => {
+    markConfigStarted = resolve;
+  });
+  let markTemplatesStarted = () => undefined;
+  const templatesStarted = new Promise<void>((resolve) => {
+    markTemplatesStarted = resolve;
+  });
+  let releaseReads = () => undefined;
+  const readGate = new Promise<void>((resolve) => {
+    releaseReads = resolve;
+  });
+  let configAttempts = 0;
+  await page.route("**/api/v1/image-editor/presets", async (route) => {
+    configAttempts += 1;
+    if (configAttempts > 1) return route.continue();
+    markConfigStarted();
+    await readGate;
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Image Editor setup unavailable" }),
+    });
+  });
+  await page.route("**/api/v1/image-editor/templates?**", async (route) => {
+    markTemplatesStarted();
+    await readGate;
+    return route.continue();
+  });
+
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await Promise.all([configStarted, templatesStarted]);
+  await expect(page.getByTestId("page-loading")).toHaveAttribute("data-layout", "sections");
+  await expect(page.getByRole("region", { name: "Starter templates" })).toHaveCount(0);
+  releaseReads();
+
+  await expect(page.getByRole("alert")).toContainText("Image Editor setup unavailable");
+  await expect(page.getByRole("region", { name: "Starter templates" })).toHaveCount(0);
+  await captureResponsiveReview(page, testInfo, "image-editor-new-cold-error");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("region", { name: "Starter templates" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(configAttempts).toBe(2);
+});
+
+test("design detail replaces a cold failure with an inline retry", async ({ page, request }) => {
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `image-detail-retry-${unique}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Image detail retry");
+  const createdResponse = await request.post("/api/v1/image-editor/designs", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    data: {
+      workspace_id: workspace.id,
+      title: "Recoverable design",
+      preset_key: "instagram-square",
+      width_px: 0,
+      height_px: 0,
+    },
+  });
+  expect(createdResponse.ok()).toBeTruthy();
+  const created = (await createdResponse.json()) as { id: string };
+  await authenticatePage(page, auth.token);
+
+  let detailAttempts = 0;
+  await page.route(`**/api/v1/image-editor/designs/${created.id}`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    detailAttempts += 1;
+    if (detailAttempts > 1) return route.continue();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Design is temporarily unavailable" }),
+    });
+  });
+
+  await page.goto(`/image-editor/${created.id}`);
+  await expect(page.getByTestId("page-loading")).toHaveAttribute("data-layout", "composer");
+  await expect(page.getByRole("alert")).toContainText("Design is temporarily unavailable");
+  await expect(page.getByRole("textbox", { name: "Design title" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+    "Recoverable design",
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(detailAttempts).toBe(2);
+});
+
+test("design detail keeps its cached document through a failed background refresh", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const actualNow = Date.now.bind(Date);
+    const clock = window as Window & { queryTestOffset?: number };
+    clock.queryTestOffset = 0;
+    Date.now = () => actualNow() + (clock.queryTestOffset ?? 0);
+  });
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `image-cached-${unique}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Image cached loading");
+  await authenticatePage(page, auth.token);
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page
+    .getByRole("region", { name: "Starter templates" })
+    .getByRole("button", { name: /Quick announcement/ })
+    .click();
+  await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]+$/);
+  const title = page.getByRole("textbox", { name: "Design title" });
+  await expect(title).toBeVisible();
+  const designID = new URL(page.url()).pathname.split("/").at(-1);
+  if (!designID) throw new Error("Cached design ID was unavailable");
+
+  await page.evaluate(() => {
+    (window as Window & { queryTestOffset?: number }).queryTestOffset = 31_000;
+  });
+  await navigateImageEditorClient(page, "/media");
+  await expect(page.getByRole("heading", { name: "Media", exact: true })).toBeVisible();
+
+  let refreshFails = true;
+  let detailAttempts = 0;
+  await page.route(`**/api/v1/image-editor/designs/${designID}`, (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    detailAttempts += 1;
+    if (!refreshFails) return route.continue();
+    return route.fulfill({
+      status: 400,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Design refresh failed" }),
+    });
+  });
+  await navigateImageEditorClient(page, `/image-editor/${designID}`);
+
+  await expect(title).toBeVisible();
+  await expect(page.getByText("This design could not be opened")).toHaveCount(0);
+  const notice = page.getByRole("status").filter({ hasText: "Design refresh failed" });
+  await expect(notice).toBeVisible();
+  await captureResponsiveReview(page, testInfo, "image-editor-detail-background-error");
+  refreshFails = false;
+  await notice.getByRole("button", { name: "Try again" }).click();
+  await expect(notice).toHaveCount(0);
+  await expect(title).toBeVisible();
+  expect(detailAttempts).toBe(2);
 });
 
 test("Image Editor autosaves without replaying the saved-status animation", async ({ page }) => {

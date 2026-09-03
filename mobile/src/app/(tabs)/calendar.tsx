@@ -4,7 +4,6 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import {
-  BodyText,
   Card,
   ContentTitle,
   EmptyState,

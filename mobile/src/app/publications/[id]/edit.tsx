@@ -122,7 +122,6 @@ function workspaceScopeIsCurrent(scope: WorkspaceQueryScope): boolean {
 }
 
 export default function ComposeScreen() {
-  const colors = useNativeTheme().manifest.colors;
   const { id, build, celebrate } = useLocalSearchParams<{
     id: string;
     build?: string;

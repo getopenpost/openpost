@@ -394,8 +394,6 @@ function MenuButton({ onOpen }: { onOpen: () => void }) {
 }
 
 function DraftRow({ draft, onOpen }: { draft: PublicationListItem; onOpen: () => void }) {
-  const theme = useNativeTheme();
-  const { colors, typography } = theme.manifest;
   const excerpt = firstRenditionBody(draft) ?? draft.title ?? "Untitled draft";
   return (
     <Pressable

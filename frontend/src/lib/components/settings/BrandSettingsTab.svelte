@@ -7,7 +7,7 @@
 	import { imageEditorBrandKitQueryOptions, imageEditorQueryKeys } from '@openpost/query-catalog';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		registerSettingsInitialLoad,
@@ -56,7 +56,7 @@
 			<div class="grid gap-8 lg:grid-cols-2">
 				<section class="space-y-4">
 					<div class="flex items-center gap-2">
-						<PaletteIcon class="size-4 text-primary" />
+						<ThemeIcon role="appearance" class="size-4 text-primary" />
 						<h2 class="font-semibold">{m.brand_colors_backgrounds()}</h2>
 					</div>
 					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">

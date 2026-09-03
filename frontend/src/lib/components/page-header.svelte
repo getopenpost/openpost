@@ -1,12 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
+	import type { ThemeIconRole } from '$lib/themes';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 
-	interface Props {
+	type Props = {
 		title: string;
+		/** Custom icon component to display before title (takes precedence when both are set) */
 		icon?: IconComponent;
+		/** Semantic icon role resolved from the active organization theme */
+		themeIconRole?: ThemeIconRole;
 		eyebrow?: string;
 		description?: string;
 		meta?: Snippet;
@@ -17,11 +22,12 @@
 		contentClass?: string;
 		titleClass?: string;
 		class?: string;
-	}
+	};
 
 	let {
 		title,
 		icon: Icon,
+		themeIconRole,
 		eyebrow,
 		description,
 		meta,
@@ -53,6 +59,8 @@
 			<div data-theme-type="label" class="mb-1 flex items-center gap-2 text-muted-foreground">
 				{#if Icon}
 					<Icon class="size-4 shrink-0" />
+				{:else if themeIconRole}
+					<ThemeIcon role={themeIconRole} class="size-4 shrink-0" />
 				{/if}
 				<span>{eyebrow}</span>
 			</div>
@@ -60,6 +68,8 @@
 		<h1 data-theme-type="title" class="flex items-center gap-2.5">
 			{#if Icon && !eyebrow}
 				<Icon class="size-5 shrink-0 text-primary" />
+			{:else if themeIconRole && !eyebrow}
+				<ThemeIcon role={themeIconRole} class="size-5 shrink-0 text-primary" />
 			{/if}
 			<span class={cn('min-w-0 break-words', titleClass)}>{title}</span>
 		</h1>

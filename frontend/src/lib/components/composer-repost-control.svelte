@@ -14,7 +14,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import { formatSocialAccountName } from '$lib/utils';
-	import Repeat2Icon from '@lucide/svelte/icons/repeat-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	type RepostOverride = components['schemas']['Override'];
 	type RepostRule = components['schemas']['Rule'];
@@ -211,7 +211,7 @@
 				{disabled}
 				aria-label={m.composer_repost_settings()}
 			>
-				<Repeat2Icon class="size-4 shrink-0" />
+				<ThemeIcon role="repeat" class="size-4 shrink-0" />
 				<span class="truncate">{summary}</span>
 			</Button>
 		{/snippet}

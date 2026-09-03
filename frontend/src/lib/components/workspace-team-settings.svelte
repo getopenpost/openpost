@@ -41,12 +41,7 @@
 		WorkspaceInvitation,
 		WorkspaceTeam
 	} from '../../routes/settings/settings-data';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import HistoryIcon from '@lucide/svelte/icons/history';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	type WorkspaceRole = 'admin' | 'editor' | 'viewer';
 	type InvitationStatus = WorkspaceInvitation['status'];
@@ -836,9 +831,9 @@
 			<div class="flex items-end">
 				<Button type="submit" disabled={Boolean(busyKey) || !inviteEmail.trim()}>
 					{#if busyKey === 'invite'}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
-						<UserPlusIcon class="size-4" />
+						<ThemeIcon role="growth" class="size-4" />
 					{/if}
 					{m.settings_send_invite()}
 				</Button>
@@ -864,7 +859,7 @@
 						{createdInviteURL}
 					</p>
 					<Button type="button" variant="outline" size="sm" onclick={copyInviteURL}>
-						<CopyIcon class="size-4" />
+						<ThemeIcon role="copy" class="size-4" />
 						{m.common_copy()}
 					</Button>
 				</div>
@@ -876,7 +871,8 @@
 		<div class="space-y-2">
 			<Label for="team-search">{m.settings_team_search()}</Label>
 			<div class="relative">
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
@@ -988,9 +984,10 @@
 													disabled={Boolean(busyKey)}
 													onclick={() => void updateMember(member, { status: 'active' })}
 												>
-													{#if busyKey === `member:${member.user_id}`}<LoaderIcon
+													{#if busyKey === `member:${member.user_id}`}<ProtectedIcon
+															icon="loading"
 															class="size-4 animate-spin"
-														/>{:else}<RefreshCwIcon class="size-4" />{/if}
+														/>{:else}<ThemeIcon role="refresh" class="size-4" />{/if}
 													{m.settings_member_reactivate()}
 												</Button>
 											{/if}
@@ -1074,9 +1071,10 @@
 											disabled={Boolean(busyKey)}
 											onclick={() => void resendInvitation(invitation)}
 										>
-											{#if busyKey === `invitation:${invitation.id}`}<LoaderIcon
+											{#if busyKey === `invitation:${invitation.id}`}<ProtectedIcon
+													icon="loading"
 													class="size-4 animate-spin"
-												/>{:else}<RefreshCwIcon class="size-4" />{/if}
+												/>{:else}<ThemeIcon role="refresh" class="size-4" />{/if}
 											{m.settings_invitation_resend()}
 										</Button>
 										<Button
@@ -1107,7 +1105,7 @@
 		<div class="mt-6 border-t pt-5">
 			<div class="mb-3 flex items-start gap-3">
 				<div class="rounded-md border bg-muted/30 p-2">
-					<HistoryIcon class="size-4" />
+					<ThemeIcon role="history" class="size-4" />
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold">{m.settings_access_history()}</h3>

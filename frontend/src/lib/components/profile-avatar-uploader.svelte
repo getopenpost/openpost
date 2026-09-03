@@ -12,10 +12,7 @@
 		parseAvatarUploadResponse
 	} from '$lib/avatar-upload-response';
 	import { formatBytes } from '$lib/video/constraints';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import UploadIcon from '@lucide/svelte/icons/upload';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -246,7 +243,7 @@
 				class="min-h-11 sm:min-h-9"
 				onclick={() => (mode = 'device')}
 			>
-				<UploadIcon />
+				<ThemeIcon role="upload" />
 				{m.media_upload_device()}
 			</Button>
 			<Button
@@ -255,7 +252,7 @@
 				class="min-h-11 sm:min-h-9"
 				onclick={() => (mode = 'camera')}
 			>
-				<CameraIcon />
+				<ThemeIcon role="camera" />
 				{m.media_camera()}
 			</Button>
 		</div>
@@ -318,7 +315,7 @@
 							</p>
 						{/if}
 						<Button variant="outline" onclick={() => fileInput?.click()} disabled={uploading}>
-							<ImageIcon />
+							<ThemeIcon role="image" />
 							{m.avatar_upload_choose_another()}
 						</Button>
 					</div>
@@ -331,7 +328,7 @@
 				>
 					<span
 						class="mb-3 flex size-11 items-center justify-center rounded-lg bg-background ring-1 ring-border"
-						><ImageIcon class="size-5 text-primary" /></span
+						><ThemeIcon role="image" class="size-5 text-primary" /></span
 					>
 					<span class="font-medium">{m.avatar_upload_choose()}</span>
 					<span class="mt-1 text-sm text-muted-foreground">{m.avatar_upload_limits()}</span>
@@ -375,7 +372,9 @@
 				>{m.common_cancel()}</Button
 			>
 			<Button onclick={upload} disabled={!file || uploading}>
-				{#if uploading}<LoaderIcon class="animate-spin" />{:else}<UploadIcon />{/if}
+				{#if uploading}<ProtectedIcon icon="loading" class="animate-spin" />{:else}<ThemeIcon
+						role="upload"
+					/>{/if}
 				{m.avatar_upload_action()}
 			</Button>
 		</Dialog.Footer>

@@ -47,13 +47,7 @@
 		registerSettingsInitialLoad,
 		SETTINGS_INITIAL_LOAD_PARTICIPANT
 	} from '$lib/settings-initial-load.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import MonitorIcon from '@lucide/svelte/icons/monitor';
-	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	type RecoveryCodeFlow = 'setup' | 'regenerate';
 	type SecurityDestructiveAction =
@@ -1357,7 +1351,7 @@
 				onclick={() => void copyRecoveryCodes()}
 				disabled={securityBusy}
 			>
-				<CopyIcon class="h-4 w-4" />
+				<ThemeIcon role="copy" class="h-4 w-4" />
 				{m.settings_copy_recovery_codes()}
 			</Button>
 			<Button
@@ -1367,7 +1361,7 @@
 				onclick={downloadRecoveryCodes}
 				disabled={securityBusy}
 			>
-				<DownloadIcon class="h-4 w-4" />
+				<ThemeIcon role="download" class="h-4 w-4" />
 				{m.settings_download_recovery_codes()}
 			</Button>
 		</div>
@@ -1463,7 +1457,7 @@
 			<div class="mb-4 flex items-center justify-between gap-3">
 				<div>
 					<h3 class="flex items-center gap-2 font-medium">
-						<MonitorIcon class="h-4 w-4 text-muted-foreground" />
+						<ThemeIcon role="devices" class="h-4 w-4 text-muted-foreground" />
 						{m.settings_active_sessions()}
 					</h3>
 					<p class="mt-1 text-sm text-muted-foreground">
@@ -1477,7 +1471,7 @@
 					disabled={authSessionsLoading}
 				>
 					{#if authSessionsLoading}
-						<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 					{/if}
 					{m.common_refresh()}
 				</Button>
@@ -1529,9 +1523,9 @@
 								disabled={Boolean(authSessionBusyID)}
 							>
 								{#if authSessionBusyID === session.id}
-									<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+									<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 								{:else}
-									<LogOutIcon class="mr-2 h-4 w-4" />
+									<ThemeIcon role="logout" class="mr-2 h-4 w-4" />
 								{/if}
 								{session.current ? m.settings_sign_out() : m.settings_revoke()}
 							</Button>
@@ -1647,7 +1641,10 @@
 							!emailChangeNewEmail.trim() ||
 							(passwordReauthUsable ? !emailChangePassword : !hasStepUpMethod)}
 					>
-						{#if emailChangeBusy}<LoaderIcon class="mr-2 size-4 animate-spin" />{/if}
+						{#if emailChangeBusy}<ProtectedIcon
+								icon="loading"
+								class="mr-2 size-4 animate-spin"
+							/>{/if}
 						{m.settings_start_email_change()}
 					</Button>
 				{/if}
@@ -1664,7 +1661,7 @@
 			>
 				<div>
 					<h3 class="flex items-center gap-2 font-medium">
-						<KeyRoundIcon class="h-4 w-4 text-muted-foreground" />
+						<ThemeIcon role="key" class="h-4 w-4 text-muted-foreground" />
 						{m.settings_linked_identities()}
 					</h3>
 					<p class="mt-1 text-sm text-muted-foreground">
@@ -1757,7 +1754,7 @@
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="rounded-lg border p-4" data-testid="authenticator-security-card">
 				<div class="mb-3 flex items-center gap-2">
-					<SmartphoneIcon class="h-4 w-4 text-muted-foreground" />
+					<ThemeIcon role="devices" class="h-4 w-4 text-muted-foreground" />
 					<h3 class="font-medium">{m.settings_authenticator()}</h3>
 				</div>
 				<p class="mb-4 text-sm text-muted-foreground">
@@ -1916,7 +1913,7 @@
 											class="shrink-0"
 											onclick={() => void copyTOTPSetupKey()}
 										>
-											<CopyIcon class="mr-2 size-4" />
+											<ThemeIcon role="copy" class="mr-2 size-4" />
 											{m.settings_totp_setup_copy_key()}
 										</Button>
 									</div>
@@ -1999,7 +1996,7 @@
 
 			<div class="rounded-lg border p-4">
 				<div class="mb-3 flex items-center gap-2">
-					<KeyRoundIcon class="h-4 w-4 text-muted-foreground" />
+					<ThemeIcon role="key" class="h-4 w-4 text-muted-foreground" />
 					<h3 class="font-medium">{m.settings_passkeys()}</h3>
 				</div>
 				<p class="mb-4 text-sm text-muted-foreground">

@@ -40,11 +40,7 @@
 		registerSettingsInitialLoad,
 		SETTINGS_INITIAL_LOAD_PARTICIPANT
 	} from '$lib/settings-initial-load.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import TerminalIcon from '@lucide/svelte/icons/terminal';
-	import ActivityIcon from '@lucide/svelte/icons/activity';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const authState = $derived($auth);
 	const unsavedChanges = getOptionalUnsavedChanges();
@@ -502,7 +498,7 @@
 <SectionHeader
 	title={m.settings_tokens_heading()}
 	description={m.settings_tokens_body()}
-	icon={TerminalIcon}
+	themeIconRole="code"
 	class="mb-4"
 />
 
@@ -614,7 +610,7 @@
 				(apiTokenWorkspaceScope === 'current' && !workspaceCtx.currentWorkspace)}
 		>
 			{#if apiTokenBusy}
-				<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 			{/if}
 			{m.settings_create_token()}
 		</Button>
@@ -651,7 +647,7 @@
 			class="mt-3 gap-2 border-amber-700/30 bg-white/80 text-amber-950 hover:bg-white"
 			onclick={() => void copyCreatedAPIToken()}
 		>
-			<CopyIcon class="size-4" />
+			<ThemeIcon role="copy" class="size-4" />
 			{m.common_copy()}
 		</Button>
 		<p class="sr-only" aria-live="polite">
@@ -735,14 +731,14 @@
 	class="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline"
 >
 	{m.settings_token_docs()}
-	<ExternalLinkIcon class="size-4" aria-hidden="true" />
+	<ThemeIcon role="external-link" class="size-4" aria-hidden="true" />
 </a>
 
 <div class="mt-6 border-t pt-6">
 	<div class="mb-4 flex items-center justify-between gap-3">
 		<div>
 			<h3 class="flex items-center gap-2 text-sm font-semibold">
-				<ActivityIcon class="h-4 w-4 text-muted-foreground" />
+				<ThemeIcon role="analytics" class="h-4 w-4 text-muted-foreground" />
 				{m.settings_mcp_activity()}
 			</h3>
 			<p class="mt-1 text-sm text-muted-foreground">
@@ -751,7 +747,7 @@
 		</div>
 		<Button variant="outline" size="sm" onclick={retryMCPActivity} disabled={mcpActivityLoading}>
 			{#if mcpActivityLoading}
-				<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 			{/if}
 			{m.common_refresh()}
 		</Button>

@@ -21,9 +21,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { m } from '$lib/paraglide/messages';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import FilterIcon from '@lucide/svelte/icons/filter';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { auth } from '$lib/stores/auth';
 	import {
 		registerSettingsInitialLoad,
@@ -494,7 +492,7 @@
 	<Card.Root>
 		<Card.Header
 			><Card.Title class="flex items-center gap-2 text-base"
-				><FilterIcon class="size-4" />{m.settings_audit_filters()}</Card.Title
+				><ThemeIcon role="filter" class="size-4" />{m.settings_audit_filters()}</Card.Title
 			></Card.Header
 		>
 		<Card.Content class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -563,7 +561,7 @@
 			disabled={(!instanceWide && !selectedOrganizationID) || Boolean(exporting)}
 			onclick={() => void exportAudit('json')}
 			data-testid="audit-export-json"
-			><DownloadIcon class="size-4" />{m.settings_audit_export_json()}</Button
+			><ThemeIcon role="download" class="size-4" />{m.settings_audit_export_json()}</Button
 		>
 		<Button
 			variant="outline"
@@ -571,7 +569,7 @@
 			disabled={(!instanceWide && !selectedOrganizationID) || Boolean(exporting)}
 			onclick={() => void exportAudit('csv')}
 			data-testid="audit-export-csv"
-			><DownloadIcon class="size-4" />{m.settings_audit_export_csv()}</Button
+			><ThemeIcon role="download" class="size-4" />{m.settings_audit_export_csv()}</Button
 		>
 	</div>
 
@@ -657,7 +655,8 @@
 				variant="outline"
 				disabled={loadingMore}
 				onclick={() => void loadAudit({ append: true })}
-				>{#if loadingMore}<LoaderIcon
+				>{#if loadingMore}<ProtectedIcon
+						icon="loading"
 						class="size-4 animate-spin"
 					/>{/if}{m.settings_audit_load_older()}</Button
 			>{/if}

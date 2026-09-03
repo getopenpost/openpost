@@ -6,7 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { client, type AccountDeletionImpact } from '$lib/api/client';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
 	import { m } from '$lib/paraglide/messages';
@@ -215,7 +215,7 @@
 				disabled={!canDelete}
 				onclick={deleteAccount}
 			>
-				{#if pending}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pending}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{pending ? m.settings_delete_deleting() : m.settings_delete_submit()}
 			</Button>
 		</Dialog.Footer>

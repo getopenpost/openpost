@@ -35,12 +35,7 @@
 		type PostingSchedule,
 		type ScheduleRow
 	} from '../../../routes/settings/settings-data';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ClockIcon from '@lucide/svelte/icons/clock';
-	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const unsavedChanges = getOptionalUnsavedChanges();
 	const weekdayFormatter = $derived(
@@ -497,7 +492,7 @@
 	<SectionHeader
 		title={m.settings_weekly_times()}
 		description={m.settings_schedule_body()}
-		icon={CalendarIcon}
+		themeIconRole="calendar"
 		class="mb-4"
 	>
 		{#snippet actions()}
@@ -506,7 +501,7 @@
 				variant="outline"
 				size="sm"
 			>
-				<SparklesIcon class="mr-2 h-4 w-4" />
+				<ThemeIcon role="sparkles" class="mr-2 h-4 w-4" />
 				{m.settings_suggest_pattern()}
 			</Button>
 		{/snippet}
@@ -536,7 +531,7 @@
 			</div>
 			<div class="flex items-end">
 				<Button onclick={addTimeRow} class="w-full lg:w-auto">
-					<PlusIcon class="mr-2 h-4 w-4" />
+					<ThemeIcon role="add" class="mr-2 h-4 w-4" />
 					{m.settings_add_time()}
 				</Button>
 			</div>
@@ -580,7 +575,7 @@
 					>
 					<Button onclick={generateSuggestedSchedule} size="sm" disabled={generatingSchedule}>
 						{#if generatingSchedule}
-							<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 						{/if}
 						{m.settings_generate()}
 					</Button>
@@ -628,7 +623,7 @@
 								time: formatTime(row.local_hour, row.local_minute)
 							})}
 						>
-							<TrashIcon class="size-4" />
+							<ThemeIcon role="delete" class="size-4" />
 						</Button>
 					</div>
 					<div
@@ -700,7 +695,7 @@
 									time: formatTime(row.local_hour, row.local_minute)
 								})}
 							>
-								<TrashIcon class="h-4 w-4" />
+								<ThemeIcon role="delete" class="h-4 w-4" />
 							</Button>
 						</div>
 					</div>
@@ -714,7 +709,7 @@
 	<SectionHeader
 		title={m.settings_advanced_scheduling()}
 		description={m.settings_advanced_scheduling_body()}
-		icon={ClockIcon}
+		themeIconRole="time"
 		class="mb-4"
 	/>
 	<div class="space-y-4">
@@ -752,7 +747,7 @@
 	<SectionHeader
 		title={m.settings_time_picker_range()}
 		description={m.settings_time_picker_range_body()}
-		icon={ClockIcon}
+		themeIconRole="time"
 		class="mb-4"
 	/>
 	<div class="space-y-4">

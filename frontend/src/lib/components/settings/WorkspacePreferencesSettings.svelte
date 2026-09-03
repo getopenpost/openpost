@@ -16,9 +16,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import ClockIcon from '@lucide/svelte/icons/clock';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import TrashIcon from '@lucide/svelte/icons/trash';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { getTimezoneLabel, timezones } from '../../../routes/settings/settings-data';
 
 	let {
@@ -133,7 +131,7 @@
 				</div>
 				<div class="flex flex-wrap gap-2">
 					<Button type="button" variant="outline" onclick={() => (imagePickerOpen = true)}>
-						<ImageIcon class="mr-2 size-4" />
+						<ThemeIcon role="image" class="mr-2 size-4" />
 						{m.settings_change_workspace_image()}
 					</Button>
 					{#if workspaceCtx.settings.avatar_url}
@@ -143,7 +141,7 @@
 							class="text-destructive hover:text-destructive"
 							onclick={() => (workspaceCtx.settings.avatar_url = '')}
 						>
-							<TrashIcon class="mr-2 size-4" />{m.settings_remove()}
+							<ThemeIcon role="delete" class="mr-2 size-4" />{m.settings_remove()}
 						</Button>
 					{/if}
 				</div>
@@ -184,7 +182,7 @@
 </section>
 
 <section id="date-time" class="scroll-mt-24 space-y-4">
-	<SectionHeader title={m.settings_date_time()} icon={ClockIcon} class="mb-4">
+	<SectionHeader title={m.settings_date_time()} themeIconRole="time" class="mb-4">
 		{#snippet actions()}
 			<span class="rounded-full border px-2 py-1 text-xs text-muted-foreground">
 				{m.settings_workspace_scope()}

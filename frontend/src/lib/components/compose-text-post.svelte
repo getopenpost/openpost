@@ -89,20 +89,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { getPlatformKey, getPlatformName } from '$lib/utils';
 	import { CalendarDate, isEqualDay } from '@internationalized/date';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
-	import Undo2Icon from '@lucide/svelte/icons/undo-2';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import UnlinkIcon from '@lucide/svelte/icons/unlink';
-	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import HistoryIcon from '@lucide/svelte/icons/history';
-	import CopyIcon from '@lucide/svelte/icons/copy';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { ui, type RepurposeHandoff } from '$lib/stores/ui.svelte';
 	import { ReorderableList } from 'svelte-reorderable-list';
 	import { m } from '$lib/paraglide/messages';
@@ -5448,7 +5435,7 @@
 						aria-label={m.compose_accounts_loading()}
 						data-testid="composer-account-loading"
 					>
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					</Button>
 				{/if}
 				{#if autoSavesDraft}
@@ -5471,7 +5458,7 @@
 					onclick={() => (composerSettingsOpen = true)}
 					aria-label={m.compose_post_settings()}
 				>
-					<SettingsIcon class="size-4" />
+					<ThemeIcon role="settings" class="size-4" />
 				</Button>
 				{#if isEditMode && !autoSavesDraft}
 					<Button
@@ -5484,7 +5471,7 @@
 						onclick={requestDraftDelete}
 						disabled={isDeleting || isSaving || isSubmitting}
 					>
-						<Trash2Icon class="size-4" />
+						<ThemeIcon role="delete" class="size-4" />
 					</Button>
 					<Button
 						size="sm"
@@ -5492,7 +5479,7 @@
 						onclick={() => saveEditedPost()}
 						disabled={isSaving || isSubmitting || !canSaveEditedPost}
 					>
-						{#if isSaving}<LoaderIcon class="size-3.5 animate-spin" />{/if}
+						{#if isSaving}<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />{/if}
 						<span>{isSaving ? m.compose_saving_changes() : m.compose_save_changes()}</span>
 					</Button>
 				{:else}
@@ -5552,7 +5539,7 @@
 						disabled
 						data-testid="composer-account-loading"
 					>
-						<LoaderIcon class="size-3.5 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 						{m.compose_accounts_loading()}
 					</Button>
 				{/if}
@@ -5586,7 +5573,7 @@
 								onclick={() => (composerSettingsOpen = true)}
 								aria-label={m.compose_post_settings()}
 							>
-								<SettingsIcon class="size-4" />
+								<ThemeIcon role="settings" class="size-4" />
 							</Button>
 						{/snippet}
 					</Tooltip.Trigger>
@@ -5604,7 +5591,7 @@
 						onclick={requestDraftDelete}
 						disabled={isDeleting || isSaving || isSubmitting}
 					>
-						<Trash2Icon class="size-4" />
+						<ThemeIcon role="delete" class="size-4" />
 					</Button>
 					<Button
 						size="sm"
@@ -5612,7 +5599,7 @@
 						onclick={() => saveEditedPost()}
 						disabled={isSaving || isSubmitting || !canSaveEditedPost}
 					>
-						{#if isSaving}<LoaderIcon class="h-3.5 w-3.5 animate-spin" />{/if}
+						{#if isSaving}<ProtectedIcon icon="loading" class="h-3.5 w-3.5 animate-spin" />{/if}
 						<span>{isSaving ? m.compose_saving_changes() : m.compose_save_changes()}</span>
 					</Button>
 				{:else}
@@ -5853,7 +5840,7 @@
 												class="size-11 md:size-9"
 												aria-label={m.sidebar_more()}
 											>
-												<MoreHorizontalIcon class="size-4" />
+												<ThemeIcon role="more-horizontal" class="size-4" />
 											</Button>
 										{/snippet}
 									</DropdownMenu.Trigger>
@@ -5985,7 +5972,7 @@
 												title={m.compose_drag_to_reorder()}
 												aria-label={m.compose_drag_to_reorder()}
 											>
-												<GripVerticalIcon class="h-4 w-4" />
+												<ThemeIcon role="drag" class="h-4 w-4" />
 											</button>
 										</div>
 									{/if}
@@ -6041,7 +6028,7 @@
 																onclick={() =>
 																	activeVariantAccountId && unsyncAccount(activeVariantAccountId)}
 															>
-																<UnlinkIcon class="h-3.5 w-3.5" />
+																<ThemeIcon role="unlink" class="h-3.5 w-3.5" />
 																{m.compose_unsync_to_edit()}
 															</Button>
 														</div>
@@ -6068,7 +6055,7 @@
 													onclick={() => (pasteMediaFeedback = null)}
 													aria-label={m.common_dismiss()}
 												>
-													<XIcon class="size-3.5" />
+													<ThemeIcon role="close" class="size-3.5" />
 												</button>
 											</div>
 										{/if}
@@ -6133,9 +6120,12 @@
 																}}
 															>
 																{#if captioningMediaIds.has(mediaId)}
-																	<LoaderIcon class="size-4 animate-spin md:size-3.5" />
+																	<ProtectedIcon
+																		icon="loading"
+																		class="size-4 animate-spin md:size-3.5"
+																	/>
 																{:else}
-																	<TypeIcon class="size-4 md:size-3.5" />
+																	<ProtectedIcon icon="editor-text" class="size-4 md:size-3.5" />
 																{/if}
 															</button>
 															<button
@@ -6148,7 +6138,7 @@
 																	removeMedia(i, mi);
 																}}
 															>
-																<XIcon class="size-4 md:size-3.5" />
+																<ThemeIcon role="close" class="size-4 md:size-3.5" />
 															</button>
 														</div>
 														{#if editingAltMediaId === mediaId}
@@ -6215,7 +6205,7 @@
 																{upload.file.name}
 															</p>
 															{#if upload.status === 'uploading'}
-																<LoaderIcon class="size-5 animate-spin" />
+																<ProtectedIcon icon="loading" class="size-5 animate-spin" />
 																<p class="text-xs font-medium">
 																	{upload.file.name}: {m.media_upload_action()}
 																	{#if upload.progress !== null}
@@ -6246,7 +6236,7 @@
 																	{m.common_cancel()}
 																</button>
 															{:else if upload.status === 'queued'}
-																<LoaderIcon class="size-5 animate-spin" />
+																<ProtectedIcon icon="loading" class="size-5 animate-spin" />
 																<p class="text-xs font-medium">
 																	{upload.file.name}: {m.media_upload_ready()}
 																</p>
@@ -6274,7 +6264,7 @@
 																		onclick={() => pasteMediaUploadQueue.retry(upload.id)}
 																		aria-label={`${m.common_retry()}: ${upload.file.name}`}
 																	>
-																		<RefreshCwIcon class="size-3.5" />
+																		<ThemeIcon role="refresh" class="size-3.5" />
 																		{m.common_retry()}
 																	</button>
 																	<button
@@ -6315,7 +6305,7 @@
 												onclick={() => openMediaPicker(i)}
 												aria-label={m.media_picker_add_media()}
 											>
-												<ImageIcon class="h-3.5 w-3.5" />
+												<ThemeIcon role="image" class="h-3.5 w-3.5" />
 											</button>
 
 											{#if editorPlatformLimits.length > 0}
@@ -6398,7 +6388,7 @@
 												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
 												onclick={addPost}
 											>
-												<PlusIcon class="h-3 w-3" />{m.compose_add_post()}
+												<ThemeIcon role="add" class="h-3 w-3" />{m.compose_add_post()}
 											</button>
 
 											{#if i === 0 && !activeVariantAccountId && !isThread}
@@ -6448,7 +6438,7 @@
 															class="min-h-11 gap-1.5 md:min-h-8"
 															onclick={undoLatestGenerationApply}
 														>
-															<Undo2Icon class="size-3.5" />
+															<ThemeIcon role="undo" class="size-3.5" />
 															{m.image_editor_undo()}
 														</Button>
 													{/if}
@@ -6459,7 +6449,7 @@
 														class="min-h-11 gap-1.5 md:min-h-8"
 														onclick={restoreIdea}
 													>
-														<Undo2Icon class="size-3.5" />
+														<ThemeIcon role="undo" class="size-3.5" />
 														{m.compose_ai_restore_idea()}
 													</Button>
 												</div>
@@ -6486,7 +6476,7 @@
 												title={m.compose_remove_post()}
 												aria-label={m.compose_remove_post()}
 											>
-												<Trash2Icon class="h-3.5 w-3.5" />
+												<ThemeIcon role="delete" class="h-3.5 w-3.5" />
 											</button>
 										{/if}
 									</div>
@@ -6691,7 +6681,7 @@
 						class="h-11 w-full justify-start gap-3 px-3"
 						onclick={openVersionHistory}
 					>
-						<HistoryIcon class="size-4 text-muted-foreground" />
+						<ThemeIcon role="history" class="size-4 text-muted-foreground" />
 						{m.image_editor_version_history()}
 					</Button>
 				{/if}
@@ -6704,10 +6694,10 @@
 						disabled={copyingDraft}
 					>
 						{#if copyingDraft}
-							<LoaderIcon class="size-4 animate-spin text-muted-foreground" />
+							<ProtectedIcon icon="loading" class="size-4 animate-spin text-muted-foreground" />
 							{m.publication_copying()}
 						{:else}
-							<CopyIcon class="size-4 text-muted-foreground" />
+							<ThemeIcon role="copy" class="size-4 text-muted-foreground" />
 							{m.publication_copy_as_draft()}
 						{/if}
 					</Button>
@@ -6879,7 +6869,7 @@
 					aria-busy={workspaceSwitchState?.intent === 'save'}
 				>
 					{#if workspaceSwitchState?.intent === 'save'}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{/if}
 					{isEditMode ? m.compose_save_changes() : m.compose_save_draft()}
 				</Button>

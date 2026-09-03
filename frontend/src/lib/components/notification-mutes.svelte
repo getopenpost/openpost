@@ -22,7 +22,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
-	import BellOffIcon from '@lucide/svelte/icons/bell-off';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	type NotificationMute = components['schemas']['Mute'];
 	interface MuteMutationView {
@@ -253,7 +253,11 @@
 	aria-labelledby="notification-mutes-heading"
 >
 	<div class="flex items-start gap-3">
-		<BellOffIcon class="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+		<ThemeIcon
+			role="notification"
+			class="mt-0.5 size-5 shrink-0 text-muted-foreground"
+			aria-hidden="true"
+		/>
 		<div>
 			<h2 id="notification-mutes-heading" class="text-sm font-semibold">
 				{m.notifications_mutes_heading()}

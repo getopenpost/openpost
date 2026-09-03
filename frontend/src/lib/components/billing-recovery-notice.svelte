@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { client } from '$lib/api/client';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -200,7 +200,7 @@
 					onclick={openPaymentRecovery}
 					disabled={recoveryBusy}
 				>
-					{#if recoveryBusy}<LoaderIcon class="mr-1.5 size-4 animate-spin" />{/if}
+					{#if recoveryBusy}<ProtectedIcon icon="loading" class="mr-1.5 size-4 animate-spin" />{/if}
 					{m.billing_recovery_update_payment_method()}
 				</Button>
 			{/if}

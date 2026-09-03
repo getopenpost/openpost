@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BarChartIcon from '@lucide/svelte/icons/chart-no-axes-column-increasing';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import InstanceAdminTrend from '$lib/components/instance-admin-trend.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -59,7 +59,7 @@
 		<SectionHeader
 			title={m.settings_instance_overview()}
 			description={m.settings_instance_overview_body()}
-			icon={BarChartIcon}
+			themeIconRole="analytics"
 			class="mb-4"
 		/>
 

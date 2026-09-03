@@ -1,21 +1,27 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
+	import type { ThemeIconRole } from '$lib/themes';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
 
-	interface Props {
+	type Props = {
 		title: string;
 		description?: string;
+		/** Custom icon component to display (takes precedence when both are set) */
 		icon?: IconComponent;
+		/** Semantic icon role resolved from the active organization theme */
+		themeIconRole?: ThemeIconRole;
 		actions?: Snippet;
 		headingLevel?: 2 | 3 | 4;
 		class?: string;
-	}
+	};
 
 	let {
 		title,
 		description,
 		icon: Icon,
+		themeIconRole,
 		actions,
 		headingLevel = 2,
 		class: className
@@ -25,7 +31,12 @@
 <header data-slot="section-header" class={cn('section-header flex flex-col gap-3', className)}>
 	<div class="min-w-0">
 		{#snippet headingContent()}
-			{#if Icon}<Icon class="size-4.5 shrink-0 text-muted-foreground" />{/if}
+			{#if Icon}<Icon
+					class="size-4.5 shrink-0 text-muted-foreground"
+				/>{:else if themeIconRole}<ThemeIcon
+					role={themeIconRole}
+					class="size-4.5 shrink-0 text-muted-foreground"
+				/>{/if}
 			{title}
 		{/snippet}
 		{#if headingLevel === 3}

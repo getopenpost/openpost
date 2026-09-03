@@ -24,11 +24,7 @@
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { CalendarDate, type DateValue } from '@internationalized/date';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { getStatusColor } from '$lib/utils';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { goto } from '$app/navigation';
@@ -336,7 +332,7 @@
 				</div>
 				{#if isFutureDay}
 					<Button size="sm" onclick={handleNewPost}>
-						<PlusIcon class="mr-1.5 size-4" />
+						<ThemeIcon role="add" class="mr-1.5 size-4" />
 						{m.day_posts_new_for_day()}
 					</Button>
 				{/if}
@@ -376,7 +372,7 @@
 					</InlineNotice>
 				{/if}
 				<EmptyState
-					icon={CalendarIcon}
+					themeIconRole="calendar"
 					title={m.day_posts_empty()}
 					actionLabel={isFutureDay ? m.day_posts_new_for_day() : undefined}
 					onAction={isFutureDay ? handleNewPost : undefined}
@@ -458,13 +454,14 @@
 											variant="ghost"
 											size="icon"
 											class="size-11"
-											aria-label={m.day_posts_actions()}><MoreIcon class="size-4" /></Button
+											aria-label={m.day_posts_actions()}
+											><ThemeIcon role="more-horizontal" class="size-4" /></Button
 										>
 									{/snippet}
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content align="end">
 									<DropdownMenu.Item onclick={() => handleEdit(post)}
-										><PencilIcon class="mr-2 size-4" />{canDeletePublication(post)
+										><ThemeIcon role="edit" class="mr-2 size-4" />{canDeletePublication(post)
 											? m.day_posts_edit_in_composer()
 											: m.activity_view_details()}</DropdownMenu.Item
 									>
@@ -473,7 +470,8 @@
 										<DropdownMenu.Item
 											class="text-destructive"
 											onclick={(event) => requestDelete(event, post)}
-											><TrashIcon
+											><ThemeIcon
+												role="delete"
 												class="mr-2 size-4"
 											/>{m.day_posts_delete_action()}</DropdownMenu.Item
 										>

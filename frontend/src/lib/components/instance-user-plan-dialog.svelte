@@ -2,8 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import type { components } from '$lib/api/types';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -232,7 +231,7 @@
 
 			{#if success}
 				<div class="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-					<CheckIcon class="size-4" />
+					<ThemeIcon role="check" class="size-4" />
 					{m.settings_instance_plan_changed()}
 				</div>
 			{/if}
@@ -247,7 +246,7 @@
 					class="mr-auto"
 				>
 					{#if saving}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{/if}
 					{m.settings_instance_remove_plan()}
 				</Button>
@@ -257,7 +256,7 @@
 			</Button>
 			<Button onclick={savePlan} disabled={!selectedPlan || saving || success}>
 				{#if saving}
-					<LoaderIcon class="size-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{/if}
 				{m.settings_instance_apply_plan()}
 			</Button>

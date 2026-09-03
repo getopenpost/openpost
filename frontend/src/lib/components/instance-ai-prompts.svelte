@@ -14,10 +14,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
-	import BracesIcon from '@lucide/svelte/icons/braces';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import SaveIcon from '@lucide/svelte/icons/save';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		adminQueryKeys,
 		aiPromptsQueryOptions,
@@ -429,7 +426,7 @@
 						<summary
 							class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 						>
-							<BracesIcon class="size-4 text-muted-foreground" />
+							<ThemeIcon role="code" class="size-4 text-muted-foreground" />
 							{m.settings_ai_prompts_preview()}
 						</summary>
 						<div class="border-t px-4 py-4">
@@ -460,7 +457,7 @@
 					<div class="flex flex-wrap gap-2">
 						{#if selectedDirty}
 							<Button variant="ghost" onclick={() => (drafts[selected.key] = selected.value)}>
-								<RotateCcwIcon class="size-4" />
+								<ThemeIcon role="refresh" class="size-4" />
 								{m.settings_ai_prompts_discard_edits()}
 							</Button>
 						{/if}
@@ -469,7 +466,7 @@
 							disabled={!selected.overridden || selectedDirty || resetting || saving}
 							onclick={() => void restoreBuiltIn()}
 						>
-							<RotateCcwIcon class="size-4" />
+							<ThemeIcon role="refresh" class="size-4" />
 							{m.settings_ai_prompts_use_builtin()}
 						</Button>
 					</div>
@@ -478,10 +475,10 @@
 						onclick={() => void saveSelected()}
 					>
 						{#if saving}
-							<LoaderIcon class="size-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 							{m.settings_ai_prompts_saving()}
 						{:else}
-							<SaveIcon class="size-4" />
+							<ThemeIcon role="save" class="size-4" />
 							{m.settings_ai_prompts_save()}
 						{/if}
 					</Button>

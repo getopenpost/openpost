@@ -120,24 +120,31 @@
 	const reportAccountProvidersInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.accountProviders
 	);
-	$effect(() =>
+	// The load-state reads must happen on every effect run: hoisting them out of the
+	// conditional keeps them tracked even when the scope term short-circuits, so the
+	// boundary settles as soon as the loads finish.
+	$effect(() => {
+		const workspaceID = selectedWorkspaceId;
+		const waitingForAccounts = accountsLoading && !accountsReady;
 		reportAccountsInitialLoad(
 			Boolean(
-				selectedWorkspaceId &&
+				workspaceID &&
 				!accountsLoadError &&
-				(accountsWorkspaceID !== selectedWorkspaceId || (accountsLoading && !accountsReady))
+				(accountsWorkspaceID !== workspaceID || waitingForAccounts)
 			)
-		)
-	);
-	$effect(() =>
+		);
+	});
+	$effect(() => {
+		const workspaceID = selectedWorkspaceId;
+		const waitingForProviders = providersLoading && !providersReady;
 		reportAccountProvidersInitialLoad(
 			Boolean(
-				selectedWorkspaceId &&
+				workspaceID &&
 				!providersLoadError &&
-				(providersWorkspaceID !== selectedWorkspaceId || (providersLoading && !providersReady))
+				(providersWorkspaceID !== workspaceID || waitingForProviders)
 			)
-		)
-	);
+		);
+	});
 	let mastodonModalOpen = $state(false);
 	let customMastodonInstance = $state('');
 	let customMastodonLoading = $state(false);

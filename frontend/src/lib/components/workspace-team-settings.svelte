@@ -99,17 +99,16 @@
 
 	const canManage = $derived(team?.can_manage ?? false);
 	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.members);
-	$effect(() =>
+	$effect(() => {
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when an earlier term short-circuits; otherwise the boundary never settles.
+		const scopeStale = loadedWorkspaceID !== workspaceID && !loadError;
+		const waitingForTeam = loading && !team;
+		const waitingForAudit = Boolean(team?.can_manage) && !auditReady && !auditError;
 		reportInitialLoad(
-			Boolean(
-				active &&
-				workspaceID &&
-				((loadedWorkspaceID !== workspaceID && !loadError) ||
-					(loading && !team) ||
-					(team?.can_manage && !auditReady && !auditError))
-			)
-		)
-	);
+			Boolean(active && workspaceID && (scopeStale || waitingForTeam || waitingForAudit))
+		);
+	});
 	const draftDirty = $derived(Boolean(inviteEmail.trim()) || inviteRole !== 'editor');
 	const normalizedSearch = $derived(search.trim().toLocaleLowerCase());
 	const filteredMembers = $derived.by(() => {

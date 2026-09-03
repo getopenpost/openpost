@@ -111,6 +111,8 @@ LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, a
 
 No posting option has passed our final live check on OpenPost Hosted yet.
 
+A social app can appear in OpenPost before it is ready for real accounts.
+
 <!-- provider-certification:end -->
 
 Pinterest and Discord/Telegram bot connections aren't public posting options yet.

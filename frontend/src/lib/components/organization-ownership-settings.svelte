@@ -82,18 +82,20 @@
 	const reportInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.ownership
 	);
-	$effect(() =>
+	$effect(() => {
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when an earlier term short-circuits; otherwise the boundary never settles.
+		const waitingForOrganizations = !organizationsReady && !organizationListError;
+		const organizationSelected = organizationsReady && organizationID && !error;
+		const scopeStale = displayedOrganizationID !== organizationID;
+		const waitingForState = loading && !pendingStateAvailable;
 		reportInitialLoad(
 			Boolean(
 				active &&
-				((!organizationsReady && !organizationListError) ||
-					(organizationsReady &&
-						organizationID &&
-						!error &&
-						(displayedOrganizationID !== organizationID || (loading && !pendingStateAvailable))))
+				(waitingForOrganizations || (organizationSelected && (scopeStale || waitingForState)))
 			)
-		)
-	);
+		);
+	});
 
 	$effect(() => {
 		const preferredID = preferredOrganizationID;

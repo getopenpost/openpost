@@ -230,8 +230,9 @@
 	}
 
 	async function deleted() {
-		if (!active || !deletionActorID || get(auth).user) return;
+		if (!active || !deletionActorID || get(auth).user?.id !== deletionActorID) return;
 		await goto(resolveAppPath('/account-deleted'));
+		workspaceCtx.reset();
 	}
 </script>
 

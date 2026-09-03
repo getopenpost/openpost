@@ -95,12 +95,18 @@
 			return;
 		}
 		if (get(auth).user?.id !== actorID) return;
-		auth.clearLocal();
-		localStorage.removeItem('oauth_workspace_id');
-		localStorage.removeItem('oauth_mastodon_server');
-		localStorage.removeItem('oauth_mastodon_instance_url');
 		if (!isCurrentDialog()) return;
-		await onDeleted();
+		// Navigate while the session is still recognized so the layout guard does not
+		// redirect to /login before the destination page loads; local state is cleared
+		// even if navigation fails because the server already deleted the account.
+		try {
+			await onDeleted();
+		} finally {
+			auth.clearLocal();
+			localStorage.removeItem('oauth_workspace_id');
+			localStorage.removeItem('oauth_mastodon_server');
+			localStorage.removeItem('oauth_mastodon_instance_url');
+		}
 	}
 
 	$effect(() => {

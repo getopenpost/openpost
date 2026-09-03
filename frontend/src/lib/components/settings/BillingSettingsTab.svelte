@@ -50,11 +50,14 @@
 	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.billing);
 	$effect(() => {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when the scope term short-circuits; otherwise the boundary never settles.
+		const waitingForBilling = billingStatusLoading && !billingStatus;
 		reportInitialLoad(
 			Boolean(
 				workspaceID &&
 				!billingLoadError &&
-				(loadedBillingWorkspaceID !== workspaceID || (billingStatusLoading && !billingStatus))
+				(loadedBillingWorkspaceID !== workspaceID || waitingForBilling)
 			)
 		);
 	});

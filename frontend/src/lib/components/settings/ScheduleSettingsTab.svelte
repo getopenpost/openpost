@@ -173,11 +173,14 @@
 	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.schedule);
 	$effect(() => {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when the scope term short-circuits; otherwise the boundary never settles.
+		const waitingForSchedules = loadingSchedules && !scheduleDataReady;
 		reportInitialLoad(
 			Boolean(
 				workspaceID &&
 				!scheduleError &&
-				(loadedScheduleWorkspaceID !== workspaceID || (loadingSchedules && !scheduleDataReady))
+				(loadedScheduleWorkspaceID !== workspaceID || waitingForSchedules)
 			)
 		);
 	});

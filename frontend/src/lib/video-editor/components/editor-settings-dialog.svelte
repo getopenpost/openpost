@@ -12,9 +12,6 @@
 		soundPreferences,
 		type InterfaceSoundTheme
 	} from '$lib/stores/sound-preferences.svelte';
-	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
-	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
-	import RowsIcon from '@lucide/svelte/icons/rows-3';
 	import type { ThemeIconRole } from '$lib/themes';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -74,14 +71,13 @@
 	const sections: Array<{
 		id: Section;
 		label: () => string;
-		icon?: typeof HardDriveIcon;
-		themeIcon?: ThemeIconRole;
+		themeIcon: ThemeIconRole;
 	}> = [
 		{ id: 'general', label: m.video_editor_settings_general, themeIcon: 'settings' },
-		{ id: 'timeline', label: m.video_editor_settings_timeline, icon: RowsIcon },
-		{ id: 'shortcuts', label: m.video_editor_settings_shortcuts, icon: KeyboardIcon },
+		{ id: 'timeline', label: m.video_editor_settings_timeline, themeIcon: 'layout' },
+		{ id: 'shortcuts', label: m.video_editor_settings_shortcuts, themeIcon: 'controls' },
 		{ id: 'ai', label: m.video_editor_settings_ai, themeIcon: 'sparkles' },
-		{ id: 'storage', label: m.video_editor_settings_storage, icon: HardDriveIcon }
+		{ id: 'storage', label: m.video_editor_settings_storage, themeIcon: 'storage' }
 	];
 
 	function setBoolean(
@@ -210,7 +206,6 @@
 				aria-label={m.video_editor_settings_sections()}
 			>
 				{#each sections as item (item.id)}
-					{@const Icon = item.icon}
 					<button
 						type="button"
 						class="flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
@@ -219,11 +214,7 @@
 						data-cuelume-toggle="tick"
 						onclick={() => (section = item.id)}
 					>
-						{#if item.themeIcon}
-							<ThemeIcon role={item.themeIcon} class="size-3.5" />
-						{:else if Icon}
-							<Icon class="size-3.5" aria-hidden="true" />
-						{/if}
+						<ThemeIcon role={item.themeIcon} class="size-3.5" />
 						{item.label()}
 					</button>
 				{/each}

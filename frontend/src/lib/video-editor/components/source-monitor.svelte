@@ -15,11 +15,6 @@
 		SourceEditError,
 		type SourcePatchTarget
 	} from '$lib/video-editor/source-monitor/source-edit';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import RepeatIcon from '@lucide/svelte/icons/repeat-2';
-	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
-	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
 	import {
 		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
@@ -909,7 +904,7 @@
 				aria-label={m.video_editor_source_play_in_to_out()}
 				onclick={replayMarkedRange}
 			>
-				<RepeatIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="editor-loop" class="size-3.5" />
 			</button>
 			<button
 				class="transport-button"
@@ -918,7 +913,7 @@
 				title={formatShortcutBinding(keyboardShortcuts.bindings.GO_TO_START)}
 				onclick={() => seek(0)}
 			>
-				<SkipBackIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="editor-skip-back" class="size-3.5" />
 			</button>
 			<button
 				class="transport-button"
@@ -927,7 +922,7 @@
 				title={formatShortcutBinding(keyboardShortcuts.bindings.PREVIOUS_FRAME)}
 				onclick={() => seek(currentFrame - 1)}
 			>
-				<ChevronLeftIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="chevron-left" class="size-3.5" />
 			</button>
 			<button
 				class="transport-button primary"
@@ -948,7 +943,7 @@
 				title={formatShortcutBinding(keyboardShortcuts.bindings.NEXT_FRAME)}
 				onclick={() => seek(currentFrame + 1)}
 			>
-				<ChevronRightIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="chevron-right" class="size-3.5" />
 			</button>
 			<button
 				class="transport-button"
@@ -957,7 +952,7 @@
 				title={formatShortcutBinding(keyboardShortcuts.bindings.GO_TO_END)}
 				onclick={() => seek(durationFrames - 1)}
 			>
-				<SkipForwardIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="editor-skip-forward" class="size-3.5" />
 			</button>
 			<button
 				class="mark-button"

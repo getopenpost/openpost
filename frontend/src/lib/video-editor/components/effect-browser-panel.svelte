@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import LayersIcon from '@lucide/svelte/icons/layers-3';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
@@ -19,6 +18,7 @@
 		type EffectTemplate
 	} from '$lib/video-editor/timeline/effect-drop';
 	import EffectThumbnail from './effect-thumbnail.svelte';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	let {
 		selectedItemIds = [],
@@ -134,7 +134,7 @@
 		onclick={() => createAdjustment(m.video_editor_adjustment_layer())}
 	>
 		<span class="grid size-10 place-items-center rounded-md border border-white/10 bg-white/5">
-			<LayersIcon class="size-5" aria-hidden="true" />
+			<ProtectedIcon icon="editor-layers" class="size-5" />
 		</span>
 		<span>{m.video_editor_add_adjustment_layer()}</span>
 	</button>

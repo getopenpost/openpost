@@ -20,9 +20,6 @@
 		flattenLibraryPalettes
 	} from '$lib/video-editor/media/scene-search/library-palette';
 	import type { MediaScene } from '$lib/video-editor/media/scene-search/types';
-	import GridIcon from '@lucide/svelte/icons/layout-grid';
-	import ListIcon from '@lucide/svelte/icons/list';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import SceneThumbnail from './scene-thumbnail.svelte';
 
 	let batchBusy = $state(false);
@@ -182,7 +179,7 @@
 					: m.video_editor_scene_colors()}
 				onclick={() => (sceneBrowser.colorMode = !sceneBrowser.colorMode)}
 			>
-				<PaletteIcon class="size-3" aria-hidden="true" />
+				<ThemeIcon role="appearance" class="size-3" />
 			</button>
 		</div>
 		{#if sceneBrowser.colorMode && libraryColors.length > 0}
@@ -271,7 +268,7 @@
 				aria-label={m.video_editor_scene_view_grid()}
 				onclick={() => (sceneBrowser.viewMode = 'grid')}
 			>
-				<GridIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="layout" class="size-3.5" />
 			</button>
 			<button
 				type="button"
@@ -280,7 +277,7 @@
 				aria-label={m.video_editor_scene_view_list()}
 				onclick={() => (sceneBrowser.viewMode = 'list')}
 			>
-				<ListIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="layout" class="size-3.5" />
 			</button>
 		</div>
 	</div>
@@ -375,7 +372,7 @@
 											aria-label={m.video_editor_scene_palette_similar()}
 											onclick={() => findSimilarPalette(scene)}
 										>
-											<PaletteIcon class="size-3" aria-hidden="true" />
+											<ThemeIcon role="appearance" class="size-3" />
 										</button>
 										{#each scene.palette.slice(0, 4) as swatch}
 											<button

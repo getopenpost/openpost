@@ -17,7 +17,6 @@
 		MIN_PROJECT_HEIGHT,
 		MIN_PROJECT_WIDTH
 	} from '$lib/video-editor/project/project-presets';
-	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 
 	let { onedit }: { onedit: () => void } = $props();
 
@@ -157,7 +156,7 @@
 					class="min-h-11 lg:min-h-8"
 					onclick={swapDimensions}
 				>
-					<ArrowLeftRightIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="swap" class="size-3.5" />
 					{m.video_editor_project_canvas_swap()}
 				</Button>
 				<Button

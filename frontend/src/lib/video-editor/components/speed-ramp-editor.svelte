@@ -1,6 +1,4 @@
 <script lang="ts">
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -12,6 +10,7 @@
 	} from '$lib/video-editor/timeline/actions/items';
 	import { applyEasing } from '$lib/video-editor/timeline/easing';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { itemId, itemIds, onedit }: { itemId: string; itemIds: string[]; onedit: () => void } =
 		$props();
@@ -106,7 +105,7 @@
 			disabled={!canAdd}
 			onclick={addPoint}
 		>
-			<PlusIcon class="size-3" aria-hidden="true" />
+			<ThemeIcon role="add" class="size-3" />
 			{m.video_editor_path_add_point()}
 		</button>
 	</div>
@@ -173,7 +172,7 @@
 						aria-label={`${m.common_delete()} ${pointLabel(index)}`}
 						onclick={() => removePoint(point.id)}
 					>
-						<Trash2Icon class="size-3.25" aria-hidden="true" />
+						<ThemeIcon role="delete" class="size-3.25" />
 					</button>
 				</div>
 			{/each}

@@ -341,18 +341,7 @@
 	import { wouldCreateCompositionCycle } from '$lib/video-editor/sequences/composition-graph';
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
-	import { ThemeIcon } from '$lib/themes/icons';
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import MagnetIcon from '@lucide/svelte/icons/magnet';
-	import Link2Icon from '@lucide/svelte/icons/link-2';
-	import CombineIcon from '@lucide/svelte/icons/combine';
-	import UnlinkIcon from '@lucide/svelte/icons/unlink';
-	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
-	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
-	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
-	import FlagIcon from '@lucide/svelte/icons/flag';
-	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import MusicIcon from '@lucide/svelte/icons/music';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { SceneScanMode } from '$lib/video-editor/media/scene-scan';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
 
@@ -4986,7 +4975,7 @@
 				title={`${m.video_editor_add_marker()} (M)`}
 				onclick={addMarkerAtPlayhead}
 			>
-				<FlagIcon class="size-3.5" />
+				<ProtectedIcon icon="editor-marker" class="size-3.5" />
 			</Button>
 			<MarkerListPopover {onedit} onselect={selectMarker} />
 			<Button
@@ -5003,7 +4992,7 @@
 					: m.video_editor_snap_enable()}
 				onclick={toggleSnap}
 			>
-				<MagnetIcon class="size-3.5" />
+				<ProtectedIcon icon="editor-snap" class="size-3.5" />
 			</Button>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
@@ -5134,7 +5123,7 @@
 					title={m.video_editor_keyframes()}
 					onclick={() => (keyframesOpen = !keyframesOpen)}
 				>
-					<DiamondIcon class="size-3.5" />
+					<ProtectedIcon icon="editor-keyframe" class="size-3.5" />
 				</Button>
 				{#if keyframesOpen}
 					<AppSelect
@@ -5148,7 +5137,7 @@
 						type="button"
 						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 						onclick={() => addKeyframeAtPlayhead(pendingKeyframeProperty)}
-						><DiamondIcon class="size-2.5 fill-current" />
+						><ProtectedIcon icon="editor-keyframe" class="size-2.5 fill-current" />
 						{m.video_editor_keyframe_add()}</button
 					>
 					<button
@@ -5196,7 +5185,7 @@
 				title={m.video_editor_beat_panel_title()}
 				onclick={toggleBeatPanel}
 			>
-				<MusicIcon class="size-3.5" />
+				<ThemeIcon role="audio" class="size-3.5" />
 			</Button>
 			<Button
 				variant="ghost"
@@ -5208,7 +5197,7 @@
 				title={m.video_editor_mixer_toggle_hint()}
 				onclick={toggleMixer}
 			>
-				<SlidersHorizontalIcon class="size-3.5" />
+				<ThemeIcon role="controls" class="size-3.5" />
 			</Button>
 			<button
 				type="button"
@@ -5217,7 +5206,7 @@
 				title={m.video_editor_zoom_out_hint()}
 				onclick={() => zoomBy(1 / TIMELINE_ZOOM_STEP)}
 			>
-				<ZoomOutIcon class="size-4" />
+				<ThemeIcon role="layout" class="size-4" />
 			</button>
 			<Slider
 				class="w-28"
@@ -5235,7 +5224,7 @@
 				title={m.video_editor_zoom_in_hint()}
 				onclick={() => zoomBy(TIMELINE_ZOOM_STEP)}
 			>
-				<ZoomInIcon class="size-4" />
+				<ThemeIcon role="layout" class="size-4" />
 			</button>
 			<button
 				type="button"
@@ -5253,7 +5242,7 @@
 				title={m.video_editor_zoom_fit_hint()}
 				onclick={zoomToFit}
 			>
-				<Maximize2Icon class="size-4" />
+				<ThemeIcon role="layout" class="size-4" />
 			</button>
 		</div>
 	</div>
@@ -5311,7 +5300,9 @@
 		<div
 			class="flex min-h-9 max-w-full items-center gap-2 overflow-x-auto border-t border-[oklch(0.25_0.015_55)] px-3 py-1 text-xs"
 		>
-			<FlagIcon class="size-3.5 shrink-0" style={`color:${selectedMarker.color}`} />
+			<span style={`color:${selectedMarker.color}`} class="inline-flex shrink-0">
+				<ProtectedIcon icon="editor-marker" class="size-3.5" />
+			</span>
 			<span class="shrink-0 font-medium text-white/85">{markerName(selectedMarker)}</span>
 			<label class="flex items-center gap-1 text-[oklch(0.65_0.015_55)]">
 				{m.video_editor_marker_label()}

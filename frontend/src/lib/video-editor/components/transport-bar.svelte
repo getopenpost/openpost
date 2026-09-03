@@ -27,18 +27,6 @@
 		setInPoint,
 		setOutPoint
 	} from '$lib/video-editor/timeline/actions/items';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import GaugeIcon from '@lucide/svelte/icons/gauge';
-	import MaximizeIcon from '@lucide/svelte/icons/maximize';
-	import MinimizeIcon from '@lucide/svelte/icons/minimize';
-	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
-	import SquareIcon from '@lucide/svelte/icons/square';
-	import Volume1Icon from '@lucide/svelte/icons/volume-1';
-	import Volume2Icon from '@lucide/svelte/icons/volume-2';
-	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
-	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
-	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
 
 	let {
 		projectId,
@@ -165,7 +153,7 @@
 			aria-label={m.video_editor_go_to_start()}
 			onclick={() => setCurrentFrame(0)}
 		>
-			<SkipBackIcon />
+			<ProtectedIcon icon="editor-skip-back" />
 		</Button>
 		<Button
 			class="hidden sm:inline-flex"
@@ -175,7 +163,7 @@
 			aria-label={m.video_editor_step_back()}
 			onclick={() => setCurrentFrame(timelineStore.currentFrame - 1)}
 		>
-			<ChevronLeftIcon />
+			<ThemeIcon role="chevron-left" />
 		</Button>
 		<Button
 			size="icon-xs"
@@ -199,7 +187,7 @@
 			aria-label={m.video_editor_stop()}
 			onclick={() => editorSession.stopPlayback()}
 		>
-			<SquareIcon />
+			<ProtectedIcon icon="editor-stop" />
 		</Button>
 		<Button
 			class="hidden sm:inline-flex"
@@ -209,7 +197,7 @@
 			aria-label={m.video_editor_step_forward()}
 			onclick={() => setCurrentFrame(timelineStore.currentFrame + 1)}
 		>
-			<ChevronRightIcon />
+			<ThemeIcon role="chevron-right" />
 		</Button>
 		<TimelineVoiceoverControl {projectId} oninserted={onvoiceoverinserted} />
 
@@ -226,11 +214,11 @@
 							: m.video_editor_monitor_percent({ percent: monitorPercent })}
 					>
 						{#if previewPlaybackSettings.muted || previewPlaybackSettings.volume === 0}
-							<VolumeXIcon />
+							<ThemeIcon role="audio" />
 						{:else if previewPlaybackSettings.volume < 0.5}
-							<Volume1Icon />
+							<ThemeIcon role="audio" />
 						{:else}
-							<Volume2Icon />
+							<ThemeIcon role="audio" />
 						{/if}
 					</Button>
 				{/snippet}
@@ -251,7 +239,9 @@
 							: m.video_editor_monitor_mute()}
 						onclick={() => previewPlaybackSettings.toggleMute()}
 					>
-						{#if previewPlaybackSettings.muted}<VolumeXIcon />{:else}<Volume2Icon />{/if}
+						{#if previewPlaybackSettings.muted}<ThemeIcon role="audio" />{:else}<ThemeIcon
+								role="audio"
+							/>{/if}
 					</Button>
 					<Slider
 						value={previewPlaybackSettings.muted ? 0 : previewPlaybackSettings.volume}
@@ -328,7 +318,7 @@
 							? adaptivePreviewQuality.scale
 							: 1}
 					>
-						<GaugeIcon />
+						<ProtectedIcon icon="editor-speed" />
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
@@ -358,7 +348,7 @@
 			onclick={() =>
 				previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'out'))}
 		>
-			<ZoomOutIcon />
+			<ThemeIcon role="layout" />
 		</Button>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
@@ -392,7 +382,7 @@
 			onclick={() =>
 				previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'in'))}
 		>
-			<ZoomInIcon />
+			<ThemeIcon role="layout" />
 		</Button>
 		<Button
 			size="icon-xs"
@@ -400,7 +390,7 @@
 			aria-label={fullscreen ? m.video_editor_exit_fullscreen() : m.video_editor_enter_fullscreen()}
 			onclick={() => void toggleFullscreen()}
 		>
-			{#if fullscreen}<MinimizeIcon />{:else}<MaximizeIcon />{/if}
+			{#if fullscreen}<ThemeIcon role="layout" />{:else}<ThemeIcon role="layout" />{/if}
 		</Button>
 	</div>
 </div>

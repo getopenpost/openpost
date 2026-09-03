@@ -10,8 +10,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import CrosshairIcon from '@lucide/svelte/icons/crosshair';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import {
 		EFFECT_DEFINITIONS,
 		type GpuEffect,
@@ -767,7 +766,7 @@
 											: m.video_editor_spatial_edit_center({ effect: effectLabel(effect) })}
 										onclick={() => toggleSpatialEditing(effect)}
 									>
-										<CrosshairIcon class="size-3.5" />
+										<ProtectedIcon icon="editor-focus" class="size-3.5" />
 										{isSpatialEditing(effect.id)
 											? m.video_editor_spatial_editing_center()
 											: m.video_editor_spatial_edit_center_short()}

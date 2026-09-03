@@ -1,17 +1,9 @@
 <!-- Multi-item transform gizmo and compact canvas alignment controls. -->
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import AlignStartVerticalIcon from '@lucide/svelte/icons/align-start-vertical';
-	import AlignCenterVerticalIcon from '@lucide/svelte/icons/align-center-vertical';
-	import AlignEndVerticalIcon from '@lucide/svelte/icons/align-end-vertical';
-	import AlignStartHorizontalIcon from '@lucide/svelte/icons/align-start-horizontal';
-	import AlignCenterHorizontalIcon from '@lucide/svelte/icons/align-center-horizontal';
-	import AlignEndHorizontalIcon from '@lucide/svelte/icons/align-end-horizontal';
-	import DistributeHorizontalIcon from '@lucide/svelte/icons/align-horizontal-distribute-center';
-	import DistributeVerticalIcon from '@lucide/svelte/icons/align-vertical-distribute-center';
-	import MagnetIcon from '@lucide/svelte/icons/magnet';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { resolvedTransformForItem } from '$lib/video-editor/timeline/animated-properties';
+	import { ProtectedIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { CanvasSnapLine } from '$lib/video-editor/preview/canvas-snapping';
 	import {
@@ -108,37 +100,52 @@
 			)
 	);
 	const alignmentActions = $derived([
-		{ type: 'left', label: m.image_editor_align_left(), icon: AlignStartVerticalIcon, min: 1 },
+		{
+			type: 'left',
+			label: m.image_editor_align_left(),
+			icon: 'editor-align-left' as ProtectedIconRole,
+			min: 1
+		},
 		{
 			type: 'center-horizontal',
 			label: m.image_editor_align_center(),
-			icon: AlignCenterVerticalIcon,
+			icon: 'editor-align-center-vertical' as ProtectedIconRole,
 			min: 1
 		},
-		{ type: 'right', label: m.image_editor_align_right(), icon: AlignEndVerticalIcon, min: 1 },
-		{ type: 'top', label: m.image_editor_align_top(), icon: AlignStartHorizontalIcon, min: 1 },
+		{
+			type: 'right',
+			label: m.image_editor_align_right(),
+			icon: 'editor-align-right' as ProtectedIconRole,
+			min: 1
+		},
+		{
+			type: 'top',
+			label: m.image_editor_align_top(),
+			icon: 'editor-align-top' as ProtectedIconRole,
+			min: 1
+		},
 		{
 			type: 'center-vertical',
 			label: m.image_editor_align_middle(),
-			icon: AlignCenterHorizontalIcon,
+			icon: 'editor-align-center-horizontal' as ProtectedIconRole,
 			min: 1
 		},
 		{
 			type: 'bottom',
 			label: m.image_editor_align_bottom(),
-			icon: AlignEndHorizontalIcon,
+			icon: 'editor-align-bottom' as ProtectedIconRole,
 			min: 1
 		},
 		{
 			type: 'distribute-horizontal',
 			label: m.video_editor_distribute_horizontal(),
-			icon: DistributeHorizontalIcon,
+			icon: 'editor-distribute-horizontal' as ProtectedIconRole,
 			min: 3
 		},
 		{
 			type: 'distribute-vertical',
 			label: m.video_editor_distribute_vertical(),
-			icon: DistributeVerticalIcon,
+			icon: 'editor-distribute-vertical' as ProtectedIconRole,
 			min: 3
 		}
 	]);
@@ -368,7 +375,7 @@
 		data-group-alignment-toolbar
 	>
 		{#each alignmentActions as action (action.type)}
-			{@const Icon = action.icon}
+			{@const icon = action.icon}
 			<button
 				type="button"
 				class="flex size-11 shrink-0 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white disabled:opacity-30 md:size-7 [@media(pointer:coarse)]:size-11"
@@ -377,7 +384,7 @@
 				disabled={items.length < action.min}
 				onclick={() => align(action.type as GroupAlignment)}
 			>
-				<Icon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon {icon} class="size-3.5" />
 			</button>
 		{/each}
 		<span class="mx-0.5 h-4 w-px bg-white/15"></span>
@@ -396,7 +403,7 @@
 				: m.video_editor_canvas_snap_enable()}
 			onclick={ontogglesnapping}
 		>
-			<MagnetIcon class="size-3.5" aria-hidden="true" />
+			<ProtectedIcon icon="editor-snap" class="size-3.5" />
 		</button>
 	</div>
 

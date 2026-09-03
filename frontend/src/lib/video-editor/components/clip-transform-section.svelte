@@ -1,9 +1,7 @@
 <script lang="ts">
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import MoveIcon from '@lucide/svelte/icons/move';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -287,9 +285,9 @@
 			aria-pressed={autoKeyEnabled(property)}
 			onclick={() => toggleAutoKey(property)}
 		>
-			<DiamondIcon
+			<ProtectedIcon
+				icon="editor-keyframe"
 				class={`size-2.5 ${autoKeyEnabled(property) ? 'fill-current' : ''}`}
-				aria-hidden="true"
 			/>
 		</button>
 	</div>
@@ -303,7 +301,7 @@
 		<h3
 			class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
 		>
-			<MoveIcon class="size-3.5 text-white/42" aria-hidden="true" />
+			<ProtectedIcon icon="editor-move" class="size-3.5 text-white/42" />
 			{m.video_editor_property_transform()}
 		</h3>
 		<div class="divide-y divide-white/6">
@@ -526,9 +524,9 @@
 						aria-pressed={autoKeyEnabled('opacity')}
 						onclick={() => toggleAutoKey('opacity')}
 					>
-						<DiamondIcon
+						<ProtectedIcon
+							icon="editor-keyframe"
 							class={`size-2.5 ${autoKeyEnabled('opacity') ? 'fill-current' : ''}`}
-							aria-hidden="true"
 						/>
 					</button>
 					<button

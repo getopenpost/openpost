@@ -4,10 +4,10 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import type { ShapeType, TimelineItem } from '$lib/video-editor/project/types';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 	import { hasPathVertexKeyframes } from '$lib/video-editor/timeline/path-vertex-keyframes';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
 
@@ -244,7 +244,7 @@
 						title={m.video_editor_project_canvas_swap()}
 						onclick={swapGradientColors}
 					>
-						<ArrowLeftRightIcon class="size-3.5" />
+						<ThemeIcon role="swap" class="size-3.5" />
 					</Button>
 				</div>
 			{/if}

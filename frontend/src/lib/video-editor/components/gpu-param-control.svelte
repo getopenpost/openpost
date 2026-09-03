@@ -5,8 +5,8 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import type { GpuParamSchema, GpuParamValue } from '$lib/video-editor/effects/gpu/types';
 	import { gpuOptionLabel, gpuParamLabel } from '$lib/video-editor/effects/gpu/i18n';
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	let {
 		param,
@@ -100,7 +100,10 @@
 				: m.video_editor_effects_keyframe_add({ parameter: keyframeLabel })}
 			onclick={keyframe.onToggleKeyframe}
 		>
-			<DiamondIcon class={`size-2.5 ${keyframe.atCurrentFrame ? 'fill-current' : ''}`} />
+			<ProtectedIcon
+				icon="editor-keyframe"
+				class={`size-2.5 ${keyframe.atCurrentFrame ? 'fill-current' : ''}`}
+			/>
 		</button>
 	{/if}
 {/snippet}

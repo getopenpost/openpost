@@ -4,20 +4,13 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { TimelineTrack } from '$lib/video-editor/project/types';
 	import {
 		eventMatchesShortcut,
 		formatShortcutAriaKey
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
-	import FolderIcon from '@lucide/svelte/icons/folder';
-	import LockIcon from '@lucide/svelte/icons/lock';
-	import LockOpenIcon from '@lucide/svelte/icons/lock-open';
-	import RadioIcon from '@lucide/svelte/icons/radio';
-	import UngroupIcon from '@lucide/svelte/icons/ungroup';
-	import Volume2Icon from '@lucide/svelte/icons/volume-2';
-	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
 
 	let {
 		track,
@@ -189,7 +182,7 @@
 						class="size-3.5"
 					/>{/if}
 			</Button>
-			<FolderIcon class="size-3.5 shrink-0 text-[oklch(0.76_0.14_45)]" />
+			<ThemeIcon role="folder" class="size-3.5 shrink-0 text-[oklch(0.76_0.14_45)]" />
 		{/if}
 		{#if editingName}
 			<Input
@@ -260,7 +253,8 @@
 					: m.video_editor_track_lock()}
 			onclick={onlock}
 		>
-			{#if effectiveTrack.locked}<LockIcon class="size-3.5" />{:else}<LockOpenIcon
+			{#if effectiveTrack.locked}<ThemeIcon role="lock" class="size-3.5" />{:else}<ThemeIcon
+					role="lock"
 					class="size-3.5"
 				/>{/if}
 		</Button>
@@ -300,7 +294,8 @@
 							title={inheritedMuted ? m.video_editor_track_group_mute_inherited() : undefined}
 							onclick={() => runMoreAction(onmute)}
 						>
-							{#if effectiveTrack.muted}<VolumeXIcon class="size-4" />{:else}<Volume2Icon
+							{#if effectiveTrack.muted}<ThemeIcon role="audio" class="size-4" />{:else}<ThemeIcon
+									role="audio"
 									class="size-4"
 								/>{/if}
 							{effectiveTrack.muted ? m.video_editor_track_unmute() : m.video_editor_track_mute()}
@@ -314,7 +309,7 @@
 							title={inheritedSolo ? m.video_editor_track_group_solo_inherited() : undefined}
 							onclick={() => runMoreAction(onsolo)}
 						>
-							<RadioIcon class="size-4" />
+							<ProtectedIcon icon="editor-solo" class="size-4" />
 							{effectiveTrack.solo ? m.video_editor_track_unsolo() : m.video_editor_track_solo()}
 						</button>
 						{#if !track.isGroup}
@@ -337,7 +332,7 @@
 								class={menuItemClass}
 								onclick={() => runMoreAction(onungroup)}
 							>
-								<UngroupIcon class="size-4" />
+								<ProtectedIcon icon="editor-ungroup" class="size-4" />
 								{m.video_editor_track_group_ungroup_hint()}
 							</button>
 						{/if}

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import LayersIcon from '@lucide/svelte/icons/layers-3';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes';
+	import type { ProtectedIconRole } from '$lib/themes/icons';
 	import type { EditorWorkspaceId } from '$lib/video-editor/workspaces/editor-workspace.svelte';
 
 	let {
@@ -10,11 +10,29 @@
 		onchange
 	}: { value: EditorWorkspaceId; onchange: (workspace: EditorWorkspaceId) => void } = $props();
 
-	const workspaces = [
-		{ id: 'edit', label: m.video_editor_workspace_edit, icon: ScissorsIcon },
-		{ id: 'color', label: m.video_editor_workspace_color, icon: PaletteIcon },
-		{ id: 'motion', label: m.video_editor_workspace_motion, icon: LayersIcon }
-	] as const;
+	type WorkspaceEmblem =
+		| { kind: 'protected'; role: ProtectedIconRole }
+		| { kind: 'theme'; role: ThemeIconRole };
+
+	const workspaces: Array<{ id: EditorWorkspaceId; label: () => string; emblem: WorkspaceEmblem }> =
+		[
+			// Scissors is the stable emblem of the Edit workspace, not a cut action.
+			{
+				id: 'edit',
+				label: m.video_editor_workspace_edit,
+				emblem: { kind: 'protected', role: 'editor-cut' }
+			},
+			{
+				id: 'color',
+				label: m.video_editor_workspace_color,
+				emblem: { kind: 'theme', role: 'appearance' }
+			},
+			{
+				id: 'motion',
+				label: m.video_editor_workspace_motion,
+				emblem: { kind: 'protected', role: 'editor-layers' }
+			}
+		];
 
 	function focusWorkspace(index: number): void {
 		const workspace = workspaces[index];
@@ -59,7 +77,11 @@
 			onclick={() => onchange(workspace.id)}
 			onkeydown={(event) => handleKeydown(event, index)}
 		>
-			<workspace.icon class="size-3.5" aria-hidden="true" />
+			{#if workspace.emblem.kind === 'protected'}
+				<ProtectedIcon icon={workspace.emblem.role} class="size-3.5" />
+			{:else}
+				<ThemeIcon role={workspace.emblem.role} class="size-3.5" />
+			{/if}
 			<span class="hidden sm:inline">{workspace.label()}</span>
 		</button>
 	{/each}

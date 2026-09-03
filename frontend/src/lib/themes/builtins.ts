@@ -1066,6 +1066,10 @@ export function getBuiltInTheme(id: ThemeFamilyId): ThemeManifest {
 	return value;
 }
 
+// Static client mirror of the server built-in resolution rule (unsupported
+// scheme falls back as a whole to Workshop, never a hybrid). Used for
+// offline-capable preview and unavailable-theme placeholders; authoritative
+// resolution always goes through the server resolver.
 export function resolveBuiltInTheme(
 	id: ThemeFamilyId | string,
 	requestedScheme: ThemeScheme

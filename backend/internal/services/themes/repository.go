@@ -217,7 +217,7 @@ func exactlyOne(result sql.Result) (bool, error) {
 }
 
 func writeError(err error, operation string) error {
-	for _, known := range []error{ErrInvalidInput, ErrInvalidManifest, ErrNotFound, ErrInaccessible, ErrConflict, ErrRevisionConflict, ErrAssignmentLocked, ErrThemeInUse, ErrBuiltInImmutable, ErrUnsupportedScheme, ErrInvalidAsset} {
+	for _, known := range []error{ErrInvalidInput, ErrInvalidManifest, ErrNotFound, ErrInaccessible, ErrConflict, ErrRevisionConflict, ErrAssignmentLocked, ErrThemeInUse, ErrUnsupportedScheme, ErrInvalidAsset} {
 		if errors.Is(err, known) {
 			return err
 		}

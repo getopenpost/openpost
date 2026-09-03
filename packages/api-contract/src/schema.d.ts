@@ -4311,7 +4311,7 @@ export interface paths {
         };
         /**
          * Resolve the complete Workspace theme
-         * @description Returns one complete manifest. Missing, invalid, unpublished, deleted, inaccessible, or unsupported references fall back as a whole to Workshop.
+         * @description Returns one complete manifest. Resolution precedence: locked or missing Workspace selection inherits the Organization default; the default falls back to Workshop. Missing, invalid, unpublished, deleted, inaccessible, or unsupported references fall back as a whole to Workshop with a fallbackReason; the response never mixes schemes or token sources. Cache identity is source:id:version:scheme (fallbacks additionally key on reason) and served as ETag. Native clients: token values use web CSS value syntax (px/rem/em/%, ms/s, oklch(), color-mix(), cubic-bezier); map them to platform values (16px root, hex8 color, millisecond durations, closed recipe enums) and validate the result before staging. Resource URLs are same-origin /api/v1/theme-assets/{id}/content scoped by workspace_id, theme_id, and revision with optional ttf/otf font derivatives.
          */
         get: operations["resolve-theme"];
         put?: never;
@@ -6877,7 +6877,7 @@ export interface components {
             readonly $schema?: string;
             /** @description Built-in family to copy into an editable draft */
             duplicate_built_in_id?: string;
-            /** @description Complete family manifest with light and/or dark schemes; omit when duplicating a built-in */
+            /** @description Complete family manifest with light and/or dark schemes; omit when duplicating a built-in. Both create paths snapshot into an independent custom lineage, so later built-in updates never alter the copy. */
             manifest?: components["schemas"]["ThemeManifest"];
             /** @description Theme family name */
             name: string;

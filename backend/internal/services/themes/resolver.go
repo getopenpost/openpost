@@ -16,6 +16,10 @@ type resolver struct{ store resolutionStore }
 
 func newResolver(store resolutionStore) *resolver { return &resolver{store: store} }
 
+// ResolveInput takes workspace plus concrete scheme only. The organization
+// is derived from the workspace server-side so callers cannot request a
+// cross-organization resolution; user appearance preference (light/dark/
+// system) is resolved to a concrete scheme by the client before calling.
 type ResolveInput struct {
 	WorkspaceID string
 	Scheme      ColorScheme

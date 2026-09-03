@@ -22,7 +22,6 @@ var (
 	ErrRevisionConflict  = errors.New("theme revision changed")
 	ErrAssignmentLocked  = errors.New("workspace theme assignment is locked")
 	ErrThemeInUse        = errors.New("theme is assigned or is the organization default")
-	ErrBuiltInImmutable  = errors.New("built-in themes are immutable")
 	ErrUnsupportedScheme = errors.New("theme does not support the requested color scheme")
 	ErrInvalidAsset      = errors.New("invalid theme asset")
 )
@@ -417,6 +416,10 @@ type Selection struct {
 
 type FallbackReason string
 
+// Several distinct failure modes share the "missing-theme" wire string on
+// purpose: resolving a theme must not reveal whether an inaccessible
+// reference is missing, unpublished, or forbidden (non-enumeration). The
+// internal enum keeps the distinction for server logs and metrics.
 const (
 	FallbackNone              FallbackReason = ""
 	FallbackMissing           FallbackReason = "missing-theme"

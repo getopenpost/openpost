@@ -8,7 +8,7 @@
   </a>
 </p>
 
-<p align="center"><strong>Your socials, on steroids.</strong></p>
+<p align="center"><strong>Create, adapt, schedule, and publish content across platforms.</strong></p>
 
 <p align="center">
   <a href="https://github.com/getopenpost/openpost/releases">

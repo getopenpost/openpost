@@ -1,8 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import FocusIcon from '@lucide/svelte/icons/focus';
-	import MinusIcon from '@lucide/svelte/icons/minus';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type {
 		BezierControlPoints,
 		EasingConfig,
@@ -54,6 +51,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { buildKeyframePastePlan } from '$lib/video-editor/timeline/keyframe-dopesheet';
 	import KeyframeContextMenuContent from './keyframe-context-menu-content.svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	let {
 		item,
 		property,
@@ -1106,7 +1104,7 @@
 			title={m.video_editor_zoom_out()}
 			onclick={() => zoom(1.25)}
 		>
-			<MinusIcon class="size-3" />
+			<ThemeIcon role="remove" class="size-3" />
 		</Button>
 		<Button
 			variant="ghost"
@@ -1116,7 +1114,7 @@
 			title={m.video_editor_zoom_in()}
 			onclick={() => zoom(0.8)}
 		>
-			<PlusIcon class="size-3" />
+			<ThemeIcon role="add" class="size-3" />
 		</Button>
 		<Button
 			variant="ghost"
@@ -1126,7 +1124,7 @@
 			title={m.video_editor_keyframe_graph_fit()}
 			onclick={fitToContent}
 		>
-			<FocusIcon class="size-3" />
+			<ProtectedIcon icon="editor-focus" class="size-3" />
 		</Button>
 	</div>
 

@@ -7,9 +7,7 @@
 	import { markerDisplayName } from '$lib/video-editor/timeline/markers';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import type { TimelineMarker } from '$lib/video-editor/project/types';
-	import FlagIcon from '@lucide/svelte/icons/flag';
-	import ListIcon from '@lucide/svelte/icons/list';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 
 	let {
 		onselect,
@@ -60,7 +58,7 @@
 				aria-label={m.video_editor_marker_list_count({ count: timelineStore.markers.length })}
 				title={m.video_editor_marker_list()}
 			>
-				<ListIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="layout" class="size-3.5" />
 				{#if timelineStore.markers.length > 0}
 					<span
 						class="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-selection px-0.5 text-center text-[8px] leading-3.5 font-semibold text-selection-foreground"
@@ -84,7 +82,7 @@
 					{m.video_editor_marker_list_count({ count: timelineStore.markers.length })}
 				</p>
 			</div>
-			<FlagIcon class="size-4 text-[var(--timeline-playhead)]" aria-hidden="true" />
+			<ProtectedIcon icon="editor-marker" class="size-4 text-[var(--timeline-playhead)]" />
 		</div>
 
 		{#if sortedMarkers.length === 0}

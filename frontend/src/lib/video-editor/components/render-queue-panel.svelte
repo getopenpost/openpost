@@ -7,7 +7,6 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { renderQueueRunner } from '../export/render-queue-runner';
 	import { renderQueueStore, type RenderQueueJob } from '../export/render-queue-store';
-	import ListVideoIcon from '@lucide/svelte/icons/list-video';
 	import SavedExportsPanel from './saved-exports-panel.svelte';
 	import RenderProgress from './render-progress.svelte';
 	import type { RenderExportProgress } from '../media/render-export';
@@ -86,7 +85,7 @@
 			: m.video_editor_exports_title()}
 		onclick={() => (open = true)}
 	>
-		<ListVideoIcon class="size-3.5" aria-hidden="true" />
+		<ThemeIcon role="video" class="size-3.5" />
 		{#if !compactTrigger}{m.video_editor_exports_title()}{/if}{activeCount > 0
 			? ` (${activeCount})`
 			: ''}

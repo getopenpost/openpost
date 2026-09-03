@@ -150,14 +150,7 @@
 		buildVirtualRowLayout,
 		queryVirtualRowLayout
 	} from '$lib/video-editor/timeline/virtual-row-window';
-	import UnlockIcon from '@lucide/svelte/icons/unlock';
-	import VolumeIcon from '@lucide/svelte/icons/volume-2';
-	import VolumeOffIcon from '@lucide/svelte/icons/volume-x';
-	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
-	import GroupIcon from '@lucide/svelte/icons/group';
-	import UngroupIcon from '@lucide/svelte/icons/ungroup';
-	import BlendIcon from '@lucide/svelte/icons/blend';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 
 	function isLayerRow(row: MotionTimelineRow): row is MotionTimelineLayerRow {
 		return row.kind === 'layer';
@@ -2430,7 +2423,7 @@
 							<div class="layer-sidebar-header">
 								<span>{m.video_editor_composition_timeline_layer()}</span>
 								<span class="col-parent">{m.video_editor_motion_parent_label()}</span>
-								<span class="col-blend"><BlendIcon class="size-3" /></span>
+								<span class="col-blend"><ProtectedIcon icon="editor-blend" class="size-3" /></span>
 								<span class="col-timing">{m.video_editor_composition_timeline_timing()}</span>
 							</div>
 							{#if sidebarWindow.beforeSize > 0}
@@ -2551,7 +2544,7 @@
 												{#if row.track.locked}<ThemeIcon
 														role="lock"
 														class="size-3"
-													/>{:else}<UnlockIcon class="size-3" />{/if}
+													/>{:else}<ThemeIcon role="lock" class="size-3" />{/if}
 											</Button>
 											<Button
 												size="icon"
@@ -2563,9 +2556,10 @@
 												data-testid={`group-mute-${row.track.id}`}
 												class="icon-btn"
 											>
-												{#if row.track.muted}<VolumeOffIcon class="size-3" />{:else}<VolumeIcon
+												{#if row.track.muted}<ThemeIcon
+														role="audio"
 														class="size-3"
-													/>{/if}
+													/>{:else}<ThemeIcon role="audio" class="size-3" />{/if}
 											</Button>
 											<Button
 												size="icon"
@@ -2575,7 +2569,7 @@
 												data-testid={`group-ungroup-${row.track.id}`}
 												class="icon-btn"
 											>
-												<UngroupIcon class="size-3" />
+												<ProtectedIcon icon="editor-ungroup" class="size-3" />
 											</Button>
 											<Button
 												size="icon"
@@ -2734,7 +2728,7 @@
 														{#if track && effectiveTrackState(track, timelineStore.tracks).locked}<ThemeIcon
 																role="lock"
 																class="size-3"
-															/>{:else}<UnlockIcon class="size-3" />{/if}
+															/>{:else}<ThemeIcon role="lock" class="size-3" />{/if}
 													</Button>
 													<Button
 														size="icon"
@@ -2751,9 +2745,10 @@
 														data-testid={`layer-mute-${item.id}`}
 														class="icon-btn"
 													>
-														{#if track && effectiveTrackState(track, timelineStore.tracks).muted}<VolumeOffIcon
+														{#if track && effectiveTrackState(track, timelineStore.tracks).muted}<ThemeIcon
+																role="audio"
 																class="size-3"
-															/>{:else}<VolumeIcon class="size-3" />{/if}
+															/>{:else}<ThemeIcon role="audio" class="size-3" />{/if}
 													</Button>
 													<Button
 														size="icon"
@@ -3571,7 +3566,10 @@
 					disabled={!clipboard}
 					onclick={pasteClipboard}
 					data-testid="composition-paste"
-					><ClipboardIcon class="size-3" />{m.video_editor_composition_timeline_paste()}</Button
+					><ThemeIcon
+						role="copy"
+						class="size-3"
+					/>{m.video_editor_composition_timeline_paste()}</Button
 				>
 				<Button
 					size="sm"
@@ -3589,7 +3587,10 @@
 					disabled={selectedItemIds.size < 2}
 					onclick={groupSelected}
 					data-testid="composition-group"
-					><GroupIcon class="size-3" />{m.video_editor_composition_timeline_group()}</Button
+					><ProtectedIcon
+						icon="editor-group"
+						class="size-3"
+					/>{m.video_editor_composition_timeline_group()}</Button
 				>
 				<Button
 					size="sm"

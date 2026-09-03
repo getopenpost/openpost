@@ -1,8 +1,6 @@
 <script lang="ts">
-	import CropIcon from '@lucide/svelte/icons/crop';
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -200,7 +198,7 @@
 		<h3
 			class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
 		>
-			<CropIcon class="size-3.5 text-white/42" aria-hidden="true" />
+			<ProtectedIcon icon="editor-crop" class="size-3.5 text-white/42" />
 			{m.video_editor_crop()}
 		</h3>
 		<div class="divide-y divide-white/6">
@@ -257,9 +255,9 @@
 							aria-pressed={autoKeyEnabled(control.property)}
 							onclick={() => toggleAutoKey(control.property)}
 						>
-							<DiamondIcon
+							<ProtectedIcon
+								icon="editor-keyframe"
 								class={`size-2.5 ${autoKeyEnabled(control.property) ? 'fill-current' : ''}`}
-								aria-hidden="true"
 							/>
 						</button>
 						<button

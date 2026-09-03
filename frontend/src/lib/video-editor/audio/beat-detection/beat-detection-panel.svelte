@@ -7,9 +7,6 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import MusicIcon from '@lucide/svelte/icons/music';
-	import FlagIcon from '@lucide/svelte/icons/flag';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { effectiveMediaTracks } from '$lib/video-editor/timeline/utils/track-groups';
@@ -159,7 +156,7 @@
 	aria-labelledby="beat-detection-heading"
 >
 	<div class="flex items-center gap-2">
-		<MusicIcon class="size-4 shrink-0 text-[oklch(0.75_0.12_220)]" aria-hidden="true" />
+		<ThemeIcon role="audio" class="size-4 shrink-0 text-[oklch(0.75_0.12_220)]" />
 		<h2 id="beat-detection-heading" class="text-xs font-medium text-white">
 			{m.video_editor_beat_panel_title()}
 		</h2>
@@ -213,7 +210,7 @@
 					: m.video_editor_beat_detect_hint()}
 				onclick={run}
 			>
-				<FlagIcon class="size-3.5" />
+				<ProtectedIcon icon="editor-marker" class="size-3.5" />
 				{m.video_editor_beat_detect()}
 			</Button>
 		{/if}
@@ -353,7 +350,7 @@
 					title={m.video_editor_beat_split_hint()}
 					onclick={splitSourceOnBeats}
 				>
-					<ScissorsIcon class="size-3.5" />
+					<ProtectedIcon icon="editor-cut" class="size-3.5" />
 					{m.video_editor_beat_split_every_four()}
 				</Button>
 			</div>

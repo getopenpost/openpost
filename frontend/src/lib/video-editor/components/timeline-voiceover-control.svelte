@@ -8,9 +8,6 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 	import { toast } from 'svelte-sonner';
-	import HeadphonesIcon from '@lucide/svelte/icons/headphones';
-	import MicIcon from '@lucide/svelte/icons/mic';
-	import SquareIcon from '@lucide/svelte/icons/square';
 
 	let {
 		projectId,
@@ -97,7 +94,7 @@
 				{#if voiceoverRecorder.status === 'requesting'}
 					<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 				{:else}
-					<MicIcon class="size-3.5 text-red-400" aria-hidden="true" />
+					<ProtectedIcon icon="editor-record" class="size-3.5 text-red-400" />
 				{/if}
 			</Button>
 			<Popover.Root bind:open={settingsOpen}>
@@ -200,7 +197,7 @@
 						</div>
 					</div>
 					<p class="flex gap-2 text-[10px] leading-4 text-muted-foreground">
-						<HeadphonesIcon class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+						<ThemeIcon role="audio" class="mt-0.5 size-3.5 shrink-0" />
 						<span>{m.video_editor_voiceover_headphones_hint()}</span>
 					</p>
 				</Popover.Content>
@@ -261,7 +258,7 @@
 					aria-label={m.video_editor_voiceover_stop()}
 					onclick={() => void voiceoverRecorder.stop(projectId, m.video_editor_voiceover_track())}
 				>
-					<SquareIcon class="text-red-400" aria-hidden="true" />
+					<ProtectedIcon icon="editor-stop" class="text-red-400" />
 				</Button>
 				<Button
 					size="icon-xs"

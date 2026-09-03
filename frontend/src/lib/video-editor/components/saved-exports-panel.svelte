@@ -5,7 +5,6 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import {
 		deleteExportEntry,
 		listExportEntries,
@@ -163,7 +162,7 @@
 	<div
 		class="flex items-start gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-3 py-2 text-xs text-[var(--video-editor-muted)]"
 	>
-		<FolderOpenIcon class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+		<ThemeIcon role="folder" class="mt-0.5 size-4 shrink-0" />
 		<span>
 			{folderName
 				? m.video_editor_saved_exports_location({ folder: folderName })
@@ -214,7 +213,7 @@
 			<div
 				class="flex flex-col items-center gap-2 py-10 text-center text-sm text-[var(--video-editor-muted)]"
 			>
-				<FolderOpenIcon class="size-6" aria-hidden="true" />
+				<ThemeIcon role="folder" class="size-6" />
 				<p class="max-w-72">{m.video_editor_saved_exports_empty()}</p>
 			</div>
 		{:else if entries}
@@ -228,9 +227,9 @@
 									class="flex items-center gap-2.5 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
 								>
 									{#if entry.kind === 'directory'}
-										<FolderOpenIcon
+										<ThemeIcon
+											role="folder"
 											class="size-4 shrink-0 text-[var(--video-editor-muted)]"
-											aria-hidden="true"
 										/>
 									{:else if isAudioFile(entry.name)}
 										<ProtectedIcon

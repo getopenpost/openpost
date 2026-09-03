@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import ClipboardPasteIcon from '@lucide/svelte/icons/clipboard-paste';
-	import { ThemeIcon } from '$lib/themes/icons';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
-	import UnlockIcon from '@lucide/svelte/icons/unlock';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import * as Select from '$lib/components/ui/select';
@@ -727,7 +724,8 @@
 						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
 						aria-label={m.video_editor_keyframe_sheet_cut()}
 						disabled={selectedIds.size === 0}
-						onclick={() => copySelection(true)}><ScissorsIcon class="size-3" /></button
+						onclick={() => copySelection(true)}
+						><ProtectedIcon icon="editor-cut" class="size-3" /></button
 					>
 					<button
 						type="button"
@@ -736,7 +734,7 @@
 							? m.video_editor_keyframe_sheet_move_clipboard()
 							: m.video_editor_keyframe_sheet_paste()}
 						disabled={!keyframeSelectionStore.clipboard}
-						onclick={pasteClipboard}><ClipboardPasteIcon class="size-3" /></button
+						onclick={pasteClipboard}><ThemeIcon role="copy" class="size-3" /></button
 					>
 					{#if keyframeSelectionStore.isCut && keyframeSelectionStore.clipboard}
 						<span class="font-medium text-[oklch(0.78_0.14_65)] uppercase">
@@ -816,7 +814,7 @@
 									{#if lockedProperties.has(property)}
 										<ThemeIcon role="lock" class="size-3" />
 									{:else}
-										<UnlockIcon class="size-3" />
+										<ThemeIcon role="lock" class="size-3" />
 									{/if}
 								</button>
 								<button

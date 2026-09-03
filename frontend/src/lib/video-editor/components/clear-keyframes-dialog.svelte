@@ -8,7 +8,7 @@
 		clearKeyframesForItems,
 		type ClearKeyframesResult
 	} from '$lib/video-editor/timeline/actions/keyframes';
-	import DiamondMinusIcon from '@lucide/svelte/icons/diamond-minus';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	export interface ClearKeyframeDialogOption {
 		value: KeyframeClearProperty;
@@ -68,7 +68,7 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base">
-				<DiamondMinusIcon class="size-4 text-destructive" aria-hidden="true" />
+				<ProtectedIcon icon="editor-keyframe" class="size-4 text-destructive" />
 				{m.video_editor_clear_keyframes_title()}
 			</Dialog.Title>
 			<Dialog.Description class="text-xs leading-relaxed text-[var(--video-editor-muted)]">

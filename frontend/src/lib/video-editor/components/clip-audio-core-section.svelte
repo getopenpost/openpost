@@ -1,9 +1,6 @@
 <script lang="ts">
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import MusicIcon from '@lucide/svelte/icons/music';
-	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		clampAudioPitchCents,
@@ -285,9 +282,9 @@
 					aria-pressed={autoKeyEnabled()}
 					onclick={toggleAutoKey}
 				>
-					<DiamondIcon
+					<ProtectedIcon
+						icon="editor-keyframe"
 						class={`size-2.5 ${autoKeyEnabled() ? 'fill-current' : ''}`}
-						aria-hidden="true"
 					/>
 				</button>
 			{/if}
@@ -309,7 +306,7 @@
 			<h3
 				class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
 			>
-				<Volume2Icon class="size-3.5 text-white/42" aria-hidden="true" />
+				<ThemeIcon role="audio" class="size-3.5 text-white/42" />
 				{m.video_editor_property_audio()}
 			</h3>
 			<div class="divide-y divide-white/6">
@@ -349,7 +346,7 @@
 			<h3
 				class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
 			>
-				<MusicIcon class="size-3.5 text-white/42" aria-hidden="true" />
+				<ThemeIcon role="audio" class="size-3.5 text-white/42" />
 				{m.video_editor_audio_pitch()}
 			</h3>
 			<div class="divide-y divide-white/6">

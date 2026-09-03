@@ -1,8 +1,7 @@
 <script lang="ts">
-	import PipetteIcon from '@lucide/svelte/icons/pipette';
 	import { onMount } from 'svelte';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		hueAmountFromWheelChannels,
@@ -459,7 +458,7 @@
 				aria-label={m.video_editor_color_pick_white_balance()}
 				onclick={() => onpick?.('white-balance')}
 			>
-				<PipetteIcon class="size-3.5" />
+				<ProtectedIcon icon="editor-eyedropper" class="size-3.5" />
 			</button>
 			<button
 				type="button"
@@ -470,7 +469,7 @@
 				onclick={() => onpick?.('black-point')}
 			>
 				<span class="relative">
-					<PipetteIcon class="size-3.5" />
+					<ProtectedIcon icon="editor-eyedropper" class="size-3.5" />
 					<span
 						class="absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-500 bg-black"
 					></span>
@@ -485,7 +484,7 @@
 				onclick={() => onpick?.('white-point')}
 			>
 				<span class="relative">
-					<PipetteIcon class="size-3.5" />
+					<ProtectedIcon icon="editor-eyedropper" class="size-3.5" />
 					<span
 						class="absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-600 bg-white"
 					></span>

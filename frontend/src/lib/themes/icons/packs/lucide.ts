@@ -78,7 +78,19 @@ const names = {
 	users: 'users-round',
 	video: 'video',
 	workspace: 'panels-top-left',
-	undo: 'undo-2'
+	undo: 'undo-2',
+	assistant: 'bot',
+	launch: 'rocket',
+	key: 'key',
+	devices: 'monitor-smartphone',
+	storage: 'hard-drive',
+	folder: 'folder',
+	inbox: 'inbox',
+	layout: 'layout-dashboard',
+	swap: 'arrow-left-right',
+	repeat: 'repeat',
+	plugin: 'plug',
+	reply: 'reply'
 } satisfies Record<ThemeIconRole, string>;
 
 export default createThemeIconPack('lucide', collection, names);

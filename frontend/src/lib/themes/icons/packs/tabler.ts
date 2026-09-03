@@ -78,7 +78,19 @@ const names = {
 	users: 'users',
 	video: 'video',
 	workspace: 'layout-grid',
-	undo: 'arrow-back-up'
+	undo: 'arrow-back-up',
+	assistant: 'robot',
+	launch: 'rocket',
+	key: 'key',
+	devices: 'devices',
+	storage: 'database',
+	folder: 'folder',
+	inbox: 'inbox',
+	layout: 'layout',
+	swap: 'arrows-left-right',
+	repeat: 'repeat',
+	plugin: 'plug',
+	reply: 'message'
 } satisfies Record<ThemeIconRole, string>;
 
 export default createThemeIconPack('tabler', collection, names);

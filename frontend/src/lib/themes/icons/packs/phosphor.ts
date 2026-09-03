@@ -78,7 +78,19 @@ const names = {
 	users: 'users',
 	video: 'video-camera',
 	workspace: 'squares-four',
-	undo: 'arrow-counter-clockwise'
+	undo: 'arrow-counter-clockwise',
+	assistant: 'robot',
+	launch: 'rocket',
+	key: 'key',
+	devices: 'devices',
+	storage: 'hard-drive',
+	folder: 'folder',
+	inbox: 'tray',
+	layout: 'layout',
+	swap: 'arrows-left-right',
+	repeat: 'repeat',
+	plugin: 'plug',
+	reply: 'chat'
 } satisfies Record<ThemeIconRole, string>;
 
 export default createThemeIconPack('phosphor', collection, names);

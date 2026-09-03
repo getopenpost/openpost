@@ -22,15 +22,15 @@
 	import WarningIcon from '@lucide/svelte/icons/triangle-alert';
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
-	import type { SVGAttributes } from 'svelte/elements';
 	import type { ProtectedIconRole } from './protected-icon.js';
 
-	type Props = Omit<SVGAttributes<SVGSVGElement>, 'role'> & {
+	type Props = {
 		icon: ProtectedIconRole;
 		label?: string;
+		class?: string;
 	};
 
-	let { icon, label, ...restProps }: Props = $props();
+	let { icon, label, class: className }: Props = $props();
 	const Icon = $derived(
 		{
 			'editor-animation': FilmIcon,
@@ -62,7 +62,7 @@
 </script>
 
 <Icon
-	{...restProps}
+	class={className}
 	role={label ? 'img' : undefined}
 	aria-label={label}
 	aria-hidden={label ? undefined : 'true'}

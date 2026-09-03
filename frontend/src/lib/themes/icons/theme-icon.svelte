@@ -32,8 +32,8 @@
 	}
 
 	function themePackFromScope(): ThemeIconPackId {
-		const value = element?.closest('[data-theme-icon-pack]')?.getAttribute('data-theme-icon-pack');
-		return isThemeIconPackId(value ?? null) ? value : 'lucide';
+		const raw = element?.closest('[data-theme-icon-pack]')?.getAttribute('data-theme-icon-pack');
+		return raw && isThemeIconPackId(raw) ? raw : 'lucide';
 	}
 
 	onMount(() => {

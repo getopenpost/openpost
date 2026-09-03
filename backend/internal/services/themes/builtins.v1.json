@@ -2415,5 +2415,4775 @@
     },
     "fonts": [],
     "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "ferrari",
+    "revision": "builtin-v1",
+    "name": "Ferrari",
+    "description": "Black cinematic void, sharp zero-radius geometry, and a single Rosso Corsa signal.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "dark"
+    ],
+    "schemes": {
+      "dark": {
+        "colors": {
+          "canvas": "oklch(0 0 0)",
+          "ink": "oklch(1 0 0)",
+          "surface": "oklch(0.135 0 0)",
+          "surfaceRaised": "oklch(0.135 0 0)",
+          "surfaceSunken": "oklch(0 0 0)",
+          "mutedInk": "oklch(0.59 0 0)",
+          "border": "oklch(0.21 0 0)",
+          "input": "oklch(0.21 0 0)",
+          "focus": "oklch(1 0 0)",
+          "selection": "oklch(0.24 0 0)",
+          "selectionInk": "oklch(1 0 0)",
+          "caret": "oklch(0.51 0.19 30)",
+          "link": "oklch(1 0 0)",
+          "brand": "oklch(0.51 0.19 30)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.24 0 0)",
+          "workspaceInk": "oklch(1 0 0)",
+          "overlay": "color-mix(in oklch, oklch(1 0 0) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(1 0 0) 52%, transparent)",
+          "danger": "oklch(0.62 0.19 25)",
+          "dangerInk": "oklch(0 0 0)",
+          "success": "oklch(0.30 0.06 155)",
+          "successInk": "oklch(0.80 0.12 155)",
+          "warning": "oklch(0.32 0.06 80)",
+          "warningInk": "oklch(0.84 0.12 80)",
+          "info": "oklch(0.30 0.05 245)",
+          "infoInk": "oklch(0.78 0.11 245)",
+          "actionFocal": "oklch(0.51 0.19 30)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.45 0.17 29)",
+          "actionFocalActive": "oklch(0.40 0.15 28)",
+          "actionPrimary": "oklch(1 0 0)",
+          "actionPrimaryInk": "oklch(0 0 0)",
+          "actionPrimaryHover": "oklch(0.90 0 0)",
+          "actionPrimaryActive": "oklch(0.80 0 0)",
+          "actionOrdinary": "oklch(0.16 0 0)",
+          "actionOrdinaryInk": "oklch(1 0 0)",
+          "actionOrdinaryBorder": "oklch(0.21 0 0)",
+          "actionOrdinaryHover": "oklch(0.22 0 0)",
+          "actionOrdinaryActive": "oklch(0.27 0 0)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(1 0 0)",
+          "actionQuietHover": "oklch(0.18 0 0)",
+          "actionQuietActive": "oklch(0.24 0 0)",
+          "actionDestructive": "oklch(0.25 0.08 25)",
+          "actionDestructiveInk": "oklch(1 0 0)",
+          "actionDestructiveHover": "oklch(0.32 0.10 25)",
+          "actionDestructiveActive": "oklch(0.40 0.13 25)",
+          "actionLink": "oklch(1 0 0)",
+          "actionLinkHover": "color-mix(in oklch, oklch(1 0 0) 82%, oklch(1 0 0))",
+          "disabled": "oklch(0 0 0)",
+          "disabledInk": "oklch(0.59 0 0)",
+          "field": "oklch(0.135 0 0)",
+          "fieldInk": "oklch(1 0 0)",
+          "fieldBorder": "oklch(0.21 0 0)",
+          "fieldHover": "oklch(0 0 0)",
+          "fieldFocus": "oklch(0.135 0 0)",
+          "fieldDisabled": "oklch(0 0 0)",
+          "fieldDisabledInk": "oklch(0.59 0 0)",
+          "cardHover": "color-mix(in oklch, oklch(0.135 0 0) 94%, oklch(0 0 0))",
+          "navigationHover": "oklch(0.16 0 0)",
+          "navigationActive": "oklch(0.22 0.05 30)",
+          "navigationActiveInk": "oklch(1 0 0)",
+          "sidebar": "oklch(0.10 0 0)",
+          "sidebarInk": "oklch(1 0 0)",
+          "sidebarActive": "oklch(0.28 0.07 30)",
+          "sidebarActiveInk": "oklch(1 0 0)",
+          "sidebarBorder": "oklch(0.21 0 0)",
+          "chrome": "oklch(0.135 0 0)",
+          "chromeInk": "oklch(1 0 0)",
+          "browserSurface": "oklch(0 0 0)",
+          "browserChrome": "oklch(0.135 0 0)",
+          "chart1": "oklch(0.55 0.19 30)",
+          "chart2": "oklch(0.70 0 0)",
+          "chart3": "oklch(0.45 0 0)",
+          "chart4": "oklch(0.42 0.15 28)",
+          "chart5": "oklch(0.92 0 0)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.12 0.006 55)",
+          "editorPanel": "oklch(0.18 0.008 55)",
+          "editorControl": "oklch(0.22 0.01 55)",
+          "editorControlHover": "oklch(0.27 0.012 55)",
+          "editorBorder": "oklch(0.29 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.72 0.16 45)",
+          "editorFocusBorder": "oklch(0.52 0.09 45)",
+          "timelineTrack": "oklch(0.16 0.008 55)",
+          "timelineClip": "oklch(0.3 0.04 250)",
+          "timelineWaveform": "oklch(0.76 0.04 245)",
+          "timelinePlayhead": "oklch(0.72 0.16 45)",
+          "timelineSelection": "oklch(0.38 0.08 45)",
+          "canvasPasteboard": "oklch(0.1 0.005 55)",
+          "canvasGrid": "oklch(0.25 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.72 0.16 45)",
+          "canvasSafeArea": "oklch(0.8 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.5rem",
+            "lineHeight": "1.27",
+            "tracking": "0.005em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.125rem",
+            "lineHeight": "1.5",
+            "tracking": "0.02em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.78",
+            "tracking": "0.015em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0.083em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.6875rem",
+            "lineHeight": "1.78",
+            "tracking": "0.091em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 5vw, 4rem)",
+          "sectionGap": "4.5rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0px",
+          "radiusSm": "0px",
+          "radiusMd": "0px",
+          "radiusLg": "0px",
+          "radiusMedia": "0px",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "none",
+          "dialog": "none",
+          "focalAction": "none"
+        },
+        "motion": {
+          "press": {
+            "duration": "80ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "400ms",
+            "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "320ms",
+            "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "90rem",
+          "sidebarWidth": "15rem",
+          "headerHeight": "3.25rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "outlined",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "underlined",
+          "select": "underlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "outlined",
+          "chip": "outlined",
+          "dialog": "flat",
+          "popover": "flat",
+          "toast": "flat",
+          "switch": "outlined",
+          "checkbox": "outlined",
+          "radio": "outlined",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "pulse",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "apple",
+    "revision": "builtin-v1",
+    "name": "Apple",
+    "description": "White-room restraint with a single deliberate blue action and fully rounded pills.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.965 0.004 250)",
+          "ink": "oklch(0.17 0.004 250)",
+          "surface": "oklch(0.99 0.003 250)",
+          "surfaceRaised": "oklch(0.99 0.003 250)",
+          "surfaceSunken": "oklch(0.93 0.006 250)",
+          "mutedInk": "oklch(0.44 0.004 250)",
+          "border": "oklch(0.85 0.008 270)",
+          "input": "oklch(0.85 0.008 270)",
+          "focus": "oklch(0.45 0.15 250)",
+          "selection": "oklch(0.92 0.03 250)",
+          "selectionInk": "oklch(0.20 0.01 250)",
+          "caret": "oklch(0.52 0.15 250)",
+          "link": "oklch(0.48 0.14 250)",
+          "brand": "oklch(0.52 0.15 250)",
+          "brandInk": "oklch(0.97 0.006 240)",
+          "workspace": "oklch(0.92 0.03 250)",
+          "workspaceInk": "oklch(0.20 0.01 250)",
+          "overlay": "color-mix(in oklch, oklch(0.17 0.004 250) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.17 0.004 250) 52%, transparent)",
+          "danger": "oklch(0.52 0.19 25)",
+          "dangerInk": "oklch(0.99 0 0)",
+          "success": "oklch(0.90 0.05 155)",
+          "successInk": "oklch(0.38 0.11 155)",
+          "warning": "oklch(0.93 0.07 85)",
+          "warningInk": "oklch(0.42 0.11 75)",
+          "info": "oklch(0.92 0.05 245)",
+          "infoInk": "oklch(0.39 0.13 250)",
+          "actionFocal": "oklch(0.52 0.15 250)",
+          "actionFocalInk": "oklch(0.97 0.006 240)",
+          "actionFocalHover": "oklch(0.47 0.15 250)",
+          "actionFocalActive": "oklch(0.42 0.14 250)",
+          "actionPrimary": "oklch(0.20 0.005 250)",
+          "actionPrimaryInk": "oklch(0.99 0 0)",
+          "actionPrimaryHover": "oklch(0.15 0.005 250)",
+          "actionPrimaryActive": "oklch(0.10 0 0)",
+          "actionOrdinary": "oklch(0.90 0.004 250)",
+          "actionOrdinaryInk": "oklch(0.20 0.005 250)",
+          "actionOrdinaryBorder": "oklch(0.85 0.008 270)",
+          "actionOrdinaryHover": "oklch(0.86 0.005 250)",
+          "actionOrdinaryActive": "oklch(0.82 0.006 250)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.17 0.004 250)",
+          "actionQuietHover": "oklch(0.93 0.006 250)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.93 0.006 250) 86%, oklch(0.17 0.004 250))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.52 0.19 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.42 0.16 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.52 0.19 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.52 0.19 25) 28%, transparent)",
+          "actionLink": "oklch(0.48 0.14 250)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.48 0.14 250) 82%, oklch(0.17 0.004 250))",
+          "disabled": "oklch(0.93 0.006 250)",
+          "disabledInk": "oklch(0.44 0.004 250)",
+          "field": "oklch(0.99 0.003 250)",
+          "fieldInk": "oklch(0.17 0.004 250)",
+          "fieldBorder": "oklch(0.85 0.008 270)",
+          "fieldHover": "oklch(0.93 0.006 250)",
+          "fieldFocus": "oklch(0.99 0.003 250)",
+          "fieldDisabled": "oklch(0.93 0.006 250)",
+          "fieldDisabledInk": "oklch(0.44 0.004 250)",
+          "cardHover": "color-mix(in oklch, oklch(0.99 0.003 250) 94%, oklch(0.93 0.006 250))",
+          "navigationHover": "oklch(0.93 0.006 250)",
+          "navigationActive": "oklch(0.90 0.04 250)",
+          "navigationActiveInk": "oklch(0.30 0.12 250)",
+          "sidebar": "oklch(0.98 0.003 250)",
+          "sidebarInk": "oklch(0.17 0.004 250)",
+          "sidebarActive": "oklch(0.90 0.04 250)",
+          "sidebarActiveInk": "oklch(0.30 0.12 250)",
+          "sidebarBorder": "oklch(0.85 0.008 270)",
+          "chrome": "oklch(0.99 0.003 250)",
+          "chromeInk": "oklch(0.17 0.004 250)",
+          "browserSurface": "oklch(0.965 0.004 250)",
+          "browserChrome": "oklch(0.99 0.003 250)",
+          "chart1": "oklch(0.52 0.15 250)",
+          "chart2": "oklch(0.45 0.005 250)",
+          "chart3": "oklch(0.65 0.14 250)",
+          "chart4": "oklch(0.60 0.004 250)",
+          "chart5": "oklch(0.30 0.01 250)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "clamp(2.5rem, 5vw, 3.5rem)",
+            "lineHeight": "1.07",
+            "tracking": "0.011em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "1.75rem",
+            "lineHeight": "1.18",
+            "tracking": "0.007em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1.0625rem",
+            "lineHeight": "1.47",
+            "tracking": "-0.016em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "0.75rem",
+            "lineHeight": "1.33",
+            "tracking": "-0.022em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.33",
+            "tracking": "-0.022em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.75rem",
+          "compactControlHeight": "2.25rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 4vw, 3rem)",
+          "sectionGap": "4rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.5rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.5rem",
+          "radiusMedia": "0.5rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "none",
+          "dialog": "none",
+          "focalAction": "none"
+        },
+        "motion": {
+          "press": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "300ms",
+            "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "crossfade"
+        },
+        "shell": {
+          "contentMaxWidth": "90rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "segmented",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "flat",
+          "popover": "flat",
+          "toast": "flat",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "todoist",
+    "revision": "builtin-v1",
+    "name": "Todoist",
+    "description": "Sunlit paper planner with warm ink and one red pen.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.995 0.002 68)",
+          "ink": "oklch(0.254 0.009 75)",
+          "surface": "oklch(0.995 0.002 68)",
+          "surfaceRaised": "oklch(0.995 0.002 68)",
+          "surfaceSunken": "oklch(0.978 0.013 56)",
+          "mutedInk": "oklch(0.533 0.006 68)",
+          "border": "oklch(0.876 0.003 85)",
+          "input": "oklch(0.876 0.003 85)",
+          "focus": "oklch(0.502 0.137 250)",
+          "selection": "oklch(0.933 0.032 258)",
+          "selectionInk": "oklch(0.254 0.009 75)",
+          "caret": "oklch(0.615 0.199 30)",
+          "link": "oklch(0.502 0.137 250)",
+          "brand": "oklch(0.565 0.194 31)",
+          "brandInk": "oklch(0.995 0.002 68)",
+          "workspace": "oklch(0.933 0.032 258)",
+          "workspaceInk": "oklch(0.254 0.009 75)",
+          "overlay": "color-mix(in oklch, oklch(0.254 0.009 75) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.254 0.009 75) 52%, transparent)",
+          "danger": "oklch(0.565 0.194 31)",
+          "dangerInk": "oklch(0.995 0.002 68)",
+          "success": "oklch(0.962 0.031 119)",
+          "successInk": "oklch(0.42 0.085 141)",
+          "warning": "oklch(0.93 0.06 85)",
+          "warningInk": "oklch(0.45 0.1 70)",
+          "info": "oklch(0.933 0.032 258)",
+          "infoInk": "oklch(0.44 0.12 252)",
+          "actionFocal": "oklch(0.565 0.194 31)",
+          "actionFocalInk": "oklch(0.995 0.002 68)",
+          "actionFocalHover": "oklch(0.507 0.173 31)",
+          "actionFocalActive": "oklch(0.45 0.155 31)",
+          "actionPrimary": "oklch(0.4 0.006 68)",
+          "actionPrimaryInk": "oklch(0.995 0.002 68)",
+          "actionPrimaryHover": "oklch(0.339 0.005 56)",
+          "actionPrimaryActive": "oklch(0.254 0.009 75)",
+          "actionOrdinary": "oklch(0.995 0.002 68)",
+          "actionOrdinaryInk": "oklch(0.254 0.009 75)",
+          "actionOrdinaryBorder": "oklch(0.876 0.003 85)",
+          "actionOrdinaryHover": "oklch(0.978 0.013 56)",
+          "actionOrdinaryActive": "oklch(0.945 0.012 70)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.254 0.009 75)",
+          "actionQuietHover": "oklch(0.978 0.013 56)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.978 0.013 56) 86%, oklch(0.254 0.009 75))",
+          "actionDestructive": "oklch(0.94 0.04 40)",
+          "actionDestructiveInk": "oklch(0.45 0.17 30)",
+          "actionDestructiveHover": "oklch(0.91 0.05 40)",
+          "actionDestructiveActive": "oklch(0.88 0.06 40)",
+          "actionLink": "oklch(0.502 0.137 250)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.502 0.137 250) 82%, oklch(0.254 0.009 75))",
+          "disabled": "oklch(0.978 0.013 56)",
+          "disabledInk": "oklch(0.533 0.006 68)",
+          "field": "oklch(0.995 0.002 68)",
+          "fieldInk": "oklch(0.254 0.009 75)",
+          "fieldBorder": "oklch(0.876 0.003 85)",
+          "fieldHover": "oklch(0.978 0.013 56)",
+          "fieldFocus": "oklch(0.995 0.002 68)",
+          "fieldDisabled": "oklch(0.978 0.013 56)",
+          "fieldDisabledInk": "oklch(0.533 0.006 68)",
+          "cardHover": "color-mix(in oklch, oklch(0.995 0.002 68) 94%, oklch(0.978 0.013 56))",
+          "navigationHover": "oklch(0.978 0.013 56)",
+          "navigationActive": "oklch(0.933 0.032 258)",
+          "navigationActiveInk": "oklch(0.254 0.009 75)",
+          "sidebar": "oklch(0.99 0.004 72)",
+          "sidebarInk": "oklch(0.254 0.009 75)",
+          "sidebarActive": "oklch(0.93 0.045 40)",
+          "sidebarActiveInk": "oklch(0.5 0.16 32)",
+          "sidebarBorder": "oklch(0.876 0.003 85)",
+          "chrome": "oklch(0.995 0.002 68)",
+          "chromeInk": "oklch(0.254 0.009 75)",
+          "browserSurface": "oklch(0.995 0.002 68)",
+          "browserChrome": "oklch(0.995 0.002 68)",
+          "chart1": "oklch(0.615 0.199 30)",
+          "chart2": "oklch(0.502 0.137 250)",
+          "chart3": "oklch(0.489 0.085 141)",
+          "chart4": "oklch(0.554 0.056 197)",
+          "chart5": "oklch(0.751 0.158 75)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 700,
+            "size": "clamp(2.375rem, 4vw, 3.4375rem)",
+            "lineHeight": "1",
+            "tracking": "-0.01em"
+          },
+          "title": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "clamp(1.75rem, 2.5vw, 2.75rem)",
+            "lineHeight": "1.15",
+            "tracking": "-0.005em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0.01em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "0.875rem",
+            "lineHeight": "1.4",
+            "tracking": "0.005em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0.012em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "4rem",
+          "componentGap": "1rem"
+        },
+        "shape": {
+          "radius": "0.5rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.5rem",
+          "radiusMedia": "0.9375rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "0 1px 0 0 oklch(0.25 0.01 70 / 0.05)",
+          "popover": "0 12px 30px -18px oklch(0.25 0.01 70 / 0.25)",
+          "dialog": "0 24px 56px -28px oklch(0.25 0.01 70 / 0.3)",
+          "focalAction": "0 12px 28px -12px oklch(0.5 0.16 32 / 0.45)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "paper"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "notion",
+    "revision": "builtin-v1",
+    "name": "Notion",
+    "description": "Warm paper notebook with sticky-note accent cards and one blue action.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.971 0.002 68)",
+          "ink": "oklch(0.2 0.004 80)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.93 0.008 80)",
+          "mutedInk": "oklch(0.521 0 0)",
+          "border": "oklch(0.928 0.002 68)",
+          "input": "oklch(0.928 0.002 68)",
+          "focus": "oklch(0.18 0.094 266)",
+          "selection": "oklch(0.958 0.02 243)",
+          "selectionInk": "oklch(0.2 0.004 80)",
+          "caret": "oklch(0.568 0.182 254)",
+          "link": "oklch(0.52 0.16 254)",
+          "brand": "oklch(0.568 0.182 254)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.958 0.02 243)",
+          "workspaceInk": "oklch(0.2 0.004 80)",
+          "overlay": "color-mix(in oklch, oklch(0.2 0.004 80) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.2 0.004 80) 52%, transparent)",
+          "danger": "oklch(0.56 0.2 30)",
+          "dangerInk": "oklch(1 0 0)",
+          "success": "oklch(0.92 0.05 150)",
+          "successInk": "oklch(0.38 0.1 150)",
+          "warning": "oklch(0.9 0.08 80)",
+          "warningInk": "oklch(0.42 0.1 70)",
+          "info": "oklch(0.958 0.02 243)",
+          "infoInk": "oklch(0.45 0.14 254)",
+          "actionFocal": "oklch(0.568 0.182 254)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.521 0.164 254)",
+          "actionFocalActive": "oklch(0.468 0.145 253)",
+          "actionPrimary": "oklch(0.18 0 0)",
+          "actionPrimaryInk": "oklch(1 0 0)",
+          "actionPrimaryHover": "oklch(0.14 0 0)",
+          "actionPrimaryActive": "oklch(0.1 0 0)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0.2 0.004 80)",
+          "actionOrdinaryBorder": "oklch(0.928 0.002 68)",
+          "actionOrdinaryHover": "oklch(0.958 0.02 243)",
+          "actionOrdinaryActive": "oklch(0.92 0.03 250)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.2 0.004 80)",
+          "actionQuietHover": "oklch(0.93 0.008 80)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.93 0.008 80) 86%, oklch(0.2 0.004 80))",
+          "actionDestructive": "oklch(0.93 0.04 32)",
+          "actionDestructiveInk": "oklch(0.46 0.175 30)",
+          "actionDestructiveHover": "oklch(0.9 0.05 32)",
+          "actionDestructiveActive": "oklch(0.87 0.06 32)",
+          "actionLink": "oklch(0.52 0.16 254)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.52 0.16 254) 82%, oklch(0.2 0.004 80))",
+          "disabled": "oklch(0.93 0.008 80)",
+          "disabledInk": "oklch(0.47 0 0)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.2 0.004 80)",
+          "fieldBorder": "oklch(0.928 0.002 68)",
+          "fieldHover": "oklch(0.93 0.008 80)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.93 0.008 80)",
+          "fieldDisabledInk": "oklch(0.47 0 0)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.93 0.008 80))",
+          "navigationHover": "oklch(0.93 0.008 80)",
+          "navigationActive": "oklch(0.958 0.02 243)",
+          "navigationActiveInk": "oklch(0.2 0.004 80)",
+          "sidebar": "oklch(0.985 0.003 80)",
+          "sidebarInk": "oklch(0.2 0.004 80)",
+          "sidebarActive": "oklch(0.958 0.02 243)",
+          "sidebarActiveInk": "oklch(0.5 0.16 254)",
+          "sidebarBorder": "oklch(0.928 0.002 68)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.2 0.004 80)",
+          "browserSurface": "oklch(0.971 0.002 68)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.568 0.182 254)",
+          "chart2": "oklch(0.651 0.213 31)",
+          "chart3": "oklch(0.814 0.168 76)",
+          "chart4": "oklch(0.729 0.123 247)",
+          "chart5": "oklch(0.644 0.072 52)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "clamp(3rem, 7vw, 4.5rem)",
+            "lineHeight": "1.1",
+            "tracking": "-0.028em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "clamp(2rem, 3vw, 3rem)",
+            "lineHeight": "1.1",
+            "tracking": "-0.02em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.75rem",
+            "lineHeight": "1.33",
+            "tracking": "0.01em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "0.5rem"
+        },
+        "shape": {
+          "radius": "0.75rem",
+          "radiusSm": "0.25rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.75rem",
+          "radiusMedia": "0.875rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 3px 9px 0 oklch(0.2 0 0 / 0.035)",
+          "dialog": "0 4px 12px 0 oklch(0.2 0 0 / 0.1)",
+          "focalAction": "0 4px 12px -6px oklch(0.45 0.14 254 / 0.5)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "200ms",
+            "easing": "ease",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "90rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "paper"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "playful"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "supabase",
+    "revision": "builtin-v1",
+    "name": "Supabase",
+    "description": "Midnight code editor with a single phosphor green pulse on charcoal.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "dark"
+    ],
+    "schemes": {
+      "dark": {
+        "colors": {
+          "canvas": "oklch(0.182 0 90)",
+          "ink": "oklch(0.985 0 90)",
+          "surface": "oklch(0.182 0 90)",
+          "surfaceRaised": "oklch(0.26 0 90)",
+          "surfaceSunken": "oklch(0.159 0 90)",
+          "mutedInk": "oklch(0.77 0 90)",
+          "border": "oklch(0.301 0 90)",
+          "input": "oklch(0.301 0 90)",
+          "focus": "oklch(0.724 0.178 155)",
+          "selection": "oklch(0.273 0.024 164)",
+          "selectionInk": "oklch(0.985 0 90)",
+          "caret": "oklch(0.762 0.154 159)",
+          "link": "oklch(0.724 0.178 155)",
+          "brand": "oklch(0.762 0.154 159)",
+          "brandInk": "oklch(0.182 0 90)",
+          "workspace": "oklch(0.273 0.024 164)",
+          "workspaceInk": "oklch(0.985 0 90)",
+          "overlay": "color-mix(in oklch, oklch(0.985 0 90) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.985 0 90) 52%, transparent)",
+          "danger": "oklch(0.251 0.061 22)",
+          "dangerInk": "oklch(0.985 0 90)",
+          "success": "oklch(0.293 0.043 166)",
+          "successInk": "oklch(0.832 0.139 158)",
+          "warning": "oklch(0.271 0.04 71)",
+          "warningInk": "oklch(0.807 0.126 74)",
+          "info": "oklch(0.266 0.044 250)",
+          "infoInk": "oklch(0.765 0.1 249)",
+          "actionFocal": "oklch(0.762 0.154 159)",
+          "actionFocalInk": "oklch(0.182 0 90)",
+          "actionFocalHover": "oklch(0.668 0.139 159)",
+          "actionFocalActive": "oklch(0.606 0.122 161)",
+          "actionPrimary": "oklch(0.26 0 90)",
+          "actionPrimaryInk": "oklch(0.985 0 90)",
+          "actionPrimaryHover": "oklch(0.301 0 90)",
+          "actionPrimaryActive": "oklch(0.2 0 90)",
+          "actionOrdinary": "oklch(0.2 0 90)",
+          "actionOrdinaryInk": "oklch(0.985 0 90)",
+          "actionOrdinaryBorder": "oklch(0.345 0 90)",
+          "actionOrdinaryHover": "oklch(0.252 0 90)",
+          "actionOrdinaryActive": "oklch(0.285 0 90)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.985 0 90)",
+          "actionQuietHover": "oklch(0.159 0 90)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.159 0 90) 86%, oklch(0.985 0 90))",
+          "actionDestructive": "oklch(0.40 0.09 22)",
+          "actionDestructiveInk": "oklch(0.80 0.11 20)",
+          "actionDestructiveHover": "oklch(0.33 0.085 22)",
+          "actionDestructiveActive": "oklch(0.26 0.07 22)",
+          "actionLink": "oklch(0.724 0.178 155)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.724 0.178 155) 82%, oklch(0.985 0 90))",
+          "disabled": "oklch(0.159 0 90)",
+          "disabledInk": "oklch(0.77 0 90)",
+          "field": "oklch(0.182 0 90)",
+          "fieldInk": "oklch(0.985 0 90)",
+          "fieldBorder": "oklch(0.345 0 90)",
+          "fieldHover": "oklch(0.159 0 90)",
+          "fieldFocus": "oklch(0.182 0 90)",
+          "fieldDisabled": "oklch(0.159 0 90)",
+          "fieldDisabledInk": "oklch(0.77 0 90)",
+          "cardHover": "color-mix(in oklch, oklch(0.182 0 90) 94%, oklch(0.159 0 90))",
+          "navigationHover": "oklch(0.222 0 90)",
+          "navigationActive": "oklch(0.298 0.048 164)",
+          "navigationActiveInk": "oklch(0.985 0 90)",
+          "sidebar": "oklch(0.173 0 90)",
+          "sidebarInk": "oklch(0.985 0 90)",
+          "sidebarActive": "oklch(0.298 0.048 164)",
+          "sidebarActiveInk": "oklch(0.985 0 90)",
+          "sidebarBorder": "oklch(0.301 0 90)",
+          "chrome": "oklch(0.182 0 90)",
+          "chromeInk": "oklch(0.985 0 90)",
+          "browserSurface": "oklch(0.182 0 90)",
+          "browserChrome": "oklch(0.182 0 90)",
+          "chart1": "oklch(0.762 0.154 159)",
+          "chart2": "oklch(0.724 0.178 155)",
+          "chart3": "oklch(0.77 0 90)",
+          "chart4": "oklch(0.63 0 90)",
+          "chart5": "oklch(0.375 0.06 162)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.12 0.006 55)",
+          "editorPanel": "oklch(0.18 0.008 55)",
+          "editorControl": "oklch(0.22 0.01 55)",
+          "editorControlHover": "oklch(0.27 0.012 55)",
+          "editorBorder": "oklch(0.29 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.72 0.16 45)",
+          "editorFocusBorder": "oklch(0.52 0.09 45)",
+          "timelineTrack": "oklch(0.16 0.008 55)",
+          "timelineClip": "oklch(0.3 0.04 250)",
+          "timelineWaveform": "oklch(0.76 0.04 245)",
+          "timelinePlayhead": "oklch(0.72 0.16 45)",
+          "timelineSelection": "oklch(0.38 0.08 45)",
+          "canvasPasteboard": "oklch(0.1 0.005 55)",
+          "canvasGrid": "oklch(0.25 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.72 0.16 45)",
+          "canvasSafeArea": "oklch(0.8 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "4.5rem",
+            "lineHeight": "1",
+            "tracking": "-0.007em"
+          },
+          "title": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "2.25rem",
+            "lineHeight": "1.2",
+            "tracking": "-0.007em"
+          },
+          "body": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "-0.007em"
+          },
+          "label": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "-0.007em"
+          },
+          "metadata": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "-0.007em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.33",
+            "tracking": "0.1em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.5rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "1rem"
+        },
+        "shape": {
+          "radius": "1rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "0.75rem",
+          "radiusLg": "1rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "none",
+          "dialog": "none",
+          "focalAction": "none"
+        },
+        "motion": {
+          "press": {
+            "duration": "80ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "4rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "precision"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "flat",
+          "popover": "flat",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "spinner",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "vercel",
+    "revision": "builtin-v1",
+    "name": "Vercel",
+    "description": "Typeset terminal on white paper: monochrome, hairline rings, tight type.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.985 0 90)",
+          "ink": "oklch(0.205 0 90)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.952 0 90)",
+          "mutedInk": "oklch(0.42 0 90)",
+          "border": "oklch(0.94 0 90)",
+          "input": "oklch(0.94 0 90)",
+          "focus": "oklch(0 0 0)",
+          "selection": "oklch(0.94 0 90)",
+          "selectionInk": "oklch(0.205 0 90)",
+          "caret": "oklch(0.205 0 90)",
+          "link": "oklch(0.205 0 90)",
+          "brand": "oklch(0.205 0 90)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.94 0 90)",
+          "workspaceInk": "oklch(0.205 0 90)",
+          "overlay": "color-mix(in oklch, oklch(0.205 0 90) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.205 0 90) 52%, transparent)",
+          "danger": "oklch(0.90 0.06 17)",
+          "dangerInk": "oklch(0.501 0.178 29)",
+          "success": "oklch(0.88 0.07 154)",
+          "successInk": "oklch(0.415 0.101 147)",
+          "warning": "oklch(0.90 0.08 80)",
+          "warningInk": "oklch(0.46 0.11 73)",
+          "info": "oklch(0.88 0.06 262)",
+          "infoInk": "oklch(0.485 0.183 261)",
+          "actionFocal": "oklch(0.205 0 90)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.321 0 90)",
+          "actionFocalActive": "oklch(0.159 0 90)",
+          "actionPrimary": "oklch(1 0 0)",
+          "actionPrimaryInk": "oklch(0.205 0 90)",
+          "actionPrimaryHover": "oklch(0.961 0 90)",
+          "actionPrimaryActive": "oklch(0.931 0 90)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0.42 0 90)",
+          "actionOrdinaryBorder": "oklch(0.94 0 90)",
+          "actionOrdinaryHover": "oklch(0.961 0 90)",
+          "actionOrdinaryActive": "oklch(0.931 0 90)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.205 0 90)",
+          "actionQuietHover": "oklch(0.952 0 90)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.952 0 90) 86%, oklch(0.205 0 90))",
+          "actionDestructive": "oklch(0.92 0.05 20)",
+          "actionDestructiveInk": "oklch(0.42 0.18 29)",
+          "actionDestructiveHover": "oklch(0.87 0.07 20)",
+          "actionDestructiveActive": "oklch(0.81 0.09 20)",
+          "actionLink": "oklch(0.205 0 90)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.205 0 90) 82%, oklch(0.205 0 90))",
+          "disabled": "oklch(0.952 0 90)",
+          "disabledInk": "oklch(0.42 0 90)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.205 0 90)",
+          "fieldBorder": "oklch(0.94 0 90)",
+          "fieldHover": "oklch(0.952 0 90)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.952 0 90)",
+          "fieldDisabledInk": "oklch(0.42 0 90)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.952 0 90))",
+          "navigationHover": "oklch(0.961 0 90)",
+          "navigationActive": "oklch(0.94 0 90)",
+          "navigationActiveInk": "oklch(0.205 0 90)",
+          "sidebar": "oklch(0.985 0 90)",
+          "sidebarInk": "oklch(0.205 0 90)",
+          "sidebarActive": "oklch(0.94 0 90)",
+          "sidebarActiveInk": "oklch(0.205 0 90)",
+          "sidebarBorder": "oklch(0.94 0 90)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.205 0 90)",
+          "browserSurface": "oklch(0.985 0 90)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.205 0 90)",
+          "chart2": "oklch(0.42 0 90)",
+          "chart3": "oklch(0.65 0 90)",
+          "chart4": "oklch(0.515 0.125 147)",
+          "chart5": "oklch(0.836 0 90)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "4rem",
+            "lineHeight": "1",
+            "tracking": "-0.04em"
+          },
+          "title": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.875rem",
+            "lineHeight": "1.1",
+            "tracking": "-0.04em"
+          },
+          "body": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.6875rem",
+            "lineHeight": "1.5",
+            "tracking": "0.071em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "compact",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1.5rem, 4vw, 3rem)",
+          "sectionGap": "6rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.375rem",
+          "radiusSm": "0.125rem",
+          "radiusMd": "0.375rem",
+          "radiusLg": "0.375rem",
+          "radiusMedia": "0.375rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 0 0 1px rgb(0 0 0 / 0.08)",
+          "dialog": "0 0 0 1px rgb(0 0 0 / 0.08)",
+          "focalAction": "0 0 0 1px rgb(0 0 0 / 0.08)"
+        },
+        "motion": {
+          "press": {
+            "duration": "80ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.125rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "80rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "4rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "precision"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "plain",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "outlined",
+          "popover": "outlined",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "outlined",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "spinner",
+          "editorChrome": "precision",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "firecrawl",
+    "revision": "builtin-v1",
+    "name": "Firecrawl",
+    "description": "Warm vellum workspace with one burning orange signal.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(1 0 0)",
+          "ink": "oklch(0.25 0.005 90)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.975 0.003 90)",
+          "mutedInk": "oklch(0.52 0.005 90)",
+          "border": "oklch(0.905 0.005 250)",
+          "input": "oklch(0.905 0.005 250)",
+          "focus": "oklch(0.48 0.17 42)",
+          "selection": "oklch(0.9 0.07 40)",
+          "selectionInk": "oklch(0.25 0.005 90)",
+          "caret": "oklch(0.65 0.22 45)",
+          "link": "oklch(0.46 0.005 90)",
+          "brand": "oklch(0.65 0.22 45)",
+          "brandInk": "oklch(0.12 0.005 90)",
+          "workspace": "oklch(0.9 0.07 40)",
+          "workspaceInk": "oklch(0.25 0.005 90)",
+          "overlay": "color-mix(in oklch, oklch(0.25 0.005 90) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.25 0.005 90) 52%, transparent)",
+          "danger": "oklch(0.62 0.21 42)",
+          "dangerInk": "oklch(0.12 0.005 90)",
+          "success": "oklch(0.9 0.07 45)",
+          "successInk": "oklch(0.42 0.14 40)",
+          "warning": "oklch(0.94 0.07 85)",
+          "warningInk": "oklch(0.42 0.11 75)",
+          "info": "oklch(0.92 0.006 90)",
+          "infoInk": "oklch(0.35 0.008 90)",
+          "actionFocal": "oklch(0.65 0.22 45)",
+          "actionFocalInk": "oklch(0.12 0.005 90)",
+          "actionFocalHover": "oklch(0.62 0.215 44)",
+          "actionFocalActive": "oklch(0.6 0.21 43)",
+          "actionPrimary": "oklch(0.25 0.005 90)",
+          "actionPrimaryInk": "oklch(0.99 0 0)",
+          "actionPrimaryHover": "oklch(0.32 0.005 90)",
+          "actionPrimaryActive": "oklch(0.18 0.005 90)",
+          "actionOrdinary": "oklch(0.96 0.004 90)",
+          "actionOrdinaryInk": "oklch(0.25 0.005 90)",
+          "actionOrdinaryBorder": "oklch(0.905 0.005 250)",
+          "actionOrdinaryHover": "oklch(0.93 0.005 90)",
+          "actionOrdinaryActive": "oklch(0.9 0.005 90)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.25 0.005 90)",
+          "actionQuietHover": "oklch(0.975 0.003 90)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.975 0.003 90) 86%, oklch(0.25 0.005 90))",
+          "actionDestructive": "oklch(0.90 0.06 45)",
+          "actionDestructiveInk": "oklch(0.25 0.005 90)",
+          "actionDestructiveHover": "oklch(0.86 0.08 45)",
+          "actionDestructiveActive": "oklch(0.81 0.10 45)",
+          "actionLink": "oklch(0.46 0.005 90)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.46 0.005 90) 82%, oklch(0.25 0.005 90))",
+          "disabled": "oklch(0.975 0.003 90)",
+          "disabledInk": "oklch(0.52 0.005 90)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.25 0.005 90)",
+          "fieldBorder": "oklch(0.905 0.005 250)",
+          "fieldHover": "oklch(0.975 0.003 90)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.975 0.003 90)",
+          "fieldDisabledInk": "oklch(0.52 0.005 90)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.975 0.003 90))",
+          "navigationHover": "oklch(0.975 0.003 90)",
+          "navigationActive": "oklch(0.9 0.07 40)",
+          "navigationActiveInk": "oklch(0.25 0.005 90)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0.25 0.005 90)",
+          "sidebarActive": "oklch(0.9 0.07 40)",
+          "sidebarActiveInk": "oklch(0.25 0.005 90)",
+          "sidebarBorder": "oklch(0.905 0.005 250)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.25 0.005 90)",
+          "browserSurface": "oklch(1 0 0)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.65 0.22 45)",
+          "chart2": "oklch(0.46 0.005 90)",
+          "chart3": "oklch(0.52 0.005 90)",
+          "chart4": "oklch(0.64 0.005 90)",
+          "chart5": "oklch(0.75 0.004 90)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "3.25rem",
+            "lineHeight": "1.07",
+            "tracking": "-0.005em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.5rem",
+            "lineHeight": "1.2",
+            "tracking": "0em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.5",
+            "tracking": "0.01em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.4",
+            "tracking": "0.01em"
+          },
+          "metadata": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 500,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0.02em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.57",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.5rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "6rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.75rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "1rem",
+          "radiusMedia": "0.5rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 24px 48px -20px rgb(38 38 38 / 0.12)",
+          "dialog": "0 40px 64px -24px rgb(38 38 38 / 0.16)",
+          "focalAction": "0 0 0 6px rgb(255 77 0 / 0.16)"
+        },
+        "motion": {
+          "press": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "150ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "280ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "4rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "precision"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "solid",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "precision"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "linear",
+    "revision": "builtin-v1",
+    "name": "Linear",
+    "description": "Midnight precision instrument with an acid-lime flash.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "dark"
+    ],
+    "schemes": {
+      "dark": {
+        "colors": {
+          "canvas": "oklch(0.145 0.005 260)",
+          "ink": "oklch(0.99 0 0)",
+          "surface": "oklch(0.18 0.005 260)",
+          "surfaceRaised": "oklch(0.21 0.006 260)",
+          "surfaceSunken": "oklch(0.21 0.006 260)",
+          "mutedInk": "oklch(0.64 0.018 260)",
+          "border": "oklch(0.27 0.01 260)",
+          "input": "oklch(0.27 0.01 260)",
+          "focus": "oklch(0.86 0.02 260)",
+          "selection": "oklch(0.28 0.03 250)",
+          "selectionInk": "oklch(0.86 0.02 260)",
+          "caret": "oklch(0.905 0.195 115)",
+          "link": "oklch(0.86 0.02 260)",
+          "brand": "oklch(0.905 0.195 115)",
+          "brandInk": "oklch(0.145 0.005 260)",
+          "workspace": "oklch(0.28 0.03 250)",
+          "workspaceInk": "oklch(0.86 0.02 260)",
+          "overlay": "color-mix(in oklch, oklch(0.99 0 0) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.99 0 0) 52%, transparent)",
+          "danger": "oklch(0.65 0.19 22)",
+          "dangerInk": "oklch(0.145 0.005 260)",
+          "success": "oklch(0.27 0.06 155)",
+          "successInk": "oklch(0.78 0.14 150)",
+          "warning": "oklch(0.3 0.06 85)",
+          "warningInk": "oklch(0.85 0.12 85)",
+          "info": "oklch(0.24 0.05 220)",
+          "infoInk": "oklch(0.78 0.1 220)",
+          "actionFocal": "oklch(0.905 0.195 115)",
+          "actionFocalInk": "oklch(0.145 0.005 260)",
+          "actionFocalHover": "oklch(0.93 0.19 115)",
+          "actionFocalActive": "oklch(0.87 0.19 115)",
+          "actionPrimary": "oklch(0.93 0.005 260)",
+          "actionPrimaryInk": "oklch(0.145 0.005 260)",
+          "actionPrimaryHover": "oklch(0.97 0.003 260)",
+          "actionPrimaryActive": "oklch(0.99 0 0)",
+          "actionOrdinary": "oklch(0.22 0.008 260)",
+          "actionOrdinaryInk": "oklch(0.86 0.02 260)",
+          "actionOrdinaryBorder": "oklch(0.27 0.01 260)",
+          "actionOrdinaryHover": "oklch(0.27 0.01 260)",
+          "actionOrdinaryActive": "oklch(0.32 0.012 260)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.99 0 0)",
+          "actionQuietHover": "oklch(0.21 0.006 260)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.21 0.006 260) 86%, oklch(0.99 0 0))",
+          "actionDestructive": "oklch(0.3 0.06 22)",
+          "actionDestructiveInk": "oklch(0.72 0.15 22)",
+          "actionDestructiveHover": "oklch(0.27 0.06 22)",
+          "actionDestructiveActive": "oklch(0.24 0.06 22)",
+          "actionLink": "oklch(0.86 0.02 260)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.86 0.02 260) 82%, oklch(0.99 0 0))",
+          "disabled": "oklch(0.21 0.006 260)",
+          "disabledInk": "oklch(0.64 0.018 260)",
+          "field": "oklch(0.2 0.008 260)",
+          "fieldInk": "oklch(0.86 0.02 260)",
+          "fieldBorder": "oklch(0.35 0.012 260)",
+          "fieldHover": "oklch(0.21 0.006 260)",
+          "fieldFocus": "oklch(0.18 0.005 260)",
+          "fieldDisabled": "oklch(0.24 0.012 260)",
+          "fieldDisabledInk": "oklch(0.72 0.02 260)",
+          "cardHover": "color-mix(in oklch, oklch(0.18 0.005 260) 94%, oklch(0.21 0.006 260))",
+          "navigationHover": "oklch(0.21 0.006 260)",
+          "navigationActive": "oklch(0.28 0.03 250)",
+          "navigationActiveInk": "oklch(0.86 0.02 260)",
+          "sidebar": "oklch(0.18 0.005 260)",
+          "sidebarInk": "oklch(0.86 0.02 260)",
+          "sidebarActive": "oklch(0.28 0.03 250)",
+          "sidebarActiveInk": "oklch(0.99 0 0)",
+          "sidebarBorder": "oklch(0.27 0.01 260)",
+          "chrome": "oklch(0.18 0.005 260)",
+          "chromeInk": "oklch(0.99 0 0)",
+          "browserSurface": "oklch(0.145 0.005 260)",
+          "browserChrome": "oklch(0.18 0.005 260)",
+          "chart1": "oklch(0.905 0.195 115)",
+          "chart2": "oklch(0.68 0.18 285)",
+          "chart3": "oklch(0.75 0.11 220)",
+          "chart4": "oklch(0.7 0.16 22)",
+          "chart5": "oklch(0.72 0.18 295)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.12 0.006 55)",
+          "editorPanel": "oklch(0.18 0.008 55)",
+          "editorControl": "oklch(0.22 0.01 55)",
+          "editorControlHover": "oklch(0.27 0.012 55)",
+          "editorBorder": "oklch(0.29 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.72 0.16 45)",
+          "editorFocusBorder": "oklch(0.52 0.09 45)",
+          "timelineTrack": "oklch(0.16 0.008 55)",
+          "timelineClip": "oklch(0.3 0.04 250)",
+          "timelineWaveform": "oklch(0.76 0.04 245)",
+          "timelinePlayhead": "oklch(0.72 0.16 45)",
+          "timelineSelection": "oklch(0.38 0.08 45)",
+          "canvasPasteboard": "oklch(0.1 0.005 55)",
+          "canvasGrid": "oklch(0.25 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.72 0.16 45)",
+          "canvasSafeArea": "oklch(0.8 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "clamp(2.5rem, 5vw, 4rem)",
+            "lineHeight": "1",
+            "tracking": "-0.022em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.5rem",
+            "lineHeight": "1.33",
+            "tracking": "-0.012em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.8125rem",
+            "lineHeight": "1.4",
+            "tracking": "-0.01em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.4",
+            "tracking": "0em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "compact",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "6rem",
+          "componentGap": "0.5rem"
+        },
+        "shape": {
+          "radius": "0.375rem",
+          "radiusSm": "0.25rem",
+          "radiusMd": "0.375rem",
+          "radiusLg": "0.75rem",
+          "radiusMedia": "0.75rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 8px 32px -8px rgb(0 0 0 / 0.7)",
+          "dialog": "0 4px 32px 0 rgb(8 9 10 / 0.6)",
+          "focalAction": "0 1px 2px 0 rgb(0 0 0 / 0.35)"
+        },
+        "motion": {
+          "press": {
+            "duration": "80ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "180ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.125rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "800ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "180ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "precision"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "segmented",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "precision",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "calcom",
+    "revision": "builtin-v1",
+    "name": "Cal.com",
+    "description": "Strict monochrome utility with pill actions and one functional blue.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.96 0.003 250)",
+          "ink": "oklch(0.26 0.007 250)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.94 0.005 250)",
+          "mutedInk": "oklch(0.51 0.032 264)",
+          "border": "oklch(0.92 0.009 255)",
+          "input": "oklch(0.92 0.009 255)",
+          "focus": "oklch(0.26 0.007 250)",
+          "selection": "oklch(0.955 0.014 250)",
+          "selectionInk": "oklch(0.26 0.007 250)",
+          "caret": "oklch(0.65 0.17 250)",
+          "link": "oklch(0.52 0.13 250)",
+          "brand": "oklch(0.17 0.004 250)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.955 0.014 250)",
+          "workspaceInk": "oklch(0.26 0.007 250)",
+          "overlay": "color-mix(in oklch, oklch(0.26 0.007 250) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.26 0.007 250) 52%, transparent)",
+          "danger": "oklch(0.55 0.21 25)",
+          "dangerInk": "oklch(1 0 0)",
+          "success": "oklch(0.9 0.06 155)",
+          "successInk": "oklch(0.38 0.11 158)",
+          "warning": "oklch(0.93 0.07 85)",
+          "warningInk": "oklch(0.43 0.11 75)",
+          "info": "oklch(0.955 0.014 250)",
+          "infoInk": "oklch(0.5 0.12 250)",
+          "actionFocal": "oklch(0.17 0.004 250)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.23 0.006 250)",
+          "actionFocalActive": "oklch(0.29 0.007 250)",
+          "actionPrimary": "oklch(0.17 0.004 250)",
+          "actionPrimaryInk": "oklch(1 0 0)",
+          "actionPrimaryHover": "oklch(0.23 0.004 250)",
+          "actionPrimaryActive": "oklch(0.29 0.004 250)",
+          "actionOrdinary": "oklch(0.96 0.003 250)",
+          "actionOrdinaryInk": "oklch(0.26 0.007 250)",
+          "actionOrdinaryBorder": "oklch(0.92 0.009 255)",
+          "actionOrdinaryHover": "color-mix(in oklch, oklch(0.96 0.003 250) 90%, oklch(0.26 0.007 250))",
+          "actionOrdinaryActive": "color-mix(in oklch, oklch(0.96 0.003 250) 82%, oklch(0.26 0.007 250))",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.26 0.007 250)",
+          "actionQuietHover": "oklch(0.94 0.005 250)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.94 0.005 250) 86%, oklch(0.26 0.007 250))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.55 0.21 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.43 0.2 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.55 0.21 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.55 0.21 25) 28%, transparent)",
+          "actionLink": "oklch(0.52 0.13 250)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.52 0.13 250) 82%, oklch(0.26 0.007 250))",
+          "disabled": "oklch(0.94 0.005 250)",
+          "disabledInk": "oklch(0.51 0.032 264)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.26 0.007 250)",
+          "fieldBorder": "oklch(0.92 0.009 255)",
+          "fieldHover": "oklch(0.94 0.005 250)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.94 0.005 250)",
+          "fieldDisabledInk": "oklch(0.51 0.032 264)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.94 0.005 250))",
+          "navigationHover": "oklch(0.94 0.005 250)",
+          "navigationActive": "oklch(0.955 0.014 250)",
+          "navigationActiveInk": "oklch(0.26 0.007 250)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0.26 0.007 250)",
+          "sidebarActive": "oklch(0.92 0.009 255)",
+          "sidebarActiveInk": "oklch(0.26 0.007 250)",
+          "sidebarBorder": "oklch(0.92 0.009 255)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.26 0.007 250)",
+          "browserSurface": "oklch(0.96 0.003 250)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.55 0.13 250)",
+          "chart2": "oklch(0.26 0.007 250)",
+          "chart3": "oklch(0.54 0.032 264)",
+          "chart4": "oklch(0.63 0.004 250)",
+          "chart5": "oklch(0.75 0.006 252)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "DM Sans Variable",
+            "fallbacks": [
+              "DM Sans",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "4rem",
+            "lineHeight": "1.1",
+            "tracking": "0.01em"
+          },
+          "title": {
+            "family": "DM Sans Variable",
+            "fallbacks": [
+              "DM Sans",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "1.5rem",
+            "lineHeight": "1.3",
+            "tracking": "0.01em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 300,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "-0.19px"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "-0.01em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.4",
+            "tracking": "-0.24px"
+          },
+          "code": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "compact",
+          "base": "0.25rem",
+          "controlHeight": "2.5rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "1.5rem",
+          "sectionGap": "6rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.75rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.75rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "0 4px 8px 0 oklch(0.26 0.007 250 / 0.06)",
+          "popover": "0 8px 24px 0 oklch(0.26 0.007 250 / 0.1)",
+          "dialog": "0 16px 40px 0 oklch(0.26 0.007 250 / 0.12)",
+          "focalAction": "0 2px 6px 0 oklch(0.17 0.004 250 / 0.25)"
+        },
+        "motion": {
+          "press": {
+            "duration": "80ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "200ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "4rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "segmented",
+          "navigation": "tonal",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "plain",
+          "list": "plain",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "pill",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "mintlify",
+    "revision": "builtin-v1",
+    "name": "Mintlify",
+    "description": "Monastic white docs with one mint spark and square geometry.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(1 0 0)",
+          "ink": "oklch(0 0 0)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.955 0.003 250)",
+          "mutedInk": "oklch(0.45 0.008 250)",
+          "border": "oklch(0.955 0.003 250)",
+          "input": "oklch(0.955 0.003 250)",
+          "focus": "oklch(0.6 0.13 168)",
+          "selection": "oklch(0.94 0.035 168)",
+          "selectionInk": "oklch(0.38 0.1 168)",
+          "caret": "oklch(0.45 0.11 168)",
+          "link": "oklch(0.45 0.11 168)",
+          "brand": "oklch(0.14 0.004 250)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.94 0.035 168)",
+          "workspaceInk": "oklch(0.38 0.1 168)",
+          "overlay": "color-mix(in oklch, oklch(0 0 0) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0 0 0) 52%, transparent)",
+          "danger": "oklch(0.55 0.21 25)",
+          "dangerInk": "oklch(1 0 0)",
+          "success": "oklch(0.94 0.035 168)",
+          "successInk": "oklch(0.38 0.1 168)",
+          "warning": "oklch(0.93 0.07 85)",
+          "warningInk": "oklch(0.43 0.11 75)",
+          "info": "oklch(0.91 0.05 245)",
+          "infoInk": "oklch(0.42 0.12 250)",
+          "actionFocal": "oklch(0.14 0.004 250)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.2 0.005 250)",
+          "actionFocalActive": "oklch(0.26 0.007 250)",
+          "actionPrimary": "oklch(0.14 0.004 250)",
+          "actionPrimaryInk": "oklch(1 0 0)",
+          "actionPrimaryHover": "oklch(0.20 0.004 250)",
+          "actionPrimaryActive": "oklch(0.26 0.004 250)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0 0 0)",
+          "actionOrdinaryBorder": "oklch(0.9 0.005 250)",
+          "actionOrdinaryHover": "color-mix(in oklch, oklch(1 0 0) 90%, oklch(0 0 0))",
+          "actionOrdinaryActive": "color-mix(in oklch, oklch(1 0 0) 82%, oklch(0 0 0))",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0 0 0)",
+          "actionQuietHover": "oklch(0.955 0.003 250)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.955 0.003 250) 86%, oklch(0 0 0))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.55 0.21 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.43 0.2 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.55 0.21 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.55 0.21 25) 28%, transparent)",
+          "actionLink": "oklch(0.45 0.11 168)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.45 0.11 168) 82%, oklch(0 0 0))",
+          "disabled": "oklch(0.955 0.003 250)",
+          "disabledInk": "oklch(0.45 0.008 250)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0 0 0)",
+          "fieldBorder": "oklch(0.955 0.003 250)",
+          "fieldHover": "oklch(0.955 0.003 250)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.955 0.003 250)",
+          "fieldDisabledInk": "oklch(0.45 0.008 250)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.955 0.003 250))",
+          "navigationHover": "oklch(0.955 0.003 250)",
+          "navigationActive": "oklch(0.94 0.035 168)",
+          "navigationActiveInk": "oklch(0.38 0.1 168)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0 0 0)",
+          "sidebarActive": "oklch(0.94 0.035 168)",
+          "sidebarActiveInk": "oklch(0.38 0.1 168)",
+          "sidebarBorder": "oklch(0.955 0.003 250)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0 0 0)",
+          "browserSurface": "oklch(1 0 0)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.45 0.11 168)",
+          "chart2": "oklch(0.14 0.004 250)",
+          "chart3": "oklch(0.55 0.008 250)",
+          "chart4": "oklch(0.75 0.05 168)",
+          "chart5": "oklch(0.6 0.1 200)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "3.5625rem",
+            "lineHeight": "1.1",
+            "tracking": "-0.02em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "1.5rem",
+            "lineHeight": "1.33",
+            "tracking": "-0.24px"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "-0.16px"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.4",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.8125rem",
+            "lineHeight": "1.5",
+            "tracking": "0.05em"
+          },
+          "code": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "1.5rem",
+          "sectionGap": "5rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "1rem",
+          "radiusSm": "0.25rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "1.5rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "0 2px 4px 0 oklch(0 0 0 / 0.05)",
+          "popover": "0 4px 12px 0 oklch(0 0 0 / 0.06)",
+          "dialog": "0 8px 24px 0 oklch(0 0 0 / 0.08)",
+          "focalAction": "0 2px 4px 0 oklch(0 0 0 / 0.08)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "17rem",
+          "headerHeight": "3.75rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "garden"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "underline",
+          "navigation": "tonal",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "launchdarkly",
+    "revision": "builtin-v1",
+    "name": "LaunchDarkly",
+    "description": "Neon control room: charcoal cockpit, pill-soft panels, one violet signal.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "dark"
+    ],
+    "schemes": {
+      "dark": {
+        "colors": {
+          "canvas": "oklch(0.18 0.005 285)",
+          "ink": "oklch(0.98 0 0)",
+          "surface": "oklch(0.24 0.006 285)",
+          "surfaceRaised": "oklch(0.27 0.008 285)",
+          "surfaceSunken": "oklch(0.21 0.006 285)",
+          "mutedInk": "oklch(0.7 0.012 285)",
+          "border": "oklch(0.32 0.01 285)",
+          "input": "oklch(0.32 0.01 285)",
+          "focus": "oklch(0.66 0.16 278)",
+          "selection": "oklch(0.32 0.09 275)",
+          "selectionInk": "oklch(0.96 0.005 285)",
+          "caret": "oklch(0.66 0.16 278)",
+          "link": "oklch(0.66 0.16 278)",
+          "brand": "oklch(0.52 0.21 275)",
+          "brandInk": "oklch(0.98 0 0)",
+          "workspace": "oklch(0.32 0.09 275)",
+          "workspaceInk": "oklch(0.96 0.005 285)",
+          "overlay": "color-mix(in oklch, oklch(0.98 0 0) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.98 0 0) 52%, transparent)",
+          "danger": "oklch(0.62 0.18 20)",
+          "dangerInk": "oklch(0.15 0.01 25)",
+          "success": "oklch(0.3 0.06 160)",
+          "successInk": "oklch(0.8 0.11 160)",
+          "warning": "oklch(0.32 0.07 85)",
+          "warningInk": "oklch(0.83 0.12 85)",
+          "info": "oklch(0.3 0.08 265)",
+          "infoInk": "oklch(0.78 0.12 270)",
+          "actionFocal": "oklch(0.52 0.21 275)",
+          "actionFocalInk": "oklch(0.98 0 0)",
+          "actionFocalHover": "oklch(0.52 0.23 272)",
+          "actionFocalActive": "oklch(0.46 0.21 276)",
+          "actionPrimary": "oklch(0.92 0.005 285)",
+          "actionPrimaryInk": "oklch(0.2 0.01 285)",
+          "actionPrimaryHover": "oklch(0.96 0.003 285)",
+          "actionPrimaryActive": "oklch(0.83 0.01 285)",
+          "actionOrdinary": "oklch(0.24 0.006 285)",
+          "actionOrdinaryInk": "oklch(0.83 0.01 285)",
+          "actionOrdinaryBorder": "oklch(0.42 0.012 285)",
+          "actionOrdinaryHover": "oklch(0.28 0.01 285)",
+          "actionOrdinaryActive": "oklch(0.32 0.015 285)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.98 0 0)",
+          "actionQuietHover": "oklch(0.27 0.01 285)",
+          "actionQuietActive": "oklch(0.3 0.015 285)",
+          "actionDestructive": "oklch(0.30 0.09 20)",
+          "actionDestructiveInk": "oklch(0.78 0.14 20)",
+          "actionDestructiveHover": "oklch(0.26 0.085 20)",
+          "actionDestructiveActive": "oklch(0.22 0.08 20)",
+          "actionLink": "oklch(0.66 0.16 278)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.66 0.16 278) 82%, oklch(0.98 0 0))",
+          "disabled": "oklch(0.21 0.006 285)",
+          "disabledInk": "oklch(0.7 0.012 285)",
+          "field": "oklch(0.24 0.006 285)",
+          "fieldInk": "oklch(0.98 0 0)",
+          "fieldBorder": "oklch(0.38 0.01 285)",
+          "fieldHover": "oklch(0.26 0.008 285)",
+          "fieldFocus": "oklch(0.24 0.006 285)",
+          "fieldDisabled": "oklch(0.21 0.006 285)",
+          "fieldDisabledInk": "oklch(0.7 0.012 285)",
+          "cardHover": "color-mix(in oklch, oklch(0.24 0.006 285) 94%, oklch(0.21 0.006 285))",
+          "navigationHover": "oklch(0.27 0.01 285)",
+          "navigationActive": "oklch(0.35 0.1 275)",
+          "navigationActiveInk": "oklch(0.97 0 0)",
+          "sidebar": "oklch(0.22 0.006 285)",
+          "sidebarInk": "oklch(0.96 0.005 285)",
+          "sidebarActive": "oklch(0.35 0.1 275)",
+          "sidebarActiveInk": "oklch(0.97 0 0)",
+          "sidebarBorder": "oklch(0.3 0.01 285)",
+          "chrome": "oklch(0.24 0.006 285)",
+          "chromeInk": "oklch(0.98 0 0)",
+          "browserSurface": "oklch(0.18 0.005 285)",
+          "browserChrome": "oklch(0.24 0.006 285)",
+          "chart1": "oklch(0.52 0.21 275)",
+          "chart2": "oklch(0.66 0.16 278)",
+          "chart3": "oklch(0.8 0.12 215)",
+          "chart4": "oklch(0.7 0.012 285)",
+          "chart5": "oklch(0.5 0.01 285)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.12 0.006 55)",
+          "editorPanel": "oklch(0.18 0.008 55)",
+          "editorControl": "oklch(0.22 0.01 55)",
+          "editorControlHover": "oklch(0.27 0.012 55)",
+          "editorBorder": "oklch(0.29 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.72 0.16 45)",
+          "editorFocusBorder": "oklch(0.52 0.09 45)",
+          "timelineTrack": "oklch(0.16 0.008 55)",
+          "timelineClip": "oklch(0.3 0.04 250)",
+          "timelineWaveform": "oklch(0.76 0.04 245)",
+          "timelinePlayhead": "oklch(0.72 0.16 45)",
+          "timelineSelection": "oklch(0.38 0.08 45)",
+          "canvasPasteboard": "oklch(0.1 0.005 55)",
+          "canvasGrid": "oklch(0.25 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.72 0.16 45)",
+          "canvasSafeArea": "oklch(0.8 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "clamp(2.5rem, 7vw, 6.25rem)",
+            "lineHeight": "1.02",
+            "tracking": "-0.02em"
+          },
+          "title": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "2.25rem",
+            "lineHeight": "1.2",
+            "tracking": "-0.01em"
+          },
+          "body": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.4",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.75rem",
+            "lineHeight": "1.4",
+            "tracking": "0.14em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.55",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.5rem",
+          "controlHeight": "3rem",
+          "compactControlHeight": "2.5rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 4vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "1rem"
+        },
+        "shape": {
+          "radius": "1.875rem",
+          "radiusSm": "0.625rem",
+          "radiusMd": "1.25rem",
+          "radiusLg": "1.875rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 0 40px -4px oklch(0.5 0.2 280 / 0.35)",
+          "dialog": "0 8px 48px -8px oklch(0.45 0.19 280 / 0.4)",
+          "focalAction": "0 0 32px -2px oklch(0.55 0.2 280 / 0.5)"
+        },
+        "motion": {
+          "press": {
+            "duration": "120ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "180ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "180ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "280ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "280ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "4.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "segmented",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "posthog",
+    "revision": "builtin-v1",
+    "name": "PostHog",
+    "description": "Warm paper desktop: sandy desk, pinned white windows, one amber CTA.",
+    "iconPack": "tabler",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.84 0.05 88)",
+          "ink": "oklch(0.28 0.03 110)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(0.99 0.005 90)",
+          "surfaceSunken": "oklch(0.93 0.015 95)",
+          "mutedInk": "oklch(0.42 0.03 110)",
+          "border": "oklch(0.78 0.03 100)",
+          "input": "oklch(0.78 0.03 100)",
+          "focus": "oklch(0.47 0.17 255)",
+          "selection": "oklch(0.9 0.06 255)",
+          "selectionInk": "oklch(0.28 0.03 110)",
+          "caret": "oklch(0.47 0.17 255)",
+          "link": "oklch(0.45 0.16 255)",
+          "brand": "oklch(0.72 0.15 70)",
+          "brandInk": "oklch(0.28 0.03 110)",
+          "workspace": "oklch(0.9 0.06 255)",
+          "workspaceInk": "oklch(0.28 0.03 110)",
+          "overlay": "color-mix(in oklch, oklch(0.28 0.03 110) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.28 0.03 110) 52%, transparent)",
+          "danger": "oklch(0.62 0.22 40)",
+          "dangerInk": "oklch(0.15 0.02 40)",
+          "success": "oklch(0.9 0.07 145)",
+          "successInk": "oklch(0.42 0.12 145)",
+          "warning": "oklch(0.9 0.1 80)",
+          "warningInk": "oklch(0.5 0.12 70)",
+          "info": "oklch(0.9 0.06 255)",
+          "infoInk": "oklch(0.48 0.16 255)",
+          "actionFocal": "oklch(0.72 0.15 70)",
+          "actionFocalInk": "oklch(0.28 0.03 110)",
+          "actionFocalHover": "oklch(0.72 0.17 66)",
+          "actionFocalActive": "oklch(0.72 0.13 74)",
+          "actionPrimary": "oklch(0.28 0.03 110)",
+          "actionPrimaryInk": "oklch(0.99 0.005 90)",
+          "actionPrimaryHover": "oklch(0.22 0.025 110)",
+          "actionPrimaryActive": "oklch(0.16 0.02 110)",
+          "actionOrdinary": "oklch(0.99 0.005 90)",
+          "actionOrdinaryInk": "oklch(0.4 0.11 70)",
+          "actionOrdinaryBorder": "oklch(0.6 0.11 72)",
+          "actionOrdinaryHover": "oklch(0.93 0.015 95)",
+          "actionOrdinaryActive": "oklch(0.9 0.02 95)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.28 0.03 110)",
+          "actionQuietHover": "oklch(0.9 0.02 95)",
+          "actionQuietActive": "oklch(0.87 0.025 95)",
+          "actionDestructive": "oklch(0.45 0.16 35)",
+          "actionDestructiveInk": "oklch(0.97 0.01 40)",
+          "actionDestructiveHover": "oklch(0.42 0.16 34)",
+          "actionDestructiveActive": "oklch(0.39 0.16 33)",
+          "actionLink": "oklch(0.45 0.16 255)",
+          "actionLinkHover": "oklch(0.39 0.14 255)",
+          "disabled": "oklch(0.93 0.015 95)",
+          "disabledInk": "oklch(0.42 0.03 110)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.28 0.03 110)",
+          "fieldBorder": "oklch(0.78 0.03 100)",
+          "fieldHover": "oklch(0.93 0.015 95)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.9 0.02 95)",
+          "fieldDisabledInk": "oklch(0.45 0.03 110)",
+          "cardHover": "oklch(0.93 0.015 95)",
+          "navigationHover": "oklch(0.9 0.02 95)",
+          "navigationActive": "oklch(0.9 0.06 255)",
+          "navigationActiveInk": "oklch(0.45 0.16 255)",
+          "sidebar": "oklch(0.99 0.005 90)",
+          "sidebarInk": "oklch(0.28 0.03 110)",
+          "sidebarActive": "oklch(0.9 0.02 95)",
+          "sidebarActiveInk": "oklch(0.45 0.16 255)",
+          "sidebarBorder": "oklch(0.78 0.03 100)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.28 0.03 110)",
+          "browserSurface": "oklch(0.84 0.05 88)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.6 0.19 255)",
+          "chart2": "oklch(0.72 0.15 70)",
+          "chart3": "oklch(0.62 0.22 40)",
+          "chart4": "oklch(0.55 0.14 150)",
+          "chart5": "oklch(0.6 0.11 72)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 800,
+            "size": "clamp(1.75rem, 3vw, 2.25rem)",
+            "lineHeight": "1.33",
+            "tracking": "-0.025em"
+          },
+          "title": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 700,
+            "size": "1.5rem",
+            "lineHeight": "1.33",
+            "tracking": "-0.025em"
+          },
+          "body": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.9375rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Inter Tight Variable",
+            "fallbacks": [
+              "Inter Tight",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.8125rem",
+            "lineHeight": "1.38",
+            "tracking": "0.01em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "compact",
+          "base": "0.25rem",
+          "controlHeight": "2.25rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "2rem",
+          "sectionGap": "3rem",
+          "componentGap": "0.5rem"
+        },
+        "shape": {
+          "radius": "0.25rem",
+          "radiusSm": "0.25rem",
+          "radiusMd": "0.25rem",
+          "radiusLg": "0.375rem",
+          "radiusMedia": "0.375rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 12px 24px -16px oklch(0.3 0.02 90 / 0.35)",
+          "dialog": "0 25px 50px -12px oklch(0.2 0.015 90 / 0.35)",
+          "focalAction": "none"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "ease",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "150ms",
+            "easing": "ease",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "150ms",
+            "easing": "ease",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "200ms",
+            "easing": "ease-in-out",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "200ms",
+            "easing": "ease-in-out",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "60rem",
+          "sidebarWidth": "12rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "tactile"
+        },
+        "components": {
+          "button": "solid",
+          "link": "underlined",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "outlined",
+          "popover": "outlined",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "tactile"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "origin",
+    "revision": "builtin-v1",
+    "name": "Origin",
+    "description": "Midnight gallery of quiet wealth — whisper serif, white-on-black actions, iris tiles.",
+    "iconPack": "lucide",
+    "supportedSchemes": [
+      "dark"
+    ],
+    "schemes": {
+      "dark": {
+        "colors": {
+          "canvas": "oklch(0.16 0.004 250)",
+          "ink": "oklch(0.96 0.003 250)",
+          "surface": "oklch(0.32 0.004 250)",
+          "surfaceRaised": "oklch(0.40 0.005 250)",
+          "surfaceSunken": "oklch(0.135 0.003 250)",
+          "mutedInk": "oklch(0.74 0.004 250)",
+          "border": "oklch(0.28 0.006 250)",
+          "input": "oklch(0.28 0.006 250)",
+          "focus": "oklch(0.92 0 0)",
+          "selection": "oklch(0.35 0.12 285)",
+          "selectionInk": "oklch(0.96 0.003 250)",
+          "caret": "oklch(0.96 0.003 250)",
+          "link": "oklch(0.90 0.005 250)",
+          "brand": "oklch(0.72 0.19 285)",
+          "brandInk": "oklch(0.14 0.01 250)",
+          "workspace": "oklch(0.35 0.12 285)",
+          "workspaceInk": "oklch(0.96 0.003 250)",
+          "overlay": "color-mix(in oklch, oklch(0.96 0.003 250) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.96 0.003 250) 52%, transparent)",
+          "danger": "oklch(0.74 0.20 25)",
+          "dangerInk": "oklch(0.12 0.005 250)",
+          "success": "oklch(0.30 0.06 160)",
+          "successInk": "oklch(0.80 0.12 160)",
+          "warning": "oklch(0.32 0.06 80)",
+          "warningInk": "oklch(0.84 0.12 80)",
+          "info": "oklch(0.35 0.08 260)",
+          "infoInk": "oklch(0.82 0.09 260)",
+          "actionFocal": "oklch(0.72 0.19 285)",
+          "actionFocalInk": "oklch(0.14 0.01 250)",
+          "actionFocalHover": "oklch(0.76 0.19 285)",
+          "actionFocalActive": "oklch(0.80 0.18 285)",
+          "actionPrimary": "oklch(0.99 0 0)",
+          "actionPrimaryInk": "oklch(0.12 0.005 250)",
+          "actionPrimaryHover": "oklch(0.92 0 0)",
+          "actionPrimaryActive": "oklch(0.85 0.004 250)",
+          "actionOrdinary": "oklch(0.24 0.006 250)",
+          "actionOrdinaryInk": "oklch(0.96 0.003 250)",
+          "actionOrdinaryBorder": "oklch(0.45 0.008 250)",
+          "actionOrdinaryHover": "oklch(0.30 0.006 250)",
+          "actionOrdinaryActive": "oklch(0.36 0.006 250)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.96 0.003 250)",
+          "actionQuietHover": "oklch(0.135 0.003 250)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.135 0.003 250) 86%, oklch(0.96 0.003 250))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.74 0.20 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.82 0.13 25)",
+          "actionDestructiveHover": "oklch(0.42 0.12 25)",
+          "actionDestructiveActive": "oklch(0.36 0.11 25)",
+          "actionLink": "oklch(0.90 0.005 250)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.90 0.005 250) 82%, oklch(0.96 0.003 250))",
+          "disabled": "oklch(0.135 0.003 250)",
+          "disabledInk": "oklch(0.74 0.004 250)",
+          "field": "oklch(0.10 0.003 250)",
+          "fieldInk": "oklch(0.96 0.003 250)",
+          "fieldBorder": "oklch(0.32 0.006 250)",
+          "fieldHover": "oklch(0.13 0.003 250)",
+          "fieldFocus": "oklch(0.10 0.003 250)",
+          "fieldDisabled": "oklch(0.135 0.003 250)",
+          "fieldDisabledInk": "oklch(0.74 0.004 250)",
+          "cardHover": "color-mix(in oklch, oklch(0.32 0.004 250) 94%, oklch(0.135 0.003 250))",
+          "navigationHover": "oklch(0.135 0.003 250)",
+          "navigationActive": "oklch(0.35 0.12 285)",
+          "navigationActiveInk": "oklch(0.96 0.003 250)",
+          "sidebar": "oklch(0.15 0.004 250)",
+          "sidebarInk": "oklch(0.96 0.003 250)",
+          "sidebarActive": "oklch(0.38 0.13 285)",
+          "sidebarActiveInk": "oklch(0.99 0 0)",
+          "sidebarBorder": "oklch(0.24 0.005 250)",
+          "chrome": "oklch(0.15 0.004 250)",
+          "chromeInk": "oklch(0.96 0.003 250)",
+          "browserSurface": "oklch(0.16 0.004 250)",
+          "browserChrome": "oklch(0.32 0.004 250)",
+          "chart1": "oklch(0.62 0.19 285)",
+          "chart2": "oklch(0.70 0.13 225)",
+          "chart3": "oklch(0.72 0.13 340)",
+          "chart4": "oklch(0.78 0.09 260)",
+          "chart5": "oklch(0.68 0.004 250)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.12 0.006 55)",
+          "editorPanel": "oklch(0.18 0.008 55)",
+          "editorControl": "oklch(0.22 0.01 55)",
+          "editorControlHover": "oklch(0.27 0.012 55)",
+          "editorBorder": "oklch(0.29 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.72 0.16 45)",
+          "editorFocusBorder": "oklch(0.52 0.09 45)",
+          "timelineTrack": "oklch(0.16 0.008 55)",
+          "timelineClip": "oklch(0.3 0.04 250)",
+          "timelineWaveform": "oklch(0.76 0.04 245)",
+          "timelinePlayhead": "oklch(0.72 0.16 45)",
+          "timelineSelection": "oklch(0.38 0.08 45)",
+          "canvasPasteboard": "oklch(0.1 0.005 55)",
+          "canvasGrid": "oklch(0.25 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.72 0.16 45)",
+          "canvasSafeArea": "oklch(0.8 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Playfair Display Variable",
+            "fallbacks": [
+              "Source Serif 4",
+              "Georgia",
+              "serif"
+            ],
+            "weight": 400,
+            "size": "clamp(2.375rem, 6vw, 6rem)",
+            "lineHeight": "1",
+            "tracking": "0em"
+          },
+          "title": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "2.375rem",
+            "lineHeight": "1",
+            "tracking": "0em"
+          },
+          "body": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 500,
+            "size": "0.75rem",
+            "lineHeight": "1.6",
+            "tracking": "0.18em"
+          },
+          "metadata": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.875rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.75rem",
+          "compactControlHeight": "2.25rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.5rem",
+          "radiusSm": "0.5rem",
+          "radiusMd": "1rem",
+          "radiusLg": "1.875rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "0 18px 20px -12px rgb(0 0 0 / 0.45)",
+          "dialog": "0 24px 48px -16px rgb(0 0 0 / 0.55)",
+          "focalAction": "0 1px 2px -1px rgb(0 0 0 / 0.5)"
+        },
+        "motion": {
+          "press": {
+            "duration": "200ms",
+            "easing": "ease",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "200ms",
+            "easing": "ease",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "200ms",
+            "easing": "ease",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "600ms",
+            "easing": "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "200ms",
+            "easing": "ease",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "1200ms",
+            "easing": "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
+            "distance": "1rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "pulse",
+          "editorChrome": "neutral",
+          "decoration": "editorial"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "column",
+    "revision": "builtin-v1",
+    "name": "Column",
+    "description": "Deep-navy ledger on cool dawn — indigo structure, seafoam data, one orange signal.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.965 0.004 270)",
+          "ink": "oklch(0.30 0.085 275)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.94 0.006 270)",
+          "mutedInk": "oklch(0.45 0.015 270)",
+          "border": "oklch(0.90 0.006 270)",
+          "input": "oklch(0.90 0.006 270)",
+          "focus": "oklch(0.30 0.085 275)",
+          "selection": "oklch(0.90 0.05 215)",
+          "selectionInk": "oklch(0.28 0.08 275)",
+          "caret": "oklch(0.42 0.09 175)",
+          "link": "oklch(0.42 0.06 275)",
+          "brand": "oklch(0.65 0.17 55)",
+          "brandInk": "oklch(0.12 0.01 60)",
+          "workspace": "oklch(0.90 0.05 215)",
+          "workspaceInk": "oklch(0.28 0.08 275)",
+          "overlay": "color-mix(in oklch, oklch(0.30 0.085 275) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.30 0.085 275) 52%, transparent)",
+          "danger": "oklch(0.57 0.20 25)",
+          "dangerInk": "oklch(0.99 0 0)",
+          "success": "oklch(0.87 0.07 170)",
+          "successInk": "oklch(0.42 0.09 175)",
+          "warning": "oklch(0.89 0.09 60)",
+          "warningInk": "oklch(0.45 0.12 50)",
+          "info": "oklch(0.87 0.06 215)",
+          "infoInk": "oklch(0.42 0.09 230)",
+          "actionFocal": "oklch(0.60 0.16 55)",
+          "actionFocalInk": "oklch(0.12 0.01 60)",
+          "actionFocalHover": "oklch(0.63 0.16 55)",
+          "actionFocalActive": "oklch(0.66 0.16 55)",
+          "actionPrimary": "oklch(0.30 0.085 275)",
+          "actionPrimaryInk": "oklch(0.99 0 0)",
+          "actionPrimaryHover": "oklch(0.25 0.08 275)",
+          "actionPrimaryActive": "oklch(0.20 0.07 275)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0.30 0.085 275)",
+          "actionOrdinaryBorder": "oklch(0.30 0.085 275)",
+          "actionOrdinaryHover": "oklch(0.96 0.01 275)",
+          "actionOrdinaryActive": "oklch(0.93 0.015 275)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.30 0.085 275)",
+          "actionQuietHover": "oklch(0.94 0.006 270)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.94 0.006 270) 86%, oklch(0.30 0.085 275))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.57 0.20 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.44 0.19 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.57 0.20 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.57 0.20 25) 28%, transparent)",
+          "actionLink": "oklch(0.42 0.06 275)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.42 0.06 275) 82%, oklch(0.30 0.085 275))",
+          "disabled": "oklch(0.94 0.006 270)",
+          "disabledInk": "oklch(0.45 0.015 270)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.30 0.085 275)",
+          "fieldBorder": "oklch(0.90 0.006 270)",
+          "fieldHover": "oklch(0.98 0.003 270)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.94 0.006 270)",
+          "fieldDisabledInk": "oklch(0.45 0.015 270)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.94 0.006 270))",
+          "navigationHover": "oklch(0.94 0.006 270)",
+          "navigationActive": "oklch(0.90 0.05 215)",
+          "navigationActiveInk": "oklch(0.28 0.08 275)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0.38 0.015 270)",
+          "sidebarActive": "oklch(0.92 0.03 275)",
+          "sidebarActiveInk": "oklch(0.30 0.085 275)",
+          "sidebarBorder": "oklch(0.90 0.006 270)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.30 0.085 275)",
+          "browserSurface": "oklch(0.965 0.004 270)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.68 0.13 165)",
+          "chart2": "oklch(0.65 0.17 55)",
+          "chart3": "oklch(0.45 0.11 275)",
+          "chart4": "oklch(0.80 0.07 215)",
+          "chart5": "oklch(0.45 0.10 200)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "3.75rem",
+            "lineHeight": "1",
+            "tracking": "-0.01em"
+          },
+          "title": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.75rem",
+            "lineHeight": "1.1",
+            "tracking": "-0.01em"
+          },
+          "body": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.875rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Inter Variable",
+            "fallbacks": [
+              "Inter",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.75rem",
+          "compactControlHeight": "2.25rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "4.5rem",
+          "componentGap": "0.5rem"
+        },
+        "shape": {
+          "radius": "0.5rem",
+          "radiusSm": "0.375rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.5rem",
+          "radiusMedia": "0.5rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "0 1px 4px 0 oklch(0.07 0.02 270 / 0.06)",
+          "popover": "0 12px 10px -4px oklch(0.07 0.02 270 / 0.04)",
+          "dialog": "0 40px 32px -8px oklch(0.07 0.02 270 / 0.04)",
+          "focalAction": "0 1px 3px -1px oklch(0.35 0.12 55 / 0.45)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.2, 0, 0, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.2, 0, 0, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.2, 0, 0, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.2, 0, 0, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.2, 0, 0, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "subtle",
+          "tabs": "underline",
+          "navigation": "quiet",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "outlined",
+          "container": "flat",
+          "table": "ruled",
+          "list": "divided",
+          "badge": "tonal",
+          "chip": "outlined",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "elevated",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "quiet",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "duolingo",
+    "revision": "builtin-v1",
+    "name": "Duolingo",
+    "description": "Storybook white, sticker-thick borders, and one eager green that means go.",
+    "iconPack": "phosphor",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(1 0 0)",
+          "ink": "oklch(0.42 0.01 250)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.97 0.012 110)",
+          "mutedInk": "oklch(0.52 0.012 250)",
+          "border": "oklch(0.74 0.012 250)",
+          "input": "oklch(0.74 0.012 250)",
+          "focus": "oklch(0.50 0.13 245)",
+          "selection": "oklch(0.94 0.09 133)",
+          "selectionInk": "oklch(0.42 0.14 133)",
+          "caret": "oklch(0.72 0.205 133)",
+          "link": "oklch(0.50 0.13 245)",
+          "brand": "oklch(0.72 0.205 133)",
+          "brandInk": "oklch(0.25 0.05 275)",
+          "workspace": "oklch(0.94 0.09 133)",
+          "workspaceInk": "oklch(0.42 0.14 133)",
+          "overlay": "color-mix(in oklch, oklch(0.42 0.01 250) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.42 0.01 250) 52%, transparent)",
+          "danger": "oklch(0.57 0.21 25)",
+          "dangerInk": "oklch(1 0 0)",
+          "success": "oklch(0.94 0.09 133)",
+          "successInk": "oklch(0.42 0.14 133)",
+          "warning": "oklch(0.93 0.09 90)",
+          "warningInk": "oklch(0.45 0.12 75)",
+          "info": "oklch(0.92 0.06 238)",
+          "infoInk": "oklch(0.5 0.14 240)",
+          "actionFocal": "oklch(0.72 0.205 133)",
+          "actionFocalInk": "oklch(0.25 0.05 275)",
+          "actionFocalHover": "oklch(0.67 0.2 133)",
+          "actionFocalActive": "oklch(0.63 0.195 133)",
+          "actionPrimary": "oklch(0.18 0.05 280)",
+          "actionPrimaryInk": "oklch(1 0 0)",
+          "actionPrimaryHover": "oklch(0.24 0.055 280)",
+          "actionPrimaryActive": "oklch(0.3 0.06 280)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0.50 0.13 245)",
+          "actionOrdinaryBorder": "oklch(0.74 0.012 250)",
+          "actionOrdinaryHover": "oklch(0.94 0.09 133)",
+          "actionOrdinaryActive": "oklch(0.9 0.11 133)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.42 0.01 250)",
+          "actionQuietHover": "oklch(0.97 0.012 110)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.97 0.012 110) 86%, oklch(0.42 0.01 250))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.57 0.21 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.47 0.2 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.57 0.21 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.57 0.21 25) 28%, transparent)",
+          "actionLink": "oklch(0.50 0.13 245)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.50 0.13 245) 82%, oklch(0.42 0.01 250))",
+          "disabled": "oklch(0.97 0.012 110)",
+          "disabledInk": "oklch(0.52 0.012 250)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.42 0.01 250)",
+          "fieldBorder": "oklch(0.74 0.012 250)",
+          "fieldHover": "oklch(0.97 0.012 110)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.97 0.012 110)",
+          "fieldDisabledInk": "oklch(0.52 0.012 250)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.97 0.012 110))",
+          "navigationHover": "oklch(0.97 0.012 110)",
+          "navigationActive": "oklch(0.94 0.09 133)",
+          "navigationActiveInk": "oklch(0.42 0.14 133)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0.42 0.01 250)",
+          "sidebarActive": "oklch(0.94 0.09 133)",
+          "sidebarActiveInk": "oklch(0.42 0.14 133)",
+          "sidebarBorder": "oklch(0.74 0.012 250)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.42 0.01 250)",
+          "browserSurface": "oklch(1 0 0)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.72 0.205 133)",
+          "chart2": "oklch(0.69 0.135 238)",
+          "chart3": "oklch(0.88 0.15 133)",
+          "chart4": "oklch(0.18 0.05 280)",
+          "chart5": "oklch(0.55 0.012 250)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 800,
+            "size": "4rem",
+            "lineHeight": "1.2",
+            "tracking": "-0.02em"
+          },
+          "title": {
+            "family": "Manrope Variable",
+            "fallbacks": [
+              "Manrope",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 700,
+            "size": "2rem",
+            "lineHeight": "1.2",
+            "tracking": "-0.01em"
+          },
+          "body": {
+            "family": "DM Sans Variable",
+            "fallbacks": [
+              "DM Sans",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "1.0625rem",
+            "lineHeight": "1.35",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "DM Sans Variable",
+            "fallbacks": [
+              "DM Sans",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 700,
+            "size": "0.9375rem",
+            "lineHeight": "1.33",
+            "tracking": "0.053em"
+          },
+          "metadata": {
+            "family": "DM Sans Variable",
+            "fallbacks": [
+              "DM Sans",
+              "system-ui",
+              "sans-serif"
+            ],
+            "weight": 500,
+            "size": "0.8125rem",
+            "lineHeight": "1.23",
+            "tracking": "0em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "comfortable",
+          "base": "0.25rem",
+          "controlHeight": "2.75rem",
+          "compactControlHeight": "2.25rem",
+          "touchTarget": "3rem",
+          "pageGutter": "clamp(1rem, 4vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "0.75rem"
+        },
+        "shape": {
+          "radius": "0.75rem",
+          "radiusSm": "0.75rem",
+          "radiusMd": "0.75rem",
+          "radiusLg": "0.75rem",
+          "radiusMedia": "1rem",
+          "radiusPill": "9999px",
+          "borderWidth": "2px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "none",
+          "popover": "none",
+          "dialog": "none",
+          "focalAction": "0 4px 0 0 oklch(0.55 0.19 133)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.34, 1.3, 0.64, 1)",
+            "distance": "4px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "150ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "300ms",
+            "easing": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "150ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "playful"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "pill",
+          "navigation": "outlined",
+          "input": "outlined",
+          "select": "outlined",
+          "card": "flat",
+          "container": "flat",
+          "table": "plain",
+          "list": "spaced",
+          "badge": "solid",
+          "chip": "tonal",
+          "dialog": "flat",
+          "popover": "flat",
+          "toast": "flat",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "pill",
+          "emptyState": "illustrated",
+          "loadingState": "pulse",
+          "editorChrome": "neutral",
+          "decoration": "playful"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
+  },
+  {
+    "schemaVersion": 1,
+    "id": "quizlet",
+    "revision": "builtin-v1",
+    "name": "Quizlet",
+    "description": "Chalk canvas, white study cards, and one iris violet highlighter mark.",
+    "iconPack": "heroicons-outline",
+    "supportedSchemes": [
+      "light"
+    ],
+    "schemes": {
+      "light": {
+        "colors": {
+          "canvas": "oklch(0.97 0.008 270)",
+          "ink": "oklch(0.28 0.03 275)",
+          "surface": "oklch(1 0 0)",
+          "surfaceRaised": "oklch(1 0 0)",
+          "surfaceSunken": "oklch(0.94 0.03 280)",
+          "mutedInk": "oklch(0.48 0.05 270)",
+          "border": "oklch(0.89 0.02 272)",
+          "input": "oklch(0.89 0.02 272)",
+          "focus": "oklch(0.35 0.15 279)",
+          "selection": "oklch(0.94 0.03 280)",
+          "selectionInk": "oklch(0.32 0.05 272)",
+          "caret": "oklch(0.53 0.23 279)",
+          "link": "oklch(0.53 0.23 279)",
+          "brand": "oklch(0.53 0.23 279)",
+          "brandInk": "oklch(1 0 0)",
+          "workspace": "oklch(0.94 0.03 280)",
+          "workspaceInk": "oklch(0.32 0.05 272)",
+          "overlay": "color-mix(in oklch, oklch(0.28 0.03 275) 12%, transparent)",
+          "scrim": "color-mix(in oklch, oklch(0.28 0.03 275) 52%, transparent)",
+          "danger": "oklch(0.57 0.2 25)",
+          "dangerInk": "oklch(0.99 0 0)",
+          "success": "oklch(0.93 0.05 155)",
+          "successInk": "oklch(0.38 0.11 160)",
+          "warning": "oklch(0.94 0.06 85)",
+          "warningInk": "oklch(0.44 0.11 75)",
+          "info": "oklch(0.93 0.04 270)",
+          "infoInk": "oklch(0.42 0.12 275)",
+          "actionFocal": "oklch(0.53 0.23 279)",
+          "actionFocalInk": "oklch(1 0 0)",
+          "actionFocalHover": "oklch(0.47 0.23 279)",
+          "actionFocalActive": "oklch(0.42 0.22 279)",
+          "actionPrimary": "oklch(0.28 0.03 275)",
+          "actionPrimaryInk": "oklch(1 0 0)",
+          "actionPrimaryHover": "oklch(0.22 0.03 275)",
+          "actionPrimaryActive": "oklch(0.16 0.02 275)",
+          "actionOrdinary": "oklch(1 0 0)",
+          "actionOrdinaryInk": "oklch(0.53 0.23 279)",
+          "actionOrdinaryBorder": "oklch(0.53 0.23 279)",
+          "actionOrdinaryHover": "oklch(0.94 0.03 280)",
+          "actionOrdinaryActive": "oklch(0.92 0.04 280)",
+          "actionQuiet": "transparent",
+          "actionQuietInk": "oklch(0.28 0.03 275)",
+          "actionQuietHover": "oklch(0.94 0.03 280)",
+          "actionQuietActive": "color-mix(in oklch, oklch(0.94 0.03 280) 86%, oklch(0.28 0.03 275))",
+          "actionDestructive": "color-mix(in oklch, oklch(0.57 0.2 25) 12%, transparent)",
+          "actionDestructiveInk": "oklch(0.45 0.19 25)",
+          "actionDestructiveHover": "color-mix(in oklch, oklch(0.57 0.2 25) 20%, transparent)",
+          "actionDestructiveActive": "color-mix(in oklch, oklch(0.57 0.2 25) 28%, transparent)",
+          "actionLink": "oklch(0.53 0.23 279)",
+          "actionLinkHover": "color-mix(in oklch, oklch(0.53 0.23 279) 82%, oklch(0.28 0.03 275))",
+          "disabled": "oklch(0.94 0.03 280)",
+          "disabledInk": "oklch(0.48 0.05 270)",
+          "field": "oklch(1 0 0)",
+          "fieldInk": "oklch(0.28 0.03 275)",
+          "fieldBorder": "oklch(0.89 0.02 272)",
+          "fieldHover": "oklch(0.94 0.03 280)",
+          "fieldFocus": "oklch(1 0 0)",
+          "fieldDisabled": "oklch(0.94 0.03 280)",
+          "fieldDisabledInk": "oklch(0.48 0.05 270)",
+          "cardHover": "color-mix(in oklch, oklch(1 0 0) 94%, oklch(0.94 0.03 280))",
+          "navigationHover": "oklch(0.94 0.03 280)",
+          "navigationActive": "oklch(0.94 0.03 280)",
+          "navigationActiveInk": "oklch(0.45 0.2 279)",
+          "sidebar": "oklch(1 0 0)",
+          "sidebarInk": "oklch(0.28 0.03 275)",
+          "sidebarActive": "oklch(0.94 0.03 280)",
+          "sidebarActiveInk": "oklch(0.45 0.2 279)",
+          "sidebarBorder": "oklch(0.89 0.02 272)",
+          "chrome": "oklch(1 0 0)",
+          "chromeInk": "oklch(0.28 0.03 275)",
+          "browserSurface": "oklch(0.97 0.008 270)",
+          "browserChrome": "oklch(1 0 0)",
+          "chart1": "oklch(0.53 0.23 279)",
+          "chart2": "oklch(0.6 0.12 270)",
+          "chart3": "oklch(0.65 0.1 250)",
+          "chart4": "oklch(0.6 0.12 300)",
+          "chart5": "oklch(0.5 0.08 260)"
+        },
+        "protectedEditor": {
+          "editorCanvas": "oklch(0.15 0.006 55)",
+          "editorPanel": "oklch(0.2 0.008 55)",
+          "editorControl": "oklch(0.24 0.01 55)",
+          "editorControlHover": "oklch(0.29 0.012 55)",
+          "editorBorder": "oklch(0.32 0.01 55)",
+          "editorMuted": "oklch(0.7 0.01 75)",
+          "editorText": "oklch(0.94 0.004 85)",
+          "editorFocus": "oklch(0.65 0.15 45)",
+          "editorFocusBorder": "oklch(0.5 0.09 45)",
+          "timelineTrack": "oklch(0.18 0.008 55)",
+          "timelineClip": "oklch(0.31 0.04 250)",
+          "timelineWaveform": "oklch(0.74 0.04 245)",
+          "timelinePlayhead": "oklch(0.65 0.15 45)",
+          "timelineSelection": "oklch(0.36 0.07 45)",
+          "canvasPasteboard": "oklch(0.12 0.006 55)",
+          "canvasGrid": "oklch(0.28 0.01 55)",
+          "canvasHandle": "oklch(0.98 0 0)",
+          "canvasSelection": "oklch(0.65 0.15 45)",
+          "canvasSafeArea": "oklch(0.78 0.03 245 / 0.72)",
+          "protectedGlyph": "oklch(0.94 0.004 85)"
+        },
+        "typography": {
+          "display": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 700,
+            "size": "2.75rem",
+            "lineHeight": "1.25",
+            "tracking": "0em"
+          },
+          "title": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "2rem",
+            "lineHeight": "1.28",
+            "tracking": "0em"
+          },
+          "body": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "1rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "label": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 600,
+            "size": "0.875rem",
+            "lineHeight": "1.43",
+            "tracking": "0em"
+          },
+          "metadata": {
+            "family": "Geist Variable",
+            "fallbacks": [
+              "Geist",
+              "system-ui",
+              "-apple-system",
+              "sans-serif"
+            ],
+            "weight": 400,
+            "size": "0.75rem",
+            "lineHeight": "1.5",
+            "tracking": "0em"
+          },
+          "code": {
+            "family": "Geist Mono Variable",
+            "fallbacks": [
+              "Geist Mono",
+              "ui-monospace",
+              "SFMono-Regular",
+              "monospace"
+            ],
+            "weight": 400,
+            "size": "0.8125rem",
+            "lineHeight": "1.45",
+            "tracking": "0em"
+          }
+        },
+        "spacing": {
+          "density": "compact",
+          "base": "0.25rem",
+          "controlHeight": "2.5rem",
+          "compactControlHeight": "2rem",
+          "touchTarget": "2.75rem",
+          "pageGutter": "clamp(1rem, 3vw, 2rem)",
+          "sectionGap": "5rem",
+          "componentGap": "0.5rem"
+        },
+        "shape": {
+          "radius": "0.5rem",
+          "radiusSm": "0.25rem",
+          "radiusMd": "0.5rem",
+          "radiusLg": "0.5rem",
+          "radiusMedia": "1.5rem",
+          "radiusPill": "9999px",
+          "borderWidth": "1px",
+          "borderStyle": "solid"
+        },
+        "elevation": {
+          "card": "0 4px 16px 0 rgb(40 46 62 / 0.1)",
+          "popover": "0 4px 16px 0 rgb(40 46 62 / 0.1)",
+          "dialog": "0 4px 16px 0 rgb(40 46 62 / 0.1)",
+          "focalAction": "0 2px 4px 0 rgb(40 46 62 / 0.1)"
+        },
+        "motion": {
+          "press": {
+            "duration": "100ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "1px",
+            "opacity": 1
+          },
+          "hover": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "selection": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0px",
+            "opacity": 1
+          },
+          "entry": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.5rem",
+            "opacity": 0
+          },
+          "exit": {
+            "duration": "160ms",
+            "easing": "cubic-bezier(0.4, 0, 1, 1)",
+            "distance": "0.25rem",
+            "opacity": 0
+          },
+          "loading": {
+            "duration": "900ms",
+            "easing": "linear",
+            "distance": "0px",
+            "opacity": 0.45
+          },
+          "pageTransition": {
+            "duration": "240ms",
+            "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            "distance": "0.75rem",
+            "opacity": 0
+          },
+          "reducedMotion": "instant"
+        },
+        "shell": {
+          "contentMaxWidth": "75rem",
+          "sidebarWidth": "16rem",
+          "headerHeight": "3.5rem",
+          "mobileNavigationHeight": "4.5rem",
+          "canvasTreatment": "plain"
+        },
+        "components": {
+          "button": "solid",
+          "link": "plain",
+          "tabs": "pill",
+          "navigation": "quiet",
+          "input": "filled",
+          "select": "filled",
+          "card": "outlined",
+          "container": "tinted",
+          "table": "plain",
+          "list": "spaced",
+          "badge": "tonal",
+          "chip": "tonal",
+          "dialog": "elevated",
+          "popover": "elevated",
+          "toast": "outlined",
+          "switch": "solid",
+          "checkbox": "solid",
+          "radio": "solid",
+          "toolbar": "flat",
+          "pagination": "pill",
+          "emptyState": "plain",
+          "loadingState": "skeleton",
+          "editorChrome": "neutral",
+          "decoration": "none"
+        }
+      }
+    },
+    "fonts": [],
+    "assets": []
   }
 ]

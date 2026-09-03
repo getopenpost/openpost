@@ -23,6 +23,22 @@ var builtInOrder = []string{
 	"study-hall",
 	"corkboard",
 	"midnight",
+	"ferrari",
+	"apple",
+	"todoist",
+	"notion",
+	"supabase",
+	"vercel",
+	"firecrawl",
+	"linear",
+	"calcom",
+	"mintlify",
+	"launchdarkly",
+	"posthog",
+	"origin",
+	"column",
+	"duolingo",
+	"quizlet",
 }
 
 // BuiltIns returns fresh copies so callers cannot mutate the code-owned

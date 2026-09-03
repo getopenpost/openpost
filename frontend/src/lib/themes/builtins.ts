@@ -13,6 +13,22 @@ import { cloudGardenTheme } from './builtins/cloud-garden.js';
 import { studyHallTheme } from './builtins/study-hall.js';
 import { corkboardTheme } from './builtins/corkboard.js';
 import { midnightTheme } from './builtins/midnight.js';
+import { ferrariTheme } from './builtins/ferrari.js';
+import { appleTheme } from './builtins/apple.js';
+import { todoistTheme } from './builtins/todoist.js';
+import { notionTheme } from './builtins/notion.js';
+import { supabaseTheme } from './builtins/supabase.js';
+import { vercelTheme } from './builtins/vercel.js';
+import { firecrawlTheme } from './builtins/firecrawl.js';
+import { linearTheme } from './builtins/linear.js';
+import { calcomTheme } from './builtins/calcom.js';
+import { mintlifyTheme } from './builtins/mintlify.js';
+import { launchdarklyTheme } from './builtins/launchdarkly.js';
+import { posthogTheme } from './builtins/posthog.js';
+import { originTheme } from './builtins/origin.js';
+import { columnTheme } from './builtins/column.js';
+import { duolingoTheme } from './builtins/duolingo.js';
+import { quizletTheme } from './builtins/quizlet.js';
 
 export const WORKSHOP_FALLBACK_THEME: ThemeManifest = workshopTheme;
 
@@ -24,7 +40,23 @@ export const BUILT_IN_THEMES: readonly ThemeManifest[] = [
 	cloudGardenTheme,
 	studyHallTheme,
 	corkboardTheme,
-	midnightTheme
+	midnightTheme,
+	ferrariTheme,
+	appleTheme,
+	todoistTheme,
+	notionTheme,
+	supabaseTheme,
+	vercelTheme,
+	firecrawlTheme,
+	linearTheme,
+	calcomTheme,
+	mintlifyTheme,
+	launchdarklyTheme,
+	posthogTheme,
+	originTheme,
+	columnTheme,
+	duolingoTheme,
+	quizletTheme
 ];
 
 const builtInThemesById = new Map(BUILT_IN_THEMES.map((item) => [item.id, item]));

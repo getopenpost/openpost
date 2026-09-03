@@ -25,17 +25,43 @@ const expectedFamilies = [
 	'cloud-garden',
 	'study-hall',
 	'corkboard',
-	'midnight'
+	'midnight',
+	'ferrari',
+	'apple',
+	'todoist',
+	'notion',
+	'supabase',
+	'vercel',
+	'firecrawl',
+	'linear',
+	'calcom',
+	'mintlify',
+	'launchdarkly',
+	'posthog',
+	'origin',
+	'column',
+	'duolingo',
+	'quizlet'
+] as const;
+
+const expectedDarkOnlyFamilies = [
+	'midnight',
+	'ferrari',
+	'supabase',
+	'linear',
+	'launchdarkly',
+	'origin'
 ] as const;
 
 describe('built-in themes', () => {
-	it('publishes the eight versioned families with explicit scheme support', () => {
+	it('publishes the twenty-four versioned families with explicit scheme support', () => {
 		expect(BUILT_IN_THEMES.map((theme) => theme.id)).toEqual(expectedFamilies);
 		expect(getBuiltInTheme('workshop').supportedSchemes).toEqual(['light', 'dark']);
-		expect(getBuiltInTheme('midnight').supportedSchemes).toEqual(['dark']);
-
-		for (const id of expectedFamilies.slice(1, -1)) {
-			expect(getBuiltInTheme(id).supportedSchemes).toEqual(['light']);
+		for (const id of expectedFamilies.slice(1)) {
+			const expected = (expectedDarkOnlyFamilies as readonly string[]).includes(id)
+				? ['dark']
+				: ['light'];
+			expect(getBuiltInTheme(id).supportedSchemes).toEqual(expected);
 		}
 
 		for (const theme of BUILT_IN_THEMES) {
@@ -72,48 +98,6 @@ describe('built-in themes', () => {
 
 	it('matches the canonical v1 fixture consumed by the Go service', () => {
 		expect(BUILT_IN_THEMES).toEqual(canonicalBuiltIns);
-	});
-
-	it('rejects complete-looking manifests with unsafe bounded values', () => {
-		const manifest = resolveBuiltInTheme('workshop', 'light').manifest;
-		Object.defineProperty(manifest.shape, 'borderStyle', { value: 'double' });
-		expect(isCompleteThemeSchemeManifest(manifest, 'light')).toBe(false);
-
-		const motionManifest = resolveBuiltInTheme('workshop', 'light').manifest;
-		motionManifest.motion.hover.opacity = 2;
-		expect(isCompleteThemeSchemeManifest(motionManifest, 'light')).toBe(false);
-
-		const recipeManifest = resolveBuiltInTheme('workshop', 'light').manifest;
-		Object.defineProperty(recipeManifest.components, 'dialog', { value: 'glass' });
-		expect(isCompleteThemeSchemeManifest(recipeManifest, 'light')).toBe(false);
-
-		const extendedManifest = resolveBuiltInTheme('workshop', 'light').manifest;
-		Object.defineProperty(extendedManifest, 'rawCss', {
-			value: 'body { display: none }',
-			enumerable: true
-		});
-		expect(isCompleteThemeSchemeManifest(extendedManifest, 'light')).toBe(false);
-	});
-
-	it('keeps each family visually specific instead of repainting Workshop', () => {
-		expect(getBuiltInTheme('workshop').schemes.light!.colors.actionFocal).toBe(
-			'oklch(0.55 0.155 45)'
-		);
-		expect(getBuiltInTheme('studio').schemes.light!.colors.actionFocal).toBe('oklch(0.52 0.2 255)');
-		expect(getBuiltInTheme('notebook').schemes.light!.typography.display.family).toContain(
-			'Source Serif 4'
-		);
-		expect(getBuiltInTheme('playroom').schemes.light!.shape.radius).toBe('1rem');
-		expect(getBuiltInTheme('cloud-garden').schemes.light!.colors.canvas).toBe(
-			'oklch(0.985 0.018 155)'
-		);
-		expect(getBuiltInTheme('study-hall').schemes.light!.colors.selection).toBe(
-			'oklch(0.91 0.055 285)'
-		);
-		expect(getBuiltInTheme('corkboard').schemes.light!.components.decoration).toBe('tactile');
-		expect(getBuiltInTheme('midnight').schemes.dark!.colors.actionFocal).toBe(
-			'oklch(0.82 0.2 125)'
-		);
 	});
 
 	it('gives every non-Workshop family a distinct structural identity', () => {

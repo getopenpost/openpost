@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { adaptResolvedThemeResponse } from "./api-adapter";
+import { adaptResolvedThemeResponse, type ApiResolvedThemeResponse } from "./api-adapter";
 import { nativeThemeRuntimeFontFamily } from "./font-family";
 
 describe("resolved theme API adapter", () => {
@@ -83,49 +83,116 @@ describe("resolved theme API adapter", () => {
     expect(Object.isFrozen(adapted.contract.resources.fonts)).toBe(true);
   });
 
-  test("rejects one unsafe color instead of returning a partial native theme", () => {
-    const response = resolvedThemeFixture();
-    response.manifest.colors.actionFocalActive = "var(--missing)";
+  test("rejects invalid responses instead of returning a partial native theme", () => {
+    const invalidResponses: Array<[string, () => ReturnType<typeof resolvedThemeFixture>]> = [
+      [
+        "unsafe color",
+        () => {
+          const response = resolvedThemeFixture();
+          response.manifest.colors.actionFocalActive = "var(--missing)";
+          return response;
+        },
+      ],
+      [
+        "unsupported shell recipe",
+        () => {
+          const response = resolvedThemeFixture();
+          response.manifest.shell.canvasTreatment = "glassy" as never;
+          return response;
+        },
+      ],
+      [
+        "unsupported component recipe",
+        () => {
+          const response = resolvedThemeFixture();
+          response.manifest.components.card = "neumorphic" as never;
+          return response;
+        },
+      ],
+      [
+        "unreadable destructive text",
+        () => {
+          const response = resolvedThemeFixture();
+          response.manifest.colors.actionDestructive = response.manifest.colors.ink;
+          response.manifest.colors.actionDestructiveActive = response.manifest.colors.ink;
+          response.manifest.colors.actionDestructiveInk = response.manifest.colors.ink;
+          return response;
+        },
+      ],
+      [
+        "wrong requested scheme",
+        () => ({
+          ...resolvedThemeFixture(),
+          requestedScheme: "dark" as unknown as "light",
+        }),
+      ],
+      [
+        "font without a native derivative",
+        () => {
+          const response = resolvedThemeFixture();
+          response.fonts[0]!.nativeDerivative = undefined as never;
+          return response;
+        },
+      ],
+      [
+        "WOFF2 native font derivative",
+        () => {
+          const response = resolvedThemeFixture();
+          response.fonts[0]!.nativeDerivative = {
+            ...response.fonts[0]!.nativeDerivative,
+            format: "woff2" as never,
+          };
+          return response;
+        },
+      ],
+      [
+        "illustration without alternative text",
+        () => {
+          const response = resolvedThemeFixture();
+          response.assets[0]!.slot = "empty-state-illustration" as never;
+          response.assets[0]!.alt = undefined as never;
+          return response;
+        },
+      ],
+      [
+        "asset URL outside the resolved revision",
+        () => {
+          const response = resolvedThemeFixture();
+          response.assets[0]!.sourceUrl =
+            "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=6";
+          return response;
+        },
+      ],
+      [
+        "derivative URL with missing revision scope",
+        () => {
+          const response = resolvedThemeFixture();
+          response.fonts[0]!.nativeDerivative.sourceUrl =
+            "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&format=ttf";
+          return response;
+        },
+      ],
+      [
+        "derivative URL with extra query scope",
+        () => {
+          const response = resolvedThemeFixture();
+          response.fonts[0]!.nativeDerivative.sourceUrl =
+            "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7&format=ttf&cache=1";
+          return response;
+        },
+      ],
+    ];
 
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects unsupported shell and component recipes instead of dropping them", () => {
-    const invalidShell = resolvedThemeFixture();
-    invalidShell.manifest.shell.canvasTreatment = "glassy" as never;
-    const invalidComponent = resolvedThemeFixture();
-    invalidComponent.manifest.components.card = "neumorphic";
-
-    for (const response of [invalidShell, invalidComponent]) {
+    for (const [name, build] of invalidResponses) {
       expect(
         adaptResolvedThemeResponse({
           cacheIdentity: "theme-1:7:light",
-          response,
+          response: build(),
           workspaceId: "workspace-1",
         }),
+        name,
       ).toEqual({ ok: false, reason: "invalid-response" });
     }
-  });
-
-  test("rejects destructive text that is unreadable on its rendered containers", () => {
-    const response = resolvedThemeFixture();
-    response.manifest.colors.actionDestructive = response.manifest.colors.ink;
-    response.manifest.colors.actionDestructiveActive = response.manifest.colors.ink;
-    response.manifest.colors.actionDestructiveInk = response.manifest.colors.ink;
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
   });
 
   test("uses the theme text role when an accent is unsafe as native status text", () => {
@@ -144,94 +211,6 @@ describe("resolved theme API adapter", () => {
     expect(adapted.ok).toBe(true);
     if (!adapted.ok) return;
     expect(adapted.contract.manifests.light!.colors.status.publishing).toBe("#897047ff");
-  });
-
-  test("rejects a response for a different requested scheme", () => {
-    const response = resolvedThemeFixture();
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response: { ...response, requestedScheme: "dark" },
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects an uploaded font without a native derivative", () => {
-    const response = resolvedThemeFixture();
-    response.fonts[0]!.nativeDerivative = undefined as never;
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects WOFF2 as a native font derivative", () => {
-    const response = resolvedThemeFixture();
-    response.fonts[0]!.nativeDerivative = {
-      ...response.fonts[0]!.nativeDerivative,
-      format: "woff2" as never,
-    };
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects an illustration without alternative text", () => {
-    const response = resolvedThemeFixture();
-    response.assets[0]!.slot = "empty-state-illustration" as never;
-    response.assets[0]!.alt = undefined as never;
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects a resource URL outside the exact resolved revision", () => {
-    const response = resolvedThemeFixture();
-    response.assets[0]!.sourceUrl =
-      "/api/v1/theme-assets/texture-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=6";
-
-    expect(
-      adaptResolvedThemeResponse({
-        cacheIdentity: "theme-1:7:light",
-        response,
-        workspaceId: "workspace-1",
-      }),
-    ).toEqual({ ok: false, reason: "invalid-response" });
-  });
-
-  test("rejects a derivative URL with missing or extra query scope", () => {
-    const missing = resolvedThemeFixture();
-    missing.fonts[0]!.nativeDerivative.sourceUrl =
-      "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&format=ttf";
-    const extra = resolvedThemeFixture();
-    extra.fonts[0]!.nativeDerivative.sourceUrl =
-      "/api/v1/theme-assets/font-1/content?workspace_id=workspace-1&theme_id=theme-1&revision=7&format=ttf&cache=1";
-
-    for (const response of [missing, extra]) {
-      expect(
-        adaptResolvedThemeResponse({
-          cacheIdentity: "theme-1:7:light",
-          response,
-          workspaceId: "workspace-1",
-        }),
-      ).toEqual({ ok: false, reason: "invalid-response" });
-    }
   });
 
   test("clamps desktop-safe dimensions to usable native metrics", () => {
@@ -277,7 +256,7 @@ describe("resolved theme API adapter", () => {
   });
 });
 
-function resolvedThemeFixture() {
+function resolvedThemeFixture(): ApiResolvedThemeResponse {
   const ink = "oklch(0.2 0.01 50)";
   const canvas = "oklch(0.985 0.002 80)";
   const brand = "oklch(0.55 0.155 45)";
@@ -295,7 +274,7 @@ function resolvedThemeFixture() {
     source: "organization" as const,
     requestedScheme: "light" as const,
     scheme: "light" as const,
-    fallbackReason: "",
+    fallbackReason: undefined,
     manifest: {
       colors: {
         brand,

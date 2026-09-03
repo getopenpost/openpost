@@ -1,4 +1,5 @@
 import { resolve as resolveCssColor } from "@asamuzakjp/css-color";
+import type { components } from "@openpost/api-contract";
 
 import { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
 import {
@@ -50,64 +51,13 @@ const ILLUSTRATION_SLOTS = new Set<NativeThemeAssetResource["slot"]>([
   "loading-illustration",
 ]);
 
-export interface ApiThemeTypographyRole {
-  family: string;
-  fallbacks: string[];
-  weight: number;
-  size: string;
-  lineHeight: string;
-  tracking: string;
-}
+export type ApiThemeTypographyRole = components["schemas"]["ThemeTypographyRoleTokens"];
 
-export interface ApiThemeMotionRecipe {
-  duration: string;
-  easing: string;
-  distance: string;
-  opacity: number;
-}
+// Wire types come from the generated OpenAPI contract so a domain change
+// breaks this adapter at build time instead of drifting silently.
+export type ApiThemeMotionRecipe = components["schemas"]["ThemeMotionRecipe"];
 
-export interface ApiResolvedThemeResponse {
-  id: string;
-  revision: string;
-  name: string;
-  iconPack: string;
-  source: "builtin" | "organization" | "fallback";
-  requestedScheme: NativeThemeScheme;
-  scheme: NativeThemeScheme;
-  fallbackReason?: string;
-  manifest: {
-    colors: Record<string, string>;
-    protectedEditor: Record<string, string>;
-    typography: Record<string, ApiThemeTypographyRole>;
-    spacing: Record<string, string>;
-    shape: Record<string, string>;
-    elevation: Record<string, string>;
-    motion: Record<string, ApiThemeMotionRecipe | string>;
-    shell: Record<string, string>;
-    components: Record<string, string>;
-  };
-  fonts: {
-    id: string;
-    family: string;
-    sourceUrl: string;
-    format: string;
-    nativeDerivative: {
-      sourceUrl: string;
-      format: string;
-      identity: string;
-    };
-    weight: number;
-    style: string;
-    display: string;
-  }[];
-  assets: {
-    id: string;
-    slot: string;
-    sourceUrl: string;
-    mimeType: string;
-    alt?: string;
-  }[];
-}
+export type ApiResolvedThemeResponse = components["schemas"]["ResolvedTheme"];
 
 export type NativeThemeAdaptation =
   | Readonly<{ ok: true; contract: NativeResolvedThemeContract }>

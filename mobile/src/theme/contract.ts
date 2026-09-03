@@ -320,6 +320,14 @@ export interface NativeThemeFamily {
 /**
  * Immutable hand-off from the future query adapter into the native renderer.
  * The adapter owns API conversion. This runtime never fetches or reads query state.
+ *
+ * Server resolution rules the adapter must mirror (see resolve-theme): a locked
+ * or missing Workspace selection inherits the Organization default, the default
+ * falls back to Workshop, and every failure mode falls back as a whole with a
+ * fallbackReason. The wire manifest carries one scheme only (requestedScheme is
+ * always equal to scheme); collapse multi-scheme storage to supportedSchemes
+ * plus a single-scheme manifest map. Cache and staleness key on identity; a
+ * contract whose workspaceId does not match the active Workspace is stale.
  */
 export interface NativeResolvedThemeContract {
   readonly contractVersion: typeof NATIVE_THEME_CONTRACT_VERSION;

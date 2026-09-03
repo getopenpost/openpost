@@ -2,6 +2,7 @@ import { convert, isColor } from '@asamuzakjp/css-color';
 import {
 	THEME_COLOR_TOKEN_KEYS,
 	THEME_MOTION_RECIPE_KEYS,
+	THEME_REDUCED_MOTION_OPTIONS,
 	THEME_TYPOGRAPHY_ROLE_KEYS,
 	type ThemeColorTokens,
 	type ThemeMotionRecipe,
@@ -48,6 +49,9 @@ const readableColorPairs = [
 	['warningInk', 'warning', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['infoInk', 'info', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['fieldInk', 'field', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['fieldInk', 'fieldHover', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['fieldInk', 'fieldFocus', 'canvas', MINIMUM_TEXT_CONTRAST],
+	['fieldDisabledInk', 'fieldDisabled', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['disabledInk', 'disabled', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['navigationActiveInk', 'navigationActive', 'canvas', MINIMUM_TEXT_CONTRAST],
 	['sidebarInk', 'sidebar', 'canvas', MINIMUM_TEXT_CONTRAST],
@@ -421,12 +425,39 @@ function hasReadableActionStates(colors: ThemeColorTokens): boolean {
 }
 
 function hasVisibleFocus(colors: ThemeColorTokens): boolean {
-	return (['canvas', 'surface', 'field', 'sidebar', 'actionOrdinary'] as const).every(
+	const contrastVisible = (['canvas', 'surface', 'field', 'sidebar', 'actionOrdinary'] as const).every(
 		(background) => {
 			const ratio = themeColorContrastRatio(colors.focus, colors[background], colors.canvas);
 			return ratio !== undefined && ratio >= MINIMUM_FOCUS_CONTRAST;
 		}
 	);
+	if (!contrastVisible) return false;
+	return (['actionFocal', 'actionFocalHover', 'actionFocalActive'] as const).every((focal) => {
+		const distance = perceptualColorDistance(colors.focus, colors[focal], colors.canvas);
+		return distance !== undefined && distance >= MINIMUM_SEMANTIC_ACTION_DISTANCE;
+	});
+}
+
+const ACTION_STATE_SETS = [
+	['actionFocal', 'actionFocalHover', 'actionFocalActive'],
+	['actionPrimary', 'actionPrimaryHover', 'actionPrimaryActive'],
+	['actionOrdinary', 'actionOrdinaryHover', 'actionOrdinaryActive'],
+	['actionQuiet', 'actionQuietHover', 'actionQuietActive'],
+	['actionDestructive', 'actionDestructiveHover', 'actionDestructiveActive']
+] as const satisfies readonly (readonly [keyof ThemeColorTokens, keyof ThemeColorTokens, keyof ThemeColorTokens])[];
+
+function hasDistinctActionStates(colors: ThemeColorTokens): boolean {
+	for (const [base, hover, active] of ACTION_STATE_SETS) {
+		for (const [first, second] of [
+			[base, hover],
+			[base, active],
+			[hover, active]
+		] as const) {
+			const distance = perceptualColorDistance(colors[first], colors[second], colors.canvas);
+			if (distance === undefined || distance < MINIMUM_SEMANTIC_ACTION_DISTANCE) return false;
+		}
+	}
+	return true;
 }
 
 function perceptualColorDistance(
@@ -574,6 +605,8 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 		THEME_MOTION_RECIPE_KEYS.every((key) =>
 			isSafeMotionRecipe(manifest.motion[key], ...motionBounds[key])
 		) &&
+		THEME_REDUCED_MOTION_OPTIONS.some((option) => option === manifest.motion.reducedMotion) &&
+		hasDistinctActionStates(manifest.colors) &&
 		isBoundedCssLength(shell.contentMaxWidth, 4096) &&
 		isBoundedCssLength(shell.sidebarWidth, 1024) &&
 		isBoundedCssLength(shell.headerHeight, 256) &&

@@ -184,7 +184,7 @@
 								<button
 									{...props}
 									type="button"
-									class="inline-flex size-8 items-center justify-center rounded-md hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-sidebar-accent"
+									class="inline-flex size-8 items-center justify-center rounded-md hover:bg-navigation-hover focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-sidebar-accent"
 									aria-label={`${m.sidebar_switch_workspace()}: ${currentWorkspaceName}`}
 									title={m.sidebar_switch_workspace()}
 									data-testid="workspace-menu-trigger"
@@ -260,7 +260,7 @@
 				<div class="flex items-center">
 					<button
 						type="button"
-						class="inline-flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+						class="inline-flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-navigation-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 						aria-expanded={workspaceNavigationExpanded}
 						aria-controls="sidebar-workspace-navigation"
 						aria-label={workspaceNavigationToggleLabel}

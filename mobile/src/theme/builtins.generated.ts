@@ -235,7 +235,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "solid",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "outlined",
@@ -507,7 +507,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "solid",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "outlined",
@@ -787,7 +787,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "solid",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "outlined",
@@ -1067,7 +1067,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "solid",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "underlined",
@@ -1347,7 +1347,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "tonal",
-          link: "underlined",
+          link: "plain",
           tabs: "pill",
           navigation: "tonal",
           input: "outlined",
@@ -1627,7 +1627,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "solid",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "tonal",
           input: "outlined",
@@ -1907,7 +1907,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "outlined",
-          link: "underlined",
+          link: "plain",
           tabs: "segmented",
           navigation: "outlined",
           input: "outlined",
@@ -2187,7 +2187,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "precise",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "underlined",
@@ -2467,7 +2467,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         components: {
           button: "precise",
-          link: "underlined",
+          link: "plain",
           tabs: "underline",
           navigation: "quiet",
           input: "outlined",

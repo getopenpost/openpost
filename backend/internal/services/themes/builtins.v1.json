@@ -240,7 +240,7 @@
         },
         "components": {
           "button": "solid",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "outlined",
@@ -497,7 +497,7 @@
         },
         "components": {
           "button": "solid",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "outlined",
@@ -767,7 +767,7 @@
         },
         "components": {
           "button": "solid",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "outlined",
@@ -1037,7 +1037,7 @@
         },
         "components": {
           "button": "solid",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "underlined",
@@ -1307,7 +1307,7 @@
         },
         "components": {
           "button": "tonal",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "pill",
           "navigation": "tonal",
           "input": "outlined",
@@ -1577,7 +1577,7 @@
         },
         "components": {
           "button": "solid",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "tonal",
           "input": "outlined",
@@ -1847,7 +1847,7 @@
         },
         "components": {
           "button": "outlined",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "segmented",
           "navigation": "outlined",
           "input": "outlined",
@@ -2117,7 +2117,7 @@
         },
         "components": {
           "button": "precise",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "underlined",
@@ -2387,7 +2387,7 @@
         },
         "components": {
           "button": "precise",
-          "link": "underlined",
+          "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
           "input": "outlined",

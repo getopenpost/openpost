@@ -161,7 +161,7 @@ const standardShell: ThemeShellTokens = {
 
 const standardComponents: ThemeComponentRecipes = {
 	button: 'solid',
-	link: 'underlined',
+	link: 'plain',
 	tabs: 'underline',
 	navigation: 'quiet',
 	input: 'outlined',

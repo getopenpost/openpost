@@ -27,7 +27,7 @@
 		return () => query.removeEventListener('change', onChange);
 	});
 
-	let preferredMode = $derived($mode ?? 'system');
+	let preferredMode = $derived(mode.current ?? 'system');
 	let effectiveScheme: ThemeScheme = $derived(
 		preferredMode === 'dark' || (preferredMode === 'system' && systemDark) ? 'dark' : 'light'
 	);

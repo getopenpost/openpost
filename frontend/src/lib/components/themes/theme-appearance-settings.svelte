@@ -43,7 +43,7 @@
 		query.addEventListener('change', onChange);
 		return () => query.removeEventListener('change', onChange);
 	});
-	let preferredMode = $derived($mode ?? 'system');
+	let preferredMode = $derived(mode.current ?? 'system');
 	let scheme: 'light' | 'dark' = $derived(
 		preferredMode === 'dark' || (preferredMode === 'system' && systemDark) ? 'dark' : 'light'
 	);

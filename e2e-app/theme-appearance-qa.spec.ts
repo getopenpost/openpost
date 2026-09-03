@@ -69,6 +69,7 @@ test("appearance tab renders across viewports, schemes, and motion", async ({ pa
 test("built-in gallery opens a preview and editor controls are keyboard reachable", async ({
   page,
   request,
+  browser,
 }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
@@ -119,27 +120,37 @@ test("built-in gallery opens a preview and editor controls are keyboard reachabl
   }
   await page.screenshot({ path: `${SHOT}/editor-keyboard-focus.png`, fullPage: true });
 
-  // Touch targets: flag interactive controls shorter than 44px (excluding
-  // inline text links and switch thumbs, which are exempt by design).
-  const smallTargets: string[] = await page.evaluate(() => {
+  // Touch targets: desktop density may use the theme control height, but
+  // coarse pointers must always get 44px targets. Measure in a
+  // touch-emulated context with the same session.
+  const touchContext = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+  await touchContext.addCookies(await page.context().cookies());
+  const touchPage = await touchContext.newPage();
+  await touchPage.goto("/settings?tab=appearance");
+  await expect(touchPage.getByRole("heading", { name: /appearance|theme/i }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await touchPage.waitForLoadState("networkidle").catch(() => undefined);
+  const smallTargets: string[] = await touchPage.evaluate(() => {
     const flagged: string[] = [];
-    for (const element of document.querySelectorAll<HTMLElement>(
-      "#settings-appearance button, #settings-appearance [role='switch'], #settings-appearance input, #settings-appearance select, main button",
-    )) {
+    for (const element of document.querySelectorAll<HTMLElement>("main button")) {
       const rect = element.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) continue;
-      const role = element.getAttribute("role");
       const tag = element.tagName.toLowerCase();
-      if (role === "switch" && rect.height < 24) continue;
       if (tag === "a") continue;
       if (rect.height > 0 && rect.height < 44) {
         flagged.push(
-          `${tag}[${[...element.classList].slice(0, 2).join(".")}]: ${Math.round(rect.height)}px :: ${(element.textContent ?? "").trim().slice(0, 40)}`,
+          `${tag}: ${Math.round(rect.height)}px :: ${(element.textContent ?? "").trim().slice(0, 40)}`,
         );
       }
     }
     return flagged.slice(0, 20);
   });
+  await touchContext.close();
 
   expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
   expect(focusable, "keyboard reaches appearance controls").toBeGreaterThan(0);

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes';
+	import type { ProtectedIconRole } from '$lib/themes/icons';
 	import { page } from '$app/state';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -15,17 +18,6 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import { deliveryRecoveryAction, deliveryStateLabel } from '$lib/delivery-presentation';
-	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
-	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
-	import XCircleIcon from '@lucide/svelte/icons/circle-x';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import FileTextIcon from '@lucide/svelte/icons/file-text';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import PostsIcon from '@lucide/svelte/icons/files';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import ClockIcon from '@lucide/svelte/icons/clock';
-	import CopyIcon from '@lucide/svelte/icons/copy';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { resolveAppPath } from '$lib/app-path';
@@ -479,16 +471,20 @@
 		return tab === 'drafts' ? 'draft' : tab;
 	}
 
-	function statusIcon(post: ActivityItem) {
+	type StatusIcon =
+		| { kind: 'theme'; role: ThemeIconRole }
+		| { kind: 'protected'; role: ProtectedIconRole };
+
+	function statusIcon(post: ActivityItem): StatusIcon {
 		switch (post.status) {
 			case 'scheduled':
-				return ClockIcon;
+				return { kind: 'theme', role: 'time' };
 			case 'published':
-				return CheckCircleIcon;
+				return { kind: 'protected', role: 'success' };
 			case 'failed':
-				return XCircleIcon;
+				return { kind: 'protected', role: 'error' };
 			default:
-				return FileTextIcon;
+				return { kind: 'theme', role: 'file' };
 		}
 	}
 
@@ -740,7 +736,7 @@
 {#snippet postList(items: ActivityItem[], emptyTitle: string, emptyDescription: string)}
 	{#if items.length === 0 && !publicationPage.nextCursor}
 		<EmptyState
-			icon={FileTextIcon}
+			themeIconRole="file"
 			title={emptyTitle}
 			description={emptyDescription}
 			variant="muted"
@@ -748,10 +744,14 @@
 	{:else if items.length > 0}
 		<div class="divide-y border-y">
 			{#each items as post (post.id)}
-				{@const StatusIcon = statusIcon(post)}
+				{@const statusIconValue = statusIcon(post)}
 				<article class="group flex items-start gap-3 py-4 sm:gap-4">
 					<div class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-						<StatusIcon class={`size-4 ${statusClass(post)}`} />
+						{#if statusIconValue.kind === 'protected'}
+							<ProtectedIcon icon={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
+						{:else}
+							<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
+						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -788,10 +788,10 @@
 												onclick={() => copyDeliveryReport(post)}
 											>
 												{#if copiedReportPostID === post.id}
-													<CheckCircleIcon class="mr-1.5 size-3.5 text-emerald-600" />
+													<ProtectedIcon icon="success" class="mr-1.5 size-3.5 text-emerald-600" />
 													{m.activity_report_copied()}
 												{:else}
-													<CopyIcon class="mr-1.5 size-3.5" />
+													<ThemeIcon role="copy" class="mr-1.5 size-3.5" />
 													{m.activity_copy_report()}
 												{/if}
 											</Button>
@@ -832,10 +832,10 @@
 							: m.activity_edit_post({ title: truncate(postText(post), 40) })}
 					>
 						{#if post.status === 'published' || post.status === 'publishing'}
-							<EyeIcon class="size-4 sm:mr-1.5" />
+							<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
 							<span class="hidden sm:inline">{m.activity_view_details()}</span>
 						{:else}
-							<PencilIcon class="size-4 sm:mr-1.5" />
+							<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
 							<span class="hidden sm:inline">{m.common_edit()}</span>
 						{/if}
 					</Button>
@@ -852,18 +852,18 @@
 <PageContainer
 	title={m.activity_title()}
 	description={m.activity_description()}
-	icon={PostsIcon}
+	themeIconRole="publications"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 >
 	{#snippet actions()}
 		<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>
-			<RefreshIcon class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
+			<ThemeIcon role="refresh" class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
 			{m.common_refresh()}
 		</Button>
 		<Button size="sm" onclick={() => goto(resolveAppPath('/'))}>
-			<PlusIcon class="mr-1.5 size-3.5" />
+			<ThemeIcon role="add" class="mr-1.5 size-3.5" />
 			{m.activity_new_post()}
 		</Button>
 	{/snippet}
@@ -995,7 +995,7 @@
 									onclick={loadMoreFailedJobs}
 								>
 									{#if loadingMoreJobs}
-										<RefreshIcon class="mr-1.5 size-3.5 animate-spin" />
+										<ThemeIcon role="refresh" class="mr-1.5 size-3.5 animate-spin" />
 									{/if}
 									{m.activity_load_more_jobs({
 										count: Math.min(jobPageSize, failedJobsPage.total - failedJobs.length)
@@ -1022,7 +1022,7 @@
 					onclick={loadMorePublicationHistory}
 				>
 					{#if loadingMorePublications}
-						<RefreshIcon class="mr-1.5 size-3.5 animate-spin" />
+						<ThemeIcon role="refresh" class="mr-1.5 size-3.5 animate-spin" />
 					{/if}
 					{m.notifications_load_more()}
 				</Button>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
@@ -55,15 +56,6 @@
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { cn } from '$lib/utils';
 	import { CalendarDate } from '@internationalized/date';
-	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
-	import ListIcon from '@lucide/svelte/icons/list';
-	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import Rows3Icon from '@lucide/svelte/icons/rows-3';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	type Rendition = components['schemas']['RenditionResponse'];
@@ -1113,7 +1105,7 @@
 												: m.calendar_previous_week()}
 											onclick={() => changeMonth(-1)}
 										>
-											<ChevronLeftIcon class="size-4" />
+											<ThemeIcon role="chevron-left" class="size-4" />
 										</Button>
 									{/snippet}
 								</Tooltip.Trigger>
@@ -1134,7 +1126,7 @@
 												: m.calendar_next_week()}
 											onclick={() => changeMonth(1)}
 										>
-											<ChevronRightIcon class="size-4" />
+											<ThemeIcon role="chevron-right" class="size-4" />
 										</Button>
 									{/snippet}
 								</Tooltip.Trigger>
@@ -1152,7 +1144,7 @@
 								aria-label={m.calendar_month_view()}
 								onclick={() => changeView('month')}
 							>
-								<CalendarDaysIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="calendar" class="size-3.5" />
 								<span class="hidden 2xl:inline">{m.calendar_month_view()}</span>
 							</Button>
 							<Button
@@ -1162,7 +1154,7 @@
 								aria-label={m.calendar_week_view()}
 								onclick={() => changeView('week')}
 							>
-								<Rows3Icon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="layout" class="size-3.5" />
 								<span class="hidden 2xl:inline">{m.calendar_week_view()}</span>
 							</Button>
 						</div>
@@ -1257,7 +1249,7 @@
 							aria-label={m.calendar_open_queue()}
 							href={resolve('/settings') + '?tab=schedule#posting-schedule'}
 						>
-							<ListIcon class="size-4" aria-hidden="true" />
+							<ThemeIcon role="layout" class="size-4" />
 							<span class="hidden 2xl:inline">{m.calendar_open_queue()}</span>
 						</Button>
 
@@ -1272,7 +1264,7 @@
 										disabled={loading || Boolean(reschedulingKey)}
 										onclick={() => loadCalendarData(loadKey, true)}
 									>
-										<RefreshCwIcon class={cn('size-4', loading && 'animate-spin')} />
+										<ThemeIcon role="refresh" class={cn('size-4', loading && 'animate-spin')} />
 									</Button>
 								{/snippet}
 							</Tooltip.Trigger>
@@ -1324,7 +1316,7 @@
 			<PageLoading layout="calendar" label={m.common_loading()} />
 		{:else if loadError && completedLoadKey !== loadKey}
 			<EmptyState
-				icon={CalendarDaysIcon}
+				themeIconRole="calendar"
 				title={m.calendar_failed_load()}
 				description={loadError}
 				actionLabel={m.common_retry()}
@@ -1366,7 +1358,7 @@
 									class="min-h-11 w-full gap-2 sm:min-h-9 sm:w-auto"
 									onclick={createPostOnSelectedEmptyDate}
 								>
-									<PlusIcon class="size-4" />
+									<ThemeIcon role="add" class="size-4" />
 									{m.calendar_create_post()}
 								</Button>
 							</div>
@@ -1385,7 +1377,7 @@
 								disabled={isPastDay(entry.day)}
 								onclick={() => createPostOnDate(entry.day.date)}
 							>
-								<PlusIcon class="size-4" />
+								<ThemeIcon role="add" class="size-4" />
 							</Button>
 						</div>
 						<div class="divide-y overflow-hidden rounded-lg border bg-card">
@@ -1509,7 +1501,7 @@
 														createPostOnDate(day.date);
 													}}
 												>
-													<PlusIcon class="size-3" />
+													<ThemeIcon role="add" class="size-3" />
 												</Button>
 											{/snippet}
 										</Tooltip.Trigger>
@@ -1567,13 +1559,16 @@
 											</time>
 											<span class="min-w-0 flex-1 truncate font-medium">{item.title}</span>
 											{#if item.status === 'published'}
-												<LockIcon class="size-3 shrink-0 text-current/65" aria-hidden="true" />
+												<ThemeIcon role="lock" class="size-3 shrink-0 text-current/65" />
 												<span class="sr-only">{m.calendar_status_published()}</span>
 											{:else}
 												<span class="sr-only">{m.calendar_status_scheduled()}</span>
 											{/if}
 											{#if reschedulingKey === item.key}
-												<Loader2Icon class="size-3 shrink-0 animate-spin text-current/60" />
+												<ProtectedIcon
+													icon="loading"
+													class="size-3 shrink-0 animate-spin text-current/60"
+												/>
 											{/if}
 										</button>
 									{/each}
@@ -1667,7 +1662,10 @@
 													onclick={(event) => onWeekItemClick(event, item)}
 												>
 													<span class="flex items-center gap-1 font-medium">
-														{#if !item.movable}<LockIcon class="size-3 shrink-0" />{/if}
+														{#if !item.movable}<ThemeIcon
+																role="lock"
+																class="size-3 shrink-0"
+															/>{/if}
 														<span class="truncate">{formatTime(item.occursAt)} · {item.title}</span>
 													</span>
 												</button>
@@ -1684,7 +1682,7 @@
 			{#if visibleItems.length === 0}
 				<div class="mt-5 xl:hidden">
 					<EmptyState
-						icon={CalendarDaysIcon}
+						themeIconRole="calendar"
 						title={m.calendar_no_scheduled_title()}
 						description={m.calendar_no_scheduled_body()}
 						actionLabel={monthAllowsCreate ? m.calendar_create_post() : undefined}
@@ -1723,7 +1721,7 @@
 				</div>
 				{#if selectedMonthDay && !isPastDay(selectedMonthDay)}
 					<Button size="sm" onclick={createPostFromMonthDay}>
-						<PlusIcon class="mr-1.5 size-4" />
+						<ThemeIcon role="add" class="mr-1.5 size-4" />
 						{m.calendar_create_post()}
 					</Button>
 				{/if}

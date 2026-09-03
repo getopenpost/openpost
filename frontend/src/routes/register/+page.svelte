@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/auth';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -12,7 +13,6 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PurchaseChoiceError from '$lib/components/purchase-choice-error.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { m } from '$lib/paraglide/messages';
 	import { onboardingPathForPlan } from '$lib/billing';
 	import PurchaseChoiceSummary from '$lib/components/purchase-choice-summary.svelte';
@@ -29,8 +29,6 @@
 	import type { AuthConfiguration } from '$lib/api/client';
 	import type { OIDCProvider } from '$lib/api/client';
 	import AuthProviderButtons from '$lib/components/auth-provider-buttons.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import CircleIcon from '@lucide/svelte/icons/circle';
 	import {
 		PASSWORD_MAX_CHARACTERS,
 		PASSWORD_MIN_CHARACTERS,
@@ -316,7 +314,7 @@
 			class="mb-4 flex items-center justify-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground"
 			role="status"
 		>
-			<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 			{m.purchase_choice_loading()}
 		</div>
 	{:else if purchaseChoice}
@@ -386,9 +384,9 @@
 				{#each [{ met: passwordHasMinimum, label: m.auth_password_rule_minimum() }, { met: passwordWithinMaximum, label: m.auth_password_rule_maximum() }, { met: passwordsMatch, label: m.auth_password_rule_match() }] as rule (rule.label)}
 					<li class="flex items-center gap-2" class:text-muted-foreground={!rule.met}>
 						{#if rule.met}
-							<CheckIcon class="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+							<ThemeIcon role="check" class="size-4 text-emerald-600 dark:text-emerald-400" />
 						{:else}
-							<CircleIcon class="size-4" aria-hidden="true" />
+							<ProtectedIcon icon="pending" class="size-4" />
 						{/if}
 						<span class="sr-only">
 							{rule.met ? m.auth_password_rule_met() : m.auth_password_rule_pending()}
@@ -445,7 +443,7 @@
 			class="w-full gap-2"
 		>
 			{#if isLoading}
-				<LoaderIcon class="h-4 w-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 				{m.auth_register_loading()}
 			{:else}
 				{m.auth_register_submit()}

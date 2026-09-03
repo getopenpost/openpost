@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { ContextMenu } from 'bits-ui';
 	import { page } from '$app/stores';
 	import { goto, replaceState } from '$app/navigation';
@@ -58,27 +59,6 @@
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
 	import { createMediaTag, updateMediaTagItems, type MediaTag } from '$lib/media-tags';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import VideoIcon from '@lucide/svelte/icons/video';
-	import HeartIcon from '@lucide/svelte/icons/heart';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import Grid2X2Icon from '@lucide/svelte/icons/grid-2x2';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import TagIcon from '@lucide/svelte/icons/tag';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import ListIcon from '@lucide/svelte/icons/list';
-	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import FileAudioIcon from '@lucide/svelte/icons/file-audio';
-	import XIcon from '@lucide/svelte/icons/x';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
@@ -1443,7 +1423,7 @@
 <PageContainer
 	title={m.media_hub_title()}
 	description={descriptionText}
-	icon={ImageIcon}
+	themeIconRole="image"
 	loading={initialRouteLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="gallery"
@@ -1463,7 +1443,7 @@
 		{/if}
 		{#if mediaCanEdit && lifecycleView !== 'trash'}
 			<Button class="gap-2" onclick={() => (uploadDialogOpen = true)}>
-				<PlusIcon class="size-4" />
+				<ThemeIcon role="add" class="size-4" />
 				{m.media_picker_add_media()}
 			</Button>
 		{/if}
@@ -1539,7 +1519,8 @@
 			}}
 		>
 			<div class="relative min-w-0 flex-1">
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
@@ -1562,7 +1543,7 @@
 						aria-label={m.media_clear_search()}
 						onclick={clearSearch}
 					>
-						<XIcon class="size-4" />
+						<ThemeIcon role="close" class="size-4" />
 					</Button>
 				{/if}
 			</div>
@@ -1572,7 +1553,7 @@
 				size="icon"
 				aria-label={m.media_picker_search_action()}
 			>
-				<SearchIcon />
+				<ThemeIcon role="search" />
 			</Button>
 		</form>
 		<div class="flex min-w-0 items-center gap-1.5 overflow-x-auto">
@@ -1583,7 +1564,7 @@
 					class="shrink-0"
 					onclick={() => changeFilter(filter === 'favorites' ? 'all' : 'favorites')}
 				>
-					<HeartIcon fill={filter === 'favorites' ? 'currentColor' : 'none'} />
+					<ThemeIcon role="favorite" fill={filter === 'favorites' ? 'currentColor' : 'none'} />
 					{m.media_filter_favorites()}
 				</Button>
 			{/if}
@@ -1594,7 +1575,7 @@
 				aria-label={m.media_filters()}
 				onclick={() => (filterDialogOpen = true)}
 			>
-				<SlidersHorizontalIcon />
+				<ThemeIcon role="controls" />
 				<span>{m.media_filters()}</span>
 				{#if activeDetailFilterCount > 0}
 					<span
@@ -1631,7 +1612,9 @@
 				onclick={() => (layoutMode = layoutMode === 'grid' ? 'list' : 'grid')}
 				aria-label={layoutMode === 'grid' ? m.media_compact_view() : m.media_grid_view()}
 			>
-				{#if layoutMode === 'grid'}<ListIcon />{:else}<Grid2X2Icon />{/if}
+				{#if layoutMode === 'grid'}<ThemeIcon role="layout" />{:else}<ThemeIcon
+						role="layout"
+					/>{/if}
 			</Button>
 			{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode && lifecycleView !== 'trash'}
 				<Button variant="outline" size="sm" class="h-11" onclick={() => (isSelectionMode = true)}>
@@ -1667,7 +1650,7 @@
 					onclick={cancelSelection}
 					aria-label={m.common_cancel()}
 				>
-					<XIcon />
+					<ThemeIcon role="close" />
 				</Button>
 			</div>
 			<div class="flex gap-1 overflow-x-auto">
@@ -1678,7 +1661,7 @@
 					disabled={selectedMediaIds.size === 0}
 					onclick={() => (selectionOrganizationDialogOpen = true)}
 				>
-					<TagIcon />
+					<ThemeIcon role="tag" />
 					{m.media_manage_tags()}
 				</Button>
 				<Button
@@ -1688,7 +1671,7 @@
 					disabled={selectedMediaIds.size === 0}
 					onclick={toggleFavoriteBatch}
 				>
-					<HeartIcon />
+					<ThemeIcon role="favorite" />
 					{m.media_favorite()}
 				</Button>
 				{#if selectedDeletableIds.length > 0}
@@ -1698,7 +1681,7 @@
 						class="shrink-0 text-destructive hover:text-destructive"
 						onclick={requestDeleteSelectedBatch}
 					>
-						<TrashIcon />
+						<ThemeIcon role="delete" />
 						{m.common_delete()}
 					</Button>
 				{/if}
@@ -1717,7 +1700,7 @@
 	{:else if mediaItems.length === 0}
 		{#if activeFilterCount > 0 || appliedSearch}
 			<EmptyState
-				icon={ImageIcon}
+				themeIconRole="image"
 				title={m.media_empty_title()}
 				description={m.media_empty_filtered_body()}
 				actionLabel={m.media_show_all()}
@@ -1727,7 +1710,7 @@
 			/>
 		{:else}
 			<EmptyState
-				icon={ImageIcon}
+				themeIconRole="image"
 				title={lifecycleView === 'library'
 					? m.media_empty_title()
 					: lifecycleView === 'temporary'
@@ -1774,7 +1757,7 @@
 										<div
 											class="flex size-full flex-col items-center justify-center gap-2 text-muted-foreground"
 										>
-											<TrashIcon class="size-8" />
+											<ThemeIcon role="delete" class="size-8" />
 											<span class="px-3 text-center text-xs">{m.media_trash_preview_removed()}</span
 											>
 										</div>
@@ -1803,7 +1786,7 @@
 											<div
 												class="flex size-10 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm"
 											>
-												<VideoIcon class="size-5 text-foreground" />
+												<ThemeIcon role="video" class="size-5 text-foreground" />
 											</div>
 										</div>
 										{#if media.processing_status === 'processing' || media.analysis_status === 'pending'}
@@ -1812,7 +1795,7 @@
 												aria-live="polite"
 											>
 												<div class="flex items-center gap-2 text-xs font-medium">
-													<LoaderIcon class="size-3.5 animate-spin" />
+													<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 													{m.media_video_processing({
 														percent: Math.max(0, media.processing_progress ?? 0)
 													})}
@@ -1859,11 +1842,11 @@
 										/>
 									{:else if isAudio(media.mime_type)}
 										<div class="flex size-full items-center justify-center">
-											<FileAudioIcon class="size-10 text-muted-foreground/50" />
+											<ProtectedIcon icon="media-audio" class="size-10 text-muted-foreground/50" />
 										</div>
 									{:else}
 										<div class="flex size-full items-center justify-center">
-											<ImageIcon class="size-10 text-muted-foreground/40" />
+											<ThemeIcon role="image" class="size-10 text-muted-foreground/40" />
 										</div>
 									{/if}
 
@@ -1884,7 +1867,7 @@
 											class="media-card-control absolute top-2 left-2 z-10 flex items-center justify-center rounded-lg bg-background/95 shadow-sm"
 										>
 											{#if selectedMediaIds.has(media.id)}
-												<CheckIcon class="size-4 text-primary" />
+												<ThemeIcon role="check" class="size-4 text-primary" />
 											{:else}
 												<div class="size-4 rounded-sm border-2 border-muted-foreground"></div>
 											{/if}
@@ -1902,7 +1885,10 @@
 												void toggleFavorite(media.id);
 											}}
 										>
-											<HeartIcon class={media.is_favorite ? 'fill-primary text-primary' : ''} />
+											<ThemeIcon
+												role="favorite"
+												class={media.is_favorite ? 'fill-primary text-primary' : ''}
+											/>
 										</Button>
 									{/if}
 								</div>
@@ -1929,7 +1915,7 @@
 											size="sm"
 											onclick={() => restoreMedia(media.id)}
 										>
-											<RotateCcwIcon />
+											<ThemeIcon role="refresh" />
 											{m.media_trash_restore()}
 										</Button>
 									{/if}
@@ -1944,13 +1930,13 @@
 									class={libraryContextItemClass}
 									onclick={() => restoreMedia(media.id)}
 								>
-									<RotateCcwIcon class="size-4" />
+									<ThemeIcon role="refresh" class="size-4" />
 									{m.media_trash_restore()}
 								</ContextMenu.Item>
 							{/if}
 							{#if lifecycleView !== 'trash'}
 								<ContextMenu.Item class={libraryContextItemClass} onclick={() => showUsage(media)}>
-									<ExternalLinkIcon class="size-4" />
+									<ThemeIcon role="external-link" class="size-4" />
 									{m.media_details()}
 								</ContextMenu.Item>
 								{#if isImage(media.mime_type) && mediaCanEdit && imageEditorEnabled}
@@ -1958,14 +1944,14 @@
 										class={libraryContextItemClass}
 										onclick={() => openMediaInImageEditor(media)}
 									>
-										<PaletteIcon class="size-4" />
+										<ThemeIcon role="appearance" class="size-4" />
 										{m.media_edit_image_editor()}
 									</ContextMenu.Item>
 									<ContextMenu.Item
 										class={libraryContextItemClass}
 										onclick={() => openMediaInImageEditor(media, 'remove-background')}
 									>
-										<ImageIcon class="size-4" />
+										<ThemeIcon role="image" class="size-4" />
 										{m.image_editor_remove_background()}
 									</ContextMenu.Item>
 								{/if}
@@ -1974,7 +1960,7 @@
 										class={libraryContextItemClass}
 										onclick={() => openMediaInVideoEditor(media)}
 									>
-										<VideoIcon class="size-4" />
+										<ThemeIcon role="video" class="size-4" />
 										{m.media_edit_video_editor()}
 									</ContextMenu.Item>
 								{/if}
@@ -1983,14 +1969,14 @@
 										class={libraryContextItemClass}
 										onclick={() => requestRenameMedia(media)}
 									>
-										<PencilIcon class="size-4" />
+										<ThemeIcon role="edit" class="size-4" />
 										{m.common_rename()}
 									</ContextMenu.Item>
 									<ContextMenu.Item
 										class={libraryContextItemClass}
 										onclick={() => duplicateMedia(media)}
 									>
-										<Grid2X2Icon class="size-4" />
+										<ThemeIcon role="layout" class="size-4" />
 										{m.image_editor_duplicate()}
 									</ContextMenu.Item>
 								{/if}
@@ -1998,7 +1984,7 @@
 									class={libraryContextItemClass}
 									onclick={() => downloadMedia(media)}
 								>
-									<DownloadIcon class="size-4" />
+									<ThemeIcon role="download" class="size-4" />
 									{m.media_download()}
 								</ContextMenu.Item>
 								{#if mediaCanEdit}
@@ -2006,7 +1992,11 @@
 										class={libraryContextItemClass}
 										onclick={() => toggleFavorite(media.id)}
 									>
-										<HeartIcon class="size-4" fill={media.is_favorite ? 'currentColor' : 'none'} />
+										<ThemeIcon
+											role="favorite"
+											class="size-4"
+											fill={media.is_favorite ? 'currentColor' : 'none'}
+										/>
 										{media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
 									</ContextMenu.Item>
 								{/if}
@@ -2016,7 +2006,7 @@
 										class="{libraryContextItemClass} text-destructive data-highlighted:text-destructive"
 										onclick={() => requestDeleteMedia(media)}
 									>
-										<TrashIcon class="size-4" />
+										<ThemeIcon role="delete" class="size-4" />
 										{m.common_delete()}
 									</ContextMenu.Item>
 								{/if}
@@ -2031,7 +2021,7 @@
 		{#if totalPages > 1}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
 				<Button variant="outline" size="sm" onclick={prevPage} disabled={currentPage === 0}>
-					<ChevronLeftIcon class="mr-1 h-4 w-4" />
+					<ThemeIcon role="chevron-left" class="mr-1 h-4 w-4" />
 					{m.media_previous_page()}
 				</Button>
 				<span
@@ -2046,7 +2036,7 @@
 					disabled={currentPage >= totalPages - 1}
 				>
 					{m.media_next_page()}
-					<ChevronRightIcon class="ml-1 h-4 w-4" />
+					<ThemeIcon role="chevron-right" class="ml-1 h-4 w-4" />
 				</Button>
 			</div>
 		{/if}
@@ -2181,7 +2171,7 @@
 					organizationDialogOpen = true;
 				}}
 			>
-				<TagIcon />
+				<ThemeIcon role="tag" />
 				{m.media_manage_organization()}
 			</Button>
 		{/if}
@@ -2291,7 +2281,7 @@
 						></video>
 					{:else if isAudio(selectedMedia.mime_type)}
 						<div class="flex aspect-[4/3] flex-col items-center justify-center gap-4 p-5">
-							<FileAudioIcon class="size-12 text-muted-foreground" />
+							<ProtectedIcon icon="media-audio" class="size-12 text-muted-foreground" />
 							<audio src={getAuthenticatedMediaURL(selectedMedia.url)} class="w-full" controls
 							></audio>
 						</div>
@@ -2417,7 +2407,7 @@
 								onclick={saveDetailAltText}
 								disabled={detailSaving}
 							>
-								{#if detailSaving}<LoaderIcon class="animate-spin" />{/if}
+								{#if detailSaving}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 								{m.media_save_alt()}
 							</Button>
 						{/if}
@@ -2431,7 +2421,7 @@
 						size="sm"
 						onclick={() => openMediaInImageEditor(selectedMedia!)}
 					>
-						<PaletteIcon />
+						<ThemeIcon role="appearance" />
 						{m.media_edit_image_editor()}
 					</Button>
 					<Button
@@ -2439,7 +2429,7 @@
 						size="sm"
 						onclick={() => openMediaInImageEditor(selectedMedia!, 'remove-background')}
 					>
-						<ImageIcon />
+						<ThemeIcon role="image" />
 						{m.image_editor_remove_background()}
 					</Button>
 				{/if}
@@ -2449,22 +2439,22 @@
 						size="sm"
 						onclick={() => openMediaInVideoEditor(selectedMedia!)}
 					>
-						<VideoIcon />
+						<ThemeIcon role="video" />
 						{m.media_edit_video_editor()}
 					</Button>
 				{/if}
 				{#if mediaCanEdit}
 					<Button variant="outline" size="sm" onclick={() => requestRenameMedia(selectedMedia!)}>
-						<PencilIcon />
+						<ThemeIcon role="edit" />
 						{m.common_rename()}
 					</Button>
 					<Button variant="outline" size="sm" onclick={() => duplicateMedia(selectedMedia!)}>
-						<Grid2X2Icon />
+						<ThemeIcon role="layout" />
 						{m.image_editor_duplicate()}
 					</Button>
 				{/if}
 				<Button variant="outline" size="sm" onclick={() => downloadMedia(selectedMedia!)}>
-					<DownloadIcon />
+					<ThemeIcon role="download" />
 					{m.image_editor_download()}
 				</Button>
 				{#if mediaCanEdit}
@@ -2473,7 +2463,7 @@
 						size="sm"
 						onclick={() => requestDeleteMedia(selectedMedia!)}
 					>
-						<TrashIcon />
+						<ThemeIcon role="delete" />
 						{m.common_delete()}
 					</Button>
 				{/if}

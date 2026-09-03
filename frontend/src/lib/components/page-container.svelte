@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
+	import type { ThemeIconRole } from '$lib/themes';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { createDelayedVisibility } from '$lib/query/presentation.svelte';
@@ -12,6 +13,8 @@
 		title: string;
 		/** Optional icon component to display before title */
 		icon?: IconComponent;
+		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
+		themeIconRole?: ThemeIconRole;
 		/** Optional plain-text description below the title */
 		description?: string;
 		/** Optional header actions (buttons, etc.) */
@@ -39,6 +42,7 @@
 	let {
 		title,
 		icon: Icon,
+		themeIconRole,
 		description,
 		actions,
 		loading = false,
@@ -89,6 +93,7 @@
 		<PageHeader
 			{title}
 			icon={Icon}
+			{themeIconRole}
 			{description}
 			{actions}
 			{loading}

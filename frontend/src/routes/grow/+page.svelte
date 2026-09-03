@@ -8,6 +8,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 -->
 <script lang="ts">
 	import {
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 		accountFeaturesQueryOptions,
 		growthQueryKeys,
 		growthQueryOptions,
@@ -58,10 +59,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		SyncStateView
 	} from '$lib/growth-helpers';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
-	import UserRoundPlusIcon from '@lucide/svelte/icons/user-round-plus';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import UsersIcon from '@lucide/svelte/icons/users';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 	import { isFeatureEffective } from '$lib/feature-disabled';
 
 	let selectedAccountID = $state<string | null>(null);
@@ -683,7 +680,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <PageContainer
 	title={m.grow_title()}
 	description={m.grow_description()}
-	icon={UserRoundPlusIcon}
+	themeIconRole="growth"
 	loading={initialLoading}
 	loadingLayout="grid"
 	loadingItems={6}
@@ -699,10 +696,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				data-testid="grow-refresh-button"
 			>
 				{#if busy}
-					<LoaderIcon class="size-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{m.grow_refreshing()}
 				{:else}
-					<RefreshCwIcon class="size-4" />
+					<ThemeIcon role="refresh" class="size-4" />
 					{m.grow_refresh()}
 				{/if}
 			</Button>
@@ -777,7 +774,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
 						aria-live="polite"
 					>
-						<LoaderIcon class="size-3.5 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 						{m.grow_refreshing()}
 					</span>
 				{/if}
@@ -964,7 +961,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 		{#if noCompatible}
 			<EmptyState
-				icon={UsersIcon}
+				themeIconRole="users"
 				title={m.grow_no_compatible_title()}
 				description={m.grow_no_compatible_description()}
 				actionLabel={m.grow_connect_account()}
@@ -972,7 +969,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			/>
 		{:else if noEligible}
 			<EmptyState
-				icon={UsersIcon}
+				themeIconRole="users"
 				title={m.grow_feature_all_disabled_title()}
 				description={m.grow_feature_all_disabled_description()}
 				actionLabel={m.feature_disabled_open_details()}
@@ -981,7 +978,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		{:else if isStaleDisabled}
 			{#if filterEmpty}
 				<EmptyState
-					icon={UsersIcon}
+					themeIconRole="users"
 					title={m.grow_no_filter_results_title()}
 					description={m.grow_no_filter_results_description()}
 					actionLabel={m.grow_reset_filters()}
@@ -1008,7 +1005,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				</p>
 			{:else if neverGenerated}
 				<EmptyState
-					icon={UserRoundPlusIcon}
+					themeIconRole="growth"
 					title={m.grow_feature_disabled_title()}
 					description={staleDetailMessage(staleGrowFeature)}
 					actionLabel={m.feature_disabled_open_details()}
@@ -1017,7 +1014,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			{/if}
 		{:else if neverGenerated}
 			<EmptyState
-				icon={UserRoundPlusIcon}
+				themeIconRole="growth"
 				title={m.grow_never_generated_title()}
 				description={m.grow_never_generated_description()}
 				actionLabel={m.grow_find_people()}
@@ -1025,7 +1022,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			/>
 		{:else if isEmptyAfterSuccess}
 			<EmptyState
-				icon={UsersIcon}
+				themeIconRole="users"
 				title={m.grow_empty_title()}
 				description={m.grow_empty_description()}
 				actionLabel={m.grow_refresh()}
@@ -1033,7 +1030,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			/>
 		{:else if filterEmpty}
 			<EmptyState
-				icon={UsersIcon}
+				themeIconRole="users"
 				title={m.grow_no_filter_results_title()}
 				description={m.grow_no_filter_results_description()}
 				actionLabel={m.grow_reset_filters()}

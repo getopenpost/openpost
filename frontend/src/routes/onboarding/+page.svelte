@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { get } from 'svelte/store';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -27,8 +28,6 @@
 	import PurchaseChoiceError from '$lib/components/purchase-choice-error.svelte';
 	import PurchaseChoiceSummary from '$lib/components/purchase-choice-summary.svelte';
 	import { getLocaleTag } from '$lib/i18n';
-	import RocketIcon from '@lucide/svelte/icons/rocket';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { m } from '$lib/paraglide/messages';
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import {
@@ -334,7 +333,7 @@
 	loading={pageLoading}
 	loadingLabel={m.common_loading()}
 >
-	{#snippet icon()}<RocketIcon class="size-6" />{/snippet}
+	{#snippet icon()}<ThemeIcon role="launch" class="size-6" />{/snippet}
 
 	<div class="space-y-5">
 		{#if configurationBackgroundError}
@@ -454,7 +453,7 @@
 						!workspaceName.trim() ||
 						(purchaseChoiceRequired && !purchaseChoice)}
 				>
-					{#if isSubmitting}<LoaderIcon class="size-4 animate-spin" />{/if}
+					{#if isSubmitting}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 					{isSubmitting
 						? purchaseChoiceRequired
 							? m.onboarding_confirming()

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { page } from '$app/stores';
@@ -15,11 +16,6 @@
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
-	import TerminalIcon from '@lucide/svelte/icons/terminal';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import XIcon from '@lucide/svelte/icons/x';
 
 	type CLIAuthSession = {
 		client_name: string;
@@ -256,9 +252,9 @@
 
 {#snippet clientIcon()}
 	{#if session?.client_os === 'android' || session?.client_os === 'ios'}
-		<SmartphoneIcon class="size-6" />
+		<ThemeIcon role="devices" class="size-6" />
 	{:else}
-		<TerminalIcon class="size-6" />
+		<ThemeIcon role="code" class="size-6" />
 	{/if}
 {/snippet}
 
@@ -296,9 +292,9 @@
 			</span>
 			<div class="flex size-12 items-center justify-center rounded-full bg-primary/10">
 				{#if completed === 'approved'}
-					<ShieldCheckIcon class="size-6 text-primary" />
+					<ThemeIcon role="security" class="size-6 text-primary" />
 				{:else}
-					<XIcon class="size-6 text-muted-foreground" />
+					<ThemeIcon role="close" class="size-6 text-muted-foreground" />
 				{/if}
 			</div>
 		</div>
@@ -362,17 +358,17 @@
 					disabled={submitting || selectedWorkspaceID === null}
 				>
 					{#if pendingDecision === 'approved'}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
-						<ShieldCheckIcon class="h-4 w-4" />
+						<ThemeIcon role="security" class="h-4 w-4" />
 					{/if}
 					{m.cli_authorize_approve()}
 				</Button>
 				<Button variant="outline" class="w-full gap-2" onclick={deny} disabled={submitting}>
 					{#if pendingDecision === 'denied'}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
-						<XIcon class="h-4 w-4" />
+						<ThemeIcon role="close" class="h-4 w-4" />
 					{/if}
 					{m.cli_authorize_deny()}
 				</Button>

@@ -3,6 +3,7 @@ THESIS: Public OpenPost Image Editor is a local workbench that starts with makin
 OWN-WORLD: OpenPost warm neutrals, compact Geist controls, structural borders, and one scarce orange action signal.
 STORY: Choose a social format, open a local image, or use a template; edit and export; save to OpenPost only when cloud value matters.
 FIRST VIEWPORT: A quiet product header, direct promise, image-import action, and real social-format choices, with recent local work leading for returning visitors.
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 FORM: Operate surface extending the established OpenPost Image Editor start screen; no marketing hero, editor fork, watermark, or export gate.
 -->
 <script lang="ts">
@@ -36,11 +37,6 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	} from '$lib/image-editor/local-persistence';
 	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
-	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-	import ImageIcon from '@lucide/svelte/icons/image-plus';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 
@@ -327,9 +323,9 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 					disabled={Boolean(creating) || !enabled}
 				>
 					{#if creating === 'image'}
-						<LoaderIcon class="animate-spin" />
+						<ProtectedIcon icon="loading" class="animate-spin" />
 					{:else}
-						<ImageIcon />
+						<ThemeIcon role="image-add" />
 					{/if}
 					{m.image_editor_public_open_image()}
 				</Button>
@@ -360,7 +356,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 			</InlineNotice>
 		{:else if !enabled}
 			<div class="mt-10 max-w-xl rounded-xl border bg-card p-6">
-				<PaletteIcon class="size-7 text-muted-foreground" />
+				<ThemeIcon role="appearance" class="size-7 text-muted-foreground" />
 				<h2 class="mt-4 text-lg font-semibold">{m.image_editor_not_enabled()}</h2>
 				<p class="mt-2 text-sm leading-6 text-muted-foreground">
 					{m.image_editor_not_enabled_body()}
@@ -414,7 +410,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 												{new Date(design.updated_at).toLocaleString()}
 											</p>
 										</div>
-										<ArrowRightIcon class="size-4 text-muted-foreground" />
+										<ThemeIcon role="arrow-right" class="size-4 text-muted-foreground" />
 									</div>
 								</a>
 								<Button
@@ -424,7 +420,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 									onclick={() => requestDelete(design)}
 									aria-label={m.image_editor_public_delete_design({ title: design.document.title })}
 								>
-									<TrashIcon />
+									<ThemeIcon role="delete" />
 								</Button>
 							</div>
 						{/each}
@@ -460,7 +456,10 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 							<div class="flex items-center gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm font-medium">{presetName(preset)}</span
 								>
-								{#if creating === preset.key}<LoaderIcon class="size-4 animate-spin" />{/if}
+								{#if creating === preset.key}<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin"
+									/>{/if}
 							</div>
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{preset.width_px} × {preset.height_px}
@@ -527,7 +526,10 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 								<span class="min-w-0 flex-1 truncate text-sm font-medium">
 									{templateName(template)}
 								</span>
-								{#if creating === template.id}<LoaderIcon class="size-4 animate-spin" />{/if}
+								{#if creating === template.id}<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin"
+									/>{/if}
 							</div>
 						</button>
 					{/each}

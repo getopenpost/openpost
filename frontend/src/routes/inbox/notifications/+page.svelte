@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -20,11 +21,6 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Button } from '$lib/components/ui/button';
-	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-	import BellIcon from '@lucide/svelte/icons/bell';
-	import CheckIcon from '@lucide/svelte/icons/check-check';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 
 	type NotificationAction = NonNullable<Notification['actions']>[number];
 	type ReadFilter = 'all' | 'unread' | 'read';
@@ -256,7 +252,7 @@
 <PageContainer
 	title={m.notifications_heading()}
 	description={workspaceName ? m.notifications_description({ workspace: workspaceName }) : ''}
-	icon={BellIcon}
+	themeIconRole="notification"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
@@ -267,14 +263,14 @@
 				variant="outline"
 				onclick={() => void goto(resolve('/settings?tab=notifications' as '/'))}
 			>
-				<SettingsIcon class="size-4" />{m.notifications_open_settings()}
+				<ThemeIcon role="settings" class="size-4" />{m.notifications_open_settings()}
 			</Button>
 			<Button
 				variant="outline"
 				onclick={() => void markAllRead()}
 				disabled={inbox.unreadCount === 0 || bulkActionPending !== ''}
 			>
-				<CheckIcon class="size-4" />{m.notifications_mark_all_read()}
+				<ThemeIcon role="check" class="size-4" />{m.notifications_mark_all_read()}
 			</Button>
 		</div>
 	{/snippet}
@@ -297,7 +293,7 @@
 		{/if}
 		{#if inbox.initialized && inbox.items.length === 0}
 			<EmptyState
-				icon={BellIcon}
+				themeIconRole="notification"
 				title={m.notifications_empty_title()}
 				description={m.notifications_empty_description()}
 				variant="muted"
@@ -320,7 +316,7 @@
 						disabled={bulkActionPending !== ''}
 						onclick={() => (deleteDialogOpen = true)}
 					>
-						<TrashIcon class="size-4" />{m.notifications_delete_all()}
+						<ThemeIcon role="delete" class="size-4" />{m.notifications_delete_all()}
 					</Button>
 				</div>
 
@@ -357,7 +353,7 @@
 
 				{#if filteredNotifications.length === 0}
 					<EmptyState
-						icon={BellIcon}
+						themeIconRole="notification"
 						title={m.notifications_no_results_title()}
 						description={m.notifications_no_results_description()}
 						actionLabel={m.notifications_reset_filter()}
@@ -378,7 +374,7 @@
 								<div class="divide-y rounded-lg border bg-card">
 									{#each group.items as notification (notification.id)}
 										{@const presentation = presentNotification(notification)}
-										{@const TypeIcon = notificationTopicIcon(notification.type)}
+										{@const typeIcon = notificationTopicIcon(notification.type)}
 										{@const typeLabel = notificationTopicLabel(notification.type)}
 										{@const fullTime = fullDateLabel(notification.created_at)}
 										<article
@@ -401,7 +397,11 @@
 												class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
 												aria-hidden="true"
 											>
-												<TypeIcon class="size-4" />
+												{#if typeIcon.kind === 'protected'}
+													<ProtectedIcon icon={typeIcon.role} class="size-4" />
+												{:else}
+													<ThemeIcon role={typeIcon.role} class="size-4" />
+												{/if}
 											</span>
 											<div class="min-w-0 flex-1">
 												<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -438,7 +438,7 @@
 															disabled={readPending !== ''}
 															onclick={() => void markNotificationRead(notification)}
 														>
-															<CheckIcon class="size-4" />{m.notifications_mark_read()}
+															<ThemeIcon role="check" class="size-4" />{m.notifications_mark_read()}
 														</Button>
 													{/if}
 													{#if isSafeLocalHref(notification.href)}
@@ -448,7 +448,10 @@
 															disabled={readPending === notification.id}
 															onclick={() => void openNotification(notification)}
 														>
-															{m.notifications_open_notification()}<ArrowRightIcon class="size-4" />
+															{m.notifications_open_notification()}<ThemeIcon
+																role="arrow-right"
+																class="size-4"
+															/>
 														</Button>
 													{/if}
 													{#each presentation.actions as action (`${action.label}:${action.href}:${action.operation}`)}

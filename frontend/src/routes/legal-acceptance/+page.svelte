@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
@@ -9,7 +10,6 @@
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { client } from '$lib/api/client';
 	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
@@ -139,7 +139,7 @@
 			class="w-full gap-2"
 			disabled={loading || configurationLoading || !authConfiguration?.legal_acceptance_required}
 		>
-			{#if loading}<LoaderIcon class="size-4 animate-spin" />{/if}
+			{#if loading}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 			{loading ? m.auth_legal_loading() : m.auth_legal_submit()}
 		</Button>
 		<Button type="button" variant="ghost" class="w-full" disabled={loading} onclick={signOut}>

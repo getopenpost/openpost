@@ -66,16 +66,16 @@
 
 Write the post once. OpenPost adapts it for each platform, makes the media, schedules it, and brings the results, replies, and messages back into one place.
 
-- **Composer** — one draft, then tailor text, media, and timing per account. Publish now or schedule it.
-- **Studio** — image editor, video editor, meme creator, and screen recorder, all in the browser.
-- **Calendar** — plan the month, reuse posting slots, track what's live, failed, or waiting.
-- **Inbox** — comments and DMs from every connected account, in one place.
-- **Analytics & Grow** — see what worked, and find people worth following on Bluesky and Mastodon.
-- **AI writing** — Ideate what to post, or turn a draft into one for every destination. You review before anything ships.
-- **Workspaces** — separate brands, clients, and teams, with their own accounts and members.
-- **API, CLI, MCP** — scripts and agents work against the same posts and permissions as the app, without your account passwords.
+- **Composer**: one draft, then tailor text, media, and timing per account. Publish now or schedule it.
+- **Studio**: image editor, video editor, meme creator, and screen recorder, all in the browser.
+- **Calendar**: plan the month, reuse posting slots, track what's live, failed, or waiting.
+- **Inbox**: comments and DMs from every connected account, in one place.
+- **Analytics & Grow**: see what worked, and find people worth following on Bluesky and Mastodon.
+- **AI writing**: Ideate what to post, or turn a draft into one for every destination. You review before anything ships.
+- **Workspaces**: separate brands, clients, and teams, with their own accounts and members.
+- **API, CLI, MCP**: scripts and agents work against the same posts and permissions as the app, without your account passwords.
 
-That's the shape of it — the [docs](https://docs.openpo.st) cover the rest, including the Android app, brand kits, and auto-reposting.
+That's the shape of it; the [docs](https://docs.openpo.st) cover the rest, including the Android app, brand kits, and auto-reposting.
 
 <table>
   <tr>
@@ -121,9 +121,9 @@ Pinterest and Discord/Telegram bot connections aren't public posting options yet
 
 ## Get started
 
-**Hosted** — we run it for you. [Start a 14-day trial →](https://app.openpo.st/register?plan=founder&billing_period=monthly)
+**Hosted**: we run it for you. [Start a 14-day trial →](https://app.openpo.st/register?plan=founder&billing_period=monthly)
 
-**Self-host** — Docker, your own server:
+**Self-host**: Docker, your own server:
 
 ```bash
 git clone https://github.com/getopenpost/openpost.git
@@ -133,11 +133,11 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media. `linux/amd64` only — ARM64 hosts need emulation.
+Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media. 
 
 [Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
 
-**Automate** — API, CLI, and MCP server work against the same posts and permissions as the app, no social credentials required. [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
+**Automate**: API, CLI, and MCP server work against the same posts and permissions as the app, no social credentials required. [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
 
 ## Develop
 
@@ -153,7 +153,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](https://docs
 
 ## Help OpenPost grow
 
-If it's useful to you, star the repo — it helps more people find it.
+If it's useful to you, star the repo; it helps more people find it.
 
 <!-- star-history:start -->
 <picture>

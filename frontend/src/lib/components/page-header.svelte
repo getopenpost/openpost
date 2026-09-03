@@ -6,11 +6,10 @@
 	import { cn } from '$lib/utils';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 
-	type Props = {
+	interface Props {
 		title: string;
-		/** Custom icon component to display before title (takes precedence when both are set) */
 		icon?: IconComponent;
-		/** Semantic icon role resolved from the active organization theme */
+		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
 		themeIconRole?: ThemeIconRole;
 		eyebrow?: string;
 		description?: string;
@@ -22,7 +21,7 @@
 		contentClass?: string;
 		titleClass?: string;
 		class?: string;
-	};
+	}
 
 	let {
 		title,
@@ -57,19 +56,19 @@
 	<div class={cn('min-w-0', contentClass)}>
 		{#if eyebrow}
 			<div data-theme-type="label" class="mb-1 flex items-center gap-2 text-muted-foreground">
-				{#if Icon}
-					<Icon class="size-4 shrink-0" />
-				{:else if themeIconRole}
+				{#if themeIconRole}
 					<ThemeIcon role={themeIconRole} class="size-4 shrink-0" />
+				{:else if Icon}
+					<Icon class="size-4 shrink-0" />
 				{/if}
 				<span>{eyebrow}</span>
 			</div>
 		{/if}
 		<h1 data-theme-type="title" class="flex items-center gap-2.5">
-			{#if Icon && !eyebrow}
-				<Icon class="size-5 shrink-0 text-primary" />
-			{:else if themeIconRole && !eyebrow}
+			{#if themeIconRole && !eyebrow}
 				<ThemeIcon role={themeIconRole} class="size-5 shrink-0 text-primary" />
+			{:else if Icon && !eyebrow}
+				<Icon class="size-5 shrink-0 text-primary" />
 			{/if}
 			<span class={cn('min-w-0 break-words', titleClass)}>{title}</span>
 		</h1>

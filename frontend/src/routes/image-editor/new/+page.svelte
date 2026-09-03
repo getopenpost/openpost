@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -23,9 +24,6 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import { m } from '$lib/paraglide/messages';
 	import { startImageEditorMetric } from '$lib/image-editor/telemetry';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
@@ -371,7 +369,8 @@
 			variant="ghost"
 			size="icon-sm"
 			onclick={goBack}
-			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}><ArrowLeftIcon /></Button
+			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
+			><ThemeIcon role="arrow-left" /></Button
 		>
 		<h1 class="ml-2 text-sm font-semibold">{m.image_editor_new_design()}</h1>
 	</header>
@@ -402,7 +401,7 @@
 				</InlineNotice>
 			{/if}
 			<div class="mx-auto max-w-lg rounded-2xl border bg-card p-8 text-center">
-				<PaletteIcon class="mx-auto mb-4 size-8 text-muted-foreground" />
+				<ThemeIcon role="appearance" class="mx-auto mb-4 size-8 text-muted-foreground" />
 				<h2 class="text-xl font-semibold">{m.image_editor_not_enabled()}</h2>
 				<p class="mt-2 text-sm text-muted-foreground">
 					{m.image_editor_not_enabled_body()}
@@ -468,7 +467,10 @@
 								<span class="min-w-0 flex-1 truncate text-sm font-medium"
 									>{templateName(template)}</span
 								>
-								{#if creating === template.id}<LoaderIcon class="size-4 animate-spin" />{/if}
+								{#if creating === template.id}<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin"
+									/>{/if}
 							</div>
 						</button>
 					{/each}
@@ -511,7 +513,10 @@
 							<div class="flex items-center gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm font-medium">{presetName(preset)}</span
 								>
-								{#if creating === preset.key}<LoaderIcon class="size-4 animate-spin" />{/if}
+								{#if creating === preset.key}<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin"
+									/>{/if}
 							</div>
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{preset.width_px} × {preset.height_px}

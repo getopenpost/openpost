@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
@@ -54,7 +54,7 @@
 </svelte:head>
 
 {#snippet impersonationIcon()}
-	<ShieldCheckIcon class="size-6" />
+	<ThemeIcon role="security" class="size-6" />
 {/snippet}
 
 <StandaloneShell

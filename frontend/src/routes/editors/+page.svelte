@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { ContextMenu } from 'bits-ui';
 	import { goto } from '$app/navigation';
@@ -44,18 +45,6 @@
 	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
 	import { filterLocalVideoProjects } from '$lib/video-editor/project/workspace-project-catalog';
 	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
-	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
-	import FolderPlusIcon from '@lucide/svelte/icons/folder-plus';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import VideoIcon from '@lucide/svelte/icons/video';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import HeartIcon from '@lucide/svelte/icons/heart';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { m } from '$lib/paraglide/messages';
 
 	type CatalogView = EditorCatalogSnapshot;
@@ -357,12 +346,12 @@
 <PageContainer
 	title={m.editors_title()}
 	description={m.editors_description()}
-	icon={ClapperboardIcon}
+	themeIconRole="editors"
 >
 	{#snippet actions()}
 		<div class="flex flex-wrap gap-2">
 			<Button variant="outline" href="/video-editor">
-				<VideoIcon />
+				<ThemeIcon role="video" />
 				{m.editors_new_video()}
 			</Button>
 			<Button
@@ -370,14 +359,15 @@
 				onclick={() =>
 					goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
 			>
-				<PlusIcon />
+				<ThemeIcon role="add" />
 				{m.editors_new_design()}
 			</Button>
 		</div>
 	{/snippet}
 
 	<div class="relative">
-		<SearchIcon
+		<ThemeIcon
+			role="search"
 			class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 		/>
 		<Input
@@ -414,7 +404,7 @@
 				<PageLoading layout="gallery" items={5} label={m.editors_loading()} />
 			{:else if catalog.designs.length === 0 && !catalogError}
 				<EmptyState
-					icon={ImageIcon}
+					themeIconRole="image"
 					title={query ? m.editors_no_match() : m.editors_empty()}
 					description={query ? m.editors_no_match_body() : m.editors_image_designs_body()}
 					actionLabel={query ? undefined : m.editors_create_design()}
@@ -443,10 +433,10 @@
 													src={getAuthenticatedMediaURL(`/media/${design.cover_preview_media_id}`)}
 													alt=""
 												/>
-											{:else}<ImageIcon class="size-8 text-neutral-500" />{/if}
+											{:else}<ThemeIcon role="image" class="size-8 text-neutral-500" />{/if}
 											{#if design.is_favorite}
 												<span class="absolute right-2 bottom-2 rounded-full bg-background/90 p-1.5">
-													<HeartIcon class="size-3.5 fill-red-500 text-red-500" />
+													<ThemeIcon role="favorite" class="size-3.5 fill-red-500 text-red-500" />
 												</span>
 											{/if}
 										</div>
@@ -470,7 +460,7 @@
 										disabled={!catalog.canEditDesigns}
 										onclick={() => requestRenameDesign(design)}
 									>
-										<PencilIcon class="size-4" />
+										<ThemeIcon role="edit" class="size-4" />
 										{m.common_rename()}
 									</ContextMenu.Item>
 									<ContextMenu.Item
@@ -478,7 +468,7 @@
 										disabled={!catalog.canEditDesigns}
 										onclick={() => duplicateDesign(design)}
 									>
-										<CopyIcon class="size-4" />
+										<ThemeIcon role="copy" class="size-4" />
 										{m.image_editor_duplicate_design()}
 									</ContextMenu.Item>
 									<ContextMenu.Item
@@ -486,7 +476,11 @@
 										disabled={!catalog.canEditDesigns}
 										onclick={() => toggleFavorite(design)}
 									>
-										<HeartIcon class="size-4" fill={design.is_favorite ? 'currentColor' : 'none'} />
+										<ThemeIcon
+											role="favorite"
+											class="size-4"
+											fill={design.is_favorite ? 'currentColor' : 'none'}
+										/>
 										{design.is_favorite ? m.media_unfavorite() : m.media_favorite()}
 									</ContextMenu.Item>
 									{#if catalog.canEditDesigns}
@@ -495,7 +489,7 @@
 											class="{contextItemClass} text-destructive data-highlighted:text-destructive"
 											onclick={() => requestDeleteDesign(design)}
 										>
-											<TrashIcon class="size-4" />
+											<ThemeIcon role="delete" class="size-4" />
 											{m.common_delete()}
 										</ContextMenu.Item>
 									{/if}
@@ -512,7 +506,10 @@
 							onclick={() => void loadMoreDesigns()}
 						>
 							{#if designsQuery.isFetchingNextPage}
-								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
 								{m.editors_loading_more()}
 							{:else}
 								{m.editors_load_more_designs()}
@@ -562,9 +559,12 @@
 							onclick={() => void videoWorkspaceGate.pickFolder()}
 						>
 							{#if videoWorkspaceGate.busy}
-								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
 							{:else}
-								<FolderPlusIcon class="size-4" />
+								<ThemeIcon role="folder" class="size-4" />
 							{/if}
 							{m.video_editor_gate_pick_cta()}
 						</Button>
@@ -586,9 +586,12 @@
 							onclick={() => void videoWorkspaceGate.reconnect()}
 						>
 							{#if videoWorkspaceGate.busy}
-								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
 							{:else}
-								<RefreshCwIcon class="size-4" />
+								<ThemeIcon role="refresh" class="size-4" />
 							{/if}
 							{m.video_editor_gate_reconnect_cta()}
 						</Button>
@@ -621,7 +624,7 @@
 					<PageLoading layout="gallery" items={4} label={m.editors_loading()} />
 				{:else if visibleVideoProjects.length === 0 && !videoProjectCatalog.error}
 					<EmptyState
-						icon={VideoIcon}
+						themeIconRole="video"
 						title={query ? m.editors_no_match() : m.video_editor_projects_empty()}
 						description={query ? m.editors_no_match_body() : m.editors_video_projects_body()}
 						actionLabel={query ? undefined : m.editors_open_video()}
@@ -647,7 +650,7 @@
 											loading="lazy"
 										/>
 									{:else}
-										<VideoIcon class="size-8 text-neutral-500" />
+										<ThemeIcon role="video" class="size-8 text-neutral-500" />
 									{/if}
 								</div>
 								<div class="min-w-0 p-3">

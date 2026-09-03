@@ -1,13 +1,7 @@
 import { m } from '$lib/paraglide/messages';
 import type { components } from '$lib/api/types';
-import BellIcon from '@lucide/svelte/icons/bell';
-import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
-import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
-import MailIcon from '@lucide/svelte/icons/mail';
-import MessageCircleIcon from '@lucide/svelte/icons/message-circle';
-import ReplyIcon from '@lucide/svelte/icons/reply';
-import UserPlusIcon from '@lucide/svelte/icons/user-plus';
-import UserRoundXIcon from '@lucide/svelte/icons/user-round-x';
+import type { ThemeIconRole } from '$lib/themes';
+import type { ProtectedIconRole } from '$lib/themes/icons';
 
 export type NotificationTopicDefinition = components['schemas']['TopicDefinition'];
 export type NotificationEmailFrequency = 'off' | 'immediate' | 'daily';
@@ -16,57 +10,57 @@ const notificationPresentation = {
 	post_published: {
 		label: m.notifications_event_post_published,
 		description: m.notifications_event_post_published_description,
-		icon: CheckCircleIcon
+		icon: { kind: 'protected', role: 'success' }
 	},
 	publish_failed: {
 		label: m.notifications_event_publish_failed,
 		description: m.notifications_event_publish_failed_description,
-		icon: CircleAlertIcon
+		icon: { kind: 'protected', role: 'error' }
 	},
 	account_needs_attention: {
 		label: m.notifications_event_account_needs_attention,
 		description: m.notifications_event_account_needs_attention_description,
-		icon: UserRoundXIcon
+		icon: { kind: 'theme', role: 'user' }
 	},
 	new_engagement: {
 		label: m.notifications_event_new_engagement,
 		description: m.notifications_event_new_engagement_description,
-		icon: MessageCircleIcon
+		icon: { kind: 'theme', role: 'feedback' }
 	},
 	new_message: {
 		label: m.notifications_event_new_message,
 		description: m.notifications_event_new_message_description,
-		icon: MailIcon
+		icon: { kind: 'theme', role: 'mail' }
 	},
 	reply_failed: {
 		label: m.notifications_event_reply_failed,
 		description: m.notifications_event_reply_failed_description,
-		icon: ReplyIcon
+		icon: { kind: 'theme', role: 'reply' }
 	},
 	workspace_invite: {
 		label: m.notifications_event_workspace_invite,
 		description: m.notifications_event_workspace_invite_description,
-		icon: UserPlusIcon
+		icon: { kind: 'theme', role: 'growth' }
 	},
 	ownership_transfer: {
 		label: m.notifications_event_ownership_transfer,
 		description: m.notifications_event_ownership_transfer_description,
-		icon: UserPlusIcon
+		icon: { kind: 'theme', role: 'growth' }
 	},
 	security_action: {
 		label: m.notifications_event_security_action,
 		description: m.notifications_event_security_action_description,
-		icon: BellIcon
+		icon: { kind: 'theme', role: 'notification' }
 	},
 	access_changed: {
 		label: m.notifications_event_access_changed,
 		description: m.notifications_event_access_changed_description,
-		icon: BellIcon
+		icon: { kind: 'theme', role: 'notification' }
 	},
 	critical_billing: {
 		label: m.notifications_event_critical_billing,
 		description: m.notifications_event_critical_billing_description,
-		icon: BellIcon
+		icon: { kind: 'theme', role: 'notification' }
 	}
 } as const;
 
@@ -109,8 +103,14 @@ export function notificationTopicDescription(type: string): string {
 		: m.notifications_type_unknown();
 }
 
-export function notificationTopicIcon(type: string) {
-	return isKnownNotificationTopic(type) ? notificationPresentation[type].icon : BellIcon;
+export type NotificationTopicIcon =
+	| { kind: 'theme'; role: ThemeIconRole }
+	| { kind: 'protected'; role: ProtectedIconRole };
+
+export function notificationTopicIcon(type: string): NotificationTopicIcon {
+	return isKnownNotificationTopic(type)
+		? notificationPresentation[type].icon
+		: { kind: 'theme', role: 'notification' };
 }
 
 function isKnownNotificationTopic(type: string): type is KnownNotificationTopic {

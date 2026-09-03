@@ -48,7 +48,6 @@
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { showToast } from '$lib/toast';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
 
 	const authState = $derived($auth);
 	let destructiveDialogOpen = $state(false);
@@ -199,7 +198,7 @@
 <PageContainer
 	title={activeSettingsTitle}
 	description={activeSettingsDescription}
-	icon={SettingsIcon}
+	themeIconRole="settings"
 	loading={settingsLoading}
 	loadingMessage={workspaceSettingsInitialLoading
 		? m.settings_loading_workspace()

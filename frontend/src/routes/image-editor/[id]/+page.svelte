@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -25,7 +26,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { m } from '$lib/paraglide/messages';
 	import { startImageEditorMetric } from '$lib/image-editor/telemetry';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
@@ -213,7 +213,7 @@
 
 {#if loading || migrationBusy}
 	<div class="flex h-dvh items-center justify-center bg-background text-foreground">
-		<LoaderIcon class="mr-2 size-5 animate-spin" />
+		<ProtectedIcon icon="loading" class="mr-2 size-5 animate-spin" />
 		{m.image_editor_public_importing()}
 	</div>
 {:else if error || !design}

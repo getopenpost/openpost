@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
 	import { client } from '$lib/api/client';
 	import { m } from '$lib/paraglide/messages';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -43,7 +42,7 @@
 
 {#if submitted}
 	{#snippet successIcon()}
-		<CheckCircleIcon class="size-6 text-emerald-600 dark:text-emerald-400" />
+		<ProtectedIcon icon="success" class="size-6 text-emerald-600 dark:text-emerald-400" />
 	{/snippet}
 	<StandaloneShell
 		title={m.auth_forgot_success_title()}
@@ -117,7 +116,7 @@
 				class="w-full gap-2"
 				disabled={loading || configurationLoading || !authConfiguration?.password_reset_enabled}
 			>
-				{#if loading}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if loading}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{loading ? m.auth_forgot_loading() : m.auth_forgot_submit()}
 			</Button>
 		</form>

@@ -8,16 +8,13 @@
 
 	type PageLoadingProps = ComponentProps<typeof PageLoading>;
 
-	type Props = BaseProps & {
-		/** Optional icon component to display before title (takes precedence when both are set) */
-		icon?: IconComponent;
-		/** Semantic icon role resolved from the active organization theme */
-		themeIconRole?: ThemeIconRole;
-	};
-
-	interface BaseProps {
+	interface Props {
 		/** Page title displayed in the header */
 		title: string;
+		/** Optional icon component to display before title */
+		icon?: IconComponent;
+		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
+		themeIconRole?: ThemeIconRole;
 		/** Optional plain-text description below the title */
 		description?: string;
 		/** Optional header actions (buttons, etc.) */
@@ -59,7 +56,6 @@
 		children
 	}: Props = $props();
 
-	const headerIconProps = $derived(Icon ? { icon: Icon } : themeIconRole ? { themeIconRole } : {});
 	const loadingPlaceholder = createDelayedVisibility(() => loading);
 </script>
 
@@ -96,7 +92,8 @@
 	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
 		<PageHeader
 			{title}
-			{...headerIconProps}
+			icon={Icon}
+			{themeIconRole}
 			{description}
 			{actions}
 			{loading}

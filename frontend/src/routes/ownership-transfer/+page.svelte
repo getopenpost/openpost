@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -18,7 +19,6 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	type Transfer = components['schemas']['OwnershipTransferResponse'];
 	const authState = $derived($auth);
 	const transferID = $derived(page.url.searchParams.get('id') ?? '');
@@ -136,7 +136,7 @@
 	}
 </script>
 
-{#snippet transferIcon()}<KeyRoundIcon class="size-6" />{/snippet}
+{#snippet transferIcon()}<ThemeIcon role="key" class="size-6" />{/snippet}
 
 <svelte:head><title>{m.ownership_transfer_title()}</title></svelte:head>
 <StandaloneShell

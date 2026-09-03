@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+	import { ThemeIcon } from '$lib/themes/icons';
 		accountFeaturesQueryOptions,
 		conversationsQueryOptions,
 		inboxQueryKeys,
@@ -41,13 +42,8 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
-	import InboxIcon from '@lucide/svelte/icons/inbox';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import SendIcon from '@lucide/svelte/icons/send';
-
+			
 	type Conversation = components['schemas']['Conversation'];
 	type DirectMessage = components['schemas']['DirectMessage'];
 	type Attachment = { type: string; url: string; name?: string; thumbnail?: string };
@@ -695,7 +691,7 @@
 <PageContainer
 	title={m.messages_heading()}
 	description={m.messages_description()}
-	icon={InboxIcon}
+	themeIconRole="inbox"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
@@ -707,7 +703,7 @@
 			disabled={refreshing || !workspaceId || messagingAllDisabled}
 			data-testid="messages-refresh"
 		>
-			<RefreshIcon class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
+			<ThemeIcon role="refresh" class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
 			{m.messaging_refresh()}
 		</Button>
 	{/snippet}
@@ -829,7 +825,7 @@
 			</InlineNotice>
 		{:else if messagingEmptyIsFeatureDisabled}
 			<EmptyState
-				icon={InboxIcon}
+				themeIconRole="inbox"
 				title={m.messages_feature_disabled_title()}
 				description={m.messages_feature_disabled_description()}
 				actionLabel={m.feature_disabled_open_details()}
@@ -846,7 +842,7 @@
 			{/if}
 		{:else if conversationsQuery.data && conversations.length === 0}
 			<EmptyState
-				icon={InboxIcon}
+				themeIconRole="inbox"
 				title={m.messages_empty_title()}
 				description={m.messages_empty_description()}
 				variant="muted"
@@ -928,7 +924,7 @@
 								aria-label={m.messages_back()}
 								onclick={() => (selectedId = '')}
 							>
-								<ArrowLeftIcon class="size-4" />
+								<ThemeIcon role="arrow-left" class="size-4" />
 							</Button>
 							<div class="min-w-0 flex-1">
 								<h2 class="truncate text-sm font-semibold">{counterpartLabel(selected)}</h2>
@@ -940,7 +936,7 @@
 								aria-label={selected.archived_at ? m.messages_restore() : m.messages_archive()}
 								onclick={() => void setArchived(selected)}
 							>
-								<ArchiveIcon class="size-4" />
+								<ThemeIcon role="archive" class="size-4" />
 							</Button>
 						</header>
 
@@ -959,7 +955,7 @@
 									{/if}
 									{#snippet actions()}
 										<Button variant="outline" size="sm" onclick={() => void messageQuery.refetch()}>
-											<RefreshIcon class="mr-1.5 size-3.5" />
+											<ThemeIcon role="refresh" class="mr-1.5 size-3.5" />
 											{m.common_retry()}
 										</Button>
 									{/snippet}
@@ -1085,7 +1081,7 @@
 											disabled={sending || !replyBody.trim() || messagingAllDisabled}
 											aria-label={m.messages_send()}
 										>
-											<SendIcon class="size-4" />
+											<ThemeIcon role="send" class="size-4" />
 										</Button>
 									</form>
 								{/if}
@@ -1093,7 +1089,7 @@
 						{/if}
 					{:else}
 						<EmptyState
-							icon={InboxIcon}
+							themeIconRole="inbox"
 							title={m.messages_select_title()}
 							description={m.messages_select_description()}
 							variant="muted"

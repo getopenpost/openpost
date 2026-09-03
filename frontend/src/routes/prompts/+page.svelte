@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		promptCategoriesQueryOptions,
@@ -28,11 +29,6 @@
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash';
-	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/paraglide/messages';
@@ -228,7 +224,7 @@
 <PageContainer
 	title={m.prompts_title()}
 	description={m.prompts_description()}
-	icon={LightbulbIcon}
+	themeIconRole="idea"
 	loading={routeLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="grid"
@@ -253,11 +249,11 @@
 			</Select.Content>
 		</Select.Root>
 		<Button onclick={getRandomPrompt} variant="outline" class="gap-2">
-			<ShuffleIcon class="size-4" />
+			<ProtectedIcon icon="editor-shuffle" class="size-4" />
 			{m.prompts_random()}
 		</Button>
 		<Button onclick={() => (showAddPrompt = true)} class="gap-2">
-			<PlusIcon class="size-4" />
+			<ThemeIcon role="add" class="size-4" />
 			{m.prompts_add()}
 		</Button>
 	{/snippet}
@@ -288,7 +284,7 @@
 		{/if}
 		{#if hasPromptData && prompts.length === 0}
 			<EmptyState
-				icon={LightbulbIcon}
+				themeIconRole="idea"
 				title={m.prompts_empty()}
 				description={m.prompts_empty_body()}
 				actionLabel={m.prompts_add()}
@@ -350,7 +346,7 @@
 												onclick={() => requestDeletePrompt(prompt)}
 												aria-label={m.prompts_delete()}
 											>
-												<TrashIcon class="size-3.5" />
+												<ThemeIcon role="delete" class="size-3.5" />
 											</Button>
 										{/if}
 									</div>
@@ -422,7 +418,7 @@
 							disabled={!newPromptText.trim() || !newPromptCategory || submitting}
 						>
 							{#if submitting}
-								<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+								<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 							{/if}
 							{m.prompts_add()}
 						</Button>

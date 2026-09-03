@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { page } from '$app/stores';
@@ -14,10 +15,6 @@
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import BotIcon from '@lucide/svelte/icons/bot';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import XIcon from '@lucide/svelte/icons/x';
 
 	interface AuthorizationAuthState {
 		user: { id: string } | null;
@@ -180,7 +177,7 @@
 </svelte:head>
 
 {#snippet botIcon()}
-	<BotIcon class="size-6" />
+	<ThemeIcon role="assistant" class="size-6" />
 {/snippet}
 
 <StandaloneShell
@@ -251,9 +248,9 @@
 					(oauthWorkspaceScope === 'current' && !dependencies.workspace.currentWorkspace)}
 			>
 				{#if pendingDecision === true}
-					<LoaderIcon class="size-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{:else}
-					<ShieldCheckIcon class="h-4 w-4" />
+					<ThemeIcon role="security" class="h-4 w-4" />
 				{/if}
 				{pendingDecision === true ? m.oauth_authorize_authorizing() : m.oauth_authorize_approve()}
 			</Button>
@@ -264,9 +261,9 @@
 				disabled={submitting || !params.redirect_uri || !params.client_id}
 			>
 				{#if pendingDecision === false}
-					<LoaderIcon class="size-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{:else}
-					<XIcon class="h-4 w-4" />
+					<ThemeIcon role="close" class="h-4 w-4" />
 				{/if}
 				{pendingDecision === false ? m.oauth_authorize_denying() : m.oauth_authorize_deny()}
 			</Button>

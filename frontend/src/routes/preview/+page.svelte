@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { page } from '$app/stores';
 	import { SocialPreviewPage, platformNames, type PreviewModel } from '@openpost/social-preview';
 	import { channelName } from '$lib/preview-window';
 	import { m } from '$lib/paraglide/messages';
-	import UnplugIcon from '@lucide/svelte/icons/unplug';
 
 	type PreviewChannelMessage =
 		| { type: 'ready' }
@@ -67,7 +67,7 @@
 	<SocialPreviewPage {model} />
 	{#if !connected}
 		<div class="preview-disconnected" role="status">
-			<UnplugIcon aria-hidden="true" />
+			<ThemeIcon role="plugin" />
 			<span>
 				<strong>{m.preview_sync_stopped()}</strong>
 				<small>{m.preview_sync_stopped_body()}</small>

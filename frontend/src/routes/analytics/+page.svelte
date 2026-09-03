@@ -7,6 +7,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 -->
 <script lang="ts">
 	import {
+	import { ThemeIcon } from '$lib/themes/icons';
 		accountFeaturesQueryOptions,
 		analyticsOverviewQueryOptions,
 		analyticsQueryKeys
@@ -37,15 +38,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
-	import AccountsIcon from '@lucide/svelte/icons/users';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import HeartIcon from '@lucide/svelte/icons/heart';
-	import SendIcon from '@lucide/svelte/icons/send';
-	import UsersIcon from '@lucide/svelte/icons/users-round';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
@@ -706,7 +698,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			disabled={refreshing || !overview || accounts.length === 0 || analyticsAllDisabled}
 			data-testid="analytics-refresh"
 		>
-			<RefreshIcon class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
+			<ThemeIcon role="refresh" class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
 			{refreshing ? m.analytics_refreshing() : m.analytics_refresh()}
 		</Button>
 	</div>
@@ -723,7 +715,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 <PageContainer
 	title={m.analytics_title()}
-	icon={AnalyticsIcon}
+	themeIconRole="analytics"
 	description={m.analytics_description()}
 	{actions}
 	loading={initialLoading}
@@ -734,7 +726,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 >
 	{#if analyticsEmptyIsFeatureDisabled}
 		<EmptyState
-			icon={AccountsIcon}
+			themeIconRole="users"
 			title={m.analytics_feature_disabled_title()}
 			description={m.analytics_feature_disabled_description()}
 			actionLabel={m.feature_disabled_open_details()}
@@ -759,7 +751,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		</InlineNotice>
 	{:else if accounts.length === 0}
 		<EmptyState
-			icon={AccountsIcon}
+			themeIconRole="users"
 			title={m.analytics_no_accounts_title()}
 			description={m.analytics_no_accounts_description()}
 			actionLabel={m.analytics_no_accounts_action()}
@@ -823,11 +815,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							<div class="flex items-start justify-between gap-3">
 								<div class="flex items-center gap-2 text-sm text-muted-foreground">
 									{#if item.key === 'followers'}
-										<UsersIcon class="size-4" />
+										<ThemeIcon role="users" class="size-4" />
 									{:else if item.key === 'engagement'}
-										<HeartIcon class="size-4" />
+										<ThemeIcon role="favorite" class="size-4" />
 									{:else}
-										<EyeIcon class="size-4" />
+										<ThemeIcon role="eye" class="size-4" />
 									{/if}
 									<span>{item.label}</span>
 								</div>
@@ -854,7 +846,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					{/each}
 					<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
 						<div class="flex items-center gap-2 text-sm text-muted-foreground">
-							<SendIcon class="size-4" />
+							<ThemeIcon role="send" class="size-4" />
 							<span>{m.analytics_published()}</span>
 						</div>
 						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
@@ -1027,7 +1019,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 									/>
 								{:else}
 									<span class="flex items-center gap-2">
-										<AccountsIcon class="size-4 text-muted-foreground" aria-hidden="true" />
+										<ThemeIcon role="users" class="size-4 text-muted-foreground" />
 										{m.analytics_all_accounts()}
 									</span>
 								{/if}
@@ -1038,7 +1030,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 										<span
 											class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
 										>
-											<AccountsIcon class="size-4" aria-hidden="true" />
+											<ThemeIcon role="users" class="size-4" />
 										</span>
 										<span class="font-medium">{m.analytics_all_accounts()}</span>
 									</span>
@@ -1113,7 +1105,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 										class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 									>
 										{m.analytics_evidence_details()}
-										<ChevronDownIcon class="size-4 transition-transform group-open:rotate-180" />
+										<ThemeIcon
+											role="chevron-down"
+											class="size-4 transition-transform group-open:rotate-180"
+										/>
 									</summary>
 									<dl class="space-y-1 pb-2 text-xs leading-5 text-muted-foreground">
 										<div class="flex flex-wrap gap-x-1">
@@ -1349,7 +1344,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												<span class="hidden sm:inline">
 													{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
 												</span>
-												<ChevronDownIcon
+												<ThemeIcon
+													role="chevron-down"
 													class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
 												/>
 											</Button>
@@ -1428,7 +1424,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 														variant="ghost"
 														size="sm"
 													>
-														{m.analytics_open_native()}<ExternalLinkIcon class="size-3.5" />
+														{m.analytics_open_native()}<ThemeIcon
+															role="external-link"
+															class="size-3.5"
+														/>
 													</Button>
 												{/if}
 											</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
@@ -18,7 +19,6 @@
 		clearAccountManagementContinuation,
 		continuationHrefForNormalizedConnection
 	} from '$lib/account-management-route';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
 	import { resolveAppPath } from '$lib/app-path';
 
 	type Selection = components['schemas']['AccountSelectionResponse'];
@@ -326,7 +326,7 @@
 		</form>
 	{:else}
 		<div class="flex flex-col items-center gap-4 text-center">
-			<AlertTriangleIcon class="size-10 text-destructive" />
+			<ProtectedIcon icon="warning" class="size-10 text-destructive" />
 			<InlineNotice tone="error" message={error} class="w-full text-left" />
 			<Button onclick={goToAccounts}>{m.accounts_callback_back()}</Button>
 		</div>

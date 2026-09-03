@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/auth';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
@@ -8,16 +9,12 @@
 	import PasswordField from '$lib/components/password-field.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ShieldIcon from '@lucide/svelte/icons/shield';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import { m } from '$lib/paraglide/messages';
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { onDestroy, onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { OIDCProvider } from '$lib/api/client';
 	import AuthProviderButtons from '$lib/components/auth-provider-buttons.svelte';
-	import BuildingIcon from '@lucide/svelte/icons/building-2';
 	import { resolveAppPath } from '$lib/app-path';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
@@ -286,10 +283,10 @@
 					disabled={isLoading}
 				>
 					{#if isLoading}
-						<LoaderIcon class="h-4 w-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 						{m.auth_login_passkey_loading()}
 					{:else}
-						<KeyRoundIcon class="h-4 w-4" />
+						<ThemeIcon role="key" class="h-4 w-4" />
 						{m.auth_login_passkey_submit()}
 					{/if}
 				</Button>
@@ -313,10 +310,10 @@
 
 					<Button type="submit" disabled={isLoading} class="w-full gap-2">
 						{#if isLoading}
-							<LoaderIcon class="h-4 w-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 							{m.auth_login_verifying()}
 						{:else}
-							<ShieldIcon class="h-4 w-4" />
+							<ThemeIcon role="security" class="h-4 w-4" />
 							{m.auth_login_verify_code()}
 						{/if}
 					</Button>
@@ -346,10 +343,10 @@
 						class="w-full gap-2"
 					>
 						{#if isLoading}
-							<LoaderIcon class="h-4 w-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 							{m.auth_login_verifying()}
 						{:else}
-							<ShieldIcon class="h-4 w-4" />
+							<ThemeIcon role="security" class="h-4 w-4" />
 							{m.auth_login_verify_recovery_code()}
 						{/if}
 					</Button>
@@ -436,7 +433,7 @@
 
 			<Button type="submit" disabled={isLoading} class="w-full gap-2">
 				{#if isLoading}
-					<LoaderIcon class="h-4 w-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 					{m.auth_login_loading()}
 				{:else}
 					{m.auth_login_submit()}
@@ -460,9 +457,9 @@
 				</div>
 				<Button type="submit" variant="outline" class="w-full gap-2" disabled={Boolean(ssoLoading)}>
 					{#if ssoLoading === 'discover'}
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{:else}
-						<BuildingIcon class="size-4" />
+						<ThemeIcon role="organization" class="size-4" />
 					{/if}
 					{m.auth_sso_find_provider()}
 				</Button>

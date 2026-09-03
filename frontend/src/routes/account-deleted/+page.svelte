@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { m } from '$lib/paraglide/messages';
 </script>
@@ -10,7 +10,7 @@
 </svelte:head>
 
 {#snippet successIcon()}
-	<CheckCircleIcon class="size-6 text-emerald-600 dark:text-emerald-400" />
+	<ProtectedIcon icon="success" class="size-6 text-emerald-600 dark:text-emerald-400" />
 {/snippet}
 
 <StandaloneShell

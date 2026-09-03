@@ -48,10 +48,6 @@ function themeRuntime() {
 	return new WebThemeRuntime(loaders);
 }
 
-function textSnippet(text: string) {
-	return createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
-}
-
 describe('shared page states', () => {
 	afterEach(() => vi.useRealTimers());
 

@@ -21,7 +21,7 @@
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		formatAccountPlatformLabel,
 		formatSocialAccountName,
@@ -32,9 +32,6 @@
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import { continuationHrefForNormalizedConnection } from '$lib/account-management-route';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import UsersIcon from '@lucide/svelte/icons/users';
 	import { m } from '$lib/paraglide/messages';
 	import AccountFeaturePresentation from '$lib/components/account-feature-presentation.svelte';
 	import type { components } from '$lib/api/types';
@@ -1559,7 +1556,7 @@
 <PageContainer
 	title={m.accounts_heading()}
 	description={m.accounts_description()}
-	icon={UsersIcon}
+	themeIconRole="users"
 	{loading}
 	loadingLayout="sections"
 	loadingMessage={m.common_loading()}
@@ -1572,7 +1569,7 @@
 		<div class:min-w-0={!embedded} class="min-w-0">
 			{#if !workspaces || workspaces.length === 0}
 				<EmptyState
-					icon={UsersIcon}
+					themeIconRole="users"
 					title={m.accounts_no_workspaces_title()}
 					description={m.accounts_no_workspaces_body()}
 					actionLabel={m.accounts_create_workspace()}
@@ -1638,7 +1635,7 @@
 						<PageLoading layout="grid" label={m.common_loading()} items={3} />
 					{:else if accountsReady && accounts.length === 0}
 						<EmptyState
-							icon={UsersIcon}
+							themeIconRole="users"
 							title={m.accounts_empty_title()}
 							description={m.accounts_empty_body()}
 							variant="muted"
@@ -1693,7 +1690,7 @@
 																account: accountContextLabel(account)
 															})}
 														>
-															<MoreHorizontalIcon class="size-4" />
+															<ThemeIcon role="more-horizontal" class="size-4" />
 														</Button>
 													{/snippet}
 												</DropdownMenu.Trigger>
@@ -1850,9 +1847,9 @@
 												disabled={!providerActionEnabled(provider)}
 											>
 												{#if connectingInstallationID === provider.installation_id}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="size-4 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{/if}
 												{providerActionLabel(provider)}
@@ -2251,13 +2248,13 @@
 								})}
 							>
 								{#if accountMetadataRefreshing}
-									<LoaderIcon
+									<ProtectedIcon
+										icon="loading"
 										class="size-4 animate-spin motion-reduce:animate-none"
-										aria-hidden="true"
 									/>
 									{m.accounts_refreshing_profile()}
 								{:else}
-									<RefreshIcon class="size-4" aria-hidden="true" />
+									<ThemeIcon role="refresh" class="size-4" aria-hidden="true" />
 									{m.accounts_refresh_profile()}
 								{/if}
 							</Button>

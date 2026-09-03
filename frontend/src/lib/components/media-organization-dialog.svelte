@@ -10,10 +10,7 @@
 		queryMutationSessionIsCurrent,
 		type QueryMutationSession
 	} from '$lib/query/authorization-boundary';
-	import HashIcon from '@lucide/svelte/icons/hash';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -130,7 +127,7 @@
 			<div class="max-h-96 space-y-1 overflow-y-auto">
 				{#each tags as tag (tag.id)}
 					<div class="flex min-h-11 items-center gap-2 rounded-lg px-2 hover:bg-muted/60">
-						<HashIcon class="size-4 shrink-0 text-muted-foreground" />
+						<ThemeIcon role="tag" class="size-4 shrink-0 text-muted-foreground" />
 						<div class="min-w-0 flex-1">
 							<p class="flex items-center gap-1.5 truncate text-sm font-medium">
 								<span class="truncate">{tag.name}</span>
@@ -145,7 +142,7 @@
 							onclick={() => edit(tag)}
 							aria-label={m.media_organization_edit_named({ name: tag.name })}
 						>
-							<PencilIcon />
+							<ThemeIcon role="edit" />
 						</Button>
 						<Button
 							variant="ghost"
@@ -153,7 +150,7 @@
 							onclick={() => requestDelete(tag)}
 							aria-label={m.media_organization_delete_named({ name: tag.name })}
 						>
-							<TrashIcon />
+							<ThemeIcon role="delete" />
 						</Button>
 					</div>
 				{/each}
@@ -177,7 +174,7 @@
 				</label>
 				<div class="flex gap-2">
 					<Button type="submit" size="sm" disabled={saving || !name.trim()}>
-						{#if saving}<LoaderIcon class="animate-spin" />{/if}
+						{#if saving}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 						{editingId ? m.common_save() : m.media_create_tag()}
 					</Button>
 					{#if editingId}

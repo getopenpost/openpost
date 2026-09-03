@@ -19,12 +19,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import TrashIcon from '@lucide/svelte/icons/trash';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		adminQueryKeys,
 		instanceSettingsQueryOptions,
@@ -550,7 +545,7 @@
 				<SectionHeader
 					title={sections.find((section) => section.id === activeSection)?.label ?? ''}
 					description={sectionDescription(activeSection)}
-					icon={KeyRoundIcon}
+					themeIconRole="key"
 				/>
 				<div class="divide-y overflow-hidden rounded-xl border bg-background">
 					{#each visibleSettings as setting (setting.key)}
@@ -707,13 +702,13 @@
 													: m.settings_configuration_will_use_fallback()}
 											</span>
 											<Button variant="ghost" size="sm" onclick={() => undoUnset(setting.key)}>
-												<RotateCcwIcon class="size-3.5" />
+												<ThemeIcon role="refresh" class="size-3.5" />
 												{m.settings_configuration_undo()}
 											</Button>
 										</div>
 									{:else}
 										<Button variant="ghost" size="sm" onclick={() => markUnset(setting.key)}>
-											<RotateCcwIcon class="size-3.5" />
+											<ThemeIcon role="refresh" class="size-3.5" />
 											{setting.managed_by
 												? m.settings_configuration_use_environment()
 												: m.settings_configuration_use_fallback()}
@@ -730,7 +725,7 @@
 				<SectionHeader
 					title={m.settings_configuration_provider_apps()}
 					description={m.settings_configuration_provider_apps_body()}
-					icon={KeyRoundIcon}
+					themeIconRole="key"
 				/>
 				<InlineNotice tone="info">
 					{m.settings_configuration_provider_restart_note()}
@@ -781,7 +776,7 @@
 									<div class="flex shrink-0 gap-2">
 										{#if app.editable}
 											<Button variant="outline" size="sm" onclick={() => editProvider(app)}>
-												<PencilIcon class="size-3.5" />
+												<ThemeIcon role="edit" class="size-3.5" />
 												{m.common_edit()}
 											</Button>
 										{/if}
@@ -792,7 +787,7 @@
 												class="text-destructive hover:text-destructive"
 												onclick={() => requestDeleteProvider(app)}
 											>
-												<TrashIcon class="size-3.5" />
+												<ThemeIcon role="delete" class="size-3.5" />
 												{m.common_delete()}
 											</Button>
 										{/if}
@@ -822,7 +817,7 @@
 						</div>
 						{#if editingProviderID}
 							<Button variant="ghost" size="sm" type="button" onclick={resetProviderForm}>
-								<PlusIcon class="size-3.5" />
+								<ThemeIcon role="add" class="size-3.5" />
 								{m.settings_configuration_add_another()}
 							</Button>
 						{/if}
@@ -886,7 +881,7 @@
 					</label>
 					<div class="flex justify-end">
 						<Button type="submit" disabled={providerSaving || !providerClientID.trim()}>
-							{#if providerSaving}<LoaderIcon class="size-4 animate-spin" />{/if}
+							{#if providerSaving}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 							{editingProviderID
 								? m.settings_configuration_save_provider()
 								: m.settings_configuration_add_provider_action()}

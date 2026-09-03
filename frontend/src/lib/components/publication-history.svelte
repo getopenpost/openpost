@@ -16,10 +16,7 @@
 	import { getPlatformName } from '$lib/utils';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import CheckIcon from '@lucide/svelte/icons/circle-check';
-	import ClockIcon from '@lucide/svelte/icons/clock-3';
-	import HistoryIcon from '@lucide/svelte/icons/history';
-	import XIcon from '@lucide/svelte/icons/circle-x';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	type PublicationHistoryEvent = components['schemas']['PublicationLifecycleEventResponse'];
 	type HistoryActor = components['schemas']['PublicationLifecycleActor'];
@@ -208,7 +205,7 @@
 >
 	{#if showHeading}
 		<div class="mb-3 flex items-center gap-2">
-			<HistoryIcon class="size-4 text-muted-foreground" />
+			<ThemeIcon role="history" class="size-4 text-muted-foreground" />
 			{#if headingLevel === 3}
 				<h3 id={`publication-history-${publicationId}`} class="text-base font-semibold">
 					{m.image_editor_version_history()}
@@ -248,7 +245,7 @@
 							class="absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground ring-4 ring-background"
 							aria-hidden="true"
 						>
-							<ClockIcon class="size-3" />
+							<ThemeIcon role="time" class="size-3" />
 						</span>
 						<p class="text-xs font-medium text-muted-foreground">
 							{m.publication_history_effective_outcome()}
@@ -285,11 +282,11 @@
 							aria-hidden="true"
 						>
 							{#if event.status === 'failed'}
-								<XIcon class="size-3" />
+								<ProtectedIcon icon="error" class="size-3" />
 							{:else if event.status === 'succeeded'}
-								<CheckIcon class="size-3" />
+								<ProtectedIcon icon="success" class="size-3" />
 							{:else}
-								<ClockIcon class="size-3" />
+								<ThemeIcon role="time" class="size-3" />
 							{/if}
 						</span>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1">

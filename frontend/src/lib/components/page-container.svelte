@@ -1,17 +1,23 @@
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
+	import type { ThemeIconRole } from '$lib/themes';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { createDelayedVisibility } from '$lib/query/presentation.svelte';
 
 	type PageLoadingProps = ComponentProps<typeof PageLoading>;
 
-	interface Props {
+	type Props = BaseProps & {
+		/** Optional icon component to display before title (takes precedence when both are set) */
+		icon?: IconComponent;
+		/** Semantic icon role resolved from the active organization theme */
+		themeIconRole?: ThemeIconRole;
+	};
+
+	interface BaseProps {
 		/** Page title displayed in the header */
 		title: string;
-		/** Optional icon component to display before title */
-		icon?: IconComponent;
 		/** Optional plain-text description below the title */
 		description?: string;
 		/** Optional header actions (buttons, etc.) */
@@ -39,6 +45,7 @@
 	let {
 		title,
 		icon: Icon,
+		themeIconRole,
 		description,
 		actions,
 		loading = false,
@@ -52,6 +59,7 @@
 		children
 	}: Props = $props();
 
+	const headerIconProps = $derived(Icon ? { icon: Icon } : themeIconRole ? { themeIconRole } : {});
 	const loadingPlaceholder = createDelayedVisibility(() => loading);
 </script>
 
@@ -88,7 +96,7 @@
 	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
 		<PageHeader
 			{title}
-			icon={Icon}
+			{...headerIconProps}
 			{description}
 			{actions}
 			{loading}

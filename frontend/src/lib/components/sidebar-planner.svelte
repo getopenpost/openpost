@@ -35,9 +35,7 @@
 	import { getLocaleTag } from '$lib/i18n';
 	import { workspaceColor } from '$lib/workspace-color';
 	import { requestDestructiveAction } from '$lib/destructive-action';
-	import FileTextIcon from '@lucide/svelte/icons/file-text';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { onNavigate }: { onNavigate: (href: string) => void } = $props();
 
@@ -649,7 +647,7 @@
 				class="flex w-full items-start gap-2 rounded-md px-2 py-2.5 text-left hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 				onclick={() => onNavigate('/')}
 			>
-				<FileTextIcon class="mt-0.5 size-3.5 shrink-0 text-sidebar-foreground/38" />
+				<ThemeIcon role="file" class="mt-0.5 size-3.5 shrink-0 text-sidebar-foreground/38" />
 				<span class="text-xs leading-4 text-sidebar-foreground/70"
 					>{m.sidebar_drafts_autosave_empty()}</span
 				>
@@ -694,7 +692,8 @@
 											</span>
 										</span>
 										{#if draft.hasMedia}
-											<ImageIcon
+											<ThemeIcon
+												role="image"
 												class="size-3 shrink-0 text-sidebar-foreground/38"
 												aria-label={m.sidebar_has_media()}
 											/>
@@ -710,7 +709,7 @@
 										class={draftContextItemClass}
 										onclick={() => onNavigate(draft.href)}
 									>
-										<FileTextIcon class="size-4" />
+										<ThemeIcon role="file" class="size-4" />
 										{m.sidebar_resume_draft_action()}
 									</ContextMenu.Item>
 									<ContextMenu.Separator class="my-1 h-px bg-border" />
@@ -719,7 +718,7 @@
 										disabled={deletingDraftId === draft.id}
 										onclick={(event) => requestDraftDelete(event, draft)}
 									>
-										<TrashIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="delete" class="size-4" aria-hidden="true" />
 										{m.common_delete()}
 									</ContextMenu.Item>
 								</ContextMenu.Content>

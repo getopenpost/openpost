@@ -34,7 +34,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
-	import BellRingIcon from '@lucide/svelte/icons/bell-ring';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		registerSettingsInitialLoad,
 		SETTINGS_INITIAL_LOAD_PARTICIPANT
@@ -299,7 +299,7 @@
 		<SectionHeader
 			title={m.notifications_delivery_heading()}
 			description={m.notifications_delivery_description()}
-			icon={BellRingIcon}
+			themeIconRole="notification"
 		/>
 
 		<NotificationMutes {workspaceID} {workspaceName} {notify} queryStatus="parent" />

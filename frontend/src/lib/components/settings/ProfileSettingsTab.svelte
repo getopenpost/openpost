@@ -20,10 +20,7 @@
 	import { buildProfileUpdateBody } from '../../../routes/settings/settings-data';
 	import { m } from '$lib/paraglide/messages';
 	import { setMode, userPrefersMode } from 'mode-watcher';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import TrashIcon from '@lucide/svelte/icons/trash';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		adminQueryKeys,
@@ -387,7 +384,7 @@
 				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:inset-auto [@media(pointer:coarse)]:right-0 [@media(pointer:coarse)]:bottom-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-2 [@media(pointer:coarse)]:border-background [@media(pointer:coarse)]:opacity-100"
 				aria-label={m.settings_change_profile_picture()}
 			>
-				<CameraIcon class="h-6 w-6" />
+				<ThemeIcon role="camera" class="h-6 w-6" />
 			</button>
 		</div>
 		<div class="min-w-0 flex-1 space-y-3">
@@ -426,14 +423,15 @@
 			<p class="text-sm text-muted-foreground">{profileEmail}</p>
 			<div class="flex flex-wrap gap-2">
 				<Button type="button" variant="outline" onclick={openAvatarUploader}
-					><CameraIcon class="mr-2 h-4 w-4" />{m.settings_change_picture()}</Button
+					><ThemeIcon role="camera" class="mr-2 h-4 w-4" />{m.settings_change_picture()}</Button
 				>
 				{#if profileAvatarURL}<Button
 						type="button"
 						variant="ghost"
 						class="text-destructive hover:text-destructive"
 						onclick={removeAvatar}
-						disabled={profileBusy}><TrashIcon class="mr-2 h-4 w-4" />{m.settings_remove()}</Button
+						disabled={profileBusy}
+						><ThemeIcon role="delete" class="mr-2 h-4 w-4" />{m.settings_remove()}</Button
 					>{/if}
 			</div>
 		</div>
@@ -490,7 +488,8 @@
 							target="_blank"
 							rel="noreferrer"
 							class="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline"
-							>{m.settings_view_public_profile()}<ExternalLinkIcon
+							>{m.settings_view_public_profile()}<ThemeIcon
+								role="external-link"
 								class="size-4"
 								aria-hidden="true"
 							/></a
@@ -580,7 +579,7 @@
 	<SectionHeader
 		title={m.settings_personal_preferences()}
 		description={m.settings_personal_preferences_description()}
-		icon={PaletteIcon}
+		themeIconRole="appearance"
 		class="mb-4"
 		>{#snippet actions()}<span class="rounded-full border px-2 py-1 text-xs text-muted-foreground"
 				>{m.settings_browser_scope()}</span

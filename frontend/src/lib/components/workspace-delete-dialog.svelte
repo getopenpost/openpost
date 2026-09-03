@@ -5,7 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { client } from '$lib/api/client';
 	import {
 		oidcIdentitiesQueryOptions,
@@ -277,7 +277,7 @@
 
 		{#if loading}
 			<div class="flex min-h-32 items-center justify-center" aria-label={m.common_loading()}>
-				<LoaderIcon class="size-5 animate-spin" />
+				<ProtectedIcon icon="loading" class="size-5 animate-spin" />
 			</div>
 		{:else}
 			<div class="space-y-4">
@@ -385,7 +385,7 @@
 				disabled={!canDelete}
 				onclick={deleteWorkspace}
 			>
-				{#if pending}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pending}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{m.workspace_delete_confirm()}
 			</Button>
 		</Dialog.Footer>

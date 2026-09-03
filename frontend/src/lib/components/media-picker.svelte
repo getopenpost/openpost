@@ -30,18 +30,7 @@
 		MemeRenderResult,
 		MemeSuggestionCandidate
 	} from '$lib/meme-generator/types';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import UploadIcon from '@lucide/svelte/icons/upload';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import LibraryIcon from '@lucide/svelte/icons/library';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import VideoIcon from '@lucide/svelte/icons/video';
-	import FileAudioIcon from '@lucide/svelte/icons/file-audio';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import LaughIcon from '@lucide/svelte/icons/laugh';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { VideoConstraint } from '$lib/video/types';
 
@@ -594,7 +583,7 @@
 					selectPickerMode('library');
 				}}
 			>
-				<LibraryIcon />
+				<ThemeIcon role="media" />
 				{m.media_picker_library()}
 			</Button>
 			<Button
@@ -606,7 +595,7 @@
 				disabled={actionLoading || selectedIDs.length >= maxSelection}
 				onclick={() => selectPickerMode('device')}
 			>
-				<UploadIcon />
+				<ThemeIcon role="upload" />
 				{m.media_upload_device()}
 			</Button>
 			{#if !useCompactNavigation && canUseCamera}
@@ -619,7 +608,7 @@
 					disabled={actionLoading || selectedIDs.length >= maxSelection}
 					onclick={() => selectPickerMode('camera')}
 				>
-					<CameraIcon />
+					<ThemeIcon role="camera" />
 					{m.media_camera()}
 				</Button>
 			{/if}
@@ -633,7 +622,7 @@
 					disabled={actionLoading || selectedIDs.length >= maxSelection}
 					onclick={() => selectPickerMode('stock')}
 				>
-					<ImageIcon />
+					<ThemeIcon role="image" />
 					{m.stock_media()}
 				</Button>
 			{/if}
@@ -647,7 +636,7 @@
 					disabled={actionLoading || selectedIDs.length >= maxSelection}
 					onclick={() => selectPickerMode('meme')}
 				>
-					<LaughIcon />
+					<ProtectedIcon icon="editor-emoji" />
 					{m.media_picker_meme()}
 				</Button>
 			{/if}
@@ -660,7 +649,7 @@
 				disabled={actionLoading}
 				onclick={createDesign}
 			>
-				<PaletteIcon />
+				<ThemeIcon role="appearance" />
 				{m.media_picker_create()}
 			</Button>
 		{/if}
@@ -672,7 +661,7 @@
 				disabled={actionLoading}
 				onclick={createVideo}
 			>
-				<VideoIcon />
+				<ThemeIcon role="video" />
 				{selectedVideoForEditing ? m.media_edit_video_editor() : m.media_picker_create_video()}
 			</Button>
 		{/if}
@@ -687,7 +676,7 @@
 							class="size-11 shrink-0 shadow-none sm:size-9"
 							aria-label={m.sidebar_more()}
 						>
-							<MoreHorizontalIcon />
+							<ThemeIcon role="more-horizontal" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -697,7 +686,7 @@
 							disabled={actionLoading || selectedIDs.length >= maxSelection}
 							onclick={() => selectPickerMode('camera')}
 						>
-							<CameraIcon class="size-4" />
+							<ThemeIcon role="camera" class="size-4" />
 							{m.media_camera()}
 						</DropdownMenu.Item>
 					{/if}
@@ -706,7 +695,7 @@
 							disabled={actionLoading || selectedIDs.length >= maxSelection}
 							onclick={() => selectPickerMode('stock')}
 						>
-							<ImageIcon class="size-4" />
+							<ThemeIcon role="image" class="size-4" />
 							{m.stock_media()}
 						</DropdownMenu.Item>
 					{/if}
@@ -715,7 +704,7 @@
 							disabled={actionLoading || selectedIDs.length >= maxSelection}
 							onclick={() => selectPickerMode('meme')}
 						>
-							<LaughIcon class="size-4" />
+							<ProtectedIcon icon="editor-emoji" class="size-4" />
 							{m.media_picker_meme()}
 						</DropdownMenu.Item>
 					{/if}
@@ -724,13 +713,13 @@
 					{/if}
 					{#if showCreate}
 						<DropdownMenu.Item disabled={actionLoading} onclick={createDesign}>
-							<PaletteIcon class="size-4" />
+							<ThemeIcon role="appearance" class="size-4" />
 							{m.media_picker_create()}
 						</DropdownMenu.Item>
 					{/if}
 					{#if onCreateVideo}
 						<DropdownMenu.Item disabled={actionLoading} onclick={createVideo}>
-							<VideoIcon class="size-4" />
+							<ThemeIcon role="video" class="size-4" />
 							{selectedVideoForEditing
 								? m.media_edit_video_editor()
 								: m.media_picker_create_video()}
@@ -776,7 +765,8 @@
 				}}
 			>
 				<div class="relative min-w-48 flex-1">
-					<SearchIcon
+					<ThemeIcon
+						role="search"
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
@@ -802,19 +792,21 @@
 					size="icon"
 					aria-label={m.media_picker_search_action()}
 				>
-					{#if loading}<LoaderIcon class="animate-spin" />{:else}<SearchIcon />{/if}
+					{#if loading}<ProtectedIcon icon="loading" class="animate-spin" />{:else}<ThemeIcon
+							role="search"
+						/>{/if}
 				</Button>
 			</form>
 			{#if loading && media.length === 0}
 				<div class="flex min-h-48 items-center justify-center text-muted-foreground">
-					<LoaderIcon class="mr-2 size-5 animate-spin" />
+					<ProtectedIcon icon="loading" class="mr-2 size-5 animate-spin" />
 					{m.media_picker_loading()}
 				</div>
 			{:else if media.length === 0}
 				<div
 					class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center"
 				>
-					<ImageIcon class="mb-3 size-8 text-muted-foreground" />
+					<ThemeIcon role="image" class="mb-3 size-8 text-muted-foreground" />
 					<p class="font-medium">{emptyTitle}</p>
 					<p class="mt-1 text-sm text-muted-foreground">{emptyBody}</p>
 				</div>
@@ -845,16 +837,19 @@
 								{:else}
 									<div class="flex size-full items-center justify-center">
 										{#if item.processing_status === 'processing'}
-											<LoaderIcon class="size-6 animate-spin text-muted-foreground" />
+											<ProtectedIcon
+												icon="loading"
+												class="size-6 animate-spin text-muted-foreground"
+											/>
 										{:else}
-											<VideoIcon class="size-7 text-muted-foreground" />
+											<ThemeIcon role="video" class="size-7 text-muted-foreground" />
 										{/if}
 									</div>
 								{/if}
 								<span
 									class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-background/90 shadow-sm"
 								>
-									<VideoIcon class="size-3.5" />
+									<ThemeIcon role="video" class="size-3.5" />
 								</span>
 							{:else if item.mime_type.startsWith('image/')}
 								<img
@@ -865,7 +860,7 @@
 								/>
 							{:else}
 								<div class="flex size-full flex-col items-center justify-center gap-2 p-2">
-									<FileAudioIcon class="size-7 text-muted-foreground" />
+									<ProtectedIcon icon="media-audio" class="size-7 text-muted-foreground" />
 									<span class="line-clamp-2 text-center text-xs text-muted-foreground">
 										{item.original_filename}
 									</span>
@@ -875,7 +870,7 @@
 								<span
 									class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
 								>
-									<CheckIcon class="size-4" />
+									<ThemeIcon role="check" class="size-4" />
 								</span>
 								<span
 									class="absolute right-2 bottom-2 rounded bg-background/90 px-2 py-1 text-xs font-medium"
@@ -900,7 +895,7 @@
 		<div class="flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
 			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
 			<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
-				{#if actionLoading}<LoaderIcon class="animate-spin" />{/if}
+				{#if actionLoading}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.media_picker_add_media()}
 			</Button>
 		</div>
@@ -1017,7 +1012,8 @@
 				/>
 			{:else}
 				<div class="relative mb-3">
-					<SearchIcon
+					<ThemeIcon
+						role="search"
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
@@ -1029,20 +1025,23 @@
 				</div>
 				{#if overlayPickerLoading}
 					<div class="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
-						<LoaderIcon class="mr-2 size-5 animate-spin motion-reduce:animate-none" />
+						<ProtectedIcon
+							icon="loading"
+							class="mr-2 size-5 animate-spin motion-reduce:animate-none"
+						/>
 						{m.media_picker_loading()}
 					</div>
 				{:else if filteredOverlayMedia.length === 0}
 					<div
 						class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center"
 					>
-						<ImageIcon class="mb-3 size-8 text-muted-foreground" />
+						<ThemeIcon role="image" class="mb-3 size-8 text-muted-foreground" />
 						<p class="font-medium">{m.media_picker_no_match()}</p>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{m.meme_generator_overlay_empty()}
 						</p>
 						<Button class="mt-4" variant="outline" onclick={showOverlayUpload}>
-							<UploadIcon />
+							<ThemeIcon role="upload" />
 							{m.media_upload_device()}
 						</Button>
 					</div>
@@ -1068,7 +1067,7 @@
 									<span
 										class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
 									>
-										<CheckIcon class="size-4" />
+										<ThemeIcon role="check" class="size-4" />
 									</span>
 								{/if}
 							</Button>
@@ -1082,7 +1081,7 @@
 				variant="outline"
 				onclick={overlayUploadOpen ? showOverlayLibrary : showOverlayUpload}
 			>
-				{#if overlayUploadOpen}<LibraryIcon />{:else}<UploadIcon />{/if}
+				{#if overlayUploadOpen}<ThemeIcon role="media" />{:else}<ThemeIcon role="upload" />{/if}
 				{overlayUploadOpen ? m.media_picker_library() : m.media_upload_device()}
 			</Button>
 			<Button variant="ghost" onclick={() => settleOverlayPicker(null)}>{m.common_cancel()}</Button>

@@ -32,10 +32,7 @@
 	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
-	import ActivityIcon from '@lucide/svelte/icons/activity';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import Repeat2Icon from '@lucide/svelte/icons/repeat-2';
-	import TrashIcon from '@lucide/svelte/icons/trash';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	type RepostSettings = components['schemas']['SettingsResponse'];
 	type RepostAccount = components['schemas']['AccountOption'];
@@ -386,11 +383,15 @@
 </script>
 
 <div class="space-y-6" data-testid="repost-automation-settings">
-	<SectionHeader title={m.repost_heading()} description={m.repost_description()} icon={Repeat2Icon}>
+	<SectionHeader
+		title={m.repost_heading()}
+		description={m.repost_description()}
+		themeIconRole="repeat"
+	>
 		{#snippet actions()}
 			{#if settings?.can_manage}
 				<Button variant="outline" size="sm" onclick={addPolicy} disabled={loading}>
-					<PlusIcon class="size-4" />
+					<ThemeIcon role="add" class="size-4" />
 					{m.repost_add_rule()}
 				</Button>
 			{/if}
@@ -467,7 +468,7 @@
 								onclick={() => removePolicy(index)}
 								aria-label={m.repost_remove_rule({ name: policy.name })}
 							>
-								<TrashIcon class="size-4" />
+								<ThemeIcon role="delete" class="size-4" />
 							</Button>
 						{/if}
 					</div>
@@ -677,12 +678,12 @@
 				</section>
 			{:else}
 				<div class="rounded-xl border border-dashed px-5 py-12 text-center">
-					<Repeat2Icon class="mx-auto size-6 text-muted-foreground" />
+					<ThemeIcon role="repeat" class="mx-auto size-6 text-muted-foreground" />
 					<h3 class="mt-3 font-medium">{m.repost_empty_heading()}</h3>
 					<p class="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">{m.repost_empty_body()}</p>
 					{#if settings.can_manage}
 						<Button class="mt-4" onclick={addPolicy} disabled={targetAccounts.length === 0}>
-							<PlusIcon class="size-4" />
+							<ThemeIcon role="add" class="size-4" />
 							{m.repost_add_first_rule()}
 						</Button>
 					{/if}
@@ -695,7 +696,7 @@
 				<SectionHeader
 					title={m.repost_account_access()}
 					description={m.repost_account_access_body()}
-					icon={ActivityIcon}
+					themeIconRole="analytics"
 				/>
 				<div class="divide-y rounded-xl border">
 					{#each activeGrants as grant (grant.id)}

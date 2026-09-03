@@ -84,13 +84,20 @@ test("built-in gallery opens a preview and editor controls are keyboard reachabl
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await page.screenshot({ path: `${SHOT}/editor-entry-desktop.png`, fullPage: true });
 
-  // Open the first previewable/duplicateable theme entry if present.
-  const previewTrigger = page.getByRole("button", { name: /preview|view|open/i }).first();
+  // Open the first previewable/duplicateable theme entry if present, scoped to
+  // the settings main region so sidebar links (e.g. "View all") cannot match.
+  const previewTrigger = page
+    .locator("main")
+    .getByRole("button", { name: /preview|view|open/i })
+    .first();
   if (await previewTrigger.count()) {
     await previewTrigger.click();
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${SHOT}/editor-preview-open.png`, fullPage: true });
   }
+  // The keyboard traversal below measures the appearance tab: fail loudly if
+  // the trigger above navigated away instead of opening inline UI.
+  expect(page.url(), "appearance tab stays mounted").toContain("settings");
 
   // Keyboard traversal: tab through the first 25 focusable elements, confirm a
   // visible focus indicator exists on each (outline or focus-visible ring).

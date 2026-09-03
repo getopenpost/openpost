@@ -154,6 +154,8 @@ const checks = {
   "query-migration": stage("Query migration", [
     bunTest("scripts/check-query-migration.test.mjs"),
     bun("scripts/check-query-migration.mjs"),
+    bunTest("scripts/check-query-effect-fetch.test.mjs"),
+    bun("scripts/check-query-effect-fetch.mjs"),
   ]),
   agents: stage("agent instructions", [
     bunTest("scripts/agent-doctor.test.mjs"),

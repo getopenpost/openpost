@@ -81,6 +81,7 @@ export const themeQueryKeys = {
     openPostWorkspaceKey(workspaceId, "themes", "available", themeId, { revision: revision ?? 0 }),
   resolved: (workspaceId: string, scheme: string) =>
     openPostWorkspaceKey(workspaceId, "themes", "resolved", { scheme }),
+  resolvedScope: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "themes", "resolved"),
   settings: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "themes", "settings"),
   revisions: (workspaceId: string, themeId: string, cursor = "") =>
     openPostWorkspaceKey(workspaceId, "themes", "detail", themeId, "revisions", { cursor }),
@@ -235,6 +236,7 @@ export function themeMutationCachePlan(workspaceId: string, themeId?: string): Q
       { queryKey: themeQueryKeys.lists(workspaceId) },
       { queryKey: themeQueryKeys.available(workspaceId) },
       { queryKey: themeQueryKeys.settings(workspaceId) },
+      { queryKey: themeQueryKeys.resolvedScope(workspaceId) },
       ...(themeId
         ? [
             { queryKey: themeQueryKeys.detail(workspaceId, themeId) },

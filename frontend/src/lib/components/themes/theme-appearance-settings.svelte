@@ -64,6 +64,7 @@
 		enabled: available.data !== undefined && Boolean(workspaceID),
 		queryFn: async ({ signal }: { signal: AbortSignal }) => {
 			const pageResult = await themeQueryAPI.listAvailableThemes(workspaceID, signal);
+			let failedPreviewCount = 0;
 			const items = await Promise.all(
 				pageResult.items.map(async (summary: ThemeSummary) => {
 					const reference = summary.reference;
@@ -88,15 +89,21 @@
 							assignedWorkspaces: summary.assigned_workspace_count
 						} satisfies ThemeLibraryItem;
 					} catch {
+						// Keep the failure visible instead of silently dropping the theme.
+						failedPreviewCount += 1;
 						return null;
 					}
 				})
 			);
-			return items.filter((item): item is ThemeLibraryItem => item !== null);
+			return {
+				items: items.filter((item): item is ThemeLibraryItem => item !== null),
+				failedPreviewCount
+			};
 		}
 	}));
 
-	let libraryItems = $derived(library.data ?? []);
+	let libraryItems = $derived(library.data?.items ?? []);
+	let failedPreviewCount = $derived(library.data?.failedPreviewCount ?? 0);
 	let selectedReference = $derived(settingsData?.effective_selection ?? undefined);
 	let workspaceReference = $derived(settingsData?.workspace_selection ?? undefined);
 	let organizationDefaultReference = $derived(settingsData?.organization_default ?? undefined);
@@ -369,6 +376,9 @@
 {/if}
 
 {#if !editingThemeID}
+	{#if failedPreviewCount > 0}
+		<InlineNotice tone="warning" message={m.theme_library_preview_failed()} />
+	{/if}
 	<ThemeLibrary
 		organizationThemes={libraryItems}
 		{selectedReference}

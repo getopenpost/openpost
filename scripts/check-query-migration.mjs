@@ -19,21 +19,26 @@ const imperativeReadAllowlist = [
     file: "frontend/src/lib/components/account-data-card.svelte",
     endpoint: "/auth/account/deletion-impact",
     count: 1,
+    reason: "one-shot deletion-impact preview for the account delete confirmation",
   },
   {
     file: "frontend/src/lib/components/account-management.svelte",
     endpoint: "/accounts/{platform}/auth-url",
     count: 4,
+    reason: "user-triggered OAuth connect URL fetch consumed immediately by the connect flow",
   },
   {
     file: "frontend/src/lib/components/compose-text-post.svelte",
     endpoint: "/publications/{id}",
     count: 2,
+    reason:
+      "event-driven handoff and draft-conflict reload consumed immediately by the editor session",
   },
   {
     file: "frontend/src/lib/components/compose-text-post.svelte",
     endpoint: "/posting-schedules/next-slot",
     count: 1,
+    reason: "user-triggered schedule-slot lookup consumed immediately by the composer",
   },
   {
     file: "frontend/src/lib/media-upload-client.ts",
@@ -69,61 +74,73 @@ const imperativeReadAllowlist = [
     file: "frontend/src/lib/components/organization-audit-settings.svelte",
     endpoint: "/admin/audit-events/export.json",
     count: 1,
+    reason: "user-triggered audit export download, not render-path state",
   },
   {
     file: "frontend/src/lib/components/organization-audit-settings.svelte",
     endpoint: "/admin/audit-events/export.csv",
     count: 1,
+    reason: "user-triggered audit export download, not render-path state",
   },
   {
     file: "frontend/src/lib/components/organization-audit-settings.svelte",
     endpoint: "/organizations/{id}/audit-events/export.json",
     count: 1,
+    reason: "user-triggered audit export download, not render-path state",
   },
   {
     file: "frontend/src/lib/components/organization-audit-settings.svelte",
     endpoint: "/organizations/{id}/audit-events/export.csv",
     count: 1,
+    reason: "user-triggered audit export download, not render-path state",
   },
   {
     file: "frontend/src/lib/components/organization-delete-dialog.svelte",
     endpoint: "/organizations/{id}/deletion-preview",
     count: 1,
+    reason: "one-shot deletion preview for the organization delete confirmation",
   },
   {
     file: "frontend/src/lib/components/workspace-delete-dialog.svelte",
     endpoint: "/workspaces/{id}/deletion-preview",
     count: 1,
+    reason: "one-shot deletion preview for the workspace delete confirmation",
   },
   {
     file: "frontend/src/routes/accounts/callback/accounts-callback-page.svelte",
     endpoint: "/accounts/selections/{connection_id}",
     count: 1,
+    reason: "OAuth callback one-shot load of the pending selection before app state exists",
   },
   {
     file: "frontend/src/routes/checkout/+page.svelte",
     endpoint: "/billing/checkout/{attempt_id}",
     count: 1,
+    reason: "checkout attempt lookup for the Paddle return flow, outside workspace state",
   },
   {
     file: "frontend/src/routes/checkout/+page.svelte",
     endpoint: "/billing/checkout/{attempt_id}/return",
     count: 1,
+    reason: "checkout return handling for the Paddle return flow, outside workspace state",
   },
   {
     file: "frontend/src/routes/login/+page.svelte",
     endpoint: "/auth/oidc/discover",
     count: 1,
+    reason: "OIDC discovery on login submit, before any session exists",
   },
   {
     file: "frontend/src/routes/ownership-transfer/+page.svelte",
     endpoint: "/organization-ownership-transfers/resolve",
     count: 1,
+    reason: "transfer-token resolve from the invitation link, before workspace state exists",
   },
   {
     file: "frontend/src/routes/prompts/+page.svelte",
     endpoint: "/prompts/random",
     count: 1,
+    reason: "user-triggered random prompt fetch for the prompt button",
   },
 ];
 
@@ -132,6 +149,7 @@ const pairingReadAllowlist = [
     file: "frontend/src/routes/cli/authorize/cli-authorize-page.svelte",
     endpoint: "/cli/auth/session",
     count: 1,
+    reason: "CLI pairing session poll, outside workspace query state",
   },
 ];
 

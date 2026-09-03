@@ -162,12 +162,20 @@ export function availableThemeQueryOptions(
   };
 }
 
+export type ResolvedThemeScheme = "light" | "dark";
+
+function normalizeResolvedScheme(scheme: string): ResolvedThemeScheme {
+  const normalized = scheme.trim().toLowerCase();
+  if (normalized === "light" || normalized === "dark") return normalized;
+  throw new Error(`Cannot resolve theme for unknown scheme "${scheme}" (expected light or dark)`);
+}
+
 export function resolvedThemeQueryOptions(
   api: Pick<ThemeQueryAPI, "resolveTheme">,
   workspaceId: string,
-  scheme: string,
+  scheme: ResolvedThemeScheme,
 ) {
-  const normalizedScheme = scheme.trim() || "system";
+  const normalizedScheme = normalizeResolvedScheme(scheme);
   const queryKey = themeQueryKeys.resolved(workspaceId, normalizedScheme);
   return {
     ...openPostQueryPolicy(queryStaleTime),

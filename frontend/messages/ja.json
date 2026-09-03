@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "組織のテーマ",
 	"theme_library_organization_themes_description": "公開されたテーマは、この組織内のすべてのワークスペースで利用できます。",
 	"theme_library_preview": "プレビュー",
+	"theme_library_preview_failed": "一部のテーマプレビューを読み込めませんでした。",
 	"theme_library_preview_incomplete": "{name} は不完全です。 OpenPost は、代わりに Workshop {scheme} を使用します。",
 	"theme_library_preview_unsafe": "{name} には、安全にプレビューできないフォントまたはイラストが含まれています。 OpenPost は、代わりに Workshop {scheme} を使用します。",
 	"theme_library_preview_unsupported": "{name} には、完全な {scheme} スキームはありません。 OpenPost は、代わりに Workshop {scheme} を使用します。",

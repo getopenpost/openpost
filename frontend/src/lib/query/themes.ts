@@ -189,7 +189,7 @@ export function themeAvailableThemesOptions(workspaceID: string) {
 export function themeAvailableThemeOptions(workspaceID: string, themeID: string, revision: number) {
 	return availableThemeQueryOptions(themeQueryAPI, workspaceID, themeID, revision);
 }
-export function themeResolvedOptions(workspaceID: string, scheme: string) {
+export function themeResolvedOptions(workspaceID: string, scheme: ResolvedThemeScheme) {
 	return resolvedThemeQueryOptions(themeQueryAPI, workspaceID, scheme);
 }
 export function themeSettingsOptions(workspaceID: string) {

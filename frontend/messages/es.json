@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "Temas de organización",
 	"theme_library_organization_themes_description": "Los temas publicados están disponibles para todos los espacios de trabajo de esta organización.",
 	"theme_library_preview": "Vista previa",
+	"theme_library_preview_failed": "No se pudieron cargar algunas vistas previas de temas.",
 	"theme_library_preview_incomplete": "{name} está incompleto. OpenPost utilizará Workshop {scheme} en su lugar.",
 	"theme_library_preview_unsafe": "{name} tiene una fuente o ilustración que no se puede previsualizar de forma segura. OpenPost utilizará Workshop {scheme} en su lugar.",
 	"theme_library_preview_unsupported": "{name} no tiene un esquema {scheme} completo. OpenPost utilizará Workshop {scheme} en su lugar.",

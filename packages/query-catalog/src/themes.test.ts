@@ -125,6 +125,11 @@ describe("theme queries", () => {
       expect.anything(),
     );
     expect(api.resolveTheme).toHaveBeenCalledWith("workspace-a", "dark", expect.anything());
+    // Unknown schemes fail fast instead of producing a key the backend rejects.
+    // SAFETY: passes a scheme the type system forbids to exercise the runtime guard.
+    expect(() => resolvedThemeQueryOptions(api, "workspace-a", "system" as "dark")).toThrow(
+      /unknown scheme/,
+    );
     // Asset reads stay organization-scoped so unrelated workspaces never share them.
     expect(api.listThemeAssets).toHaveBeenCalledWith("workspace-a", "org-1", "", expect.anything());
     for (const fn of Object.values(api)) {

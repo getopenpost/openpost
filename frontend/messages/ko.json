@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "조직 테마",
 	"theme_library_organization_themes_description": "게시된 테마는 이 조직의 모든 워크스페이스에서 사용할 수 있습니다.",
 	"theme_library_preview": "미리보기",
+	"theme_library_preview_failed": "일부 테마 미리보기를 로드하지 못했습니다.",
 	"theme_library_preview_incomplete": "{name}가 불완전합니다. OpenPost는 대신 Workshop {scheme}를 사용합니다.",
 	"theme_library_preview_unsafe": "{name}에는 안전하게 미리 볼 수 없는 글꼴이나 그림이 있습니다. OpenPost는 대신 Workshop {scheme}를 사용합니다.",
 	"theme_library_preview_unsupported": "{name}에는 완전한 {scheme} 구성표가 없습니다. OpenPost는 대신 Workshop {scheme}를 사용합니다.",

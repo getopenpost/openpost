@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "组织主题",
 	"theme_library_organization_themes_description": "已发布的主题可供该组织中的每个工作区使用。",
 	"theme_library_preview": "预览",
+	"theme_library_preview_failed": "部分主题预览无法加载。",
 	"theme_library_preview_incomplete": "{name} 不完整。 OpenPost 将使用 Workshop {scheme} 代替。",
 	"theme_library_preview_unsafe": "{name} 的字体或插图无法安全预览。 OpenPost 将使用 Workshop {scheme} 代替。",
 	"theme_library_preview_unsupported": "{name}没有完整的{scheme}方案。 OpenPost 将使用 Workshop {scheme} 代替。",

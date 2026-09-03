@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "Organisationsthemen",
 	"theme_library_organization_themes_description": "Veröffentlichte Themen stehen jedem Arbeitsbereich in dieser Organisation zur Verfügung.",
 	"theme_library_preview": "Vorschau",
+	"theme_library_preview_failed": "Einige Theme-Vorschauen konnten nicht geladen werden.",
 	"theme_library_preview_incomplete": "{name} ist unvollständig. OpenPost verwendet stattdessen Workshop {scheme}.",
 	"theme_library_preview_unsafe": "{name} verfügt über eine Schriftart oder Illustration, die nicht sicher in der Vorschau angezeigt werden kann. OpenPost verwendet stattdessen Workshop {scheme}.",
 	"theme_library_preview_unsupported": "{name} verfügt über kein vollständiges {scheme}-Schema. OpenPost verwendet stattdessen Workshop {scheme}.",

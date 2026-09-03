@@ -8094,6 +8094,7 @@
 	"theme_library_organization_themes": "Organizasyon temaları",
 	"theme_library_organization_themes_description": "Yayınlanan temalar bu kuruluştaki her çalışma alanında kullanılabilir.",
 	"theme_library_preview": "Önizleme",
+	"theme_library_preview_failed": "Bazı tema önizlemeleri yüklenemedi.",
 	"theme_library_preview_incomplete": "{name} eksik. OpenPost bunun yerine Workshop {scheme}'yi kullanacaktır.",
 	"theme_library_preview_unsafe": "{name}'de güvenli bir şekilde önizlenemeyen bir yazı tipi veya çizim var. OpenPost bunun yerine Workshop {scheme}'yi kullanacaktır.",
 	"theme_library_preview_unsupported": "{name}'nin eksiksiz bir {scheme} şeması yoktur. OpenPost bunun yerine Workshop {scheme}'yi kullanacaktır.",

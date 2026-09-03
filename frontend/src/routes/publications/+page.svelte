@@ -181,6 +181,9 @@
 	const accountsQuery = createQuery(() =>
 		workspaceAccountsQueryOptions(queryAPI, currentWorkspaceID)
 	);
+	// Derived from isFetching: true during background refetches too. Never pass
+	// this to PageContainer `loading` (use `initialLoading`); it would flash the
+	// skeleton over cached content on every refresh.
 	const loading = $derived(
 		publicationsQuery.isFetching ||
 			accountsQuery.isFetching ||
@@ -200,6 +203,13 @@
 	);
 	const initialLoading = $derived(
 		!currentViewLoaded && !visibleError && (loading || Boolean(currentWorkspaceID))
+	);
+	// Queries pause instead of erroring when the device is offline. Surface the
+	// waiting state in the page copy so a cold offline load does not look stuck.
+	const offlinePaused = $derived(
+		(publicationsQuery.fetchStatus === 'paused' || accountsQuery.fetchStatus === 'paused') &&
+			!currentViewLoaded &&
+			!visibleError
 	);
 	const publicationsProjection = new QueryProjectionTracker();
 	const jobsProjection = new QueryProjectionTracker();
@@ -845,7 +855,7 @@
 	icon={PostsIcon}
 	loading={initialLoading}
 	loadingLayout="list"
-	loadingMessage={m.common_loading()}
+	loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 >
 	{#snippet actions()}
 		<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>

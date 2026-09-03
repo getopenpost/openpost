@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 
 mock.module("react-native-svg", () => ({ SvgXml: "SvgXml" }));
 mock.module("expo-symbols", () => ({ SymbolView: "SymbolView" }));
-mock.module("react-native", () => ({ useColorScheme: () => "light" }));
+mock.module("react-native", () => ({ Platform: { OS: "ios" }, useColorScheme: () => "light" }));
 
 const { NativeThemeIconGlyph } = await import("./theme-icon");
 const { ProtectedIcon } = await import("./protected-icon");

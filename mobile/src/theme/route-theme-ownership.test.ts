@@ -29,9 +29,11 @@ test("high-traffic authenticated routes inherit typography from the active theme
 test("core collection routes use the shared themed loading and empty states", async () => {
   for (const relativePath of CORE_COLLECTION_ROUTES) {
     const source = await Bun.file(new URL(relativePath, import.meta.url)).text();
-    expect(source, relativePath).toContain("<LoadingState");
+    // Query-layer placeholder: delayed themed skeleton from components/query-state.
+    expect(source, relativePath).toContain("<DelayedQueryPlaceholder");
     expect(source, relativePath).toContain("<EmptyState");
     expect(source, relativePath).not.toContain("<ActivityIndicator");
+    expect(source, relativePath).not.toContain("<LoadingState");
   }
 });
 

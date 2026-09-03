@@ -22,7 +22,7 @@ let failingServerOperation: ServerStoreOperation | null = null;
 mock.module("expo-constants", () => ({
   default: { expoConfig: { version: "test" } },
 }));
-mock.module("react-native", () => ({ Platform: { OS: "ios" } }));
+mock.module("react-native", () => ({ Platform: { OS: "ios" }, useColorScheme: () => "light" }));
 mock.module("expo-secure-store", () => ({
   getItemAsync: async (key: string) => values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {

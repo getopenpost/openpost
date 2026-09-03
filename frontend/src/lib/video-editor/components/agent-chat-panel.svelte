@@ -166,7 +166,7 @@
 								{:else if step.status === 'done'}
 									<ProtectedIcon
 										icon="success"
-										class="text-success-foreground mt-0.5 size-3.5 shrink-0"
+										class="mt-0.5 size-3.5 shrink-0 text-success-foreground"
 									/>
 								{:else if step.status === 'error'}
 									<ProtectedIcon icon="warning" class="mt-0.5 size-3.5 shrink-0 text-destructive" />

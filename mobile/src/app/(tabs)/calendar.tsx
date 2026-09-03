@@ -167,7 +167,11 @@ export default function CalendarScreen() {
                 <Text
                   accessibilityLabel={label}
                   key={`${shortLabel}-${index}`}
-                  style={[styles.weekday, typography.labelMedium, { color: colors.onSurfaceVariant }]}
+                  style={[
+                    styles.weekday,
+                    typography.labelMedium,
+                    { color: colors.onSurfaceVariant },
+                  ]}
                 >
                   {shortLabel}
                 </Text>

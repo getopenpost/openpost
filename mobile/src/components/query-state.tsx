@@ -185,7 +185,11 @@ function QueryPlaceholder({ shape, offline }: { shape: QueryPlaceholderShape; of
             ]}
           />
           <View
-            style={[styles.linePlaceholder, styles.shortLine, { backgroundColor: colors.surfaceContainerHigh }]}
+            style={[
+              styles.linePlaceholder,
+              styles.shortLine,
+              { backgroundColor: colors.surfaceContainerHigh },
+            ]}
           />
         </View>
       ))}

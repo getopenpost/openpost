@@ -15,14 +15,7 @@ import {
 } from "react-native";
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import {
-  BodyText,
-  Button,
-  Card,
-  Screen,
-  StatusBadge,
-  SectionHeader,
-} from "@/components/ui";
+import { BodyText, Button, Card, Screen, StatusBadge, SectionHeader } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { formatDateTime, platformLabel, statusColor } from "@/lib/format";

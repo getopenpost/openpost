@@ -21,11 +21,6 @@
 	import type { StockAsset } from '$lib/stock-media';
 	import type { StockMediaProvenance } from '$lib/stock-media';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import SquareIcon from '@lucide/svelte/icons/square';
-	import CircleIcon from '@lucide/svelte/icons/circle';
-	import MinusIcon from '@lucide/svelte/icons/minus';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import WallpaperIcon from '@lucide/svelte/icons/wallpaper';
 	import { m } from '$lib/paraglide/messages';
 	import { writeImageEditorMediaDrag, type ImageEditorMediaDragPayload } from '../media-drag';
 
@@ -267,7 +262,7 @@
 					class="min-h-11 justify-start"
 					onclick={() => editor.addText()}
 				>
-					<TypeIcon />
+					<ProtectedIcon icon="editor-text" />
 					{m.image_editor_text()}
 				</Button>
 				<Button
@@ -276,7 +271,7 @@
 					class="min-h-11 justify-start"
 					onclick={() => editor.addShape('rectangle')}
 				>
-					<SquareIcon />
+					<ProtectedIcon icon="editor-shapes" />
 					{m.image_editor_rectangle()}
 				</Button>
 				<Button
@@ -285,7 +280,7 @@
 					class="min-h-11 justify-start"
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
-					<SquareIcon class="rounded-sm" />
+					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
 					{m.image_editor_rounded_rectangle()}
 				</Button>
 				<Button
@@ -294,7 +289,7 @@
 					class="min-h-11 justify-start"
 					onclick={() => editor.addShape('ellipse')}
 				>
-					<CircleIcon />
+					<ProtectedIcon icon="editor-shapes" />
 					{m.image_editor_ellipse()}
 				</Button>
 				<Button
@@ -303,7 +298,7 @@
 					class="col-span-2 min-h-11 justify-start"
 					onclick={() => editor.addShape('line')}
 				>
-					<MinusIcon />
+					<ThemeIcon role="remove" />
 					{m.image_editor_line()}
 				</Button>
 			</div>
@@ -407,7 +402,7 @@
 			<div
 				class="mb-3 flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/8 p-2 text-xs"
 			>
-				<WallpaperIcon class="size-4 shrink-0 text-primary" />
+				<ProtectedIcon icon="editor-backgrounds" class="size-4 shrink-0 text-primary" />
 				<span class="min-w-0 flex-1">{m.image_editor_choose_background_image()}</span>
 				<Button
 					variant="ghost"
@@ -498,7 +493,7 @@
 											class="flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted"
 											onclick={() => editor.setPageBackgroundImage(item.id)}
 										>
-											<WallpaperIcon class="size-4" />
+											<ProtectedIcon icon="editor-backgrounds" class="size-4" />
 											{m.image_editor_set_page_background()}
 										</ContextMenu.Item>
 									</ContextMenu.Content>

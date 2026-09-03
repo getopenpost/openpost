@@ -3,10 +3,8 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
-	import FlipHorizontalIcon from '@lucide/svelte/icons/flip-horizontal-2';
-	import FlipVerticalIcon from '@lucide/svelte/icons/flip-vertical-2';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
+	import { ProtectedIcon } from '$lib/themes/icons';
+	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { OpenPostFabricAdapter, type ImageEditorPixelGrid } from '../fabric-adapter';
 	import { useImageEditor } from '../editor.svelte';
@@ -994,6 +992,30 @@
 		canvasAnnouncement =
 			delta < 0 ? m.image_editor_crop_rotated_left() : m.image_editor_crop_rotated_right();
 	}
+
+	const cropOrientationControls: { label: string; action: () => void; icon: ProtectedIconRole }[] =
+		[
+			{
+				label: m.image_editor_crop_rotate_left(),
+				action: () => rotateCrop(-90),
+				icon: 'editor-rotate-left'
+			},
+			{
+				label: m.image_editor_crop_rotate_right(),
+				action: () => rotateCrop(90),
+				icon: 'editor-rotate-right'
+			},
+			{
+				label: m.image_editor_crop_flip_horizontal(),
+				action: () => flipCrop('x'),
+				icon: 'editor-flip-horizontal'
+			},
+			{
+				label: m.image_editor_crop_flip_vertical(),
+				action: () => flipCrop('y'),
+				icon: 'editor-flip-vertical'
+			}
+		];
 
 	function flipCrop(axis: 'x' | 'y'): void {
 		if (!ensureCropSession()) return;
@@ -2349,8 +2371,7 @@
 					role="group"
 					aria-label={m.image_editor_crop_orientation()}
 				>
-					{#each [{ label: m.image_editor_crop_rotate_left(), action: () => rotateCrop(-90), icon: RotateCcwIcon }, { label: m.image_editor_crop_rotate_right(), action: () => rotateCrop(90), icon: RotateCwIcon }, { label: m.image_editor_crop_flip_horizontal(), action: () => flipCrop('x'), icon: FlipHorizontalIcon }, { label: m.image_editor_crop_flip_vertical(), action: () => flipCrop('y'), icon: FlipVerticalIcon }] as control (control.label)}
-						{@const ControlIcon = control.icon}
+					{#each cropOrientationControls as control (control.label)}
 						<Button
 							variant="ghost"
 							size="icon"
@@ -2359,7 +2380,7 @@
 							title={control.label}
 							onclick={control.action}
 						>
-							<ControlIcon />
+							<ProtectedIcon icon={control.icon} />
 						</Button>
 					{/each}
 				</div>

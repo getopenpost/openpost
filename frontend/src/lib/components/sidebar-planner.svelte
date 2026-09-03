@@ -353,7 +353,8 @@
 			drafts = drafts.filter((candidate) => candidate.id !== view.draft.id);
 			ui.triggerRefresh({
 				workspaceId: view.workspaceId,
-				scopes: ['activity', 'calendar', 'drafts']
+				scopes: ['activity', 'calendar', 'drafts'],
+				activities: ['draft']
 			});
 			if (page.url.pathname === view.draft.href) onNavigate('/');
 			draftPendingDelete = null;

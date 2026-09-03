@@ -7,7 +7,6 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
@@ -91,7 +90,10 @@
 	}
 
 	function invalidatePublicationActivity(workspaceId: string) {
-		ui.invalidatePublications({ workspaceId, scopes: ['activity'] }, { immediate: true });
+		ui.invalidatePublications(
+			{ workspaceId, scopes: ['activity'], activities: ['failed', 'scheduled'] },
+			{ immediate: true }
+		);
 	}
 
 	async function reconcilePublicationRecovery(operation: DetailOperation) {
@@ -344,9 +346,12 @@
 {/snippet}
 
 {#if !hasLoaded}
-	<div class="flex flex-1 flex-col" aria-busy="true">
-		<PageLoading layout="composer" label={m.publication_edit_loading()} />
-	</div>
+	<PageContainer
+		title={m.publication_edit_loading_title()}
+		loading={true}
+		loadingLayout="composer"
+		loadingMessage={m.publication_edit_loading()}
+	/>
 {:else if error && !publication}
 	<div class="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
 		<InlineNotice tone="error" message={error}>

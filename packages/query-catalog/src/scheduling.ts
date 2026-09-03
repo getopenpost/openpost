@@ -161,6 +161,36 @@ export function repostAutomationQueryOptions(
   };
 }
 
+export function publicationEventsInfiniteQueryOptions(
+  api: Pick<SchedulingQueryAPI, "listPublicationEvents">,
+  workspaceId: string,
+  publicationId: string,
+  page: Pick<PublicationHistoryPage, "limit">,
+) {
+  const queryKey = schedulingQueryKeys.publicationEvents(workspaceId, publicationId, {
+    limit: page.limit,
+    cursor: "",
+  });
+  return {
+    ...openPostQueryPolicy(queryStaleTime),
+    queryKey,
+    enabled: Boolean(workspaceId && publicationId),
+    initialPageParam: "",
+    queryFn: ({
+      pageParam,
+      signal,
+    }: QueryFunctionContext<typeof queryKey, string>) =>
+      api.listPublicationEvents(
+        workspaceId,
+        publicationId,
+        { limit: page.limit, cursor: pageParam },
+        signal,
+      ),
+    getNextPageParam: (lastPage: PublicationHistoryPageResult) =>
+      lastPage.nextCursor || undefined,
+  };
+}
+
 export function publishingOptionsQueryOptions(
   api: Pick<SchedulingQueryAPI, "getPublishingOptions">,
   workspaceId: string,

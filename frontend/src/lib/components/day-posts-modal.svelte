@@ -17,6 +17,7 @@
 		type QueryMutationSession
 	} from '$lib/query/authorization-boundary';
 	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { activityBucketForStatus } from '$lib/publication-invalidation';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
@@ -303,7 +304,8 @@
 			ui.triggerRefresh({
 				workspaceId: view.workspaceId,
 				scopes: ['activity', 'calendar', 'drafts'],
-				dateKeys: [view.date]
+				dateKeys: [view.date],
+				activities: [activityBucketForStatus(view.post.status, view.post.scheduled_at)]
 			});
 			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
 			await loadPosts(view.date, view.workspaceId);

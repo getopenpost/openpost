@@ -25,7 +25,8 @@ describe('PublicationInvalidationCoalescer', () => {
 				{
 					workspaceId: 'workspace-1',
 					scopes: ['calendar', 'drafts'],
-					dateKeys: ['2026-08-11', '2026-08-12']
+					dateKeys: ['2026-08-11', '2026-08-12'],
+					activities: []
 				}
 			]
 		});
@@ -43,12 +44,41 @@ describe('PublicationInvalidationCoalescer', () => {
 		expect(publicationInvalidationForWorkspace(batch!, 'workspace-1')).toEqual({
 			workspaceId: 'workspace-1',
 			scopes: ['activity', 'calendar', 'drafts'],
-			dateKeys: []
+			dateKeys: [],
+			activities: []
 		});
 		expect(publicationInvalidationForWorkspace(batch!, 'workspace-3')).toEqual({
 			workspaceId: 'workspace-3',
 			scopes: ['activity', 'calendar', 'drafts'],
-			dateKeys: []
+			dateKeys: [],
+			activities: []
+		});
+	});
+
+	it('merges exact activity buckets across coalesced moves', () => {
+		const coalescer = new PublicationInvalidationCoalescer();
+		coalescer.add({
+			workspaceId: 'workspace-1',
+			scopes: ['activity', 'calendar'],
+			activities: ['scheduled']
+		});
+		coalescer.add({
+			workspaceId: 'workspace-1',
+			scopes: ['activity'],
+			activities: ['failed', 'scheduled']
+		});
+		coalescer.add({ workspaceId: 'workspace-1', scopes: ['drafts'] });
+
+		expect(coalescer.drain(7)).toEqual({
+			revision: 7,
+			entries: [
+				{
+					workspaceId: 'workspace-1',
+					scopes: ['activity', 'calendar', 'drafts'],
+					dateKeys: [],
+					activities: ['failed', 'scheduled']
+				}
+			]
 		});
 	});
 });

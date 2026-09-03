@@ -1,9 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { publicationEventsQueryOptions } from '@openpost/query-catalog';
-	import { queryClient } from '$lib/query/client';
-	import { QueryProjectionTracker } from '$lib/query/projection';
+	import { createInfiniteQuery } from '@tanstack/svelte-query';
+	import { publicationEventsInfiniteQueryOptions } from '@openpost/query-catalog';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -14,7 +12,6 @@
 	import { m } from '$lib/paraglide/messages';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { getPlatformName } from '$lib/utils';
-	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import CheckIcon from '@lucide/svelte/icons/circle-check';
 	import ClockIcon from '@lucide/svelte/icons/clock-3';
@@ -44,17 +41,26 @@
 		onRetry?: (renditionID: string) => void | Promise<void>;
 		onManualResolution?: (renditionID: string) => void | Promise<void>;
 	} = $props();
-	let events = $state.raw<PublicationHistoryEvent[]>([]);
-	let nextCursor = $state('');
-	let loadingMore = $state(false);
 	let error = $state('');
-	let requestedPublicationKey = '';
-	let requestSequence = 0;
-	const firstPageProjection = new QueryProjectionTracker();
-	const firstPageQuery = createQuery(() =>
-		publicationEventsQueryOptions(schedulingQueryAPI, workspaceId, publicationId, { limit: 30 })
+	const historyInfinite = createInfiniteQuery(() =>
+		publicationEventsInfiniteQueryOptions(schedulingQueryAPI, workspaceId, publicationId, {
+			limit: 30
+		})
 	);
-	const loading = $derived(firstPageQuery.isPending);
+	const loading = $derived(historyInfinite.isPending);
+	// Pages stay in the Query cache under the workspace+publication key.
+	const events = $derived.by(() => {
+		const seen = new Set<string>();
+		const items: PublicationHistoryEvent[] = [];
+		for (const page of historyInfinite.data?.pages ?? []) {
+			for (const event of page.items) {
+				if (seen.has(event.id)) continue;
+				seen.add(event.id);
+				items.push(event);
+			}
+		}
+		return items;
+	});
 	const timelineItems = $derived.by(() => {
 		const renditionIDs = new SvelteSet<string>();
 		const items: TimelineItem[] = events.map((event) => ({
@@ -82,69 +88,33 @@
 	});
 
 	$effect(() => {
-		const key = `${workspaceId}:${publicationId}`;
-		if (!publicationId || !workspaceId || key === requestedPublicationKey) return;
-		untrack(() => {
-			requestSequence++;
-			loadingMore = false;
-			requestedPublicationKey = key;
-			events = [];
-			nextCursor = '';
+		if (!historyInfinite.isError) {
 			error = '';
-		});
-	});
-
-	$effect(() => {
-		const data = firstPageQuery.data;
-		const scope = `${workspaceId}:${publicationId}`;
-		if (!firstPageProjection.shouldProject(data, scope)) return;
-		untrack(() => {
-			events = data.items;
-			nextCursor = data.nextCursor;
-			error = '';
-		});
-	});
-
-	$effect(() => {
-		if (!firstPageQuery.isError) return;
+			return;
+		}
+		if (historyInfinite.data) return;
 		error =
-			firstPageQuery.error instanceof Error
-				? firstPageQuery.error.message
+			historyInfinite.error instanceof Error
+				? historyInfinite.error.message
 				: m.activity_failed_load();
 	});
 
-	async function loadHistory(id: string, cursor: string, append: boolean, force = false) {
-		const request = ++requestSequence;
-		if (append) loadingMore = true;
+	async function refreshHistory() {
 		error = '';
 		try {
-			const options = publicationEventsQueryOptions(schedulingQueryAPI, workspaceId, id, {
-				limit: 30,
-				cursor
-			});
-			if (force) {
-				await queryClient.invalidateQueries({
-					queryKey: options.queryKey,
-					exact: true,
-					refetchType: 'none'
-				});
-			}
-			const page = await queryClient.query(options);
-			if (request !== requestSequence || publicationId !== id) return;
-			if (append) {
-				const existingIDs = new Set(events.map((event) => event.id));
-				events = [...events, ...page.items.filter((event) => !existingIDs.has(event.id))];
-			} else {
-				events = page.items;
-			}
-			nextCursor = page.nextCursor;
+			await historyInfinite.refetch();
 		} catch (cause) {
-			if (request !== requestSequence || publicationId !== id) return;
 			error = cause instanceof Error ? cause.message : m.activity_failed_load();
-		} finally {
-			if (request === requestSequence) {
-				loadingMore = false;
-			}
+		}
+	}
+
+	async function loadMoreHistory() {
+		if (!historyInfinite.hasNextPage || historyInfinite.isFetchingNextPage) return;
+		error = '';
+		try {
+			await historyInfinite.fetchNextPage();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.activity_failed_load();
 		}
 	}
 
@@ -198,7 +168,7 @@
 	async function retryCurrentDestination(renditionID: string) {
 		if (!onRetry) return;
 		await onRetry(renditionID);
-		await loadHistory(publicationId, '', false, true);
+		await refreshHistory();
 	}
 </script>
 
@@ -226,11 +196,7 @@
 	{:else if error && events.length === 0}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button
-					size="sm"
-					variant="outline"
-					onclick={() => loadHistory(publicationId, '', false, true)}
-				>
+				<Button size="sm" variant="outline" onclick={() => refreshHistory()}>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -354,15 +320,17 @@
 				{/if}
 			{/each}
 		</ol>
-		{#if nextCursor}
+		{#if historyInfinite.hasNextPage}
 			<div class="mt-4 flex justify-center">
 				<Button
 					variant="outline"
 					size="sm"
-					disabled={loadingMore}
-					onclick={() => loadHistory(publicationId, nextCursor, true)}
+					disabled={historyInfinite.isFetchingNextPage}
+					onclick={() => loadMoreHistory()}
 				>
-					{loadingMore ? m.notifications_loading_more() : m.notifications_load_more()}
+					{historyInfinite.isFetchingNextPage
+						? m.notifications_loading_more()
+						: m.notifications_load_more()}
 				</Button>
 			</div>
 		{/if}

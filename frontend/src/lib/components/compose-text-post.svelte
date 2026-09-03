@@ -3758,7 +3758,8 @@
 			ui.invalidatePublications(
 				{
 					workspaceId: selectedWorkspaceId,
-					scopes: ['activity', 'drafts']
+					scopes: ['activity', 'drafts'],
+					activities: scheduledAt ? ['draft', 'scheduled'] : ['draft']
 				},
 				{ immediate: true }
 			);
@@ -3915,7 +3916,8 @@
 				{
 					workspaceId: selectedWorkspaceId,
 					scopes: ['activity', 'calendar', 'drafts'],
-					dateKeys: publicationDateKeys(scheduledAt)
+					dateKeys: publicationDateKeys(scheduledAt),
+					activities: ['draft', publishNow ? 'published' : 'scheduled']
 				},
 				{ immediate: true }
 			);

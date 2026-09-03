@@ -51,7 +51,10 @@
 	import { workspaceColor } from '$lib/workspace-color';
 	import { m } from '$lib/paraglide/messages';
 	import { ui } from '$lib/stores/ui.svelte';
-	import { publicationInvalidationForWorkspace } from '$lib/publication-invalidation';
+	import {
+		activityBucketForStatus,
+		publicationInvalidationForWorkspace
+	} from '$lib/publication-invalidation';
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { cn } from '$lib/utils';
 	import { CalendarDate } from '@internationalized/date';
@@ -818,7 +821,8 @@
 			ui.triggerRefresh({
 				workspaceId: item.workspaceId,
 				scopes: ['activity', 'calendar'],
-				dateKeys: [previousDateKey, nextDateKey].filter((value): value is string => Boolean(value))
+				dateKeys: [previousDateKey, nextDateKey].filter((value): value is string => Boolean(value)),
+				activities: [activityBucketForStatus(item.status, item.occursAt)]
 			});
 		} catch (error) {
 			if (calendarMutationViewIsCurrent(view)) {

@@ -44,7 +44,7 @@ Web ships with the endpoint. Mobile falls back to the existing auth, Workspace, 
 
 ## Loading behavior
 
-Each route owns one first-viewport loading boundary and starts independent reads together. Nested children do not create a second sequence of loaders for reads the route can start.
+Each route owns one first-viewport loading boundary and starts independent reads together. Nested children do not create a second sequence of loaders for reads the route can start. The editors hub is the recorded exception: it composes independent image and video sections, so each section keeps its own delayed boundary while the shared header and search stay mounted.
 
 - With no usable data, wait 150 ms before showing a content-shaped page loader.
 - Keep cached data visible during background refresh.

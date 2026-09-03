@@ -1,5 +1,11 @@
 import type { QueryFunctionContext } from "@tanstack/query-core";
-import type { OpenPostQueryAPI, PublicationCalendarRange } from "./api";
+import type {
+  Job,
+  OpenPostQueryAPI,
+  Publication,
+  PublicationCalendarRange,
+  QueryPageResult,
+} from "./api";
 import { openPostBootstrapQueryKeys } from "./bootstrap";
 import {
   capturePublicationDetailRequestContext,
@@ -83,6 +89,47 @@ export function activityPublicationsQueryOptions(
   };
 }
 
+export function activityPublicationsInfiniteQueryOptions(
+  api: Pick<OpenPostQueryAPI, "listActivityPublications">,
+  workspaceId: string,
+  bucket: ActivityPublicationBucket,
+  page: Pick<QueryPage, "limit">,
+) {
+  const queryKey = openPostQueryKeys.publications.activity(workspaceId, bucket, {
+    limit: page.limit,
+    cursor: "",
+  });
+  return {
+    ...openPostQueryPolicy(
+      bucket === "scheduled" || bucket === "failed" ? liveQueryStaleTime : queryStaleTime,
+    ),
+    refetchOnWindowFocus: bucket === "scheduled" || bucket === "failed",
+    queryKey,
+    enabled: Boolean(workspaceId),
+    initialPageParam: "",
+    queryFn: async ({
+      client,
+      pageParam,
+      signal,
+    }: QueryFunctionContext<typeof queryKey, string>) => {
+      const listContext = capturePublicationListCacheContext(client, workspaceId);
+      const result = await api.listActivityPublications(
+        workspaceId,
+        bucket,
+        { limit: page.limit, cursor: pageParam },
+        signal,
+      );
+      signal.throwIfAborted();
+      for (const publication of result.items) {
+        seedPublicationDetail(client, publication, workspaceId, listContext);
+      }
+      return result;
+    },
+    getNextPageParam: (lastPage: QueryPageResult<Publication>) =>
+      lastPage.nextCursor || undefined,
+  };
+}
+
 export function calendarPublicationsQueryOptions(
   api: Pick<OpenPostQueryAPI, "listCalendarPublications">,
   workspaceId: string,
@@ -125,6 +172,27 @@ export function failedJobsQueryOptions(
     enabled: Boolean(workspaceId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
       api.listFailedJobs(workspaceId, normalizedPage, signal),
+  };
+}
+
+export function failedJobsInfiniteQueryOptions(
+  api: Pick<OpenPostQueryAPI, "listFailedJobs">,
+  workspaceId: string,
+  page: Pick<QueryPage, "limit">,
+) {
+  const queryKey = openPostQueryKeys.jobs.failedPage(workspaceId, {
+    limit: page.limit,
+    cursor: "",
+  });
+  return {
+    ...openPostQueryPolicy(liveQueryStaleTime),
+    refetchOnWindowFocus: true,
+    queryKey,
+    enabled: Boolean(workspaceId),
+    initialPageParam: "",
+    queryFn: ({ pageParam, signal }: QueryFunctionContext<typeof queryKey, string>) =>
+      api.listFailedJobs(workspaceId, { limit: page.limit, cursor: pageParam }, signal),
+    getNextPageParam: (lastPage: QueryPageResult<Job>) => lastPage.nextCursor || undefined,
   };
 }
 

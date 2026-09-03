@@ -12,7 +12,7 @@
 	import pinterest from '../../../../assets/logos/pinterest.svg?raw';
 	import telegram from '../../../../assets/logos/telegram.svg?raw';
 	import { getPlatformKey } from '$lib/utils';
-	import PlugIcon from '@lucide/svelte/icons/plug';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		platform: string;
@@ -44,5 +44,5 @@
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html svg}
 {:else}
-	<PlugIcon class={className} aria-hidden="true" />
+	<ThemeIcon role="plugin" class={className} aria-hidden="true" />
 {/if}

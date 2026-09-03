@@ -76,5 +76,18 @@ export const heroiconsNames = {
 	users: 'user-group',
 	video: 'video-camera',
 	workspace: 'squares-2x2',
-	undo: 'arrow-uturn-left'
+	undo: 'arrow-uturn-left',
+	assistant: 'cpu-chip',
+	launch: 'rocket-launch',
+	key: 'key',
+	devices: 'computer-desktop',
+	storage: 'server-stack',
+	folder: 'folder',
+	inbox: 'inbox',
+	layout: 'view-columns',
+	swap: 'arrows-right-left',
+	// Shared with refresh: heroicons draws every repeat action as a circular arrow.
+	repeat: 'arrow-path',
+	plugin: 'puzzle-piece',
+	reply: 'chat-bubble-left'
 } satisfies Record<ThemeIconRole, string>;

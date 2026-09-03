@@ -12,10 +12,7 @@
 	import { feedbackDiagnostics, type FeedbackDiagnosticsSnapshot } from '$lib/feedback-diagnostics';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import CheckIcon from '@lucide/svelte/icons/circle-check';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { feedbackConfigQueryOptions } from '@openpost/query-catalog';
 	import { feedbackQueryAPI } from '$lib/query/feedback';
@@ -236,7 +233,7 @@
 
 		{#if loading && !config}
 			<div class="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-				<LoaderIcon class="mr-2 size-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 				{m.feedback_loading()}
 			</div>
 		{:else if !config}
@@ -261,13 +258,13 @@
 				{#if config.support_url}
 					<Button href={config.support_url} target="_blank" rel="noreferrer">
 						{m.feedback_open_support()}
-						<ExternalLinkIcon class="ml-2 size-4" />
+						<ThemeIcon role="external-link" class="ml-2 size-4" />
 					</Button>
 				{/if}
 			</div>
 		{:else if success}
 			<div class="space-y-5 py-4 text-center">
-				<CheckIcon class="mx-auto size-10 text-emerald-600" />
+				<ProtectedIcon icon="success" class="mx-auto size-10 text-emerald-600" />
 				<div>
 					<h3 class="font-medium">{m.feedback_success_title()}</h3>
 					<p class="mt-1 text-sm text-muted-foreground">
@@ -344,7 +341,7 @@
 					</label>
 					{#if screenshotLoading}
 						<p class="flex items-center text-xs text-muted-foreground">
-							<LoaderIcon class="mr-2 size-3.5 animate-spin" />
+							<ProtectedIcon icon="loading" class="mr-2 size-3.5 animate-spin" />
 							{m.feedback_screenshot_capturing()}
 						</p>
 					{:else if screenshotDataURL}
@@ -362,7 +359,7 @@
 								aria-label={m.feedback_screenshot_remove()}
 								onclick={() => void toggleScreenshot(false)}
 							>
-								<XIcon class="size-4" />
+								<ThemeIcon role="close" class="size-4" />
 							</Button>
 							<p class="px-2 py-1 text-right text-[0.6875rem] text-muted-foreground">
 								{Math.ceil(screenshotBytes / 1024)} KB
@@ -417,7 +414,7 @@
 						{m.common_cancel()}
 					</Button>
 					<Button type="submit" disabled={sending || screenshotLoading || !message.trim()}>
-						{#if sending}<LoaderIcon class="mr-2 size-4 animate-spin" />{/if}
+						{#if sending}<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />{/if}
 						{sending ? m.feedback_sending() : m.feedback_send()}
 					</Button>
 				</Dialog.Footer>

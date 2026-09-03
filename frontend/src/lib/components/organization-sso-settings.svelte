@@ -27,10 +27,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
-	import BuildingIcon from '@lucide/svelte/icons/building-2';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import {
@@ -608,7 +605,7 @@
 			<SectionHeader
 				title={m.settings_sso_providers()}
 				description={m.settings_sso_providers_description()}
-				icon={BuildingIcon}
+				themeIconRole="organization"
 				class="mb-4"
 			/>
 			<div class="mb-5 space-y-3">
@@ -748,9 +745,10 @@
 					</label>
 				</div>
 				<Button type="submit" disabled={busy === 'provider'} class="gap-2">
-					{#if busy === 'provider'}<LoaderIcon class="size-4 animate-spin" />{:else}<PlusIcon
-							class="size-4"
-						/>{/if}
+					{#if busy === 'provider'}<ProtectedIcon
+							icon="loading"
+							class="size-4 animate-spin"
+						/>{:else}<ThemeIcon role="add" class="size-4" />{/if}
 					{m.common_save()}
 				</Button>
 			</form>
@@ -760,7 +758,7 @@
 			<SectionHeader
 				title={m.settings_sso_policy()}
 				description={m.settings_sso_policy_description()}
-				icon={ShieldCheckIcon}
+				themeIconRole="security"
 				class="mb-4"
 			/>
 			<form onsubmit={savePolicy} class="space-y-5">
@@ -843,7 +841,7 @@
 					<InlineNotice tone="warning" message={m.settings_sso_required_warning()} />
 				{/if}
 				<Button type="submit" disabled={busy === 'policy'} class="gap-2">
-					{#if busy === 'policy'}<LoaderIcon class="size-4 animate-spin" />{/if}
+					{#if busy === 'policy'}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 					{m.common_save()}
 				</Button>
 			</form>

@@ -5,7 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -130,7 +130,7 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" class="gap-2" disabled={!canCreate}>
-					{#if pending}<LoaderIcon class="size-4 animate-spin" />{/if}
+					{#if pending}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 					{m.onboarding_submit()}
 				</Button>
 			</Dialog.Footer>

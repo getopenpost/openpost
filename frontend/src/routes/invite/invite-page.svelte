@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -19,8 +20,6 @@
 	import { queryClient } from '$lib/query/client';
 	import type { QueryClient } from '@tanstack/svelte-query';
 	import { m } from '$lib/paraglide/messages';
-	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import UsersIcon from '@lucide/svelte/icons/users';
 
 	type InviteAuthStore = Pick<
 		typeof auth,
@@ -235,9 +234,9 @@
 
 {#snippet inviteIcon()}
 	{#if accepted}
-		<ShieldCheckIcon class="size-6" />
+		<ThemeIcon role="security" class="size-6" />
 	{:else}
-		<UsersIcon class="size-6" />
+		<ThemeIcon role="users" class="size-6" />
 	{/if}
 {/snippet}
 

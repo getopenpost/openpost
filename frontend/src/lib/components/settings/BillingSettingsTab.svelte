@@ -22,9 +22,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { resolveAppPath } from '$lib/app-path';
 	import {
 		billingQueryKeys,
@@ -432,7 +430,7 @@
 <SectionHeader
 	title={m.settings_billing()}
 	description={m.settings_billing_body()}
-	icon={CreditCardIcon}
+	themeIconRole="billing"
 	class="mb-4"
 >
 	{#snippet actions()}
@@ -443,9 +441,9 @@
 				disabled={billingPortalBusy}
 			>
 				{#if billingPortalBusy}
-					<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+					<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 				{:else}
-					<ExternalLinkIcon class="mr-2 h-4 w-4" />
+					<ThemeIcon role="external-link" class="mr-2 h-4 w-4" />
 				{/if}
 				{m.settings_customer_portal()}
 			</Button>
@@ -498,7 +496,7 @@
 							disabled={billingPortalBusy}
 						>
 							{#if billingPortalBusy}
-								<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+								<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 							{/if}
 							{m.billing_recovery_update_payment_method()}
 						</Button>
@@ -739,7 +737,7 @@
 							class="self-start sm:self-auto"
 						>
 							{m.settings_provider_cost_view_pricing()}
-							<ExternalLinkIcon class="ml-1 h-3.5 w-3.5" />
+							<ThemeIcon role="external-link" class="ml-1 h-3.5 w-3.5" />
 						</Button>
 					</div>
 				</div>
@@ -791,7 +789,7 @@
 						Boolean(billingStatus && !billingStatus.can_manage_billing)}
 				>
 					{#if billingBusyPlan === plan.id}
-						<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 					{/if}
 					{#if hasActiveBillingPlan && billingStatus?.plan_id === plan.id}
 						{m.settings_current_plan()}

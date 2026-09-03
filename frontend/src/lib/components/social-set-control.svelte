@@ -23,10 +23,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 
@@ -380,7 +377,7 @@
 						{/if}
 					</span>
 					<span class="min-w-0 truncate">{destinationLabel}</span>
-					<ChevronDownIcon class="size-3.5 shrink-0 text-muted-foreground" />
+					<ThemeIcon role="chevron-down" class="size-3.5 shrink-0 text-muted-foreground" />
 				</Button>
 			{/snippet}
 		</Popover.Trigger>
@@ -433,7 +430,7 @@
 									>
 								{/if}
 							</span>
-							{#if selectedSetId === set.id}<CheckIcon class="size-4" />{/if}
+							{#if selectedSetId === set.id}<ThemeIcon role="check" class="size-4" />{/if}
 						</button>
 					{/each}
 				</div>
@@ -461,7 +458,8 @@
 								</ul>
 							{/if}
 						</div>
-						{#if customAccountIds.includes(account.id)}<PencilIcon
+						{#if customAccountIds.includes(account.id)}<ThemeIcon
+								role="edit"
 								class="size-3.5 text-primary"
 								aria-label={m.compose_custom_state()}
 							/>{/if}
@@ -558,7 +556,7 @@
 							class="h-11 gap-2 text-destructive"
 							onclick={() => (deleteOpen = true)}
 						>
-							<Trash2Icon class="size-4" />
+							<ThemeIcon role="delete" class="size-4" />
 							{m.common_delete()}
 						</Button>
 					{/if}

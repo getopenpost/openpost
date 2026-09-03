@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import ClipboardPasteIcon from '@lucide/svelte/icons/clipboard-paste';
-	import Columns2Icon from '@lucide/svelte/icons/columns-2';
-	import CircleOffIcon from '@lucide/svelte/icons/circle-off';
-	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
@@ -251,7 +247,7 @@
 						aria-pressed={colorPreviewStore.comparisonMode === 'before'}
 						onclick={() => setComparison('before')}
 					>
-						<CircleOffIcon class="size-3" />{m.video_editor_color_before()}
+						<ProtectedIcon icon="editor-compare" class="size-3" />{m.video_editor_color_before()}
 					</button>
 					<button
 						type="button"
@@ -263,7 +259,7 @@
 						aria-pressed={colorPreviewStore.comparisonMode === 'split'}
 						onclick={() => setComparison('split')}
 					>
-						<Columns2Icon class="size-3" />{m.video_editor_color_split()}
+						<ThemeIcon role="layout" class="size-3" />{m.video_editor_color_split()}
 					</button>
 				</div>
 			</div>
@@ -303,7 +299,7 @@
 					disabled={!colorPreviewStore.gradeClipboard?.length}
 					onclick={pasteGrade}
 				>
-					<ClipboardPasteIcon class="size-3.5" />{m.video_editor_color_paste_grade()}
+					<ThemeIcon role="copy" class="size-3.5" />{m.video_editor_color_paste_grade()}
 				</button>
 				{#if oncreateadjustment}
 					<button
@@ -312,7 +308,10 @@
 						title={m.video_editor_adjustment_layer_hint()}
 						onclick={oncreateadjustment}
 					>
-						<LayersIcon class="size-3.5" />{m.video_editor_adjustment_layer()}
+						<ProtectedIcon
+							icon="editor-layers"
+							class="size-3.5"
+						/>{m.video_editor_adjustment_layer()}
 					</button>
 				{/if}
 				<button

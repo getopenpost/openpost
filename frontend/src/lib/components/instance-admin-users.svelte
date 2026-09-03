@@ -8,12 +8,7 @@
 		type Updater,
 		type VisibilityState
 	} from '@tanstack/table-core';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import UserRoundIcon from '@lucide/svelte/icons/user-round';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -450,7 +445,8 @@
 	>
 		<div class="flex min-w-0 flex-1 flex-wrap gap-2">
 			<div class="relative min-w-48 flex-1 sm:max-w-sm">
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
@@ -470,7 +466,7 @@
 			</div>
 			<Button type="submit" variant="outline" disabled={usersLoading}>
 				{#if usersLoading && users}
-					<LoaderIcon class="animate-spin" />
+					<ProtectedIcon icon="loading" class="animate-spin" />
 				{/if}
 				{m.settings_instance_search()}
 			</Button>
@@ -486,7 +482,7 @@
 				{#snippet child({ props })}
 					<Button {...props} type="button" variant="outline">
 						{m.settings_instance_columns()}
-						<ChevronDownIcon class="size-4" />
+						<ThemeIcon role="chevron-down" class="size-4" />
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
@@ -517,7 +513,7 @@
 
 		{#if users && users.total === 0 && !appliedSearch}
 			<EmptyState
-				icon={UserRoundIcon}
+				themeIconRole="user"
 				title={m.settings_instance_no_users()}
 				description={m.settings_instance_no_users_body()}
 				variant="muted"
@@ -650,7 +646,7 @@
 
 		{#if impersonationBusyUserID}
 			<div class="flex min-h-24 items-center justify-center gap-2 text-sm text-muted-foreground">
-				<LoaderIcon class="size-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{m.settings_instance_impersonation_creating()}
 			</div>
 		{:else if impersonationError && !impersonationURL}
@@ -670,10 +666,10 @@
 						/>
 						<Button variant="outline" onclick={copyImpersonationLink}>
 							{#if impersonationCopied}
-								<CheckIcon class="text-emerald-600 dark:text-emerald-400" />
+								<ThemeIcon role="check" class="text-emerald-600 dark:text-emerald-400" />
 								{m.settings_instance_copied()}
 							{:else}
-								<CopyIcon />
+								<ThemeIcon role="copy" />
 								{m.settings_instance_copy_link()}
 							{/if}
 						</Button>

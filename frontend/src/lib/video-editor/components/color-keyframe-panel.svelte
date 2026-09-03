@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { KeyframeProperty } from '$lib/video-editor/project/types';
 	import {
@@ -193,7 +192,7 @@
 		<p class="m-auto px-4 text-center text-xs text-white/40">{m.video_editor_select_clip()}</p>
 	{:else if properties.length === 0}
 		<div class="m-auto max-w-52 px-4 text-center">
-			<DiamondIcon class="mx-auto mb-2 size-5 text-white/25" />
+			<ProtectedIcon icon="editor-keyframe" class="mx-auto mb-2 size-5 text-white/25" />
 			<p class="text-xs text-white/45">Add a color effect to animate its controls.</p>
 		</div>
 	{:else if view === 'graph' && activeProperty}

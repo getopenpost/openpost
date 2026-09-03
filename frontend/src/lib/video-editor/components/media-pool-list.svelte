@@ -25,11 +25,6 @@
 		compoundThumbnailSignature
 	} from '$lib/video-editor/sequences/compound-thumbnail';
 	import { showToast } from '$lib/toast';
-	import LayersIcon from '@lucide/svelte/icons/layers-3';
-	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
-	import GaugeIcon from '@lucide/svelte/icons/gauge';
-	import GridIcon from '@lucide/svelte/icons/layout-grid';
-	import ListIcon from '@lucide/svelte/icons/list';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
@@ -1164,7 +1159,7 @@
 					aria-pressed={assetViewMode === 'grid'}
 					onclick={() => editorSettings.set('mediaLibraryViewMode', 'grid')}
 				>
-					<GridIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="layout" class="size-3.5" />
 				</Button>
 				<Button
 					type="button"
@@ -1178,7 +1173,7 @@
 					aria-pressed={assetViewMode === 'list'}
 					onclick={() => editorSettings.set('mediaLibraryViewMode', 'list')}
 				>
-					<ListIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="layout" class="size-3.5" />
 				</Button>
 			</div>
 		</div>
@@ -1205,7 +1200,7 @@
 						})}
 						onclick={() => void generateSelectedProxies()}
 					>
-						<GaugeIcon class="size-3.5" aria-hidden="true" />
+						<ProtectedIcon icon="editor-speed" class="size-3.5" />
 					</Button>
 				{/if}
 				<Button
@@ -1306,7 +1301,7 @@
 												class="size-full object-cover"
 											/>
 										{:else}
-											<LayersIcon class="size-4" aria-hidden="true" />
+											<ProtectedIcon icon="editor-layers" class="size-4" />
 										{/if}
 									</span>
 									{#if editingSequenceId === sequence.id}
@@ -1388,7 +1383,7 @@
 						</ContextMenu.Trigger>
 						<ContextMenu.Content class="video-editor-theme w-48">
 							<ContextMenu.Item onclick={() => openSequence(sequence.id)}>
-								<LayersIcon class="size-4" aria-hidden="true" />
+								<ProtectedIcon icon="editor-layers" class="size-4" />
 								{m.video_editor_sequence_open()}
 							</ContextMenu.Item>
 							<ContextMenu.Item onclick={() => placeSequence(sequence)}>
@@ -1664,7 +1659,7 @@
 														aria-label={upscaleActionLabel(entry.media)}
 														title={upscaleActionLabel(entry.media)}
 													>
-														<ScanLineIcon class="size-4" aria-hidden="true" />
+														<ProtectedIcon icon="editor-upscale" class="size-4" />
 														{m.video_editor_media_upscale()}
 													</DropdownMenu.SubTrigger>
 													<DropdownMenu.SubContent class="video-editor-theme w-44">
@@ -1691,7 +1686,7 @@
 														aria-label={interpolationActionLabel(entry.media)}
 														title={interpolationActionLabel(entry.media)}
 													>
-														<GaugeIcon class="size-4" aria-hidden="true" />
+														<ProtectedIcon icon="editor-speed" class="size-4" />
 														{m.video_editor_media_interpolate()}
 													</DropdownMenu.SubTrigger>
 													<DropdownMenu.SubContent class="video-editor-theme w-32">
@@ -1851,7 +1846,7 @@
 										aria-label={upscaleActionLabel(entry.media)}
 										title={upscaleActionLabel(entry.media)}
 									>
-										<ScanLineIcon class="size-4" aria-hidden="true" />
+										<ProtectedIcon icon="editor-upscale" class="size-4" />
 										{m.video_editor_media_upscale()}
 									</ContextMenu.SubTrigger>
 									<ContextMenu.SubContent class="video-editor-theme w-44">
@@ -1874,7 +1869,7 @@
 										aria-label={interpolationActionLabel(entry.media)}
 										title={interpolationActionLabel(entry.media)}
 									>
-										<GaugeIcon class="size-4" aria-hidden="true" />
+										<ProtectedIcon icon="editor-speed" class="size-4" />
 										{m.video_editor_media_interpolate()}
 									</ContextMenu.SubTrigger>
 									<ContextMenu.SubContent class="video-editor-theme w-32">

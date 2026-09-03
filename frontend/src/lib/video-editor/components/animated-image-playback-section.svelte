@@ -1,8 +1,7 @@
 <script lang="ts">
-	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { isAnimatedImageMedia } from '$lib/video-editor/media/animated-image-plan';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -103,7 +102,7 @@
 		<h3
 			class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-xs font-semibold tracking-wider text-white/58 uppercase"
 		>
-			<GaugeIcon class="size-3.5 text-white/42" aria-hidden="true" />
+			<ProtectedIcon icon="editor-speed" class="size-3.5 text-white/42" />
 			{m.video_editor_clip_playback()}
 		</h3>
 		<div class="divide-y divide-white/6">

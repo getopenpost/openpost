@@ -9,11 +9,7 @@
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import DeleteAccountDialog from '$lib/components/delete-account-dialog.svelte';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import TrashIcon from '@lucide/svelte/icons/trash';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { client, type AccountDeletionImpact } from '$lib/api/client';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
 	import { invalidatePasswordChangeDependencies } from '$lib/query/auth';
@@ -255,7 +251,7 @@
 			<Collapsible.Trigger
 				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 			>
-				<KeyRoundIcon class="size-4 shrink-0 text-muted-foreground" />
+				<ThemeIcon role="key" class="size-4 shrink-0 text-muted-foreground" />
 				<span class="min-w-0 flex-1">
 					<span class="block text-sm font-medium">
 						{hasPassword ? m.settings_change_password() : m.settings_set_password()}
@@ -264,7 +260,8 @@
 						{m.settings_change_password_body()}
 					</span>
 				</span>
-				<ChevronDownIcon
+				<ThemeIcon
+					role="chevron-down"
 					class="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
 				/>
 			</Collapsible.Trigger>
@@ -313,7 +310,7 @@
 					</div>
 					<div class="sm:col-span-2 xl:col-span-3">
 						<Button type="submit" disabled={passwordBusy}>
-							{#if passwordBusy}<LoaderIcon class="size-4 animate-spin" />{/if}
+							{#if passwordBusy}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 							{passwordBusy
 								? m.settings_change_password_loading()
 								: m.settings_change_password_submit()}
@@ -327,14 +324,15 @@
 			<Collapsible.Trigger
 				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 			>
-				<DownloadIcon class="size-4 shrink-0 text-muted-foreground" />
+				<ThemeIcon role="download" class="size-4 shrink-0 text-muted-foreground" />
 				<span class="min-w-0 flex-1">
 					<span class="block text-sm font-medium">{m.settings_export_data()}</span>
 					<span class="mt-0.5 line-clamp-2 block text-xs leading-5 text-muted-foreground">
 						{m.settings_export_data_body()}
 					</span>
 				</span>
-				<ChevronDownIcon
+				<ThemeIcon
+					role="chevron-down"
 					class="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
 				/>
 			</Collapsible.Trigger>
@@ -360,7 +358,7 @@
 						</p>
 					{/if}
 					<Button type="submit" variant="outline" disabled={exportBusy}>
-						{#if exportBusy}<LoaderIcon class="size-4 animate-spin" />{/if}
+						{#if exportBusy}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 						{exportBusy ? m.settings_export_loading() : m.settings_export_submit()}
 					</Button>
 				</form>
@@ -370,7 +368,7 @@
 		<div class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
 			<div class="min-w-0">
 				<h4 class="flex items-center gap-2 text-sm font-medium text-destructive">
-					<TrashIcon class="size-4" />
+					<ThemeIcon role="delete" class="size-4" />
 					{m.settings_delete_account()}
 				</h4>
 				<p class="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
@@ -384,7 +382,7 @@
 				disabled={deletionBusy}
 				onclick={reviewDeletion}
 			>
-				{#if deletionBusy}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if deletionBusy}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{deletionBusy ? m.settings_delete_loading() : m.settings_delete_review()}
 			</Button>
 		</div>

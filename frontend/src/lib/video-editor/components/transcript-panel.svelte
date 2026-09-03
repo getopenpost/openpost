@@ -9,9 +9,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import BoldIcon from '@lucide/svelte/icons/bold';
-	import ItalicIcon from '@lucide/svelte/icons/italic';
-	import UnderlineIcon from '@lucide/svelte/icons/underline';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
 	import { execute } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -895,7 +892,7 @@
 								aria-pressed={cueFlags(cue).bold}
 								onclick={() => toggleFormat(item, cue, 'bold')}
 							>
-								<BoldIcon class="size-3" aria-hidden="true" />
+								<ProtectedIcon icon="editor-text" class="size-3" />
 							</Button>
 							<Button
 								type="button"
@@ -905,7 +902,7 @@
 								aria-pressed={cueFlags(cue).italic}
 								onclick={() => toggleFormat(item, cue, 'italic')}
 							>
-								<ItalicIcon class="size-3" aria-hidden="true" />
+								<ProtectedIcon icon="editor-text" class="size-3" />
 							</Button>
 							<Button
 								type="button"
@@ -915,7 +912,7 @@
 								aria-pressed={cueFlags(cue).underline}
 								onclick={() => toggleFormat(item, cue, 'underline')}
 							>
-								<UnderlineIcon class="size-3" aria-hidden="true" />
+								<ProtectedIcon icon="editor-text" class="size-3" />
 							</Button>
 						</div>
 						{#if cue.words?.length}

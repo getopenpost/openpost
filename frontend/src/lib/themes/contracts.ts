@@ -99,7 +99,19 @@ export const THEME_ICON_ROLES = [
 	'users',
 	'video',
 	'workspace',
-	'undo'
+	'undo',
+	'assistant',
+	'launch',
+	'key',
+	'devices',
+	'storage',
+	'folder',
+	'inbox',
+	'layout',
+	'swap',
+	'repeat',
+	'plugin',
+	'reply'
 ] as const;
 export type ThemeIconRole = (typeof THEME_ICON_ROLES)[number];
 

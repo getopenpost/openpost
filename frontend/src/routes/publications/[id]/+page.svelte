@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onDestroy } from 'svelte';
@@ -17,9 +18,6 @@
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { openPostQueryKeys, seedPublicationDetail } from '@openpost/query-catalog';
@@ -336,10 +334,10 @@
 {#snippet copyAsDraftButton()}
 	<Button variant="outline" onclick={copyAsDraft} disabled={copying}>
 		{#if copying}
-			<LoaderCircleIcon class="mr-1.5 size-4 animate-spin" />
+			<ProtectedIcon icon="loading" class="mr-1.5 size-4 animate-spin" />
 			{m.publication_copying()}
 		{:else}
-			<CopyIcon class="mr-1.5 size-4" />
+			<ThemeIcon role="copy" class="mr-1.5 size-4" />
 			{m.publication_copy_as_draft()}
 		{/if}
 	</Button>
@@ -386,7 +384,7 @@
 			{/if}
 			{@render copyAsDraftButton()}
 			<Button variant="outline" onclick={() => history.back()}>
-				<ArrowLeftIcon class="mr-1.5 size-4" />
+				<ThemeIcon role="arrow-left" class="mr-1.5 size-4" />
 				{m.common_back()}
 			</Button>
 		{/snippet}

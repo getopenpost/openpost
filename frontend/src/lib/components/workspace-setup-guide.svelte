@@ -9,7 +9,7 @@
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { ui } from '$lib/stores/ui.svelte';
 
@@ -169,7 +169,8 @@
 									? 'flex size-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
 									: 'flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground'}
 							>
-								{#if step.completed}<CheckIcon class="size-3.5" />{:else}{index + 1}{/if}
+								{#if step.completed}<ThemeIcon role="check" class="size-3.5" />{:else}{index +
+										1}{/if}
 							</span>
 							{step.id === 'subscription'
 								? m.workspace_setup_subscription()

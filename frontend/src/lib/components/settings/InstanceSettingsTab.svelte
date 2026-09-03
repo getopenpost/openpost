@@ -6,8 +6,7 @@
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import ServerCogIcon from '@lucide/svelte/icons/server-cog';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		adminQueryKeys,
@@ -79,7 +78,7 @@
 		<SectionHeader
 			title={m.settings_instance_status()}
 			description={m.settings_instance_status_body()}
-			icon={ServerCogIcon}
+			themeIconRole="settings"
 			class="mb-4"
 		/>
 
@@ -117,7 +116,7 @@
 									size="sm"
 								>
 									{m.settings_instance_view_release()}
-									<ExternalLinkIcon class="ml-1 h-3.5 w-3.5" />
+									<ThemeIcon role="external-link" class="ml-1 h-3.5 w-3.5" />
 								</Button>
 							{/if}
 						</div>

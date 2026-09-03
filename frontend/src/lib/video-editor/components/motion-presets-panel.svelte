@@ -3,7 +3,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
@@ -57,7 +57,6 @@
 		manualKeyframeSummary,
 		removeAnimationKeyframeApplication
 	} from '$lib/video-editor/timeline/actions/keyframes';
-	import Layers3Icon from '@lucide/svelte/icons/layers-3';
 	import SavedAnimationLibrary from './saved-animation-library.svelte';
 
 	let {
@@ -474,7 +473,7 @@
 
 	{#if variant === 'edit' && onmotionclip}
 		<section class="motion-clip-card">
-			<Layers3Icon aria-hidden="true" />
+			<ProtectedIcon icon="editor-layers" />
 			<div>
 				<h3>{m.video_editor_motion_clip_title()}</h3>
 				<p>
@@ -487,7 +486,7 @@
 						<ThemeIcon role="external-link" />
 						{m.video_editor_motion_clip_open()}
 					{:else}
-						<Layers3Icon aria-hidden="true" />
+						<ProtectedIcon icon="editor-layers" />
 						{m.video_editor_motion_clip_create()}
 					{/if}
 				</button>

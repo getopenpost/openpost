@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -24,9 +25,6 @@
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
 	import { initializePaddle, type Paddle, type PaddleEventData } from '@paddle/paddle-js';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
 	import { resolveAppPath } from '$lib/app-path';
 	import {
 		billingCheckoutConfigQueryOptions,
@@ -493,7 +491,7 @@
 				<Logo width={132} height={30} showText />
 			</a>
 			<div class="hidden items-center gap-2 text-sm font-medium text-muted-foreground sm:flex">
-				<LockIcon class="size-4 text-primary" />
+				<ThemeIcon role="lock" class="size-4 text-primary" />
 				{m.checkout_secure()}
 			</div>
 		</div>
@@ -511,7 +509,7 @@
 					<div
 						class="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"
 					>
-						<CheckIcon class="size-7" />
+						<ThemeIcon role="check" class="size-7" />
 					</div>
 					<div class="space-y-2">
 						<h1 class="text-2xl font-semibold tracking-tight">
@@ -529,7 +527,7 @@
 						<Button size="lg" onclick={continueToAccounts}>{m.checkout_connect_account()}</Button>
 					{/if}
 				{:else if checkoutState === 'confirming'}
-					<LoaderCircleIcon class="size-10 animate-spin text-primary" />
+					<ProtectedIcon icon="loading" class="size-10 animate-spin text-primary" />
 					<div class="space-y-2" role="status">
 						<h1 class="text-xl font-semibold">
 							{m.checkout_confirming_heading()}
@@ -542,7 +540,7 @@
 					<div
 						class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary"
 					>
-						<LockIcon class="size-7" />
+						<ThemeIcon role="lock" class="size-7" />
 					</div>
 					<div class="space-y-2">
 						<h1 class="text-2xl font-semibold tracking-tight">
@@ -577,7 +575,7 @@
 							</div>
 						{/if}
 						<div class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-							<LoaderCircleIcon class="size-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 							{checkoutState === 'loading' ? m.checkout_loading() : m.checkout_opening_secure()}
 						</div>
 					{/if}

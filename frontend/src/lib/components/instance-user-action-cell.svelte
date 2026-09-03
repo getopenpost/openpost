@@ -1,8 +1,6 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
-	import UserRoundCogIcon from '@lucide/svelte/icons/user-round-cog';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 
@@ -30,9 +28,9 @@
 		})}
 	>
 		{#if busy}
-			<LoaderIcon class="size-3.5 animate-spin" />
+			<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 		{:else}
-			<CreditCardIcon class="size-3.5" />
+			<ThemeIcon role="billing" class="size-3.5" />
 		{/if}
 		{m.settings_instance_change_plan()}
 	</Button>
@@ -51,9 +49,9 @@
 			})}
 		>
 			{#if busy}
-				<LoaderIcon class="size-3.5 animate-spin" />
+				<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 			{:else}
-				<UserRoundCogIcon class="size-3.5" />
+				<ThemeIcon role="user" class="size-3.5" />
 			{/if}
 			{m.settings_instance_impersonate()}
 		</Button>

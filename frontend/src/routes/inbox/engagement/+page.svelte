@@ -8,6 +8,7 @@
 -->
 <script lang="ts">
 	import {
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 		accountFeaturesQueryOptions,
 		engagementQueryOptions,
 		inboxPublicationsQueryOptions,
@@ -48,16 +49,6 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import InboxIcon from '@lucide/svelte/icons/inbox';
-	import ReplyIcon from '@lucide/svelte/icons/reply';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import HeartIcon from '@lucide/svelte/icons/heart';
-	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import DestinationOptionCombobox from '$lib/components/destination-option-combobox.svelte';
 	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
 
@@ -742,7 +733,7 @@
 <PageContainer
 	title={m.engagement_heading()}
 	description={m.engagement_description()}
-	icon={MessagesSquareIcon}
+	themeIconRole="communications"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
@@ -753,7 +744,7 @@
 				<Popover.Trigger>
 					{#snippet child({ props })}
 						<Button {...props} variant="outline">
-							<CircleAlertIcon class="size-4 text-amber-600 dark:text-amber-400" />
+							<ProtectedIcon icon="error" class="size-4 text-amber-600 dark:text-amber-400" />
 							{m.engagement_collection_issues({ count: recoveryGroups.length })}
 						</Button>
 					{/snippet}
@@ -816,7 +807,7 @@
 			disabled={refreshing || !workspaceId || engagementAllDisabled}
 			data-testid="engagement-refresh"
 		>
-			<RefreshIcon class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
+			<ThemeIcon role="refresh" class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
 			{m.engagement_refresh()}
 		</Button>
 	{/snippet}
@@ -954,7 +945,7 @@
 			</InlineNotice>
 		{:else if engagementEmptyIsFeatureDisabled}
 			<EmptyState
-				icon={MessagesSquareIcon}
+				themeIconRole="communications"
 				title={m.engagement_feature_disabled_title()}
 				description={m.engagement_feature_disabled_description()}
 				actionLabel={m.feature_disabled_open_details()}
@@ -971,7 +962,7 @@
 			{/if}
 		{:else if engagementQuery.data && items.length === 0 && !error}
 			<EmptyState
-				icon={MessagesSquareIcon}
+				themeIconRole="communications"
 				title={m.engagement_empty_title()}
 				description={m.engagement_empty_description()}
 				variant="muted"
@@ -1014,7 +1005,7 @@
 									variant="outline"
 									size="sm"
 								>
-									<ExternalLinkIcon class="size-4" />
+									<ThemeIcon role="external-link" class="size-4" />
 									{m.engagement_open_provider({ platform: getPlatformName(firstItem.platform) })}
 								</Button>
 							{/if}
@@ -1075,7 +1066,7 @@
 																variant="outline"
 																size="sm"
 															>
-																<ExternalLinkIcon class="size-4" />
+																<ThemeIcon role="external-link" class="size-4" />
 																{attachment.name || m.engagement_open_attachment()}
 															</Button>
 														{/each}
@@ -1093,7 +1084,7 @@
 															replyBody = '';
 														}}
 													>
-														<ReplyIcon class="size-4" />{m.engagement_reply()}
+														<ThemeIcon role="reply" class="size-4" />{m.engagement_reply()}
 													</Button>
 												{/if}
 												{#if (item.can_like && !item.liked) || (item.can_unlike && item.liked)}
@@ -1103,7 +1094,10 @@
 														disabled={actionInFlight === item.id}
 														onclick={() => void queueAction(item, item.liked ? 'unlike' : 'like')}
 													>
-														<HeartIcon class={item.liked ? 'size-4 fill-current' : 'size-4'} />
+														<ThemeIcon
+															role="favorite"
+															class={item.liked ? 'size-4 fill-current' : 'size-4'}
+														/>
 														{item.liked ? m.engagement_unlike() : m.engagement_like()}
 													</Button>
 												{/if}
@@ -1124,7 +1118,7 @@
 														disabled={actionInFlight === item.id}
 														onclick={() => requestProviderAction(item, 'hide')}
 													>
-														<EyeOffIcon class="size-4" />{m.engagement_hide()}
+														<ThemeIcon role="eye-off" class="size-4" />{m.engagement_hide()}
 													</Button>
 												{/if}
 												<Button
@@ -1134,9 +1128,9 @@
 													onclick={() => void setState(item, { archived: !archived })}
 												>
 													{#if archived}
-														<InboxIcon class="size-4" />
+														<ThemeIcon role="inbox" class="size-4" />
 													{:else}
-														<ArchiveIcon class="size-4" />
+														<ThemeIcon role="archive" class="size-4" />
 													{/if}
 													{archived ? m.engagement_restore() : m.engagement_archive()}
 												</Button>
@@ -1147,7 +1141,7 @@
 														class="text-destructive"
 														onclick={() => requestProviderAction(item, 'delete')}
 													>
-														<TrashIcon class="size-4" />{m.engagement_delete({
+														<ThemeIcon role="delete" class="size-4" />{m.engagement_delete({
 															platform: getPlatformName(item.platform)
 														})}
 													</Button>

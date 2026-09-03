@@ -4,7 +4,6 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
-	import ActivityIcon from '@lucide/svelte/icons/activity';
 
 	let copied = $state(false);
 	let copyError = $state(false);
@@ -64,7 +63,7 @@
 				aria-label={m.video_editor_diagnostics_title()}
 				title={m.video_editor_diagnostics_title()}
 			>
-				<ActivityIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="analytics" class="size-3.5" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>

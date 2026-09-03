@@ -4,8 +4,7 @@
 	import type { PurchaseSelection } from '$lib/purchase-choice';
 	import { m } from '$lib/paraglide/messages';
 	import { telemetryDistinctID } from '@openpost/telemetry';
-	import BuildingIcon from '@lucide/svelte/icons/building-2';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		providers,
@@ -62,7 +61,7 @@
 			onclick={() => void start(provider)}
 		>
 			{#if loadingProviderID === provider.id}
-				<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 			{:else if provider.id === 'google'}
 				<svg class="size-4" viewBox="0 0 18 18" aria-hidden="true">
 					<path
@@ -83,7 +82,7 @@
 					/>
 				</svg>
 			{:else}
-				<BuildingIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="organization" class="size-4" aria-hidden="true" />
 			{/if}
 			{m.auth_sso_continue_with({ provider: provider.name })}
 		</Button>

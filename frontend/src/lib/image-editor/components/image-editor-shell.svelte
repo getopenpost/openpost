@@ -109,28 +109,8 @@
 	} from '$lib/query/authorization-boundary';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import MousePointerIcon from '@lucide/svelte/icons/mouse-pointer-2';
-	import RectangleSelectIcon from '@lucide/svelte/icons/square-dashed-mouse-pointer';
-	import LassoSelectIcon from '@lucide/svelte/icons/lasso-select';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import HandIcon from '@lucide/svelte/icons/hand';
-	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
-	import LayersIcon from '@lucide/svelte/icons/layers-3';
-	import SlidersIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
-	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import EraserIcon from '@lucide/svelte/icons/eraser';
-	import PaintBucketIcon from '@lucide/svelte/icons/paint-bucket';
-	import BlendIcon from '@lucide/svelte/icons/blend';
-	import GroupIcon from '@lucide/svelte/icons/group';
-	import UngroupIcon from '@lucide/svelte/icons/ungroup';
-	import SquareIcon from '@lucide/svelte/icons/square';
-	import CircleIcon from '@lucide/svelte/icons/circle';
-	import MinusIcon from '@lucide/svelte/icons/minus';
-	import CropIcon from '@lucide/svelte/icons/crop';
-	import PipetteIcon from '@lucide/svelte/icons/pipette';
+	import type { ThemeIconRole } from '$lib/themes/contracts.js';
+	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import { m } from '$lib/paraglide/messages';
 	import { startImageEditorMetric } from '../telemetry';
 	import {
@@ -2596,29 +2576,35 @@
 		exportAbort?.abort();
 	}
 
-	const commandIcons = new Map<ImageEditorCommandID, typeof MousePointerIcon>([
-		['tool_select', MousePointerIcon],
-		['tool_marquee', RectangleSelectIcon],
-		['tool_ellipse_marquee', CircleDashedIcon],
-		['tool_lasso', LassoSelectIcon],
-		['tool_magic_wand', WandIcon],
-		['tool_crop', CropIcon],
-		['tool_eyedropper', PipetteIcon],
-		['tool_text', TypeIcon],
-		['tool_shape', SquareIcon],
-		['tool_pencil', PencilIcon],
-		['tool_bucket', PaintBucketIcon],
-		['tool_gradient', BlendIcon],
-		['tool_eraser', EraserIcon],
-		['tool_magic_eraser', WandIcon],
-		['tool_hand', HandIcon],
-		['tool_zoom', ZoomInIcon]
+	type ToolGlyph =
+		| { kind: 'theme'; role: ThemeIconRole }
+		| { kind: 'protected'; role: ProtectedIconRole };
+
+	const commandIcons = new Map<ImageEditorCommandID, ToolGlyph>([
+		['tool_select', { kind: 'protected', role: 'editor-select' }],
+		['tool_marquee', { kind: 'protected', role: 'editor-marquee' }],
+		['tool_ellipse_marquee', { kind: 'protected', role: 'pending' }],
+		['tool_lasso', { kind: 'protected', role: 'editor-lasso' }],
+		['tool_magic_wand', { kind: 'protected', role: 'editor-effects' }],
+		['tool_crop', { kind: 'protected', role: 'editor-crop' }],
+		['tool_eyedropper', { kind: 'protected', role: 'editor-eyedropper' }],
+		['tool_text', { kind: 'protected', role: 'editor-text' }],
+		// Vector shape tool glyph (see icons/MIGRATION.md).
+		['tool_shape', { kind: 'protected', role: 'editor-shapes' }],
+		['tool_pencil', { kind: 'theme', role: 'edit' }],
+		['tool_bucket', { kind: 'protected', role: 'editor-fill' }],
+		['tool_gradient', { kind: 'protected', role: 'editor-blend' }],
+		['tool_eraser', { kind: 'protected', role: 'editor-erase' }],
+		['tool_magic_eraser', { kind: 'protected', role: 'editor-effects' }],
+		['tool_hand', { kind: 'protected', role: 'editor-pan' }],
+		['tool_zoom', { kind: 'theme', role: 'layout' }]
 	]);
+	const fallbackToolGlyph: ToolGlyph = { kind: 'protected', role: 'editor-select' };
 	const tools = imageEditorCommandsForRail().map((command) => ({
 		command,
 		key: command.tool!,
 		label: commandLabel(command.id),
-		icon: commandIcons.get(command.id) ?? MousePointerIcon
+		icon: commandIcons.get(command.id) ?? fallbackToolGlyph
 	}));
 
 	function mobileToolCommands(group: 'select' | 'draw' | 'retouch') {
@@ -2651,6 +2637,14 @@
 		return tool === 'eraser' || tool === 'magic_eraser';
 	}
 </script>
+
+{#snippet toolGlyph(glyph: ToolGlyph)}
+	{#if glyph.kind === 'theme'}
+		<ThemeIcon role={glyph.role} />
+	{:else}
+		<ProtectedIcon icon={glyph.role} />
+	{/if}
+{/snippet}
 
 {#snippet toolGroupIndicator()}
 	<span
@@ -2743,9 +2737,9 @@
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
-							{#if command.id === 'group'}<GroupIcon />{/if}
-							{#if command.id === 'ungroup'}<UngroupIcon />{/if}
-							{#if command.id === 'remove_background'}<WandIcon />{/if}
+							{#if command.id === 'group'}<ProtectedIcon icon="editor-group" />{/if}
+							{#if command.id === 'ungroup'}<ProtectedIcon icon="editor-ungroup" />{/if}
+							{#if command.id === 'remove_background'}<ProtectedIcon icon="editor-effects" />{/if}
 							{commandLabel(command.id)}
 							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
 						</Menubar.Item>
@@ -3120,7 +3114,6 @@
 			aria-label={m.image_editor_tools()}
 		>
 			{#each tools as tool (tool.key)}
-				{@const Icon = tool.icon}
 				{#if tool.key === 'select'}
 					<Tooltip.Root>
 						<Tooltip.Trigger>
@@ -3135,7 +3128,7 @@
 									disabled={!commandEnabled(tool.command.id)}
 									title={commandDisabledReason(tool.command.id) || undefined}
 								>
-									<MousePointerIcon />
+									<ProtectedIcon icon="editor-select" />
 								</Button>
 							{/snippet}
 						</Tooltip.Trigger>
@@ -3168,9 +3161,9 @@
 												aria-pressed={isMarqueeTool(editor.activeTool)}
 											>
 												{#if marqueeSlotTool === 'marquee'}
-													<RectangleSelectIcon />
+													<ProtectedIcon icon="editor-marquee" />
 												{:else}
-													<CircleDashedIcon />
+													<ProtectedIcon icon="pending" />
 												{/if}
 												{@render toolGroupIndicator()}
 											</Button>
@@ -3187,13 +3180,13 @@
 						<ContextMenu.Portal>
 							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
 								{#each railSlotCommands('pixel_select') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? RectangleSelectIcon}
+									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 									<ContextMenu.Item
 										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 										onclick={() => executeEditorCommand(command.id)}
 										disabled={!commandEnabled(command.id)}
 									>
-										<CommandIcon />
+										{@render toolGlyph(CommandIcon)}
 										{commandLabel(command.id)}
 										<span class="ml-auto text-xs text-muted-foreground"
 											>{commandShortcut(command.id)}</span
@@ -3222,11 +3215,11 @@
 												title={commandDisabledReason(tool.command.id) || undefined}
 											>
 												{#if shapeSlotKind === 'ellipse'}
-													<CircleIcon />
+													<ProtectedIcon icon="editor-shapes" />
 												{:else if shapeSlotKind === 'line'}
-													<MinusIcon />
+													<ThemeIcon role="remove" />
 												{:else}
-													<SquareIcon />
+													<ProtectedIcon icon="editor-shapes" />
 												{/if}
 												{@render toolGroupIndicator()}
 											</Button>
@@ -3242,7 +3235,7 @@
 									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 									onclick={() => insertShape('rectangle')}
 								>
-									<SquareIcon />
+									<ProtectedIcon icon="editor-shapes" />
 									{m.image_editor_rectangle()}
 									<span class="ml-auto text-xs text-muted-foreground">U</span>
 								</ContextMenu.Item>
@@ -3250,21 +3243,21 @@
 									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 									onclick={() => insertShape('rounded_rectangle')}
 								>
-									<SquareIcon />
+									<ProtectedIcon icon="editor-shapes" />
 									{m.image_editor_rounded_rectangle()}
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 									onclick={() => insertShape('ellipse')}
 								>
-									<CircleIcon />
+									<ProtectedIcon icon="editor-shapes" />
 									{m.image_editor_ellipse()}
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 									onclick={() => insertShape('line')}
 								>
-									<MinusIcon />
+									<ThemeIcon role="remove" />
 									{m.image_editor_line()}
 								</ContextMenu.Item>
 							</ContextMenu.Content>
@@ -3293,9 +3286,9 @@
 												disabled={!editor.canEdit}
 											>
 												{#if fillSlotTool === 'gradient'}
-													<BlendIcon />
+													<ProtectedIcon icon="editor-blend" />
 												{:else}
-													<PaintBucketIcon />
+													<ProtectedIcon icon="editor-fill" />
 												{/if}
 												{@render toolGroupIndicator()}
 											</Button>
@@ -3310,13 +3303,13 @@
 						<ContextMenu.Portal>
 							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
 								{#each railSlotCommands('fill') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? PaintBucketIcon}
+									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 									<ContextMenu.Item
 										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 										onclick={() => executeEditorCommand(command.id)}
 										disabled={!commandEnabled(command.id)}
 									>
-										<CommandIcon />{commandLabel(command.id)}
+										{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
 										<span class="ml-auto text-xs text-muted-foreground"
 											>{commandShortcut(command.id)}</span
 										>
@@ -3348,9 +3341,9 @@
 												disabled={!editor.canEdit}
 											>
 												{#if eraserSlotTool === 'magic_eraser'}
-													<WandIcon />
+													<ProtectedIcon icon="editor-effects" />
 												{:else}
-													<EraserIcon />
+													<ProtectedIcon icon="editor-erase" />
 												{/if}
 												{@render toolGroupIndicator()}
 											</Button>
@@ -3367,13 +3360,13 @@
 						<ContextMenu.Portal>
 							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
 								{#each railSlotCommands('erase') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? EraserIcon}
+									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 									<ContextMenu.Item
 										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
 										onclick={() => executeEditorCommand(command.id)}
 										disabled={!commandEnabled(command.id)}
 									>
-										<CommandIcon />{commandLabel(command.id)}
+										{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
 										<span class="ml-auto text-xs text-muted-foreground"
 											>{commandShortcut(command.id)}</span
 										>
@@ -3396,7 +3389,7 @@
 									disabled={!commandEnabled(tool.command.id)}
 									title={commandDisabledReason(tool.command.id) || undefined}
 								>
-									<Icon />
+									{@render toolGlyph(Icon)}
 								</Button>
 							{/snippet}
 						</Tooltip.Trigger>
@@ -3559,7 +3552,7 @@
 			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
 			onclick={() => (mobileSheet = 'assets')}
 		>
-			<PanelLeftIcon />
+			<ThemeIcon role="layout" />
 			<span class="max-w-full truncate">{m.image_editor_add()}</span>
 		</Button>
 		<DropdownMenu.Root>
@@ -3582,20 +3575,20 @@
 						onclick={() => setTool(mobileSelectTool)}
 						aria-label={m.image_editor_select()}
 					>
-						<MousePointerIcon />
+						<ProtectedIcon icon="editor-select" />
 						<span class="max-w-full truncate">{m.image_editor_select()}</span>
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content side="top" align="start" class="min-w-52">
 				{#each mobileToolCommands('select') as command (command.id)}
-					{@const Icon = commandIcons.get(command.id) ?? MousePointerIcon}
+					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
 						onclick={() => executeEditorCommand(command.id)}
 						disabled={!commandEnabled(command.id)}
 						title={commandDisabledReason(command.id) || undefined}
 					>
-						<Icon />{commandLabel(command.id)}
+						{@render toolGlyph(Icon)}{commandLabel(command.id)}
 						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
@@ -3613,20 +3606,20 @@
 						onclick={() => setTool(mobileDrawTool)}
 						aria-label={m.image_editor_draw()}
 					>
-						<PencilIcon />
+						<ThemeIcon role="edit" />
 						<span class="max-w-full truncate">{m.image_editor_draw()}</span>
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content side="top" align="start" class="min-w-44">
 				{#each mobileToolCommands('draw') as command (command.id)}
-					{@const Icon = commandIcons.get(command.id) ?? PencilIcon}
+					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
 						onclick={() => executeEditorCommand(command.id)}
 						disabled={!commandEnabled(command.id)}
 						title={commandDisabledReason(command.id) || undefined}
 					>
-						<Icon />{commandLabel(command.id)}
+						{@render toolGlyph(Icon)}{commandLabel(command.id)}
 						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
@@ -3645,27 +3638,29 @@
 						aria-label={m.image_editor_retouch()}
 						disabled={!editor.canEdit}
 					>
-						<EraserIcon />
+						<ProtectedIcon icon="editor-erase" />
 						<span class="max-w-full truncate">{m.image_editor_retouch()}</span>
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content side="top" align="start" class="min-w-48">
 				{#each mobileToolCommands('retouch') as command (command.id)}
-					{@const Icon = commandIcons.get(command.id) ?? EraserIcon}
+					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
 						onclick={() => executeEditorCommand(command.id)}
 						disabled={!commandEnabled(command.id)}
 						title={commandDisabledReason(command.id) || undefined}
 					>
-						<Icon />{commandLabel(command.id)}
+						{@render toolGlyph(Icon)}{commandLabel(command.id)}
 						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
 				<DropdownMenu.Item
 					onclick={() => removeBackground()}
 					disabled={!editor.selectedLayers[0]?.image}
-					><WandIcon />{m.image_editor_remove_background()}</DropdownMenu.Item
+					><ProtectedIcon
+						icon="editor-effects"
+					/>{m.image_editor_remove_background()}</DropdownMenu.Item
 				>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
@@ -3674,7 +3669,7 @@
 			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
 			onclick={() => (mobileSheet = 'layers')}
 		>
-			<LayersIcon />
+			<ProtectedIcon icon="editor-layers" />
 			<span class="max-w-full truncate">{m.image_editor_layers()}</span>
 		</Button>
 		<Button
@@ -3682,7 +3677,7 @@
 			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
 			onclick={() => (mobileSheet = 'properties')}
 		>
-			<SlidersIcon />
+			<ThemeIcon role="controls" />
 			<span class="max-w-full truncate">{m.image_editor_properties()}</span>
 		</Button>
 	</nav>
@@ -3696,11 +3691,10 @@
 			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
 			onclick={() => (mobileSheet = 'assets')}
 		>
-			<PanelLeftIcon />
+			<ThemeIcon role="layout" />
 			{m.image_editor_add()}
 		</Button>
 		{#each tools.filter( (tool) => ['select', 'marquee', 'lasso', 'magic_wand', 'crop', 'eyedropper', 'text', 'pencil', 'bucket', 'eraser', 'hand'].includes(tool.key) ) as tool (tool.key)}
-			{@const Icon = tool.icon}
 			{#if tool.key === 'select'}
 				<Button
 					variant={editor.activeTool === 'select' ? 'secondary' : 'ghost'}
@@ -3711,7 +3705,7 @@
 					disabled={!commandEnabled(tool.command.id)}
 					title={commandDisabledReason(tool.command.id) || undefined}
 				>
-					<MousePointerIcon />
+					<ProtectedIcon icon="editor-select" />
 					{m.image_editor_select()}
 				</Button>
 			{:else if tool.key === 'marquee'}
@@ -3725,11 +3719,11 @@
 								aria-label={m.image_editor_pixel_select()}
 							>
 								{#if editor.activeTool === 'marquee'}
-									<RectangleSelectIcon />
+									<ProtectedIcon icon="editor-marquee" />
 								{:else if editor.activeTool === 'ellipse_marquee'}
-									<CircleDashedIcon />
+									<ProtectedIcon icon="pending" />
 								{:else}
-									<RectangleSelectIcon />
+									<ProtectedIcon icon="editor-marquee" />
 								{/if}
 								{m.image_editor_pixels()}
 								{@render toolGroupIndicator()}
@@ -3738,13 +3732,13 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content side="top" align="start" class="min-w-52">
 						{#each railSlotCommands('pixel_select') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? RectangleSelectIcon}
+							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
 								title={commandDisabledReason(command.id) || undefined}
 							>
-								<CommandIcon />
+								{@render toolGlyph(CommandIcon)}
 								{commandLabel(command.id)}
 							</DropdownMenu.Item>
 						{/each}
@@ -3764,9 +3758,9 @@
 									: m.image_editor_paint_bucket()}
 							>
 								{#if editor.activeTool === 'gradient'}
-									<BlendIcon />
+									<ProtectedIcon icon="editor-blend" />
 								{:else}
-									<PaintBucketIcon />
+									<ProtectedIcon icon="editor-fill" />
 								{/if}
 								{m.image_editor_fill()}
 								{@render toolGroupIndicator()}
@@ -3775,13 +3769,13 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content side="top" align="start" class="min-w-44">
 						{#each railSlotCommands('fill') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? PaintBucketIcon}
+							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
 								title={commandDisabledReason(command.id) || undefined}
 							>
-								<CommandIcon />
+								{@render toolGlyph(CommandIcon)}
 								{commandLabel(command.id)}
 							</DropdownMenu.Item>
 						{/each}
@@ -3801,9 +3795,9 @@
 									: m.image_editor_erase()}
 							>
 								{#if editor.activeTool === 'magic_eraser'}
-									<WandIcon />
+									<ProtectedIcon icon="editor-effects" />
 								{:else}
-									<EraserIcon />
+									<ProtectedIcon icon="editor-erase" />
 								{/if}
 								{m.image_editor_erase()}
 								{@render toolGroupIndicator()}
@@ -3812,13 +3806,13 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content side="top" align="start" class="min-w-48">
 						{#each railSlotCommands('erase') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? EraserIcon}
+							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
 								title={commandDisabledReason(command.id) || undefined}
 							>
-								<CommandIcon />
+								{@render toolGlyph(CommandIcon)}
 								{commandLabel(command.id)}
 							</DropdownMenu.Item>
 						{/each}
@@ -3832,7 +3826,7 @@
 					disabled={!commandEnabled(tool.command.id)}
 					title={commandDisabledReason(tool.command.id) || undefined}
 				>
-					<Icon />
+					{@render toolGlyph(Icon)}
 					{tool.label}
 				</Button>
 			{/if}
@@ -3842,7 +3836,7 @@
 			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
 			onclick={() => (mobileSheet = 'layers')}
 		>
-			<LayersIcon />
+			<ProtectedIcon icon="editor-layers" />
 			{m.image_editor_layers()}
 		</Button>
 		<Button
@@ -3850,7 +3844,7 @@
 			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
 			onclick={() => (mobileSheet = 'properties')}
 		>
-			<SlidersIcon />
+			<ThemeIcon role="controls" />
 			{m.image_editor_edit()}
 		</Button>
 	</nav>

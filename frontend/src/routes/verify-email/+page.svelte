@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { page } from '$app/state';
@@ -19,8 +20,6 @@
 		type PurchaseChoice,
 		type PurchaseChoiceErrorCode
 	} from '$lib/purchase-choice';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import MailCheckIcon from '@lucide/svelte/icons/mail-check';
 	import { onMount } from 'svelte';
 	import type { AuthConfiguration } from '$lib/api/client';
 	import {
@@ -218,7 +217,7 @@
 </svelte:head>
 
 {#snippet icon()}
-	<MailCheckIcon class="size-6" />
+	<ThemeIcon role="mail" class="size-6" />
 {/snippet}
 
 <StandaloneShell title={m.auth_verify_email_heading()} {description} {icon} logoHref="/">
@@ -233,7 +232,7 @@
 				class="mb-4 flex items-center justify-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground"
 				role="status"
 			>
-				<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{m.purchase_choice_loading()}
 			</div>
 		{:else if purchaseChoice}
@@ -292,7 +291,7 @@
 				disabled={!canVerify || isVerifying || isResending}
 			>
 				{#if isVerifying}
-					<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 					{m.auth_verify_email_loading()}
 				{:else}
 					{m.auth_verify_email_submit()}
@@ -308,7 +307,7 @@
 			onclick={() => void resend()}
 		>
 			{#if isResending}
-				<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{m.auth_verify_email_resending()}
 			{:else if resendSeconds > 0}
 				{m.auth_verify_email_resend_in({ seconds: resendSeconds })}

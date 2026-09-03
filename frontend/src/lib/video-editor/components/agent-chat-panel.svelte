@@ -4,7 +4,6 @@
 	import { m } from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
 	import { agentStore } from '$lib/video-editor/agent/store.svelte';
-	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const suggestions: Array<{ key: string; text: string }> = [
@@ -171,14 +170,14 @@
 								{:else if step.status === 'error'}
 									<ProtectedIcon icon="warning" class="mt-0.5 size-3.5 shrink-0 text-destructive" />
 								{:else if step.status === 'skipped'}
-									<CircleDashedIcon
+									<ProtectedIcon
+										icon="pending"
 										class="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-60"
-										aria-hidden="true"
 									/>
 								{:else}
-									<CircleDashedIcon
+									<ProtectedIcon
+										icon="pending"
 										class="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
-										aria-hidden="true"
 									/>
 								{/if}
 								<div class="min-w-0">

@@ -22,8 +22,7 @@
 		ImageEditorBrandKit,
 		ImageEditorBrandTextStyle
 	} from '../types';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import TypeIcon from '@lucide/svelte/icons/type';
+
 	import { m } from '$lib/paraglide/messages';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 
@@ -300,7 +299,7 @@
 				<div
 					class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
 				>
-					<PaletteIcon class="size-5" />
+					<ThemeIcon role="appearance" class="size-5" />
 				</div>
 				<div>
 					<h2 class="font-semibold">{m.brand_colors_backgrounds()}</h2>
@@ -398,7 +397,7 @@
 			<div
 				class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
 			>
-				<TypeIcon class="size-5" />
+				<ProtectedIcon icon="editor-text" class="size-5" />
 			</div>
 			<div>
 				<h2 class="font-semibold">{m.brand_fonts()}</h2>

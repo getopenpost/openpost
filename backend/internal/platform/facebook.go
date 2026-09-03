@@ -444,16 +444,7 @@ func (f *FacebookAdapter) publishVideo(ctx context.Context, accessToken, pageID 
 func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pageID, message string, mediaURLs []string) (string, error) {
 	attached := make([]string, 0, len(mediaURLs))
 	for _, mediaURL := range mediaURLs {
-		values := map[string]string{
-			"url":                 mediaURL,
-			"published":           "false",
-			oauthParamAccessToken: accessToken,
-		}
-		respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/photos"), values, nil)
-		if err != nil {
-			return "", fmt.Errorf("facebook unpublished photo: %w", err)
-		}
-		photoID, err := facebookPublishedID("facebook unpublished photo", respBody)
+		photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL)
 		if err != nil {
 			return "", err
 		}
@@ -473,6 +464,19 @@ func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pa
 	return facebookPublishedID("facebook multi-photo publish", respBody)
 }
 
+func (f *FacebookAdapter) uploadUnpublishedPhoto(ctx context.Context, accessToken, pageID, mediaURL string) (string, error) {
+	values := map[string]string{
+		"url":                 mediaURL,
+		"published":           "false",
+		oauthParamAccessToken: accessToken,
+	}
+	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/photos"), values, nil)
+	if err != nil {
+		return "", fmt.Errorf("facebook unpublished photo: %w", err)
+	}
+	return facebookPublishedID("facebook unpublished photo", respBody)
+}
+
 func (f *FacebookAdapter) publishStory(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {
 	if len(req.PlatformMediaIDs) != 1 || len(req.Media) != 1 {
 		return "", fmt.Errorf("facebook stories require exactly one media item per rendition")
@@ -481,13 +485,22 @@ func (f *FacebookAdapter) publishStory(ctx context.Context, accessToken, pageID 
 	if !strings.HasPrefix(mediaURL, "https://") {
 		return "", fmt.Errorf("facebook stories require a publicly-accessible HTTPS media URL")
 	}
-	endpoint := pageID + "/photo_stories"
-	values := map[string]string{"url": mediaURL, oauthParamAccessToken: accessToken}
 	if isVideoMime(req.Media[0].MimeType) {
-		endpoint = pageID + "/video_stories"
-		values = map[string]string{"file_url": mediaURL, oauthParamAccessToken: accessToken}
+		respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/video_stories"), map[string]string{
+			"file_url": mediaURL, oauthParamAccessToken: accessToken,
+		}, nil)
+		if err != nil {
+			return "", fmt.Errorf("facebook story publish: %w", err)
+		}
+		return facebookPublishedID("facebook story publish", respBody)
 	}
-	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(endpoint), values, nil)
+	photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL)
+	if err != nil {
+		return "", err
+	}
+	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/photo_stories"), map[string]string{
+		"photo_id": photoID, oauthParamAccessToken: accessToken,
+	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("facebook story publish: %w", err)
 	}

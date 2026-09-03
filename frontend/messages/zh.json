@@ -1779,6 +1779,8 @@
 	"accounts_provider_unavailable": "Unavailable",
 	"accounts_provider_ask_admin": "Ask admin",
 	"accounts_provider_admin_enable": "Your instance administrator needs to enable this platform.",
+	"accounts_provider_admin_enable_self": "您是此实例的管理员。请在实例设置中启用这些平台。",
+	"accounts_provider_admin_configure": "设置",
 	"accounts_provider_retry_readiness": "Retry check",
 	"provider_readiness_label_unsupported": "Not implemented",
 	"provider_readiness_label_disabled": "Disabled",

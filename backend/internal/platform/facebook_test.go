@@ -335,6 +335,58 @@ func TestFacebookPublishPhotoFromPublicURL(t *testing.T) {
 	}
 }
 
+func TestFacebookPublishImageStoryUploadsAnUnpublishedPhoto(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	var calls []string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls = append(calls, req.URL.Path)
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatalf("reading publish body: %v", err)
+		}
+		form, err := url.ParseQuery(string(body))
+		if err != nil {
+			t.Fatalf("parsing publish form: %v", err)
+		}
+		if form.Get(oauthParamAccessToken) != "page-token" {
+			t.Fatalf("unexpected access token %q", form.Get(oauthParamAccessToken))
+		}
+		switch req.URL.Path {
+		case "/v25.0/page-1/photos":
+			if form.Get("url") != "https://media.example/story.jpg" || form.Get("published") != "false" {
+				t.Fatalf("unexpected unpublished photo form: %s", form.Encode())
+			}
+			return jsonResponse(req, `{"id":"photo-1"}`), nil
+		case "/v25.0/page-1/photo_stories":
+			if form.Get("photo_id") != "photo-1" || form.Has("url") {
+				t.Fatalf("unexpected photo story form: %s", form.Encode())
+			}
+			return jsonResponse(req, `{"id":"story-1"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	result, err := NewFacebookAdapter("", "", "").Publish(t.Context(), "page-token", "page-1", &PublishRequest{
+		Profile:          "story",
+		PlatformMediaIDs: []string{"https://media.example/story.jpg"},
+		Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+	})
+	if err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+	if result.ExternalID != "story-1" {
+		t.Fatalf("expected story ID, got %q", result.ExternalID)
+	}
+	if strings.Join(calls, ",") != "/v25.0/page-1/photos,/v25.0/page-1/photo_stories" {
+		t.Fatalf("unexpected call order: %v", calls)
+	}
+}
+
 func TestFacebookPublishRejectsNonHTTPSMediaURL(t *testing.T) {
 	adapter := NewFacebookAdapter("client-id", "client-secret", "https://app.example/callback")
 	_, err := adapter.Publish(context.Background(), "page-token", "page-1", &PublishRequest{
@@ -361,6 +413,7 @@ func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
 		{name: "expired token", body: `{"error":{"code":190}}`, statusCode: http.StatusUnauthorized, code: "meta:token_expired:190"},
 		{name: "permission", body: `{"error":{"code":10}}`, statusCode: http.StatusForbidden, code: "meta:permission:10"},
 		{name: "rate limit", body: `{"error":{"code":4}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:4"},
+		{name: "generic rejection", body: `{"error":{"code":1}}`, statusCode: http.StatusBadRequest, code: "meta:rejected:1"},
 		{name: "transient", body: `{"error":{"code":2}}`, statusCode: http.StatusServiceUnavailable, code: "meta:transient:2"},
 		{name: "other", body: `{"error":{"code":100}}`, statusCode: http.StatusBadRequest, code: "meta:100"},
 	}

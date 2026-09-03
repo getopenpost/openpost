@@ -74,7 +74,7 @@
 					data-active={active}
 					data-cuelume-toggle={item.id === 'new' ? 'release' : 'tick'}
 					class={[
-						'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+						'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 						item.id === 'new'
 							? 'text-primary'
 							: active
@@ -91,7 +91,9 @@
 					>
 						<ThemeIcon role={icon} class={item.id === 'new' ? 'size-5' : 'size-4'} />
 					</span>
-					<span data-theme-type="label" class="max-w-full truncate">{labelFor(item.id)}</span>
+					<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
+						>{labelFor(item.id)}</span
+					>
 				</button>
 			</li>
 		{/each}
@@ -105,7 +107,7 @@
 							data-theme-navigation-item
 							data-active={moreActive}
 							class={[
-								'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 								moreActive ? 'bg-accent text-foreground' : 'text-muted-foreground'
 							]}
 							aria-current={moreActive ? 'page' : undefined}
@@ -114,7 +116,9 @@
 							<span class="flex size-5 items-center justify-center">
 								<ThemeIcon role="menu" class="size-4" />
 							</span>
-							<span data-theme-type="label" class="max-w-full truncate">{m.sidebar_more()}</span>
+							<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
+								>{m.sidebar_more()}</span
+							>
 						</button>
 					{/snippet}
 				</DropdownMenu.Trigger>

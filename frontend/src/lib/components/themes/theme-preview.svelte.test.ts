@@ -160,10 +160,21 @@ describe('ThemePreview', () => {
 		'uses the shared shell and semantic type roles for %s',
 		async (family, scheme, titleFamily, sectionGap) => {
 			const theme = resolveBuiltInTheme(family, scheme);
+			// Stub resource staging: the component browser has no bundled font
+			// binaries, so real font loading always falls back to the default
+			// theme. The stub proves the manifest-to-CSS mapping per family.
+			const loaders: ThemeRuntimeLoaders = {
+				stageFonts: vi.fn(async () => ({ release: vi.fn() })),
+				loadAssets: vi.fn(async () => undefined),
+				loadIconPack: vi.fn(async () => undefined),
+				setBrowserSurface: vi.fn(() => vi.fn())
+			};
+			const runtime = new WebThemeRuntime(loaders);
 			const screen = render(ThemePreview, {
 				theme,
 				scene: 'tables',
-				label: `${theme.name} shell preview`
+				label: `${theme.name} shell preview`,
+				runtime
 			});
 			await expect
 				.element(screen.getByTestId('theme-preview'))

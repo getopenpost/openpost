@@ -68,6 +68,7 @@
 		onPublish?: (theme: ThemeManifest) => ThemeManifest | void | Promise<ThemeManifest | void>;
 		onRollback?: (revision: number) => ThemeManifest | Promise<ThemeManifest>;
 		onReload?: () => ThemeManifest | Promise<ThemeManifest>;
+		onClose?: () => void;
 		onUploadFont?: (
 			file: File,
 			input: ThemeFontUploadInput,
@@ -96,6 +97,7 @@
 		onPublish,
 		onRollback,
 		onReload,
+		onClose,
 		onUploadFont,
 		onUploadAsset,
 		onRemoveResource
@@ -743,6 +745,11 @@
 						? m.theme_editor_publishing()
 						: m.theme_editor_publish()}</Button
 				>
+				{#if onClose}
+					<Button size="sm" intent="quiet" onclick={onClose} disabled={editorBusy}
+						>{m.common_close()}</Button
+					>
+				{/if}
 			</div>
 		</header>
 

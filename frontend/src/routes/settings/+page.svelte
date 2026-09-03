@@ -29,6 +29,7 @@
 	import BillingSettingsTab from '$lib/components/settings/BillingSettingsTab.svelte';
 	import BrandSettingsTab from '$lib/components/settings/BrandSettingsTab.svelte';
 	import DeveloperSettingsTab from '$lib/components/settings/DeveloperSettingsTab.svelte';
+	import ThemeAppearanceSettings from '$lib/components/themes/theme-appearance-settings.svelte';
 	import InstanceSettingsTab from '$lib/components/settings/InstanceSettingsTab.svelte';
 	import ProfileSettingsTab from '$lib/components/settings/ProfileSettingsTab.svelte';
 	import ScheduleSettingsTab from '$lib/components/settings/ScheduleSettingsTab.svelte';
@@ -248,6 +249,8 @@
 					<WorkspacePreferencesSettings onDelete={() => (destructiveDialogOpen = true)} />
 				{:else if activeSettingsTab === 'brand'}
 					<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
+				{:else if activeSettingsTab === 'appearance'}
+					<ThemeAppearanceSettings />
 				{:else if activeSettingsTab === 'accounts'}
 					<AccountManagement
 						workspace={workspaceCtx.currentWorkspace}

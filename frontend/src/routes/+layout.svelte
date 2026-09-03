@@ -35,6 +35,7 @@
 	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
 	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { queryClient } from '$lib/query/client';
+	import ThemeAppShell from '$lib/components/themes/theme-app-shell.svelte';
 	import { createPublicationQueryInvalidationBridge } from '$lib/query/publication-invalidation';
 	import { ui } from '$lib/stores/ui.svelte';
 
@@ -470,6 +471,7 @@
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>
+	<ThemeAppShell />
 	{#if !isPreviewRoute}
 		<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
 	<Toaster position="bottom-center" richColors closeButton />

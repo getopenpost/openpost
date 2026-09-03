@@ -22,7 +22,6 @@
 	import type { ImageEditorBrandKit, ImageEditorDocumentResponse } from '$lib/image-editor/types';
 	import ImageEditorShell from '$lib/image-editor/components/image-editor-shell.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -216,12 +215,6 @@
 	<div class="flex h-dvh items-center justify-center bg-background text-foreground">
 		<LoaderIcon class="mr-2 size-5 animate-spin" />
 		{m.image_editor_public_importing()}
-	</div>
-{:else if loading && !design}
-	<div class="image-editor-theme h-dvh overflow-hidden bg-neutral-900 p-4 text-neutral-200">
-		<div class="mx-auto w-full max-w-5xl pt-14">
-			<PageLoading layout="composer" label={m.image_editor_load()} items={3} />
-		</div>
 	</div>
 {:else if error || !design}
 	<div class="flex h-dvh items-center justify-center bg-background p-4">

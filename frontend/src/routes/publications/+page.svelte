@@ -31,14 +31,15 @@
 	import { resolveAppPath } from '$lib/app-path';
 	import { dismissToast, showToast } from '$lib/toast';
 	import { formatSocialAccountName } from '$lib/utils';
-	import { createQuery } from '@tanstack/svelte-query';
+	import { createInfiniteQuery, createQuery, type InfiniteData } from '@tanstack/svelte-query';
 	import {
-		activityPublicationsQueryOptions,
-		failedJobsQueryOptions,
+		activityPublicationsInfiniteQueryOptions,
+		failedJobsInfiniteQueryOptions,
 		openPostQueryKeys,
 		workspaceAccountsQueryOptions,
 		type ActivityPublicationBucket
 	} from '@openpost/query-catalog';
+	import type { QueryPageResult } from '@openpost/query-catalog';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
 	import { QueryProjectionTracker } from '$lib/query/projection';
@@ -75,10 +76,6 @@
 		last_error?: string;
 	};
 
-	let posts = $state.raw<ActivityItem[]>([]);
-	let failedJobs = $state.raw<JobLog[]>([]);
-	let publicationPage = $state.raw<ActivityPageState>({ total: 0, nextCursor: '' });
-	let failedJobsPage = $state.raw<ActivityPageState>({ total: 0, nextCursor: '' });
 	let accounts = $state.raw<SocialAccount[]>([]);
 	let copiedReportPostID = $state('');
 	let retryingDestination = $state('');
@@ -89,8 +86,6 @@
 	let dataWorkspaceID = $state('');
 	let dataActivityBucket = $state<ActivityPublicationBucket | ''>('');
 	let dataRequestSequence = 0;
-	let loadingMorePublications = $state(false);
-	let loadingMoreJobs = $state(false);
 	let destinationActionSequence = 0;
 	const failureDismissalToastIDs = new Set<string | number>();
 	let activeTab = $state<ActivityTab>(
@@ -169,15 +164,40 @@
 	);
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const activeActivityBucket = $derived(activityBucketForTab(activeTab));
-	const publicationsQuery = createQuery(() =>
-		activityPublicationsQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
+	const publicationsInfinite = createInfiniteQuery(() =>
+		activityPublicationsInfiniteQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
 			limit: publicationPageSize
 		})
 	);
-	const failedJobsQuery = createQuery(() => ({
-		...failedJobsQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
+	const failedJobsInfinite = createInfiniteQuery(() => ({
+		...failedJobsInfiniteQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
 		enabled: Boolean(currentWorkspaceID && activeActivityBucket === 'failed')
 	}));
+	// Pages stay in the Query cache under the workspace+bucket key, so revisits
+	// and tab switches reuse fetched pages instead of refetching page one.
+	const posts = $derived.by(() => {
+		const seen = new Set<string>();
+		const items: ActivityItem[] = [];
+		for (const page of publicationsInfinite.data?.pages ?? []) {
+			for (const publication of page.items) {
+				if (seen.has(publication.id)) continue;
+				seen.add(publication.id);
+				items.push(activityItem(publication));
+			}
+		}
+		return items;
+	});
+	const failedJobs = $derived<JobLog[]>(
+		(failedJobsInfinite.data?.pages ?? []).flatMap((page) => page.items)
+	);
+	const publicationPage = $derived<ActivityPageState>({
+		total: publicationsInfinite.data?.pages[0]?.total ?? 0,
+		nextCursor: publicationsInfinite.data?.pages.at(-1)?.nextCursor ?? ''
+	});
+	const failedJobsPage = $derived<ActivityPageState>({
+		total: failedJobsInfinite.data?.pages[0]?.total ?? 0,
+		nextCursor: failedJobsInfinite.data?.pages.at(-1)?.nextCursor ?? ''
+	});
 	const accountsQuery = createQuery(() =>
 		workspaceAccountsQueryOptions(queryAPI, currentWorkspaceID)
 	);
@@ -185,15 +205,17 @@
 	// this to PageContainer `loading` (use `initialLoading`); it would flash the
 	// skeleton over cached content on every refresh.
 	const loading = $derived(
-		publicationsQuery.isFetching ||
+		(publicationsInfinite.isFetching && !publicationsInfinite.isFetchingNextPage) ||
 			accountsQuery.isFetching ||
-			(activeActivityBucket === 'failed' && failedJobsQuery.isFetching)
+			(activeActivityBucket === 'failed' &&
+				failedJobsInfinite.isFetching &&
+				!failedJobsInfinite.isFetchingNextPage)
 	);
 	const visibleError = $derived(error || queryError);
 	const initialQueriesSettled = $derived(
-		!publicationsQuery.isPending &&
+		!publicationsInfinite.isPending &&
 			!accountsQuery.isPending &&
-			(activeActivityBucket !== 'failed' || !failedJobsQuery.isPending)
+			(activeActivityBucket !== 'failed' || !failedJobsInfinite.isPending)
 	);
 	const currentViewLoaded = $derived(
 		hasLoaded &&
@@ -207,12 +229,10 @@
 	// Queries pause instead of erroring when the device is offline. Surface the
 	// waiting state in the page copy so a cold offline load does not look stuck.
 	const offlinePaused = $derived(
-		(publicationsQuery.fetchStatus === 'paused' || accountsQuery.fetchStatus === 'paused') &&
+		(publicationsInfinite.fetchStatus === 'paused' || accountsQuery.fetchStatus === 'paused') &&
 			!currentViewLoaded &&
 			!visibleError
 	);
-	const publicationsProjection = new QueryProjectionTracker();
-	const jobsProjection = new QueryProjectionTracker();
 	const accountsProjection = new QueryProjectionTracker();
 
 	$effect(() => {
@@ -228,41 +248,24 @@
 			const workspaceChanged = dataWorkspaceID !== workspaceId;
 			dataWorkspaceID = workspaceId;
 			dataActivityBucket = activityBucket;
-			posts = [];
-			publicationPage = { total: 0, nextCursor: '' };
 			hasLoaded = false;
-			loadingMorePublications = false;
-			loadingMoreJobs = false;
 			error = '';
 			queryError = '';
+			successMessage = '';
 			if (workspaceChanged) {
-				failedJobs = [];
-				failedJobsPage = { total: 0, nextCursor: '' };
 				accounts = [];
 			}
 		});
 	});
 
 	$effect(() => {
-		const data = publicationsQuery.data;
-		const scope = `${currentWorkspaceID}:${activeActivityBucket}`;
-		if (!publicationsProjection.shouldProject(data, scope)) return;
-		untrack(() => {
-			dataWorkspaceID = currentWorkspaceID;
-			dataActivityBucket = activeActivityBucket;
-			posts = data.items.map(activityItem);
-			publicationPage = { total: data.total, nextCursor: data.nextCursor };
-			hasLoaded = true;
-		});
-	});
-
-	$effect(() => {
-		const data = failedJobsQuery.data;
-		if (!jobsProjection.shouldProject(data, currentWorkspaceID)) return;
-		untrack(() => {
-			failedJobs = data.items;
-			failedJobsPage = { total: data.total, nextCursor: data.nextCursor };
-		});
+		// Infinite pages are keyed by workspace+bucket, so arriving data always
+		// belongs to the current view. Mark loaded once the first page lands.
+		if (publicationsInfinite.data && !hasLoaded) {
+			untrack(() => {
+				hasLoaded = true;
+			});
+		}
 	});
 
 	$effect(() => {
@@ -274,7 +277,7 @@
 	});
 
 	$effect(() => {
-		if (publicationsQuery.isError) {
+		if (publicationsInfinite.isError && !publicationsInfinite.data) {
 			queryError = m.activity_failed_posts();
 			return;
 		}
@@ -282,11 +285,7 @@
 			queryError = '';
 			return;
 		}
-		if (activeActivityBucket === 'failed' && failedJobsQuery.isError) {
-			if (!failedJobsQuery.data) {
-				failedJobs = [];
-				failedJobsPage = { total: 0, nextCursor: '' };
-			}
+		if (activeActivityBucket === 'failed' && failedJobsInfinite.isError && !failedJobsInfinite.data) {
 			queryError = m.activity_failed_jobs();
 			return;
 		}
@@ -300,77 +299,42 @@
 
 	async function loadData() {
 		dataRequestSequence++;
-		loadingMorePublications = false;
-		loadingMoreJobs = false;
 		error = '';
 		queryError = '';
 		await Promise.all([
-			publicationsQuery.refetch(),
+			publicationsInfinite.refetch(),
 			accountsQuery.refetch(),
-			...(activeActivityBucket === 'failed' ? [failedJobsQuery.refetch()] : [])
+			...(activeActivityBucket === 'failed' ? [failedJobsInfinite.refetch()] : [])
 		]);
 	}
 
 	async function loadMorePublicationHistory() {
-		const workspaceId = currentWorkspaceID;
-		const cursor = publicationPage.nextCursor;
-		const activityBucket = dataActivityBucket;
-		if (!workspaceId || !activityBucket || !cursor || loadingMorePublications) return;
-		const requestSequence = dataRequestSequence;
-		loadingMorePublications = true;
+		if (
+			!publicationsInfinite.hasNextPage ||
+			publicationsInfinite.isFetchingNextPage ||
+			publicationsInfinite.isPending
+		)
+			return;
 		error = '';
 		try {
-			const response = await queryClient.query(
-				activityPublicationsQueryOptions(queryAPI, workspaceId, activityBucket, {
-					limit: publicationPageSize,
-					cursor
-				})
-			);
-			if (
-				requestSequence !== dataRequestSequence ||
-				currentWorkspaceID !== workspaceId ||
-				activeActivityBucket !== activityBucket
-			)
-				return;
-			const existingIDs = new Set(posts.map((post) => post.id));
-			posts = [
-				...posts,
-				...response.items.map(activityItem).filter((post) => !existingIDs.has(post.id))
-			];
-			publicationPage = { total: response.total, nextCursor: response.nextCursor };
+			await publicationsInfinite.fetchNextPage();
 		} catch (cause) {
-			if (
-				requestSequence !== dataRequestSequence ||
-				currentWorkspaceID !== workspaceId ||
-				activeActivityBucket !== activityBucket
-			)
-				return;
 			error = cause instanceof Error ? cause.message : m.activity_failed_posts();
-		} finally {
-			if (requestSequence === dataRequestSequence) loadingMorePublications = false;
 		}
 	}
 
 	async function loadMoreFailedJobs() {
-		const workspaceId = currentWorkspaceID;
-		const cursor = failedJobsPage.nextCursor;
-		if (!workspaceId || !cursor || loadingMoreJobs) return;
-		const requestSequence = dataRequestSequence;
-		loadingMoreJobs = true;
+		if (
+			!failedJobsInfinite.hasNextPage ||
+			failedJobsInfinite.isFetchingNextPage ||
+			failedJobsInfinite.isPending
+		)
+			return;
 		error = '';
 		try {
-			const response = await queryClient.query(
-				failedJobsQueryOptions(queryAPI, workspaceId, { limit: jobPageSize, cursor })
-			);
-			if (requestSequence !== dataRequestSequence || currentWorkspaceID !== workspaceId) return;
-			const existingIDs = new Set(failedJobs.map((job) => job.id));
-			failedJobs = [...failedJobs, ...response.items.filter((job) => !existingIDs.has(job.id))];
-			failedJobsPage = { total: response.total, nextCursor: response.nextCursor };
+			await failedJobsInfinite.fetchNextPage();
 		} catch (cause) {
-			if (requestSequence !== dataRequestSequence || currentWorkspaceID !== workspaceId) return;
 			error = cause instanceof Error ? cause.message : m.activity_failed_jobs();
-		} finally {
-			if (requestSequence === dataRequestSequence) loadingMoreJobs = false;
 		}
 	}
 
@@ -604,8 +568,34 @@
 		});
 	}
 
-	function invalidateActivity(workspaceId: string) {
-		ui.invalidatePublications({ workspaceId, scopes: ['activity'] }, { immediate: true });
+	function removePostFromCache(workspaceId: string, publicationId: string) {
+		for (const bucket of ['scheduled', 'published', 'failed', 'draft'] as const) {
+			const queryKey = openPostQueryKeys.publications.activity(workspaceId, bucket, {
+				limit: publicationPageSize,
+				cursor: ''
+			});
+			queryClient.setQueryData(
+				queryKey,
+				(cached: InfiniteData<QueryPageResult<Publication>> | undefined) => {
+					if (!cached) return cached;
+					return {
+						...cached,
+						pages: cached.pages.map((page, index) => ({
+							...page,
+							items: page.items.filter((item) => item.id !== publicationId),
+							total: index === 0 ? Math.max(0, page.total - 1) : page.total
+						}))
+					};
+				}
+			);
+		}
+	}
+
+	function invalidateActivity(workspaceId: string, activities?: ActivityPublicationBucket[]) {
+		ui.invalidatePublications(
+			{ workspaceId, scopes: ['activity'], activities },
+			{ immediate: true }
+		);
 	}
 
 	function dismissFailureDismissalToasts() {
@@ -613,14 +603,18 @@
 		failureDismissalToastIDs.clear();
 	}
 
-	async function reconcileActivityPublication(operation: ActivityOperation, publicationId: string) {
+	async function reconcileActivityPublication(
+		operation: ActivityOperation,
+		publicationId: string,
+		activities?: ActivityPublicationBucket[]
+	) {
 		if (!activityActorIsCurrent(operation)) return false;
 		const queryKey = openPostQueryKeys.publications.detail(operation.workspaceId, publicationId);
 		await queryClient.cancelQueries({ queryKey, exact: true });
 		if (!activityActorIsCurrent(operation)) return false;
 		await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
 		if (!activityActorIsCurrent(operation)) return false;
-		invalidateActivity(operation.workspaceId);
+		invalidateActivity(operation.workspaceId, activities);
 		return true;
 	}
 
@@ -654,7 +648,8 @@
 				if (retryError) {
 					throw new Error(retryError.detail || m.activity_delivery_failed());
 				}
-				if (!(await reconcileActivityPublication(operation, post.publication_id))) return;
+				if (!(await reconcileActivityPublication(operation, post.publication_id, ['failed', 'scheduled'])))
+					return;
 				if (actionSequence === destinationActionSequence && activityViewIsCurrent(operation)) {
 					successMessage = m.activity_retry_queued();
 					await loadData();
@@ -696,13 +691,9 @@
 				}
 				return;
 			}
-			if (!(await reconcileActivityPublication(operation, publicationID))) return;
+			if (!(await reconcileActivityPublication(operation, publicationID, ['failed']))) return;
 			if (!activityViewIsCurrent(operation)) return;
-			posts = posts.filter((candidate) => candidate.id !== post.id);
-			publicationPage = {
-				...publicationPage,
-				total: Math.max(0, publicationPage.total - 1)
-			};
+			removePostFromCache(operation.workspaceId, post.id);
 			const toastID = showToast(m.activity_dismissed_failed(), 'success', {
 				actionLabel: m.activity_restore_failed(),
 				onAction: () => {
@@ -718,7 +709,8 @@
 							}
 							return;
 						}
-						if (!(await reconcileActivityPublication(operation, publicationID))) return;
+						if (!(await reconcileActivityPublication(operation, publicationID, ['failed'])))
+							return;
 						if (activityViewIsCurrent(operation)) await loadData();
 					})();
 				}
@@ -894,7 +886,6 @@
 	{#if currentViewLoaded}
 		<Tabs bind:value={activeTab}>
 			<TabsList
-				variant="line"
 				class="mb-6 no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden"
 			>
 				<TabsTrigger value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
@@ -987,14 +978,14 @@
 							<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
 								{failedJobs.length} / {failedJobsPage.total}
 							</span>
-							{#if failedJobsPage.nextCursor}
+							{#if failedJobsInfinite.hasNextPage}
 								<Button
 									variant="outline"
 									size="sm"
-									disabled={loading || loadingMoreJobs}
+									disabled={loading || failedJobsInfinite.isFetchingNextPage}
 									onclick={loadMoreFailedJobs}
 								>
-									{#if loadingMoreJobs}
+									{#if failedJobsInfinite.isFetchingNextPage}
 										<RefreshIcon class="mr-1.5 size-3.5 animate-spin" />
 									{/if}
 									{m.activity_load_more_jobs({
@@ -1014,14 +1005,14 @@
 			<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
 				{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
 			</span>
-			{#if publicationPage.nextCursor}
+			{#if publicationsInfinite.hasNextPage}
 				<Button
 					variant="outline"
 					size="sm"
-					disabled={loading || loadingMorePublications}
+					disabled={loading || publicationsInfinite.isFetchingNextPage}
 					onclick={loadMorePublicationHistory}
 				>
-					{#if loadingMorePublications}
+					{#if publicationsInfinite.isFetchingNextPage}
 						<RefreshIcon class="mr-1.5 size-3.5 animate-spin" />
 					{/if}
 					{m.notifications_load_more()}

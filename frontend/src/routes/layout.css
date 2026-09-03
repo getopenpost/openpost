@@ -997,6 +997,14 @@
 		background: transparent;
 	}
 
+	[data-theme-tabs='underline'] [data-slot='tabs-trigger'][data-active] {
+		background: transparent;
+	}
+
+	[data-theme-tabs='underline'] [data-slot='tabs-trigger'][data-active]::after {
+		opacity: 1;
+	}
+
 	[data-theme-card='flat'] [data-slot='card'] {
 		border-color: transparent;
 		box-shadow: none;

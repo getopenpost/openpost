@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type { WebResolvedTheme } from '$lib/themes';
@@ -310,24 +312,15 @@
 						>
 							<label data-theme-type="label" class="grid gap-1.5">
 								{copy.workspaceNameLabel}
-								<input
-									data-slot="input"
-									data-theme-type="body"
-									class="min-h-9 rounded-[var(--theme-radius-md,var(--radius))] border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									value="Northstar"
-									readonly={!interactive}
-								/>
+								<Input data-theme-type="body" value="Northstar" readonly={!interactive} />
 							</label>
 							<label data-theme-type="label" class="grid gap-1.5">
 								{copy.defaultTimezone}
-								<select
-									data-slot="select-trigger"
-									data-theme-type="body"
-									class="min-h-9 rounded-[var(--theme-radius-md,var(--radius))] border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								<AppSelect
+									value="Europe/Lisbon"
+									options={[{ value: 'Europe/Lisbon', label: 'Europe/Lisbon' }]}
 									disabled={!interactive}
-								>
-									<option>Europe/Lisbon</option>
-								</select>
+								/>
 							</label>
 							<div class="flex flex-wrap justify-end gap-2 pt-1">
 								<Button size="sm" intent="quiet" disabled={!interactive}>{copy.cancel}</Button>

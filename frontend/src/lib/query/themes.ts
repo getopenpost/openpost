@@ -20,6 +20,19 @@ type QueryTransport = Pick<typeof client, 'GET'>;
  * GET routed through the central query transport; writes stay on the
  * caller and reconcile the cache through themeMutationCachePlan.
  */
+interface ThemeLibraryQuery {
+	organization_id: string;
+	cursor?: string;
+}
+
+function themeLibraryQuery(organizationId: string, cursor: string): ThemeLibraryQuery {
+	const query: ThemeLibraryQuery = {
+		organization_id: organizationId
+	};
+	if (cursor) query.cursor = cursor;
+	return query;
+}
+
 export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQueryAPI {
 	return {
 		async listBuiltInThemes(signal) {
@@ -37,10 +50,7 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 				request: (requestSignal) =>
 					transport.GET('/themes', {
 						params: {
-							query: {
-								organization_id: organizationId,
-								...(cursor ? { cursor } : {})
-							}
+							query: themeLibraryQuery(organizationId, cursor)
 						},
 						signal: requestSignal
 					})
@@ -118,10 +128,7 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 					transport.GET('/themes/{id}/revisions', {
 						params: {
 							path: { id: themeId },
-							query: {
-								organization_id: organizationId,
-								...(cursor ? { cursor } : {})
-							}
+							query: themeLibraryQuery(organizationId, cursor)
 						},
 						signal: requestSignal
 					})
@@ -147,10 +154,7 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 				request: (requestSignal) =>
 					transport.GET('/theme-assets', {
 						params: {
-							query: {
-								organization_id: organizationId,
-								...(cursor ? { cursor } : {})
-							}
+							query: themeLibraryQuery(organizationId, cursor)
 						},
 						signal: requestSignal
 					})

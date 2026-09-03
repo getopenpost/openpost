@@ -51,6 +51,7 @@
 	const settings = createQuery(() => themeSettingsOptions(workspaceID));
 	const available = createQuery(() => themeAvailableThemesOptions(workspaceID));
 
+	// SAFETY: the settings query is typed by themeSettingsOptions against the generated contract.
 	let settingsData = $derived(settings.data as ThemeSettings | undefined);
 	let canManageOrganization = $derived(settingsData?.can_manage_organization ?? false);
 	let canManageWorkspace = $derived(settingsData?.can_manage_workspace ?? false);
@@ -262,7 +263,7 @@
 	let canPublish = $derived(canManageOrganization && Boolean(detail?.draft));
 	let revisionItems = $derived.by(() => {
 		const pageResult = editorRevisions.data;
-		if (!pageResult) return [] as ThemeRevisionItem[];
+		if (!pageResult) return [];
 		return pageResult.items.map((revision) => ({
 			revision: revision.revision,
 			label: m.theme_editor_revision({ revision: revision.revision }),

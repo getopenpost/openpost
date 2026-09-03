@@ -8,7 +8,7 @@
 	import { createThemeQueryAPI } from '$lib/query/themes';
 	import { toWebResolvedTheme } from '$lib/themes/web-resolved';
 	import ThemeApplicationBoundary from './theme-application-boundary.svelte';
-	import type { ThemeScheme } from '$lib/themes';
+	import type { ThemeScheme, WebResolvedTheme } from '$lib/themes';
 
 	const themeApi = createThemeQueryAPI();
 
@@ -39,7 +39,14 @@
 	let active = $derived(
 		typeof document !== 'undefined' && authState.isAuthenticated && Boolean(workspaceID)
 	);
-	let theme = $derived(resolved.data ? toWebResolvedTheme(resolved.data) : null);
+	// Hold the last resolved theme across workspace or scheme changes so a
+	// switch never flashes the Workshop fallback while the new query loads.
+	// The boundary keeps the retained theme applied until fresh data arrives.
+	let retainedTheme = $state<WebResolvedTheme | null>(null);
+	$effect(() => {
+		if (resolved.data) retainedTheme = toWebResolvedTheme(resolved.data);
+	});
+	let theme = $derived(retainedTheme);
 </script>
 
 <ThemeApplicationBoundary {active} scheme={effectiveScheme} {theme} />

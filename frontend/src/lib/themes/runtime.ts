@@ -862,8 +862,11 @@ export class WebThemeRuntime {
 					bubbles: true,
 					detail: {
 						id: resolved.id,
+						revision: resolved.revision,
 						iconPack: resolved.iconPack,
-						scheme: resolved.scheme
+						scheme: resolved.scheme,
+						source: resolved.source,
+						fallbackReason: resolved.fallbackReason ?? null
 					}
 				})
 			);

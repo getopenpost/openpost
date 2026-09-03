@@ -10,7 +10,23 @@ export const THEME_FAMILY_IDS = [
 	'cloud-garden',
 	'study-hall',
 	'corkboard',
-	'midnight'
+	'midnight',
+	'ferrari',
+	'todoist',
+	'notion',
+	'supabase',
+	'firecrawl',
+	'vercel',
+	'calcom',
+	'launchdarkly',
+	'origin',
+	'apple',
+	'duolingo',
+	'mintlify',
+	'column',
+	'linear',
+	'quizlet',
+	'posthog'
 ] as const;
 export type ThemeFamilyId = (typeof THEME_FAMILY_IDS)[number];
 

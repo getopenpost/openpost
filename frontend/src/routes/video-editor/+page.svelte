@@ -451,14 +451,14 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 <svelte:head><title>{m.video_editor_title()}</title></svelte:head>
 
 <div
-	class="video-editor-theme flex min-h-dvh flex-col bg-[oklch(0.145_0.008_55)] text-[oklch(0.92_0.005_85)]"
+	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
 	<header
-		class="flex items-center justify-between border-b border-[oklch(0.25_0.015_55)] px-4 py-2"
+		class="flex items-center justify-between border-b border-[var(--video-editor-border)] px-4 py-2"
 	>
 		<a
 			href="/editors"
-			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
 		>
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.video_editor_title()}</span>

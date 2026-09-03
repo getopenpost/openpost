@@ -2,8 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface MediaTag {
 		value: string;
@@ -162,7 +161,7 @@
 				aria-label={m.compose_remove_media_tag({ number: index + 1 })}
 				onclick={() => removeTag(index)}
 			>
-				<XIcon class="size-4" />
+				<ThemeIcon role="remove" class="size-4" />
 			</Button>
 		</div>
 	{/each}
@@ -176,7 +175,7 @@
 			disabled={disabled || tags.length >= maximum}
 			onclick={addTag}
 		>
-			<PlusIcon class="size-4" />
+			<ThemeIcon role="add" class="size-4" />
 			{m.compose_add_media_tag()}
 		</Button>
 		<span class="text-xs text-muted-foreground" aria-live="polite">

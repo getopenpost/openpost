@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { get } from 'svelte/store';
 	import { resolveAppPath } from '$lib/app-path';
 	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
@@ -9,25 +10,10 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import LanguageSwitcher from './language-switcher.svelte';
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
-	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
-	import CommunicationsIcon from '@lucide/svelte/icons/messages-square';
-	import GrowIcon from '@lucide/svelte/icons/user-round-plus';
-	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
-	import BellIcon from '@lucide/svelte/icons/bell';
-	import AccountsIcon from '@lucide/svelte/icons/users';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import UserIcon from '@lucide/svelte/icons/user-round';
-	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import LogOutIcon from '@lucide/svelte/icons/log-out';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import Volume2Icon from '@lucide/svelte/icons/volume-2';
-	import MessageSquareIcon from '@lucide/svelte/icons/message-square-text';
-	import BuildingIcon from '@lucide/svelte/icons/building-2';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { openTelemetryPreferences } from '@openpost/telemetry';
-	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 
 	type AppearanceMode = 'system' | 'light' | 'dark';
 
@@ -66,8 +52,14 @@
 	}
 
 	async function handleLogout() {
+		const route = `${window.location.pathname}${window.location.search}`;
 		onNavigate?.();
-		await auth.logout();
+		if (
+			!(await auth.logout()) ||
+			get(auth).user ||
+			`${window.location.pathname}${window.location.search}` !== route
+		)
+			return;
 		await goto(resolveAppPath('/login'));
 	}
 </script>
@@ -82,14 +74,15 @@
 			workspacesExpanded = !workspacesExpanded;
 		}}
 	>
-		<BuildingIcon class="size-4 text-muted-foreground" />
+		<ThemeIcon role="organization" class="size-4 text-muted-foreground" />
 		<div class="grid min-w-0 flex-1 text-start leading-tight">
 			<span class="truncate"
 				>{workspaceCtx.currentWorkspace?.name ?? m.sidebar_select_workspace()}</span
 			>
 			<span class="truncate text-xs text-muted-foreground">{m.sidebar_switch_workspace()}</span>
 		</div>
-		<ChevronDownIcon
+		<ThemeIcon
+			role="chevron-down"
 			class={`ml-auto size-4 text-muted-foreground transition-transform ${workspacesExpanded ? 'rotate-180' : ''}`}
 		/>
 	</DropdownMenu.Item>
@@ -118,7 +111,7 @@
 				href={resolve('/inbox/engagement' as '/')}
 				onclick={onNavigate}
 			>
-				<CommunicationsIcon class="size-4 text-muted-foreground" />
+				<ThemeIcon role="communications" class="size-4 text-muted-foreground" />
 				{m.sidebar_communications()}
 			</a>
 		{/snippet}
@@ -131,7 +124,7 @@
 				href={resolve('/inbox/notifications' as '/')}
 				onclick={onNavigate}
 			>
-				<BellIcon class="size-4 text-muted-foreground" />
+				<ThemeIcon role="notification" class="size-4 text-muted-foreground" />
 				{m.notifications_heading()}
 			</a>
 		{/snippet}
@@ -144,7 +137,7 @@
 				href={resolve('/grow' as '/')}
 				onclick={onNavigate}
 			>
-				<GrowIcon class="size-4 text-muted-foreground" />
+				<ThemeIcon role="growth" class="size-4 text-muted-foreground" />
 				{m.sidebar_grow()}
 			</a>
 		{/snippet}
@@ -157,7 +150,7 @@
 				href={resolve('/analytics' as '/')}
 				onclick={onNavigate}
 			>
-				<AnalyticsIcon class="size-4 text-muted-foreground" />
+				<ThemeIcon role="analytics" class="size-4 text-muted-foreground" />
 				{m.sidebar_analytics()}
 			</a>
 		{/snippet}
@@ -175,7 +168,7 @@
 					href={resolve('/editors' as '/')}
 					onclick={onNavigate}
 				>
-					<EditorsIcon class="size-4 text-muted-foreground" />
+					<ThemeIcon role="editors" class="size-4 text-muted-foreground" />
 					{m.editors_title()}
 				</a>
 			{/snippet}
@@ -190,7 +183,7 @@
 					href={resolve('/settings?tab=accounts' as '/')}
 					onclick={onNavigate}
 				>
-					<AccountsIcon class="size-4 text-muted-foreground" />
+					<ThemeIcon role="users" class="size-4 text-muted-foreground" />
 					{m.sidebar_accounts()}
 				</a>
 			{/snippet}
@@ -203,7 +196,7 @@
 					href={resolve('/settings' as '/')}
 					onclick={onNavigate}
 				>
-					<SettingsIcon class="size-4 text-muted-foreground" />
+					<ThemeIcon role="settings" class="size-4 text-muted-foreground" />
 					{m.sidebar_settings()}
 				</a>
 			{/snippet}
@@ -216,12 +209,12 @@
 	class={[menuItemClass, 'gap-3']}
 	onclick={() => navigate('/settings?tab=profile')}
 >
-	<UserIcon class="size-4 text-muted-foreground" />
+	<ThemeIcon role="user" class="size-4 text-muted-foreground" />
 	{m.sidebar_profile_security()}
 </DropdownMenu.Item>
 <DropdownMenu.Sub>
 	<DropdownMenu.SubTrigger class={menuItemClass}>
-		<PaletteIcon class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="appearance" class="mr-2 size-4 text-muted-foreground" />
 		{m.sidebar_appearance()}
 		<span class="ml-auto text-muted-foreground capitalize"
 			>{appearanceLabel(userPrefersMode.current as AppearanceMode)}</span
@@ -235,7 +228,7 @@
 			>
 				<span>{appearanceLabel(appearance as AppearanceMode)}</span>
 				{#if userPrefersMode.current === appearance}
-					<CheckIcon class="ml-auto size-4 text-primary" />
+					<ThemeIcon role="check" class="ml-auto size-4 text-primary" />
 				{/if}
 			</DropdownMenu.Item>
 		{/each}
@@ -247,7 +240,7 @@
 	checked={soundPreferences.enabled}
 	onCheckedChange={(checked) => soundPreferences.setEnabled(checked)}
 >
-	<Volume2Icon class="mr-2 size-4 text-muted-foreground" />
+	<ThemeIcon role="audio" class="mr-2 size-4 text-muted-foreground" />
 	{m.sidebar_interface_sounds()}
 </DropdownMenu.CheckboxItem>
 <LanguageSwitcher variant="menu" touchSize={showDestinations} />
@@ -258,7 +251,7 @@
 		openTelemetryPreferences();
 	}}
 >
-	<SlidersHorizontalIcon class="size-4 text-muted-foreground" />
+	<ThemeIcon role="controls" class="size-4 text-muted-foreground" />
 	{m.telemetry_consent_preferences()}
 </DropdownMenu.Item>
 <DropdownMenu.Item
@@ -268,11 +261,11 @@
 		ui.openFeedback();
 	}}
 >
-	<MessageSquareIcon class="size-4 text-muted-foreground" />
+	<ThemeIcon role="feedback" class="size-4 text-muted-foreground" />
 	{m.feedback_open()}
 </DropdownMenu.Item>
 <DropdownMenu.Separator />
 <DropdownMenu.Item class={menuItemClass} onclick={handleLogout}>
-	<LogOutIcon class="mr-2 size-4 text-muted-foreground" />
+	<ThemeIcon role="logout" class="mr-2 size-4 text-muted-foreground" />
 	{m.sidebar_log_out()}
 </DropdownMenu.Item>

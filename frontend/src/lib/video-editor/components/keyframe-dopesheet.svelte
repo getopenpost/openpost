@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import ClipboardPasteIcon from '@lucide/svelte/icons/clipboard-paste';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import LockIcon from '@lucide/svelte/icons/lock';
-	import PlusIcon from '@lucide/svelte/icons/plus';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 	import UnlockIcon from '@lucide/svelte/icons/unlock';
 	import { Input } from '$lib/components/ui/input';
@@ -722,7 +720,7 @@
 						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
 						aria-label={m.video_editor_keyframe_sheet_copy()}
 						disabled={selectedIds.size === 0}
-						onclick={() => copySelection()}><CopyIcon class="size-3" /></button
+						onclick={() => copySelection()}><ThemeIcon role="copy" class="size-3" /></button
 					>
 					<button
 						type="button"
@@ -816,7 +814,7 @@
 									onclick={() => toggleLock(property)}
 								>
 									{#if lockedProperties.has(property)}
-										<LockIcon class="size-3" />
+										<ThemeIcon role="lock" class="size-3" />
 									{:else}
 										<UnlockIcon class="size-3" />
 									{/if}
@@ -835,7 +833,8 @@
 									})}
 									disabled={lockedProperties.has(property)}
 									onpointerdown={(event) => event.stopPropagation()}
-									onclick={() => addAtCurrentFrame(property)}><PlusIcon class="size-3" /></button
+									onclick={() => addAtCurrentFrame(property)}
+									><ThemeIcon role="add" class="size-3" /></button
 								>
 							</div>
 							{#each blockedRanges as blocked, index (`${blocked.start}:${blocked.end}:${index}`)}

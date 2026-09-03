@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import { m } from '$lib/paraglide/messages';
 	import type { SelectionPoint } from '../selection';
 	import { containsExternalImageDrag, externalFiles } from '../media-drag';
@@ -78,7 +74,7 @@
 				? m.image_editor_collapse_pages()
 				: m.image_editor_expand_pages()}
 		>
-			{#if editor.pagesExpanded}<ChevronDownIcon />{:else}<ChevronUpIcon />{/if}
+			<ThemeIcon role={editor.pagesExpanded ? 'chevron-down' : 'chevron-up'} />
 		</Button>
 		<span class="text-sm font-medium text-foreground">{m.image_editor_pages()}</span>
 		<span class="text-xs text-muted-foreground">{editor.document?.pages.length ?? 0}</span>
@@ -90,7 +86,7 @@
 				onclick={() => editor.addPage()}
 				disabled={!editor.canEdit}
 			>
-				<PlusIcon />
+				<ThemeIcon role="add" />
 				<span class="sr-only">{m.image_editor_add_page()}</span>
 			</Button>
 			<Button
@@ -100,7 +96,7 @@
 				onclick={() => editor.duplicatePage()}
 				disabled={!editor.canEdit}
 			>
-				<CopyIcon />
+				<ThemeIcon role="copy" />
 				<span class="sr-only">{m.image_editor_duplicate_page()}</span>
 			</Button>
 			<Button
@@ -110,7 +106,7 @@
 				onclick={() => editor.deletePage()}
 				disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
 			>
-				<TrashIcon />
+				<ThemeIcon role="delete" />
 				<span class="sr-only">{m.image_editor_delete_page()}</span>
 			</Button>
 		</div>

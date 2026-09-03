@@ -3,10 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions-store.svelte';
 	import {
@@ -197,9 +194,9 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme flex max-h-[min(92dvh,820px)] w-[calc(100%-1rem)] max-w-2xl flex-col overflow-hidden border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-0 text-[var(--video-editor-text)] shadow-2xl sm:max-w-2xl"
+		class="video-editor-theme flex max-h-[min(92dvh,820px)] w-[calc(100%-1rem)] max-w-2xl flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-2xl"
 	>
-		<Dialog.Header class="border-b border-[oklch(0.27_0.014_55)] px-5 py-4 pr-12">
+		<Dialog.Header class="border-b border-border px-5 py-4 pr-12">
 			<Dialog.Title class="text-base">{m.video_editor_bento_title()}</Dialog.Title>
 			<Dialog.Description class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_bento_description({ count: eligibleIds.length })}
@@ -211,7 +208,7 @@
 				{#each builtIns as preset (preset.id)}
 					<button
 						type="button"
-						class="min-h-9 rounded-md border border-[oklch(0.29_0.014_55)] px-2.5 text-xs hover:bg-[oklch(0.23_0.015_55)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.14)] data-[active=true]:text-[var(--video-editor-focus)]"
+						class="min-h-9 rounded-md border border-border px-2.5 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:border-selection data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
 						data-active={selectedKey === `builtin:${preset.id}`}
 						aria-pressed={selectedKey === `builtin:${preset.id}`}
 						onclick={() => selectBuiltIn(preset)}
@@ -220,10 +217,10 @@
 					</button>
 				{/each}
 				{#each customPresets as preset (preset.id)}
-					<div class="flex items-center rounded-md border border-[oklch(0.29_0.014_55)]">
+					<div class="flex items-center rounded-md border border-border">
 						<button
 							type="button"
-							class="min-h-9 rounded-l-md px-2.5 text-xs hover:bg-[oklch(0.23_0.015_55)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.14)] data-[active=true]:text-[var(--video-editor-focus)]"
+							class="min-h-9 rounded-l-md px-2.5 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
 							data-active={selectedKey === `custom:${preset.id}`}
 							aria-pressed={selectedKey === `custom:${preset.id}`}
 							onclick={() => selectCustom(preset)}
@@ -232,18 +229,19 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-r-md text-[var(--video-editor-muted)] hover:bg-red-500/15 hover:text-red-300 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							class="flex size-9 items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
 							aria-label={m.video_editor_bento_delete_preset({ name: preset.name })}
 							onclick={() => deletePreset(preset.id)}
 						>
-							<Trash2Icon class="size-3.5" />
+							<ThemeIcon role="delete" class="size-3.5" />
 						</button>
 					</div>
 				{/each}
 			</div>
 
 			<div
-				class="relative mx-auto w-full max-w-xl overflow-hidden rounded-lg border border-[oklch(0.3_0.016_55)] bg-black"
+				class="editor-protected-surface relative mx-auto w-full max-w-xl overflow-hidden rounded-lg border border-[var(--canvas-grid)] bg-[var(--canvas-pasteboard)]"
+				data-editor-protected="bento-layout-preview"
 				style={`aspect-ratio:${Math.max(1, canvasWidth)}/${Math.max(1, canvasHeight)}`}
 				role="group"
 				aria-label={m.video_editor_bento_preview()}
@@ -252,7 +250,7 @@
 					<button
 						type="button"
 						draggable="true"
-						class="absolute flex min-h-6 min-w-6 cursor-grab items-center justify-center overflow-hidden rounded border border-[oklch(0.78_0.12_50)] bg-[oklch(0.5_0.11_45_/_0.78)] px-1 text-[10px] font-medium text-white shadow-sm focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-white active:cursor-grabbing"
+						class="absolute flex min-h-6 min-w-6 cursor-grab items-center justify-center overflow-hidden rounded border border-[var(--canvas-selection)] bg-[color-mix(in_oklch,var(--canvas-selection)_68%,var(--canvas-pasteboard))] px-1 text-[10px] font-medium text-[var(--editor-protected-glyph)] shadow-sm focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-[var(--canvas-handle)] active:cursor-grabbing"
 						style={previewStyle(chain[0] ?? '')}
 						aria-label={`${index + 1}. ${chainName(chain)}`}
 						ondragstart={() => (draggedIndex = index)}
@@ -270,10 +268,7 @@
 			</div>
 
 			<div class="grid gap-3 sm:grid-cols-[1fr_auto]">
-				<section
-					class="rounded-lg border border-[oklch(0.29_0.014_55)] p-3"
-					aria-labelledby="bento-order-title"
-				>
+				<section class="rounded-lg border border-border p-3" aria-labelledby="bento-order-title">
 					<h3 id="bento-order-title" class="text-xs font-medium">
 						{m.video_editor_bento_order()}
 					</h3>
@@ -282,27 +277,25 @@
 					</p>
 					<div class="mt-2 grid gap-1.5 sm:grid-cols-2">
 						{#each chainOrder as chain, index (chain[0])}
-							<div
-								class="flex min-w-0 items-center gap-1 rounded bg-[oklch(0.2_0.012_55)] p-1 pl-2"
-							>
+							<div class="flex min-w-0 items-center gap-1 rounded bg-muted p-1 pl-2">
 								<span class="min-w-0 flex-1 truncate text-xs">{index + 1}. {chainName(chain)}</span>
 								<button
 									type="button"
-									class="flex size-8 items-center justify-center rounded hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
+									class="flex size-8 items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
 									disabled={index === 0}
 									aria-label={m.video_editor_bento_move_earlier({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index - 1)}
 								>
-									<ChevronUpIcon class="size-3.5" />
+									<ThemeIcon role="chevron-up" class="size-3.5" />
 								</button>
 								<button
 									type="button"
-									class="flex size-8 items-center justify-center rounded hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
+									class="flex size-8 items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
 									disabled={index === chainOrder.length - 1}
 									aria-label={m.video_editor_bento_move_later({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index + 1)}
 								>
-									<ChevronDownIcon class="size-3.5" />
+									<ThemeIcon role="chevron-down" class="size-3.5" />
 								</button>
 							</div>
 						{/each}
@@ -322,15 +315,15 @@
 			</div>
 
 			<div
-				class="flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/8 p-3 text-xs text-amber-100"
+				class="flex items-start gap-2 rounded-md border border-warning/25 bg-warning/8 p-3 text-xs text-warning-foreground"
 			>
-				<AlertTriangleIcon class="mt-0.5 size-4 shrink-0" />
+				<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0" />
 				<p>{m.video_editor_bento_motion_warning()}</p>
 			</div>
 
 			{#if savingPreset}
 				<div
-					class="flex flex-col gap-2 rounded-lg border border-[oklch(0.29_0.014_55)] p-3 sm:flex-row sm:items-end"
+					class="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-end"
 				>
 					<label class="min-w-0 flex-1 space-y-1 text-xs">
 						<span class="text-[var(--video-editor-muted)]"
@@ -354,7 +347,7 @@
 		</div>
 
 		<Dialog.Footer
-			class="flex-row justify-between border-t border-[oklch(0.27_0.014_55)] px-5 py-3 sm:justify-between"
+			class="flex-row justify-between border-t border-border px-5 py-3 sm:justify-between"
 		>
 			<Button variant="ghost" size="sm" onclick={() => (savingPreset = !savingPreset)}>
 				{m.video_editor_bento_new_preset()}

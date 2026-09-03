@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import type { MediaTag } from '$lib/media-tags';
-	import HashIcon from '@lucide/svelte/icons/hash';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -56,7 +55,7 @@
 			aria-pressed={selectedIds.includes(tag.id)}
 			onclick={() => toggle(tag.id)}
 		>
-			<HashIcon class="size-3.5" />
+			<ThemeIcon role="tag" class="size-3.5" />
 			<span class="truncate">{tag.name}</span>
 			<span class="text-xs text-muted-foreground tabular-nums">{tag.item_count}</span>
 		</Button>
@@ -69,7 +68,7 @@
 			onclick={onManage}
 			aria-label={m.media_manage_tags()}
 		>
-			<SettingsIcon />
+			<ThemeIcon role="settings" />
 		</Button>
 	{/if}
 </div>

@@ -7,7 +7,7 @@
 	import type { ComponentProps } from 'svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { m } from '$lib/paraglide/messages';
-	import RiCloseLine from 'remixicon-svelte/icons/close-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -46,7 +46,7 @@
 						size="icon-sm"
 						{...props}
 					>
-						<RiCloseLine />
+						<ThemeIcon role="close" />
 						<span class="sr-only">{m.common_close()}</span>
 					</Button>
 				{/snippet}

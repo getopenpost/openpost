@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
+import { createServerChoice, serverChoiceErrorMessage } from "@/lib/server-choice";
 import { HOSTED_URL, probeServer, setServer } from "@/lib/server";
 
 export default function ServerScreen() {
@@ -23,21 +24,30 @@ export default function ServerScreen() {
   const [showSelfHosted, setShowSelfHosted] = useState(false);
   const [busy, setBusy] = useState<"hosted" | "custom" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [serverChoice] = useState(() =>
+    createServerChoice({ probe: probeServer, persist: setServer }),
+  );
 
   async function choose(target: string, kind: "hosted" | "custom") {
+    const operation = serverChoice.start(target);
+    if (!operation) return;
     setBusy(kind);
     setError(null);
-    const result = await probeServer(target);
-    if (!result.ok) {
-      setBusy(null);
-      setError(result.error);
+    try {
+      const result = await operation;
+      if (result.status === "failed") {
+        setError(result.message);
+        void errorHaptic();
+        return;
+      }
+      void successHaptic();
+      router.replace(params.from === "settings" ? "/" : "/onboarding/login");
+    } catch (cause) {
+      setError(serverChoiceErrorMessage(cause));
       void errorHaptic();
-      return;
+    } finally {
+      setBusy(null);
     }
-    await setServer(result.baseUrl);
-    void successHaptic();
-    setBusy(null);
-    router.replace(params.from === "settings" ? "/" : "/onboarding/login");
   }
 
   return (
@@ -49,15 +59,15 @@ export default function ServerScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Brand style={styles.brand} />
-          <Text style={[styles.title, { color: colors.text }]}>Sign in to OpenPost</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>Sign in to OpenPost</Text>
           <BodyText style={styles.subtitle}>Choose where to sign in.</BodyText>
 
           <Card style={styles.hostedCard}>
-            <Text style={[styles.hostedTitle, { color: colors.text }]}>OpenPost Hosted</Text>
+            <Text style={[styles.hostedTitle, { color: colors.onSurface }]}>OpenPost Hosted</Text>
             <BodyText>Managed at {HOSTED_URL.replace("https://", "")}</BodyText>
             <Button
               title="Continue to sign in"
-              variant="focal"
+              intent="focal"
               disabled={busy !== null}
               loading={busy === "hosted"}
               onPress={() => void choose(HOSTED_URL, "hosted")}
@@ -66,14 +76,14 @@ export default function ServerScreen() {
           </Card>
 
           {error ? (
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </BodyText>
           ) : null}
 
           <Button
             title={showSelfHosted ? "Hide self-hosted setup" : "Connect a self-hosted server"}
-            variant="plain"
+            intent="quiet"
             accessibilityHint={`${showSelfHosted ? "Hides" : "Shows"} the self-hosted server address field`}
             accessibilityState={{ expanded: showSelfHosted }}
             disabled={busy !== null}
@@ -97,7 +107,7 @@ export default function ServerScreen() {
               <BodyText>Use the HTTPS address for your OpenPost server.</BodyText>
               <Button
                 title="Connect to server"
-                variant="tinted"
+                intent="ordinary"
                 disabled={busy !== null || url.trim().length === 0}
                 loading={busy === "custom"}
                 onPress={() => void choose(url, "custom")}

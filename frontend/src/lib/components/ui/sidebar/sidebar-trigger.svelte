@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import RiSideBarLine from 'remixicon-svelte/icons/side-bar-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 	import { useSidebar } from './context.svelte.js';
@@ -32,6 +32,6 @@
 	}}
 	{...restProps}
 >
-	<RiSideBarLine />
+	<ThemeIcon role="menu" />
 	<span class="sr-only">{m.common_toggle_sidebar()}</span>
 </Button>

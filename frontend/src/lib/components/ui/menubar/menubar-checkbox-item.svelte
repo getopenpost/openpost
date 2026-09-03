@@ -2,8 +2,7 @@
 	import { Menubar as MenubarPrimitive } from 'bits-ui';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import type { Snippet } from 'svelte';
-	import RiSubtractLine from 'remixicon-svelte/icons/subtract-line';
-	import RiCheckLine from 'remixicon-svelte/icons/check-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -37,9 +36,9 @@
 			class="pointer-events-none absolute left-2 flex size-4 items-center justify-center [&_svg:not([class*='size-'])]:size-4"
 		>
 			{#if indeterminate}
-				<RiSubtractLine />
+				<ThemeIcon role="remove" />
 			{:else if checked}
-				<RiCheckLine />
+				<ThemeIcon role="check" />
 			{/if}
 		</span>
 		{@render childrenProp?.()}

@@ -25,8 +25,8 @@
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
-	import { onMount } from 'svelte';
-	import { client, type AuthConfiguration } from '$lib/api/client';
+	import { onDestroy, onMount } from 'svelte';
+	import type { AuthConfiguration } from '$lib/api/client';
 	import type { OIDCProvider } from '$lib/api/client';
 	import AuthProviderButtons from '$lib/components/auth-provider-buttons.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -36,6 +36,13 @@
 		PASSWORD_MIN_CHARACTERS,
 		passwordCharacterCount
 	} from '$lib/password-policy';
+	import {
+		authConfigurationQueryOptions,
+		authQueryKeys,
+		oidcProvidersQueryOptions
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
 
 	let email = $state('');
 	let password = $state('');
@@ -45,10 +52,15 @@
 	let acceptedLegal = $state(false);
 	let authConfiguration = $state<AuthConfiguration | null>(null);
 	let configurationLoading = $state(true);
+	let providerLoadError = $state(false);
+	let configurationLoadError = $state(false);
 	let oidcProviders = $state.raw<OIDCProvider[]>([]);
 	let purchaseChoice = $state.raw<PurchaseChoice | null>(null);
 	let purchaseChoiceLoading = $state(false);
 	let purchaseChoiceError = $state<PurchaseChoiceErrorCode | ''>('');
+	let purchaseChoiceRequestSequence = 0;
+	let registrationRequestSequence = 0;
+	let active = true;
 	const signupProviders = $derived(oidcProviders.filter((provider) => provider.kind === 'oauth'));
 	const hostedSignup = $derived(authConfiguration?.purchase_choice_required !== false);
 	const passwordLength = $derived(passwordCharacterCount(password));
@@ -59,34 +71,53 @@
 	const passwordsMatch = $derived(confirmPassword.length > 0 && confirmPassword === password);
 
 	async function loadConfiguration() {
-		configurationLoading = true;
+		const configurationOptions = authConfigurationQueryOptions(authQueryAPI);
+		const providerOptions = oidcProvidersQueryOptions(authQueryAPI);
+		const cachedConfiguration = queryClient.getQueryData<AuthConfiguration>(
+			authQueryKeys.configuration()
+		);
+		const cachedProviders = queryClient.getQueryData<OIDCProvider[]>(authQueryKeys.oidcProviders());
+		if (cachedConfiguration) authConfiguration = cachedConfiguration;
+		if (cachedProviders) oidcProviders = cachedProviders;
+		configurationLoading = !cachedConfiguration;
 		error = '';
+		providerLoadError = false;
+		configurationLoadError = false;
+		if (
+			cachedConfiguration?.registration_enabled &&
+			cachedConfiguration.purchase_choice_required &&
+			!purchaseChoiceLoading
+		) {
+			void loadPurchaseChoice();
+		}
 		try {
 			const results = await Promise.allSettled([
-				client.GET('/auth/config'),
-				client.GET('/auth/oidc/providers')
+				queryClient.fetchQuery(configurationOptions),
+				queryClient.fetchQuery(providerOptions)
 			]);
 			const configurationResult = results[0].status === 'fulfilled' ? results[0].value : null;
 			const providerResult = results[1].status === 'fulfilled' ? results[1].value : null;
 
-			if (!configurationResult) {
+			if (!configurationResult && !authConfiguration) {
 				error = m.auth_config_load_failed();
-			} else {
-				const { data, error: responseError } = configurationResult;
-				if (responseError || !data) {
-					error = responseError?.detail ?? m.auth_config_load_failed();
-				} else {
-					authConfiguration = data;
-					if (!data.registration_enabled) error = m.auth_registration_disabled();
-					if (data.registration_enabled && data.purchase_choice_required) {
+			} else if (configurationResult) {
+				authConfiguration = configurationResult;
+				if (!configurationResult.registration_enabled) error = m.auth_registration_disabled();
+				if (
+					configurationResult.registration_enabled &&
+					configurationResult.purchase_choice_required
+				) {
+					if (!purchaseChoiceLoading && !purchaseChoice && !purchaseChoiceError) {
 						await loadPurchaseChoice();
 					}
 				}
 			}
 
-			oidcProviders = providerResult?.data ?? [];
+			if (providerResult) oidcProviders = providerResult;
+			configurationLoadError = results[0].status === 'rejected';
+			providerLoadError = results[1].status === 'rejected';
 
-			if (results[0].status === 'rejected' && !error) {
+			if ((results[0].status === 'rejected' || providerLoadError) && !error) {
 				error = m.auth_config_load_failed();
 			}
 		} catch {
@@ -97,18 +128,28 @@
 	}
 
 	async function loadPurchaseChoice() {
+		const requestSequence = ++purchaseChoiceRequestSequence;
+		const sourceURL = new URL(page.url);
+		const route = `${sourceURL.pathname}${sourceURL.search}`;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === purchaseChoiceRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		purchaseChoiceLoading = true;
 		purchaseChoiceError = '';
 		try {
-			const result = await resolvePurchaseChoice(page.url.searchParams);
+			const result = await resolvePurchaseChoice(sourceURL.searchParams);
+			if (!isCurrentRequest()) return;
 			if (!result.choice) {
 				purchaseChoice = null;
 				purchaseChoiceError = result.errorCode ?? 'unavailable';
 				return;
 			}
 			purchaseChoice = result.choice;
-			const target = applyPurchaseChoice(new URL(page.url), result.choice);
-			if (target.href !== page.url.href) {
+			const sourceHref = sourceURL.href;
+			const target = applyPurchaseChoice(sourceURL, result.choice);
+			if (target.href !== sourceHref) {
+				if (!isCurrentRequest()) return;
 				await goto(resolveAppPath(`${target.pathname}${target.search}`), {
 					replaceState: true,
 					keepFocus: true,
@@ -116,15 +157,24 @@
 				});
 			}
 		} catch {
+			if (!isCurrentRequest()) return;
 			purchaseChoice = null;
 			purchaseChoiceError = 'unavailable';
 		} finally {
-			purchaseChoiceLoading = false;
+			if (active && requestSequence === purchaseChoiceRequestSequence) {
+				purchaseChoiceLoading = false;
+			}
 		}
 	}
 
 	onMount(() => {
 		void loadConfiguration();
+	});
+
+	onDestroy(() => {
+		active = false;
+		purchaseChoiceRequestSequence += 1;
+		registrationRequestSequence += 1;
 	});
 
 	function registrationTarget() {
@@ -159,6 +209,14 @@
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = '';
+		if (!authConfiguration) {
+			error = m.auth_config_load_failed();
+			return;
+		}
+		if (!authConfiguration.registration_enabled) {
+			error = m.auth_registration_disabled();
+			return;
+		}
 		if (authConfiguration?.purchase_choice_required && !purchaseChoice) {
 			purchaseChoiceError ||= 'missing';
 			return;
@@ -184,6 +242,17 @@
 			return;
 		}
 
+		const requestSequence = ++registrationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = registrationTarget();
+		const editorSignup = safeSameOriginRedirect(page.url, '').startsWith(
+			'/image-editor/local_design_'
+		);
+		const selectedPurchaseChoice = purchaseChoice;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === registrationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		isLoading = true;
 		captureTelemetryEvent('signup started');
 
@@ -191,25 +260,28 @@
 			email,
 			password,
 			acceptedLegal,
-			purchaseChoiceToken: purchaseChoice?.token
+			purchaseChoiceToken: selectedPurchaseChoice?.token
 		});
+		if (!isCurrentRequest()) return;
 
 		if (result.success) {
-			if (safeSameOriginRedirect(page.url, '').startsWith('/image-editor/local_design_')) {
-				trackPublicImageEditorEvent('image_editor_signup_completed', { source: 'editor' });
+			if (editorSignup) {
+				trackPublicImageEditorEvent('image_editor_signup_completed', {
+					source: 'editor'
+				});
 			}
-			goto(resolveAppPath(registrationTarget()));
+			goto(resolveAppPath(target));
 		} else if (result.requiresEmailVerification && result.emailVerificationID) {
 			const query = new URLSearchParams({
 				challenge: result.emailVerificationID,
 				email: result.emailVerificationEmail ?? email,
-				redirect: registrationTarget(),
+				redirect: target,
 				delivery: result.emailDeliveryStatus ?? 'sent'
 			});
-			if (purchaseChoice) {
-				query.set('plan', purchaseChoice.plan_id);
-				query.set('billing_period', purchaseChoice.billing_period);
-				query.set('purchase_choice', purchaseChoice.token);
+			if (selectedPurchaseChoice) {
+				query.set('plan', selectedPurchaseChoice.plan_id);
+				query.set('billing_period', selectedPurchaseChoice.billing_period);
+				query.set('purchase_choice', selectedPurchaseChoice.token);
 			}
 			goto(resolveAppPath(`/verify-email?${query}`));
 		} else {
@@ -255,9 +327,9 @@
 		<PurchaseChoiceError code={purchaseChoiceError} className="mb-4" />
 	{/if}
 	{#if error}
-		<InlineNotice tone="error" message={error} class="mb-4">
+		<InlineNotice tone={authConfiguration ? 'warning' : 'error'} message={error} class="mb-4">
 			{#snippet actions()}
-				{#if !configurationLoading && !authConfiguration}
+				{#if !configurationLoading && (!authConfiguration || configurationLoadError || providerLoadError)}
 					<Button variant="outline" size="sm" onclick={() => void loadConfiguration()}>
 						{m.common_retry()}
 					</Button>
@@ -365,7 +437,8 @@
 			type="submit"
 			disabled={isLoading ||
 				configurationLoading ||
-				(authConfiguration !== null && !authConfiguration.registration_enabled) ||
+				!authConfiguration ||
+				!authConfiguration.registration_enabled ||
 				purchaseChoiceLoading ||
 				(Boolean(authConfiguration?.purchase_choice_required) && !purchaseChoice) ||
 				(Boolean(authConfiguration?.legal_acceptance_required) && !acceptedLegal)}

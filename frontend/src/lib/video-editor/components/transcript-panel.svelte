@@ -8,15 +8,10 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import BoldIcon from '@lucide/svelte/icons/bold';
 	import ItalicIcon from '@lucide/svelte/icons/italic';
 	import UnderlineIcon from '@lucide/svelte/icons/underline';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
 	import { execute } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -535,7 +530,7 @@
 		class:justify-end={!showHeading}
 	>
 		{#if showHeading}
-			<h3 class="text-xs font-medium tracking-wide text-[oklch(0.65_0.015_55)] uppercase">
+			<h3 class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
 				{m.video_editor_transcript()}
 			</h3>
 		{/if}
@@ -551,16 +546,16 @@
 				clearWordSelection();
 			}}
 		>
-			<ScissorsIcon class="size-3" aria-hidden="true" />
+			<ProtectedIcon icon="editor-cut" class="size-3" />
 			{m.video_editor_edit_by_transcript()}
 		</Button>
 	</div>
 	{#if subtitleItems.length > 0 && !editVideoMode}
 		<div class="mx-1 flex min-w-0 items-center gap-1" role="search">
 			<div class="relative min-w-24 flex-1">
-				<SearchIcon
-					class="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
-					aria-hidden="true"
+				<ThemeIcon
+					role="search"
+					class="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					class="h-7 w-full min-w-0 pr-7 pl-7 text-[10px]"
@@ -582,20 +577,20 @@
 				{#if searchQuery}
 					<button
 						type="button"
-						class="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_transcript_search_clear()}
 						onclick={() => {
 							searchQuery = '';
 							activeSearchMatch = 0;
 						}}
 					>
-						<XIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="close" class="size-3" />
 					</button>
 				{/if}
 			</div>
 			{#if searchQuery}
 				<span
-					class="shrink-0 text-[10px] text-[oklch(0.66_0.01_55)] tabular-nums"
+					class="shrink-0 text-[10px] text-muted-foreground tabular-nums"
 					title={searchResult.approximate
 						? m.video_editor_transcript_search_approximate()
 						: undefined}
@@ -613,7 +608,7 @@
 						aria-label={m.video_editor_transcript_search_previous()}
 						onclick={() => focusSearchMatch(activeSearchMatch - 1)}
 					>
-						<ChevronUpIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="chevron-up" class="size-3" />
 					</Button>
 					<Button
 						type="button"
@@ -623,16 +618,14 @@
 						aria-label={m.video_editor_transcript_search_next()}
 						onclick={() => focusSearchMatch(activeSearchMatch + 1)}
 					>
-						<ChevronDownIcon class="size-3" aria-hidden="true" />
+						<ThemeIcon role="chevron-down" class="size-3" />
 					</Button>
 				</div>
 			{/if}
 		</div>
 	{/if}
 	{#if editVideoMode}
-		<div
-			class="mx-1 mb-1 flex flex-col gap-2 rounded-md border border-[oklch(0.31_0.018_55)] bg-[oklch(0.2_0.012_50)] px-2 py-2"
-		>
+		<div class="mx-1 mb-1 flex flex-col gap-2 rounded-md border border-border bg-card px-2 py-2">
 			<div
 				class="grid grid-cols-2 gap-1"
 				role="group"
@@ -665,7 +658,7 @@
 					{m.video_editor_transcript_scope_project()}
 				</Button>
 			</div>
-			<p class="text-[10px] leading-4 text-[oklch(0.68_0.012_55)]">
+			<p class="text-[10px] leading-4 text-muted-foreground">
 				{m.video_editor_transcript_selection_help()}
 			</p>
 			{#if clipboardStatus}
@@ -674,7 +667,7 @@
 				</p>
 			{/if}
 			<div class="flex items-center justify-between gap-2">
-				<span class="text-[10px] text-[oklch(0.68_0.012_55)]">
+				<span class="text-[10px] text-muted-foreground">
 					{m.video_editor_transcript_words_selected({
 						count: selectedSourceWords.length
 					})}
@@ -714,9 +707,7 @@
 				</div>
 			</div>
 			{#if ignoredSourceWords.length > 0}
-				<div
-					class="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2"
-				>
+				<div class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
 					<span class="text-[10px] font-medium text-[var(--video-editor-focus)]">
 						{m.video_editor_staged_transcript_words({
 							count: ignoredSourceWords.length,
@@ -752,7 +743,7 @@
 				{#snippet child({ props })}
 					<div
 						{...props}
-						class="mx-1 flex flex-wrap content-start gap-x-1 gap-y-1 rounded-md border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.01_50)] p-2"
+						class="mx-1 flex flex-wrap content-start gap-x-1 gap-y-1 rounded-md border border-border bg-card p-2"
 						role="group"
 						aria-label={m.video_editor_edit_by_transcript()}
 						oncontextmenucapture={prepareSourceWordContext}
@@ -763,12 +754,12 @@
 								type="button"
 								class={`min-h-7 rounded px-1.5 text-left text-[11px] leading-5 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${
 									selectedSourceWordIds.has(sourceWord.id)
-										? 'bg-[var(--video-editor-focus)] font-medium text-black'
+										? 'bg-selection font-medium text-selection-foreground'
 										: activeSourceWordIndex === sourceWordIndex
-											? 'bg-yellow-300/15 ring-1 ring-yellow-300'
+											? 'bg-warning ring-1 ring-warning-foreground'
 											: wordIgnored
-												? 'text-[oklch(0.58_0.012_55)] line-through decoration-[var(--video-editor-focus)] decoration-2'
-												: 'text-[oklch(0.84_0.01_55)] hover:bg-white/8'
+												? 'text-muted-foreground line-through decoration-[var(--video-editor-focus)] decoration-2'
+												: 'text-foreground hover:bg-accent'
 								}`}
 								title={sourceWordTitle(sourceWord.sourceItemId, sourceWord.timelineStartFrame)}
 								data-ignored={wordIgnored}
@@ -789,7 +780,7 @@
 							</button>
 						{/each}
 						{#if sourceWords.length === 0}
-							<p class="text-xs text-[oklch(0.65_0.015_55)]">
+							<p class="text-xs text-muted-foreground">
 								{m.video_editor_transcript_empty()}
 							</p>
 						{/if}
@@ -834,7 +825,7 @@
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
 	{:else if subtitleItems.length === 0}
-		<p class="px-1 text-xs text-[oklch(0.65_0.015_55)]">
+		<p class="px-1 text-xs text-muted-foreground">
 			{m.video_editor_transcript_empty()}
 		</p>
 	{:else}
@@ -843,15 +834,15 @@
 				{#each item.cues ?? [] as cue (cue.id)}
 					{@const cueSearchIndex = searchIndexByKey.get(`${item.id}:${cue.id}`)}
 					<li
-						class="rounded bg-[oklch(0.19_0.01_50)] p-1 {cueSearchIndex !== undefined &&
+						class="rounded bg-card p-1 {cueSearchIndex !== undefined &&
 						matchedSearchIndices.has(cueSearchIndex)
-							? 'ring-1 ring-amber-500/70 ring-inset'
+							? 'ring-1 ring-warning-foreground/70 ring-inset'
 							: ''}"
 						data-transcript-search-index={cueSearchIndex}
 					>
 						<div class="flex items-center gap-1">
 							<Input
-								class="min-w-0 flex-1 rounded bg-[oklch(0.22_0.01_50)] px-1 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+								class="min-w-0 flex-1 rounded bg-field px-1 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-ring"
 								value={displayText(cue)}
 								aria-label={m.video_editor_transcript_line()}
 								onclick={() => setCurrentFrame(cue.startFrame)}
@@ -870,13 +861,13 @@
 								aria-label={m.video_editor_transcript_delete_line()}
 								onclick={() => deleteCue(item, cue.id)}
 							>
-								<Trash2Icon class="size-3" />
+								<ThemeIcon role="delete" class="size-3" />
 							</Button>
 						</div>
 						<div class="mt-1 grid grid-cols-2 gap-1">
-							<label class="text-[9px] text-[oklch(0.62_0.01_55)]"
+							<label class="text-[9px] text-muted-foreground"
 								>{m.video_editor_property_start()}<Input
-									class="mt-0.5 w-full rounded bg-[oklch(0.24_0.01_50)] px-1 py-0.5 text-[10px]"
+									class="mt-0.5 w-full rounded bg-field px-1 py-0.5 text-[10px]"
 									type="number"
 									min="0"
 									value={cue.startFrame}
@@ -884,9 +875,9 @@
 										commitCueTiming(item, cue, event.currentTarget.valueAsNumber, cue.endFrame)}
 								/></label
 							>
-							<label class="text-[9px] text-[oklch(0.62_0.01_55)]"
+							<label class="text-[9px] text-muted-foreground"
 								>{m.video_editor_property_end()}<Input
-									class="mt-0.5 w-full rounded bg-[oklch(0.24_0.01_50)] px-1 py-0.5 text-[10px]"
+									class="mt-0.5 w-full rounded bg-field px-1 py-0.5 text-[10px]"
 									type="number"
 									min={cue.startFrame + 1}
 									value={cue.endFrame}
@@ -932,11 +923,11 @@
 								{#each cue.words as word (word.id)}
 									{@const searchIndex = searchIndexByKey.get(`${item.id}:${cue.id}:${word.id}`)}
 									<div
-										class="group rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.23_0.01_50)] p-1 {searchIndex !==
+										class="group rounded border border-border bg-muted p-1 {searchIndex !==
 											undefined && matchedSearchIndices.has(searchIndex)
 											? searchResult.approximate
-												? 'ring-1 ring-amber-500/40 ring-inset'
-												: 'ring-1 ring-amber-500/80 ring-inset'
+												? 'ring-1 ring-warning-foreground/40 ring-inset'
+												: 'ring-1 ring-warning-foreground/80 ring-inset'
 											: ''}"
 										data-transcript-search-index={searchIndex}
 									>
@@ -954,7 +945,7 @@
 										/>
 										<div class="mt-0.5 flex items-center gap-0.5">
 											<Input
-												class="w-10 bg-transparent text-[8px] text-[oklch(0.62_0.01_55)]"
+												class="w-10 bg-transparent text-[8px] text-muted-foreground"
 												type="number"
 												value={word.startFrame}
 												aria-label={m.video_editor_transcript_word_start()}
@@ -963,7 +954,7 @@
 														startFrame: Math.max(0, event.currentTarget.valueAsNumber)
 													})}
 											/><span class="text-[8px]">-</span><Input
-												class="w-10 bg-transparent text-[8px] text-[oklch(0.62_0.01_55)]"
+												class="w-10 bg-transparent text-[8px] text-muted-foreground"
 												type="number"
 												value={word.endFrame}
 												aria-label={m.video_editor_transcript_word_end()}
@@ -985,7 +976,7 @@
 													deleteWord(item, cue, word.id);
 												}}
 											>
-												<Trash2Icon class="size-3" aria-hidden="true" />
+												<ThemeIcon role="delete" class="size-3" />
 											</Button>
 										</div>
 									</div>

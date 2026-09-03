@@ -1,7 +1,7 @@
 <!-- Text recipes adapted from FreeCut's MIT-licensed media sidebar. -->
 <script lang="ts">
-	import TypeIcon from '@lucide/svelte/icons/type';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { addTextItem, addTextTemplateItem } from '$lib/video-editor/timeline/actions/items';
 	import { TEXT_STYLE_PRESETS, type TextStylePresetLayout } from '../typography/text-style-presets';
 	import { localizedTextStylePresetCopy } from '../typography/text-style-preset-copy';
@@ -56,7 +56,7 @@
 						aria-label={m.video_editor_add_text()}
 					>
 						<span class="template-canvas add-text" aria-hidden="true">
-							<TypeIcon class="size-4 opacity-70" />
+							<ProtectedIcon icon="editor-text" class="size-4 opacity-70" />
 							<span>{m.video_editor_text_default_label()}</span>
 						</span>
 						<span class="template-name">{m.video_editor_add_text()}</span>

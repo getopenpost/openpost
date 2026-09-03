@@ -10,9 +10,8 @@
 	import { probeVideo } from '$lib/video/prepare';
 	import { firstPlatformVideoCodec } from '$lib/video/support';
 	import type { VideoMetadata } from '$lib/video/types';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import VideoCropOverlay from './video-crop-overlay.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 
 	interface Props {
 		open?: boolean;
@@ -41,7 +40,12 @@
 	let trimStart = $state(0);
 	let trimEnd = $state(0);
 	let selectedAspect = $state('original');
-	let crop = $state.raw<{ x: number; y: number; width: number; height: number } | null>(null);
+	let crop = $state.raw<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
 	let cropZoom = $state(100);
 	let cropSupported = $state<boolean | null>(null);
 	let videoElement: HTMLVideoElement | null = null;
@@ -277,7 +281,7 @@
 		<div class="contents" {@attach initializeEditor}></div>
 		<Dialog.Header class="border-b px-4 py-4 pr-14 sm:px-5">
 			<Dialog.Title class="flex items-center gap-2">
-				<ScissorsIcon class="size-4" />
+				<ProtectedIcon icon="editor-cut" class="size-4" />
 				{m.video_upload_editor_title()}
 			</Dialog.Title>
 			<Dialog.Description>{m.video_upload_editor_description()}</Dialog.Description>
@@ -314,14 +318,14 @@
 						{/if}
 					</div>
 				{:else}
-					<LoaderIcon class="size-6 animate-spin text-white" />
+					<ProtectedIcon icon="loading" class="size-6 animate-spin text-white" />
 				{/if}
 			</div>
 
 			<div class="space-y-5 p-4 sm:p-5">
 				{#if loading}
 					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<LoaderIcon class="size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 						{m.video_upload_editor_loading()}
 					</div>
 				{:else if metadata && file}
@@ -431,7 +435,9 @@
 							></div>
 						</div>
 						<p class="text-xs text-muted-foreground">
-							{m.video_upload_editor_rendering({ percent: Math.round(renderProgress * 100) })}
+							{m.video_upload_editor_rendering({
+								percent: Math.round(renderProgress * 100)
+							})}
 						</p>
 					</div>
 				{/if}
@@ -458,7 +464,7 @@
 				{rendering ? m.video_upload_cancel() : m.common_cancel()}
 			</Button>
 			<Button type="button" class="min-h-12" disabled={!metadata || rendering} onclick={applyEdit}>
-				{#if rendering}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if rendering}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{m.video_upload_editor_apply()}
 			</Button>
 		</Dialog.Footer>

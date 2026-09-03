@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -24,6 +26,18 @@
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { resolveAppPath } from '$lib/app-path';
+	import {
+		billingQueryKeys,
+		billingStatusQueryOptions,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import { billingQueryAPI, invalidateBillingDependencies } from '$lib/query/billing';
+	import { queryClient } from '$lib/query/client';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
+	import { auth } from '$lib/stores/auth';
 
 	let billingBusyPlan = $state('');
 	let billingPortalBusy = $state(false);
@@ -33,7 +47,33 @@
 	let billingStatus = $state<BillingStatus | null>(null);
 	let handledCheckoutPlan = '';
 	let loadedBillingWorkspaceID = '';
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.billing);
+	$effect(() => {
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when the scope term short-circuits; otherwise the boundary never settles.
+		const waitingForBilling = billingStatusLoading && !billingStatus;
+		reportInitialLoad(
+			Boolean(
+				workspaceID &&
+				!billingLoadError &&
+				(loadedBillingWorkspaceID !== workspaceID || waitingForBilling)
+			)
+		);
+	});
 	let billingRequestSequence = 0;
+	let billingPortalRequestSequence = 0;
+	let active = true;
+	let billingPortalReturnScope = $state<{
+		workspaceID: string;
+		organizationID: string;
+	} | null>(null);
+
+	onDestroy(() => {
+		active = false;
+		billingRequestSequence += 1;
+		billingPortalRequestSequence += 1;
+	});
 
 	function isCurrentBillingTarget(workspaceID: string, organizationID: string) {
 		return (
@@ -144,6 +184,14 @@
 		return cost.cost_microusd + cost.reserved_cost_microusd;
 	}
 
+	function presentBillingStatus(status: BillingStatus): BillingStatus {
+		return {
+			...status,
+			status: status.status ?? 'none',
+			provider_costs: status.provider_costs ?? null
+		};
+	}
+
 	function providerCostBudgetLabel(cost: ProviderCostSummary) {
 		return m.settings_provider_cost_budget({
 			confirmed: formatProviderCost(cost.cost_microusd, cost.currency),
@@ -159,39 +207,56 @@
 	}
 
 	async function loadBillingStatus(
-		workspaceID = workspaceCtx.currentWorkspace?.id ?? '',
-		organizationID = workspaceCtx.currentWorkspace?.organization_id ?? ''
+		options: {
+			workspaceID?: string;
+			organizationID?: string;
+			refresh?: boolean;
+		} = {}
 	) {
+		const workspaceID = options.workspaceID ?? workspaceCtx.currentWorkspace?.id ?? '';
+		const organizationID =
+			options.organizationID ?? workspaceCtx.currentWorkspace?.organization_id ?? '';
 		if (!workspaceID) return;
 		const requestSequence = ++billingRequestSequence;
+		const workspaceChanged = loadedBillingWorkspaceID !== workspaceID;
 		loadedBillingWorkspaceID = workspaceID;
-		billingStatusLoading = true;
 		billingError = '';
 		billingLoadError = '';
-		billingStatus = null;
+		const cachedStatus = queryClient.getQueryData<BillingStatus>(
+			billingQueryKeys.status(workspaceID)
+		);
+		if (cachedStatus) billingStatus = presentBillingStatus(cachedStatus);
+		else if (workspaceChanged) billingStatus = null;
+		billingStatusLoading = !billingStatus;
 		try {
-			const { data, error: err } = await client.GET('/billing/status', {
-				params: { query: { workspace_id: workspaceID } }
-			});
-			if (err || !data) throw new Error(err?.detail || m.settings_billing_load_failed());
+			if (options.refresh) {
+				await queryClient.invalidateQueries({
+					queryKey: billingQueryKeys.status(workspaceID),
+					exact: true
+				});
+			}
+			const data = await queryClient.fetchQuery(
+				billingStatusQueryOptions(billingQueryAPI, workspaceID)
+			);
 			if (
 				requestSequence !== billingRequestSequence ||
 				!isCurrentBillingTarget(workspaceID, organizationID)
 			)
 				return;
-			billingStatus = {
-				...data,
-				status: data.status ?? 'none',
-				provider_costs: data.provider_costs ?? null
-			};
+			billingStatus = presentBillingStatus(data);
 		} catch (e) {
 			if (
 				requestSequence !== billingRequestSequence ||
 				!isCurrentBillingTarget(workspaceID, organizationID)
 			)
 				return;
-			loadedBillingWorkspaceID = '';
-			billingStatus = null;
+			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: billingQueryKeys.status(workspaceID),
+					exact: true
+				});
+				billingStatus = null;
+			}
 			billingLoadError = e instanceof Error ? e.message : m.settings_billing_load_failed();
 		} finally {
 			if (requestSequence === billingRequestSequence) billingStatusLoading = false;
@@ -206,10 +271,18 @@
 	}
 
 	async function openBillingPortal(purpose: BillingPortalPurpose = 'manage') {
+		const actorID = get(auth).user?.id ?? '';
 		const workspaceID = workspaceCtx.currentWorkspace?.id;
 		const organizationID =
 			billingStatus?.organization_id ?? workspaceCtx.currentWorkspace?.organization_id ?? '';
-		if (!workspaceID || !billingStatus?.can_manage_billing || !billingStatus?.plan_id) return;
+		if (!actorID || !workspaceID || !billingStatus?.can_manage_billing || !billingStatus?.plan_id)
+			return;
+		const requestSequence = ++billingPortalRequestSequence;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === billingPortalRequestSequence &&
+			get(auth).user?.id === actorID &&
+			isCurrentBillingTarget(workspaceID, organizationID);
 		billingPortalBusy = true;
 		billingError = '';
 		try {
@@ -220,25 +293,41 @@
 				: await client.POST('/billing/portal', {
 						body: billingPortalBody(workspaceID, purpose)
 					});
+			if (!isCurrentRequest()) return;
 			if (err || !data?.url) throw new Error(err?.detail || m.settings_action_failed());
-			if (!isCurrentBillingTarget(workspaceID, organizationID)) return;
+			billingPortalReturnScope = { workspaceID, organizationID };
+			if (!isCurrentRequest()) return;
 			window.location.assign(data.url);
 		} catch (e) {
-			if (isCurrentBillingTarget(workspaceID, organizationID)) {
+			if (isCurrentRequest()) {
 				billingError = e instanceof Error ? e.message : m.settings_action_failed();
 			}
 		} finally {
-			billingPortalBusy = false;
+			if (isCurrentRequest()) billingPortalBusy = false;
 		}
 	}
 
-	function refreshBillingAfterReturn() {
+	async function refreshBillingAfterReturn() {
 		if (
 			document.visibilityState === 'visible' &&
 			workspaceCtx.currentWorkspace?.id &&
 			!billingStatusLoading
 		) {
-			void loadBillingStatus();
+			const returnScope = billingPortalReturnScope;
+			billingPortalReturnScope = null;
+			if (returnScope) await invalidateBillingDependencies(queryClient, returnScope);
+			else {
+				await queryClient.invalidateQueries({
+					queryKey: billingQueryKeys.status(workspaceCtx.currentWorkspace.id),
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			await loadBillingStatus({
+				workspaceID: workspaceCtx.currentWorkspace.id,
+				organizationID: workspaceCtx.currentWorkspace.organization_id ?? '',
+				refresh: false
+			});
 		}
 	}
 
@@ -320,7 +409,7 @@
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
 		const organizationID = workspaceCtx.currentWorkspace?.organization_id ?? '';
 		if (workspaceID && loadedBillingWorkspaceID !== workspaceID) {
-			void loadBillingStatus(workspaceID, organizationID);
+			void loadBillingStatus({ workspaceID, organizationID });
 		}
 	});
 
@@ -365,7 +454,7 @@
 </SectionHeader>
 
 {#if billingLoadError}
-	<InlineNotice tone="error" message={billingLoadError} class="mb-4">
+	<InlineNotice tone={billingStatus ? 'warning' : 'error'} message={billingLoadError} class="mb-4">
 		{#snippet actions()}
 			<Button
 				variant="outline"
@@ -377,7 +466,8 @@
 			</Button>
 		{/snippet}
 	</InlineNotice>
-{:else if billingStatusLoading}
+{/if}
+{#if billingStatusLoading && !billingStatus}
 	<div class="mb-4">
 		<PageLoading layout="grid" label={m.common_loading()} items={2} />
 	</div>
@@ -425,14 +515,20 @@
 				</p>
 				{#if billingStatus.billing_contact_email}
 					<dl class="mt-3 text-sm">
-						<dt class="text-muted-foreground">{m.settings_billing_contact()}</dt>
-						<dd class="font-medium break-all">{billingStatus.billing_contact_email}</dd>
+						<dt class="text-muted-foreground">
+							{m.settings_billing_contact()}
+						</dt>
+						<dd class="font-medium break-all">
+							{billingStatus.billing_contact_email}
+						</dd>
 					</dl>
 				{/if}
 			</div>
 			<div class="rounded-lg border bg-background p-4">
 				<h3 class="font-semibold">{m.settings_paddle_manages()}</h3>
-				<p class="mt-1 text-sm text-muted-foreground">{m.settings_paddle_manages_body()}</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{m.settings_paddle_manages_body()}
+				</p>
 				{#if billingStatus.can_manage_billing && hasBillingSubscription}
 					<div class="mt-3 flex flex-wrap gap-2">
 						<Button
@@ -469,7 +565,9 @@
 						</Button>
 					</div>
 				{:else if hasBillingSubscription}
-					<p class="mt-3 text-sm font-medium">{m.settings_billing_owner_action()}</p>
+					<p class="mt-3 text-sm font-medium">
+						{m.settings_billing_owner_action()}
+					</p>
 				{/if}
 			</div>
 		</div>
@@ -489,7 +587,9 @@
 				</div>
 				{#if billingStatus.current_period_end}
 					<p class="mt-2 text-sm text-muted-foreground">
-						{m.settings_billing_period_ends({ date: formatDate(billingStatus.current_period_end) })}
+						{m.settings_billing_period_ends({
+							date: formatDate(billingStatus.current_period_end)
+						})}
 						{#if billingStatus.cancel_at_period_end}
 							· {m.settings_billing_cancels_after_period()}
 						{/if}
@@ -554,7 +654,9 @@
 							</p>
 						</div>
 						<div class="shrink-0 text-left sm:text-right">
-							<p class="font-medium">{providerCostName(providerCost.provider)}</p>
+							<p class="font-medium">
+								{providerCostName(providerCost.provider)}
+							</p>
 							<p class="text-sm text-muted-foreground">
 								{providerCostBudgetLabel(providerCost)}
 							</p>

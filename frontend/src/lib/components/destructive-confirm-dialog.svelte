@@ -1,8 +1,8 @@
 <script lang="ts">
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import {
 		completeDestructiveAction,
 		type DestructiveActionOutcome
@@ -74,7 +74,7 @@
 				{cancelLabel}
 			</Button>
 			<Button variant="destructive" class="w-full sm:w-auto" disabled={pending} onclick={confirm}>
-				{#if pending}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pending}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 				{confirmLabel}
 			</Button>
 		</Dialog.Footer>

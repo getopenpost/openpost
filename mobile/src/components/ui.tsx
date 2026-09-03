@@ -1,57 +1,46 @@
+import { useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
+  type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { useColorScheme } from "react-native";
+import { Image, type ImageContentFit } from "expo-image";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
-import { STATUS_LABEL, statusColor } from "@/lib/format";
+import { STATUS_LABEL } from "@/lib/format";
 import { pressHaptic } from "@/lib/haptics";
+import { ThemeIcon } from "@/components/theme-icon";
+import {
+  actionPresentation,
+  buttonRadius,
+  cardPresentation,
+  emptyStatePresentation,
+  inputPresentation,
+  loadingStatePresentation,
+  NATIVE_CONTROL_METRICS,
+  sidebarDecorationWidth,
+  themeAssetFor,
+  type NativeActionIntent,
+  type NativeColorRoles,
+  type NativeIconRole,
+  type NativeThemeAssetSlot,
+  useNativeTheme,
+  withAlpha,
+} from "@/theme";
 
-export const LIGHT_COLORS = {
-  dark: false,
-  bg: "#faf8f5",
-  card: "#ffffff",
-  text: "#302b28",
-  textSecondary: "#716862",
-  separator: "#e4ded8",
-  tint: "#b74c05",
-  onTint: "#ffffff",
-  tintSoft: "#f7e9de",
-  buttonDepth: "#7e3300",
-  danger: "#b3261e",
-  inputBg: "#f3efeb",
-  success: "#376b51",
-} as const;
-
-export const DARK_COLORS = {
-  dark: true,
-  bg: "#171412",
-  card: "#211d1a",
-  text: "#f3efeb",
-  textSecondary: "#aea39c",
-  separator: "#3a332f",
-  tint: "#e9823a",
-  onTint: "#21140c",
-  tintSoft: "#3b281d",
-  buttonDepth: "#8f3a00",
-  danger: "#ffb4ab",
-  inputBg: "#2a2521",
-  success: "#8fcfac",
-} as const;
-
-export type AppColors = typeof LIGHT_COLORS | typeof DARK_COLORS;
+export type AppColors = NativeColorRoles;
 
 export function useColors(): AppColors {
-  const scheme = useColorScheme();
-  return scheme === "dark" ? DARK_COLORS : LIGHT_COLORS;
+  return useNativeTheme().manifest.colors;
 }
 
 export function Screen({
@@ -63,21 +52,49 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
   safeTop?: boolean;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
+  const { width: viewportWidth } = useWindowDimensions();
   const edges: Edge[] = safeTop ? ["top", "left", "right"] : ["left", "right"];
   return (
-    <SafeAreaView edges={edges} style={[{ flex: 1, backgroundColor: colors.bg }, style]}>
-      {children}
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.background }}>
+      <ThemeAsset slot="background-texture" contentFit="cover" style={StyleSheet.absoluteFill} />
+      <ThemeAsset
+        slot="sidebar-decoration"
+        style={[
+          styles.sidebarDecoration,
+          { width: sidebarDecorationWidth(theme.manifest, viewportWidth) },
+        ]}
+      />
+      <ThemeAsset
+        slot="header-decoration"
+        style={[styles.headerDecoration, { height: theme.manifest.shell.headerHeight }]}
+      />
+      <View
+        style={[styles.screenContent, { maxWidth: theme.manifest.shell.contentMaxWidth }, style]}
+      >
+        {children}
+      </View>
     </SafeAreaView>
   );
 }
 
 export function Card({ children, style, ...props }: React.ComponentProps<typeof View>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { spacing } = theme.manifest;
+  const presentation = cardPresentation(theme.manifest);
   return (
     <View
       {...props}
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.separator }, style]}
+      style={[
+        styles.card,
+        {
+          ...presentation,
+          paddingHorizontal: spacing.large,
+          paddingVertical: spacing.medium,
+        },
+        style,
+      ]}
     >
       {children}
     </View>
@@ -85,13 +102,16 @@ export function Card({ children, style, ...props }: React.ComponentProps<typeof 
 }
 
 export function SectionHeader({ label }: { label: string }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
   return (
     <Text
+      accessibilityRole="header"
       style={[
-        styles.sectionHeader,
+        theme.manifest.typography.labelLarge,
         {
-          color: colors.textSecondary,
+          color: theme.manifest.colors.onSurfaceVariant,
+          marginBottom: theme.manifest.spacing.small,
+          marginHorizontal: theme.manifest.spacing.extraSmall,
         },
       ]}
     >
@@ -100,10 +120,48 @@ export function SectionHeader({ label }: { label: string }) {
   );
 }
 
+export function PageTitle({
+  accessibilityRole = "header",
+  style,
+  ...props
+}: React.ComponentProps<typeof Text>) {
+  const theme = useNativeTheme();
+  return (
+    <Text
+      {...props}
+      accessibilityRole={accessibilityRole}
+      style={[
+        theme.manifest.typography.headlineLarge,
+        { color: theme.manifest.colors.onSurface },
+        style,
+      ]}
+    />
+  );
+}
+
+export function ContentTitle({
+  accessibilityRole = "header",
+  style,
+  ...props
+}: React.ComponentProps<typeof Text>) {
+  const theme = useNativeTheme();
+  return (
+    <Text
+      {...props}
+      accessibilityRole={accessibilityRole}
+      style={[
+        theme.manifest.typography.titleMedium,
+        { color: theme.manifest.colors.onSurface },
+        style,
+      ]}
+    />
+  );
+}
+
 export function Button({
   title,
   onPress,
-  variant = "filled",
+  intent = "primary",
   disabled,
   loading = false,
   accessibilityRole = "button",
@@ -113,7 +171,7 @@ export function Button({
 }: {
   title: string;
   onPress: () => void;
-  variant?: "filled" | "focal" | "tinted" | "plain" | "destructive";
+  intent?: NativeActionIntent;
   disabled?: boolean;
   loading?: boolean;
   accessibilityRole?: React.ComponentProps<typeof Pressable>["accessibilityRole"];
@@ -121,67 +179,78 @@ export function Button({
   accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
   style?: StyleProp<ViewStyle>;
 }) {
-  const colors = useColors();
-  const isPrimary = variant === "filled" || variant === "focal";
-  const background = isPrimary
-    ? colors.tint
-    : variant === "destructive"
-      ? "transparent"
-      : variant === "tinted"
-        ? colors.tintSoft
-        : "transparent";
-  const color = isPrimary ? colors.onTint : variant === "destructive" ? colors.danger : colors.tint;
+  const theme = useNativeTheme();
+  const presentation = actionPresentation(theme.manifest, intent);
   const inactive = disabled || loading;
-  const hasDepth = variant === "focal";
-  const hasBorder = hasDepth || variant === "tinted";
+  const hasDepth = presentation.depth > 0;
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
       accessibilityLabel={title}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ ...accessibilityState, disabled: inactive, busy: loading }}
+      accessibilityState={{
+        ...accessibilityState,
+        disabled: inactive,
+        busy: loading,
+      }}
       disabled={inactive}
       onPressIn={() => void pressHaptic()}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: background,
-          borderColor: isPrimary
-            ? colors.tint
-            : variant === "tinted"
-              ? `${colors.tint}66`
-              : "transparent",
-          borderBottomColor: hasDepth ? colors.buttonDepth : undefined,
-          borderBottomWidth: hasDepth ? (pressed ? 1 : 2) : undefined,
-          borderWidth: hasBorder ? (hasDepth ? 1 : StyleSheet.hairlineWidth) : 0,
-          opacity: inactive ? 0.45 : pressed && !hasDepth ? 0.68 : 1,
-          transform: pressed && hasDepth ? [{ translateY: 2 }] : undefined,
+          backgroundColor: pressed ? presentation.pressedContainer : presentation.container,
+          borderColor: presentation.border,
+          borderBottomColor: hasDepth ? presentation.depthColor : presentation.border,
+          borderBottomWidth: hasDepth
+            ? Math.max(presentation.borderWidth, pressed ? 0 : presentation.depth)
+            : presentation.borderWidth,
+          borderRadius: buttonRadius(theme.manifest),
+          borderWidth: presentation.borderWidth,
+          opacity: inactive ? presentation.disabledOpacity : 1,
+          paddingHorizontal: theme.manifest.spacing.large,
+          transform: pressed && hasDepth ? [{ translateY: presentation.depth }] : undefined,
         },
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={color} />
-      ) : (
-        <Text style={[styles.buttonText, { color }]}>{title}</Text>
-      )}
+      {({ pressed }) => {
+        const contentColor = pressed ? presentation.pressedContent : presentation.content;
+        return loading ? (
+          <ActivityIndicator color={contentColor} />
+        ) : (
+          <Text
+            style={[
+              theme.manifest.typography.labelLarge,
+              {
+                color: contentColor,
+                textDecorationLine: presentation.underline ? "underline" : "none",
+              },
+            ]}
+          >
+            {title}
+          </Text>
+        );
+      }}
     </Pressable>
   );
 }
 
 export function TextField({ style, ...props }: React.ComponentProps<typeof TextInput>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, typography } = theme.manifest;
+  const presentation = inputPresentation(theme.manifest);
   return (
     <TextInput
-      placeholderTextColor={colors.textSecondary}
+      placeholderTextColor={colors.onSurfaceVariant}
       {...props}
       style={[
         styles.textField,
+        typography.bodyLarge,
         {
-          backgroundColor: colors.inputBg,
-          borderColor: colors.separator,
-          color: colors.text,
+          ...presentation,
+          color: colors.onSurface,
+          paddingHorizontal: theme.manifest.spacing.medium,
         },
         style,
       ]}
@@ -189,18 +258,176 @@ export function TextField({ style, ...props }: React.ComponentProps<typeof TextI
   );
 }
 
+export function ThemeAsset({
+  contentFit = "contain",
+  slot,
+  style,
+}: {
+  contentFit?: ImageContentFit;
+  slot: NativeThemeAssetSlot;
+  style?: StyleProp<ImageStyle>;
+}) {
+  const asset = themeAssetFor(useNativeTheme(), slot);
+  if (!asset) return null;
+  const isIllustration = slot === "empty-state-illustration" || slot === "loading-illustration";
+  return (
+    <Image
+      accessibilityLabel={isIllustration ? asset.alt : undefined}
+      accessibilityRole={isIllustration && asset.alt ? "image" : undefined}
+      accessible={isIllustration && Boolean(asset.alt)}
+      contentFit={contentFit}
+      pointerEvents="none"
+      source={{ uri: asset.uri }}
+      style={style}
+    />
+  );
+}
+
+export function LoadingState({ label }: { label?: string }) {
+  const theme = useNativeTheme();
+  const illustration = themeAssetFor(theme, "loading-illustration");
+  const presentation = loadingStatePresentation(theme.manifest);
+  const reduceMotion = useReduceMotion();
+  const [opacity] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    opacity.stopAnimation();
+    opacity.setValue(1);
+    if (presentation.kind === "spinner" || reduceMotion || presentation.animationDuration === 0) {
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          duration: presentation.animationDuration,
+          toValue: 0.42,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          duration: presentation.animationDuration,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity, presentation.animationDuration, presentation.kind, reduceMotion]);
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={label ?? "Loading"}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="progressbar"
+      style={[
+        styles.state,
+        {
+          gap: theme.manifest.spacing.medium,
+          padding: theme.manifest.spacing.large,
+        },
+      ]}
+    >
+      {illustration ? (
+        <ThemeAsset slot="loading-illustration" style={styles.stateIllustration} />
+      ) : null}
+      {presentation.kind === "spinner" ? (
+        <ActivityIndicator color={theme.manifest.colors.primary} />
+      ) : presentation.kind === "pulse" ? (
+        <Animated.View
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.loadingPulse,
+            {
+              backgroundColor: theme.manifest.colors.primaryContainer,
+              borderRadius: theme.manifest.shape.full,
+              opacity,
+            },
+          ]}
+        />
+      ) : (
+        <Animated.View
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.loadingSkeleton, { gap: theme.manifest.spacing.small, opacity }]}
+        >
+          <View
+            style={[
+              styles.skeletonLine,
+              {
+                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
+                borderRadius: theme.manifest.shape.small,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.skeletonBlock,
+              {
+                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
+                borderRadius: theme.manifest.shape.medium,
+              },
+            ]}
+          />
+        </Animated.View>
+      )}
+      {label ? <BodyText>{label}</BodyText> : null}
+    </View>
+  );
+}
+
+export function EmptyState({ body, title }: { body?: string; title: string }) {
+  const theme = useNativeTheme();
+  const presentation = emptyStatePresentation(theme.manifest);
+  const illustration = themeAssetFor(theme, "empty-state-illustration");
+  return (
+    <View
+      style={[
+        styles.state,
+        {
+          backgroundColor: presentation.framed ? theme.manifest.colors.surface : "transparent",
+          borderColor: theme.manifest.colors.outlineVariant,
+          borderRadius: theme.manifest.shape.medium,
+          borderWidth: presentation.framed ? 1 : 0,
+          gap: theme.manifest.spacing.small,
+          padding: theme.manifest.spacing.large,
+        },
+      ]}
+    >
+      {presentation.illustrated && illustration ? (
+        <ThemeAsset slot="empty-state-illustration" style={styles.stateIllustration} />
+      ) : presentation.illustrated ? (
+        <View
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.emptyStateFallback,
+            {
+              backgroundColor: theme.manifest.colors.primaryContainer,
+              borderRadius: theme.manifest.shape.large,
+            },
+          ]}
+        >
+          <ThemeIcon role="drafts" size={36} tintColor={theme.manifest.colors.onPrimaryContainer} />
+        </View>
+      ) : null}
+      <ContentTitle style={styles.stateText}>{title}</ContentTitle>
+      {body ? <BodyText style={styles.stateText}>{body}</BodyText> : null}
+    </View>
+  );
+}
+
 export function IconButton({
   label,
-  name,
+  role,
   onPress,
   color,
 }: {
   label: string;
-  name: SymbolViewProps["name"];
+  role: NativeIconRole;
   onPress: () => void;
   color?: string;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
   return (
     <Pressable
       accessibilityRole="button"
@@ -210,23 +437,31 @@ export function IconButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.iconButton,
-        pressed && {
-          backgroundColor: colors.tintSoft,
-        },
+        { borderRadius: theme.manifest.shape.full },
+        pressed && { backgroundColor: colors.primaryContainer },
       ]}
     >
-      <SymbolView name={name} size={24} tintColor={color ?? colors.text} />
+      <ThemeIcon role={role} size={24} tintColor={color ?? colors.onSurface} />
     </Pressable>
   );
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const colors = useColors();
-  const color = statusColor(status, colors.dark);
+  const theme = useNativeTheme();
+  const colors = theme.manifest.colors;
+  const color = colors.status[status as keyof typeof colors.status] ?? colors.onSurfaceVariant;
   return (
-    <View style={[styles.badge, { backgroundColor: `${color}26` }]}>
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: withAlpha(color, 0.15),
+          borderRadius: theme.manifest.shape.full,
+        },
+      ]}
+    >
       <View style={[styles.badgeDot, { backgroundColor: color }]} />
-      <Text style={{ color, fontSize: 12, fontWeight: "600" }}>
+      <Text style={[theme.manifest.typography.labelMedium, { color }]}>
         {STATUS_LABEL[status] ?? status}
       </Text>
     </View>
@@ -234,9 +469,16 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function BodyText({ children, style, ...props }: React.ComponentProps<typeof Text>) {
-  const colors = useColors();
+  const theme = useNativeTheme();
   return (
-    <Text style={[{ color: colors.textSecondary, fontSize: 14 }, style]} {...props}>
+    <Text
+      style={[
+        theme.manifest.typography.bodyMedium,
+        { color: theme.manifest.colors.onSurfaceVariant },
+        style,
+      ]}
+      {...props}
+    >
       {children}
     </Text>
   );
@@ -244,54 +486,105 @@ export function BodyText({ children, style, ...props }: React.ComponentProps<typ
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginHorizontal: 4,
+    shadowOffset: { height: 4, width: 0 },
   },
   button: {
-    minHeight: 48,
-    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    minHeight: NATIVE_CONTROL_METRICS.buttonMinHeight,
   },
   textField: {
-    minHeight: 52,
-    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    fontSize: 16,
+    minHeight: NATIVE_CONTROL_METRICS.textFieldMinHeight,
   },
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    alignItems: "center",
+    height: NATIVE_CONTROL_METRICS.iconButtonSize,
+    justifyContent: "center",
+    width: NATIVE_CONTROL_METRICS.iconButtonSize,
+  },
+  badge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeDot: {
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  screenContent: {
+    alignSelf: "center",
+    flex: 1,
+    width: "100%",
+  },
+  sidebarDecoration: {
+    bottom: 0,
+    left: 0,
+    opacity: 0.96,
+    position: "absolute",
+    top: 0,
+    width: "28%",
+  },
+  headerDecoration: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  state: {
     alignItems: "center",
     justifyContent: "center",
   },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    alignSelf: "flex-start",
+  stateIllustration: {
+    aspectRatio: 1.6,
+    maxHeight: 180,
+    width: "100%",
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  stateText: {
+    textAlign: "center",
+  },
+  loadingPulse: {
+    height: 48,
+    width: 48,
+  },
+  loadingSkeleton: {
+    maxWidth: 360,
+    width: "100%",
+  },
+  skeletonLine: {
+    height: 18,
+    width: "62%",
+  },
+  skeletonBlock: {
+    height: 72,
+    width: "100%",
+  },
+  emptyStateFallback: {
+    alignItems: "center",
+    height: 72,
+    justifyContent: "center",
+    width: 72,
   },
 });
+
+function useReduceMotion(): boolean {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (current) setReduceMotion(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => {
+      current = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduceMotion;
+}

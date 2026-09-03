@@ -30,10 +30,10 @@ bun install --frozen-lockfile
 bun run check
 ```
 
-`bun run check` runs TypeScript, Expo lint, Expo Doctor, and the mobile unit tests. Regenerate the API types after the backend contract changes:
+`bun run check` runs TypeScript, Expo lint, Expo Doctor, and the mobile unit tests. `packages/api-contract` owns the generated declarations shared by web and mobile. After a backend contract change, regenerate them from the repository root:
 
 ```sh
-bun run generate:api
+bun run --filter @openpost/web generate:types
 ```
 
 ## Run on Android
@@ -94,7 +94,7 @@ Do not send or publish that unsigned file as an installable release. Candidate C
 
 ## GitHub Actions
 
-The **Native mobile Android candidate** job in `.github/workflows/ci.yml` runs when `mobile/` or `frontend/openapi.json` changes. It:
+The **Native mobile Android candidate** job in `.github/workflows/ci.yml` runs when `mobile/`, `frontend/openapi.json`, `packages/api-contract/`, or `packages/query-catalog/` changes. It:
 
 1. Installs the pinned Android SDK parts and mobile lockfile.
 2. Runs `bun run check`.
@@ -115,8 +115,9 @@ The release-signing plugin intentionally fails if Expo changes the Gradle templa
 
 - `src/lib/server.ts`: server state and readiness probe
 - `src/lib/api/token-store.ts`: token and workspace state in SecureStore
-- `src/lib/api/client.ts`: typed OpenAPI client
-- `src/lib/api/schema.d.ts`: generated API types
+- `src/lib/api/client.ts`: typed OpenAPI client backed by the shared contract
+- `../packages/api-contract/`: the generated API declarations for web and mobile
+- `../packages/query-catalog/`: shared Query keys, policies, and read definitions
 - `src/lib/auth.ts`: login, TOTP, and pairing
 - `src/lib/media.ts`: direct upload sessions
 - `src/lib/share.ts`: content received from the Android share sheet

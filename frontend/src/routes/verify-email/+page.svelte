@@ -11,7 +11,6 @@
 	import { m } from '$lib/paraglide/messages';
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { auth } from '$lib/stores/auth';
-	import { client } from '$lib/api/client';
 	import PurchaseChoiceSummary from '$lib/components/purchase-choice-summary.svelte';
 	import PurchaseChoiceError from '$lib/components/purchase-choice-error.svelte';
 	import {
@@ -23,6 +22,14 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import MailCheckIcon from '@lucide/svelte/icons/mail-check';
 	import { onMount } from 'svelte';
+	import type { AuthConfiguration } from '$lib/api/client';
+	import {
+		authConfigurationQueryOptions,
+		authQueryKeys,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import { authQueryAPI } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
 
 	let challengeID = $state(page.url.searchParams.get('challenge') ?? '');
 	let email = $state(page.url.searchParams.get('email') ?? '');
@@ -37,6 +44,11 @@
 	let purchaseChoiceRequired = $state(false);
 	let purchaseContextLoading = $state(true);
 	let purchaseChoiceError = $state<PurchaseChoiceErrorCode | ''>('');
+	let configurationBackgroundError = $state('');
+	let verificationRequestSequence = 0;
+	let resendRequestSequence = 0;
+	let purchaseContextRequestSequence = 0;
+	let active = true;
 
 	const canVerify = $derived(
 		challengeID.length > 0 &&
@@ -53,50 +65,99 @@
 		const timer = window.setInterval(() => {
 			if (resendSeconds > 0) resendSeconds -= 1;
 		}, 1000);
-		return () => window.clearInterval(timer);
+		return () => {
+			active = false;
+			window.clearInterval(timer);
+			verificationRequestSequence += 1;
+			resendRequestSequence += 1;
+			purchaseContextRequestSequence += 1;
+		};
 	});
 
 	async function loadPurchaseContext() {
-		purchaseContextLoading = true;
+		const requestSequence = ++purchaseContextRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === purchaseContextRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
+		const configurationOptions = authConfigurationQueryOptions(authQueryAPI);
+		const cachedConfiguration = queryClient.getQueryData<AuthConfiguration>(
+			authQueryKeys.configuration()
+		);
+		purchaseContextLoading = cachedConfiguration === undefined;
 		error = '';
+		configurationBackgroundError = '';
 		purchaseChoiceError = '';
 		try {
-			const configuration = await client.GET('/auth/config');
-			if (configuration.error || !configuration.data) {
-				throw new Error(configuration.error?.detail ?? m.auth_config_load_failed());
+			if (cachedConfiguration) {
+				await applyPurchaseConfiguration(cachedConfiguration, isCurrentRequest);
+				if (!isCurrentRequest()) return;
+				purchaseContextLoading = false;
 			}
-			purchaseChoiceRequired = configuration.data.purchase_choice_required ?? false;
-			const hasPurchaseParams = ['plan', 'billing_period', 'purchase_choice'].some((key) =>
-				page.url.searchParams.has(key)
-			);
-			if (!purchaseChoiceRequired && !hasPurchaseParams) {
-				return;
+			const configuration = await queryClient.fetchQuery(configurationOptions);
+			if (!isCurrentRequest()) return;
+			await applyPurchaseConfiguration(configuration, isCurrentRequest);
+		} catch (cause) {
+			if (!isCurrentRequest()) return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: configurationOptions.queryKey,
+					exact: true
+				});
+				error = m.auth_config_load_failed();
+			} else if (cachedConfiguration) {
+				configurationBackgroundError = m.auth_config_load_failed();
+			} else {
+				error = m.auth_config_load_failed();
 			}
-			try {
-				const result = await resolvePurchaseChoice(page.url.searchParams);
-				purchaseChoice = result.choice ?? null;
-				purchaseChoiceError = result.choice ? '' : (result.errorCode ?? 'unavailable');
-			} catch {
-				purchaseChoice = null;
-				purchaseChoiceError = 'unavailable';
-			}
-		} catch {
-			error = m.auth_config_load_failed();
 		} finally {
-			purchaseContextLoading = false;
+			if (isCurrentRequest()) purchaseContextLoading = false;
+		}
+	}
+
+	async function applyPurchaseConfiguration(
+		configuration: AuthConfiguration,
+		isCurrentRequest: () => boolean
+	) {
+		if (!isCurrentRequest()) return;
+		purchaseChoiceRequired = configuration.purchase_choice_required ?? false;
+		const hasPurchaseParams = ['plan', 'billing_period', 'purchase_choice'].some((key) =>
+			page.url.searchParams.has(key)
+		);
+		if (!purchaseChoiceRequired && !hasPurchaseParams) return;
+		try {
+			const result = await resolvePurchaseChoice(page.url.searchParams);
+			if (!isCurrentRequest()) return;
+			purchaseChoice = result.choice ?? null;
+			purchaseChoiceError = result.choice ? '' : (result.errorCode ?? 'unavailable');
+		} catch {
+			if (!isCurrentRequest()) return;
+			purchaseChoice = null;
+			purchaseChoiceError = 'unavailable';
 		}
 	}
 
 	async function verify(event: SubmitEvent) {
 		event.preventDefault();
-		if (!canVerify) return;
+		if (!canVerify || isVerifying || isResending) return;
 
+		resendRequestSequence += 1;
+		const requestSequence = ++verificationRequestSequence;
+		const route = `${window.location.pathname}${window.location.search}`;
+		const target = safeSameOriginRedirect(page.url);
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === verificationRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		notice = '';
 		isVerifying = true;
 		const result = await auth.verifyEmail(challengeID, code);
+		if (!isCurrentRequest()) return;
 		if (result.success) {
-			await goto(resolveAppPath(safeSameOriginRedirect(page.url)));
+			resendRequestSequence += 1;
+			await goto(resolveAppPath(target));
 			return;
 		}
 		error = result.error ?? m.auth_verify_email_invalid();
@@ -104,12 +165,21 @@
 	}
 
 	async function resend() {
-		if (!challengeID || resendSeconds > 0) return;
+		if (!challengeID || resendSeconds > 0 || isResending || isVerifying) return;
 
+		const requestSequence = ++resendRequestSequence;
+		const sourceURL = new URL(page.url);
+		const route = `${sourceURL.pathname}${sourceURL.search}`;
+		const pendingChallengeID = challengeID;
+		const isCurrentRequest = () =>
+			active &&
+			requestSequence === resendRequestSequence &&
+			`${window.location.pathname}${window.location.search}` === route;
 		error = '';
 		notice = '';
 		isResending = true;
-		const result = await auth.resendEmailVerification(challengeID);
+		const result = await auth.resendEmailVerification(pendingChallengeID);
+		if (!isCurrentRequest()) return;
 		isResending = false;
 		if (!result.requiresEmailVerification || !result.emailVerificationID) {
 			error = result.error ?? m.auth_verify_email_delivery_failed();
@@ -131,9 +201,10 @@
 			challenge: challengeID,
 			email,
 			delivery: deliveryStatus,
-			redirect: safeSameOriginRedirect(page.url)
+			redirect: safeSameOriginRedirect(sourceURL)
 		});
-		copyPurchaseChoice(page.url.searchParams, query);
+		copyPurchaseChoice(sourceURL.searchParams, query);
+		if (!isCurrentRequest()) return;
 		await goto(resolveAppPath(`/verify-email?${query}`), {
 			replaceState: true,
 			keepFocus: true,
@@ -175,6 +246,15 @@
 		{#if deliveryStatus === 'failed'}
 			<InlineNotice tone="warning" message={m.auth_verify_email_delivery_failed()} class="mb-4" />
 		{/if}
+		{#if configurationBackgroundError}
+			<InlineNotice tone="warning" message={configurationBackgroundError} class="mb-4">
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void loadPurchaseContext()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mb-4">
 				{#snippet actions()}
@@ -201,12 +281,16 @@
 					maxlength={6}
 					placeholder="123456"
 					class="text-center font-mono text-lg tracking-[0.35em]"
-					disabled={isVerifying}
+					disabled={isVerifying || isResending}
 					required
 				/>
 			</div>
 
-			<Button type="submit" class="w-full gap-2" disabled={!canVerify || isVerifying}>
+			<Button
+				type="submit"
+				class="w-full gap-2"
+				disabled={!canVerify || isVerifying || isResending}
+			>
 				{#if isVerifying}
 					<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
 					{m.auth_verify_email_loading()}
@@ -220,7 +304,7 @@
 			type="button"
 			variant="ghost"
 			class="mt-2 w-full"
-			disabled={isResending || resendSeconds > 0}
+			disabled={isResending || isVerifying || resendSeconds > 0}
 			onclick={() => void resend()}
 		>
 			{#if isResending}

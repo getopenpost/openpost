@@ -1,11 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
-	import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
-	import InfoIcon from '@lucide/svelte/icons/info';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
+	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
 
 	type NoticeTone = 'error' | 'success' | 'warning' | 'info';
@@ -30,23 +26,23 @@
 		class: className
 	}: Props = $props();
 
-	const Icon = $derived(
+	const protectedIcon = $derived<ProtectedIconRole>(
 		tone === 'error'
-			? AlertCircleIcon
+			? 'error'
 			: tone === 'success'
-				? CheckCircleIcon
+				? 'success'
 				: tone === 'warning'
-					? TriangleAlertIcon
-					: InfoIcon
+					? 'warning'
+					: 'info'
 	);
 	const toneClass = $derived(
 		tone === 'error'
 			? 'border-destructive/20 bg-destructive/10 text-destructive'
 			: tone === 'success'
-				? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+				? 'border-success-foreground/20 bg-success text-success-foreground'
 				: tone === 'warning'
-					? 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-					: 'border-border bg-muted/35 text-foreground'
+					? 'border-warning-foreground/25 bg-warning text-warning-foreground'
+					: 'border-info-foreground/20 bg-info text-info-foreground'
 	);
 </script>
 
@@ -57,7 +53,7 @@
 	aria-live={tone === 'error' ? 'assertive' : 'polite'}
 >
 	<div class="flex min-w-0 flex-1 items-start gap-3">
-		<Icon class="mt-0.5 size-4 shrink-0" />
+		<ProtectedIcon icon={protectedIcon} class="mt-0.5 size-4 shrink-0" />
 		<div class="min-w-0 flex-1 leading-5">
 			{#if message}{message}{/if}
 			{#if children}{@render children()}{/if}
@@ -74,7 +70,7 @@
 			onclick={onDismiss}
 			aria-label={dismissLabel}
 		>
-			<XIcon class="size-4" />
+			<ThemeIcon role="close" class="size-4" />
 		</Button>
 	{/if}
 </div>

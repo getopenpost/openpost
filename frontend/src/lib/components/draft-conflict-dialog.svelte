@@ -1,8 +1,8 @@
 <script lang="ts">
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import type { DraftConflictProblem } from '$lib/draft-conflict';
 
 	interface Props {
@@ -46,7 +46,9 @@
 			{m.draft_conflict_changed({ domains: changedDomains })}
 			{#if conflict?.conflict.changed_by_name}
 				<span class="mt-1 block">
-					{m.draft_conflict_changed_by({ name: conflict.conflict.changed_by_name })}
+					{m.draft_conflict_changed_by({
+						name: conflict.conflict.changed_by_name
+					})}
 				</span>
 			{/if}
 		</p>
@@ -56,7 +58,10 @@
 				disabled={Boolean(pendingAction)}
 				onclick={() => run('reload', onReload)}
 			>
-				{#if pendingAction === 'reload'}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pendingAction === 'reload'}<ProtectedIcon
+						icon="loading"
+						class="size-4 animate-spin"
+					/>{/if}
 				{m.draft_conflict_reload()}
 			</Button>
 			<Button
@@ -64,11 +69,17 @@
 				disabled={Boolean(pendingAction)}
 				onclick={() => run('copy', onSaveCopy)}
 			>
-				{#if pendingAction === 'copy'}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pendingAction === 'copy'}<ProtectedIcon
+						icon="loading"
+						class="size-4 animate-spin"
+					/>{/if}
 				{m.draft_conflict_copy()}
 			</Button>
 			<Button disabled={Boolean(pendingAction)} onclick={() => run('overwrite', onOverwrite)}>
-				{#if pendingAction === 'overwrite'}<LoaderIcon class="size-4 animate-spin" />{/if}
+				{#if pendingAction === 'overwrite'}<ProtectedIcon
+						icon="loading"
+						class="size-4 animate-spin"
+					/>{/if}
 				{m.draft_conflict_overwrite()}
 			</Button>
 			<Button variant="ghost" disabled={Boolean(pendingAction)} onclick={() => (open = false)}>

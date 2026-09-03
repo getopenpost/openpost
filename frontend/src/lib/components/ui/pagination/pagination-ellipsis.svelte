@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef, type WithoutChildren } from '$lib/utils.js';
-	import RiMoreLine from 'remixicon-svelte/icons/more-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,6 +23,6 @@
 	)}
 	{...restProps}
 >
-	<RiMoreLine />
+	<ThemeIcon role="more-horizontal" />
 	<span class="sr-only">{label}</span>
 </span>

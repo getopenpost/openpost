@@ -6,9 +6,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import LocalModelCacheControl from '$lib/video-editor/components/local-model-cache-control.svelte';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		LOCAL_TTS_ENGINE_OPTIONS,
@@ -517,9 +515,9 @@
 					disabled={!generating && (!engineSupported || !text.trim())}
 					onclick={generating ? cancel : () => void generate()}
 				>
-					{#if generating}<LoaderIcon
+					{#if generating}<ProtectedIcon
+							icon="loading"
 							class="size-3 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{generating ? m.video_editor_local_ai_cancel() : m.video_editor_local_ai_generate()}
 				</Button>
@@ -548,7 +546,7 @@
 								onclick={() => remove(generation)}
 								aria-label={m.video_editor_local_ai_remove_preview()}
 							>
-								<TrashIcon class="size-3" aria-hidden="true" />
+								<ThemeIcon role="delete" class="size-3" />
 							</button>
 						</div>
 						<audio class="h-7 w-full" controls preload="metadata" src={generation.url}></audio>
@@ -569,7 +567,7 @@
 								disabled={generation.saving}
 								onclick={() => void save(generation, true)}
 							>
-								<PlusIcon class="size-3" aria-hidden="true" />
+								<ThemeIcon role="add" class="size-3" />
 								{generation.sourceTextItemId
 									? m.video_editor_local_ai_add_and_link()
 									: m.video_editor_local_ai_add_timeline()}

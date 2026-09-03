@@ -1,8 +1,8 @@
 <script lang="ts">
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
@@ -232,7 +232,7 @@
 						aria-label={m.video_editor_motion_override_reset({ name: m.video_editor_clip_speed() })}
 						onclick={resetSpeed}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -289,7 +289,7 @@
 								aria-label={m.video_editor_motion_override_reset({ name: control.label })}
 								onclick={() => resetFade(field)}
 							>
-								<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="undo" class="size-3.5" />
 							</button>
 						</div>
 					</div>

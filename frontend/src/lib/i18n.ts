@@ -1,4 +1,6 @@
-import { getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
+import { getLocale, isLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
+
+const LOCALE_CHANGED_EVENT = 'openpost:locale-changed';
 
 export const localeLabels = {
 	en: 'English',
@@ -43,6 +45,24 @@ export function getLocaleTag(locale: Locale = getCurrentLocale()): string {
 	}
 }
 
-export function switchLocale(locale: Locale) {
-	return setLocale(locale);
+function announceLocaleChange(locale: Locale) {
+	if (typeof window === 'undefined') return;
+	window.dispatchEvent(new CustomEvent<Locale>(LOCALE_CHANGED_EVENT, { detail: locale }));
+}
+
+export function switchLocale(locale: Locale, options?: { reload?: boolean }) {
+	const result = setLocale(locale, options);
+	if (result instanceof Promise) {
+		return result.then(() => announceLocaleChange(locale));
+	}
+	announceLocaleChange(locale);
+}
+
+export function onLocaleChange(listener: (locale: Locale) => void): () => void {
+	if (typeof window === 'undefined') return () => undefined;
+	const handleLocaleChange = (event: Event) => {
+		if (event instanceof CustomEvent && isLocale(event.detail)) listener(event.detail);
+	};
+	window.addEventListener(LOCALE_CHANGED_EVENT, handleLocaleChange);
+	return () => window.removeEventListener(LOCALE_CHANGED_EVENT, handleLocaleChange);
 }

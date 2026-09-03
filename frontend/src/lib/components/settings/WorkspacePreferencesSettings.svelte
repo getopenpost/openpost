@@ -7,7 +7,7 @@
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
-	import { loadImageEditorBrandKit } from '$lib/image-editor/api';
+	import { queryImageEditorBrandKit } from '$lib/query/image-editor';
 	import type { ImageEditorBrandKit } from '$lib/image-editor/types';
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
@@ -46,7 +46,7 @@
 		const sequence = ++requestSequence;
 		loadedWorkspaceID = workspaceID;
 		try {
-			const kit = await loadImageEditorBrandKit(workspaceID);
+			const kit = await queryImageEditorBrandKit(workspaceID);
 			if (sequence === requestSequence) brandColors = kit.colors;
 		} catch {
 			if (sequence === requestSequence) brandColors = [];

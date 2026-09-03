@@ -17,12 +17,7 @@
 		type StockMediaSearchInput,
 		type StockProvider
 	} from '$lib/stock-media';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import SlidersIcon from '@lucide/svelte/icons/sliders-horizontal';
-	import VideoIcon from '@lucide/svelte/icons/video';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		accept?: 'photo' | 'video' | 'both';
@@ -303,14 +298,16 @@
 			role="status"
 			aria-live="polite"
 		>
-			<LoaderIcon class="size-4 animate-spin" />
-			{m.stock_media_downloading({ title: selectingAsset.title || selectingAsset.kind })}
+			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
+			{m.stock_media_downloading({
+				title: selectingAsset.title || selectingAsset.kind
+			})}
 		</p>
 	{/if}
 
 	{#if loading}
 		<div class="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status">
-			<LoaderIcon class="size-4 animate-spin" />
+			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 			{m.common_loading()}
 		</div>
 	{:else if providers.length === 0}
@@ -329,7 +326,8 @@
 				class={compact ? 'grid gap-2' : 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_13rem_9rem_auto]'}
 			>
 				<div class="relative">
-					<SearchIcon
+					<ThemeIcon
+						role="search"
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
@@ -354,9 +352,10 @@
 					/>
 				{/if}
 				<Button type="submit" disabled={!query.trim() || !provider || searching}>
-					{#if searching}<LoaderIcon class="size-4 animate-spin" />{:else}<SearchIcon
-							class="size-4"
-						/>{/if}
+					{#if searching}<ProtectedIcon
+							icon="loading"
+							class="size-4 animate-spin"
+						/>{:else}<ThemeIcon role="search" class="size-4" />{/if}
 					{m.stock_media_search_action()}
 				</Button>
 			</div>
@@ -368,18 +367,23 @@
 					size="sm"
 					onclick={() => (filtersOpen = !filtersOpen)}
 				>
-					<SlidersIcon />
+					<ThemeIcon role="controls" />
 					{m.stock_filters()}
 					{#if activeFilterCount > 0}<span class="font-mono text-xs">{activeFilterCount}</span>{/if}
-					<ChevronDownIcon
+					<ThemeIcon
+						role="chevron-down"
 						class={filtersOpen ? 'rotate-180 transition-transform' : 'transition-transform'}
 					/>
 				</Button>
 				{#if currentProvider}
 					<span class="text-xs text-muted-foreground">
 						{kind === 'photo'
-							? m.stock_provider_searching_photos({ provider: currentProvider.name })
-							: m.stock_provider_searching_videos({ provider: currentProvider.name })}
+							? m.stock_provider_searching_photos({
+									provider: currentProvider.name
+								})
+							: m.stock_provider_searching_videos({
+									provider: currentProvider.name
+								})}
 					</span>
 				{/if}
 				{#if activeFilterCount > 0}
@@ -442,7 +446,10 @@
 								options={[
 									{ value: '', label: m.stock_filter_all_images() },
 									{ value: 'photo', label: m.stock_media_photos() },
-									{ value: 'illustration', label: m.stock_filter_illustrations() },
+									{
+										value: 'illustration',
+										label: m.stock_filter_illustrations()
+									},
 									{ value: 'vector', label: m.stock_filter_vectors() }
 								]}
 								class="h-10"
@@ -486,11 +493,26 @@
 								bind:value={locale}
 								options={[
 									{ value: '', label: m.stock_filter_provider_default() },
-									{ value: provider === 'pexels' ? 'en-US' : 'en', label: 'English' },
-									{ value: provider === 'pexels' ? 'pt-BR' : 'pt', label: 'Português' },
-									{ value: provider === 'pexels' ? 'es-ES' : 'es', label: 'Español' },
-									{ value: provider === 'pexels' ? 'fr-FR' : 'fr', label: 'Français' },
-									{ value: provider === 'pexels' ? 'de-DE' : 'de', label: 'Deutsch' }
+									{
+										value: provider === 'pexels' ? 'en-US' : 'en',
+										label: 'English'
+									},
+									{
+										value: provider === 'pexels' ? 'pt-BR' : 'pt',
+										label: 'Português'
+									},
+									{
+										value: provider === 'pexels' ? 'es-ES' : 'es',
+										label: 'Español'
+									},
+									{
+										value: provider === 'pexels' ? 'fr-FR' : 'fr',
+										label: 'Français'
+									},
+									{
+										value: provider === 'pexels' ? 'de-DE' : 'de',
+										label: 'Deutsch'
+									}
 								]}
 								class="h-10"
 							/>
@@ -581,14 +603,14 @@
 								/>
 							{:else}
 								<div class="flex size-full items-center justify-center">
-									<ImageIcon class="size-5 text-muted-foreground" />
+									<ProtectedIcon icon="media-image" class="size-5 text-muted-foreground" />
 								</div>
 							{/if}
 							{#if asset.kind === 'video'}
 								<span
 									class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-black/75 text-white"
 								>
-									<VideoIcon class="size-3.5" />
+									<ProtectedIcon icon="media-video" class="size-3.5" />
 								</span>
 								<span
 									class="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 font-mono text-xs text-white"
@@ -600,7 +622,9 @@
 							{/if}
 						</div>
 						<div class={compact ? 'space-y-1.5 p-2' : 'space-y-2 p-3'}>
-							<p class="truncate text-sm font-medium">{asset.title || asset.kind}</p>
+							<p class="truncate text-sm font-medium">
+								{asset.title || asset.kind}
+							</p>
 							<p class="truncate font-mono text-xs text-muted-foreground">
 								{asset.width} × {asset.height}
 							</p>
@@ -623,9 +647,14 @@
 								disabled={Boolean(selecting)}
 								onclick={() => selectAsset(asset)}
 							>
-								{#if selecting === asset.external_id}<LoaderIcon class="size-4 animate-spin" />{/if}
+								{#if selecting === asset.external_id}<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin"
+									/>{/if}
 								{selecting === asset.external_id
-									? m.stock_media_downloading({ title: asset.title || asset.kind })
+									? m.stock_media_downloading({
+											title: asset.title || asset.kind
+										})
 									: actionLabel}
 							</Button>
 						</div>
@@ -635,7 +664,7 @@
 			{#if hasMore}
 				<div class="flex justify-center pt-1">
 					<Button variant="outline" onclick={() => void search(false)} disabled={searching}>
-						{#if searching}<LoaderIcon class="animate-spin" />{/if}
+						{#if searching}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 						{m.stock_load_more()}
 					</Button>
 				</div>

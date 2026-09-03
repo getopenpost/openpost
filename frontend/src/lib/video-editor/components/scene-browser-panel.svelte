@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { onDestroy, onMount } from 'svelte';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
@@ -21,11 +22,7 @@
 	import type { MediaScene } from '$lib/video-editor/media/scene-search/types';
 	import GridIcon from '@lucide/svelte/icons/layout-grid';
 	import ListIcon from '@lucide/svelte/icons/list';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import SceneThumbnail from './scene-thumbnail.svelte';
 
 	let batchBusy = $state(false);
@@ -127,9 +124,9 @@
 <div class="flex min-h-0 flex-1 flex-col">
 	<div class="space-y-2 border-b border-[oklch(0.25_0.015_55)] px-2 pb-2">
 		<label class="relative block">
-			<SearchIcon
+			<ThemeIcon
+				role="search"
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
-				aria-hidden="true"
 			/>
 			<Input
 				type="search"
@@ -170,9 +167,9 @@
 				onclick={() => analyze(false)}
 			>
 				{#if batchBusy}
-					<LoaderIcon class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+					<ProtectedIcon icon="loading" class="size-3 animate-spin motion-reduce:animate-none" />
 				{:else}
-					<SparklesIcon class="size-3" aria-hidden="true" />
+					<ThemeIcon role="sparkles" class="size-3" />
 				{/if}
 				<span>{m.video_editor_scene_analyze()}</span>
 			</button>
@@ -324,7 +321,7 @@
 									<span
 										class="flex size-7 items-center justify-center rounded-full bg-[oklch(0.66_0.14_45)] text-white shadow-md"
 									>
-										<PlusIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="add" class="size-4" />
 									</span>
 								</button>
 							</div>
@@ -400,7 +397,7 @@
 			<div
 				class="flex h-full min-h-36 flex-col items-center justify-center gap-2 px-4 text-center text-xs text-[oklch(0.62_0.015_55)]"
 			>
-				<SparklesIcon class="size-5" aria-hidden="true" />
+				<ThemeIcon role="sparkles" class="size-5" />
 				<p>
 					{sceneBrowser.totalScenes > 0
 						? m.video_editor_scene_no_matches()

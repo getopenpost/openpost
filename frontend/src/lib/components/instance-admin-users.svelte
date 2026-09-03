@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import {
 		getCoreRowModel,
 		type ColumnDef,
@@ -36,8 +37,22 @@
 	import * as Table from '$lib/components/ui/table';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		adminQueryKeys,
+		instanceUsersQueryOptions,
+		isOrganizationAuditQueryKey,
+		OpenPostQueryError,
+		organizationQueryKeys
+	} from '@openpost/query-catalog';
+	import { adminQueryAPI } from '$lib/query/admin';
+	import { queryClient } from '$lib/query/client';
+	import { auth } from '$lib/stores/auth';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
-	type InstanceUserPage = components['schemas']['InstanceUserPage'];
 	type InstanceUser = components['schemas']['InstanceUserResponse'];
 	type InstanceUserSort =
 		| 'created_at'
@@ -65,15 +80,11 @@
 		return instanceUserSorts.has(value);
 	}
 
-	let users = $state.raw<InstanceUserPage | null>(null);
-	let usersLoading = $state(true);
-	let usersError = $state('');
 	let userPage = $state(1);
 	let searchInput = $state('');
 	let appliedSearch = $state('');
 	let sorting = $state.raw<SortingState>([{ id: 'created_at', desc: true }]);
 	let columnVisibility = $state.raw<VisibilityState>({});
-	let usersRequestSequence = 0;
 
 	let impersonationDialogOpen = $state(false);
 	let impersonationUser = $state.raw<InstanceUser | null>(null);
@@ -83,10 +94,43 @@
 	let impersonationError = $state('');
 	let impersonationCopied = $state(false);
 	let impersonationRequestSequence = 0;
+	let active = true;
 
 	let planDialogOpen = $state(false);
 	let planDialogUser = $state.raw<InstanceUser | null>(null);
+	let authorizationError = $state('');
 
+	onDestroy(() => {
+		active = false;
+		impersonationRequestSequence += 1;
+	});
+
+	const usersFilters = $derived.by(() => {
+		const activeSort = sorting[0] ?? { id: 'created_at', desc: true };
+		return {
+			page: userPage,
+			perPage: USERS_PER_PAGE,
+			search: appliedSearch,
+			sort: isInstanceUserSort(activeSort.id) ? activeSort.id : 'created_at',
+			direction: activeSort.desc ? ('desc' as const) : ('asc' as const)
+		};
+	});
+	const usersQuery = createQuery(() => ({
+		...instanceUsersQueryOptions(adminQueryAPI, usersFilters),
+		enabled: !authorizationError
+	}));
+	const users = $derived(authorizationError ? null : (usersQuery.data ?? null));
+	const usersLoading = $derived(
+		!authorizationError && (usersQuery.isFetching || usersQuery.isPending)
+	);
+	const usersError = $derived(authorizationError || usersQuery.error?.message || '');
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceUsers
+	);
+	$effect(() => reportInitialLoad(usersLoading && !users));
+	const rowActionsDisabled = $derived(
+		Boolean(authorizationError) || usersQuery.isPlaceholderData || usersQuery.isFetching
+	);
 	const visibleUsers = $derived(users?.users ?? []);
 	const firstVisibleUser = $derived(
 		users && users.total > 0 ? (users.page - 1) * users.per_page + 1 : 0
@@ -101,7 +145,9 @@
 				renderComponent(InstanceUserSortHeader, {
 					column,
 					label: m.settings_instance_user(),
-					sortLabel: m.settings_instance_sort_by({ column: m.settings_instance_user() })
+					sortLabel: m.settings_instance_sort_by({
+						column: m.settings_instance_user()
+					})
 				}),
 			cell: ({ row }) => renderComponent(InstanceUserIdentityCell, { user: row.original }),
 			enableHiding: false
@@ -111,14 +157,19 @@
 			accessorKey: 'plan_ids',
 			header: m.settings_instance_plan(),
 			cell: ({ row }) =>
-				renderComponent(InstanceUserPlanCell, { planIDs: row.original.plan_ids ?? [] }),
+				renderComponent(InstanceUserPlanCell, {
+					planIDs: row.original.plan_ids ?? []
+				}),
 			enableSorting: false
 		},
 		{
 			id: 'role',
 			accessorKey: 'is_admin',
 			header: m.settings_role(),
-			cell: ({ row }) => renderComponent(InstanceUserRoleCell, { isAdmin: row.original.is_admin }),
+			cell: ({ row }) =>
+				renderComponent(InstanceUserRoleCell, {
+					isAdmin: row.original.is_admin
+				}),
 			enableSorting: false
 		},
 		{
@@ -128,7 +179,9 @@
 				renderComponent(InstanceUserSortHeader, {
 					column,
 					label: m.settings_instance_access(),
-					sortLabel: m.settings_instance_sort_by({ column: m.settings_instance_access() })
+					sortLabel: m.settings_instance_sort_by({
+						column: m.settings_instance_access()
+					})
 				}),
 			cell: ({ row }) =>
 				renderComponent(InstanceUserMetricsCell, {
@@ -145,7 +198,9 @@
 				renderComponent(InstanceUserSortHeader, {
 					column,
 					label: m.settings_instance_content(),
-					sortLabel: m.settings_instance_sort_by({ column: m.settings_instance_content() })
+					sortLabel: m.settings_instance_sort_by({
+						column: m.settings_instance_content()
+					})
 				}),
 			cell: ({ row }) =>
 				renderComponent(InstanceUserMetricsCell, {
@@ -162,7 +217,9 @@
 				renderComponent(InstanceUserSortHeader, {
 					column,
 					label: m.settings_instance_last_active(),
-					sortLabel: m.settings_instance_sort_by({ column: m.settings_instance_last_active() })
+					sortLabel: m.settings_instance_sort_by({
+						column: m.settings_instance_last_active()
+					})
 				}),
 			cell: ({ row }) =>
 				renderComponent(InstanceUserDateCell, {
@@ -177,9 +234,14 @@
 				renderComponent(InstanceUserSortHeader, {
 					column,
 					label: m.settings_instance_joined(),
-					sortLabel: m.settings_instance_sort_by({ column: m.settings_instance_joined() })
+					sortLabel: m.settings_instance_sort_by({
+						column: m.settings_instance_joined()
+					})
 				}),
-			cell: ({ row }) => renderComponent(InstanceUserDateCell, { value: row.original.created_at })
+			cell: ({ row }) =>
+				renderComponent(InstanceUserDateCell, {
+					value: row.original.created_at
+				})
 		},
 		{
 			id: 'actions',
@@ -188,6 +250,7 @@
 				renderComponent(InstanceUserActionCell, {
 					user: row.original,
 					busy: impersonationBusyUserID === row.original.id,
+					disabled: rowActionsDisabled,
 					onImpersonate: createImpersonationLink,
 					onChangePlan: openPlanDialog
 				}),
@@ -219,52 +282,32 @@
 		manualSorting: true
 	});
 
-	onMount(() => {
-		void loadUsers(1);
+	$effect(() => {
+		if (users && users.total_pages > 0 && userPage > users.total_pages) {
+			userPage = users.total_pages;
+		}
 	});
 
-	async function loadUsers(
-		requestedPage: number,
-		requestedSorting = sorting,
-		requestedSearch = appliedSearch
-	) {
-		const sequence = ++usersRequestSequence;
-		const activeSort = requestedSorting[0] ?? { id: 'created_at', desc: true };
-		const sort = isInstanceUserSort(activeSort.id) ? activeSort.id : 'created_at';
-		usersLoading = true;
-		usersError = '';
-		const { data, error } = await client.GET('/admin/users', {
-			params: {
-				query: {
-					page: requestedPage,
-					per_page: USERS_PER_PAGE,
-					search: requestedSearch || undefined,
-					sort,
-					direction: activeSort.desc ? 'desc' : 'asc'
-				}
-			}
-		});
-		if (sequence !== usersRequestSequence) return;
-		if (error || !data) {
-			usersError = problemDetail(error, m.settings_instance_users_load_failed());
-			usersLoading = false;
+	$effect(() => {
+		const cause = usersQuery.error;
+		if (!(cause instanceof OpenPostQueryError) || (cause.status !== 401 && cause.status !== 403))
 			return;
-		}
-		if (data.total_pages > 0 && requestedPage > data.total_pages) {
-			userPage = data.total_pages;
-			void loadUsers(data.total_pages, requestedSorting, requestedSearch);
-			return;
-		}
-		users = data;
-		userPage = data.page;
-		usersLoading = false;
+		authorizationError = cause.message;
+		impersonationRequestSequence += 1;
+		handleImpersonationDialogOpenChange(false);
+		handlePlanDialogOpenChange(false);
+		queryClient.removeQueries({ queryKey: adminQueryKeys.usersRoot() });
+	});
+
+	async function retryUsers() {
+		authorizationError = '';
+		await usersQuery.refetch();
 	}
 
 	function handleSortingChange(updater: Updater<SortingState>) {
 		const next = updater instanceof Function ? updater(sorting) : updater;
 		sorting = next.slice(0, 1);
 		userPage = 1;
-		void loadUsers(1, sorting);
 	}
 
 	function searchUsers(event: SubmitEvent) {
@@ -275,22 +318,20 @@
 	function submitSearch() {
 		appliedSearch = searchInput.trim();
 		userPage = 1;
-		void loadUsers(1, sorting, appliedSearch);
 	}
 
 	function clearSearch() {
 		searchInput = '';
 		appliedSearch = '';
 		userPage = 1;
-		void loadUsers(1, sorting, '');
 	}
 
 	function changeUserPage(nextPage: number) {
 		userPage = nextPage;
-		void loadUsers(nextPage);
 	}
 
 	function openPlanDialog(user: InstanceUser) {
+		if (rowActionsDisabled) return;
 		planDialogUser = user;
 		planDialogOpen = true;
 	}
@@ -302,13 +343,13 @@
 		}
 	}
 
-	function handlePlanChanged() {
-		void loadUsers(userPage);
-	}
-
 	async function createImpersonationLink(user: InstanceUser) {
-		if (user.is_admin) return;
+		if (user.is_admin || rowActionsDisabled) return;
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
 		const sequence = ++impersonationRequestSequence;
+		const isCurrentRequest = () =>
+			active && sequence === impersonationRequestSequence && get(auth).user?.id === actorID;
 		impersonationUser = user;
 		impersonationDialogOpen = true;
 		impersonationBusyUserID = user.id;
@@ -317,17 +358,35 @@
 		impersonationError = '';
 		impersonationCopied = false;
 
-		const { data, error } = await client.POST('/admin/users/{user_id}/impersonation-links', {
-			params: { path: { user_id: user.id } }
-		});
-		if (sequence !== impersonationRequestSequence) return;
-		impersonationBusyUserID = '';
-		if (error || !data) {
-			impersonationError = problemDetail(error, m.settings_instance_impersonation_create_failed());
-			return;
+		try {
+			const { data, error } = await client.POST('/admin/users/{user_id}/impersonation-links', {
+				params: { path: { user_id: user.id } }
+			});
+			if (error || !data) {
+				throw new Error(problemDetail(error, m.settings_instance_impersonation_create_failed()));
+			}
+			if (get(auth).user?.id !== actorID) return;
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: organizationQueryKeys.instanceAuditRoot()
+				}),
+				queryClient.invalidateQueries({
+					predicate: (query) => isOrganizationAuditQueryKey(query.queryKey)
+				})
+			]);
+			if (!isCurrentRequest()) return;
+			impersonationURL = data.url;
+			impersonationExpiresAt = data.expires_at;
+		} catch (cause) {
+			if (isCurrentRequest()) {
+				impersonationError =
+					cause instanceof Error
+						? cause.message
+						: m.settings_instance_impersonation_create_failed();
+			}
+		} finally {
+			if (isCurrentRequest()) impersonationBusyUserID = '';
 		}
-		impersonationURL = data.url;
-		impersonationExpiresAt = data.expires_at;
 	}
 
 	function handleImpersonationDialogOpenChange(open: boolean) {
@@ -447,9 +506,9 @@
 		<PageLoading layout="list" label={m.common_loading()} items={7} />
 	{:else}
 		{#if usersError}
-			<InlineNotice tone="error" message={usersError}>
+			<InlineNotice tone={users ? 'warning' : 'error'} message={usersError}>
 				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={() => void loadUsers(userPage)}>
+					<Button variant="outline" size="sm" onclick={retryUsers}>
 						{m.common_retry()}
 					</Button>
 				{/snippet}
@@ -646,5 +705,4 @@
 	open={planDialogOpen}
 	user={planDialogUser}
 	onOpenChange={handlePlanDialogOpenChange}
-	onPlanChanged={handlePlanChanged}
 />

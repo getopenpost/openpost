@@ -194,7 +194,7 @@ func (s *Service) ValidateToken(ctx context.Context, rawToken string) (*Principa
 		Model(&candidates).
 		Where("token_prefix = ?", prefix).
 		Scan(ctx); err != nil {
-		return nil, ErrInvalidToken
+		return nil, err
 	}
 
 	for _, token := range candidates {
@@ -271,7 +271,10 @@ func (s *Service) validateMatchedToken(ctx context.Context, token *models.APITok
 		Model(&user).
 		Where("id = ?", token.UserID).
 		Scan(ctx); err != nil {
-		return nil, ErrInvalidToken
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrInvalidToken
+		}
+		return nil, err
 	}
 
 	if err := s.TouchLastUsedAt(ctx, token.ID); err != nil {

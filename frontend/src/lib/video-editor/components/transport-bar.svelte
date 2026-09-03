@@ -6,6 +6,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Popover from '$lib/components/ui/popover';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
@@ -26,14 +27,9 @@
 		setInPoint,
 		setOutPoint
 	} from '$lib/video-editor/timeline/actions/items';
-	import PauseIcon from '@lucide/svelte/icons/pause';
-	import PlayIcon from '@lucide/svelte/icons/play';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 	import MaximizeIcon from '@lucide/svelte/icons/maximize';
 	import MinimizeIcon from '@lucide/svelte/icons/minimize';
 	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
@@ -158,7 +154,7 @@
 </script>
 
 <div
-	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-[oklch(0.25_0.015_55)] px-2 py-1.5 sm:gap-2 sm:px-3"
+	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-border px-2 py-1.5 sm:gap-2 sm:px-3"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -193,7 +189,7 @@
 							loop: true
 						})}
 		>
-			{#if playing}<PauseIcon />{:else}<PlayIcon />{/if}
+			{#if playing}<ProtectedIcon icon="pause" />{:else}<ProtectedIcon icon="play" />{/if}
 		</Button>
 		<Button
 			class="hidden sm:inline-flex"
@@ -285,13 +281,14 @@
 			title={m.video_editor_save_frame()}
 			onclick={() => void saveCurrentFrame()}
 		>
-			{#if savingFrame}<LoaderIcon
+			{#if savingFrame}<ProtectedIcon
+					icon="loading"
 					class="animate-spin motion-reduce:animate-none"
-				/>{:else}<CameraIcon />{/if}
+				/>{:else}<ThemeIcon role="camera" />{/if}
 		</Button>
 	</div>
 
-	<span class="rounded bg-[oklch(0.18_0.008_55)] px-2 py-0.5 font-mono text-xs tabular-nums">
+	<span class="rounded bg-muted px-2 py-0.5 font-mono text-xs tabular-nums">
 		{timecode} <span class="text-muted-foreground max-[359px]:hidden">/ {totalFrames}</span>
 	</span>
 
@@ -345,11 +342,11 @@
 							>{adaptiveQualityPercent}%</span
 						>
 					{/if}
-					{#if previewPlaybackSettings.previewQuality === 'auto'}<CheckIcon />{/if}
+					{#if previewPlaybackSettings.previewQuality === 'auto'}<ThemeIcon role="check" />{/if}
 				</DropdownMenu.Item>
 				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setPreviewQuality('full')}>
 					<span class="flex-1">{m.video_editor_quality_full()}</span>
-					{#if previewPlaybackSettings.previewQuality === 'full'}<CheckIcon />{/if}
+					{#if previewPlaybackSettings.previewQuality === 'full'}<ThemeIcon role="check" />{/if}
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

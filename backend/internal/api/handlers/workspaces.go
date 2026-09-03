@@ -1049,68 +1049,18 @@ func (h *WorkspaceHandler) ListWorkspaces(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, _ *struct{}) (*ListWorkspacesOutput, error) {
 		userID := middleware.GetUserID(ctx)
-
-		var rows []struct {
-			ID               string    `bun:"id"`
-			OrganizationID   string    `bun:"organization_id"`
-			OrganizationName string    `bun:"organization_name"`
-			Name             string    `bun:"name"`
-			AvatarURL        string    `bun:"avatar_url"`
-			Color            string    `bun:"color"`
-			Role             string    `bun:"role"`
-			CreatedAt        time.Time `bun:"created_at"`
-		}
-		query := h.db.NewSelect().
-			TableExpr("workspaces AS w").
-			ColumnExpr("w.id, w.organization_id, w.name, w.avatar_url, w.color, w.created_at, wm.role").
-			ColumnExpr("COALESCE(o.name, '') AS organization_name").
-			Join("JOIN workspace_members AS wm ON wm.workspace_id = w.id").
-			Join("LEFT JOIN organizations AS o ON o.id = w.organization_id").
-			Where("wm.user_id = ? AND wm.status = ?", userID, models.WorkspaceMemberStatusActive)
-		if workspaceID := middleware.GetWorkspaceID(ctx); workspaceID != "" {
-			query = query.Where("w.id = ?", workspaceID)
-		}
-		err := query.Order("organization_name ASC", "w.name ASC").Scan(ctx, &rows)
+		workspaces, err := (appReadModel{db: h.db}).workspaces(ctx, userID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to fetch workspaces")
-		}
-
-		resp := &ListWorkspacesOutput{Body: []WorkspaceResponse{}}
-		for _, ws := range rows {
-			decision, err := workspaceDecision(ctx, h.db, ws.ID, userID, workspaceaccess.LevelRead)
-			if err != nil {
+			switch {
+			case errors.Is(err, errEvaluateWorkspaceReadAccess):
 				return nil, huma.Error500InternalServerError("failed to evaluate workspace SSO policy")
+			case errors.Is(err, errInspectWorkspaceSSOIdentity):
+				return nil, huma.Error500InternalServerError("failed to inspect workspace SSO identity")
+			default:
+				return nil, huma.Error500InternalServerError("failed to fetch workspaces")
 			}
-			if middleware.GetTokenID(ctx) != "" && !decision.Allowed {
-				continue
-			}
-			identityLinked := true
-			if decision.SSORequired && decision.ProviderID != "" {
-				identityLinked, err = h.db.NewSelect().Model((*models.UserIdentity)(nil)).
-					Where("user_id = ? AND provider_id = ?", userID, decision.ProviderID).
-					Exists(ctx)
-				if err != nil {
-					return nil, huma.Error500InternalServerError("failed to inspect workspace SSO identity")
-				}
-			}
-			resp.Body = append(resp.Body, WorkspaceResponse{
-				WorkspaceID:        ws.ID,
-				OrganizationID:     ws.OrganizationID,
-				OrganizationName:   ws.OrganizationName,
-				WorkspaceName:      ws.Name,
-				AvatarURL:          ws.AvatarURL,
-				Color:              normalizedWorkspaceColor(ws.Color),
-				WorkspaceCreatedAt: ws.CreatedAt.Format(time.RFC3339),
-				Role:               ws.Role,
-				CanEdit:            decision.Allowed && (ws.Role == models.WorkspaceRoleAdmin || ws.Role == models.WorkspaceRoleEditor),
-				SSORequired:        decision.SSORequired,
-				SSOAuthenticated:   decision.Allowed,
-				SSOProviderID:      decision.ProviderID,
-				SSOProviderName:    decision.ProviderName,
-				SSOIdentityLinked:  identityLinked,
-			})
 		}
-		return resp, nil
+		return &ListWorkspacesOutput{Body: workspaces}, nil
 	})
 }
 
@@ -1547,21 +1497,19 @@ func (h *WorkspaceHandler) GetWorkspaceSettings(api huma.API) {
 		Errors:      []int{403, 404},
 	}, func(ctx context.Context, input *GetWorkspaceSettingsInput) (*GetWorkspaceSettingsOutput, error) {
 		userID := middleware.GetUserID(ctx)
-		allowed, err := workspaceReadAllowed(ctx, h.db, input.PathID, userID)
+		settings, allowed, err := (appReadModel{db: h.db}).workspaceSettings(ctx, input.PathID, userID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError(errValidateWorkspaceAccess)
+			switch {
+			case errors.Is(err, errValidateSettingsReadAccess):
+				return nil, huma.Error500InternalServerError(errValidateWorkspaceAccess)
+			case errors.Is(err, sql.ErrNoRows):
+				return nil, huma.Error404NotFound("workspace not found")
+			default:
+				return nil, huma.Error500InternalServerError("failed to fetch workspace")
+			}
 		}
 		if !allowed {
 			return nil, huma.Error403Forbidden(errWorkspaceAccessDenied)
-		}
-
-		var workspace models.Workspace
-		err = h.db.NewSelect().Model(&workspace).Where("id = ?", input.PathID).Scan(ctx)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, huma.Error404NotFound("workspace not found")
-			}
-			return nil, huma.Error500InternalServerError("failed to fetch workspace")
 		}
 
 		return &GetWorkspaceSettingsOutput{Body: struct {
@@ -1576,16 +1524,16 @@ func (h *WorkspaceHandler) GetWorkspaceSettings(api huma.API) {
 			SlotEndHour         int    `json:"slot_end_hour"`
 			SlotIntervalMinutes int    `json:"slot_interval_minutes"`
 		}{
-			Name:                workspace.Name,
-			AvatarURL:           workspace.AvatarURL,
-			Color:               normalizedWorkspaceColor(workspace.Color),
-			Timezone:            workspace.Timezone,
-			WeekStart:           workspace.WeekStart,
-			MediaCleanupDays:    medialifecycle.TemporaryIdleDays,
-			RandomDelayMinutes:  workspace.RandomDelayMinutes,
-			SlotStartHour:       workspace.SlotStartHour,
-			SlotEndHour:         workspace.SlotEndHour,
-			SlotIntervalMinutes: workspace.SlotIntervalMinutes,
+			Name:                settings.Name,
+			AvatarURL:           settings.AvatarURL,
+			Color:               settings.Color,
+			Timezone:            settings.Timezone,
+			WeekStart:           settings.WeekStart,
+			MediaCleanupDays:    settings.MediaCleanupDays,
+			RandomDelayMinutes:  settings.RandomDelayMinutes,
+			SlotStartHour:       settings.SlotStartHour,
+			SlotEndHour:         settings.SlotEndHour,
+			SlotIntervalMinutes: settings.SlotIntervalMinutes,
 		}}, nil
 	})
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client } from '$lib/api/client';
 import { setLocale } from '$lib/paraglide/runtime';
+import { queryClient } from '$lib/query/client';
 import {
 	listMemeTemplates,
 	memePreviewDataURL,
@@ -16,6 +17,7 @@ vi.spyOn(client, 'POST').mockImplementation(mocks.post);
 
 describe('meme generator API', () => {
 	beforeEach(() => {
+		queryClient.clear();
 		mocks.get.mockReset();
 		mocks.post.mockReset();
 		setLocale('en', { reload: false });
@@ -33,8 +35,18 @@ describe('meme generator API', () => {
 		).resolves.toEqual(response);
 		expect(mocks.get).toHaveBeenCalledWith('/memes/templates', {
 			params: { query: { workspace_id: 'workspace-1', q: 'drake', limit: 40 } },
-			signal: undefined
+			signal: expect.any(AbortSignal)
 		});
+	});
+
+	it('does not start a template read after the caller aborts', async () => {
+		const controller = new AbortController();
+		controller.abort();
+
+		await expect(
+			listMemeTemplates({ workspaceId: 'workspace-1', signal: controller.signal })
+		).rejects.toMatchObject({ name: 'AbortError' });
+		expect(mocks.get).not.toHaveBeenCalled();
 	});
 
 	it('gives the browser a revisioned raw thumbnail URL', () => {

@@ -423,8 +423,8 @@ test("notification feed shares live state, retries failed cursors, and exposes a
     read_at: "",
     created_at: localMidday(index === 0 ? 0 : index === 1 ? 1 : index + 2),
   }));
-  let initialFailuresRemaining = 1;
-  let cursorFailuresRemaining = 1;
+  let initialFailuresRemaining = 2;
+  let cursorFailuresRemaining = 2;
   let openFailuresRemaining = 1;
   const readRequests: NotificationMutation[] = [];
 

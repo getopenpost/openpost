@@ -2,7 +2,7 @@
 	import { Pagination as PaginationPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import RiArrowRightSLine from 'remixicon-svelte/icons/arrow-right-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,5 +23,5 @@
 	{...restProps}
 >
 	<span class="cn-pagination-next-text hidden sm:block">{label}</span>
-	<RiArrowRightSLine data-icon="inline-end" />
+	<ThemeIcon role="chevron-right" data-icon="inline-end" />
 </PaginationPrimitive.NextButton>

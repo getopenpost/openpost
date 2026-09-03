@@ -1,11 +1,9 @@
 <script lang="ts">
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import LinkIcon from '@lucide/svelte/icons/link-2';
 	import MoveIcon from '@lucide/svelte/icons/move';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import UnlinkIcon from '@lucide/svelte/icons/unlink-2';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -338,7 +336,7 @@
 						aria-label={m.video_editor_property_reset_position()}
 						onclick={() => reset(() => ({ x: 0, y: 0 }))}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -362,9 +360,9 @@
 						aria-pressed={aspectLocked()}
 						onclick={toggleAspectLock}
 					>
-						{#if aspectLocked()}<LinkIcon class="size-3.5" aria-hidden="true" />{:else}<UnlinkIcon
+						{#if aspectLocked()}<ThemeIcon role="link" class="size-3.5" />{:else}<ThemeIcon
+								role="unlink"
 								class="size-3.5"
-								aria-hidden="true"
 							/>{/if}
 					</button>
 					<button
@@ -373,7 +371,7 @@
 						aria-label={m.video_editor_property_reset_size()}
 						onclick={resetSize}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -406,7 +404,7 @@
 						aria-label={m.video_editor_property_reset_rotation()}
 						onclick={() => reset(() => ({ rotation: 0 }))}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -444,7 +442,7 @@
 								anchorY: valueFor(item, 'height') / 2
 							}))}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -539,7 +537,7 @@
 						aria-label={m.video_editor_property_reset_opacity()}
 						onclick={() => reset(() => ({ opacity: 1 }))}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>
@@ -573,7 +571,7 @@
 						aria-label={m.video_editor_property_reset_radius()}
 						onclick={() => reset(() => ({ cornerRadius: 0 }))}
 					>
-						<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+						<ThemeIcon role="undo" class="size-3.5" />
 					</button>
 				</div>
 			</div>

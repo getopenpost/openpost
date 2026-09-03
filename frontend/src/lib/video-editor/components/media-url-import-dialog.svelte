@@ -3,8 +3,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
-	import LinkIcon from '@lucide/svelte/icons/link';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let {
 		open = $bindable(false),
@@ -41,13 +40,13 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[480px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[480px] border-border bg-popover text-popover-foreground sm:max-w-[480px]"
 		showCloseButton={!working}
 	>
 		<form onsubmit={submit}>
 			<Dialog.Header>
 				<Dialog.Title class="flex items-center gap-2 text-base">
-					<LinkIcon class="size-4 text-[var(--video-editor-focus)]" aria-hidden="true" />
+					<ThemeIcon role="link" class="size-4 text-[var(--video-editor-focus)]" />
 					{m.video_editor_media_import_url()}
 				</Dialog.Title>
 				<Dialog.Description class="text-xs text-[var(--video-editor-muted)]">
@@ -71,7 +70,7 @@
 				/>
 				{#if error}
 					<p
-						class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+						class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 						role="alert"
 					>
 						{error}
@@ -84,9 +83,9 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" disabled={working || !url.trim()}>
-					{#if working}<LoaderIcon
+					{#if working}<ProtectedIcon
+							icon="loading"
 							class="size-3.5 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{working
 						? m.video_editor_media_import_url_working()

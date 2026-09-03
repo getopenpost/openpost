@@ -261,6 +261,7 @@
 		class="relative min-h-0 overflow-hidden rounded border border-white/10 bg-black/80 {embedded
 			? 'flex-1'
 			: ''} {canvasClass(scope)}"
+		data-editor-protected="scopes"
 	>
 		{#if gpuReady}
 			<canvas

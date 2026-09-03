@@ -8,19 +8,22 @@
 	import {
 		deleteImageEditorDesign,
 		duplicateImageEditorDesign,
-		listImageEditorDesigns,
-		loadImageEditorDesign,
 		saveImageEditorDesign,
 		toggleImageEditorDesignFavorite
 	} from '$lib/image-editor/api';
+	import { queryImageEditorDesign } from '$lib/query/image-editor';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { createInfiniteQuery } from '@tanstack/svelte-query';
+	import { imageEditorDesignCatalogQueryOptions } from '@openpost/query-catalog';
+	import { imageEditorQueryAPI } from '$lib/query/image-editor';
 	import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
 	import {
 		EDITOR_CATALOG_PAGE_SIZE,
-		EditorCatalogCache,
-		EditorCatalogRequestGate,
 		editorCatalogKey,
-		emptyEditorCatalog,
-		isAbortError,
 		mergeEditorCatalogItems,
 		normalizeEditorCatalogQuery,
 		resolveEditorCatalogSurface,
@@ -55,12 +58,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { m } from '$lib/paraglide/messages';
 
-	type CatalogView = EditorCatalogSnapshot & {
-		loading: boolean;
-		refreshing: boolean;
-		loadingMoreDesigns: boolean;
-		error: string;
-	};
+	type CatalogView = EditorCatalogSnapshot;
 	type DeleteTarget = {
 		kind: EditorCatalogItemKind;
 		workspaceID: string;
@@ -68,10 +66,12 @@
 		item: ImageEditorDesignSummary;
 	};
 	type RenameTarget = DeleteTarget;
+	type EditorMutationView = {
+		session: QueryMutationSession;
+		workspaceID: string;
+		catalogKey: string;
+	};
 
-	const catalogCache = new EditorCatalogCache();
-	const catalogRequests = new EditorCatalogRequestGate();
-	const designPageRequests = new EditorCatalogRequestGate();
 	const pendingDeletes = new SvelteSet<string>();
 	const videoWorkspaceGate = createWorkspaceGate();
 	const videoProjectCatalog = createWorkspaceProjectCatalog(videoWorkspaceGate);
@@ -86,15 +86,51 @@
 	let renameTarget = $state.raw<RenameTarget | null>(null);
 	let workspaceInitializationPending = $state(!workspaceCtx.currentWorkspace);
 	let workspaceInitializationError = $state('');
-	let catalog = $state.raw<CatalogView>(catalogView(emptyEditorCatalog('', ''), { loading: true }));
+	let queryWorkspaceID = $state('');
+	let querySearch = $state('');
 	let workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let query = $derived(normalizeEditorCatalogQuery(search));
-	let activeCatalogKey = $derived(editorCatalogKey(workspaceID, query));
-	let hasMoreDesigns = $derived(catalog.designOffset < catalog.designTotal);
+	let activeCatalogKey = $derived(editorCatalogKey(workspaceID, querySearch));
+	let catalogWorkspaceIsCurrent = $derived(queryWorkspaceID === workspaceID);
+	const designsQuery = createInfiniteQuery(() =>
+		imageEditorDesignCatalogQueryOptions(imageEditorQueryAPI, queryWorkspaceID, {
+			search: querySearch,
+			limit: EDITOR_CATALOG_PAGE_SIZE
+		})
+	);
+	let catalog = $derived.by<CatalogView>(() => {
+		const pages = catalogWorkspaceIsCurrent ? (designsQuery.data?.pages ?? []) : [];
+		const designs = pages.reduce<ImageEditorDesignSummary[]>(
+			(current, page) => mergeEditorCatalogItems(current, page.designs),
+			[]
+		);
+		const first = pages[0];
+		return {
+			workspaceID: queryWorkspaceID,
+			query: querySearch,
+			designs: excludePendingDeletes(designs, queryWorkspaceID, 'design'),
+			designTotal: first?.total ?? 0,
+			designOffset: designs.length,
+			canEditDesigns: first?.canEdit ?? false
+		};
+	});
+	let hasMoreDesigns = $derived(Boolean(designsQuery.hasNextPage));
+	let catalogLoading = $derived(
+		(Boolean(workspaceID) && !catalogWorkspaceIsCurrent) ||
+			(Boolean(queryWorkspaceID) && designsQuery.isPending && !designsQuery.data) ||
+			(!queryWorkspaceID && (workspaceInitializationPending || workspaceCtx.loading))
+	);
+	let catalogError = $derived(
+		catalogWorkspaceIsCurrent && designsQuery.isError
+			? errorMessage(designsQuery.error, m.editors_load_failed())
+			: !queryWorkspaceID
+				? workspaceInitializationError
+				: ''
+	);
 	let imageCatalogSurface = $derived(
 		resolveEditorCatalogSurface({
-			loading: catalog.loading,
-			error: catalog.error,
+			loading: catalogLoading,
+			error: catalogError,
 			designCount: catalog.designs.length
 		})
 	);
@@ -108,71 +144,25 @@
 		} else {
 			workspaceInitializationPending = false;
 		}
-		return invalidateCatalogRequests;
 	});
 
 	$effect(() => {
 		const requestedWorkspaceID = workspaceID;
 		const requestedQuery = query;
-		const key = editorCatalogKey(requestedWorkspaceID, requestedQuery);
-
-		invalidateCatalogRequests();
 		deleteDialogOpen = false;
 		deleteTarget = null;
 		renameDialogOpen = false;
 		renameTarget = null;
 
-		const cached = requestedWorkspaceID
-			? catalogCache.read(requestedWorkspaceID, requestedQuery)
-			: undefined;
-		catalog = catalogView(cached ?? emptyEditorCatalog(requestedWorkspaceID, requestedQuery), {
-			loading: requestedWorkspaceID
-				? !cached
-				: workspaceInitializationPending || workspaceCtx.loading,
-			refreshing: Boolean(cached),
-			error: requestedWorkspaceID ? '' : workspaceInitializationError
-		});
-		if (!requestedWorkspaceID) return;
-
 		const timeout = window.setTimeout(
-			() => void loadCatalog(requestedWorkspaceID, requestedQuery, key),
+			() => {
+				queryWorkspaceID = requestedWorkspaceID;
+				querySearch = requestedQuery;
+			},
 			requestedQuery ? 250 : 0
 		);
-		return () => {
-			window.clearTimeout(timeout);
-			invalidateCatalogRequests();
-		};
+		return () => window.clearTimeout(timeout);
 	});
-
-	function catalogView(
-		snapshot: EditorCatalogSnapshot,
-		overrides: Partial<Omit<CatalogView, keyof EditorCatalogSnapshot>> = {}
-	): CatalogView {
-		return {
-			...snapshot,
-			loading: false,
-			refreshing: false,
-			loadingMoreDesigns: false,
-			error: '',
-			...overrides
-		};
-	}
-
-	function catalogSnapshot(view: CatalogView): EditorCatalogSnapshot {
-		return {
-			workspaceID: view.workspaceID,
-			query: view.query,
-			designs: view.designs,
-			designTotal: view.designTotal,
-			designOffset: view.designOffset,
-			canEditDesigns: view.canEditDesigns
-		};
-	}
-
-	function invalidateCatalogRequests(): void {
-		catalogRequests.invalidate();
-		designPageRequests.invalidate();
-	}
 
 	function errorMessage(cause: unknown, fallback: string): string {
 		return cause instanceof Error ? cause.message : fallback;
@@ -193,7 +183,7 @@
 	}
 
 	function retryCatalog(): void {
-		if (workspaceID) void refreshCurrentCatalog(true);
+		if (workspaceID) void refreshCurrentCatalog();
 		else void initializeWorkspace();
 	}
 
@@ -213,102 +203,14 @@
 		return items.filter((item) => !pendingDeletes.has(pendingDeleteKey(workspace, kind, item.id)));
 	}
 
-	async function loadCatalog(
-		requestedWorkspaceID: string,
-		requestedQuery: string,
-		key: string
-	): Promise<void> {
-		const token = catalogRequests.begin(key);
-		try {
-			const imageResult = await listImageEditorDesigns(requestedWorkspaceID, {
-				search: requestedQuery,
-				limit: EDITOR_CATALOG_PAGE_SIZE,
-				offset: 0,
-				signal: token.signal
-			});
-			if (!catalogRequests.accepts(token, activeCatalogKey)) return;
-			const snapshot: EditorCatalogSnapshot = {
-				workspaceID: requestedWorkspaceID,
-				query: requestedQuery,
-				designs: excludePendingDeletes(imageResult.designs, requestedWorkspaceID, 'design'),
-				designTotal: imageResult.total,
-				designOffset: imageResult.designs.length,
-				canEditDesigns: imageResult.can_edit
-			};
-			catalogCache.write(snapshot);
-			catalog = catalogView(snapshot);
-		} catch (cause) {
-			if (token.signal.aborted || isAbortError(cause)) return;
-			if (!catalogRequests.accepts(token, activeCatalogKey)) return;
-			catalog = {
-				...catalog,
-				loading: false,
-				refreshing: false,
-				error: errorMessage(cause, m.editors_load_failed())
-			};
-		}
-	}
-
-	async function refreshCurrentCatalog(preserveResults = true): Promise<void> {
-		const requestedWorkspaceID = workspaceID;
-		const requestedQuery = query;
-		if (!requestedWorkspaceID) return;
-		designPageRequests.invalidate();
-		catalog = {
-			...catalog,
-			loading: !preserveResults,
-			refreshing: preserveResults,
-			error: ''
-		};
-		await loadCatalog(
-			requestedWorkspaceID,
-			requestedQuery,
-			editorCatalogKey(requestedWorkspaceID, requestedQuery)
-		);
+	async function refreshCurrentCatalog(): Promise<void> {
+		if (!workspaceID) return;
+		await designsQuery.refetch();
 	}
 
 	async function loadMoreDesigns(): Promise<void> {
-		const current = catalog;
-		const key = editorCatalogKey(current.workspaceID, current.query);
-		if (
-			!current.workspaceID ||
-			key !== activeCatalogKey ||
-			current.loadingMoreDesigns ||
-			current.designOffset >= current.designTotal
-		) {
-			return;
-		}
-		const offset = current.designOffset;
-		const token = designPageRequests.begin(key);
-		catalog = { ...current, loadingMoreDesigns: true, error: '' };
-		try {
-			const result = await listImageEditorDesigns(current.workspaceID, {
-				search: current.query,
-				limit: EDITOR_CATALOG_PAGE_SIZE,
-				offset,
-				signal: token.signal
-			});
-			if (!designPageRequests.accepts(token, activeCatalogKey)) return;
-			const items = excludePendingDeletes(result.designs, current.workspaceID, 'design');
-			const next: CatalogView = {
-				...catalog,
-				designs: mergeEditorCatalogItems(catalog.designs, items),
-				designTotal: result.total,
-				designOffset: result.designs.length === 0 ? result.total : offset + result.designs.length,
-				canEditDesigns: result.can_edit,
-				loadingMoreDesigns: false
-			};
-			catalogCache.write(catalogSnapshot(next));
-			catalog = next;
-		} catch (cause) {
-			if (token.signal.aborted || isAbortError(cause)) return;
-			if (!designPageRequests.accepts(token, activeCatalogKey)) return;
-			catalog = {
-				...catalog,
-				loadingMoreDesigns: false,
-				error: errorMessage(cause, m.editors_load_failed())
-			};
-		}
+		if (!designsQuery.hasNextPage || designsQuery.isFetchingNextPage) return;
+		await designsQuery.fetchNextPage();
 	}
 
 	function formatDate(value: string | number): string {
@@ -330,40 +232,43 @@
 		toastTone = tone;
 	}
 
+	function captureEditorMutationView(originWorkspaceID: string): EditorMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: originWorkspaceID,
+			catalogKey: activeCatalogKey
+		};
+	}
+
+	function editorMutationViewIsCurrent(view: EditorMutationView): boolean {
+		return (
+			queryMutationSessionIsCurrent(view.session) &&
+			workspaceID === view.workspaceID &&
+			activeCatalogKey === view.catalogKey
+		);
+	}
+
 	async function duplicateDesign(design: ImageEditorDesignSummary): Promise<void> {
 		const originWorkspaceID = workspaceID;
 		if (!catalog.canEditDesigns || !originWorkspaceID) return;
+		const view = captureEditorMutationView(originWorkspaceID);
 		try {
-			await duplicateImageEditorDesign(design.id);
-			catalogCache.invalidateWorkspace(originWorkspaceID);
-			if (workspaceID === originWorkspaceID) {
-				await refreshCurrentCatalog(true);
-				notify(m.image_editor_design_duplicated(), 'success');
-			}
+			await duplicateImageEditorDesign(originWorkspaceID, design.id);
+			if (editorMutationViewIsCurrent(view)) notify(m.image_editor_design_duplicated(), 'success');
 		} catch (cause) {
-			if (workspaceID !== originWorkspaceID) return;
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(errorMessage(cause, m.image_editor_design_duplicate_failed()), 'error');
 		}
 	}
 
 	async function toggleFavorite(design: ImageEditorDesignSummary): Promise<void> {
 		const originWorkspaceID = workspaceID;
-		const originKey = activeCatalogKey;
 		if (!catalog.canEditDesigns || !originWorkspaceID) return;
+		const view = captureEditorMutationView(originWorkspaceID);
 		try {
-			const favorite = await toggleImageEditorDesignFavorite(design.id);
-			catalogCache.invalidateWorkspace(originWorkspaceID);
-			if (workspaceID === originWorkspaceID && activeCatalogKey === originKey) {
-				catalog = {
-					...catalog,
-					designs: catalog.designs.map((item) =>
-						item.id === design.id ? { ...item, is_favorite: favorite } : item
-					)
-				};
-				catalogCache.write(catalogSnapshot(catalog));
-			}
+			await toggleImageEditorDesignFavorite(originWorkspaceID, design.id);
 		} catch (cause) {
-			if (workspaceID !== originWorkspaceID) return;
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(errorMessage(cause, m.image_editor_design_favorite_failed()), 'error');
 		}
 	}
@@ -385,18 +290,12 @@
 			return { ok: false };
 		}
 		const itemKey = pendingDeleteKey(target.workspaceID, target.kind, target.item.id);
+		const view = captureEditorMutationView(target.workspaceID);
 		pendingDeletes.add(itemKey);
-		catalogCache.write(catalogSnapshot(catalog));
-		const rollback = catalogCache.remove(target.workspaceID, target.kind, target.item.id);
-		const optimistic = catalogCache.read(target.workspaceID, query);
-		if (optimistic && target.key === activeCatalogKey) catalog = catalogView(optimistic);
 		try {
-			await deleteImageEditorDesign(target.item.id);
+			await deleteImageEditorDesign(target.workspaceID, target.item.id);
 			pendingDeletes.delete(itemKey);
-			catalogCache.invalidateWorkspace(target.workspaceID);
-			if (workspaceID === target.workspaceID) {
-				await refreshCurrentCatalog(true);
-			}
+			if (!editorMutationViewIsCurrent(view)) return { ok: false };
 			if (deleteTarget === target) deleteTarget = null;
 			return {
 				ok: true,
@@ -404,12 +303,7 @@
 			};
 		} catch (cause) {
 			pendingDeletes.delete(itemKey);
-			catalogCache.restore(rollback);
-			if (workspaceID === target.workspaceID) {
-				const restored = catalogCache.read(target.workspaceID, query);
-				if (activeCatalogKey === target.key && restored) catalog = catalogView(restored);
-				else await refreshCurrentCatalog(true);
-			}
+			if (!editorMutationViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: errorMessage(cause, m.image_editor_design_delete_failed())
@@ -433,32 +327,21 @@
 		) {
 			throw new Error(m.editors_rename_failed());
 		}
+		const view = captureEditorMutationView(target.workspaceID);
 		try {
-			const current = await loadImageEditorDesign(target.item.id);
-			const updated = await saveImageEditorDesign(
+			const current = await queryImageEditorDesign(target.workspaceID, target.item.id);
+			if (!editorMutationViewIsCurrent(view)) return;
+			await saveImageEditorDesign(
+				target.workspaceID,
 				current.id,
 				current.revision,
 				{ ...current.document, title },
 				current.cover_preview_media_id
 			);
-			catalogCache.invalidateWorkspace(target.workspaceID);
-			if (workspaceID !== target.workspaceID || activeCatalogKey !== target.key) return;
-			catalog = {
-				...catalog,
-				designs: catalog.designs.map((design) =>
-					design.id === current.id
-						? {
-								...design,
-								title: updated.document.title,
-								revision: updated.revision,
-								updated_at: updated.updated_at
-							}
-						: design
-				)
-			};
-			catalogCache.write(catalogSnapshot(catalog));
+			if (!editorMutationViewIsCurrent(view)) return;
 			notify(m.editors_renamed(), 'success');
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			throw new Error(errorMessage(cause, m.editors_rename_failed()));
 		}
 	}
@@ -510,7 +393,7 @@
 		<section
 			class="space-y-3"
 			aria-labelledby="editor-catalog-designs-heading"
-			aria-busy={catalog.loadingMoreDesigns || catalog.refreshing}
+			aria-busy={designsQuery.isFetching}
 		>
 			<div>
 				<h2 id="editor-catalog-designs-heading" class="text-base font-semibold">
@@ -519,8 +402,8 @@
 				<p class="text-sm text-muted-foreground">{m.editors_image_designs_body()}</p>
 			</div>
 
-			{#if catalog.error}
-				<InlineNotice tone="error" message={catalog.error}>
+			{#if catalogError}
+				<InlineNotice tone="error" message={catalogError}>
 					{#snippet actions()}
 						<Button variant="outline" size="sm" onclick={retryCatalog}>{m.editors_retry()}</Button>
 					{/snippet}
@@ -529,7 +412,7 @@
 
 			{#if imageCatalogSurface === 'loading'}
 				<PageLoading layout="gallery" items={5} label={m.editors_loading()} />
-			{:else if catalog.designs.length === 0 && !catalog.error}
+			{:else if catalog.designs.length === 0 && !catalogError}
 				<EmptyState
 					icon={ImageIcon}
 					title={query ? m.editors_no_match() : m.editors_empty()}
@@ -625,10 +508,10 @@
 					<div class="flex justify-center">
 						<Button
 							variant="outline"
-							disabled={catalog.loadingMoreDesigns}
+							disabled={designsQuery.isFetchingNextPage}
 							onclick={() => void loadMoreDesigns()}
 						>
-							{#if catalog.loadingMoreDesigns}
+							{#if designsQuery.isFetchingNextPage}
 								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
 								{m.editors_loading_more()}
 							{:else}

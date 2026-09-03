@@ -1,7 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
 
-import { api, errorMessage } from "./api/client";
-import { currentWorkspaceId } from "./queries";
+import { api, errorMessage, type Api } from "./api/client";
 
 export type PendingAttachment = {
   localId: string;
@@ -16,14 +15,17 @@ export type PendingAttachment = {
  * create session → raw binary upload to the presigned target → complete.
  * Returns the final media id for attaching to publications/renditions.
  */
-export async function uploadAttachment(file: PendingAttachment): Promise<string> {
+export async function uploadAttachment(
+  file: PendingAttachment,
+  { client = api(), workspaceId }: { client?: Api; workspaceId: string },
+): Promise<string> {
   const {
     data: session,
     error,
     response,
-  } = await api().POST("/media/upload-session", {
+  } = await client.POST("/media/upload-session", {
     body: {
-      workspace_id: currentWorkspaceId(),
+      workspace_id: workspaceId,
       filename: file.filename,
       size: file.size ?? 0,
       mime_type: file.mimeType,
@@ -44,11 +46,11 @@ export async function uploadAttachment(file: PendingAttachment): Promise<string>
     }
   }
 
-  const { error: completeError, response: completeResponse } = await api().POST(
+  const { error: completeError, response: completeResponse } = await client.POST(
     "/media/upload-session/{id}/complete",
     {
       params: { path: { id: session.media_id } },
-      body: { workspace_id: currentWorkspaceId() },
+      body: { workspace_id: workspaceId },
     },
   );
   if (completeError) {

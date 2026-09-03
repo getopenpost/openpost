@@ -145,7 +145,7 @@ test("communications and notifications stay usable across desktop and phone layo
       return;
     }
     conversationMessageLoads += 1;
-    if (conversationMessageLoads === 1) {
+    if (conversationMessageLoads <= 2) {
       await route.fulfill({
         status: 500,
         contentType: "application/problem+json",
@@ -160,23 +160,26 @@ test("communications and notifications stay usable across desktop and phone layo
     }
     await route.fulfill({
       contentType: "application/json",
-      json: [
-        {
-          id: "message-1",
-          workspace_id: workspace.id,
-          conversation_id: base.id,
-          remote_message_id: "ig-message-1",
-          direction: "inbound",
-          author_remote_id: "ig-user-ada",
-          body: "Is this available for teams?",
-          attachments_json: "[]",
-          send_status: "received",
-          error_message: "",
-          remote_created_at: "2026-07-26T11:55:00Z",
-          created_at: "2026-07-26T11:55:00Z",
-          updated_at: "2026-07-26T11:55:00Z",
-        },
-      ],
+      json: {
+        items: [
+          {
+            id: "message-1",
+            workspace_id: workspace.id,
+            conversation_id: base.id,
+            remote_message_id: "ig-message-1",
+            direction: "inbound",
+            author_remote_id: "ig-user-ada",
+            body: "Is this available for teams?",
+            attachments_json: "[]",
+            send_status: "received",
+            error_message: "",
+            remote_created_at: "2026-07-26T11:55:00Z",
+            created_at: "2026-07-26T11:55:00Z",
+            updated_at: "2026-07-26T11:55:00Z",
+          },
+        ],
+        next_cursor: "",
+      },
     });
   });
 
@@ -330,6 +333,13 @@ test("communications and notifications stay usable across desktop and phone layo
     await page.setViewportSize(viewport);
     for (const path of ["/inbox/engagement", "/inbox/messages", "/inbox/notifications"]) {
       await page.goto(`${path}?workspace=${workspace.id}`);
+      if (path.endsWith("engagement")) {
+        await expect(page.getByText("Could you share the setup guide?")).toBeVisible();
+      } else if (path.endsWith("messages")) {
+        await expect(page.getByRole("button", { name: /Ada/ })).toBeVisible();
+      } else {
+        await expect(page.getByText("New message from Ada")).toBeVisible();
+      }
       await expect
         .poll(() =>
           page.evaluate(

@@ -8,6 +8,16 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import { client } from '$lib/api/client';
+	import { openPostQueryKeys, schedulingPublicationsQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
 	import { workspaceClock } from '$lib/components/compose/schedule-timezone';
@@ -38,6 +48,19 @@
 	let postToDelete = $state.raw<Publication | null>(null);
 	let deleteReturnFocus = $state<HTMLElement | null>(null);
 	let loadRequestSequence = 0;
+	let postsWorkspaceId = '';
+	let postsDataReady = $state(false);
+	let deleteMutationContext = '';
+	let deleteMutationSequence = 0;
+
+	interface DayPostsDeleteView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+		readonly date: string;
+		readonly post: Publication;
+		readonly returnFocus: HTMLElement | null;
+	}
 
 	const currentDate = $derived<DateValue | undefined>(ui.dayPostsDate);
 	const dateStr = $derived(currentDate ? currentDate.toString() : '');
@@ -68,17 +91,58 @@
 		}
 	});
 
+	$effect(() => {
+		const context = `${ui.isDayPostsOpen ? 'open' : 'closed'}:${currentWorkspaceId}:${dateStr}`;
+		if (context === deleteMutationContext) return;
+		deleteMutationContext = context;
+		deleteMutationSequence += 1;
+		deleteDialogOpen = false;
+		postToDelete = null;
+	});
+
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
 		if (!isOpen) {
 			loadRequestSequence++;
+			deleteMutationSequence++;
 			loading = false;
+			deleteDialogOpen = false;
+			postToDelete = null;
 			ui.closeDayPosts();
 		}
 	}
 
-	async function loadPosts(date: string, workspaceId = currentWorkspaceId) {
+	function captureDayPostsDeleteView(post: Publication): DayPostsDeleteView | undefined {
+		if (!ui.isDayPostsOpen || !dateStr || post.workspace_id !== currentWorkspaceId)
+			return undefined;
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++deleteMutationSequence,
+			workspaceId: currentWorkspaceId,
+			date: dateStr,
+			post,
+			returnFocus: deleteReturnFocus
+		};
+	}
+
+	function dayPostsDeleteViewIsCurrent(view: DayPostsDeleteView) {
+		return (
+			view.sequence === deleteMutationSequence &&
+			ui.isDayPostsOpen &&
+			currentWorkspaceId === view.workspaceId &&
+			dateStr === view.date &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	async function loadPosts(date: string, workspaceId = currentWorkspaceId, force = false) {
 		if (!workspaceId) return;
+		if (workspaceId !== currentWorkspaceId) return;
+		if (postsWorkspaceId !== workspaceId) {
+			posts = [];
+			postsWorkspaceId = workspaceId;
+			postsDataReady = false;
+		}
 		const requestSequence = ++loadRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === loadRequestSequence &&
@@ -90,42 +154,41 @@
 		try {
 			const range = publicationDayRange();
 			if (!range) return;
-			const publications: Publication[] = [];
-			let offset = 0;
-			while (true) {
-				const query = {
-					workspace_id: workspaceId,
-					calendar_from: range.from,
-					calendar_before: range.before,
-					limit: 200,
-					offset
-				};
-				const {
-					data,
-					error: responseError,
-					response
-				} = await client.GET('/publications', {
-					params: { query }
-				});
-				if (responseError) throw new Error(responseError.detail || m.day_posts_load_failed());
-				publications.push(...(data ?? []));
-				if (response.headers.get('X-Has-More') !== 'true') break;
-				const nextOffset = Number(response.headers.get('X-Next-Offset') ?? offset + 200);
-				if (!Number.isFinite(nextOffset) || nextOffset <= offset) break;
-				offset = nextOffset;
+			const options = schedulingPublicationsQueryOptions(schedulingQueryAPI, workspaceId, {
+				calendarFrom: range.from,
+				calendarBefore: range.before,
+				limit: 200,
+				allPages: true
+			});
+			const cached = queryClient.getQueryData<Publication[]>(options.queryKey);
+			if (cached !== undefined && isCurrentRequest()) {
+				posts = sortedPosts(cached);
+				postsDataReady = true;
 			}
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const publications = await queryClient.query(options);
 			if (!isCurrentRequest()) return;
-			posts = publications.toSorted(
-				(a, b) =>
-					new Date(publicationOccurrence(a)).getTime() -
-					new Date(publicationOccurrence(b)).getTime()
-			);
+			posts = sortedPosts(publications);
+			postsDataReady = true;
 		} catch (cause) {
 			if (!isCurrentRequest()) return;
 			error = cause instanceof Error ? cause.message : m.day_posts_load_failed();
 		} finally {
 			if (isCurrentRequest()) loading = false;
 		}
+	}
+
+	function sortedPosts(publications: Publication[]) {
+		return publications.toSorted(
+			(a, b) =>
+				new Date(publicationOccurrence(a)).getTime() - new Date(publicationOccurrence(b)).getTime()
+		);
 	}
 
 	function getTime(value: string) {
@@ -218,27 +281,41 @@
 	async function handleDelete(): Promise<DestructiveActionOutcome> {
 		const post = postToDelete;
 		if (!post) return { ok: false };
+		const view = captureDayPostsDeleteView(post);
+		if (!view) return { ok: false };
 		try {
-			const { error: responseError } = await client.DELETE('/publications/{id}', {
+			const { error: responseError, response } = await client.DELETE('/publications/{id}', {
 				params: {
-					path: { id: post.id },
-					query: { confirm: true, expected_revision: post.revision }
+					path: { id: view.post.id },
+					query: { confirm: true, expected_revision: view.post.revision }
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (responseError) throw new Error(responseError.detail || m.day_posts_delete_failed());
-			await loadPosts(dateStr);
-			ui.triggerRefresh({
-				workspaceId: post.workspace_id,
-				scopes: ['activity', 'calendar', 'drafts'],
-				dateKeys: dateStr ? [dateStr] : []
+			const detailKey = openPostQueryKeys.publications.detail(view.workspaceId, view.post.id);
+			const listKey = openPostQueryKeys.publications.list(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: detailKey, exact: true }, { queryKey: listKey }],
+				reconcile: () => queryClient.removeQueries({ queryKey: detailKey, exact: true }),
+				invalidate: [{ queryKey: listKey, refetchType: 'none' }]
 			});
+			if (!reconciled) return { ok: false };
+			ui.triggerRefresh({
+				workspaceId: view.workspaceId,
+				scopes: ['activity', 'calendar', 'drafts'],
+				dateKeys: [view.date]
+			});
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
+			await loadPosts(view.date, view.workspaceId);
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
 			postToDelete = null;
 			return {
 				ok: true,
 				successMessage: m.day_posts_delete_success(),
-				returnFocus: deleteReturnFocus
+				returnFocus: view.returnFocus
 			};
 		} catch (cause) {
+			if (!dayPostsDeleteViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: cause instanceof Error ? cause.message : m.day_posts_delete_failed()
@@ -267,17 +344,37 @@
 		</Sheet.Header>
 
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-2 sm:px-5">
-			{#if loading}
+			{#if loading && !postsDataReady}
 				<PageLoading layout="list" label={m.common_loading()} items={3} />
-			{:else if error}
+			{:else if error && !postsDataReady}
 				<InlineNotice tone="error" message={error} class="my-4">
 					{#snippet actions()}
-						<Button variant="outline" size="sm" onclick={() => loadPosts(dateStr)}>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+						>
 							{m.common_retry()}
 						</Button>
 					{/snippet}
 				</InlineNotice>
 			{:else if posts.length === 0}
+				{#if loading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if error}
+					<InlineNotice tone="error" message={error} class="my-4">
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 				<EmptyState
 					icon={CalendarIcon}
 					title={m.day_posts_empty()}
@@ -288,6 +385,22 @@
 					variant="muted"
 				/>
 			{:else}
+				{#if loading}
+					<span class="sr-only" role="status">{m.common_loading()}</span>
+				{/if}
+				{#if error}
+					<InlineNotice tone="error" message={error} class="my-4">
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => loadPosts(dateStr, currentWorkspaceId, true)}
+							>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 				<div class="divide-y">
 					{#each posts as post (post.id)}
 						{@const destinations = post.renditions ?? []}

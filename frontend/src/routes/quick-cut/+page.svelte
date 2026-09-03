@@ -82,8 +82,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		frameCaptureFileName,
 		type FrameCaptureFormat
 	} from '$lib/quick-cut/frame-capture';
-	import CameraIcon from '@lucide/svelte/icons/camera';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { quickCutShortcutAction } from '$lib/quick-cut/shortcuts';
 
 	let sources = $state<QuickCutSource[]>([]);
@@ -1221,13 +1220,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						<Button size="xs" variant="outline" onclick={markIn} class="min-h-11 md:min-h-7"
 							>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)} · {m.quick_cut_in()}</Button
 						>
-						{#if inPoint}<span class="font-mono text-xs text-amber-600"
+						{#if inPoint}<span class="font-mono text-xs text-warning-foreground"
 								>{formatTimecode(inPoint.time)}</span
 							>{/if}
 						<Button size="xs" variant="outline" onclick={markOut} class="min-h-11 md:min-h-7"
 							>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)} · {m.quick_cut_out()}</Button
 						>
-						{#if outPoint}<span class="font-mono text-xs text-emerald-600"
+						{#if outPoint}<span class="font-mono text-xs text-success-foreground"
 								>{formatTimecode(outPoint.time)}</span
 							>{/if}
 						<Button size="xs" onclick={addSegment} class="min-h-11 md:min-h-7"
@@ -1264,9 +1263,10 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 								onclick={() => void captureCurrentFrame('png')}
 								class="min-h-11 min-w-11 md:min-h-7 md:min-w-7"
 							>
-								{#if capturingFrame}<LoaderIcon
+								{#if capturingFrame}<ProtectedIcon
+										icon="loading"
 										class="size-4 animate-spin motion-reduce:animate-none"
-									/>{:else}<CameraIcon class="size-4" />{/if}
+									/>{:else}<ThemeIcon role="camera" class="size-4" />{/if}
 							</Button>
 						</div>
 					</div>

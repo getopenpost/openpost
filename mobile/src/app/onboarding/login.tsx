@@ -1,5 +1,5 @@
-import { router, Stack } from "expo-router";
-import { useState } from "react";
+import { router, Stack, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 
 import { BodyText, Button, Card, Screen, TextField, useColors } from "@/components/ui";
@@ -16,33 +16,61 @@ export default function LoginScreen() {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestController = useRef<AbortController | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setBusy(false);
+      return () => {
+        requestController.current?.abort();
+        requestController.current = null;
+      };
+    }, []),
+  );
 
   async function submit() {
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setBusy(true);
     setError(null);
     try {
       if (mfaToken) {
-        await verifyTotp(mfaToken, totpCode);
+        await verifyTotp(mfaToken, totpCode, controller.signal);
       } else {
-        const result = await login(email.trim(), password);
+        const result = await login(email.trim(), password, controller.signal);
         if (result.kind === "mfa") {
           setMfaToken(result.mfaToken);
-          setBusy(false);
           return;
         }
         if (result.kind === "email-verification") {
           setError("Verify your email address on the web first, then sign in again.");
-          setBusy(false);
           return;
         }
       }
       void successHaptic();
-      router.replace("/onboarding/workspace");
+      router.replace("/");
     } catch (err) {
+      if (controller.signal.aborted) return;
       void errorHaptic();
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
-      setBusy(false);
+      if (requestController.current === controller) {
+        requestController.current = null;
+        setBusy(false);
+      }
+    }
+  }
+
+  async function chooseAnotherServer() {
+    requestController.current?.abort();
+    setError(null);
+    try {
+      await clearServer();
+      router.replace("/onboarding/server");
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setError("Could not change the server. Try again.");
     }
   }
 
@@ -55,7 +83,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Brand compact style={styles.brand} />
-          <Text style={[styles.title, { color: colors.text }]}>Sign in</Text>
+          <Text style={[styles.title, { color: colors.onSurface }]}>Sign in</Text>
           <BodyText style={styles.subtitle}>
             {mfaToken
               ? "Enter the 6-digit code from your authenticator app."
@@ -101,14 +129,14 @@ export default function LoginScreen() {
           )}
 
           {error ? (
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </BodyText>
           ) : null}
 
           <Button
             title="Continue"
-            variant="focal"
+            intent="focal"
             onPress={() => void submit()}
             disabled={busy || (mfaToken ? totpCode.length !== 6 : !email || !password)}
             loading={busy}
@@ -119,18 +147,18 @@ export default function LoginScreen() {
             <BodyText>Using single sign-on? Pair this device with a browser instead.</BodyText>
             <Button
               title="Pair with browser"
-              variant="tinted"
+              intent="ordinary"
               onPress={() => router.push("/onboarding/pair")}
+              disabled={busy}
               style={{ marginTop: 10 }}
             />
           </Card>
 
           <Button
             title="Use a different server"
-            variant="plain"
-            onPress={() => {
-              void clearServer().then(() => router.replace("/onboarding/server"));
-            }}
+            intent="quiet"
+            onPress={() => void chooseAnotherServer()}
+            disabled={busy}
           />
         </ScrollView>
       </KeyboardAvoidingView>

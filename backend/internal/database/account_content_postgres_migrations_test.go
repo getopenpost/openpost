@@ -37,7 +37,7 @@ func TestAccountContentMigrationsExecuteOnPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, CreateSchema(db))
 
-	for _, id := range []int64{117, 119, 121, 123} {
+	for _, id := range []int64{117, 119, 121, 123, 127} {
 		var count int
 		require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", id).Scan(t.Context(), &count))
 		require.Equal(t, 1, count, "migration %d must execute", id)

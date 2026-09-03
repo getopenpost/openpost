@@ -1,9 +1,9 @@
 <script lang="ts">
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import MusicIcon from '@lucide/svelte/icons/music';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		clampAudioPitchCents,
@@ -297,7 +297,7 @@
 				aria-label={m.video_editor_motion_override_reset({ name: label })}
 				onclick={() => (property === 'volume' ? resetGain() : resetStatic(property))}
 			>
-				<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="undo" class="size-3.5" />
 			</button>
 		</div>
 	</div>

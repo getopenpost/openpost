@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from "react-native";
 
-const COLORS = ["#b74c05", "#f18a3b", "#ffd6ad", "#fff7ed"];
+import { useNativeTheme } from "@/theme";
+
 const DURATION_MS = 900;
 const PARTICLES = Array.from({ length: 24 }, (_, index) => {
   const angle = (index / 24) * Math.PI * 2;
   const distance = 82 + (index % 5) * 13;
   return {
-    color: COLORS[index % COLORS.length],
     height: index % 3 === 0 ? 10 : 7,
     rotation: 160 + (index % 7) * 38,
     width: index % 2 === 0 ? 6 : 9,
@@ -17,6 +17,7 @@ const PARTICLES = Array.from({ length: 24 }, (_, index) => {
 });
 
 export function CelebrationBurst({ trigger }: { trigger: number }) {
+  const palette = useNativeTheme().manifest.decoration.celebration;
   const [progress] = useState(() => new Animated.Value(0));
   const previousTrigger = useRef(0);
   const [visible, setVisible] = useState(false);
@@ -57,7 +58,7 @@ export function CelebrationBurst({ trigger }: { trigger: number }) {
           style={[
             styles.particle,
             {
-              backgroundColor: particle.color,
+              backgroundColor: palette[index % palette.length],
               height: particle.height,
               width: particle.width,
               opacity: progress.interpolate({

@@ -64,7 +64,7 @@ Frontend: `frontend/src/lib/video-editor/`, `frontend/src/routes/video-editor/`,
 
 Backend: `handlers/video_editor.go`(+test), `internal/videoproject/`, routes registration, `tagVideoEditor` retag for stock_media, models (`VideoProject*`, `VideoReturnToken`, `MediaAttachment.VideoProjectID`), `handlers/media.go` video_project plumbing, `services/medialifecycle` revision joins, revision-backfill helpers, config `OPENPOST_VIDEO_MODEL_BASE_URL`. New migration drops `video_projects`, `video_project_assets`, `video_project_revisions`, `video_return_tokens` (+ indexes, backfill columns). Migrations 053/054/068 remain immutable history.
 
-Contracts: regenerate `frontend/openapi.json`, `src/lib/api/types.d.ts`, docs-site copy after route removal.
+Contracts: regenerate `frontend/openapi.json`, `packages/api-contract/src/schema.d.ts`, docs-site copy after route removal.
 
 Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; durable domain terms retained in Hindsight.
 

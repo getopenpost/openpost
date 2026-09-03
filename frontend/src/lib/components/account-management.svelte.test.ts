@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { client, type SocialAccount, type Workspace } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
+import { auth } from '$lib/stores/auth';
+import { openPostQueryKeys } from '@openpost/query-catalog';
 import AccountManagement from './account-management.svelte';
 import '../../routes/layout.css';
 
@@ -49,9 +52,32 @@ const account: SocialAccount = {
 	shared_grant: false
 };
 
+const user = {
+	id: 'user-62',
+	email: 'founder@example.com',
+	username: 'founder',
+	public_profile_enabled: false,
+	is_admin: false,
+	is_managed: false,
+	has_password: true,
+	legal_acceptance_required: false,
+	email_verified: true,
+	created_at: '2026-08-09T12:00:00Z'
+};
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
 describe('account management modes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		queryClient.clear();
+		auth.setUser(user);
 		postMock.mockResolvedValue({ data: null, error: null });
 		getMock.mockImplementation((path: string) => {
 			if (path === '/accounts') return Promise.resolve({ data: [], error: null });
@@ -84,7 +110,9 @@ describe('account management modes', () => {
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
-		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-before.png' });
+		await page.screenshot({
+			path: '../../../.svelte-kit/account-profile-refresh-before.png'
+		});
 		await screen.getByRole('button', { name: 'Refresh profile' }).click();
 
 		expect(postMock).toHaveBeenCalledWith('/accounts/{account_id}/refresh-metadata', {
@@ -97,7 +125,9 @@ describe('account management modes', () => {
 			'https://cdn.example/current-founder.jpg'
 		);
 		expect(onAccountsChanged).toHaveBeenCalledOnce();
-		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-after.png' });
+		await page.screenshot({
+			path: '../../../.svelte-kit/account-profile-refresh-after.png'
+		});
 
 		await page.viewport(320, 720);
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
@@ -107,16 +137,24 @@ describe('account management modes', () => {
 				.element()
 				.getBoundingClientRect().height
 		).toBeGreaterThanOrEqual(44);
-		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-320.png' });
+		await page.screenshot({
+			path: '../../../.svelte-kit/account-profile-refresh-320.png'
+		});
 
 		document.documentElement.classList.add('dark');
-		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-dark.png' });
+		await page.screenshot({
+			path: '../../../.svelte-kit/account-profile-refresh-dark.png'
+		});
 		document.documentElement.classList.remove('dark');
 		await page.viewport(1280, 720);
-		const refreshButton = drawer.getByRole('button', { name: /Refresh profile for/ });
+		const refreshButton = drawer.getByRole('button', {
+			name: /Refresh profile for/
+		});
 		refreshButton.element().focus();
 		await expect.element(refreshButton).toHaveFocus();
-		await page.screenshot({ path: '../../../.svelte-kit/account-profile-refresh-desktop.png' });
+		await page.screenshot({
+			path: '../../../.svelte-kit/account-profile-refresh-desktop.png'
+		});
 	});
 
 	it('keeps account details open and reports refresh failures', async () => {
@@ -160,11 +198,60 @@ describe('account management modes', () => {
 		await expect.element(screen.getByTestId('account-settings-drawer')).toBeVisible();
 	});
 
+	it('does not project a mutation from an earlier session of the same user', async () => {
+		getMock.mockImplementation((path: string) => {
+			if (path === '/accounts') return Promise.resolve({ data: [account], error: null });
+			return Promise.resolve({ data: [], error: null });
+		});
+		const refresh = deferred<{
+			data: SocialAccount;
+			error: null;
+			response: Response;
+		}>();
+		postMock.mockReturnValueOnce(refresh.promise);
+		const onAccountsChanged = vi.fn();
+		const screen = await render(AccountManagement, {
+			workspace,
+			workspaces: [workspace],
+			links,
+			onContinue: vi.fn(),
+			onAccountsChanged
+		});
+
+		await screen.getByRole('button', { name: /Actions for/ }).click();
+		await screen.getByRole('menuitem', { name: 'Account details' }).click();
+		await screen.getByRole('button', { name: 'Refresh profile' }).click();
+
+		const identityCheck = vi.spyOn(auth, 'isIdentityCurrent');
+		auth.clearLocal();
+		auth.setUser(user);
+		const currentSessionAccount = { ...account, account_username: 'current-session' };
+		queryClient.setQueryData(openPostQueryKeys.accounts(workspace.id), [currentSessionAccount]);
+		identityCheck.mockClear();
+		refresh.resolve({
+			data: { ...account, account_username: 'stale-session' },
+			error: null,
+			response: new Response(null, { status: 200 })
+		});
+		await vi.waitFor(() => expect(identityCheck).toHaveBeenCalledOnce());
+
+		expect(queryClient.getQueryData(openPostQueryKeys.accounts(workspace.id))).toEqual([
+			currentSessionAccount
+		]);
+		expect(onAccountsChanged).not.toHaveBeenCalled();
+		identityCheck.mockRestore();
+	});
+
 	it('does not offer provider refresh for connector accounts', async () => {
 		getMock.mockImplementation((path: string) => {
 			if (path === '/accounts') {
 				return Promise.resolve({
-					data: [{ ...account, provider_installation_id: 'connector-installation-1' }],
+					data: [
+						{
+							...account,
+							provider_installation_id: 'connector-installation-1'
+						}
+					],
 					error: null
 				});
 			}
@@ -198,7 +285,8 @@ describe('account management modes', () => {
 			.toBeVisible();
 		await expect.element(screen.getByTestId('settings-navigation')).not.toBeInTheDocument();
 		expect(getMock).toHaveBeenCalledWith('/accounts', {
-			params: { query: { workspace_id: 'workspace-62' } }
+			params: { query: { workspace_id: 'workspace-62' } },
+			signal: expect.any(AbortSignal)
 		});
 	});
 

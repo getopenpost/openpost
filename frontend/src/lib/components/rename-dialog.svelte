@@ -1,9 +1,9 @@
 <script lang="ts">
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 
 	interface Props {
 		open?: boolean;
@@ -86,7 +86,7 @@
 					class="w-full sm:w-auto"
 					disabled={pending || !value.trim() || value.trim() === initialValue.trim()}
 				>
-					{#if pending}<LoaderIcon class="size-4 animate-spin" />{/if}
+					{#if pending}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
 					{m.common_save()}
 				</Button>
 			</Dialog.Footer>

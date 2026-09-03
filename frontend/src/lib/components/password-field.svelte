@@ -1,10 +1,9 @@
 <script lang="ts">
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { m } from '$lib/paraglide/messages';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	type Props = {
 		id: string;
@@ -62,9 +61,9 @@
 			{disabled}
 		>
 			{#if visible}
-				<EyeOffIcon aria-hidden="true" />
+				<ThemeIcon role="eye-off" />
 			{:else}
-				<EyeIcon aria-hidden="true" />
+				<ThemeIcon role="eye" />
 			{/if}
 		</Button>
 	</div>

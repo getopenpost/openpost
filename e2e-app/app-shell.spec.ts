@@ -25,6 +25,9 @@ test("authenticated navigation keeps the app shell mounted", async ({ page, requ
   await expect(page.getByTestId("app-sidebar")).toBeVisible();
   await page.waitForTimeout(250);
   expect(shellApiRequests.filter((path) => path === "/api/v1/notifications")).toHaveLength(1);
+  await expect
+    .poll(() => shellApiRequests.filter((path) => path === "/api/v1/accounts").length)
+    .toBe(1);
 
   await page.getByTestId("profile-menu-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Watch product demo" })).toHaveCount(0);
@@ -47,10 +50,11 @@ test("authenticated navigation keeps the app shell mounted", async ({ page, requ
   await expect(page.getByTestId("app-sidebar")).toBeVisible();
   await expect(page.getByTestId("desktop-sidebar-planner")).toBeVisible();
   await expect(page.getByTestId("sidebar-new-post")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toBeVisible();
   await page.waitForTimeout(250);
   const activityRequests = shellApiRequests.slice(activityRequestStart);
   expect(activityRequests.filter((path) => path === "/api/v1/publications")).toHaveLength(1);
-  expect(activityRequests.filter((path) => path === "/api/v1/accounts")).toHaveLength(1);
+  expect(activityRequests.filter((path) => path === "/api/v1/accounts")).toHaveLength(0);
   expect(activityRequests.filter((path) => path === "/api/v1/jobs")).toHaveLength(1);
   await expect
     .poll(() =>
@@ -64,6 +68,17 @@ test("authenticated navigation keeps the app shell mounted", async ({ page, requ
   await page.getByRole("button", { name: "Calendar", exact: true }).click();
   await expect(page).toHaveURL(/\/calendar$/);
   await expect(page.getByTestId("app-sidebar")).toBeVisible();
+  await page.waitForTimeout(250);
+
+  const activityRevisitStart = shellApiRequests.length;
+  await page.getByRole("button", { name: "Publications", exact: true }).click();
+  await expect(page).toHaveURL(/\/publications$/);
+  await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toBeVisible();
+  await page.waitForTimeout(250);
+  const activityRevisitRequests = shellApiRequests.slice(activityRevisitStart);
+  expect(activityRevisitRequests.filter((path) => path === "/api/v1/publications")).toHaveLength(0);
+  expect(activityRevisitRequests.filter((path) => path === "/api/v1/accounts")).toHaveLength(0);
+  expect(activityRevisitRequests.filter((path) => path === "/api/v1/jobs")).toHaveLength(0);
 });
 
 test("first autosave establishes the draft URL and keeps draft actions in one composer", async ({

@@ -12,14 +12,11 @@
 		soundPreferences,
 		type InterfaceSoundTheme
 	} from '$lib/stores/sound-preferences.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RotateIcon from '@lucide/svelte/icons/rotate-ccw';
 	import RowsIcon from '@lucide/svelte/icons/rows-3';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import type { ThemeIconRole } from '$lib/themes';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import {
@@ -74,11 +71,16 @@
 	const media = $derived(mediaPool.mediaList);
 	const missingProxyCount = $derived(recommendedProxyMedia(media).length);
 	const proxyCount = $derived(projectProxyCount(media));
-	const sections: Array<{ id: Section; label: () => string; icon: typeof SettingsIcon }> = [
-		{ id: 'general', label: m.video_editor_settings_general, icon: SettingsIcon },
+	const sections: Array<{
+		id: Section;
+		label: () => string;
+		icon?: typeof HardDriveIcon;
+		themeIcon?: ThemeIconRole;
+	}> = [
+		{ id: 'general', label: m.video_editor_settings_general, themeIcon: 'settings' },
 		{ id: 'timeline', label: m.video_editor_settings_timeline, icon: RowsIcon },
 		{ id: 'shortcuts', label: m.video_editor_settings_shortcuts, icon: KeyboardIcon },
-		{ id: 'ai', label: m.video_editor_settings_ai, icon: SparklesIcon },
+		{ id: 'ai', label: m.video_editor_settings_ai, themeIcon: 'sparkles' },
 		{ id: 'storage', label: m.video_editor_settings_storage, icon: HardDriveIcon }
 	];
 
@@ -183,10 +185,10 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme flex max-h-[min(90vh,820px)] w-[calc(100%-1rem)] max-w-[920px] flex-col overflow-hidden border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-0 text-[var(--video-editor-text)] shadow-2xl sm:max-w-[920px]"
+		class="video-editor-theme flex max-h-[min(90vh,820px)] w-[calc(100%-1rem)] max-w-[920px] flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-[920px]"
 	>
 		<Dialog.Header
-			class="flex-row items-center justify-between border-b border-[oklch(0.27_0.014_55)] px-5 py-4 pr-12"
+			class="flex-row items-center justify-between border-b border-border px-5 py-4 pr-12"
 		>
 			<div>
 				<Dialog.Title class="text-base">{m.video_editor_settings_title()}</Dialog.Title>
@@ -196,7 +198,7 @@
 			</div>
 			{#if section !== 'shortcuts'}
 				<Button type="button" variant="ghost" size="sm" onclick={resetSettings}>
-					<RotateIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="undo" class="size-3.5" />
 					{m.video_editor_settings_reset()}
 				</Button>
 			{/if}
@@ -204,20 +206,24 @@
 
 		<div class="flex min-h-0 flex-1 flex-col sm:flex-row">
 			<nav
-				class="flex shrink-0 gap-1 overflow-x-auto border-b border-[oklch(0.27_0.014_55)] p-2 sm:w-40 sm:flex-col sm:border-r sm:border-b-0"
+				class="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2 sm:w-40 sm:flex-col sm:border-r sm:border-b-0"
 				aria-label={m.video_editor_settings_sections()}
 			>
 				{#each sections as item (item.id)}
 					{@const Icon = item.icon}
 					<button
 						type="button"
-						class="flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-[var(--video-editor-muted)] hover:bg-[oklch(0.21_0.012_50)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:bg-[oklch(0.26_0.025_50)] data-[active=true]:text-[var(--video-editor-focus)]"
+						class="flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
 						data-active={section === item.id}
 						aria-current={section === item.id ? 'page' : undefined}
 						data-cuelume-toggle="tick"
 						onclick={() => (section = item.id)}
 					>
-						<Icon class="size-3.5" aria-hidden="true" />
+						{#if item.themeIcon}
+							<ThemeIcon role={item.themeIcon} class="size-3.5" />
+						{:else if Icon}
+							<Icon class="size-3.5" aria-hidden="true" />
+						{/if}
 						{item.label()}
 					</button>
 				{/each}
@@ -234,7 +240,7 @@
 								{m.video_editor_settings_autosave_description()}
 							</p>
 						</div>
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<div class="flex flex-wrap items-center justify-between gap-4">
 								<div class="min-w-0 flex-1">
 									<label for="editor-language" class="text-sm font-medium">
@@ -257,7 +263,7 @@
 								/>
 							</div>
 						</div>
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<div class="flex items-center justify-between gap-4">
 								<div>
 									<p class="text-sm font-medium">
@@ -272,19 +278,19 @@
 									role="switch"
 									aria-checked={editorSettings.autoSaveIntervalMinutes > 0}
 									aria-label={m.video_editor_settings_periodic_autosave()}
-									class="relative h-5 w-9 shrink-0 rounded-full bg-[oklch(0.28_0.012_55)] transition-colors data-[checked=true]:bg-[var(--video-editor-focus)]"
+									class="relative h-5 w-9 shrink-0 rounded-full bg-field transition-colors data-[checked=true]:bg-primary"
 									data-checked={editorSettings.autoSaveIntervalMinutes > 0}
 									data-cuelume-toggle="toggle"
 									onclick={() => setPeriodicAutosave(editorSettings.autoSaveIntervalMinutes === 0)}
 								>
 									<span
-										class="absolute top-0.5 left-0.5 size-4 rounded-full bg-white transition-transform data-[checked=true]:translate-x-4"
+										class="absolute top-0.5 left-0.5 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-4"
 										data-checked={editorSettings.autoSaveIntervalMinutes > 0}
 									></span>
 								</button>
 							</div>
 							{#if editorSettings.autoSaveIntervalMinutes > 0}
-								<div class="mt-4 border-t border-[oklch(0.27_0.014_55)] pt-4">
+								<div class="mt-4 border-t border-border pt-4">
 									<div class="flex items-center justify-between gap-3 text-xs">
 										<span>
 											{m.video_editor_settings_autosave_interval()}
@@ -307,7 +313,7 @@
 								</div>
 							{/if}
 						</div>
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<div class="flex items-center justify-between gap-4">
 								<div>
 									<p class="text-sm font-medium">
@@ -322,18 +328,18 @@
 									role="switch"
 									aria-checked={soundPreferences.enabled}
 									aria-label={m.video_editor_settings_interface_sounds()}
-									class="relative h-6 w-11 shrink-0 rounded-full bg-[oklch(0.3_0.014_55)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[checked=true]:bg-[var(--video-editor-focus)]"
+									class="relative h-6 w-11 shrink-0 rounded-full bg-field transition-colors focus-visible:outline-2 focus-visible:outline-ring data-[checked=true]:bg-primary"
 									data-checked={soundPreferences.enabled}
 									onclick={() => soundPreferences.setEnabled(!soundPreferences.enabled)}
 								>
 									<span
-										class="absolute top-1 left-1 size-4 rounded-full bg-white transition-transform data-[checked=true]:translate-x-5"
+										class="absolute top-1 left-1 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-5"
 										data-checked={soundPreferences.enabled}
 									></span>
 								</button>
 							</div>
 							{#if soundPreferences.enabled}
-								<div class="mt-4 space-y-4 border-t border-[oklch(0.27_0.014_55)] pt-4">
+								<div class="mt-4 space-y-4 border-t border-border pt-4">
 									<div>
 										<div class="flex items-center justify-between gap-3 text-xs">
 											<span>{m.video_editor_settings_sound_volume()}</span>
@@ -381,7 +387,7 @@
 								</div>
 							{/if}
 						</div>
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<div class="flex items-center justify-between gap-4">
 								<div>
 									<label for="undo-depth" class="text-sm font-medium">
@@ -411,7 +417,7 @@
 						</h3>
 						{#each [{ key: 'snapByDefault' as const, label: m.video_editor_settings_snap_default(), description: m.video_editor_settings_snap_default_description(), value: editorSettings.snapByDefault }, { key: 'canvasSnapEnabled' as const, label: m.video_editor_settings_canvas_snap(), description: m.video_editor_settings_canvas_snap_description(), value: editorSettings.canvasSnapEnabled }, { key: 'showWaveforms' as const, label: m.video_editor_settings_show_waveforms(), description: m.video_editor_settings_show_waveforms_description(), value: editorSettings.showWaveforms }, { key: 'showFilmstrips' as const, label: m.video_editor_settings_show_filmstrips(), description: m.video_editor_settings_show_filmstrips_description(), value: editorSettings.showFilmstrips }, { key: 'extractFilmstrips' as const, label: m.video_editor_settings_extract_filmstrips(), description: m.video_editor_settings_extract_filmstrips_description(), value: editorSettings.extractFilmstrips }] as setting (setting.key)}
 							<div
-								class="flex items-center justify-between gap-4 rounded-lg border border-[oklch(0.29_0.014_55)] px-4 py-3"
+								class="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
 							>
 								<div>
 									<p class="text-sm font-medium">{setting.label}</p>
@@ -424,13 +430,13 @@
 									role="switch"
 									aria-checked={setting.value}
 									aria-label={setting.label}
-									class="relative h-6 w-11 shrink-0 rounded-full bg-[oklch(0.3_0.014_55)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[checked=true]:bg-[var(--video-editor-focus)]"
+									class="relative h-6 w-11 shrink-0 rounded-full bg-field transition-colors focus-visible:outline-2 focus-visible:outline-ring data-[checked=true]:bg-primary"
 									data-checked={setting.value}
 									data-cuelume-toggle="toggle"
 									onclick={() => setBoolean(setting.key, !setting.value)}
 								>
 									<span
-										class="absolute top-1 left-1 size-4 rounded-full bg-white shadow transition-transform data-[checked=true]:translate-x-5"
+										class="absolute top-1 left-1 size-4 rounded-full bg-background shadow transition-transform data-[checked=true]:translate-x-5"
 										data-checked={setting.value}
 									></span>
 								</button>
@@ -504,7 +510,7 @@
 								/>
 							</div>
 						</div>
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<label for="editor-default-caption-style" class="text-sm font-medium">
 								{m.video_editor_settings_default_caption_style()}
 							</label>
@@ -540,8 +546,8 @@
 							<p
 								class={`rounded-md border px-3 py-2 text-xs ${
 									feedback.tone === 'error'
-										? 'border-red-500/30 bg-red-500/10 text-red-200'
-										: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100'
+										? 'border-destructive/30 bg-destructive/10 text-destructive'
+										: 'border-success/25 bg-success/10 text-success'
 								}`}
 								role="status"
 							>
@@ -549,9 +555,7 @@
 							</p>
 						{/if}
 
-						<div
-							class="divide-y divide-[oklch(0.27_0.014_55)] rounded-lg border border-[oklch(0.29_0.014_55)]"
-						>
+						<div class="divide-y divide-border rounded-lg border border-border">
 							<div class="flex items-center justify-between gap-4 p-4">
 								<div>
 									<p class="text-sm font-medium">{m.video_editor_settings_generate_proxies()}</p>
@@ -571,7 +575,8 @@
 											generateRecommendedProxies(media, onProgress)
 										)}
 								>
-									{#if working === 'generate-proxies'}<LoaderIcon
+									{#if working === 'generate-proxies'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('generate-proxies', m.video_editor_settings_generate())}
@@ -593,15 +598,16 @@
 										disabled={working !== null || media.length === 0}
 										onclick={() => (confirmCacheClear = true)}
 									>
-										{#if working === 'cache'}<LoaderIcon
+										{#if working === 'cache'}<ProtectedIcon
+												icon="loading"
 												class="size-3.5 animate-spin motion-reduce:animate-none"
 											/>{/if}
 										{actionText('cache', m.video_editor_settings_clear())}
 									</Button>
 								</div>
 								{#if confirmCacheClear}
-									<div class="mt-3 rounded-md border border-amber-500/25 bg-amber-500/8 p-3">
-										<p class="text-xs text-amber-100">
+									<div class="mt-3 rounded-md border border-warning/25 bg-warning/8 p-3">
+										<p class="text-xs text-warning-foreground">
 											{m.video_editor_settings_clear_cache_confirm()}
 										</p>
 										<div class="mt-2 flex justify-end gap-2">
@@ -649,7 +655,8 @@
 											regenerateProjectThumbnails(media, onProgress)
 										)}
 								>
-									{#if working === 'thumbnails'}<LoaderIcon
+									{#if working === 'thumbnails'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('thumbnails', m.video_editor_settings_regenerate())}
@@ -673,7 +680,8 @@
 											deleteProjectProxies(media, onProgress)
 										)}
 								>
-									{#if working === 'delete-proxies'}<LoaderIcon
+									{#if working === 'delete-proxies'}<ProtectedIcon
+											icon="loading"
 											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('delete-proxies', m.common_delete())}
@@ -681,9 +689,9 @@
 							</div>
 						</div>
 
-						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+						<div class="rounded-lg border border-border p-4">
 							<div class="mb-2 flex items-center gap-2">
-								<SparklesIcon class="size-3.5 text-[var(--video-editor-focus)]" />
+								<ThemeIcon role="sparkles" class="size-3.5 text-[var(--video-editor-focus)]" />
 								<div>
 									<p class="text-sm font-medium">{m.video_editor_settings_local_models()}</p>
 									<p class="text-xs text-[var(--video-editor-muted)]">
@@ -698,15 +706,16 @@
 			</div>
 		</div>
 
-		<Dialog.Footer class="border-t border-[oklch(0.27_0.014_55)] px-5 py-3">
+		<Dialog.Footer class="border-t border-border px-5 py-3">
 			{#if working}<span
 					class="mr-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
-					><LoaderIcon
+					><ProtectedIcon
+						icon="loading"
 						class="size-3.5 animate-spin motion-reduce:animate-none"
 					/>{m.video_editor_settings_working()}</span
 				>{/if}
 			<Button type="button" onclick={() => (open = false)}>
-				{#if feedback?.tone === 'success'}<CheckIcon class="size-3.5" />{/if}
+				{#if feedback?.tone === 'success'}<ProtectedIcon icon="success" class="size-3.5" />{/if}
 				{m.common_done()}
 			</Button>
 		</Dialog.Footer>

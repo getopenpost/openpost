@@ -1,9 +1,7 @@
 <script lang="ts">
-	import ChevronIcon from '@lucide/svelte/icons/chevron-right';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaTasks, type MediaTask } from '$lib/video-editor/media/media-tasks.svelte';
 
 	let expanded = $state(false);
@@ -153,9 +151,9 @@
 		aria-live="polite"
 	>
 		<div class="flex items-center gap-2 text-[10px]">
-			<LoaderIcon
+			<ProtectedIcon
+				icon="loading"
 				class="size-3.5 shrink-0 animate-spin text-[oklch(0.72_0.12_190)] motion-reduce:animate-none"
-				aria-hidden="true"
 			/>
 			<button
 				type="button"
@@ -163,9 +161,9 @@
 				aria-expanded={expanded}
 				onclick={() => (expanded = !expanded)}
 			>
-				<ChevronIcon
+				<ThemeIcon
+					role="chevron-right"
 					class="size-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
-					aria-hidden="true"
 				/>
 				<span class="truncate">
 					{tasks.length === 1
@@ -221,7 +219,7 @@
 								aria-label={`${m.common_cancel()}: ${task.label}`}
 								onclick={() => cancel(task)}
 							>
-								<XIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="close" class="size-3.5" />
 							</Button>
 						{/if}
 					</li>

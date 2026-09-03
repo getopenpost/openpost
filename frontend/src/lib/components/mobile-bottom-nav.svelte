@@ -11,27 +11,24 @@
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { ThemeIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes';
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
-	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
-	import ComposeIcon from '@lucide/svelte/icons/plus';
-	import PostsIcon from '@lucide/svelte/icons/files';
-	import MediaIcon from '@lucide/svelte/icons/images';
-	import MoreIcon from '@lucide/svelte/icons/menu';
 
 	const items = mobileNavigation;
 	let moreMenuOpen = $state(false);
 	const pathname = $derived(String(page.url.pathname));
 
-	function iconFor(id: (typeof items)[number]['id']) {
+	function iconFor(id: (typeof items)[number]['id']): ThemeIconRole {
 		switch (id) {
 			case 'calendar':
-				return CalendarIcon;
+				return 'calendar';
 			case 'publications':
-				return PostsIcon;
+				return 'publications';
 			case 'media':
-				return MediaIcon;
+				return 'media';
 			default:
-				return ComposeIcon;
+				return 'add';
 		}
 	}
 
@@ -66,16 +63,18 @@
 	class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/96 px-2 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden"
 	aria-label={m.sidebar_primary_navigation()}
 >
-	<ul class="grid grid-cols-5">
+	<ul class="grid min-h-[calc(var(--theme-mobile-navigation-height)-0.6rem)] grid-cols-5">
 		{#each items as item (item.id)}
-			{@const Icon = iconFor(item.id)}
+			{@const icon = iconFor(item.id)}
 			{@const active = isNavigationItemActive(item, pathname)}
 			<li>
 				<button
 					type="button"
+					data-theme-navigation-item
+					data-active={active}
 					data-cuelume-toggle={item.id === 'new' ? 'release' : 'tick'}
 					class={[
-						'flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.625rem] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+						'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 						item.id === 'new'
 							? 'text-primary'
 							: active
@@ -90,9 +89,11 @@
 							? 'flex size-9 items-center justify-center rounded-lg border border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_-6px_color-mix(in_oklch,var(--primary)_80%,black)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:shadow-sm'
 							: 'flex size-5 items-center justify-center'}
 					>
-						<Icon class={item.id === 'new' ? 'size-5' : 'size-4'} />
+						<ThemeIcon role={icon} class={item.id === 'new' ? 'size-5' : 'size-4'} />
 					</span>
-					<span class="max-w-full truncate leading-none">{labelFor(item.id)}</span>
+					<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
+						>{labelFor(item.id)}</span
+					>
 				</button>
 			</li>
 		{/each}
@@ -103,17 +104,21 @@
 						<button
 							{...props}
 							type="button"
+							data-theme-navigation-item
+							data-active={moreActive}
 							class={[
-								'flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.625rem] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 								moreActive ? 'bg-accent text-foreground' : 'text-muted-foreground'
 							]}
 							aria-current={moreActive ? 'page' : undefined}
 							aria-label={m.sidebar_more()}
 						>
 							<span class="flex size-5 items-center justify-center">
-								<MoreIcon class="size-4" />
+								<ThemeIcon role="menu" class="size-4" />
 							</span>
-							<span class="max-w-full truncate leading-none">{m.sidebar_more()}</span>
+							<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
+								>{m.sidebar_more()}</span
+							>
 						</button>
 					{/snippet}
 				</DropdownMenu.Trigger>

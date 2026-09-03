@@ -1,10 +1,19 @@
 import { browser } from '$app/environment';
 import { client } from '$lib/api/client';
 import { getPasskeyAssertion } from '$lib/auth/webauthn';
+import {
+	authQueryKeys,
+	isOrganizationAuditQueryKey,
+	organizationQueryKeys
+} from '@openpost/query-catalog';
+import { queryClient } from '$lib/query/client';
+import { auth } from '$lib/stores/auth';
 
 const PENDING_ACTION_KEY = 'openpost_reauth_pending_action';
 const GRANTS_KEY = 'openpost_reauth_grants';
 const GRANT_MAX_AGE_MS = 5 * 60 * 1000;
+let oidcReauthRequestSequence = 0;
+let oidcIdentityLinkRequestSequence = 0;
 
 interface StoredGrant {
 	grant: string;
@@ -37,7 +46,10 @@ function parseStoredGrants(value: StoredGrantValue): StoredGrants {
 		const candidate = grantFields(entry);
 		if (!candidate || String(candidate.grant) !== candidate.grant) continue;
 		if (!Number.isFinite(candidate.expiresAt)) continue;
-		grants[action] = { grant: String(candidate.grant), expiresAt: Number(candidate.expiresAt) };
+		grants[action] = {
+			grant: String(candidate.grant),
+			expiresAt: Number(candidate.expiresAt)
+		};
 	}
 	return grants;
 }
@@ -123,29 +135,92 @@ async function openAuthorizationURL(url: string) {
 	window.location.assign(url);
 }
 
-async function startOIDCReauth(action: string, providerID: string): Promise<void> {
+async function startOIDCReauth(
+	action: string,
+	providerID: string,
+	callerIsCurrent: () => boolean
+): Promise<void> {
+	const identity = auth.captureIdentity();
+	if (!identity) throw new Error('Sign in again before verifying your identity.');
+	const requestSequence = ++oidcReauthRequestSequence;
 	const returnPath = `${window.location.pathname}${window.location.search}`;
-	sessionStorage.setItem(PENDING_ACTION_KEY, action);
+	const isCurrentRequest = () =>
+		requestSequence === oidcReauthRequestSequence &&
+		callerIsCurrent() &&
+		auth.isIdentityCurrent(identity) &&
+		`${window.location.pathname}${window.location.search}` === returnPath;
+	sessionStorage.removeItem(PENDING_ACTION_KEY);
 	const { data, error } = await client.POST('/auth/oidc/{provider_id}/reauth', {
 		params: { path: { provider_id: providerID } },
 		body: { action, return_path: returnPath, native: false }
 	});
+	if (!isCurrentRequest()) return;
 	if (error || !data?.authorization_url) {
-		sessionStorage.removeItem(PENDING_ACTION_KEY);
 		throw new Error(error?.detail ?? 'Unable to start identity verification');
+	}
+	sessionStorage.setItem(PENDING_ACTION_KEY, action);
+	if (!isCurrentRequest()) {
+		if (sessionStorage.getItem(PENDING_ACTION_KEY) === action) {
+			sessionStorage.removeItem(PENDING_ACTION_KEY);
+		}
+		return;
 	}
 	await openAuthorizationURL(data.authorization_url);
 }
 
+async function invalidateReauthAuditCaches() {
+	await Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: organizationQueryKeys.instanceAuditRoot(),
+			refetchType: 'none'
+		}),
+		queryClient.invalidateQueries({
+			predicate: (query) => isOrganizationAuditQueryKey(query.queryKey),
+			refetchType: 'none'
+		})
+	]);
+}
+
+async function auditedGrant(
+	grant: string,
+	identity: ReturnType<typeof auth.captureIdentity>,
+	refreshSecurity = false
+) {
+	if (auth.isIdentityCurrent(identity)) {
+		await Promise.all([
+			invalidateReauthAuditCaches(),
+			...(refreshSecurity
+				? [
+						queryClient.invalidateQueries({
+							queryKey: authQueryKeys.security(),
+							exact: true
+						})
+					]
+				: [])
+		]);
+	}
+	return grant;
+}
+
 export async function startOIDCIdentityLink(
 	providerID: string,
-	reauthGrant: string
+	reauthGrant: string,
+	callerIsCurrent: () => boolean = () => true
 ): Promise<void> {
+	const identity = auth.captureIdentity();
+	if (!identity) throw new Error('Sign in again before linking an identity.');
+	const requestSequence = ++oidcIdentityLinkRequestSequence;
 	const returnPath = `${window.location.pathname}${window.location.search}`;
+	const isCurrentRequest = () =>
+		requestSequence === oidcIdentityLinkRequestSequence &&
+		callerIsCurrent() &&
+		auth.isIdentityCurrent(identity) &&
+		`${window.location.pathname}${window.location.search}` === returnPath;
 	const { data, error } = await client.POST('/auth/oidc/{provider_id}/link', {
 		params: { path: { provider_id: providerID } },
 		body: { reauth_grant: reauthGrant, return_path: returnPath, native: false }
 	});
+	if (!isCurrentRequest()) return;
 	if (error || !data?.authorization_url) {
 		throw new Error(error?.detail ?? 'Unable to start identity linking');
 	}
@@ -154,14 +229,34 @@ export async function startOIDCIdentityLink(
 
 export async function acquireReauthGrant(
 	action: string,
-	options: { providerID?: string; hasPasskey?: boolean; password?: string }
+	options: {
+		providerID?: string;
+		hasPasskey?: boolean;
+		password?: string;
+		isCurrent?: () => boolean;
+	}
 ): Promise<string | null> {
+	const callerIsCurrent = options.isCurrent ?? (() => true);
+	if (!callerIsCurrent()) return null;
+	const identity = auth.captureIdentity();
+	if (!identity) return null;
 	const returned = takeReauthGrant(action);
-	if (returned) return returned;
-	if (options.password) return passwordGrant(action, options.password);
-	if (options.hasPasskey) return passkeyGrant(action);
+	if (returned) {
+		await auditedGrant(returned, identity);
+		return callerIsCurrent() && auth.isIdentityCurrent(identity) ? returned : null;
+	}
+	if (options.password) {
+		const grant = await passwordGrant(action, options.password);
+		await auditedGrant(grant, identity);
+		return callerIsCurrent() && auth.isIdentityCurrent(identity) ? grant : null;
+	}
+	if (options.hasPasskey) {
+		const grant = await passkeyGrant(action);
+		await auditedGrant(grant, identity, true);
+		return callerIsCurrent() && auth.isIdentityCurrent(identity) ? grant : null;
+	}
 	if (options.providerID) {
-		await startOIDCReauth(action, options.providerID);
+		await startOIDCReauth(action, options.providerID, callerIsCurrent);
 		return null;
 	}
 	throw new Error('Add a passkey or link a work sign-in service before continuing.');

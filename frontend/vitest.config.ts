@@ -1,4 +1,5 @@
 import { playwright } from '@vitest/browser-playwright';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
@@ -12,6 +13,20 @@ export default defineConfig({
 		projects: [
 			{
 				extends: './vite.config.ts',
+				resolve: {
+					// Browser tests assert computed font-family names, which resolve
+					// from declarations without font files. Stub the ~30 bundled
+					// families so each test file does not flood the Vite dev server
+					// with thousands of woff2 requests. Production is unaffected.
+					alias: [
+						{
+							find: /^@fontsource(-variable)?(\/.*)?$/,
+							replacement: fileURLToPath(
+								new URL('./src/lib/test-stubs/fontsource-stub.css', import.meta.url)
+							)
+						}
+					]
+				},
 				test: {
 					name: 'client',
 					// SvelteKit, media workers, codecs, and GPU suites share one Vite module

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
@@ -96,7 +95,7 @@
 				<span class={cn('truncate', !selectedLabel && 'text-muted-foreground')}>
 					{selectedLabel || placeholder}
 				</span>
-				<ChevronsUpDownIcon class="ml-2 size-4 shrink-0 opacity-50" />
+				<ThemeIcon role="chevron-down" class="ml-2 size-4 shrink-0 opacity-50" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>
@@ -116,7 +115,7 @@
 					<div
 						class="flex min-h-16 items-center justify-center gap-2 px-3 text-xs text-muted-foreground"
 					>
-						<LoaderIcon class="size-3.5 animate-spin" />
+						<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 						{loadingLabel}
 					</div>
 				{:else}

@@ -1,5 +1,4 @@
-import * as SecureStore from "expo-secure-store";
-
+import { identityStore } from "./identity-store";
 import { normalizeServerUrl } from "./server-url";
 
 export const HOSTED_URL = "https://app.openpo.st";
@@ -10,29 +9,16 @@ export type ServerConfig = {
   isHosted: boolean;
 };
 
-const KEY = "openpost.server.baseUrl";
-let current: ServerConfig | null = null;
-const listeners = new Set<() => void>();
-
-export function subscribeServer(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+export const subscribeServer = identityStore.subscribeServer;
+export const getServerMutationRevision = identityStore.getServerMutationRevision;
+export const getPendingServerMutationCount = identityStore.getPendingServerMutationCount;
 
 export function getServer(): ServerConfig | null {
-  return current;
-}
-
-async function notify() {
-  for (const listener of listeners) listener();
+  return serverConfig(identityStore.getServerBaseUrl());
 }
 
 export async function loadServer(): Promise<ServerConfig | null> {
-  const stored = await SecureStore.getItemAsync(KEY);
-  const baseUrl = stored ? normalizeServerUrl(stored) : null;
-  current = baseUrl ? { baseUrl, isHosted: baseUrl === HOSTED_URL } : null;
-  await notify();
-  return current;
+  return serverConfig(await identityStore.loadServerBaseUrl());
 }
 
 export async function setServer(rawUrl: string): Promise<ServerConfig> {
@@ -40,16 +26,17 @@ export async function setServer(rawUrl: string): Promise<ServerConfig> {
   if (!normalized) {
     throw new Error("Enter a valid server address, e.g. openpost.example.com");
   }
-  await SecureStore.setItemAsync(KEY, normalized);
-  current = { baseUrl: normalized, isHosted: normalized === HOSTED_URL };
-  await notify();
-  return current;
+  await identityStore.commitServerBaseUrl(normalized);
+  return { baseUrl: normalized, isHosted: normalized === HOSTED_URL };
 }
 
-export async function clearServer(): Promise<void> {
-  await SecureStore.deleteItemAsync(KEY);
-  current = null;
-  await notify();
+export function clearServer(): Promise<void> {
+  return identityStore.commitServerBaseUrl(null);
+}
+
+function serverConfig(baseUrl: string | null): ServerConfig | null {
+  const normalized = baseUrl ? normalizeServerUrl(baseUrl) : null;
+  return normalized ? { baseUrl: normalized, isHosted: normalized === HOSTED_URL } : null;
 }
 
 /** Validate an instance before committing to it. */

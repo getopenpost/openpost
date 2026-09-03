@@ -1,6 +1,5 @@
 <script lang="ts">
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import type { AIGenerationPhase, AIGenerationProgressCopy } from './ai-workspace-types';
 
 	interface Props {
@@ -24,15 +23,17 @@
 >
 	<div class="space-y-1 text-center">
 		{#if active}
-			<LoaderIcon
+			<ProtectedIcon
+				icon="loading"
 				class="mx-auto mb-3 size-5 animate-spin text-primary motion-reduce:animate-none"
-				aria-hidden="true"
 			/>
 		{/if}
 		<h2 id={`${uid}-heading`} class="text-base font-semibold tracking-tight">
 			{copy.heading}
 		</h2>
-		<p class="text-sm leading-6 text-muted-foreground">{message || copy.description}</p>
+		<p class="text-sm leading-6 text-muted-foreground">
+			{message || copy.description}
+		</p>
 	</div>
 
 	<ol class="mt-6 divide-y rounded-lg border bg-card">
@@ -51,7 +52,7 @@
 					aria-hidden="true"
 				>
 					{#if phase.status === 'complete'}
-						<CheckIcon class="size-3.5" />
+						<ProtectedIcon icon="success" class="size-3.5" />
 					{:else if phase.status === 'active'}
 						<span class="size-2 rounded-full bg-primary"></span>
 					{/if}

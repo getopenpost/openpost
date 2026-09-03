@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import LanguagesIcon from '@lucide/svelte/icons/languages';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
@@ -24,7 +23,7 @@
 {#if variant === 'menu'}
 	<DropdownMenu.Sub>
 		<DropdownMenu.SubTrigger class={touchSize ? 'min-h-11' : ''}>
-			<LanguagesIcon class="mr-2 size-4 text-muted-foreground" />
+			<ThemeIcon role="language" class="mr-2 size-4 text-muted-foreground" />
 			<span>{m.language_label()}</span>
 			<span class="text-muted-foreground">{localeLabels[currentLocale]}</span>
 		</DropdownMenu.SubTrigger>
@@ -34,7 +33,7 @@
 					<div class="flex w-full items-center justify-between gap-3">
 						<span>{localeLabels[locale]}</span>
 						{#if locale === currentLocale}
-							<CheckIcon class="h-4 w-4 text-primary" />
+							<ThemeIcon role="check" class="h-4 w-4 text-primary" />
 						{/if}
 					</div>
 				</DropdownMenu.Item>
@@ -51,7 +50,7 @@
 					class="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:border-foreground/30"
 					aria-label={m.language_label()}
 				>
-					<LanguagesIcon class="h-4 w-4" />
+					<ThemeIcon role="language" class="h-4 w-4" />
 					{#if !compact}
 						<span>{localeLabels[currentLocale]}</span>
 					{/if}
@@ -66,7 +65,7 @@
 					<div class="flex w-full items-center justify-between gap-3">
 						<span>{localeLabels[locale]}</span>
 						{#if locale === currentLocale}
-							<CheckIcon class="h-4 w-4 text-primary" />
+							<ThemeIcon role="check" class="h-4 w-4 text-primary" />
 						{/if}
 					</div>
 				</DropdownMenu.Item>

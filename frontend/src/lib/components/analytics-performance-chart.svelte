@@ -297,11 +297,11 @@
 
 <style>
 	figure {
-		--analytics-series-1: oklch(0.62 0.17 45);
-		--analytics-series-2: oklch(0.61 0.13 235);
-		--analytics-series-3: oklch(0.64 0.14 155);
-		--analytics-series-4: oklch(0.63 0.16 315);
-		--analytics-series-5: oklch(0.69 0.14 85);
+		--analytics-series-1: var(--chart-1);
+		--analytics-series-2: var(--chart-2);
+		--analytics-series-3: var(--chart-3);
+		--analytics-series-4: var(--chart-4);
+		--analytics-series-5: var(--chart-5);
 		--analytics-series-other: color-mix(in oklch, var(--muted-foreground) 34%, transparent);
 	}
 

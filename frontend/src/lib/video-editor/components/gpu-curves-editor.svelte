@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
 	import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
@@ -399,7 +398,7 @@
 			title={m.video_editor_curves_remove_point()}
 			onclick={removeSelectedPoint}
 		>
-			<Trash2Icon class="size-4" aria-hidden="true" />
+			<ThemeIcon role="delete" class="size-4" />
 		</button>
 		<button
 			type="button"
@@ -411,7 +410,7 @@
 			title={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
 			onclick={resetActiveChannel}
 		>
-			<RotateCcwIcon class="size-4" aria-hidden="true" />
+			<ThemeIcon role="undo" class="size-4" />
 		</button>
 	</div>
 

@@ -298,6 +298,9 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 				failure.HTTPStatus,
 				failure.Code,
 			)
+			if diagnostic := platform.ProviderErrorDiagnostic(err); diagnostic != "" {
+				log.Printf("[Publisher] Rendition %s provider diagnostics (%s)", rendition.ID, diagnostic)
+			}
 			if dbErr := s.persistRenditionFailure(ctx, rendition.ID, failure); dbErr != nil {
 				log.Printf("[Publisher] Failed to mark rendition %s failed: %v", rendition.ID, dbErr)
 			}

@@ -1,4 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { mediaQueryKeys, type MediaStorage } from '@openpost/query-catalog';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { queryClient } from './query/client';
 import {
 	directUploadSupportedFromStorageResponse,
 	directUploadHeadersForBrowser,
@@ -7,10 +9,15 @@ import {
 	shouldUseMultipartFallback,
 	isTransientUploadError,
 	withUploadRetry,
-	UploadRequestError
+	UploadRequestError,
+	uploadMediaFile
 } from './media-upload-client';
 
 describe('media-upload-client', () => {
+	afterEach(() => {
+		queryClient.clear();
+	});
+
 	it('filters headers that browser uploads cannot set manually', () => {
 		const headers = directUploadHeadersForBrowser({
 			Host: 'uploads.openpost.test',
@@ -76,6 +83,29 @@ describe('media-upload-client', () => {
 		);
 		expect(directUploadSupportedFromStorageResponse({ direct_upload_supported: true })).toBe(true);
 		expect(directUploadSupportedFromStorageResponse({})).toBe(true);
+	});
+
+	it('stops before upload work when storage capability lookup is cancelled', async () => {
+		queryClient.setQueryData(mediaQueryKeys.storage('workspace-1'), {
+			asset_count: 0,
+			direct_upload_supported: true,
+			internal_bytes: 0,
+			limit_bytes: 0,
+			used_bytes: 0
+		} satisfies MediaStorage);
+		const controller = new AbortController();
+		const onProgress = vi.fn();
+		controller.abort();
+
+		await expect(
+			uploadMediaFile({
+				workspaceId: 'workspace-1',
+				file: new File(['content'], 'post.txt', { type: 'text/plain' }),
+				onProgress,
+				signal: controller.signal
+			})
+		).rejects.toMatchObject({ name: 'AbortError' });
+		expect(onProgress).not.toHaveBeenCalled();
 	});
 
 	it('falls back only when direct upload sessions are unavailable', () => {

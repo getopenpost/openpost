@@ -3,6 +3,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
@@ -56,10 +57,6 @@
 		manualKeyframeSummary,
 		removeAnimationKeyframeApplication
 	} from '$lib/video-editor/timeline/actions/keyframes';
-	import ListFilterIcon from '@lucide/svelte/icons/list-filter';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import XIcon from '@lucide/svelte/icons/x';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import Layers3Icon from '@lucide/svelte/icons/layers-3';
 	import SavedAnimationLibrary from './saved-animation-library.svelte';
 
@@ -487,7 +484,7 @@
 				</p>
 				<button type="button" onclick={onmotionclip}>
 					{#if selectedIsMotionClip}
-						<ExternalLinkIcon aria-hidden="true" />
+						<ThemeIcon role="external-link" />
 						{m.video_editor_motion_clip_open()}
 					{:else}
 						<Layers3Icon aria-hidden="true" />
@@ -501,7 +498,7 @@
 	<div class="motion-search-row">
 		<label class="motion-search">
 			<span class="sr-only">{m.video_editor_motion_search()}</span>
-			<SearchIcon aria-hidden="true" />
+			<ThemeIcon role="search" />
 			<Input
 				type="search"
 				bind:value={searchQuery}
@@ -516,7 +513,7 @@
 					aria-label={m.video_editor_motion_search_clear()}
 					onclick={() => (searchQuery = '')}
 				>
-					<XIcon aria-hidden="true" />
+					<ThemeIcon role="close" />
 				</button>
 			{/if}
 		</label>
@@ -528,7 +525,7 @@
 			title={m.video_editor_motion_compatible_only_hint()}
 			onclick={() => (compatibleOnly = !compatibleOnly)}
 		>
-			<ListFilterIcon aria-hidden="true" />
+			<ThemeIcon role="filter" />
 			{m.video_editor_motion_compatible_only()}
 		</button>
 	</div>

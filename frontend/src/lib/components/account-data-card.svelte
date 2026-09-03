@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -15,6 +16,8 @@
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import { client, type AccountDeletionImpact } from '$lib/api/client';
 	import { acquireReauthGrant } from '$lib/auth/reauth';
+	import { invalidatePasswordChangeDependencies } from '$lib/query/auth';
+	import { queryClient } from '$lib/query/client';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -25,9 +28,16 @@
 		hasPassword: boolean;
 		reauthProviderID?: string;
 		hasPasskey?: boolean;
+		onPasswordChanged?: () => void | Promise<void>;
 	}
 
-	let { email, hasPassword, reauthProviderID = '', hasPasskey = false }: Props = $props();
+	let {
+		email,
+		hasPassword,
+		reauthProviderID = '',
+		hasPasskey = false,
+		onPasswordChanged = () => undefined
+	}: Props = $props();
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
@@ -50,6 +60,18 @@
 	let noticeTone = $state<'success' | 'error'>('success');
 	let passwordOpen = $state(false);
 	let exportOpen = $state(false);
+	let passwordRequestSequence = 0;
+	let exportRequestSequence = 0;
+	let deletionReviewRequestSequence = 0;
+	let deletionActorID = '';
+	let active = true;
+
+	onDestroy(() => {
+		active = false;
+		passwordRequestSequence += 1;
+		exportRequestSequence += 1;
+		deletionReviewRequestSequence += 1;
+	});
 
 	function showError(message: string) {
 		noticeTone = 'error';
@@ -73,16 +95,23 @@
 			return;
 		}
 
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const requestSequence = ++passwordRequestSequence;
+		const isCurrentRequest = () =>
+			active && requestSequence === passwordRequestSequence && get(auth).user?.id === actorID;
 		passwordBusy = true;
 		const grant = hasPassword
 			? ''
 			: await acquireReauthGrant('security.password.change', {
 					providerID: reauthProviderID,
-					hasPasskey
+					hasPasskey,
+					isCurrent: isCurrentRequest
 				}).catch((error: Error) => {
-					showError(error.message);
+					if (isCurrentRequest()) showError(error.message);
 					return undefined;
 				});
+		if (!isCurrentRequest()) return;
 		if (grant === null || grant === undefined) {
 			passwordBusy = false;
 			return;
@@ -94,11 +123,29 @@
 				reauth_grant: grant || undefined
 			}
 		});
-		passwordBusy = false;
 		if (error || !data) {
-			showError(error?.detail ?? m.auth_login_failed());
+			if (isCurrentRequest()) {
+				passwordBusy = false;
+				showError(error?.detail ?? m.auth_login_failed());
+			}
 			return;
 		}
+		if (get(auth).user?.id === actorID) {
+			await invalidatePasswordChangeDependencies(queryClient);
+			const preferredWorkspaceID = workspaceCtx.currentWorkspace?.id;
+			try {
+				const projection = auth.captureUserProjection(actorID);
+				if (projection) {
+					const bootstrap = await workspaceCtx.loadWorkspaces(preferredWorkspaceID);
+					if (get(auth).user?.id === actorID) auth.projectBootstrap(bootstrap, projection);
+				}
+			} catch {
+				// The password changed successfully. Invalidated queries will retry on the next load.
+			}
+		}
+		if (isCurrentRequest()) await onPasswordChanged();
+		if (!isCurrentRequest()) return;
+		passwordBusy = false;
 		currentPassword = '';
 		newPassword = '';
 		confirmPassword = '';
@@ -108,17 +155,24 @@
 
 	async function exportData(event: SubmitEvent) {
 		event.preventDefault();
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const requestSequence = ++exportRequestSequence;
+		const isCurrentRequest = () =>
+			active && requestSequence === exportRequestSequence && get(auth).user?.id === actorID;
 		notice = '';
 		exportBusy = true;
 		const grant = hasPassword
 			? ''
 			: await acquireReauthGrant('account.export', {
 					providerID: reauthProviderID,
-					hasPasskey
+					hasPasskey,
+					isCurrent: isCurrentRequest
 				}).catch((error: Error) => {
-					showError(error.message);
+					if (isCurrentRequest()) showError(error.message);
 					return undefined;
 				});
+		if (!isCurrentRequest()) return;
 		if (grant === null || grant === undefined) {
 			exportBusy = false;
 			return;
@@ -129,51 +183,65 @@
 				reauth_grant: grant || undefined
 			}
 		});
+		if (!isCurrentRequest()) return;
 		exportBusy = false;
 		if (error || !data) {
 			showError(error?.detail ?? m.auth_login_failed());
 			return;
 		}
 
-		const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+		const blob = new Blob([JSON.stringify(data, null, 2)], {
+			type: 'application/json'
+		});
 		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement('a');
-		anchor.href = url;
-		anchor.download = `openpost-account-export-${data.generated_at.slice(0, 10)}.json`;
-		anchor.click();
-		URL.revokeObjectURL(url);
+		try {
+			if (!isCurrentRequest()) return;
+			const anchor = document.createElement('a');
+			anchor.href = url;
+			anchor.download = `openpost-account-export-${data.generated_at.slice(0, 10)}.json`;
+			anchor.click();
+		} finally {
+			URL.revokeObjectURL(url);
+		}
+		if (!isCurrentRequest()) return;
 		exportPassword = '';
 		exportOpen = false;
 		showSuccess(m.settings_export_success());
 	}
 
 	async function reviewDeletion() {
+		const actorID = get(auth).user?.id ?? '';
+		if (!actorID) return;
+		const requestSequence = ++deletionReviewRequestSequence;
+		const isCurrentRequest = () =>
+			active && requestSequence === deletionReviewRequestSequence && get(auth).user?.id === actorID;
 		notice = '';
 		deletionBusy = true;
 		const { data, error } = await client.GET('/auth/account/deletion-impact');
+		if (!isCurrentRequest()) return;
 		deletionBusy = false;
 		if (error || !data) {
 			showError(error?.detail ?? m.auth_login_failed());
 			return;
 		}
+		deletionActorID = actorID;
 		deletionImpact = data;
 		deletionOpen = true;
 	}
 
 	async function deleted() {
+		if (!active || !deletionActorID || get(auth).user?.id !== deletionActorID) return;
 		await goto(resolveAppPath('/account-deleted'));
-		auth.clearLocal();
 		workspaceCtx.reset();
-		localStorage.removeItem('oauth_workspace_id');
-		localStorage.removeItem('oauth_mastodon_server');
-		localStorage.removeItem('oauth_mastodon_instance_url');
 	}
 </script>
 
 <section class="overflow-hidden rounded-lg border">
 	<div class="p-4">
 		<h3 class="font-medium">{m.settings_account_data()}</h3>
-		<p class="mt-1 text-sm text-muted-foreground">{m.settings_account_data_body()}</p>
+		<p class="mt-1 text-sm text-muted-foreground">
+			{m.settings_account_data_body()}
+		</p>
 	</div>
 
 	{#if notice}
@@ -217,7 +285,9 @@
 							/>
 						</div>
 					{:else}
-						<p class="self-end text-sm text-muted-foreground">{m.settings_step_up_body()}</p>
+						<p class="self-end text-sm text-muted-foreground">
+							{m.settings_step_up_body()}
+						</p>
 					{/if}
 					<div class="space-y-2">
 						<Label for="account-new-password">{m.settings_new_password()}</Label>
@@ -285,7 +355,9 @@
 							/>
 						</div>
 					{:else}
-						<p class="self-end text-sm text-muted-foreground">{m.settings_step_up_body()}</p>
+						<p class="self-end text-sm text-muted-foreground">
+							{m.settings_step_up_body()}
+						</p>
 					{/if}
 					<Button type="submit" variant="outline" disabled={exportBusy}>
 						{#if exportBusy}<LoaderIcon class="size-4 animate-spin" />{/if}

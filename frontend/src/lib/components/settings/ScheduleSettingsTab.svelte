@@ -11,9 +11,23 @@
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { runDestructiveSequence } from '$lib/destructive-action';
 	import { client } from '$lib/api/client';
+	import { postingSchedulesQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { WorkspaceContextError, workspaceCtx } from '$lib/stores/workspace.svelte';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 	import { showToast } from '$lib/toast';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -40,6 +54,14 @@
 	let scheduleRequestSequence = 0;
 	let removeTimeDialogOpen = $state(false);
 	let pendingTimeRow = $state.raw<ScheduleRow | null>(null);
+	let scheduleMutationWorkspaceID = '';
+	let scheduleMutationSequence = 0;
+
+	interface ScheduleMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
 
 	function notify(message: string, tone: 'success' | 'error' = 'success') {
 		showToast(message, tone);
@@ -47,6 +69,32 @@
 
 	function isCurrentWorkspace(workspaceID: string) {
 		return workspaceCtx.currentWorkspace?.id === workspaceID;
+	}
+
+	function captureScheduleMutationView(): ScheduleMutationView | undefined {
+		const workspaceID = workspaceCtx.currentWorkspace?.id;
+		if (!workspaceID) return undefined;
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++scheduleMutationSequence,
+			workspaceID
+		};
+	}
+
+	function scheduleMutationViewIsCurrent(view: ScheduleMutationView) {
+		return (
+			view.sequence === scheduleMutationSequence &&
+			isCurrentWorkspace(view.workspaceID) &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	async function reconcileScheduleMutation(view: ScheduleMutationView) {
+		const queryKey = schedulingQueryKeys.postingSchedules(view.workspaceID);
+		return reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey, exact: true }],
+			invalidate: [{ queryKey, exact: true, refetchType: 'none' }]
+		});
 	}
 
 	function localizedWeekday(dayIndex: number, format: 'short' | 'long' = 'short') {
@@ -121,6 +169,21 @@
 	let schedules = $state<PostingSchedule[]>([]);
 	let loadingSchedules = $state(false);
 	let scheduleError = $state('');
+	let scheduleDataReady = $state(false);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.schedule);
+	$effect(() => {
+		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		// Load-state reads stay unconditional so the effect keeps tracking them even
+		// when the scope term short-circuits; otherwise the boundary never settles.
+		const waitingForSchedules = loadingSchedules && !scheduleDataReady;
+		reportInitialLoad(
+			Boolean(
+				workspaceID &&
+				!scheduleError &&
+				(loadedScheduleWorkspaceID !== workspaceID || waitingForSchedules)
+			)
+		);
+	});
 	let showSuggestSchedule = $state(false);
 	let suggestedPostsPerDay = $state(3);
 	let generatingSchedule = $state(false);
@@ -168,21 +231,39 @@
 		);
 	});
 
-	async function loadSchedules(workspaceID = workspaceCtx.currentWorkspace?.id ?? '') {
+	async function loadSchedules(
+		workspaceID = workspaceCtx.currentWorkspace?.id ?? '',
+		force = false
+	) {
 		if (!workspaceID) return;
+		if (!isCurrentWorkspace(workspaceID)) return;
 		const requestSequence = ++scheduleRequestSequence;
 		const workspaceChanged = loadedScheduleWorkspaceID !== workspaceID;
 		loadedScheduleWorkspaceID = workspaceID;
 		loadingSchedules = true;
 		scheduleError = '';
-		if (workspaceChanged) schedules = [];
+		if (workspaceChanged) {
+			schedules = [];
+			scheduleDataReady = false;
+		}
 		try {
-			const { data, error: err } = await client.GET('/posting-schedules', {
-				params: { query: { workspace_id: workspaceID } }
-			});
-			if (err || !data) throw new Error(err?.detail || m.settings_schedule_load_failed());
+			const options = postingSchedulesQueryOptions(schedulingQueryAPI, workspaceID);
+			const cached = queryClient.getQueryData<PostingSchedule[]>(options.queryKey);
+			if (cached !== undefined && isCurrentWorkspace(workspaceID)) {
+				schedules = cached;
+				scheduleDataReady = true;
+			}
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const data = await queryClient.query(options);
 			if (requestSequence !== scheduleRequestSequence || !isCurrentWorkspace(workspaceID)) return;
 			schedules = data;
+			scheduleDataReady = true;
 		} catch (e) {
 			if (requestSequence !== scheduleRequestSequence || !isCurrentWorkspace(workspaceID)) return;
 			scheduleError = e instanceof Error ? e.message : m.settings_schedule_load_failed();
@@ -251,7 +332,7 @@
 				}
 			}
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				savedScheduleDraft = scheduleDraftSnapshot();
 				notify(m.settings_time_added());
 			}
@@ -261,14 +342,21 @@
 	}
 
 	async function deleteSchedule(id: string) {
+		const view = captureScheduleMutationView();
+		if (!view) return;
 		try {
-			const { error: err } = await client.DELETE('/posting-schedules/{id}', {
+			const { error: err, response } = await client.DELETE('/posting-schedules/{id}', {
 				params: { path: { id } }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err) throw new Error(err.detail || m.settings_action_failed());
-			await loadSchedules();
+			const reconciled = await reconcileScheduleMutation(view);
+			if (!reconciled || !scheduleMutationViewIsCurrent(view)) return;
+			await loadSchedules(view.workspaceID);
+			if (!scheduleMutationViewIsCurrent(view)) return;
 			notify(m.settings_schedule_deleted());
 		} catch (e) {
+			if (!scheduleMutationViewIsCurrent(view)) return;
 			notify(e instanceof Error ? e.message : m.settings_action_failed(), 'error');
 		}
 	}
@@ -284,7 +372,7 @@
 			if (!workspaceID || !workspaceCtx.settingsReady) return;
 			await createSchedule(workspaceID, dayOfWeek, row.local_hour, row.local_minute);
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				notify(m.settings_schedule_updated());
 			}
 		} catch (e) {
@@ -293,17 +381,25 @@
 	}
 
 	async function removeTimeRow(row: ScheduleRow): Promise<DestructiveActionOutcome> {
+		const view = captureScheduleMutationView();
+		if (!view) return { ok: false };
 		const targets = Object.values(row.days).filter((schedule): schedule is PostingSchedule =>
 			Boolean(schedule)
 		);
 		const outcome = await runDestructiveSequence(targets, async (schedule) => {
+			if (!queryMutationSessionIsCurrent(view.session)) {
+				throw new Error(m.settings_action_failed());
+			}
 			const { error: err, response } = await client.DELETE('/posting-schedules/{id}', {
 				params: { path: { id: schedule.id } }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err && response.status !== 404) {
 				throw new Error(err.detail || m.settings_action_failed());
 			}
 		});
+		const reconciled = await reconcileScheduleMutation(view);
+		if (!reconciled || !scheduleMutationViewIsCurrent(view)) return { ok: false };
 		if (outcome.error) {
 			const remainingIDs = new Set(outcome.remaining.map((schedule) => schedule.id));
 			if (pendingTimeRow === row) {
@@ -316,12 +412,14 @@
 					)
 				};
 			}
-			await loadSchedules();
+			await loadSchedules(view.workspaceID);
+			if (!scheduleMutationViewIsCurrent(view)) return { ok: false };
 			const message =
 				outcome.error instanceof Error ? outcome.error.message : m.settings_action_failed();
 			return { ok: false, message };
 		}
-		await loadSchedules();
+		await loadSchedules(view.workspaceID);
+		if (!scheduleMutationViewIsCurrent(view)) return { ok: false };
 		return { ok: true, successMessage: m.settings_time_removed() };
 	}
 
@@ -347,7 +445,7 @@
 			if (err) throw new Error(err.detail || m.settings_action_failed());
 			showSuggestSchedule = false;
 			if (isCurrentWorkspace(workspaceID)) {
-				await loadSchedules(workspaceID);
+				await loadSchedules(workspaceID, true);
 				notify(
 					suggestedPostsPerDay === 1
 						? m.settings_schedule_generated_one()
@@ -371,6 +469,12 @@
 
 	$effect(() => {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+		if (scheduleMutationWorkspaceID !== workspaceID) {
+			scheduleMutationWorkspaceID = workspaceID;
+			scheduleMutationSequence += 1;
+			pendingTimeRow = null;
+			removeTimeDialogOpen = false;
+		}
 		if (workspaceID && loadedScheduleWorkspaceID !== workspaceID) void loadSchedules(workspaceID);
 	});
 
@@ -491,7 +595,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					onclick={() => void loadSchedules()}
+					onclick={() => void loadSchedules(workspaceCtx.currentWorkspace?.id ?? '', true)}
 					disabled={loadingSchedules}
 				>
 					{m.common_retry()}
@@ -499,13 +603,13 @@
 			{/snippet}
 		</InlineNotice>
 	{/if}
-	{#if loadingSchedules && scheduleRows.length === 0}
+	{#if loadingSchedules && !scheduleDataReady}
 		<PageLoading layout="list" label={m.common_loading()} items={3} />
-	{:else if !scheduleError && scheduleRows.length === 0}
+	{:else if scheduleDataReady && scheduleRows.length === 0}
 		<div class="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
 			{m.settings_no_posting_times()}
 		</div>
-	{:else}
+	{:else if scheduleDataReady}
 		<div class="space-y-3 xl:hidden">
 			{#each scheduleRows as row (row.key)}
 				<div class="rounded-xl border bg-card p-4">

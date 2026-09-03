@@ -14,14 +14,18 @@ export function Brand({
   const size = compact ? 36 : 48;
 
   return (
-    <View style={[styles.brand, style]}>
+    <View accessible accessibilityLabel="OpenPost" style={[styles.brand, style]}>
       <Image
         source={require("../../assets/images/icon.png")}
         style={{ width: size, height: size, borderRadius: compact ? 10 : 14 }}
         contentFit="contain"
-        accessibilityLabel="OpenPost"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       />
-      <Text style={[styles.wordmark, compact && styles.wordmarkCompact, { color: colors.text }]}>
+      <Text
+        style={[styles.wordmark, compact && styles.wordmarkCompact, { color: colors.onSurface }]}
+      >
         OpenPost
       </Text>
     </View>

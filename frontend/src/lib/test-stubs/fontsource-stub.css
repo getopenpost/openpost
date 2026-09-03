@@ -1,0 +1,6 @@
+/* Test-only stub for @fontsource families (see vitest.config.ts client alias).
+ *
+ * Browser component tests assert computed font-family NAMES, which resolve
+ * from declarations without font files. Loading ~30 real families per test
+ * file floods the Vite dev server with thousands of woff2 requests and
+ * saturates browser suites. Production builds are unaffected. */

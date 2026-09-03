@@ -1,7 +1,21 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import {
+		notificationPreferencesQueryOptions,
+		notificationQueryKeys
+	} from '@openpost/query-catalog';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { onMount, untrack } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { notificationQueryAPI } from '$lib/query/notifications';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -11,44 +25,77 @@
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 
 	type NotificationMute = components['schemas']['Mute'];
+	interface MuteMutationView {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly revision: number;
+		readonly requestSequence: number;
+	}
+
 	let {
 		workspaceID = '',
 		workspaceName = '',
-		notify = showToast
+		notify = showToast,
+		queryStatus = 'local'
 	}: {
 		workspaceID?: string;
 		workspaceName?: string;
 		notify?: typeof showToast;
+		queryStatus?: 'local' | 'parent';
 	} = $props();
-	let loading = $state(true);
-	let error = $state('');
 	let mutes = $state.raw<NotificationMute[]>([]);
 	let muteScope = $state<'account' | 'workspace'>('account');
 	let muteEndsAt = $state(defaultMuteEnd());
 	let createRequests = $state(0);
 	let endingMuteIDs = $state.raw<Set<string>>(new Set());
+	let mutationRevision = 0;
+	let mutationRequestSequence = 0;
+	let mutationWorkspaceID = '';
 	let expiryTimer: ReturnType<typeof setTimeout> | undefined;
-	let loadSequence = 0;
-	let mutationSequence = 0;
 	const muting = $derived(createRequests > 0);
+	const preferencesQuery = createQuery(
+		() => ({
+			...notificationPreferencesQueryOptions(notificationQueryAPI),
+			enabled: queryStatus === 'local'
+		}),
+		() => queryClient
+	);
+	const loading = $derived(preferencesQuery.isPending && !preferencesQuery.data);
+	const initialError = $derived(
+		preferencesQuery.isError && !preferencesQuery.data
+			? queryErrorMessage(preferencesQuery.error)
+			: ''
+	);
+	const staleError = $derived(
+		preferencesQuery.isError && preferencesQuery.data
+			? queryErrorMessage(preferencesQuery.error)
+			: ''
+	);
+	let appliedPreferences: components['schemas']['PreferenceSettings'] | undefined;
 
 	onMount(() => {
-		void load();
 		return () => clearExpiryTimer();
 	});
 
-	async function load() {
-		const loadToken = ++loadSequence;
-		const mutationToken = mutationSequence;
-		loading = true;
-		error = '';
-		const { data, error: apiError } = await client.GET('/notifications/preferences');
-		if (loadToken === loadSequence && mutationToken === mutationSequence) {
-			if (apiError || !data) error = apiError?.detail || m.notifications_preferences_load_failed();
-			else applyMutes(data.mutes);
-		}
-		if (loadToken === loadSequence) loading = false;
-	}
+	$effect(() => {
+		const data = preferencesQuery.data;
+		if (!data || data === appliedPreferences) return;
+		untrack(() => {
+			appliedPreferences = data;
+			applyMutes(data.mutes);
+		});
+	});
+
+	$effect(() => {
+		const nextWorkspaceID = workspaceID;
+		if (nextWorkspaceID === mutationWorkspaceID) return;
+		untrack(() => {
+			mutationWorkspaceID = nextWorkspaceID;
+			mutationRevision += 1;
+			createRequests = 0;
+			endingMuteIDs = new Set();
+		});
+	});
 
 	function clearExpiryTimer() {
 		if (expiryTimer !== undefined) clearTimeout(expiryTimer);
@@ -65,7 +112,7 @@
 		const delay = Math.min(Math.max(nextExpiry - Date.now() + 25, 0), 2_147_000_000);
 		expiryTimer = setTimeout(() => {
 			applyMutes(mutes);
-			void load();
+			void preferencesQuery.refetch();
 		}, delay);
 	}
 
@@ -94,6 +141,7 @@
 	}
 
 	async function createMute() {
+		const view = captureMuteMutationView();
 		const end = new Date(muteEndsAt);
 		if (!muteEndsAt || Number.isNaN(end.getTime()) || end.getTime() <= Date.now()) {
 			notify(m.notifications_mute_invalid(), 'error');
@@ -104,43 +152,99 @@
 			return;
 		}
 		createRequests += 1;
-		mutationSequence += 1;
-		const { data, error: apiError } = await client.POST('/notifications/mutes', {
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.POST('/notifications/mutes', {
 			body: {
 				scope: muteScope,
 				workspace_id: muteScope === 'workspace' ? workspaceID : undefined,
 				ends_at: end.toISOString()
 			}
 		});
-		createRequests -= 1;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (view.revision === mutationRevision) {
+			createRequests = Math.max(0, createRequests - 1);
+		}
+		if (!sessionIsCurrent) return;
 		if (apiError || !data) {
-			notify(
-				apiError?.status === 400 ? m.notifications_mute_invalid() : m.notifications_mute_failed(),
-				'error'
-			);
-			await load();
+			if (muteMutationViewIsCurrent(view)) {
+				notify(
+					apiError?.status === 400 ? m.notifications_mute_invalid() : m.notifications_mute_failed(),
+					'error'
+				);
+			}
 			return;
 		}
-		await load();
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: notificationQueryKeys.preferences(), exact: true }],
+			reconcile: () => {
+				if (view.requestSequence !== mutationRequestSequence) return;
+				queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+			},
+			invalidate: [{ queryKey: notificationQueryKeys.preferences(), exact: true }]
+		});
+		if (!reconciled || !muteMutationViewIsCurrent(view)) return;
 		notify(m.notifications_mute_created(), 'success');
 	}
 
 	async function endMute(id: string) {
+		const view = captureMuteMutationView();
 		endingMuteIDs = new Set(endingMuteIDs).add(id);
-		mutationSequence += 1;
-		const { data, error: apiError } = await client.DELETE('/notifications/mutes/{id}', {
+		const {
+			data,
+			error: apiError,
+			response
+		} = await client.DELETE('/notifications/mutes/{id}', {
 			params: { path: { id } }
 		});
-		const remaining = new Set(endingMuteIDs);
-		remaining.delete(id);
-		endingMuteIDs = remaining;
+		const sessionIsCurrent = settleQueryMutationSession(view.session, response);
+		if (view.revision === mutationRevision) {
+			const remaining = new Set(endingMuteIDs);
+			remaining.delete(id);
+			endingMuteIDs = remaining;
+		}
+		if (!sessionIsCurrent) return;
 		if (apiError || !data) {
-			notify(m.notifications_mute_end_failed(), 'error');
-			await load();
+			if (muteMutationViewIsCurrent(view)) {
+				notify(m.notifications_mute_end_failed(), 'error');
+			}
 			return;
 		}
-		await load();
+		const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+			cancel: [{ queryKey: notificationQueryKeys.preferences(), exact: true }],
+			reconcile: () => {
+				if (view.requestSequence !== mutationRequestSequence) return;
+				queryClient.setQueryData(notificationQueryKeys.preferences(), data);
+			},
+			invalidate: [{ queryKey: notificationQueryKeys.preferences(), exact: true }]
+		});
+		if (!reconciled || !muteMutationViewIsCurrent(view)) return;
 		notify(m.notifications_mute_ended(), 'success');
+	}
+
+	function captureMuteMutationView(): MuteMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID,
+			revision: mutationRevision,
+			requestSequence: ++mutationRequestSequence
+		};
+	}
+
+	function muteMutationViewIsCurrent(view: MuteMutationView) {
+		return (
+			view.revision === mutationRevision &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
+	}
+
+	function queryErrorMessage(cause: unknown) {
+		return cause instanceof Error && cause.message
+			? cause.message
+			: m.notifications_preferences_load_failed();
 	}
 </script>
 
@@ -159,13 +263,24 @@
 			</p>
 		</div>
 	</div>
-	{#if error}
-		<InlineNotice tone="error" message={error}
-			>{#snippet actions()}<Button variant="outline" size="sm" onclick={() => void load()}
-					>{m.common_retry()}</Button
+	{#if queryStatus === 'local' && initialError}
+		<InlineNotice tone="error" message={initialError}
+			>{#snippet actions()}<Button
+					variant="outline"
+					size="sm"
+					onclick={() => void preferencesQuery.refetch()}>{m.common_retry()}</Button
 				>{/snippet}</InlineNotice
 		>
 	{:else}
+		{#if queryStatus === 'local' && staleError}
+			<InlineNotice tone="error" message={staleError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void preferencesQuery.refetch()}
+						>{m.common_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{/if}
 		<div
 			class="grid gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-end"
 			aria-busy={loading}

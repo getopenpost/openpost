@@ -112,7 +112,7 @@ func normalizeStoredAPITokenMode(mode string) string {
 	}
 }
 
-func PolicyForOrganization(ctx context.Context, db *bun.DB, organizationID string) (Policy, error) {
+func PolicyForOrganization(ctx context.Context, db bun.IDB, organizationID string) (Policy, error) {
 	return policyForOrganization(ctx, db, organizationID)
 }
 
@@ -265,7 +265,7 @@ func breakGlassSessionAllowed(
 
 func EvaluateOrganizationAccess(
 	ctx context.Context,
-	db *bun.DB,
+	db bun.IDB,
 	organizationID,
 	userID,
 	sessionID,
@@ -276,7 +276,7 @@ func EvaluateOrganizationAccess(
 	// assurance. Enforce it before the organization policy so a bound token
 	// cannot administer its parent organization when SSO is optional.
 	if strings.TrimSpace(tokenID) != "" {
-		allowed, err := organizationTokenScopeAllows(ctx, db, tokenID, userID)
+		allowed, err := organizationTokenScopeAllows(ctx, db, tokenID, userID, organizationID)
 		if err != nil {
 			return OrganizationAccessDecision{}, err
 		}
@@ -335,14 +335,13 @@ func EvaluateOrganizationAccess(
 
 func organizationTokenScopeAllows(
 	ctx context.Context,
-	db *bun.DB,
-	tokenID,
-	userID string,
+	db bun.IDB,
+	tokenID, userID, organizationID string,
 ) (bool, error) {
 	var token models.APIToken
 	if err := db.NewSelect().
 		Model(&token).
-		Column("workspace_id").
+		Column("workspace_id", "organization_id").
 		Where("id = ? AND user_id = ?", strings.TrimSpace(tokenID), strings.TrimSpace(userID)).
 		Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -350,7 +349,9 @@ func organizationTokenScopeAllows(
 		}
 		return false, err
 	}
-	return strings.TrimSpace(token.WorkspaceID) == "", nil
+	tokenOrganizationID := strings.TrimSpace(token.OrganizationID)
+	return strings.TrimSpace(token.WorkspaceID) == "" &&
+		(tokenOrganizationID == "" || tokenOrganizationID == strings.TrimSpace(organizationID)), nil
 }
 
 func validSessionAssurance(
@@ -412,7 +413,7 @@ func validOrganizationToken(
 
 func validOrganizationBoundToken(
 	ctx context.Context,
-	db *bun.DB,
+	db bun.IDB,
 	tokenID,
 	userID,
 	organizationID string,

@@ -46,9 +46,9 @@ test("Engagement reaches every older item and keeps filters and selections durin
     content_profile: "short_text",
     renditions: [],
   }));
-  let initialFailures = 1;
-  let olderFailures = 1;
-  let publicationSearchFailures = 1;
+  let initialFailures = 2;
+  let olderFailures = 2;
+  let publicationSearchFailures = 2;
   const requestedPages: string[] = [];
 
   await page.route("**/api/v1/accounts?**", (route) =>
@@ -60,6 +60,27 @@ test("Engagement reaches every older item and keeps filters and selections durin
           account_id: "provider-account",
           account_username: "openpost.example",
           is_active: true,
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/v1/account-features*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          workspace_id: workspace.id,
+          social_account_id: "account-1",
+          platform: "bluesky",
+          feature: "engagement",
+          supported: true,
+          availability: "available",
+          reason_code: "available",
+          required_scopes: [],
+          missing_scopes: [],
+          unavailable_reason: "",
+          stored_exists: true,
+          stored_enabled: true,
+          effective_enabled: true,
         },
       ],
     }),
@@ -158,7 +179,7 @@ test("Engagement reaches every older item and keeps filters and selections durin
   await page.getByRole("button", { name: "Load older", exact: true }).click();
   await expect(page.getByText("Reply 234", { exact: true })).toBeVisible();
   await expect(page.locator("article")).toHaveCount(235);
-  expect(requestedPages.filter((cursor) => cursor === "page-2")).toHaveLength(2);
+  expect(requestedPages.filter((cursor) => cursor === "page-2")).toHaveLength(3);
 
   const publicationFilter = page.getByRole("combobox", { name: "All posts" });
   await publicationFilter.click();

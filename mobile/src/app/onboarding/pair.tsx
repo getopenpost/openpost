@@ -1,12 +1,13 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { pollPairing, startPairing } from "@/lib/auth";
 import { successHaptic } from "@/lib/haptics";
+import { isAbortError, waitForPairingResult } from "@/lib/pairing-loop";
 
 type Phase = "starting" | "waiting" | "approved" | "denied" | "expired" | "error";
 
@@ -17,8 +18,7 @@ export default function PairScreen() {
   const [verificationUrl, setVerificationUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const deviceCode = useRef("");
-  const cancelled = useRef(false);
+  const attemptRef = useRef(attempt);
 
   useFocusEffect(
     useCallback(() => {
@@ -30,54 +30,62 @@ export default function PairScreen() {
     }, []),
   );
 
-  useEffect(() => {
-    cancelled.current = false;
-    void (async () => {
-      try {
-        const state = await startPairing();
-        if (cancelled.current) return;
-        deviceCode.current = state.deviceCode;
-        setUserCode(state.userCode);
-        setVerificationUrl(state.verificationUrl);
-        setPhase("waiting");
-        while (!cancelled.current) {
-          try {
-            const result = await pollPairing(deviceCode.current);
-            if (cancelled.current) return;
-            if (result.status === "pending") {
-              await sleep(result.intervalMs);
-              continue;
-            }
-            if (result.status === "approved") {
-              void successHaptic();
-              setPhase("approved");
-              setTimeout(() => router.replace("/onboarding/workspace"), 500);
-            } else {
-              setPhase(result.status);
-            }
-            return;
-          } catch {
-            await sleep(3000);
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      const attemptId = attempt;
+      const isCancelled = () => controller.signal.aborted || attemptRef.current !== attemptId;
+      let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+      void (async () => {
+        try {
+          const state = await startPairing("OpenPost Mobile", controller.signal);
+          if (isCancelled()) return;
+          setUserCode(state.userCode);
+          setVerificationUrl(state.verificationUrl);
+          setPhase("waiting");
+          const result = await waitForPairingResult({
+            deviceCode: state.deviceCode,
+            isCancelled,
+            poll: (deviceCode) => pollPairing(deviceCode, controller.signal),
+          });
+          if (!result || isCancelled()) return;
+          if (result.status === "approved") {
+            void successHaptic();
+            setPhase("approved");
+            navigationTimer = setTimeout(() => router.replace("/"), 500);
+          } else {
+            setPhase(result.status);
+          }
+        } catch (err) {
+          if (!isCancelled()) {
+            setPhase("error");
+            setError(
+              isAbortError(err)
+                ? "Your sign-in session changed. Get a new pairing code."
+                : err instanceof Error
+                  ? err.message
+                  : "Could not start pairing",
+            );
           }
         }
-      } catch (err) {
-        if (!cancelled.current) {
-          setPhase("error");
-          setError(err instanceof Error ? err.message : "Could not start pairing");
-        }
-      }
-    })();
-    return () => {
-      cancelled.current = true;
-    };
-  }, [attempt]);
+      })();
+      return () => {
+        controller.abort();
+        if (navigationTimer) clearTimeout(navigationTimer);
+      };
+    }, [attempt]),
+  );
 
-  async function restart() {
+  function restart() {
     setError(null);
     setPhase("starting");
     setUserCode("");
     setVerificationUrl("");
-    setAttempt((current) => current + 1);
+    setAttempt((current) => {
+      const next = current + 1;
+      attemptRef.current = next;
+      return next;
+    });
   }
 
   const title =
@@ -96,7 +104,7 @@ export default function PairScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.onSurface }]}>{title}</Text>
         {phase !== "approved" ? (
           <BodyText style={styles.subtitle}>
             Approve this device from a browser where you are signed in. Organizations that use
@@ -108,14 +116,14 @@ export default function PairScreen() {
           <>
             <Card style={styles.codeCard}>
               {phase === "starting" ? (
-                <ActivityIndicator color={colors.tint} />
+                <ActivityIndicator color={colors.primary} />
               ) : (
                 <Text
                   accessibilityLabel={`Pairing code ${userCode}`}
                   adjustsFontSizeToFit
                   minimumFontScale={0.55}
                   numberOfLines={1}
-                  style={[styles.code, { color: colors.text }]}
+                  style={[styles.code, { color: colors.onSurface }]}
                   selectable
                 >
                   {userCode}
@@ -123,17 +131,17 @@ export default function PairScreen() {
               )}
             </Card>
             <BodyText style={styles.center}>Enter this code at</BodyText>
-            <BodyText style={[styles.center, styles.url, { color: colors.text }]}>
+            <BodyText style={[styles.center, styles.url, { color: colors.onSurface }]}>
               {verificationUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}
             </BodyText>
             <Button
               title="Open verification page"
-              variant="focal"
+              intent="focal"
               onPress={() => void WebBrowser.openBrowserAsync(verificationUrl)}
               style={styles.openButton}
             />
             <View accessibilityLiveRegion="polite" style={styles.waitRow}>
-              <ActivityIndicator color={colors.tint} />
+              <ActivityIndicator color={colors.primary} />
               <BodyText>Waiting for approval</BodyText>
             </View>
           </>
@@ -141,21 +149,21 @@ export default function PairScreen() {
 
         {phase === "approved" ? (
           <View accessibilityRole="alert" style={styles.approved}>
-            <ActivityIndicator color={colors.success} />
-            <BodyText style={{ color: colors.success }}>This device is ready.</BodyText>
+            <ActivityIndicator color={colors.status.published} />
+            <BodyText style={{ color: colors.status.published }}>This device is ready.</BodyText>
           </View>
         ) : null}
 
         {phase === "denied" || phase === "expired" || phase === "error" ? (
           <>
             {error ? (
-              <BodyText accessibilityRole="alert" style={[styles.center, { color: colors.danger }]}>
+              <BodyText accessibilityRole="alert" style={[styles.center, { color: colors.error }]}>
                 {error}
               </BodyText>
             ) : null}
             <Button
-              title="Try again"
-              variant="tinted"
+              title="Get a new code"
+              intent="ordinary"
               onPress={() => void restart()}
               style={styles.openButton}
             />
@@ -164,7 +172,7 @@ export default function PairScreen() {
 
         <Button
           title="Back to sign in"
-          variant="plain"
+          intent="quiet"
           onPress={returnToLogin}
           style={styles.backButton}
         />
@@ -175,10 +183,6 @@ export default function PairScreen() {
 
 function returnToLogin() {
   router.replace("/onboarding/login");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const styles = StyleSheet.create({

@@ -6,6 +6,20 @@
 	import { tick, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { client } from '$lib/api/client';
+	import {
+		openPostQueryKeys,
+		schedulingPublicationsQueryOptions,
+		schedulingQueryKeys
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { prefetchDraftComposerData } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
 	import { workspaceClock } from '$lib/components/compose/schedule-timezone';
@@ -43,10 +57,12 @@
 	let drafts = $state.raw<PlannerDraft[]>([]);
 	let loadingDrafts = $state(true);
 	let draftsError = $state('');
+	let draftsDataReady = $state(false);
 	let deleteDraftDialogOpen = $state(false);
 	let draftPendingDelete = $state<PlannerDraft | null>(null);
 	let deletingDraftId = $state('');
 	let draftDeleteReturnFocus = $state<HTMLElement | null>(null);
+	let draftMutationSequence = 0;
 	let overviewRequest = 0;
 	let draftsRequest = 0;
 	let overviewWorkspaceKey = '';
@@ -57,6 +73,13 @@
 	let renderedWeekCount = $state(12);
 	let focusedDayKey = $state('');
 	let visibleCalendarDayKey = $state('');
+
+	interface DraftDeleteView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceId: string;
+		readonly draft: PlannerDraft;
+	}
 	const weeksPerBatch = 8;
 	const calendarWeekHeight = 36;
 	const draftContextItemClass =
@@ -113,7 +136,7 @@
 					months
 				);
 			}
-			if (invalidation.scopes.includes('drafts')) void loadDrafts(currentWorkspaceId);
+			if (invalidation.scopes.includes('drafts')) void loadDrafts(currentWorkspaceId, true);
 		});
 	});
 
@@ -155,29 +178,28 @@
 				requestedMonths.map(async (month): Promise<[string, Map<string, number>]> => {
 					const range = publicationMonthRange(month, viewerTimeZone);
 					const counts = new Map<string, number>();
-					let offset = 0;
-					while (true) {
-						const { data, error, response } = await client.GET('/publications', {
-							params: {
-								query: {
-									workspace_id: currentWorkspaceId,
-									calendar_from: range.from,
-									calendar_before: range.before,
-									limit: 200,
-									offset
-								}
-							}
-						});
-						if (error) throw new Error(error.detail);
-						for (const publication of data ?? []) {
-							const dayKey = publicationCalendarDayKey(publication, viewerTimeZone);
-							if (dayKey?.startsWith(`${month}-`))
-								counts.set(dayKey, (counts.get(dayKey) ?? 0) + 1);
+					const options = schedulingPublicationsQueryOptions(
+						schedulingQueryAPI,
+						currentWorkspaceId,
+						{
+							calendarFrom: range.from,
+							calendarBefore: range.before,
+							limit: 200,
+							allPages: true
 						}
-						if (response.headers.get('X-Has-More') !== 'true') break;
-						const nextOffset = Number(response.headers.get('X-Next-Offset') ?? offset + 200);
-						if (!Number.isFinite(nextOffset) || nextOffset <= offset) break;
-						offset = nextOffset;
+					);
+					if (invalidateMonths.includes(month)) {
+						await queryClient.invalidateQueries({
+							queryKey: options.queryKey,
+							exact: true,
+							refetchType: 'none'
+						});
+					}
+					for (const publication of await queryClient.query(options)) {
+						const dayKey = publicationCalendarDayKey(publication, viewerTimeZone);
+						if (dayKey?.startsWith(`${month}-`)) {
+							counts.set(dayKey, (counts.get(dayKey) ?? 0) + 1);
+						}
 					}
 					return [month, counts];
 				})
@@ -201,42 +223,51 @@
 		}
 	}
 
-	async function loadDrafts(currentWorkspaceId: string) {
+	async function loadDrafts(currentWorkspaceId: string, force = false) {
+		if (currentWorkspaceId !== workspaceId) return;
 		const request = ++draftsRequest;
 		if (!currentWorkspaceId) {
 			drafts = [];
 			draftsWorkspaceId = '';
 			draftsError = '';
+			draftsDataReady = false;
 			loadingDrafts = false;
 			return;
 		}
 		const workspaceChanged = draftsWorkspaceId !== currentWorkspaceId;
 		if (workspaceChanged) {
+			draftMutationSequence += 1;
+			deleteDraftDialogOpen = false;
+			draftPendingDelete = null;
+			deletingDraftId = '';
 			drafts = [];
 			draftsWorkspaceId = currentWorkspaceId;
+			draftsDataReady = false;
 		}
 		draftsError = '';
 		loadingDrafts = true;
 
 		try {
-			const publicationResult = await client.GET('/publications', {
-				params: {
-					query: {
-						workspace_id: currentWorkspaceId,
-						status: 'draft',
-						limit: 50,
-						offset: 0
-					}
-				}
+			const options = schedulingPublicationsQueryOptions(schedulingQueryAPI, currentWorkspaceId, {
+				status: 'draft',
+				limit: 50
 			});
-			if (request !== draftsRequest) return;
-			if (publicationResult.error) {
-				throw new Error(publicationResult.error.detail || m.sidebar_drafts_load_failed());
+			const cached = queryClient.getQueryData<Publication[]>(options.queryKey);
+			if (cached !== undefined && request === draftsRequest) {
+				drafts = plannerDrafts(cached);
+				draftsDataReady = true;
 			}
-			const publications = publicationResult.data ?? [];
-			drafts = publications
-				.map(publicationDraft)
-				.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+			if (force) {
+				await queryClient.invalidateQueries({
+					queryKey: options.queryKey,
+					exact: true,
+					refetchType: 'none'
+				});
+			}
+			const publications = await queryClient.query(options);
+			if (request !== draftsRequest) return;
+			drafts = plannerDrafts(publications);
+			draftsDataReady = true;
 		} catch (cause) {
 			if (request !== draftsRequest) return;
 			draftsError =
@@ -244,6 +275,12 @@
 		} finally {
 			if (request === draftsRequest) loadingDrafts = false;
 		}
+	}
+
+	function plannerDrafts(publications: Publication[]) {
+		return publications
+			.map(publicationDraft)
+			.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 	}
 
 	function publicationDraft(publication: Publication): PlannerDraft {
@@ -273,24 +310,52 @@
 	async function deleteDraft(): Promise<DestructiveActionOutcome> {
 		const draft = draftPendingDelete;
 		if (!draft || deletingDraftId) return { ok: false };
+		const view: DraftDeleteView = {
+			session: captureQueryMutationSession(),
+			sequence: ++draftMutationSequence,
+			workspaceId,
+			draft
+		};
 		deletingDraftId = draft.id;
 		try {
-			const { error } = await client.DELETE('/publications/{id}', {
+			const { error, response } = await client.DELETE('/publications/{id}', {
 				params: {
-					path: { id: draft.id },
-					query: { confirm: true, expected_revision: draft.revision }
+					path: { id: view.draft.id },
+					query: { confirm: true, expected_revision: view.draft.revision }
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (error) {
+				if (!draftDeleteViewIsCurrent(view)) return { ok: false };
 				throw new Error(error.detail || m.sidebar_delete_draft_failed());
 			}
 
-			drafts = drafts.filter((candidate) => candidate.id !== draft.id);
+			const listKey = schedulingQueryKeys.publicationLists(view.workspaceId);
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				cancel: [{ queryKey: listKey }],
+				reconcile: () => {
+					queryClient.setQueriesData<Publication[]>({ queryKey: listKey }, (current) =>
+						current?.filter((publication) => publication.id !== view.draft.id)
+					);
+					queryClient.removeQueries({
+						queryKey: openPostQueryKeys.publications.detail(view.workspaceId, view.draft.id),
+						exact: true
+					});
+				},
+				invalidate: [
+					{
+						queryKey: openPostQueryKeys.publications.list(view.workspaceId),
+						refetchType: 'none'
+					}
+				]
+			});
+			if (!reconciled || !draftDeleteViewIsCurrent(view)) return { ok: false };
+			drafts = drafts.filter((candidate) => candidate.id !== view.draft.id);
 			ui.triggerRefresh({
-				workspaceId,
+				workspaceId: view.workspaceId,
 				scopes: ['activity', 'calendar', 'drafts']
 			});
-			if (page.url.pathname === draft.href) onNavigate('/');
+			if (page.url.pathname === view.draft.href) onNavigate('/');
 			draftPendingDelete = null;
 			return {
 				ok: true,
@@ -298,13 +363,22 @@
 				returnFocus: draftDeleteReturnFocus
 			};
 		} catch (error) {
+			if (!draftDeleteViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: error instanceof Error ? error.message : m.sidebar_delete_draft_failed()
 			};
 		} finally {
-			deletingDraftId = '';
+			if (view.sequence === draftMutationSequence) deletingDraftId = '';
 		}
+	}
+
+	function draftDeleteViewIsCurrent(view: DraftDeleteView): boolean {
+		return (
+			view.sequence === draftMutationSequence &&
+			view.workspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	function openPlannerDay(date: CalendarDate) {
@@ -552,7 +626,7 @@
 					<button
 						type="button"
 						class="min-h-9 rounded-md px-2 text-xs font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-						onclick={() => void loadDrafts(workspaceId)}
+						onclick={() => void loadDrafts(workspaceId, true)}
 					>
 						{m.common_retry()}
 					</button>
@@ -560,7 +634,7 @@
 			</InlineNotice>
 		{/if}
 
-		{#if loadingDrafts && drafts.length === 0}
+		{#if loadingDrafts && !draftsDataReady}
 			<div class="space-y-1 px-1 py-1" aria-label={m.sidebar_drafts_loading()}>
 				{#each [1, 2, 3] as placeholder (placeholder)}
 					<div class="flex h-9 items-center gap-2 px-1.5">
@@ -569,7 +643,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if !draftsError && drafts.length === 0}
+		{:else if draftsDataReady && drafts.length === 0}
 			<button
 				type="button"
 				class="flex w-full items-start gap-2 rounded-md px-2 py-2.5 text-left hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"

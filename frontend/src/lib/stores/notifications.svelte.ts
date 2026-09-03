@@ -1,5 +1,15 @@
+import {
+	isNotificationInboxQueryKey,
+	notificationInboxQueryOptions,
+	notificationQueryKeys,
+	type NotificationPage,
+	type NotificationQueryAPI
+} from '@openpost/query-catalog';
+import { InfiniteQueryObserver, type InfiniteData, type QueryClient } from '@tanstack/svelte-query';
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
+import { queryClient } from '$lib/query/client';
+import { notificationQueryAPI } from '$lib/query/notifications';
 
 export type Notification = components['schemas']['UserNotification'];
 
@@ -20,9 +30,19 @@ export interface NotificationMutationResult {
 	detail?: string;
 }
 
-interface PendingNotificationRequest {
-	token: symbol;
-	promise: Promise<NotificationMutationResult>;
+type NotificationInboxData = InfiniteData<NotificationPage, string>;
+type NotificationInboxKey = ReturnType<typeof notificationQueryKeys.inbox>;
+type NotificationObserver = InfiniteQueryObserver<
+	NotificationPage,
+	Error,
+	NotificationInboxData,
+	NotificationInboxKey,
+	string
+>;
+
+interface NotificationObserverEntry {
+	observer: NotificationObserver;
+	unsubscribe: () => void;
 }
 
 const PAGE_SIZE = 30;
@@ -51,11 +71,14 @@ function deduplicate(items: Notification[]): Notification[] {
 
 export class NotificationInboxStore {
 	private entries = $state.raw<Record<string, NotificationInboxSnapshot>>({});
-	private requests = new Map<string, PendingNotificationRequest>();
-	private loadMoreTokens = new Map<string, symbol>();
-	private mutationVersions = new Map<string, number>();
-	private workspaceEpochs = new Map<string, number>();
+	private observers = new Map<string, NotificationObserverEntry>();
 	private accountEpoch = 0;
+	private workspaceEpochs = new Map<string, number>();
+
+	constructor(
+		private cache: QueryClient = queryClient,
+		private api: NotificationQueryAPI = notificationQueryAPI
+	) {}
 
 	snapshot(workspaceID: string): NotificationInboxSnapshot {
 		return this.entries[workspaceID] ?? EMPTY_INBOX;
@@ -64,154 +87,45 @@ export class NotificationInboxStore {
 	clear(workspaceID?: string) {
 		if (workspaceID) {
 			this.workspaceEpochs.set(workspaceID, this.workspaceEpoch(workspaceID) + 1);
+			this.destroyObserver(workspaceID);
+			this.cache.removeQueries({
+				queryKey: notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+				exact: true
+			});
 			const { [workspaceID]: _removed, ...remaining } = this.entries;
 			this.entries = remaining;
-			this.mutationVersions.delete(workspaceID);
-			this.requests.delete(workspaceID);
-			this.loadMoreTokens.delete(workspaceID);
 			return;
 		}
+
 		this.accountEpoch++;
+		for (const cachedWorkspaceID of this.observers.keys()) {
+			this.destroyObserver(cachedWorkspaceID);
+		}
+		this.cache.removeQueries({ predicate: (query) => isNotificationInboxQueryKey(query.queryKey) });
 		this.entries = {};
-		this.requests.clear();
-		this.loadMoreTokens.clear();
-		this.mutationVersions.clear();
 		this.workspaceEpochs.clear();
 	}
 
 	async ensureLoaded(workspaceID: string): Promise<NotificationMutationResult> {
-		const snapshot = this.snapshot(workspaceID);
-		if (snapshot.initialized && !snapshot.error) return { ok: true };
-		return this.refresh(workspaceID);
+		if (!workspaceID) return { ok: false };
+		const observer = this.observerFor(workspaceID);
+		if (this.snapshot(workspaceID).initialized) return { ok: true };
+		const result = observer.getCurrentResult();
+		if (result.isError) return { ok: false, detail: errorMessage(result.error) };
+		return this.settleQuery(observer.refetch());
 	}
 
 	async refresh(
 		workspaceID: string,
-		options: { background?: boolean } = {}
+		_options: { background?: boolean } = {}
 	): Promise<NotificationMutationResult> {
 		if (!workspaceID) return { ok: false };
-		const activeRequest = this.requests.get(workspaceID);
-		if (activeRequest) return activeRequest.promise;
-
-		const token = Symbol(workspaceID);
-		const request = this.loadFirstPage(
-			workspaceID,
-			options.background ?? false,
-			token,
-			this.accountEpoch,
-			this.workspaceEpoch(workspaceID)
-		).finally(() => {
-			if (this.requests.get(workspaceID)?.token === token) this.requests.delete(workspaceID);
-		});
-		this.requests.set(workspaceID, { token, promise: request });
-		return request;
-	}
-
-	private async loadFirstPage(
-		workspaceID: string,
-		background: boolean,
-		token: symbol,
-		accountEpoch: number,
-		workspaceEpoch: number
-	): Promise<NotificationMutationResult> {
-		const previous = this.snapshot(workspaceID);
-		const mutationVersion = this.mutationVersions.get(workspaceID) ?? 0;
-		if (!background) {
-			this.setSnapshot(workspaceID, { ...previous, loading: true, error: '' });
-		}
-
-		try {
-			const { data, error } = await client.GET('/notifications', {
-				params: { query: { workspace_id: workspaceID, limit: PAGE_SIZE } }
-			});
-			if (error) throw new Error(error.detail ?? '');
-			if (!this.isRequestCurrent(workspaceID, token, accountEpoch, workspaceEpoch)) {
-				return { ok: true };
-			}
-			if ((this.mutationVersions.get(workspaceID) ?? 0) !== mutationVersion) {
-				this.settleFirstPageLoading(workspaceID, token);
-				return { ok: true };
-			}
-
-			const current = this.snapshot(workspaceID);
-			const firstPage = data?.items ?? [];
-			const items =
-				current.loadedPages > 1
-					? deduplicate([...firstPage, ...current.items])
-					: deduplicate(firstPage);
-			this.setSnapshot(workspaceID, {
-				...current,
-				items,
-				unreadCount: data?.unread_count ?? 0,
-				nextCursor: current.loadedPages > 1 ? current.nextCursor : (data?.next_cursor ?? ''),
-				initialized: true,
-				loading: false,
-				error: '',
-				loadMoreError: '',
-				loadedPages: Math.max(1, current.loadedPages)
-			});
-			return { ok: true };
-		} catch (cause) {
-			const detail = cause instanceof Error ? cause.message : '';
-			if (!this.isRequestCurrent(workspaceID, token, accountEpoch, workspaceEpoch)) {
-				return { ok: false, detail };
-			}
-			const current = this.snapshot(workspaceID);
-			if (!background || !current.initialized) {
-				this.setSnapshot(workspaceID, { ...current, loading: false, error: detail });
-			}
-			return { ok: false, detail };
-		}
+		return this.settleQuery(this.observerFor(workspaceID).refetch());
 	}
 
 	async loadMore(workspaceID: string): Promise<NotificationMutationResult> {
-		const previous = this.snapshot(workspaceID);
-		if (!workspaceID || previous.loadingMore || !previous.nextCursor) return { ok: true };
-		const cursor = previous.nextCursor;
-		const mutationVersion = this.mutationVersions.get(workspaceID) ?? 0;
-		const accountEpoch = this.accountEpoch;
-		const workspaceEpoch = this.workspaceEpoch(workspaceID);
-		const token = Symbol(workspaceID);
-		this.loadMoreTokens.set(workspaceID, token);
-		this.setSnapshot(workspaceID, { ...previous, loadingMore: true, loadMoreError: '' });
-
-		try {
-			const { data, error } = await client.GET('/notifications', {
-				params: { query: { workspace_id: workspaceID, cursor, limit: PAGE_SIZE } }
-			});
-			if (error) throw new Error(error.detail ?? '');
-			if (!this.isLoadMoreCurrent(workspaceID, token, accountEpoch, workspaceEpoch)) {
-				return { ok: true };
-			}
-			if ((this.mutationVersions.get(workspaceID) ?? 0) !== mutationVersion) {
-				this.settleLoadMore(workspaceID, token);
-				return { ok: true };
-			}
-
-			const current = this.snapshot(workspaceID);
-			this.setSnapshot(workspaceID, {
-				...current,
-				items: deduplicate([...current.items, ...(data?.items ?? [])]),
-				unreadCount: data?.unread_count ?? current.unreadCount,
-				nextCursor: data?.next_cursor ?? '',
-				loadingMore: false,
-				loadMoreError: '',
-				loadedPages: current.loadedPages + 1
-			});
-			return { ok: true };
-		} catch (cause) {
-			const detail = cause instanceof Error ? cause.message : '';
-			if (!this.isLoadMoreCurrent(workspaceID, token, accountEpoch, workspaceEpoch)) {
-				return { ok: false, detail };
-			}
-			const current = this.snapshot(workspaceID);
-			this.setSnapshot(workspaceID, { ...current, loadingMore: false, loadMoreError: detail });
-			return { ok: false, detail };
-		} finally {
-			if (this.loadMoreTokens.get(workspaceID) === token) {
-				this.loadMoreTokens.delete(workspaceID);
-			}
-		}
+		if (!workspaceID || !this.snapshot(workspaceID).nextCursor) return { ok: true };
+		return this.settleQuery(this.observerFor(workspaceID).fetchNextPage());
 	}
 
 	async markRead(
@@ -230,27 +144,42 @@ export class NotificationInboxStore {
 				return { ok: false };
 			}
 
-			this.advanceMutationVersion(workspaceID);
-			const current = this.snapshot(workspaceID);
+			await this.cache.cancelQueries({
+				queryKey: notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+				exact: true
+			});
 			const selected = new Set(input.ids ?? []);
-			if (input.all || current.items.some((item) => !item.workspace_id && selected.has(item.id))) {
-				this.invalidateOtherWorkspaceSnapshots(workspaceID);
+			const currentItems = this.snapshot(workspaceID).items;
+			if (input.all || currentItems.some((item) => !item.workspace_id && selected.has(item.id))) {
+				this.invalidateOtherWorkspaceInboxes(workspaceID);
 			}
 			const now = new Date().toISOString();
-			let newlyRead = 0;
-			const items = current.items.map((item) => {
-				if (item.read_at || (!input.all && !selected.has(item.id))) return item;
-				newlyRead++;
-				return { ...item, read_at: now };
+			this.updateInbox(workspaceID, (data) => {
+				let newlyRead = 0;
+				const changedIDs = new Set<string>();
+				const pages = data.pages.map((page) => ({
+					...page,
+					items: (page.items ?? []).map((item) => {
+						if (item.read_at || (!input.all && !selected.has(item.id))) return item;
+						if (!changedIDs.has(item.id)) newlyRead++;
+						changedIDs.add(item.id);
+						return { ...item, read_at: now };
+					})
+				}));
+				const unreadCount = input.all ? 0 : Math.max(0, (pages[0]?.unread_count ?? 0) - newlyRead);
+				return {
+					...data,
+					pages: pages.map((page) => ({ ...page, unread_count: unreadCount }))
+				};
 			});
-			this.setSnapshot(workspaceID, {
-				...current,
-				items,
-				unreadCount: input.all ? 0 : Math.max(0, current.unreadCount - newlyRead)
+			void this.cache.invalidateQueries({
+				queryKey: notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+				exact: true,
+				refetchType: 'none'
 			});
 			return { ok: true };
 		} catch (cause) {
-			return { ok: false, detail: cause instanceof Error ? cause.message : '' };
+			return { ok: false, detail: errorMessage(cause) };
 		}
 	}
 
@@ -270,34 +199,43 @@ export class NotificationInboxStore {
 				return { ok: false };
 			}
 
-			this.advanceMutationVersion(workspaceID);
-			const current = this.snapshot(workspaceID);
+			await this.cache.cancelQueries({
+				queryKey: notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+				exact: true
+			});
 			const selected = new Set(input.ids ?? []);
-			if (input.all || current.items.some((item) => !item.workspace_id && selected.has(item.id))) {
-				this.invalidateOtherWorkspaceSnapshots(workspaceID);
+			const currentItems = this.snapshot(workspaceID).items;
+			if (input.all || currentItems.some((item) => !item.workspace_id && selected.has(item.id))) {
+				this.invalidateOtherWorkspaceInboxes(workspaceID);
 			}
-			if (input.all) {
-				this.setSnapshot(workspaceID, {
-					...current,
-					items: [],
-					unreadCount: 0,
-					nextCursor: '',
-					loadMoreError: ''
-				});
-				return { ok: true };
-			}
-
-			const removedUnread = current.items.filter(
-				(item) => selected.has(item.id) && !item.read_at
-			).length;
-			this.setSnapshot(workspaceID, {
-				...current,
-				items: current.items.filter((item) => !selected.has(item.id)),
-				unreadCount: Math.max(0, current.unreadCount - removedUnread)
+			this.updateInbox(workspaceID, (data) => {
+				const removedUnreadIDs = new Set<string>();
+				for (const page of data.pages) {
+					for (const item of page.items ?? []) {
+						if (selected.has(item.id) && !item.read_at) removedUnreadIDs.add(item.id);
+					}
+				}
+				const unreadCount = input.all
+					? 0
+					: Math.max(0, (data.pages[0]?.unread_count ?? 0) - removedUnreadIDs.size);
+				return {
+					...data,
+					pages: data.pages.map((page) => ({
+						...page,
+						items: input.all ? [] : (page.items ?? []).filter((item) => !selected.has(item.id)),
+						unread_count: unreadCount,
+						next_cursor: input.all ? '' : page.next_cursor
+					}))
+				};
+			});
+			void this.cache.invalidateQueries({
+				queryKey: notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+				exact: true,
+				refetchType: 'none'
 			});
 			return { ok: true };
 		} catch (cause) {
-			return { ok: false, detail: cause instanceof Error ? cause.message : '' };
+			return { ok: false, detail: errorMessage(cause) };
 		}
 	}
 
@@ -312,20 +250,99 @@ export class NotificationInboxStore {
 			}
 		};
 		const interval = window.setInterval(refreshWhenVisible, intervalMilliseconds);
-		window.addEventListener('focus', refreshWhenVisible);
 		return () => {
 			window.clearInterval(interval);
-			window.removeEventListener('focus', refreshWhenVisible);
 		};
 	}
 
-	private advanceMutationVersion(workspaceID: string) {
-		this.mutationVersions.set(workspaceID, (this.mutationVersions.get(workspaceID) ?? 0) + 1);
+	private observerFor(workspaceID: string): NotificationObserver {
+		for (const cachedWorkspaceID of this.observers.keys()) {
+			if (cachedWorkspaceID !== workspaceID) this.destroyObserver(cachedWorkspaceID);
+		}
+		const existing = this.observers.get(workspaceID);
+		if (existing) return existing.observer;
+
+		const observer = new InfiniteQueryObserver<
+			NotificationPage,
+			Error,
+			NotificationInboxData,
+			NotificationInboxKey,
+			string
+		>(this.cache, notificationInboxQueryOptions(this.api, workspaceID, PAGE_SIZE));
+		const updateSnapshot = (result: ReturnType<NotificationObserver['getCurrentResult']>) => {
+			const pages = result.data?.pages ?? [];
+			const hasData = pages.length > 0;
+			const lastPage = pages.at(-1);
+			this.setSnapshot(workspaceID, {
+				items: deduplicate(pages.flatMap((page) => page.items ?? [])),
+				unreadCount: pages[0]?.unread_count ?? 0,
+				nextCursor: lastPage?.next_cursor ?? '',
+				initialized: hasData,
+				loading: result.isFetching && !result.isFetchingNextPage,
+				loadingMore: result.isFetchingNextPage,
+				error: result.isError && !result.isFetchNextPageError ? errorMessage(result.error) : '',
+				loadMoreError: result.isFetchNextPageError ? errorMessage(result.error) : '',
+				loadedPages: pages.length
+			});
+		};
+		const unsubscribe = observer.subscribe(updateSnapshot);
+		updateSnapshot(observer.getCurrentResult());
+		this.observers.set(workspaceID, { observer, unsubscribe });
+		return observer;
 	}
 
-	private invalidateOtherWorkspaceSnapshots(workspaceID: string) {
-		for (const cachedWorkspaceID of Object.keys(this.entries)) {
-			if (cachedWorkspaceID !== workspaceID) this.clear(cachedWorkspaceID);
+	private destroyObserver(workspaceID: string) {
+		const entry = this.observers.get(workspaceID);
+		if (!entry) return;
+		entry.unsubscribe();
+		entry.observer.destroy();
+		this.observers.delete(workspaceID);
+	}
+
+	private async settleQuery(
+		request: Promise<{ isError: boolean; error: Error | null }>
+	): Promise<NotificationMutationResult> {
+		try {
+			const result = await request;
+			return result.isError ? { ok: false, detail: errorMessage(result.error) } : { ok: true };
+		} catch (cause) {
+			return { ok: false, detail: errorMessage(cause) };
+		}
+	}
+
+	private updateInbox(
+		workspaceID: string,
+		updater: (data: NotificationInboxData) => NotificationInboxData
+	) {
+		const data = this.cache.setQueryData<NotificationInboxData>(
+			notificationQueryKeys.inbox(workspaceID, PAGE_SIZE),
+			(data) => (data ? updater(data) : data)
+		);
+		if (!data || this.observers.has(workspaceID)) return;
+		const pages = data.pages;
+		this.setSnapshot(workspaceID, {
+			items: deduplicate(pages.flatMap((page) => page.items ?? [])),
+			unreadCount: pages[0]?.unread_count ?? 0,
+			nextCursor: pages.at(-1)?.next_cursor ?? '',
+			initialized: pages.length > 0,
+			loading: false,
+			loadingMore: false,
+			error: '',
+			loadMoreError: '',
+			loadedPages: pages.length
+		});
+	}
+
+	private invalidateOtherWorkspaceInboxes(workspaceID: string) {
+		for (const query of this.cache.getQueryCache().getAll()) {
+			if (!isNotificationInboxQueryKey(query.queryKey) || query.queryKey[3] === workspaceID) {
+				continue;
+			}
+			const siblingWorkspaceID = query.queryKey[3];
+			this.destroyObserver(siblingWorkspaceID);
+			this.cache.removeQueries({ queryKey: query.queryKey, exact: true });
+			const { [siblingWorkspaceID]: _removed, ...remaining } = this.entries;
+			this.entries = remaining;
 		}
 	}
 
@@ -343,45 +360,13 @@ export class NotificationInboxStore {
 		);
 	}
 
-	private isRequestCurrent(
-		workspaceID: string,
-		token: symbol,
-		accountEpoch: number,
-		workspaceEpoch: number
-	): boolean {
-		return (
-			this.requests.get(workspaceID)?.token === token &&
-			this.isScopeCurrent(workspaceID, accountEpoch, workspaceEpoch)
-		);
-	}
-
-	private isLoadMoreCurrent(
-		workspaceID: string,
-		token: symbol,
-		accountEpoch: number,
-		workspaceEpoch: number
-	): boolean {
-		return (
-			this.loadMoreTokens.get(workspaceID) === token &&
-			this.isScopeCurrent(workspaceID, accountEpoch, workspaceEpoch)
-		);
-	}
-
-	private settleFirstPageLoading(workspaceID: string, token: symbol) {
-		if (this.requests.get(workspaceID)?.token !== token || !this.entries[workspaceID]) return;
-		const current = this.snapshot(workspaceID);
-		this.setSnapshot(workspaceID, { ...current, loading: false });
-	}
-
-	private settleLoadMore(workspaceID: string, token: symbol) {
-		if (this.loadMoreTokens.get(workspaceID) !== token || !this.entries[workspaceID]) return;
-		const current = this.snapshot(workspaceID);
-		this.setSnapshot(workspaceID, { ...current, loadingMore: false });
-	}
-
 	private setSnapshot(workspaceID: string, snapshot: NotificationInboxSnapshot) {
 		this.entries = { ...this.entries, [workspaceID]: snapshot };
 	}
+}
+
+function errorMessage(cause: unknown): string {
+	return cause instanceof Error ? cause.message : '';
 }
 
 export const notificationInbox = new NotificationInboxStore();

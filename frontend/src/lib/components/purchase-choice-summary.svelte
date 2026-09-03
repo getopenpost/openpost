@@ -4,7 +4,7 @@
 	import { purchaseChoiceChangeHref } from '$lib/purchase-choice';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { choice, changeHref } = $props<{
 		choice: PurchaseChoice;
@@ -59,11 +59,11 @@
 	</div>
 	<ul class="mt-4 grid gap-2 text-sm text-muted-foreground">
 		<li class="flex items-start gap-2">
-			<CheckIcon class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+			<ThemeIcon role="check" class="mt-0.5 size-4 shrink-0 text-primary" />
 			<span>{m.purchase_choice_trial({ days: choice.trial_days })}</span>
 		</li>
 		<li class="flex items-start gap-2">
-			<CheckIcon class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+			<ThemeIcon role="check" class="mt-0.5 size-4 shrink-0 text-primary" />
 			<span>
 				{choice.card_required
 					? m.purchase_choice_payment_expectation({ amount: dueToday })
@@ -71,7 +71,7 @@
 			</span>
 		</li>
 		<li class="flex items-start gap-2">
-			<CheckIcon class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+			<ThemeIcon role="check" class="mt-0.5 size-4 shrink-0 text-primary" />
 			<span>{m.purchase_choice_after_trial({ price, period })}</span>
 		</li>
 	</ul>

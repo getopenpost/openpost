@@ -1,11 +1,9 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   RefreshControl,
@@ -14,27 +12,56 @@ import {
   Text,
   View,
 } from "react-native";
+import { ProtectedIcon } from "@/components/protected-icon";
 import { useShareIntentContext } from "expo-share-intent";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
-import { BodyText, Button, Card, IconButton, Screen, TextField, useColors } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
+import {
+  BodyText,
+  Button,
+  Card,
+  ContentTitle,
+  EmptyState,
+  IconButton,
+  PageTitle,
+  Screen,
+  TextField,
+} from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import type { PendingAttachment } from "@/lib/media";
 import { stashPendingAttachments, stashSharedFiles } from "@/lib/share";
+import { cacheCreatedPublication, invalidatePublicationData } from "@/lib/query-cache";
+import { queryKeys } from "@/lib/query-policy";
 import {
   currentWorkspaceId,
+  prefetchPublicationEditor,
   usePublications,
   useWorkspaces,
   type PublicationListItem,
 } from "@/lib/queries";
 import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  queryActorScopeIsCurrent,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
 import { getServer } from "@/lib/server";
 import { signOut } from "@/lib/auth";
+import { useNativeTheme } from "@/theme";
+
+type CreateDraftRequest = {
+  scope: WorkspaceQueryScope;
+  text: string;
+};
 
 export default function DraftsScreen() {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, shape, spacing, typography } = theme.manifest;
   const queryClient = useQueryClient();
   const [idea, setIdea] = useState("");
   const [image, setImage] = useState<PendingAttachment | null>(null);
@@ -46,10 +73,16 @@ export default function DraftsScreen() {
   const handledShare = useRef(false);
 
   const createDraft = useMutation({
-    mutationFn: async (text: string) => {
+    onMutate: ({ scope }: CreateDraftRequest) =>
+      queryClient.cancelQueries({
+        queryKey: queryKeys.publicationActivity(scope.workspaceId, "draft"),
+        exact: true,
+      }),
+    mutationFn: async ({ scope, text }: CreateDraftRequest) => {
+      requireCurrentQuerySession(scope);
       const { data, error, response } = await api().POST("/publications", {
         body: {
-          workspace_id: currentWorkspaceId(),
+          workspace_id: scope.workspaceId,
           creation_preset: "post",
           content_profile: "short_text",
           title: "",
@@ -57,23 +90,43 @@ export default function DraftsScreen() {
         },
       });
       if (error || !data) throw new Error(await errorMessage(response, "Could not save draft"));
-      return data;
+      return { publication: data, scope };
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    onSuccess: async ({ publication, scope }) => {
+      if (!queryActorScopeIsCurrent(scope)) return;
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.publicationActivity(scope.workspaceId, "draft"),
+        exact: true,
+      });
+      if (!queryActorScopeIsCurrent(scope)) return;
+      cacheCreatedPublication(queryClient, scope.workspaceId, publication);
+      void invalidatePublicationData(queryClient, {
+        workspaceId: scope.workspaceId,
+        activities: ["draft"],
+      });
+    },
+    onError: (_, { scope }) => {
+      if (!queryActorScopeIsCurrent(scope)) return;
+      void invalidatePublicationData(queryClient, {
+        workspaceId: scope.workspaceId,
+        activities: ["draft"],
+      });
     },
   });
 
   async function quickCapture(buildWithAI = false) {
     const text = idea.trim();
     if (!text && !image) return;
+    const scope = captureWorkspaceQueryScope(currentWorkspaceId());
     setCaptureError(null);
     try {
-      const draft = await createDraft.mutateAsync(text);
+      const { publication: draft } = await createDraft.mutateAsync({ scope, text });
+      if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
       stashPendingAttachments(image ? [image] : []);
       setIdea("");
       setImage(null);
       void successHaptic();
+      void prefetchPublicationEditor(queryClient, scope.workspaceId, draft.id);
       router.push({
         pathname: "/publications/[id]/edit",
         params: {
@@ -83,6 +136,7 @@ export default function DraftsScreen() {
         },
       });
     } catch (err) {
+      if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
       setCaptureError(err instanceof Error ? err.message : "Could not save draft");
       void errorHaptic();
     }
@@ -125,29 +179,44 @@ export default function DraftsScreen() {
 
     resetShareIntent();
     void (async () => {
+      const scope = captureWorkspaceQueryScope(currentWorkspaceId());
       try {
-        const draft = await createDraft.mutateAsync(sharedText);
+        const { publication: draft } = await createDraft.mutateAsync({ scope, text: sharedText });
+        if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
         void successHaptic();
+        void prefetchPublicationEditor(queryClient, scope.workspaceId, draft.id);
         router.push({
           pathname: "/publications/[id]/edit",
           params: { id: draft.id, celebrate: "1" },
         });
       } catch {
+        if (!workspaceQueryScopeIsCurrent(scope, getWorkspaceId())) return;
         setCaptureError("Could not create a draft from the shared content");
         void errorHaptic();
       }
     })();
-  }, [hasShareIntent, shareIntent, resetShareIntent, workspaces.data, createDraft]);
+  }, [hasShareIntent, shareIntent, resetShareIntent, workspaces.data, createDraft, queryClient]);
 
   const list = drafts.data ?? [];
+  const hasDraftData = drafts.data !== undefined;
   const activeWorkspace = workspaces.data?.find((workspace) => workspace.id === getWorkspaceId());
 
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            gap: spacing.medium,
+            paddingBottom: spacing.small,
+            paddingHorizontal: spacing.extraLarge,
+            paddingTop: spacing.large,
+          },
+        ]}
+      >
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: colors.text }]}>Drafts</Text>
+          <PageTitle>Drafts</PageTitle>
           {workspaces.data && workspaces.data.length > 1 ? (
             <Pressable
               accessibilityRole="button"
@@ -162,9 +231,19 @@ export default function DraftsScreen() {
       </View>
 
       <View
-        style={[styles.capture, { backgroundColor: colors.card, borderColor: colors.separator }]}
+        style={[
+          styles.capture,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.outlineVariant,
+            borderRadius: shape.large,
+            marginHorizontal: spacing.extraLarge,
+            marginTop: spacing.small,
+            padding: spacing.medium,
+          },
+        ]}
       >
-        <Text style={[styles.captureTitle, { color: colors.text }]}>Jot an idea</Text>
+        <ContentTitle>Jot an idea</ContentTitle>
         <TextField
           value={idea}
           onChangeText={setIdea}
@@ -172,28 +251,42 @@ export default function DraftsScreen() {
           placeholder="What are you building, learning, or launching?"
           multiline
           textAlignVertical="top"
-          style={[styles.ideaField, { backgroundColor: colors.card, borderColor: "transparent" }]}
+          style={[
+            styles.ideaField,
+            typography.bodyLarge,
+            { backgroundColor: colors.surface, borderColor: "transparent" },
+          ]}
         />
         {image ? (
           <View
             style={[
               styles.attachmentRow,
-              { backgroundColor: colors.card, borderColor: colors.separator },
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.outlineVariant,
+                borderRadius: shape.medium,
+                gap: spacing.medium,
+                padding: spacing.small,
+              },
             ]}
           >
-            <Image source={{ uri: image.uri }} style={styles.attachmentThumb} contentFit="cover" />
-            <BodyText numberOfLines={1} style={{ color: colors.text, flex: 1 }}>
+            <Image
+              source={{ uri: image.uri }}
+              style={[styles.attachmentThumb, { borderRadius: shape.small }]}
+              contentFit="cover"
+            />
+            <BodyText numberOfLines={1} style={{ color: colors.onSurface, flex: 1 }}>
               {image.filename}
             </BodyText>
             <IconButton
               label={`Remove ${image.filename}`}
-              name={{ ios: "trash", android: "delete" }}
-              color={colors.danger}
+              role="delete"
+              color={colors.error}
               onPress={() => setImage(null)}
             />
           </View>
         ) : null}
-        <View style={styles.attachRow}>
+        <View style={[styles.attachRow, { gap: spacing.small }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={image ? "Replace image" : "Add image from library"}
@@ -201,27 +294,23 @@ export default function DraftsScreen() {
             onPress={() => void pickImage()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant, borderRadius: shape.small },
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
-              size={24}
-              tintColor={colors.tint}
-            />
+            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
           </Pressable>
           <BodyText>{image ? "Replace image" : "Add image"}</BodyText>
         </View>
         {captureError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginTop: 6 }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error, marginTop: 6 }}>
             {captureError}
           </BodyText>
         ) : null}
-        <View style={styles.captureActions}>
+        <View style={[styles.captureActions, { gap: spacing.small }]}>
           <Button
             title="Generate draft"
-            variant="focal"
+            intent="focal"
             onPress={() => void quickCapture(true)}
             disabled={createDraft.isPending || idea.trim().length === 0}
             loading={createDraft.isPending}
@@ -229,7 +318,7 @@ export default function DraftsScreen() {
           />
           <Button
             title="Write it myself"
-            variant="plain"
+            intent="quiet"
             onPress={() => void quickCapture(false)}
             disabled={createDraft.isPending || (idea.trim().length === 0 && !image)}
           />
@@ -237,38 +326,59 @@ export default function DraftsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={{
+          gap: spacing.medium,
+          padding: spacing.extraLarge,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={drafts.isRefetching}
             onRefresh={() => void drafts.refetch()}
-            tintColor={colors.textSecondary}
+            tintColor={colors.onSurfaceVariant}
           />
         }
       >
-        {drafts.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color={colors.tint} />
-        ) : null}
-        {drafts.isError ? (
-          <Card style={styles.error}>
-            <Text style={[styles.errorTitle, { color: colors.text }]}>Could not load drafts</Text>
-            <BodyText accessibilityRole="alert">
-              {drafts.error instanceof Error
+        <DelayedQueryPlaceholder
+          pending={!hasDraftData && drafts.isPending}
+          shape="list"
+          offline={drafts.fetchStatus === "paused"}
+        />
+        {drafts.isError && !hasDraftData ? (
+          <InitialQueryError
+            title="Could not load drafts"
+            message={
+              drafts.error instanceof Error
                 ? drafts.error.message
-                : "Check your connection and try again."}
-            </BodyText>
-            <Button title="Try again" variant="tinted" onPress={() => void drafts.refetch()} />
-          </Card>
+                : "Check your connection and try again."
+            }
+            retry={() => void drafts.refetch()}
+          />
         ) : null}
-        {list.length === 0 && !drafts.isLoading && !drafts.isError ? (
-          <Card style={styles.empty}>
-            <BodyText style={{ textAlign: "center" }}>
-              No drafts yet. Capture an idea above. It saves at once and opens in the composer.
-            </BodyText>
-          </Card>
+        {drafts.isError && hasDraftData ? (
+          <QueryNotice
+            message="Could not refresh drafts. The current list remains visible."
+            retry={() => void drafts.refetch()}
+          />
+        ) : null}
+        {hasDraftData && drafts.fetchStatus === "paused" ? (
+          <QueryNotice message="You are offline. Current drafts remain visible." offline />
+        ) : null}
+        {list.length === 0 && hasDraftData ? (
+          <EmptyState
+            title="No drafts yet"
+            body="Capture an idea above. It saves at once and opens in the composer."
+          />
         ) : null}
         {list.map((draft) => (
-          <DraftRow key={draft.id} draft={draft} />
+          <DraftRow
+            key={draft.id}
+            draft={draft}
+            onOpen={() => {
+              const workspaceId = currentWorkspaceId();
+              void prefetchPublicationEditor(queryClient, workspaceId, draft.id);
+              router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } });
+            }}
+          />
         ))}
       </ScrollView>
 
@@ -280,30 +390,21 @@ export default function DraftsScreen() {
 }
 
 function MenuButton({ onOpen }: { onOpen: () => void }) {
-  return (
-    <IconButton
-      label="Open workspace menu"
-      name={{ ios: "ellipsis", android: "more_vert" }}
-      onPress={onOpen}
-    />
-  );
+  return <IconButton label="Open workspace menu" role="more" onPress={onOpen} />;
 }
 
-function DraftRow({ draft }: { draft: PublicationListItem }) {
-  const colors = useColors();
+function DraftRow({ draft, onOpen }: { draft: PublicationListItem; onOpen: () => void }) {
   const excerpt = firstRenditionBody(draft) ?? draft.title ?? "Untitled draft";
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${excerpt}. Edited ${relativeTime(draft.updated_at)}`}
-      onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } })}
+      onPress={onOpen}
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-              {excerpt}
-            </Text>
+            <ContentTitle numberOfLines={1}>{excerpt}</ContentTitle>
             <BodyText>Edited {relativeTime(draft.updated_at)}</BodyText>
           </View>
         </Card>
@@ -326,12 +427,15 @@ function WorkspaceMenu({
   onClose: () => void;
   workspaces: { id: string; name?: string | null }[];
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, spacing, typography } = theme.manifest;
+  const [signOutBusy, setSignOutBusy] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const server = getServer();
   const activeWorkspace = workspaces.find((workspace) => workspace.id === getWorkspaceId());
   return (
     <BottomDrawer onDismiss={onClose} open title="Workspace">
-      <View style={styles.menu}>
+      <View style={[styles.menu, { gap: spacing.extraSmall }]}>
         {workspaces.length > 1 ? (
           <Pressable
             accessibilityRole="button"
@@ -342,12 +446,33 @@ function WorkspaceMenu({
                 params: { mode: "switch" },
               });
             }}
-            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+            style={({ pressed }) => [
+              styles.menuRow,
+              { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+              pressed && { opacity: 0.5 },
+            ]}
           >
-            <Text style={{ color: colors.text, fontSize: 16 }}>Switch workspace</Text>
+            <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
+              Switch workspace
+            </Text>
             <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
           </Pressable>
         ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            onClose();
+            router.push("/appearance");
+          }}
+          style={({ pressed }) => [
+            styles.menuRow,
+            { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+            pressed && { opacity: 0.5 },
+          ]}
+        >
+          <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>Appearance</Text>
+          <BodyText>Theme and light or dark mode</BodyText>
+        </Pressable>
         {server ? (
           <Pressable
             accessibilityRole="link"
@@ -355,22 +480,51 @@ function WorkspaceMenu({
               onClose();
               void Linking.openURL(server.baseUrl);
             }}
-            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+            style={({ pressed }) => [
+              styles.menuRow,
+              { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+              pressed && { opacity: 0.5 },
+            ]}
           >
-            <Text style={{ color: colors.tint, fontSize: 16 }}>Open web app</Text>
+            <Text style={[typography.bodyLarge, { color: colors.primary }]}>Open web app</Text>
             <BodyText>Manage accounts and settings</BodyText>
           </Pressable>
         ) : null}
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ busy: signOutBusy, disabled: signOutBusy }}
+          disabled={signOutBusy}
           onPress={() => {
-            onClose();
-            void signOut().then(() => router.replace("/"));
+            setSignOutBusy(true);
+            setSignOutError(null);
+            void signOut()
+              .then((committed) => {
+                if (!committed) {
+                  setSignOutError("Your session changed. Try again.");
+                  setSignOutBusy(false);
+                  return;
+                }
+                onClose();
+                router.replace("/");
+              })
+              .catch(() => {
+                setSignOutError("Could not sign out. Try again.");
+                setSignOutBusy(false);
+              });
           }}
-          style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+          style={({ pressed }) => [
+            styles.menuRow,
+            { gap: spacing.extraSmall, paddingHorizontal: spacing.medium },
+            pressed && { opacity: 0.5 },
+          ]}
         >
-          <Text style={{ color: colors.danger, fontSize: 16 }}>Sign out</Text>
+          <Text style={[typography.bodyLarge, { color: colors.error }]}>Sign out</Text>
         </Pressable>
+        {signOutError ? (
+          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
+            {signOutError}
+          </BodyText>
+        ) : null}
       </View>
     </BottomDrawer>
   );
@@ -380,57 +534,31 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -0.5,
   },
   capture: {
-    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    marginHorizontal: 20,
-    marginTop: 8,
-    padding: 14,
-  },
-  captureTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    letterSpacing: -0.2,
   },
   ideaField: {
-    fontSize: 17,
-    lineHeight: 25,
     minHeight: 104,
     paddingHorizontal: 0,
     paddingTop: 10,
   },
   attachmentRow: {
     alignItems: "center",
-    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 12,
     minHeight: 80,
-    padding: 8,
   },
   attachmentThumb: {
-    borderRadius: 10,
     height: 64,
     width: 64,
   },
   attachRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
   },
   addTile: {
     alignItems: "center",
-    borderRadius: 10,
     borderStyle: "dashed",
     borderWidth: 1.5,
     height: 64,
@@ -440,38 +568,15 @@ const styles = StyleSheet.create({
   captureActions: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
-  },
-  list: {
-    padding: 20,
-    gap: 10,
-  },
-  empty: {
-    marginTop: 16,
-  },
-  error: {
-    gap: 10,
-    marginTop: 16,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: "700",
   },
   row: {
     paddingVertical: 14,
   },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
   menu: {
     width: "100%",
-    gap: 4,
   },
   menuRow: {
     minHeight: 48,
     justifyContent: "center",
-    paddingHorizontal: 14,
-    gap: 2,
   },
 });

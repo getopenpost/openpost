@@ -40,7 +40,12 @@ export async function migrateGuestImageEditorDesign(
 	}
 
 	const importedDocument = replaceGuestImageEditorMediaIDs(local.document, replacements);
-	const saved = await saveImageEditorDesign(created.id, created.revision, importedDocument);
+	const saved = await saveImageEditorDesign(
+		workspaceID,
+		created.id,
+		created.revision,
+		importedDocument
+	);
 	await markGuestImageEditorDesignMigrated(localDesignID, saved.id);
 	return { id: saved.id, alreadyMigrated: false };
 }

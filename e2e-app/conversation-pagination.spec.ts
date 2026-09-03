@@ -29,8 +29,8 @@ test("Messages reaches older conversations without losing filters or selection",
     created_at: "2026-08-10T12:00:00Z",
     updated_at: "2026-08-10T12:00:00Z",
   }));
-  let initialFailures = 1;
-  let olderFailures = 1;
+  let initialFailures = 2;
+  let olderFailures = 2;
 
   await page.route("**/api/v1/accounts?**", (route) =>
     route.fulfill({
@@ -41,6 +41,27 @@ test("Messages reaches older conversations without losing filters or selection",
           account_id: "provider-account",
           account_username: "openpost.example",
           is_active: true,
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/v1/account-features*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          workspace_id: workspace.id,
+          social_account_id: "account-1",
+          platform: "bluesky",
+          feature: "messaging",
+          supported: true,
+          availability: "available",
+          reason_code: "available",
+          required_scopes: [],
+          missing_scopes: [],
+          unavailable_reason: "",
+          stored_exists: true,
+          stored_enabled: true,
+          effective_enabled: true,
         },
       ],
     }),

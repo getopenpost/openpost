@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Menubar as MenubarPrimitive } from 'bits-ui';
 	import { cn, type WithoutChild } from '$lib/utils.js';
-	import RiArrowRightSLine from 'remixicon-svelte/icons/arrow-right-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -25,5 +25,5 @@
 	{...restProps}
 >
 	{@render children?.()}
-	<RiArrowRightSLine class="cn-rtl-flip ml-auto size-4" />
+	<ThemeIcon role="chevron-right" class="cn-rtl-flip ml-auto size-4" />
 </MenubarPrimitive.SubTrigger>

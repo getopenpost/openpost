@@ -31,14 +31,17 @@
 		createImageEditorDesign,
 		createImageEditorCheckpoint,
 		createImageEditorTemplate,
-		getImageEditorRevision,
-		loadImageEditorDesign,
-		listImageEditorRevisions,
-		listImageEditorTemplates,
 		restoreImageEditorRevision,
 		saveImageEditorDesign,
 		updateImageEditorTemplate
 	} from '../api';
+	import {
+		queryImageEditorDesign,
+		queryImageEditorRevision,
+		queryImageEditorRevisions,
+		queryImageEditorTemplates,
+		refreshImageEditorDesign
+	} from '$lib/query/image-editor';
 	import {
 		imageEditorRevisionHasChanges,
 		summarizeImageEditorRevision,
@@ -99,12 +102,13 @@
 	import type { SelectionPoint } from '../selection';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile } from '$lib/media-upload-client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import UndoIcon from '@lucide/svelte/icons/undo-2';
-	import RedoIcon from '@lucide/svelte/icons/redo-2';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import SaveIcon from '@lucide/svelte/icons/save';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import MousePointerIcon from '@lucide/svelte/icons/mouse-pointer-2';
 	import RectangleSelectIcon from '@lucide/svelte/icons/square-dashed-mouse-pointer';
 	import LassoSelectIcon from '@lucide/svelte/icons/lasso-select';
@@ -114,7 +118,6 @@
 	import LayersIcon from '@lucide/svelte/icons/layers-3';
 	import SlidersIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -123,8 +126,6 @@
 	import BlendIcon from '@lucide/svelte/icons/blend';
 	import GroupIcon from '@lucide/svelte/icons/group';
 	import UngroupIcon from '@lucide/svelte/icons/ungroup';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis';
-	import HelpIcon from '@lucide/svelte/icons/circle-help';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import MinusIcon from '@lucide/svelte/icons/minus';
@@ -189,6 +190,11 @@
 		recoveryReason: 'idle' | 'export' | 'close';
 	};
 	type SaveAttemptResult = 'saved' | 'retry' | 'blocked';
+	type EditorMutationView = {
+		readonly session: QueryMutationSession;
+		readonly workspaceID: string;
+		readonly designID: string;
+	};
 	type PixelSelectionActions = {
 		copy(): ImageEditorLayer[];
 		begin(mode: 'promote' | 'cut'): boolean;
@@ -209,6 +215,7 @@
 	let pendingSave: SaveRequest | null = null;
 	let saveDrain: Promise<boolean> | null = null;
 	let saveRetryDelay = INITIAL_SAVE_RETRY_DELAY;
+	let editorViewActive = true;
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let previewPending = false;
 	let previewBusy = false;
@@ -223,6 +230,7 @@
 	let helpDialogOpen = $state(false);
 	let conflictDialogOpen = $state(false);
 	let conflictBusy = $state(false);
+	let conflictOperationSequence = 0;
 	let conflictError = $state('');
 	let conflictServerRevision = $state<number | null>(null);
 	let conflictPreservedCopy = $state.raw<ImageEditorDocumentResponse | null>(null);
@@ -231,6 +239,7 @@
 	let missingMedia = $state.raw<Array<{ mediaID: string; layerID?: string }>>([]);
 	let initialMissingMediaLoaded = false;
 	let historyDialogOpen = $state(false);
+	let historyMutationSequence = 0;
 	let checkpointDialogOpen = $state(false);
 	let templateDialogOpen = $state(false);
 	let resizeDialogOpen = $state(false);
@@ -265,6 +274,23 @@
 		cloudDesignID?: string;
 	};
 	let projectImportRecovery = $state.raw<ProjectImportRecovery | null>(null);
+
+	function captureEditorMutationView(): EditorMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			workspaceID: editor.workspaceID,
+			designID: editor.id
+		};
+	}
+
+	function editorMutationViewIsCurrent(view: EditorMutationView): boolean {
+		return (
+			editorViewActive &&
+			view.workspaceID === editor.workspaceID &&
+			view.designID === editor.id &&
+			(guestMode || queryMutationSessionIsCurrent(view.session))
+		);
+	}
 	let projectFileInput = $state<HTMLInputElement | null>(null);
 	let toolPreferencesReady = $state(false);
 	let guideDialogOpen = $state(false);
@@ -676,6 +702,7 @@
 		};
 		window.addEventListener('beforeunload', beforeUnload);
 		return () => {
+			editorViewActive = false;
 			unsubscribe();
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
@@ -1010,7 +1037,7 @@
 		editor.saveMessage = m.image_editor_save_conflict();
 		conflictDialogOpen = true;
 		statusAnnouncement = m.image_editor_conflict_title();
-		void loadImageEditorDesign(editor.id)
+		void refreshImageEditorDesign(editor.workspaceID, editor.id)
 			.then((latest) => {
 				if (conflictDialogOpen && latest.revision > editor.revision) {
 					conflictServerRevision = latest.revision;
@@ -1021,6 +1048,7 @@
 
 	async function performSave(request: SaveRequest): Promise<SaveAttemptResult> {
 		if (!editor.document || !editor.canEdit) return 'saved';
+		const view = captureEditorMutationView();
 		const submittedDocument = editor.document;
 		const errors = validateImageEditorDocument(submittedDocument);
 		if (errors.length > 0) {
@@ -1036,12 +1064,17 @@
 			const response = guestMode
 				? await saveGuestImageEditorDesign(editor.id, submittedDocument)
 				: await saveImageEditorDesign(
+						editor.workspaceID,
 						editor.id,
 						editor.revision,
 						submittedDocument,
 						request.coverPreviewMediaID ?? coverPreviewMediaID,
 						request.recoveryReason
 					);
+			if (!editorMutationViewIsCurrent(view)) {
+				finishMetric();
+				return 'blocked';
+			}
 			editor.revision = response.revision;
 			if (!guestMode && typeof BroadcastChannel !== 'undefined') {
 				const channel = new BroadcastChannel(`openpost-image-editor:${editor.id}`);
@@ -1072,6 +1105,7 @@
 			return 'saved';
 		} catch (cause) {
 			finishMetric('error');
+			if (!editorMutationViewIsCurrent(view)) return 'blocked';
 			const status = apiErrorStatus(cause);
 			const retryable = !navigator.onLine || !status || status === 429 || status >= 500;
 			if (status === 409) {
@@ -1159,11 +1193,18 @@
 
 	async function reloadServerVersion(): Promise<void> {
 		if (!editor.document || conflictBusy) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++conflictOperationSequence;
 		conflictBusy = true;
 		conflictError = '';
 		try {
-			conflictPreservedCopy ??= await saveImageEditorConflictCopy(editor.id, editor.document);
-			const response = await loadImageEditorDesign(editor.id);
+			conflictPreservedCopy ??= await saveImageEditorConflictCopy(
+				editor.workspaceID,
+				editor.id,
+				editor.document
+			);
+			const response = await refreshImageEditorDesign(editor.workspaceID, editor.id);
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.replaceFromServer(response);
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			await clearLocalImageEditorRecovery(editor.id);
@@ -1172,21 +1213,26 @@
 			conflictPreservedCopy = null;
 			statusAnnouncement = m.image_editor_conflict_reloaded_with_copy();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			conflictError =
 				cause instanceof Error ? cause.message : m.image_editor_conflict_preserve_failed();
 			statusAnnouncement = conflictError;
 		} finally {
-			conflictBusy = false;
+			if (operationSequence === conflictOperationSequence) conflictBusy = false;
 		}
 	}
 
 	async function saveConflictAsCopy(): Promise<void> {
 		if (!editor.document || conflictBusy) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++conflictOperationSequence;
 		conflictBusy = true;
 		conflictError = '';
 		try {
 			const saved =
-				conflictPreservedCopy ?? (await saveImageEditorConflictCopy(editor.id, editor.document));
+				conflictPreservedCopy ??
+				(await saveImageEditorConflictCopy(editor.workspaceID, editor.id, editor.document));
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.load(saved);
 			conflictDialogOpen = false;
 			conflictServerRevision = null;
@@ -1194,11 +1240,12 @@
 			await clearLocalImageEditorRecovery(editor.id);
 			await goto(resolveAppPath(`/image-editor/${saved.id}`));
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			conflictError =
 				cause instanceof Error ? cause.message : m.image_editor_conflict_preserve_failed();
 			statusAnnouncement = conflictError;
 		} finally {
-			conflictBusy = false;
+			if (operationSequence === conflictOperationSequence) conflictBusy = false;
 		}
 	}
 
@@ -1267,6 +1314,7 @@
 
 	async function importProjectFile(recovery: ProjectImportRecovery): Promise<void> {
 		if (projectBusy) return;
+		const view = captureEditorMutationView();
 		projectBusy = true;
 		projectError = '';
 		const controller = new AbortController();
@@ -1321,18 +1369,21 @@
 			controller.signal.throwIfAborted();
 			const imported = replaceGuestImageEditorMediaIDs(parsed.document, recovery.replacements);
 			let created = recovery.cloudDesignID
-				? await loadImageEditorDesign(recovery.cloudDesignID)
+				? await queryImageEditorDesign(editor.workspaceID, recovery.cloudDesignID)
 				: await createImageEditorDesign(editor.workspaceID, {
 						title: imported.title,
 						preset_key: 'custom',
 						width_px: imported.width_px,
 						height_px: imported.height_px
 					});
+			if (!editorMutationViewIsCurrent(view)) return;
 			recovery.cloudDesignID = created.id;
-			await saveImageEditorDesign(created.id, created.revision, imported);
+			await saveImageEditorDesign(editor.workspaceID, created.id, created.revision, imported);
+			if (!editorMutationViewIsCurrent(view)) return;
 			projectImportRecovery = null;
 			await goto(resolveAppPath(`/image-editor/${created.id}`));
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			projectError =
 				cause instanceof DOMException && cause.name === 'AbortError'
 					? m.image_editor_project_import_cancelled_recoverable({
@@ -1344,9 +1395,11 @@
 						});
 			statusAnnouncement = projectError;
 		} finally {
-			projectBusy = false;
-			projectProgress = '';
-			if (projectAbort === controller) projectAbort = null;
+			if (projectAbort === controller) {
+				projectBusy = false;
+				projectProgress = '';
+				projectAbort = null;
+			}
 		}
 	}
 
@@ -1430,7 +1483,7 @@
 		revisionNextCursor = '';
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			const page = await listImageEditorRevisions(editor.id);
+			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id);
 			revisions = page.revisions;
 			revisionNextCursor = page.nextCursor ?? '';
 		} catch (cause) {
@@ -1445,7 +1498,9 @@
 		historyPageBusy = true;
 		historyError = '';
 		try {
-			const page = await listImageEditorRevisions(editor.id, revisionNextCursor);
+			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id, {
+				cursor: revisionNextCursor
+			});
 			const known = new Set(revisions.map((revision) => revision.id));
 			revisions = [...revisions, ...page.revisions.filter((revision) => !known.has(revision.id))];
 			revisionNextCursor = page.nextCursor ?? '';
@@ -1480,7 +1535,12 @@
 		historyError = '';
 		revisionPreviewPage = 0;
 		try {
-			const preview = await getImageEditorRevision(editor.id, revision.id, controller.signal);
+			const preview = await queryImageEditorRevision(
+				editor.workspaceID,
+				editor.id,
+				revision.id,
+				controller.signal
+			);
 			if (request === revisionPreviewRequest) revisionPreview = preview;
 		} catch (cause) {
 			if (request === revisionPreviewRequest) {
@@ -1497,16 +1557,25 @@
 
 	async function createCheckpoint(): Promise<void> {
 		if (!checkpointName.trim()) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			await createImageEditorCheckpoint(editor.id, checkpointName.trim(), editor.revision);
+			await createImageEditorCheckpoint(
+				editor.workspaceID,
+				editor.id,
+				checkpointName.trim(),
+				editor.revision
+			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			checkpointName = '';
 			checkpointDialogOpen = false;
 			await openHistory();
 			statusAnnouncement = m.image_editor_checkpoint_created();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (apiErrorStatus(cause) === 409) {
 				checkpointDialogOpen = false;
 				setHistoryDialogOpen(false);
@@ -1515,7 +1584,7 @@
 				historyError = cause instanceof Error ? cause.message : m.image_editor_checkpoint_failed();
 			}
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -1523,15 +1592,19 @@
 		if (!revisionPreview || !revisionChanges || !imageEditorRevisionHasChanges(revisionChanges)) {
 			return;
 		}
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
 			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
 			const response = await restoreImageEditorRevision(
+				editor.workspaceID,
 				editor.id,
 				revisionPreview.summary.id,
 				editor.revision
 			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			editor.load(response);
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			await clearLocalImageEditorRecovery(editor.id);
@@ -1539,6 +1612,7 @@
 			setHistoryDialogOpen(false);
 			statusAnnouncement = m.image_editor_version_restored();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (apiErrorStatus(cause) === 409) {
 				restoreConfirmOpen = false;
 				setHistoryDialogOpen(false);
@@ -1547,7 +1621,7 @@
 				historyError = cause instanceof Error ? cause.message : m.image_editor_restore_failed();
 			}
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -1561,6 +1635,8 @@
 
 	async function saveAsTemplate(): Promise<void> {
 		if (!editor.document || !templateName.trim()) return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
 		historyBusy = true;
 		historyError = '';
 		try {
@@ -1574,8 +1650,9 @@
 			if (templateTargetID === 'new') {
 				await createImageEditorTemplate({ workspace_id: editor.workspaceID, ...templateInput });
 			} else {
-				await updateImageEditorTemplate(templateTargetID, templateInput);
+				await updateImageEditorTemplate(editor.workspaceID, templateTargetID, templateInput);
 			}
+			if (!editorMutationViewIsCurrent(view)) return;
 			templateDialogOpen = false;
 			templateName = '';
 			statusAnnouncement =
@@ -1583,9 +1660,10 @@
 					? m.image_editor_template_created()
 					: m.image_editor_template_replaced();
 		} catch (cause) {
+			if (!editorMutationViewIsCurrent(view)) return;
 			historyError = cause instanceof Error ? cause.message : m.image_editor_template_save_failed();
 		} finally {
-			historyBusy = false;
+			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
 	}
 
@@ -1596,7 +1674,7 @@
 		templateCategory = m.image_editor_workspace_category();
 		templateDialogOpen = true;
 		try {
-			workspaceTemplates = (await listImageEditorTemplates(editor.workspaceID)).filter(
+			workspaceTemplates = (await queryImageEditorTemplates(editor.workspaceID)).filter(
 				(template) => !template.built_in
 			);
 		} catch (cause) {
@@ -2368,6 +2446,7 @@
 			exportError = m.image_editor_export_budget_exceeded();
 			return;
 		}
+		const view = captureEditorMutationView();
 		exportBusy = true;
 		const controller = new AbortController();
 		exportAbort = controller;
@@ -2376,6 +2455,7 @@
 		exportProgress = m.image_editor_export_saving();
 		try {
 			const saved = await saveNow();
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (!saved && exportMode !== 'download') {
 				throw new Error(m.image_editor_export_save_first());
 			}
@@ -2395,6 +2475,7 @@
 				},
 				controller.signal
 			);
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'download') {
 				await downloadRenderedPages(rendered, editor.document.title);
 				exportDialogOpen = false;
@@ -2440,6 +2521,7 @@
 					retentionClass: exportMode === 'attach' ? 'temporary' : 'library',
 					signal: controller.signal
 				});
+				if (!editorMutationViewIsCurrent(view)) return;
 				mediaIDs.push(uploaded.id);
 				exportSuccessfulByPage = {
 					...exportSuccessfulByPage,
@@ -2459,9 +2541,11 @@
 				});
 			}
 			await saveNow(mediaIDs[0] ?? '', 'export');
+			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'attach') {
 				if (!returnToken) throw new Error(m.image_editor_attach_missing());
 				const returnURL = await completeImageEditorReturnToken(returnToken, editor.id, mediaIDs);
+				if (!editorMutationViewIsCurrent(view)) return;
 				captureTelemetryEvent('image design exported', {
 					mode: exportMode,
 					pages: mediaIDs.length
@@ -2489,6 +2573,7 @@
 			finishMetric();
 		} catch (cause) {
 			finishMetric('error');
+			if (!editorMutationViewIsCurrent(view)) return;
 			exportError =
 				cause instanceof DOMException && cause.name === 'AbortError'
 					? m.image_editor_export_cancelled_resume({
@@ -2499,9 +2584,11 @@
 						: m.image_editor_export_failed();
 			statusAnnouncement = exportError;
 		} finally {
-			exportBusy = false;
-			exportProgress = '';
-			if (exportAbort === controller) exportAbort = null;
+			if (exportAbort === controller) {
+				exportBusy = false;
+				exportProgress = '';
+				exportAbort = null;
+			}
 		}
 	}
 
@@ -2604,7 +2691,7 @@
 			onclick={goBack}
 			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
 		>
-			<ArrowLeftIcon />
+			<ThemeIcon role="arrow-left" />
 		</Button>
 		<Menubar.Root
 			class="ml-1 hidden h-8 gap-0 border-0 bg-transparent p-0 lg:flex"
@@ -2620,8 +2707,8 @@
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
-							{#if command.id === 'save'}<SaveIcon />{/if}
-							{#if command.id === 'export_design'}<DownloadIcon />{/if}
+							{#if command.id === 'save'}<ThemeIcon role="save" />{/if}
+							{#if command.id === 'export_design'}<ThemeIcon role="download" />{/if}
 							{commandMenuLabel(command.id)}
 							{#if commandShortcut(command.id)}
 								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
@@ -2725,7 +2812,7 @@
 				<Menubar.Content class="min-w-48">
 					{#each imageEditorCommandsForCategory('help') as command (command.id)}
 						<Menubar.Item onclick={() => executeEditorCommand(command.id)}>
-							<HelpIcon />
+							<ThemeIcon role="help" />
 							{commandLabel(command.id)}
 						</Menubar.Item>
 					{/each}
@@ -2769,7 +2856,7 @@
 				disabled={!editor.canUndo}
 				aria-label={editor.undoLabel
 					? m.image_editor_undo_named({ name: editor.undoLabel })
-					: m.image_editor_undo()}><UndoIcon /></Button
+					: m.image_editor_undo()}><ThemeIcon role="undo" /></Button
 			>
 			<Button
 				variant="ghost"
@@ -2779,7 +2866,7 @@
 				disabled={!editor.canRedo}
 				aria-label={editor.redoLabel
 					? m.image_editor_redo_named({ name: editor.redoLabel })
-					: m.image_editor_redo()}><RedoIcon /></Button
+					: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
 			>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
@@ -2791,7 +2878,7 @@
 							class="size-11 md:size-11 lg:hidden"
 							aria-label={m.image_editor_more_actions()}
 						>
-							<MoreIcon />
+							<ThemeIcon role="more-horizontal" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -2802,7 +2889,7 @@
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
-							{#if command.id === 'undo'}<UndoIcon />{:else}<RedoIcon />{/if}
+							<ThemeIcon role={command.id === 'undo' ? 'undo' : 'redo'} />
 							{commandMenuLabel(command.id)}
 						</DropdownMenu.Item>
 					{/each}
@@ -2855,7 +2942,7 @@
 					<DropdownMenu.Separator />
 					{#each imageEditorCommandsForCategory('help') as command (command.id)}
 						<DropdownMenu.Item onclick={() => executeEditorCommand(command.id)}>
-							<HelpIcon />
+							<ThemeIcon role="help" />
 							{commandLabel(command.id)}
 						</DropdownMenu.Item>
 					{/each}
@@ -3830,7 +3917,7 @@
 			<div class="space-y-2 overflow-y-auto pr-1">
 				{#if historyBusy}
 					<div class="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-						<LoaderIcon class="mr-2 size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 						{m.image_editor_loading_history()}
 					</div>
 				{:else if revisions.length === 0}
@@ -3873,7 +3960,10 @@
 							disabled={historyPageBusy}
 							onclick={() => void loadMoreRevisions()}
 						>
-							{#if historyPageBusy}<LoaderIcon class="mr-2 size-4 animate-spin" />{/if}
+							{#if historyPageBusy}<ProtectedIcon
+									icon="loading"
+									class="mr-2 size-4 animate-spin"
+								/>{/if}
 							{m.notifications_load_more()}
 						</Button>
 					{/if}
@@ -3887,7 +3977,7 @@
 			<section class="min-h-0 overflow-y-auto rounded-lg border bg-muted/20 p-3" aria-live="polite">
 				{#if revisionPreviewBusy}
 					<div class="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
-						<LoaderIcon class="mr-2 size-4 animate-spin" />
+						<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 						{m.version_preview_loading()}
 					</div>
 				{:else if !revisionPreview}
@@ -4019,7 +4109,7 @@
 					!imageEditorRevisionHasChanges(revisionChanges)}
 				onclick={() => void restoreRevision()}
 			>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.version_restore_confirm()}
 			</Button>
 		</Dialog.Footer>
@@ -4050,7 +4140,7 @@
 				>{m.common_cancel()}</Button
 			>
 			<Button onclick={createCheckpoint} disabled={!checkpointName.trim() || historyBusy}>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{m.image_editor_create_checkpoint()}
 			</Button>
 		</Dialog.Footer>
@@ -4099,7 +4189,7 @@
 				>{m.common_cancel()}</Button
 			>
 			<Button onclick={saveAsTemplate} disabled={!templateName.trim() || historyBusy}>
-				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if historyBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{templateTargetID === 'new'
 					? m.image_editor_save_template_action()
 					: m.image_editor_replace_template_action()}
@@ -4396,7 +4486,7 @@
 				onclick={exportDesign}
 				disabled={exportBusy || !editor.document || !exportBudget?.allowed}
 			>
-				{#if exportBusy}<LoaderIcon class="animate-spin" />{/if}
+				{#if exportBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{exportMode === 'download'
 					? m.image_editor_download()
 					: exportMode === 'attach'
@@ -4491,7 +4581,7 @@
 
 <style>
 	.image-editor-theme {
-		--image-editor-accent: oklch(0.65 0.18 48);
+		--image-editor-accent: var(--primary);
 		--image-editor-panel: var(--background);
 		--image-editor-panel-border: var(--border);
 	}

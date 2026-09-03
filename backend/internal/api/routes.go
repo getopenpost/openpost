@@ -224,6 +224,12 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	authHandler.BeginPasskeyRegistration(api)
 	authHandler.FinishPasskeyRegistration(api)
 	authHandler.RemovePasskey(api)
+	handlers.NewAppBootstrapHandler(
+		deps.DB,
+		deps.Authenticator,
+		deps.AccountPolicy,
+		deps.IdentityService,
+	).RegisterRoutes(api)
 	handlers.NewEmailChangeHandler(
 		deps.EmailChangeService,
 		deps.IdentityService,
@@ -280,6 +286,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationBuildHandler.RegisterRoutes(api)
 	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
 	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewThemeHandler(deps.DB, deps.Authenticator, deps.MediaStorage).RegisterRoutes(api)
 	handlers.NewPostBuilderHandler(deps.DB, deps.Authenticator, deps.PostBuilder).RegisterRoutes(api)
 	handlers.NewSocialSetHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)

@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import CaptionsIcon from '@lucide/svelte/icons/captions';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { m } from '$lib/paraglide/messages';
@@ -149,7 +147,7 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2 text-base text-[var(--video-editor-text)]">
-				<CaptionsIcon class="size-4 text-[var(--video-editor-focus)]" aria-hidden="true" />
+				<ProtectedIcon icon="editor-captions" class="size-4 text-[var(--video-editor-focus)]" />
 				{m.video_editor_embedded_subtitles_title()}
 			</Dialog.Title>
 			<Dialog.Description class="text-[var(--video-editor-muted)]">
@@ -164,7 +162,7 @@
 			>
 				<div class="flex items-center justify-between gap-3 text-xs">
 					<span class="flex items-center gap-2 font-medium">
-						<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+						<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
 						{m.video_editor_subtitle_scanning()}
 					</span>
 					<span class="text-[var(--video-editor-muted)] tabular-nums">{progressPercent}%</span>
@@ -234,9 +232,9 @@
 			<div
 				class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-5 text-center"
 			>
-				<CaptionsIcon
+				<ProtectedIcon
+					icon="editor-captions"
 					class="mx-auto mb-2 size-5 text-[var(--video-editor-muted)]"
-					aria-hidden="true"
 				/>
 				<p class="font-medium">{m.video_editor_subtitle_no_tracks()}</p>
 				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
@@ -248,7 +246,7 @@
 				<p class="font-medium text-red-200">{m.video_editor_subtitle_scan_failed()}</p>
 				<p class="mt-1 text-[11px] break-words text-red-200/80">{errorMessage}</p>
 				<Button class="mt-3" variant="outline" size="sm" onclick={retry}>
-					<RefreshIcon class="size-3.5" aria-hidden="true" />
+					<ThemeIcon role="refresh" class="size-3.5" />
 					{m.common_retry()}
 				</Button>
 			</div>

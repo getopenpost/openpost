@@ -150,23 +150,14 @@
 		buildVirtualRowLayout,
 		queryVirtualRowLayout
 	} from '$lib/video-editor/timeline/virtual-row-window';
-	import Link2Icon from '@lucide/svelte/icons/link-2';
-	import UnlinkIcon from '@lucide/svelte/icons/unlink-2';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import LockIcon from '@lucide/svelte/icons/lock';
 	import UnlockIcon from '@lucide/svelte/icons/unlock';
 	import VolumeIcon from '@lucide/svelte/icons/volume-2';
 	import VolumeOffIcon from '@lucide/svelte/icons/volume-x';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import CopyIcon from '@lucide/svelte/icons/copy';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import GroupIcon from '@lucide/svelte/icons/group';
 	import UngroupIcon from '@lucide/svelte/icons/ungroup';
 	import BlendIcon from '@lucide/svelte/icons/blend';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	function isLayerRow(row: MotionTimelineRow): row is MotionTimelineLayerRow {
 		return row.kind === 'layer';
@@ -2244,7 +2235,7 @@
 					}}
 					data-testid="composition-new"
 				>
-					<PlusIcon class="size-4" />
+					<ThemeIcon role="add" class="size-4" />
 					{m.video_editor_motion_create_composition()}
 				</Button>
 			</div>
@@ -2502,9 +2493,10 @@
 													}
 												}}
 											>
-												{#if isExpanded}<ChevronDownIcon class="size-3" />{:else}<ChevronRightIcon
+												{#if isExpanded}<ThemeIcon
+														role="chevron-down"
 														class="size-3"
-													/>{/if}
+													/>{:else}<ThemeIcon role="chevron-right" class="size-3" />{/if}
 											</span>
 											{#if editingNameId === row.track.id}
 												<Input
@@ -2541,9 +2533,10 @@
 												data-testid={`group-visible-${row.track.id}`}
 												class="icon-btn"
 											>
-												{#if row.track.visible}<EyeIcon class="size-3" />{:else}<EyeOffIcon
+												{#if row.track.visible}<ThemeIcon
+														role="eye"
 														class="size-3"
-													/>{/if}
+													/>{:else}<ThemeIcon role="eye-off" class="size-3" />{/if}
 											</Button>
 											<Button
 												size="icon"
@@ -2555,9 +2548,10 @@
 												data-testid={`group-lock-${row.track.id}`}
 												class="icon-btn"
 											>
-												{#if row.track.locked}<LockIcon class="size-3" />{:else}<UnlockIcon
+												{#if row.track.locked}<ThemeIcon
+														role="lock"
 														class="size-3"
-													/>{/if}
+													/>{:else}<UnlockIcon class="size-3" />{/if}
 											</Button>
 											<Button
 												size="icon"
@@ -2591,7 +2585,7 @@
 												data-testid={`group-delete-${row.track.id}`}
 												class="icon-btn"
 											>
-												<TrashIcon class="size-3" />
+												<ThemeIcon role="delete" class="size-3" />
 											</Button>
 										</span>
 										<span
@@ -2665,9 +2659,10 @@
 													}}
 													data-testid={`layer-expand-${item.id}`}
 												>
-													{#if expanded}<ChevronDownIcon class="size-3" />{:else}<ChevronRightIcon
+													{#if expanded}<ThemeIcon
+															role="chevron-down"
 															class="size-3"
-														/>{/if}
+														/>{:else}<ThemeIcon role="chevron-right" class="size-3" />{/if}
 												</button>
 												{#if editingNameId === item.id}
 													<Input
@@ -2714,9 +2709,10 @@
 														data-testid={`layer-visible-${item.id}`}
 														class="icon-btn"
 													>
-														{#if track && effectiveTrackState(track, timelineStore.tracks).visible === false}<EyeOffIcon
+														{#if track && effectiveTrackState(track, timelineStore.tracks).visible === false}<ThemeIcon
+																role="eye-off"
 																class="size-3"
-															/>{:else}<EyeIcon class="size-3" />{/if}
+															/>{:else}<ThemeIcon role="eye" class="size-3" />{/if}
 													</Button>
 													<Button
 														size="icon"
@@ -2735,7 +2731,8 @@
 														data-testid={`layer-lock-${item.id}`}
 														class="icon-btn"
 													>
-														{#if track && effectiveTrackState(track, timelineStore.tracks).locked}<LockIcon
+														{#if track && effectiveTrackState(track, timelineStore.tracks).locked}<ThemeIcon
+																role="lock"
 																class="size-3"
 															/>{:else}<UnlockIcon class="size-3" />{/if}
 													</Button>
@@ -2790,7 +2787,7 @@
 															aria-label={m.video_editor_motion_parent_none()}
 															onclick={() => detachParent(item.id)}
 															data-testid={`parent-detach-${item.id}`}
-															class="icon-btn"><UnlinkIcon class="size-3" /></Button
+															class="icon-btn"><ThemeIcon role="unlink" class="size-3" /></Button
 														>
 													{:else}
 														<Button
@@ -2801,7 +2798,7 @@
 															})}
 															data-testid={`parent-pick-${item.id}`}
 															onpointerdown={(event) => beginParentPick(item.id, event)}
-															class="icon-btn"><Link2Icon class="size-3" /></Button
+															class="icon-btn"><ThemeIcon role="link" class="size-3" /></Button
 														>
 													{/if}
 												</div>
@@ -3171,7 +3168,7 @@
 														onclick={() => handleLinkButton(item.id)}
 														data-testid={`link-pick-btn-${item.id}`}
 													>
-														<Link2Icon class="size-3" />
+														<ThemeIcon role="link" class="size-3" />
 														{linkPickSource
 															? m.video_editor_expression_source_layer()
 															: m.video_editor_expression_link_title()}
@@ -3192,7 +3189,7 @@
 																		onedit();
 																}}
 																data-testid={`link-remove-${item.id}-${link.targetProperty}`}
-																><UnlinkIcon class="size-3" /></button
+																><ThemeIcon role="unlink" class="size-3" /></button
 															>
 														{/each}
 													{/if}
@@ -3306,6 +3303,7 @@
 			</ContextMenu.Root>
 			<div
 				class="timeline-content"
+				data-editor-protected="composition-timeline"
 				bind:this={scrollEl}
 				onscroll={handleScroll}
 				onwheel={handleWheel}
@@ -3561,7 +3559,10 @@
 					disabled={selectedItemIds.size === 0}
 					onclick={copySelected}
 					data-testid="composition-copy"
-					><CopyIcon class="size-3" />{m.video_editor_composition_timeline_copy()}</Button
+					><ThemeIcon
+						role="copy"
+						class="size-3"
+					/>{m.video_editor_composition_timeline_copy()}</Button
 				>
 				<Button
 					size="sm"
@@ -3597,7 +3598,10 @@
 					disabled={selectedItemIds.size === 0}
 					onclick={removeSelected}
 					data-testid="composition-delete"
-					><TrashIcon class="size-3" />{m.video_editor_composition_timeline_delete()}</Button
+					><ThemeIcon
+						role="delete"
+						class="size-3"
+					/>{m.video_editor_composition_timeline_delete()}</Button
 				>
 				<span class="frame-readout" data-testid="composition-frame-readout"
 					>{m.video_editor_composition_timeline_frame({

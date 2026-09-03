@@ -33,20 +33,20 @@
 	class="flex min-h-0 flex-1 flex-col overflow-y-auto p-2"
 	aria-label={m.video_editor_backgrounds_title()}
 >
-	<p class="mb-2 text-xs leading-relaxed text-[oklch(0.64_0.015_55)]">
+	<p class="mb-2 text-xs leading-relaxed text-muted-foreground">
 		{m.video_editor_backgrounds_hint()}
 	</p>
 	<div class="grid grid-cols-2 gap-1.5">
 		{#each BACKGROUND_PRESETS as preset (preset.id)}
 			<button
 				type="button"
-				class="group flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-md border border-[oklch(0.27_0.015_55)] bg-[oklch(0.18_0.01_55)] px-2 py-2 text-[11px] text-[oklch(0.72_0.01_55)] hover:border-[oklch(0.5_0.08_45)] hover:bg-[oklch(0.22_0.015_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="group flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2 py-2 text-[11px] text-muted-foreground hover:border-ring hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 				onclick={() => oninserted(addBackgroundItem(preset.id))}
 				aria-label={presetLabel(preset.id)}
 			>
 				<span
 					aria-hidden="true"
-					class="h-10 w-full rounded-sm border border-white/10"
+					class="h-10 w-full rounded-sm border border-border"
 					style:background={preset.background.kind === 'mesh-gradient'
 						? `linear-gradient(135deg, ${preset.background.colors[0]}, ${preset.background.colors[1]}, ${preset.background.colors[2]})`
 						: preset.background.background}

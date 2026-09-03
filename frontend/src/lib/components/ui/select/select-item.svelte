@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Select as SelectPrimitive } from 'bits-ui';
 	import { cn, type WithoutChild } from '$lib/utils.js';
-	import RiCheckLine from 'remixicon-svelte/icons/check-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -27,7 +27,7 @@
 	{#snippet children({ selected, highlighted })}
 		<span class="absolute end-3 flex size-4 items-center justify-center text-primary">
 			{#if selected}
-				<RiCheckLine class="cn-select-item-indicator-icon" />
+				<ThemeIcon role="check" class="cn-select-item-indicator-icon" />
 			{/if}
 		</span>
 		{#if childrenProp}

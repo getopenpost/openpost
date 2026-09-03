@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { ContextMenu } from 'bits-ui';
 	import { useImageEditor } from '../editor.svelte';
-	import { listImageEditorMedia, loadImageEditorBrandKit } from '../api';
+	import { queryImageEditorBrandKit, queryImageEditorMedia } from '$lib/query/image-editor';
+	import { mediaQueryKeys } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
 	import { loadImageEditorBrandFonts } from '../fonts';
 	import { listGuestImageEditorMedia, storeGuestImageEditorMedia } from '../local-persistence';
 	import type { ImageEditorMediaItem } from '../types';
@@ -18,11 +20,7 @@
 	import { listMediaTags, type MediaTag } from '$lib/media-tags';
 	import type { StockAsset } from '$lib/stock-media';
 	import type { StockMediaProvenance } from '$lib/stock-media';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ImagePlusIcon from '@lucide/svelte/icons/image-plus';
-	import ReplaceIcon from '@lucide/svelte/icons/replace';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import MinusIcon from '@lucide/svelte/icons/minus';
@@ -74,8 +72,8 @@
 				return;
 			}
 			const [nextMedia, nextBrand, tagState] = await Promise.all([
-				listImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions()),
-				loadImageEditorBrandKit(editor.workspaceID),
+				queryImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions()),
+				queryImageEditorBrandKit(editor.workspaceID),
 				listMediaTags(editor.workspaceID)
 			]);
 			media = nextMedia;
@@ -95,7 +93,7 @@
 		try {
 			media = guestMode
 				? await listGuestImageEditorMedia(editor.id, search)
-				: await listImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions());
+				: await queryImageEditorMedia(editor.workspaceID, search, 'image', mediaListOptions());
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.image_editor_search_failed();
 		} finally {
@@ -230,6 +228,9 @@
 					tagId: uploadTagID(),
 					prepareVideo: false
 				});
+				await queryClient.invalidateQueries({
+					queryKey: mediaQueryKeys.lists(editor.workspaceID)
+				});
 				editor.refreshMediaLibrary();
 				await loadAll();
 				const item = media.find((entry) => entry.id === uploaded.id);
@@ -342,7 +343,8 @@
 			}}
 		>
 			<div class="relative min-w-0 flex-1">
-				<SearchIcon
+				<ThemeIcon
+					role="search"
 					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
@@ -361,7 +363,7 @@
 							type="submit"
 							aria-label={m.image_editor_search_media()}
 						>
-							<SearchIcon />
+							<ThemeIcon role="search" />
 						</Button>
 					{/snippet}
 				</Tooltip.Trigger>
@@ -382,7 +384,7 @@
 			class="mb-2 w-full"
 			onclick={() => (guestMode ? guestFileInput?.click() : (pickerOpen = true))}
 		>
-			<PlusIcon />
+			<ThemeIcon role="upload" />
 			{m.image_editor_upload_camera()}
 		</Button>
 		{#if guestMode}
@@ -392,7 +394,7 @@
 				class="mb-3 w-full"
 				onclick={() => (stockOpen = !stockOpen)}
 			>
-				<ImagePlusIcon />
+				<ThemeIcon role="image" />
 				{stockOpen ? m.common_close() : m.stock_media()}
 			</Button>
 			{#if stockOpen}
@@ -429,7 +431,7 @@
 
 		{#if loading}
 			<div class="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-				<LoaderIcon class="mr-2 size-4 animate-spin" />
+				<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 				{m.common_loading()}
 			</div>
 		{:else}
@@ -481,7 +483,7 @@
 											class="flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted"
 											onclick={() => addMedia(item, false)}
 										>
-											<ImagePlusIcon class="size-4" />
+											<ThemeIcon role="add" class="size-4" />
 											{m.image_editor_add_to_canvas()}
 										</ContextMenu.Item>
 										<ContextMenu.Item
@@ -489,7 +491,7 @@
 											disabled={!editor.selectedLayers[0]?.image}
 											onclick={() => addMedia(item, true)}
 										>
-											<ReplaceIcon class="size-4" />
+											<ThemeIcon role="refresh" class="size-4" />
 											{m.image_editor_replace_selected()}
 										</ContextMenu.Item>
 										<ContextMenu.Item

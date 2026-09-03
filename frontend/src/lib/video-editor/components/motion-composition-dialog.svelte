@@ -58,7 +58,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-md border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-md border-border bg-popover text-popover-foreground"
 	>
 		<form onsubmit={submit}>
 			<Dialog.Header>

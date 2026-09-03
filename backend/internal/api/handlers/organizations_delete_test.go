@@ -180,6 +180,38 @@ func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.
 	insertOrganizationDeletionFixture(t, server.db)
 	_, err := server.db.NewInsert().Model(&models.MediaAttachment{ID: "media", WorkspaceID: "workspace-1", FilePath: "/uploads/media.jpg", MimeType: "image/jpeg", CreatedAt: time.Now().UTC()}).Exec(t.Context())
 	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_assets
+		(id, organization_id, kind, name, media_type, object_key, size_bytes, checksum_sha256, native_object_key, native_media_type, native_size_bytes, native_checksum_sha256, font_family, font_style, font_weight, license_acknowledged, created_by)
+		VALUES ('theme-font', 'org-1', 'font', 'Theme font', 'font/woff2', 'theme-assets/org-1/theme-font.woff2', 20, 'source-hash', 'theme-assets/org-1/theme-font.ttf', 'font/ttf', 40, 'native-hash', 'Theme Font', 'normal', 400, TRUE, 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_assets
+		(id, organization_id, kind, name, media_type, object_key, size_bytes, width, height, checksum_sha256, created_by)
+		VALUES ('corrupt-theme-art', 'org-1', 'illustration', 'Corrupt art', 'image/png', 'theme-assets/org-collision/private.png', 20, 10, 10, 'source-hash', 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_themes
+		(id, organization_id, name, normalized_name, latest_published_revision, created_by)
+		VALUES ('linked-theme', 'org-1', 'Linked theme', 'linked theme', 1, 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_drafts
+		(theme_id, organization_id, revision, name, manifest_json, updated_by)
+		VALUES ('linked-theme', 'org-1', 1, 'Linked theme', '{}', 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_revisions
+		(theme_id, organization_id, revision, name, manifest_json, published_by)
+		VALUES ('linked-theme', 'org-1', 1, 'Linked theme', '{}', 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_draft_assets (theme_id, asset_id) VALUES ('linked-theme', 'theme-font')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_revision_assets (theme_id, revision, asset_id) VALUES ('linked-theme', 1, 'theme-font')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO organization_theme_settings
+		(organization_id, default_reference_kind, default_reference_id, default_reference_version, updated_by)
+		VALUES ('org-1', 'custom', 'linked-theme', 1, 'user-1')`)
+	require.NoError(t, err)
+	_, err = server.db.ExecContext(t.Context(), `INSERT INTO workspace_theme_assignments
+		(workspace_id, organization_id, reference_kind, reference_id, reference_version, updated_by)
+		VALUES ('workspace-1', 'org-1', 'custom', 'linked-theme', 1, 'user-1')`)
+	require.NoError(t, err)
 	_, err = server.db.NewInsert().Model(&models.SocialAccount{ID: "account", WorkspaceID: "workspace-1", Slug: "x-owner", Platform: "x", AccountID: "remote", AccountUsername: "owner", AccessTokenEnc: []byte("encrypted"), CreatedAt: time.Now().UTC()}).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = server.db.NewInsert().Model(&models.ProviderWriteAttempt{ID: "write", OperationID: "operation", AttemptNumber: 1, WorkspaceID: "workspace-1", SocialAccountID: "account", TargetKey: "x", Provider: "x", Operation: "publish", PayloadFingerprint: "sha256:test", Status: "accepted", SubmissionState: "accepted", RetrySafety: "never"}).Exec(t.Context())
@@ -226,11 +258,29 @@ func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.
 	require.Zero(t, countRows[models.MediaAttachment](t, server.db, "id = ?", "media"))
 	require.Zero(t, countRows[models.ProviderWriteAttempt](t, server.db, "id = ?", "write"))
 	require.Zero(t, countRows[models.APIToken](t, server.db, "id = ?", "token"))
+	for _, table := range []string{
+		"organization_theme_draft_assets", "organization_theme_revision_assets", "organization_theme_drafts",
+		"organization_theme_revisions", "organization_theme_assets", "workspace_theme_assignments",
+		"organization_theme_settings", "organization_themes",
+	} {
+		var count int
+		require.NoError(t, server.db.NewRaw("SELECT COUNT(*) FROM "+table).Scan(t.Context(), &count))
+		require.Zero(t, count, table)
+	}
 	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "invitation-email-job"))
 	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "historical-invitation-email-job"))
 	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", legacyJobID))
 	require.Equal(t, 1, countRows[models.Job](t, server.db, "id = ?", collisionJobID))
 	require.Zero(t, countRows[models.WorkspaceInvitationDeliveryEvent](t, server.db, "event_id = ?", "historical-delivery-event"))
+	var storageJobs []models.Job
+	require.NoError(t, server.db.NewSelect().Model(&storageJobs).Where("type = ?", "storage_delete").Scan(t.Context()))
+	var cleanupPayloads string
+	for _, job := range storageJobs {
+		cleanupPayloads += job.Payload
+	}
+	require.Contains(t, cleanupPayloads, "theme-assets/org-1/theme-font.woff2")
+	require.Contains(t, cleanupPayloads, "theme-assets/org-1/theme-font.ttf")
+	require.NotContains(t, cleanupPayloads, "theme-assets/org-collision/private.png", "corrupt metadata must not delete another Organization's blob")
 	var event models.OrganizationLifecycleAuditEvent
 	require.NoError(t, server.db.NewSelect().Model(&event).Where("organization_id = ?", "org-1").Scan(t.Context()))
 	require.Equal(t, "organization.deleted", event.Action)

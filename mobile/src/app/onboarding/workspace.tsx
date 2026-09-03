@@ -1,69 +1,95 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
-import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  ContentTitle,
+  PageTitle,
+  Screen,
+  SectionHeader,
+} from "@/components/ui";
 import { Brand } from "@/components/brand";
-import { api, errorMessage } from "@/lib/api/client";
-import { getWorkspaceId, loadWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
+import { getWorkspaceId } from "@/lib/api/token-store";
 import { destinationState, workspaceEmptyState } from "@/lib/first-use";
 import { selectionHaptic } from "@/lib/haptics";
+import { useWorkspaces } from "@/lib/queries";
 import { getServer } from "@/lib/server";
+import {
+  automaticWorkspaceSelectionId,
+  idleWorkspaceSelection,
+  selectWorkspaceForNavigation,
+} from "@/lib/workspace-selection";
+import {
+  beginNativeThemeWorkspaceTransition,
+  cancelNativeThemeWorkspaceTransition,
+  useNativeTheme,
+} from "@/theme";
 
 export default function WorkspaceScreen() {
-  const colors = useColors();
-  const { from, mode } = useLocalSearchParams<{ from?: string; mode?: string }>();
+  const theme = useNativeTheme();
+  const { colors, typography } = theme.manifest;
+  const { from, mode } = useLocalSearchParams<{
+    from?: string;
+    mode?: string;
+  }>();
   const switching = mode === "switch";
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selection, setSelection] = useState(idleWorkspaceSelection);
+  const selectionInFlight = useRef(false);
+  const automaticAttempted = useRef<string | null>(null);
   const server = getServer();
   const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
-  const workspaces = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: async () => {
-      const { data, error, response } = await api().GET("/workspaces");
-      if (error || !data)
-        throw new Error(await errorMessage(response, "Could not load workspaces"));
-      return data.filter((w): w is NonNullable<typeof w> => Boolean(w));
-    },
-  });
-
-  useEffect(() => {
-    void loadWorkspaceId();
-  }, []);
+  const workspaces = useWorkspaces();
 
   const list = useMemo(() => workspaces.data ?? [], [workspaces.data]);
+  const hasData = workspaces.data !== undefined;
 
   const finish = useCallback(async (id: string) => {
-    setSelected(id);
-    await saveWorkspaceId(id);
-    router.replace(destinationState(null).route);
+    if (selectionInFlight.current) return false;
+    selectionInFlight.current = true;
+    beginNativeThemeWorkspaceTransition(id);
+    try {
+      const committed = await selectWorkspaceForNavigation(
+        id,
+        () => router.replace(destinationState(null).route),
+        setSelection,
+      );
+      if (!committed) cancelNativeThemeWorkspaceTransition(id);
+      return committed;
+    } finally {
+      selectionInFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    if (switching || selected || list.length === 0) return;
-    const stored = getWorkspaceId();
-    let automatic: string | null = null;
-    if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
-    else if (list.length === 1) automatic = list[0].id;
-    if (automatic) {
-      void saveWorkspaceId(automatic).then(() => router.replace(destinationState(null).route));
-    }
-  }, [list, selected, switching]);
+    if (switching || selection.selected || list.length === 0) return;
+    const automatic = automaticWorkspaceSelectionId(
+      list,
+      getWorkspaceId(),
+      switching,
+      automaticAttempted.current,
+    );
+    if (!automatic) return;
+    automaticAttempted.current = automatic;
+    void finish(automatic);
+  }, [finish, list, selection.selected, switching]);
 
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Brand compact style={styles.brand} />
-        <Text style={[styles.title, { color: colors.text }]}>Choose workspace</Text>
+        <PageTitle>Choose workspace</PageTitle>
         <BodyText style={styles.subtitle}>Each workspace has its own posts and accounts.</BodyText>
         {switching ? (
           <Button
             title="Cancel"
-            variant="plain"
+            intent="quiet"
             onPress={() =>
               from === "destination" ? router.replace("/onboarding/destination") : router.back()
             }
@@ -71,34 +97,58 @@ export default function WorkspaceScreen() {
           />
         ) : null}
 
-        {workspaces.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
-        {workspaces.isError ? (
-          <View style={styles.errorState}>
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
-              {workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"}
-            </BodyText>
-            <Button title="Retry" variant="tinted" onPress={() => void workspaces.refetch()} />
-          </View>
+        <DelayedQueryPlaceholder
+          pending={!hasData && workspaces.isPending}
+          shape="list"
+          offline={workspaces.fetchStatus === "paused"}
+        />
+        {workspaces.isError && !hasData ? (
+          <InitialQueryError
+            title="Could not load workspaces"
+            message={
+              workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"
+            }
+            retry={() => void workspaces.refetch()}
+          />
+        ) : null}
+        {workspaces.isError && hasData ? (
+          <QueryNotice
+            message="Could not refresh workspaces. The current list remains visible."
+            retry={() => void workspaces.refetch()}
+          />
+        ) : null}
+        {hasData && workspaces.fetchStatus === "paused" ? (
+          <QueryNotice
+            message="You are offline. The current workspace list remains visible."
+            offline
+          />
+        ) : null}
+        {selection.error && selection.retryWorkspaceId ? (
+          <QueryNotice
+            message={selection.error}
+            retry={() => {
+              const retryWorkspaceId = selection.retryWorkspaceId;
+              if (retryWorkspaceId) void finish(retryWorkspaceId);
+            }}
+          />
         ) : null}
 
-        {!workspaces.isLoading && !workspaces.isError && list.length === 0 ? (
+        {hasData && list.length === 0 ? (
           <Card style={styles.emptyState}>
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "600" }}>
-              No workspaces found
-            </Text>
+            <ContentTitle>No workspaces found</ContentTitle>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
             {emptyState ? (
               <>
                 <Button
                   title={emptyState.actions[0].label}
-                  variant="focal"
+                  intent="focal"
                   accessibilityRole="link"
                   onPress={() => void WebBrowser.openBrowserAsync(emptyState.actions[0].url)}
                   style={styles.emptyPrimary}
                 />
                 <Button
                   title={emptyState.actions[1].label}
-                  variant="tinted"
+                  intent="ordinary"
                   loading={workspaces.isFetching}
                   onPress={() => void workspaces.refetch()}
                 />
@@ -115,8 +165,8 @@ export default function WorkspaceScreen() {
                 <Pressable
                   key={workspace.id}
                   accessibilityRole="button"
-                  accessibilityState={{ busy: selected === workspace.id }}
-                  disabled={selected !== null}
+                  accessibilityState={{ busy: selection.selected === workspace.id }}
+                  disabled={selection.selected !== null}
                   onPress={() => {
                     void selectionHaptic();
                     void finish(workspace.id);
@@ -125,15 +175,20 @@ export default function WorkspaceScreen() {
                     styles.row,
                     index > 0 && {
                       borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: colors.separator,
+                      borderTopColor: colors.outlineVariant,
                     },
                     pressed && { opacity: 0.5 },
                   ]}
                 >
-                  <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+                  <Text
+                    style={[typography.bodyLarge, { color: colors.onSurface, flexShrink: 1 }]}
+                    numberOfLines={2}
+                  >
                     {workspace.name}
                   </Text>
-                  {selected === workspace.id ? <ActivityIndicator color={colors.tint} /> : null}
+                  {selection.selected === workspace.id ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : null}
                 </Pressable>
               ))}
             </Card>
@@ -143,7 +198,7 @@ export default function WorkspaceScreen() {
         {!switching ? (
           <Button
             title={emptyState?.actions[2].label ?? "Back to sign in"}
-            variant="plain"
+            intent="quiet"
             onPress={() => router.replace(emptyState?.actions[2].route ?? "/onboarding/login")}
             style={styles.back}
           />
@@ -162,11 +217,6 @@ const styles = StyleSheet.create({
   brand: {
     marginBottom: 28,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
   subtitle: {
     paddingTop: 8,
     paddingBottom: 16,
@@ -184,14 +234,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 48,
     paddingHorizontal: 12,
-  },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    flexShrink: 1,
-  },
-  errorState: {
-    gap: 12,
   },
   emptyState: {
     gap: 6,

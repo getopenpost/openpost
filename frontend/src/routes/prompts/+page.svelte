@@ -1,6 +1,21 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		promptCategoriesQueryOptions,
+		promptQueryKeys,
+		promptsQueryOptions,
+		type Prompt
+	} from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		settleQueryMutationSession,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
+	import { promptQueryAPI } from '$lib/query/prompts';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -8,7 +23,6 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
@@ -19,27 +33,10 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Prompt {
-		id: string;
-		workspace_id?: string;
-		user_id?: string;
-		text: string;
-		example?: string;
-		category: string;
-		is_built_in: boolean;
-		created_at: string;
-	}
-
-	let prompts = $state<Prompt[]>([]);
-	let categories = $state<string[]>([]);
-	let loading = $state(false);
-	let loadingCategories = $state(false);
-	let categoriesError = $state('');
 	let selectedCategory = $state<string>('all');
 	let showAddPrompt = $state(false);
 	let newPromptText = $state('');
@@ -48,99 +45,105 @@
 	let submitting = $state(false);
 	let toastMessage = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
-	let error = $state('');
-	let hasLoaded = $state(false);
 	let deleteDialogOpen = $state(false);
 	let promptToDelete = $state.raw<Prompt | null>(null);
-	let promptsRequestSequence = 0;
-	let loadedPromptsKey = '';
-	let categoriesRequested = false;
+	let mutationSequence = 0;
+	let mutationWorkspaceID = '';
+	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 
-	interface PromptsQueryParams {
-		workspace_id: string;
-		category?: string;
+	interface PromptMutationView {
+		readonly session: QueryMutationSession;
+		readonly sequence: number;
+		readonly workspaceID: string;
+	}
+	const promptsQuery = createQuery(() => ({
+		...promptsQueryOptions(
+			promptQueryAPI,
+			workspaceID,
+			selectedCategory === 'all' ? '' : selectedCategory
+		),
+		placeholderData: (previousData, previousQuery) =>
+			previousQuery?.queryKey[3] === workspaceID ? previousData : undefined
+	}));
+	const categoriesQuery = createQuery(() => promptCategoriesQueryOptions(promptQueryAPI));
+	const prompts = $derived<Prompt[]>(promptsQuery.data ?? []);
+	const hasPromptData = $derived(promptsQuery.data !== undefined);
+	const categories = $derived(categoriesQuery.data ?? []);
+	const loading = $derived(promptsQuery.isFetching);
+	const hasCategoryData = $derived(categoriesQuery.data !== undefined);
+	const routeLoading = $derived(
+		!workspaceCtx.currentWorkspace ||
+			promptsQuery.isPending ||
+			(categoriesQuery.isPending && !hasCategoryData)
+	);
+	const error = $derived(queryErrorMessage(promptsQuery.error, m.prompts_load_failed()));
+	const categoriesError = $derived(
+		queryErrorMessage(categoriesQuery.error, m.prompts_load_failed())
+	);
+
+	$effect(() => {
+		if (mutationWorkspaceID === workspaceID) return;
+		mutationWorkspaceID = workspaceID;
+		mutationSequence += 1;
+		showAddPrompt = false;
+		newPromptText = '';
+		newPromptExample = '';
+		newPromptCategory = '';
+		submitting = false;
+		toastMessage = '';
+		deleteDialogOpen = false;
+		promptToDelete = null;
+	});
+
+	function capturePromptMutationView(): PromptMutationView {
+		return {
+			session: captureQueryMutationSession(),
+			sequence: ++mutationSequence,
+			workspaceID
+		};
 	}
 
-	async function loadPrompts(
-		workspaceID = workspaceCtx.currentWorkspace?.id ?? '',
-		category = selectedCategory
-	) {
-		if (!workspaceID) return;
-		const requestSequence = ++promptsRequestSequence;
-		const queryKey = `${workspaceID}:${category}`;
-		const queryChanged = loadedPromptsKey !== queryKey;
-		loadedPromptsKey = queryKey;
-		if (queryChanged) {
-			prompts = [];
-			hasLoaded = false;
-		}
-		loading = true;
-		error = '';
-		try {
-			const params: PromptsQueryParams = { workspace_id: workspaceID };
-			if (category !== 'all') {
-				params.category = category;
-			}
-			const { data, error: err } = await client.GET('/prompts', {
-				params: { query: params }
-			});
-			if (err) throw new Error(err.detail || m.prompts_load_failed());
-			if (requestSequence !== promptsRequestSequence) return;
-			prompts = data ?? [];
-		} catch (e) {
-			if (requestSequence !== promptsRequestSequence) return;
-			console.error('Failed to load prompts:', e);
-			error = e instanceof Error ? e.message : m.prompts_load_failed();
-		} finally {
-			if (requestSequence === promptsRequestSequence) {
-				loading = false;
-				hasLoaded = true;
-			}
-		}
-	}
-
-	async function loadCategories() {
-		loadingCategories = true;
-		categoriesError = '';
-		try {
-			const { data, error: err } = await client.GET('/prompts/categories');
-			if (err) throw new Error(err.detail || m.prompts_load_failed());
-			categories = data?.categories ?? [];
-			if (categories.length > 0 && !newPromptCategory) {
-				newPromptCategory = categories[0];
-			}
-		} catch (e) {
-			console.error('Failed to load categories:', e);
-			categoriesError = e instanceof Error ? e.message : m.prompts_load_failed();
-		} finally {
-			loadingCategories = false;
-		}
+	function promptMutationViewIsCurrent(view: PromptMutationView): boolean {
+		return (
+			view.sequence === mutationSequence &&
+			view.workspaceID === workspaceID &&
+			queryMutationSessionIsCurrent(view.session)
+		);
 	}
 
 	async function addPrompt() {
 		if (!workspaceCtx.currentWorkspace || !newPromptText.trim() || !newPromptCategory) return;
+		const view = capturePromptMutationView();
+		const text = newPromptText.trim();
+		const example = newPromptExample.trim();
+		const category = newPromptCategory;
 		submitting = true;
 		try {
-			const { error: err } = await client.POST('/prompts', {
+			const { error: err, response } = await client.POST('/prompts', {
 				body: {
-					workspace_id: workspaceCtx.currentWorkspace.id,
-					text: newPromptText.trim(),
-					example: newPromptExample.trim(),
-					category: newPromptCategory
+					workspace_id: view.workspaceID,
+					text,
+					example,
+					category
 				}
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err) throw new Error(err.detail || m.prompts_create_failed());
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: promptQueryKeys.lists(view.workspaceID) }]
+			});
+			if (!reconciled || !promptMutationViewIsCurrent(view)) return;
 			showAddPrompt = false;
 			newPromptText = '';
 			newPromptExample = '';
 			toastTone = 'success';
 			toastMessage = m.prompts_created();
-			await loadPrompts();
 		} catch (e) {
+			if (!promptMutationViewIsCurrent(view)) return;
 			toastTone = 'error';
 			toastMessage = e instanceof Error ? e.message : m.prompts_create_failed();
 		} finally {
-			submitting = false;
+			if (view.sequence === mutationSequence) submitting = false;
 		}
 	}
 
@@ -152,14 +155,21 @@
 	async function deletePrompt(): Promise<DestructiveActionOutcome> {
 		const prompt = promptToDelete;
 		if (!prompt) return { ok: false };
+		const view = capturePromptMutationView();
 		try {
-			const { error: err } = await client.DELETE('/prompts/{id}', {
+			const { error: err, response } = await client.DELETE('/prompts/{id}', {
 				params: { path: { id: prompt.id } }
 			});
+			settleQueryMutationSession(view.session, response);
 			if (err) throw new Error(err.detail || m.prompts_delete_failed());
-			await loadPrompts();
+			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
+				invalidate: [{ queryKey: promptQueryKeys.lists(view.workspaceID) }]
+			});
+			if (!reconciled || !promptMutationViewIsCurrent(view)) return { ok: false };
+			promptToDelete = null;
 			return { ok: true, successMessage: m.prompts_deleted() };
 		} catch (e) {
+			if (!promptMutationViewIsCurrent(view)) return { ok: false };
 			return {
 				ok: false,
 				message: e instanceof Error ? e.message : m.prompts_delete_failed()
@@ -194,16 +204,12 @@
 	}
 
 	$effect(() => {
-		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
-		const category = selectedCategory;
-		if (workspaceID) {
-			void loadPrompts(workspaceID, category);
-			if (!categoriesRequested) {
-				categoriesRequested = true;
-				void loadCategories();
-			}
-		}
+		if (categories.length > 0 && !newPromptCategory) newPromptCategory = categories[0];
 	});
+
+	function queryErrorMessage(cause: unknown, fallback: string) {
+		return cause instanceof Error ? cause.message : cause ? fallback : '';
+	}
 </script>
 
 <svelte:head>
@@ -223,33 +229,29 @@
 	title={m.prompts_title()}
 	description={m.prompts_description()}
 	icon={LightbulbIcon}
-	loading={!workspaceCtx.currentWorkspace || (!hasLoaded && loading)}
+	loading={routeLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="grid"
 	loadingActionCount={3}
 >
 	{#snippet actions()}
-		{#if loadingCategories && categories.length === 0}
-			<Skeleton class="h-9 w-32" />
-		{:else}
-			<Select.Root
-				type="single"
-				value={selectedCategory}
-				onValueChange={(value) => {
-					selectedCategory = value;
-				}}
-			>
-				<Select.Trigger class="w-40">
-					{selectedCategory === 'all' ? m.prompts_all_categories() : selectedCategory}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{m.prompts_all_categories()}</Select.Item>
-					{#each categories as category (category)}
-						<Select.Item value={category}>{category}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-		{/if}
+		<Select.Root
+			type="single"
+			value={selectedCategory}
+			onValueChange={(value) => {
+				selectedCategory = value;
+			}}
+		>
+			<Select.Trigger class="w-40">
+				{selectedCategory === 'all' ? m.prompts_all_categories() : selectedCategory}
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Item value="all">{m.prompts_all_categories()}</Select.Item>
+				{#each categories as category (category)}
+					<Select.Item value={category}>{category}</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 		<Button onclick={getRandomPrompt} variant="outline" class="gap-2">
 			<ShuffleIcon class="size-4" />
 			{m.prompts_random()}
@@ -264,28 +266,27 @@
 		{#if categoriesError}
 			<InlineNotice tone="error" message={categoriesError}>
 				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={loadCategories}>
+					<Button variant="outline" size="sm" onclick={() => void categoriesQuery.refetch()}>
 						{m.common_retry()}
 					</Button>
 				{/snippet}
 			</InlineNotice>
 		{/if}
 		{#if error}
-			<InlineNotice
-				tone="error"
-				message={error}
-				dismissLabel={m.common_close()}
-				onDismiss={() => (error = '')}
-			/>
+			<InlineNotice tone="error" message={error}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void promptsQuery.refetch()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 
 		<!-- Prompts Grid -->
-		{#if loading && prompts.length > 0}
+		{#if loading && hasPromptData}
 			<span class="sr-only" role="status">{m.common_loading()}</span>
 		{/if}
-		{#if loading && prompts.length === 0}
-			<PageLoading layout="grid" label={m.common_loading()} items={8} />
-		{:else if !error && prompts.length === 0}
+		{#if hasPromptData && prompts.length === 0}
 			<EmptyState
 				icon={LightbulbIcon}
 				title={m.prompts_empty()}
@@ -295,7 +296,7 @@
 				variant="dashed"
 				size="lg"
 			/>
-		{:else}
+		{:else if hasPromptData}
 			{@const groupedPrompts = prompts.reduce(
 				(acc, prompt) => {
 					if (!acc[prompt.category]) acc[prompt.category] = [];
@@ -396,24 +397,20 @@
 						<div class="space-y-2">
 							<label class="text-sm font-medium" for="prompt-category">{m.prompts_category()}</label
 							>
-							{#if loadingCategories && categories.length === 0}
-								<Skeleton class="h-9 w-full" />
-							{:else}
-								<Select.Root
-									type="single"
-									value={newPromptCategory}
-									onValueChange={(v) => (newPromptCategory = v)}
-								>
-									<Select.Trigger id="prompt-category" class="w-full">
-										{newPromptCategory || m.prompts_select_category()}
-									</Select.Trigger>
-									<Select.Content>
-										{#each categories as category (category)}
-											<Select.Item value={category}>{category}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							{/if}
+							<Select.Root
+								type="single"
+								value={newPromptCategory}
+								onValueChange={(v) => (newPromptCategory = v)}
+							>
+								<Select.Trigger id="prompt-category" class="w-full">
+									{newPromptCategory || m.prompts_select_category()}
+								</Select.Trigger>
+								<Select.Content>
+									{#each categories as category (category)}
+										<Select.Item value={category}>{category}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
 						</div>
 					</div>
 					<Dialog.Footer>

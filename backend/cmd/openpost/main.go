@@ -173,6 +173,23 @@ func main() {
 		return
 	}
 
+	if command.grantAdminEmail != "" {
+		result, grantErr := grantInstanceAdmin(context.Background(), db, command.grantAdminEmail)
+		if grantErr != nil {
+			closeDatabase()
+			log.Fatal(grantErr)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(struct {
+			Status string `json:"status"`
+			grantAdminResult
+		}{Status: "granted", grantAdminResult: result}); err != nil {
+			closeDatabase()
+			log.Fatal(err)
+		}
+		closeDatabase()
+		return
+	}
+
 	var tokenEncryptor *crypto.TokenEncryptor
 	if cfg.EncryptionKeyID == "" {
 		tokenEncryptor = crypto.NewTokenEncryptor(cfg.EncryptionKey)

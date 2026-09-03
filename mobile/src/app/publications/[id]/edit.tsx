@@ -1,8 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,17 +24,31 @@ import {
   SectionHeader,
   StatusBadge,
   TextField,
-  useColors,
 } from "@/components/ui";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { CelebrationBurst } from "@/components/celebration-burst";
 import { BottomDrawer } from "@/components/bottom-drawer";
-import { api, errorMessage } from "@/lib/api/client";
+import { ThemeIcon } from "@/components/theme-icon";
+import { ProtectedIcon } from "@/components/protected-icon";
+import { api, errorMessage, type Api } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { uploadAttachment, type PendingAttachment } from "@/lib/media";
 import { takePendingAttachments } from "@/lib/share";
-import { currentWorkspaceId, useAccounts, useSocialSets } from "@/lib/queries";
+import { invalidatePublicationData, type Publication } from "@/lib/query-cache";
+import { currentWorkspaceId, useAccounts, usePublication, useSocialSets } from "@/lib/queries";
+import type { PublicationActivity } from "@/lib/query-policy";
+import { getWorkspaceId } from "@/lib/api/token-store";
+import {
+  captureWorkspaceQueryScope,
+  queryActorScopeIsCurrent,
+  requireCurrentQueryActor,
+  requireCurrentQuerySession,
+  workspaceQueryScopeIsCurrent,
+  type WorkspaceQueryScope,
+} from "@/lib/query-session";
+import { useNativeTheme, withAlpha } from "@/theme";
 
 type Attachment = {
   localId: string;
@@ -58,46 +71,92 @@ function attachmentsFromPublication(pub: PublicationDetail): Attachment[] {
   }));
 }
 
-type PublicationDetail = NonNullable<Awaited<ReturnType<typeof fetchPublication>>>;
+type PublicationDetail = Publication;
+type AccountsQuery = ReturnType<typeof useAccounts>;
+type SocialSetsQuery = ReturnType<typeof useSocialSets>;
+type EditorMutationScope = WorkspaceQueryScope & {
+  publicationId: string;
+  originalActivity: PublicationActivity;
+  originalCalendarEntry: boolean;
+};
 
-async function fetchPublication(id: string) {
-  const { data, error, response } = await api().GET("/publications/{id}", {
-    params: { path: { id } },
-  });
-  if (error || !data) throw new Error(await errorMessage(response, "Could not load draft"));
-  return data;
+function bodyFromPublication(pub: PublicationDetail): string {
+  return pub.source_text ?? pub.renditions?.find((rendition) => rendition.body)?.body ?? "";
+}
+
+function selectedAccountsFromPublication(pub: PublicationDetail): Set<string> {
+  return new Set(
+    (pub.renditions ?? []).map((rendition) => rendition.social_account_id).filter(Boolean),
+  );
+}
+
+function renditionBodiesFromPublication(pub: PublicationDetail): Record<string, string> {
+  const bodies: Record<string, string> = {};
+  for (const rendition of pub.renditions ?? []) {
+    if (
+      rendition.social_account_id &&
+      rendition.body &&
+      rendition.body !== (pub.source_text ?? "")
+    ) {
+      bodies[rendition.social_account_id] = rendition.body;
+    }
+  }
+  return bodies;
+}
+
+function captureEditorMutationScope(
+  publicationId: string,
+  originalActivity: PublicationActivity,
+  originalCalendarEntry: boolean,
+): EditorMutationScope {
+  return {
+    ...captureWorkspaceQueryScope(currentWorkspaceId()),
+    publicationId,
+    originalActivity,
+    originalCalendarEntry,
+  };
+}
+
+function workspaceScopeIsCurrent(scope: WorkspaceQueryScope): boolean {
+  return workspaceQueryScopeIsCurrent(scope, getWorkspaceId());
 }
 
 export default function ComposeScreen() {
-  const colors = useColors();
   const { id, build, celebrate } = useLocalSearchParams<{
     id: string;
     build?: string;
     celebrate?: string;
   }>();
 
-  const publication = useQuery({
-    queryKey: ["publication", id],
-    queryFn: () => fetchPublication(id),
-  });
+  const publication = usePublication(id);
+  const accounts = useAccounts();
+  const socialSets = useSocialSets();
 
-  if (publication.isLoading) {
+  if (publication.isPending && !publication.data) {
     return (
-      <Screen style={{ alignItems: "center", justifyContent: "center" }}>
+      <Screen style={styles.coldState}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator color={colors.tint} />
+        <DelayedQueryPlaceholder
+          pending
+          shape="editor"
+          offline={publication.fetchStatus === "paused"}
+        />
       </Screen>
     );
   }
 
-  if (publication.isError || !publication.data) {
+  if (!publication.data) {
     return (
-      <Screen style={{ padding: 20, paddingTop: 100, gap: 12 }}>
+      <Screen style={styles.coldState}>
         <Stack.Screen options={{ headerShown: false }} />
-        <BodyText style={{ color: colors.danger }}>
-          {publication.error instanceof Error ? publication.error.message : "Failed to load"}
-        </BodyText>
-        <Button title="Close" onPress={() => router.back()} />
+        <InitialQueryError
+          title="Could not open this draft"
+          message={
+            publication.error instanceof Error ? publication.error.message : "Failed to load"
+          }
+          retry={() => void publication.refetch()}
+          secondaryAction={{ label: "Close", onPress: () => router.back() }}
+        />
       </Screen>
     );
   }
@@ -109,6 +168,11 @@ export default function ComposeScreen() {
       celebrateOnOpen={celebrate === "1"}
       id={id}
       pub={publication.data}
+      accounts={accounts}
+      socialSets={socialSets}
+      refreshError={publication.isError}
+      refreshPaused={publication.fetchStatus === "paused"}
+      onRefreshPublication={() => void publication.refetch()}
     />
   );
 }
@@ -116,20 +180,31 @@ export default function ComposeScreen() {
 function Composer({
   id,
   pub,
+  accounts,
+  socialSets,
+  refreshError,
+  refreshPaused,
+  onRefreshPublication,
   buildOnOpen,
   celebrateOnOpen,
 }: {
   id: string;
   pub: PublicationDetail;
+  accounts: AccountsQuery;
+  socialSets: SocialSetsQuery;
+  refreshError: boolean;
+  refreshPaused: boolean;
+  onRefreshPublication: () => void;
   buildOnOpen: boolean;
   celebrateOnOpen: boolean;
 }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, editor, typography } = theme.manifest;
   const queryClient = useQueryClient();
+  const [initialPendingAttachments] = useState(() => takePendingAttachments());
+  const editorDirty = useRef(initialPendingAttachments.length > 0);
 
-  const [body, setBody] = useState(
-    pub.source_text ?? pub.renditions?.find((rendition) => rendition.body)?.body ?? "",
-  );
+  const [body, setBody] = useState(() => bodyFromPublication(pub));
   const [revision, setRevision] = useState(pub.revision ?? 0);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(
     pub.scheduled_at ? new Date(pub.scheduled_at) : null,
@@ -139,32 +214,19 @@ function Composer({
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [selectedSocialSetId, setSelectedSocialSetId] = useState(pub.social_set_id ?? "");
   const [selectionTouched, setSelectionTouched] = useState((pub.renditions?.length ?? 0) > 0);
-  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(
-    () =>
-      new Set(
-        (pub.renditions ?? []).map((rendition) => rendition.social_account_id).filter(Boolean),
-      ),
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(() =>
+    selectedAccountsFromPublication(pub),
   );
-  const [renditionBodies, setRenditionBodies] = useState<Record<string, string>>(() => {
-    const bodies: Record<string, string> = {};
-    for (const rendition of pub.renditions ?? []) {
-      if (
-        rendition.social_account_id &&
-        rendition.body &&
-        rendition.body !== (pub.source_text ?? "")
-      ) {
-        bodies[rendition.social_account_id] = rendition.body;
-      }
-    }
-    return bodies;
-  });
+  const [renditionBodies, setRenditionBodies] = useState<Record<string, string>>(() =>
+    renditionBodiesFromPublication(pub),
+  );
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [celebrationTrigger, setCelebrationTrigger] = useState(celebrateOnOpen ? 1 : 0);
   const [attachments, setAttachments] = useState<Attachment[]>(() => [
     ...attachmentsFromPublication(pub),
-    ...takePendingAttachments().map((pending) => ({
+    ...initialPendingAttachments.map((pending) => ({
       localId: pending.localId,
       uri: pending.uri,
       mimeType: pending.mimeType,
@@ -177,8 +239,21 @@ function Composer({
   const autoBuildStarted = useRef(false);
   const celebratedIdea = useRef(celebrateOnOpen);
 
-  const accounts = useAccounts();
-  const socialSets = useSocialSets();
+  useEffect(() => {
+    if (editorDirty.current) return;
+    setBody(bodyFromPublication(pub));
+    setRevision(pub.revision ?? 0);
+    setScheduledAt(pub.scheduled_at ? new Date(pub.scheduled_at) : null);
+    setSelectedSocialSetId(pub.social_set_id ?? "");
+    setSelectionTouched((pub.renditions?.length ?? 0) > 0);
+    setSelectedAccounts(selectedAccountsFromPublication(pub));
+    setRenditionBodies(renditionBodiesFromPublication(pub));
+    setAttachments((current) => [
+      ...attachmentsFromPublication(pub),
+      ...current.filter((attachment) => !attachment.mediaId),
+    ]);
+  }, [pub]);
+
   const defaultSocialSet = socialSets.data?.find((set) => set.is_default) ?? socialSets.data?.[0];
   const defaultAccountIDs =
     defaultSocialSet?.accounts?.map((account) => account.social_account_id) ??
@@ -188,21 +263,46 @@ function Composer({
   const activeSocialSetId = selectionTouched
     ? selectedSocialSetId
     : (defaultSocialSet?.id ?? selectedSocialSetId);
+  const originalActivity = publicationActivity(pub.status);
+  const originalCalendarEntry =
+    originalActivity === "scheduled" || originalActivity === "published";
+  const destinationCatalogFailed = accounts.isError || socialSets.isError;
+  const accountsLoadedEmpty = (accounts.data?.length ?? 0) === 0 && accounts.data !== undefined;
 
-  function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ["publications"] });
-    void queryClient.invalidateQueries({ queryKey: ["calendar"] });
-    void queryClient.invalidateQueries({ queryKey: ["publication", id] });
+  function markEditorDirty(): void {
+    editorDirty.current = true;
+  }
+
+  function invalidate(
+    scope: EditorMutationScope,
+    {
+      activities,
+      calendar = false,
+    }: {
+      activities: readonly PublicationActivity[];
+      calendar?: boolean;
+    },
+  ) {
+    if (!queryActorScopeIsCurrent(scope)) return;
+    void invalidatePublicationData(queryClient, {
+      workspaceId: scope.workspaceId,
+      publicationId: scope.publicationId,
+      activities,
+      calendar,
+    });
   }
 
   async function httpError(response: Response | undefined, fallback: string): Promise<Error> {
     if (response?.status === 409) {
-      return new Error("This post changed elsewhere. Pulling the latest version...");
+      return new Error("This post changed elsewhere. Close and reopen it before trying again.");
     }
     return new Error(await errorMessage(response, fallback));
   }
 
-  async function resolveAttachments(): Promise<string[]> {
+  async function resolveAttachments(
+    scope: WorkspaceQueryScope,
+    requestApi: Api,
+  ): Promise<string[]> {
     const mediaIds: string[] = [];
     for (const attachment of attachments) {
       if (attachment.mediaId) {
@@ -210,11 +310,13 @@ function Composer({
         continue;
       }
       if (!attachment.uri) continue;
-      setAttachments((current) =>
-        current.map((item) =>
-          item.localId === attachment.localId ? { ...item, status: "uploading" } : item,
-        ),
-      );
+      if (workspaceScopeIsCurrent(scope)) {
+        setAttachments((current) =>
+          current.map((item) =>
+            item.localId === attachment.localId ? { ...item, status: "uploading" } : item,
+          ),
+        );
+      }
       try {
         const pendingAttachment: PendingAttachment = {
           localId: attachment.localId,
@@ -223,28 +325,41 @@ function Composer({
           filename: attachment.filename,
           size: attachment.size,
         };
-        const mediaId = await uploadAttachment(pendingAttachment);
+        const mediaId = await uploadAttachment(pendingAttachment, {
+          client: requestApi,
+          workspaceId: scope.workspaceId,
+        });
+        requireCurrentQueryActor(scope);
         mediaIds.push(mediaId);
-        setAttachments((current) =>
-          current.map((item) =>
-            item.localId === attachment.localId
-              ? { ...item, mediaId, status: "ready" as const }
-              : item,
-          ),
-        );
+        if (workspaceScopeIsCurrent(scope)) {
+          setAttachments((current) =>
+            current.map((item) =>
+              item.localId === attachment.localId
+                ? { ...item, mediaId, status: "ready" as const }
+                : item,
+            ),
+          );
+        }
       } catch (err) {
-        setAttachments((current) =>
-          current.map((item) =>
-            item.localId === attachment.localId ? { ...item, status: "error" as const } : item,
-          ),
-        );
+        if (workspaceScopeIsCurrent(scope)) {
+          setAttachments((current) =>
+            current.map((item) =>
+              item.localId === attachment.localId ? { ...item, status: "error" as const } : item,
+            ),
+          );
+        }
         throw err instanceof Error ? err : new Error("Could not upload attachment");
       }
     }
     return mediaIds;
   }
 
-  async function persist(scheduleOverride?: Date): Promise<number> {
+  async function persist(
+    scope: EditorMutationScope,
+    requestApi: Api,
+    scheduleOverride?: Date,
+  ): Promise<number> {
+    requireCurrentQueryActor(scope);
     let mediaChanged = false;
     for (const attachment of attachments) {
       if (!attachment.mediaId || !initialMediaIds.includes(attachment.mediaId)) {
@@ -254,7 +369,8 @@ function Composer({
     }
     if (attachments.length !== initialMediaIds.length) mediaChanged = true;
 
-    const media = await resolveAttachments();
+    const media = await resolveAttachments(scope, requestApi);
+    requireCurrentQueryActor(scope);
     const desired = [...activeAccounts];
     const removed = (pub.renditions ?? []).filter(
       (rendition) =>
@@ -269,8 +385,8 @@ function Composer({
       data: updated,
       error,
       response,
-    } = await api().PUT("/publications/{id}", {
-      params: { path: { id } },
+    } = await requestApi.PUT("/publications/{id}", {
+      params: { path: { id: scope.publicationId } },
       body: {
         expected_revision: revision,
         source_text: body,
@@ -284,11 +400,12 @@ function Composer({
       },
     });
     if (error) throw await httpError(response, "Could not save");
+    requireCurrentQueryActor(scope);
     let nextRevision = updated?.revision ?? revision + 1;
 
     if (desired.length > 0) {
-      const upsert = await api().PUT("/publications/{id}/renditions", {
-        params: { path: { id } },
+      const upsert = await requestApi.PUT("/publications/{id}/renditions", {
+        params: { path: { id: scope.publicationId } },
         body: {
           expected_revision: nextRevision,
           renditions: desired.map((accountId) => ({
@@ -298,152 +415,222 @@ function Composer({
         },
       });
       if (upsert.error) throw await httpError(upsert.response, "Could not update destinations");
+      requireCurrentQueryActor(scope);
       nextRevision = upsert.data?.revision ?? nextRevision + 1;
     }
 
     for (const rendition of removed) {
       if (!rendition.social_account_id) continue;
-      const removal = await api().DELETE("/publications/{id}/renditions/{account_id}", {
+      const removal = await requestApi.DELETE("/publications/{id}/renditions/{account_id}", {
         params: {
-          path: { id, account_id: rendition.social_account_id },
+          path: { id: scope.publicationId, account_id: rendition.social_account_id },
           query: { confirm: true, expected_revision: nextRevision },
         },
       });
       if (removal.error) throw await httpError(removal.response, "Could not remove destination");
+      requireCurrentQueryActor(scope);
       nextRevision += 1;
     }
 
-    setRevision(nextRevision);
+    if (workspaceScopeIsCurrent(scope)) setRevision(nextRevision);
     return nextRevision;
   }
 
-  function handleError(err: Error) {
-    setActionError(err.message);
-    void errorHaptic();
-    if (err.message.includes("changed elsewhere")) {
-      invalidate();
+  function handleError(
+    err: Error,
+    scope: EditorMutationScope,
+    refresh?: { activities: readonly PublicationActivity[]; calendar?: boolean },
+  ) {
+    if (workspaceScopeIsCurrent(scope)) {
+      setActionError(err.message);
+      void errorHaptic();
+    }
+    if (refresh) {
+      invalidate(scope, refresh);
+    } else if (err.message.includes("changed elsewhere")) {
+      invalidate(scope, { activities: [] });
     }
   }
 
   const saveAndClose = useMutation({
-    mutationFn: () => persist(),
-    onSuccess: () => {
-      invalidate();
-      router.back();
+    mutationFn: (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
+      return persist(scope, api());
     },
-    onError: handleError,
+    onSuccess: (_, scope) => {
+      invalidate(scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      });
+      if (workspaceScopeIsCurrent(scope)) router.back();
+    },
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      }),
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       if (!scheduledAt) throw new Error("Pick a time first");
-      const nextRevision = await persist();
-      const { error, response } = await api().POST("/publications/{id}/schedule", {
-        params: { path: { id } },
+      const requestApi = api();
+      const nextRevision = await persist(scope, requestApi);
+      const { error, response } = await requestApi.POST("/publications/{id}/schedule", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not schedule");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      void successHaptic();
-      setStatusMessage("Queued for publishing");
-      invalidate();
-      setTimeout(() => router.back(), 700);
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        setStatusMessage("Queued for publishing");
+        setTimeout(() => {
+          if (workspaceScopeIsCurrent(scope)) router.back();
+        }, 700);
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const publishNow = useMutation({
-    mutationFn: async () => {
-      const nextRevision = await persist();
-      const { error, response } = await api().POST("/publications/{id}/publish-now", {
-        params: { path: { id } },
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
+      const requestApi = api();
+      const nextRevision = await persist(scope, requestApi);
+      const { error, response } = await requestApi.POST("/publications/{id}/publish-now", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (error) throw await httpError(response, "Could not publish");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      void successHaptic();
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        router.back();
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const deleteDraft = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const { error, response } = await api().DELETE("/publications/{id}", {
         params: {
-          path: { id },
+          path: { id: scope.publicationId },
           query: { confirm: true, expected_revision: revision },
         },
       });
       if (error) throw await httpError(response, "Could not delete");
+      requireCurrentQueryActor(scope);
     },
-    onSuccess: () => {
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      invalidate(scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      });
+      if (workspaceScopeIsCurrent(scope)) router.back();
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity],
+        calendar: scope.originalCalendarEntry,
+      }),
   });
 
   const nextSlot = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const { data, error, response } = await api().GET("/posting-schedules/next-slot", {
-        params: { query: { workspace_id: currentWorkspaceId() } },
+        params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
+      requireCurrentQueryActor(scope);
       return new Date(data.slot_time);
     },
-    onSuccess: (date) => {
+    onSuccess: (date, scope) => {
+      if (!workspaceScopeIsCurrent(scope)) return;
+      markEditorDirty();
       setScheduledAt(date);
       setPickerStep(null);
     },
-    onError: handleError,
+    onError: (err, scope) => handleError(err, scope),
   });
 
   const queueNextSlot = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       if (activeAccounts.size === 0) throw new Error("Choose at least one destination");
-      const { data, error, response } = await api().GET("/posting-schedules/next-slot", {
-        params: { query: { workspace_id: currentWorkspaceId() } },
+      const requestApi = api();
+      const { data, error, response } = await requestApi.GET("/posting-schedules/next-slot", {
+        params: { query: { workspace_id: scope.workspaceId } },
       });
       if (error || !data) throw new Error(await errorMessage(response, "No slot found"));
+      requireCurrentQueryActor(scope);
       const slot = new Date(data.slot_time);
-      setScheduledAt(slot);
-      const nextRevision = await persist(slot);
-      const scheduled = await api().POST("/publications/{id}/schedule", {
-        params: { path: { id } },
+      if (workspaceScopeIsCurrent(scope)) {
+        markEditorDirty();
+        setScheduledAt(slot);
+      }
+      const nextRevision = await persist(scope, requestApi, slot);
+      const scheduled = await requestApi.POST("/publications/{id}/schedule", {
+        params: { path: { id: scope.publicationId } },
         body: { expected_revision: nextRevision },
       });
       if (scheduled.error) throw await httpError(scheduled.response, "Could not queue post");
+      requireCurrentQueryActor(scope);
       return slot;
     },
-    onSuccess: () => {
-      void successHaptic();
-      invalidate();
-      router.back();
+    onSuccess: (_, scope) => {
+      if (workspaceScopeIsCurrent(scope)) {
+        void successHaptic();
+        router.back();
+      }
+      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
     },
-    onError: handleError,
+    onError: (err, scope) =>
+      handleError(err, scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      }),
   });
 
   const generatePost = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope: EditorMutationScope) => {
+      requireCurrentQuerySession(scope);
       const idea = body.trim();
       if (!idea) throw new Error("Jot down an idea first");
       if (activeAccounts.size === 0) throw new Error("Choose at least one destination");
       const { data, error, response } = await api().POST("/post-builder/generate", {
         body: {
-          workspace_id: currentWorkspaceId(),
+          workspace_id: scope.workspaceId,
           idea,
           social_account_ids: [...activeAccounts],
         },
       });
       if (error || !data)
         throw new Error(await errorMessage(response, "Could not generate this draft"));
+      requireCurrentQueryActor(scope);
       return data;
     },
-    onSuccess: (generated) => {
+    onSuccess: (generated, scope) => {
+      if (!workspaceScopeIsCurrent(scope)) return;
+      markEditorDirty();
       setBody(generated.source_text);
       setRenditionBodies(
         Object.fromEntries(
@@ -461,16 +648,17 @@ function Composer({
         setCelebrationTrigger((current) => current + 1);
       }
     },
-    onError: handleError,
+    onError: (err, scope) => handleError(err, scope),
   });
 
   useEffect(() => {
     if (!buildOnOpen || autoBuildStarted.current || activeAccounts.size === 0) return;
     autoBuildStarted.current = true;
-    generatePost.mutate();
-  }, [activeAccounts.size, buildOnOpen, generatePost]);
+    generatePost.mutate(captureEditorMutationScope(id, originalActivity, originalCalendarEntry));
+  }, [activeAccounts.size, buildOnOpen, generatePost, id, originalActivity, originalCalendarEntry]);
 
   function toggleAccount(accountId: string) {
+    markEditorDirty();
     void selectionHaptic();
     setSelectedAccounts(() => {
       const next = new Set(activeAccounts);
@@ -486,6 +674,7 @@ function Composer({
   }
 
   function applySocialSet(setId: string, accountIds: string[]) {
+    markEditorDirty();
     void selectionHaptic();
     setSelectedAccounts(new Set(accountIds));
     setSelectedSocialSetId(setId);
@@ -493,6 +682,7 @@ function Composer({
   }
 
   function addAttachment(asset: ImagePicker.ImagePickerAsset) {
+    markEditorDirty();
     void selectionHaptic();
     setAttachments((current) => [
       ...current,
@@ -533,10 +723,12 @@ function Composer({
   }
 
   function removeAttachment(localId: string) {
+    markEditorDirty();
     setAttachments((current) => current.filter((item) => item.localId !== localId));
   }
 
   function moveAttachment(index: number, delta: -1 | 1) {
+    markEditorDirty();
     setAttachments((current) => {
       const target = index + delta;
       if (target < 0 || target >= current.length) return current;
@@ -551,33 +743,40 @@ function Composer({
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.modalHeader, { borderBottomColor: colors.separator }]}>
+      <View style={[styles.modalHeader, { borderBottomColor: colors.outlineVariant }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel editing"
           onPress={() => router.back()}
           style={styles.headerAction}
         >
-          <Text style={{ color: colors.tint, fontSize: 17 }}>Cancel</Text>
+          <Text style={[typography.bodyLarge, { color: colors.primary }]}>Cancel</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <StatusBadge status={pub.status} />
-          {saveAndClose.isPending ? <ActivityIndicator size="small" color={colors.tint} /> : null}
+          {saveAndClose.isPending ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Save draft"
           accessibilityState={{ disabled: saveAndClose.isPending }}
-          onPress={() => saveAndClose.mutate()}
+          onPress={() =>
+            saveAndClose.mutate(
+              captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+            )
+          }
           disabled={saveAndClose.isPending}
           style={styles.headerAction}
         >
           <Text
-            style={{
-              color: saveAndClose.isPending ? colors.textSecondary : colors.tint,
-              fontSize: 17,
-              fontWeight: "600",
-            }}
+            style={[
+              typography.labelLarge,
+              {
+                color: saveAndClose.isPending ? colors.onSurfaceVariant : colors.primary,
+              },
+            ]}
           >
             Done
           </Text>
@@ -587,26 +786,49 @@ function Composer({
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {statusMessage ? (
           <Card accessibilityRole="alert">
-            <BodyText style={[styles.successText, { color: colors.success, textAlign: "center" }]}>
+            <BodyText
+              style={[
+                typography.labelLarge,
+                { color: colors.status.published, textAlign: "center" },
+              ]}
+            >
               {statusMessage}
             </BodyText>
           </Card>
         ) : null}
         {actionError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
+          <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
             {actionError}
           </BodyText>
+        ) : null}
+        {refreshError ? (
+          <QueryNotice
+            message="Could not refresh this draft. You can keep editing this copy."
+            retry={onRefreshPublication}
+          />
+        ) : null}
+        {refreshPaused ? (
+          <QueryNotice message="You are offline. You can keep editing the current draft." offline />
         ) : null}
 
         <View style={styles.editorHeading}>
           <View style={styles.editorHeadingCopy}>
-            <Text style={[styles.editorTitle, { color: colors.text }]}>Post</Text>
+            <Text
+              accessibilityRole="header"
+              style={[typography.titleLarge, { color: colors.onSurface }]}
+            >
+              Post
+            </Text>
             <BodyText>One idea, adapted for every destination</BodyText>
           </View>
           <Button
             title={generatePost.isPending ? "Generating..." : "Generate draft"}
-            variant="tinted"
-            onPress={() => generatePost.mutate()}
+            intent="ordinary"
+            onPress={() =>
+              generatePost.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={generatePost.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={generatePost.isPending}
             style={styles.aiButton}
@@ -614,14 +836,20 @@ function Composer({
         </View>
         <TextField
           value={body}
-          onChangeText={setBody}
+          onChangeText={(text) => {
+            markEditorDirty();
+            setBody(text);
+          }}
           accessibilityLabel="Post text"
           placeholder="What do you want to say?"
           multiline
           textAlignVertical="top"
           style={[
             styles.writingField,
-            { backgroundColor: colors.card, borderColor: colors.separator },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.outlineVariant,
+            },
           ]}
         />
 
@@ -631,66 +859,77 @@ function Composer({
               key={attachment.localId}
               style={[
                 styles.attachmentRow,
-                { backgroundColor: colors.card, borderColor: colors.separator },
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.outlineVariant,
+                },
               ]}
             >
               <View style={styles.thumbWrap}>
                 {attachment.uri && attachment.mimeType.startsWith("image/") ? (
                   <Image source={{ uri: attachment.uri }} style={styles.thumb} contentFit="cover" />
                 ) : (
-                  <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                    <SymbolView
-                      name={
-                        attachment.mimeType.startsWith("video/")
-                          ? { ios: "play.rectangle", android: "video_library" }
-                          : { ios: "photo", android: "image" }
-                      }
+                  <View
+                    style={[
+                      styles.thumb,
+                      styles.thumbPlaceholder,
+                      { backgroundColor: colors.surfaceContainerHigh },
+                    ]}
+                  >
+                    <ProtectedIcon
+                      role={attachment.mimeType.startsWith("video/") ? "video" : "image"}
                       size={24}
-                      tintColor={colors.textSecondary}
+                      tintColor={colors.onSurfaceVariant}
                     />
                   </View>
                 )}
                 {attachment.status === "uploading" ? (
-                  <View style={styles.thumbOverlay}>
-                    <ActivityIndicator size="small" color={colors.onTint} />
+                  <View
+                    accessible
+                    accessibilityLabel={`Uploading ${attachment.filename}`}
+                    accessibilityRole="progressbar"
+                    style={[styles.thumbOverlay, { backgroundColor: editor.mediaScrim }]}
+                  >
+                    <ActivityIndicator size="small" color={editor.canvasSelectionText} />
                   </View>
                 ) : attachment.status === "error" ? (
-                  <View style={[styles.thumbOverlay, { backgroundColor: `${colors.danger}99` }]}>
-                    <Text
-                      style={{
-                        color: colors.onTint,
-                        fontSize: 16,
-                        fontWeight: "700",
-                      }}
-                    >
-                      !
-                    </Text>
+                  <View
+                    accessible
+                    accessibilityLabel={`Upload failed for ${attachment.filename}`}
+                    accessibilityRole="alert"
+                    style={[styles.thumbOverlay, { backgroundColor: editor.mediaScrim }]}
+                  >
+                    <ProtectedIcon
+                      role="warning"
+                      size={18}
+                      tintColor={editor.canvasSelectionText}
+                    />
                   </View>
                 ) : null}
               </View>
               <View style={styles.attachmentDetails}>
-                <BodyText numberOfLines={1} style={{ color: colors.text }}>
+                <BodyText numberOfLines={1} style={{ color: colors.onSurface }}>
                   {attachment.filename}
                 </BodyText>
                 <View style={styles.attachmentActions}>
                   {index > 0 ? (
                     <IconButton
                       label="Move attachment earlier"
-                      name={{ ios: "chevron.left", android: "chevron_left" }}
+                      role="back"
                       onPress={() => moveAttachment(index, -1)}
                     />
                   ) : null}
                   {index < attachments.length - 1 ? (
                     <IconButton
                       label="Move attachment later"
-                      name={{ ios: "chevron.right", android: "chevron_right" }}
+                      role="next"
                       onPress={() => moveAttachment(index, 1)}
                     />
                   ) : null}
                   <IconButton
                     label={`Remove ${attachment.filename}`}
-                    name={{ ios: "trash", android: "delete" }}
-                    color={colors.danger}
+                    role="delete"
+                    color={colors.error}
                     onPress={() => removeAttachment(attachment.localId)}
                   />
                 </View>
@@ -705,15 +944,11 @@ function Composer({
             onPress={() => void pickFromLibrary()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant },
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
-              size={24}
-              tintColor={colors.tint}
-            />
+            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -721,15 +956,11 @@ function Composer({
             onPress={() => void takePhoto()}
             style={({ pressed }) => [
               styles.addTile,
-              { borderColor: colors.separator },
+              { borderColor: colors.outlineVariant },
               pressed && { opacity: 0.6 },
             ]}
           >
-            <SymbolView
-              name={{ ios: "camera", android: "photo_camera" }}
-              size={24}
-              tintColor={colors.tint}
-            />
+            <ProtectedIcon role="camera" size={24} tintColor={colors.primary} />
           </Pressable>
         </View>
 
@@ -742,23 +973,17 @@ function Composer({
           {({ pressed }) => (
             <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
-                <SymbolView
-                  name={{ ios: "person.2", android: "group" }}
-                  size={22}
-                  tintColor={colors.tint}
-                />
+                <ThemeIcon role="account" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Social Set</Text>
+                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
+                  Social Set
+                </Text>
                 <BodyText numberOfLines={1}>
                   {selectedSetLabel(socialSets.data ?? [], activeSocialSetId, activeAccounts.size)}
                 </BodyText>
               </View>
-              <SymbolView
-                name={{ ios: "chevron.right", android: "chevron_right" }}
-                size={20}
-                tintColor={colors.textSecondary}
-              />
+              <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
             </Card>
           )}
         </Pressable>
@@ -770,25 +995,19 @@ function Composer({
           {({ pressed }) => (
             <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
-                <SymbolView
-                  name={{ ios: "calendar", android: "calendar_month" }}
-                  size={22}
-                  tintColor={colors.tint}
-                />
+                <ThemeIcon role="calendar" size={22} tintColor={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Publish time</Text>
+                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
+                  Publish time
+                </Text>
                 <BodyText>
                   {scheduledAt
                     ? formatDateTime(scheduledAt.toISOString())
                     : "Use the next open slot"}
                 </BodyText>
               </View>
-              <SymbolView
-                name={{ ios: "chevron.right", android: "chevron_right" }}
-                size={20}
-                tintColor={colors.textSecondary}
-              />
+              <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
             </Card>
           )}
         </Pressable>
@@ -797,21 +1016,28 @@ function Composer({
           {pub.status !== "published" && pub.status !== "publishing" ? (
             <Button
               title="Publish now"
-              variant="tinted"
-              onPress={() => publishNow.mutate()}
+              intent="ordinary"
+              onPress={() =>
+                publishNow.mutate(
+                  captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                )
+              }
               disabled={publishNow.isPending || activeAccounts.size === 0}
             />
           ) : null}
           <Button
             title="Delete draft"
-            variant="destructive"
+            intent="destructive"
             onPress={() =>
               Alert.alert("Delete draft?", "This cannot be undone.", [
                 { text: "Cancel", style: "cancel" },
                 {
                   text: "Delete",
                   style: "destructive",
-                  onPress: () => deleteDraft.mutate(),
+                  onPress: () =>
+                    deleteDraft.mutate(
+                      captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                    ),
                 },
               ])
             }
@@ -823,20 +1049,27 @@ function Composer({
         <View
           style={[
             styles.stickyFooter,
-            { backgroundColor: colors.bg, borderTopColor: colors.separator },
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.outlineVariant,
+            },
           ]}
         >
           <Button
             title="Queue next slot"
-            variant="focal"
-            onPress={() => queueNextSlot.mutate()}
+            intent="focal"
+            onPress={() =>
+              queueNextSlot.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={queueNextSlot.isPending || activeAccounts.size === 0 || !body.trim()}
             loading={queueNextSlot.isPending}
             style={{ flex: 1 }}
           />
           <IconButton
             label="Choose publishing time"
-            name={{ ios: "calendar", android: "calendar_month" }}
+            role="calendar"
             onPress={() => setScheduleDrawerOpen(true)}
           />
         </View>
@@ -864,8 +1097,32 @@ function Composer({
             </View>
           ) : null}
           <BodyText>Choose a saved set or fine-tune the accounts below.</BodyText>
-          {accounts.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
-          {(accounts.data?.length ?? 0) === 0 && !accounts.isLoading ? (
+          {(accounts.data === undefined && accounts.isPending) ||
+          (socialSets.data === undefined && socialSets.isPending) ? (
+            <DelayedQueryPlaceholder
+              pending
+              shape="list"
+              offline={accounts.fetchStatus === "paused" || socialSets.fetchStatus === "paused"}
+            />
+          ) : null}
+          {destinationCatalogFailed ? (
+            <QueryNotice
+              message={
+                accounts.data !== undefined || socialSets.data !== undefined
+                  ? "Could not refresh every destination. Current destinations remain visible."
+                  : "Could not load your Social Sets and accounts."
+              }
+              retry={() => {
+                void accounts.refetch();
+                void socialSets.refetch();
+              }}
+            />
+          ) : null}
+          {(accounts.data !== undefined || socialSets.data !== undefined) &&
+          (accounts.fetchStatus === "paused" || socialSets.fetchStatus === "paused") ? (
+            <QueryNotice message="You are offline. Current destinations remain visible." offline />
+          ) : null}
+          {accountsLoadedEmpty && !destinationCatalogFailed ? (
             <Card>
               <BodyText>No connected accounts. Connect them in the web app first.</BodyText>
             </Card>
@@ -882,8 +1139,8 @@ function Composer({
                       style={({ pressed }) => [
                         styles.accountRow,
                         {
-                          backgroundColor: colors.bg,
-                          borderColor: selected ? colors.tint : colors.separator,
+                          backgroundColor: colors.background,
+                          borderColor: selected ? colors.primary : colors.outlineVariant,
                         },
                         pressed && { opacity: 0.65 },
                       ]}
@@ -892,27 +1149,17 @@ function Composer({
                         style={[
                           styles.checkbox,
                           {
-                            borderColor: selected ? colors.tint : colors.separator,
-                            backgroundColor: selected ? colors.tint : "transparent",
+                            borderColor: selected ? colors.primary : colors.outlineVariant,
+                            backgroundColor: selected ? colors.primary : "transparent",
                           },
                         ]}
                       >
                         {selected ? (
-                          <SymbolView
-                            name={{ ios: "checkmark", android: "check" }}
-                            size={15}
-                            tintColor={colors.onTint}
-                          />
+                          <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
                         ) : null}
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text
-                          style={{
-                            color: colors.text,
-                            fontSize: 16,
-                            fontWeight: "600",
-                          }}
-                        >
+                        <Text style={[typography.labelLarge, { color: colors.onSurface }]}>
                           {accountHandle(account.account_username, account.slug)}
                         </Text>
                         <BodyText>{platformLabel(account.platform)}</BodyText>
@@ -920,7 +1167,7 @@ function Composer({
                       {selected ? (
                         <Button
                           title={expandedAccount === account.id ? "Hide" : "Customize"}
-                          variant="plain"
+                          intent="quiet"
                           onPress={() =>
                             setExpandedAccount(expandedAccount === account.id ? null : account.id)
                           }
@@ -932,12 +1179,13 @@ function Composer({
                       <TextField
                         value={renditionBodies[account.id] ?? ""}
                         accessibilityLabel={`Custom text for ${platformLabel(account.platform)}`}
-                        onChangeText={(text) =>
+                        onChangeText={(text) => {
+                          markEditorDirty();
                           setRenditionBodies((current) => ({
                             ...current,
                             [account.id]: text,
-                          }))
-                        }
+                          }));
+                        }}
                         placeholder="Leave empty to use the main post"
                         multiline
                         textAlignVertical="top"
@@ -960,13 +1208,13 @@ function Composer({
       {scheduleDrawerOpen ? (
         <BottomDrawer open title="Publish time" onDismiss={() => setScheduleDrawerOpen(false)}>
           <Card style={styles.scheduleCard}>
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "600" }}>
+            <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
               {scheduledAt ? formatDateTime(scheduledAt.toISOString()) : "Not scheduled"}
             </Text>
             <View style={styles.scheduleActions}>
               <Button
                 title={pickerStep ? "Hide picker" : "Pick date and time"}
-                variant="tinted"
+                intent="ordinary"
                 onPress={() =>
                   setPickerStep((current) =>
                     current ? null : firstPickerStep(Platform.OS === "android" ? "android" : "ios"),
@@ -975,12 +1223,23 @@ function Composer({
               />
               <Button
                 title="Use next slot"
-                variant="tinted"
-                onPress={() => nextSlot.mutate()}
+                intent="ordinary"
+                onPress={() =>
+                  nextSlot.mutate(
+                    captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                  )
+                }
                 loading={nextSlot.isPending}
               />
               {scheduledAt ? (
-                <Button title="Clear" variant="plain" onPress={() => setScheduledAt(null)} />
+                <Button
+                  title="Clear"
+                  intent="quiet"
+                  onPress={() => {
+                    markEditorDirty();
+                    setScheduledAt(null);
+                  }}
+                />
               ) : null}
             </View>
             {pickerStep ? (
@@ -993,6 +1252,7 @@ function Composer({
                     return;
                   }
                   const result = applyPickerValue(scheduledAt ?? nextHour(), date, pickerStep);
+                  markEditorDirty();
                   setScheduledAt(result.value);
                   setPickerStep(result.nextStep);
                 }}
@@ -1001,8 +1261,12 @@ function Composer({
           </Card>
           <Button
             title="Schedule and queue"
-            variant="focal"
-            onPress={() => scheduleMutation.mutate()}
+            intent="focal"
+            onPress={() =>
+              scheduleMutation.mutate(
+                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+              )
+            }
             disabled={!scheduledAt || scheduleMutation.isPending || activeAccounts.size === 0}
             loading={scheduleMutation.isPending}
           />
@@ -1014,7 +1278,8 @@ function Composer({
 }
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  const colors = useColors();
+  const theme = useNativeTheme();
+  const { colors, typography } = theme.manifest;
   return (
     <Pressable
       accessibilityRole="button"
@@ -1024,18 +1289,12 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         styles.chip,
         pressed && { opacity: 0.6 },
         {
-          backgroundColor: active ? `${colors.tint}26` : colors.card,
-          borderColor: active ? colors.tint : colors.separator,
+          backgroundColor: active ? withAlpha(colors.primary, 0.15) : colors.surface,
+          borderColor: active ? colors.primary : colors.outlineVariant,
         },
       ]}
     >
-      <Text
-        style={{
-          color: active ? colors.tint : colors.text,
-          fontSize: 14,
-          fontWeight: "500",
-        }}
-      >
+      <Text style={[typography.labelMedium, { color: active ? colors.primary : colors.onSurface }]}>
         {label}
       </Text>
     </Pressable>
@@ -1058,7 +1317,18 @@ function selectedSetLabel(
   return `${accountCount} ${accountCount === 1 ? "destination" : "destinations"}`;
 }
 
+function publicationActivity(status: string): PublicationActivity {
+  if (status === "scheduled" || status === "publishing") return "scheduled";
+  if (status === "published") return "published";
+  if (status === "failed") return "failed";
+  return "draft";
+}
+
 const styles = StyleSheet.create({
+  coldState: {
+    paddingHorizontal: 20,
+    paddingTop: 72,
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1089,18 +1359,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  editorTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-  },
   aiButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 14,
   },
   writingField: {
-    fontSize: 18,
-    lineHeight: 28,
     minHeight: 260,
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -1141,7 +1404,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   thumbPlaceholder: {
-    backgroundColor: "rgba(128,128,128,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1152,7 +1414,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1164,9 +1425,6 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
-  },
-  successText: {
-    fontWeight: "600",
   },
   chipRow: {
     flexDirection: "row",
@@ -1199,18 +1457,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  customizeToggle: {
-    paddingHorizontal: 12,
-    minHeight: 48,
-    justifyContent: "center",
-  },
   overrideField: {
     marginTop: 4,
     minHeight: 112,
     paddingTop: 12,
   },
   customizeButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 8,
   },
   settingCard: {
@@ -1225,10 +1478,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 42,
   },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
   scheduleCard: {
     gap: 10,
   },
@@ -1236,10 +1485,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
-  },
-  scheduleButton: {
-    minHeight: 48,
-    paddingHorizontal: 12,
   },
   footer: {
     gap: 10,

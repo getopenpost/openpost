@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
-	import { client } from '$lib/api/client';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { repostAutomationQueryOptions } from '@openpost/query-catalog';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
+	import { QueryProjectionTracker } from '$lib/query/projection';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -33,10 +36,21 @@
 		onChange
 	}: Props = $props();
 	let open = $state(false);
-	let accounts = $state.raw<RepostAccount[]>([]);
-	let loading = $state(false);
-	let loadError = $state('');
-	let loadedWorkspaceID = $state('');
+	const settingsProjection = new QueryProjectionTracker();
+	const settingsQuery = createQuery(() => ({
+		...repostAutomationQueryOptions(schedulingQueryAPI, workspaceID),
+		enabled: open && Boolean(workspaceID)
+	}));
+	const accounts = $derived<RepostAccount[]>(settingsQuery.data?.accounts ?? []);
+	const hasAccountData = $derived(settingsQuery.data !== undefined);
+	const loading = $derived(open && settingsQuery.isPending);
+	const loadError = $derived(
+		settingsQuery.isError
+			? settingsQuery.error instanceof Error
+				? settingsQuery.error.message
+				: m.repost_load_failed()
+			: ''
+	);
 
 	const targetAccounts = $derived(
 		accounts.filter(
@@ -77,13 +91,7 @@
 	];
 
 	$effect(() => {
-		if (!open || !workspaceID || loadedWorkspaceID === workspaceID) return;
-		loadedWorkspaceID = workspaceID;
-		void loadAccounts(workspaceID);
-	});
-
-	$effect(() => {
-		if (value.mode !== 'custom' || loadedWorkspaceID !== workspaceID || loading) return;
+		if (value.mode !== 'custom' || !settingsQuery.data || loading) return;
 		const validIDs = new Set(targetAccounts.map((account) => account.id));
 		const selected = value.target_account_ids ?? [];
 		const compatible = selected.filter((id) => validIDs.has(id));
@@ -92,35 +100,14 @@
 		onChange?.();
 	});
 
-	async function loadAccounts(id: string) {
-		loading = true;
-		loadError = '';
-		try {
-			const { data, error } = await client.GET('/repost-automation', {
-				params: { query: { workspace_id: id } }
-			});
-			if (error || !data) throw new Error(error?.detail || m.repost_load_failed());
-			if (workspaceID !== id) return;
-			accounts = data.accounts ?? [];
-			if (value.mode === 'custom' && (value.target_account_ids?.length ?? 0) === 0) {
-				const firstTarget = accounts.find(
-					(account) =>
-						account.supports_repost &&
-						!account.grant_required &&
-						(sourcePlatforms.length === 0 ||
-							sourcePlatforms.includes(platformKey(account.platform)))
-				);
-				if (firstTarget) {
-					value.target_account_ids = [firstTarget.id];
-					onChange?.();
-				}
-			}
-		} catch (cause) {
-			loadError = cause instanceof Error ? cause.message : m.repost_load_failed();
-		} finally {
-			if (workspaceID === id) loading = false;
-		}
-	}
+	$effect(() => {
+		if (!settingsProjection.shouldProject(settingsQuery.data, workspaceID)) return;
+		if (value.mode !== 'custom' || (value.target_account_ids?.length ?? 0) > 0) return;
+		const firstTarget = targetAccounts[0];
+		if (!firstTarget) return;
+		value.target_account_ids = [firstTarget.id];
+		onChange?.();
+	});
 
 	function setMode(mode: RepostOverride['mode']) {
 		if (mode === 'inherit') {
@@ -264,11 +251,37 @@
 			<div class="space-y-5 border-t p-4">
 				<fieldset class="space-y-2">
 					<legend class="text-sm font-medium">{m.repost_target_accounts()}</legend>
-					{#if loading}
+					{#if loading && !hasAccountData}
 						<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
-					{:else if loadError}
-						<p class="text-sm text-destructive">{loadError}</p>
+					{:else if loadError && !hasAccountData}
+						<div class="flex flex-wrap items-center gap-2">
+							<p class="text-sm text-destructive">{loadError}</p>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={() => void settingsQuery.refetch()}
+							>
+								{m.common_retry()}
+							</Button>
+						</div>
 					{:else}
+						{#if loading}
+							<span class="sr-only" role="status">{m.common_loading()}</span>
+						{/if}
+						{#if loadError}
+							<div class="mb-2 flex flex-wrap items-center gap-2">
+								<p class="text-sm text-destructive">{loadError}</p>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onclick={() => void settingsQuery.refetch()}
+								>
+									{m.common_retry()}
+								</Button>
+							</div>
+						{/if}
 						<div class="grid gap-2 sm:grid-cols-2">
 							{#each targetAccounts as account (account.id)}
 								<label class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm">

@@ -17,18 +17,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	import AppSelect from '$lib/components/app-select.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import ImagePlusIcon from '@lucide/svelte/icons/image-plus';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import SearchXIcon from '@lucide/svelte/icons/search-x';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { memeGeneratorAPI, memePreviewDataURL } from '$lib/meme-generator/api';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type {
 		MemeGeneratorAPI,
 		MemeOverlaySelection,
@@ -313,11 +304,18 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	}
 
 	function templateThumbnailURL(templateID: string): string {
-		return api.thumbnailURL({ workspaceId, templateId: templateID, catalogRevision });
+		return api.thumbnailURL({
+			workspaceId,
+			templateId: templateID,
+			catalogRevision
+		});
 	}
 
 	function handleTemplateThumbnailError(templateID: string): void {
-		templateThumbnailFailures = { ...templateThumbnailFailures, [templateID]: true };
+		templateThumbnailFailures = {
+			...templateThumbnailFailures,
+			[templateID]: true
+		};
 	}
 
 	async function generateSuggestions(): Promise<void> {
@@ -734,11 +732,11 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			<Tabs.Root bind:value={mode}>
 				<Tabs.List class="grid w-full grid-cols-2">
 					<Tabs.Trigger value="ideas">
-						<SparklesIcon />
+						<ThemeIcon role="sparkles" />
 						{m.meme_generator_ideas_tab()}
 					</Tabs.Trigger>
 					<Tabs.Trigger value="templates">
-						<ImageIcon />
+						<ThemeIcon role="image" />
 						{m.meme_generator_templates_tab()}
 					</Tabs.Trigger>
 				</Tabs.List>
@@ -784,10 +782,10 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 									disabled={suggestionsLoading || !rendererConfigured}
 								>
 									{#if suggestionsLoading}
-										<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+										<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 										{m.meme_generator_generating()}
 									{:else}
-										<WandIcon />
+										<ThemeIcon role="sparkles" />
 										{m.meme_generator_generate()}
 									{/if}
 								</Button>
@@ -800,7 +798,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 							{#if idea.trim()}
 								{#snippet actions()}
 									<Button variant="ghost" size="sm" onclick={() => void generateSuggestions()}>
-										<RefreshIcon />
+										<ThemeIcon role="refresh" />
 										{m.common_retry()}
 									</Button>
 								{/snippet}
@@ -821,7 +819,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 					{:else if suggestions.length > 0}
 						<div class="space-y-2">
 							<div>
-								<h3 class="text-sm font-semibold">{m.meme_generator_suggestions_heading()}</h3>
+								<h3 class="text-sm font-semibold">
+									{m.meme_generator_suggestions_heading()}
+								</h3>
 								<p class="mt-0.5 text-xs leading-5 text-muted-foreground">
 									{m.meme_generator_suggestions_description()}
 								</p>
@@ -843,7 +843,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 												onclick={(event) => selectCandidate(candidate, event)}
 												aria-pressed={selectedTemplateID === template.id &&
 													selectedCandidate === candidate}
-												aria-label={m.meme_generator_candidate_select({ name: template.name })}
+												aria-label={m.meme_generator_candidate_select({
+													name: template.name
+												})}
 											>
 												<span class="block w-full">
 													<span
@@ -862,7 +864,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 															<span
 																class="grid size-full place-items-center gap-1 px-3 text-center text-xs leading-4 text-muted-foreground"
 															>
-																<ImageIcon class="size-5" />
+																<ProtectedIcon icon="media-image" class="size-5" />
 																{m.meme_generator_candidate_preview_failed()}
 															</span>
 														{:else if previewState === 'queued' || previewState === 'loading'}
@@ -874,7 +876,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 															<span
 																class="grid size-full place-items-center gap-1 px-3 text-center text-xs leading-4 text-muted-foreground"
 															>
-																<ImageIcon class="size-5" />
+																<ProtectedIcon icon="media-image" class="size-5" />
 																{m.meme_generator_candidate_preview_not_loaded()}
 															</span>
 														{/if}
@@ -882,7 +884,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 															<span
 																class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
 															>
-																<CheckIcon class="size-4" />
+																<ProtectedIcon icon="success" class="size-4" />
 																<span class="sr-only">{m.meme_generator_selected()}</span>
 															</span>
 														{/if}
@@ -906,7 +908,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 														class="w-full"
 														onclick={() => void loadCandidatePreview(candidate)}
 													>
-														<RefreshIcon />
+														<ThemeIcon role="refresh" />
 														{previewState === 'failed'
 															? m.meme_generator_candidate_preview_retry()
 															: m.meme_generator_candidate_preview_load()}
@@ -918,13 +920,13 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 								{/each}
 							</div>
 							<Button variant="ghost" size="sm" onclick={() => void generateSuggestions()}>
-								<RefreshIcon />
+								<ThemeIcon role="refresh" />
 								{m.meme_generator_try_another_set()}
 							</Button>
 						</div>
 					{:else if hasRequestedSuggestions && idea.trim() && !suggestionsError}
 						<EmptyState
-							icon={SparklesIcon}
+							themeIconRole="sparkles"
 							title={m.meme_generator_no_suggestions_title()}
 							description={m.meme_generator_no_suggestions_body()}
 							actionLabel={m.meme_generator_try_another_set()}
@@ -940,7 +942,8 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						<div class="min-w-0 flex-1 space-y-1.5">
 							<Label for={`${uid}-search`}>{m.meme_generator_search_label()}</Label>
 							<div class="relative">
-								<SearchIcon
+								<ThemeIcon
+									role="search"
 									class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 								/>
 								<Input
@@ -955,9 +958,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						</div>
 						<Button type="submit" variant="outline" disabled={templatesLoading}>
 							{#if templatesLoading}
-								<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+								<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 							{:else}
-								<SearchIcon />
+								<ThemeIcon role="search" />
 							{/if}
 							{m.media_picker_search_action()}
 						</Button>
@@ -967,7 +970,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						<InlineNotice tone="error" message={templatesError}>
 							{#snippet actions()}
 								<Button variant="ghost" size="sm" onclick={() => void loadTemplates()}>
-									<RefreshIcon />
+									<ThemeIcon role="refresh" />
 									{m.common_retry()}
 								</Button>
 							{/snippet}
@@ -975,10 +978,14 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 					{/if}
 
 					<div class="flex items-center justify-between gap-3">
-						<h3 class="text-sm font-semibold">{m.meme_generator_templates_heading()}</h3>
+						<h3 class="text-sm font-semibold">
+							{m.meme_generator_templates_heading()}
+						</h3>
 						{#if templates.length > 0}
 							<span class="text-xs text-muted-foreground">
-								{m.meme_generator_showing_templates({ count: templates.length })}
+								{m.meme_generator_showing_templates({
+									count: templates.length
+								})}
 							</span>
 						{/if}
 					</div>
@@ -1003,13 +1010,15 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 										: 'border-border bg-card hover:border-primary/45 hover:bg-muted/35'}"
 									onclick={(event) => selectTemplate(template, event)}
 									aria-pressed={selectedTemplateID === template.id && !selectedCandidate}
-									aria-label={m.meme_generator_template_select({ name: template.name })}
+									aria-label={m.meme_generator_template_select({
+										name: template.name
+									})}
 								>
 									<span class="block w-full">
 										<span class="relative block aspect-[4/3] overflow-hidden rounded-md bg-muted">
 											{#if templateThumbnailFailures[template.id]}
 												<span class="grid size-full place-items-center text-muted-foreground">
-													<ImageIcon class="size-6" />
+													<ProtectedIcon icon="media-image" class="size-6" />
 													<span class="sr-only">{m.media_preview_unavailable()}</span>
 												</span>
 											{:else}
@@ -1027,7 +1036,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 												<span
 													class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
 												>
-													<CheckIcon class="size-4" />
+													<ProtectedIcon icon="success" class="size-4" />
 													<span class="sr-only">{m.meme_generator_selected()}</span>
 												</span>
 											{/if}
@@ -1052,14 +1061,14 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 								onclick={loadMoreTemplates}
 							>
 								{#if templatesLoadingMore}
-									<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+									<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 								{/if}
 								{m.meme_generator_show_more()}
 							</Button>
 						{/if}
 					{:else if !templatesError}
 						<EmptyState
-							icon={SearchXIcon}
+							themeIconRole="search"
 							title={m.meme_generator_templates_empty_title()}
 							description={m.meme_generator_templates_empty_body()}
 							actionLabel={searchedFor ? m.media_clear_search() : undefined}
@@ -1104,7 +1113,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 								class="px-0 text-xs text-muted-foreground hover:text-foreground"
 							>
 								{m.meme_generator_template_source()}
-								<ExternalLinkIcon class="size-3" />
+								<ThemeIcon role="external-link" class="size-3" />
 							</Button>
 						{/if}
 					</div>
@@ -1113,7 +1122,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 
 			{#if !selectedTemplate}
 				<EmptyState
-					icon={ImagePlusIcon}
+					themeIconRole="image-add"
 					title={m.meme_generator_select_first_title()}
 					description={m.meme_generator_select_first_body()}
 					headingLevel={4}
@@ -1127,14 +1136,16 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						{#if selectedPreview}
 							<img
 								src={selectedPreview}
-								alt={m.meme_generator_preview_alt({ name: selectedTemplate.name })}
+								alt={m.meme_generator_preview_alt({
+									name: selectedTemplate.name
+								})}
 								class="max-h-[32rem] max-w-full object-contain"
 								loading="eager"
 								decoding="async"
 							/>
 						{:else}
 							<div class="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-								<ImageIcon class="size-6" />
+								<ProtectedIcon icon="media-image" class="size-6" />
 								{m.media_preview_unavailable()}
 							</div>
 						{/if}
@@ -1145,7 +1156,10 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 								<div
 									class="flex items-center gap-2 rounded-md bg-background px-3 py-2 text-xs font-medium shadow-sm"
 								>
-									<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+									<ProtectedIcon
+										icon="loading"
+										class="size-4 animate-spin motion-reduce:animate-none"
+									/>
 									{m.meme_generator_preview_loading()}
 								</div>
 							</div>
@@ -1156,7 +1170,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						<InlineNotice tone="error" message={previewError}>
 							{#snippet actions()}
 								<Button variant="ghost" size="sm" onclick={() => void refreshPreview()}>
-									<RefreshIcon />
+									<ThemeIcon role="refresh" />
 									{m.common_retry()}
 								</Button>
 							{/snippet}
@@ -1204,7 +1218,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 
 					{#if selectedTemplate.overlays > 0}
 						<div class="space-y-2">
-							<h4 class="text-sm font-semibold">{m.meme_generator_image_slots_heading()}</h4>
+							<h4 class="text-sm font-semibold">
+								{m.meme_generator_image_slots_heading()}
+							</h4>
 							{#if !onPickOverlay}
 								<InlineNotice tone="info" message={m.meme_generator_overlay_picker_unavailable()} />
 							{/if}
@@ -1223,12 +1239,14 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 													class="size-full object-cover"
 												/>
 											{:else}
-												<ImageIcon class="size-5 text-muted-foreground" />
+												<ProtectedIcon icon="media-image" class="size-5 text-muted-foreground" />
 											{/if}
 										</div>
 										<div class="min-w-0 flex-1">
 											<p class="truncate text-xs font-medium">
-												{m.meme_generator_image_slot_label({ number: index + 1 })}
+												{m.meme_generator_image_slot_label({
+													number: index + 1
+												})}
 											</p>
 											<p class="truncate text-xs text-muted-foreground">
 												{selection?.name ?? m.meme_generator_image_slot_empty()}
@@ -1243,12 +1261,18 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 													onclick={() => void pickOverlay(index)}
 												>
 													{selection
-														? m.meme_generator_replace_image({ number: index + 1 })
-														: m.meme_generator_choose_image({ number: index + 1 })}
+														? m.meme_generator_replace_image({
+																number: index + 1
+															})
+														: m.meme_generator_choose_image({
+																number: index + 1
+															})}
 												</Button>
 												{#if selection}
 													<Button variant="ghost" size="xs" onclick={() => removeOverlay(index)}>
-														{m.meme_generator_remove_image({ number: index + 1 })}
+														{m.meme_generator_remove_image({
+															number: index + 1
+														})}
 													</Button>
 												{/if}
 											</div>
@@ -1278,10 +1302,10 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 							onclick={() => void renderAndAttach()}
 						>
 							{#if rendering}
-								<LoaderIcon class="animate-spin motion-reduce:animate-none" />
+								<ProtectedIcon icon="loading" class="animate-spin motion-reduce:animate-none" />
 								{m.meme_generator_rendering()}
 							{:else}
-								<ImagePlusIcon />
+								<ThemeIcon role="image-add" />
 								{pendingAttachment
 									? m.meme_generator_attach_retry()
 									: m.meme_generator_render_attach()}

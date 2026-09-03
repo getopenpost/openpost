@@ -29,10 +29,7 @@
 		summarizePreflightSeverity,
 		type ExportPreflightCheck
 	} from '$lib/video-editor/media/export-preflight';
-	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
-	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import XCircleIcon from '@lucide/svelte/icons/circle-x';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		buildRenderQueueJob,
 		buildSegmentRenderQueueJobs,
@@ -43,9 +40,6 @@
 	import { renderQueueStore } from '../export/render-queue-store';
 	import RenderQueuePanel from './render-queue-panel.svelte';
 	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import ListPlusIcon from '@lucide/svelte/icons/list-plus';
 	import RenderProgress from './render-progress.svelte';
 	import {
 		sanitizeSequenceBaseName,
@@ -609,7 +603,7 @@
 	onclick={() => (open = true)}
 >
 	{#if responsiveTrigger}
-		<DownloadIcon aria-hidden="true" />
+		<ThemeIcon role="download" />
 		<span class="hidden sm:inline">{triggerLabel ?? m.video_editor_export_title()}</span>
 	{:else if triggerLabel}
 		{triggerLabel}
@@ -627,7 +621,7 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="video-editor-theme !block max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
-		overlayProps={{ class: 'bg-black/70' }}
+		overlayProps={{ class: 'bg-scrim' }}
 		showCloseButton={!rendering}
 		onInteractOutside={(event) => {
 			if (rendering) event.preventDefault();
@@ -640,7 +634,7 @@
 			>{m.video_editor_export_title()}</Dialog.Title
 		>
 		<div class="mt-4 grid grid-cols-2 gap-3">
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_format()}<AppSelect
 					class="mt-1 h-9 w-full text-sm"
 					value={format}
@@ -650,7 +644,7 @@
 				/>
 			</label>
 			{#if videoFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]"
+				<label class="text-xs text-muted-foreground"
 					>{m.video_editor_export_codec()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={codec}
@@ -664,7 +658,7 @@
 					/>
 				</label>
 			{/if}
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{#if isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')}
 					{m.video_editor_export_jpeg_quality()}
 				{:else}
@@ -678,7 +672,7 @@
 					onValueChange={setQuality}
 				/>
 			</label>
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_resolution()}<AppSelect
 					class="mt-1 h-9 w-full text-sm"
 					bind:value={resolution}
@@ -687,7 +681,7 @@
 				/>
 			</label>
 			{#if !isSequenceFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_subtitles()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={subtitleMode}
@@ -698,7 +692,7 @@
 				</label>
 			{/if}
 			{#if isSequenceFormat}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_sequence_destination()}<AppSelect
 						class="mt-1 h-9 w-full text-sm"
 						value={sequenceDestination}
@@ -719,7 +713,7 @@
 				{m.video_editor_export_sequence_file_pattern({ pattern: sequenceFilePattern })}
 			</p>
 			{#if sequenceDestination === 'directory' && !getDirectoryPickerAvailable()}
-				<p class="mt-1 text-[11px] text-amber-200">
+				<p class="mt-1 text-[11px] text-warning-foreground">
 					{m.video_editor_export_sequence_directory_unavailable()}
 				</p>
 			{/if}
@@ -745,16 +739,16 @@
 		>
 			<div class="flex items-start gap-2">
 				{#if preflight.pending}
-					<LoaderIcon
+					<ProtectedIcon
+						icon="loading"
 						class="mt-0.5 size-4 shrink-0 animate-spin text-[var(--video-editor-muted)] motion-reduce:animate-none"
-						aria-hidden="true"
 					/>
 				{:else if summarizePreflightSeverity(preflight.checks) === 'error'}
-					<XCircleIcon class="mt-0.5 size-4 shrink-0 text-red-300" aria-hidden="true" />
+					<ProtectedIcon icon="error" class="mt-0.5 size-4 shrink-0 text-destructive" />
 				{:else if summarizePreflightSeverity(preflight.checks) === 'warning'}
-					<AlertTriangleIcon class="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+					<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0 text-warning-foreground" />
 				{:else}
-					<CheckCircleIcon class="mt-0.5 size-4 shrink-0 text-emerald-300" aria-hidden="true" />
+					<ProtectedIcon icon="success" class="mt-0.5 size-4 shrink-0 text-success" />
 				{/if}
 				<div class="min-w-0 flex-1">
 					<p class="text-xs font-medium">
@@ -785,9 +779,9 @@
 							class={[
 								'text-[11px]',
 								check.severity === 'error'
-									? 'text-red-200'
+									? 'text-destructive'
 									: check.severity === 'warning'
-										? 'text-amber-200'
+										? 'text-warning-foreground'
 										: 'text-[var(--video-editor-muted)]'
 							]}
 						>
@@ -811,9 +805,9 @@
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Button {...props} variant="outline" disabled={!canOpenQueueMenu}>
-								<ListPlusIcon aria-hidden="true" />
+								<ThemeIcon role="add" />
 								{m.video_editor_queue_add()}
-								<ChevronDownIcon aria-hidden="true" />
+								<ThemeIcon role="chevron-down" />
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>

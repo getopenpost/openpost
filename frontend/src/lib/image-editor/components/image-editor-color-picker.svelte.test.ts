@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { OpenPostEyeDropper } from '$lib/browser-capabilities';
 import ImageEditorColorPicker from './image-editor-color-picker.svelte';
@@ -7,6 +7,11 @@ describe('OpenPost Image EditorColorPicker', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		delete window.EyeDropper;
+		document.documentElement.removeAttribute('data-theme-icon-pack');
+	});
+
+	afterEach(() => {
+		document.documentElement.removeAttribute('data-theme-icon-pack');
 	});
 
 	it('keeps hex, HSL, and RGB drafts synchronized without falling back to black', async () => {
@@ -64,5 +69,36 @@ describe('OpenPost Image EditorColorPicker', () => {
 			(button) => button.getAttribute('aria-label') === 'Pick a color from the screen'
 		);
 		expect(pipette).toBeUndefined();
+	});
+
+	it('themes the selected swatch without replacing the editor eyedropper glyph', async () => {
+		window.EyeDropper = class implements OpenPostEyeDropper {
+			async open(): Promise<{ sRGBHex: string }> {
+				return { sRGBHex: '#ff8800' };
+			}
+		};
+		document.documentElement.setAttribute('data-theme-icon-pack', 'tabler');
+		const screen = await render(ImageEditorColorPicker, {
+			label: 'Page background',
+			value: '#ff8800',
+			brandColors: [{ id: 'orange', name: 'OpenPost orange', value: '#ff8800' }],
+			onChange: vi.fn()
+		});
+
+		await screen.getByRole('button', { name: 'Page background' }).click();
+		await vi.waitFor(() => {
+			const selectedSwatch = document.querySelector('[data-theme-icon="check"]');
+			expect(selectedSwatch?.getAttribute('data-icon-pack')).toBe('tabler');
+		});
+
+		const eyedropper = screen
+			.getByRole('button', {
+				name: 'Pick a color from the screen'
+			})
+			.element();
+		const eyedropperGlyph = eyedropper.querySelector('svg');
+		expect(eyedropperGlyph?.getAttribute('data-theme-icon')).toBeNull();
+		expect(eyedropperGlyph?.getAttribute('data-protected-icon')).toBeNull();
+		expect(document.querySelector('[data-protected-icon="success"]')).toBeNull();
 	});
 });

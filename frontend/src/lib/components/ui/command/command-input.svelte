@@ -2,7 +2,7 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import RiSearchLine from 'remixicon-svelte/icons/search-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -30,7 +30,7 @@
 			{/snippet}
 		</CommandPrimitive.Input>
 		<InputGroup.Addon>
-			<RiSearchLine class="size-3.5 shrink-0 opacity-50" />
+			<ThemeIcon role="search" class="size-3.5 shrink-0 opacity-50" />
 		</InputGroup.Addon>
 	</InputGroup.Root>
 </div>

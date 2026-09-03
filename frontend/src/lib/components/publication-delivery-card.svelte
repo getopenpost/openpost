@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
@@ -11,6 +10,7 @@
 		deliveryStateLabel,
 		deliveryStatusClass
 	} from '$lib/delivery-presentation';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	type ApiRendition = components['schemas']['RenditionResponse'];
 	type Rendition = Pick<
@@ -134,7 +134,7 @@
 			size="icon"
 			aria-label={m.publication_view_on_platform({ platform: getPlatformName(rendition.platform) })}
 		>
-			<ExternalLinkIcon class="size-4" />
+			<ThemeIcon role="external-link" class="size-4" />
 		</Button>
 	{/if}
 </article>

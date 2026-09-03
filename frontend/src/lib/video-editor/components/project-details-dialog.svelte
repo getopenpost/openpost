@@ -6,6 +6,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import {
 		MAX_PROJECT_HEIGHT,
 		MAX_PROJECT_WIDTH,
@@ -22,7 +23,6 @@
 		type ProjectDetailsUpdate
 	} from '$lib/video-editor/project/project-details';
 	import type { Project } from '$lib/video-editor/project/types';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 
 	let {
 		open = $bindable(false),
@@ -87,7 +87,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[520px] border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] text-[var(--video-editor-text)] sm:max-w-[520px]"
+		class="video-editor-theme w-[calc(100%_-_1rem)] max-w-[520px] border-border bg-popover text-popover-foreground sm:max-w-[520px]"
 	>
 		<Dialog.Header>
 			<Dialog.Title class="text-base">{m.video_editor_project_edit_title()}</Dialog.Title>
@@ -123,7 +123,7 @@
 				</span>
 			</label>
 
-			<fieldset class="rounded-lg border border-[oklch(0.3_0.018_55)] p-3">
+			<fieldset class="rounded-lg border border-border p-3">
 				<legend class="px-1 text-xs font-medium">{m.video_editor_project_canvas()}</legend>
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_8rem]">
 					<label class="grid gap-1 text-xs">
@@ -178,9 +178,9 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" class="min-h-11" disabled={!canSave || saving}>
-					{#if saving}<LoaderIcon
+					{#if saving}<ProtectedIcon
+							icon="loading"
 							class="size-4 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{m.video_editor_project_save_changes()}
 				</Button>

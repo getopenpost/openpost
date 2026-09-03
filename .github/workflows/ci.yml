@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -55,8 +56,13 @@ jobs:
         run: |
           if [[ "$EVENT_NAME" == pull_request ]]; then
             bun scripts/ci-plan.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
+          elif [[ "$GITHUB_REF" == refs/tags/* || "$BEFORE_SHA" =~ ^0+$ || -z "$BEFORE_SHA" ]]; then
+            # Release tags and the first push have no usable diff base, and the
+            # release pipeline consumes their candidate artifacts.
+            bun scripts/ci-plan.mjs --full
           else
-            bun scripts/ci-plan.mjs --full --base "$BEFORE_SHA" --head "$GITHUB_SHA"
+            # Main pushes plan from the pushed diff so untouched surfaces skip.
+            bun scripts/ci-plan.mjs --base "$BEFORE_SHA" --head "$GITHUB_SHA"
           fi
 
   policy:
@@ -196,34 +202,12 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - env:
           OPENPOST_GO_COVERAGE_FILE: coverage.out
+          OPENPOST_GO_TEST_RACE: "1"
         run: bun run test -- backend
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: backend/coverage.out
           fail_ci_if_error: false
-
-  backend-race:
-    name: Backend race tests
-    needs: plan
-    if: needs.plan.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            /*
-            !/frontend/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - env:
-          OPENPOST_GO_TEST_RACE: "1"
-        run: bun run test -- backend
 
   hosted-data-plane:
     name: Hosted PostgreSQL and object storage
@@ -701,7 +685,7 @@ jobs:
             ~/.bun/install/cache
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: android-${{ runner.os }}-${{ hashFiles('mobile/bun.lock', 'mobile/app.json', 'mobile/plugins/**') }}
+          key: android-${{ runner.os }}-${{ hashFiles('mobile/bun.lock', 'mobile/app.json', 'mobile/plugins/**', 'packages/api-contract/**', 'packages/query-catalog/**') }}
           restore-keys: android-${{ runner.os }}-
       - name: Install the standalone mobile app
         working-directory: mobile
@@ -794,8 +778,18 @@ jobs:
         id: manifest
         shell: bash
         run: |
-          latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
-          [[ -n "$latest_tag" ]]
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # The newest tag is the one being built, so version resolution must
+            # range from the previous release tag; there are no commits after it.
+            latest_tag="$(git describe --match 'v*' --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+            [[ -n "$latest_tag" ]] || {
+              echo "No previous release tag found before ${GITHUB_REF_NAME}." >&2
+              exit 1
+            }
+          else
+            latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
+            [[ -n "$latest_tag" ]]
+          fi
           bun run check -- provider-certification
           bun scripts/release-manifest.mjs create --changelog CHANGELOG.md --latest-tag "$latest_tag" --revision "$GITHUB_SHA" --output release-manifest.json
           version="$(jq -er .version release-manifest.json)"
@@ -891,7 +885,6 @@ jobs:
         backend-lint,
         frontend-quality,
         backend,
-        backend-race,
         hosted-data-plane,
         frontend-build,
         marketing-build,

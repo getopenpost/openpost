@@ -14,7 +14,7 @@
 	data-slot="radio-group-item"
 	data-cuelume-toggle="toggle"
 	class={cn(
-		'peer relative flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background shadow-xs transition-[color,box-shadow] outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:text-primary dark:bg-input/30',
+		'peer relative flex size-4 shrink-0 items-center justify-center rounded-full border border-field-border bg-field shadow-xs transition-[color,box-shadow] outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-navigation-active data-[state=checked]:text-navigation-active',
 		className
 	)}
 	{...restProps}

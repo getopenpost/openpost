@@ -4,7 +4,7 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import * as Sidebar from '$lib/components/ui/sidebar';
-	import BellIcon from '@lucide/svelte/icons/bell';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { compact = false }: { compact?: boolean } = $props();
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -28,7 +28,7 @@
 		data-testid="sidebar-notifications"
 		data-cuelume-toggle="tick"
 	>
-		<BellIcon class="size-4" />
+		<ThemeIcon role="notification" class="size-4" />
 		{#if unreadCount > 0}
 			<span
 				class="absolute end-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
@@ -49,7 +49,7 @@
 					href={resolve('/inbox/notifications' as '/')}
 					aria-label={m.notifications_bell_label({ count: unreadCount })}
 				>
-					<BellIcon class="size-4" />
+					<ThemeIcon role="notification" class="size-4" />
 					<span>{m.notifications_heading()}</span>
 					{#if unreadCount > 0}
 						<span

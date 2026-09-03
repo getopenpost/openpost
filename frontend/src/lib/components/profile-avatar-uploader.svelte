@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -20,11 +21,13 @@
 	let {
 		open = $bindable(false),
 		onComplete,
-		onError
+		onError,
+		onUncertain
 	}: {
 		open: boolean;
 		onComplete?: (avatarURL: string) => void;
 		onError?: (message: string) => void;
+		onUncertain?: () => void;
 	} = $props();
 
 	let mode = $state<'device' | 'camera'>('device');
@@ -38,6 +41,13 @@
 	let progress = $state(0);
 	let error = $state('');
 	let controller: AbortController | null = null;
+	let mounted = true;
+
+	onDestroy(() => {
+		mounted = false;
+		controller?.abort();
+		clearFile();
+	});
 
 	function handleOpenChange(nextOpen: boolean): void {
 		if (nextOpen) {
@@ -90,22 +100,35 @@
 		uploading = true;
 		error = '';
 		progress = 0;
-		controller = new AbortController();
+		const uploadController = new AbortController();
+		let requestStarted = false;
+		controller = uploadController;
 		try {
 			const prepared = file.type === 'image/gif' ? file : await cropAvatar(file);
+			if (uploadController.signal.aborted || !mounted) {
+				throw new DOMException('Aborted', 'AbortError');
+			}
 			const body = new FormData();
 			body.append('file', prepared);
-			const response = await uploadAvatar(body, controller.signal, (value) => (progress = value));
+			requestStarted = true;
+			const response = await uploadAvatar(body, uploadController.signal, (value) => {
+				if (mounted && controller === uploadController) progress = value;
+			});
 			if (!response.avatar_url) throw new Error(m.avatar_upload_missing_url());
 			onComplete?.(response.avatar_url);
+			if (uploadController.signal.aborted || !mounted || controller !== uploadController) return;
 			open = false;
 		} catch (cause) {
+			if (requestStarted) onUncertain?.();
 			if (cause instanceof DOMException && cause.name === 'AbortError') return;
+			if (!mounted || controller !== uploadController) return;
 			error = cause instanceof Error ? cause.message : m.avatar_upload_failed();
 			onError?.(error);
 		} finally {
-			uploading = false;
-			controller = null;
+			if (mounted && controller === uploadController) {
+				uploading = false;
+				controller = null;
+			}
 		}
 	}
 
@@ -154,6 +177,10 @@
 		onProgress: (value: number) => void
 	): Promise<{ avatar_url?: string }> {
 		return new Promise((resolve, reject) => {
+			if (signal.aborted) {
+				reject(new DOMException('Aborted', 'AbortError'));
+				return;
+			}
 			const xhr = new XMLHttpRequest();
 			xhr.open('POST', '/api/v1/auth/profile/avatar');
 			xhr.withCredentials = true;
@@ -250,7 +277,9 @@
 					<div class="space-y-4">
 						<div>
 							<p class="truncate text-sm font-medium">{file.name}</p>
-							<p class="mt-1 font-mono text-xs text-muted-foreground">{formatBytes(file.size)}</p>
+							<p class="mt-1 font-mono text-xs text-muted-foreground">
+								{formatBytes(file.size)}
+							</p>
 						</div>
 						{#if file.type !== 'image/gif'}
 							<label class="grid gap-2 text-sm">
@@ -284,7 +313,9 @@
 								/>
 							</label>
 						{:else}
-							<p class="text-xs text-muted-foreground">{m.avatar_upload_gif_preserved()}</p>
+							<p class="text-xs text-muted-foreground">
+								{m.avatar_upload_gif_preserved()}
+							</p>
 						{/if}
 						<Button variant="outline" onclick={() => fileInput?.click()} disabled={uploading}>
 							<ImageIcon />
@@ -320,7 +351,11 @@
 			{#if uploading}
 				<div class="mt-4" aria-live="polite">
 					<div class="flex items-center justify-between gap-3 text-sm">
-						<span>{m.avatar_upload_progress({ percent: Math.round(progress * 100) })}</span>
+						<span
+							>{m.avatar_upload_progress({
+								percent: Math.round(progress * 100)
+							})}</span
+						>
 						<Button variant="ghost" size="sm" onclick={() => controller?.abort()}
 							>{m.video_upload_cancel()}</Button
 						>

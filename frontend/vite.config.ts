@@ -3,7 +3,9 @@ import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
-import { defineConfig, type Plugin, type PluginOption } from 'vite';
+import { existsSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
 import { postHogSourceMaps } from '../scripts/posthog-source-maps.ts';
 
 const rawParaglidePlugin = paraglideVitePlugin({
@@ -16,6 +18,13 @@ const usesPrecompiledParaglide = process.env.OPENPOST_PARAGLIDE_PRECOMPILED === 
 const isVitest = process.env.VITEST === 'true';
 const apiProxyTimeoutMs = 120_000;
 const sourceMaps = postHogSourceMaps('app');
+const frontendRoot = fileURLToPath(new URL('.', import.meta.url));
+const dependencyRoots = [
+	fileURLToPath(new URL('node_modules', import.meta.url)),
+	fileURLToPath(new URL('../node_modules', import.meta.url))
+]
+	.filter(existsSync)
+	.map((path) => realpathSync(path));
 const svelteKitPlugins = await sveltekit();
 const appFrameworkPlugins = isVitest
 	? svelteKitPlugins.filter((plugin) => plugin.name !== 'vite-plugin-sveltekit-compile')
@@ -184,6 +193,9 @@ export default defineConfig({
 		]
 	},
 	server: {
+		fs: {
+			allow: [searchForWorkspaceRoot(frontendRoot), ...dependencyRoots]
+		},
 		proxy: {
 			'/api': {
 				target: 'http://localhost:8080',

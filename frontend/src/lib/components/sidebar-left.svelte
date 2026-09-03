@@ -21,17 +21,8 @@
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
 	import CreateWorkspaceDialog from './create-workspace-dialog.svelte';
-	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
-	import ComposeIcon from '@lucide/svelte/icons/square-pen';
-	import PostsIcon from '@lucide/svelte/icons/files';
-	import CommunicationsIcon from '@lucide/svelte/icons/messages-square';
-	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
-	import GrowthIcon from '@lucide/svelte/icons/user-round-plus';
-	import MediaIcon from '@lucide/svelte/icons/images';
-	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { ThemeIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes';
 	import type { Workspace } from '$lib/api/client';
 	import NotificationBell from './notification-bell.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -86,26 +77,26 @@
 			: m.sidebar_expand_workspace_navigation()
 	);
 
-	function navigationIcon(id: PrimaryNavigationItem['id']) {
+	function navigationIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
 		switch (id) {
 			case 'new':
-				return ComposeIcon;
+				return 'compose';
 			case 'calendar':
-				return CalendarIcon;
+				return 'calendar';
 			case 'publications':
-				return PostsIcon;
+				return 'publications';
 			case 'analytics':
-				return AnalyticsIcon;
+				return 'analytics';
 			case 'growth':
-				return GrowthIcon;
+				return 'growth';
 			case 'communications':
-				return CommunicationsIcon;
+				return 'communications';
 			case 'media':
-				return MediaIcon;
+				return 'media';
 			case 'editors':
-				return EditorsIcon;
+				return 'editors';
 			default:
-				return SettingsIcon;
+				return 'settings';
 		}
 	}
 
@@ -232,7 +223,7 @@
 			data-testid="sidebar-new-post"
 			onclick={handleNewPostClick}
 		>
-			<ComposeIcon class="size-4" />
+			<ThemeIcon role="compose" class="size-4" />
 			{#if sidebar.state !== 'collapsed'}<span>{m.sidebar_new_post()}</span>{/if}
 		</Button>
 	</Sidebar.Header>
@@ -252,7 +243,7 @@
 									tooltipContent={item.label}
 									onclick={() => navigate(item.href)}
 								>
-									<item.icon class="size-4" />
+									<ThemeIcon role={item.icon} class="size-4" />
 									<span>{item.label}</span>
 								</Sidebar.MenuButton>
 							</Sidebar.MenuItem>
@@ -277,7 +268,8 @@
 						onclick={() => (workspaceNavigationExpanded = !workspaceNavigationExpanded)}
 					>
 						<span class="flex-1 text-left">{m.sidebar_workspace()}</span>
-						<ChevronDownIcon
+						<ThemeIcon
+							role="chevron-down"
 							class={[
 								'size-3.5 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none',
 								!workspaceNavigationExpanded && '-rotate-180'
@@ -305,7 +297,7 @@
 										tooltipContent={item.label}
 										onclick={() => navigate(item.href)}
 									>
-										<item.icon class="size-3.5" />
+										<ThemeIcon role={item.icon} class="size-3.5" />
 										<span>{item.label}</span>
 									</Sidebar.MenuButton>
 								</Sidebar.MenuItem>
@@ -327,7 +319,7 @@
 						isActive={currentPath.startsWith('/editors')}
 						onclick={() => navigate('/editors')}
 					>
-						<EditorsIcon class="size-4" />
+						<ThemeIcon role="editors" class="size-4" />
 						<span>{m.editors_title()}</span>
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
@@ -360,7 +352,10 @@
 										>{authState.user?.email}</span
 									>
 								</div>
-								<MoreHorizontalIcon class="ms-auto size-4 text-sidebar-foreground/70" />
+								<ThemeIcon
+									role="more-horizontal"
+									class="ms-auto size-4 text-sidebar-foreground/70"
+								/>
 							</Sidebar.MenuButton>
 						{/snippet}
 					</DropdownMenu.Trigger>

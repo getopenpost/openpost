@@ -1,9 +1,8 @@
 <script lang="ts">
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { AIOpportunity, AIOpportunityGridCopy } from './ai-workspace-types';
 
 	interface Props {
@@ -39,12 +38,16 @@
 		<h2 id={`${uid}-heading`} class="text-base font-semibold tracking-tight">
 			{copy.heading}
 		</h2>
-		<p class="max-w-3xl text-sm leading-6 text-muted-foreground">{copy.description}</p>
+		<p class="max-w-3xl text-sm leading-6 text-muted-foreground">
+			{copy.description}
+		</p>
 	</div>
 
 	{#if loading && opportunities.length === 0}
 		<div role="status" aria-live="polite">
-			<p class="mb-3 text-sm text-muted-foreground">{loadingMessage || copy.loading}</p>
+			<p class="mb-3 text-sm text-muted-foreground">
+				{loadingMessage || copy.loading}
+			</p>
 			<div class="grid gap-3 md:grid-cols-2">
 				{#each Array(4) as _, index (index)}
 					<div class="rounded-lg border p-4">
@@ -58,7 +61,7 @@
 		</div>
 	{:else if opportunities.length === 0}
 		<EmptyState
-			icon={LightbulbIcon}
+			themeIconRole="idea"
 			title={copy.emptyTitle}
 			description={copy.emptyDescription}
 			variant="muted"
@@ -87,7 +90,9 @@
 				>
 					<div class="flex items-start gap-3">
 						<div class="min-w-0 flex-1">
-							<h3 class="text-sm leading-5 font-semibold">{opportunity.title}</h3>
+							<h3 class="text-sm leading-5 font-semibold">
+								{opportunity.title}
+							</h3>
 							<p class="mt-1.5 text-sm leading-6 text-muted-foreground">
 								{opportunity.premise}
 							</p>
@@ -97,7 +102,7 @@
 								class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
 								aria-hidden="true"
 							>
-								<CheckIcon class="size-3.5" />
+								<ThemeIcon role="check" class="size-3.5" />
 								<span class="sr-only">{copy.selected}</span>
 							</span>
 						{/if}
@@ -105,7 +110,9 @@
 
 					{#if opportunity.whyItFits}
 						<div class="mt-3 border-t pt-3">
-							<p class="text-xs font-medium text-foreground">{copy.whyItFits}</p>
+							<p class="text-xs font-medium text-foreground">
+								{copy.whyItFits}
+							</p>
 							<p class="mt-1 text-xs leading-5 text-muted-foreground">
 								{opportunity.whyItFits}
 							</p>

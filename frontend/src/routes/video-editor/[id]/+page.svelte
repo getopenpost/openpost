@@ -15,6 +15,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes/contracts';
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
@@ -113,23 +115,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		switchSequence,
 		type CreateCompositeCompositionOptions
 	} from '$lib/video-editor/sequences/sequence-actions';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
-	import ImagesIcon from '@lucide/svelte/icons/images';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
-	import BetweenHorizontalStartIcon from '@lucide/svelte/icons/between-horizontal-start';
-	import CaptionsIcon from '@lucide/svelte/icons/captions';
-	import StickerIcon from '@lucide/svelte/icons/sticker';
-	import PanelsTopLeftIcon from '@lucide/svelte/icons/panels-top-left';
-	import FilmIcon from '@lucide/svelte/icons/film';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import ShapesIcon from '@lucide/svelte/icons/shapes';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import SettingsIcon from '@lucide/svelte/icons/settings-2';
-	import VideoIcon from '@lucide/svelte/icons/video';
 	import {
 		editorWorkspace,
 		type EditorWorkspaceId
@@ -209,6 +194,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| 'lottie'
 		| 'transcript'
 		| 'ai';
+	type LeftPanelOption = {
+		value: LeftPanel;
+		label: string;
+	} & (
+		| { iconKind: 'protected'; icon: ProtectedIconRole }
+		| { iconKind: 'theme'; icon: ThemeIconRole }
+	);
 	let leftPanel = $state<LeftPanel>('media');
 	let mediaPanelView = $state<'project' | 'scenes'>('project');
 	let mobileEditPane = $state<'assets' | 'program' | 'tools'>('program');
@@ -310,29 +302,76 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			.length
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
-	const primaryLeftPanelOptions = $derived([
-		{ value: 'media' as const, label: m.video_editor_media_pool(), icon: ImagesIcon },
-		{ value: 'stock' as const, label: m.video_editor_stock_assets(), icon: SearchIcon },
-		{ value: 'text' as const, label: m.video_editor_tool_text(), icon: TypeIcon },
-		// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
-		{ value: 'shapes' as const, label: m.video_editor_shapes(), icon: ShapesIcon },
+	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
 		{
-			value: 'backgrounds' as const,
+			value: 'media',
+			label: m.video_editor_media_pool(),
+			iconKind: 'protected',
+			icon: 'editor-media'
+		},
+		{
+			value: 'stock',
+			label: m.video_editor_stock_assets(),
+			iconKind: 'theme',
+			icon: 'search'
+		},
+		{
+			value: 'text',
+			label: m.video_editor_tool_text(),
+			iconKind: 'protected',
+			icon: 'editor-text'
+		},
+		{
+			value: 'shapes',
+			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
+			label: m.video_editor_shapes(),
+			iconKind: 'protected',
+			icon: 'editor-shapes'
+		},
+		{
+			value: 'backgrounds',
 			label: m.video_editor_backgrounds_title(),
-			icon: PanelsTopLeftIcon
+			iconKind: 'protected',
+			icon: 'editor-backgrounds'
 		},
-		{ value: 'stickers' as const, label: m.video_editor_stickers(), icon: StickerIcon },
-		{ value: 'effects' as const, label: m.video_editor_effects(), icon: WandSparklesIcon },
 		{
-			value: 'transitions' as const,
-			label: m.video_editor_transition(),
-			icon: BetweenHorizontalStartIcon
+			value: 'stickers',
+			label: m.video_editor_stickers(),
+			iconKind: 'protected',
+			icon: 'editor-stickers'
 		},
-		{ value: 'lottie' as const, label: m.video_editor_animations(), icon: FilmIcon },
-		{ value: 'transcript' as const, label: m.video_editor_transcript(), icon: CaptionsIcon }
+		{
+			value: 'effects',
+			label: m.video_editor_effects(),
+			iconKind: 'protected',
+			icon: 'editor-effects'
+		},
+		{
+			value: 'transitions',
+			label: m.video_editor_transition(),
+			iconKind: 'protected',
+			icon: 'editor-transitions'
+		},
+		{
+			value: 'lottie',
+			label: m.video_editor_animations(),
+			iconKind: 'protected',
+			icon: 'editor-animation'
+		},
+		{
+			value: 'transcript',
+			label: m.video_editor_transcript(),
+			iconKind: 'protected',
+			icon: 'editor-captions'
+		}
 	]);
-	const utilityLeftPanelOptions = $derived([
-		{ value: 'ai' as const, label: m.video_editor_local_ai(), icon: SparklesIcon }
+	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
+		{
+			value: 'ai',
+			label: m.video_editor_local_ai(),
+			iconKind: 'theme',
+			icon: 'sparkles'
+		}
 	]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
 	const leftPanelHeading = $derived(
@@ -1614,6 +1653,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	<title>{editorSession.project?.name ?? m.video_editor_title()}</title>
 </svelte:head>
 
+{#snippet leftPanelIcon(option: LeftPanelOption, className?: string)}
+	{#if option.iconKind === 'protected'}
+		<ProtectedIcon icon={option.icon} class={className} />
+	{:else}
+		<ThemeIcon role={option.icon} class={className} />
+	{/if}
+{/snippet}
+
 <svelte:window
 	onkeydowncapture={onGlobalShortcutCapture}
 	onkeydown={onKeydown}
@@ -1621,15 +1668,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 />
 
 <div
-	class="video-editor-theme flex h-dvh flex-col bg-[oklch(0.145_0.008_55)] text-[oklch(0.92_0.005_85)]"
+	class="video-editor-theme flex h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
 	<header
-		class="grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_55)] px-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-3"
+		class="grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-3"
 	>
 		<div class="flex min-w-0 items-center gap-2">
 			<a
 				href="/video-editor"
-				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
 				<Logo class="h-5 w-auto" />
 				<span class="hidden text-sm font-semibold lg:inline">{m.video_editor_title()}</span>
@@ -1639,11 +1686,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			</span>
 		</div>
 		<EditorWorkspaceSwitcher value={activeWorkspace} onchange={changeEditorWorkspace} />
-		<div class="flex min-w-0 items-center justify-end gap-1 text-xs text-[oklch(0.65_0.015_55)]">
+		<div
+			class="flex min-w-0 items-center justify-end gap-1 text-xs text-[var(--video-editor-muted)]"
+		>
 			{#if editorSession.saving}
 				<span class="hidden sm:inline">{m.video_editor_saving()}</span>
 			{:else if editorSession.saveError}
-				<span class="hidden text-red-300 sm:inline" title={editorSession.saveError}>
+				<span class="hidden text-destructive sm:inline" title={editorSession.saveError}>
 					{m.video_editor_save_failed()}
 				</span>
 			{:else if !timelineStore.isDirty}
@@ -1658,7 +1707,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				title={m.video_editor_record_screen()}
 				onclick={() => (recordingOpen = true)}
 			>
-				<VideoIcon class="size-3.5" aria-hidden="true" />
+				<ProtectedIcon icon="editor-record" class="size-3.5" />
 				<span class="hidden lg:inline">{m.video_editor_record()}</span>
 			</Button>
 			<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
@@ -1671,7 +1720,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				title={m.video_editor_settings_title()}
 				onclick={() => (settingsOpen = true)}
 			>
-				<SettingsIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="settings" class="size-3.5" />
 			</Button>
 			{#if renderProject}
 				{#key renderProject.id}
@@ -1703,7 +1752,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							size="icon-xs"
 							aria-label={m.image_editor_more_actions()}
 						>
-							<MoreHorizontalIcon aria-hidden="true" />
+							<ThemeIcon role="more-horizontal" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -1744,12 +1793,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		</main>
 	{:else if editorSession.loading}
 		<main class="flex flex-1 items-center justify-center">
-			<LoaderIcon class="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+			<ProtectedIcon icon="loading" class="size-5 animate-spin motion-reduce:animate-none" />
 			<span class="sr-only">{m.editors_loading()}</span>
 		</main>
 	{:else if editorSession.loadError}
 		<main class="flex flex-1 flex-col items-center justify-center gap-3">
-			<p class="text-sm text-[oklch(0.65_0.015_55)]">
+			<p class="text-sm text-[var(--video-editor-muted)]">
 				{editorSession.loadError}
 			</p>
 			<Button variant="outline" href="/video-editor">{m.video_editor_go_back()}</Button>
@@ -1758,13 +1807,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		{#key projectId}
 			{#if activeWorkspace === 'edit'}
 				<nav
-					class="grid shrink-0 grid-cols-3 border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_50)] p-1 lg:hidden"
+					class="grid shrink-0 grid-cols-3 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 lg:hidden"
 					aria-label={m.video_editor_mobile_panels()}
 				>
 					<button
 						type="button"
 						class:active={mobileEditPane === 'assets'}
-						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 						aria-controls="video-editor-assets-panel"
 						aria-pressed={mobileEditPane === 'assets'}
 						onclick={() => (mobileEditPane = 'assets')}
@@ -1774,7 +1823,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					<button
 						type="button"
 						class:active={mobileEditPane === 'program'}
-						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 						aria-controls="video-editor-program-panel"
 						aria-pressed={mobileEditPane === 'program'}
 						onclick={() => (mobileEditPane = 'program')}
@@ -1784,7 +1833,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					<button
 						type="button"
 						class:active={mobileEditPane === 'tools'}
-						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 						aria-controls="video-editor-tools-panel"
 						aria-pressed={mobileEditPane === 'tools'}
 						onclick={() => (mobileEditPane = 'tools')}
@@ -1812,7 +1861,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{#if activeWorkspace === 'edit'}
 						<aside
 							id="video-editor-assets-panel"
-							class="relative h-[min(44%,22rem)] min-h-24 w-full flex-none flex-col border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 lg:w-auto lg:border-r lg:border-b-0 {mobileEditPane ===
+							class="relative h-[min(44%,22rem)] min-h-24 w-full flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 lg:w-auto lg:border-r lg:border-b-0 {mobileEditPane ===
 							'assets'
 								? 'flex'
 								: 'hidden'}"
@@ -1820,7 +1869,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						>
 							<div class="flex min-h-0 flex-1">
 								<nav
-									class="hidden w-11 shrink-0 flex-col border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_50)] lg:flex"
+									class="hidden w-11 shrink-0 flex-col border-r border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] lg:flex"
 									aria-label={m.video_editor_assets()}
 								>
 									<div
@@ -1833,7 +1882,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2"
 										>
 											{#each primaryLeftPanelOptions as option (option.value)}
-												{@const Icon = option.icon}
 												<Tooltip.Root>
 													<Tooltip.Trigger>
 														{#snippet child({ props })}
@@ -1841,7 +1889,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																{...props}
 																variant={leftPanel === option.value ? 'secondary' : 'ghost'}
 																size="icon-sm"
-																class="shrink-0 text-[oklch(0.72_0.015_55)] data-[active=true]:text-white"
+																class="shrink-0 text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
 																data-active={leftPanel === option.value}
 																data-left-panel-tab={option.value}
 																data-tab-orientation="vertical"
@@ -1854,7 +1902,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																onkeydown={(event) =>
 																	moveLeftPanelFocus(event, option.value, 'vertical')}
 															>
-																<Icon aria-hidden="true" />
+																{@render leftPanelIcon(option)}
 															</Button>
 														{/snippet}
 													</Tooltip.Trigger>
@@ -1863,10 +1911,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{/each}
 										</div>
 										<div
-											class="flex shrink-0 flex-col items-center gap-1 border-t border-[oklch(0.25_0.015_55)] py-2"
+											class="flex shrink-0 flex-col items-center gap-1 border-t border-[var(--video-editor-border)] py-2"
 										>
 											{#each utilityLeftPanelOptions as option (option.value)}
-												{@const Icon = option.icon}
 												<Tooltip.Root>
 													<Tooltip.Trigger>
 														{#snippet child({ props })}
@@ -1874,7 +1921,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																{...props}
 																variant={leftPanel === option.value ? 'secondary' : 'ghost'}
 																size="icon-sm"
-																class="text-[oklch(0.72_0.015_55)] data-[active=true]:text-white"
+																class="text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
 																data-active={leftPanel === option.value}
 																data-left-panel-tab={option.value}
 																data-tab-orientation="vertical"
@@ -1887,7 +1934,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																onkeydown={(event) =>
 																	moveLeftPanelFocus(event, option.value, 'vertical')}
 															>
-																<Icon aria-hidden="true" />
+																{@render leftPanelIcon(option)}
 															</Button>
 														{/snippet}
 													</Tooltip.Trigger>
@@ -1897,7 +1944,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										</div>
 									</div>
 									<div
-										class="flex shrink-0 flex-col items-center border-t border-[oklch(0.25_0.015_55)] py-2"
+										class="flex shrink-0 flex-col items-center border-t border-[var(--video-editor-border)] py-2"
 									>
 										<DropdownMenu.Root>
 											<DropdownMenu.Trigger>
@@ -1909,7 +1956,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 														aria-label={m.image_editor_add_layer()}
 														title={m.image_editor_add_layer()}
 													>
-														<PlusIcon aria-hidden="true" />
+														<ThemeIcon role="add" />
 													</Button>
 												{/snippet}
 											</DropdownMenu.Trigger>
@@ -1930,9 +1977,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								</nav>
 								<div class="flex min-w-0 flex-1 flex-col">
 									<div
-										class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[oklch(0.25_0.015_55)] px-2"
+										class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-2"
 									>
-										<h2 class="min-w-0 truncate text-sm font-medium text-white/90">
+										<h2
+											class="min-w-0 truncate text-sm font-medium text-[var(--video-editor-text)]"
+										>
 											{leftPanelHeading}
 										</h2>
 										<div class="lg:hidden">
@@ -1945,7 +1994,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															variant="ghost"
 															aria-label={m.image_editor_add_layer()}
 														>
-															<PlusIcon aria-hidden="true" />
+															<ThemeIcon role="add" />
 														</Button>
 													{/snippet}
 												</DropdownMenu.Trigger>
@@ -1961,17 +2010,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										</div>
 									</div>
 									<div
-										class="flex shrink-0 gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] p-1 lg:hidden"
+										class="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--video-editor-border)] p-1 lg:hidden"
 										aria-label={m.video_editor_assets()}
 										aria-orientation="horizontal"
 										role="tablist"
 									>
 										{#each leftPanelOptions as option (option.value)}
-											{@const Icon = option.icon}
 											<button
 												type="button"
 												class:active={leftPanel === option.value}
-												class="flex min-h-11 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												class="flex min-h-11 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 												data-left-panel-tab={option.value}
 												data-tab-orientation="horizontal"
 												role="tab"
@@ -1981,31 +2029,33 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												onclick={() => (leftPanel = option.value)}
 												onkeydown={(event) => moveLeftPanelFocus(event, option.value, 'horizontal')}
 											>
-												<Icon class="size-3.5" aria-hidden="true" />
+												{@render leftPanelIcon(option, 'size-3.5')}
 												{option.label}
 											</button>
 										{/each}
 									</div>
 									{#if leftPanel === 'media'}
-										<div class="grid grid-cols-2 gap-1 border-b border-[oklch(0.25_0.015_55)] p-1">
+										<div
+											class="grid grid-cols-2 gap-1 border-b border-[var(--video-editor-border)] p-1"
+										>
 											<button
 												type="button"
 												class:active={mediaPanelView === 'project'}
-												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 												aria-pressed={mediaPanelView === 'project'}
 												onclick={() => (mediaPanelView = 'project')}
 											>
-												<ImagesIcon class="size-3.5" aria-hidden="true" />
+												<ProtectedIcon icon="editor-media" class="size-3.5" />
 												{m.video_editor_media_tab()}
 											</button>
 											<button
 												type="button"
 												class:active={mediaPanelView === 'scenes'}
-												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
 												aria-pressed={mediaPanelView === 'scenes'}
 												onclick={() => (mediaPanelView = 'scenes')}
 											>
-												<ClapperboardIcon class="size-3.5" aria-hidden="true" />
+												<ProtectedIcon icon="editor-scenes" class="size-3.5" />
 												{m.video_editor_scenes()}
 											</button>
 										</div>
@@ -2135,7 +2185,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							>
 								{#if showSourceMonitor}
 									<div
-										class="flex h-9 shrink-0 items-center border-b border-[oklch(0.23_0.012_55)] px-3 text-xs font-medium text-[oklch(0.72_0.015_55)]"
+										class="flex h-9 shrink-0 items-center border-b border-[var(--video-editor-border)] px-3 text-xs font-medium text-[var(--video-editor-muted)]"
 									>
 										{m.video_editor_program_monitor()}
 									</div>
@@ -2160,7 +2210,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							</section>
 							{#if activeWorkspace === 'color'}
 								<aside
-									class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.007_55)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
+									class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[oklch(0.135_0.007_55)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
 									style:--scopes-panel-width={`${effectiveScopesPanelWidth}px`}
 									aria-label={m.video_editor_scopes()}
 								>
@@ -2189,7 +2239,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{#if activeWorkspace === 'edit'}
 						<aside
 							id="video-editor-tools-panel"
-							class="relative h-[min(44%,22rem)] min-h-0 w-full flex-none flex-col border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto lg:w-auto lg:border-t-0 lg:border-l {mobileEditPane ===
+							class="relative h-[min(44%,22rem)] min-h-0 w-full flex-none flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto lg:w-auto lg:border-t-0 lg:border-l {mobileEditPane ===
 							'tools'
 								? 'flex'
 								: 'hidden'}"
@@ -2206,9 +2256,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								oncommit={(value) => persistPanelSize('inspectorPanelWidth', value)}
 							/>
 							<div
-								class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[oklch(0.25_0.015_55)] px-3"
+								class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-3"
 							>
-								<h2 class="min-w-0 truncate text-sm font-medium text-white/90">
+								<h2 class="min-w-0 truncate text-sm font-medium text-[var(--video-editor-text)]">
 									{editInspectorHeading}
 								</h2>
 								{#if selectedItemId || selectedTransition}
@@ -2221,7 +2271,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													variant="ghost"
 													aria-label={m.image_editor_more_actions()}
 												>
-													<MoreHorizontalIcon aria-hidden="true" />
+													<ThemeIcon role="more-horizontal" />
 												</Button>
 											{/snippet}
 										</DropdownMenu.Trigger>
@@ -2280,9 +2330,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<div class="mt-3">
 											<div class="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
 												{#if scanningScenes}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="size-3.5 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{/if}
 												{m.video_editor_scene_split()}
@@ -2365,7 +2415,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										/>
 									</div>
 									<div
-										class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[oklch(0.25_0.015_55)] p-1"
+										class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[var(--video-editor-border)] p-1"
 									>
 										<TranscriptPanel
 											itemIds={selectedItemIds.length > 0
@@ -2377,7 +2427,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										/>
 									</div>
 									<div
-										class="mt-3 grid grid-cols-2 gap-1 border-t border-[oklch(0.25_0.015_55)] pt-3"
+										class="mt-3 grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] pt-3"
 									>
 										<Button
 											size="sm"
@@ -2403,7 +2453,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								{:else if sequenceStore.activeSequenceId === null}
 									<ProjectCanvasPanel onedit={() => editorSession.scheduleAutosave()} />
 								{:else}
-									<p class="px-1 py-3 text-sm text-[oklch(0.62_0.01_55)]">
+									<p class="px-1 py-3 text-sm text-[var(--video-editor-muted)]">
 										{m.video_editor_select_clip()}
 									</p>
 								{/if}
@@ -2469,7 +2519,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				{/if}
 				{#if activeWorkspace !== 'color'}
 					<footer
-						class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.145_0.008_55)] {activeWorkspace ===
+						class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[oklch(0.145_0.008_55)] {activeWorkspace ===
 						'edit'
 							? 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
 							: 'lg:h-[var(--timeline-height)]'}"

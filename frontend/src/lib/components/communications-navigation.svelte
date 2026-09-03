@@ -2,9 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { goto } from '$app/navigation';
-	import MessageCircleIcon from '@lucide/svelte/icons/message-circle';
-	import InboxIcon from '@lucide/svelte/icons/inbox';
-	import BellIcon from '@lucide/svelte/icons/bell';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -41,7 +39,7 @@
 		]}
 		aria-current={active === 'engagement' ? 'page' : undefined}
 	>
-		<MessageCircleIcon class="size-4" />
+		<ThemeIcon role="communications" class="size-4" />
 		{m.engagement_heading()}
 	</a>
 	<a
@@ -56,7 +54,7 @@
 		]}
 		aria-current={active === 'messages' ? 'page' : undefined}
 	>
-		<InboxIcon class="size-4" />
+		<ThemeIcon role="mail" class="size-4" />
 		{m.messages_heading()}
 	</a>
 	<a
@@ -71,7 +69,7 @@
 		]}
 		aria-current={active === 'notifications' ? 'page' : undefined}
 	>
-		<BellIcon class="size-4" />
+		<ThemeIcon role="notification" class="size-4" />
 		{m.notifications_heading()}
 	</a>
 </nav>

@@ -58,9 +58,15 @@ describe('GrowthProfileCard', () => {
 
 		const openBtn = screen.getByRole('button', { name: /Open profile for @jane/i });
 		await expect.element(openBtn).toBeInTheDocument();
+		expect(
+			openBtn.element().querySelector('[data-theme-icon]')?.getAttribute('data-theme-icon')
+		).toBe('external-link');
 
 		const dismissBtn = screen.getByRole('button', { name: /Dismiss recommendation for @jane/i });
 		await expect.element(dismissBtn).toBeInTheDocument();
+		expect(
+			dismissBtn.element().querySelector('[data-theme-icon]')?.getAttribute('data-theme-icon')
+		).toBe('close');
 	});
 
 	it('shows Following… disabled when pending', async () => {

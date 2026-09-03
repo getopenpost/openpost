@@ -5,7 +5,7 @@
 		base: 'rounded-lg p-[3px] group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:min-h-11 md:group-data-horizontal/tabs:h-8 md:group-data-horizontal/tabs:min-h-0 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
 		variants: {
 			variant: {
-				default: 'cn-tabs-list-variant-default bg-muted',
+				default: 'cn-tabs-list-variant-default bg-navigation-hover',
 				line: 'cn-tabs-list-variant-line gap-1 bg-transparent'
 			}
 		},

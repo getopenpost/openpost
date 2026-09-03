@@ -106,7 +106,9 @@
 	}
 
 	async function openNotification(notification: Notification) {
+		const requestedWorkspace = workspaceId;
 		if (!notification.read_at) await markNotificationRead(notification);
+		if (workspaceId !== requestedWorkspace) return;
 		if (isSafeLocalHref(notification.href)) {
 			await goto(resolveAppPath(notification.href));
 		}
@@ -123,28 +125,36 @@
 	}
 
 	async function runNotificationAction(notification: Notification, action: NotificationAction) {
-		actionPending = `${notification.id}:${action.label}`;
+		const requestedWorkspace = workspaceId;
+		const actionKey = `${notification.id}:${action.label}`;
+		actionPending = actionKey;
 		try {
 			if (action.operation === 'retry_failed_publication' && action.target_id) {
 				const { error: apiError } = await client.POST('/publications/{id}/retry-failed', {
 					params: { path: { id: action.target_id } }
 				});
 				if (apiError) {
-					showToast(apiError.detail || m.notifications_action_failed(), 'error');
+					if (workspaceId === requestedWorkspace) {
+						showToast(apiError.detail || m.notifications_action_failed(), 'error');
+					}
 					return;
 				}
+				if (workspaceId !== requestedWorkspace) return;
 				showToast(m.notifications_retry_queued(), 'success');
 				await openNotification(notification);
-				await notificationInbox.refresh(workspaceId, { background: true });
+				await notificationInbox.refresh(requestedWorkspace, { background: true });
 				return;
 			}
+			if (workspaceId !== requestedWorkspace) return;
 			if (isSafeLocalHref(action.href)) {
 				await openNotification({ ...notification, href: action.href ?? '' });
 			}
 		} catch {
-			showToast(m.notifications_action_failed(), 'error');
+			if (workspaceId === requestedWorkspace) {
+				showToast(m.notifications_action_failed(), 'error');
+			}
 		} finally {
-			actionPending = '';
+			if (actionPending === actionKey) actionPending = '';
 		}
 	}
 
@@ -284,14 +294,15 @@
 					</Button>
 				{/snippet}
 			</InlineNotice>
-		{:else if inbox.items.length === 0}
+		{/if}
+		{#if inbox.initialized && inbox.items.length === 0}
 			<EmptyState
 				icon={BellIcon}
 				title={m.notifications_empty_title()}
 				description={m.notifications_empty_description()}
 				variant="muted"
 			/>
-		{:else}
+		{:else if inbox.items.length > 0}
 			<section aria-label={m.notifications_heading()}>
 				<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 					<div class="space-y-1">

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import CropIcon from '@lucide/svelte/icons/crop';
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import { Slider } from '$lib/components/ui/slider';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -268,7 +268,7 @@
 							aria-label={m.video_editor_motion_override_reset({ name: control.label() })}
 							onclick={() => reset(control.property)}
 						>
-							<RotateCcwIcon class="size-3.5" aria-hidden="true" />
+							<ThemeIcon role="undo" class="size-3.5" />
 						</button>
 					</div>
 				</div>

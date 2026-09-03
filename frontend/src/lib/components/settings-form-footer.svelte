@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SaveIcon from '@lucide/svelte/icons/save';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		label: string;
@@ -25,10 +24,10 @@
 <footer data-slot="settings-form-footer" class="flex justify-end border-t pt-4">
 	<Button {type} onclick={onSave} disabled={disabled || saving}>
 		{#if saving}
-			<LoaderIcon class="size-4 animate-spin" />
+			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 			{savingLabel}
 		{:else}
-			<SaveIcon class="size-4" />
+			<ThemeIcon role="save" class="size-4" />
 			{label}
 		{/if}
 	</Button>

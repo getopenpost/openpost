@@ -7,13 +7,18 @@
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import {
-		applyAPIRequestHeaders,
-		client,
-		type SocialAccount,
-		type Workspace
-	} from '$lib/api/client';
+	import { client, type SocialAccount, type Workspace } from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
+	import { publishingOptionsQueryOptions } from '@openpost/query-catalog';
+	import { queryClient } from '$lib/query/client';
+	import { queryMediaMetadata } from '$lib/query/media';
+	import { queryVoiceProfiles } from '$lib/query/voice-profiles';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent,
+		type QueryMutationSession
+	} from '$lib/query/authorization-boundary';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import AIWorkspaceDialog from '$lib/components/post-builder/ai-workspace-dialog.svelte';
 	import type {
@@ -29,7 +34,6 @@
 		createPublicationBuild,
 		discoverPublicationOpportunities,
 		getPublicationBuild,
-		listVoiceProfiles,
 		planPublicationAngles,
 		retryPublicationBuild,
 		type PublicationBuild,
@@ -177,7 +181,6 @@
 		type PublicationDraft
 	} from '$lib/composer/session';
 	import { composerErrorMessage } from '$lib/composer/error-presentation';
-	import { parseComposerMediaMetadata } from '$lib/composer/media-metadata';
 	import { createComposerPublicationClient } from '$lib/composer/publication-client';
 	import { buildComposerPreview } from '$lib/compose-preview';
 	import { openPreviewWindow, type PreviewWindowSession } from '$lib/preview-window';
@@ -369,6 +372,7 @@
 	let composerDestroyed = false;
 	let nextSlotRequestSequence = 0;
 	let saveGeneration = 0;
+	let saveOperationSequence = 0;
 	let composerSession: ComposerSession | null = null;
 	let unsubscribeComposerSession: (() => void) | null = null;
 	let allowNavigationOnce = false;
@@ -417,6 +421,7 @@
 	let aiOpportunitySlow = $state(false);
 	let aiBuildCreateRejected = $state(false);
 	let aiRequestController: AbortController | null = null;
+	let aiVoiceRequestController: AbortController | null = null;
 	let aiMemeCandidates = $state.raw<AIMemeRecommendationCandidate[]>([]);
 	let aiMemeSelectedID = $state('');
 	let aiMemeError = $state('');
@@ -514,7 +519,7 @@
 			unsubscribeComposerSession?.();
 			composerSession = new ComposerSession({
 				workspaceId,
-				client: createComposerPublicationClient()
+				client: createComposerPublicationClient(workspaceId)
 			});
 			unsubscribeComposerSession = composerSession.subscribe((state) => {
 				workspaceSwitchState = state.workspaceSwitch;
@@ -2164,27 +2169,24 @@
 		try {
 			const results = await Promise.all(
 				sources.map(async (source) => {
-					const { data, error: optionsError } = await client.GET(
-						'/accounts/{account_id}/publishing-options/{source}',
-						{
-							params: {
-								path: { account_id: account.id, source },
-								query: {
-									region,
-									locale: getLocaleTag(),
-									limit: 25,
-									search: effectiveSearch,
-									cursor: append
-										? (destinationOptionCursorsByAccount[account.id]?.[source] ?? '')
-										: '',
-									context: JSON.stringify(settingsForAccount(account))
-								}
-							}
-						}
-					);
-					if (optionsError) {
-						throw new Error(optionsError.detail || m.compose_load_provider_options_failed());
+					const options = publishingOptionsQueryOptions(schedulingQueryAPI, selectedWorkspaceId, {
+						accountId: account.id,
+						source,
+						region,
+						locale: getLocaleTag(),
+						limit: 25,
+						search: effectiveSearch,
+						cursor: append ? (destinationOptionCursorsByAccount[account.id]?.[source] ?? '') : '',
+						context: JSON.stringify(settingsForAccount(account))
+					});
+					if (force && !onlySource && !search && !append) {
+						await queryClient.invalidateQueries({
+							queryKey: options.queryKey,
+							exact: true,
+							refetchType: 'none'
+						});
 					}
+					const data = await queryClient.query(options);
 					return [source, data?.options ?? [], data?.next_cursor ?? ''] as const;
 				})
 			);
@@ -2533,12 +2535,16 @@
 
 	async function openImageEditorFromComposer() {
 		if (!selectedWorkspaceId) return;
+		const workspaceId = selectedWorkspaceId;
+		const generation = saveGeneration;
+		const mutationSession = captureQueryMutationSession();
 		mediaPickerOpen = false;
 		await requireSavedComposerBeforeHandoff();
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
 		const returnURL = composerHandoffReturnURL();
 		const purpose = isThread ? 'thread_segment' : 'post_media';
 		const token = await createImageEditorReturnToken({
-			workspace_id: selectedWorkspaceId,
+			workspace_id: workspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
 			purpose,
 			max_selection: composerMediaLimit,
@@ -2548,9 +2554,9 @@
 				thread_segment: mediaPickerPostIndex
 			}
 		});
-		const binding = (await sessionFor(selectedWorkspaceId, publicationId)).bindEditorHandoff(
-			token.token
-		);
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
+		const binding = (await sessionFor(workspaceId, publicationId)).bindEditorHandoff(token.token);
+		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
 		storeEditorHandoff(token.token, {
 			version: 2,
 			editor: 'image',
@@ -2566,7 +2572,7 @@
 		});
 		await goto(
 			resolveAppPath(
-				`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}`
+				`/image-editor/new?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
 			)
 		);
 	}
@@ -2575,15 +2581,19 @@
 		if (!$page?.url) return;
 		const token = $page.url.searchParams.get('image_editor_return');
 		if (!token) return;
+		const generation = saveGeneration;
+		const mutationSession = captureQueryMutationSession();
 		try {
 			const snapshot = loadEditorHandoff(token, 'image');
 			if (!snapshot) throw new ComposerSessionError('image_editor_return_inactive');
 			await restoreComposerHandoff(snapshot, token);
+			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if ($page.url.searchParams.get('editor_handoff_cancelled') === '1') {
 				finishEditorHandoff(token);
 				return;
 			}
 			const result = await consumeImageEditorReturnToken(token);
+			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if (snapshot.workspace_id !== result.workspace_id) {
 				throw new ComposerSessionError('image_editor_return_workspace_mismatch');
 			}
@@ -2607,6 +2617,13 @@
 			finishEditorHandoff(token);
 			notifyImageEditorReturn(result.media_ids.length);
 		} catch (cause) {
+			if (
+				composerDestroyed ||
+				generation !== saveGeneration ||
+				!queryMutationSessionIsCurrent(mutationSession)
+			) {
+				return;
+			}
 			finishEditorHandoff(token);
 			error =
 				cause instanceof Error
@@ -2900,6 +2917,7 @@
 		if (aiPollTimer) clearTimeout(aiPollTimer);
 		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
 		aiRequestController?.abort();
+		aiVoiceRequestController?.abort();
 		capabilityResolveAbortController?.abort();
 		for (const controller of captionRequests.values()) controller.abort();
 		captionRequests.clear();
@@ -3070,30 +3088,20 @@
 		if (!workspaceId || missingIds.length === 0) return;
 
 		try {
-			const resp = await fetch(
-				`/api/v1/media/metadata?workspace_id=${encodeURIComponent(
-					workspaceId
-				)}&media_ids=${encodeURIComponent(missingIds.join(','))}`,
-				{
-					credentials: 'include',
-					headers: applyAPIRequestHeaders(new Headers())
-				}
-			);
-			if (!resp.ok) return;
-
-			const mediaData = parseComposerMediaMetadata(await resp.json());
+			const mediaData = (await queryMediaMetadata(workspaceId, missingIds, { force })).media;
+			if (composerDestroyed || workspaceId !== selectedWorkspaceId) return;
 			const nextMimeTypes = new SvelteMap(mediaMimeTypes);
 			const nextAltTexts = new SvelteMap(mediaAltTexts);
 			const nextSizes = new SvelteMap(mediaSizes);
 			for (const media of mediaData) {
-				if (media.mimeType) {
-					nextMimeTypes.set(media.id, media.mimeType);
+				if (media.mime_type) {
+					nextMimeTypes.set(media.id, media.mime_type);
 				}
 				if (media.size !== undefined) {
 					nextSizes.set(media.id, media.size);
 				}
-				if (media.altText) {
-					nextAltTexts.set(media.id, media.altText);
+				if (media.alt_text) {
+					nextAltTexts.set(media.id, media.alt_text);
 				} else {
 					nextAltTexts.delete(media.id);
 				}
@@ -3101,8 +3109,10 @@
 			mediaMimeTypes = nextMimeTypes;
 			mediaAltTexts = nextAltTexts;
 			mediaSizes = nextSizes;
-		} catch (e) {
-			console.error('Failed to load media metadata:', e);
+		} catch (cause) {
+			if (!composerDestroyed && workspaceId === selectedWorkspaceId) {
+				console.error('Failed to load media metadata:', cause);
+			}
 		}
 	}
 
@@ -3262,6 +3272,7 @@
 		composerSession = null;
 		clearAutoSaveTimer();
 		aiRequestController?.abort();
+		aiVoiceRequestController?.abort();
 		if (aiPollTimer) clearTimeout(aiPollTimer);
 		aiPollTimer = null;
 		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
@@ -3479,6 +3490,19 @@
 		return saveDraftNow(options);
 	}
 
+	function saveMutationViewIsCurrent(
+		session: QueryMutationSession,
+		generation: number,
+		workspaceId: string
+	): boolean {
+		return (
+			!composerDestroyed &&
+			generation === saveGeneration &&
+			selectedWorkspaceId === workspaceId &&
+			queryMutationSessionIsCurrent(session)
+		);
+	}
+
 	async function saveDraftNow(options: {
 		saveAsCopy?: boolean;
 		scheduledAt?: string | null;
@@ -3486,7 +3510,9 @@
 	}): Promise<string | null> {
 		if (!selectedWorkspaceId || (!hasContent && !options.allowEmpty)) return null;
 		const generation = saveGeneration;
+		const operationSequence = ++saveOperationSequence;
 		const workspaceId = selectedWorkspaceId;
+		const mutationSession = captureQueryMutationSession();
 		const startingPublicationId = options.saveAsCopy ? '' : publicationId;
 		const snapshot = getSaveSnapshot();
 		clearSavedIndicator();
@@ -3513,9 +3539,7 @@
 			const saved = await session.save();
 			const savedPublicationId = saved.id;
 
-			if (generation !== saveGeneration || selectedWorkspaceId !== workspaceId) {
-				return null;
-			}
+			if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return null;
 			const createdPublication = !startingPublicationId;
 			publicationId = savedPublicationId;
 			revision = saved.revision;
@@ -3536,14 +3560,12 @@
 			return savedPublicationId;
 		} catch (cause) {
 			console.error('Failed to save text post draft:', cause);
-			if (generation === saveGeneration && selectedWorkspaceId === workspaceId) {
+			if (saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) {
 				error = cause instanceof Error ? cause.message : m.compose_save_draft_failed();
 			}
 			return null;
 		} finally {
-			if (generation === saveGeneration && selectedWorkspaceId === workspaceId) {
-				isSaving = false;
-			}
+			if (operationSequence === saveOperationSequence) isSaving = false;
 		}
 	}
 
@@ -4355,22 +4377,28 @@
 
 	async function loadAIWorkspaceVoice(workspaceID: string): Promise<void> {
 		if (!workspaceID) return;
+		aiVoiceRequestController?.abort();
+		const controller = new AbortController();
+		aiVoiceRequestController = controller;
 		if (workspaceID === selectedWorkspaceId) {
 			aiVoiceName = m.compose_ai_default_voice();
 			aiVoiceProfileID = '';
 		}
 		try {
-			const profiles = await listVoiceProfiles(workspaceID);
+			const profiles = await queryVoiceProfiles(workspaceID, controller.signal);
 			if (workspaceID !== selectedWorkspaceId) return;
 			const profile = profiles.find((candidate) => candidate.is_default) ?? profiles[0];
 			if (profile) {
 				aiVoiceName = profile.name;
 				aiVoiceProfileID = profile.id;
 			}
-		} catch {
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') return;
 			if (workspaceID !== selectedWorkspaceId) return;
 			aiVoiceName = m.compose_ai_default_voice();
 			aiVoiceProfileID = '';
+		} finally {
+			if (aiVoiceRequestController === controller) aiVoiceRequestController = null;
 		}
 	}
 

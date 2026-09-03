@@ -1,8 +1,7 @@
 <script lang="ts">
 	import * as Popover from '$lib/components/ui/popover';
 	import { Input } from '$lib/components/ui/input';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import SearchIcon from '@lucide/svelte/icons/search';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { ImageEditorBrandFont } from '../types';
 	import { m } from '$lib/paraglide/messages';
 	import { openPostDesignFonts } from '$lib/design-fonts';
@@ -70,7 +69,8 @@
 	</Popover.Trigger>
 	<Popover.Content align="end" class="w-72 p-2">
 		<div class="relative mb-2">
-			<SearchIcon
+			<ThemeIcon
+				role="search"
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
 			/>
 			<Input
@@ -106,7 +106,7 @@
 							{font.family}
 						</span>
 						{#if value === (font.css_family || font.family)}
-							<CheckIcon class="size-4 shrink-0" />
+							<ThemeIcon role="check" class="size-4 shrink-0" />
 						{/if}
 					</button>
 				{/each}
@@ -125,7 +125,7 @@
 							{font.label}
 						</span>
 						<span class="shrink-0 text-[10px] text-muted-foreground">{font.category}</span>
-						{#if value === font.family}<CheckIcon class="size-4 shrink-0" />{/if}
+						{#if value === font.family}<ThemeIcon role="check" class="size-4 shrink-0" />{/if}
 					</button>
 				{/each}
 			{/if}

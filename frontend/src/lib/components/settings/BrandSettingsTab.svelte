@@ -1,56 +1,55 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import BrandKitEditor from '$lib/image-editor/components/brand-kit-editor.svelte';
-	import { loadImageEditorBrandKit } from '$lib/image-editor/api';
-	import type { ImageEditorBrandKit } from '$lib/image-editor/types';
+	import { imageEditorQueryAPI } from '$lib/query/image-editor';
+	import { queryClient } from '$lib/query/client';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { imageEditorBrandKitQueryOptions, imageEditorQueryKeys } from '@openpost/query-catalog';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let { workspaceID, active }: { workspaceID: string; active: boolean } = $props();
-	let kit = $state.raw<ImageEditorBrandKit | null>(null);
-	let loading = $state(false);
-	let error = $state('');
-	let loadedWorkspaceID = '';
-	let requestSequence = 0;
-
-	async function load() {
-		if (!workspaceID) return;
-		const sequence = ++requestSequence;
-		loadedWorkspaceID = workspaceID;
-		loading = true;
-		error = '';
-		kit = null;
-		try {
-			const loaded = await loadImageEditorBrandKit(workspaceID);
-			if (sequence !== requestSequence) return;
-			kit = loaded;
-		} catch (cause) {
-			if (sequence !== requestSequence) return;
-			loadedWorkspaceID = '';
-			error = cause instanceof Error ? cause.message : m.media_hub_load_failed();
-		} finally {
-			if (sequence === requestSequence) loading = false;
-		}
-	}
-
-	$effect(() => {
-		if (active && workspaceID && loadedWorkspaceID !== workspaceID) void load();
-	});
+	const brandQuery = createQuery(() => ({
+		...imageEditorBrandKitQueryOptions(imageEditorQueryAPI, workspaceID),
+		enabled: active && Boolean(workspaceID)
+	}));
+	const kit = $derived(brandQuery.data ?? null);
+	const loading = $derived(active && brandQuery.isPending && !brandQuery.data);
+	const error = $derived(
+		brandQuery.isError
+			? brandQuery.error instanceof Error
+				? brandQuery.error.message
+				: m.media_hub_load_failed()
+			: ''
+	);
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.brand);
+	$effect(() => reportInitialLoad(loading));
 </script>
 
-{#if loading}
-	<PageLoading layout="sections" label={m.media_loading_brand()} />
-{:else if error}
-	<InlineNotice tone="error" message={error}>
+{#if error}
+	<InlineNotice tone={kit ? 'warning' : 'error'} message={error}>
 		{#snippet actions()}
-			<Button variant="outline" size="sm" onclick={() => void load()}>{m.common_retry()}</Button>
+			<Button variant="outline" size="sm" onclick={() => void brandQuery.refetch()}
+				>{m.common_retry()}</Button
+			>
 		{/snippet}
 	</InlineNotice>
+{/if}
+{#if loading}
+	<PageLoading layout="sections" label={m.media_loading_brand()} />
 {:else if kit}
 	{#if kit.can_edit}
-		<BrandKitEditor {kit} onSaved={(saved) => (kit = saved)} />
+		<BrandKitEditor
+			{kit}
+			onSaved={(saved) =>
+				queryClient.setQueryData(imageEditorQueryKeys.brandKit(workspaceID), saved)}
+		/>
 	{:else}
 		<div class="space-y-8">
 			<InlineNotice tone="info" message={m.brand_read_only()} />

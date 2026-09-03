@@ -6,9 +6,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { parseNaturalScheduleInput } from './compose/schedule-language';
 	import { workspaceClock, workspaceScheduleToISO } from './compose/schedule-timezone';
 
@@ -171,7 +170,9 @@
 					aria-label={m.compose_schedule_time()}
 				/>
 				{#if inputError || externalError}
-					<p class="px-1 text-xs text-destructive">{inputError || externalError}</p>
+					<p class="px-1 text-xs text-destructive">
+						{inputError || externalError}
+					</p>
 				{/if}
 			</form>
 
@@ -188,9 +189,9 @@
 						disabled={suggesting}
 					>
 						{#if suggesting}
-							<LoaderIcon class="size-4 animate-spin" />
+							<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 						{:else}
-							<ArrowRightIcon class="size-4" />
+							<ThemeIcon role="arrow-right" class="size-4" />
 						{/if}
 						{m.compose_next_free_slot()}
 					</Button>
@@ -272,7 +273,9 @@
 					<div class="border-t p-3">
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div class="space-y-1">
-								<div class="text-sm font-medium">{m.compose_randomize_time()}</div>
+								<div class="text-sm font-medium">
+									{m.compose_randomize_time()}
+								</div>
 								<div class="text-xs text-muted-foreground">
 									{m.compose_workspace_default({
 										delay: formatRandomDelay(defaultRandomDelayMinutes)
@@ -331,7 +334,7 @@
 					!canSchedule ||
 					(!scheduleInput.trim() && (!selectedDate || !selectedTime))}
 			>
-				{#if submitting}<LoaderIcon class="mr-2 size-4 animate-spin" />{/if}
+				{#if submitting}<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />{/if}
 				{m.compose_schedule()}
 			</Button>
 		</Dialog.Footer>

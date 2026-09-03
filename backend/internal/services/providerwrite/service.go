@@ -831,7 +831,11 @@ func safeError(err error) (string, string, int) {
 		if providerErr.StatusCode >= 500 || providerErr.StatusCode == http.StatusRequestTimeout {
 			class = "provider_unknown"
 		}
-		return class, safeShortValue(providerErr.Code, 96), providerErr.StatusCode
+		code := providerErr.Code
+		if providerErr.Subcode != "" {
+			code += ":subcode:" + providerErr.Subcode
+		}
+		return class, safeShortValue(code, 96), providerErr.StatusCode
 	}
 	var outcome *OutcomeError
 	if errors.As(err, &outcome) {

@@ -1,8 +1,6 @@
 <script lang="ts">
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { Button } from '$lib/components/ui/button';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		hasText: boolean;
@@ -48,13 +46,13 @@
 >
 	<span class="invisible flex h-full w-max items-center gap-1.5 px-2.5" aria-hidden="true">
 		{#if building}
-			<LoaderIcon class="size-3.5" />
+			<ProtectedIcon icon="loading" class="size-3.5" />
 			{buildingLabel}
 		{:else if hasText}
-			<SparklesIcon class="size-3.5" />
+			<ThemeIcon role="sparkles" class="size-3.5" />
 			{buildLabel}
 		{:else}
-			<LightbulbIcon class="size-3.5" />
+			<ThemeIcon role="idea" class="size-3.5" />
 			{ideateLabel}
 		{/if}
 	</span>
@@ -70,7 +68,7 @@
 			bind:clientWidth={ideateWidth}
 			data-ai-action-pill="ideate"
 		>
-			<LightbulbIcon class="size-3.5" />
+			<ThemeIcon role="idea" class="size-3.5" />
 			{ideateLabel}
 		</span>
 		<span
@@ -78,7 +76,7 @@
 			bind:clientWidth={buildWidth}
 			data-ai-action-pill="build"
 		>
-			<SparklesIcon class="size-3.5" />
+			<ThemeIcon role="sparkles" class="size-3.5" />
 			{buildLabel}
 		</span>
 	</span>
@@ -88,7 +86,7 @@
 		bind:clientWidth={buildingWidth}
 		aria-hidden="true"
 	>
-		<LoaderIcon class="size-3.5" />
+		<ProtectedIcon icon="loading" class="size-3.5" />
 		{buildingLabel}
 	</span>
 
@@ -97,7 +95,7 @@
 			class="absolute inset-y-0 left-0 flex w-max items-center gap-1.5 px-2.5"
 			aria-hidden="true"
 		>
-			<LoaderIcon class="size-3.5 animate-spin" />
+			<ProtectedIcon icon="loading" class="size-3.5 animate-spin" />
 			{buildingLabel}
 		</span>
 	{/if}

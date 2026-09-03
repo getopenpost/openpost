@@ -2,7 +2,7 @@
 	import { Pagination as PaginationPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import RiArrowLeftSLine from 'remixicon-svelte/icons/arrow-left-s-line';
+	import { ThemeIcon } from '$lib/themes/icons/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -22,6 +22,6 @@
 	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'pl-2!', className)}
 	{...restProps}
 >
-	<RiArrowLeftSLine data-icon="inline-start" />
+	<ThemeIcon role="chevron-left" data-icon="inline-start" />
 	<span class="cn-pagination-previous-text hidden sm:block">{label}</span>
 </PaginationPrimitive.PrevButton>

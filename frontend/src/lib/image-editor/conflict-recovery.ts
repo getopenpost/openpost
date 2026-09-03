@@ -3,8 +3,9 @@ import { cloneImageEditorPage } from './document';
 import type { ImageEditorDocument, ImageEditorDocumentResponse } from './types';
 
 export interface ImageEditorConflictCopyDependencies {
-	duplicate(sourceID: string): Promise<ImageEditorDocumentResponse>;
+	duplicate(workspaceID: string, sourceID: string): Promise<ImageEditorDocumentResponse>;
 	save(
+		workspaceID: string,
 		id: string,
 		revision: number,
 		document: ImageEditorDocument
@@ -22,13 +23,14 @@ const defaultDependencies: ImageEditorConflictCopyDependencies = {
  * the duplicate's document with the local, unsaved content.
  */
 export async function saveImageEditorConflictCopy(
+	workspaceID: string,
 	sourceID: string,
 	localDocument: ImageEditorDocument,
 	dependencies: ImageEditorConflictCopyDependencies = defaultDependencies
 ): Promise<ImageEditorDocumentResponse> {
-	const duplicate = await dependencies.duplicate(sourceID);
+	const duplicate = await dependencies.duplicate(workspaceID, sourceID);
 	const copyDocument = structuredClone(localDocument);
 	copyDocument.title = duplicate.document.title;
 	copyDocument.pages = localDocument.pages.map((page) => cloneImageEditorPage(page, page.name));
-	return dependencies.save(duplicate.id, duplicate.revision, copyDocument);
+	return dependencies.save(workspaceID, duplicate.id, duplicate.revision, copyDocument);
 }

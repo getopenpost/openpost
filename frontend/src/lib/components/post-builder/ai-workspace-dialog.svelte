@@ -1,11 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
 	import AIAngleGrid from './ai-angle-grid.svelte';
 	import AIGenerationProgress from './ai-generation-progress.svelte';
@@ -114,7 +112,7 @@
 					class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
 					aria-hidden="true"
 				>
-					<SparklesIcon class="size-4" />
+					<ThemeIcon role="sparkles" class="size-4" />
 				</span>
 				<div class="min-w-0 flex-1">
 					<Dialog.Title>{title}</Dialog.Title>
@@ -184,7 +182,7 @@
 				<div>
 					{#if step === 'angles' && onBack}
 						<Button type="button" variant="ghost" onclick={onBack} disabled={generating}>
-							<ArrowLeftIcon class="size-4" />
+							<ThemeIcon role="arrow-left" class="size-4" />
 							{copy.back}
 						</Button>
 					{:else if step === 'opportunities' && !error && opportunities.length > 0 && onFindMore}
@@ -195,7 +193,8 @@
 							onclick={onFindMore}
 							aria-busy={findingMore}
 						>
-							{#if findingMore}<LoaderIcon
+							{#if findingMore}<ProtectedIcon
+									icon="loading"
 									class="size-4 animate-spin motion-reduce:animate-none"
 								/>{/if}
 							{findingMore ? copy.findingMore : copy.findMore}
@@ -220,7 +219,8 @@
 						onclick={onFindMore}
 						aria-busy={loadingOpportunities || findingMore}
 					>
-						{#if loadingOpportunities || findingMore}<LoaderIcon
+						{#if loadingOpportunities || findingMore}<ProtectedIcon
+								icon="loading"
 								class="size-4 animate-spin motion-reduce:animate-none"
 							/>{/if}
 						{findingMore ? copy.findingMore : copy.retry}
@@ -245,7 +245,8 @@
 						onclick={onCancel}
 						aria-busy={cancelling}
 					>
-						{#if cancelling}<LoaderIcon
+						{#if cancelling}<ProtectedIcon
+								icon="loading"
 								class="size-4 animate-spin motion-reduce:animate-none"
 							/>{/if}
 						{cancelling ? copy.cancelling : copy.cancel}

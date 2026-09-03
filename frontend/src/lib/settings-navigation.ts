@@ -104,6 +104,13 @@ const settingsDestinationDefinitions = [
 		aliases: ['billing', 'organization']
 	},
 	{
+		id: 'appearance',
+		group: 'organization',
+		label: m.settings_appearance,
+		description: () => m.theme_library_description(),
+		loadingVariant: 'cards'
+	},
+	{
 		id: 'sso',
 		group: 'organization',
 		label: m.settings_sso,

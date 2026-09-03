@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { CreateCompositeCompositionOptions } from '$lib/video-editor/sequences/sequence-actions';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
 	import MotionCompositionDialog from './motion-composition-dialog.svelte';
 
 	let {
@@ -32,14 +31,14 @@
 		<div
 			class="mb-3 flex size-10 items-center justify-center rounded-lg border border-[oklch(0.31_0.018_55)] bg-[oklch(0.17_0.01_55)] text-[var(--video-editor-focus)] shadow-sm"
 		>
-			<WandSparklesIcon class="size-5" aria-hidden="true" />
+			<ProtectedIcon icon="editor-animation" class="size-5" />
 		</div>
 		<h2 class="text-sm font-semibold">{m.video_editor_motion_empty_title()}</h2>
 		<p class="mt-1 max-w-xs text-xs leading-5 text-[var(--video-editor-muted)]">
 			{m.video_editor_motion_empty_description()}
 		</p>
 		<Button class="mt-4 gap-1.5" size="sm" onclick={() => (dialogOpen = true)}>
-			<PlusIcon class="size-3.5" aria-hidden="true" />
+			<ThemeIcon role="add" class="size-3.5" />
 			{m.video_editor_motion_new_composition()}
 		</Button>
 	</div>

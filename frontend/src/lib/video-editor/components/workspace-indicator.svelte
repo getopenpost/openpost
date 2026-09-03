@@ -2,12 +2,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
 	import { m } from '$lib/paraglide/messages';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type { WorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import FolderIcon from '@lucide/svelte/icons/folder-open';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
 
 	let { gate }: { gate: WorkspaceGate } = $props();
 	let open = $state(false);
@@ -43,16 +39,16 @@
 					type="button"
 					variant="outline"
 					size="sm"
-					class="min-h-9 max-w-[min(15rem,48vw)] gap-2 border-[oklch(0.3_0.015_55)] bg-[oklch(0.18_0.01_55)] px-3 text-xs text-[var(--video-editor-text)] hover:bg-[oklch(0.23_0.012_55)] max-[640px]:min-h-11"
+					class="min-h-9 max-w-[min(15rem,48vw)] gap-2 border-border bg-card px-3 text-xs text-foreground hover:bg-card-hover max-[640px]:min-h-11"
 					aria-haspopup="dialog"
 					aria-expanded={open}
 					title={m.video_editor_workspace_folder()}
 				>
-					<FolderIcon class="size-3.5 shrink-0" aria-hidden="true" />
+					<ThemeIcon role="workspace" class="size-3.5 shrink-0" />
 					<span class="truncate">{gate.workspaceName}</span>
-					<ChevronDownIcon
+					<ThemeIcon
+						role="chevron-down"
 						class={`size-3.5 shrink-0 text-[var(--video-editor-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
-						aria-hidden="true"
 					/>
 				</Button>
 			{/snippet}
@@ -63,7 +59,7 @@
 			sideOffset={8}
 			role="dialog"
 			aria-label={m.video_editor_workspaces()}
-			class="video-editor-theme w-[min(22rem,calc(100vw-1rem))] border-[oklch(0.3_0.015_55)] bg-[oklch(0.18_0.01_55)] p-2 text-[var(--video-editor-text)]"
+			class="video-editor-theme w-[min(22rem,calc(100vw-1rem))] border-border bg-popover p-2 text-popover-foreground"
 		>
 			<p
 				class="px-2 py-1.5 text-[10px] font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
@@ -76,11 +72,11 @@
 					{@const isActive = workspace.id === gate.activeWorkspaceId}
 					{@const isConfirming = workspace.id === confirmRemoveId}
 					<div
-						class="flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[oklch(0.23_0.012_55)] max-[640px]:min-h-11"
+						class="flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent max-[640px]:min-h-11"
 					>
-						<FolderIcon
+						<ThemeIcon
+							role="workspace"
 							class="size-3.5 shrink-0 text-[var(--video-editor-muted)]"
-							aria-hidden="true"
 						/>
 						<span class="min-w-0 flex-1 truncate text-xs" title={workspace.name}>
 							{workspace.name}
@@ -89,7 +85,7 @@
 							<span
 								class="flex shrink-0 items-center gap-1 text-[10px] text-[var(--video-editor-focus)]"
 							>
-								<CheckIcon class="size-3" aria-hidden="true" />
+								<ThemeIcon role="check" class="size-3" />
 								{m.video_editor_workspace_active()}
 							</span>
 						{/if}
@@ -137,14 +133,14 @@
 								aria-label={m.video_editor_workspace_remove_named({ name: workspace.name })}
 								onclick={() => (confirmRemoveId = workspace.id)}
 							>
-								<TrashIcon class="size-3.5" aria-hidden="true" />
+								<ThemeIcon role="delete" class="size-3.5" />
 							</Button>
 						{/if}
 					</div>
 				{/each}
 			</div>
 
-			<div class="my-1 h-px bg-[oklch(0.28_0.014_55)]"></div>
+			<div class="my-1 h-px bg-border"></div>
 			<Button
 				type="button"
 				variant="ghost"
@@ -153,7 +149,7 @@
 				disabled={gate.busy}
 				onclick={addWorkspace}
 			>
-				<PlusIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="add" class="size-3.5" />
 				{m.video_editor_workspace_add()}
 			</Button>
 			{#if gate.error}

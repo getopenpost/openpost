@@ -14,6 +14,7 @@
 <PopoverPrimitive.Portal>
 	<PopoverPrimitive.Content
 		bind:ref
+		data-slot="popover-content"
 		{align}
 		{sideOffset}
 		class={cn(

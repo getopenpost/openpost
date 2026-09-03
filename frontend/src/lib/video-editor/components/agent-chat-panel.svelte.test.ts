@@ -112,7 +112,9 @@ describe('AgentChatPanel', () => {
 		}
 	});
 
-	it('cancels planning and keeps input', async () => {
+	it('themes assistant actions while keeping planning status protected and cancellable', async () => {
+		const previousPack = document.documentElement.getAttribute('data-theme-icon-pack');
+		document.documentElement.setAttribute('data-theme-icon-pack', 'tabler');
 		const slow: LlmAdapter = {
 			id: 'gemma',
 			label: 'Slow',
@@ -131,13 +133,23 @@ describe('AgentChatPanel', () => {
 		const unregister = registerLlmAdapter(slow);
 		try {
 			const screen = await render(AgentChatPanel);
+			const sendIcon = screen.container.querySelector('[data-theme-icon="send"]');
+			expect(sendIcon?.getAttribute('data-icon-pack')).toBe('tabler');
 			await screen.getByLabelText('Assistant message').fill('long task');
 			await screen.getByRole('button', { name: 'Send' }).click();
 			await expect.element(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+			const loadingIcon = screen.container.querySelector('[data-protected-icon="loading"]');
+			expect(loadingIcon).not.toBeNull();
+			expect(loadingIcon?.getAttribute('data-icon-pack')).toBeNull();
 			await screen.getByRole('button', { name: 'Cancel' }).click();
 			await expect.element(screen.getByLabelText('Assistant message')).toBeVisible();
 		} finally {
 			unregister();
+			if (previousPack) {
+				document.documentElement.setAttribute('data-theme-icon-pack', previousPack);
+			} else {
+				document.documentElement.removeAttribute('data-theme-icon-pack');
+			}
 		}
 	});
 

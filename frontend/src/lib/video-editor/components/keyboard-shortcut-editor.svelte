@@ -3,9 +3,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import RotateIcon from '@lucide/svelte/icons/rotate-ccw';
-	import UploadIcon from '@lucide/svelte/icons/upload';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		EDITOR_SHORTCUT_DEFINITIONS,
 		browserShortcutConflict,
@@ -354,11 +352,11 @@
 				}}
 			/>
 			<Button type="button" variant="outline" size="sm" onclick={() => importInput.click()}>
-				<UploadIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="upload" class="size-3.5" />
 				{m.video_editor_shortcuts_import()}
 			</Button>
 			<Button type="button" variant="outline" size="sm" onclick={exportPreset}>
-				<DownloadIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="download" class="size-3.5" />
 				{m.video_editor_shortcuts_export()}
 			</Button>
 		</div>
@@ -532,7 +530,7 @@
 			</Button>
 		{:else}
 			<Button type="button" variant="ghost" size="sm" onclick={() => (confirmReset = true)}>
-				<RotateIcon class="size-3.5" aria-hidden="true" />
+				<ThemeIcon role="undo" class="size-3.5" />
 				{m.video_editor_shortcuts_reset_all()}
 			</Button>
 		{/if}

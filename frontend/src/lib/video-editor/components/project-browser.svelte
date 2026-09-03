@@ -9,6 +9,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { BundleProgress } from '$lib/video-editor/project-bundle/bundle-types';
 	import type { ProjectDetailsUpdate } from '$lib/video-editor/project/project-details';
 	import type { Project } from '$lib/video-editor/project/types';
@@ -26,23 +27,6 @@
 		type ProjectPresetId
 	} from '$lib/video-editor/project/project-presets';
 	import type { TrashedProjectEntry } from '$lib/video-editor/workspace-fs/trash';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
-	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import DownloadIcon from '@lucide/svelte/icons/download';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import PlayIcon from '@lucide/svelte/icons/play-circle';
-	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RestoreIcon from '@lucide/svelte/icons/rotate-ccw';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import UploadIcon from '@lucide/svelte/icons/upload';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { onMount } from 'svelte';
 
 	let {
@@ -364,12 +348,12 @@
 							aria-busy={importing}
 						>
 							{#if importing}
-								<LoaderIcon
+								<ProtectedIcon
+									icon="loading"
 									class="size-4 animate-spin motion-reduce:animate-none"
-									aria-hidden="true"
 								/>
 							{:else}
-								<UploadIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="upload" class="size-4" />
 							{/if}
 							<span class="hidden sm:inline">{m.video_editor_project_import()}</span>
 						</Button>
@@ -377,11 +361,11 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content class="video-editor-theme" align="end">
 					<DropdownMenu.Item onclick={() => bundleImportInput?.click()}>
-						<ArchiveIcon class="size-4" aria-hidden="true" />
+						<ThemeIcon role="archive" class="size-4" />
 						{m.video_editor_project_import_bundle()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onclick={() => jsonImportInput?.click()}>
-						<UploadIcon class="size-4" aria-hidden="true" />
+						<ThemeIcon role="upload" class="size-4" />
 						{m.video_editor_project_import_json()}
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>
@@ -391,7 +375,7 @@
 				disabled={creating || importing || exportingId !== null || bundleOperation !== null}
 				onclick={() => (showNewProject = !showNewProject)}
 			>
-				<PlusIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="add" class="size-4" />
 				{m.video_editor_project_new()}
 			</Button>
 		</div>
@@ -413,12 +397,12 @@
 					<span>{Math.round(bundleProgress.percent)}%</span>
 					<Button variant="ghost" size="xs" disabled={bundleCanceling} onclick={oncancelbundle}>
 						{#if bundleCanceling}
-							<LoaderIcon
+							<ProtectedIcon
+								icon="loading"
 								class="size-3.5 animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
 							/>
 						{:else}
-							<XIcon class="size-3.5" aria-hidden="true" />
+							<ThemeIcon role="close" class="size-3.5" />
 						{/if}
 						{bundleCanceling
 							? m.video_editor_project_bundle_canceling()
@@ -524,7 +508,7 @@
 							onclick={() => (selectedProjectPreset = 'custom')}
 						>
 							<span class="flex size-8 shrink-0 items-center justify-center" aria-hidden="true">
-								<PlusIcon class="size-4" />
+								<ThemeIcon role="add" class="size-4" />
 							</span>
 							<span class="text-xs font-medium">{m.video_editor_project_preset_custom()}</span>
 						</button>
@@ -588,9 +572,9 @@
 
 			<div class="mt-3 flex justify-end">
 				<Button type="submit" disabled={creating || !projectCreationValid}>
-					{#if creating}<LoaderIcon
+					{#if creating}<ProtectedIcon
+							icon="loading"
 							class="size-4 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
 						/>{/if}
 					{m.video_editor_project_create()}
 				</Button>
@@ -601,9 +585,9 @@
 	<div class="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-[minmax(12rem,1fr)_10.5rem_9rem_10rem_auto]">
 		<label class="relative col-span-2 block lg:col-span-1" for="video-editor-project-search">
 			<span class="sr-only">{m.video_editor_project_search()}</span>
-			<SearchIcon
+			<ThemeIcon
+				role="search"
 				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[oklch(0.6_0.015_55)]"
-				aria-hidden="true"
 			/>
 			<Input
 				id="video-editor-project-search"
@@ -677,9 +661,9 @@
 			onclick={() => (sortDirection = sortDirection === 'ascending' ? 'descending' : 'ascending')}
 		>
 			{#if sortDirection === 'ascending'}
-				<ArrowUpIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="arrow-up" class="size-4" />
 			{:else}
-				<ArrowDownIcon class="size-4" aria-hidden="true" />
+				<ThemeIcon role="arrow-down" class="size-4" />
 			{/if}
 		</Button>
 	</div>
@@ -692,11 +676,11 @@
 			</span>
 			<div class="flex gap-2">
 				<Button variant="ghost" size="sm" onclick={clearSelection}>
-					<XIcon class="size-4" aria-hidden="true" />
+					<ThemeIcon role="close" class="size-4" />
 					{m.video_editor_project_clear_selection()}
 				</Button>
 				<Button variant="destructive" size="sm" onclick={confirmBulkDelete}>
-					<TrashIcon class="size-4" aria-hidden="true" />
+					<ThemeIcon role="delete" class="size-4" />
 					{m.video_editor_project_move_selected_to_trash()}
 				</Button>
 			</div>
@@ -736,7 +720,7 @@
 									onclick={(event) => toggleSelection(event, project)}
 								>
 									{#if selectedIds.has(project.id)}
-										<CheckIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="check" class="size-4" />
 									{:else}
 										<span class="size-3 rounded-full border border-current" aria-hidden="true"
 										></span>
@@ -763,7 +747,7 @@
 											<span
 												class="flex size-full items-center justify-center text-[oklch(0.48_0.015_55)]"
 											>
-												<PlayIcon class="size-11" aria-hidden="true" />
+												<ProtectedIcon icon="play" class="size-11" />
 											</span>
 										{/if}
 										<span
@@ -813,26 +797,26 @@
 													})}
 												>
 													{#if duplicatingId === project.id || exportingId === project.id}
-														<LoaderIcon
+														<ProtectedIcon
+															icon="loading"
 															class="size-4 animate-spin motion-reduce:animate-none"
-															aria-hidden="true"
 														/>
 													{:else}
-														<MoreIcon class="size-4" aria-hidden="true" />
+														<ThemeIcon role="more-horizontal" class="size-4" />
 													{/if}
 												</Button>
 											{/snippet}
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content class="video-editor-theme" align="end">
 											<DropdownMenu.Item onclick={() => editProject(project)}>
-												<PencilIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="edit" class="size-4" />
 												{m.video_editor_project_edit_action()}
 											</DropdownMenu.Item>
 											<DropdownMenu.Item
 												disabled={duplicatingId !== null || importing || bundleOperation !== null}
 												onclick={() => void onduplicate(project)}
 											>
-												<CopyIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="copy" class="size-4" />
 												{m.video_editor_project_duplicate()}
 											</DropdownMenu.Item>
 											<DropdownMenu.Item
@@ -840,12 +824,12 @@
 												onclick={() => void onexportbundle(project)}
 											>
 												{#if exportingId === project.id && exportingKind === 'bundle'}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="size-4 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{:else}
-													<DownloadIcon class="size-4" aria-hidden="true" />
+													<ThemeIcon role="download" class="size-4" />
 												{/if}
 												{m.video_editor_project_export_bundle()}
 											</DropdownMenu.Item>
@@ -854,12 +838,12 @@
 												onclick={() => void onexportjson(project)}
 											>
 												{#if exportingId === project.id && exportingKind === 'json'}
-													<LoaderIcon
+													<ProtectedIcon
+														icon="loading"
 														class="size-4 animate-spin motion-reduce:animate-none"
-														aria-hidden="true"
 													/>
 												{:else}
-													<DownloadIcon class="size-4" aria-hidden="true" />
+													<ThemeIcon role="download" class="size-4" />
 												{/if}
 												{m.video_editor_project_export_json()}
 											</DropdownMenu.Item>
@@ -868,7 +852,7 @@
 												class="text-red-300 focus:text-red-200"
 												onclick={() => confirmDelete(project)}
 											>
-												<TrashIcon class="size-4" aria-hidden="true" />
+												<ThemeIcon role="delete" class="size-4" />
 												{m.video_editor_project_move_to_trash()}
 											</DropdownMenu.Item>
 										</DropdownMenu.Content>
@@ -878,33 +862,33 @@
 						</ContextMenu.Trigger>
 						<ContextMenu.Content class="video-editor-theme w-52">
 							<ContextMenu.Item onclick={() => editProject(project)}>
-								<PencilIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="edit" class="size-4" />
 								{m.video_editor_project_edit_action()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								disabled={duplicatingId !== null || importing || bundleOperation !== null}
 								onclick={() => void onduplicate(project)}
 							>
-								<CopyIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="copy" class="size-4" />
 								{m.video_editor_project_duplicate()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								disabled={exportingId !== null || bundleOperation !== null}
 								onclick={() => void onexportbundle(project)}
 							>
-								<DownloadIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="download" class="size-4" />
 								{m.video_editor_project_export_bundle()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								disabled={exportingId !== null || bundleOperation !== null}
 								onclick={() => void onexportjson(project)}
 							>
-								<DownloadIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="download" class="size-4" />
 								{m.video_editor_project_export_json()}
 							</ContextMenu.Item>
 							<ContextMenu.Separator />
 							<ContextMenu.Item variant="destructive" onclick={() => confirmDelete(project)}>
-								<TrashIcon class="size-4" aria-hidden="true" />
+								<ThemeIcon role="delete" class="size-4" />
 								{m.video_editor_project_move_to_trash()}
 							</ContextMenu.Item>
 						</ContextMenu.Content>
@@ -926,11 +910,11 @@
 					aria-controls="video-editor-trash-list"
 					onclick={() => (trashOpen = !trashOpen)}
 				>
-					<ChevronRightIcon
+					<ThemeIcon
+						role="chevron-right"
 						class={`size-4 transition-transform motion-reduce:transition-none ${trashOpen ? 'rotate-90' : ''}`}
-						aria-hidden="true"
 					/>
-					<TrashIcon class="size-4" aria-hidden="true" />
+					<ThemeIcon role="delete" class="size-4" />
 					<span id="video-editor-trash-title" class="font-medium">
 						{m.video_editor_project_trash_title()}
 					</span>
@@ -952,13 +936,13 @@
 						onclick={() => confirmPurge('all')}
 					>
 						{#if emptyingTrash}
-							<LoaderIcon
+							<ProtectedIcon
+								icon="loading"
 								class="size-4 animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
 							/>
 							{m.video_editor_project_emptying_trash()}
 						{:else}
-							<TrashIcon class="size-4" aria-hidden="true" />
+							<ThemeIcon role="delete" class="size-4" />
 							{m.video_editor_project_empty_trash()}
 						{/if}
 					</Button>
@@ -991,12 +975,12 @@
 									onclick={() => void onrestore(entry.id, entry.marker.originalName)}
 								>
 									{#if trashBusyId === entry.id}
-										<LoaderIcon
+										<ProtectedIcon
+											icon="loading"
 											class="size-4 animate-spin motion-reduce:animate-none"
-											aria-hidden="true"
 										/>
 									{:else}
-										<RestoreIcon class="size-4" aria-hidden="true" />
+										<ThemeIcon role="refresh" class="size-4" />
 									{/if}
 									{m.video_editor_project_restore()}
 								</Button>
@@ -1007,7 +991,7 @@
 									disabled={trashBusyId !== null || emptyingTrash}
 									onclick={() => confirmPurge(entry)}
 								>
-									<TrashIcon class="size-4" aria-hidden="true" />
+									<ThemeIcon role="delete" class="size-4" />
 									{m.video_editor_project_delete_forever()}
 								</Button>
 							</div>

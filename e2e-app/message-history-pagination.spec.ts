@@ -12,7 +12,7 @@ test("Messages prepends older history without moving the visible message", async
   };
   await authenticatePage(page, auth.token);
   const history = Array.from({ length: 235 }, (_, index) => messageFixture(workspace.id, index));
-  let olderFailures = 1;
+  let olderFailures = 2;
   let releaseOlder: (() => void) | undefined;
   const olderRequested = new Promise<void>((resolve) => (releaseOlder = resolve));
   let fulfillOlder: (() => Promise<void>) | undefined;

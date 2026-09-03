@@ -341,7 +341,7 @@
 	import { wouldCreateCompositionCycle } from '$lib/video-editor/sequences/composition-graph';
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
-	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import MagnetIcon from '@lucide/svelte/icons/magnet';
 	import Link2Icon from '@lucide/svelte/icons/link-2';
@@ -351,7 +351,6 @@
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
 	import FlagIcon from '@lucide/svelte/icons/flag';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import MusicIcon from '@lucide/svelte/icons/music';
 	import type { SceneScanMode } from '$lib/video-editor/media/scene-scan';
@@ -5016,7 +5015,7 @@
 							class="size-7 rounded"
 							aria-label={m.image_editor_more_actions()}
 						>
-							<MoreHorizontalIcon class="size-3.5" />
+							<ThemeIcon role="more-horizontal" class="size-3.5" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -5086,7 +5085,7 @@
 								class="size-7 rounded"
 								aria-label={m.image_editor_more_actions()}
 							>
-								<MoreHorizontalIcon class="size-3.5" />
+								<ThemeIcon role="more-horizontal" class="size-3.5" />
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>
@@ -5426,7 +5425,7 @@
 				title={`${m.video_editor_delete_marker()} (Shift+M)`}
 				onclick={() => deleteTimelineMarker(selectedMarker.id)}
 			>
-				<Trash2Icon class="size-3.5" />
+				<ThemeIcon role="delete" class="size-3.5" />
 			</Button>
 		</div>
 	{/if}
@@ -5471,7 +5470,8 @@
 					onpointermove={rememberTimelinePointer}
 					onpointerleave={forgetTimelinePointer}
 					onwheel={onTimelineWheel}
-					class="relative min-h-24 flex-1 overflow-auto pb-2"
+					class="editor-protected-surface relative min-h-24 flex-1 overflow-auto pb-2"
+					data-editor-protected="timeline"
 					role="region"
 					aria-label={m.video_editor_timeline()}
 				>

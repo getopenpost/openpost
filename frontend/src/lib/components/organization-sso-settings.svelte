@@ -1,5 +1,23 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { client } from '$lib/api/client';
+	import { auth } from '$lib/stores/auth';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import {
+		authQueryKeys,
+		organizationIdentityAuditQueryOptions,
+		organizationIdentityProvidersQueryOptions,
+		organizationQueryKeys,
+		organizationSSODomainsQueryOptions,
+		organizationSSOPolicyQueryOptions,
+		OpenPostQueryError
+	} from '@openpost/query-catalog';
+	import {
+		invalidateOrganizationIdentityDependencies,
+		organizationQueryAPI
+	} from '$lib/query/organizations';
+	import { queryClient } from '$lib/query/client';
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -19,6 +37,10 @@
 		normalizeOrganizationAPITokenMode,
 		type OrganizationAPITokenMode
 	} from '$lib/components/organization-sso-policy';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	type Provider = components['schemas']['OIDCProviderAdminResponse'];
 	type Policy = components['schemas']['Policy'];
@@ -40,20 +62,43 @@
 	let error = $state('');
 	let notice = $state('');
 	let loadedKey = $state('');
+	let loadSequence = 0;
+	let mutationSequence = 0;
+	let mutationScope = '';
+	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.sso);
+	$effect(() =>
+		reportInitialLoad(Boolean(active && organizationID && !error && loadedKey !== organizationID))
+	);
+	const blankProviderForm = {
+		providerID: '',
+		providerName: '',
+		issuer: '',
+		clientID: '',
+		clientSecret: '',
+		scopes: 'openid profile email',
+		emailClaim: 'email',
+		nameClaim: 'name',
+		pictureClaim: 'picture',
+		useUserInfo: false,
+		requireVerifiedEmail: true,
+		jitEnabled: false,
+		providerActive: true
+	} as const;
+	const blankProviderSnapshot = JSON.stringify(blankProviderForm);
 
-	let providerID = $state('');
-	let providerName = $state('');
-	let issuer = $state('');
-	let clientID = $state('');
-	let clientSecret = $state('');
-	let scopes = $state('openid profile email');
-	let emailClaim = $state('email');
-	let nameClaim = $state('name');
-	let pictureClaim = $state('picture');
-	let useUserInfo = $state(false);
-	let requireVerifiedEmail = $state(true);
-	let jitEnabled = $state(false);
-	let providerActive = $state(true);
+	let providerID = $state(blankProviderForm.providerID);
+	let providerName = $state(blankProviderForm.providerName);
+	let issuer = $state(blankProviderForm.issuer);
+	let clientID = $state(blankProviderForm.clientID);
+	let clientSecret = $state(blankProviderForm.clientSecret);
+	let scopes = $state(blankProviderForm.scopes);
+	let emailClaim = $state(blankProviderForm.emailClaim);
+	let nameClaim = $state(blankProviderForm.nameClaim);
+	let pictureClaim = $state(blankProviderForm.pictureClaim);
+	let useUserInfo = $state(blankProviderForm.useUserInfo);
+	let requireVerifiedEmail = $state(blankProviderForm.requireVerifiedEmail);
+	let jitEnabled = $state(blankProviderForm.jitEnabled);
+	let providerActive = $state(blankProviderForm.providerActive);
 
 	let policyMode = $state<'disabled' | 'optional' | 'required'>('disabled');
 	let acceptedProviderIDs = $state<string[]>([]);
@@ -94,31 +139,29 @@
 	const providerDraftDirty = $derived(
 		providerID
 			? providerFormSnapshot() !== savedProviderSnapshot
-			: Boolean(
-					providerName ||
-					issuer ||
-					clientID ||
-					clientSecret ||
-					scopes !== 'openid email profile' ||
-					emailClaim !== 'email' ||
-					nameClaim !== 'name' ||
-					pictureClaim !== 'picture' ||
-					!useUserInfo ||
-					!requireVerifiedEmail ||
-					!jitEnabled ||
-					!providerActive
-				)
+			: providerFormSnapshot() !== blankProviderSnapshot
 	);
-	const dirty = $derived(
-		active &&
-			(providerDraftDirty ||
-				Boolean(domainName.trim()) ||
-				(Boolean(savedPolicySnapshot) && policySnapshot !== savedPolicySnapshot))
+	const hasLocalDrafts = $derived(
+		providerDraftDirty ||
+			Boolean(domainName.trim()) ||
+			(Boolean(savedPolicySnapshot) && policySnapshot !== savedPolicySnapshot)
 	);
+	const dirty = $derived(active && hasLocalDrafts);
 
 	$effect(() => {
 		const key = active ? organizationID : '';
+		if (key !== mutationScope) {
+			mutationScope = key;
+			mutationSequence += 1;
+			busy = '';
+			notice = '';
+		}
 		if (key && key !== loadedKey) void load(key);
+	});
+
+	onDestroy(() => {
+		loadSequence += 1;
+		mutationSequence += 1;
 	});
 
 	$effect(() => {
@@ -126,59 +169,172 @@
 		return () => unsavedChanges?.clear('organization-sso');
 	});
 
+	function applyLoadedConfiguration(
+		targetOrganizationID: string,
+		providerResult: Provider[],
+		policyResult: Policy,
+		domainResult: Domain[],
+		auditResult: AuditEvent[]
+	) {
+		providers = providerResult;
+		domains = domainResult;
+		auditEvents = auditResult;
+		policy = policyResult;
+		policyMode = organizationPolicyMode(policyResult.mode);
+		acceptedProviderIDs = policyResult.provider_ids ?? [];
+		assuranceHours = Math.max(1, Math.round(policyResult.assurance_max_age_seconds / 3600));
+		passwordLoginAllowed = policyResult.password_login_allowed;
+		apiTokenMode = normalizeOrganizationAPITokenMode(policyResult.api_token_mode);
+		maxTokenDays = Math.max(1, Math.round(policyResult.max_token_lifetime_seconds / 86400));
+		requireTokenReauth = policyResult.require_token_reauth;
+		savedPolicySnapshot = policySnapshot;
+		if (!domainProviderID && providerResult[0]) domainProviderID = providerResult[0].id;
+		loadedKey = targetOrganizationID;
+	}
+
 	async function load(targetOrganizationID = organizationID) {
 		if (!targetOrganizationID) return;
-		loading = true;
+		const sequence = ++loadSequence;
+		if (loadedKey && loadedKey !== targetOrganizationID) {
+			providers = [];
+			domains = [];
+			auditEvents = [];
+			policy = null;
+			resetProviderForm();
+			domainProviderID = '';
+			pendingDNS = null;
+			loadedKey = '';
+		}
+		const providerOptions = organizationIdentityProvidersQueryOptions(
+			organizationQueryAPI,
+			targetOrganizationID
+		);
+		const policyOptions = organizationSSOPolicyQueryOptions(
+			organizationQueryAPI,
+			targetOrganizationID
+		);
+		const domainOptions = organizationSSODomainsQueryOptions(
+			organizationQueryAPI,
+			targetOrganizationID
+		);
+		const auditOptions = organizationIdentityAuditQueryOptions(
+			organizationQueryAPI,
+			targetOrganizationID,
+			20
+		);
+		const cachedProviders = queryClient.getQueryData<Provider[]>(providerOptions.queryKey);
+		const cachedPolicy = queryClient.getQueryData<Policy>(policyOptions.queryKey);
+		const cachedDomains = queryClient.getQueryData<Domain[]>(domainOptions.queryKey);
+		const cachedAudit = queryClient.getQueryData<AuditEvent[]>(auditOptions.queryKey);
+		if (
+			cachedProviders !== undefined &&
+			cachedPolicy !== undefined &&
+			cachedDomains !== undefined &&
+			cachedAudit !== undefined &&
+			(loadedKey !== targetOrganizationID || !hasLocalDrafts)
+		) {
+			applyLoadedConfiguration(
+				targetOrganizationID,
+				cachedProviders,
+				cachedPolicy,
+				cachedDomains,
+				cachedAudit
+			);
+		}
+		loading = loadedKey !== targetOrganizationID;
 		error = '';
-		const params = { path: { organization_id: targetOrganizationID } };
-		const [providerResult, policyResult, domainResult, auditResult] = await Promise.all([
-			client.GET('/organizations/{organization_id}/identity-providers', { params }),
-			client.GET('/organizations/{organization_id}/sso-policy', { params }),
-			client.GET('/organizations/{organization_id}/sso-domains', { params }),
-			client.GET('/organizations/{organization_id}/identity-audit-events', {
-				params: { ...params, query: { limit: 20 } }
-			})
-		]);
-		const loadError =
-			providerResult.error ?? policyResult.error ?? domainResult.error ?? auditResult.error;
-		if (loadError) {
-			error = loadError.detail ?? m.settings_sso_load_failed();
-			loading = false;
+		try {
+			const [providerResult, policyResult, domainResult, auditResult] = await Promise.all([
+				queryClient.fetchQuery(providerOptions),
+				queryClient.fetchQuery(policyOptions),
+				queryClient.fetchQuery(domainOptions),
+				queryClient.fetchQuery(auditOptions)
+			]);
+			if (sequence !== loadSequence || targetOrganizationID !== organizationID || !active) return;
+			if (!hasLocalDrafts) {
+				applyLoadedConfiguration(
+					targetOrganizationID,
+					providerResult,
+					policyResult,
+					domainResult,
+					auditResult
+				);
+			}
+		} catch (cause) {
+			if (sequence !== loadSequence || targetOrganizationID !== organizationID || !active) return;
+			if (cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403)) {
+				queryClient.removeQueries({
+					queryKey: organizationQueryKeys.detailRoot(targetOrganizationID)
+				});
+				providers = [];
+				domains = [];
+				auditEvents = [];
+				policy = null;
+			}
+			error = cause instanceof Error ? cause.message : m.settings_sso_load_failed();
+		} finally {
+			if (sequence === loadSequence) loading = false;
+		}
+	}
+
+	function mutationIsCurrent(sequence: number, targetOrganizationID: string) {
+		return sequence === mutationSequence && active && organizationID === targetOrganizationID;
+	}
+
+	async function refreshOrganizationQueries(
+		targetOrganizationID: string,
+		actorID: string,
+		sequence: number
+	) {
+		if (!actorID || get(auth).user?.id !== actorID) return;
+		await invalidateOrganizationIdentityDependencies(queryClient, targetOrganizationID);
+		if (get(auth).user?.id !== actorID) return;
+		if (!mutationIsCurrent(sequence, targetOrganizationID)) return;
+		loadedKey = '';
+		await load(targetOrganizationID);
+	}
+
+	async function refreshWorkspaceAccess(
+		targetOrganizationID: string,
+		actorID: string,
+		sequence: number
+	) {
+		if (
+			!actorID ||
+			get(auth).user?.id !== actorID ||
+			!workspaceCtx.workspaces.some(
+				(workspace) => workspace.organization_id === targetOrganizationID
+			)
+		)
 			return;
+		try {
+			const preferredWorkspaceID = workspaceCtx.currentWorkspace?.id;
+			const projection = auth.captureUserProjection(actorID);
+			if (!projection) return;
+			const bootstrap = await workspaceCtx.loadWorkspaces(preferredWorkspaceID);
+			if (get(auth).user?.id !== actorID) return;
+			if (!auth.projectBootstrap(bootstrap, projection)) return;
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_load_failed();
+			}
 		}
-		providers = providerResult.data ?? [];
-		domains = domainResult.data ?? [];
-		auditEvents = auditResult.data ?? [];
-		policy = policyResult.data ?? null;
-		if (policy) {
-			policyMode = organizationPolicyMode(policy.mode);
-			acceptedProviderIDs = policy.provider_ids ?? [];
-			assuranceHours = Math.max(1, Math.round(policy.assurance_max_age_seconds / 3600));
-			passwordLoginAllowed = policy.password_login_allowed;
-			apiTokenMode = normalizeOrganizationAPITokenMode(policy.api_token_mode);
-			maxTokenDays = Math.max(1, Math.round(policy.max_token_lifetime_seconds / 86400));
-			requireTokenReauth = policy.require_token_reauth;
-		}
-		savedPolicySnapshot = policySnapshot;
-		if (!domainProviderID && providers[0]) domainProviderID = providers[0].id;
-		loadedKey = targetOrganizationID;
-		loading = false;
 	}
 
 	function resetProviderForm() {
-		providerID = '';
-		providerName = '';
-		issuer = '';
-		clientID = '';
-		clientSecret = '';
-		scopes = 'openid profile email';
-		emailClaim = 'email';
-		nameClaim = 'name';
-		pictureClaim = 'picture';
-		useUserInfo = false;
-		requireVerifiedEmail = true;
-		jitEnabled = false;
-		providerActive = true;
+		providerID = blankProviderForm.providerID;
+		providerName = blankProviderForm.providerName;
+		issuer = blankProviderForm.issuer;
+		clientID = blankProviderForm.clientID;
+		clientSecret = blankProviderForm.clientSecret;
+		scopes = blankProviderForm.scopes;
+		emailClaim = blankProviderForm.emailClaim;
+		nameClaim = blankProviderForm.nameClaim;
+		pictureClaim = blankProviderForm.pictureClaim;
+		useUserInfo = blankProviderForm.useUserInfo;
+		requireVerifiedEmail = blankProviderForm.requireVerifiedEmail;
+		jitEnabled = blankProviderForm.jitEnabled;
+		providerActive = blankProviderForm.providerActive;
 		savedProviderSnapshot = '';
 	}
 
@@ -219,57 +375,84 @@
 
 	async function saveProvider(event: SubmitEvent) {
 		event.preventDefault();
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
+		const actorID = get(auth).user?.id ?? '';
+		const submittedSnapshot = providerFormSnapshot();
+		const body = {
+			id: providerID || undefined,
+			name: providerName.trim(),
+			issuer: issuer.trim(),
+			client_id: clientID.trim(),
+			client_secret: clientSecret.trim() || undefined,
+			scopes: scopes.split(/\s+/).filter(Boolean),
+			email_claim: emailClaim.trim() || 'email',
+			name_claim: nameClaim.trim() || 'name',
+			picture_claim: pictureClaim.trim() || 'picture',
+			use_userinfo: useUserInfo,
+			require_verified_email: requireVerifiedEmail,
+			jit_enabled: jitEnabled,
+			is_active: providerActive
+		};
 		busy = 'provider';
 		error = '';
 		notice = '';
-		const { error: saveError } = await client.POST(
-			'/organizations/{organization_id}/identity-providers',
-			{
-				params: { path: { organization_id: organizationID } },
-				body: {
-					id: providerID || undefined,
-					name: providerName.trim(),
-					issuer: issuer.trim(),
-					client_id: clientID.trim(),
-					client_secret: clientSecret.trim() || undefined,
-					scopes: scopes.split(/\s+/).filter(Boolean),
-					email_claim: emailClaim.trim() || 'email',
-					name_claim: nameClaim.trim() || 'name',
-					picture_claim: pictureClaim.trim() || 'picture',
-					use_userinfo: useUserInfo,
-					require_verified_email: requireVerifiedEmail,
-					jit_enabled: jitEnabled,
-					is_active: providerActive
+		try {
+			const { error: saveError } = await client.POST(
+				'/organizations/{organization_id}/identity-providers',
+				{
+					params: { path: { organization_id: targetOrganizationID } },
+					body
 				}
+			);
+			if (saveError) throw new Error(saveError.detail ?? m.settings_sso_provider_save_failed());
+			if (
+				mutationIsCurrent(sequence, targetOrganizationID) &&
+				providerFormSnapshot() === submittedSnapshot
+			) {
+				notice = m.settings_sso_provider_saved();
+				resetProviderForm();
 			}
-		);
-		if (saveError) {
-			error = saveError.detail ?? m.settings_sso_provider_save_failed();
-		} else {
-			notice = m.settings_sso_provider_saved();
-			resetProviderForm();
-			loadedKey = '';
-			await load();
+			await refreshOrganizationQueries(targetOrganizationID, actorID, sequence);
+			await refreshWorkspaceAccess(targetOrganizationID, actorID, sequence);
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_provider_save_failed();
+			}
+		} finally {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) busy = '';
 		}
-		busy = '';
 	}
 
 	async function setProviderActive(provider: Provider) {
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
+		const actorID = get(auth).user?.id ?? '';
 		busy = `provider-${provider.id}`;
 		error = '';
-		const { error: updateError } = await client.PATCH(
-			'/organizations/{organization_id}/identity-providers/{provider_id}',
-			{
-				params: {
-					path: { organization_id: organizationID, provider_id: provider.id }
-				},
-				body: { active: !provider.is_active }
+		try {
+			const { error: updateError } = await client.PATCH(
+				'/organizations/{organization_id}/identity-providers/{provider_id}',
+				{
+					params: {
+						path: {
+							organization_id: targetOrganizationID,
+							provider_id: provider.id
+						}
+					},
+					body: { active: !provider.is_active }
+				}
+			);
+			if (updateError) throw new Error(updateError.detail ?? m.settings_sso_provider_save_failed());
+			await refreshOrganizationQueries(targetOrganizationID, actorID, sequence);
+			await refreshWorkspaceAccess(targetOrganizationID, actorID, sequence);
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_provider_save_failed();
 			}
-		);
-		if (updateError) error = updateError.detail ?? m.settings_sso_provider_save_failed();
-		loadedKey = '';
-		await load();
-		busy = '';
+		} finally {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) busy = '';
+		}
 	}
 
 	function toggleAcceptedProvider(providerIDToToggle: string) {
@@ -280,77 +463,142 @@
 
 	async function savePolicy(event: SubmitEvent) {
 		event.preventDefault();
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
+		const actorID = get(auth).user?.id ?? '';
+		const submittedSnapshot = policySnapshot;
+		const body = {
+			mode: policyMode,
+			provider_ids: [...acceptedProviderIDs],
+			assurance_max_age_seconds: assuranceHours * 3600,
+			password_login_allowed: passwordLoginAllowed,
+			api_token_mode: apiTokenMode,
+			max_token_lifetime_seconds: maxTokenDays * 86400,
+			require_token_reauth: requireTokenReauth
+		};
 		busy = 'policy';
 		error = '';
 		notice = '';
-		const { error: saveError } = await client.PUT('/organizations/{organization_id}/sso-policy', {
-			params: { path: { organization_id: organizationID } },
-			body: {
-				mode: policyMode,
-				provider_ids: acceptedProviderIDs,
-				assurance_max_age_seconds: assuranceHours * 3600,
-				password_login_allowed: passwordLoginAllowed,
-				api_token_mode: apiTokenMode,
-				max_token_lifetime_seconds: maxTokenDays * 86400,
-				require_token_reauth: requireTokenReauth
+		try {
+			const { error: saveError } = await client.PUT('/organizations/{organization_id}/sso-policy', {
+				params: { path: { organization_id: targetOrganizationID } },
+				body
+			});
+			if (saveError) throw new Error(saveError.detail ?? m.settings_sso_policy_save_failed());
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				notice = m.settings_sso_policy_saved();
+				if (policySnapshot === submittedSnapshot) savedPolicySnapshot = submittedSnapshot;
 			}
-		});
-		if (saveError) error = saveError.detail ?? m.settings_sso_policy_save_failed();
-		else {
-			notice = m.settings_sso_policy_saved();
-			savedPolicySnapshot = policySnapshot;
+			if (!actorID || get(auth).user?.id !== actorID) return;
+			const auditOptions = organizationIdentityAuditQueryOptions(
+				organizationQueryAPI,
+				targetOrganizationID,
+				20
+			);
+			await Promise.all([
+				invalidateOrganizationIdentityDependencies(queryClient, targetOrganizationID),
+				queryClient.invalidateQueries({
+					queryKey: authQueryKeys.security(),
+					exact: true
+				})
+			]);
+			if (get(auth).user?.id !== actorID) return;
+			await refreshWorkspaceAccess(targetOrganizationID, actorID, sequence);
+			if (get(auth).user?.id !== actorID) return;
+			const refreshedAudit = await queryClient.fetchQuery(auditOptions);
+			if (mutationIsCurrent(sequence, targetOrganizationID)) auditEvents = refreshedAudit;
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_policy_save_failed();
+			}
+		} finally {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) busy = '';
 		}
-		busy = '';
 	}
 
 	async function createDomain(event: SubmitEvent) {
 		event.preventDefault();
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
+		const actorID = get(auth).user?.id ?? '';
+		const submittedDomainName = domainName.trim();
+		const submittedProviderID = domainProviderID;
 		busy = 'domain';
 		error = '';
 		notice = '';
-		const { data, error: createError } = await client.POST(
-			'/organizations/{organization_id}/sso-domains',
-			{
-				params: { path: { organization_id: organizationID } },
-				body: { provider_id: domainProviderID, domain: domainName.trim() }
+		try {
+			const { data, error: createError } = await client.POST(
+				'/organizations/{organization_id}/sso-domains',
+				{
+					params: { path: { organization_id: targetOrganizationID } },
+					body: {
+						provider_id: submittedProviderID,
+						domain: submittedDomainName
+					}
+				}
+			);
+			if (createError || !data) {
+				throw new Error(createError?.detail ?? m.settings_sso_domain_create_failed());
 			}
-		);
-		if (createError || !data) {
-			error = createError?.detail ?? m.settings_sso_domain_create_failed();
-		} else {
-			pendingDNS = { name: data.dns_name, value: data.dns_value };
-			domainName = '';
-			loadedKey = '';
-			await load();
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				pendingDNS = { name: data.dns_name, value: data.dns_value };
+				if (domainName.trim() === submittedDomainName) domainName = '';
+			}
+			await refreshOrganizationQueries(targetOrganizationID, actorID, sequence);
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_domain_create_failed();
+			}
+		} finally {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) busy = '';
 		}
-		busy = '';
 	}
 
 	async function verifyDomain(domain: Domain) {
+		const targetOrganizationID = organizationID;
+		const sequence = ++mutationSequence;
+		const actorID = get(auth).user?.id ?? '';
 		busy = `domain-${domain.id}`;
 		error = '';
-		const { error: verifyError } = await client.POST(
-			'/organizations/{organization_id}/sso-domains/{domain_id}/verify',
-			{
-				params: {
-					path: { organization_id: organizationID, domain_id: domain.id }
+		try {
+			const { error: verifyError } = await client.POST(
+				'/organizations/{organization_id}/sso-domains/{domain_id}/verify',
+				{
+					params: {
+						path: {
+							organization_id: targetOrganizationID,
+							domain_id: domain.id
+						}
+					}
 				}
+			);
+			if (verifyError) throw new Error(verifyError.detail ?? m.settings_sso_domain_verify_failed());
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				notice = m.settings_sso_domain_verified();
 			}
-		);
-		if (verifyError) error = verifyError.detail ?? m.settings_sso_domain_verify_failed();
-		else notice = m.settings_sso_domain_verified();
-		loadedKey = '';
-		await load();
-		busy = '';
+			await refreshOrganizationQueries(targetOrganizationID, actorID, sequence);
+		} catch (cause) {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) {
+				error = cause instanceof Error ? cause.message : m.settings_sso_domain_verify_failed();
+			}
+		} finally {
+			if (mutationIsCurrent(sequence, targetOrganizationID)) busy = '';
+		}
 	}
 </script>
 
-{#if loading}
+{#if loading && loadedKey !== organizationID}
 	<PageLoading layout="settings" label={m.common_loading()} items={6} />
 {:else}
 	<div class="space-y-10">
 		{#if error}
-			<InlineNotice tone="error" message={error} />
+			<InlineNotice tone={policy ? 'warning' : 'error'} message={error}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void load(organizationID)}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 		{#if notice}
 			<InlineNotice tone="success" message={notice} />
@@ -368,10 +616,14 @@
 					<div class="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center">
 						<div class="min-w-0 flex-1">
 							<p class="font-medium">{provider.name}</p>
-							<p class="truncate text-sm text-muted-foreground">{provider.issuer}</p>
+							<p class="truncate text-sm text-muted-foreground">
+								{provider.issuer}
+							</p>
 							<dl class="mt-2 space-y-1 text-xs text-muted-foreground">
 								<div>
-									<dt class="font-medium text-foreground">{m.settings_sso_callback_url()}</dt>
+									<dt class="font-medium text-foreground">
+										{m.settings_sso_callback_url()}
+									</dt>
 									<dd class="break-all">{provider.callback_url}</dd>
 								</div>
 								<div>
@@ -637,7 +889,9 @@
 							<dd>{pendingDNS.name}</dd>
 						</div>
 						<div>
-							<dt class="text-muted-foreground">{m.settings_sso_dns_value()}</dt>
+							<dt class="text-muted-foreground">
+								{m.settings_sso_dns_value()}
+							</dt>
 							<dd>{pendingDNS.value}</dd>
 						</div>
 					</dl>
@@ -679,14 +933,18 @@
 					<div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<p class="text-sm font-medium">{event.action}</p>
-							{#if event.detail}<p class="text-xs text-muted-foreground">{event.detail}</p>{/if}
+							{#if event.detail}<p class="text-xs text-muted-foreground">
+									{event.detail}
+								</p>{/if}
 						</div>
 						<time class="text-xs text-muted-foreground" datetime={event.created_at}>
 							{new Date(event.created_at).toLocaleString()}
 						</time>
 					</div>
 				{:else}
-					<p class="p-4 text-sm text-muted-foreground">{m.settings_sso_no_audit()}</p>
+					<p class="p-4 text-sm text-muted-foreground">
+						{m.settings_sso_no_audit()}
+					</p>
 				{/each}
 			</div>
 		</section>

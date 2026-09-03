@@ -1,4 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const semanticSurfaces = [
@@ -8,17 +10,30 @@ const semanticSurfaces = [
 
 // Approved exceptions: public and pre-workspace screens are out of the theme
 // scope by product decision (no workspace is known, so no theme applies), and
-// may use library icons directly. Each entry records why the surface is exempt.
-const approvedPublicExceptions: Array<{ file: URL; reason: string }> = [
-	{
-		file: new URL('../../routes/_components/PublicHome.svelte', import.meta.url),
-		reason: 'pre-sign-in marketing surface, outside theme scope'
-	},
-	{
-		file: new URL('../../routes/u/[username]/+page.svelte', import.meta.url),
-		reason: 'public profile ledger, outside theme scope'
-	}
+// may use library icons directly.
+const approvedPublicExceptions = [
+	'../../routes/_components/PublicHome.svelte',
+	'../../routes/u/[username]/+page.svelte',
+	// The protection mechanism itself: ProtectedIcon renders protected glyphs
+	// (status, media, editor) from the pinned library so theme packs can never
+	// replace them. This is the one allowed direct import inside theme scope.
+	'./icons/protected-icon.svelte'
 ];
+
+function sourceFiles(directory: string): string[] {
+	const files: string[] = [];
+	for (const entry of readdirSync(directory, { withFileTypes: true })) {
+		const path = join(directory, entry.name);
+		if (entry.isDirectory()) {
+			if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+				files.push(...sourceFiles(path));
+			}
+			continue;
+		}
+		if (entry.isFile() && /\.(svelte|ts|tsx)$/.test(entry.name)) files.push(path);
+	}
+	return files;
+}
 
 describe('remaining app icon boundary', () => {
 	it('keeps functional app icons behind semantic registries', async () => {
@@ -28,10 +43,20 @@ describe('remaining app icon boundary', () => {
 		}
 	});
 
-	it('documents every direct library icon use outside the theme scope', async () => {
-		for (const { file } of approvedPublicExceptions) {
-			const source = await readFile(file, 'utf8');
-			expect(source, file.pathname).toContain('@lucide/svelte');
+	it('allows direct library icons only on documented public exceptions', () => {
+		const root = new URL('../../', import.meta.url);
+		const allowed = new Set(
+			approvedPublicExceptions.map((file) =>
+				relative(root.pathname, new URL(file, import.meta.url).pathname)
+			)
+		);
+		const offenders: string[] = [];
+		for (const file of sourceFiles(root.pathname)) {
+			if (file.endsWith('.test.ts') || file.endsWith('.test.tsx')) continue;
+			if (!readFileSync(file, 'utf8').includes('@lucide/svelte')) continue;
+			const repoPath = relative(root.pathname, file);
+			if (!allowed.has(repoPath)) offenders.push(repoPath);
 		}
+		expect(offenders).toEqual([]);
 	});
 });

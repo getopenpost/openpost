@@ -7,8 +7,8 @@
 	Responsive: One column at every width, with controls wrapping into touch-safe rows on phones.
 -->
 <script lang="ts">
-	import {
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import {
 		accountFeaturesQueryOptions,
 		engagementQueryOptions,
 		inboxPublicationsQueryOptions,

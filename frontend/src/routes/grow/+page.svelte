@@ -7,8 +7,8 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
-	import {
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import {
 		accountFeaturesQueryOptions,
 		growthQueryKeys,
 		growthQueryOptions,

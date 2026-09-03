@@ -1,6 +1,6 @@
 <script lang="ts">
-	import {
 	import { ThemeIcon } from '$lib/themes/icons';
+	import {
 		accountFeaturesQueryOptions,
 		conversationsQueryOptions,
 		inboxQueryKeys,

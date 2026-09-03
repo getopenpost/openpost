@@ -6,8 +6,8 @@ FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
-	import {
 	import { ThemeIcon } from '$lib/themes/icons';
+	import {
 		accountFeaturesQueryOptions,
 		analyticsOverviewQueryOptions,
 		analyticsQueryKeys

@@ -30,5 +30,6 @@ export * from "./prompts";
 export * from "./public-profiles";
 export * from "./publication-invalidation";
 export * from "./scheduling";
+export * from "./themes";
 export * from "./workspace-settings";
 export * from "./voice-profiles";

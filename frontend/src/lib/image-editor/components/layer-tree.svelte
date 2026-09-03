@@ -5,20 +5,9 @@
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { ThemeIcon } from '$lib/themes/icons';
-	import LockIcon from '@lucide/svelte/icons/lock';
-	import UnlockIcon from '@lucide/svelte/icons/lock-open';
-	import TypeIcon from '@lucide/svelte/icons/type';
-	import ImageIcon from '@lucide/svelte/icons/image';
-	import SquareIcon from '@lucide/svelte/icons/square';
-	import GroupIcon from '@lucide/svelte/icons/group';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import SquareDashedIcon from '@lucide/svelte/icons/square-dashed';
-	import BringToFrontIcon from '@lucide/svelte/icons/bring-to-front';
-	import SendToBackIcon from '@lucide/svelte/icons/send-to-back';
-	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
-	import UngroupIcon from '@lucide/svelte/icons/ungroup';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes/contracts.js';
+	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import type { ImageEditorLayer, ImageEditorPage } from '../types';
 	import { isEmptyImageEditorPaintLayer } from '../document';
 	import { m } from '$lib/paraglide/messages';
@@ -60,18 +49,19 @@
 		});
 	});
 
-	function layerIcon(layer: ImageEditorLayer) {
-		return layer.type === 'text'
-			? TypeIcon
-			: layer.type === 'image'
-				? ImageIcon
-				: isEmptyImageEditorPaintLayer(layer)
-					? SquareDashedIcon
-					: layer.type === 'paint'
-						? PencilIcon
-						: layer.type === 'group'
-							? GroupIcon
-							: SquareIcon;
+	type LayerGlyph =
+		| { kind: 'theme'; role: ThemeIconRole }
+		| { kind: 'protected'; role: ProtectedIconRole };
+
+	function layerIcon(layer: ImageEditorLayer): LayerGlyph {
+		if (layer.type === 'text') return { kind: 'protected', role: 'editor-text' };
+		if (layer.type === 'image') return { kind: 'theme', role: 'image' };
+		// Raster paint-layer type glyph, not an edit action (see icons/MIGRATION.md).
+		if (isEmptyImageEditorPaintLayer(layer)) return { kind: 'protected', role: 'editor-paint' };
+		if (layer.type === 'paint') return { kind: 'protected', role: 'editor-paint' };
+		if (layer.type === 'group') return { kind: 'protected', role: 'editor-group' };
+		// Vector shape-layer glyph.
+		return { kind: 'protected', role: 'editor-shapes' };
 	}
 
 	function reorder(
@@ -347,7 +337,7 @@
 		{#if items.length}
 			{#each items as item (item.layer.id)}
 				{@const layer = item.layer}
-				{@const Icon = layerIcon(layer)}
+				{@const layerGlyphRef = layerIcon(layer)}
 				{@const groupDestinations = editor.groupDestinationsForLayer(layer.id)}
 				<ContextMenu.Root
 					onOpenChange={(open) => {
@@ -463,7 +453,11 @@
 								>
 									<ThemeIcon role="drag" class="size-3.5" />
 								</button>
-								<Icon class="size-3.5 shrink-0" />
+								{#if layerGlyphRef.kind === 'theme'}
+									<ThemeIcon role={layerGlyphRef.role} class="size-3.5 shrink-0" />
+								{:else}
+									<ProtectedIcon icon={layerGlyphRef.role} class="size-3.5 shrink-0" />
+								{/if}
 								{#if renamingID === layer.id}
 									<Input
 										{@attach focusInput}
@@ -500,7 +494,7 @@
 											editor.reorderLayer(layer.id, 'forward');
 										}}
 									>
-										<ArrowUpIcon />
+										<ThemeIcon role="arrow-up" />
 									</Button>
 									<Button
 										variant="ghost"
@@ -513,7 +507,7 @@
 											editor.reorderLayer(layer.id, 'backward');
 										}}
 									>
-										<ArrowDownIcon />
+										<ThemeIcon role="arrow-down" />
 									</Button>
 								{/if}
 								<Button
@@ -548,7 +542,7 @@
 									}}
 									disabled={!editor.canEdit}
 								>
-									{#if layer.locked}<LockIcon />{:else}<UnlockIcon />{/if}
+									<ThemeIcon role="lock" />
 								</Button>
 							</div>
 						{/snippet}
@@ -577,7 +571,7 @@
 								disabled={editor.selectedLayers.length < 2}
 								onclick={() => editor.groupSelected()}
 							>
-								<GroupIcon class="size-4" />
+								<ProtectedIcon icon="editor-group" class="size-4" />
 								{m.image_editor_group()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
@@ -585,13 +579,13 @@
 								disabled={!editor.selectedLayers.some((selected) => selected.type === 'group')}
 								onclick={() => editor.ungroupSelected()}
 							>
-								<UngroupIcon class="size-4" />
+								<ProtectedIcon icon="editor-ungroup" class="size-4" />
 								{m.image_editor_ungroup()}
 							</ContextMenu.Item>
 							{#if groupDestinations.length > 0}
 								<ContextMenu.Sub>
 									<ContextMenu.SubTrigger class="image-editor-context-item">
-										<GroupIcon class="size-4" />
+										<ProtectedIcon icon="editor-group" class="size-4" />
 										{m.image_editor_move_into_group()}
 									</ContextMenu.SubTrigger>
 									<ContextMenu.SubContent
@@ -602,7 +596,7 @@
 												class="image-editor-context-item"
 												onclick={() => editor.moveLayerToGroup(layer.id, destination.id)}
 											>
-												<GroupIcon class="size-4" />
+												<ProtectedIcon icon="editor-group" class="size-4" />
 												{m.image_editor_move_to_group({ name: destination.name })}
 											</ContextMenu.Item>
 										{/each}
@@ -614,7 +608,7 @@
 									class="image-editor-context-item"
 									onclick={() => editor.moveLayerOutOfGroup(layer.id)}
 								>
-									<UngroupIcon class="size-4" />
+									<ProtectedIcon icon="editor-ungroup" class="size-4" />
 									{m.image_editor_move_out_of_group()}
 								</ContextMenu.Item>
 							{/if}
@@ -623,7 +617,7 @@
 								class="image-editor-context-item"
 								onclick={() => editor.reorderLayer(layer.id, 'front')}
 							>
-								<BringToFrontIcon class="size-4" />
+								<ProtectedIcon icon="editor-arrange-front" class="size-4" />
 								{m.image_editor_bring_front()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
@@ -642,7 +636,7 @@
 								class="image-editor-context-item"
 								onclick={() => editor.reorderLayer(layer.id, 'back')}
 							>
-								<SendToBackIcon class="size-4" />
+								<ProtectedIcon icon="editor-arrange-back" class="size-4" />
 								{m.image_editor_send_back()}
 							</ContextMenu.Item>
 							<ContextMenu.Separator class="my-1 h-px bg-border" />

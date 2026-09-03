@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
@@ -49,7 +49,7 @@
 				onSecondaryChange(primary);
 			}}
 		>
-			<ArrowLeftRightIcon />
+			<ThemeIcon role="swap" />
 		</Button>
 		<div class="w-32">
 			<ImageEditorColorPicker

@@ -13,15 +13,7 @@
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
-	import { ThemeIcon } from '$lib/themes/icons';
-	import BringToFrontIcon from '@lucide/svelte/icons/bring-to-front';
-	import SendToBackIcon from '@lucide/svelte/icons/send-to-back';
-	import FlipHorizontalIcon from '@lucide/svelte/icons/flip-horizontal-2';
-	import FlipVerticalIcon from '@lucide/svelte/icons/flip-vertical-2';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
-	import CropIcon from '@lucide/svelte/icons/crop';
-	import LinkIcon from '@lucide/svelte/icons/link';
-	import UnlinkIcon from '@lucide/svelte/icons/unlink';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { ImageEditorImageAdjustments, ImageEditorTextCurveType } from '../types';
 
@@ -377,7 +369,8 @@
 										variant="outline"
 										size="icon-sm"
 										onclick={() => editor.reorderLayer(layer.id, 'front')}
-										aria-label={m.image_editor_bring_front()}><BringToFrontIcon /></Button
+										aria-label={m.image_editor_bring_front()}
+										><ProtectedIcon icon="editor-arrange-front" /></Button
 									>
 								{/snippet}
 							</Tooltip.Trigger>
@@ -391,7 +384,8 @@
 										variant="outline"
 										size="icon-sm"
 										onclick={() => editor.reorderLayer(layer.id, 'back')}
-										aria-label={m.image_editor_send_back()}><SendToBackIcon /></Button
+										aria-label={m.image_editor_send_back()}
+										><ProtectedIcon icon="editor-arrange-back" /></Button
 									>
 								{/snippet}
 							</Tooltip.Trigger>
@@ -470,7 +464,7 @@
 							aria-pressed={aspectLocked}
 							onclick={() => (aspectLocked = !aspectLocked)}
 						>
-							{#if aspectLocked}<LinkIcon />{:else}<UnlinkIcon />{/if}
+							{#if aspectLocked}<ThemeIcon role="link" />{:else}<ThemeIcon role="unlink" />{/if}
 							{m.image_editor_lock_aspect_ratio()}
 						</Button>
 						<div class="space-y-1">
@@ -503,7 +497,7 @@
 										aria-label={m.image_editor_reset_rotation()}
 										title={m.image_editor_reset_rotation()}
 									>
-										<RotateCcwIcon />
+										<ProtectedIcon icon="editor-rotate-left" />
 									</Button>
 								</div>
 							</div>
@@ -529,7 +523,7 @@
 										mixedTransforms.flip_x.mixed ? true : !layer.transform.flip_x
 									)}
 							>
-								<FlipHorizontalIcon />
+								<ProtectedIcon icon="editor-flip-horizontal" />
 								{m.image_editor_flip_x()}
 							</Button>
 							<Button
@@ -543,7 +537,7 @@
 										mixedTransforms.flip_y.mixed ? true : !layer.transform.flip_y
 									)}
 							>
-								<FlipVerticalIcon />
+								<ProtectedIcon icon="editor-flip-vertical" />
 								{m.image_editor_flip_y()}
 							</Button>
 						</div>
@@ -1172,7 +1166,7 @@
 											type="button"
 											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-xs font-medium hover:bg-muted"
 										>
-											<CropIcon class="size-3.5" />
+											<ProtectedIcon icon="editor-crop" class="size-3.5" />
 											<span class="min-w-0 flex-1">{m.image_editor_crop()}</span>
 											<ThemeIcon
 												role="chevron-down"

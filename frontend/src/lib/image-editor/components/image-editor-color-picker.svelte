@@ -3,8 +3,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon } from '$lib/themes/icons';
-	import PipetteIcon from '@lucide/svelte/icons/pipette';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { hslToHex, hexToRGB, normalizeHex, rgbToHSL, rgbToHex } from '../color';
 	import type { ImageEditorHSL, ImageEditorRGB } from '../color';
 	import type { ImageEditorBrandColor } from '../types';
@@ -130,7 +129,7 @@
 					aria-label={m.image_editor_pick_color()}
 					title={m.image_editor_pick_color()}
 				>
-					<PipetteIcon />
+					<ProtectedIcon icon="editor-eyedropper" />
 				</Button>
 			{/if}
 		</div>

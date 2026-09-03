@@ -15,7 +15,6 @@
 	} from '../types';
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
-	import ImageIcon from '@lucide/svelte/icons/image';
 
 	let { onOpenMedia = () => undefined }: { onOpenMedia?: () => void } = $props();
 
@@ -244,7 +243,7 @@
 			disabled={!editor.canEdit}
 			onclick={() => setBackgroundType('image')}
 		>
-			<ImageIcon />
+			<ThemeIcon role="image" />
 			{m.image_editor_image()}
 		</Button>
 	</div>

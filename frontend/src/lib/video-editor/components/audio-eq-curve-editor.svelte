@@ -381,6 +381,7 @@
 	bind:this={root}
 	class={`relative h-44 w-full touch-none overflow-hidden rounded-md border border-white/10 bg-[oklch(0.18_0.01_50)] select-none ${disabled ? 'opacity-60' : 'cursor-move'}`}
 	data-eq-curve-root
+	data-editor-protected="audio-eq-curve"
 	role="group"
 	aria-label={m.video_editor_audio_eq_response()}
 	onpointermove={moveDrag}

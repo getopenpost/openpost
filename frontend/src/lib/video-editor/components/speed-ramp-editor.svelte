@@ -98,10 +98,12 @@
 
 <div class="space-y-2 px-2.5 py-2" data-testid="speed-ramp-editor">
 	<div class="flex items-center justify-between gap-2">
-		<span class="text-[10px] font-medium text-white/48">{m.video_editor_clip_speed_curve()}</span>
+		<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+			>{m.video_editor_clip_speed_curve()}</span
+		>
 		<button
 			type="button"
-			class="inline-flex h-7 items-center gap-1 rounded border border-white/10 bg-white/[0.035] px-2 text-[10px] font-medium text-white/68 hover:border-white/18 hover:bg-white/[0.07] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-35"
+			class="inline-flex h-7 items-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-[10px] font-medium text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-35"
 			disabled={!canAdd}
 			onclick={addPoint}
 		>
@@ -114,6 +116,7 @@
 		<svg
 			viewBox="0 0 200 50"
 			class="h-14 w-full rounded border border-white/7 bg-black/16"
+			data-editor-protected="speed-curve"
 			role="img"
 			aria-label={m.video_editor_clip_speed()}
 		>
@@ -135,7 +138,7 @@
 			{#each points as point, index (point.id)}
 				<div class="grid grid-cols-[3.7rem_minmax(0,1fr)_1.1fr_1.75rem] items-center gap-1">
 					<span
-						class="truncate text-[9px] text-white/36 tabular-nums"
+						class="truncate text-[9px] text-[var(--video-editor-muted)] tabular-nums"
 						title={formatSourceTime(point, item)}
 					>
 						{formatSourceTime(point, item)}
@@ -148,12 +151,12 @@
 							step="0.05"
 							value={point.speed}
 							aria-label={pointLabel(index)}
-							class="h-7 w-full rounded border border-white/8 bg-black/18 py-1 pr-4 pl-1.5 text-right text-[10px] text-white/76 tabular-nums outline-none focus:border-[oklch(0.66_0.14_45)]"
+							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 							onchange={(event) =>
 								updatePoint(point.id, { speed: event.currentTarget.valueAsNumber })}
 						/>
 						<span
-							class="pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 text-[8px] text-white/28"
+							class="pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 text-[8px] text-[var(--video-editor-muted)]"
 							>×</span
 						>
 					</div>
@@ -163,12 +166,12 @@
 						ariaLabel={m.video_editor_keyframe_graph_segment_easing({
 							frame: point.sourceFrame
 						})}
-						class="h-7 min-w-0 rounded border border-white/8 bg-black/18 px-1 text-[9px] text-white/68 outline-none focus:border-[oklch(0.66_0.14_45)]"
+						class="h-7 min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-[9px] text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
 						onValueChange={(value) => updatePoint(point.id, { easing: value as EasingType })}
 					/>
 					<button
 						type="button"
-						class="grid size-7 place-items-center rounded text-white/28 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={`${m.common_delete()} ${pointLabel(index)}`}
 						onclick={() => removePoint(point.id)}
 					>

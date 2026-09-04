@@ -28,6 +28,22 @@ const compositionTimeline = new URL(
 	import.meta.url
 );
 const colorScopes = new URL('../lib/video-editor/components/color-scopes.svelte', import.meta.url);
+const audioEqCurve = new URL(
+	'../lib/video-editor/components/audio-eq-curve-editor.svelte',
+	import.meta.url
+);
+const colorPrimaryControls = new URL(
+	'../lib/video-editor/components/color-primary-controls.svelte',
+	import.meta.url
+);
+const gpuCurves = new URL(
+	'../lib/video-editor/components/gpu-curves-editor.svelte',
+	import.meta.url
+);
+const speedRamp = new URL(
+	'../lib/video-editor/components/speed-ramp-editor.svelte',
+	import.meta.url
+);
 const layoutStyles = new URL('./layout.css', import.meta.url);
 const videoEditorComponent = (name: string) =>
 	new URL(`../lib/video-editor/components/${name}.svelte`, import.meta.url);
@@ -122,6 +138,10 @@ describe('editor route theme color boundary', () => {
 			{ url: videoTimeline, marker: 'timeline' },
 			{ url: compositionTimeline, marker: 'composition-timeline' },
 			{ url: colorScopes, marker: 'scopes' },
+			{ url: audioEqCurve, marker: 'audio-eq-curve' },
+			{ url: colorPrimaryControls, marker: 'color-wheel' },
+			{ url: gpuCurves, marker: 'curves' },
+			{ url: speedRamp, marker: 'speed-curve' },
 			{ url: recorderRoute, marker: 'capture-preview' },
 			{ url: recorderRoute, marker: 'input-meter' }
 		];
@@ -131,6 +151,90 @@ describe('editor route theme color boundary', () => {
 			expect(source, `${marker} must remain an explicit protected subtree`).toContain(
 				`data-editor-protected="${marker}"`
 			);
+		}
+	});
+
+	it('keeps mixed signal editors on semantic chrome outside their protected plots', async () => {
+		const cases = [
+			{
+				name: 'audio mixer',
+				component: 'audio-mixer-panel',
+				required: [
+					'border-right: 1px solid var(--video-editor-border);',
+					'background: var(--video-editor-control);',
+					'outline: 2px solid var(--video-editor-focus);'
+				]
+			},
+			{
+				name: 'color effect header',
+				component: 'color-effect-header',
+				required: [
+					'border-[var(--video-editor-border)]',
+					'bg-[var(--video-editor-control)]',
+					'color: var(--video-editor-muted);'
+				]
+			},
+			{
+				name: 'color grading dock',
+				component: 'color-grading-dock',
+				required: [
+					'border-[var(--video-editor-border)]',
+					'bg-[var(--video-editor-panel)]',
+					'text-[var(--video-editor-text)]'
+				]
+			},
+			{
+				name: 'color primary controls',
+				component: 'color-primary-controls',
+				required: [
+					'background: var(--video-editor-field);',
+					'color: var(--video-editor-field-text);',
+					'border-color: var(--video-editor-focus-border);'
+				]
+			},
+			{
+				name: 'color scopes',
+				component: 'color-scopes',
+				required: [
+					'bg-[var(--video-editor-panel)]',
+					'text-[var(--video-editor-muted)]',
+					'background: var(--video-editor-control-hover);'
+				]
+			},
+			{
+				name: 'color workspace',
+				component: 'color-workspace',
+				required: [
+					'border: 1px solid var(--video-editor-border);',
+					'background: var(--video-editor-control-hover);',
+					'outline: 2px solid var(--video-editor-focus);'
+				]
+			},
+			{
+				name: 'GPU curves',
+				component: 'gpu-curves-editor',
+				required: [
+					'bg-[var(--video-editor-panel)]',
+					'bg-[var(--video-editor-selection)]',
+					'focus-visible:outline-[var(--video-editor-focus)]'
+				]
+			},
+			{
+				name: 'speed ramp',
+				component: 'speed-ramp-editor',
+				required: [
+					'bg-[var(--video-editor-control)]',
+					'bg-[var(--video-editor-field)]',
+					'focus-visible:outline-[var(--video-editor-focus)]'
+				]
+			}
+		];
+
+		for (const { name, component, required } of cases) {
+			const source = await readFile(videoEditorComponent(component), 'utf8');
+			for (const token of required) {
+				expect(source, `${name} must inherit organization theme chrome`).toContain(token);
+			}
 		}
 	});
 

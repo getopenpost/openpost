@@ -414,17 +414,17 @@
 		justify-content: center;
 		gap: 0.25rem;
 		border-radius: 0.25rem;
-		border: 1px solid oklch(0.32 0.015 55);
+		border: 1px solid var(--video-editor-border);
 		padding-inline: 0.375rem;
 		font-size: 0.625rem;
 	}
 	.color-tool:hover:not(:disabled),
 	.color-icon:hover:not(:disabled) {
-		background: oklch(0.27 0.015 55);
+		background: var(--video-editor-control-hover);
 	}
 	.color-tool:focus-visible,
 	.color-icon:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 	.color-tool:disabled,
@@ -439,6 +439,6 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 0.25rem;
-		border: 1px solid oklch(0.32 0.015 55);
+		border: 1px solid var(--video-editor-border);
 	}
 </style>

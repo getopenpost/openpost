@@ -360,13 +360,13 @@
 </script>
 
 <div
-	class="bg-[oklch(0.15_0.008_55)] {compact
+	class="bg-[var(--video-editor-panel)] {compact
 		? 'flex h-full min-h-0 flex-col p-1'
-		: 'mt-2 rounded-lg border border-[oklch(0.31_0.018_55)] p-2'}"
+		: 'mt-2 rounded-lg border border-[var(--video-editor-border)] p-2'}"
 >
 	<div class="flex items-center gap-1 {compact ? 'mb-1 shrink-0' : 'mb-2 flex-wrap'}">
 		<span
-			class="mr-auto text-[10px] font-medium text-[oklch(0.65_0.015_55)] uppercase {compact
+			class="mr-auto text-[10px] font-medium text-[var(--video-editor-muted)] uppercase {compact
 				? 'sr-only'
 				: ''}"
 		>
@@ -375,7 +375,7 @@
 		{#each CURVE_CHANNELS as channel (channel)}
 			<button
 				type="button"
-				class={`${compact ? 'h-6 min-w-0 flex-1 overflow-hidden px-1 text-[8px]' : 'min-h-11 min-w-11 px-2 text-xs'} rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] ${activeChannel === channel ? 'bg-[oklch(0.3_0.025_55)] text-white' : 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)]'}`}
+				class={`${compact ? 'h-6 min-w-0 flex-1 overflow-hidden px-1 text-[8px]' : 'min-h-11 min-w-11 px-2 text-xs'} rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] ${activeChannel === channel ? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]' : 'text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)]'}`}
 				disabled={!gpuEffect.enabled || drag !== null}
 				aria-pressed={activeChannel === channel}
 				style:color={activeChannel === channel ? channelColors[channel] : undefined}
@@ -388,7 +388,7 @@
 			type="button"
 			class="flex {compact
 				? 'size-6'
-				: 'size-11'} items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
+				: 'size-11'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled ||
 				drag !== null ||
 				selectedPointIndex === null ||
@@ -404,7 +404,7 @@
 			type="button"
 			class="flex {compact
 				? 'size-6'
-				: 'size-11'} items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
+				: 'size-11'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled || drag !== null || isIdentityCurve(activePoints)}
 			aria-label={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
 			title={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
@@ -418,6 +418,7 @@
 		class="relative w-full overflow-hidden rounded-md border border-white/10 bg-black/55 {compact
 			? 'min-h-0 flex-1'
 			: 'aspect-square'}"
+		data-editor-protected="curves"
 	>
 		<svg
 			bind:this={svg}
@@ -530,7 +531,7 @@
 		</svg>
 	</div>
 	{#if !compact}
-		<p class="mt-1.5 text-[10px] leading-4 text-[oklch(0.62_0.015_55)]">
+		<p class="mt-1.5 text-[10px] leading-4 text-[var(--video-editor-muted)]">
 			{m.video_editor_curves_hint()}
 		</p>
 	{/if}

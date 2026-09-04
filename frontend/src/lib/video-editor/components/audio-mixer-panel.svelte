@@ -616,28 +616,28 @@
 		min-width: 5.5rem;
 		flex-direction: column;
 		gap: 0.3rem;
-		border-right: 1px solid oklch(0.25 0.015 55);
+		border-right: 1px solid var(--video-editor-border);
 		padding: 0 0.45rem;
 	}
 	.master-strip {
 		margin-left: 0.25rem;
 		border-right: 0;
-		border-left: 1px solid oklch(0.5 0.08 70 / 0.5);
-		background: oklch(0.2 0.025 65 / 0.28);
+		border-left: 1px solid var(--video-editor-focus-border);
+		background: var(--video-editor-selection);
 	}
 	.channel-button {
 		min-height: 1.75rem;
 		min-width: 1.75rem;
-		border: 1px solid oklch(0.32 0.015 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.25rem;
-		background: oklch(0.2 0.01 55);
+		background: var(--video-editor-control);
 		font-size: 0.625rem;
 		font-weight: 700;
-		color: oklch(0.72 0.01 55);
+		color: var(--video-editor-muted);
 	}
 	.channel-button:focus-visible,
 	.fader:focus-visible {
-		outline: 2px solid oklch(0.72 0.14 55);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 	.channel-button:disabled {
@@ -657,14 +657,14 @@
 		left: 50%;
 		width: 2px;
 		transform: translateX(-50%);
-		background: oklch(0.32 0.01 55);
+		background: var(--video-editor-border);
 	}
 	.fader-unity {
 		position: absolute;
 		left: 0.35rem;
 		right: 0.35rem;
 		height: 1px;
-		background: oklch(0.7 0.02 55 / 0.45);
+		background: color-mix(in oklch, var(--video-editor-text) 45%, transparent);
 	}
 	.fader-knob {
 		position: absolute;
@@ -672,9 +672,9 @@
 		width: 2.35rem;
 		height: 0.85rem;
 		transform: translate(-50%, 50%);
-		border: 1px solid oklch(0.25 0.01 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.2rem;
-		background: oklch(0.86 0.01 55);
+		background: var(--video-editor-field-text);
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
 	}
 	.fader-knob::after {
@@ -684,7 +684,7 @@
 		right: 0.2rem;
 		height: 1px;
 		content: '';
-		background: oklch(0.35 0.01 55);
+		background: var(--video-editor-field);
 	}
 	.meter-well {
 		position: relative;
@@ -714,7 +714,7 @@
 		font-size: 0.625rem;
 		font-variant-numeric: tabular-nums;
 		text-align: right;
-		color: oklch(0.72 0.01 55);
+		color: var(--video-editor-muted);
 	}
 	.clip-light {
 		width: 0.4rem;

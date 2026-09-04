@@ -207,19 +207,21 @@
 </script>
 
 <section
-	class="flex min-h-0 flex-col {embedded
+	class="flex min-h-0 flex-col bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] {embedded
 		? 'h-full p-2'
-		: 'mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2'}"
+		: 'mt-2 border-t border-[var(--video-editor-border)] pt-2'}"
 	data-scope-backend={gpuReady ? 'webgpu' : 'cpu'}
 	data-scope-error={gpuFailure || undefined}
 >
 	<div class="mb-1 flex items-center justify-between gap-2">
 		<div class="flex min-w-0 items-center gap-1.5">
-			<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
+			<h3
+				class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			>
 				{m.video_editor_scopes()}
 			</h3>
 			<span
-				class="rounded bg-[oklch(0.24_0.01_55)] px-1 py-0.5 font-mono text-[8px] text-[oklch(0.58_0.012_55)]"
+				class="rounded bg-[var(--video-editor-control)] px-1 py-0.5 font-mono text-[8px] text-[var(--video-editor-muted)]"
 				aria-hidden="true"
 			>
 				{gpuReady ? 'GPU' : 'CPU'}
@@ -291,24 +293,24 @@
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 0.5625rem;
 		font-weight: 650;
-		color: oklch(0.62 0.015 55);
+		color: var(--video-editor-muted);
 	}
 
 	.scope-mode:hover,
 	.scope-mode:focus-visible {
-		background: oklch(0.24 0.01 55);
-		color: oklch(0.86 0.008 75);
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 
 	.scope-mode:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 
 	.scope-mode-active {
 		border-bottom: 1.5px solid var(--scope-mode-color);
 		background: color-mix(in oklch, var(--scope-mode-color) 18%, transparent);
-		color: oklch(0.94 0.006 75);
+		color: var(--video-editor-text);
 	}
 
 	@media (pointer: coarse) {

@@ -22,7 +22,7 @@
 </script>
 
 <section
-	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.007_55)]"
+	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 	aria-label={m.video_editor_color_dock()}
 >
 	<ColorMiniTimeline selectedItemIds={itemIds} {onselectitem} />
@@ -31,20 +31,24 @@
 		data-color-dock-panels
 	>
 		<div
-			class="grid min-h-[520px] min-w-0 grid-cols-1 overflow-hidden border border-white/10 bg-[oklch(0.16_0.008_55)] lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.5fr)]"
+			class="grid min-h-[520px] min-w-0 grid-cols-1 overflow-hidden border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.5fr)]"
 		>
-			<div class="min-h-0 min-w-0 overflow-hidden lg:border-r lg:border-white/10">
+			<div
+				class="min-h-0 min-w-0 overflow-hidden lg:border-r lg:border-[var(--video-editor-border)]"
+			>
 				<ColorWorkspace {itemId} {itemIds} {onedit} {oncreateadjustment} />
 			</div>
-			<div class="min-h-0 min-w-0 overflow-hidden border-t border-white/10 lg:border-t-0">
+			<div
+				class="min-h-0 min-w-0 overflow-hidden border-t border-[var(--video-editor-border)] lg:border-t-0"
+			>
 				<ColorCurvesPanel {itemId} {itemIds} {onedit} />
 			</div>
 		</div>
 		<div
-			class="flex min-h-[280px] min-w-0 flex-col overflow-hidden border border-white/10 bg-[oklch(0.16_0.008_55)] lg:min-h-0"
+			class="flex min-h-[280px] min-w-0 flex-col overflow-hidden border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0"
 		>
 			<h3
-				class="flex h-8 shrink-0 items-center border-b border-white/10 bg-white/[0.025] px-2 text-xs font-medium text-white/90"
+				class="flex h-8 shrink-0 items-center border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs font-medium text-[var(--video-editor-text)]"
 			>
 				{m.video_editor_effects()}
 			</h3>
@@ -58,7 +62,7 @@
 			</div>
 		</div>
 		<div
-			class="min-h-[300px] min-w-0 overflow-hidden border border-white/10 bg-[oklch(0.16_0.008_55)] lg:min-h-0"
+			class="min-h-[300px] min-w-0 overflow-hidden border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0"
 		>
 			<ColorKeyframePanel {itemId} {onedit} />
 		</div>

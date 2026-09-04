@@ -59,12 +59,14 @@
 </script>
 
 <header
-	class="flex h-8 shrink-0 items-center justify-between gap-2 border-y border-white/10 bg-white/[0.025] px-2"
+	class="flex h-8 shrink-0 items-center justify-between gap-2 border-y border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2"
 >
-	<h3 class="min-w-0 truncate text-xs font-medium text-white/90">{label}</h3>
+	<h3 class="min-w-0 truncate text-xs font-medium text-[var(--video-editor-text)]">{label}</h3>
 	<div class="flex min-w-0 items-center justify-end gap-0.5">
 		{#if badge}
-			<span class="mr-1 font-mono text-[9px] tracking-wide text-white/35">{badge}</span>
+			<span class="mr-1 font-mono text-[9px] tracking-wide text-[var(--video-editor-muted)]"
+				>{badge}</span
+			>
 		{/if}
 		<button
 			type="button"
@@ -114,16 +116,16 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 0.25rem;
-		color: rgb(255 255 255 / 60%);
+		color: var(--video-editor-muted);
 	}
 
 	.effect-action:hover:not(:disabled) {
-		background: rgb(255 255 255 / 8%);
-		color: white;
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 
 	.effect-action:focus-visible {
-		outline: 2px solid rgb(251 146 60);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 

@@ -9,9 +9,11 @@ Legend: **PRESENT** (shipped, wired UI) · **PARTIAL** (engine or reduced versio
 
 ## 2026-09-04 refresh
 
-FreeCut remains at revision `4d62e80`. A fresh source and rendered-interface review found no new
-applicable editing capability since this inventory closed at 173 of 173 present. The remaining
-differences were product-quality gaps rather than missing tools:
+FreeCut remains at revision `4d62e80`. A fresh source, code, and rendered-interface review found
+three places where the prior 173 of 173 claim overstated the shipped workflow: folder recovery only
+handled one file at a time, the export dialog could not select an inactive sequence, and shortcut
+presets applied without a staged conflict review. This pass closed all three and added the omitted
+audio-mixer inventory row. The current result is 174 of 174 applicable capabilities present.
 
 - OpenPost now keeps the active resolution, frame rate, duration, timeline item count, media count,
   and recovery issue count visible in the desktop project bar, following FreeCut's useful project
@@ -24,6 +26,17 @@ differences were product-quality gaps rather than missing tools:
   320 px.
 - The audio-effects pan control now uses the shared editor slider, restoring the same keyboard,
   focus, and coarse-pointer behavior as other continuous controls.
+- Missing sources can be recovered from one recursively scanned folder. Exact path-and-size or
+  unique name-and-size matches are previewed before apply, while case collisions, duplicates, and
+  size drift stay unresolved for review.
+- Export can select Main, any top-level sequence, or a reusable Motion composition without changing
+  the active editor. Each choice keeps its own resolution, frame rate, authored duration, range,
+  markers, and audio mix.
+- The shortcut editor now groups primary and alternate bindings on an accessible keyboard. Imported
+  presets show every change and conflict before apply, and the applied import can be undone.
+- Video and Image Editor shells were rendered across every built-in theme and scheme at desktop and
+  phone widths. High-risk editor panels use semantic organization-theme roles, while output pixels,
+  timelines, scopes, meters, thumbnails, and manipulation geometry keep stable protected colors.
 
 The FreeCut source remains a behavior reference under its MIT license. OpenPost's local-first
 storage, organization theme, accessibility, and shared-control contracts remain authoritative.
@@ -122,6 +135,7 @@ storage, organization theme, accessibility, and shared-control contracts remain 
 | Reverse playback / reverse-conform service                                          | `timeline/services/reverse-conform-service.ts`                                                          | PRESENT - video and audio clips reverse from the exact exclusive source end; preview uses an exact frame/PCM fallback while one shared, cancellable, fingerprinted 720p source conform renders with progress and persists under the workspace media cache. Cached conforms play forward for smooth monitoring, linked A/V toggles atomically, and unreverse is one undo step (`media/reverse-conform-service.ts`, `audio/reverse-preview-audio.ts`)                                                                                                                                                                                                                                                                                                                                                                     | M      |
 | Timeline item overlays (effect drop previews, transition break notifications)       | `timeline/stores/*preview-store.ts`, `use-transition-breakage-notifications.ts`                         | PRESENT - cut-centered transition spans, transition-break previews and toasts, and multi-clip effect-drop previews are wired with one undo step (`components/timeline-panel.svelte`, `components/effects-panel.svelte`, `+page.svelte`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | -      |
 | Track-height resize                                                                 | `use-track-height-resize.ts`                                                                            | PRESENT - every row exposes a 48-140 px height control with live pointer drag, Arrow and Shift+Arrow steps, Home/End bounds, Alt resize-all, double-click reset, Escape rollback, vertical timeline scrolling, project persistence, and one undo entry per completed gesture (`timeline/track-resize.ts`, `components/timeline-panel.svelte`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | S      |
+| Audio mixer and live level meters                                                   | `editor/components/audio-mixer-view.tsx`, `audio-meter-panel.tsx`, docs p12                             | PRESENT - the timeline opens per-track and master channel strips with -60 dB to +12 dB faders, mute, solo, parametric EQ, stereo meters, peak hold, clipping state, lock handling, keyboard adjustment, pointer cancellation, and atomic undo. Preview and every export path share the same track and master gain truth (`components/audio-mixer-panel.svelte`, `audio/audio-mixer.ts`, `audio/mixer-utils.ts`)                                                                                                                                                                                                                                                                                                                                                                                                         | -      |
 
 Gap-close audit note (2026-08-28): bounded empty spans expose exact Close gap by
 right-click, while media track headers expose Close all gaps by pointer, Context Menu,
@@ -293,9 +307,9 @@ when no safe cleanup exists (`timeline/track-removal.ts`, `timeline/actions/trac
 
 ## Counts
 
-**Total capabilities audited: 176** (173 parity capabilities plus 3 N/A-parity rows: GIF export, alpha export, speed ramps).
+**Total capabilities audited: 177** (174 parity capabilities plus 3 N/A-parity rows: GIF export, alpha export, speed ramps).
 
-- **PRESENT: 173**
+- **PRESENT: 174**
 - **PARTIAL: 0**
 - **MISSING: 0**
 - (N/A parity: 3)

@@ -42,6 +42,13 @@ const narrowThemeIDs = new Set([
   "quizlet",
 ]);
 
+const panelReviewThemeKeys = new Set([
+  "workshop-light",
+  "workshop-dark",
+  "apple-light",
+  "supabase-dark",
+]);
+
 test.beforeAll(async () => {
   if (!captureScreenshots) return;
   const { mkdir, rm } = await import("node:fs/promises");
@@ -112,7 +119,11 @@ async function assignTheme(
   expect(response.ok(), await response.text()).toBe(true);
 }
 
-async function expectEditorBoundary(page: Page, editor: "image" | "video"): Promise<void> {
+async function expectEditorBoundary(
+  page: Page,
+  editor: "image" | "video",
+  requireProtectedSurface = true,
+): Promise<void> {
   await expect
     .poll(() =>
       page.evaluate(
@@ -125,14 +136,14 @@ async function expectEditorBoundary(page: Page, editor: "image" | "video"): Prom
   const boundary = await page.evaluate((kind) => {
     const root = document.querySelector<HTMLElement>(`.${kind}-editor-theme`);
     const protectedSurface = document.querySelector<HTMLElement>("[data-editor-protected]");
-    if (!root || !protectedSurface) return null;
+    if (!root) return null;
     const rootStyle = getComputedStyle(root);
-    const protectedStyle = getComputedStyle(protectedSurface);
+    const protectedStyle = protectedSurface ? getComputedStyle(protectedSurface) : null;
     return {
       rootBackground: rootStyle.backgroundColor,
       rootForeground: rootStyle.color,
-      protectedBackground: protectedStyle.backgroundColor,
-      protectedRole: protectedSurface.dataset.editorProtected,
+      protectedBackground: protectedStyle?.backgroundColor ?? null,
+      protectedRole: protectedSurface?.dataset.editorProtected ?? null,
     };
   }, editor);
 
@@ -140,10 +151,18 @@ async function expectEditorBoundary(page: Page, editor: "image" | "video"): Prom
     expect.objectContaining({
       rootBackground: expect.stringMatching(/^(?:rgba?|oklch)\(/),
       rootForeground: expect.stringMatching(/^(?:rgba?|oklch)\(/),
-      protectedBackground: expect.stringMatching(/^(?:rgba?|oklch)\(/),
-      protectedRole: expect.any(String),
     }),
   );
+  if (requireProtectedSurface) {
+    expect(boundary).toEqual(
+      expect.objectContaining({
+        protectedBackground: expect.stringMatching(/^(?:rgba?|oklch)\(/),
+        protectedRole: expect.any(String),
+      }),
+    );
+  } else if (boundary?.protectedBackground !== null) {
+    expect(boundary.protectedBackground).toMatch(/^(?:rgba?|oklch)\(/);
+  }
 }
 
 async function openEditor(
@@ -176,6 +195,65 @@ async function openEditor(
   }
 }
 
+async function captureVideoState(
+  page: Page,
+  theme: (typeof themeSchemes)[number],
+  state: string,
+): Promise<void> {
+  await expectEditorBoundary(page, "video", false);
+  if (!captureScreenshots) return;
+  await page.screenshot({
+    path: `${SCREENSHOT_DIRECTORY}/video-state-${state}-${theme.id}-${theme.scheme}.png`,
+    animations: "disabled",
+  });
+}
+
+async function reviewVideoPanelStates(
+  page: Page,
+  url: string,
+  theme: (typeof themeSchemes)[number],
+): Promise<void> {
+  await openEditor(page, url, "video", theme, 1440);
+  const assets = page.getByRole("complementary", { name: "Assets" });
+
+  await assets.getByRole("tab", { name: "Create" }).click();
+  await expect(page.getByTestId("editor-assistant-panel")).toBeVisible();
+  await captureVideoState(page, theme, "assistant");
+
+  for (const panel of ["Stock", "Text", "Effects", "Transition"] as const) {
+    await assets.getByRole("tab", { name: panel, exact: true }).click();
+    await captureVideoState(page, theme, panel.toLowerCase());
+    if (panel === "Text") {
+      await assets.getByRole("button", { name: "Add text", exact: true }).click();
+      await page
+        .locator('#video-editor-tools-panel [data-edit-inspector-tab="motion"]')
+        .click({ timeout: 10_000 });
+      await captureVideoState(page, theme, "motion-inspector");
+      await page
+        .locator('#video-editor-tools-panel [data-edit-inspector-tab="properties"]')
+        .click();
+    }
+  }
+
+  const workspaces = page.getByRole("tablist", { name: "Editor workspaces" });
+  await workspaces.getByRole("tab", { name: "Color", exact: true }).click();
+  await captureVideoState(page, theme, "color-workspace");
+  await workspaces.getByRole("tab", { name: "Motion", exact: true }).click();
+  await captureVideoState(page, theme, "motion-workspace");
+  await workspaces.getByRole("tab", { name: "Edit", exact: true }).click();
+
+  await page.locator("header").getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Editor settings" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await captureVideoState(page, theme, "settings");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Render full video" }).click();
+  await expect(page.getByRole("button", { name: "Render now" })).toBeEnabled();
+  await captureVideoState(page, theme, "export");
+  await page.keyboard.press("Escape");
+}
+
 test("both editors honor every built-in theme while preserving protected output geometry", async ({
   page,
   request,
@@ -204,6 +282,9 @@ test("both editors honor every built-in theme while preserving protected output 
     if (narrowThemeIDs.has(theme.id)) {
       await openEditor(page, videoURL, "video", theme, 320);
       await openEditor(page, imageURL, "image", theme, 320);
+    }
+    if (panelReviewThemeKeys.has(`${theme.id}-${theme.scheme}`)) {
+      await reviewVideoPanelStates(page, videoURL, theme);
     }
   }
 

@@ -112,6 +112,22 @@ describe('assessExportPreflight', () => {
 		);
 	});
 
+	it('allows an authored Motion background through an otherwise empty tail', () => {
+		const result = assessExportPreflight({
+			settings: { ...baseSettings, range: { startFrame: 0, endFrame: 300 } },
+			fps: 30,
+			items: [],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: {},
+			hasRenderableBackground: true
+		});
+
+		expect(result.canExport).toBe(true);
+		expect(result.range).toEqual({ startFrame: 0, endFrame: 300, frameCount: 300 });
+		expect(result.checks.some((check) => check.id === 'no-renderable-content')).toBe(false);
+	});
+
 	it('requires audible content for audio export and explains subtitle fallback', () => {
 		const audioOnly = assessExportPreflight({
 			settings: { ...baseSettings, format: 'wav', codec: undefined, subtitleMode: 'none' },

@@ -36,14 +36,14 @@ function projectFixture(): Project {
 	const portrait: SubComposition = {
 		id: 'portrait',
 		name: 'Portrait cut',
-		editorKind: 'sequence',
+		editorKind: 'composite-2d',
 		items: [shape('portrait-shape', 60)],
 		tracks,
 		transitions: [],
 		fps: 30,
 		width: 1080,
 		height: 1920,
-		durationInFrames: 60
+		durationInFrames: 300
 	};
 	return {
 		id: 'project',
@@ -91,7 +91,7 @@ describe('ExportDialog', () => {
 		await screen.getByRole('option', { name: 'Portrait cut' }).click();
 
 		await expect.element(screen.getByText('Resolution: 1080 × 1920')).toBeVisible();
-		await expect.element(screen.getByText('0:02 long')).toBeVisible();
+		await expect.element(screen.getByText('0:10 long')).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeEnabled();
 		await screen.getByRole('button', { name: 'Render now' }).click();
 
@@ -100,7 +100,11 @@ describe('ExportDialog', () => {
 		expect(renderedProject.name).toBe('Portrait cut');
 		expect(renderedProject.metadata).toMatchObject({ width: 1080, height: 1920, fps: 30 });
 		expect(renderedProject.timeline?.items[0]?.id).toBe('portrait-shape');
-		expect(options).toMatchObject({ width: 1080, height: 1920 });
+		expect(options).toMatchObject({
+			width: 1080,
+			height: 1920,
+			range: { startFrame: 0, endFrame: 300 }
+		});
 		expect(sequenceStore.activeSequenceId).toBeNull();
 		expect(timelineStore.items[0]?.id).toBe('main-shape');
 		expect(ondone).toHaveBeenCalledOnce();

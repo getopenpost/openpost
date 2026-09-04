@@ -323,7 +323,9 @@ describe('editor route theme color boundary', () => {
 		];
 
 		for (const name of [
+			'ai-caption-controls',
 			'animated-image-playback-section',
+			'asset-library-panel',
 			'audio-ducking-panel',
 			'audio-effects-panel',
 			'audio-eq-panel',
@@ -334,15 +336,34 @@ describe('editor route theme color boundary', () => {
 			'clip-transform-section',
 			'color-keyframe-panel',
 			'color-workspace',
+			'composition-control-overrides',
+			'composition-controls-authoring',
+			'corner-pin-properties-panel',
+			'editor-assistant-panel',
 			'editor-workspace-switcher',
+			'effect-browser-panel',
+			'effect-picker',
 			'effects-panel',
+			'gpu-param-control',
 			'lottie-properties-panel',
+			'local-model-cache-control',
+			'media-task-progress',
+			'motion-presets-panel',
 			'motion-workspace-panel',
+			'preview-diagnostics-panel',
 			'project-canvas-panel',
+			'property-runtime-panel',
+			'saved-animation-library',
 			'scene-browser-panel',
 			'shape-properties-panel',
 			'sticker-browser-panel',
-			'transition-properties-panel'
+			'stock-browser-panel',
+			'text-motion-panel',
+			'text-properties-panel',
+			'text-template-browser',
+			'transition-browser-panel',
+			'transition-properties-panel',
+			'workspace-gate-panel'
 		]) {
 			const source = await readFile(videoEditorComponent(name), 'utf8');
 			const renderedSource = source.replace(/<script[\s\S]*?<\/script>/u, '');

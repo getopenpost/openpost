@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, familyTypography, scheme, theme } from './shared.js';
+import { colors, familyTypography, scheme, themeV2 } from './shared.js';
 
 const inter = bundledThemeFont('inter');
 
@@ -51,11 +51,11 @@ export const ferrariDark = scheme(
 			sidebarInk: 'oklch(1 0 0)',
 			sidebarActive: 'oklch(0.28 0.07 30)',
 			sidebarActiveInk: 'oklch(1 0 0)',
-			chart1: 'oklch(0.55 0.19 30)',
-			chart2: 'oklch(0.70 0 0)',
-			chart3: 'oklch(0.45 0 0)',
-			chart4: 'oklch(0.42 0.15 28)',
-			chart5: 'oklch(0.92 0 0)'
+			chart1: 'oklch(0.72 0.16 25)',
+			chart2: 'oklch(0.78 0.14 80)',
+			chart3: 'oklch(0.72 0.13 235)',
+			chart4: 'oklch(0.72 0.14 150)',
+			chart5: 'oklch(0.72 0.15 310)'
 		}),
 		typography: {
 			...familyTypography('inter'),
@@ -178,7 +178,7 @@ export const ferrariDark = scheme(
 	'dark'
 );
 
-export const ferrariTheme: ThemeManifest = theme(
+export const ferrariTheme: ThemeManifest = themeV2(
 	'ferrari',
 	'Ferrari',
 	'Black cinematic void, sharp zero-radius geometry, and a single Rosso Corsa signal.',

@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, familyTypography, scheme, theme } from './shared.js';
+import { colors, familyTypography, scheme, themeV2 } from './shared.js';
 
 const inter = bundledThemeFont('inter');
 const interTight = bundledThemeFont('inter-tight');
@@ -46,11 +46,11 @@ export const appleLight = scheme({
 		sidebarInk: 'oklch(0.17 0.004 250)',
 		sidebarActive: 'oklch(0.90 0.04 250)',
 		sidebarActiveInk: 'oklch(0.30 0.12 250)',
-		chart1: 'oklch(0.52 0.15 250)',
-		chart2: 'oklch(0.45 0.005 250)',
-		chart3: 'oklch(0.65 0.14 250)',
-		chart4: 'oklch(0.60 0.004 250)',
-		chart5: 'oklch(0.30 0.01 250)'
+		chart1: 'oklch(0.54 0.14 245)',
+		chart2: 'oklch(0.52 0.13 150)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.55 0.19 25)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: {
 		...familyTypography('inter'),
@@ -165,7 +165,7 @@ export const appleLight = scheme({
 	}
 });
 
-export const appleTheme: ThemeManifest = theme(
+export const appleTheme: ThemeManifest = themeV2(
 	'apple',
 	'Apple',
 	'White-room restraint with a single deliberate blue action and fully rounded pills.',

@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme, themeTypography, familyTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2, familyTypography } from './shared.js';
 
 // Quizlet: cool chalk canvas, white study cards over lilac washes, one iris
 // violet accent, geometric single-family type that never shouts, and one
@@ -49,11 +49,11 @@ export const quizletLight = scheme({
 		sidebarInk: 'oklch(0.28 0.03 275)',
 		sidebarActive: 'oklch(0.94 0.03 280)',
 		sidebarActiveInk: 'oklch(0.45 0.2 279)',
-		chart1: 'oklch(0.53 0.23 279)',
-		chart2: 'oklch(0.6 0.12 270)',
-		chart3: 'oklch(0.65 0.1 250)',
-		chart4: 'oklch(0.6 0.12 300)',
-		chart5: 'oklch(0.5 0.08 260)'
+		chart1: 'oklch(0.54 0.16 279)',
+		chart2: 'oklch(0.52 0.14 210)',
+		chart3: 'oklch(0.52 0.13 145)',
+		chart4: 'oklch(0.60 0.14 75)',
+		chart5: 'oklch(0.55 0.19 25)'
 	}),
 	typography: themeTypography({
 		...familyTypography('inter', { displayWeight: 700, titleWeight: 600 }),
@@ -148,7 +148,7 @@ export const quizletLight = scheme({
 	}
 });
 
-export const quizletTheme: ThemeManifest = theme(
+export const quizletTheme: ThemeManifest = themeV2(
 	'quizlet',
 	'Quizlet',
 	'Chalk canvas, white study cards, and one iris violet highlighter mark.',

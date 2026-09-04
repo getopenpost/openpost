@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2 } from './shared.js';
 
 const inter = bundledThemeFont('inter');
 const geistMono = bundledThemeFont('geist-mono');
@@ -53,11 +53,11 @@ export const columnLight = scheme({
 		sidebarActive: 'oklch(0.92 0.03 275)',
 		sidebarActiveInk: 'oklch(0.30 0.085 275)',
 		sidebarBorder: 'oklch(0.90 0.006 270)',
-		chart1: 'oklch(0.68 0.13 165)',
-		chart2: 'oklch(0.65 0.17 55)',
-		chart3: 'oklch(0.45 0.11 275)',
-		chart4: 'oklch(0.80 0.07 215)',
-		chart5: 'oklch(0.45 0.10 200)'
+		chart1: 'oklch(0.52 0.13 150)',
+		chart2: 'oklch(0.60 0.14 80)',
+		chart3: 'oklch(0.54 0.14 320)',
+		chart4: 'oklch(0.54 0.14 245)',
+		chart5: 'oklch(0.55 0.19 25)'
 	}),
 	typography: themeTypography({
 		display: {
@@ -175,7 +175,7 @@ export const columnLight = scheme({
 	}
 });
 
-export const columnTheme: ThemeManifest = theme(
+export const columnTheme: ThemeManifest = themeV2(
 	'column',
 	'Column',
 	'Deep-navy ledger on cool dawn — indigo structure, seafoam data, one orange signal.',

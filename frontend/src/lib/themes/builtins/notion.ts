@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme } from './shared.js';
+import { colors, scheme, themeV2 } from './shared.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
 
 // NotionInter -> Inter (its named substitute, all four text weights present).
@@ -53,11 +53,11 @@ export const notionLight = scheme({
 		sidebarInk: 'oklch(0.2 0.004 80)',
 		sidebarActive: 'oklch(0.958 0.02 243)',
 		sidebarActiveInk: 'oklch(0.5 0.16 254)',
-		chart1: 'oklch(0.568 0.182 254)',
-		chart2: 'oklch(0.651 0.213 31)',
-		chart3: 'oklch(0.814 0.168 76)',
-		chart4: 'oklch(0.729 0.123 247)',
-		chart5: 'oklch(0.644 0.072 52)'
+		chart1: 'oklch(0.54 0.14 245)',
+		chart2: 'oklch(0.55 0.19 25)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.52 0.13 150)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: {
 		display: {
@@ -163,7 +163,7 @@ export const notionLight = scheme({
 	}
 });
 
-export const notionTheme: ThemeManifest = theme(
+export const notionTheme: ThemeManifest = themeV2(
 	'notion',
 	'Notion',
 	'Warm paper notebook with sticky-note accent cards and one blue action.',

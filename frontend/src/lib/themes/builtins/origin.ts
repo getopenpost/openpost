@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2 } from './shared.js';
 
 const playfair = bundledThemeFont('playfair-display');
 const geist = bundledThemeFont('geist');
@@ -59,11 +59,11 @@ export const originDark = scheme(
 			sidebarBorder: 'oklch(0.24 0.005 250)',
 			chrome: 'oklch(0.15 0.004 250)',
 			chromeInk: 'oklch(0.96 0.003 250)',
-			chart1: 'oklch(0.62 0.19 285)',
-			chart2: 'oklch(0.70 0.13 225)',
-			chart3: 'oklch(0.72 0.13 340)',
-			chart4: 'oklch(0.78 0.09 260)',
-			chart5: 'oklch(0.68 0.004 250)'
+			chart1: 'oklch(0.72 0.15 285)',
+			chart2: 'oklch(0.72 0.13 210)',
+			chart3: 'oklch(0.72 0.15 340)',
+			chart4: 'oklch(0.78 0.14 80)',
+			chart5: 'oklch(0.72 0.14 150)'
 		}),
 		typography: themeTypography({
 			display: {
@@ -183,7 +183,7 @@ export const originDark = scheme(
 	'dark'
 );
 
-export const originTheme: ThemeManifest = theme(
+export const originTheme: ThemeManifest = themeV2(
 	'origin',
 	'Origin',
 	'Midnight gallery of quiet wealth — whisper serif, white-on-black actions, iris tiles.',

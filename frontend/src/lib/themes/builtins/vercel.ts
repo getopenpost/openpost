@@ -1,12 +1,22 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, familyTypography, scheme, theme, themeMotion, themeTypography } from './shared.js';
+import {
+	colors,
+	familyTypography,
+	scheme,
+	themeMotion,
+	themeTypography,
+	themeV2
+} from './shared.js';
 
 const geistMono = bundledThemeFont('geist-mono');
 
 // Geist Sans and Geist Mono are bundled directly. Headlines whisper at
 // weight 450 with architectural tracking; mono owns every label stamp.
-const geist = familyTypography('geist', { displayWeight: 500, titleWeight: 500 });
+const geist = familyTypography('geist', {
+	displayWeight: 500,
+	titleWeight: 500
+});
 
 export const vercelLight = scheme({
 	colors: colors({
@@ -56,16 +66,26 @@ export const vercelLight = scheme({
 		sidebarInk: 'oklch(0.205 0 90)',
 		sidebarActive: 'oklch(0.94 0 90)',
 		sidebarActiveInk: 'oklch(0.205 0 90)',
-		chart1: 'oklch(0.205 0 90)',
-		chart2: 'oklch(0.42 0 90)',
-		chart3: 'oklch(0.65 0 90)',
-		chart4: 'oklch(0.515 0.125 147)',
-		chart5: 'oklch(0.836 0 90)'
+		chart1: 'oklch(0.54 0.14 245)',
+		chart2: 'oklch(0.55 0.19 25)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.52 0.13 150)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: themeTypography({
 		...geist,
-		display: { ...geist.display, size: '4rem', lineHeight: '1', tracking: '-0.04em' },
-		title: { ...geist.title, size: '1.875rem', lineHeight: '1.1', tracking: '-0.04em' },
+		display: {
+			...geist.display,
+			size: '4rem',
+			lineHeight: '1',
+			tracking: '-0.04em'
+		},
+		title: {
+			...geist.title,
+			size: '1.875rem',
+			lineHeight: '1.1',
+			tracking: '-0.04em'
+		},
 		body: { ...geist.body, size: '1rem', lineHeight: '1.5', tracking: '0em' },
 		label: {
 			...geist.label,
@@ -159,7 +179,7 @@ export const vercelLight = scheme({
 	}
 });
 
-export const vercelTheme: ThemeManifest = theme(
+export const vercelTheme: ThemeManifest = themeV2(
 	'vercel',
 	'Vercel',
 	'Typeset terminal on white paper: monochrome, hairline rings, tight type.',

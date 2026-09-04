@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2 } from './shared.js';
 
 // Inter Variable is bundled, so the primary face maps one-to-one including
 // the brand's intermediate 510/590 weights. Berkeley Mono's role (issue IDs,
@@ -68,11 +68,11 @@ export const linearDark = scheme(
 			sidebarActiveInk: 'oklch(0.99 0 0)',
 			// Tag palette: lime, iris, teal, coral, lavender — lightened for
 			// dark surfaces, in the brand's own tag order.
-			chart1: 'oklch(0.905 0.195 115)',
-			chart2: 'oklch(0.68 0.18 285)',
-			chart3: 'oklch(0.75 0.11 220)',
-			chart4: 'oklch(0.7 0.16 22)',
-			chart5: 'oklch(0.72 0.18 295)'
+			chart1: 'oklch(0.78 0.16 115)',
+			chart2: 'oklch(0.72 0.15 285)',
+			chart3: 'oklch(0.74 0.13 205)',
+			chart4: 'oklch(0.72 0.16 25)',
+			chart5: 'oklch(0.78 0.14 70)'
 		}),
 		typography: themeTypography({
 			display: {
@@ -179,7 +179,7 @@ export const linearDark = scheme(
 	'dark'
 );
 
-export const linearTheme: ThemeManifest = theme(
+export const linearTheme: ThemeManifest = themeV2(
 	'linear',
 	'Linear',
 	'Midnight precision instrument with an acid-lime flash.',

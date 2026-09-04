@@ -584,11 +584,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   studio: {
     id: "studio",
     displayName: "Studio",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light", "dark"],
     manifests: {
       light: {
-        id: "studio-light-builtin-v1",
+        id: "studio-light-builtin-v2",
         familyId: "studio",
         displayName: "Studio",
         scheme: "light",
@@ -829,7 +829,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#0070e5ff", "#0091a4ff", "#966cd7ff", "#ca8500ff", "#14874eff"],
+          celebration: ["#0070e5ff", "#0091a4ff", "#966cd7ff", "#b97600ff", "#14874eff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -860,7 +860,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
       },
       dark: {
-        id: "studio-dark-builtin-v1",
+        id: "studio-dark-builtin-v2",
         familyId: "studio",
         displayName: "Studio",
         scheme: "dark",
@@ -1416,11 +1416,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   playroom: {
     id: "playroom",
     displayName: "Playroom",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light", "dark"],
     manifests: {
       light: {
-        id: "playroom-light-builtin-v1",
+        id: "playroom-light-builtin-v2",
         familyId: "playroom",
         displayName: "Playroom",
         scheme: "light",
@@ -1661,7 +1661,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#009824ff", "#006de2ff", "#d48a00ff", "#de4e4bff", "#a355b4ff"],
+          celebration: ["#009824ff", "#006de2ff", "#b76e00ff", "#de4e4bff", "#a355b4ff"],
         },
         iconography: {
           packId: "phosphor",
@@ -1692,7 +1692,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
       },
       dark: {
-        id: "playroom-dark-builtin-v1",
+        id: "playroom-dark-builtin-v2",
         familyId: "playroom",
         displayName: "Playroom",
         scheme: "dark",
@@ -1968,11 +1968,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   "cloud-garden": {
     id: "cloud-garden",
     displayName: "Cloud Garden",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light", "dark"],
     manifests: {
       light: {
-        id: "cloud-garden-light-builtin-v1",
+        id: "cloud-garden-light-builtin-v2",
         familyId: "cloud-garden",
         displayName: "Cloud Garden",
         scheme: "light",
@@ -2213,7 +2213,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#007338ff", "#00857fff", "#0085acff", "#a4932eff", "#835198ff"],
+          celebration: ["#1d7d3eff", "#0079b3ff", "#ab7400ff", "#9250a0ff", "#c92f33ff"],
         },
         iconography: {
           packId: "heroicons-solid",
@@ -2244,7 +2244,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
       },
       dark: {
-        id: "cloud-garden-dark-builtin-v1",
+        id: "cloud-garden-dark-builtin-v2",
         familyId: "cloud-garden",
         displayName: "Cloud Garden",
         scheme: "dark",
@@ -2485,7 +2485,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#4ebe7dff", "#1dbcb5ff", "#4db6dcff", "#cec068ff", "#b889cdff"],
+          celebration: ["#5bbd74ff", "#3fb1eaff", "#e6ac3dff", "#c188eaff", "#f97770ff"],
         },
         iconography: {
           packId: "heroicons-solid",
@@ -2520,11 +2520,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   "study-hall": {
     id: "study-hall",
     displayName: "Study Hall",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "study-hall-light-builtin-v1",
+        id: "study-hall-light-builtin-v2",
         familyId: "study-hall",
         displayName: "Study Hall",
         scheme: "light",
@@ -2765,7 +2765,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#5d4fb9ff", "#007faaff", "#2c965dff", "#c59128ff", "#ae599eff"],
+          celebration: ["#5d4fb9ff", "#007faaff", "#2c965dff", "#ab7400ff", "#ae599eff"],
         },
         iconography: {
           packId: "lucide",
@@ -3360,11 +3360,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   ferrari: {
     id: "ferrari",
     displayName: "Ferrari",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["dark"],
     manifests: {
       dark: {
-        id: "ferrari-dark-builtin-v1",
+        id: "ferrari-dark-builtin-v2",
         familyId: "ferrari",
         displayName: "Ferrari",
         scheme: "dark",
@@ -3605,7 +3605,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#c83122ff", "#9e9e9eff", "#555555ff", "#8d1b17ff", "#e4e4e4ff"],
+          celebration: ["#f97770ff", "#e6ac3dff", "#3fb1eaff", "#5bbd74ff", "#c188eaff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -3640,11 +3640,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   apple: {
     id: "apple",
     displayName: "Apple",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "apple-light-builtin-v1",
+        id: "apple-light-builtin-v2",
         familyId: "apple",
         displayName: "Apple",
         scheme: "light",
@@ -3885,7 +3885,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#006bbbff", "#535558ff", "#4393e1ff", "#7e8082ff", "#2a2e33ff"],
+          celebration: ["#0074baff", "#1d7d3eff", "#ab7400ff", "#c92f33ff", "#9250a0ff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -3920,11 +3920,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   todoist: {
     id: "todoist",
     displayName: "Todoist",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "todoist-light-builtin-v1",
+        id: "todoist-light-builtin-v2",
         familyId: "todoist",
         displayName: "Todoist",
         scheme: "light",
@@ -4165,7 +4165,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#e34432ff", "#0c66aeff", "#446c3dff", "#497d7eff", "#e89d03ff"],
+          celebration: ["#c92f33ff", "#0074baff", "#1d7d3eff", "#ab7400ff", "#9250a0ff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -4200,11 +4200,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   notion: {
     id: "notion",
     displayName: "Notion",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "notion-light-builtin-v1",
+        id: "notion-light-builtin-v2",
         familyId: "notion",
         displayName: "Notion",
         scheme: "light",
@@ -4445,7 +4445,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#0075deff", "#f64932ff", "#ffb113ff", "#62aef0ff", "#b18165ff"],
+          celebration: ["#0074baff", "#c92f33ff", "#ab7400ff", "#1d7d3eff", "#9250a0ff"],
         },
         iconography: {
           packId: "lucide",
@@ -4480,11 +4480,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   supabase: {
     id: "supabase",
     displayName: "Supabase",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["dark"],
     manifests: {
       dark: {
-        id: "supabase-dark-builtin-v1",
+        id: "supabase-dark-builtin-v2",
         familyId: "supabase",
         displayName: "Supabase",
         scheme: "dark",
@@ -4725,7 +4725,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#40cf8dff", "#07c572ff", "#b4b4b4ff", "#898989ff", "#1f4b37ff"],
+          celebration: ["#5bbd74ff", "#3fb1eaff", "#e6ac3dff", "#f97770ff", "#c188eaff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -4760,11 +4760,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   vercel: {
     id: "vercel",
     displayName: "Vercel",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "vercel-light-builtin-v1",
+        id: "vercel-light-builtin-v2",
         familyId: "vercel",
         displayName: "Vercel",
         scheme: "light",
@@ -5005,7 +5005,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#171717ff", "#4d4d4dff", "#8f8f8fff", "#2b7a39ff", "#c9c9c9ff"],
+          celebration: ["#0074baff", "#c92f33ff", "#ab7400ff", "#1d7d3eff", "#9250a0ff"],
         },
         iconography: {
           packId: "lucide",
@@ -5040,11 +5040,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   firecrawl: {
     id: "firecrawl",
     displayName: "Firecrawl",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "firecrawl-light-builtin-v1",
+        id: "firecrawl-light-builtin-v2",
         familyId: "firecrawl",
         displayName: "Firecrawl",
         scheme: "light",
@@ -5285,7 +5285,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#f45000ff", "#595855ff", "#6a6966ff", "#8d8c89ff", "#afaeabff"],
+          celebration: ["#c44500ff", "#008065ff", "#0074baff", "#9250a0ff", "#a08000ff"],
         },
         iconography: {
           packId: "lucide",
@@ -5320,11 +5320,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   linear: {
     id: "linear",
     displayName: "Linear",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["dark"],
     manifests: {
       dark: {
-        id: "linear-dark-builtin-v1",
+        id: "linear-dark-builtin-v2",
         familyId: "linear",
         displayName: "Linear",
         scheme: "dark",
@@ -5565,7 +5565,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#ddee2dff", "#9083ffff", "#4ebedeff", "#f17070ff", "#ae89ffff"],
+          celebration: ["#b5c333ff", "#9c95feff", "#00c2d2ff", "#f97770ff", "#f0a646ff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -5600,11 +5600,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   calcom: {
     id: "calcom",
     displayName: "Cal.com",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "calcom-light-builtin-v1",
+        id: "calcom-light-builtin-v2",
         familyId: "calcom",
         displayName: "Cal.com",
         scheme: "light",
@@ -5845,7 +5845,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#2a75baff", "#222427ff", "#656f82ff", "#87898bff", "#abaeb2ff"],
+          celebration: ["#0074baff", "#1d7d3eff", "#ab7400ff", "#c92f33ff", "#9250a0ff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -5880,11 +5880,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   mintlify: {
     id: "mintlify",
     displayName: "Mintlify",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "mintlify-light-builtin-v1",
+        id: "mintlify-light-builtin-v2",
         familyId: "mintlify",
         displayName: "Mintlify",
         scheme: "light",
@@ -6125,7 +6125,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#006849ff", "#08090bff", "#6e7276ff", "#90b9a8ff", "#0d9298ff"],
+          celebration: ["#007f56ff", "#0074baff", "#ab7400ff", "#c92f33ff", "#9250a0ff"],
         },
         iconography: {
           packId: "lucide",
@@ -6160,11 +6160,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   launchdarkly: {
     id: "launchdarkly",
     displayName: "LaunchDarkly",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["dark"],
     manifests: {
       dark: {
-        id: "launchdarkly-dark-builtin-v1",
+        id: "launchdarkly-dark-builtin-v2",
         familyId: "launchdarkly",
         displayName: "LaunchDarkly",
         scheme: "dark",
@@ -6405,7 +6405,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#4d51deff", "#7d85f2ff", "#4cd1eeff", "#9d9da6ff", "#626369ff"],
+          celebration: ["#9c95feff", "#00bad1ff", "#e6ac3dff", "#f97770ff", "#5bbd74ff"],
         },
         iconography: {
           packId: "lucide",
@@ -6440,11 +6440,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   posthog: {
     id: "posthog",
     displayName: "PostHog",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "posthog-light-builtin-v1",
+        id: "posthog-light-builtin-v2",
         familyId: "posthog",
         displayName: "PostHog",
         scheme: "light",
@@ -6685,7 +6685,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#127eeeff", "#df911aff", "#eb4000ff", "#1c8742ff", "#a8742aff"],
+          celebration: ["#0052abff", "#814400ff", "#a9131fff", "#135d1dff", "#723789ff"],
         },
         iconography: {
           packId: "tabler",
@@ -6720,11 +6720,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   origin: {
     id: "origin",
     displayName: "Origin",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["dark"],
     manifests: {
       dark: {
-        id: "origin-dark-builtin-v1",
+        id: "origin-dark-builtin-v2",
         familyId: "origin",
         displayName: "Origin",
         scheme: "dark",
@@ -6965,7 +6965,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#7e6ef2ff", "#12aedbff", "#da83beff", "#96b9f1ff", "#96989bff"],
+          celebration: ["#9c95feff", "#00bad1ff", "#e17cc2ff", "#e6ac3dff", "#5bbd74ff"],
         },
         iconography: {
           packId: "lucide",
@@ -7000,11 +7000,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   column: {
     id: "column",
     displayName: "Column",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "column-light-builtin-v1",
+        id: "column-light-builtin-v2",
         familyId: "column",
         displayName: "Column",
         scheme: "light",
@@ -7245,7 +7245,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#2eb184ff", "#db6c00ff", "#444e91ff", "#88cadaff", "#00656bff"],
+          celebration: ["#1d7d3eff", "#ab7400ff", "#9250a0ff", "#0074baff", "#c92f33ff"],
         },
         iconography: {
           packId: "heroicons-outline",
@@ -7280,11 +7280,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   duolingo: {
     id: "duolingo",
     displayName: "Duolingo",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "duolingo-light-builtin-v1",
+        id: "duolingo-light-builtin-v2",
         familyId: "duolingo",
         displayName: "Duolingo",
         scheme: "light",
@@ -7525,7 +7525,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#6ebe00ff", "#34a6e5ff", "#b0ed82ff", "#0e0e27ff", "#6c7278ff"],
+          celebration: ["#467922ff", "#0079b3ff", "#ab7400ff", "#c92f33ff", "#8754abff"],
         },
         iconography: {
           packId: "phosphor",
@@ -7560,11 +7560,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   quizlet: {
     id: "quizlet",
     displayName: "Quizlet",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light"],
     manifests: {
       light: {
-        id: "quizlet-light-builtin-v1",
+        id: "quizlet-light-builtin-v2",
         familyId: "quizlet",
         displayName: "Quizlet",
         scheme: "light",
@@ -7805,7 +7805,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#594bebff", "#647bc8ff", "#5e93caff", "#8c6ebdff", "#486491ff"],
+          celebration: ["#5e5fc9ff", "#007c95ff", "#2e7c35ff", "#b07100ff", "#c92f33ff"],
         },
         iconography: {
           packId: "heroicons-outline",

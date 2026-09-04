@@ -1,12 +1,22 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, familyTypography, scheme, theme, themeMotion, themeTypography } from './shared.js';
+import {
+	colors,
+	familyTypography,
+	scheme,
+	themeMotion,
+	themeTypography,
+	themeV2
+} from './shared.js';
 
 const geistMono = bundledThemeFont('geist-mono');
 
 // Circular (geometric humanist sans, anti-bold: headlines at 400, emphasis at
 // 500) maps to Manrope; Source Code Pro maps to Geist Mono.
-const circular = familyTypography('manrope', { displayWeight: 400, titleWeight: 500 });
+const circular = familyTypography('manrope', {
+	displayWeight: 400,
+	titleWeight: 500
+});
 
 export const supabaseDark = scheme(
 	{
@@ -59,17 +69,32 @@ export const supabaseDark = scheme(
 			sidebarInk: 'oklch(0.985 0 90)',
 			sidebarActive: 'oklch(0.298 0.048 164)',
 			sidebarActiveInk: 'oklch(0.985 0 90)',
-			chart1: 'oklch(0.762 0.154 159)',
-			chart2: 'oklch(0.724 0.178 155)',
-			chart3: 'oklch(0.77 0 90)',
-			chart4: 'oklch(0.63 0 90)',
-			chart5: 'oklch(0.375 0.06 162)'
+			chart1: 'oklch(0.72 0.14 150)',
+			chart2: 'oklch(0.72 0.13 235)',
+			chart3: 'oklch(0.78 0.14 80)',
+			chart4: 'oklch(0.72 0.16 25)',
+			chart5: 'oklch(0.72 0.15 310)'
 		}),
 		typography: themeTypography({
 			...circular,
-			display: { ...circular.display, size: '4.5rem', lineHeight: '1', tracking: '-0.007em' },
-			title: { ...circular.title, size: '2.25rem', lineHeight: '1.2', tracking: '-0.007em' },
-			body: { ...circular.body, size: '1rem', lineHeight: '1.5', tracking: '-0.007em' },
+			display: {
+				...circular.display,
+				size: '4.5rem',
+				lineHeight: '1',
+				tracking: '-0.007em'
+			},
+			title: {
+				...circular.title,
+				size: '2.25rem',
+				lineHeight: '1.2',
+				tracking: '-0.007em'
+			},
+			body: {
+				...circular.body,
+				size: '1rem',
+				lineHeight: '1.5',
+				tracking: '-0.007em'
+			},
 			label: {
 				...circular.label,
 				weight: 500,
@@ -163,7 +188,7 @@ export const supabaseDark = scheme(
 	'dark'
 );
 
-export const supabaseTheme: ThemeManifest = theme(
+export const supabaseTheme: ThemeManifest = themeV2(
 	'supabase',
 	'Supabase',
 	'Midnight code editor with a single phosphor green pulse on charcoal.',

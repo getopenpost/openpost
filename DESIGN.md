@@ -141,6 +141,7 @@ The values below define Workshop. Warm neutrals carry most of that family; orang
 Organization themes are versioned visual documents. They may control semantic colors, approved typography, density, spacing, shape, elevation, motion, shell recipes, component recipes, one complete icon pack, and decorative assets. They cannot change product structure, permissions, copy, data, provider truth, or protected identity.
 
 - Components declare intent such as `focal`, `primary`, `ordinary`, `quiet`, `destructive`, or `link`. They do not choose a brand color or theme family.
+- `chart1` through `chart5` are categorical data colors. Every supported scheme keeps all five chromatic and visibly distinct against its chart surfaces; neutral gray is reserved for the aggregated "other" series. Charts also expose labels or tooltips so color is never the only identifier.
 - Published revisions and built-in versions are complete and immutable. Drafts may be incomplete while editing, but runtime output may not.
 - Web and native consume the same resolved semantic contract through platform renderers. Neither client reconstructs organization defaults, workspace overrides, locks, revisions, or fallback.
 - Workspace name, avatar, and color remain workspace identity. Provider marks, the Converge mark, status meaning, media, and specialized editor glyphs retain their protected colors or geometry.

@@ -22,6 +22,12 @@ describe('theme editor color randomization', () => {
 							source.schemes[scheme]!.colors.actionFocal
 						);
 					}
+					const colors = randomized.schemes[scheme]!.colors;
+					expect(
+						new Set([colors.chart1, colors.chart2, colors.chart3, colors.chart4, colors.chart5])
+							.size,
+						`${source.id} ${scheme} seed ${seed} chart palette`
+					).toBe(5);
 				}
 			}
 		}

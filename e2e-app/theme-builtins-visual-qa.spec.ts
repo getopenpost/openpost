@@ -108,6 +108,11 @@ async function previewTheme(page: Page, theme: (typeof builtInThemes)[number], w
         if (!button) return false;
         return Number.parseFloat(getComputedStyle(button).borderRadius) >= button.offsetHeight / 2;
       })(),
+      chartSeriesCount: new Set(
+        Array.from(body?.querySelectorAll<HTMLElement>("[data-preview-chart-series]") ?? []).map(
+          (series) => getComputedStyle(series).backgroundColor,
+        ),
+      ).size,
       overflow:
         documentElement && body
           ? Math.max(documentElement.scrollWidth, body.scrollWidth) > documentElement.clientWidth
@@ -121,6 +126,7 @@ async function previewTheme(page: Page, theme: (typeof builtInThemes)[number], w
       scheme: theme.scheme,
       source: "builtin",
       sidebarVisible: width >= 544,
+      chartSeriesCount: 5,
       overflow: false,
     }),
   );
@@ -132,7 +138,9 @@ async function previewTheme(page: Page, theme: (typeof builtInThemes)[number], w
   }
 
   if (width === 1600 || mobileScreenshotThemeIDs.has(theme.id)) {
-    await preview.screenshot({ path: `${SHOT}/${width}-${theme.id}-${theme.scheme}.png` });
+    await preview.screenshot({
+      path: `${SHOT}/${width}-${theme.id}-${theme.scheme}.png`,
+    });
   }
 }
 
@@ -179,7 +187,9 @@ test("a published organization theme remains visible and assignable after all bu
     },
   });
   if (!create.ok()) throw new Error(`theme creation failed: ${await create.text()}`);
-  const created = (await create.json()) as { summary: { reference: { id: string } } };
+  const created = (await create.json()) as {
+    summary: { reference: { id: string } };
+  };
   const themeID = created.summary.reference.id;
   const publish = await request.post(`/api/v1/themes/${themeID}/publish`, {
     headers,

@@ -443,7 +443,7 @@
 								<div class="flex items-center justify-between gap-3">
 									<div>
 										<p data-theme-type="metadata" class="text-muted-foreground">{copy.thisWeek}</p>
-										<p data-theme-type="display" class="mt-1 tabular-nums">{copy.postCount}</p>
+										<p data-theme-type="title" class="mt-1 tabular-nums">{copy.postCount}</p>
 									</div>
 									<span
 										data-theme-type="label"
@@ -454,8 +454,9 @@
 								<div class="mt-5 flex h-20 items-end gap-1.5">
 									{#each [35, 58, 44, 76, 62, 88, 51] as height, index (index)}
 										<div
-											class="min-w-0 flex-1 rounded-t-[var(--theme-radius-sm,var(--radius))] bg-[var(--chart-1)]/75"
-											style:height={`${height}%`}
+											class="min-w-0 flex-1 rounded-t-[var(--theme-radius-sm,var(--radius))]"
+											style={`height: ${height}%; background-color: var(--chart-${(index % 5) + 1})`}
+											data-preview-chart-series
 										></div>
 									{/each}
 								</div>
@@ -520,6 +521,11 @@
 <style>
 	.theme-preview-scene {
 		container-type: inline-size;
+	}
+
+	.theme-preview-scene [data-slot='page-container'] {
+		gap: min(var(--theme-section-gap), 1.25rem);
+		padding-block: min(calc(var(--theme-space) * 4), 1.5rem);
 	}
 
 	@container (max-width: 34rem) {

@@ -255,7 +255,7 @@ describe("native theme runtime", () => {
     expect(active.source).toEqual({
       kind: "contract",
       identity: "studio@7",
-      revision: "builtin-v1",
+      revision: "builtin-v2",
       resolutionSource: "builtin",
     });
     expect(active.resources?.assets).toEqual({

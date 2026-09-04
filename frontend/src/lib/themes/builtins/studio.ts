@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, companionScheme, scheme, theme, familyTypography } from './shared.js';
+import { colors, companionScheme, familyTypography, scheme, themeV2 } from './shared.js';
 
 export const studioLight = scheme({
 	colors: colors({
@@ -38,7 +38,7 @@ export const studioLight = scheme({
 		chart1: 'oklch(0.56 0.2 255)',
 		chart2: 'oklch(0.58 0.15 205)',
 		chart3: 'oklch(0.62 0.16 300)',
-		chart4: 'oklch(0.67 0.15 75)',
+		chart4: 'oklch(0.62 0.15 75)',
 		chart5: 'oklch(0.55 0.13 155)'
 	}),
 	typography: familyTypography('geist'),
@@ -91,7 +91,7 @@ export const studioDark = companionScheme(
 	'dark'
 );
 
-export const studioTheme: ThemeManifest = theme(
+export const studioTheme: ThemeManifest = themeV2(
 	'studio',
 	'Studio',
 	'Cool white space and a precise cobalt control signal.',

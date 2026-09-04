@@ -10,12 +10,38 @@ import {
 	WORKSHOP_FALLBACK_THEME,
 	getBuiltInTheme,
 	isCompleteThemeSchemeManifest,
-	resolveBuiltInTheme
+	resolveBuiltInTheme,
+	themeColorContrastRatio
 } from './index.js';
 import canonicalBuiltIns from '../../../../backend/internal/services/themes/builtins.v1.json';
 
 const typographyTokenKeys = ['family', 'fallbacks', 'weight', 'size', 'lineHeight', 'tracking'];
 const motionTokenKeys = ['duration', 'easing', 'distance', 'opacity'];
+const chartColorKeys = ['chart1', 'chart2', 'chart3', 'chart4', 'chart5'] as const;
+const minimumChartChroma = 0.05;
+const minimumChartColorDistance = 0.1;
+
+function chartColorCoordinates(value: string) {
+	const match = /^oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(value);
+	if (!match) throw new Error(`Expected an OKLCH chart color, received ${value}`);
+	const lightness = Number(match[1]);
+	const chroma = Number(match[2]);
+	const hue = Number(match[3]);
+	const radians = (hue * Math.PI) / 180;
+	return {
+		lightness,
+		chroma,
+		a: chroma * Math.cos(radians),
+		b: chroma * Math.sin(radians)
+	};
+}
+
+function chartColorDistance(
+	first: ReturnType<typeof chartColorCoordinates>,
+	second: ReturnType<typeof chartColorCoordinates>
+) {
+	return Math.hypot(first.lightness - second.lightness, first.a - second.a, first.b - second.b);
+}
 
 const expectedFamilies = [
 	'workshop',
@@ -103,6 +129,40 @@ describe('built-in themes', () => {
 
 	it('matches the canonical v1 fixture consumed by the Go service', () => {
 		expect(BUILT_IN_THEMES).toEqual(canonicalBuiltIns);
+	});
+
+	it('gives every built-in scheme five chromatic, distinguishable chart series', () => {
+		for (const theme of BUILT_IN_THEMES) {
+			for (const scheme of theme.supportedSchemes) {
+				const colors = theme.schemes[scheme]!.colors;
+				const chartColors = chartColorKeys.map((key) => ({
+					key,
+					...chartColorCoordinates(colors[key])
+				}));
+
+				for (const [index, color] of chartColors.entries()) {
+					expect(
+						color.chroma,
+						`${theme.id} ${scheme} chart${index + 1} must remain a data color, not gray`
+					).toBeGreaterThanOrEqual(minimumChartChroma);
+					const chartColor = colors[color.key];
+					for (const background of ['canvas', 'surface'] as const) {
+						expect(
+							themeColorContrastRatio(chartColor, colors[background], colors.canvas),
+							`${theme.id} ${scheme} chart${index + 1} must remain visible against ${background}`
+						).toBeGreaterThanOrEqual(3);
+					}
+				}
+				for (const [index, color] of chartColors.entries()) {
+					for (let otherIndex = index + 1; otherIndex < chartColors.length; otherIndex += 1) {
+						expect(
+							chartColorDistance(color, chartColors[otherIndex]!),
+							`${theme.id} ${scheme} chart${index + 1} and chart${otherIndex + 1} must remain distinguishable`
+						).toBeGreaterThanOrEqual(minimumChartColorDistance);
+					}
+				}
+			}
+		}
 	});
 
 	it('keeps protected editor surfaces visually aligned with the active scheme', () => {

@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme, familyTypography } from './shared.js';
+import { colors, familyTypography, scheme, themeV2 } from './shared.js';
 
 export const studyHallLight = scheme({
 	colors: colors({
@@ -38,7 +38,7 @@ export const studyHallLight = scheme({
 		chart1: 'oklch(0.5 0.16 285)',
 		chart2: 'oklch(0.55 0.13 225)',
 		chart3: 'oklch(0.6 0.13 155)',
-		chart4: 'oklch(0.69 0.13 80)',
+		chart4: 'oklch(0.60 0.14 80)',
 		chart5: 'oklch(0.59 0.14 335)'
 	}),
 	typography: familyTypography('inter'),
@@ -61,7 +61,7 @@ export const studyHallLight = scheme({
 	}
 });
 
-export const studyHallTheme: ThemeManifest = theme(
+export const studyHallTheme: ThemeManifest = themeV2(
 	'study-hall',
 	'Study Hall',
 	'Cool structured surfaces with indigo study signals.',

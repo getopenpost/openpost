@@ -449,3 +449,16 @@ export function theme(
 		assets: []
 	};
 }
+
+export function themeV2(
+	id: ThemeFamilyId,
+	name: string,
+	description: string,
+	iconPack: ThemeIconPackId,
+	schemes: Partial<Record<ThemeScheme, ThemeSchemeManifest>>
+): ThemeManifest {
+	return {
+		...theme(id, name, description, iconPack, schemes),
+		revision: 'builtin-v2'
+	};
+}

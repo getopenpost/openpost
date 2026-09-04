@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme } from './shared.js';
+import { colors, scheme, themeV2 } from './shared.js';
 
 const inter = bundledThemeFont('inter');
 
@@ -43,11 +43,11 @@ export const mintlifyLight = scheme({
 		sidebarActive: 'oklch(0.94 0.035 168)',
 		sidebarActiveInk: 'oklch(0.38 0.1 168)',
 		sidebarBorder: 'oklch(0.955 0.003 250)',
-		chart1: 'oklch(0.45 0.11 168)',
-		chart2: 'oklch(0.14 0.004 250)',
-		chart3: 'oklch(0.55 0.008 250)',
-		chart4: 'oklch(0.75 0.05 168)',
-		chart5: 'oklch(0.6 0.1 200)'
+		chart1: 'oklch(0.52 0.13 165)',
+		chart2: 'oklch(0.54 0.14 245)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.55 0.19 25)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: {
 		display: {
@@ -163,7 +163,7 @@ export const mintlifyLight = scheme({
 	}
 });
 
-export const mintlifyTheme: ThemeManifest = theme(
+export const mintlifyTheme: ThemeManifest = themeV2(
 	'mintlify',
 	'Mintlify',
 	'Monastic white docs with one mint spark and square geometry.',

@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, companionScheme, scheme, theme, familyTypography } from './shared.js';
+import { colors, companionScheme, familyTypography, scheme, themeV2 } from './shared.js';
 
 export const playroomLight = scheme({
 	colors: colors({
@@ -39,7 +39,7 @@ export const playroomLight = scheme({
 		sidebarActiveInk: 'oklch(0.25 0.1 145)',
 		chart1: 'oklch(0.59 0.19 145)',
 		chart2: 'oklch(0.55 0.2 255)',
-		chart3: 'oklch(0.69 0.18 80)',
+		chart3: 'oklch(0.60 0.18 80)',
 		chart4: 'oklch(0.62 0.18 25)',
 		chart5: 'oklch(0.58 0.16 320)'
 	}),
@@ -118,7 +118,7 @@ export const playroomDark = companionScheme(
 	'dark'
 );
 
-export const playroomTheme: ThemeManifest = theme(
+export const playroomTheme: ThemeManifest = themeV2(
 	'playroom',
 	'Playroom',
 	'Rounded classroom forms with energetic green actions.',

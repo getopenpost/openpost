@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeMotion, themeTypography } from './shared.js';
+import { colors, scheme, themeMotion, themeTypography, themeV2 } from './shared.js';
 
 const geist = bundledThemeFont('geist');
 const geistMono = bundledThemeFont('geist-mono');
@@ -62,11 +62,11 @@ export const launchdarklyDark = scheme(
 			sidebarActive: 'oklch(0.35 0.1 275)',
 			sidebarActiveInk: 'oklch(0.97 0 0)',
 			sidebarBorder: 'oklch(0.3 0.01 285)',
-			chart1: 'oklch(0.52 0.21 275)',
-			chart2: 'oklch(0.66 0.16 278)',
-			chart3: 'oklch(0.8 0.12 215)',
-			chart4: 'oklch(0.7 0.012 285)',
-			chart5: 'oklch(0.5 0.01 285)'
+			chart1: 'oklch(0.72 0.15 285)',
+			chart2: 'oklch(0.72 0.13 210)',
+			chart3: 'oklch(0.78 0.14 80)',
+			chart4: 'oklch(0.72 0.16 25)',
+			chart5: 'oklch(0.72 0.14 150)'
 		}),
 		typography: themeTypography({
 			display: {
@@ -145,8 +145,16 @@ export const launchdarklyDark = scheme(
 			focalAction: '0 0 32px -2px oklch(0.55 0.2 280 / 0.5)'
 		},
 		motion: themeMotion({
-			press: { duration: '120ms', easing: 'cubic-bezier(0.16, 1, 0.3, 1)', distance: '1px' },
-			hover: { duration: '180ms', easing: 'cubic-bezier(0.16, 1, 0.3, 1)', distance: '0px' },
+			press: {
+				duration: '120ms',
+				easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+				distance: '1px'
+			},
+			hover: {
+				duration: '180ms',
+				easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+				distance: '0px'
+			},
 			selection: {
 				duration: '180ms',
 				easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -202,7 +210,7 @@ export const launchdarklyDark = scheme(
 	'dark'
 );
 
-export const launchdarklyTheme: ThemeManifest = theme(
+export const launchdarklyTheme: ThemeManifest = themeV2(
 	'launchdarkly',
 	'LaunchDarkly',
 	'Neon control room: charcoal cockpit, pill-soft panels, one violet signal.',

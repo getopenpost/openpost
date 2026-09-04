@@ -52,6 +52,7 @@ For reference implementations, read `references/README.md` before inspecting a c
 - Put Huma request size limits on `huma.Operation.MaxBodyBytes`. Do not read and replace an HTTP request body before Huma, because Huma's body-read deadline can then cancel a long-running handler after the body is already buffered.
 - External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `backend/internal/services/externalapps/`; keep durable signed delivery in `backend/internal/services/externalwebhooks/`.
 - AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
+- Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.
 
 ## Execution

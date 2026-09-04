@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme } from './shared.js';
+import { colors, scheme, themeV2 } from './shared.js';
 
 const dmSans = bundledThemeFont('dm-sans');
 const inter = bundledThemeFont('inter');
@@ -43,11 +43,11 @@ export const calcomLight = scheme({
 		sidebarActive: 'oklch(0.92 0.009 255)',
 		sidebarActiveInk: 'oklch(0.26 0.007 250)',
 		sidebarBorder: 'oklch(0.92 0.009 255)',
-		chart1: 'oklch(0.55 0.13 250)',
-		chart2: 'oklch(0.26 0.007 250)',
-		chart3: 'oklch(0.54 0.032 264)',
-		chart4: 'oklch(0.63 0.004 250)',
-		chart5: 'oklch(0.75 0.006 252)'
+		chart1: 'oklch(0.54 0.14 245)',
+		chart2: 'oklch(0.52 0.13 150)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.55 0.19 25)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: {
 		display: {
@@ -163,7 +163,7 @@ export const calcomLight = scheme({
 	}
 });
 
-export const calcomTheme: ThemeManifest = theme(
+export const calcomTheme: ThemeManifest = themeV2(
 	'calcom',
 	'Cal.com',
 	'Strict monochrome utility with pill actions and one functional blue.',

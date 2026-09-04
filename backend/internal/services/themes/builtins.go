@@ -41,6 +41,36 @@ var builtInOrder = []string{
 	"quizlet",
 }
 
+var builtInRevisionOverrides = map[string]string{
+	"apple":        "builtin-v2",
+	"calcom":       "builtin-v2",
+	"cloud-garden": "builtin-v2",
+	"column":       "builtin-v2",
+	"duolingo":     "builtin-v2",
+	"ferrari":      "builtin-v2",
+	"firecrawl":    "builtin-v2",
+	"launchdarkly": "builtin-v2",
+	"linear":       "builtin-v2",
+	"mintlify":     "builtin-v2",
+	"notion":       "builtin-v2",
+	"origin":       "builtin-v2",
+	"playroom":     "builtin-v2",
+	"posthog":      "builtin-v2",
+	"quizlet":      "builtin-v2",
+	"studio":       "builtin-v2",
+	"study-hall":   "builtin-v2",
+	"supabase":     "builtin-v2",
+	"todoist":      "builtin-v2",
+	"vercel":       "builtin-v2",
+}
+
+func builtInRevision(id string) string {
+	if revision := builtInRevisionOverrides[id]; revision != "" {
+		return revision
+	}
+	return "builtin-v1"
+}
+
 // BuiltIns returns fresh copies so callers cannot mutate the code-owned
 // manifests used by later resolutions.
 func BuiltIns() map[string]BuiltInFamily {
@@ -62,7 +92,7 @@ func BuiltIns() map[string]BuiltInFamily {
 		if err != nil {
 			panic(fmt.Sprintf("validate built-in theme %q: %v", candidate.ID, err))
 		}
-		if normalized.ID != builtInOrder[index] || normalized.Revision != "builtin-v1" {
+		if normalized.ID != builtInOrder[index] || normalized.Revision != builtInRevision(normalized.ID) {
 			panic(fmt.Sprintf("decode built-in theme fixture: unexpected identity %q at index %d", normalized.ID, index))
 		}
 		if _, exists := result[normalized.ID]; exists {

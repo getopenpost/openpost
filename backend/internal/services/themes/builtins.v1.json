@@ -529,7 +529,7 @@
   {
     "schemaVersion": 1,
     "id": "studio",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Studio",
     "description": "Cool white space and a precise cobalt control signal.",
     "iconPack": "heroicons-outline",
@@ -612,7 +612,7 @@
           "chart1": "oklch(0.56 0.2 255)",
           "chart2": "oklch(0.58 0.15 205)",
           "chart3": "oklch(0.62 0.16 300)",
-          "chart4": "oklch(0.67 0.15 75)",
+          "chart4": "oklch(0.62 0.15 75)",
           "chart5": "oklch(0.55 0.13 155)"
         },
         "protectedEditor": {
@@ -1326,7 +1326,7 @@
   {
     "schemaVersion": 1,
     "id": "playroom",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Playroom",
     "description": "Rounded classroom forms with energetic green actions.",
     "iconPack": "phosphor",
@@ -1408,7 +1408,7 @@
           "browserChrome": "oklch(1 0 0)",
           "chart1": "oklch(0.59 0.19 145)",
           "chart2": "oklch(0.55 0.2 255)",
-          "chart3": "oklch(0.69 0.18 80)",
+          "chart3": "oklch(0.60 0.18 80)",
           "chart4": "oklch(0.62 0.18 25)",
           "chart5": "oklch(0.58 0.16 320)"
         },
@@ -1853,7 +1853,7 @@
   {
     "schemaVersion": 1,
     "id": "cloud-garden",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Cloud Garden",
     "description": "White and mint layers with restrained botanical depth.",
     "iconPack": "heroicons-solid",
@@ -1933,11 +1933,11 @@
           "chromeInk": "oklch(0.2 0.03 160)",
           "browserSurface": "oklch(0.985 0.018 155)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.48 0.14 155)",
-          "chart2": "oklch(0.54 0.13 190)",
-          "chart3": "oklch(0.57 0.12 225)",
-          "chart4": "oklch(0.66 0.12 100)",
-          "chart5": "oklch(0.52 0.12 315)"
+          "chart1": "oklch(0.52 0.13 150)",
+          "chart2": "oklch(0.54 0.14 235)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.54 0.14 320)",
+          "chart5": "oklch(0.55 0.19 25)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -2190,11 +2190,11 @@
           "chromeInk": "oklch(0.94 0.018 155)",
           "browserSurface": "oklch(0.14 0.025 160)",
           "browserChrome": "oklch(0.19 0.032 160)",
-          "chart1": "oklch(0.72 0.14 155)",
-          "chart2": "oklch(0.72 0.12 190)",
-          "chart3": "oklch(0.73 0.11 225)",
-          "chart4": "oklch(0.8 0.11 100)",
-          "chart5": "oklch(0.7 0.11 315)"
+          "chart1": "oklch(0.72 0.14 150)",
+          "chart2": "oklch(0.72 0.13 235)",
+          "chart3": "oklch(0.78 0.14 80)",
+          "chart4": "oklch(0.72 0.15 310)",
+          "chart5": "oklch(0.72 0.16 25)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -2380,7 +2380,7 @@
   {
     "schemaVersion": 1,
     "id": "study-hall",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Study Hall",
     "description": "Cool structured surfaces with indigo study signals.",
     "iconPack": "lucide",
@@ -2463,7 +2463,7 @@
           "chart1": "oklch(0.5 0.16 285)",
           "chart2": "oklch(0.55 0.13 225)",
           "chart3": "oklch(0.6 0.13 155)",
-          "chart4": "oklch(0.69 0.13 80)",
+          "chart4": "oklch(0.60 0.14 80)",
           "chart5": "oklch(0.59 0.14 335)"
         },
         "protectedEditor": {
@@ -3190,7 +3190,7 @@
   {
     "schemaVersion": 1,
     "id": "ferrari",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Ferrari",
     "description": "Black cinematic void, sharp zero-radius geometry, and a single Rosso Corsa signal.",
     "iconPack": "heroicons-outline",
@@ -3270,11 +3270,11 @@
           "chromeInk": "oklch(1 0 0)",
           "browserSurface": "oklch(0 0 0)",
           "browserChrome": "oklch(0.135 0 0)",
-          "chart1": "oklch(0.55 0.19 30)",
-          "chart2": "oklch(0.70 0 0)",
-          "chart3": "oklch(0.45 0 0)",
-          "chart4": "oklch(0.42 0.15 28)",
-          "chart5": "oklch(0.92 0 0)"
+          "chart1": "oklch(0.72 0.16 25)",
+          "chart2": "oklch(0.78 0.14 80)",
+          "chart3": "oklch(0.72 0.13 235)",
+          "chart4": "oklch(0.72 0.14 150)",
+          "chart5": "oklch(0.72 0.15 310)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -3460,7 +3460,7 @@
   {
     "schemaVersion": 1,
     "id": "apple",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Apple",
     "description": "White-room restraint with a single deliberate blue action and fully rounded pills.",
     "iconPack": "heroicons-outline",
@@ -3540,11 +3540,11 @@
           "chromeInk": "oklch(0.17 0.004 250)",
           "browserSurface": "oklch(0.965 0.004 250)",
           "browserChrome": "oklch(0.99 0.003 250)",
-          "chart1": "oklch(0.52 0.15 250)",
-          "chart2": "oklch(0.45 0.005 250)",
-          "chart3": "oklch(0.65 0.14 250)",
-          "chart4": "oklch(0.60 0.004 250)",
-          "chart5": "oklch(0.30 0.01 250)"
+          "chart1": "oklch(0.54 0.14 245)",
+          "chart2": "oklch(0.52 0.13 150)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.55 0.19 25)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -3730,7 +3730,7 @@
   {
     "schemaVersion": 1,
     "id": "todoist",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Todoist",
     "description": "Sunlit paper planner with warm ink and one red pen.",
     "iconPack": "heroicons-outline",
@@ -3810,11 +3810,11 @@
           "chromeInk": "oklch(0.254 0.009 75)",
           "browserSurface": "oklch(0.995 0.002 68)",
           "browserChrome": "oklch(0.995 0.002 68)",
-          "chart1": "oklch(0.615 0.199 30)",
-          "chart2": "oklch(0.502 0.137 250)",
-          "chart3": "oklch(0.489 0.085 141)",
-          "chart4": "oklch(0.554 0.056 197)",
-          "chart5": "oklch(0.751 0.158 75)"
+          "chart1": "oklch(0.55 0.19 25)",
+          "chart2": "oklch(0.54 0.14 245)",
+          "chart3": "oklch(0.52 0.13 150)",
+          "chart4": "oklch(0.60 0.14 80)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -4000,7 +4000,7 @@
   {
     "schemaVersion": 1,
     "id": "notion",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Notion",
     "description": "Warm paper notebook with sticky-note accent cards and one blue action.",
     "iconPack": "lucide",
@@ -4080,11 +4080,11 @@
           "chromeInk": "oklch(0.2 0.004 80)",
           "browserSurface": "oklch(0.971 0.002 68)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.568 0.182 254)",
-          "chart2": "oklch(0.651 0.213 31)",
-          "chart3": "oklch(0.814 0.168 76)",
-          "chart4": "oklch(0.729 0.123 247)",
-          "chart5": "oklch(0.644 0.072 52)"
+          "chart1": "oklch(0.54 0.14 245)",
+          "chart2": "oklch(0.55 0.19 25)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.52 0.13 150)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -4270,7 +4270,7 @@
   {
     "schemaVersion": 1,
     "id": "supabase",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Supabase",
     "description": "Midnight code editor with a single phosphor green pulse on charcoal.",
     "iconPack": "heroicons-outline",
@@ -4350,11 +4350,11 @@
           "chromeInk": "oklch(0.985 0 90)",
           "browserSurface": "oklch(0.182 0 90)",
           "browserChrome": "oklch(0.182 0 90)",
-          "chart1": "oklch(0.762 0.154 159)",
-          "chart2": "oklch(0.724 0.178 155)",
-          "chart3": "oklch(0.77 0 90)",
-          "chart4": "oklch(0.63 0 90)",
-          "chart5": "oklch(0.375 0.06 162)"
+          "chart1": "oklch(0.72 0.14 150)",
+          "chart2": "oklch(0.72 0.13 235)",
+          "chart3": "oklch(0.78 0.14 80)",
+          "chart4": "oklch(0.72 0.16 25)",
+          "chart5": "oklch(0.72 0.15 310)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -4540,7 +4540,7 @@
   {
     "schemaVersion": 1,
     "id": "vercel",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Vercel",
     "description": "Typeset terminal on white paper: monochrome, hairline rings, tight type.",
     "iconPack": "lucide",
@@ -4620,11 +4620,11 @@
           "chromeInk": "oklch(0.205 0 90)",
           "browserSurface": "oklch(0.985 0 90)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.205 0 90)",
-          "chart2": "oklch(0.42 0 90)",
-          "chart3": "oklch(0.65 0 90)",
-          "chart4": "oklch(0.515 0.125 147)",
-          "chart5": "oklch(0.836 0 90)"
+          "chart1": "oklch(0.54 0.14 245)",
+          "chart2": "oklch(0.55 0.19 25)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.52 0.13 150)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -4810,7 +4810,7 @@
   {
     "schemaVersion": 1,
     "id": "firecrawl",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Firecrawl",
     "description": "Warm vellum workspace with one burning orange signal.",
     "iconPack": "lucide",
@@ -4890,11 +4890,11 @@
           "chromeInk": "oklch(0.25 0.005 90)",
           "browserSurface": "oklch(1 0 0)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.65 0.22 45)",
-          "chart2": "oklch(0.46 0.005 90)",
-          "chart3": "oklch(0.52 0.005 90)",
-          "chart4": "oklch(0.64 0.005 90)",
-          "chart5": "oklch(0.75 0.004 90)"
+          "chart1": "oklch(0.56 0.18 45)",
+          "chart2": "oklch(0.52 0.13 175)",
+          "chart3": "oklch(0.54 0.14 245)",
+          "chart4": "oklch(0.54 0.14 320)",
+          "chart5": "oklch(0.61 0.15 95)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -5080,7 +5080,7 @@
   {
     "schemaVersion": 1,
     "id": "linear",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Linear",
     "description": "Midnight precision instrument with an acid-lime flash.",
     "iconPack": "heroicons-outline",
@@ -5160,11 +5160,11 @@
           "chromeInk": "oklch(0.99 0 0)",
           "browserSurface": "oklch(0.145 0.005 260)",
           "browserChrome": "oklch(0.18 0.005 260)",
-          "chart1": "oklch(0.905 0.195 115)",
-          "chart2": "oklch(0.68 0.18 285)",
-          "chart3": "oklch(0.75 0.11 220)",
-          "chart4": "oklch(0.7 0.16 22)",
-          "chart5": "oklch(0.72 0.18 295)"
+          "chart1": "oklch(0.78 0.16 115)",
+          "chart2": "oklch(0.72 0.15 285)",
+          "chart3": "oklch(0.74 0.13 205)",
+          "chart4": "oklch(0.72 0.16 25)",
+          "chart5": "oklch(0.78 0.14 70)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -5350,7 +5350,7 @@
   {
     "schemaVersion": 1,
     "id": "calcom",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Cal.com",
     "description": "Strict monochrome utility with pill actions and one functional blue.",
     "iconPack": "heroicons-outline",
@@ -5430,11 +5430,11 @@
           "chromeInk": "oklch(0.26 0.007 250)",
           "browserSurface": "oklch(0.96 0.003 250)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.55 0.13 250)",
-          "chart2": "oklch(0.26 0.007 250)",
-          "chart3": "oklch(0.54 0.032 264)",
-          "chart4": "oklch(0.63 0.004 250)",
-          "chart5": "oklch(0.75 0.006 252)"
+          "chart1": "oklch(0.54 0.14 245)",
+          "chart2": "oklch(0.52 0.13 150)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.55 0.19 25)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -5620,7 +5620,7 @@
   {
     "schemaVersion": 1,
     "id": "mintlify",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Mintlify",
     "description": "Monastic white docs with one mint spark and square geometry.",
     "iconPack": "lucide",
@@ -5700,11 +5700,11 @@
           "chromeInk": "oklch(0 0 0)",
           "browserSurface": "oklch(1 0 0)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.45 0.11 168)",
-          "chart2": "oklch(0.14 0.004 250)",
-          "chart3": "oklch(0.55 0.008 250)",
-          "chart4": "oklch(0.75 0.05 168)",
-          "chart5": "oklch(0.6 0.1 200)"
+          "chart1": "oklch(0.52 0.13 165)",
+          "chart2": "oklch(0.54 0.14 245)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.55 0.19 25)",
+          "chart5": "oklch(0.54 0.14 320)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -5890,7 +5890,7 @@
   {
     "schemaVersion": 1,
     "id": "launchdarkly",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "LaunchDarkly",
     "description": "Neon control room: charcoal cockpit, pill-soft panels, one violet signal.",
     "iconPack": "lucide",
@@ -5970,11 +5970,11 @@
           "chromeInk": "oklch(0.98 0 0)",
           "browserSurface": "oklch(0.18 0.005 285)",
           "browserChrome": "oklch(0.24 0.006 285)",
-          "chart1": "oklch(0.52 0.21 275)",
-          "chart2": "oklch(0.66 0.16 278)",
-          "chart3": "oklch(0.8 0.12 215)",
-          "chart4": "oklch(0.7 0.012 285)",
-          "chart5": "oklch(0.5 0.01 285)"
+          "chart1": "oklch(0.72 0.15 285)",
+          "chart2": "oklch(0.72 0.13 210)",
+          "chart3": "oklch(0.78 0.14 80)",
+          "chart4": "oklch(0.72 0.16 25)",
+          "chart5": "oklch(0.72 0.14 150)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -6160,7 +6160,7 @@
   {
     "schemaVersion": 1,
     "id": "posthog",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "PostHog",
     "description": "Warm paper desktop: sandy desk, pinned white windows, one amber CTA.",
     "iconPack": "tabler",
@@ -6240,11 +6240,11 @@
           "chromeInk": "oklch(0.28 0.03 110)",
           "browserSurface": "oklch(0.84 0.05 88)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.6 0.19 255)",
-          "chart2": "oklch(0.72 0.15 70)",
-          "chart3": "oklch(0.62 0.22 40)",
-          "chart4": "oklch(0.55 0.14 150)",
-          "chart5": "oklch(0.6 0.11 72)"
+          "chart1": "oklch(0.45 0.16 255)",
+          "chart2": "oklch(0.45 0.13 70)",
+          "chart3": "oklch(0.47 0.18 25)",
+          "chart4": "oklch(0.42 0.12 145)",
+          "chart5": "oklch(0.45 0.14 315)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -6430,7 +6430,7 @@
   {
     "schemaVersion": 1,
     "id": "origin",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Origin",
     "description": "Midnight gallery of quiet wealth — whisper serif, white-on-black actions, iris tiles.",
     "iconPack": "lucide",
@@ -6510,11 +6510,11 @@
           "chromeInk": "oklch(0.96 0.003 250)",
           "browserSurface": "oklch(0.16 0.004 250)",
           "browserChrome": "oklch(0.32 0.004 250)",
-          "chart1": "oklch(0.62 0.19 285)",
-          "chart2": "oklch(0.70 0.13 225)",
-          "chart3": "oklch(0.72 0.13 340)",
-          "chart4": "oklch(0.78 0.09 260)",
-          "chart5": "oklch(0.68 0.004 250)"
+          "chart1": "oklch(0.72 0.15 285)",
+          "chart2": "oklch(0.72 0.13 210)",
+          "chart3": "oklch(0.72 0.15 340)",
+          "chart4": "oklch(0.78 0.14 80)",
+          "chart5": "oklch(0.72 0.14 150)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",
@@ -6700,7 +6700,7 @@
   {
     "schemaVersion": 1,
     "id": "column",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Column",
     "description": "Deep-navy ledger on cool dawn — indigo structure, seafoam data, one orange signal.",
     "iconPack": "heroicons-outline",
@@ -6780,11 +6780,11 @@
           "chromeInk": "oklch(0.30 0.085 275)",
           "browserSurface": "oklch(0.965 0.004 270)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.68 0.13 165)",
-          "chart2": "oklch(0.65 0.17 55)",
-          "chart3": "oklch(0.45 0.11 275)",
-          "chart4": "oklch(0.80 0.07 215)",
-          "chart5": "oklch(0.45 0.10 200)"
+          "chart1": "oklch(0.52 0.13 150)",
+          "chart2": "oklch(0.60 0.14 80)",
+          "chart3": "oklch(0.54 0.14 320)",
+          "chart4": "oklch(0.54 0.14 245)",
+          "chart5": "oklch(0.55 0.19 25)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -6970,7 +6970,7 @@
   {
     "schemaVersion": 1,
     "id": "duolingo",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Duolingo",
     "description": "Storybook white, sticker-thick borders, and one eager green that means go.",
     "iconPack": "phosphor",
@@ -7050,11 +7050,11 @@
           "chromeInk": "oklch(0.42 0.01 250)",
           "browserSurface": "oklch(1 0 0)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.72 0.205 133)",
-          "chart2": "oklch(0.69 0.135 238)",
-          "chart3": "oklch(0.88 0.15 133)",
-          "chart4": "oklch(0.18 0.05 280)",
-          "chart5": "oklch(0.55 0.012 250)"
+          "chart1": "oklch(0.52 0.13 135)",
+          "chart2": "oklch(0.54 0.14 235)",
+          "chart3": "oklch(0.60 0.14 80)",
+          "chart4": "oklch(0.55 0.19 25)",
+          "chart5": "oklch(0.54 0.14 310)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -7240,7 +7240,7 @@
   {
     "schemaVersion": 1,
     "id": "quizlet",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Quizlet",
     "description": "Chalk canvas, white study cards, and one iris violet highlighter mark.",
     "iconPack": "heroicons-outline",
@@ -7320,11 +7320,11 @@
           "chromeInk": "oklch(0.28 0.03 275)",
           "browserSurface": "oklch(0.97 0.008 270)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.53 0.23 279)",
-          "chart2": "oklch(0.6 0.12 270)",
-          "chart3": "oklch(0.65 0.1 250)",
-          "chart4": "oklch(0.6 0.12 300)",
-          "chart5": "oklch(0.5 0.08 260)"
+          "chart1": "oklch(0.54 0.16 279)",
+          "chart2": "oklch(0.52 0.14 210)",
+          "chart3": "oklch(0.52 0.13 145)",
+          "chart4": "oklch(0.60 0.14 75)",
+          "chart5": "oklch(0.55 0.19 25)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",

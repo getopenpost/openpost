@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2 } from './shared.js';
 
 const displayFont = bundledThemeFont('manrope');
 const bodyFont = bundledThemeFont('dm-sans');
@@ -51,11 +51,11 @@ export const duolingoLight = scheme({
 		sidebarInk: 'oklch(0.42 0.01 250)',
 		sidebarActive: 'oklch(0.94 0.09 133)',
 		sidebarActiveInk: 'oklch(0.42 0.14 133)',
-		chart1: 'oklch(0.72 0.205 133)',
-		chart2: 'oklch(0.69 0.135 238)',
-		chart3: 'oklch(0.88 0.15 133)',
-		chart4: 'oklch(0.18 0.05 280)',
-		chart5: 'oklch(0.55 0.012 250)'
+		chart1: 'oklch(0.52 0.13 135)',
+		chart2: 'oklch(0.54 0.14 235)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.55 0.19 25)',
+		chart5: 'oklch(0.54 0.14 310)'
 	}),
 	typography: themeTypography({
 		display: {
@@ -124,9 +124,17 @@ export const duolingoLight = scheme({
 		focalAction: '0 4px 0 0 oklch(0.55 0.19 133)'
 	},
 	motion: {
-		press: { duration: '100ms', easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)', distance: '4px' },
+		press: {
+			duration: '100ms',
+			easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)',
+			distance: '4px'
+		},
 		hover: { duration: '150ms', easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
-		entry: { duration: '300ms', easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', distance: '0.75rem' },
+		entry: {
+			duration: '300ms',
+			easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+			distance: '0.75rem'
+		},
 		exit: { duration: '150ms', easing: 'cubic-bezier(0.4, 0, 1, 1)' }
 	},
 	shell: { contentMaxWidth: '75rem', canvasTreatment: 'playful' },
@@ -158,7 +166,7 @@ export const duolingoLight = scheme({
 	}
 });
 
-export const duolingoTheme: ThemeManifest = theme(
+export const duolingoTheme: ThemeManifest = themeV2(
 	'duolingo',
 	'Duolingo',
 	'Storybook white, sticker-thick borders, and one eager green that means go.',

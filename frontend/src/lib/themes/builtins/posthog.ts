@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeMotion, themeTypography } from './shared.js';
+import { colors, scheme, themeMotion, themeTypography, themeV2 } from './shared.js';
 
 const interTight = bundledThemeFont('inter-tight');
 const inter = bundledThemeFont('inter');
@@ -69,11 +69,11 @@ export const posthogLight = scheme({
 		sidebarActive: 'oklch(0.9 0.02 95)',
 		sidebarActiveInk: 'oklch(0.45 0.16 255)',
 		sidebarBorder: 'oklch(0.78 0.03 100)',
-		chart1: 'oklch(0.6 0.19 255)',
-		chart2: 'oklch(0.72 0.15 70)',
-		chart3: 'oklch(0.62 0.22 40)',
-		chart4: 'oklch(0.55 0.14 150)',
-		chart5: 'oklch(0.6 0.11 72)'
+		chart1: 'oklch(0.45 0.16 255)',
+		chart2: 'oklch(0.45 0.13 70)',
+		chart3: 'oklch(0.47 0.18 25)',
+		chart4: 'oklch(0.42 0.12 145)',
+		chart5: 'oklch(0.45 0.14 315)'
 	}),
 	typography: themeTypography({
 		display: {
@@ -203,7 +203,7 @@ export const posthogLight = scheme({
 	}
 });
 
-export const posthogTheme: ThemeManifest = theme(
+export const posthogTheme: ThemeManifest = themeV2(
 	'posthog',
 	'PostHog',
 	'Warm paper desktop: sandy desk, pinned white windows, one amber CTA.',

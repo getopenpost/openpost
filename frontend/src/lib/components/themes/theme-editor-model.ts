@@ -476,7 +476,9 @@ function assertExactRootKeys<Owner extends object>(value: Owner, expectedKeys: r
 	}
 	const missing = expectedKeys.find((key) => !actual.has(key));
 	if (missing)
-		throw validationError('required_field', `${missing} is required`, { field: missing });
+		throw validationError('required_field', `${missing} is required`, {
+			field: missing
+		});
 }
 
 function validateManifestResources(manifest: ThemeManifest) {
@@ -556,7 +558,10 @@ const randomPalettes = [
 		link: '#155EEF',
 		linkHover: '#004EEB',
 		chart1: '#155EEF',
-		chart2: '#004EEB'
+		chart2: '#099250',
+		chart3: '#DC6803',
+		chart4: '#D92D20',
+		chart5: '#6938EF'
 	},
 	{
 		focal: '#087E8B',
@@ -569,7 +574,10 @@ const randomPalettes = [
 		link: '#087E8B',
 		linkHover: '#066B76',
 		chart1: '#087E8B',
-		chart2: '#066B76'
+		chart2: '#155EEF',
+		chart3: '#DC6803',
+		chart4: '#D92D20',
+		chart5: '#6938EF'
 	},
 	{
 		focal: '#A23E48',
@@ -582,7 +590,10 @@ const randomPalettes = [
 		link: '#A23E48',
 		linkHover: '#8D3540',
 		chart1: '#A23E48',
-		chart2: '#8D3540'
+		chart2: '#155EEF',
+		chart3: '#099250',
+		chart4: '#DC6803',
+		chart5: '#6938EF'
 	},
 	{
 		focal: '#5F4BB6',
@@ -595,7 +606,10 @@ const randomPalettes = [
 		link: '#5F4BB6',
 		linkHover: '#503F9E',
 		chart1: '#5F4BB6',
-		chart2: '#503F9E'
+		chart2: '#155EEF',
+		chart3: '#099250',
+		chart4: '#DC6803',
+		chart5: '#D92D20'
 	}
 ] as const;
 
@@ -611,7 +625,10 @@ const darkRandomPalettes = [
 		link: 'oklch(0.78 0.14 210)',
 		linkHover: 'color-mix(in oklch, oklch(0.78 0.14 210) 82%, oklch(0.91 0.01 110))',
 		chart1: 'oklch(0.82 0.2 125)',
-		chart2: 'oklch(0.74 0.14 210)'
+		chart2: 'oklch(0.72 0.13 235)',
+		chart3: 'oklch(0.78 0.14 80)',
+		chart4: 'oklch(0.72 0.16 25)',
+		chart5: 'oklch(0.72 0.15 310)'
 	},
 	{
 		focal: 'oklch(0.762 0.154 159)',
@@ -624,7 +641,10 @@ const darkRandomPalettes = [
 		link: 'oklch(0.724 0.178 155)',
 		linkHover: 'color-mix(in oklch, oklch(0.724 0.178 155) 82%, oklch(0.985 0 90))',
 		chart1: 'oklch(0.762 0.154 159)',
-		chart2: 'oklch(0.724 0.178 155)'
+		chart2: 'oklch(0.72 0.13 235)',
+		chart3: 'oklch(0.78 0.14 80)',
+		chart4: 'oklch(0.72 0.16 25)',
+		chart5: 'oklch(0.72 0.15 310)'
 	},
 	{
 		focal: 'oklch(0.51 0.19 30)',
@@ -636,8 +656,11 @@ const darkRandomPalettes = [
 		focus: 'oklch(1 0 0)',
 		link: 'oklch(1 0 0)',
 		linkHover: 'oklch(0.82 0 0)',
-		chart1: 'oklch(0.55 0.19 30)',
-		chart2: 'oklch(0.70 0 0)'
+		chart1: 'oklch(0.72 0.16 25)',
+		chart2: 'oklch(0.78 0.14 80)',
+		chart3: 'oklch(0.72 0.13 235)',
+		chart4: 'oklch(0.72 0.14 150)',
+		chart5: 'oklch(0.72 0.15 310)'
 	},
 	{
 		focal: 'oklch(0.52 0.21 275)',
@@ -649,8 +672,11 @@ const darkRandomPalettes = [
 		focus: 'oklch(0.66 0.16 278)',
 		link: 'oklch(0.66 0.16 278)',
 		linkHover: 'color-mix(in oklch, oklch(0.66 0.16 278) 82%, oklch(0.98 0 0))',
-		chart1: 'oklch(0.52 0.21 275)',
-		chart2: 'oklch(0.66 0.16 278)'
+		chart1: 'oklch(0.72 0.15 285)',
+		chart2: 'oklch(0.72 0.13 210)',
+		chart3: 'oklch(0.78 0.14 80)',
+		chart4: 'oklch(0.72 0.16 25)',
+		chart5: 'oklch(0.72 0.14 150)'
 	}
 ] as const;
 
@@ -697,7 +723,10 @@ export function randomizeThemeManifest(
 				actionLink: palette.link,
 				actionLinkHover: palette.linkHover,
 				chart1: palette.chart1,
-				chart2: palette.chart2
+				chart2: palette.chart2,
+				chart3: palette.chart3,
+				chart4: palette.chart4,
+				chart5: palette.chart5
 			};
 			if (!isCompleteThemeSchemeManifest({ ...target, colors }, scheme)) continue;
 			target.colors = colors;

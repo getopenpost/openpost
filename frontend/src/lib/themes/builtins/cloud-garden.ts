@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, companionScheme, scheme, theme, familyTypography } from './shared.js';
+import { colors, companionScheme, scheme, themeV2, familyTypography } from './shared.js';
 
 export const cloudGardenLight = scheme({
 	colors: colors({
@@ -37,11 +37,11 @@ export const cloudGardenLight = scheme({
 		sidebarInk: 'oklch(0.2 0.03 160)',
 		sidebarActive: 'oklch(0.9 0.06 155)',
 		sidebarActiveInk: 'oklch(0.25 0.08 155)',
-		chart1: 'oklch(0.48 0.14 155)',
-		chart2: 'oklch(0.54 0.13 190)',
-		chart3: 'oklch(0.57 0.12 225)',
-		chart4: 'oklch(0.66 0.12 100)',
-		chart5: 'oklch(0.52 0.12 315)'
+		chart1: 'oklch(0.52 0.13 150)',
+		chart2: 'oklch(0.54 0.14 235)',
+		chart3: 'oklch(0.60 0.14 80)',
+		chart4: 'oklch(0.54 0.14 320)',
+		chart5: 'oklch(0.55 0.19 25)'
 	}),
 	typography: familyTypography('manrope'),
 	shape: { radius: '0.875rem', radiusMd: '0.75rem', radiusLg: '0.875rem' },
@@ -98,16 +98,16 @@ export const cloudGardenDark = companionScheme(
 		sidebarInk: 'oklch(0.94 0.018 155)',
 		sidebarActive: 'oklch(0.27 0.075 155)',
 		sidebarActiveInk: 'oklch(0.94 0.018 155)',
-		chart1: 'oklch(0.72 0.14 155)',
-		chart2: 'oklch(0.72 0.12 190)',
-		chart3: 'oklch(0.73 0.11 225)',
-		chart4: 'oklch(0.8 0.11 100)',
-		chart5: 'oklch(0.7 0.11 315)'
+		chart1: 'oklch(0.72 0.14 150)',
+		chart2: 'oklch(0.72 0.13 235)',
+		chart3: 'oklch(0.78 0.14 80)',
+		chart4: 'oklch(0.72 0.15 310)',
+		chart5: 'oklch(0.72 0.16 25)'
 	},
 	'dark'
 );
 
-export const cloudGardenTheme: ThemeManifest = theme(
+export const cloudGardenTheme: ThemeManifest = themeV2(
 	'cloud-garden',
 	'Cloud Garden',
 	'White and mint layers with restrained botanical depth.',

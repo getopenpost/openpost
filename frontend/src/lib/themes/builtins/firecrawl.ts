@@ -1,6 +1,6 @@
 import type { ThemeManifest } from '../contracts.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
-import { colors, scheme, theme, themeTypography } from './shared.js';
+import { colors, scheme, themeTypography, themeV2 } from './shared.js';
 
 // Suisse (humanist grotesque) has no bundled twin; Inter Variable carries the
 // same engineered grotesque voice with matching tight display tracking and a
@@ -65,13 +65,11 @@ export const firecrawlLight = scheme({
 		field: 'oklch(1 0 0)',
 		fieldInk: 'oklch(0.25 0.005 90)',
 		fieldBorder: 'oklch(0.905 0.005 250)',
-		// Monochrome chart ramp: the orange is rationed to chart1, grays do
-		// the rest, exactly as the brand's data surfaces behave.
-		chart1: 'oklch(0.65 0.22 45)',
-		chart2: 'oklch(0.46 0.005 90)',
-		chart3: 'oklch(0.52 0.005 90)',
-		chart4: 'oklch(0.64 0.005 90)',
-		chart5: 'oklch(0.75 0.004 90)'
+		chart1: 'oklch(0.56 0.18 45)',
+		chart2: 'oklch(0.52 0.13 175)',
+		chart3: 'oklch(0.54 0.14 245)',
+		chart4: 'oklch(0.54 0.14 320)',
+		chart5: 'oklch(0.61 0.15 95)'
 	}),
 	typography: themeTypography({
 		display: {
@@ -172,7 +170,7 @@ export const firecrawlLight = scheme({
 	}
 });
 
-export const firecrawlTheme: ThemeManifest = theme(
+export const firecrawlTheme: ThemeManifest = themeV2(
 	'firecrawl',
 	'Firecrawl',
 	'Warm vellum workspace with one burning orange signal.',

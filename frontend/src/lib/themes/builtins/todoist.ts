@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme } from './shared.js';
+import { colors, scheme, themeV2 } from './shared.js';
 import { bundledThemeFont } from '../bundled-fonts.js';
 
 // Graphik (display/headings) -> Inter Tight: same neo-grotesque voice with the
@@ -53,11 +53,11 @@ export const todoistLight = scheme({
 		sidebarInk: 'oklch(0.254 0.009 75)',
 		sidebarActive: 'oklch(0.93 0.045 40)',
 		sidebarActiveInk: 'oklch(0.5 0.16 32)',
-		chart1: 'oklch(0.615 0.199 30)',
-		chart2: 'oklch(0.502 0.137 250)',
-		chart3: 'oklch(0.489 0.085 141)',
-		chart4: 'oklch(0.554 0.056 197)',
-		chart5: 'oklch(0.751 0.158 75)'
+		chart1: 'oklch(0.55 0.19 25)',
+		chart2: 'oklch(0.54 0.14 245)',
+		chart3: 'oklch(0.52 0.13 150)',
+		chart4: 'oklch(0.60 0.14 80)',
+		chart5: 'oklch(0.54 0.14 320)'
 	}),
 	typography: {
 		display: {
@@ -164,7 +164,7 @@ export const todoistLight = scheme({
 	}
 });
 
-export const todoistTheme: ThemeManifest = theme(
+export const todoistTheme: ThemeManifest = themeV2(
 	'todoist',
 	'Todoist',
 	'Sunlit paper planner with warm ink and one red pen.',

@@ -2,6 +2,7 @@
 
 - Put Test and Apply actions on every theme card, and switch appearance mode when a tested theme only supports light or dark.
 - Add dark variants for Studio, Playroom, and Cloud Garden across web and native theme manifests.
+- Give every built-in theme five distinct analytics colors and show the full palette while previewing a theme.
 - Keep routine app page spacing compact even when a theme uses spacious presentation layouts.
 - Show only the plus icon for the central mobile create action while preserving its accessible name.
 

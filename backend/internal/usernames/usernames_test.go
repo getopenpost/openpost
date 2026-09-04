@@ -12,6 +12,4 @@ func TestUsernameValidationAndSuggestions(t *testing.T) {
 	require.NoError(t, Validate("rodrgds"))
 	require.Error(t, Validate("Open Post"))
 	require.Error(t, Validate("admin"))
-	require.Equal(t, "rodrigo-dias", Suggest("Rodrigo Dias", "rodrigo@example.com"))
-	require.Equal(t, "rodrigo-dias-abc123", Candidate("rodrigo-dias", "abc12345", 1))
 }

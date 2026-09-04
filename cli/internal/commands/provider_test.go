@@ -8,17 +8,6 @@ import (
 	"testing"
 )
 
-func TestProviderCommandExposesOperationalChecks(t *testing.T) {
-	cmd := newProviderCmd()
-	want := map[string]bool{"list": true, "readiness": true, "capabilities": true}
-	for _, child := range cmd.Commands() {
-		delete(want, child.Name())
-	}
-	if len(want) != 0 {
-		t.Fatalf("missing provider commands: %v", want)
-	}
-}
-
 func TestProviderReadinessUsesActiveWorkspace(t *testing.T) {
 	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

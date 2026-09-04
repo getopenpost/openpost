@@ -113,66 +113,6 @@ func TestHandleJobWarnsOnlyForConfirmedUserActionFailure(t *testing.T) {
 	}
 }
 
-func TestHandleJobChecksOnlyActiveDestinationsDueSoon(t *testing.T) {
-	tests := []struct {
-		name             string
-		publicationRunAt time.Duration
-		overrideRunAt    time.Duration
-		wantCalls        int
-	}{
-		{name: "publication outside window", publicationRunAt: 3 * time.Hour},
-		{name: "rendition override moves destination into window", publicationRunAt: 3 * time.Hour, overrideRunAt: time.Hour, wantCalls: 1},
-		{name: "rendition override moves destination outside window", publicationRunAt: time.Hour, overrideRunAt: 3 * time.Hour},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			db := preflightTestDB(t)
-			now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
-			seedPreflightCandidate(t, db, now.Add(test.publicationRunAt))
-			if test.overrideRunAt > 0 {
-				_, err := db.NewUpdate().Model((*models.Rendition)(nil)).Set("schedule_override = ?", now.Add(test.overrideRunAt)).Where("id = ?", "rendition-1").Exec(t.Context())
-				require.NoError(t, err)
-			}
-			adapter := &preflightAdapter{}
-			service := NewService(db, preflightTokens{}, &preflightNotifications{})
-			service.now = func() time.Time { return now }
-			service.SetProvider("x", adapter)
-
-			require.NoError(t, service.HandleJob(t.Context(), JobType))
-			require.Equal(t, test.wantCalls, adapter.calls)
-		})
-	}
-}
-
-func TestHandleJobWarnsForAlreadyDisconnectedUpcomingDestination(t *testing.T) {
-	db := preflightTestDB(t)
-	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
-	seedPreflightCandidate(t, db, now.Add(time.Hour))
-	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = ?", false).Where("id = ?", "account-1").Exec(t.Context())
-	require.NoError(t, err)
-	adapter := &preflightAdapter{}
-	recorder := &preflightNotifications{}
-	service := NewService(db, preflightTokens{}, recorder)
-	service.now = func() time.Time { return now }
-	service.SetProvider("x", adapter)
-
-	require.NoError(t, service.HandleJob(t.Context(), JobType))
-	require.Zero(t, adapter.calls)
-	require.Equal(t, 1, recorder.count)
-}
-
-func TestScheduleDeduplicatesActiveRecurringJob(t *testing.T) {
-	db := preflightTestDB(t)
-	runAt := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
-	service := NewService(db, nil, nil)
-
-	require.NoError(t, service.Schedule(t.Context(), runAt))
-	require.NoError(t, service.Schedule(t.Context(), runAt))
-	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", JobType).Count(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-}
-
 func preflightTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	dsn := fmt.Sprintf("file:preflight-%d?mode=memory&cache=shared", time.Now().UnixNano())

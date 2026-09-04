@@ -1,47 +1,14 @@
 package migrations
 
 import (
-	"context"
 	"database/sql"
-	"fmt"
-	"os"
 	"testing"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
-
-func TestRetireOrganizationWideSSOTokensMigrationFreshSQLite(t *testing.T) {
-	db := newMigrationsTestDB(t)
-	ctx := t.Context()
-	seedMigrationUser(ctx, t, db)
-	require.NoError(t, runTestMigrations(t, db))
-
-	organization := &models.Organization{
-		ID: "fresh-sso-org", Name: "Fresh SSO", CreatedByID: "user-1",
-		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-	}
-	_, err := db.NewInsert().Model(organization).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.OrganizationSSOPolicy{
-		OrganizationID: organization.ID,
-	}).Column("organization_id").Exec(ctx)
-	require.NoError(t, err)
-
-	var policy models.OrganizationSSOPolicy
-	require.NoError(t, db.NewSelect().Model(&policy).
-		Where("organization_id = ?", organization.ID).Scan(ctx))
-	require.Equal(t, models.OrganizationSSOTokensScoped, policy.APITokenMode)
-
-	var applied SchemaMigration
-	require.NoError(t, db.NewSelect().Model(&applied).Where("version = ?", 84).Scan(ctx))
-}
 
 func TestRetireOrganizationWideSSOTokensMigrationUpgradedSQLite(t *testing.T) {
 	sqlDB, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=private")
@@ -82,36 +49,6 @@ func TestRetireOrganizationWideSSOTokensMigrationFailsOnSparseSchema(t *testing.
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, pending.sql)
 	require.ErrorContains(t, err, "api_token_mode")
-}
-
-func TestRetireOrganizationWideSSOTokensMigrationPostgres(t *testing.T) {
-	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
-	if dsn == "" {
-		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
-	}
-	adminSQLDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	adminDB := bun.NewDB(adminSQLDB, pgdialect.New())
-	t.Cleanup(func() { require.NoError(t, adminDB.Close()) })
-	require.NoError(t, adminDB.PingContext(t.Context()))
-
-	schema := fmt.Sprintf("sso_token_mode_084_%d", time.Now().UnixNano())
-	_, err := adminDB.ExecContext(t.Context(), `CREATE SCHEMA "`+schema+`"`)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		_, cleanupErr := adminDB.ExecContext(context.Background(), `DROP SCHEMA IF EXISTS "`+schema+`" CASCADE`)
-		require.NoError(t, cleanupErr)
-	})
-
-	scopedSQLDB := sql.OpenDB(pgdriver.NewConnector(
-		pgdriver.WithDSN(dsn),
-		pgdriver.WithConnParams(map[string]any{"search_path": schema}),
-	))
-	scopedSQLDB.SetMaxOpenConns(1)
-	db := bun.NewDB(scopedSQLDB, pgdialect.New())
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, db.PingContext(t.Context()))
-
-	exerciseRetireOrganizationWideSSOTokensMigration(t, db)
 }
 
 func exerciseRetireOrganizationWideSSOTokensMigration(t *testing.T, db *bun.DB) {

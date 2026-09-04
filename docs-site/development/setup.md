@@ -56,7 +56,7 @@ The `format`, `format:check`, `lint`, `check`, `test`, and `build` commands
 accept one optional scope after `--`: `frontend`, `backend`, `cli`, `marketing`,
 or `docs`. For example, use
 `bun run check -- frontend` while changing the app. Omit the scope for the
-complete repository gate. Use `bun run test -- e2e`, `e2e-app`, or `e2e-docs`
+complete repository gate. Use `bun run test -- e2e` or `e2e-app`
 for browser suites. Focused repository policies use
 `bun run check -- <policy>`, such as `bun run check -- contracts`.
 The release subcommands are `plan`, `preflight`, `check`, `check-full`, `status`,

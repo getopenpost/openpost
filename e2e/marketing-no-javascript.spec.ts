@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+// The free tools are server-rendered guides: every tool page must explain
+// itself completely without JavaScript. One test visits every tool route and
+// asserts the shared explanation contract instead of repeating it per tool.
 const toolRoutes = [
   ["social-media-video-editor", "Video files, camera, screen, or microphone recordings"],
   ["social-media-image-editor", "Images, text, shapes, and blank pages"],
@@ -15,8 +18,8 @@ const toolRoutes = [
 test.describe("browser tools without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
-  for (const [slug, input] of toolRoutes) {
-    test(`${slug} keeps its complete explanation`, async ({ page }) => {
+  test("every tool keeps its complete explanation", async ({ page }) => {
+    for (const [slug, input] of toolRoutes) {
       await page.goto(`/tools/${slug}`);
       await expect(
         page.getByRole("heading", { level: 2, name: "Who this is for", exact: true }),
@@ -37,6 +40,6 @@ test.describe("browser tools without JavaScript", () => {
       await expect(
         page.getByRole("heading", { level: 2, name: "Next step", exact: true }),
       ).toBeVisible();
-    });
-  }
+    }
+  });
 });

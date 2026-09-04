@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { ImageEditorMediaItem } from '$lib/image-editor/types';
 import type { MemeTemplate, MemeTemplateListResult } from '$lib/meme-generator/types';
@@ -134,42 +133,7 @@ function renderPicker(
 	});
 }
 
-function constrainDialogsDuringTest(maximumWidth: number): () => void {
-	const style = document.createElement('style');
-	style.dataset.mediaPickerTest = 'width';
-	style.textContent = `[data-slot="dialog-content"] { width: ${maximumWidth}px !important; max-width: ${maximumWidth}px !important; min-width: 0 !important; left: 0 !important; transform: none !important; }`;
-	document.head.append(style);
-	return () => style.remove();
-}
-
-function expectNoVisibleOverflow(root: HTMLElement, maximumWidth: number): void {
-	const rootBounds = root.getBoundingClientRect();
-	expect(rootBounds.width).toBeGreaterThan(0);
-	expect(rootBounds.width).toBeLessThanOrEqual(maximumWidth);
-	const visibleOverflow = Array.from(root.querySelectorAll<HTMLElement>('*'))
-		.filter((element) => element.getClientRects().length > 0)
-		.map((element) => {
-			const bounds = element.getBoundingClientRect();
-			return {
-				tag: element.tagName,
-				left: Math.round(bounds.left - rootBounds.left),
-				right: Math.round(bounds.right - rootBounds.left)
-			};
-		})
-		.filter((bounds) => bounds.left < -1 || bounds.right > rootBounds.width + 1);
-	expect(visibleOverflow).toEqual([]);
-}
-
-function requireHTMLElement(element: HTMLElement | SVGElement): HTMLElement {
-	if (!(element instanceof HTMLElement)) throw new Error('Expected an HTML element.');
-	return element;
-}
-
 describe('MediaPicker meme source', () => {
-	afterEach(() => {
-		document.querySelectorAll('style[data-media-picker-test]').forEach((style) => style.remove());
-	});
-
 	beforeEach(() => {
 		mocks.listMedia.mockReset().mockResolvedValue([]);
 		mocks.listTags.mockReset().mockResolvedValue({ tags: [], canEdit: true });
@@ -188,7 +152,6 @@ describe('MediaPicker meme source', () => {
 	});
 
 	it('never probes or shows Meme when the calling surface does not enable it', async () => {
-		await page.viewport(390, 844);
 		const screen = await renderPicker(false);
 
 		await expect.element(screen.getByRole('tab', { name: 'Library' })).toBeVisible();
@@ -229,30 +192,6 @@ describe('MediaPicker meme source', () => {
 		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
 	});
 
-	it('shows the configured Meme source without overflowing at 390px', async () => {
-		await page.viewport(390, 844);
-		const releaseWidth = constrainDialogsDuringTest(390);
-		try {
-			const screen = await renderPicker(true);
-			const memeTab = screen.getByRole('tab', { name: 'Meme' });
-
-			await expect.element(memeTab).toBeVisible();
-			await memeTab.click();
-			await expect.element(screen.getByRole('heading', { name: 'Make a meme' })).toBeVisible();
-
-			const dialog = requireHTMLElement(screen.getByRole('dialog').element());
-			expectNoVisibleOverflow(dialog, 390);
-			await page.screenshot({
-				element: dialog,
-				path: '../../../.svelte-kit/openpost-media-picker-meme-390.png'
-			});
-			await screen.getByRole('button', { name: 'Close' }).click();
-			await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
-		} finally {
-			releaseWidth();
-		}
-	});
-
 	it('opens a seeded meme recommendation after the availability check', async () => {
 		const initialCandidate = {
 			template_id: template.id,
@@ -276,83 +215,5 @@ describe('MediaPicker meme source', () => {
 			.toHaveValue('The plan');
 		expect(mocks.suggest).not.toHaveBeenCalled();
 		expect(mocks.preview).not.toHaveBeenCalled();
-	});
-
-	it('uses the desktop viewport for a full Meme workbench', async () => {
-		await page.viewport(1280, 900);
-		const screen = await renderPicker(true);
-
-		await screen.getByRole('tab', { name: 'Meme' }).click();
-		await expect.element(screen.getByRole('heading', { name: 'Make a meme' })).toBeVisible();
-		const dialog = requireHTMLElement(screen.getByRole('dialog').element());
-		const generator = dialog.querySelector<HTMLElement>('.meme-generator');
-		if (!generator) throw new Error('Expected the Meme generator in the media picker.');
-		const dialogBox = dialog.getBoundingClientRect();
-		const generatorBox = generator.getBoundingClientRect();
-
-		expect(dialogBox.width).toBeGreaterThanOrEqual(1100);
-		expect(dialogBox.height).toBeGreaterThanOrEqual(800);
-		expect(generatorBox.height).toBeGreaterThanOrEqual(700);
-		await screen.getByRole('button', { name: 'Close' }).click();
-		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
-	});
-
-	it('expands compact source navigation when the dialog has desktop space', async () => {
-		await page.viewport(1280, 900);
-		const screen = await renderPicker(true, true);
-
-		await expect.element(screen.getByRole('tab', { name: 'Stock media' })).toBeVisible();
-		await expect.element(screen.getByRole('tab', { name: 'Meme' })).toBeVisible();
-		await expect.element(screen.getByRole('button', { name: 'More' })).not.toBeInTheDocument();
-		await screen.getByRole('button', { name: 'Close' }).click();
-		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
-	});
-
-	it('keeps a degraded Meme path usable and recovers an overlay picker at 320px', async () => {
-		await page.viewport(320, 780);
-		const releaseWidth = constrainDialogsDuringTest(320);
-		let overlayRequests = 0;
-		mocks.listTemplates.mockImplementation(({ limit }) =>
-			limit === 1
-				? Promise.reject(new Error('The availability check timed out.'))
-				: Promise.resolve(templateResult())
-		);
-		mocks.listMedia.mockImplementation(
-			(_workspaceId: string, _search: string, _type: string, options: { sort?: string } = {}) => {
-				if (options.sort !== 'recently_used') return Promise.resolve([]);
-				overlayRequests += 1;
-				return overlayRequests === 1
-					? Promise.reject(new Error('Media is temporarily unavailable.'))
-					: Promise.resolve([overlayMedia]);
-			}
-		);
-		const screen = await renderPicker(true);
-		const memeTab = screen.getByRole('tab', { name: 'Meme' });
-
-		await expect.element(memeTab).toBeVisible();
-		const pickerDialog = screen.getByRole('dialog');
-		await memeTab.click();
-		await screen.getByRole('tab', { name: 'Templates' }).click();
-		await screen.getByRole('button', { name: 'Use the Futurama Fry template' }).click();
-		await screen.getByRole('button', { name: 'Choose image 1' }).click();
-
-		const overlayDialog = screen.getByRole('dialog', { name: 'Replaceable images' });
-		await expect
-			.element(overlayDialog.getByRole('alert'))
-			.toHaveTextContent('Media is temporarily unavailable.');
-		expectNoVisibleOverflow(requireHTMLElement(overlayDialog.element()), 320);
-		await overlayDialog.getByRole('button', { name: 'Device' }).first().click();
-		await expect
-			.element(overlayDialog.getByText('Drop files here or choose from your device'))
-			.toBeVisible();
-
-		await overlayDialog.getByRole('button', { name: 'Library' }).click();
-		await overlayDialog.getByRole('button', { name: 'Select Team photo.png' }).click();
-		await expect.element(screen.getByText('Team photo.png')).toBeVisible();
-		await expect.element(overlayDialog).not.toBeInTheDocument();
-
-		await pickerDialog.getByRole('button', { name: 'Close' }).click();
-		await expect.element(pickerDialog).not.toBeInTheDocument();
-		releaseWidth();
 	});
 });

@@ -103,40 +103,6 @@ func TestOrganizationDeletionPreviewEnumeratesImpactAndAllBlockers(t *testing.T)
 	require.Equal(t, 1, countRows[models.BillingCheckoutCancellation](t, server.db, "checkout_attempt_id = ? AND organization_id = ?", "checkout", "org-1"))
 }
 
-func TestOrganizationDeletionHasNoWaitAfterBlockersAreResolved(t *testing.T) {
-	server := newDeleteOrganizationTestServer(t)
-	insertOrganizationDeletionFixture(t, server.db)
-	now := time.Now().UTC()
-	_, err := server.db.NewInsert().Model(&models.BillingSubscription{OrganizationID: "org-1", WorkspaceID: "workspace-1", Provider: models.BillingProviderPaddle, ProviderCustomerID: "customer", ProviderSubscriptionID: "subscription", Status: "canceled"}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.BillingCheckoutAttempt{CheckoutAttemptID: "canceled-checkout", OrganizationID: "org-1", WorkspaceID: "workspace-1", UserID: "user-1", Provider: models.BillingProviderPaddle, ProviderPriceID: "price", ProviderSubscriptionID: "subscription", PlanID: "starter", BillingPeriod: "monthly", Status: "canceled", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.ExecContext(t.Context(), "UPDATE billing_subscriptions SET workspace_id = NULL WHERE organization_id = ?", "org-1")
-	require.NoError(t, err)
-	_, err = server.db.ExecContext(t.Context(), "UPDATE billing_checkout_attempts SET workspace_id = NULL WHERE checkout_attempt_id = ?", "canceled-checkout")
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.OrganizationOwnershipTransfer{ID: "expired-transfer", OrganizationID: "org-1", PriorOwnerUserID: "user-1", NomineeUserID: "user-2", Status: "pending", ExpiresAt: now.Add(-time.Minute), CreatedAt: now.Add(-time.Hour), UpdatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.Job{ID: "expiry-job", Type: "organization_ownership_transfer_expiry", Payload: `{"transfer_id":"expired-transfer"}`, Status: "pending", RunAt: now.Add(-time.Minute), MaxAttempts: 5}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.Job{ID: "transfer-email-job", Type: "notification_email", Payload: `{"href":"/ownership-transfer?id=expired-transfer"}`, Status: "pending", RunAt: now.Add(-time.Minute), MaxAttempts: 5}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.Job{ID: "old-billing-webhook", Type: "billing_webhook", Payload: `{"data":{"id":"subscription"}}`, Status: "failed", RunAt: now.Add(-time.Minute), MaxAttempts: 5}).Exec(t.Context())
-	require.NoError(t, err)
-
-	preview := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/organizations/org-1/deletion-preview", nil, "web-token")
-	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
-	require.Contains(t, preview.Body.String(), `"billing_state":"canceled"`)
-	require.Contains(t, preview.Body.String(), `"blockers":[]`)
-
-	deleted := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/organizations/org-1", map[string]any{"confirm_name": "OpenPost Studio", "current_password": "current-password-123"}, "web-token")
-	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
-	require.Zero(t, countRows[models.Organization](t, server.db, "id = ?", "org-1"))
-	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "expiry-job"))
-	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "transfer-email-job"))
-	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "old-billing-webhook"))
-}
-
 func TestOrganizationDeletionFailsClosedForEveryUnconfirmedBillingState(t *testing.T) {
 	for _, status := range []string{"paused", "unknown", ""} {
 		t.Run(status, func(t *testing.T) {

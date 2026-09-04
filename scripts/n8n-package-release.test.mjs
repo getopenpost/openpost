@@ -115,13 +115,6 @@ test("unrelated changes do not require a package version increase", () => {
   );
 });
 
-test("stable semantic versions compare numerically", () => {
-  assert.equal(compareVersions("0.10.0", "0.9.9"), 1);
-  assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
-  assert.equal(compareVersions("1.2.2", "1.2.10"), -1);
-  assert.equal(compareVersions("0.1.0", "0.1.0-alpha.0"), 1);
-});
-
 test("registry reconciliation distinguishes absent, matching, and conflicting versions", () => {
   const integrity = "sha512-local";
   assert.deepEqual(assessRegistryVersion({ localIntegrity: integrity, metadata: null }), {

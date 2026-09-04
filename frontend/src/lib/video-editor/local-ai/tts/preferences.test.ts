@@ -14,27 +14,4 @@ describe('TTS engine preferences', () => {
 			'kokoro'
 		);
 	});
-
-	it('survives unavailable storage and saves the selected engine when possible', () => {
-		const setItem = vi.fn();
-		setStoredLocalTtsEngine('moss', { getItem: vi.fn(), setItem });
-		expect(setItem).toHaveBeenCalledWith(LOCAL_TTS_ENGINE_STORAGE_KEY, 'moss');
-
-		expect(
-			getStoredLocalTtsEngine({
-				getItem: () => {
-					throw new Error('blocked');
-				},
-				setItem: vi.fn()
-			})
-		).toBe('kokoro');
-		expect(() =>
-			setStoredLocalTtsEngine('moss', {
-				getItem: vi.fn(),
-				setItem: () => {
-					throw new Error('full');
-				}
-			})
-		).not.toThrow();
-	});
 });

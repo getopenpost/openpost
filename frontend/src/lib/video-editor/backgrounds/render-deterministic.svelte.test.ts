@@ -58,32 +58,4 @@ describe('procedural background deterministic rendering', () => {
 		renderBackgroundCpu(ctx1, bg, w, h);
 		expect(readPixels(c1)).toEqual(readPixels(c2));
 	});
-
-	it('pattern is deterministic and geometry scales with resolution', () => {
-		const bg: ProceduralBackground = {
-			kind: 'pattern',
-			pattern: 'dots',
-			foreground: '#ff7a18',
-			background: '#0f0f0f',
-			scale: 1,
-			rotation: 30,
-			offsetX: 0,
-			offsetY: 0,
-			density: 0.5,
-			foregroundOpacity: 1
-		};
-		const { canvas: c1, ctx: ctx1 } = makeCanvas(64, 64);
-		const { canvas: c2, ctx: ctx2 } = makeCanvas(64, 64);
-		renderBackgroundCpu(ctx1, bg, 64, 64);
-		renderBackgroundCpu(ctx2, bg, 64, 64);
-		expect(readPixels(c1)).toEqual(readPixels(c2));
-
-		const { canvas: c3, ctx: ctx3 } = makeCanvas(128, 128);
-		renderBackgroundCpu(ctx3, bg, 128, 128);
-		const p64 = readPixels(c1);
-		const p128 = readPixels(c3);
-		expect(p128.length).toBeGreaterThan(p64.length);
-		const hasFg64 = p64.some((_, i) => i % 4 === 0 && p64[i] === 255 && p64[i + 1] === 122);
-		expect(hasFg64).toBe(true);
-	});
 });

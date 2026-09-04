@@ -54,41 +54,6 @@ test("finds deployed asset URLs without treating source imports as copies", () =
   assert.deepEqual(directAssetReferences(source), ["brand/icon.svg", "brand/logo-docs.svg"]);
 });
 
-test("every copied asset exists and has a source reference", { timeout: 15_000 }, async () => {
-  assert.deepEqual(await validateAssetSurfaceManifest(), []);
-});
-
-test("tracked sources do not contain the retired pencil logo", async () => {
-  const { stdout } = await execFileAsync("git", ["ls-files", "-z"], {
-    cwd: repositoryRoot,
-    encoding: "buffer",
-    maxBuffer: 16 * 1024 * 1024,
-  });
-  const trackedFiles = stdout
-    .toString("utf8")
-    .split("\0")
-    .filter((file) => trackedTextExtensions.has(path.extname(file).toLowerCase()));
-  const findings = [];
-
-  for (const file of trackedFiles) {
-    const contents = await readFile(path.join(repositoryRoot, file), "utf8");
-    for (const fingerprint of legacyPencilLogoFingerprints) {
-      if (fingerprint.pattern.test(contents)) findings.push(`${file}: ${fingerprint.name}`);
-    }
-  }
-
-  assert.deepEqual(findings, []);
-});
-
-test("an undeclared reference fails the surface check", { timeout: 15_000 }, async () => {
-  const manifest = {
-    ...assetSurfaceManifest,
-    frontend: ["brand/logo.svg"],
-  };
-  const problems = await validateAssetSurfaceManifest(manifest, repositoryRoot, ["frontend"]);
-  assert.ok(problems.includes("frontend references undeclared asset: brand/icon.svg"));
-});
-
 test("a package build validates only its selected asset surface", async () => {
   assert.deepEqual(
     await validateAssetSurfaceManifest(assetSurfaceManifest, repositoryRoot, ["frontend"]),

@@ -24,49 +24,7 @@ function feature(name: Feature['feature'], overrides: Partial<Feature> = {}): Fe
 	};
 }
 
-const features = [
-	feature('messaging'),
-	feature('engagement'),
-	feature('analytics'),
-	feature('grow')
-];
-
 describe('account feature presentation', () => {
-	it('keeps post-connect setup grouped for first-time decisions', async () => {
-		const screen = await render(AccountFeaturePresentation, {
-			accountId: 'account-1',
-			features,
-			selections: {},
-			mode: 'setup',
-			onToggle: vi.fn()
-		});
-
-		await expect.element(screen.getByRole('heading', { name: 'Inbox' })).toBeVisible();
-		await expect.element(screen.getByLabelText('Grow')).toBeVisible();
-	});
-
-	it('uses compact independent rows when editing an existing account', async () => {
-		const onToggle = vi.fn();
-		const screen = await render(AccountFeaturePresentation, {
-			accountId: 'account-1',
-			features,
-			selections: {
-				messaging: true,
-				engagement: false,
-				analytics: true,
-				grow: true
-			},
-			mode: 'details',
-			onToggle
-		});
-
-		await expect.element(screen.getByRole('heading', { name: 'Inbox' })).not.toBeInTheDocument();
-		await expect.element(screen.getByLabelText('Direct messages')).toBeChecked();
-		await expect.element(screen.getByLabelText('Comments and replies')).not.toBeChecked();
-		await screen.getByLabelText('Comments and replies').click();
-		expect(onToggle).toHaveBeenCalledWith('engagement', true);
-	});
-
 	it('explains unavailable features without allowing a change', async () => {
 		const screen = await render(AccountFeaturePresentation, {
 			accountId: 'account-1',

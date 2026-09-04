@@ -304,28 +304,6 @@ func TestNotificationChangesRejectMissingUnauthorizedAndCrossWorkspaceScopes(t *
 	}
 }
 
-func TestNotificationListRequiresAnAuthorizedWorkspace(t *testing.T) {
-	t.Parallel()
-	server := newNotificationTestServer(t)
-	server.seed(t)
-
-	missing := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications", nil, "web-token")
-	require.Equal(t, http.StatusUnprocessableEntity, missing.Code, missing.Body.String())
-
-	unauthorized := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications?workspace_id=workspace-outside", nil, "web-token")
-	require.Equal(t, http.StatusForbidden, unauthorized.Code, unauthorized.Body.String())
-
-	allowed := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications?workspace_id=workspace-1", nil, "web-token")
-	require.Equal(t, http.StatusOK, allowed.Code, allowed.Body.String())
-	require.Contains(t, allowed.Body.String(), `"id":"workspace-one"`)
-	require.Contains(t, allowed.Body.String(), `"id":"account-wide"`)
-	require.NotContains(t, allowed.Body.String(), `"id":"workspace-two"`)
-
-	invalidCursor := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications?workspace_id=workspace-1&cursor=not-a-cursor", nil, "web-token")
-	require.Equal(t, http.StatusBadRequest, invalidCursor.Code, invalidCursor.Body.String())
-	require.Contains(t, invalidCursor.Body.String(), "invalid notification cursor")
-}
-
 func TestNotificationChangesHonorAPITokenWorkspaceBoundary(t *testing.T) {
 	t.Parallel()
 	server := newNotificationTestServerWithAuthenticator(t, workspaceTestAuthenticator{

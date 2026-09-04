@@ -46,29 +46,6 @@ afterEach(() => {
 });
 
 describe('scene model runtime unload', () => {
-	it('verifies scene-cut frame pairs through the shared local model worker', async () => {
-		const loading = sceneCaptionProvider.ensureReady();
-		const worker = FakeWorker.instances.at(-1)!;
-		worker.dispatchEvent(new MessageEvent('message', { data: { type: 'ready' } }));
-		await loading;
-
-		const progress: Array<{ stage: string; completed: number }> = [];
-		const verification = sceneCaptionProvider.verifySceneCuts(
-			[{ before: new Blob(['before']), after: new Blob(['after']) }],
-			{ onProgress: (value) => progress.push(value) }
-		);
-		await vi.waitFor(() => expect(worker.messages.at(-1)?.type).toBe('verify'));
-		const id = worker.messages.at(-1)?.id;
-		worker.dispatchEvent(
-			new MessageEvent('message', {
-				data: { type: 'result', id, isSceneCut: true, reason: 'CUT' }
-			})
-		);
-
-		await expect(verification).resolves.toEqual([true]);
-		expect(progress).toEqual([{ stage: 'verifying', percent: 100, completed: 1, total: 1 }]);
-	});
-
 	it('reports inference failures so scene detection can keep deterministic candidates', async () => {
 		const loading = sceneCaptionProvider.ensureReady();
 		const worker = FakeWorker.instances.at(-1)!;

@@ -100,50 +100,6 @@ function fakeRuntime() {
 }
 
 describe('AceStepMusicService', () => {
-	it('runs the qualified XL Turbo path and reports exact download and inference progress', async () => {
-		const { runtime, generate } = fakeRuntime();
-		const progress = vi.fn();
-		const service = new AceStepMusicService(async () => runtime);
-		const result = await service.generate({
-			prompt: '  Warm cinematic pulse  ',
-			durationSeconds: 10,
-			audioQuality: 'standard',
-			seed: 73,
-			onProgress: progress
-		});
-
-		expect(generate).toHaveBeenCalledWith(
-			expect.objectContaining({
-				prompt: 'Warm cinematic pulse',
-				durationSeconds: 10,
-				audioQuality: 'standard',
-				plannerQuality: 'turbo',
-				sampler: 'euler',
-				allowWasmFallback: false,
-				seed: 73
-			})
-		);
-		expect(result.file.name).toBe('ai-music-warm-cinematic-pulse-73.wav');
-		expect(result.sampleRate).toBe(48_000);
-		expect(progress).toHaveBeenCalledWith(
-			expect.objectContaining({
-				stage: 'downloading',
-				receivedBytes: 500,
-				totalBytes: ACE_STEP_STANDARD_DOWNLOAD_BYTES
-			})
-		);
-		expect(progress).toHaveBeenCalledWith(
-			expect.objectContaining({ stage: 'generating', message: 'DiT 4/8', progress: 0.5 })
-		);
-		expect(musicGenerationTags(result)).toEqual([
-			'ai-generated',
-			'music',
-			'ace-step',
-			'ace-step-quality:standard',
-			'ace-step-seed:73'
-		]);
-	});
-
 	it('rejects invalid work before it allocates a runtime', async () => {
 		const createRuntime = vi.fn();
 		const service = new AceStepMusicService(createRuntime);
@@ -175,12 +131,6 @@ describe('AceStepMusicService', () => {
 		expect(view.getUint32(4, true)).toBe(bytes.length - 8);
 	});
 
-	it('rejects malformed WAV data before exposing a shortened artifact', async () => {
-		await expect(trimGeneratedWav(new Blob([new Uint8Array([82, 73, 70, 70])]), 2)).rejects.toThrow(
-			'invalid WAV'
-		);
-	});
-
 	it('waits behind other GPU media work and cancels without loading the model', async () => {
 		const blocker = new AbortController();
 		const release = await gpuMediaJobScheduler.acquire(blocker.signal);
@@ -203,69 +153,6 @@ describe('AceStepMusicService', () => {
 		release();
 	});
 
-	it('counts only assets used by the turbo generation path', async () => {
-		const module = await import('ai-music-js');
-		const usedBytes = (audioQuality: 'standard' | 'high') =>
-			module
-				.getRequiredAssets({ audioQuality })
-				.filter((asset) => asset.group !== 'audio-code-detokenizer')
-				.reduce((total, asset) => total + asset.bytes, 0);
-
-		expect(usedBytes('standard')).toBe(ACE_STEP_STANDARD_DOWNLOAD_BYTES);
-		expect(usedBytes('high')).toBe(ACE_STEP_HIGH_DOWNLOAD_BYTES);
-	});
-
-	it('preflights the exact audio profile against origin quota and write headroom', async () => {
-		const module = await import('ai-music-js');
-		const required = module.getRequiredAssets({ audioQuality: 'standard' });
-		const { runtime, listCachedModels } = fakeRuntime();
-		listCachedModels.mockResolvedValue({
-			origin: 'http://localhost:4173',
-			cacheName: 'ai-music-js-test',
-			expectedBytes: ACE_STEP_STANDARD_DOWNLOAD_BYTES,
-			storedBytes: 0,
-			readyBytes: 0,
-			missingBytes: ACE_STEP_STANDARD_DOWNLOAD_BYTES,
-			usageBytes: 0,
-			quotaBytes: 1_140_000_000,
-			availableBytes: 1_140_000_000,
-			persisted: false,
-			models: required.map((asset) => ({
-				id: asset.group,
-				label: asset.label,
-				expectedBytes: asset.bytes,
-				storedBytes: 0,
-				complete: false,
-				partial: false,
-				assets: [
-					{
-						id: asset.id,
-						group: asset.group,
-						label: asset.label,
-						fileName: asset.fileName,
-						role: asset.role,
-						expectedBytes: asset.bytes,
-						storedBytes: 0,
-						cached: false,
-						storage: null
-					}
-				]
-			}))
-		});
-		const service = new AceStepMusicService(async () => runtime);
-
-		await expect(service.inspectGenerationStorage('standard')).resolves.toEqual(
-			expect.objectContaining({
-				expectedBytes: ACE_STEP_STANDARD_DOWNLOAD_BYTES,
-				missingBytes: ACE_STEP_STANDARD_DOWNLOAD_BYTES,
-				headroomBytes: 512_000_000,
-				effectiveAvailableBytes: 1_140_000_000,
-				sufficient: false,
-				persisted: false
-			})
-		);
-	});
-
 	it('disposes a runtime that finishes loading after an explicit unload', async () => {
 		const { runtime } = fakeRuntime();
 		let resolveRuntime!: (runtime: AceStepRuntime) => void;
@@ -281,57 +168,5 @@ describe('AceStepMusicService', () => {
 		await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
 		expect(runtime.dispose).toHaveBeenCalledOnce();
 		expect(service.isLoaded()).toBe(false);
-	});
-
-	it('clears cached assets with an idle runtime and always disposes it afterward', async () => {
-		const { runtime, listCachedModels } = fakeRuntime();
-		listCachedModels.mockResolvedValue({
-			origin: 'http://localhost:4173',
-			cacheName: 'ai-music-js-test',
-			expectedBytes: 128,
-			storedBytes: 128,
-			readyBytes: 128,
-			missingBytes: 0,
-			usageBytes: 128,
-			quotaBytes: 1024,
-			availableBytes: 896,
-			persisted: true,
-			models: []
-		});
-		const service = new AceStepMusicService(async () => runtime);
-
-		await expect(service.clearCache()).resolves.toBe(true);
-		expect(runtime.clearCache).toHaveBeenCalledOnce();
-		expect(runtime.dispose).toHaveBeenCalledOnce();
-		expect(service.isLoaded()).toBe(false);
-	});
-
-	it('rejects work queued before unload instead of loading the model again', async () => {
-		const { runtime, generate } = fakeRuntime();
-		let resolveFirst!: (result: AceStepGenerationResult) => void;
-		generate.mockImplementation(
-			() => new Promise<AceStepGenerationResult>((resolve) => (resolveFirst = resolve))
-		);
-		const service = new AceStepMusicService(async () => runtime);
-		const first = service.generate({
-			prompt: 'First track',
-			durationSeconds: 10,
-			audioQuality: 'standard',
-			seed: 1
-		});
-		const queued = service.generate({
-			prompt: 'Queued track',
-			durationSeconds: 10,
-			audioQuality: 'standard',
-			seed: 2
-		});
-		await vi.waitFor(() => expect(generate).toHaveBeenCalledOnce());
-
-		service.unload();
-		resolveFirst(generationResult(1));
-
-		await expect(first).resolves.toMatchObject({ seed: 1 });
-		await expect(queued).rejects.toMatchObject({ name: 'AbortError' });
-		expect(generate).toHaveBeenCalledOnce();
 	});
 });

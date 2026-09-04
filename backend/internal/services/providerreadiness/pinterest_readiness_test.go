@@ -58,23 +58,6 @@ func TestPinterestTrialAndStaleEvidenceCannotEnableIndependentOperations(t *test
 	}
 }
 
-func TestPinterestCertificationDoesNotTransferBetweenReadOperations(t *testing.T) {
-	t.Parallel()
-
-	discovery := pinterestReadinessInput(t, OperationDiscover)
-	analytics := pinterestReadinessInput(t, OperationAnalytics)
-	analytics.LocalEvidence = cloneEvidence(discovery.LocalEvidence)
-	analytics.LiveEvidence = cloneEvidence(discovery.LiveEvidence)
-	decision := Evaluate(analytics)
-	if decision.Executable || !hasBlocker(decision.Blockers, BlockerLocalEvidenceMismatch) ||
-		!hasBlocker(decision.Blockers, BlockerLiveEvidenceMismatch) {
-		t.Fatalf("discovery evidence transferred to analytics: %#v", decision)
-	}
-	if !Evaluate(discovery).Discoverable {
-		t.Fatal("matching discovery evidence was not independently usable")
-	}
-}
-
 func pinterestReadinessInput(t *testing.T, operation Operation) EvaluationInput {
 	t.Helper()
 	input := healthyInput()

@@ -433,7 +433,7 @@ describe('quick-cut mediabunny fixture', () => {
 		expect(pre.reason).toMatch(/dimensions/i);
 	});
 
-	it('falls back to exact re-encoding when the saved keyframe map is stale', async () => {
+	it('falls back to exact re-encoding for merged and separate exports when the keyframe map is stale', async () => {
 		const file = await createColorMp4('purple', 1.5);
 		const source = await probeSourceFile(file);
 		const staleSource = {
@@ -457,53 +457,31 @@ describe('quick-cut mediabunny fixture', () => {
 		const preflight = await preflightExport([staleSource], [segment], 'exact', true);
 		expect(preflight.requiresTranscode).toBe(false);
 
-		const [artifact] = await exportSegments({
+		const [merged] = await exportSegments({
 			sources: [staleSource],
 			segments: [segment],
 			cutMode: 'exact',
 			merge: true
 		});
-		expect(artifact?.wasLossless).toBe(false);
-		expect(artifact?.reason).toMatch(/lossless copy was unavailable/i);
+		expect(merged?.wasLossless).toBe(false);
+		expect(merged?.reason).toMatch(/lossless copy was unavailable/i);
 
 		const input = new Input({
 			formats: ALL_FORMATS,
-			source: new BlobSource(artifact!.scratchFile)
+			source: new BlobSource(merged!.scratchFile)
 		});
 		expect(await input.computeDuration()).toBeCloseTo(0.6, 0.25);
 		input.dispose?.();
-		await discardScratchFile(artifact!.scratchPath);
-	}, 30000);
+		await discardScratchFile(merged!.scratchPath);
 
-	it('does not label an off-keyframe separate export as lossless when its map is stale', async () => {
-		const file = await createColorMp4('orange', 1.5);
-		const source = await probeSourceFile(file);
-		const staleSource = {
-			...source,
-			keyframeState: 'known' as const,
-			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b),
-			videoStreams: source.videoStreams.map((stream, index) =>
-				index === 0
-					? {
-							...stream,
-							keyframeState: 'known' as const,
-							keyframeTimestamps: [...stream.keyframeTimestamps, 0.2].sort((a, b) => a - b)
-						}
-					: stream
-			)
-		};
-		const segment = createSegment(0.2, 0.8, {
-			sourceId: source.id,
-			cutMode: 'exact'
-		});
-		const [artifact] = await exportSegments({
+		const [separate] = await exportSegments({
 			sources: [staleSource],
 			segments: [segment],
 			cutMode: 'exact',
 			merge: false
 		});
-		expect(artifact?.wasLossless).toBe(false);
-		await discardScratchFile(artifact!.scratchPath);
+		expect(separate?.wasLossless).toBe(false);
+		await discardScratchFile(separate!.scratchPath);
 	}, 30000);
 
 	it('merges audio-only A/B/A in order without inventing a video track', async () => {

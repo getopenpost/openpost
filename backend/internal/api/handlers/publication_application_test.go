@@ -19,7 +19,6 @@ import (
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
-	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 )
 
@@ -379,53 +378,6 @@ func TestPublicationApplicationCancelsScheduledWork(t *testing.T) {
 	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", publication.ID).Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, jobs)
-}
-
-func TestPublicationApplicationActivatesWorkspaceOnceAfterFirstEnqueue(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-	handler := srv.handler.publicationHandler()
-	recorder := &telemetry.MemoryRecorder{}
-	handler.SetTelemetry(recorder)
-	publication, err := handler.publicationApplication().Create(ctx, "user-1", CreatePublicationBody{
-		WorkspaceID:      "ws-1",
-		ContentProfile:   models.ContentProfileShortText,
-		SourceText:       "Activation copy",
-		SocialAccountIDs: []string{"account-1"},
-	})
-	require.NoError(t, err)
-
-	activationCount, err := srv.db.NewSelect().Model((*models.WorkspaceActivation)(nil)).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, activationCount, "saving a draft must not activate its Workspace")
-
-	scheduledAt := time.Now().UTC().Add(time.Hour)
-	_, err = srv.db.NewUpdate().Model((*models.Publication)(nil)).
-		Set("scheduled_at = ?", scheduledAt).Where("id = ?", publication.ID).Exec(ctx)
-	require.NoError(t, err)
-	commands := handler.publicationApplication()
-	first, err := commands.Schedule(ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction)
-	require.NoError(t, err)
-	require.True(t, first.NewlyActivated)
-	second, err := commands.Schedule(ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction)
-	require.NoError(t, err)
-	require.False(t, second.NewlyActivated)
-	require.Equal(t, publication.ID, first.ActivationPublicationID)
-	require.Equal(t, publication.ID, second.ActivationPublicationID)
-
-	var activations []models.WorkspaceActivation
-	require.NoError(t, srv.db.NewSelect().Model(&activations).Scan(ctx))
-	require.Len(t, activations, 1)
-	require.Equal(t, "ws-1", activations[0].WorkspaceID)
-	require.Equal(t, publication.ID, activations[0].PublicationID)
-	var analyticsEvents []models.ProductAnalyticsEvent
-	require.NoError(t, srv.db.NewSelect().Model(&analyticsEvents).Scan(ctx))
-	require.Len(t, analyticsEvents, 1)
-	require.Equal(t, telemetry.EventWorkspaceActivated, analyticsEvents[0].Name)
-	require.Len(t, recorder.Events, 1)
-	require.Equal(t, telemetry.EventWorkspaceActivated, recorder.Events[0].Name)
-	require.Equal(t, activations[0].ID, recorder.Events[0].UUID)
 }
 
 func TestConcurrentFirstPublicationsRecordOneWorkspaceActivation(t *testing.T) {

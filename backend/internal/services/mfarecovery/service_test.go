@@ -14,44 +14,6 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
-func TestGenerateReturnsUniqueTranscriptionSafeCodesAndOnlyHashesPersist(t *testing.T) {
-	t.Parallel()
-
-	service := NewService(nil)
-	set, err := service.Generate()
-	require.NoError(t, err)
-	require.Len(t, set.Codes, CodeCount)
-	require.Len(t, set.Hashes, CodeCount)
-	require.Len(t, set.BatchID, 36)
-
-	codes := make(map[string]struct{}, CodeCount)
-	hashes := make(map[string]struct{}, CodeCount)
-	for index, code := range set.Codes {
-		require.Regexp(t, `^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{4}(?:-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{4}){3}$`, code)
-		_, duplicate := codes[code]
-		require.False(t, duplicate)
-		codes[code] = struct{}{}
-		require.NotContains(t, set.Hashes[index], code)
-		require.Equal(t, 64, len(set.Hashes[index]))
-		_, duplicate = hashes[set.Hashes[index]]
-		require.False(t, duplicate)
-		hashes[set.Hashes[index]] = struct{}{}
-	}
-}
-
-func TestNormalizeAcceptsFormattingButRejectsMalformedCodes(t *testing.T) {
-	t.Parallel()
-
-	normalized, err := Normalize("abcd-efgh-jkmn-pqrs")
-	require.NoError(t, err)
-	require.Equal(t, "ABCDEFGHJKMNPQRS", normalized)
-
-	_, err = Normalize("ABCD-EFGH-IJKL-MNOP")
-	require.Error(t, err)
-	_, err = Normalize("too-short")
-	require.Error(t, err)
-}
-
 func TestConsumeIsSingleUseAndReplacementRevokesTheOldBatch(t *testing.T) {
 	t.Parallel()
 

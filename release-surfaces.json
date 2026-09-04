@@ -29,7 +29,7 @@
     },
     "documentation": {
       "description": "Product, operator, contributor, policy, and generated documentation",
-      "prefixes": ["docs-site/", "docs/", "e2e-docs/", "licenses/", "packages/social-images/"],
+      "prefixes": ["docs-site/", "docs/", "licenses/", "packages/social-images/"],
       "paths": [
         "AGENTS.md",
         "CHANGELOG.md",
@@ -40,8 +40,7 @@
         "README.md",
         "ROADMAP.md",
         "SECURITY.md",
-        "THIRD_PARTY_NOTICES.md",
-        "playwright.docs.config.ts"
+        "THIRD_PARTY_NOTICES.md"
       ]
     },
     "delivery": {

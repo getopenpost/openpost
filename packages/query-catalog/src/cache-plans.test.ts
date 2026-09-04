@@ -275,6 +275,58 @@ describe("publication invalidation cache plans", () => {
     expect(client.getQueryState(published)?.isInvalidated).toBe(false);
   });
 
+  it("invalidates only the exact buckets carried by a move", async () => {
+    const client = new QueryClient();
+    const scheduled = openPostQueryKeys.publications.activity("workspace-1", "scheduled", {
+      limit: 40,
+    });
+    const published = openPostQueryKeys.publications.activity("workspace-1", "published", {
+      limit: 40,
+    });
+    const failed = openPostQueryKeys.publications.activity("workspace-1", "failed", {
+      limit: 40,
+    });
+    const failedJobs = openPostQueryKeys.jobs.failedPage("workspace-1", { limit: 50 });
+    seed(client, scheduled, published, failed, failedJobs);
+
+    await applyPlan(
+      client,
+      publicationInvalidationCachePlan([
+        {
+          workspaceId: "workspace-1",
+          scopes: ["activity", "calendar"],
+          activities: ["scheduled", "published"],
+        },
+      ]),
+    );
+
+    for (const queryKey of [scheduled, published]) expectInvalidated(client, queryKey);
+    expect(client.getQueryState(failed)?.isInvalidated).toBe(false);
+    expect(client.getQueryState(failedJobs)?.isInvalidated).toBe(false);
+  });
+
+  it("keeps failed-jobs invalidation scoped to failed-bucket moves", async () => {
+    const client = new QueryClient();
+    const failed = openPostQueryKeys.publications.activity("workspace-1", "failed", {
+      limit: 40,
+    });
+    const failedJobs = openPostQueryKeys.jobs.failedPage("workspace-1", { limit: 50 });
+    seed(client, failed, failedJobs);
+
+    await applyPlan(
+      client,
+      publicationInvalidationCachePlan([
+        {
+          workspaceId: "workspace-1",
+          scopes: ["activity"],
+          activities: ["failed", "scheduled"],
+        },
+      ]),
+    );
+
+    for (const queryKey of [failed, failedJobs]) expectInvalidated(client, queryKey);
+  });
+
   it("keeps wildcard Activity invalidation precise", async () => {
     const client = new QueryClient();
     const activity = openPostQueryKeys.publications.activity("workspace-1", "failed", {

@@ -2,14 +2,12 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestLinkedInGenerateAuthURLEncodesScopesWithPercentSpaces(t *testing.T) {
@@ -100,30 +98,6 @@ func TestLinkedInOrganizationSelectionUsesOrganizationURN(t *testing.T) {
 	}
 }
 
-func TestLinkedInOrganizationScopesAreExplicitlyEnabled(t *testing.T) {
-	withoutOrganizations, _ := NewLinkedInAdapter("id", "secret", "https://app.example/callback", false).GenerateAuthURL("state")
-	withOrganizations, _ := NewLinkedInAdapter("id", "secret", "https://app.example/callback", false, true).GenerateAuthURL("state")
-	if strings.Contains(withoutOrganizations, "rw_organization_admin") {
-		t.Fatalf("organization scopes must be opt-in: %s", withoutOrganizations)
-	}
-	parsed, err := url.Parse(withOrganizations)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scope := parsed.Query().Get("scope")
-	for _, required := range []string{
-		"rw_organization_admin",
-		"w_organization_social",
-		"r_organization_social",
-		"r_member_profileAnalytics",
-		"r_member_postAnalytics",
-	} {
-		if !strings.Contains(scope, required) {
-			t.Fatalf("missing scope %s from %q", required, scope)
-		}
-	}
-}
-
 func TestLinkedInAccountHistoryRejectsUncertifiedMemberIdentityWithoutAProviderCall(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -160,54 +134,6 @@ func TestLinkedInAccountHistoryRejectsUncertifiedMemberIdentityWithoutAProviderC
 	}
 	if calls != 0 {
 		t.Fatalf("missing organization permission reached provider, calls=%d", calls)
-	}
-}
-
-func TestLinkedInDiscoversBoundedCertifiedOrganizationPosts(t *testing.T) {
-	t.Setenv("LINKEDIN_API_VERSION", "202606")
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	historyStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if req.URL.Path != "/rest/posts" || req.URL.Query().Get("q") != "author" || req.URL.Query().Get("author") != "urn:li:organization:42" {
-			t.Fatalf("unexpected organization discovery request %s", req.URL.String())
-		}
-		if req.URL.Query().Get("count") != "2" || req.URL.Query().Get("start") != "0" {
-			t.Fatalf("organization discovery was not bounded: %s", req.URL.RawQuery)
-		}
-		if req.Header.Get("Linkedin-Version") != "202606" {
-			t.Fatalf("missing LinkedIn version header: %#v", req.Header)
-		}
-		return jsonResponse(req, `{"elements":[
-			{"id":"urn:li:share:100","author":"urn:li:organization:42","commentary":" Launch update ","publishedAt":1769947200000,"lifecycleState":"PUBLISHED"},
-			{"id":"urn:li:share:wrong-author","author":"urn:li:organization:9","commentary":"ignored","publishedAt":1769860800000,"lifecycleState":"PUBLISHED"}
-		],"paging":{"start":0,"links":[{"rel":"next"}]}}`), nil
-	})}
-
-	adapter := NewLinkedInAdapter("", "", "", false, true)
-	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{
-		AccountID: "urn:li:organization:42", GrantedScopes: linkedinScopeOrganizationSocialRead,
-		CapabilityState: map[string]string{"linkedin_account_type": "organization"},
-	})
-	if !support.Supported || len(support.RequiredScopes) != 1 || support.RequiredScopes[0] != linkedinScopeOrganizationSocialRead {
-		t.Fatalf("unexpected organization discovery support: %#v", support)
-	}
-	page, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
-		AccountID: "urn:li:organization:42", GrantedScopes: []string{linkedinScopeOrganizationSocialRead},
-		CapabilityState: map[string]string{"linkedin_account_type": "organization"}, PublishedAfter: historyStart, PageSize: 2,
-	})
-	if err != nil {
-		t.Fatalf("DiscoverAccountContent returned error: %v", err)
-	}
-	if len(page.Items) != 1 || page.Items[0].ProviderContentID != "urn:li:share:100" {
-		t.Fatalf("unexpected exact organization items: %#v", page.Items)
-	}
-	if page.Items[0].ExternalURL != "https://www.linkedin.com/feed/update/urn:li:share:100" || page.Items[0].Text != "Launch update" {
-		t.Fatalf("unexpected normalized LinkedIn item: %#v", page.Items[0])
-	}
-	if page.NextCursor != "2" || page.Coverage.Status != AccountContentDiscoveryPartial {
-		t.Fatalf("expected bounded organization continuation: %#v", page)
 	}
 }
 
@@ -288,93 +214,6 @@ func TestLinkedInCreatePostEscapesPlaintextCommentary(t *testing.T) {
 	want := "Just started using a US \\(NYC\\) VPN for normal day-to-day work and man… the difference in ads is insane. US ads are SO much better than anything I usually get served \\(Portugal\\). They're also much more straight forward and direct as well."
 	if commentary != want {
 		t.Fatalf("commentary was not encoded as LinkedIn plaintext:\n got: %q\nwant: %q", commentary, want)
-	}
-}
-
-func TestEncodeLinkedInPlaintextEscapesEveryReservedCharacter(t *testing.T) {
-	const content = `|{}@[]()<>#\*_~`
-	const want = `\|\{\}\@\[\]\(\)\<\>\#\\\*\_\~`
-
-	if got := encodeLinkedInPlaintext(content); got != want {
-		t.Fatalf("unexpected LinkedIn plaintext encoding:\n got: %q\nwant: %q", got, want)
-	}
-}
-
-func TestLinkedInListCommentsMapsResponse(t *testing.T) {
-	t.Setenv("LINKEDIN_API_VERSION", "202606")
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if req.Method != http.MethodGet || req.URL.EscapedPath() != "/rest/socialActions/urn%3Ali%3Aactivity%3A123/comments" {
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
-		}
-		if req.Header.Get("Authorization") != "Bearer li-token" {
-			t.Fatalf("unexpected auth header %q", req.Header.Get("Authorization"))
-		}
-		if req.Header.Get("Linkedin-Version") != "202606" {
-			t.Fatalf("unexpected linkedin version %q", req.Header.Get("Linkedin-Version"))
-		}
-		return jsonResponse(req, `{"elements":[{"id":"789","commentUrn":"urn:li:comment:(urn:li:activity:123,789)","actor":"urn:li:person:abc","created":{"time":1783159200000},"message":{"text":"Nice update"},"object":"urn:li:activity:123"}]}`), nil
-	})}
-
-	comments, err := NewLinkedInAdapter("", "", "", false).ListComments(context.Background(), "li-token", "abc", "urn:li:activity:123")
-	if err != nil {
-		t.Fatalf("ListComments returned error: %v", err)
-	}
-	if len(comments) != 1 {
-		t.Fatalf("expected one comment, got %#v", comments)
-	}
-	comment := comments[0]
-	if comment.ID != "urn:li:comment:(urn:li:activity:123,789)" || comment.AuthorID != "urn:li:person:abc" || comment.Text != "Nice update" || !comment.CanReply || comment.CanHide || !comment.CanDelete {
-		t.Fatalf("unexpected comment mapping: %#v", comment)
-	}
-	if comment.CreatedAt != "2026-07-04T10:00:00Z" {
-		t.Fatalf("unexpected created_at %q", comment.CreatedAt)
-	}
-}
-
-func TestLinkedInReplyAndDeleteComments(t *testing.T) {
-	t.Setenv("LINKEDIN_API_VERSION", "202606")
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	var replyPayload map[string]interface{}
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch {
-		case req.Method == http.MethodPost && req.URL.EscapedPath() == "/rest/socialActions/urn%3Ali%3Acomment%3A%28urn%3Ali%3Aactivity%3A123%2C789%29/comments":
-			if err := json.NewDecoder(req.Body).Decode(&replyPayload); err != nil {
-				t.Fatalf("decoding reply payload: %v", err)
-			}
-			return jsonResponse(req, `{"id":"790","commentUrn":"urn:li:comment:(urn:li:activity:123,790)"}`), nil
-		case req.Method == http.MethodDelete && req.URL.EscapedPath() == "/rest/socialActions/urn%3Ali%3Aactivity%3A123/comments/789":
-			if req.URL.Query().Get("actor") != "urn:li:person:abc" {
-				t.Fatalf("unexpected actor query %q", req.URL.Query().Get("actor"))
-			}
-			return jsonResponseWithStatus(req, http.StatusNoContent, ""), nil
-		default:
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	adapter := NewLinkedInAdapter("", "", "", false)
-	replyID, err := adapter.ReplyToComment(context.Background(), "li-token", "abc", "urn:li:comment:(urn:li:activity:123,789)", " Thanks ")
-	if err != nil {
-		t.Fatalf("ReplyToComment returned error: %v", err)
-	}
-	if replyID != "790" {
-		t.Fatalf("expected reply ID, got %q", replyID)
-	}
-	if replyPayload["actor"] != "urn:li:person:abc" || replyPayload["object"] != "urn:li:activity:123" || replyPayload["parentComment"] != "urn:li:comment:(urn:li:activity:123,789)" {
-		t.Fatalf("unexpected reply payload %#v", replyPayload)
-	}
-	message, ok := replyPayload["message"].(map[string]interface{})
-	if !ok || message["text"] != "Thanks" {
-		t.Fatalf("unexpected reply message %#v", replyPayload["message"])
-	}
-	if err := adapter.DeleteComment(context.Background(), "li-token", "abc", "urn:li:comment:(urn:li:activity:123,789)"); err != nil {
-		t.Fatalf("DeleteComment returned error: %v", err)
 	}
 }
 

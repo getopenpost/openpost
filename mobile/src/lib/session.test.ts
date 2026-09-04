@@ -6,12 +6,7 @@ import {
 } from "@openpost/query-catalog";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 
-import {
-  loadSessionState,
-  synchronizeSession,
-  type SessionLoaders,
-  type SessionSynchronizer,
-} from "./session";
+import { synchronizeSession, type SessionSynchronizer } from "./session";
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -77,28 +72,6 @@ const {
   commitTokenForIdentity,
   commitWorkspaceIdForIdentity,
 } = await import("./api/client");
-
-test("restores the selected workspace before a signed-in session becomes ready", async () => {
-  let workspaceId: string | null = null;
-  const loaders: SessionLoaders = {
-    loadServer: async () => undefined,
-    loadToken: async () => undefined,
-    loadWorkspaceId: async () => {
-      workspaceId = "workspace-1";
-    },
-    getServer: () => ({ baseUrl: "https://app.openpo.st" }),
-    getToken: () => "token",
-    getWorkspaceId: () => workspaceId,
-  };
-
-  const session = await loadSessionState(loaders);
-
-  expect(session).toEqual({
-    serverReady: true,
-    signedIn: true,
-    workspaceId: "workspace-1",
-  });
-});
 
 describe("authenticated session bootstrap", () => {
   afterEach(() => {

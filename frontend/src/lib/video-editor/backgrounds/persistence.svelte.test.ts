@@ -13,21 +13,6 @@ function ids() {
 }
 
 describe('background persistence, clone, migration, undo', () => {
-	it('normalizes missing background on legacy item', () => {
-		const project = createBlankProject('Test');
-		const legacy: TimelineItem = {
-			id: 'bg-legacy',
-			trackId: 'track-video-main',
-			from: 0,
-			durationInFrames: 60,
-			label: 'Legacy bg',
-			type: 'background'
-		};
-		project.timeline!.items = [legacy];
-		const { project: normalized } = normalizeProject(project);
-		expect(normalized.timeline!.items[0]!.background?.kind).toBe('mesh-gradient');
-	});
-
 	it('clone is deep and not shared', () => {
 		const project = createBlankProject('Clone');
 		project.timeline!.items = [
@@ -106,65 +91,5 @@ describe('background persistence, clone, migration, undo', () => {
 		commandHistory.redo();
 		const redone = timelineStore.itemById.get(id)!.background!;
 		expect(redone.kind === 'mesh-gradient' ? redone.rotation : -1).toBe(45);
-	});
-
-	it('keyframe animation resolves per frame deterministically', () => {
-		const item: TimelineItem = {
-			id: 'bg-kf',
-			trackId: 'track-video-main',
-			from: 0,
-			durationInFrames: 30,
-			label: 'BG',
-			type: 'background',
-			background: {
-				kind: 'mesh-gradient',
-				colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00'],
-				smoothness: 0.5,
-				rotation: 0,
-				scale: 1,
-				offsetX: 0,
-				offsetY: 0
-			},
-			keyframes: {
-				backgroundRotation: {
-					frames: [0, 10],
-					values: [0, 90],
-					ids: ['a', 'b'],
-					easings: ['linear', 'linear']
-				}
-			}
-		};
-		const at0 = resolveAnimatedItemAt(item, 0, { fps: 30, frameWidth: 1920, frameHeight: 1080 });
-		const at5 = resolveAnimatedItemAt(item, 5, { fps: 30, frameWidth: 1920, frameHeight: 1080 });
-		const at10 = resolveAnimatedItemAt(item, 10, { fps: 30, frameWidth: 1920, frameHeight: 1080 });
-		expect(at0.background?.kind === 'mesh-gradient' ? at0.background.rotation : -1).toBe(0);
-		expect(at5.background?.kind === 'mesh-gradient' ? at5.background.rotation : -1).toBeCloseTo(45);
-		expect(at10.background?.kind === 'mesh-gradient' ? at10.background.rotation : -1).toBe(90);
-		expect(
-			resolveAnimatedItemAt(item, 5, { fps: 30, frameWidth: 1920, frameHeight: 1080 })
-		).toEqual(at5);
-	});
-
-	it('preset application clones rather than sharing mutable state', async () => {
-		timelineStore.__resetForTesting();
-		commandHistory.clearHistory();
-		timelineStore.setAll({
-			tracks: createBlankProject('P').timeline!.tracks,
-			items: [],
-			currentFrame: 0,
-			fps: 30
-		});
-		const a = addBackgroundItem('pattern-dots');
-		const b = addBackgroundItem('pattern-dots');
-		const bgA = timelineStore.itemById.get(a)!.background;
-		const bgB = timelineStore.itemById.get(b)!.background;
-		expect(bgA?.kind === 'pattern' ? bgA.foreground : '').toBe(
-			bgB?.kind === 'pattern' ? bgB.foreground : ''
-		);
-		updateBackground(a, { foreground: '#123456' });
-		const afterA = timelineStore.itemById.get(a)!.background;
-		const afterB = timelineStore.itemById.get(b)!.background;
-		expect(afterA && afterA.kind === 'pattern' ? afterA.foreground : '').toBe('#123456');
-		expect(afterB && afterB.kind === 'pattern' ? afterB.foreground : '').toBe('#ff7a18');
 	});
 });

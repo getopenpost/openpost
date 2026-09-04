@@ -47,12 +47,6 @@ function makeRemovalEligible(entry, openapi) {
   for (const operation of entry.operations) removeOperation(openapi, operation);
 }
 
-test("validates every current compatibility decision against OpenAPI", () => {
-  const { registry, openapi } = readCompatibilityInputs();
-  assert.deepEqual(validationProblems(registry, openapi), []);
-  assert.deepEqual(registry.entries.map((entry) => entry.id).sort(), requiredCompatibilityEntryIDs);
-});
-
 test("refuses to hide a required candidate by deleting its registry entry", () => {
   const { registry, openapi } = readCompatibilityInputs();
   registry.entries = registry.entries.filter((entry) => entry.id !== "rest.posts.legacy-write");

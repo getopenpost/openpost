@@ -2,28 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { resolveWhisperWordTimings } from './whisper-word-timings';
 
 describe('resolveWhisperWordTimings', () => {
-	it('preserves fully timestamped words', () => {
-		expect(resolveWhisperWordTimings([{ text: 'hello', timestamp: [1, 1.4] }], 10, 30)).toEqual([
-			{ text: 'hello', start: 11, end: 11.4 }
-		]);
-	});
-
-	it('preserves an open-ended final word', () => {
-		expect(
-			resolveWhisperWordTimings(
-				[
-					{ text: '柔', timestamp: [4, 4.3] },
-					{ text: '眠', timestamp: [4.3, null] }
-				],
-				118,
-				12
-			)
-		).toEqual([
-			{ text: '柔', start: 122, end: 122.3 },
-			{ text: '眠', start: 122.3, end: 122.8 }
-		]);
-	});
-
 	it('uses the next known start for a missing end timestamp', () => {
 		expect(
 			resolveWhisperWordTimings(

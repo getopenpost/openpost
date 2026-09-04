@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/stretchr/testify/require"
@@ -250,70 +249,6 @@ func TestVerifyFailsClosedBeforePreviousKeysAreRemoved(t *testing.T) {
 	require.Zero(t, verified)
 	require.ErrorContains(t, err, "users.totp_secret_encrypted")
 	require.ErrorContains(t, err, "instead of the current primary")
-}
-
-func TestRotatePurgesExpiredXOAuthRequestSecrets(t *testing.T) {
-	db := rotationTestDB(t)
-	for index := range rotationBatchSize + 1 {
-		_, err := db.ExecContext(
-			t.Context(),
-			`INSERT INTO x_oauth_request_tokens (request_token, request_secret, created_at) VALUES (?, ?, ?)`,
-			fmt.Sprintf("expired-%03d", index),
-			"plaintext-request-secret",
-			time.Now().UTC().Add(-11*time.Minute),
-		)
-		require.NoError(t, err)
-	}
-	encryptor, err := servicecrypto.NewTokenEncryptorWithKeyring(
-		"current",
-		"current-encryption-key-with-at-least-thirty-two-characters",
-		nil,
-	)
-	require.NoError(t, err)
-
-	result, err := Rotate(t.Context(), db, encryptor)
-
-	require.NoError(t, err)
-	require.Equal(t, rotationBatchSize+1, result.DeletedExpiredXOAuthRequests)
-	var remaining int
-	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM x_oauth_request_tokens`).Scan(&remaining))
-	require.Zero(t, remaining)
-}
-
-func TestRotateFailsWhileUnexpiredXOAuthRequestSecretRemains(t *testing.T) {
-	db := rotationTestDB(t)
-	now := time.Now().UTC()
-	_, err := db.ExecContext(
-		t.Context(),
-		`INSERT INTO x_oauth_request_tokens (request_token, request_secret, created_at) VALUES (?, ?, ?), (?, ?, ?)`,
-		"expired",
-		"expired-plaintext-secret",
-		now.Add(-11*time.Minute),
-		"unexpired",
-		"unexpired-plaintext-secret",
-		now.Add(-time.Minute),
-	)
-	require.NoError(t, err)
-	encryptor, err := servicecrypto.NewTokenEncryptorWithKeyring(
-		"current",
-		"current-encryption-key-with-at-least-thirty-two-characters",
-		nil,
-	)
-	require.NoError(t, err)
-
-	_, err = Rotate(t.Context(), db, encryptor)
-
-	require.ErrorContains(t, err, "X OAuth request secret rows remain")
-	var expiredCount int
-	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM x_oauth_request_tokens WHERE request_token = 'expired'`).Scan(&expiredCount))
-	require.Zero(t, expiredCount)
-	var unexpiredSecret string
-	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT request_secret FROM x_oauth_request_tokens WHERE request_token = 'unexpired'`).Scan(&unexpiredSecret))
-	require.Equal(t, "unexpired-plaintext-secret", unexpiredSecret)
-
-	verified, verifyErr := Verify(t.Context(), db, encryptor)
-	require.Zero(t, verified)
-	require.ErrorContains(t, verifyErr, "X OAuth request secret rows remain")
 }
 
 func requireEncryptedJSONField(

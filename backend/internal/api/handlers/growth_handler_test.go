@@ -104,24 +104,24 @@ func (s *growthTestServer) request(t *testing.T, method, path string, body any, 
 	return rec
 }
 
-func TestGrowthListUnauthenticated(t *testing.T) {
-	srv := newGrowthTestServer(t)
-	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-1&account_id=acc-bluesky", nil, "")
-	require.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-func TestGrowthListForbiddenForWrongWorkspace(t *testing.T) {
-	srv := newGrowthTestServer(t)
-	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-2&account_id=acc-bluesky", nil, "web-token")
-	require.Equal(t, http.StatusNotFound, rec.Code)
-}
-
-func TestGrowthListSuccess(t *testing.T) {
-	srv := newGrowthTestServer(t)
-	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-1&account_id=acc-bluesky", nil, "web-token")
-	require.Equal(t, http.StatusOK, rec.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+func TestGrowthListAuthBoundary(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		token string
+		want  int
+	}{
+		// Wrong-workspace account access returns 404 (not 403) to avoid confirming existence.
+		{name: "unauthenticated", query: "workspace_id=ws-1&account_id=acc-bluesky", token: "", want: http.StatusUnauthorized},
+		{name: "wrong workspace", query: "workspace_id=ws-2&account_id=acc-bluesky", token: "web-token", want: http.StatusNotFound},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newGrowthTestServer(t)
+			rec := srv.request(t, http.MethodGet, "/api/v1/growth?"+test.query, nil, test.token)
+			require.Equal(t, test.want, rec.Code)
+		})
+	}
 }
 
 func TestGrowthRefreshSuccessAndFollowConflict(t *testing.T) {

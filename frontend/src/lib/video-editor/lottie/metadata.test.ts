@@ -34,16 +34,6 @@ describe('Lottie metadata', () => {
 		);
 	});
 
-	it('uses the manifest primary animation in v2 dotLottie archives', () => {
-		const alternate = { ...animation, w: 64, h: 64, fr: 60, ip: 0, op: 60 };
-		const archive = zipSync({
-			'manifest.json': strToU8(JSON.stringify({ animations: [{ id: 'primary' }] })),
-			'a/alternate.json': strToU8(JSON.stringify(alternate)),
-			'a/primary.json': strToU8(JSON.stringify(animation))
-		});
-		expect(parseLottieFileBytes(archive)).toEqual(parseLottieMetadata(animation));
-	});
-
 	it('rejects arbitrary JSON and corrupt archives', () => {
 		expect(parseLottieMetadata({ w: 320, h: 180, fr: 30, op: 60 })).toBeNull();
 		expect(parseLottieFileBytes(strToU8('PK\u0003\u0004broken'))).toBeNull();

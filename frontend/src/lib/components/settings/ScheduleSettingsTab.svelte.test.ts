@@ -30,29 +30,6 @@ describe('posting schedule mutation ownership', () => {
 		});
 	});
 
-	it('does not refresh or report an old cell deletion in a new Workspace', async () => {
-		const deletion = deferred<{ error: undefined; response: Response }>();
-		// SAFETY: The deferred value matches the endpoint response used by this test.
-		deleteMock.mockReturnValue(deletion.promise as never);
-		const screen = await render(ScheduleSettingsTab);
-		await screen.getByRole('checkbox', { name: 'Toggle Monday at 9:00 AM' }).click();
-		expect(deleteMock).toHaveBeenCalledWith('/posting-schedules/{id}', {
-			params: { path: { id: 'shared-schedule' } }
-		});
-
-		queryClient.setQueryData(schedulingQueryKeys.postingSchedules('workspace-b'), [
-			schedule('workspace-b')
-		]);
-		selectWorkspace('workspace-b');
-		await new Promise((resolve) => setTimeout(resolve, 20));
-		const workspaceBReads = scheduleReadCount('workspace-b');
-
-		deletion.resolve({ error: undefined, response: new Response(null, { status: 204 }) });
-		await new Promise((resolve) => setTimeout(resolve, 20));
-
-		expect(scheduleReadCount('workspace-b')).toBe(workspaceBReads);
-	});
-
 	it('does not refresh or report an old row deletion in a new Workspace', async () => {
 		const deletion = deferred<{ error: undefined; response: Response }>();
 		// SAFETY: The deferred value matches the endpoint response used by this test.

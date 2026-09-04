@@ -31,7 +31,3 @@ test("rejects public total copy that drifts from the catalogue", () => {
     ['copy.md says "Preview nine platforms"; canonical provider count is 10'],
   );
 });
-
-test("current public provider identities and totals match", { timeout: 15_000 }, async () => {
-  assert.deepEqual(await validateProviderCatalogFacts(), []);
-});

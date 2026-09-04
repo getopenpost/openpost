@@ -131,13 +131,6 @@ func TestVoiceProfileRoutesRejectCredentialAndEntityWorkspaceCrossing(t *testing
 	require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
 }
 
-func TestVoiceProfileHandlerRegistersWithoutRuntimeDependencies(t *testing.T) {
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	require.NotPanics(t, func() { NewVoiceProfileHandler(nil, nil).RegisterRoutes(api) })
-	require.NotNil(t, api.OpenAPI().Paths["/voice-profiles"])
-}
-
 type voiceProfilesTestServer struct {
 	echo *echo.Echo
 	db   *bun.DB

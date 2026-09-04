@@ -40,23 +40,6 @@ func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) 
 	return "token", nil
 }
 
-func TestAnalyticsContentReferenceOpenAPISchemaIsDiscriminatedOneOf(t *testing.T) {
-	db := newHandlerSchemaTestDB(t)
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAnalyticsHandler(db, testAuthenticator{}, analyticsservice.NewService(db, analyticsHandlerTokenSource{})).RegisterRoutes(api)
-	encoded, err := json.Marshal(api.OpenAPI())
-	require.NoError(t, err)
-	var document map[string]any
-	require.NoError(t, json.Unmarshal(encoded, &document))
-	components := document["components"].(map[string]any)
-	schemas := components["schemas"].(map[string]any)
-	reference := schemas["ContentReference"].(map[string]any)
-	require.Len(t, reference["oneOf"].([]any), 2)
-	discriminator := reference["discriminator"].(map[string]any)
-	require.Equal(t, "type", discriminator["propertyName"])
-}
-
 func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 	db := createHandlerTestDB(
 		t,

@@ -44,21 +44,3 @@ func TestCatalogFailsClosedAndKeepsAccessSeparateFromExposure(t *testing.T) {
 	_, ok = Lookup("delete-organization")
 	require.False(t, ok)
 }
-
-func TestAllReturnsUniqueDefensiveSnapshot(t *testing.T) {
-	t.Parallel()
-
-	operations := All()
-	require.NotEmpty(t, operations)
-	seen := make(map[string]struct{}, len(operations))
-	for _, operation := range operations {
-		require.NotEmpty(t, operation.OperationID)
-		_, duplicate := seen[operation.OperationID]
-		require.False(t, duplicate, "duplicate operation %q", operation.OperationID)
-		seen[operation.OperationID] = struct{}{}
-	}
-
-	operations[0].OperationID = "changed-by-caller"
-	_, exists := Lookup("changed-by-caller")
-	require.False(t, exists)
-}

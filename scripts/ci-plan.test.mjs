@@ -6,68 +6,68 @@ import { readReleaseSurfaceManifest } from "./release-surfaces.mjs";
 
 const manifest = readReleaseSurfaceManifest();
 
-test("documentation-only changes run only documentation and policy checks", () => {
-  const plan = planCI(["docs-site/guide.md"], manifest);
-  assert.equal(plan.documentation, true);
-  assert.equal(plan.backend, false);
-  assert.equal(plan.frontend, false);
-  assert.equal(plan.marketing, false);
-  assert.equal(plan.image, false);
-  assert.equal(plan.android, false);
-});
-
-test("documentation catalogue changes run both public builds", () => {
-  const plan = planCI(["packages/social-images/src/docs-catalog.js"], manifest);
-  assert.equal(plan.documentation, true);
-  assert.equal(plan.marketing, true);
-});
-
-test("shared Agent-readable generator changes run both public builds", () => {
-  const plan = planCI(["scripts/generate-agent-surfaces.mjs"], manifest);
-  assert.equal(plan.documentation, true);
-  assert.equal(plan.marketing, true);
-});
-
-test("frontend changes run the application build, browser, and image paths", () => {
-  const plan = planCI(["frontend/src/routes/+page.svelte"], manifest);
-  assert.equal(plan.application, true);
-  assert.equal(plan.frontend, true);
-  assert.equal(plan.image, true);
-  assert.equal(plan.android, false);
-  assert.equal(plan.backend, false);
-});
-
-test("standalone mobile changes run the native Android path", () => {
-  const plan = planCI(["mobile/src/app/(tabs)/drafts.tsx"], manifest);
-  assert.equal(plan.android, true);
-  assert.equal(plan.frontend, false);
-  assert.equal(plan.image, false);
-});
-
-test("mobile API contract changes run the native Android path", () => {
-  const plan = planCI(["frontend/openapi.json"], manifest);
-  assert.equal(plan.android, true);
-});
-
-test("shared Query packages run both web and native validation", () => {
-  for (const file of [
-    "packages/api-contract/src/schema.d.ts",
-    "packages/query-catalog/src/options.ts",
-  ]) {
-    const plan = planCI([file], manifest);
-    assert.equal(plan.frontend, true, file);
-    assert.equal(plan.android, true, file);
+test("changed files route to their CI paths", () => {
+  const cases = [
+    {
+      name: "documentation-only changes",
+      files: ["docs-site/guide.md"],
+      on: ["documentation"],
+      off: ["backend", "frontend", "marketing", "image", "android"],
+    },
+    {
+      name: "documentation catalogue changes",
+      files: ["packages/social-images/src/docs-catalog.js"],
+      on: ["documentation", "marketing"],
+      off: [],
+    },
+    {
+      name: "shared Agent-readable generator changes",
+      files: ["scripts/generate-agent-surfaces.mjs"],
+      on: ["documentation", "marketing"],
+      off: [],
+    },
+    {
+      name: "frontend changes",
+      files: ["frontend/src/routes/+page.svelte"],
+      on: ["application", "frontend", "image"],
+      off: ["android", "backend"],
+    },
+    {
+      name: "standalone mobile changes",
+      files: ["mobile/src/app/(tabs)/drafts.tsx"],
+      on: ["android"],
+      off: ["frontend", "image"],
+    },
+    {
+      name: "mobile API contract changes",
+      files: ["frontend/openapi.json"],
+      on: ["android"],
+      off: [],
+    },
+    {
+      name: "shared Query packages",
+      files: ["packages/api-contract/src/schema.d.ts", "packages/query-catalog/src/options.ts"],
+      on: ["frontend", "android"],
+      off: [],
+    },
+    {
+      name: "n8n package changes",
+      files: ["packages/n8n-nodes-openpost/README.md"],
+      on: ["n8n"],
+      off: [],
+    },
+    {
+      name: "selected automation generator changes",
+      files: ["scripts/generate-selected-automation-contract.mjs"],
+      on: ["n8n"],
+      off: [],
+    },
+  ];
+  for (const { name, files, on, off } of cases) {
+    const plan = planCI(files, manifest);
+    for (const job of on) assert.equal(plan[job], true, `${name}: ${job}`);
+    for (const job of off) assert.equal(plan[job], false, `${name}: ${job}`);
   }
-});
-
-test("n8n package changes run the dedicated package gate", () => {
-  const plan = planCI(["packages/n8n-nodes-openpost/README.md"], manifest);
-  assert.equal(plan.n8n, true);
-});
-
-test("selected automation generator changes run the dedicated package gate", () => {
-  const plan = planCI(["scripts/generate-selected-automation-contract.mjs"], manifest);
-  assert.equal(plan.n8n, true);
 });
 
 test("delivery changes fail closed to the complete matrix", () => {

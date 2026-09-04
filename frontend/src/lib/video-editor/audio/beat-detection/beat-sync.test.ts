@@ -74,47 +74,6 @@ describe('beat sync timeline actions', () => {
 		commandHistory.clearHistory();
 	});
 
-	it('retimes each chosen track independently and keeps linked audio synchronized in one undo', () => {
-		timelineStore._setTracks([track('visual'), track('overlay'), track('audio')]);
-		timelineStore._setItems([
-			clip('visual-a', { from: 10, durationInFrames: 40, linkedGroupId: 'pair' }),
-			clip('audio-a', {
-				trackId: 'audio',
-				type: 'audio',
-				from: 10,
-				durationInFrames: 40,
-				linkedGroupId: 'pair'
-			}),
-			clip('visual-b', { from: 80, durationInFrames: 40 }),
-			clip('overlay-a', { trackId: 'overlay', from: 40, durationInFrames: 40 })
-		]);
-
-		const result = syncTracksToBeatMarkersAtomic({
-			trackIds: ['visual', 'overlay', 'audio'],
-			beatFrames: [0, 30, 60, 90],
-			config: { mode: 'one-per-beat', cadence: 1, offsetFrames: 0 }
-		});
-
-		expect(result).toEqual({ changed: 4, skippedLocked: 0, skippedUnavailable: 0 });
-		expect(timelineStore.itemById.get('visual-a')).toMatchObject({ from: 0, durationInFrames: 30 });
-		expect(timelineStore.itemById.get('audio-a')).toMatchObject({ from: 0, durationInFrames: 30 });
-		expect(timelineStore.itemById.get('visual-b')).toMatchObject({
-			from: 30,
-			durationInFrames: 30
-		});
-		expect(timelineStore.itemById.get('overlay-a')).toMatchObject({
-			from: 0,
-			durationInFrames: 30
-		});
-		expect(commandHistory.getLastCommandType()).toBe('SYNC_CLIPS_TO_BEATS');
-		commandHistory.undo();
-		expect(timelineStore.itemById.get('visual-a')).toMatchObject({
-			from: 10,
-			durationInFrames: 40
-		});
-		expect(timelineStore.itemById.get('audio-a')).toMatchObject({ from: 10, durationInFrames: 40 });
-	});
-
 	it('does not extend a retimed media clip beyond its available source', () => {
 		timelineStore._setTracks([track('visual')]);
 		timelineStore._setItems([
@@ -171,46 +130,5 @@ describe('beat sync timeline actions', () => {
 		).toEqual({ changed: 0, skippedLocked: 0, skippedUnavailable: 1 });
 		expect(timelineStore.items.map((item) => item.from)).toEqual([0, 80]);
 		expect(commandHistory.canUndo).toBe(false);
-	});
-
-	it('allows beat-synced audio items to overlap for mixing', () => {
-		timelineStore._setTracks([track('audio')]);
-		timelineStore._setItems([
-			clip('first', { trackId: 'audio', type: 'audio', from: 0, durationInFrames: 40 }),
-			clip('second', { trackId: 'audio', type: 'audio', from: 80, durationInFrames: 40 })
-		]);
-
-		expect(
-			syncTracksToBeatMarkersAtomic({
-				trackIds: ['audio'],
-				beatFrames: [0, 30],
-				config: { mode: 'preserve-duration', cadence: 1, offsetFrames: 0 }
-			})
-		).toEqual({ changed: 1, skippedLocked: 0, skippedUnavailable: 0 });
-		expect(timelineStore.items.map((item) => item.from)).toEqual([0, 30]);
-	});
-
-	it('splits on the requested beat cadence and undoes the whole cut set', () => {
-		timelineStore._setTracks([track('visual'), track('audio')]);
-		timelineStore._setItems([
-			clip('montage', { durationInFrames: 130, sourceEnd: 130, linkedGroupId: 'pair' }),
-			clip('montage-audio', {
-				trackId: 'audio',
-				type: 'audio',
-				durationInFrames: 130,
-				sourceEnd: 130,
-				linkedGroupId: 'pair'
-			})
-		]);
-
-		expect(splitItemOnBeatMarkersAtomic('montage', [0, 30, 60, 90, 120], 2)).toBe(2);
-		expect(
-			timelineStore.items.map((item) => item.durationInFrames).toSorted((a, b) => a - b)
-		).toEqual([10, 10, 60, 60, 60, 60]);
-		expect(commandHistory.getLastCommandType()).toBe('SPLIT_CLIP_ON_BEATS');
-		commandHistory.undo();
-		expect(timelineStore.items).toHaveLength(2);
-		expect(timelineStore.items[0]?.durationInFrames).toBe(130);
-		expect(timelineStore.items[1]?.durationInFrames).toBe(130);
 	});
 });

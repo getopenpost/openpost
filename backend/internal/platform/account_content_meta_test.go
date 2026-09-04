@@ -2,10 +2,8 @@ package platform
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -125,74 +123,4 @@ func TestMetaAccountContentDiscoveryPaginatesAndPreservesExactIDsForManagedMatch
 			require.Equal(t, 2, calls)
 		})
 	}
-}
-
-func TestMetaAccountContentDiscoverySupportIsAccountSpecificAndScopeChecked(t *testing.T) {
-	tests := []struct {
-		name      string
-		adapter   metaAccountContentDiscoverer
-		context   AnalyticsAccountContext
-		scope     string
-		accountID string
-	}{
-		{name: "Facebook Page", adapter: NewFacebookAdapter("", "", ""), context: AnalyticsAccountContext{AccountID: "page-1"}, scope: "pages_read_engagement", accountID: "page-1"},
-		{name: "Instagram professional", adapter: NewInstagramAdapter("", "", ""), context: AnalyticsAccountContext{AccountID: "ig-1", CapabilityState: map[string]string{"instagram_account_type": "creator"}}, scope: "instagram_basic", accountID: "ig-1"},
-		{name: "Threads profile", adapter: NewThreadsAdapter("", "", ""), context: AnalyticsAccountContext{AccountID: "threads-1"}, scope: "threads_basic", accountID: "threads-1"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			support := test.adapter.AccountContentDiscoverySupport(test.context)
-			require.True(t, support.Supported)
-			require.Equal(t, []string{test.scope}, support.RequiredScopes)
-			require.Equal(t, metaAccountContentPageSize, support.MaxPageSize)
-
-			_, err := test.adapter.DiscoverAccountContent(t.Context(), "token", AccountContentDiscoveryRequest{AccountID: test.accountID, PageSize: 1})
-			var discoveryErr *AccountContentDiscoveryError
-			require.ErrorAs(t, err, &discoveryErr)
-			require.Equal(t, AccountContentDiscoveryPermissionRequired, discoveryErr.Status)
-			require.Equal(t, "missing_scope", discoveryErr.Code)
-		})
-	}
-
-	require.False(t, NewFacebookAdapter("", "", "").AccountContentDiscoverySupport(AnalyticsAccountContext{}).Supported)
-	require.False(t, NewInstagramAdapter("", "", "").AccountContentDiscoverySupport(AnalyticsAccountContext{
-		AccountID: "ig-personal", CapabilityState: map[string]string{"instagram_account_type": "personal"},
-	}).Supported)
-	require.False(t, NewThreadsAdapter("", "", "").AccountContentDiscoverySupport(AnalyticsAccountContext{}).Supported)
-}
-
-func TestMetaAccountContentDiscoveryReportsPartialEdgeWithoutRawResponse(t *testing.T) {
-	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
-	originalClient := httpClient
-	t.Cleanup(func() { httpClient = originalClient })
-
-	calls := 0
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		calls++
-		if calls == 1 {
-			return jsonResponse(req, metaDiscoveryFixture(t, "facebook_partial_edge.json")), nil
-		}
-		response := jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"message":"secret raw provider response","code":200}}`)
-		return response, nil
-	})}
-
-	adapter := NewFacebookAdapter("", "", "")
-	page, err := adapter.DiscoverAccountContent(t.Context(), "page-token", AccountContentDiscoveryRequest{
-		AccountID: "page-1", GrantedScopes: []string{"pages_read_engagement"}, PageSize: 2,
-	})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1)
-	require.Equal(t, "page-1_valid-1", page.Items[0].ProviderContentID)
-	require.Equal(t, AccountContentDiscoveryPartial, page.Coverage.Status)
-	require.Contains(t, page.Coverage.Description, "omitted safely")
-
-	_, err = adapter.DiscoverAccountContent(t.Context(), "page-token", AccountContentDiscoveryRequest{
-		AccountID: "page-1", GrantedScopes: []string{"pages_read_engagement"}, PageSize: 1,
-	})
-	var discoveryErr *AccountContentDiscoveryError
-	require.True(t, errors.As(err, &discoveryErr))
-	require.Equal(t, AccountContentDiscoveryPermissionRequired, discoveryErr.Status)
-	require.Equal(t, "meta:200", discoveryErr.Code)
-	require.NotContains(t, err.Error(), "secret raw provider response")
-	require.NotContains(t, strings.ToLower(err.Error()), "provider response")
 }

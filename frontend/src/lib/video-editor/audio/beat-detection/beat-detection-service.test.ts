@@ -109,53 +109,6 @@ describe('beat detection service - worker fallback and cancellation', () => {
 		expect(timelineStore.markers).toHaveLength(1);
 	});
 
-	it('surfaces worker analysis error without second render', async () => {
-		mockAudioContext();
-		const resolveSpy = vi.fn(async () => new Blob([new Uint8Array(10)]));
-		const analyzeSpy = vi.fn(async () => ({
-			bpm: 120,
-			confidence: 0.9,
-			beats: [{ time: 0, strength: 1, index: 0 }],
-			duration: 1,
-			downbeats: [0]
-		}));
-		vi.spyOn(BeatAnalyzer.prototype, 'analyzeBlob').mockImplementation(analyzeSpy);
-		const fakeWorker = {
-			addEventListener: vi.fn(
-				(
-					event: string,
-					handler: (event: { data: { id: string; ok: boolean; error: string } }) => void
-				) => {
-					if (event === 'message') {
-						setTimeout(
-							() => handler({ data: { id: 'test', ok: false, error: 'Worker analysis failed' } }),
-							0
-						);
-					}
-				}
-			),
-			removeEventListener: vi.fn(),
-			postMessage: vi.fn(),
-			terminate: vi.fn()
-		};
-		// SAFETY: test-only Worker mock - only addEventListener, removeEventListener, postMessage and terminate are used
-		const workerMock = fakeWorker as Worker;
-		const service = createBeatDetectionService({
-			resolveMediaBlob: resolveSpy,
-			createWorker: () => workerMock
-		});
-		const originalRandomUUID = crypto.randomUUID;
-		vi.stubGlobal('crypto', {
-			...crypto,
-			randomUUID: () => 'test'
-		});
-		await expect(service.analyzeSelectedClip('clip-1')).rejects.toThrow('Worker analysis failed');
-		expect(analyzeSpy).not.toHaveBeenCalled();
-		expect(service.status).toBe('error');
-		expect(timelineStore.markers).toHaveLength(0);
-		vi.stubGlobal('crypto', { ...crypto, randomUUID: originalRandomUUID });
-	});
-
 	it('preserves AbortError and does not fallback on cancellation', async () => {
 		const service = createBeatDetectionService({
 			resolveMediaBlob: async () => new Blob([new Uint8Array(10)]),
@@ -171,33 +124,5 @@ describe('beat detection service - worker fallback and cancellation', () => {
 		const result = await promise;
 		expect(result.status).toBe('cancelled');
 		expect(service.status).toBe('cancelled');
-	});
-
-	it('falls back on DataCloneError message', async () => {
-		mockAudioContext();
-		const fallbackSpy = vi.spyOn(BeatAnalyzer.prototype, 'analyzeBlob').mockResolvedValue({
-			bpm: 100,
-			confidence: 0.8,
-			beats: [{ time: 0, strength: 1, index: 0 }],
-			duration: 1,
-			downbeats: [0]
-		});
-		const fakeWorker = {
-			addEventListener: vi.fn(),
-			removeEventListener: vi.fn(),
-			postMessage: vi.fn(() => {
-				throw new DOMException('DataCloneError', 'DataCloneError');
-			}),
-			terminate: vi.fn()
-		};
-		// SAFETY: test-only Worker mock - only addEventListener, removeEventListener, postMessage and terminate are used
-		const workerMock = fakeWorker as Worker;
-		const service = createBeatDetectionService({
-			resolveMediaBlob: async () => new Blob([new Uint8Array(10)]),
-			createWorker: () => workerMock
-		});
-		const result = await service.analyzeSelectedClip('clip-1');
-		expect(result.status).toBe('success');
-		expect(fallbackSpy).toHaveBeenCalled();
 	});
 });

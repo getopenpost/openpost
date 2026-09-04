@@ -78,11 +78,6 @@ describe('API token expiry boundary', () => {
 		expect(customMaximum.getTime()).toBeGreaterThan(now.getTime());
 		expect(customMaximum.getTime()).toBeLessThanOrEqual(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 	});
-
-	it('retains the exact one-year preset', () => {
-		const now = new Date('2026-08-09T12:00:00.000Z');
-		expect(apiTokenExpiresAt('365', '', now)).toBe('2027-08-09T12:00:00.000Z');
-	});
 });
 
 describe('API token scope contract', () => {

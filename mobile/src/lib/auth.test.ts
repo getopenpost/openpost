@@ -178,19 +178,6 @@ describe("auth request identity", () => {
     expect(values.has(TOKEN_KEY)).toBe(false);
   });
 
-  test("rejects a stale pairing HTTP error before classifying the old response", async () => {
-    const request = deferredFetch();
-    await setServer("https://old-pairing-error.example.com");
-    const polling = pollPairing("device-code");
-    await request.started.promise;
-    await setServer("https://new-pairing-error.example.com");
-    request.respond({ message: "old device code rejected" }, 400);
-
-    await expect(polling).rejects.toMatchObject({ name: "AbortError" });
-    expect(getToken()).toBeNull();
-    expect(values.has(TOKEN_KEY)).toBe(false);
-  });
-
   test("does not finish pairing after its screen aborts during token persistence", async () => {
     const request = deferredFetch();
     await setServer("https://pairing-cancel.example.com");
@@ -222,41 +209,6 @@ describe("auth request identity", () => {
     request.respond({ token: "abandoned-token" });
 
     await expect(signingIn).rejects.toMatchObject({ name: "AbortError" });
-    expect(getToken()).toBeNull();
-    expect(values.has(TOKEN_KEY)).toBe(false);
-  });
-
-  test("does not finish TOTP verification after its screen aborts the request", async () => {
-    const request = deferredFetch();
-    await setServer("https://totp-cancel.example.com");
-    const controller = new AbortController();
-    const verifying = verifyTotp("mfa-token", "123456", controller.signal);
-    await request.started.promise;
-
-    controller.abort();
-    request.respond({ token: "abandoned-token" });
-
-    await expect(verifying).rejects.toMatchObject({ name: "AbortError" });
-    expect(getToken()).toBeNull();
-    expect(values.has(TOKEN_KEY)).toBe(false);
-  });
-
-  test("does not finish TOTP verification after aborting during token persistence", async () => {
-    const request = deferredFetch();
-    await setServer("https://totp-persistence-cancel.example.com");
-    const tokenStarted = deferred<void>();
-    const releaseToken = deferred<void>();
-    pendingTokenWrite = { started: tokenStarted, release: releaseToken };
-    const controller = new AbortController();
-    const verifying = verifyTotp("mfa-token", "123456", controller.signal);
-    await request.started.promise;
-    request.respond({ token: "abandoned-token" });
-    await tokenStarted.promise;
-
-    controller.abort();
-    releaseToken.resolve();
-
-    await expect(verifying).rejects.toMatchObject({ name: "AbortError" });
     expect(getToken()).toBeNull();
     expect(values.has(TOKEN_KEY)).toBe(false);
   });

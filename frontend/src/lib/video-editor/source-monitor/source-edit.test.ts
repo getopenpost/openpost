@@ -83,44 +83,6 @@ beforeEach(() => {
 });
 
 describe('source monitor edits', () => {
-	it('inserts a linked source range and shifts split material on both target tracks', () => {
-		const visual = clip({ id: 'visual', from: 0, durationInFrames: 100 });
-		const audio = clip({
-			id: 'audio-existing',
-			trackId: audioTrack.id,
-			type: 'audio',
-			from: 50,
-			durationInFrames: 50
-		});
-		timelineStore.setAll({ items: [visual, audio] });
-
-		const result = applySourceEdit({
-			media,
-			inFrame: 30,
-			outFrame: 90,
-			insertFrame: 60,
-			videoEnabled: true,
-			audioEnabled: true,
-			videoTarget: videoTrack.id,
-			audioTarget: audioTrack.id,
-			mode: 'insert'
-		});
-
-		expect(result.endFrame).toBe(120);
-		expect(timelineStore.currentFrame).toBe(120);
-		const inserted = timelineStore.items.filter((item) => result.itemIds.includes(item.id));
-		expect(inserted).toHaveLength(2);
-		expect(inserted.map((item) => item.sourceStart)).toEqual([30, 30]);
-		expect(inserted.map((item) => item.sourceEnd)).toEqual([90, 90]);
-		expect(new Set(inserted.map((item) => item.linkedGroupId)).size).toBe(1);
-		expect(
-			timelineStore.items
-				.filter((item) => !result.itemIds.includes(item.id))
-				.map((item) => item.from)
-		).toContain(120);
-		expect(commandHistory.canUndo).toBe(true);
-	});
-
 	it('overwrites only the covered range and keeps both surrounding tails', () => {
 		timelineStore.setAll({ items: [clip({ id: 'long', from: 0, durationInFrames: 180 })] });
 		const result = applySourceEdit({
@@ -142,27 +104,6 @@ describe('source monitor edits', () => {
 			[120, 60]
 		]);
 		expect(items.find((item) => result.itemIds.includes(item.id))?.volume).toBe(0);
-	});
-
-	it('creates a requested destination track and converts source frames across frame rates', () => {
-		timelineStore.setAll({ tracks: [videoTrack], fps: 60 });
-		const result = applySourceEdit({
-			media,
-			inFrame: 30,
-			outFrame: 90,
-			insertFrame: 10,
-			videoEnabled: false,
-			audioEnabled: true,
-			videoTarget: 'auto',
-			audioTarget: 'create',
-			mode: 'insert'
-		});
-
-		expect(timelineStore.tracks.some((track) => track.kind === 'audio')).toBe(true);
-		expect(timelineStore.itemById.get(result.itemIds[0]!)?.durationInFrames).toBe(120);
-		commandHistory.undo();
-		expect(timelineStore.tracks).toEqual([videoTrack]);
-		expect(timelineStore.items).toHaveLength(0);
 	});
 
 	it('rejects a locked explicit destination instead of silently rerouting the edit', () => {

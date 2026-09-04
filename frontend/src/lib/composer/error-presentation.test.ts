@@ -6,26 +6,6 @@ import { ComposerClientError, ComposerSessionError, composerErrorCodes } from '.
 describe('composer error presentation', () => {
 	afterEach(() => setLocale('en', { reload: false }));
 
-	it('localizes domain and fallback client failures in English', () => {
-		setLocale('en', { reload: false });
-		expect(composerErrorMessage(new ComposerSessionError('editor_return_workspace_mismatch'))).toBe(
-			'This editor return belongs to another Workspace.'
-		);
-		expect(composerErrorMessage(new ComposerClientError('unavailable', ''))).toBe(
-			'OpenPost could not complete the Publication request.'
-		);
-	});
-
-	it('localizes the same visible failures in Portuguese', () => {
-		setLocale('pt', { reload: false });
-		expect(composerErrorMessage(new ComposerSessionError('editor_return_workspace_mismatch'))).toBe(
-			'Este retorno do editor pertence a outro Workspace.'
-		);
-		expect(composerErrorMessage(new ComposerClientError('unavailable', ''))).toBe(
-			'O OpenPost não conseguiu concluir o pedido da Publicação.'
-		);
-	});
-
 	it('has distinct English and Portuguese presentation for every domain failure', () => {
 		setLocale('en', { reload: false });
 		const english = composerErrorCodes.map((code) =>

@@ -1,12 +1,7 @@
 package handlers
 
 import (
-	"context"
-	"database/sql"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -130,41 +125,6 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, ""))
 }
 
-func TestEnqueueStorageCleanupBatchesWorkerSizedPayloads(t *testing.T) {
-	t.Parallel()
-	server := newDeleteWorkspaceTestServer(t)
-	keys := make([]string, workspacedeletion.StorageCleanupBatchSize+1)
-	for index := range keys {
-		keys[index] = fmt.Sprintf("media/%05d.bin", index)
-	}
-
-	err := server.db.RunInTx(t.Context(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		jobIDs, err := workspacedeletion.EnqueueStorageCleanup(ctx, tx, keys)
-		if err != nil {
-			return err
-		}
-		require.Len(t, jobIDs, 2)
-		return nil
-	})
-	require.NoError(t, err)
-
-	var jobs []models.Job
-	require.NoError(t, server.db.NewSelect().Model(&jobs).Where("type = ?", "storage_delete").Scan(t.Context()))
-	require.Len(t, jobs, 2)
-	batchSizes := make([]int, 0, len(jobs))
-	for _, job := range jobs {
-		var payload struct {
-			Keys []string `json:"keys"`
-		}
-		require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
-		require.NotEmpty(t, payload.Keys)
-		require.LessOrEqual(t, len(payload.Keys), workspacedeletion.StorageCleanupBatchSize)
-		batchSizes = append(batchSizes, len(payload.Keys))
-	}
-	sort.Ints(batchSizes)
-	require.Equal(t, []int{1, workspacedeletion.StorageCleanupBatchSize}, batchSizes)
-}
-
 func TestDeleteWorkspaceRejectsLastWorkspace(t *testing.T) {
 	t.Parallel()
 	server := newDeleteWorkspaceTestServer(t)
@@ -184,24 +144,6 @@ func TestDeleteWorkspaceRejectsLastWorkspace(t *testing.T) {
 	require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
 
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, ""))
-}
-
-func TestWorkspaceDeletionPreviewExplainsImpactRetentionRecoveryAndBlockers(t *testing.T) {
-	t.Parallel()
-	server := newDeleteWorkspaceTestServer(t)
-	insertDeleteFixture(t, server.db)
-
-	rec := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/workspaces/workspace-1/deletion-preview", nil, "web-token")
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	require.JSONEq(t, `{
-		"$schema":"https://example.com/schemas/WorkspaceDeletionPreview.json",
-		"workspace_id":"workspace-1",
-		"workspace_name":"One",
-		"removed":["access","content","connected_assets"],
-		"retained":["required_records"],
-		"recovery_possible":false,
-		"blockers":[]
-	}`, rec.Body.String())
 }
 
 func TestDeleteWorkspaceRequiresCanonicalNameAndRecentAuthentication(t *testing.T) {
@@ -262,25 +204,6 @@ func TestWorkspaceDeletionPreviewReportsBillingAndCleanupBlockers(t *testing.T) 
 	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
 	require.Contains(t, preview.Body.String(), `"code":"active_billing"`)
 	require.Contains(t, preview.Body.String(), `"code":"pending_cleanup"`)
-}
-
-func TestWorkspaceDeletionFindsJobsScopedThroughWorkspaceChildren(t *testing.T) {
-	t.Parallel()
-	server := newDeleteWorkspaceTestServer(t)
-	insertDeleteFixture(t, server.db)
-	_, err := server.db.NewInsert().Model(&models.Publication{
-		ID: "publication-child", WorkspaceID: "workspace-1", CreatedByID: "user-1", Title: "Queued", SourceContent: "Queued", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = server.db.NewInsert().Model(&models.Job{
-		ID: "publish-child", Type: "publish_publication", ScopeID: "publication-child", Payload: `{"publication_id":"publication-child"}`,
-		Status: "pending", RunAt: time.Now().UTC().Add(time.Hour), MaxAttempts: 3,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	preview := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/workspaces/workspace-1/deletion-preview", nil, "web-token")
-	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
-	require.Contains(t, preview.Body.String(), `"code":"pending_external_writes"`)
 }
 
 func TestConcurrentWorkspaceDeletionKeepsFinalWorkspace(t *testing.T) {

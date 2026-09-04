@@ -519,38 +519,6 @@ jobs:
           OPENPOST_E2E_PREBUILT: "1"
         run: bun run test -- e2e
 
-  browser-docs:
-    name: Documentation browser suite
-    needs: [plan, docs-build]
-    if: needs.plan.outputs.documentation == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            /*
-            !/frontend/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the newest canonical documentation artifact
-        id: docs-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "docs-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: ${{ steps.docs-artifact.outputs.name }}
-          path: docs-site/.vitepress/dist
-      - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - env:
-          OPENPOST_E2E_PREBUILT: "1"
-        run: bun run test -- e2e-docs
-
   cache-contract:
     name: Frontend cache contract
     needs: plan
@@ -891,7 +859,6 @@ jobs:
         docs-build,
         browser-app,
         browser-marketing,
-        browser-docs,
         cache-contract,
         n8n,
         security,

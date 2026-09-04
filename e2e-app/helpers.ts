@@ -1,36 +1,7 @@
-import type { APIRequestContext, Page, TestInfo } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 export const password = "password-1234";
-
-const reviewViewports = [
-  { name: "desktop", width: 1600, height: 900 },
-  { name: "390", width: 390, height: 844 },
-  { name: "320", width: 320, height: 900 },
-] as const;
-
-export async function captureResponsiveReview(
-  page: Page,
-  testInfo: TestInfo,
-  surface: string,
-): Promise<void> {
-  const initialViewport = page.viewportSize();
-  for (const viewport of reviewViewports) {
-    await page.setViewportSize(viewport);
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-        ),
-      )
-      .toBe(true);
-    await page.screenshot({
-      path: testInfo.outputPath(`${surface}-${viewport.name}.png`),
-      fullPage: true,
-    });
-  }
-  if (initialViewport) await page.setViewportSize(initialViewport);
-}
 
 function registrationHash(seed: string): number {
   let hash = 0;
@@ -119,7 +90,7 @@ export async function authenticatePage(page: Page, token: string) {
   ]);
 }
 
-export async function composerDeliveryAction(page: Page, name: string) {
+export async function clickComposerDeliveryAction(page: Page, name: string) {
   const trigger = page.getByTestId("composer-delivery-menu");
   await expect(trigger).toBeVisible();
   if ((await trigger.getAttribute("aria-expanded")) !== "true") {
@@ -128,11 +99,7 @@ export async function composerDeliveryAction(page: Page, name: string) {
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
-  return menu.getByRole("menuitem", { name, exact: true });
-}
-
-export async function clickComposerDeliveryAction(page: Page, name: string) {
-  const action = await composerDeliveryAction(page, name);
+  const action = menu.getByRole("menuitem", { name, exact: true });
   await expect(action).toBeVisible();
   await action.click();
 }

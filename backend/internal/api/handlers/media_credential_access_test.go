@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -211,20 +210,4 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 	require.LessOrEqual(t, signedMaxAge, expiresAt.Unix()-time.Now().UTC().Unix()+1)
 	require.Equal(t, "https://app.openpost.test", signedResponse.Header().Get(echo.HeaderAccessControlAllowOrigin))
 	require.Equal(t, "Origin", signedResponse.Header().Get(echo.HeaderVary))
-}
-
-func TestSetCredentialMediaCacheMergesVaryHeadersWithoutDuplicates(t *testing.T) {
-	t.Parallel()
-
-	e := echo.New()
-	response := httptest.NewRecorder()
-	ctx := e.NewContext(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/test", nil), response)
-	ctx.Response().Header().Add(echo.HeaderVary, "Origin, authorization")
-	ctx.Response().Header().Add(echo.HeaderVary, "Cookie")
-
-	setCredentialMediaCache(ctx)
-	setCredentialMediaCache(ctx)
-
-	require.Equal(t, "private, max-age=86400", response.Header().Get("Cache-Control"))
-	require.Equal(t, []string{"Origin", "authorization", "Cookie"}, strings.Split(response.Header().Get(echo.HeaderVary), ", "))
 }

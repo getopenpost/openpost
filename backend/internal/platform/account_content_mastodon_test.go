@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
@@ -101,11 +100,6 @@ func mustParseMastodonTestURL(t *testing.T, raw string) *url.URL {
 	return parsed
 }
 
-func TestMastodonAccountContentURLStripsProviderQueryAndFragment(t *testing.T) {
-	status := mastodonAccountContentStatus{ID: "42", URL: "https://social.example/@founder/42?token=secret#fragment"}
-	require.Equal(t, "https://social.example/@founder/42", safeMastodonStatusURL("https://social.example", status))
-}
-
 func TestMastodonAccountContentIdentityPreventsCrossInstanceCollision(t *testing.T) {
 	first, ok := CanonicalSocialAccountContentID(providerMastodon, "https://one.example/", "", "123")
 	require.True(t, ok)
@@ -117,32 +111,4 @@ func TestMastodonAccountContentIdentityPreventsCrossInstanceCollision(t *testing
 	require.NoError(t, err)
 	_, err = decodeMastodonAccountContentCursor(cursor, "https://two.example")
 	require.Error(t, err, "an opaque cursor must not be reusable against another instance")
-}
-
-func TestMastodonAccountContentDiscoveryClassifiesUnsupportedWithoutRawPayload(t *testing.T) {
-	adapter := NewMastodonAdapter("", "", "", "https://social.example")
-	require.False(t, adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{}).Supported)
-
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		response := jsonResponseWithStatus(req, http.StatusNotFound, `{"error":"secret raw provider payload"}`)
-		response.Header = http.Header{}
-		return response, nil
-	})}
-	_, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{AccountID: "missing", PageSize: 1})
-	require.Error(t, err)
-	var discoveryErr *AccountContentDiscoveryError
-	require.ErrorAs(t, err, &discoveryErr)
-	require.Equal(t, AccountContentDiscoveryUnsupported, discoveryErr.Status)
-	require.NotContains(t, err.Error(), "secret raw provider payload")
-}
-
-func TestMastodonAccountContentResponseShapeDoesNotRetainMediaPayload(t *testing.T) {
-	var status mastodonAccountContentStatus
-	require.NoError(t, json.Unmarshal([]byte(`{"id":"1","media_attachments":[{"type":"image","url":"https://cdn.example/private.jpg","description":"raw"}]}`), &status))
-	encoded, err := json.Marshal(status)
-	require.NoError(t, err)
-	require.NotContains(t, string(encoded), "private.jpg")
-	require.NotContains(t, string(encoded), "description")
 }

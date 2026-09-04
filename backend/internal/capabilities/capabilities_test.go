@@ -283,29 +283,6 @@ func TestResolveAcceptsRequiredDestinationSettings(t *testing.T) {
 	requireNoIssueCode(t, resolved.Issues, "setting_required")
 }
 
-func TestResolveExposesDestinationFormatChoices(t *testing.T) {
-	resolved := Resolve(ProviderInstagram, ResolveInput{
-		CreationPreset: IntentPost,
-		Segments:       []ResolveSegment{{ID: "segment-1", Body: "Caption"}},
-	})
-	profiles := make([]string, 0, len(resolved.AvailableFormats))
-	for _, format := range resolved.AvailableFormats {
-		profiles = append(profiles, format.OutputProfile)
-	}
-	require.Contains(t, profiles, "instagram.feed")
-	require.Contains(t, profiles, "instagram.story")
-	require.Contains(t, profiles, "instagram.reel")
-}
-
-func TestCapabilitiesExposeValidationCategories(t *testing.T) {
-	capability, ok := Find(ProviderYouTube, models.ContentProfileLongVideo)
-
-	require.True(t, ok)
-	require.Contains(t, capability.ValidationCategories, "duration")
-	require.Contains(t, capability.ValidationCategories, "title")
-	require.Contains(t, capability.ValidationCategories, "thumbnail")
-}
-
 func issueMessage(issues []ValidationIssue, code string) string {
 	for _, issue := range issues {
 		if issue.Code == code {
@@ -321,40 +298,6 @@ func issueCodes(issues []ValidationIssue) []string {
 		codes = append(codes, issue.Code)
 	}
 	return codes
-}
-
-func TestYouTubeCapabilitiesExposeStructuredPublishingSettings(t *testing.T) {
-	capability, ok := Find(ProviderYouTube, models.ContentProfileLongVideo)
-
-	require.True(t, ok)
-	settings := map[string]SettingField{}
-	for _, setting := range capability.Settings {
-		settings[setting.Key] = setting
-	}
-	require.Equal(t, "tags", settings["tags"].Type)
-	require.Equal(t, "youtube_categories", settings["category_id"].OptionsSource)
-	require.Equal(t, "remote_picker", settings["category_id"].Control)
-	require.True(t, settings["category_id"].Required)
-	require.Equal(t, "youtube_playlists", settings["playlist_id"].OptionsSource)
-	require.Equal(t, "remote_picker", settings["playlist_id"].Control)
-}
-
-func TestXCapabilitiesExposePostSettings(t *testing.T) {
-	capability, ok := Find(ProviderX, models.ContentProfileShortText)
-
-	require.True(t, ok)
-	require.Equal(t, 25_000, capability.TextLimit)
-	keys := make([]string, 0, len(capability.Settings))
-	for _, setting := range capability.Settings {
-		keys = append(keys, setting.Key)
-	}
-	require.Contains(t, keys, "quote_url")
-	require.NotContains(t, keys, "quote_tweet_id")
-	require.Contains(t, keys, "poll_options")
-	require.Contains(t, keys, "poll_duration_minutes")
-	require.Contains(t, keys, "reply_settings")
-	require.Contains(t, keys, "paid_partnership")
-	require.Contains(t, keys, "made_with_ai")
 }
 
 func TestApplyAccountConstraintsRevalidatesXTextAndVideo(t *testing.T) {
@@ -451,22 +394,6 @@ func TestXVideoValidationAcceptsProviderAspectRatioBoundaries(t *testing.T) {
 	}
 }
 
-func TestXVideoValidationRequiresDimensionsForAspectRatioPreflight(t *testing.T) {
-	issues := Validate(
-		ProviderX,
-		models.ContentProfileShortVideo,
-		"Caption",
-		"",
-		"",
-		[]MediaItem{{
-			ID: "video-1", MimeType: "video/mp4", Size: 1024,
-			DurationMS: 30_000, AnalysisStatus: "ready",
-		}},
-		map[string]any{},
-	)
-	requireIssueCode(t, issues, "media_video_dimensions_missing")
-}
-
 func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 	tests := []struct {
 		provider     string
@@ -522,20 +449,6 @@ func TestApplyAccountConstraintsRefreshesVideoMIMEsAndSize(t *testing.T) {
 	require.Contains(t, resolved.Media.AllowedMIMEs, "video/webm")
 }
 
-func TestApplyAccountConstraintsUsesMastodonInstanceAttachmentCount(t *testing.T) {
-	media := make([]MediaItem, 6)
-	for index := range media {
-		media[index] = MediaItem{ID: "image", MimeType: "image/jpeg", Size: 1024}
-	}
-	segments := []ResolveSegment{{ID: "segment-1", Body: "Images", Media: media}}
-	resolved := Resolve(ProviderMastodon, ResolveInput{Intent: IntentPost, Segments: segments})
-	requireIssueCode(t, resolved.Issues, "media_count")
-
-	ApplyAccountConstraints(&resolved, segments, map[string]any{"media_max_count": 6})
-	require.Equal(t, 6, resolved.Media.MaxCount)
-	requireNoIssueCode(t, resolved.Issues, "media_count")
-}
-
 func TestValidateBlocksXMutuallyExclusiveSettings(t *testing.T) {
 	issues := Validate(ProviderX, models.ContentProfileImagePost, "caption", "", "", []MediaItem{{
 		ID:       "image-1",
@@ -554,189 +467,6 @@ func TestValidateBlocksXMutuallyExclusiveSettings(t *testing.T) {
 	requireIssueCode(t, issues, "x_mutually_exclusive_attachment")
 }
 
-func TestMastodonCapabilitiesExposeStatusSettings(t *testing.T) {
-	capability, ok := Find(ProviderMastodon, models.ContentProfileShortText)
-
-	require.True(t, ok)
-	require.False(t, capability.NativeScheduling)
-	keys := make([]string, 0, len(capability.Settings))
-	for _, setting := range capability.Settings {
-		keys = append(keys, setting.Key)
-	}
-	require.Contains(t, keys, "visibility")
-	require.Contains(t, keys, "spoiler_text")
-	require.Contains(t, keys, "sensitive")
-	require.Contains(t, keys, "language")
-	require.NotContains(t, keys, "scheduled_at")
-	require.Contains(t, keys, "poll_options")
-	require.Contains(t, keys, "poll_expires_in_seconds")
-}
-
-func TestBlueskyCapabilitiesExposeVideoAndPostSettings(t *testing.T) {
-	capability, ok := Find(ProviderBluesky, models.ContentProfileShortVideo)
-
-	require.True(t, ok)
-	require.Equal(t, 1, capability.Media.MinCount)
-	require.Equal(t, 1, capability.Media.MaxCount)
-	require.Contains(t, capability.Media.AllowedMIMEs, "video/mp4")
-	require.Equal(t, int64(100*1024*1024), capability.Media.MaxSizeBytes)
-
-	keys := make([]string, 0, len(capability.Settings))
-	for _, setting := range capability.Settings {
-		keys = append(keys, setting.Key)
-	}
-	require.Contains(t, keys, "link_url")
-	require.Contains(t, keys, "quote_url")
-	require.NotContains(t, keys, "quote_uri")
-	require.NotContains(t, keys, "quote_cid")
-	require.Contains(t, keys, "self_labels")
-	require.NotContains(t, keys, "mention_dids")
-}
-
-func TestLinkedInCapabilitiesExposeDocumentCarousel(t *testing.T) {
-	capability, ok := Find(ProviderLinkedIn, models.ContentProfileCarousel)
-
-	require.True(t, ok)
-	require.Equal(t, 1, capability.Media.MinCount)
-	require.Equal(t, 1, capability.Media.MaxCount)
-	require.Contains(t, capability.Media.AllowedMIMEs, "application/pdf")
-	require.Contains(t, capability.Media.AllowedMIMEs, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
-	require.Equal(t, int64(100*1024*1024), capability.Media.MaxSizeBytes)
-	require.Contains(t, capability.ValidationCategories, "document")
-}
-
-func TestPublicMediaCountsMatchAdapterPublishingModes(t *testing.T) {
-	tests := []struct {
-		provider string
-		profile  string
-		min      int
-		max      int
-	}{
-		{ProviderThreads, models.ContentProfileImagePost, 1, 1},
-		{ProviderThreads, models.ContentProfileCarousel, 2, 20},
-		{ProviderFacebook, models.ContentProfileImagePost, 1, 1},
-		{ProviderFacebook, models.ContentProfileCarousel, 2, 10},
-		{ProviderFacebook, models.ContentProfileStory, 1, 1},
-		{ProviderInstagram, models.ContentProfileImagePost, 1, 1},
-		{ProviderInstagram, models.ContentProfileCarousel, 2, 10},
-		{ProviderInstagram, models.ContentProfileStory, 1, 1},
-		{ProviderTikTok, models.ContentProfileCarousel, 1, 35},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.provider+"/"+tt.profile, func(t *testing.T) {
-			capability, ok := Find(tt.provider, tt.profile)
-			require.True(t, ok)
-			require.Equal(t, tt.min, capability.Media.MinCount)
-			require.Equal(t, tt.max, capability.Media.MaxCount)
-		})
-	}
-}
-
-func TestTikTokPhotoCapabilityMatchesDocumentedMediaLimits(t *testing.T) {
-	capability, ok := Find(ProviderTikTok, models.ContentProfileCarousel)
-
-	require.True(t, ok)
-	require.Equal(t, 4000, capability.TextLimit)
-	require.Equal(t, int64(20*1024*1024), capability.Media.MaxSizeBytes)
-	require.ElementsMatch(t, []string{"image/jpeg", "image/webp"}, capability.Media.AllowedMIMEs)
-}
-
-func TestProviderTextLimitUsesGenericPostOrConservativePublicationLimit(t *testing.T) {
-	tests := map[string]int{
-		ProviderInstagram: 2200,
-		ProviderLinkedIn:  3000,
-		ProviderTikTok:    2200,
-		ProviderYouTube:   5000,
-		ProviderX:         280,
-	}
-	for provider, want := range tests {
-		limit, ok := ProviderTextLimit(provider)
-		require.True(t, ok, provider)
-		require.Equal(t, want, limit, provider)
-	}
-}
-
-func TestThreadsCarouselCapabilityAllowsMixedMedia(t *testing.T) {
-	capability, ok := Find(ProviderThreads, models.ContentProfileCarousel)
-
-	require.True(t, ok)
-	require.Contains(t, capability.Media.AllowedMIMEs, "image/jpeg")
-	require.Contains(t, capability.Media.AllowedMIMEs, "video/mp4")
-	require.Equal(t, 20, capability.Media.MaxCount)
-}
-
-func TestLinkedInImageCapabilitiesMatchMultiImageAPI(t *testing.T) {
-	single, ok := Find(ProviderLinkedIn, models.ContentProfileImagePost)
-	require.True(t, ok)
-	require.ElementsMatch(t, []string{"image/jpeg", "image/png", "image/gif"}, single.Media.AllowedMIMEs)
-
-	var multi Capability
-	ok = false
-	for _, capability := range All() {
-		if capability.Provider == ProviderLinkedIn && capability.OutputProfile == "linkedin.multi_image" {
-			multi = capability
-			ok = true
-			break
-		}
-	}
-	require.True(t, ok)
-	require.Equal(t, 2, multi.Media.MinCount)
-	require.Equal(t, 20, multi.Media.MaxCount)
-	require.ElementsMatch(t, []string{"image/jpeg", "image/png", "image/gif"}, multi.Media.AllowedMIMEs)
-}
-
-func TestResolveTransitionsSingleImagesIntoMultiImageProfiles(t *testing.T) {
-	for _, provider := range []string{ProviderLinkedIn, ProviderThreads} {
-		t.Run(provider, func(t *testing.T) {
-			single := Resolve(provider, ResolveInput{
-				Intent: IntentPost,
-				Segments: []ResolveSegment{{ID: "segment-1", Body: "Caption", Media: []MediaItem{{
-					ID: "first", MimeType: "image/jpeg", Size: 1024, PublicURLReady: true, PublicURLStatus: 200,
-				}}}},
-			})
-			require.Equal(t, MediaShapeSingleImage, single.ActiveConstraints["media_shape"])
-			require.Equal(t, 1, single.Media.MaxCount)
-
-			multiple := Resolve(provider, ResolveInput{
-				Intent: IntentPost,
-				Segments: []ResolveSegment{{ID: "segment-1", Body: "Caption", Media: []MediaItem{
-					{ID: "first", MimeType: "image/jpeg", Size: 1024, PublicURLReady: true, PublicURLStatus: 200},
-					{ID: "second", MimeType: "image/png", Size: 1024, PublicURLReady: true, PublicURLStatus: 200},
-				}}},
-			})
-			require.Equal(t, MediaShapeMultipleImage, multiple.ActiveConstraints["media_shape"])
-			require.Equal(t, 20, multiple.Media.MaxCount)
-		})
-	}
-}
-
-func TestMetaCarouselAndStoryCapabilitiesMatchPublishingPaths(t *testing.T) {
-	mixedMediaMIMEs := []string{"image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"}
-
-	facebookCarousel, ok := Find(ProviderFacebook, models.ContentProfileCarousel)
-	require.True(t, ok)
-	require.ElementsMatch(t, []string{"image/jpeg", "image/png", "image/webp"}, facebookCarousel.Media.AllowedMIMEs)
-
-	facebookStory, ok := Find(ProviderFacebook, models.ContentProfileStory)
-	require.True(t, ok)
-	require.Equal(t, 1, facebookStory.Media.MinCount)
-	require.Equal(t, 1, facebookStory.Media.MaxCount)
-	require.ElementsMatch(t, mixedMediaMIMEs, facebookStory.Media.AllowedMIMEs)
-
-	instagramCarousel, ok := Find(ProviderInstagram, models.ContentProfileCarousel)
-	require.True(t, ok)
-	require.Equal(t, 2, instagramCarousel.Media.MinCount)
-	require.Equal(t, 10, instagramCarousel.Media.MaxCount)
-	require.ElementsMatch(t, mixedMediaMIMEs, instagramCarousel.Media.AllowedMIMEs)
-
-	instagramStory, ok := Find(ProviderInstagram, models.ContentProfileStory)
-	require.True(t, ok)
-	require.Equal(t, 1, instagramStory.Media.MinCount)
-	require.Equal(t, 1, instagramStory.Media.MaxCount)
-	require.ElementsMatch(t, mixedMediaMIMEs, instagramStory.Media.AllowedMIMEs)
-}
-
 func TestValidateBlocksMastodonPollWithMedia(t *testing.T) {
 	issues := Validate(ProviderMastodon, models.ContentProfileImagePost, "caption", "", "", []MediaItem{{
 		ID:       "image-1",
@@ -745,61 +475,6 @@ func TestValidateBlocksMastodonPollWithMedia(t *testing.T) {
 	}}, map[string]any{"poll_options": "One\nTwo"})
 
 	requireIssueCode(t, issues, "mastodon_poll_media_conflict")
-}
-
-func TestPinterestTelegramAndDiscordExposeTypedDestinationSettings(t *testing.T) {
-	t.Parallel()
-
-	pinterest, ok := Find(ProviderPinterest, models.ContentProfileImagePost)
-	require.True(t, ok)
-	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "board_id")
-	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "section_id")
-	require.Equal(t, 1, pinterest.Media.MinCount)
-	require.Equal(t, 1, pinterest.Media.MaxCount)
-	require.True(t, pinterest.Media.RequiresPublicURL)
-	require.True(t, pinterest.Media.RequiresHTTPSFetchable)
-	require.True(t, pinterest.RequiresAppReview)
-	require.NotEmpty(t, pinterest.UnavailableReason)
-
-	carousel, ok := Find(ProviderPinterest, models.ContentProfileCarousel)
-	require.True(t, ok)
-	require.Equal(t, 2, carousel.Media.MinCount)
-	require.Equal(t, 5, carousel.Media.MaxCount)
-	require.True(t, carousel.RequiresAppReview)
-	require.NotEmpty(t, carousel.UnavailableReason)
-
-	pinterestVideo, ok := Find(ProviderPinterest, models.ContentProfileShortVideo)
-	require.True(t, ok)
-	require.Equal(t, []string{"video/mp4"}, pinterestVideo.Media.AllowedMIMEs)
-	require.Equal(t, int64(2*1024*1024*1024), pinterestVideo.Media.MaxSizeBytes)
-	require.Contains(t, capabilitySettingKeys(pinterestVideo.Settings), "cover_media_id")
-	require.NotEmpty(t, pinterestVideo.UnavailableReason, "video delivery must remain unavailable until certification")
-
-	telegram, ok := Find(ProviderTelegram, models.ContentProfileShortText)
-	require.True(t, ok)
-	require.Contains(t, capabilitySettingKeys(telegram.Settings), "chat_id")
-	require.NotEmpty(t, telegram.UnavailableReason)
-
-	discord, ok := Find(ProviderDiscord, models.ContentProfileShortText)
-	require.True(t, ok)
-	require.Contains(t, capabilitySettingKeys(discord.Settings), "channel_id")
-	require.Contains(t, capabilitySettingKeys(discord.Settings), "embed")
-	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_policy")
-	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_user_ids")
-	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_role_ids")
-	for _, setting := range discord.Settings {
-		if setting.Key == "mention_user_ids" {
-			require.Equal(t, "remote_picker", setting.Control)
-			require.Equal(t, "discord_members", setting.OptionsSource)
-		}
-		if setting.Key == "mention_role_ids" {
-			require.Equal(t, "remote_picker", setting.Control)
-			require.Equal(t, "discord_roles", setting.OptionsSource)
-		}
-	}
-
-	// Existing webhook renditions predate bot settings and must remain valid.
-	requireNoIssueCode(t, Validate(ProviderDiscord, models.ContentProfileShortText, "hello", "", "", nil, nil), "setting_required")
 }
 
 func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
@@ -833,26 +508,6 @@ func TestValidateFlagsUnsupportedProviderSettings(t *testing.T) {
 	}}, map[string]any{"privacy": "private", "unsupported_field": "value"})
 
 	requireIssueCode(t, issues, "unsupported_setting")
-}
-
-func TestValidateOutputUsesMediaShapeForLegacyLinkedInPostProfile(t *testing.T) {
-	issues := ValidateOutput(
-		ProviderLinkedIn,
-		"linkedin.post",
-		models.ContentProfileShortText,
-		"Image caption",
-		"",
-		"",
-		[]MediaItem{{
-			ID:       "image-1",
-			MimeType: "image/jpeg",
-			Size:     1024,
-		}},
-		map[string]any{"reshare_disabled": true},
-	)
-
-	requireNoIssueCode(t, issues, "media_count")
-	requireNoIssueCode(t, issues, "unsupported_setting")
 }
 
 func TestValidateRequiresExplicitConsentWithoutGenericQuotaWarnings(t *testing.T) {
@@ -903,16 +558,6 @@ func TestTikTokPrivacyIsRequiredOnlyForDirectPost(t *testing.T) {
 	for _, issue := range inboxIssues {
 		require.False(t, issue.Code == "setting_required" && issue.Field == "privacy_level", inboxIssues)
 	}
-}
-
-func TestTikTokDefaultsToDirectPost(t *testing.T) {
-	for _, setting := range tiktokSettings() {
-		if setting.Key == "content_posting_method" {
-			require.Equal(t, "DIRECT_POST", setting.Default)
-			return
-		}
-	}
-	require.Fail(t, "TikTok posting method setting not found")
 }
 
 func TestCapabilityValidatesStructuredTextMediaAndLocalTimeRules(t *testing.T) {

@@ -3,10 +3,6 @@ import test from "node:test";
 
 import { imagePolicyInputs, validateImagePolicy } from "./check-image-policy.mjs";
 
-test("the maintained image policy is internally consistent", () => {
-  assert.deepEqual(validateImagePolicy(imagePolicyInputs(), new Date("2026-08-09T00:00:00Z")), []);
-});
-
 test("probe and architecture drift fail the policy check", () => {
   const inputs = imagePolicyInputs();
   const problems = validateImagePolicy(

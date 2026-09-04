@@ -8,16 +8,14 @@ import (
 )
 
 func TestSatisfyCanonicalURLRequirement(t *testing.T) {
-	tests := []struct {
+	for _, tt := range []struct {
 		name       string
 		sourceURL  string
 		segmentURL string
 	}{
 		{name: "source URL", sourceURL: "https://example.com"},
 		{name: "segment URL", segmentURL: "https://example.com"},
-	}
-
-	for _, tt := range tests {
+	} {
 		t.Run(tt.name, func(t *testing.T) {
 			segments := []capabilities.ResolveSegment{{
 				ID:   "segment-1",
@@ -40,52 +38,52 @@ func TestSatisfyCanonicalURLRequirement(t *testing.T) {
 			require.True(t, resolved.Compatible)
 		})
 	}
-}
 
-func TestSatisfyCanonicalURLRequirementNeedsCanonicalURL(t *testing.T) {
-	resolved := capabilities.ResolvedCapability{
-		Compatible: false,
-		ActiveConstraints: map[string]any{
-			"media_shape": capabilities.MediaShapeLink,
-		},
-		Issues: []capabilities.ValidationIssue{{
-			Severity: "error",
-			Code:     "setting_required",
-			Field:    "url",
-		}},
-	}
-
-	satisfyCanonicalURLRequirement(&resolved, "", nil)
-
-	require.True(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
-	require.False(t, resolved.Compatible)
-}
-
-func TestSatisfyCanonicalURLRequirementKeepsOtherErrors(t *testing.T) {
-	resolved := capabilities.ResolvedCapability{
-		Compatible: false,
-		ActiveConstraints: map[string]any{
-			"media_shape": capabilities.MediaShapeLink,
-		},
-		Issues: []capabilities.ValidationIssue{
-			{
+	t.Run("missing canonical URL keeps the requirement", func(t *testing.T) {
+		resolved := capabilities.ResolvedCapability{
+			Compatible: false,
+			ActiveConstraints: map[string]any{
+				"media_shape": capabilities.MediaShapeLink,
+			},
+			Issues: []capabilities.ValidationIssue{{
 				Severity: "error",
 				Code:     "setting_required",
-				Field:    "link_url",
-			},
-			{
-				Severity: "error",
-				Code:     "other_error",
-				Field:    "body",
-			},
-		},
-	}
+				Field:    "url",
+			}},
+		}
 
-	satisfyCanonicalURLRequirement(&resolved, "https://example.com", nil)
+		satisfyCanonicalURLRequirement(&resolved, "", nil)
 
-	require.False(t, hasCapabilityIssue(resolved.Issues, "setting_required", "link_url"))
-	require.True(t, hasCapabilityIssue(resolved.Issues, "other_error", "body"))
-	require.False(t, resolved.Compatible)
+		require.True(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
+		require.False(t, resolved.Compatible)
+	})
+
+	t.Run("unrelated errors survive", func(t *testing.T) {
+		resolved := capabilities.ResolvedCapability{
+			Compatible: false,
+			ActiveConstraints: map[string]any{
+				"media_shape": capabilities.MediaShapeLink,
+			},
+			Issues: []capabilities.ValidationIssue{
+				{
+					Severity: "error",
+					Code:     "setting_required",
+					Field:    "link_url",
+				},
+				{
+					Severity: "error",
+					Code:     "other_error",
+					Field:    "body",
+				},
+			},
+		}
+
+		satisfyCanonicalURLRequirement(&resolved, "https://example.com", nil)
+
+		require.False(t, hasCapabilityIssue(resolved.Issues, "setting_required", "link_url"))
+		require.True(t, hasCapabilityIssue(resolved.Issues, "other_error", "body"))
+		require.False(t, resolved.Compatible)
+	})
 }
 
 func hasCapabilityIssue(issues []capabilities.ValidationIssue, code string, field string) bool {

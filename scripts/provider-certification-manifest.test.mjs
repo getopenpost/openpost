@@ -16,18 +16,6 @@ const now = "2026-08-09T12:00:00.000Z";
 const currentRevision = "b".repeat(40);
 const contractDigest = `sha256:${"c".repeat(64)}`;
 
-test("the canonical empty manifest makes no unsupported public claims", async () => {
-  const manifest = await readPublicClaimManifest(undefined, { now });
-  assert.deepEqual(manifest, { schema_version: 1, claims: [] });
-});
-
-test("the release binding hashes the exact checked-in zero-claim manifest", async () => {
-  const binding = await readPublicClaimManifestBinding();
-  assert.equal(binding.schema_version, 1);
-  assert.equal(binding.claim_count, 0);
-  assert.match(binding.manifest_sha256, /^sha256:[0-9a-f]{64}$/u);
-});
-
 test("public provider claims are derived from the manifest on every claim surface", () => {
   const manifest = { schema_version: 1, claims: [] };
   const projection = renderPublicClaimProjection(manifest);

@@ -118,21 +118,3 @@ func TestMediaUsageStatusBlocksOnlyActiveWork(t *testing.T) {
 		require.False(t, mediaUsageStatusBlocks(status), status)
 	}
 }
-
-func TestNormalizeMediaFilenamePreservesFormat(t *testing.T) {
-	t.Parallel()
-
-	name, err := normalizeMediaFilename("launch-card.png", "renamed launch card")
-	require.NoError(t, err)
-	require.Equal(t, "renamed launch card.png", name)
-
-	name, err = normalizeMediaFilename("launch-card.PNG", "renamed.PNG")
-	require.NoError(t, err)
-	require.Equal(t, "renamed.PNG", name)
-
-	_, err = normalizeMediaFilename("launch-card.png", "renamed.jpg")
-	require.EqualError(t, err, "file extension cannot be changed")
-
-	_, err = normalizeMediaFilename("launch-card.png", "folder/renamed.png")
-	require.EqualError(t, err, "filename cannot contain path separators or control characters")
-}

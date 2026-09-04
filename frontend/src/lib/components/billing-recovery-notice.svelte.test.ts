@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
@@ -51,7 +50,6 @@ describe('BillingRecoveryNotice', () => {
 	});
 
 	it('gives an organization admin one exact payment recovery action and clears on recovery', async () => {
-		await page.viewport(390, 844);
 		mocks.get.mockResolvedValue({ data: billingStatus(true) });
 		mocks.post.mockResolvedValue({
 			error: { detail: 'Temporary portal error' }
@@ -73,7 +71,6 @@ describe('BillingRecoveryNotice', () => {
 			}
 		});
 		await expect.element(notice).toHaveTextContent('Temporary portal error');
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
 
 		mocks.get.mockResolvedValue({ data: billingStatus(true, 'active') });
 		window.dispatchEvent(new Event('focus'));

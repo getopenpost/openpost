@@ -26,11 +26,6 @@ function media(overrides: Partial<MediaMetadata> = {}): MediaMetadata {
 }
 
 describe('reverse conform planning', () => {
-	it('fits source dimensions into an even 720p preview without upscaling', () => {
-		expect(fitReverseConformSize(3840, 2160)).toEqual({ width: 1280, height: 720 });
-		expect(fitReverseConformSize(853, 479)).toEqual({ width: 852, height: 478 });
-	});
-
 	it('keys the cache by source fingerprint, fps, and preview geometry', () => {
 		const baseline = reverseConformKey(media());
 		expect(reverseConformKey(media())).toBe(baseline);

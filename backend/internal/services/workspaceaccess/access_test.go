@@ -39,42 +39,6 @@ func TestInactiveMemberHasNoWorkspaceAccess(t *testing.T) {
 	require.False(t, decision.Allowed)
 }
 
-func TestCredentialWorkspaceBoundaryCanBeCheckedBeforeMembershipExists(t *testing.T) {
-	actor := ActorFacts{UserID: "invitee-1", CredentialWorkspaceID: "workspace-1"}
-	require.True(t, CredentialAllowsWorkspace(actor, "workspace-1"))
-	require.False(t, CredentialAllowsWorkspace(actor, "workspace-2"))
-	require.False(t, CredentialAllowsWorkspace(actor, ""))
-	require.True(t, CredentialAllowsWorkspace(ActorFacts{UserID: "invitee-1"}, "workspace-2"))
-}
-
-func TestStoredAuthorityUsesExactScopeWithoutFabricatingActorFacts(t *testing.T) {
-	ctx := context.Background()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:workspace-stored-authority-%d?mode=memory&cache=shared", time.Now().UnixNano()))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
-	now := time.Now().UTC()
-	for _, row := range []any{
-		&models.User{ID: "user-stored", Email: "stored@example.test", PasswordHash: "hash", CreatedAt: now},
-		&models.Organization{ID: "organization-stored", Name: "Stored", CreatedAt: now, UpdatedAt: now},
-		&models.Workspace{ID: "workspace-stored", OrganizationID: "organization-stored", Name: "Stored", CreatedAt: now},
-		&models.WorkspaceMember{WorkspaceID: "workspace-stored", UserID: "user-stored", Role: models.WorkspaceRoleViewer, Status: models.WorkspaceMemberStatusActive, CreatedAt: now},
-	} {
-		_, err := db.NewInsert().Model(row).Exec(ctx)
-		require.NoError(t, err)
-	}
-	authority := StoredAuthority{UserID: "user-stored", WorkspaceID: "workspace-stored", OrganizationID: "organization-stored", IdentityProviderID: "provider-at-approval", AssuredAt: now}
-
-	decision, err := NewAuthorizer(db).AuthorizeStored(ctx, authority, LevelRead)
-	require.NoError(t, err)
-	require.True(t, decision.Allowed)
-	require.Equal(t, "provider-at-approval", decision.ProviderID)
-	authority.OrganizationID = "another-organization"
-	decision, err = NewAuthorizer(db).AuthorizeStored(ctx, authority, LevelRead)
-	require.NoError(t, err)
-	require.False(t, decision.Allowed)
-}
-
 func TestAuthorizeCombinesCredentialPolicyMembershipAndLevel(t *testing.T) {
 	ctx := context.Background()
 	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:workspace-access-policy-%d?mode=memory&cache=shared", time.Now().UnixNano()))

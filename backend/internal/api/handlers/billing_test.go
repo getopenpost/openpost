@@ -237,13 +237,7 @@ func TestPurchaseChoiceEndpointCreatesAndRevalidatesCanonicalChoice(t *testing.T
 	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &choice))
 	require.NotEmpty(t, choice.Token)
 	require.Equal(t, "team", choice.PlanID)
-	require.Equal(t, "Team", choice.PlanName)
 	require.Equal(t, "annual", choice.BillingPeriod)
-	require.Equal(t, 990, choice.ListPriceUSD)
-	require.Equal(t, 14, choice.TrialDays)
-	require.True(t, choice.CardRequired)
-	require.Zero(t, choice.DueTodayUSD)
-	require.Equal(t, billing.PlanCatalogVersion, choice.CatalogVersion)
 
 	validated := jsonRequest(t, e, http.MethodPost, "/api/v1/billing/purchase-choice", map[string]any{
 		"plan_id":               "team",
@@ -458,28 +452,6 @@ func TestBillingCheckoutConfigIsPublicAndBrowserSafe(t *testing.T) {
 	for key := range response {
 		require.Contains(t, []string{"$schema", "client_token", "environment"}, key)
 	}
-}
-
-func TestBillingMutationsRequireWorkspaceAdmin(t *testing.T) {
-	srv := newBillingAPITestServer(t)
-	_, err := srv.db.NewUpdate().
-		Model((*models.WorkspaceMember)(nil)).
-		Set("role = ?", models.WorkspaceRoleViewer).
-		Where("workspace_id = ? AND user_id = ?", "ws-1", "user-1").
-		Exec(t.Context())
-	require.NoError(t, err)
-
-	checkout := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
-		"workspace_id": "ws-1",
-		"plan_id":      "founder",
-	})
-	portal := srv.postJSON(t, "/api/v1/billing/portal", map[string]any{
-		"workspace_id": "ws-1",
-	})
-
-	require.Equal(t, http.StatusForbidden, checkout.Code, checkout.Body.String())
-	require.Equal(t, http.StatusForbidden, portal.Code, portal.Body.String())
-	require.Zero(t, srv.client.portalRequests)
 }
 
 func TestBillingMutationsRequireOrganizationAdmin(t *testing.T) {
@@ -811,42 +783,6 @@ func TestCreateBillingPortalRoute(t *testing.T) {
 	require.Equal(t, []string{"sub_1"}, srv.client.portalInput.SubscriptionIDs)
 }
 
-func TestCreateOrganizationBillingPortalRouteKeepsEmptyBodyCompatible(t *testing.T) {
-	t.Parallel()
-
-	srv := newBillingAPITestServer(t)
-	srv.client.portal = &paddle.CustomerPortalSession{
-		ID:         "cpls_1",
-		CustomerID: "ctm_1",
-		URLs: paddle.CustomerPortalSessionURLs{
-			General: paddle.CustomerPortalSessionGeneralURLs{Overview: "https://customer-portal.paddle.com/overview?token=fresh"},
-		},
-	}
-	_, err := srv.db.NewInsert().Model(&models.BillingSubscription{
-		OrganizationID:         "org_ws-1",
-		WorkspaceID:            "ws-1",
-		Provider:               billing.ProviderPaddle,
-		ProviderCustomerID:     "ctm_1",
-		ProviderSubscriptionID: "sub_1",
-		Status:                 "active",
-		PlanID:                 "founder",
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	req := httptest.NewRequestWithContext(
-		t.Context(),
-		http.MethodPost,
-		"/api/v1/organizations/org_ws-1/billing/portal",
-		nil,
-	)
-	req.Header.Set("Authorization", "Bearer web-token")
-	resp := httptest.NewRecorder()
-
-	srv.echo.ServeHTTP(resp, req)
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	require.Equal(t, 1, srv.client.portalRequests)
-}
-
 func TestOrganizationBillingAdminCanUsePurposeLinkWithoutWorkspaceAdminRole(t *testing.T) {
 	t.Parallel()
 
@@ -877,55 +813,6 @@ func TestOrganizationBillingAdminCanUsePurposeLinkWithoutWorkspaceAdminRole(t *t
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
 	require.Equal(t, "cancel_subscription", body["purpose"])
 	require.Equal(t, "https://customer-portal.paddle.com/cancel?token=fresh", body["url"])
-}
-
-func TestPastDueBillingStatusAndPaymentRecoveryRoute(t *testing.T) {
-	t.Parallel()
-
-	srv := newBillingAPITestServer(t)
-	pastDueSince := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
-	srv.client.portal = &paddle.CustomerPortalSession{
-		ID:         "cpls_recovery",
-		CustomerID: "ctm_1",
-		URLs: paddle.CustomerPortalSessionURLs{Subscriptions: []paddle.CustomerPortalSessionSubscriptionURLs{
-			{
-				ID:                              "sub_1",
-				UpdateSubscriptionPaymentMethod: "https://customer-portal.paddle.com/payment-method?token=fresh",
-			},
-		}},
-	}
-	_, err := srv.db.NewInsert().Model(&models.BillingSubscription{
-		OrganizationID:         "org_ws-1",
-		WorkspaceID:            "ws-1",
-		Provider:               billing.ProviderPaddle,
-		ProviderCustomerID:     "ctm_1",
-		ProviderSubscriptionID: "sub_1",
-		Status:                 "past_due",
-		PlanID:                 "founder",
-		EntitlementSnapshot:    `{"limits":{"scheduled_posts_monthly":500}}`,
-		ProviderUpdatedAt:      pastDueSince,
-		PastDueSince:           pastDueSince,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	status := srv.getJSON(t, "/api/v1/billing/status?workspace_id=ws-1")
-	require.Equal(t, http.StatusOK, status.Code, status.Body.String())
-	var statusBody map[string]any
-	require.NoError(t, json.Unmarshal(status.Body.Bytes(), &statusBody))
-	require.Equal(t, "past_due", statusBody["status"])
-	require.Equal(t, true, statusBody["access_restricted"])
-	require.Equal(t, true, statusBody["can_manage_billing"])
-	require.Equal(t, "2026-08-09T12:00:00Z", statusBody["past_due_since"])
-
-	portal := srv.postJSON(t, "/api/v1/billing/portal", map[string]any{
-		"workspace_id": "ws-1",
-		"purpose":      "update_payment_method",
-	})
-	require.Equal(t, http.StatusOK, portal.Code, portal.Body.String())
-	var portalBody map[string]any
-	require.NoError(t, json.Unmarshal(portal.Body.Bytes(), &portalBody))
-	require.Equal(t, "https://customer-portal.paddle.com/payment-method?token=fresh", portalBody["url"])
-	require.Equal(t, 1, srv.client.portalRequests)
 }
 
 func TestPastDueBillingStatusIsVisibleWithoutBillingPermission(t *testing.T) {

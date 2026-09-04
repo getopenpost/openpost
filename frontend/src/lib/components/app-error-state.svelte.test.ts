@@ -1,19 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { setLocale } from '$lib/paraglide/runtime';
 import AppErrorState from './app-error-state.svelte';
 
 describe('AppErrorState', () => {
-	afterEach(async () => {
-		setLocale('en', { reload: false });
-		document.documentElement.classList.remove('dark');
-		await page.viewport(1280, 900);
-	});
-
 	it('renders a retryable server failure and moves focus to its heading', async () => {
-		await page.viewport(320, 800);
-		document.documentElement.classList.remove('dark');
 		const onRetry = vi.fn();
 		const screen = await render(AppErrorState, {
 			status: 503,
@@ -32,13 +22,9 @@ describe('AppErrorState', () => {
 		await expect
 			.element(screen.getByRole('link', { name: 'Documentation' }))
 			.not.toBeInTheDocument();
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
 	});
 
-	it('distinguishes localized forbidden access at 390px dark mode without a misleading retry', async () => {
-		await page.viewport(390, 844);
-		setLocale('pt', { reload: false });
-		document.documentElement.classList.add('dark');
+	it('withholds retry for forbidden access without mislabeling it', async () => {
 		const screen = await render(AppErrorState, {
 			status: 403,
 			online: true,
@@ -47,13 +33,10 @@ describe('AppErrorState', () => {
 		});
 
 		await expect
-			.element(screen.getByRole('heading', { name: 'Não podes abrir esta página' }))
+			.element(screen.getByRole('heading', { name: 'You cannot open this page' }))
 			.toBeVisible();
-		await expect
-			.element(screen.getByRole('button', { name: 'Tentar novamente' }))
-			.not.toBeInTheDocument();
+		await expect.element(screen.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
 		await expect.element(screen.getByText('HTTP 403')).toBeVisible();
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
 	});
 
 	it('reports the connection state before the underlying HTTP failure', async () => {

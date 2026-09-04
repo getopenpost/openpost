@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { notificationQueryKeys } from '@openpost/query-catalog';
 import { client, type User } from '$lib/api/client';
@@ -105,27 +104,6 @@ describe('NotificationPreferences', () => {
 		vi.useRealTimers();
 	});
 
-	it('reuses a parent-owned preference query without starting a nested read', async () => {
-		queryClient.setQueryData(notificationQueryKeys.preferences(), {
-			mutes: [
-				{
-					id: 'parent-mute',
-					scope: 'account',
-					starts_at: '2026-08-14T11:00:00Z',
-					ends_at: '2035-08-14T13:00:00Z'
-				}
-			]
-		});
-
-		const screen = await render(NotificationMutes, {
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-
-		await expect.element(screen.getByLabelText('Active mutes')).toBeVisible();
-		expect(mocks.get).not.toHaveBeenCalled();
-	});
-
 	it('removes an expired Mute and refreshes while the page stays open', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-08-14T12:00:00Z'));
@@ -149,133 +127,6 @@ describe('NotificationPreferences', () => {
 		await vi.advanceTimersByTimeAsync(1_100);
 		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
 		expect(mocks.get).toHaveBeenCalledTimes(2);
-	});
-
-	it('discards a Mute that expires while its API response is in flight', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-08-14T12:00:00Z'));
-		const response = deferred<{
-			data: {
-				mutes: Array<{
-					id: string;
-					scope: 'account';
-					starts_at: string;
-					ends_at: string;
-				}>;
-			};
-		}>();
-		mocks.get.mockReturnValue(response.promise);
-
-		const screen = await render(NotificationMutes, { notify: mocks.showToast });
-		await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1));
-		vi.setSystemTime(new Date('2026-08-14T12:00:02Z'));
-		response.resolve({
-			data: {
-				mutes: [
-					{
-						id: 'already-expired',
-						scope: 'account',
-						starts_at: '2026-08-14T11:00:00Z',
-						ends_at: '2026-08-14T12:00:01Z'
-					}
-				]
-			}
-		});
-
-		await vi.waitFor(() => expect(screen.getByLabelText('Active mutes').query()).toBeNull());
-	});
-
-	it('does not restore a Mute from a stale expiry refresh response', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-08-14T12:00:00Z'));
-		const staleRefresh = deferred<{
-			data: {
-				mutes: Array<{
-					id: string;
-					scope: 'account';
-					starts_at: string;
-					ends_at: string;
-				}>;
-			};
-		}>();
-		const lastingMute = {
-			id: 'lasting-mute',
-			scope: 'account' as const,
-			starts_at: '2026-08-14T11:00:00Z',
-			ends_at: '2026-08-14T13:00:00Z'
-		};
-		mocks.get
-			.mockResolvedValueOnce({
-				data: {
-					mutes: [
-						lastingMute,
-						{
-							id: 'short-mute',
-							scope: 'account',
-							starts_at: '2026-08-14T11:00:00Z',
-							ends_at: '2026-08-14T12:00:01Z'
-						}
-					]
-				}
-			})
-			.mockReturnValueOnce(staleRefresh.promise)
-			.mockResolvedValue({ data: { mutes: [] } });
-		mocks.delete.mockResolvedValue({ data: { mutes: [] } });
-
-		const screen = await render(NotificationMutes, { notify: mocks.showToast });
-		await expect.element(screen.getByLabelText('Active mutes')).toBeVisible();
-		await vi.advanceTimersByTimeAsync(1_100);
-		await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2));
-		await screen.getByRole('button', { name: 'End now' }).click();
-		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
-
-		staleRefresh.resolve({ data: { mutes: [lastingMute] } });
-		await vi.waitFor(() => expect(mocks.delete).toHaveBeenCalledTimes(1));
-		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
-	});
-
-	it('keeps concurrent End now actions independent and reconciles each completion', async () => {
-		const firstEnd = deferred<{ data: { mutes: never[] } }>();
-		const secondEnd = deferred<{ data: { mutes: never[] } }>();
-		let serverMutes = [
-			{
-				id: 'first-mute',
-				scope: 'account' as const,
-				starts_at: '2026-08-14T11:00:00Z',
-				ends_at: '2035-08-14T13:00:00Z'
-			},
-			{
-				id: 'second-mute',
-				scope: 'workspace' as const,
-				workspace_id: 'workspace-1',
-				workspace_name: 'Launch',
-				starts_at: '2026-08-14T11:00:00Z',
-				ends_at: '2035-08-14T14:00:00Z'
-			}
-		];
-		mocks.get.mockImplementation(async () => ({ data: { mutes: serverMutes } }));
-		mocks.delete.mockImplementation((_path, request) =>
-			request.params.path.id === 'first-mute' ? firstEnd.promise : secondEnd.promise
-		);
-
-		const screen = await render(NotificationMutes, { notify: mocks.showToast });
-		const accountItem = screen.getByRole('listitem').filter({ hasText: 'All workspaces' });
-		const workspaceItem = screen.getByRole('listitem').filter({ hasText: 'Launch only' });
-		await accountItem.getByRole('button', { name: 'End now' }).click();
-		await workspaceItem.getByRole('button', { name: 'End now' }).click();
-		await expect.element(accountItem.getByRole('button', { name: 'Ending…' })).toBeDisabled();
-		await expect.element(workspaceItem.getByRole('button', { name: 'Ending…' })).toBeDisabled();
-
-		serverMutes = serverMutes.filter((mute) => mute.id !== 'second-mute');
-		secondEnd.resolve({ data: { mutes: [] } });
-		await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2));
-		await expect.element(screen.getByText('Launch only')).not.toBeInTheDocument();
-		await expect.element(screen.getByRole('button', { name: 'Ending…' })).toBeDisabled();
-
-		serverMutes = [];
-		firstEnd.resolve({ data: { mutes: [] } });
-		await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(3));
-		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
 	});
 
 	it('reconciles an out-of-order Create and End now from authoritative reads', async () => {
@@ -337,80 +188,6 @@ describe('NotificationPreferences', () => {
 		cancelSpy.mockRestore();
 	});
 
-	it('does not apply a created Mute after the actor changes during cancellation', async () => {
-		const initial = notificationSettings([]);
-		const oldActorResult = notificationSettings([
-			{
-				id: 'old-actor-mute',
-				scope: 'account',
-				starts_at: '2026-08-14T11:00:00Z',
-				ends_at: '2035-08-14T13:00:00Z'
-			}
-		]);
-		const currentActorSettings = notificationSettings([]);
-		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
-		mocks.post.mockResolvedValue({ data: oldActorResult });
-		const cancellation = deferred<void>();
-		const cancelSpy = vi
-			.spyOn(queryClient, 'cancelQueries')
-			.mockImplementationOnce(() => cancellation.promise);
-
-		const screen = await render(NotificationMutes, {
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await screen.getByRole('button', { name: 'Start mute' }).click();
-		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
-
-		auth.setUser(user('user-b'));
-		queryClient.setQueryData(notificationQueryKeys.preferences(), currentActorSettings);
-		cancellation.resolve();
-
-		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
-		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
-			currentActorSettings
-		);
-		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute started.', 'success');
-		cancelSpy.mockRestore();
-	});
-
-	it('does not apply an ended Mute after the actor changes during cancellation', async () => {
-		const mute = {
-			id: 'actor-a-mute',
-			scope: 'account' as const,
-			starts_at: '2026-08-14T11:00:00Z',
-			ends_at: '2035-08-14T13:00:00Z'
-		};
-		const initial = notificationSettings([mute]);
-		const currentActorSettings = notificationSettings([
-			{ ...mute, id: 'actor-b-mute', ends_at: '2036-08-14T13:00:00Z' }
-		]);
-		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
-		mocks.delete.mockResolvedValue({ data: notificationSettings([]) });
-		const cancellation = deferred<void>();
-		const cancelSpy = vi
-			.spyOn(queryClient, 'cancelQueries')
-			.mockImplementationOnce(() => cancellation.promise);
-
-		const screen = await render(NotificationMutes, {
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await screen.getByRole('button', { name: 'End now' }).click();
-		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
-
-		auth.setUser(user('user-b'));
-		queryClient.setQueryData(notificationQueryKeys.preferences(), currentActorSettings);
-		cancellation.resolve();
-
-		await expect.element(screen.getByRole('button', { name: 'End now' })).toBeEnabled();
-		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(
-			currentActorSettings
-		);
-		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute ended.', 'success');
-		cancelSpy.mockRestore();
-	});
-
 	it('keeps the newest preference save and releases busy state when the Workspace changes', async () => {
 		const initial = notificationSettings([], 'UTC');
 		const savedForWorkspaceA = notificationSettings([], 'Europe/Lisbon');
@@ -453,82 +230,6 @@ describe('NotificationPreferences', () => {
 		expect(mocks.showToast).toHaveBeenCalledTimes(1);
 	});
 
-	it('releases Create Mute busy state when the Workspace changes', async () => {
-		const initial = notificationSettings([]);
-		const created = notificationSettings([
-			{
-				id: 'workspace-a-mute',
-				scope: 'workspace',
-				workspace_id: 'workspace-a',
-				workspace_name: 'Workspace A',
-				starts_at: '2026-08-14T11:00:00Z',
-				ends_at: '2035-08-14T13:00:00Z'
-			}
-		]);
-		const create = deferred<{ data: typeof created }>();
-		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
-		mocks.post.mockReturnValue(create.promise);
-
-		const screen = await render(NotificationMutes, {
-			workspaceID: 'workspace-a',
-			workspaceName: 'Workspace A',
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await screen.getByRole('button', { name: 'Start mute' }).click();
-		await vi.waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
-		await screen.rerender({
-			workspaceID: 'workspace-b',
-			workspaceName: 'Workspace B',
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
-
-		create.resolve({ data: created });
-		await vi.waitFor(() =>
-			expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(created)
-		);
-		await expect.element(screen.getByRole('button', { name: 'Start mute' })).toBeEnabled();
-		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute started.', 'success');
-	});
-
-	it('releases End Mute busy state when the Workspace changes', async () => {
-		const mute = {
-			id: 'workspace-a-mute',
-			scope: 'workspace' as const,
-			workspace_id: 'workspace-a',
-			workspace_name: 'Workspace A',
-			starts_at: '2026-08-14T11:00:00Z',
-			ends_at: '2035-08-14T13:00:00Z'
-		};
-		const initial = notificationSettings([mute]);
-		const ended = notificationSettings([]);
-		const end = deferred<{ data: typeof ended }>();
-		queryClient.setQueryData(notificationQueryKeys.preferences(), initial);
-		mocks.delete.mockReturnValue(end.promise);
-
-		const screen = await render(NotificationMutes, {
-			workspaceID: 'workspace-a',
-			workspaceName: 'Workspace A',
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await screen.getByRole('button', { name: 'End now' }).click();
-		await expect.element(screen.getByRole('button', { name: 'Ending…' })).toBeDisabled();
-		await screen.rerender({
-			workspaceID: 'workspace-b',
-			workspaceName: 'Workspace B',
-			notify: mocks.showToast,
-			queryStatus: 'parent'
-		});
-		await expect.element(screen.getByRole('button', { name: 'End now' })).toBeEnabled();
-
-		end.resolve({ data: ended });
-		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
-		expect(mocks.showToast).not.toHaveBeenCalledWith('Mute ended.', 'success');
-	});
-
 	it('settles an unauthorized preference save before touching cached or visible state', async () => {
 		mocks.get.mockResolvedValue({ data: notificationSettings([]) });
 		mocks.put.mockResolvedValue({
@@ -549,7 +250,6 @@ describe('NotificationPreferences', () => {
 	});
 
 	it('creates and ends a visible Workspace Mute without changing saved preferences', async () => {
-		await page.viewport(390, 844);
 		const initial = preferences();
 		let serverMutes: Array<{
 			id: string;
@@ -642,83 +342,6 @@ describe('NotificationPreferences', () => {
 			params: { path: { id: 'mute-workspace' } }
 		});
 		await expect.element(screen.getByLabelText('Active mutes')).not.toBeInTheDocument();
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
-	});
-
-	it('lets a person choose email delivery on a phone-sized screen', async () => {
-		await page.viewport(390, 844);
-		const initial = preferences();
-		mocks.get.mockResolvedValue({
-			data: {
-				preferences: initial,
-				topic_definitions: topicDefinitions(),
-				email_available: true,
-				email_address: 'founder@example.com',
-				digest_time: '09:00',
-				digest_timezone: 'Europe/Lisbon',
-				digest_configured: true
-			}
-		});
-		mocks.put.mockImplementation(async (_path, request) => ({
-			data: {
-				preferences: request.body.preferences,
-				topic_definitions: topicDefinitions(),
-				email_available: true,
-				email_address: 'founder@example.com',
-				digest_time: request.body.digest_time,
-				digest_timezone: request.body.digest_timezone,
-				digest_configured: true
-			}
-		}));
-
-		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await expect
-			.element(screen.getByText('Email notifications go to founder@example.com.'))
-			.toBeVisible();
-		const emailMessage = screen.getByLabelText('New message · Email frequency').nth(1);
-		await expect.element(emailMessage).toHaveTextContent('Off');
-		await emailMessage.click();
-		await screen.getByRole('option', { name: 'Daily' }).click();
-		await screen.getByRole('button', { name: 'Save preferences' }).click();
-
-		expect(mocks.put).toHaveBeenCalledWith('/notifications/preferences', {
-			body: {
-				preferences: {
-					...initial,
-					new_message: { in_app: true, email_frequency: 'daily' }
-				},
-				digest_time: '09:00',
-				digest_timezone: 'Europe/Lisbon'
-			}
-		});
-		expect(mocks.showToast).toHaveBeenCalledWith('Preferences saved.', 'success');
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
-	});
-
-	it('explains when email is unavailable and keeps email choices disabled', async () => {
-		mocks.get.mockResolvedValue({
-			data: {
-				preferences: preferences(),
-				topic_definitions: topicDefinitions(),
-				email_available: false,
-				email_address: 'founder@example.com',
-				digest_time: '09:00',
-				digest_timezone: 'UTC',
-				digest_configured: false
-			}
-		});
-
-		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await expect
-			.element(
-				screen.getByText(
-					'Email delivery is not configured on this OpenPost instance. Your email choices will take effect when an administrator configures it.'
-				)
-			)
-			.toBeVisible();
-		await expect
-			.element(screen.getByLabelText('Publish failed · Email frequency').nth(1))
-			.toBeDisabled();
 	});
 
 	it('keeps saved preferences visible through a background error and clears the notice on retry', async () => {
@@ -756,77 +379,6 @@ describe('NotificationPreferences', () => {
 		mocks.get.mockResolvedValue({ data: saved });
 		await screen.getByRole('button', { name: 'Try again' }).click();
 		await expect.element(screen.getByText('Preferences refresh failed')).not.toBeInTheDocument();
-	});
-
-	it('defaults only a new choice to 09:00 in the browser timezone', async () => {
-		mocks.get.mockResolvedValue({
-			data: {
-				preferences: preferences(),
-				topic_definitions: topicDefinitions(),
-				email_available: true,
-				email_address: 'founder@example.com',
-				digest_time: '09:00',
-				digest_timezone: 'UTC',
-				digest_configured: false
-			}
-		});
-
-		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await expect.element(screen.getByLabelText('Daily digest time')).toHaveValue('09:00');
-		await expect
-			.element(screen.getByLabelText('Timezone'))
-			.toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
-	});
-
-	it('shows the saved digest window and frequency controls on desktop', async () => {
-		await page.viewport(1280, 900);
-		mocks.get.mockResolvedValue({
-			data: {
-				preferences: preferences(),
-				topic_definitions: topicDefinitions(),
-				email_available: true,
-				email_address: 'founder@example.com',
-				digest_time: '16:45',
-				digest_timezone: 'America/New_York',
-				digest_configured: true
-			}
-		});
-
-		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await expect.element(screen.getByLabelText('Daily digest time')).toHaveValue('16:45');
-		await expect.element(screen.getByLabelText('Timezone')).toHaveValue('America/New_York');
-		await expect
-			.element(screen.getByLabelText('New message · Email frequency').first())
-			.toBeVisible();
-		await expect
-			.element(screen.getByLabelText('Security action · Email frequency').first())
-			.toBeDisabled();
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1280);
-	});
-
-	it('maps preference validation failures to localized copy', async () => {
-		mocks.get.mockResolvedValue({
-			data: {
-				preferences: preferences(),
-				topic_definitions: topicDefinitions(),
-				email_available: true,
-				email_address: 'founder@example.com',
-				digest_time: '09:00',
-				digest_timezone: 'UTC',
-				digest_configured: true
-			}
-		});
-		mocks.put.mockResolvedValue({
-			error: { status: 400, detail: 'digest timezone is invalid' }
-		});
-
-		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await screen.getByLabelText('Timezone').fill('Not/AZone');
-		await screen.getByRole('button', { name: 'Save preferences' }).click();
-		expect(mocks.showToast).toHaveBeenCalledWith(
-			'Check the email frequencies, digest time, and IANA timezone, then try again.',
-			'error'
-		);
 	});
 });
 

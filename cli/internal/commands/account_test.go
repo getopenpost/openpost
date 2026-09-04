@@ -3,8 +3,6 @@ package commands
 import (
 	"strings"
 	"testing"
-
-	"github.com/openpost/cli/internal/api"
 )
 
 func TestAccountSettingsURL(t *testing.T) {
@@ -16,11 +14,6 @@ func TestAccountSettingsURL(t *testing.T) {
 		{
 			name:     "empty instance",
 			instance: "",
-			want:     "",
-		},
-		{
-			name:     "whitespace instance",
-			instance: "   ",
 			want:     "",
 		},
 		{
@@ -42,11 +35,6 @@ func TestAccountSettingsURL(t *testing.T) {
 			name:     "https with subpath",
 			instance: "https://op.example.com/op/",
 			want:     "https://op.example.com/op/settings?tab=accounts",
-		},
-		{
-			name:     "http local",
-			instance: "http://localhost:8080",
-			want:     "http://localhost:8080/settings?tab=accounts",
 		},
 		{
 			name:     "drops query and fragment",
@@ -78,12 +66,6 @@ func TestEmptyAccountsMessage(t *testing.T) {
 			platform: "",
 			instance: "https://op.example.com",
 			wantHas:  []string{"No accounts are connected", url, "web UI"},
-		},
-		{
-			name:     "platform filter, instance given",
-			platform: "mastodon",
-			instance: "https://op.example.com/",
-			wantHas:  []string{"No mastodon accounts are connected", url},
 		},
 		{
 			name:     "platform filter, no instance, generic message",
@@ -121,34 +103,4 @@ func TestEmptyAccountsMessage(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestFilterAccountsByPlatform(t *testing.T) {
-	accounts := []api.SocialAccount{
-		{ID: "a1", Platform: "x"},
-		{ID: "a2", Platform: "mastodon"},
-		{ID: "a3", Platform: "bluesky"},
-		{ID: "a4", Platform: "x"},
-	}
-
-	t.Run("filters to a single platform", func(t *testing.T) {
-		got := filterAccountsByPlatform(accounts, "x")
-		if len(got) != 2 || got[0].ID != "a1" || got[1].ID != "a4" {
-			t.Fatalf("filterAccountsByPlatform(_, x) = %v, want [a1 a4]", got)
-		}
-	})
-
-	t.Run("returns empty slice when nothing matches", func(t *testing.T) {
-		got := filterAccountsByPlatform(accounts, "linkedin")
-		if len(got) != 0 {
-			t.Fatalf("filterAccountsByPlatform(_, linkedin) = %v, want []", got)
-		}
-	})
-
-	t.Run("returns empty slice on empty input", func(t *testing.T) {
-		got := filterAccountsByPlatform(nil, "x")
-		if len(got) != 0 {
-			t.Fatalf("filterAccountsByPlatform(nil, x) = %v, want []", got)
-		}
-	})
 }

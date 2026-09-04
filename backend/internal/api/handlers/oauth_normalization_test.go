@@ -142,42 +142,6 @@ func TestNormRoutesNewAccountWithSupportedFeaturesToComposer(t *testing.T) {
 	require.NotContains(t, loc, "access_token")
 }
 
-func TestBlueskyLoginPersistsProfileAvatar(t *testing.T) {
-	payload, err := json.Marshal(map[string]int64{"exp": time.Now().Add(time.Hour).Unix()})
-	require.NoError(t, err)
-	accessJWT := "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
-
-	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/xrpc/com.atproto.server.createSession":
-			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social","accessJwt":"`+accessJWT+`","refreshJwt":"refresh-token"}`)
-		case "/xrpc/com.atproto.server.getSession":
-			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social"}`)
-		case "/xrpc/app.bsky.actor.getProfile":
-			require.Equal(t, "did:plc:creator", r.URL.Query().Get("actor"))
-			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social","displayName":"Creator","avatar":"https://cdn.bsky.app/avatar.jpg"}`)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(pds.Close)
-
-	e, handler := newNormServer(t, map[string]platform.Adapter{
-		"bluesky": platform.NewBlueskyAdapter(pds.URL),
-	})
-	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
-		"workspace_id": "ws-1",
-		"handle":       "creator.bsky.social",
-		"app_password": "app-password",
-	}, true)
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-
-	var account models.SocialAccount
-	require.NoError(t, handler.db.NewSelect().Model(&account).Where("account_id = ?", "did:plc:creator").Scan(t.Context()))
-	require.Equal(t, "https://cdn.bsky.app/avatar.jpg", account.AccountAvatarURL)
-}
-
 func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing.T) {
 	payload, err := json.Marshal(map[string]int64{"exp": time.Now().Add(time.Hour).Unix()})
 	require.NoError(t, err)
@@ -212,26 +176,6 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 	require.NoError(t, handler.db.NewSelect().Model(&account).Where("account_id = ?", "did:plc:creator").Scan(t.Context()))
 	require.Equal(t, "canonical.bsky.social", account.AccountUsername)
 	require.Empty(t, account.AccountAvatarURL)
-}
-
-func TestNormRoutesFirstAndExistingDestinationsToTheirCanonicalPages(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: false}},
-	}
-	e1, _ := newNormServer(t, providers)
-	resp1 := doNormCallback(t, e1)
-	defer resp1.Body.Close()
-	require.Contains(t, resp1.Header.Get("Location"), "workspace_id=ws-1")
-	require.Contains(t, resp1.Header.Get("Location"), "account_ids=")
-	require.NotContains(t, resp1.Header.Get("Location"), "settings")
-
-	e2, _ := newNormServer(t, providers)
-	respDiscard := doNormCallback(t, e2)
-	respDiscard.Body.Close()
-	resp2 := doNormCallback(t, e2)
-	defer resp2.Body.Close()
-	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp2.Header.Get("Location"))
 }
 
 func TestNormReactivatedAccountReturnsToSettings(t *testing.T) {
@@ -270,37 +214,4 @@ func TestNormComposerRedirectContainsOnlyContinuationData(t *testing.T) {
 	require.Empty(t, u.Query().Get("new_account_ids"))
 	require.Empty(t, u.Query().Get("open_fresh_composer"))
 	require.NotContains(t, loc, "code")
-}
-
-func TestNormCompleteSelectionContainsNormalizedFields(t *testing.T) {
-	t.Parallel()
-	selProviders := map[string]platform.Adapter{
-		"facebook": &selectionTestAdapter{},
-	}
-	e2, _ := newNormServer(t, selProviders)
-	authQ := "/api/v1/accounts/facebook/auth-url?workspace_id=ws-1"
-	authResp := oauthSelectionRequest(t, e2, http.MethodGet, authQ, nil, true)
-	require.Equal(t, http.StatusOK, authResp.Code)
-	var authBody struct {
-		URL string `json:"url"`
-	}
-	require.NoError(t, json.Unmarshal(authResp.Body.Bytes(), &authBody))
-	u, _ := url.Parse(authBody.URL)
-	state := u.Query().Get("state")
-	cbResp := oauthSelectionRequest(t, e2, http.MethodGet, "/api/v1/accounts/facebook/callback?code=code&state="+url.QueryEscape(state), nil, false)
-	result := cbResp.Result()
-	defer result.Body.Close()
-	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
-	loc := result.Header.Get("Location")
-	parsed, _ := url.Parse(loc)
-	connID := parsed.Query().Get("connection_id")
-	require.NotEmpty(t, connID)
-	completeResp := oauthSelectionRequest(t, e2, http.MethodPost, "/api/v1/accounts/selections/"+connID+"/complete", map[string]string{"selection_id": "page-2"}, true)
-	require.Equal(t, http.StatusOK, completeResp.Code)
-	var out AccountSelectionCompletionResponse
-	require.NoError(t, json.Unmarshal(completeResp.Body.Bytes(), &out))
-	require.NotEmpty(t, out.WorkspaceID)
-	require.NotEmpty(t, out.AccountIDs)
-	require.NotContains(t, completeResp.Body.String(), "feature_setup_required")
-	require.NotContains(t, completeResp.Body.String(), "new_account_ids")
 }

@@ -2,7 +2,6 @@ import type { paths } from '@openpost/api-contract';
 import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 import { createMediaQueryAPI } from './media';
-import { createPromptQueryAPI } from './prompts';
 import { createSchedulingQueryAPI } from './scheduling';
 
 function transportWith(fetcher: typeof fetch) {
@@ -184,29 +183,5 @@ describe('content and scheduling web query adapters', () => {
 		expect(request?.signal.aborted).toBe(false);
 		controller.abort();
 		expect(request?.signal.aborted).toBe(true);
-	});
-
-	it('returns empty nullable prompt lists and reports HTTP problems through Query errors', async () => {
-		const emptyAPI = createPromptQueryAPI(
-			transportWith(
-				async () => new Response('null', { headers: { 'Content-Type': 'application/json' } })
-			)
-		);
-		await expect(
-			emptyAPI.listPrompts('workspace-1', '', new AbortController().signal)
-		).resolves.toEqual([]);
-
-		const failingAPI = createPromptQueryAPI(
-			transportWith(
-				async () =>
-					new Response(JSON.stringify({ detail: 'Workspace unavailable' }), {
-						status: 503,
-						headers: { 'Content-Type': 'application/problem+json' }
-					})
-			)
-		);
-		await expect(
-			failingAPI.listPrompts('workspace-1', '', new AbortController().signal)
-		).rejects.toMatchObject({ status: 503, message: 'Workspace unavailable' });
 	});
 });

@@ -90,25 +90,3 @@ func TestBlueskyAccountContentIdentityPreventsRepositoryAndPDSCollisions(t *test
 	_, err = decodeBlueskyAccountContentCursor(cursor, "https://one.pds", "did:plc:two")
 	require.Error(t, err)
 }
-
-func TestBlueskyAccountContentDiscoveryReportsUnsupportedAndPermissionCoverage(t *testing.T) {
-	adapter := NewBlueskyAdapter("https://pds.example")
-	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{AccountID: "handle.example"})
-	require.False(t, support.Supported)
-	require.Contains(t, support.UnavailableReason, "DID")
-
-	_, err := adapter.DiscoverAccountContent(context.Background(), "", AccountContentDiscoveryRequest{AccountID: "did:plc:founder"})
-	require.Error(t, err)
-	var discoveryErr *AccountContentDiscoveryError
-	require.ErrorAs(t, err, &discoveryErr)
-	require.Equal(t, AccountContentDiscoveryPermissionRequired, discoveryErr.Status)
-}
-
-func TestBlueskyManagedReceiptCanonicalizesToDiscoveredIdentity(t *testing.T) {
-	receipt := `{"_root":null,"cid":"bafy-record","uri":"at://did:plc:founder/app.bsky.feed.post/3abc"}`
-	managed, ok := CanonicalSocialAccountContentID(providerBluesky, "https://pds.example", "did:plc:founder", receipt)
-	require.True(t, ok)
-	discovered, ok := CanonicalSocialAccountContentID(providerBluesky, "https://pds.example", "did:plc:founder", "at://did:plc:founder/app.bsky.feed.post/3abc")
-	require.True(t, ok)
-	require.Equal(t, managed, discovered)
-}

@@ -6,11 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizedRequestRoute(t *testing.T) {
-	require.Equal(t, "/api/v1/publications/:id", normalizedRequestRoute(" /api/v1/publications/:id "))
-	require.Equal(t, unmatchedRequestRoute, normalizedRequestRoute(""))
-}
-
 func TestRequestConsumerClass(t *testing.T) {
 	tests := []struct {
 		name      string

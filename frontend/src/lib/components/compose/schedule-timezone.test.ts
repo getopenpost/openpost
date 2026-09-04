@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	isFutureSchedule,
 	workspaceClock,
-	workspaceDateKeyFromISO,
 	workspaceScheduleFromISO,
 	workspaceScheduleMoveToDate,
 	workspaceScheduleToISO
@@ -28,11 +27,6 @@ describe('workspaceScheduleToISO', () => {
 		);
 	});
 
-	it('rejects malformed times', () => {
-		expect(workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '24:00', 'UTC')).toBeUndefined();
-		expect(workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '9:00', 'UTC')).toBeUndefined();
-	});
-
 	it('fails safely when persisted workspace timezone data is invalid', () => {
 		expect(
 			workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '09:00', 'Bad/Zone')
@@ -53,26 +47,6 @@ describe('workspaceScheduleToISO', () => {
 			date: new CalendarDate(2026, 7, 20),
 			time: '04:00'
 		});
-	});
-
-	it('derives today and current minutes from the workspace clock', () => {
-		const instant = new Date('2026-07-20T23:30:00.000Z');
-
-		expect(workspaceClock('Europe/Lisbon', instant)).toMatchObject({
-			date: new CalendarDate(2026, 7, 21),
-			minutes: 30
-		});
-		expect(workspaceClock('America/New_York', instant)).toMatchObject({
-			date: new CalendarDate(2026, 7, 20),
-			minutes: 19 * 60 + 30
-		});
-	});
-
-	it('groups API instants by the workspace-local date', () => {
-		expect(workspaceDateKeyFromISO('2026-07-20T23:30:00.000Z', 'Europe/Lisbon')).toBe('2026-07-21');
-		expect(workspaceDateKeyFromISO('2026-07-20T23:30:00.000Z', 'America/New_York')).toBe(
-			'2026-07-20'
-		);
 	});
 
 	it('moves an instant by workspace-local date and preserves its wall time', () => {

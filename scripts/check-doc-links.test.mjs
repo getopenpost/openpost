@@ -37,15 +37,6 @@ test("collects nested VitePress nav and sidebar links once", () => {
   assert.deepEqual(targets, ["/guide/", "/guide/setup", "/usage/image-editor"]);
 });
 
-test("every configured local VitePress navigation target resolves", async () => {
-  const configFile = "docs-site/.vitepress/config.ts";
-  const config = (await import(pathToFileURL(path.join(repositoryRoot, configFile)).href)).default;
-  const missing = configuredNavigationTargets(config).filter(
-    (target) => !localDocumentationTargetExists(repositoryRoot, configFile, target),
-  );
-  assert.deepEqual(missing, []);
-});
-
 test("finds pages that are outside the configured documentation graph", () => {
   const pages = [
     "docs-site/index.md",

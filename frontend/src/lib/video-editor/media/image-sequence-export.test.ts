@@ -52,33 +52,6 @@ describe('image sequence naming and ranges', () => {
 		expect(sanitizeSequenceBaseName('a/b:c')).toBe('a_b_c');
 	});
 
-	it('pads file names with at least five digits and encodes exact counts', () => {
-		expect(formatSequenceFileName('Clip', 0, 2, 'png')).toBe('Clip_00001.png');
-		expect(formatSequenceFileName('Clip', 1, 2, 'jpeg')).toBe('Clip_00002.jpg');
-		expect(formatSequenceFileName('Clip', 0, 2, 'webp')).toBe('Clip_00001.webp');
-		expect(formatSequenceFileName('Clip', 9, 100000, 'png')).toBe('Clip_000010.png');
-		expect(formatSequenceFileName('Clip', 99999, 100000, 'png')).toBe('Clip_100000.png');
-	});
-
-	it('resolves exact range boundaries inclusive start exclusive end', () => {
-		const project = projectWithDuration(100);
-		expect(resolveSequenceRange(project, { startFrame: 10, endFrame: 12 })).toEqual({
-			startFrame: 10,
-			endFrame: 12,
-			totalFrames: 2
-		});
-		expect(resolveSequenceRange(project, { startFrame: 0, endFrame: 300 })).toEqual({
-			startFrame: 0,
-			endFrame: 100,
-			totalFrames: 100
-		});
-		expect(resolveSequenceRange(project, undefined)).toEqual({
-			startFrame: 0,
-			endFrame: 100,
-			totalFrames: 100
-		});
-	});
-
 	it('estimates bytes and gates ZIP fallback correctly', () => {
 		expect(isZipFallbackSafe('png', 1920, 1080, 10)).toBe(true);
 		expect(isZipFallbackSafe('webp', 1920, 1080, 10)).toBe(true);

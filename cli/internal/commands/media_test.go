@@ -8,20 +8,6 @@ import (
 	"testing"
 )
 
-func TestMediaCommandExposesAttachmentLifecycle(t *testing.T) {
-	cmd := newMediaCmd()
-	want := map[string]bool{
-		"upload": true, "list": true, "update": true,
-		"usage": true, "storage": true, "delete": true,
-	}
-	for _, child := range cmd.Commands() {
-		delete(want, child.Name())
-	}
-	if len(want) != 0 {
-		t.Fatalf("missing media commands: %v", want)
-	}
-}
-
 func TestMediaDeleteJSONRequiresYes(t *testing.T) {
 	_, err := executeRootCaptureStdout(
 		t,

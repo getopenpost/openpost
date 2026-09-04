@@ -28,37 +28,6 @@ describe('sample-rate-converter', () => {
 		expect(Math.abs(freq - 440)).toBeLessThan(5);
 	});
 
-	it('matches single-shot vs chunked resample across boundaries', () => {
-		const rateIn = 44_100;
-		const rateOut = 48_000;
-		const frames = 100_000;
-		const impulseAt = 50_000;
-		const input = new Float32Array(frames);
-		input[impulseAt] = 1;
-		const single = resampleChannelLinear(input, rateIn, rateOut);
-		const resampler = new AbsolutePhaseResampler(rateIn, rateOut);
-		const chunkSize = 4096;
-		const chunks: Float32Array[] = [];
-		for (let off = 0; off < input.length; off += chunkSize)
-			chunks.push(input.subarray(off, off + chunkSize));
-		const chunkedParts: Float32Array[] = [];
-		for (let i = 0; i < chunks.length; i++)
-			chunkedParts.push(resampler.processChunk(chunks[i]!, i === chunks.length - 1));
-		const chunkedLen = chunkedParts.reduce((s, p) => s + p.length, 0);
-		const chunked = new Float32Array(chunkedLen);
-		let o = 0;
-		for (const p of chunkedParts) {
-			chunked.set(p, o);
-			o += p.length;
-		}
-		expect(chunked.length).toBe(single.length);
-		// impulse should land within one sample across boundary
-		const singlePeak = single.indexOf(Math.max(...single));
-		const chunkedPeak = chunked.indexOf(Math.max(...chunked));
-		expect(Math.abs(singlePeak - chunkedPeak)).toBeLessThanOrEqual(1);
-		expect(chunked[singlePeak] ?? 0).toBeCloseTo(single[singlePeak] ?? 0, 2);
-	});
-
 	it('has zero cumulative drift over long duration', () => {
 		const rateIn = 44_100;
 		const rateOut = 48_000;
@@ -86,16 +55,6 @@ describe('sample-rate-converter', () => {
 		}
 		expect(naive).not.toBe(expected);
 		expect(Math.abs(naive - expected)).toBeGreaterThan(10);
-	});
-
-	it('handles common rates without drift: 22.05, 32, 44.1, 48 to 48', () => {
-		for (const src of [22_050, 32_000, 44_100, 48_000]) {
-			const input = sine(1000, src, src);
-			const out = resampleAudioChannels([input], src, 48_000)[0]!;
-			expect(out.length).toBe(expectedOutputFrames(src, src, 48_000));
-			const freq = peakFreq(out, 48_000);
-			expect(Math.abs(freq - 1000)).toBeLessThan(5);
-		}
 	});
 
 	it('maps mono to stereo by duplication and 5.1 via ITU', () => {

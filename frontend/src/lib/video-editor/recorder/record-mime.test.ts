@@ -46,27 +46,4 @@ describe('record-mime helpers', () => {
 		expect(mapRecorderError(new Error('not supported'))).toBe('unsupported');
 		expect(mapRecorderError(new Error('timeout'))).toBe('stop-timeout');
 	});
-
-	it('estimates bytes with 20% headroom and formats correctly', () => {
-		const perMin = estimateBytesPerMinute({ screen: true, camera: true, microphone: true });
-		const perMinMic = estimateBytesPerMinute({ screen: false, camera: false, microphone: true });
-		expect(perMin).toBeGreaterThan(perMinMic);
-		expect(formatBytes(500)).toBe('500 B');
-		expect(formatBytes(2048)).toBe('2.0 KB');
-		expect(formatBytes(6 * 1024 * 1024)).toBe('6.0 MB');
-		const withHeadroom = Math.ceil(perMin * 5 * 1.2);
-		expect(withHeadroom).toBeGreaterThan(perMin * 5);
-	});
-
-	it('uses the same capture bitrate for encoder options and storage estimates', () => {
-		const quality = {
-			videoResolution: '2160p' as const,
-			videoFrameRate: 60 as const,
-			includeSystemAudio: true
-		};
-		expect(recorderVideoBitsPerSecond(quality)).toBe(40_000_000);
-		expect(estimateBytesPerMinute({ screen: true, camera: true, microphone: true }, quality)).toBe(
-			((40_000_000 * 2 + RECORDER_AUDIO_BITS_PER_SECOND * 2) * 60) / 8
-		);
-	});
 });

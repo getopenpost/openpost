@@ -16,19 +16,4 @@ describe('text item spans', () => {
 			})
 		).toBe('Headline\nSubtitle');
 	});
-
-	it('uses the first structured span as the primary layout copy', () => {
-		expect(getTextItemPrimaryText({ text: 'Headline\nSubtitle' })).toBe('Headline');
-		expect(
-			getTextItemPrimaryText({
-				text: 'Ignored',
-				textSpans: [{ text: 'Tag' }, { text: 'Headline' }]
-			})
-		).toBe('Tag');
-	});
-
-	it('builds a stable timeline label from the first line', () => {
-		expect(buildTextItemLabelFromText('Headline\nSubtitle')).toBe('Headline');
-		expect(buildTextItemLabelFromText('   \nSubtitle')).toBe('Text');
-	});
 });

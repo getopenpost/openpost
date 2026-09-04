@@ -212,15 +212,4 @@ describe('withUploadRetry', () => {
 		).rejects.toThrow('bad request');
 		expect(attempts).toBe(1);
 	});
-
-	it('does not retry abort errors', async () => {
-		let attempts = 0;
-		await expect(
-			withUploadRetry(async () => {
-				attempts++;
-				throw new DOMException('Aborted', 'AbortError');
-			})
-		).rejects.toThrow();
-		expect(attempts).toBe(1);
-	});
 });

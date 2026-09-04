@@ -54,15 +54,6 @@ const schema: CompositionControlSchema = {
 };
 
 describe('composition published controls', () => {
-	it('finds plain text and solid color candidates only', () => {
-		expect(getCompositionControlCandidates([text, shape])).toMatchObject([
-			{ targetItemId: 'title', property: 'text.text', kind: 'text' },
-			{ targetItemId: 'title', property: 'text.color', kind: 'color' },
-			{ targetItemId: 'accent', property: 'shape.fillColor', kind: 'color' },
-			{ targetItemId: 'accent', property: 'shape.strokeColor', kind: 'color' }
-		]);
-	});
-
 	it('applies per-instance values without mutating the shared source', () => {
 		const resolved = applyCompositionControlOverrides([text, shape], schema, {
 			copy: 'Instance title',

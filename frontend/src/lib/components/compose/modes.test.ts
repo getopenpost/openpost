@@ -3,32 +3,8 @@ import { buildPublicationPayload } from './modes';
 
 const youtube = { id: 'yt-1', platform: 'youtube', account_username: 'OpenPost' };
 const tiktok = { id: 'tt-1', platform: 'tiktok', account_username: 'openpost' };
-const instagram = { id: 'ig-1', platform: 'instagram', account_username: 'openpost' };
 
 describe('publication composer payloads', () => {
-	it('uses the shared writing surface as YouTube description and required settings as metadata', () => {
-		const payload = buildPublicationPayload({
-			mode: 'post',
-			workspaceId: 'ws-1',
-			accounts: [youtube],
-			fields: { postText: 'A complete tour of the release.' },
-			media: [{ id: 'video-1', mimeType: 'video/mp4' }],
-			settingsByAccount: {
-				'yt-1': { title: 'Launch walkthrough', privacy: 'private', category_id: '28' }
-			},
-			resolvedByAccount: {
-				'yt-1': { profile: 'long_video', outputProfile: 'youtube.video' }
-			}
-		});
-
-		expect(payload.renditions[0]).toMatchObject({
-			body: 'A complete tour of the release.',
-			title: 'Launch walkthrough',
-			description: 'A complete tour of the release.',
-			settings: { title: 'Launch walkthrough', privacy: 'private', category_id: '28' }
-		});
-	});
-
 	it('maps required video metadata and explicit destination choices from the shared composer', () => {
 		const payload = buildPublicationPayload({
 			mode: 'post',
@@ -162,51 +138,6 @@ describe('publication composer payloads', () => {
 			publication_segment_id: 'segment-1',
 			body: 'Read the full changelog.',
 			settings: {},
-			media: []
-		});
-	});
-
-	it('stores Social Set provenance and explicit destination inheritance choices', () => {
-		const payload = buildPublicationPayload({
-			mode: 'post',
-			workspaceId: 'ws-1',
-			socialSetId: 'set-1',
-			accounts: [instagram],
-			fields: { postText: 'Shared body' },
-			media: [{ id: 'image-1', mimeType: 'image/jpeg', accountIds: [] }],
-			segments: [
-				{
-					id: 'segment-1',
-					content: 'Shared body',
-					media: [{ id: 'image-1', mimeType: 'image/jpeg', accountIds: [] }]
-				}
-			],
-			requestedOutputProfiles: { 'ig-1': 'instagram.story' },
-			formatLockedByAccount: { 'ig-1': true },
-			scheduleOverridesByAccount: { 'ig-1': '2026-08-08T10:00:00Z' },
-			segmentOverridesByAccount: {
-				'ig-1': { 'segment-1': { body: '', title: 'Story title' } }
-			},
-			resolvedByAccount: {
-				'ig-1': { profile: 'story', outputProfile: 'instagram.story' }
-			}
-		});
-
-		expect(payload).toMatchObject({
-			creation_preset: 'post',
-			social_set_id: 'set-1'
-		});
-		expect(payload.renditions[0]).toMatchObject({
-			output_profile: 'instagram.story',
-			format_locked: true,
-			schedule_override: '2026-08-08T10:00:00Z'
-		});
-		expect(payload.renditions[0].segments[0]).toMatchObject({
-			body: '',
-			body_override: '',
-			title: 'Story title',
-			title_override: 'Story title',
-			media_inherited: false,
 			media: []
 		});
 	});

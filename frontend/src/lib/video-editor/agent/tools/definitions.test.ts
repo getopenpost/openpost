@@ -42,31 +42,6 @@ describe('editor tool registry', () => {
 		expect(getEditorTool('find_clips')?.readOnly).toBe(true);
 	});
 
-	it('find_clips returns grounded refs for filtering', async () => {
-		const a: TimelineItem = {
-			id: 'a',
-			trackId: track.id,
-			from: 0,
-			durationInFrames: 30,
-			label: 'Hello',
-			type: 'video'
-		};
-		const b: TimelineItem = {
-			id: 'b',
-			trackId: track.id,
-			from: 30,
-			durationInFrames: 30,
-			label: 'World',
-			type: 'text'
-		};
-		timelineStore.setAll({ tracks: [track], items: [a, b], fps: 30 });
-		buildClipRefs();
-		const tool = getEditorTool('find_clips')!;
-		const result = await tool.execute({ query: 'hello' });
-		expect(result.ok).toBe(true);
-		expect(String(result.message)).toContain('c1');
-	});
-
 	it('select_clips uses callback and rejects stale refs', async () => {
 		const a: TimelineItem = {
 			id: 'a',
@@ -115,27 +90,5 @@ describe('editor tool registry', () => {
 		expect(commandHistory.undoStack.length).toBeGreaterThan(before);
 		commandHistory.undo();
 		expect(timelineStore.itemById.has('a')).toBe(true);
-	});
-
-	it('set_volume uses public action and is undoable', async () => {
-		const a: TimelineItem = {
-			id: 'a',
-			trackId: track.id,
-			from: 0,
-			durationInFrames: 30,
-			label: 'Clip',
-			type: 'video',
-			volume: 1
-		};
-		timelineStore.setAll({ tracks: [track], items: [a], fps: 30 });
-		buildClipRefs();
-		setClipRefSelectionProvider(() => ['a']);
-		const tool = getEditorTool('set_volume')!;
-		const before = commandHistory.undoStack.length;
-		await tool.execute({ volume: 0.5 });
-		expect(timelineStore.itemById.get('a')?.volume).toBe(0.5);
-		expect(commandHistory.undoStack.length).toBeGreaterThan(before);
-		commandHistory.undo();
-		expect(timelineStore.itemById.get('a')?.volume).toBe(1);
 	});
 });

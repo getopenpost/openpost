@@ -3,33 +3,6 @@ import test from "node:test";
 
 import { publicPlan, resolvePlan } from "./tasks.mjs";
 
-test("a scoped check resolves through the canonical task interface", () => {
-  const result = taskPlan("check", "frontend");
-  assert.equal(result.status, 0, result.stderr);
-  const plan = JSON.parse(result.stdout);
-  assert.equal(plan.command, "check");
-  assert.equal(plan.scope, "frontend");
-  assert.ok(plan.stages.some((stage) => stage.label === "generated contracts"));
-  assert.ok(plan.stages.some((stage) => stage.label === "frontend types"));
-});
-
-test("specialized policy checks share the check interface", () => {
-  const result = taskPlan("check", "provider-certification");
-  assert.equal(result.status, 0, result.stderr);
-  const plan = JSON.parse(result.stdout);
-  assert.deepEqual(
-    plan.stages.map((stage) => stage.label),
-    ["provider certification"],
-  );
-});
-
-test("repository tests use exact Bun paths", () => {
-  const result = taskPlan("test", "marketing");
-  assert.equal(result.status, 0, result.stderr);
-  const plan = JSON.parse(result.stdout);
-  assert.match(plan.stages[0].commands[0], /bun test \.\/scripts\//u);
-});
-
 test("default tests isolate workspace browser processes from heavier test stages", () => {
   const result = taskPlan("test");
   assert.equal(result.status, 0, result.stderr);

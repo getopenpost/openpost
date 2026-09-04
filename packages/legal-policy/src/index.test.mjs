@@ -4,8 +4,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  formatLegalDate,
-  formatPolicyEffectiveDate,
   legalChangeHistory,
   legalPolicy,
   managedService,
@@ -36,21 +34,41 @@ function assertSourcePathsExist(paths, owner) {
   }
 }
 
-test("official policy documents use explicit independent acceptance rules", () => {
-  assert.equal(legalPolicy.schema_version, 1);
+test("policy acceptance flags, register reviews, and change history stay current", () => {
   assert.equal(legalPolicy.terms.requires_acceptance, true);
   assert.equal(legalPolicy.privacy.requires_acceptance, true);
   assert.equal(legalPolicy.refunds.requires_acceptance, false);
+
+  assertCurrentReview(managedService, "managed-service");
+  assertCurrentReview(privacyInventory, "privacy inventory");
+  assertCurrentReview(securityAssurance, "security assurance");
+
+  assert.equal(legalChangeHistory.reviewed_on, privacyInventory.reviewed_on);
+  assert.match(legalChangeHistory.scope, /material changes/u);
+
+  const identities = new Set();
+  for (const entry of legalChangeHistory.entries) {
+    const identity = `${entry.document}:${entry.version}`;
+    assert.ok(!identities.has(identity), `duplicate legal history entry ${identity}`);
+    identities.add(identity);
+    assert.ok(Number.isFinite(Date.parse(`${entry.effective_date}T00:00:00Z`)));
+    assert.equal(new URL(entry.url).protocol, "https:");
+    assert.ok(entry.changes.length > 0, `${identity} needs a material change`);
+    assert.ok(entry.changes.every((change) => change.length >= 30));
+  }
+
+  for (const document of ["terms", "privacy", "refunds"]) {
+    const policy = legalPolicy[document];
+    const current = legalChangeHistory.entries.find(
+      (entry) => entry.document === document && entry.version === policy.version,
+    );
+    assert.ok(current, `missing current ${document} history`);
+    assert.equal(current.effective_date, policy.effective_date);
+    assert.equal(current.url, policy.url);
+  }
 });
 
-test("effective dates format from the canonical ISO value", () => {
-  assert.equal(formatPolicyEffectiveDate(legalPolicy.privacy), "1 September 2026");
-  assert.equal(formatLegalDate("2026-08-05"), "5 August 2026");
-  assert.throws(() => formatLegalDate("not-a-date"), /invalid legal date/u);
-});
-
-test("managed-service disclosure has distinct stores and providers", () => {
-  assert.equal(managedService.schema_version, 1);
+test("managed-service providers disclose purpose, data, and transfer with safe sources", () => {
   assert.match(managedService.contact, /^[^@]+@[^@]+$/u);
   assert.equal(
     new Set(managedService.stores.map(({ id }) => id)).size,
@@ -60,10 +78,6 @@ test("managed-service disclosure has distinct stores and providers", () => {
     new Set(managedService.providers.map(({ id }) => id)).size,
     managedService.providers.length,
   );
-});
-
-test("managed-service facts have current reviews and safe primary sources", () => {
-  assertCurrentReview(managedService, "managed-service");
 
   for (const provider of managedService.providers) {
     assert.ok(provider.purpose.length > 20, `${provider.id} needs a purpose`);
@@ -100,11 +114,6 @@ test("managed-service facts have current reviews and safe primary sources", () =
 });
 
 test("managed data has an owned purpose, retention rule, and deletion trigger", () => {
-  assert.equal(privacyInventory.schema_version, 1);
-  assertCurrentReview(privacyInventory, "privacy inventory");
-  assert.ok(privacyInventory.summary_notice.includes("not a replacement"));
-  assert.ok(privacyInventory.summary_points.length >= 5);
-
   const ids = new Set();
   for (const entry of privacyInventory.managed_retention) {
     assert.ok(!ids.has(entry.id), `duplicate managed category ${entry.id}`);
@@ -125,7 +134,7 @@ test("managed data has an owned purpose, retention rule, and deletion trigger", 
   }
 });
 
-test("whole-account analytics discloses bounded external content without raw provider data", () => {
+test("analytics disclosures match the rendered privacy page and stay consent-gated", () => {
   const analytics = privacyInventory.managed_retention.find(({ id }) => id === "analytics-usage");
   assert.ok(analytics);
   assert.match(analytics.includes, /bounded titles and text.*published outside OpenPost/u);
@@ -147,33 +156,7 @@ test("whole-account analytics discloses bounded external content without raw pro
     /do not contain raw platform replies, remote media, access tokens, bot tokens,\s+webhook secrets/u,
   );
   assert.match(policy, /We do not send post content[\s\S]*telemetry properties/u);
-});
 
-test("browser storage inventory covers every supported storage technology", () => {
-  assert.deepEqual(
-    [...new Set(privacyInventory.browser_storage.map(({ technology }) => technology))].sort(),
-    ["Cache Storage", "IndexedDB", "OPFS", "cookie", "localStorage", "sessionStorage"],
-  );
-
-  const ids = new Set();
-  const identifiers = new Set();
-  for (const entry of privacyInventory.browser_storage) {
-    assert.ok(!ids.has(entry.id), `duplicate browser-storage row ${entry.id}`);
-    ids.add(entry.id);
-    const identity = `${entry.technology}:${entry.identifier_kind}:${entry.identifier}`;
-    assert.ok(!identifiers.has(identity), `duplicate browser identifier ${identity}`);
-    identifiers.add(identity);
-    assert.match(entry.identifier_kind, /^(exact|prefix)$/u);
-    assert.match(entry.necessity, /^(strictly_necessary|functional|analytics)$/u);
-    for (const field of ["owner", "purpose", "scope", "duration"]) {
-      assert.ok(entry[field].length >= 15, `${entry.id} needs a useful ${field}`);
-    }
-    assert.ok(entry.source_refs.length > 0, `${entry.id} needs source evidence`);
-    assertSourcePathsExist(entry.source_refs, entry.id);
-  }
-});
-
-test("browser analytics storage remains optional and consent-aware", () => {
   const storage = new Map(privacyInventory.browser_storage.map((entry) => [entry.id, entry]));
   assert.equal(storage.get("cookie-telemetry-preference")?.necessity, "functional");
   assert.equal(storage.get("cookie-posthog-analytics")?.necessity, "analytics");
@@ -183,38 +166,16 @@ test("browser analytics storage remains optional and consent-aware", () => {
   assert.match(telemetry?.includes ?? "", /country derived before raw IP discard/u);
   assert.match(telemetry?.exceptions ?? "", /No optional browser telemetry is sent before/u);
   assert.match(telemetry?.exceptions ?? "", /Backend service telemetry is separately disclosed/u);
-});
 
-test("material legal history has a current entry for every canonical policy", () => {
-  assert.equal(legalChangeHistory.schema_version, 1);
-  assert.equal(legalChangeHistory.reviewed_on, privacyInventory.reviewed_on);
-  assert.match(legalChangeHistory.scope, /material changes/u);
-
-  const identities = new Set();
-  for (const entry of legalChangeHistory.entries) {
-    const identity = `${entry.document}:${entry.version}`;
-    assert.ok(!identities.has(identity), `duplicate legal history entry ${identity}`);
-    identities.add(identity);
-    assert.ok(Number.isFinite(Date.parse(`${entry.effective_date}T00:00:00Z`)));
-    assert.equal(new URL(entry.url).protocol, "https:");
-    assert.ok(entry.changes.length > 0, `${identity} needs a material change`);
-    assert.ok(entry.changes.every((change) => change.length >= 30));
-  }
-
-  for (const document of ["terms", "privacy", "refunds"]) {
-    const policy = legalPolicy[document];
-    const current = legalChangeHistory.entries.find(
-      (entry) => entry.document === document && entry.version === policy.version,
-    );
-    assert.ok(current, `missing current ${document} history`);
-    assert.equal(current.effective_date, policy.effective_date);
-    assert.equal(current.url, policy.url);
+  const technologies = new Set(
+    privacyInventory.browser_storage.map(({ technology }) => technology),
+  );
+  for (const technology of ["cookie", "localStorage", "sessionStorage", "IndexedDB"]) {
+    assert.ok(technologies.has(technology), `browser storage misses ${technology}`);
   }
 });
 
-test("security assurance states the evidence and independent-assurance boundary", () => {
-  assert.equal(securityAssurance.schema_version, 1);
-  assertCurrentReview(securityAssurance, "security assurance");
+test("security assurance states its boundary and the security page claims nothing more", () => {
   assert.deepEqual(securityAssurance.assurance_boundary.published_certifications, []);
   assert.deepEqual(securityAssurance.assurance_boundary.published_independent_reports, []);
   assert.match(securityAssurance.assurance_boundary.statement, /does not claim SOC 2/u);

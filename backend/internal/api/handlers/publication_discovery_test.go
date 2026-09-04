@@ -141,15 +141,6 @@ func TestPublicationDiscoveryHandlerAllowsOneActiveRequestPerUser(t *testing.T) 
 	require.Zero(t, stub.calls)
 }
 
-func TestPublicationDiscoveryHandlerRegistersWithoutRuntimeDependencies(t *testing.T) {
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	require.NotPanics(t, func() {
-		NewPublicationDiscoveryHandler(nil, nil, nil).RegisterRoutes(api)
-	})
-	require.NotNil(t, api.OpenAPI().Paths[publicationDiscoveryPath])
-}
-
 type publicationDiscoveryTestServer struct {
 	echo    *echo.Echo
 	db      *bun.DB

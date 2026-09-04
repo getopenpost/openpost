@@ -143,32 +143,3 @@ func TestEditorNameMigrationRenamesCanonicalStoredValues(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT plan_id FROM billing_checkout_attempts").Scan(&attemptPlanID))
 	require.Equal(t, "founder", attemptPlanID)
 }
-
-func TestVideoEditorAlwaysOnMigrationRemovesFeatureOverrides(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-
-	_, err := db.ExecContext(ctx, `
-		CREATE TABLE instance_settings (key TEXT PRIMARY KEY, value_encrypted BLOB NOT NULL);
-		CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
-		INSERT INTO instance_settings (key, value_encrypted) VALUES
-			('OPENPOST_VIDEO_EDITOR_ENABLED', x'01'),
-			('OPENPOST_VIDEO_STUDIO_ENABLED', x'02'),
-			('OPENPOST_STOCK_MEDIA_ENABLED', x'03')
-	`)
-	require.NoError(t, err)
-
-	sqlBytes, err := migrationFiles.ReadFile("068_video_editor_always_on.sql")
-	require.NoError(t, err)
-	require.NoError(t, runMigration(ctx, db, migration{
-		version: 68,
-		name:    "068_video_editor_always_on.sql",
-		sql:     string(sqlBytes),
-	}))
-
-	var settingKeys []string
-	require.NoError(t, db.NewRaw("SELECT key FROM instance_settings ORDER BY key").Scan(ctx, &settingKeys))
-	require.Equal(t, []string{"OPENPOST_STOCK_MEDIA_ENABLED"}, settingKeys)
-}

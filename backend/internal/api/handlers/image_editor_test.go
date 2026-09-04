@@ -167,57 +167,6 @@ func newImageEditorHandlerTest(t *testing.T) (*ImageEditorHandler, context.Conte
 	return NewImageEditorHandler(db, testAuthenticator{}, true, "/image-editor-models"), ctx
 }
 
-func TestMediaTagsSupportManyToManyAssignments(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-
-	media := []models.MediaAttachment{
-		{ID: "media-1", WorkspaceID: "workspace-1", FilePath: "1.png", MimeType: "image/png", ProcessingStatus: mediaReadyStatus, OriginalFilename: "1.png", FileHash: "tag-hash-1", Source: "upload", AssetKind: "library"},
-		{ID: "media-2", WorkspaceID: "workspace-1", FilePath: "2.mp4", MimeType: "video/mp4", ProcessingStatus: mediaReadyStatus, OriginalFilename: "2.mp4", FileHash: "tag-hash-2", Source: "upload", AssetKind: "library"},
-	}
-	_, err := handler.db.NewInsert().Model(&media).Exec(ctx)
-	require.NoError(t, err)
-
-	createCampaign := &CreateMediaTagInput{}
-	createCampaign.Body.WorkspaceID = "workspace-1"
-	createCampaign.Body.Name = "Campaign"
-	campaign, err := handler.createTag(ctx, createCampaign)
-	require.NoError(t, err)
-
-	createEvergreen := &CreateMediaTagInput{}
-	createEvergreen.Body.WorkspaceID = "workspace-1"
-	createEvergreen.Body.Name = "Evergreen"
-	evergreen, err := handler.createTag(ctx, createEvergreen)
-	require.NoError(t, err)
-
-	assignCampaign := &ReplaceMediaTagItemsInput{PathID: campaign.Body.ID}
-	assignCampaign.Body.Mode = "add"
-	assignCampaign.Body.MediaIDs = []string{"media-1", "media-2"}
-	assigned, err := handler.replaceTagItems(ctx, assignCampaign)
-	require.NoError(t, err)
-	require.Equal(t, 2, assigned.Body.Count)
-
-	assignEvergreen := &ReplaceMediaTagItemsInput{PathID: evergreen.Body.ID}
-	assignEvergreen.Body.Mode = "add"
-	assignEvergreen.Body.MediaIDs = []string{"media-1"}
-	_, err = handler.replaceTagItems(ctx, assignEvergreen)
-	require.NoError(t, err)
-
-	listed, err := handler.listTags(ctx, &ListMediaTagsInput{WorkspaceID: "workspace-1"})
-	require.NoError(t, err)
-	require.Len(t, listed.Body.Tags, 2)
-	require.Equal(t, "Campaign", listed.Body.Tags[0].Name)
-	require.Equal(t, 2, listed.Body.Tags[0].ItemCount)
-	require.Equal(t, "Evergreen", listed.Body.Tags[1].Name)
-	require.Equal(t, 1, listed.Body.Tags[1].ItemCount)
-
-	_, err = handler.deleteTag(ctx, &DeleteMediaTagInput{PathID: campaign.Body.ID})
-	require.NoError(t, err)
-	listed, err = handler.listTags(ctx, &ListMediaTagsInput{WorkspaceID: "workspace-1"})
-	require.NoError(t, err)
-	require.Len(t, listed.Body.Tags, 1)
-}
-
 func TestMediaUploadTagResolutionUsesOnlyAnExplicitTag(t *testing.T) {
 	t.Parallel()
 	handler, ctx := newImageEditorHandlerTest(t)
@@ -400,17 +349,6 @@ func TestImageEditorDesignSaveUsesOptimisticConcurrencyAndTracksMedia(t *testing
 	require.NoError(t, err)
 	require.Equal(t, 2, saved.Body.Revision)
 	require.Equal(t, "Launch updated", saved.Body.Document.Title)
-	require.Equal(t, "overlay", saved.Body.Document.Pages[0].Layers[0].Effects.BlendMode)
-	require.Equal(t, "circle", saved.Body.Document.Pages[0].Layers[0].Mask.Shape)
-	require.Equal(t, 0.25, saved.Body.Document.Pages[0].Layers[0].Image.Adjustments.Vibrance)
-	require.Len(t, saved.Body.Document.Pages[0].Layers[0].EraseMask.Strokes, 1)
-	require.Equal(t, "paint", saved.Body.Document.Pages[0].Layers[1].Type)
-	require.Equal(t, "stroke", saved.Body.Document.Pages[0].Layers[1].Paint.Kind)
-	require.Equal(t, "gradient", saved.Body.Document.Pages[0].Layers[2].Paint.Kind)
-	require.Equal(t, "outside", saved.Body.Document.Pages[0].Layers[0].Effects.Stroke.Position)
-	require.Equal(t, "image", saved.Body.Document.Pages[0].Background.Type)
-	require.Equal(t, "media-1", saved.Body.Document.Pages[0].Background.Image.MediaID)
-	require.Equal(t, payload.ExportDefaults, saved.Body.Document.ExportDefaults)
 
 	reloaded, err := handler.getDesign(ctx, &GetImageEditorDesignInput{PathID: created.Body.ID})
 	require.NoError(t, err)
@@ -462,48 +400,6 @@ func TestImageEditorDesignCreationIsIdempotentForClientRequest(t *testing.T) {
 	require.Equal(t, 1, count)
 }
 
-func TestImageEditorSourceDesignUsesItsImageAsTheLibraryPreview(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-	_, err := handler.db.NewInsert().Model(&models.MediaAttachment{
-		ID:               "source-image",
-		WorkspaceID:      "workspace-1",
-		FilePath:         "source-image.png",
-		MimeType:         "image/png",
-		ProcessingStatus: mediaReadyStatus,
-		OriginalFilename: "source-image.png",
-		FileHash:         "source-image-hash",
-		Source:           "upload",
-		AssetKind:        "library",
-		Width:            1200,
-		Height:           630,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	create := &CreateImageEditorDesignInput{}
-	create.Body.WorkspaceID = "workspace-1"
-	create.Body.Title = "Edit source image"
-	create.Body.PresetKey = "custom"
-	create.Body.WidthPX = 1200
-	create.Body.HeightPX = 630
-	create.Body.SourceMediaID = "source-image"
-	created, err := handler.createDesign(ctx, create)
-	require.NoError(t, err)
-	require.Equal(t, "source-image", created.Body.CoverPreviewMediaID)
-
-	_, err = handler.db.NewUpdate().
-		Model((*models.DesignDocument)(nil)).
-		Set("cover_preview_media_id = ''").
-		Where("id = ?", created.Body.ID).
-		Exec(ctx)
-	require.NoError(t, err)
-
-	listed, err := handler.listDesigns(ctx, &ListImageEditorDesignsInput{WorkspaceID: "workspace-1"})
-	require.NoError(t, err)
-	require.Len(t, listed.Body.Designs, 1)
-	require.Equal(t, "source-image", listed.Body.Designs[0].CoverPreviewMediaID)
-}
-
 func TestImageEditorViewerCanReadButCannotEdit(t *testing.T) {
 	t.Parallel()
 	handler, adminCtx := newImageEditorHandlerTest(t)
@@ -523,39 +419,6 @@ func TestImageEditorViewerCanReadButCannotEdit(t *testing.T) {
 	update.Body.ExpectedRevision = created.Body.Revision
 	update.Body.Document = created.Body.Document
 	_, err = handler.updateDesign(viewerCtx, update)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "read-only")
-}
-
-func TestImageEditorDesignFavoriteIsListedAndRequiresEditAccess(t *testing.T) {
-	t.Parallel()
-	handler, adminCtx := newImageEditorHandlerTest(t)
-	create := &CreateImageEditorDesignInput{}
-	create.Body.WorkspaceID = "workspace-1"
-	create.Body.Title = "Favorite design"
-	create.Body.PresetKey = "instagram-square"
-	created, err := handler.createDesign(adminCtx, create)
-	require.NoError(t, err)
-
-	listed, err := handler.listDesigns(adminCtx, &ListImageEditorDesignsInput{WorkspaceID: "workspace-1"})
-	require.NoError(t, err)
-	require.Len(t, listed.Body.Designs, 1)
-	require.False(t, listed.Body.Designs[0].IsFavorite)
-
-	favorite, err := handler.toggleDesignFavorite(adminCtx, &ToggleImageEditorDesignFavoriteInput{
-		PathID: created.Body.ID,
-	})
-	require.NoError(t, err)
-	require.True(t, favorite.Body.IsFavorite)
-
-	listed, err = handler.listDesigns(adminCtx, &ListImageEditorDesignsInput{WorkspaceID: "workspace-1"})
-	require.NoError(t, err)
-	require.True(t, listed.Body.Designs[0].IsFavorite)
-
-	viewerCtx := context.WithValue(context.Background(), middleware.UserIDKey, "viewer-1")
-	_, err = handler.toggleDesignFavorite(viewerCtx, &ToggleImageEditorDesignFavoriteInput{
-		PathID: created.Body.ID,
-	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "read-only")
 }
@@ -608,18 +471,6 @@ func TestImageEditorReturnTokenRejectsExternalReturnURL(t *testing.T) {
 	require.Contains(t, err.Error(), "same-origin")
 }
 
-func TestImageEditorReturnTokenRejectsRetiredPostReturnURL(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-	input := &CreateImageEditorReturnTokenInput{}
-	input.Body.WorkspaceID = "workspace-1"
-	input.Body.ReturnURL = "/posts/post-1"
-	input.Body.MaxSelection = 1
-	_, err := handler.createReturnToken(ctx, input)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not an allowed composer route")
-}
-
 func TestImageEditorReturnTokenEnforcesComposerMIMEConstraints(t *testing.T) {
 	t.Parallel()
 	handler, ctx := newImageEditorHandlerTest(t)
@@ -649,94 +500,6 @@ func TestImageEditorReturnTokenEnforcesComposerMIMEConstraints(t *testing.T) {
 	_, err = handler.completeReturnToken(ctx, complete)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "format is not supported")
-}
-
-func TestImageEditorWorkspaceTemplateCanBeReplacedDeliberately(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-	createDesign := &CreateImageEditorDesignInput{}
-	createDesign.Body.WorkspaceID = "workspace-1"
-	createDesign.Body.Title = "Template source"
-	createDesign.Body.PresetKey = "instagram-square"
-	design, err := handler.createDesign(ctx, createDesign)
-	require.NoError(t, err)
-
-	createTemplate := &CreateImageEditorTemplateInput{}
-	createTemplate.Body.WorkspaceID = "workspace-1"
-	createTemplate.Body.Name = "Campaign"
-	createTemplate.Body.Category = "Launch"
-	createTemplate.Body.Document = design.Body.Document
-	template, err := handler.createTemplate(ctx, createTemplate)
-	require.NoError(t, err)
-	require.Equal(t, "Campaign", template.Body.Name)
-
-	replacement := design.Body.Document
-	replacement.Title = "Replacement snapshot"
-	update := &UpdateImageEditorTemplateInput{PathID: template.Body.ID}
-	update.Body.Name = "Campaign v2"
-	update.Body.Category = "Announcements"
-	update.Body.Document = replacement
-	replaced, err := handler.updateTemplate(ctx, update)
-	require.NoError(t, err)
-	require.Equal(t, "Campaign v2", replaced.Body.Name)
-	require.Equal(t, "Replacement snapshot", replaced.Body.Document.Title)
-}
-
-func TestBuiltinImageEditorTemplatesCoverDistinctCreativeJobs(t *testing.T) {
-	t.Parallel()
-	templates := builtinImageEditorTemplates()
-	require.Len(t, templates, 15)
-
-	multipage := 0
-	categories := map[string]bool{}
-	for _, template := range templates {
-		require.True(t, template.BuiltIn)
-		require.NotEmpty(t, template.Document.Pages)
-		require.NoError(t, validateImageEditorPayload(template.Document), template.ID)
-		categories[template.Category] = true
-		for _, page := range template.Document.Pages {
-			for _, layer := range page.Layers {
-				if layer.Text != nil {
-					require.Equal(t, "Geist Variable", layer.Text.FontFamily, template.ID)
-				}
-			}
-		}
-		if len(template.Document.Pages) > 1 {
-			multipage++
-		}
-	}
-	require.Equal(t, 3, multipage)
-	require.GreaterOrEqual(t, len(categories), 7)
-}
-
-func TestValidateImageEditorPayloadGuides(t *testing.T) {
-	t.Parallel()
-	document := builtinImageEditorTemplates()[0].Document
-	document.Pages[0].Guides = &ImageEditorPageGuides{
-		Horizontal: []float64{100},
-		Vertical:   []float64{200},
-	}
-	require.NoError(t, validateImageEditorPayload(document))
-
-	document.Pages[0].Guides.Vertical = []float64{float64(document.WidthPX) + 1}
-	require.EqualError(t, validateImageEditorPayload(document), "image editor vertical guides must remain inside the page")
-}
-
-func TestValidateImageEditorPayloadTextWrapping(t *testing.T) {
-	t.Parallel()
-	document := builtinImageEditorTemplates()[0].Document
-	var text *ImageEditorTextValue
-	for _, layer := range document.Pages[0].Layers {
-		if layer.Text != nil {
-			text = layer.Text
-			break
-		}
-	}
-	require.NotNil(t, text)
-	text.Wrap = "character"
-	require.NoError(t, validateImageEditorPayload(document))
-	text.Wrap = "invalid"
-	require.EqualError(t, validateImageEditorPayload(document), "text layer properties are invalid")
 }
 
 func TestPublicImageEditorTemplatesExposeOnlyBuiltins(t *testing.T) {

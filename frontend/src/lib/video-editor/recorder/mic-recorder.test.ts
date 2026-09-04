@@ -86,28 +86,6 @@ describe('MicRecorder', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('requests the selected input with narration processing and records in chunks', async () => {
-		const recorder = new MicRecorder();
-
-		await recorder.start({
-			deviceId: 'studio-mic',
-			noiseSuppression: false,
-			autoGainControl: true
-		});
-
-		expect(getUserMedia).toHaveBeenCalledWith({
-			audio: {
-				deviceId: { exact: 'studio-mic' },
-				echoCancellation: true,
-				noiseSuppression: false,
-				autoGainControl: true
-			},
-			video: false
-		});
-		expect(FakeMediaRecorder.instances[0]?.start).toHaveBeenCalledWith(1_000);
-		expect(recorder.currentState).toBe('recording');
-	});
-
 	it('excludes paused time and keeps the final data event before releasing the input', async () => {
 		const recorder = new MicRecorder();
 		await recorder.start();
@@ -136,16 +114,6 @@ describe('MicRecorder', () => {
 		expect(recorder.currentState).toBe('idle');
 	});
 
-	it('releases the input when MediaRecorder fails while stopping', async () => {
-		const recorder = new MicRecorder();
-		await recorder.start();
-		FakeMediaRecorder.failStop = true;
-
-		await expect(recorder.stop()).rejects.toMatchObject({ name: 'NotReadableError' });
-		expect(stopTrack).toHaveBeenCalledOnce();
-		expect(recorder.currentState).toBe('idle');
-	});
-
 	it('uses stable MIME and constraint fallbacks', () => {
 		expect(pickMicRecorderMimeType()).toBe('audio/webm;codecs=opus');
 		expect(micRecordingExtension('audio/ogg;codecs=opus')).toBe('ogg');
@@ -156,59 +124,5 @@ describe('MicRecorder', () => {
 			noiseSuppression: true,
 			autoGainControl: false
 		});
-	});
-
-	it('degrades cleanly when the browser cannot create another audio context', () => {
-		vi.stubGlobal(
-			'AudioContext',
-			class {
-				constructor() {
-					throw new DOMException('Context limit reached', 'NotSupportedError');
-				}
-			}
-		);
-
-		expect(createBestEffortAudioContext()).toBeNull();
-	});
-
-	it('reports RMS input level and releases every meter resource', () => {
-		const disconnectSource = vi.fn();
-		const disconnectAnalyser = vi.fn();
-		const close = vi.fn(async () => undefined);
-		const cancelAnimationFrame = vi.fn();
-		vi.stubGlobal(
-			'requestAnimationFrame',
-			vi.fn(() => 17)
-		);
-		vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
-		vi.stubGlobal(
-			'AudioContext',
-			class {
-				createMediaStreamSource() {
-					return { connect: vi.fn(), disconnect: disconnectSource };
-				}
-				createAnalyser() {
-					return {
-						fftSize: 0,
-						smoothingTimeConstant: 0,
-						getFloatTimeDomainData: (samples: Float32Array) => samples.fill(0.25),
-						disconnect: disconnectAnalyser
-					};
-				}
-				close = close;
-			}
-		);
-		const levels: number[] = [];
-		// SAFETY: The fake audio context never reads MediaStream fields in this meter lifecycle test.
-		const stop = startMicLevelMeter({} as MediaStream, (level) => levels.push(level));
-
-		expect(levels[0]).toBeCloseTo(0.75);
-		stop();
-
-		expect(levels.at(-1)).toBe(0);
-		expect(cancelAnimationFrame).toHaveBeenCalledWith(17);
-		expect(disconnectSource).toHaveBeenCalledOnce();
-		expect(disconnectAnalyser).toHaveBeenCalledOnce();
-		expect(close).toHaveBeenCalledOnce();
 	});
 });

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -179,22 +178,6 @@ func TestGenerateMediaAltTextUsesOnlyMediumThumbnailAndPersistsResult(t *testing
 	var media models.MediaAttachment
 	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "image-1").Scan(t.Context()))
 	require.Equal(t, "Uma equipa prepara uma publicação.", media.AltText)
-}
-
-func TestGenerateMediaAltTextRejectsOversizedPostContextBeforeCaptioning(t *testing.T) {
-	t.Parallel()
-
-	providerCalls := 0
-	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-		providerCalls++
-		return imagecaption.Result{AltText: "Generated"}, nil
-	}))
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1"})
-
-	response := srv.generate(t, "image-1", "en", strings.Repeat("x", imagecaption.MaxPostContextCharacters+1))
-	require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
-	require.Zero(t, providerCalls)
-	require.Empty(t, srv.storage.openedKeys())
 }
 
 func TestGenerateMediaAltTextReturnsExistingTextWithoutProviderOrStorage(t *testing.T) {

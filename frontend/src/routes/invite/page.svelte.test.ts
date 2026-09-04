@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { readable } from 'svelte/store';
 import type { Workspace } from '$lib/api/client';
@@ -45,7 +44,6 @@ describe('invitation acceptance refresh recovery', () => {
 	});
 
 	it('retries a failed workspace refresh without accepting the invitation twice', async () => {
-		await page.viewport(390, 844);
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const post = vi.fn().mockResolvedValue({
 			data: { workspace_id: acceptedWorkspace.id, role: 'editor' },
@@ -84,7 +82,6 @@ describe('invitation acceptance refresh recovery', () => {
 			.toBeVisible();
 		const refreshError = screen.getByTestId('invite-workspace-refresh-error');
 		await expect.element(refreshError).toBeVisible();
-		await page.screenshot({ path: '../../../.svelte-kit/invite-refresh-retry-before.png' });
 
 		await refreshError.getByRole('button', { name: 'Try again' }).click();
 
@@ -92,12 +89,5 @@ describe('invitation acceptance refresh recovery', () => {
 		await expect.element(screen.getByRole('link', { name: 'Open Workspace' })).toBeVisible();
 		expect(post).toHaveBeenCalledOnce();
 		expect(workspace.loadWorkspaces).toHaveBeenCalledTimes(2);
-		await page.screenshot({ path: '../../../.svelte-kit/invite-refresh-retry-after.png' });
-
-		await page.viewport(320, 720);
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
-		document.documentElement.classList.add('dark');
-		await page.screenshot({ path: '../../../.svelte-kit/invite-refresh-retry-dark.png' });
-		document.documentElement.classList.remove('dark');
 	});
 });

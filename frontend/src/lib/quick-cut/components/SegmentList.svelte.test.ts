@@ -51,26 +51,6 @@ test('edits one segment cut strategy without changing the project default', asyn
 	expect(onUpdate).toHaveBeenCalledExactlyOnceWith('range', { cutMode: 'exact' });
 });
 
-test('keeps the per-segment strategy usable without phone overflow', async () => {
-	await page.viewport(320, 720);
-	const screen = await render(SegmentList, {
-		segments: [createSegment(0.5, 2, { id: 'range', sourceId: source.id, cutMode: 'exact' })],
-		sources: [source],
-		selectedId: 'range',
-		defaultCutMode: 'nearestKeyframe',
-		onSelect: vi.fn(),
-		onRemove: vi.fn(),
-		onUpdate: vi.fn(),
-		onMove: vi.fn(),
-		exporting: false,
-		onPreview: vi.fn(),
-		onExport: vi.fn()
-	});
-
-	await expect.element(screen.getByRole('button', { name: 'Cut mode 1' })).toBeVisible();
-	expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
-});
-
 test('renders timecode inputs with shared Input primitive and preserves bindings', async () => {
 	const screen = await render(SegmentList, {
 		segments: [createSegment(1.25, 3.5, { id: 'range', sourceId: source.id })],

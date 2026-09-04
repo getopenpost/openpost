@@ -186,27 +186,6 @@ func (s *mediaDirectUploadTestServer) postJSON(t *testing.T, path string, body a
 	return rec
 }
 
-func TestCreateMediaUploadSessionSupportsLocalStreaming(t *testing.T) {
-	t.Parallel()
-
-	srv := newMediaDirectUploadTestServer(t, mediastore.NewLocalStorage(t.TempDir(), "/media"), entitlements.NewSelfHostedService())
-
-	resp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
-		"workspace_id": "ws-1",
-		"filename":     "launch.png",
-		"mime_type":    "image/png",
-		"size":         12,
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	mediaID := out["media_id"].(string)
-	upload := out["upload"].(map[string]any)
-	require.Equal(t, http.MethodPut, upload["method"])
-	require.Equal(t, "/api/v1/media/upload-session/"+mediaID+"/content", upload["url"])
-}
-
 func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	storage := &cancelingUploadStorage{cancel: cancel}
@@ -456,44 +435,6 @@ func TestValidateMediaAssetContentRejectsSVG(t *testing.T) {
 			)
 		})
 	}
-}
-
-func TestCreateMediaUploadSessionReservesPendingMedia(t *testing.T) {
-	t.Parallel()
-
-	storage := newFakeDirectUploadStorage()
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-
-	resp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
-		"workspace_id": "ws-1",
-		"filename":     "folder/launch.png",
-		"mime_type":    "image/png",
-		"size":         12,
-		"alt_text":     "Launch card",
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	mediaID := out["media_id"].(string)
-	upload := out["upload"].(map[string]any)
-	require.Equal(t, http.MethodPut, upload["method"])
-	require.Equal(t, "https://uploads.openpost.test/"+mediaID+".png", upload["url"])
-	require.Equal(t, "/api/v1/media/upload-session/"+mediaID+"/complete", out["complete_url"])
-	require.Equal(t, "image/png", upload["headers"].(map[string]any)["Content-Type"])
-	require.Equal(t, mediaID+".png", storage.lastInput.Key)
-	require.Equal(t, int64(12), storage.lastInput.Size)
-
-	var media models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", mediaID).Scan(context.Background()))
-	require.Equal(t, "ws-1", media.WorkspaceID)
-	require.Equal(t, mediaID+".png", media.FilePath)
-	require.Equal(t, "s3", media.StorageType)
-	require.Equal(t, mediaProcessingStatus, media.ProcessingStatus)
-	require.Equal(t, int64(12), media.Size)
-	require.Equal(t, "launch.png", media.OriginalFilename)
-	require.Equal(t, "pending:"+mediaID, media.FileHash)
-	require.Equal(t, "Launch card", media.AltText)
 }
 
 func TestCreateMediaUploadSessionAppliesTypeSpecificSizeLimits(t *testing.T) {

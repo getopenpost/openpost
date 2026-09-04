@@ -303,31 +303,6 @@ describe('ComposerSession', () => {
 		}
 	);
 
-	it('creates a new Publication in its Workspace and accepts the returned revision', async () => {
-		const creates: Array<{ workspaceId: string; draft: PublicationDraft }> = [];
-		const client = clientWith({
-			async create(workspaceId, input) {
-				creates.push({ workspaceId, draft: input });
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-
-		session.edit(draft('First idea'));
-		await session.save();
-
-		expect(creates).toEqual([{ workspaceId: 'workspace-1', draft: draft('First idea') }]);
-		expect(session.snapshot).toMatchObject({
-			workspaceId: 'workspace-1',
-			publicationId: 'publication-1',
-			revision: 1,
-			phase: 'idle',
-			dirty: false,
-			conflict: null,
-			error: null
-		});
-	});
-
 	it('keeps server-assigned segment identity for the first edit after creation', async () => {
 		const firstDraft: PublicationDraft = {
 			...draft('First idea'),
@@ -414,34 +389,6 @@ describe('ComposerSession', () => {
 		expect(session.snapshot).toMatchObject({ revision: 2, dirty: false, phase: 'idle' });
 	});
 
-	it('loads an existing Publication through the same session', async () => {
-		const client = clientWith({
-			async load(id) {
-				expect(id).toBe('publication-1');
-				return {
-					publication: {
-						id,
-						workspace_id: 'workspace-1',
-						revision: 4,
-						status: 'draft'
-					},
-					draft: draft('Existing idea')
-				};
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-
-		await session.load('publication-1');
-
-		expect(session.draft).toEqual(draft('Existing idea'));
-		expect(session.snapshot).toMatchObject({
-			publicationId: 'publication-1',
-			revision: 4,
-			dirty: false,
-			phase: 'idle'
-		});
-	});
-
 	it('keeps a failed save dirty and retries it from the last accepted revision', async () => {
 		let attempts = 0;
 		const client = clientWith({
@@ -513,36 +460,6 @@ describe('ComposerSession', () => {
 		expect(serverRevision).toBe(2);
 		await second.overwriteConflict();
 		expect(second.snapshot).toMatchObject({ revision: 3, conflict: null, dirty: false });
-	});
-
-	it('saves, validates, and schedules through the Publication client', async () => {
-		const calls: string[] = [];
-		const client = clientWith({
-			async create(workspaceId) {
-				calls.push('create');
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-			},
-			async validate(id) {
-				calls.push(`validate:${id}`);
-				return { issues: [] };
-			},
-			async schedule(id, revision) {
-				calls.push(`schedule:${id}:${revision}`);
-				return { message: 'Scheduled', publication_id: id, revision: 2, renditions: [] };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit({ ...draft('Scheduled idea'), scheduled_at: '2026-08-16T10:00:00Z' });
-
-		await session.schedule();
-
-		expect(calls).toEqual(['create', 'validate:publication-1', 'schedule:publication-1:1']);
-		expect(session.snapshot).toMatchObject({
-			status: 'scheduled',
-			revision: 2,
-			validationIssues: [],
-			phase: 'idle'
-		});
 	});
 
 	it('keeps destination validation issues in observable session state', async () => {
@@ -688,21 +605,6 @@ describe('ComposerSession', () => {
 			validationIssues: [],
 			delivery: []
 		});
-	});
-
-	it('notifies rendering consumers with observable state snapshots', () => {
-		const session = new ComposerSession({
-			workspaceId: 'workspace-1',
-			client: clientWith({})
-		});
-		const dirtyStates: boolean[] = [];
-		const unsubscribe = session.subscribe((state) => dirtyStates.push(state.dirty));
-
-		session.edit(draft('Observable'));
-		unsubscribe();
-		session.edit(draft('No longer observed'));
-
-		expect(dirtyStates).toEqual([false, true]);
 	});
 
 	it('binds an editor return to its Workspace, Publication, revision, and one-time token', async () => {

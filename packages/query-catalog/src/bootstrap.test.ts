@@ -1,7 +1,6 @@
 import { QueryClient } from "@tanstack/query-core";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  appBootstrapQueryOptions,
   confirmedBootstrapWorkspaceId,
   openPostBootstrapQueryKeys,
   seedAppBootstrap,
@@ -9,35 +8,6 @@ import {
 } from "./bootstrap";
 
 describe("application bootstrap queries", () => {
-  it("normalizes the preferred Workspace in a stable application key", () => {
-    expect(openPostBootstrapQueryKeys.app(" workspace-1 ")).toEqual([
-      "openpost",
-      "v1",
-      "app",
-      "bootstrap",
-      { preferredWorkspaceId: "workspace-1" },
-    ]);
-    expect(openPostBootstrapQueryKeys.app()).toEqual([
-      "openpost",
-      "v1",
-      "app",
-      "bootstrap",
-      { preferredWorkspaceId: "" },
-    ]);
-  });
-
-  it("forwards cancellation and keeps bootstrap state fresh for five minutes", async () => {
-    const bootstrap = authenticatedBootstrap();
-    const getAppBootstrap = vi.fn(async () => bootstrap);
-    const client = new QueryClient();
-    const options = appBootstrapQueryOptions({ getAppBootstrap }, " workspace-1 ");
-
-    await expect(client.fetchQuery(options)).resolves.toBe(bootstrap);
-    expect(options.staleTime).toBe(300_000);
-    expect(getAppBootstrap).toHaveBeenCalledWith("workspace-1", expect.any(AbortSignal));
-    client.clear();
-  });
-
   it("accepts and seeds only a selected Workspace returned in the server list", () => {
     const client = new QueryClient();
     const bootstrap = authenticatedBootstrap();

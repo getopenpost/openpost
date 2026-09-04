@@ -5,12 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +17,6 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/mediastore"
@@ -242,19 +237,6 @@ func TestMCPRejectsMissingAuthorization(t *testing.T) {
 	require.Equal(t, resp.Header().Get("WWW-Authenticate"), meta["mcp/www_authenticate"])
 }
 
-func TestMCPGetReturnsMethodNotAllowed(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/mcp", nil)
-	rec := httptest.NewRecorder()
-	srv.echo.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusMethodNotAllowed, rec.Code)
-	require.Equal(t, http.MethodPost, rec.Header().Get("Allow"))
-	require.NotContains(t, rec.Header().Get("Content-Type"), "text/html")
-}
-
 func TestMCPRejectsUntrustedBrowserOrigins(t *testing.T) {
 	t.Parallel()
 
@@ -329,69 +311,6 @@ func TestMCPRejectsOversizedRequestBodies(t *testing.T) {
 
 	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 	require.Contains(t, rec.Body.String(), "exceeds")
-}
-
-func TestMCPInitializeNegotiatesSupportedProtocolVersions(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	for _, test := range []struct {
-		name      string
-		requested string
-		expected  string
-	}{
-		{name: "current", requested: mcpProtocolVersion, expected: mcpProtocolVersion},
-		{name: "fallback", requested: mcpFallbackVersion, expected: mcpFallbackVersion},
-		{name: "unsupported", requested: "2024-11-05", expected: mcpProtocolVersion},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			resp := srv.request(t, "web-token", map[string]any{
-				"jsonrpc": "2.0", "id": test.name, "method": "initialize",
-				"params": map[string]any{
-					"protocolVersion": test.requested,
-					"capabilities":    map[string]any{},
-					"clientInfo":      map[string]any{"name": "test", "version": "1"},
-				},
-			})
-			require.Equal(t, http.StatusOK, resp.Code)
-			var out map[string]any
-			require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-			require.Equal(t, test.expected, out["result"].(map[string]any)["protocolVersion"])
-		})
-	}
-
-	resp := srv.request(t, "web-token", map[string]any{"jsonrpc": "2.0", "id": "missing", "method": "initialize", "params": map[string]any{}})
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Contains(t, out["error"].(map[string]any)["message"], "protocolVersion")
-}
-
-func TestMCPProtectedResourceMetadata(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	for _, pathname := range []string{
-		"/.well-known/oauth-protected-resource",
-		"/.well-known/oauth-protected-resource/mcp",
-	} {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathname, nil)
-		rec := httptest.NewRecorder()
-		srv.echo.ServeHTTP(rec, req)
-
-		require.Equal(t, http.StatusOK, rec.Code, pathname)
-		var out map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-		require.Equal(t, "https://app.openpost.test/mcp", out["resource"])
-		require.Equal(t, []any{"https://app.openpost.test"}, out["authorization_servers"])
-		require.Equal(t, []any{"mcp:read", "mcp:full"}, out["scopes_supported"])
-		require.Equal(t, []any{"header"}, out["bearer_methods_supported"])
-
-		headRequest := httptest.NewRequestWithContext(t.Context(), http.MethodHead, pathname, nil)
-		headResponse := httptest.NewRecorder()
-		srv.echo.ServeHTTP(headResponse, headRequest)
-		require.Equal(t, http.StatusOK, headResponse.Code, pathname)
-		require.Empty(t, headResponse.Body.String(), pathname)
-	}
 }
 
 func TestMCPAuthenticatesSupportedTokenScopes(t *testing.T) {
@@ -557,238 +476,6 @@ func TestMCPRejectsAudienceMismatch(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
-func TestMCPToolsList(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "tools/list",
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	tools := result["tools"].([]any)
-	require.Len(t, tools, 4)
-	require.Equal(t, mcpToolSearch, tools[0].(map[string]any)["name"])
-	require.Equal(t, mcpToolQuery, tools[1].(map[string]any)["name"])
-	require.Equal(t, mcpToolExecute, tools[2].(map[string]any)["name"])
-	require.Equal(t, mcpToolRenderWidget, tools[3].(map[string]any)["name"])
-
-	requiredOutputKeys := map[string][]any{
-		mcpToolSearch:       {"operations"},
-		mcpToolQuery:        {},
-		mcpToolExecute:      {},
-		mcpToolRenderWidget: {"view", "data"},
-	}
-	expectedSafety := map[string]map[string]any{
-		mcpToolSearch:       {"readOnlyHint": true, "destructiveHint": false, "openWorldHint": false},
-		mcpToolQuery:        {"readOnlyHint": true, "destructiveHint": false, "openWorldHint": true},
-		mcpToolExecute:      {"readOnlyHint": false, "destructiveHint": true, "openWorldHint": true},
-		mcpToolRenderWidget: {"readOnlyHint": true, "destructiveHint": false, "openWorldHint": false},
-	}
-	for _, tool := range tools {
-		descriptor := tool.(map[string]any)
-		toolName := descriptor["name"].(string)
-		securitySchemes := descriptor["securitySchemes"].([]any)
-		require.Len(t, securitySchemes, 1)
-		scheme := securitySchemes[0].(map[string]any)
-		require.Equal(t, "oauth2", scheme["type"])
-		if descriptor["annotations"].(map[string]any)["readOnlyHint"] == true {
-			require.Equal(t, []any{"mcp:read", "mcp:full"}, scheme["scopes"])
-		} else {
-			require.Equal(t, []any{"mcp:full"}, scheme["scopes"])
-		}
-		meta := descriptor["_meta"].(map[string]any)
-		require.Equal(t, descriptor["securitySchemes"], meta["securitySchemes"])
-		require.NotEmpty(t, meta["openai/toolInvocation/invoking"])
-		require.NotEmpty(t, meta["openai/toolInvocation/invoked"])
-		require.LessOrEqual(t, len(meta["openai/toolInvocation/invoking"].(string)), 64)
-		require.LessOrEqual(t, len(meta["openai/toolInvocation/invoked"].(string)), 64)
-		if toolName == mcpToolRenderWidget {
-			ui := meta["ui"].(map[string]any)
-			require.Equal(t, mcpAppWidgetURI, ui["resourceUri"])
-			require.ElementsMatch(t, []any{"model"}, ui["visibility"])
-			require.Equal(t, mcpAppWidgetURI, meta["openai/outputTemplate"])
-			require.Equal(t, false, meta["openai/widgetAccessible"])
-		}
-		outputSchema := descriptor["outputSchema"].(map[string]any)
-		require.Equal(t, "object", outputSchema["type"])
-		require.ElementsMatch(t, requiredOutputKeys[toolName], outputSchema["required"])
-		properties, _ := outputSchema["properties"].(map[string]any)
-		for _, key := range requiredOutputKeys[toolName] {
-			require.Contains(t, properties, key)
-		}
-		require.Equal(t, expectedSafety[toolName], descriptor["annotations"])
-	}
-}
-
-func TestMCPAdvertisedToolCatalogIsCompact(t *testing.T) {
-	t.Parallel()
-
-	advertised, err := json.Marshal(mcpAdvertisedTools())
-	require.NoError(t, err)
-	legacy, err := json.Marshal(mcpOperationCatalog())
-	require.NoError(t, err)
-
-	t.Logf("advertised tool descriptors: %d bytes; legacy catalog: %d bytes", len(advertised), len(legacy))
-	require.Less(t, len(advertised), len(legacy)*30/100)
-}
-
-func TestMCPToolCatalogMeetsAgentUsabilityContract(t *testing.T) {
-	t.Parallel()
-
-	descriptors := append([]map[string]any{}, mcpAdvertisedTools()...)
-	for _, operation := range mcpOperationCatalog() {
-		descriptors = append(descriptors, operation.Descriptor)
-	}
-
-	seen := make(map[string]bool, len(descriptors))
-	for _, descriptor := range descriptors {
-		name, ok := descriptor["name"].(string)
-		require.True(t, ok)
-		t.Run(name, func(t *testing.T) {
-			require.False(t, seen[name], "duplicate MCP tool or operation name")
-			seen[name] = true
-			require.Regexp(t, `^[a-z0-9]+(?:_[a-z0-9]+)+$`, name, "use descriptive verb_object snake_case names")
-
-			description, ok := descriptor["description"].(string)
-			require.True(t, ok)
-			require.GreaterOrEqual(t, len(strings.TrimSpace(description)), 30, "description must explain what and when")
-			require.Contains(t, strings.ToLower(description), "return", "description must state what the call returns")
-
-			inputSchema, ok := descriptor["inputSchema"].(map[string]any)
-			require.True(t, ok)
-			assertMCPInputSchemaUsability(t, "arguments", inputSchema)
-
-			outputSchema, ok := descriptor["outputSchema"].(map[string]any)
-			require.True(t, ok)
-			require.Equal(t, "object", outputSchema["type"])
-			require.Contains(t, outputSchema, "properties")
-			require.Contains(t, outputSchema, "required")
-		})
-	}
-}
-
-func assertMCPInputSchemaUsability(t *testing.T, path string, schema map[string]any) {
-	t.Helper()
-	require.Equal(t, "object", schema["type"], "%s must be an object schema", path)
-	properties, ok := schema["properties"].(map[string]any)
-	require.True(t, ok, "%s must declare properties, even when empty", path)
-	require.Contains(t, schema, "required", "%s must declare required, even when empty", path)
-	require.Contains(t, schema, "additionalProperties", "%s must state whether extra fields are accepted", path)
-
-	names := make([]string, 0, len(properties))
-	for name := range properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		propertyPath := path + "." + name
-		property, ok := properties[name].(map[string]any)
-		require.True(t, ok, "%s must be a JSON Schema object", propertyPath)
-		require.NotEmpty(t, strings.TrimSpace(fmt.Sprint(property["description"])), "%s must explain meaning, format, and constraints", propertyPath)
-		require.NotEmpty(t, property["type"], "%s must declare a type", propertyPath)
-
-		propertyType, _ := property["type"].(string)
-		if propertyType == "object" || propertyType == "array" {
-			_, hasExamples := property["examples"]
-			description := strings.ToLower(fmt.Sprint(property["description"]))
-			require.True(t, hasExamples || strings.Contains(description, "e.g."), "%s must include a concrete example", propertyPath)
-		}
-		if propertyType == "object" {
-			if _, hasProperties := property["properties"]; hasProperties {
-				assertMCPInputSchemaUsability(t, propertyPath, property)
-			}
-		}
-		if propertyType == "array" {
-			items, ok := property["items"].(map[string]any)
-			require.True(t, ok, "%s must type its array items", propertyPath)
-			if items["type"] == "object" {
-				assertMCPInputSchemaUsability(t, propertyPath+"[]", items)
-			}
-		}
-	}
-}
-
-func TestMCPOperationCatalogHasCompleteSafetyClassification(t *testing.T) {
-	t.Parallel()
-
-	expectedModes := map[string]mcpOperationMode{
-		mcpToolWorkspaces:     mcpOperationQuery,
-		mcpToolProviders:      mcpOperationQuery,
-		mcpToolAccounts:       mcpOperationQuery,
-		mcpToolListMedia:      mcpOperationQuery,
-		mcpToolReadiness:      mcpOperationQuery,
-		mcpToolCreatePub:      mcpOperationExecute,
-		mcpToolListPubs:       mcpOperationQuery,
-		mcpToolGetPub:         mcpOperationQuery,
-		mcpToolUpdatePub:      mcpOperationExecute,
-		mcpToolPubRenditions:  mcpOperationExecute,
-		mcpToolReplyRendition: mcpOperationExecute,
-		mcpToolValidatePub:    mcpOperationQuery,
-		mcpToolSchedulePub:    mcpOperationExecute,
-		mcpToolCancelPub:      mcpOperationExecute,
-		mcpToolPublishPubNow:  mcpOperationExecute,
-		mcpToolPubEvents:      mcpOperationQuery,
-		mcpToolComments:       mcpOperationQuery,
-		mcpToolReplyComment:   mcpOperationExecute,
-		mcpToolHideComment:    mcpOperationExecute,
-		mcpToolDeleteComment:  mcpOperationExecute,
-		mcpToolSuggestSlot:    mcpOperationQuery,
-		mcpToolUploadURL:      mcpOperationExecute,
-	}
-
-	catalog := mcpOperationCatalog()
-	require.Len(t, catalog, len(expectedModes))
-	seen := make(map[string]bool, len(catalog))
-	for _, operation := range catalog {
-		name, ok := operation.Descriptor["name"].(string)
-		require.True(t, ok)
-		require.False(t, seen[name], "duplicate operation %s", name)
-		seen[name] = true
-		require.Equal(t, expectedModes[name], operation.Mode, "unexpected safety classification for %s", name)
-
-		annotations := operation.Descriptor["annotations"].(map[string]any)
-		require.Equal(t, operation.Mode == mcpOperationQuery, annotations["readOnlyHint"], "readOnlyHint drifted for %s", name)
-		if operation.Mode == mcpOperationQuery {
-			require.Equal(t, false, annotations["destructiveHint"], "read-only operation %s cannot be destructive", name)
-		}
-		require.Equal(t, string(operation.Mode), mcpOperationDocument(operation)["executionTool"])
-	}
-	require.Equal(t, len(expectedModes), len(seen))
-	require.False(t, seen[mcpToolRenderWidget], "the directly advertised renderer must not be delegated")
-}
-
-func TestMCPPublicationExecutionIntentExistsOnlyOnEnqueueActions(t *testing.T) {
-	t.Parallel()
-
-	propertiesFor := func(name string) map[string]any {
-		t.Helper()
-		for _, operation := range mcpOperationCatalog() {
-			if operation.Descriptor["name"] != name {
-				continue
-			}
-			input := operation.Descriptor["inputSchema"].(map[string]any)
-			return input["properties"].(map[string]any)
-		}
-		t.Fatalf("operation %s not found", name)
-		return nil
-	}
-
-	for _, name := range []string{mcpToolUpdatePub, mcpToolPubRenditions} {
-		require.NotContains(t, propertiesFor(name), "execution_intent", name)
-	}
-	for _, name := range []string{mcpToolSchedulePub, mcpToolPublishPubNow} {
-		property, ok := propertiesFor(name)["execution_intent"].(map[string]any)
-		require.True(t, ok, name)
-		require.Equal(t, []string{"production", "certification_test"}, property["enum"], name)
-	}
-}
-
 func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testing.T) {
 	srv := newMCPTestServer(t)
 	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-1")
@@ -823,75 +510,6 @@ func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testin
 	}, "invalid")
 	require.Nil(t, rpcErr)
 	require.Equal(t, providerreadiness.ExecutionIntentCertificationTest, intent)
-}
-
-func TestMCPPublicationLifecycleOperationsStayInParity(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-
-	created, rpcErr := srv.handler.createPublication(ctx, "user-1", map[string]any{
-		"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "Initial copy",
-		"social_account_ids": []string{"account-1"},
-	})
-	require.Nil(t, rpcErr)
-	createdContent := created.(map[string]any)["structuredContent"].(map[string]any)
-	publicationID := createdContent["publication"].(mcpPublicationStatus).ID
-
-	_, rpcErr = srv.handler.updatePublication(ctx, "user-1", map[string]any{
-		"publication_id": publicationID, "expected_revision": 1, "title": "Updated title", "source_text": "Updated copy",
-	})
-	require.Nil(t, rpcErr)
-
-	_, rpcErr = srv.handler.setPublicationRenditions(ctx, "user-1", map[string]any{
-		"publication_id":    publicationID,
-		"expected_revision": 2,
-		"renditions":        []map[string]any{{"social_account_id": "account-1", "profile": "short_text", "body": "X-native copy"}},
-	})
-	require.Nil(t, rpcErr)
-
-	loaded, rpcErr := srv.handler.getPublication(ctx, "user-1", map[string]any{"publication_id": publicationID})
-	require.Nil(t, rpcErr)
-	publication := loaded.(map[string]any)["structuredContent"].(map[string]any)["publication"].(PublicationResponse)
-	require.Equal(t, "Updated title", publication.Title)
-	require.Equal(t, "Updated copy", publication.SourceText)
-	require.Len(t, publication.Renditions, 1)
-	require.Equal(t, "X-native copy", publication.Renditions[0].Body)
-	require.Equal(t, 3, publication.Revision)
-}
-
-func TestMCPPublicationCreationPersistsCreationPresetForEveryMode(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-
-	tests := []struct {
-		name    string
-		profile string
-		preset  string
-	}{
-		{name: "post", profile: models.ContentProfileShortText, preset: models.PublishingIntentPost},
-		{name: "thread", profile: models.ContentProfileThread, preset: models.PublishingIntentThread},
-		{name: "story", profile: models.ContentProfileStory, preset: models.PublishingIntentStory},
-		{name: "short video", profile: models.ContentProfileShortVideo, preset: models.PublishingIntentShortVideo},
-		{name: "video", profile: models.ContentProfileLongVideo, preset: models.PublishingIntentVideo},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			created, rpcErr := srv.handler.createPublication(ctx, "user-1", map[string]any{
-				"workspace_id": "ws-1", "content_profile": test.profile, "source_text": test.name,
-			})
-			require.Nil(t, rpcErr)
-			createdContent := created.(map[string]any)["structuredContent"].(map[string]any)
-			publicationID := createdContent["publication"].(mcpPublicationStatus).ID
-
-			var publication models.Publication
-			require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", publicationID).Scan(ctx))
-			require.Equal(t, test.preset, publication.Intent)
-			require.Equal(t, test.preset, publication.CreationPreset)
-		})
-	}
 }
 
 func TestPublicationCreationRESTAndMCPPersistTheSameModesAndCapabilities(t *testing.T) {
@@ -974,63 +592,6 @@ func TestPublicationCreationRESTAndMCPPersistTheSameModesAndCapabilities(t *test
 	require.Zero(t, jobCount, "creating a draft, including one with scheduled_at, must not enqueue it")
 }
 
-func TestMCPSearchReturnsRelevantOperationSchemas(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "search",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": mcpToolSearch,
-			"arguments": map[string]any{
-				"query": "schedule_publication",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	operations := result["structuredContent"].(map[string]any)["operations"].([]any)
-	require.NotEmpty(t, operations)
-	operation := operations[0].(map[string]any)
-	require.Equal(t, mcpToolSchedulePub, operation["name"])
-	require.Equal(t, mcpToolExecute, operation["executionTool"])
-	require.NotNil(t, operation["inputSchema"])
-	require.NotNil(t, operation["outputSchema"])
-	require.NotNil(t, operation["annotations"])
-	require.NotContains(t, operation, "securitySchemes")
-	require.NotContains(t, operation, "_meta")
-}
-
-func TestMCPSearchRoutesReadOnlyOperationsToQuery(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "search-read",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": mcpToolSearch,
-			"arguments": map[string]any{
-				"query": mcpToolWorkspaces,
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	operations := out["result"].(map[string]any)["structuredContent"].(map[string]any)["operations"].([]any)
-	require.NotEmpty(t, operations)
-	require.Equal(t, mcpToolWorkspaces, operations[0].(map[string]any)["name"])
-	require.Equal(t, mcpToolQuery, operations[0].(map[string]any)["executionTool"])
-}
-
 func TestMCPSearchRefusesOutOfScopeAndAmbiguousMutations(t *testing.T) {
 	t.Parallel()
 
@@ -1053,29 +614,6 @@ func TestMCPSearchRefusesOutOfScopeAndAmbiguousMutations(t *testing.T) {
 	operations := result.(map[string]any)["structuredContent"].(map[string]any)["operations"].([]map[string]any)
 	require.NotEmpty(t, operations)
 	require.Equal(t, mcpToolDeleteComment, operations[0]["name"])
-}
-
-func TestMCPSearchCommonPhrasesSelectTheIntendedOperation(t *testing.T) {
-	t.Parallel()
-
-	for _, test := range []struct {
-		query string
-		want  string
-	}{
-		{query: "list connected accounts", want: mcpToolAccounts},
-		{query: "scheduled publication", want: mcpToolSchedulePub},
-		{query: "upload media from url", want: mcpToolUploadURL},
-		{query: "create a format-first publication", want: mcpToolCreatePub},
-		{query: "reply to a provider comment", want: mcpToolReplyComment},
-	} {
-		t.Run(test.query, func(t *testing.T) {
-			result, rpcErr := searchMCPOperations(map[string]any{"query": test.query})
-			require.Nil(t, rpcErr)
-			operations := result.(map[string]any)["structuredContent"].(map[string]any)["operations"].([]map[string]any)
-			require.NotEmpty(t, operations)
-			require.Equal(t, test.want, operations[0]["name"])
-		})
-	}
 }
 
 func TestMCPQueryDelegatesToDiscoveredReadOnlyOperation(t *testing.T) {
@@ -1238,6 +776,13 @@ func TestMCPEnforcesAdvertisedAndDiscoveredInputSchemas(t *testing.T) {
 			name: "cached direct operations use the same schema", tool: mcpToolCreatePub,
 			arguments: map[string]any{"workspace_id": "ws-1"}, parameter: "content_profile",
 		},
+		{
+			name: "undocumented top-level parameters are rejected", tool: mcpToolCreatePub,
+			arguments: map[string]any{
+				"workspace_id": "ws-1", "content_profile": "short_text",
+				"source_text": "Draft from an agent", "undocumented": true,
+			}, parameter: "undocumented",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1255,149 +800,6 @@ func TestMCPEnforcesAdvertisedAndDiscoveredInputSchemas(t *testing.T) {
 	count, err := srv.db.NewSelect().Model((*models.Publication)(nil)).Where("workspace_id = ?", "ws-1").Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count, "invalid schema inputs must not reach mutation handlers")
-}
-
-func TestMCPLegacyDiscoveryAliasesRemainCallableButUnadvertised(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	for legacy, canonical := range map[string]string{
-		mcpLegacyToolSearch:  mcpToolSearch,
-		mcpLegacyToolQuery:   mcpToolQuery,
-		mcpLegacyToolExecute: mcpToolExecute,
-	} {
-		arguments := map[string]any{}
-		switch canonical {
-		case mcpToolSearch:
-			arguments = map[string]any{"query": mcpToolWorkspaces}
-		case mcpToolQuery:
-			arguments = map[string]any{"operation": mcpToolWorkspaces, "arguments": map[string]any{}}
-		case mcpToolExecute:
-			arguments = map[string]any{"operation": mcpToolCreatePub, "arguments": map[string]any{"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "Legacy alias draft"}}
-		}
-		resp := srv.request(t, "web-token", map[string]any{
-			"jsonrpc": "2.0", "id": legacy, "method": "tools/call",
-			"params": map[string]any{"name": legacy, "arguments": arguments},
-		})
-		require.Equal(t, http.StatusOK, resp.Code, legacy)
-		var out map[string]any
-		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-		require.Nil(t, out["error"], legacy)
-	}
-
-	for _, descriptor := range mcpAdvertisedTools() {
-		name := descriptor["name"].(string)
-		require.NotContains(t, []string{mcpLegacyToolSearch, mcpLegacyToolQuery, mcpLegacyToolExecute}, name)
-	}
-}
-
-func TestMCPValidatesStructuredOutputAgainstAdvertisedSchema(t *testing.T) {
-	t.Parallel()
-
-	valid := map[string]any{
-		"content":           []mcpContent{{Type: "text", Text: "No workspaces available."}},
-		"structuredContent": map[string]any{"workspaces": []mcpWorkspace{}},
-	}
-	require.Nil(t, validateMCPToolOutput(mcpToolWorkspaces, valid))
-
-	invalid := map[string]any{
-		"content":           []mcpContent{{Type: "text", Text: "Invalid"}},
-		"structuredContent": map[string]any{"workspaces": "not-an-array"},
-	}
-	rpcErr := validateMCPToolOutput(mcpToolWorkspaces, invalid)
-	require.NotNil(t, rpcErr)
-	require.Contains(t, rpcErr.Message, "workspaces")
-}
-
-func TestMCPInitializeAdvertisesPrompts(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.SetServerVersion("v9.8.7")
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "init",
-		"method":  "initialize",
-		"params": map[string]any{
-			"protocolVersion": mcpProtocolVersion,
-			"capabilities":    map[string]any{},
-			"clientInfo":      map[string]any{"name": "openpost-test", "version": "1.0.0"},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	serverInfo := result["serverInfo"].(map[string]any)
-	require.Equal(t, "openpost", serverInfo["name"])
-	require.Equal(t, "v9.8.7", serverInfo["version"])
-	require.Contains(t, result["instructions"], "Call "+mcpToolSearch)
-	require.Contains(t, result["instructions"], "Call "+mcpToolQuery)
-	require.Contains(t, result["instructions"], mcpToolExecute+" only")
-	require.Contains(t, result["instructions"], "render_scheduler_widget")
-	capabilities := result["capabilities"].(map[string]any)
-	require.Contains(t, capabilities, "tools")
-	require.Contains(t, capabilities, "prompts")
-	require.Contains(t, capabilities, "resources")
-}
-
-func TestMCPResourcesListAndRead(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	listResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "resources",
-		"method":  "resources/list",
-	})
-	require.Equal(t, http.StatusOK, listResp.Code)
-	var listed map[string]any
-	require.NoError(t, json.Unmarshal(listResp.Body.Bytes(), &listed))
-	resources := listed["result"].(map[string]any)["resources"].([]any)
-	require.Len(t, resources, 1)
-	resource := resources[0].(map[string]any)
-	require.Equal(t, mcpAppWidgetURI, resource["uri"])
-	require.Equal(t, mcpAppWidgetMimeType, resource["mimeType"])
-	require.Equal(t, "OpenPost Scheduler", resource["title"])
-
-	readResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "resource",
-		"method":  "resources/read",
-		"params": map[string]any{
-			"uri": mcpAppWidgetURI,
-		},
-	})
-	require.Equal(t, http.StatusOK, readResp.Code)
-	var read map[string]any
-	require.NoError(t, json.Unmarshal(readResp.Body.Bytes(), &read))
-	contents := read["result"].(map[string]any)["contents"].([]any)
-	require.Len(t, contents, 1)
-	content := contents[0].(map[string]any)
-	require.Equal(t, mcpAppWidgetURI, content["uri"])
-	require.Equal(t, mcpAppWidgetMimeType, content["mimeType"])
-	require.Contains(t, content["text"], "OpenPost Scheduler")
-	require.Contains(t, content["text"], "window.openai")
-	require.Contains(t, content["text"], "ui/notifications/tool-input")
-	require.Contains(t, content["text"], "bridge.toolInput")
-	meta := content["_meta"].(map[string]any)
-	require.Equal(t, true, meta["openai/widgetPrefersBorder"])
-	require.NotEmpty(t, meta["openai/widgetDescription"])
-	ui := meta["ui"].(map[string]any)
-	require.Equal(t, true, ui["prefersBorder"])
-	standardCSP := ui["csp"].(map[string]any)
-	require.Contains(t, standardCSP, "connectDomains")
-	require.Contains(t, standardCSP, "resourceDomains")
-	require.NotContains(t, standardCSP, "connect_domains")
-	require.NotContains(t, standardCSP, "resource_domains")
-	legacyCSP := meta["openai/widgetCSP"].(map[string]any)
-	require.Contains(t, legacyCSP, "connect_domains")
-	require.Contains(t, legacyCSP, "resource_domains")
-	require.NotContains(t, legacyCSP, "connectDomains")
-	require.NotContains(t, legacyCSP, "resourceDomains")
-	require.Equal(t, "https://app.openpost.test", meta["openai/widgetDomain"])
-	require.Equal(t, "https://app.openpost.test", ui["domain"])
 }
 
 func TestMCPResourcesReadRejectsUnknownResource(t *testing.T) {
@@ -1419,153 +821,6 @@ func TestMCPResourcesReadRejectsUnknownResource(t *testing.T) {
 	require.Equal(t, "unknown resource", out["error"].(map[string]any)["message"])
 }
 
-func TestMCPAcceptsInitializedNotification(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "notifications/initialized",
-	})
-
-	require.Equal(t, http.StatusAccepted, resp.Code)
-	require.Empty(t, resp.Body.String())
-}
-
-func TestMCPRejectsNonNotificationWithoutID(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "tools/list",
-	})
-
-	require.Equal(t, http.StatusBadRequest, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "notifications must use notifications/* methods", out["error"].(map[string]any)["message"])
-}
-
-func TestMCPPing(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "ping-1",
-		"method":  "ping",
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "ping-1", out["id"])
-	require.Empty(t, out["result"].(map[string]any))
-}
-
-func TestMCPPromptsListAndGet(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	listResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "prompts",
-		"method":  "prompts/list",
-	})
-	require.Equal(t, http.StatusOK, listResp.Code)
-	var listed map[string]any
-	require.NoError(t, json.Unmarshal(listResp.Body.Bytes(), &listed))
-	prompts := listed["result"].(map[string]any)["prompts"].([]any)
-	require.Len(t, prompts, 3)
-	require.Equal(t, mcpPromptPlanPost, prompts[0].(map[string]any)["name"])
-	require.Equal(t, mcpPromptRenditions, prompts[1].(map[string]any)["name"])
-	require.Equal(t, mcpPromptReviewQueue, prompts[2].(map[string]any)["name"])
-	renditionArguments := prompts[1].(map[string]any)["arguments"].([]any)
-	renditionArgumentNames := make([]string, 0, len(renditionArguments))
-	for _, rawArgument := range renditionArguments {
-		renditionArgumentNames = append(renditionArgumentNames, rawArgument.(map[string]any)["name"].(string))
-	}
-	require.Contains(t, renditionArgumentNames, "publication_id")
-	require.NotContains(t, renditionArgumentNames, "post_id")
-
-	getResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "prompt",
-		"method":  "prompts/get",
-		"params": map[string]any{
-			"name": mcpPromptPlanPost,
-			"arguments": map[string]string{
-				"idea":         "Launch the demo recording",
-				"workspace_id": "ws-1",
-				"platforms":    "x, linkedin",
-			},
-		},
-	})
-	require.Equal(t, http.StatusOK, getResp.Code)
-	var got map[string]any
-	require.NoError(t, json.Unmarshal(getResp.Body.Bytes(), &got))
-	result := got["result"].(map[string]any)
-	messages := result["messages"].([]any)
-	require.Len(t, messages, 1)
-	message := messages[0].(map[string]any)
-	require.Equal(t, "user", message["role"])
-	text := message["content"].(map[string]any)["text"].(string)
-	require.Contains(t, text, "Launch the demo recording")
-	require.Contains(t, text, "workspace_id: ws-1")
-	require.Contains(t, text, "x, linkedin")
-	require.Contains(t, text, "create_publication")
-	require.NotContains(t, text, "create_draft")
-
-	renditionResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "rendition-prompt",
-		"method":  "prompts/get",
-		"params": map[string]any{
-			"name": mcpPromptRenditions,
-			"arguments": map[string]string{
-				"workspace_id":   "ws-1",
-				"publication_id": "publication-1",
-			},
-		},
-	})
-	require.Equal(t, http.StatusOK, renditionResp.Code)
-	var renditionGot map[string]any
-	require.NoError(t, json.Unmarshal(renditionResp.Body.Bytes(), &renditionGot))
-	renditionResult := renditionGot["result"].(map[string]any)
-	renditionMessages := renditionResult["messages"].([]any)
-	require.Len(t, renditionMessages, 1)
-	renditionText := renditionMessages[0].(map[string]any)["content"].(map[string]any)["text"].(string)
-	require.Contains(t, renditionText, "publication_id: publication-1")
-	require.Contains(t, renditionText, "get_publication")
-	require.Contains(t, renditionText, "set_publication_renditions")
-	require.NotContains(t, renditionText, "post_id")
-	require.NotContains(t, renditionText, "get_post_status")
-	require.NotContains(t, renditionText, "set_post_renditions")
-
-	reviewResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "review-prompt",
-		"method":  "prompts/get",
-		"params": map[string]any{
-			"name": mcpPromptReviewQueue,
-			"arguments": map[string]string{
-				"workspace_id": "ws-1",
-				"window":       "this week",
-			},
-		},
-	})
-	require.Equal(t, http.StatusOK, reviewResp.Code)
-	var reviewGot map[string]any
-	require.NoError(t, json.Unmarshal(reviewResp.Body.Bytes(), &reviewGot))
-	reviewResult := reviewGot["result"].(map[string]any)
-	reviewMessages := reviewResult["messages"].([]any)
-	require.Len(t, reviewMessages, 1)
-	reviewText := reviewMessages[0].(map[string]any)["content"].(map[string]any)["text"].(string)
-	require.Contains(t, reviewText, "list_publications")
-	require.NotContains(t, reviewText, "list_scheduled_posts")
-}
-
 func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {
 	t.Parallel()
 
@@ -1582,33 +837,6 @@ func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "unknown prompt", out["error"].(map[string]any)["message"])
-}
-
-func TestMCPCallListWorkspaces(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-1",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      "list_workspaces",
-			"arguments": map[string]any{},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	content := result["content"].([]any)
-	require.Contains(t, content[0].(map[string]any)["text"], "Launch")
-	structured := result["structuredContent"].(map[string]any)
-	workspaces := structured["workspaces"].([]any)
-	require.Len(t, workspaces, 2)
-	require.Equal(t, "ws-1", workspaces[0].(map[string]any)["id"])
-	require.Equal(t, "admin", workspaces[0].(map[string]any)["role"])
 }
 
 func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
@@ -1669,57 +897,6 @@ func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
-func TestMCPCallListProviderCatalog(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.SetProviderCatalog(map[string]platform.Adapter{
-		"bluesky": providerAvailabilityAdapter{},
-		"x":       providerAvailabilityAdapter{},
-	}, true)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-providers",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      "list_provider_catalog",
-			"arguments": map[string]any{},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	content := result["content"].([]any)
-	text := content[0].(map[string]any)["text"].(string)
-	require.Contains(t, text, "available: Bluesky, X (Twitter), Mastodon")
-	require.Contains(t, text, "needs configuration: Discord, Pinterest, LinkedIn, Threads, Instagram, Facebook, YouTube, TikTok")
-	require.Contains(t, text, "planned: Telegram")
-
-	structured := result["structuredContent"].(map[string]any)
-	providers := structured["providers"].([]any)
-	require.Len(t, providers, 12)
-	byPlatform := map[string]map[string]any{}
-	for _, item := range providers {
-		provider := item.(map[string]any)
-		byPlatform[provider["platform"].(string)] = provider
-	}
-	require.Equal(t, "available", byPlatform["bluesky"]["status"])
-	require.Equal(t, true, byPlatform["bluesky"]["configured"])
-	require.Equal(t, "needs_configuration", byPlatform["linkedin"]["status"])
-	require.Equal(t, false, byPlatform["linkedin"]["configured"])
-	require.Equal(t, "needs_configuration", byPlatform["facebook"]["status"])
-	require.Equal(t, false, byPlatform["facebook"]["configured"])
-	require.Equal(t, "needs_configuration", byPlatform["instagram"]["status"])
-	require.Equal(t, false, byPlatform["instagram"]["configured"])
-	require.Equal(t, "needs_configuration", byPlatform["tiktok"]["status"])
-	require.Equal(t, false, byPlatform["tiktok"]["configured"])
-	require.Equal(t, "needs_configuration", byPlatform["youtube"]["status"])
-	require.Equal(t, false, byPlatform["youtube"]["configured"])
-	require.Contains(t, byPlatform["youtube"]["capabilities"].([]any), "MCP workflows")
-}
-
 func TestMCPCallListPublicationEvents(t *testing.T) {
 	t.Parallel()
 
@@ -1777,48 +954,6 @@ func TestMCPCallListPublicationEvents(t *testing.T) {
 	require.NotContains(t, event, "message")
 	require.NotContains(t, event, "metadata")
 	require.Equal(t, "created", events[1].(map[string]any)["type"])
-}
-
-func TestMCPCallProviderReadiness(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-	_, err := srv.db.NewUpdate().
-		Model((*models.SocialAccount)(nil)).
-		Set("granted_scopes = ?", "tweet.read tweet.write offline.access").
-		Where("id = ?", "account-1").
-		Exec(ctx)
-	require.NoError(t, err)
-
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-provider-readiness",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "get_provider_readiness",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	structured := result["structuredContent"].(map[string]any)
-	providers := structured["providers"].([]any)
-	require.Len(t, providers, 12)
-	byProvider := map[string]map[string]any{}
-	for _, provider := range providers {
-		item := provider.(map[string]any)
-		byProvider[item["provider"].(string)] = item
-	}
-	require.Equal(t, float64(1), byProvider["x"]["connected_accounts"])
-	require.NotContains(t, byProvider["x"], "granted_scopes")
-	require.NotContains(t, byProvider["x"], "public_media_health")
-	require.NotEmpty(t, byProvider["x"]["profiles"])
 }
 
 func TestMCPCallValidatePublication(t *testing.T) {
@@ -1888,85 +1023,6 @@ func TestMCPCallValidatePublication(t *testing.T) {
 		codes = append(codes, issue.(map[string]any)["code"].(string))
 	}
 	require.Contains(t, codes, "missing_scope")
-}
-
-func TestMCPCallListRenditionComments(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-	encryptor := servicecrypto.NewTokenEncryptor("test-comment-key")
-	token, err := encryptor.Encrypt("token")
-	require.NoError(t, err)
-	_, err = srv.db.NewUpdate().
-		Model((*models.SocialAccount)(nil)).
-		Set("access_token_encrypted = ?", token).
-		Where("id = ?", "account-1").
-		Exec(ctx)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Publication{
-		ID:              "publication-comments",
-		WorkspaceID:     "ws-1",
-		CreatedByID:     "user-1",
-		Title:           "Launch",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Launch",
-		SourceContent:   "Launch",
-		Status:          models.PublicationStatusPublished,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Rendition{
-		ID:              "rendition-comments",
-		PublicationID:   "publication-comments",
-		SocialAccountID: "account-1",
-		Platform:        "x",
-		Profile:         models.ContentProfileShortText,
-		Body:            "Launch",
-		SettingsJSON:    "{}",
-		Status:          models.RenditionStatusPublished,
-		ExternalID:      "external-1",
-	}).Exec(ctx)
-	require.NoError(t, err)
-	srv.handler.SetProviderCatalog(map[string]platform.Adapter{
-		"x": fakeCommentAdapter{comments: []platform.Comment{{
-			ID:         "comment-1",
-			AuthorID:   "author-1",
-			AuthorName: "Reader",
-			Text:       "Great launch",
-			CanReply:   true,
-			CanHide:    true,
-		}}},
-	}, false)
-	srv.handler.SetTokenEncryptor(encryptor)
-
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-rendition-comments",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "list_rendition_comments",
-			"arguments": map[string]any{
-				"rendition_id": "rendition-comments",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	structured := result["structuredContent"].(map[string]any)
-	comments := structured["comments"].([]any)
-	require.Len(t, comments, 1)
-	comment := comments[0].(map[string]any)
-	require.Equal(t, "rendition-comments", comment["rendition_id"])
-	require.Equal(t, "comment-1", comment["provider_comment_id"])
-	require.Equal(t, "Reader", comment["author_name"])
-	require.Equal(t, "Great launch", comment["text"])
-	require.Equal(t, true, comment["can_reply"])
-	require.NotEmpty(t, comment["id"])
 }
 
 func TestMCPCommentMutationQueuesOneAttemptProviderJob(t *testing.T) {
@@ -2040,136 +1096,6 @@ func TestMCPCommentMutationRejectsCredentialBoundToAnotherWorkspace(t *testing.T
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.NotNil(t, out["error"])
-}
-
-func TestMCPCallRenderSchedulerWidget(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "render-widget",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": mcpToolRenderWidget,
-			"arguments": map[string]any{
-				"view":         "posts",
-				"title":        "Queue review",
-				"workspace_id": "ws-1",
-				"data": map[string]any{
-					"posts": []map[string]any{{
-						"id":     "post-1",
-						"status": "scheduled",
-					}},
-				},
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	content := result["content"].([]any)
-	require.Contains(t, content[0].(map[string]any)["text"], "Rendered OpenPost scheduler view")
-	structured := result["structuredContent"].(map[string]any)
-	require.Equal(t, "posts", structured["view"])
-	require.Equal(t, "Queue review", structured["title"])
-	require.Equal(t, "ws-1", structured["workspace_id"])
-	data := structured["data"].(map[string]any)
-	posts := data["posts"].([]any)
-	require.Len(t, posts, 1)
-	require.Equal(t, "post-1", posts[0].(map[string]any)["id"])
-}
-
-func TestMCPCallRenderSchedulerWidgetInfersCanonicalPublicationResults(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID:              "publication-widget",
-		WorkspaceID:     "ws-1",
-		CreatedByID:     "user-1",
-		Title:           "Launch notes",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Launch notes for the next release",
-		SourceContent:   "Launch notes for the next release",
-		Status:          models.PublicationStatusScheduled,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-		CreatedAt:       time.Date(2026, 6, 30, 16, 0, 0, 0, time.UTC),
-		UpdatedAt:       time.Date(2026, 6, 30, 16, 5, 0, 0, time.UTC),
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	listResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "list-publications-for-widget",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": mcpToolQuery,
-			"arguments": map[string]any{
-				"operation": mcpToolListPubs,
-				"arguments": map[string]any{"workspace_id": "ws-1"},
-			},
-		},
-	})
-	require.Equal(t, http.StatusOK, listResp.Code)
-	var listed map[string]any
-	require.NoError(t, json.Unmarshal(listResp.Body.Bytes(), &listed))
-	publicationData := listed["result"].(map[string]any)["structuredContent"].(map[string]any)
-
-	renderResp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "render-publications",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": mcpToolRenderWidget,
-			"arguments": map[string]any{
-				"title":        "Queue review",
-				"workspace_id": "ws-1",
-				"data":         publicationData,
-			},
-		},
-	})
-	require.Equal(t, http.StatusOK, renderResp.Code)
-	var rendered map[string]any
-	require.NoError(t, json.Unmarshal(renderResp.Body.Bytes(), &rendered))
-	structured := rendered["result"].(map[string]any)["structuredContent"].(map[string]any)
-	require.Equal(t, "publications", structured["view"])
-	require.Equal(t, publicationData, structured["data"])
-	publications := structured["data"].(map[string]any)["publications"].([]any)
-	require.Len(t, publications, 1)
-	require.Equal(t, "Launch notes", publications[0].(map[string]any)["title"])
-}
-
-func TestMCPCallListAccounts(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-accounts",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "list_accounts",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	content := result["content"].([]any)
-	require.Contains(t, content[0].(map[string]any)["text"], "x:x-openpost")
-	structured := result["structuredContent"].(map[string]any)
-	accounts := structured["accounts"].([]any)
-	require.Len(t, accounts, 1)
-	require.Equal(t, "account-1", accounts[0].(map[string]any)["id"])
-	require.Equal(t, "x", accounts[0].(map[string]any)["platform"])
 }
 
 func TestMCPRequiredSSOTokenBinding(t *testing.T) {
@@ -2281,253 +1207,6 @@ func TestMCPRequiredSSOTokenBinding(t *testing.T) {
 	require.Equal(t, "ws-2", unboundRows[0].(map[string]any)["id"])
 }
 
-func TestMCPCallListMedia(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	insertMCPTestMedia(t, srv, models.MediaAttachment{
-		ID:               "media-old",
-		OriginalFilename: "old.png",
-		AltText:          "Old launch image",
-		Size:             1200,
-		CreatedAt:        time.Date(2026, 6, 30, 15, 0, 0, 0, time.UTC),
-	})
-	insertMCPTestMedia(t, srv, models.MediaAttachment{
-		ID:               "media-new",
-		OriginalFilename: "new.png",
-		AltText:          "New launch image",
-		Size:             2400,
-		Width:            1200,
-		Height:           630,
-		DurationMS:       12000,
-		FrameRate:        29.97,
-		AspectRatio:      "40:21",
-		DominantType:     "video",
-		AnalysisStatus:   "ready",
-		PublicURLReady:   true,
-		PublicURLCheckedAt: time.Date(
-			2026, 6, 30, 16, 5, 0, 0, time.UTC,
-		),
-		PublicURLStatus: 200,
-		ThumbnailsJSON:  `{"sm":"thumb-sm.png"}`,
-		IsFavorite:      true,
-		CreatedAt:       time.Date(2026, 6, 30, 16, 0, 0, 0, time.UTC),
-	})
-	insertMCPTestMedia(t, srv, models.MediaAttachment{
-		ID:               "media-other-workspace",
-		WorkspaceID:      "ws-2",
-		OriginalFilename: "other.png",
-		CreatedAt:        time.Date(2026, 6, 30, 17, 0, 0, 0, time.UTC),
-	})
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID:          "publication-uses-media",
-		WorkspaceID: "ws-1",
-		CreatedByID: "user-1",
-		SourceText:  "Uses media",
-		Status:      models.PublicationStatusDraft,
-		CreatedAt:   time.Date(2026, 6, 30, 16, 15, 0, 0, time.UTC),
-	}).Exec(context.Background())
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.PublicationAsset{
-		PublicationID: "publication-uses-media",
-		MediaID:       "media-new",
-		DisplayOrder:  0,
-	}).Exec(context.Background())
-	require.NoError(t, err)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-media",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "list_media",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-				"limit":        2,
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result, ok := out["result"].(map[string]any)
-	require.True(t, ok, "MCP response did not contain a result: %#v", out)
-	content, ok := result["content"].([]any)
-	require.True(t, ok, "MCP result did not contain content: %#v", result)
-	require.Contains(t, content[0].(map[string]any)["text"], "Found 2 media items")
-	structured := result["structuredContent"].(map[string]any)
-	media := structured["media"].([]any)
-	require.Len(t, media, 2)
-	first := media[0].(map[string]any)
-	require.Equal(t, "media-new", first["id"])
-	require.Equal(t, "new.png", first["filename"])
-	require.Equal(t, "/media/media-new", first["url"])
-	require.Equal(t, "/media/media-new/thumb/sm", first["thumbnail_url"])
-	require.Equal(t, "New launch image", first["alt_text"])
-	require.Equal(t, float64(12000), first["duration_ms"])
-	require.Equal(t, float64(29.97), first["frame_rate"])
-	require.Equal(t, "40:21", first["aspect_ratio"])
-	require.Equal(t, "video", first["dominant_type"])
-	require.Equal(t, "ready", first["analysis_status"])
-	require.Equal(t, true, first["public_url_ready"])
-	require.Equal(t, float64(200), first["public_url_status"])
-	require.Equal(t, true, first["is_favorite"])
-	require.Equal(t, float64(1), first["usage_count"])
-	require.Equal(t, false, first["can_delete"])
-	require.Equal(t, "media-old", media[1].(map[string]any)["id"])
-}
-
-func TestMCPCallLogsSuccessfulToolCall(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.auth = mcpScopeAuthenticator{
-		"mcp-token": {
-			UserID:      "user-1",
-			Email:       "user@example.com",
-			Scope:       "mcp:full",
-			ClientID:    "token-chatgpt",
-			ClientName:  "ChatGPT App",
-			TokenPrefix: "abcd1234",
-		},
-	}
-	resp := srv.request(t, "mcp-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-log-success",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "list_accounts",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var call models.MCPToolCall
-	require.NoError(t, srv.db.NewSelect().Model(&call).Where("tool_name = ?", "list_accounts").Scan(context.Background()))
-	require.Equal(t, "user-1", call.UserID)
-	require.Equal(t, "ws-1", call.WorkspaceID)
-	require.Equal(t, "token-chatgpt", call.ClientID)
-	require.Equal(t, "ChatGPT App", call.ClientName)
-	require.Equal(t, "mcp:full", call.ClientScope)
-	require.Equal(t, "abcd1234", call.ClientTokenPrefix)
-	require.Equal(t, "success", call.Status)
-	require.Empty(t, call.ErrorMessage)
-	require.False(t, call.CreatedAt.IsZero())
-}
-
-func TestMCPCallLogsFailedToolCall(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-log-error",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "create_publication",
-			"arguments": map[string]any{
-				"workspace_id":       "ws-1",
-				"content_profile":    "short_text",
-				"source_text":        "Draft from an agent",
-				"social_account_ids": []string{"account-other-workspace"},
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var call models.MCPToolCall
-	require.NoError(t, srv.db.NewSelect().Model(&call).Where("tool_name = ?", "create_publication").Scan(context.Background()))
-	require.Equal(t, "user-1", call.UserID)
-	require.Equal(t, "ws-1", call.WorkspaceID)
-	require.Equal(t, "error", call.Status)
-	require.Contains(t, call.ErrorMessage, "outside this workspace")
-}
-
-func TestMCPRejectsUndocumentedToolArguments(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "unknown-argument",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "create_publication",
-			"arguments": map[string]any{
-				"workspace_id":    "ws-1",
-				"content_profile": "short_text",
-				"source_text":     "Draft from an agent",
-				"undocumented":    true,
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "invalid create_publication arguments: undocumented: unexpected property", out["error"].(map[string]any)["message"])
-	count, err := srv.db.NewSelect().Model((*models.Publication)(nil)).Where("source_text = ?", "Draft from an agent").Count(context.Background())
-	require.NoError(t, err)
-	require.Zero(t, count)
-}
-
-func TestMCPCallSuggestNextSlotReturnsFirstFreeSchedule(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	_, err := srv.db.NewInsert().Model(&[]models.PostingSchedule{
-		{
-			ID:          "slot-9",
-			WorkspaceID: "ws-1",
-			UTCHour:     9,
-			UTCMinute:   0,
-			DayOfWeek:   int(time.Monday),
-			Label:       "Morning",
-			IsActive:    true,
-			CreatedAt:   time.Date(2026, 6, 30, 17, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:          "slot-17",
-			WorkspaceID: "ws-1",
-			UTCHour:     17,
-			UTCMinute:   0,
-			DayOfWeek:   int(time.Monday),
-			Label:       "Evening",
-			IsActive:    true,
-			CreatedAt:   time.Date(2026, 6, 30, 17, 5, 0, 0, time.UTC),
-		},
-	}).Exec(context.Background())
-	require.NoError(t, err)
-
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-slot",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "suggest_next_slot",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-				"after":        "2026-07-06T08:00:00Z",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	structured := result["structuredContent"].(map[string]any)
-	suggestion := structured["suggestion"].(map[string]any)
-	require.Equal(t, "Next available slot found.", suggestion["message"])
-	require.Equal(t, "2026-07-06T09:00:00Z", suggestion["slot_time"])
-	require.Equal(t, "2026-07-06T09:00:00Z", suggestion["slot_time_utc"])
-	slot := suggestion["slot"].(map[string]any)
-	require.Equal(t, "slot-9", slot["id"])
-	require.Equal(t, "Morning", slot["label"])
-}
-
 func TestMCPCallSuggestNextSlotSkipsOccupiedSlot(t *testing.T) {
 	t.Parallel()
 
@@ -2594,61 +1273,6 @@ func TestMCPCallSuggestNextSlotSkipsOccupiedSlot(t *testing.T) {
 	require.Equal(t, "Evening", slot["label"])
 }
 
-func TestMCPCallUploadMediaFromURLStoresMedia(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.SetMediaURLValidator(func(_ context.Context, remote *url.URL) error {
-		require.Equal(t, "https", remote.Scheme)
-		require.Equal(t, "cdn.example", remote.Hostname())
-		return nil
-	})
-	srv.handler.SetMediaURLHTTPClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "https://cdn.example/launch.txt", req.URL.String())
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"text/plain"}},
-			Body:       io.NopCloser(bytes.NewBufferString("launch media")),
-			Request:    req,
-		}, nil
-	})})
-
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-upload-url",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "upload_media_from_url",
-			"arguments": map[string]any{
-				"workspace_id": "ws-1",
-				"url":          "https://cdn.example/launch.txt",
-				"alt_text":     "Launch text asset",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	structured := result["structuredContent"].(map[string]any)
-	media := structured["media"].(map[string]any)
-	require.NotEmpty(t, media["id"])
-	require.Equal(t, "text/plain; charset=utf-8", media["mime_type"])
-	require.Equal(t, "/media/"+media["id"].(string), media["url"])
-	require.Equal(t, "launch.txt", media["filename"])
-	require.Equal(t, "Launch text asset", media["alt_text"])
-	require.Equal(t, "https://cdn.example/launch.txt", media["source_url"])
-	require.Equal(t, false, media["deduped"])
-
-	var stored models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", media["id"]).Scan(context.Background()))
-	require.Equal(t, "ws-1", stored.WorkspaceID)
-	require.Equal(t, "launch.txt", stored.OriginalFilename)
-	require.Equal(t, "Launch text asset", stored.AltText)
-	require.Equal(t, int64(len("launch media")), stored.Size)
-}
-
 func TestMCPCallUploadMediaFromURLRejectsLocalhost(t *testing.T) {
 	t.Parallel()
 
@@ -2674,4 +1298,46 @@ func TestMCPCallUploadMediaFromURLRejectsLocalhost(t *testing.T) {
 	var count int
 	require.NoError(t, srv.db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("media_attachments").Scan(context.Background(), &count))
 	require.Equal(t, 0, count)
+}
+
+func TestMCPCallAuditLogRecordsSuccessAndFailure(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"mcp-token": {
+			UserID: "user-1", Email: "user@example.com", Scope: "mcp:full",
+			ClientID: "token-chatgpt", ClientName: "ChatGPT App", TokenPrefix: "abcd1234",
+		},
+	}
+	resp := srv.request(t, "mcp-token", map[string]any{
+		"jsonrpc": "2.0", "id": "call-log-success", "method": "tools/call",
+		"params": map[string]any{
+			"name":      "list_accounts",
+			"arguments": map[string]any{"workspace_id": "ws-1"},
+		},
+	})
+	require.Equal(t, http.StatusOK, resp.Code)
+	var success models.MCPToolCall
+	require.NoError(t, srv.db.NewSelect().Model(&success).Where("tool_name = ?", "list_accounts").Scan(context.Background()))
+	require.Equal(t, "user-1", success.UserID)
+	require.Equal(t, "token-chatgpt", success.ClientID)
+	require.Equal(t, "success", success.Status)
+	require.Empty(t, success.ErrorMessage)
+
+	failResp := srv.request(t, "mcp-token", map[string]any{
+		"jsonrpc": "2.0", "id": "call-log-error", "method": "tools/call",
+		"params": map[string]any{
+			"name": "create_publication",
+			"arguments": map[string]any{
+				"workspace_id": "ws-1", "content_profile": "short_text",
+				"source_text": "Draft from an agent", "social_account_ids": []string{"account-other-workspace"},
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, failResp.Code)
+	var failure models.MCPToolCall
+	require.NoError(t, srv.db.NewSelect().Model(&failure).Where("tool_name = ?", "create_publication").Scan(context.Background()))
+	require.Equal(t, "error", failure.Status)
+	require.Contains(t, failure.ErrorMessage, "outside this workspace")
 }

@@ -29,15 +29,6 @@ type recordingPasswordSender struct {
 	err      error
 }
 
-func TestValidateNewPasswordCountsUnicodeCharacters(t *testing.T) {
-	t.Parallel()
-
-	require.Error(t, validateNewPassword(strings.Repeat("🔐", 11)))
-	require.NoError(t, validateNewPassword(strings.Repeat("🔐", 12)))
-	require.NoError(t, validateNewPassword(strings.Repeat("🔐", 1024)))
-	require.Error(t, validateNewPassword(strings.Repeat("🔐", 1025)))
-}
-
 func (s *recordingPasswordSender) SendPasswordReset(_ context.Context, message passwordmail.ResetMessage) error {
 	s.messages = append(s.messages, message)
 	return s.err

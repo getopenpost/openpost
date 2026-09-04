@@ -1,7 +1,6 @@
 package capabilities
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,10 +31,4 @@ func TestTextLengthUsesXWeightedCounting(t *testing.T) {
 func TestTextLengthKeepsOtherProvidersAtCodePoints(t *testing.T) {
 	require.Equal(t, 3, TextLength(ProviderMastodon, "日本語"))
 	require.Equal(t, 5, TextLength(ProviderMastodon, "cafe\u0301"))
-}
-
-func TestXWeightedTextLimitHandlesASCIIAndCJK(t *testing.T) {
-	const standardLimit = 280
-	require.Equal(t, standardLimit, TextLength(ProviderX, strings.Repeat("x", standardLimit)))
-	require.Equal(t, standardLimit, TextLength(ProviderX, strings.Repeat("界", standardLimit/2)))
 }

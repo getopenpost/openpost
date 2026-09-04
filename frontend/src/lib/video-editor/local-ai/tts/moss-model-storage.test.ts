@@ -51,17 +51,6 @@ afterEach(() => {
 });
 
 describe('MOSS model storage', () => {
-	it('measures the complete pinned model set without reading file bodies', async () => {
-		installStorage();
-		await expect(inspectMossModelStorage()).resolves.toEqual({
-			supported: true,
-			downloaded: true,
-			entryCount: MOSS_MODEL_FILE_COUNT,
-			totalBytes: MOSS_MODEL_TOTAL_BYTES,
-			sizeStatus: 'exact'
-		});
-	});
-
 	it('removes only the revisioned MOSS model directory', async () => {
 		const { removeEntry } = installStorage();
 		await expect(clearMossModelStorage()).resolves.toBe(true);

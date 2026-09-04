@@ -15,7 +15,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/publicprofiles"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/billing"
 	"github.com/openpost/backend/internal/services/crypto"
@@ -23,17 +22,6 @@ import (
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 )
-
-func TestRegisterUserMakesFirstUserAdminEvenWhenRegistrationsDisabled(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, true)
-
-	user, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
-	require.NoError(t, err)
-	require.True(t, user.IsAdmin)
-}
 
 func TestHostedRegistrationRequiresAValidPurchaseChoice(t *testing.T) {
 	t.Parallel()
@@ -78,48 +66,53 @@ func TestHostedRegistrationRequiresAValidPurchaseChoice(t *testing.T) {
 	require.NotEmpty(t, recorder.Events[0].DistinctID)
 }
 
-func TestRegisterUserRejectsAdditionalUsersWhenRegistrationsDisabled(t *testing.T) {
+func TestRegisterUserFirstUserBootstrap(t *testing.T) {
 	t.Parallel()
 
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, true)
+	t.Run("closed registration promotes only the first user", func(t *testing.T) {
+		t.Parallel()
 
-	_, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
-	require.NoError(t, err)
+		db := createHandlerTestDB(t, (*models.User)(nil))
+		handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, true)
 
-	_, err = handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
-	require.ErrorIs(t, err, errRegistrationsDisabled)
-}
+		first, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
+		require.NoError(t, err)
+		require.True(t, first.IsAdmin)
 
-func TestRegisterUserReservesClosedRegistrationBootstrapWhileEmailIsUnverified(t *testing.T) {
-	t.Parallel()
+		_, err = handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
+		require.ErrorIs(t, err, errRegistrationsDisabled)
+	})
 
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, true)
-	handler.emailVerificationRequired = true
+	t.Run("open registration promotes only the first user", func(t *testing.T) {
+		t.Parallel()
 
-	first, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
-	require.NoError(t, err)
-	require.False(t, first.IsAdmin)
-	require.True(t, first.EmailVerifiedAt.IsZero())
+		db := createHandlerTestDB(t, (*models.User)(nil))
+		handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
 
-	_, err = handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
-	require.ErrorIs(t, err, errRegistrationsDisabled)
-}
+		firstUser, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
+		require.NoError(t, err)
+		require.True(t, firstUser.IsAdmin)
 
-func TestRegisterUserOnlyPromotesTheFirstUser(t *testing.T) {
-	t.Parallel()
+		secondUser, err := handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
+		require.NoError(t, err)
+		require.False(t, secondUser.IsAdmin)
+	})
 
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
+	t.Run("unverified email reserves the closed bootstrap", func(t *testing.T) {
+		t.Parallel()
 
-	firstUser, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
-	require.NoError(t, err)
-	require.True(t, firstUser.IsAdmin)
+		db := createHandlerTestDB(t, (*models.User)(nil))
+		handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, true)
+		handler.emailVerificationRequired = true
 
-	secondUser, err := handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
-	require.NoError(t, err)
-	require.False(t, secondUser.IsAdmin)
+		first, err := handler.registerUserWithPolicy(context.Background(), "admin@example.com", "admin-user", "password123", false)
+		require.NoError(t, err)
+		require.False(t, first.IsAdmin)
+		require.True(t, first.EmailVerifiedAt.IsZero())
+
+		_, err = handler.registerUserWithPolicy(context.Background(), "user@example.com", "normal-user", "password123", false)
+		require.ErrorIs(t, err, errRegistrationsDisabled)
+	})
 }
 
 func TestRegisterUserRequiresUniqueUsername(t *testing.T) {
@@ -136,17 +129,6 @@ func TestRegisterUserRequiresUniqueUsername(t *testing.T) {
 	require.ErrorIs(t, err, errUsernameAlreadyRegistered)
 }
 
-func TestRegisterUserCreatesUsernameWhenOmitted(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-
-	user, err := handler.registerUserWithPolicy(context.Background(), "Ada.Lovelace@example.com", "", "password123", false)
-	require.NoError(t, err)
-	require.Regexp(t, `^ada-lovelace-[a-f0-9]{6}$`, user.Username)
-}
-
 func TestRegistrationInsertErrorClassifiesUniqueConstraintRaces(t *testing.T) {
 	t.Parallel()
 
@@ -154,136 +136,6 @@ func TestRegistrationInsertErrorClassifiesUniqueConstraintRaces(t *testing.T) {
 	require.ErrorIs(t, registrationInsertError(errors.New("duplicate key value violates unique constraint users_email_key")), errEmailAlreadyRegistered)
 	original := errors.New("database unavailable")
 	require.ErrorIs(t, registrationInsertError(original), original)
-}
-
-func TestUpdateUserProfilePersistsComposerExperience(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	ctx := context.Background()
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	_, err := db.NewInsert().Model(user).Exec(ctx)
-	require.NoError(t, err)
-	created, err := handler.getUserByID(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, "specialized", created.ComposerExperience)
-
-	unified := "unified"
-	err = handler.updateUserProfile(ctx, user.ID, UpdateProfileInputBody{
-		ComposerExperience: &unified,
-	})
-	require.NoError(t, err)
-
-	updated, err := handler.getUserByID(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, "unified", updated.ComposerExperience)
-	require.Equal(t, "unified", handler.toUserProfile(updated).ComposerExperience)
-}
-
-func TestUpdateUserProfileRejectsUnknownComposerExperience(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	ctx := context.Background()
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	_, err := db.NewInsert().Model(user).Exec(ctx)
-	require.NoError(t, err)
-
-	unknown := "custom"
-	err = handler.updateUserProfile(ctx, user.ID, UpdateProfileInputBody{
-		ComposerExperience: &unknown,
-	})
-	require.ErrorContains(t, err, "composer experience must be specialized or unified")
-}
-
-func TestUpdateUserProfilePersistsExplicitPublicVisibility(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	ctx := context.Background()
-	user := &models.User{ID: "user-1", Email: "user@example.com", Username: "user-one"}
-	_, err := db.NewInsert().Model(user).Exec(ctx)
-	require.NoError(t, err)
-
-	visible := []string{publicprofiles.FieldAvatar, publicprofiles.FieldActivity}
-	err = handler.updateUserProfile(ctx, user.ID, UpdateProfileInputBody{PublicProfileVisibleFields: &visible})
-	require.NoError(t, err)
-
-	updated, err := handler.getUserByID(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, `["username","avatar","activity"]`, updated.PublicProfileVisibilityJSON)
-	require.Equal(t, visible, handler.toUserProfile(updated).PublicProfileVisibleFields)
-
-	empty := []string{}
-	err = handler.updateUserProfile(ctx, user.ID, UpdateProfileInputBody{PublicProfileVisibleFields: &empty})
-	require.NoError(t, err)
-	updated, err = handler.getUserByID(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, `["username"]`, updated.PublicProfileVisibilityJSON)
-	require.Empty(t, handler.toUserProfile(updated).PublicProfileVisibleFields)
-}
-
-func TestUpdateUserProfileRejectsUnknownPublicVisibilityField(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	_, err := db.NewInsert().Model(&models.User{ID: "user-1", Email: "user@example.com"}).Exec(context.Background())
-	require.NoError(t, err)
-	visible := []string{"email"}
-	err = handler.updateUserProfile(context.Background(), "user-1", UpdateProfileInputBody{PublicProfileVisibleFields: &visible})
-	require.ErrorContains(t, err, "unsupported public profile field")
-}
-
-func TestUpdateUserProfileCannotEnableDisabledPublicCapability(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	handler.SetPublicProfilesEnabled(false)
-	_, err := db.NewInsert().Model(&models.User{ID: "user-1", Email: "user@example.com", Username: "user-one"}).Exec(context.Background())
-	require.NoError(t, err)
-	enabled := true
-	err = handler.updateUserProfile(context.Background(), "user-1", UpdateProfileInputBody{PublicProfileEnabled: &enabled})
-	require.ErrorContains(t, err, "public profiles are disabled")
-}
-
-func TestUpdateUserProfileRequiresExplicitVisibilityWhenFirstEnabled(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.User{
-		ID: "user-1", Email: "user@example.com", Username: "user-one",
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	enabled := true
-	err = handler.updateUserProfile(ctx, "user-1", UpdateProfileInputBody{PublicProfileEnabled: &enabled})
-	require.ErrorContains(t, err, "choose which profile fields to show")
-
-	visible := []string{}
-	err = handler.updateUserProfile(ctx, "user-1", UpdateProfileInputBody{
-		PublicProfileEnabled:       &enabled,
-		PublicProfileVisibleFields: &visible,
-	})
-	require.NoError(t, err)
-	updated, err := handler.getUserByID(ctx, "user-1")
-	require.NoError(t, err)
-	require.True(t, updated.PublicProfile)
-	require.JSONEq(t, `["username"]`, updated.PublicProfileVisibilityJSON)
-}
-
-func TestUserProfileDefaultsUnknownComposerExperienceToSpecialized(t *testing.T) {
-	t.Parallel()
-
-	handler := NewAuthHandler(nil, nil, nil, nil, nil, false)
-	profile := handler.toUserProfile(&models.User{ComposerExperience: ""})
-	require.Equal(t, "specialized", profile.ComposerExperience)
 }
 
 func TestResolveTOTPSetupSecretDecryptsEncryptedPayload(t *testing.T) {
@@ -442,57 +294,6 @@ func TestAuthHandlerListsAndRevokesSessions(t *testing.T) {
 	var revoked models.UserSession
 	require.NoError(t, db.NewSelect().Model(&revoked).Where("id = ?", other.ID).Scan(ctx))
 	require.False(t, revoked.RevokedAt.IsZero())
-}
-
-func TestAuthSessionStateSupportsAnonymousAndAuthenticatedRequests(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	ctx := t.Context()
-	user := &models.User{
-		ID:           "user-1",
-		Email:        "user@example.com",
-		PasswordHash: "hash",
-		CreatedAt:    time.Now().UTC(),
-	}
-	_, err := db.NewInsert().Model(user).Exec(ctx)
-	require.NoError(t, err)
-
-	authService := auth.NewService("test-secret")
-	token, err := authService.GenerateToken(user.ID, user.Email)
-	require.NoError(t, err)
-
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler := NewAuthHandler(
-		db,
-		authService,
-		middleware.NewJWTAuthenticator(authService),
-		nil,
-		nil,
-		false,
-	)
-	handler.SessionState(api)
-
-	anonymous := authSessionRequest(t, e, http.MethodGet, "/api/v1/auth/session-state", "")
-	require.Equal(t, http.StatusOK, anonymous.Code, anonymous.Body.String())
-	var anonymousBody AuthSessionStateOutput
-	require.NoError(t, json.Unmarshal(anonymous.Body.Bytes(), &anonymousBody.Body))
-	require.False(t, anonymousBody.Body.Authenticated)
-	require.Nil(t, anonymousBody.Body.User)
-
-	authenticated := authSessionRequest(t, e, http.MethodGet, "/api/v1/auth/session-state", token)
-	require.Equal(t, http.StatusOK, authenticated.Code, authenticated.Body.String())
-	var authenticatedBody AuthSessionStateOutput
-	require.NoError(t, json.Unmarshal(authenticated.Body.Bytes(), &authenticatedBody.Body))
-	require.True(t, authenticatedBody.Body.Authenticated)
-	require.Equal(t, user.ID, authenticatedBody.Body.User.ID)
-
-	invalid := authSessionRequest(t, e, http.MethodGet, "/api/v1/auth/session-state", "invalid")
-	require.Equal(t, http.StatusOK, invalid.Code, invalid.Body.String())
-	var invalidBody AuthSessionStateOutput
-	require.NoError(t, json.Unmarshal(invalid.Body.Bytes(), &invalidBody.Body))
-	require.False(t, invalidBody.Body.Authenticated)
 }
 
 type authSessionStateErrorAuthenticator struct {

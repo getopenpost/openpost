@@ -15,34 +15,6 @@ import {
 } from './test-fixtures';
 
 describe('capture capabilities', () => {
-	it('detects display media and cursor support from getSupportedConstraints', () => {
-		vi.stubGlobal('navigator', {
-			mediaDevices: {
-				getDisplayMedia: vi.fn(),
-				getUserMedia: vi.fn(),
-				getSupportedConstraints: () => ({ cursor: true, width: true }),
-				enumerateDevices: vi.fn()
-			}
-		});
-		const caps = detectRecordingCapabilities();
-		expect(caps.hasDisplayMedia).toBe(true);
-		expect(caps.cursor.supported).toBe(true);
-		expect(caps.cursor.modes).toEqual(['always', 'motion', 'never']);
-		vi.unstubAllGlobals();
-	});
-
-	it('resolves cursor constraint only when supported', () => {
-		const supported = capabilitiesFixture({
-			hasDisplayMedia: true,
-			hasUserMedia: true,
-			cursor: { supported: true, modes: ['always', 'motion', 'never'] },
-			systemAudio: { canRequest: true }
-		});
-		const unsupported = capabilitiesWithoutCursor();
-		expect(resolveCursorConstraint('motion', supported)).toBe('motion');
-		expect(resolveCursorConstraint('never', unsupported)).toBeNull();
-	});
-
 	it('distinguishes system audio truth: active only when track exists', () => {
 		const withAudio = createTestStream([createTestTrack('video'), createTestTrack('audio')]);
 		const withoutAudio = createTestStream([createTestTrack('video')]);

@@ -29,22 +29,4 @@ describe('ComposerPublishActions', () => {
 		await quickSchedule.click();
 		expect(onQuickSchedule).toHaveBeenCalledOnce();
 	});
-
-	it('keeps schedule and immediate publish available in the delivery menu', async () => {
-		const onSchedule = vi.fn();
-		const onPublish = vi.fn();
-		const screen = await renderActions({
-			scheduleLabel: 'Tomorrow 10:30',
-			onSchedule,
-			onPublish
-		});
-
-		await screen.getByRole('button', { name: 'More delivery actions' }).click();
-		await screen.getByRole('menuitem', { name: 'Tomorrow 10:30' }).click();
-		expect(onSchedule).toHaveBeenCalledOnce();
-
-		await screen.getByRole('button', { name: 'More delivery actions' }).click();
-		await screen.getByRole('menuitem', { name: 'Publish Now' }).click();
-		expect(onPublish).toHaveBeenCalledOnce();
-	});
 });

@@ -83,10 +83,11 @@ it('does not offer replay while an ambiguous attempt is being reconciled', async
 		.not.toBeInTheDocument();
 });
 
-it('offers explicit review instead of replay for a manual-resolution outcome', async () => {
-	const onManualResolution = vi.fn();
-	const screen = await render(PublicationDeliveryCard, {
-		rendition: {
+it.each([{ resolvable: true }, { resolvable: false }])(
+	'offers review for a manual-resolution outcome only when the caller can resolve it',
+	async ({ resolvable }) => {
+		const onManualResolution = vi.fn();
+		const rendition = {
 			...baseRendition,
 			delivery: {
 				target_key: 'x',
@@ -96,36 +97,25 @@ it('offers explicit review instead of replay for a manual-resolution outcome', a
 				current_attempt_created_at: '2026-08-13T10:00:00Z',
 				recovery_action: 'manual_resolution'
 			}
-		},
-		onRetry: vi.fn(),
-		onManualResolution
-	});
+		};
+		const screen = resolvable
+			? await render(PublicationDeliveryCard, {
+					rendition,
+					onRetry: vi.fn(),
+					onManualResolution
+				})
+			: await render(PublicationDeliveryCard, { rendition, onRetry: vi.fn() });
 
-	await expect.element(screen.getByText('Manual review required')).toBeVisible();
-	await screen.getByRole('button', { name: 'Review destination' }).click();
-	expect(onManualResolution).toHaveBeenCalledWith('rendition-1');
-	await expect
-		.element(screen.getByRole('button', { name: 'Retry destination' }))
-		.not.toBeInTheDocument();
-});
-
-it('does not render an inert review control when the caller cannot resolve the outcome', async () => {
-	const screen = await render(PublicationDeliveryCard, {
-		rendition: {
-			...baseRendition,
-			delivery: {
-				target_key: 'x',
-				state: 'manual_resolution',
-				current_attempt_id: 'attempt-4',
-				current_attempt_number: 4,
-				current_attempt_created_at: '2026-08-13T10:00:00Z',
-				recovery_action: 'manual_resolution'
-			}
+		await expect.element(screen.getByText('Manual review required')).toBeVisible();
+		const review = screen.getByRole('button', { name: 'Review destination' });
+		if (resolvable) {
+			await review.click();
+			expect(onManualResolution).toHaveBeenCalledWith('rendition-1');
+		} else {
+			await expect.element(review).not.toBeInTheDocument();
 		}
-	});
-
-	await expect.element(screen.getByText('Manual review required')).toBeVisible();
-	await expect
-		.element(screen.getByRole('button', { name: 'Review destination' }))
-		.not.toBeInTheDocument();
-});
+		await expect
+			.element(screen.getByRole('button', { name: 'Retry destination' }))
+			.not.toBeInTheDocument();
+	}
+);

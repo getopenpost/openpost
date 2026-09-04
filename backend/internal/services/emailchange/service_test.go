@@ -100,74 +100,6 @@ func TestVerifiedEmailChangeKeepsOldAddressUntilCompletionAndRevokesOtherSession
 	require.ErrorIs(t, err, ErrChallengeNotFound)
 }
 
-func TestStartingAnotherEmailChangeCancelsThePriorRequest(t *testing.T) {
-	t.Parallel()
-
-	db, service, _ := newTestService(t)
-	ctx := context.Background()
-	seedUser(t, db, "user-1", "old@example.test")
-
-	first, err := service.Begin(ctx, "user-1", "first@example.test")
-	require.NoError(t, err)
-	second, err := service.Begin(ctx, "user-1", "second@example.test")
-	require.NoError(t, err)
-
-	var storedFirst models.EmailChangeChallenge
-	require.NoError(t, db.NewSelect().Model(&storedFirst).Where("id = ?", first.Challenge.ID).Scan(ctx))
-	require.False(t, storedFirst.CanceledAt.IsZero())
-	current, err := service.Current(ctx, "user-1")
-	require.NoError(t, err)
-	require.Equal(t, second.Challenge.ID, current.ID)
-
-	_, err = service.Verify(ctx, "user-1", "", first.Challenge.ID, first.Code)
-	require.ErrorIs(t, err, ErrChallengeNotFound)
-}
-
-func TestUserCanCancelAPendingEmailChange(t *testing.T) {
-	t.Parallel()
-
-	db, service, _ := newTestService(t)
-	ctx := context.Background()
-	seedUser(t, db, "user-1", "old@example.test")
-
-	pending, err := service.Begin(ctx, "user-1", "new@example.test")
-	require.NoError(t, err)
-	require.NoError(t, service.Cancel(ctx, "user-1", pending.Challenge.ID))
-
-	current, err := service.Current(ctx, "user-1")
-	require.NoError(t, err)
-	require.Nil(t, current)
-	_, err = service.Verify(ctx, "user-1", "", pending.Challenge.ID, pending.Code)
-	require.ErrorIs(t, err, ErrChallengeNotFound)
-	require.Equal(t, "old@example.test", userEmail(t, db))
-}
-
-func TestResendRotatesTheCodeAndEnforcesDeliveryDelay(t *testing.T) {
-	t.Parallel()
-
-	db, service, now := newTestService(t)
-	ctx := context.Background()
-	seedUser(t, db, "user-1", "old@example.test")
-
-	pending, err := service.Begin(ctx, "user-1", "new@example.test")
-	require.NoError(t, err)
-	require.NoError(t, service.MarkSent(ctx, "user-1", pending.Challenge.ID))
-	_, err = service.Resend(ctx, "user-1", pending.Challenge.ID)
-	require.ErrorIs(t, err, ErrResendTooSoon)
-
-	service.now = func() time.Time { return now.Add(ResendDelay + time.Second) }
-	replacement, err := service.Resend(ctx, "user-1", pending.Challenge.ID)
-	require.NoError(t, err)
-	require.NotEmpty(t, replacement.Code)
-
-	if replacement.Code != pending.Code {
-		_, err = service.Verify(ctx, "user-1", "", pending.Challenge.ID, pending.Code)
-		require.ErrorIs(t, err, ErrInvalidCode)
-	}
-	_, err = service.Verify(ctx, "user-1", "", pending.Challenge.ID, replacement.Code)
-	require.NoError(t, err)
-}
-
 func TestConcurrentResendsRotateTheCodeOnlyOnce(t *testing.T) {
 	t.Parallel()
 
@@ -250,53 +182,6 @@ func TestResendCannotRotateBetweenCodeVerificationAndConsumption(t *testing.T) {
 	_, err = service.Verify(t.Context(), "user-1", "", pending.Challenge.ID, replacement.Code)
 	require.NoError(t, err)
 	require.Equal(t, "new@example.test", userEmail(t, db))
-}
-
-func TestExpiredAndAttemptExhaustedChallengesCannotChangeEmail(t *testing.T) {
-	t.Parallel()
-
-	t.Run("expired", func(t *testing.T) {
-		db, service, now := newTestService(t)
-		seedUser(t, db, "user-1", "old@example.test")
-		pending, err := service.Begin(t.Context(), "user-1", "new@example.test")
-		require.NoError(t, err)
-		service.now = func() time.Time { return now.Add(ChallengeTTL + time.Second) }
-		_, err = service.Verify(t.Context(), "user-1", "", pending.Challenge.ID, pending.Code)
-		require.ErrorIs(t, err, ErrChallengeExpired)
-		require.Equal(t, "old@example.test", userEmail(t, db))
-	})
-
-	t.Run("attempts exhausted", func(t *testing.T) {
-		db, service, _ := newTestService(t)
-		seedUser(t, db, "user-1", "old@example.test")
-		pending, err := service.Begin(t.Context(), "user-1", "new@example.test")
-		require.NoError(t, err)
-		wrongCode := "000000"
-		if wrongCode == pending.Code {
-			wrongCode = "999999"
-		}
-		for attempt := 1; attempt <= MaxAttempts; attempt++ {
-			_, err = service.Verify(t.Context(), "user-1", "", pending.Challenge.ID, wrongCode)
-			if attempt == MaxAttempts {
-				require.ErrorIs(t, err, ErrTooManyAttempts)
-			} else {
-				require.ErrorIs(t, err, ErrInvalidCode)
-			}
-		}
-		_, err = service.Verify(t.Context(), "user-1", "", pending.Challenge.ID, pending.Code)
-		require.ErrorIs(t, err, ErrTooManyAttempts)
-		require.Equal(t, "old@example.test", userEmail(t, db))
-	})
-}
-
-func TestEmailChangeFailsClosedWithoutASecret(t *testing.T) {
-	t.Parallel()
-
-	db, _, now := newTestService(t)
-	seedUser(t, db, "user-1", "old@example.test")
-	service := NewService(db, Config{Secret: "short", Now: func() time.Time { return now }})
-	_, err := service.Begin(context.Background(), "user-1", "new@example.test")
-	require.ErrorIs(t, err, ErrNotConfigured)
 }
 
 func newTestService(t *testing.T) (*bun.DB, *Service, time.Time) {

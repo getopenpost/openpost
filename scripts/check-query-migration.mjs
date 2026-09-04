@@ -580,8 +580,9 @@ export function findImperativeQueryViolations(
     const actualCount = (actualCounts.get(key) ?? 0) + 1;
     actualCounts.set(key, actualCount);
     const expectedPairingCount = expectedPairingCounts.get(key) ?? 0;
-    if (expectedPairingCount > 0 && actualCount <= expectedPairingCount) {
+    if (expectedPairingCount > 0) {
       pairingCalls.push(call);
+      if (actualCount > expectedPairingCount) violations.push(call);
       continue;
     }
     if (actualCount > (expectedCounts.get(key) ?? 0)) violations.push(call);

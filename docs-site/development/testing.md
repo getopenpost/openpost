@@ -29,7 +29,6 @@ bun run test -- frontend
 bun run test -- cli
 bun run test -- e2e
 bun run test -- e2e-app
-bun run test -- e2e-docs
 ```
 
 Use the pinned Playwright Chromium installed by `setup`, and run one browser suite at a time. For visible changes, verify representative desktop and phone widths, keyboard and touch access, overflow, action visibility, and browser console health.

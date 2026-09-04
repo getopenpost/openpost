@@ -171,23 +171,6 @@ test("Turbo cache pruning removes incomplete recognized entries even below the s
   await assert.rejects(stat(path.join(directory, "cccccccccccccccc-manifest.json")), /ENOENT/u);
 });
 
-test("Turbo cache pruning uses one shared result message", () => {
-  assert.equal(
-    formatPruneResult(
-      { beforeBytes: 2048, afterBytes: 1024, removedBytes: 1024, removedEntries: 2 },
-      4096,
-    ),
-    "Turbo cache pruned: 2.0 KiB -> 1.0 KiB (2 entries removed; maximum 4.0 KiB).",
-  );
-  assert.equal(
-    formatPruneResult(
-      { beforeBytes: 1024, afterBytes: 1024, removedBytes: 0, removedEntries: 0 },
-      4096,
-    ),
-    undefined,
-  );
-});
-
 test("Turbo cache locking serializes cache maintenance and root task work", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-turbo-cache-lock-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

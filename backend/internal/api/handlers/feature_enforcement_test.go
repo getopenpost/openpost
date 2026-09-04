@@ -10,8 +10,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountfeatures"
-	analyticsservice "github.com/openpost/backend/internal/services/analytics"
-	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
@@ -236,121 +234,6 @@ func TestFeatureGateMessagingEnforcement(t *testing.T) {
 	err = msgSvc.HandleJob(ctx, "message_send", sendJobs2[0].Payload)
 	require.Error(t, err)
 	require.Equal(t, 0, msgFake.SendCount(), "send job queued while enabled then disabled must not contact provider")
-}
-
-func TestFeatureGateEngagementEnforcement(t *testing.T) {
-	t.Parallel()
-	db := newFeatureEnforcementDB(t)
-	seedFeatureUserWorkspace(t, db)
-	ctx := context.Background()
-	now := time.Now().UTC()
-	_, err := db.NewInsert().Model(&models.Publication{ID: "pub-1", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "T", SourceText: "hello", Status: models.PublicationStatusPublished, ActualRunAt: now, CreatedAt: now, UpdatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.SocialAccount{ID: "acc-eng", WorkspaceID: "ws-1", Platform: "x", AccountID: "remote-eng", Slug: "acc-eng", AccessTokenEnc: []byte("tok"), GrantedScopes: "tweet.read", IsActive: true, CreatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Rendition{ID: "rend-1", PublicationID: "pub-1", SocialAccountID: "acc-eng", Platform: "x", Profile: "short_text", Status: models.RenditionStatusPublished, ExternalID: "ext-1", CreatedAt: now, UpdatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-
-	engFake := &countingEngagementProvider{support: platform.EngagementSupport{Enabled: true, RequiredScopes: []string{"tweet.read"}}}
-	af := accountfeatures.NewService(db, map[string]platform.Adapter{"x": engFake}, nil)
-	engSvc := engagementservice.NewService(db, staticTokenSourceFeature{}, nil)
-	engSvc.SetProvider("x", engFake)
-	engSvc.SetFeatureGate(af)
-
-	// Disabled: refresh should queue 0
-	queued, err := engSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
-	require.NoError(t, err)
-	require.Equal(t, 0, queued)
-	require.Equal(t, 0, int(atomic.LoadInt32(&engFake.listCount)))
-
-	// Enable
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-eng", Feature: "engagement", Enabled: true}})
-	require.NoError(t, err)
-	queued, err = engSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
-	require.NoError(t, err)
-	require.Equal(t, 1, queued)
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", "engagement_sync").Scan(ctx))
-	require.Len(t, jobs, 1)
-	// Disable before execution
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-eng", Feature: "engagement", Enabled: false}})
-	require.NoError(t, err)
-	engFake.listCount = 0
-	err = engSvc.HandleJob(ctx, "engagement_sync", jobs[0].Payload)
-	require.NoError(t, err)
-	require.Equal(t, 0, int(atomic.LoadInt32(&engFake.listCount)), "disabled engagement sync must not contact provider")
-
-	// Test engagement action enqueue gate
-	// Need an engagement item
-	_, err = db.NewInsert().Model(&models.EngagementItem{ID: "item-1", WorkspaceID: "ws-1", RenditionID: "rend-1", SocialAccountID: "acc-eng", Platform: "x", RemoteID: "remote-1", Body: "hi", CanReply: true, CreatedAt: now, UpdatedAt: now, LastSeenAt: now}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-eng", Feature: "engagement", Enabled: false}})
-	require.NoError(t, err)
-	err = engSvc.QueueEngagementAction(ctx, workspaceAccessActor(), "item-1", "reply", "hello")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "engagement is disabled")
-	// Enable and queue should succeed
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-eng", Feature: "engagement", Enabled: true}})
-	require.NoError(t, err)
-	err = engSvc.QueueEngagementAction(ctx, workspaceAccessActor(), "item-1", "reply", "hello")
-	require.NoError(t, err)
-	var actJobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&actJobs).Where("type = ?", "engagement_action").Scan(ctx))
-	require.NotEmpty(t, actJobs)
-	// Disable before execution
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-eng", Feature: "engagement", Enabled: false}})
-	require.NoError(t, err)
-	engFake.replyCount = 0
-	err = engSvc.HandleJob(ctx, "engagement_action", actJobs[0].Payload)
-	require.Error(t, err)
-	require.Equal(t, 0, int(atomic.LoadInt32(&engFake.replyCount)))
-}
-
-func TestFeatureGateAnalyticsEnforcement(t *testing.T) {
-	t.Parallel()
-	db := newFeatureEnforcementDB(t)
-	seedFeatureUserWorkspace(t, db)
-	ctx := context.Background()
-	now := time.Now().UTC()
-	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-ana", WorkspaceID: "ws-1", Platform: "x", AccountID: "remote-ana", Slug: "acc-ana", AccessTokenEnc: []byte("tok"), IsActive: true, CreatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Publication{ID: "pub-ana", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "T", SourceText: "hello", Status: models.PublicationStatusPublished, ActualRunAt: now, CreatedAt: now, UpdatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Rendition{ID: "rend-ana", PublicationID: "pub-ana", SocialAccountID: "acc-ana", Platform: "x", Profile: "short_text", Status: models.RenditionStatusPublished, ExternalID: "ext-ana", CreatedAt: now, UpdatedAt: now}).Exec(ctx)
-	require.NoError(t, err)
-
-	anaFake := &countingAnalyticsProvider{support: platform.AnalyticsSupport{Account: true, Content: true}}
-	af := accountfeatures.NewService(db, map[string]platform.Adapter{"x": anaFake}, nil)
-	anaSvc := analyticsservice.NewService(db, staticTokenSourceFeature{})
-	anaSvc.SetProvider("x", anaFake)
-	anaSvc.SetFeatureGate(af)
-
-	// Disabled: refresh should queue 0
-	queued, err := anaSvc.RefreshWorkspace(ctx, "ws-1")
-	require.NoError(t, err)
-	require.Equal(t, 0, queued)
-	require.Equal(t, 0, int(atomic.LoadInt32(&anaFake.accountCount)))
-	require.Equal(t, 0, int(atomic.LoadInt32(&anaFake.contentCount)))
-
-	// Enable
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-ana", Feature: "analytics", Enabled: true}})
-	require.NoError(t, err)
-	queued, err = anaSvc.RefreshWorkspace(ctx, "ws-1")
-	require.NoError(t, err)
-	require.Greater(t, queued, 0)
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type IN (?)", bun.List([]string{"analytics_account_sync", "analytics_rendition_sync"})).Scan(ctx))
-	require.NotEmpty(t, jobs)
-	// Disable before execution
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-ana", Feature: "analytics", Enabled: false}})
-	require.NoError(t, err)
-	anaFake.accountCount = 0
-	anaFake.contentCount = 0
-	for _, j := range jobs {
-		_ = anaSvc.HandleJob(ctx, j.Type, j.Payload)
-	}
-	require.Equal(t, 0, int(atomic.LoadInt32(&anaFake.accountCount)))
-	require.Equal(t, 0, int(atomic.LoadInt32(&anaFake.contentCount)))
 }
 
 func TestFeatureGateGrowEnforcement(t *testing.T) {

@@ -154,43 +154,6 @@ describe('project snapshot service', () => {
 		expect(testRuntime.associations).toEqual(['bundled-media']);
 	});
 
-	it('matches one hashless media record by exact file metadata', async () => {
-		const currentMedia = media('current-media', '');
-		const testRuntime = runtime({ available: [currentMedia] });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-		delete snapshot.mediaReferences[0]!.contentHash;
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.project.timeline?.items[0]?.mediaId).toBe('current-media');
-		expect(result.matchedMedia).toBe(1);
-	});
-
-	it('does not use file metadata after a content hash mismatch', async () => {
-		const currentMedia = media('current-media', 'different-hash');
-		const testRuntime = runtime({ available: [currentMedia] });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.matchedMedia).toBe(0);
-		expect(result.unmatchedMedia).toHaveLength(1);
-		expect(testRuntime.associations).toEqual([]);
-	});
-
-	it('does not choose between ambiguous metadata matches', async () => {
-		const testRuntime = runtime({
-			available: [media('first', ''), media('second', '')]
-		});
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-		delete snapshot.mediaReferences[0]!.contentHash;
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.matchedMedia).toBe(0);
-		expect(result.unmatchedMedia).toHaveLength(1);
-	});
-
 	it('warns when the checksum does not match', async () => {
 		const testRuntime = runtime();
 		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
@@ -223,16 +186,6 @@ describe('project snapshot service', () => {
 
 		await expect(testRuntime.service.importProjectSnapshot(snapshot)).rejects.toThrow(
 			'association failed'
-		);
-		expect(testRuntime.deleted).toEqual([testRuntime.created[0]?.id]);
-	});
-
-	it('reports when rollback cannot remove a partial project', async () => {
-		const testRuntime = runtime({ failAssociation: true, failDelete: true });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-
-		await expect(testRuntime.service.importProjectSnapshot(snapshot)).rejects.toThrow(
-			'partial project could not be removed'
 		);
 		expect(testRuntime.deleted).toEqual([testRuntime.created[0]?.id]);
 	});

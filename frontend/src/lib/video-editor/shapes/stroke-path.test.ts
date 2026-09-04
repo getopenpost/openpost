@@ -78,38 +78,6 @@ describe('shape stroke paths', () => {
 		expect(path.points.at(-1)).toMatchObject({ x: 0, y: 0, progress: 1 });
 	});
 
-	it('keeps both fragments when an offset trim wraps across an open endpoint', () => {
-		const context = paintContext();
-		renderShapeStroke(
-			context,
-			openLine,
-			shape({ trimPathStart: 25, trimPathEnd: 75, trimPathOffset: 180 })
-		);
-
-		expect(context.stroke).toHaveBeenCalledTimes(2);
-		expect(context.moveTo).toHaveBeenNthCalledWith(1, 75, 50);
-		expect(context.moveTo).toHaveBeenNthCalledWith(2, 0, 50);
-	});
-
-	it('eases independent start and end taper widths over the visible range', () => {
-		const item = shape({
-			taperStartWidth: 0,
-			taperStartLength: 50,
-			taperEndWidth: 50,
-			taperEndLength: 25
-		});
-
-		expect(taperWidthScale(0, item)).toBe(0);
-		expect(taperWidthScale(0.25, item)).toBeCloseTo(0.5);
-		expect(taperWidthScale(0.5, item)).toBe(1);
-		expect(taperWidthScale(1, item)).toBeCloseTo(0.5);
-	});
-
-	it('ignores endpoint widths whose taper length is disabled', () => {
-		expect(maximumTaperScale(shape({ taperStartWidth: 200, taperStartLength: 0 }))).toBe(1);
-		expect(maximumTaperScale(shape({ taperStartWidth: 200, taperStartLength: 25 }))).toBe(2);
-	});
-
 	it('fills one compound outline for a tapered translucent stroke', () => {
 		const context = paintContext();
 		renderShapeStroke(

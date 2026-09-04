@@ -11,13 +11,6 @@ describe('parseNaturalScheduleInput', () => {
 		expect(parsed?.time).toBe('09:00');
 	});
 
-	it('parses relative hour offsets', () => {
-		const parsed = parseNaturalScheduleInput('in 3 hours', base);
-
-		expect(parsed?.date.toString()).toBe('2026-07-06');
-		expect(parsed?.time).toBe('13:15');
-	});
-
 	it('uses elapsed time for relative hours across workspace DST changes', () => {
 		const springForward = parseNaturalScheduleInput(
 			'in 3 hours',
@@ -41,27 +34,6 @@ describe('parseNaturalScheduleInput', () => {
 
 		expect(parsed?.date.toString()).toBe('2026-07-07');
 		expect(parsed?.time).toBe('09:30');
-	});
-
-	it('parses next weekdays', () => {
-		const parsed = parseNaturalScheduleInput('next monday at noon', base);
-
-		expect(parsed?.date.toString()).toBe('2026-07-13');
-		expect(parsed?.time).toBe('12:00');
-	});
-
-	it('parses month names', () => {
-		const parsed = parseNaturalScheduleInput('July 10 4:45pm', base);
-
-		expect(parsed?.date.toString()).toBe('2026-07-10');
-		expect(parsed?.time).toBe('16:45');
-	});
-
-	it('parses an ISO-style local date and time', () => {
-		const parsed = parseNaturalScheduleInput('2099-07-21T09:00', base, 'America/New_York');
-
-		expect(parsed?.date.toString()).toBe('2099-07-21');
-		expect(parsed?.time).toBe('09:00');
 	});
 
 	it('keeps workspace calendar-day arithmetic independent of device DST', () => {

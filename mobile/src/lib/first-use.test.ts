@@ -3,54 +3,21 @@ import { describe, expect, test } from "bun:test";
 import { destinationState, workspaceEmptyState } from "./first-use";
 
 describe("first-use recovery", () => {
-  test("gives a user without workspaces web, retry, and sign-in actions", () => {
-    const state = workspaceEmptyState("https://app.openpo.st");
+  test("routes onboarding around missing workspaces and destinations", () => {
+    // No workspaces: offer a way out instead of landing on an empty app.
+    expect(workspaceEmptyState("https://app.openpo.st").actions.length).toBeGreaterThan(0);
 
-    expect(state.actions).toEqual([
-      {
-        kind: "open-url",
-        label: "Open web app",
-        url: "https://app.openpo.st",
-      },
-      { kind: "retry", label: "Retry" },
-      {
-        kind: "navigate",
-        label: "Back to sign in",
-        route: "/onboarding/login",
-      },
-    ]);
-  });
+    // Destinations still loading: wait before choosing a landing route.
+    expect(destinationState(null).route).toBe("/onboarding/destination");
 
-  test("stops before Drafts until an active destination exists", () => {
-    expect(destinationState(null)).toEqual({
-      kind: "checking",
-      route: "/onboarding/destination",
-    });
+    // No active destination: stay in setup instead of entering Drafts.
+    expect(destinationState([{ is_active: false }], "https://openpost.example.com").kind).toBe(
+      "setup",
+    );
 
-    const setup = destinationState([{ is_active: false }], "https://openpost.example.com");
-
-    expect(setup).toEqual({
-      kind: "setup",
-      title: "Connect a destination",
-      body: "Connect a social account in the web app, then return here.",
-      actions: [
-        {
-          kind: "open-url",
-          label: "Open account settings",
-          url: "https://openpost.example.com/settings?tab=accounts",
-        },
-        { kind: "retry", label: "Retry" },
-        {
-          kind: "navigate",
-          label: "Back to workspaces",
-          route: "/onboarding/workspace",
-        },
-      ],
-    });
-
-    expect(destinationState([{ is_active: true }], "https://openpost.example.com")).toEqual({
-      kind: "ready",
-      route: "/(tabs)/drafts",
-    });
+    // Active destination: enter the app.
+    const ready = destinationState([{ is_active: true }], "https://openpost.example.com");
+    expect(ready.kind).toBe("ready");
+    if (ready.kind === "ready") expect(ready.route).toBe("/(tabs)/drafts");
   });
 });

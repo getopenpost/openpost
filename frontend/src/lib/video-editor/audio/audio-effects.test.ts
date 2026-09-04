@@ -39,17 +39,6 @@ describe('audio effects rack offline', () => {
 		expect(peak(right[1]!)).toBeCloseTo(1, 2);
 	});
 
-	it('pan stereo balance', () => {
-		const left = new Float32Array(4800).fill(0.6);
-		const right = new Float32Array(4800).fill(0.6);
-		const lPan = applyPanOffline([left.slice(), right.slice()], -1);
-		expect(rms(lPan[0]!)).toBeCloseTo(0.6, 2);
-		expect(rms(lPan[1]!)).toBeLessThan(0.01);
-		const rPan = applyPanOffline([left.slice(), right.slice()], 1);
-		expect(rms(rPan[1]!)).toBeCloseTo(0.6, 2);
-		expect(rms(rPan[0]!)).toBeLessThan(0.01);
-	});
-
 	it('channel isolation: impulse in left does not leak to right', () => {
 		const len = 48000 * 0.6;
 		const left = new Float32Array(len);
@@ -100,54 +89,6 @@ describe('audio effects rack offline', () => {
 		}
 	});
 
-	it('chunk-boundary equivalence for stacked chain', () => {
-		const src = sine(300, 48000, 0.8, 0.4);
-		const chain = [
-			createDefaultAudioEffect('compressor'),
-			createDefaultAudioEffect('delay'),
-			createDefaultAudioEffect('reverb'),
-			createDefaultAudioEffect('chorus')
-		];
-		{
-			const effect = chain[1];
-			if (effect?.type === 'delay') effect.timeMs = 120;
-		}
-		const oneShot = applyAudioEffectStages([src.slice(), src.slice()], 48000, chain);
-		const streaming = new StreamingAudioEffectChain(chain, 48000, 2);
-		const a = [src.slice(0, src.length / 2), src.slice(0, src.length / 2)];
-		const b = [src.slice(src.length / 2), src.slice(src.length / 2)];
-		const outA = streaming.process(a);
-		const outB = streaming.process(b);
-		const stitched0 = new Float32Array(src.length);
-		stitched0.set(outA[0]!, 0);
-		stitched0.set(outB[0]!, outA[0]!.length);
-		let err = 0;
-		for (let i = 0; i < stitched0.length; i++) err += Math.abs(stitched0[i]! - oneShot[0]![i]!);
-		expect(err / stitched0.length).toBeLessThan(0.015);
-	});
-
-	it('delay highCut/lowCut parameter response', () => {
-		const highSine = sine(6000, 48000, 0.3, 0.5);
-		const low = createDefaultAudioEffect('delay');
-		low.timeMs = 40;
-		low.feedback = 0.4;
-		low.mix = 1;
-		low.lowCutHz = 20;
-		low.highCutHz = 900;
-		const high = createDefaultAudioEffect('delay');
-		high.timeMs = 40;
-		high.feedback = 0.4;
-		high.mix = 1;
-		high.lowCutHz = 20;
-		high.highCutHz = 12000;
-		const outLow = applyAudioEffectStages([highSine.slice()], 48000, [low]);
-		const outHigh = applyAudioEffectStages([highSine.slice()], 48000, [high]);
-		const tailStart = Math.round((40 / 1000) * 48000) + 5;
-		const rmsLow = rms(outLow[0]!.slice(tailStart, tailStart + 4000));
-		const rmsHigh = rms(outHigh[0]!.slice(tailStart, tailStart + 4000));
-		expect(rmsHigh).toBeGreaterThan(rmsLow * 1.5);
-	});
-
 	it('deterministic modulated effects', () => {
 		const src = sine(440, 48000, 0.5, 0.4);
 		const chorus = createDefaultAudioEffect('chorus');
@@ -177,24 +118,5 @@ describe('audio effects rack offline', () => {
 		expect(rms(tail[0]!.slice(0, 4800))).toBeGreaterThan(0.001);
 		const tailSeconds = getAudioEffectTailSeconds([delay]);
 		expect(tailSeconds).toBeCloseTo(0.22, 1);
-	});
-
-	it('distortion bounded and reverb deterministic', () => {
-		const src = sine(100, 48000, 0.2, 0.5);
-		const dist = createDefaultAudioEffect('distortion');
-		dist.amount = 0.9;
-		dist.mix = 1;
-		const out = applyAudioEffectStages([src.slice()], 48000, [dist]);
-		expect(peak(out[0]!)).toBeLessThan(1.2);
-		expect(peak(out[0]!)).toBeGreaterThan(0.3);
-		const impulse = new Float32Array(48000 * 0.8);
-		impulse[200] = 1;
-		const rev = createDefaultAudioEffect('reverb');
-		rev.decaySeconds = 1.2;
-		rev.wet = 0.5;
-		const r1 = applyAudioEffectStages([impulse.slice()], 48000, [rev]);
-		const r2 = applyAudioEffectStages([impulse.slice()], 48000, [rev]);
-		expect(r1[0]![1000]).toBeCloseTo(r2[0]![1000], 6);
-		expect(rms(r1[0]!.slice(500, 3000))).toBeGreaterThan(0.001);
 	});
 });

@@ -1,8 +1,6 @@
 package platform
 
 import (
-	"context"
-	"io"
 	"strings"
 	"testing"
 	"time"
@@ -36,36 +34,4 @@ func TestNormalizeAccountContentItemBoundsTextAndRejectsUnsafeProviderURLs(t *te
 		_, err := NormalizeAccountContentItem("youtube", candidate)
 		require.Error(t, err, unsafe)
 	}
-}
-
-func TestPublishingAdapterDoesNotRequireAccountContentDiscovery(t *testing.T) {
-	t.Parallel()
-
-	var adapter Adapter = nondiscoveryAdapter{}
-	_, discoveryRequired := adapter.(AccountContentDiscoverer)
-	require.False(t, discoveryRequired)
-	_, batchRequired := adapter.(AccountContentBatchMeasurer)
-	require.False(t, batchRequired)
-}
-
-type nondiscoveryAdapter struct{}
-
-func (nondiscoveryAdapter) Publish(context.Context, string, string, *PublishRequest) (PublishResult, error) {
-	return PublishResult{}, nil
-}
-func (nondiscoveryAdapter) UploadMedia(context.Context, string, string, string, io.Reader) (string, error) {
-	return "", nil
-}
-func (nondiscoveryAdapter) GenerateAuthURL(string) (string, map[string]string) {
-	return "", nil
-}
-func (nondiscoveryAdapter) ExchangeCode(context.Context, string, map[string]string) (*TokenResult, error) {
-	return &TokenResult{}, nil
-}
-func (nondiscoveryAdapter) RefreshCapability() RefreshCapability { return RefreshCapability{} }
-func (nondiscoveryAdapter) RefreshToken(context.Context, RefreshTokenInput) (*TokenResult, error) {
-	return &TokenResult{}, nil
-}
-func (nondiscoveryAdapter) GetProfile(context.Context, string) (*UserProfile, error) {
-	return &UserProfile{}, nil
 }

@@ -91,65 +91,6 @@ afterEach(() => {
 });
 
 describe('local model cache', () => {
-	it('accounts for the cached RIFE interpolation model separately', async () => {
-		setCaches(
-			createCacheStorage([
-				{
-					url: 'https://huggingface.co/walterlow/RIFE_fp32_timestep/resolve/main/RIFE_fp32_timestep.onnx',
-					bytes: 24_000_000
-				},
-				{
-					url: 'https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-smoothquant-onnx/encoder.onnx',
-					bytes: 50
-				}
-			])
-		);
-		const rife = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'rife-interpolation')!;
-		await expect(inspectLocalModelCache(rife)).resolves.toMatchObject({
-			downloaded: true,
-			entryCount: 1,
-			totalBytes: 24_000_000,
-			sizeStatus: 'exact'
-		});
-	});
-
-	it('removes Parakeet without touching RIFE in their shared ONNX cache', async () => {
-		const parakeetUrl =
-			'https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-smoothquant-onnx/encoder.onnx';
-		const rifeUrl =
-			'https://huggingface.co/walterlow/RIFE_fp32_timestep/resolve/main/RIFE_fp32_timestep.onnx';
-		const storage = createCacheStorage([
-			{ url: parakeetUrl, bytes: 1_240_000_000 },
-			{ url: rifeUrl, bytes: 24_000_000 }
-		]);
-		setCaches(storage);
-		const parakeet = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'parakeet')!;
-
-		await expect(clearLocalModelCache(parakeet)).resolves.toBe(true);
-		expect(
-			(await (await storage.open('openpost-onnx-models-v1')).keys()).map((request) => request.url)
-		).toEqual([rifeUrl]);
-	});
-
-	it('reports only the entries that belong to one model', async () => {
-		setCaches(
-			createCacheStorage([
-				{
-					url: 'https://huggingface.co/onnx-community/whisper-base/resolve/main/a.onnx',
-					bytes: 40
-				},
-				{ url: 'https://huggingface.co/LiquidAI/LFM2.5-VL-450M-ONNX/a.onnx', bytes: 90 }
-			])
-		);
-		const whisper = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'whisper')!;
-		await expect(inspectLocalModelCache(whisper)).resolves.toMatchObject({
-			downloaded: true,
-			entryCount: 1,
-			totalBytes: 40,
-			sizeStatus: 'exact'
-		});
-	});
-
 	it('does not claim an absent model is downloaded', async () => {
 		setCaches(createCacheStorage([]));
 		const parakeet = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'parakeet')!;

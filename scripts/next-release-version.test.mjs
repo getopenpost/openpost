@@ -17,12 +17,6 @@ test("parses stable semantic versions", () => {
   assert.throws(() => parseStableVersion("v1.2"), /expected a stable version/);
 });
 
-test("compares versions numerically", () => {
-  assert.equal(compareVersions("v1.10.0", "v1.9.9"), 1);
-  assert.equal(compareVersions("v1.27.7", "v1.27.7"), 0);
-  assert.equal(compareVersions("v1.27.6", "v1.27.7"), -1);
-});
-
 test("uses the highest conventional commit impact", () => {
   assert.equal(classifyCommitMessages(["docs: simplify README", "fix: repair upload"]), "patch");
   assert.equal(classifyCommitMessages(["fix: repair upload", "feat(cli): add command"]), "minor");

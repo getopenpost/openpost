@@ -509,113 +509,80 @@ describe('workspace settings state', () => {
 		});
 	});
 
-	it('invalidates developer data after workspace deletion', async () => {
-		mocks.delete.mockResolvedValueOnce({
-			data: null,
-			error: null,
-			response: new Response(null, { status: 204 })
-		});
+	it('invalidates developer data after workspace and organization deletion', async () => {
 		const workspace = { ...workspaceA, organization_id: 'organization-a' };
-		const context = new WorkspaceContext();
-		context.workspaces = [workspace];
-		queryClient.setQueryData(developerQueryKeys.apiTokens(), [{ id: 'token-1' }]);
-		queryClient.setQueryData(developerQueryKeys.mcpActivity(8), [{ id: 'call-1' }]);
-		queryClient.setQueryData(billingQueryKeys.status(workspaceB.id), {
-			workspace_id: workspaceB.id
-		});
+		for (const remove of ['workspace', 'organization'] as const) {
+			mocks.delete.mockResolvedValueOnce({
+				data: null,
+				error: null,
+				response: new Response(null, { status: 204 })
+			});
+			const context = new WorkspaceContext();
+			context.workspaces = [workspace];
+			queryClient.setQueryData(developerQueryKeys.apiTokens(), [{ id: 'token-1' }]);
+			queryClient.setQueryData(developerQueryKeys.mcpActivity(8), [{ id: 'call-1' }]);
+			queryClient.setQueryData(billingQueryKeys.status(workspaceB.id), {
+				workspace_id: workspaceB.id
+			});
 
-		await context.deleteWorkspace(workspace.id, {
-			confirmName: workspace.name,
-			currentPassword: 'password'
-		});
+			if (remove === 'workspace') {
+				await context.deleteWorkspace(workspace.id, {
+					confirmName: workspace.name,
+					currentPassword: 'password'
+				});
+			} else {
+				await context.deleteOrganization('organization-a', {
+					confirmName: 'Organization A',
+					currentPassword: 'password'
+				});
+			}
 
-		expect(queryClient.getQueryState(developerQueryKeys.apiTokens())?.isInvalidated).toBe(true);
-		expect(queryClient.getQueryState(developerQueryKeys.mcpActivity(8))?.isInvalidated).toBe(true);
-		expect(queryClient.getQueryState(billingQueryKeys.status(workspaceB.id))?.isInvalidated).toBe(
-			true
-		);
+			expect(queryClient.getQueryState(developerQueryKeys.apiTokens())?.isInvalidated).toBe(true);
+			expect(queryClient.getQueryState(developerQueryKeys.mcpActivity(8))?.isInvalidated).toBe(
+				true
+			);
+			if (remove === 'workspace') {
+				expect(
+					queryClient.getQueryState(billingQueryKeys.status(workspaceB.id))?.isInvalidated
+				).toBe(true);
+			}
+		}
 	});
 
-	it('invalidates developer data after organization deletion', async () => {
-		mocks.delete.mockResolvedValueOnce({
-			data: null,
-			error: null,
-			response: new Response(null, { status: 204 })
-		});
-		const workspace = { ...workspaceA, organization_id: 'organization-a' };
-		const context = new WorkspaceContext();
-		context.workspaces = [workspace];
-		queryClient.setQueryData(developerQueryKeys.apiTokens(), [{ id: 'token-1' }]);
-		queryClient.setQueryData(developerQueryKeys.mcpActivity(8), [{ id: 'call-1' }]);
+	it('does not project a workspace or organization deletion response after account state resets', async () => {
+		for (const remove of ['workspace', 'organization'] as const) {
+			const deletion = deferred<{
+				data: null;
+				error: null;
+				response: Response;
+			}>();
+			mocks.delete.mockReturnValueOnce(deletion.promise);
+			const context = new WorkspaceContext();
+			const firstActorWorkspace = { ...workspaceA, organization_id: 'shared-organization' };
+			context.workspaces = [firstActorWorkspace];
 
-		await context.deleteOrganization('organization-a', {
-			confirmName: 'Organization A',
-			currentPassword: 'password'
-		});
+			const pendingDeletion =
+				remove === 'workspace'
+					? context.deleteWorkspace(workspaceA.id, {
+							confirmName: workspaceA.name,
+							currentPassword: 'password'
+						})
+					: context.deleteOrganization('shared-organization', {
+							confirmName: 'Organization A',
+							currentPassword: 'password'
+						});
+			context.reset();
+			const nextActorWorkspace = { ...workspaceA, name: 'Next actor workspace' };
+			context.workspaces = [nextActorWorkspace];
+			deletion.resolve({
+				data: null,
+				error: null,
+				response: new Response(null, { status: 204 })
+			});
 
-		expect(queryClient.getQueryState(developerQueryKeys.apiTokens())?.isInvalidated).toBe(true);
-		expect(queryClient.getQueryState(developerQueryKeys.mcpActivity(8))?.isInvalidated).toBe(true);
-	});
-
-	it('does not project a workspace deletion response after account state resets', async () => {
-		const deletion = deferred<{
-			data: null;
-			error: null;
-			response: Response;
-		}>();
-		mocks.delete.mockReturnValueOnce(deletion.promise);
-		const context = new WorkspaceContext();
-		context.workspaces = [workspaceA];
-
-		const pendingDeletion = context.deleteWorkspace(workspaceA.id, {
-			confirmName: workspaceA.name,
-			currentPassword: 'password'
-		});
-		context.reset();
-		const nextActorWorkspace = { ...workspaceA, name: 'Next actor workspace' };
-		context.workspaces = [nextActorWorkspace];
-		deletion.resolve({
-			data: null,
-			error: null,
-			response: new Response(null, { status: 204 })
-		});
-
-		await expect(pendingDeletion).resolves.toBe(false);
-		expect(context.workspaces).toEqual([nextActorWorkspace]);
-	});
-
-	it('does not project an organization deletion response after account state resets', async () => {
-		const deletion = deferred<{
-			data: null;
-			error: null;
-			response: Response;
-		}>();
-		mocks.delete.mockReturnValueOnce(deletion.promise);
-		const context = new WorkspaceContext();
-		const firstActorWorkspace = {
-			...workspaceA,
-			organization_id: 'shared-organization'
-		};
-		context.workspaces = [firstActorWorkspace];
-
-		const pendingDeletion = context.deleteOrganization('shared-organization', {
-			confirmName: 'Shared organization',
-			currentPassword: 'password'
-		});
-		context.reset();
-		const nextActorWorkspace = {
-			...workspaceB,
-			organization_id: 'shared-organization'
-		};
-		context.workspaces = [nextActorWorkspace];
-		deletion.resolve({
-			data: null,
-			error: null,
-			response: new Response(null, { status: 204 })
-		});
-
-		await expect(pendingDeletion).resolves.toBe(false);
-		expect(context.workspaces).toEqual([nextActorWorkspace]);
+			await expect(pendingDeletion).resolves.toBe(false);
+			expect(context.workspaces).toEqual([nextActorWorkspace]);
+		}
 	});
 
 	it('ignores settings that arrive after a newer workspace switch', async () => {

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	MAX_COMPOSER_DRAFT_MEDIA,
 	mediaCapabilityItemsFromIds,
 	providerMediaWarningMessages,
 	validateProviderMedia,
@@ -8,6 +7,10 @@ import {
 	videoProviderSupportLabel
 } from './media-capabilities';
 
+// Per-provider limits are enforced and matrix-tested on the backend
+// (backend/internal/platform/media_validation_test.go is authoritative).
+// This file keeps composer-specific behavior: item plumbing, warnings,
+// instance-deferred rules, and draft independence.
 describe('media-capabilities', () => {
 	it('builds ordered capability items from selected media IDs', () => {
 		const mimeTypes = new Map([
@@ -39,27 +42,6 @@ describe('media-capabilities', () => {
 		);
 	});
 
-	it('catches Bluesky video format and size limits when metadata is available', () => {
-		expect(
-			validateProviderMedia('bluesky', [
-				{ id: 'video-1', mimeType: 'video/webm', size: 10 * 1024 * 1024 }
-			])
-		).toEqual([
-			{
-				provider: 'bluesky',
-				mediaId: 'video-1',
-				severity: 'error',
-				message: 'Bluesky supports MP4 video only.'
-			}
-		]);
-
-		expect(
-			providerMediaWarningMessages('bluesky', [
-				{ id: 'video-1', mimeType: 'video/mp4', size: 101 * 1024 * 1024 }
-			])
-		).toContain('Bluesky video must be under 100MB.');
-	});
-
 	it('leaves Mastodon attachment counts and MOV support to the connected instance', () => {
 		const media = Array.from({ length: 6 }, (_, index) => ({
 			id: `mastodon-${index}`,
@@ -68,31 +50,7 @@ describe('media-capabilities', () => {
 		expect(validateProviderMedia('mastodon', media)).toEqual([]);
 	});
 
-	it('accepts Threads mixed carousels and enforces their count and MIME rules', () => {
-		const carousel = Array.from({ length: 20 }, (_, index) => ({
-			id: `media-${index}`,
-			mimeType: index % 2 === 0 ? 'image/webp' : 'video/quicktime'
-		}));
-
-		expect(validateProviderMedia('threads', carousel)).toEqual([]);
-		expect(
-			providerMediaWarningMessages('threads', [
-				...carousel,
-				{ id: 'media-20', mimeType: 'image/jpeg' }
-			])
-		).toContain('Threads supports up to 20 media attachments per post.');
-		expect(validateProviderMedia('threads', [{ id: 'video', mimeType: 'video/webm' }])).toEqual([
-			{
-				provider: 'threads',
-				mediaId: 'video',
-				severity: 'error',
-				message: 'Threads supports MP4 or MOV video.'
-			}
-		]);
-	});
-
 	it('keeps draft attachments independent from a destination single-media profile', () => {
-		expect(MAX_COMPOSER_DRAFT_MEDIA).toBe(35);
 		expect(
 			validateProviderMedia(
 				'x',
@@ -102,144 +60,6 @@ describe('media-capabilities', () => {
 				}))
 			)
 		).toContainEqual(expect.objectContaining({ provider: 'x', severity: 'error' }));
-	});
-
-	it('accepts LinkedIn multi-image posts and rejects mixed attachments', () => {
-		expect(
-			validateProviderMedia('linkedin', [
-				{ id: 'first', mimeType: 'image/jpeg' },
-				{ id: 'second', mimeType: 'image/gif' }
-			])
-		).toEqual([]);
-		expect(
-			validateProviderMedia('linkedin', [
-				{ id: 'image', mimeType: 'image/png' },
-				{ id: 'video', mimeType: 'video/mp4' }
-			])
-		).toContainEqual(
-			expect.objectContaining({ provider: 'linkedin', mediaId: 'video', severity: 'error' })
-		);
-	});
-
-	it('enforces Discord attachment count locally', () => {
-		const attachments = Array.from({ length: 11 }, (_, index) => ({
-			id: `file-${index}`,
-			mimeType: 'image/png'
-		}));
-		expect(validateProviderMedia('discord', attachments)).toContainEqual(
-			expect.objectContaining({ provider: 'discord', severity: 'error' })
-		);
-	});
-
-	it('allows Facebook multi-photo posts without treating videos as photos', () => {
-		const photos = Array.from({ length: 10 }, (_, index) => ({
-			id: `photo-${index}`,
-			mimeType: index % 2 === 0 ? 'image/jpeg' : 'image/png'
-		}));
-
-		expect(validateProviderMedia('facebook', photos)).toEqual([]);
-		expect(
-			providerMediaWarningMessages('facebook', [
-				...photos,
-				{ id: 'photo-10', mimeType: 'image/webp' }
-			])
-		).toContain('Facebook photo posts support up to 10 media attachments.');
-		expect(
-			providerMediaWarningMessages('facebook', [
-				{ id: 'photo', mimeType: 'image/jpeg' },
-				{ id: 'video', mimeType: 'video/mp4' }
-			])
-		).toContain('Facebook multi-photo posts support JPEG, PNG, or WebP images only.');
-	});
-
-	it('accepts Instagram single media and 2-10 item carousels', () => {
-		const carousel = Array.from({ length: 10 }, (_, index) => ({
-			id: `instagram-${index}`,
-			mimeType: index % 2 === 0 ? 'image/webp' : 'video/mp4'
-		}));
-
-		expect(validateProviderMedia('instagram', [{ id: 'image', mimeType: 'image/jpeg' }])).toEqual(
-			[]
-		);
-		expect(validateProviderMedia('instagram', carousel)).toEqual([]);
-		expect(
-			providerMediaWarningMessages('instagram', [
-				...carousel,
-				{ id: 'instagram-10', mimeType: 'image/png' }
-			])
-		).toContain('Instagram publishing requires 1-10 image or video attachments.');
-		expect(providerMediaWarningMessages('instagram', [])).toContain(
-			'Instagram publishing requires 1-10 image or video attachments.'
-		);
-	});
-
-	it('accepts 1-5 Pinterest images and rejects uncertified formats', () => {
-		const images = Array.from({ length: 5 }, (_, index) => ({
-			id: `pinterest-${index}`,
-			mimeType: index % 2 === 0 ? 'image/jpeg' : 'image/webp'
-		}));
-
-		expect(validateProviderMedia('pinterest', images)).toEqual([]);
-		expect(
-			validateProviderMedia('pinterest', [...images, { id: 'extra', mimeType: 'image/png' }])
-		).toContainEqual(
-			expect.objectContaining({
-				provider: 'pinterest',
-				severity: 'error',
-				message: 'Pinterest Pins require 1-5 images.'
-			})
-		);
-		expect(validateProviderMedia('pinterest', [{ id: 'video', mimeType: 'video/mp4' }])).toEqual([
-			{
-				provider: 'pinterest',
-				mediaId: 'video',
-				severity: 'error',
-				message: 'Pinterest Pins support JPEG, PNG, or WebP images only.'
-			}
-		]);
-		expect(
-			validateProviderMedia('pinterest', [
-				{ id: 'large', mimeType: 'image/png', size: 20 * 1024 * 1024 + 1 }
-			])
-		).toContainEqual(
-			expect.objectContaining({
-				provider: 'pinterest',
-				mediaId: 'large',
-				message: 'Pinterest images must be 20MB or smaller.'
-			})
-		);
-	});
-
-	it('accepts one TikTok video or 1-35 JPEG and WebP photos', () => {
-		const photos = Array.from({ length: 35 }, (_, index) => ({
-			id: `tiktok-${index}`,
-			mimeType: index % 2 === 0 ? 'image/jpeg' : 'image/webp'
-		}));
-
-		expect(validateProviderMedia('tiktok', [{ id: 'video', mimeType: 'video/quicktime' }])).toEqual(
-			[]
-		);
-		expect(validateProviderMedia('tiktok', photos)).toEqual([]);
-		expect(
-			providerMediaWarningMessages('tiktok', [
-				...photos,
-				{ id: 'tiktok-35', mimeType: 'image/jpeg' }
-			])
-		).toContain('TikTok photo posts support 1-35 images.');
-		expect(validateProviderMedia('tiktok', [{ id: 'png', mimeType: 'image/png' }])).toEqual([
-			{
-				provider: 'tiktok',
-				mediaId: 'png',
-				severity: 'error',
-				message: 'TikTok photo posts support JPEG or WebP images only.'
-			}
-		]);
-	});
-
-	it('warns when YouTube receives an image', () => {
-		expect(
-			providerMediaWarningMessages('youtube', [{ id: 'image-1', mimeType: 'image/png' }])
-		).toContain('YouTube publishing supports video attachments only.');
 	});
 
 	it('explains that video rules vary by social network', () => {

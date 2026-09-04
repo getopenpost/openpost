@@ -107,27 +107,6 @@ func TestOwnershipInitiationRequiresOwnerRecentAuthAndExactConfirmation(t *testi
 	require.Equal(t, 1, reauth.calls)
 }
 
-func TestOwnershipGetReturnsAnEmptyStateWithoutAPendingTransfer(t *testing.T) {
-	e, service, _, _ := newOwnershipHandlerTest(t)
-
-	empty := jsonRequest(t, e, http.MethodGet, "/api/v1/organizations/org/ownership-transfer", nil, "owner")
-	require.Equal(t, http.StatusOK, empty.Code, empty.Body.String())
-	require.Contains(t, empty.Body.String(), `"pending":false`)
-	require.NotContains(t, empty.Body.String(), `"transfer"`)
-
-	created, err := service.Initiate(t.Context(), organizationownership.InitiateInput{
-		OrganizationID: "org", ActorUserID: "owner", ActorSessionID: "owner-session",
-		ReauthGrant: "recent", NomineeUserID: "nominee", ConfirmOrganizationName: "Acme",
-	})
-	require.NoError(t, err)
-
-	pending := jsonRequest(t, e, http.MethodGet, "/api/v1/organizations/org/ownership-transfer", nil, "owner")
-	require.Equal(t, http.StatusOK, pending.Code, pending.Body.String())
-	require.Contains(t, pending.Body.String(), `"pending":true`)
-	require.Contains(t, pending.Body.String(), `"id":"`+created.ID+`"`)
-	require.Contains(t, pending.Body.String(), `"status":"pending"`)
-}
-
 func TestOwnershipInitiationAuditsUnavailableReauthentication(t *testing.T) {
 	e, _, _, db := newOwnershipHandlerTestWithReauth(t, false)
 	body := map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": "recent"}

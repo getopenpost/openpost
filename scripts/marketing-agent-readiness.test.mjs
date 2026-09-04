@@ -127,4 +127,8 @@ test("changelog feed contains only dated stable releases and escaped content", (
   assert.match(feed, /API &amp; agent discovery/u);
   assert.match(feed, /changelog#v4\.0\.1/u);
   assert.doesNotMatch(feed, /Work in progress|Unreleased/u);
+  // Feed readers key entries on these IDs; changing them re-notifies every subscriber.
+  assert.match(feed, /<id>https:\/\/openpo\.st\/changelog<\/id>/u);
+  assert.match(feed, /<link href="https:\/\/openpo\.st\/changelog\.xml" rel="self"/u);
+  assert.match(feed, /<id>https:\/\/openpo\.st\/changelog#v4\.1\.0<\/id>/u);
 });

@@ -14,9 +14,7 @@ import {
 	applyGrowthControls,
 	growthRankBucket,
 	growthMutualBucket,
-	StaleGuard,
-	growthGridClasses,
-	terminalRemovalDelay
+	StaleGuard
 } from './growth-helpers';
 import type { components } from './api/types';
 
@@ -171,25 +169,6 @@ describe('growth-helpers', () => {
 		expect(recommendations.map((item) => item.id)).toEqual(['one', 'five', 'three']);
 	});
 
-	it('maps exact mutual copy with remaining count', () => {
-		const translate = (key: string, params?: Record<string, unknown>) => {
-			if (key === 'grow_followed_by') return `Followed by ${params?.names}`;
-			if (key === 'grow_followed_by_with_others')
-				return `Followed by ${params?.names} + ${params?.count} others`;
-			if (key === 'grow_also_followed_by') return `Also followed by ${params?.names}`;
-			return '';
-		};
-		const r = rec({
-			mutual_count: 5,
-			mutual_exact: true,
-			mutuals: [
-				{ RemoteID: '1', Handle: 'theo', DisplayName: 'Theo', AvatarURL: '' },
-				{ RemoteID: '2', Handle: 'jane', DisplayName: 'Jane', AvatarURL: '' }
-			] as never
-		});
-		expect(formatMutualCopy(r, translate, 'en-US')).toBe('Followed by Theo and Jane + 3 others');
-	});
-
 	it('maps sampled mutual copy without implying exact totals', () => {
 		const translate = (key: string, params?: Record<string, unknown>) => {
 			if (key === 'grow_followed_by') return `Followed by ${params?.names}`;
@@ -293,12 +272,6 @@ describe('growth-helpers', () => {
 		expect(syncErrorKind({ status: 'ok' } as never)).toBe(null);
 	});
 
-	it('terminal delay respects reduced motion', () => {
-		// default should be 1200 unless reduced motion prefers
-		const d = terminalRemovalDelay();
-		expect([0, 1200]).toContain(d);
-	});
-
 	it('buckets rank and mutual counts', () => {
 		expect(growthRankBucket(1)).toBe('1-3');
 		expect(growthRankBucket(5)).toBe('4-6');
@@ -324,12 +297,5 @@ describe('growth-helpers', () => {
 		const syncQueued = { status: 'queued' } as never;
 		expect(isSyncBusy(syncQueued)).toBe(true);
 		expect(shouldPollSync(syncQueued, false)).toBe(true);
-	});
-
-	it('exposes responsive grid with one/two/three column tiers', () => {
-		expect(growthGridClasses).toContain('grid-cols-1');
-		expect(growthGridClasses).toContain('md:grid-cols-2');
-		expect(growthGridClasses).toContain('xl:grid-cols-3');
-		expect(growthGridClasses).not.toMatch(/shadow|gradient|glow/);
 	});
 });

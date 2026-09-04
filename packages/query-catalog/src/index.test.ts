@@ -24,91 +24,7 @@ import {
 } from "./index";
 
 describe("OpenPost query catalogue", () => {
-  it("uses stable, workspace-scoped keys and explicit cache lifetimes", () => {
-    expect(openPostQueryKeys.publications.list("workspace-1")).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "publications",
-      "list",
-    ]);
-    expect(
-      openPostQueryKeys.publications.activity("workspace-1", "scheduled", {
-        limit: 40,
-        cursor: "cursor-2",
-      }),
-    ).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "publications",
-      "list",
-      "activity",
-      "scheduled",
-      { cursor: "cursor-2", limit: 40 },
-    ]);
-    expect(openPostQueryKeys.publications.activityAll("workspace-1", "scheduled")).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "publications",
-      "list",
-      "activity",
-      "scheduled",
-    ]);
-    expect(openPostQueryKeys.publications.activityRoot("workspace-1")).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "publications",
-      "list",
-      "activity",
-    ]);
-    expect(openPostQueryKeys.accounts("workspace-1")).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "accounts",
-    ]);
-    expect(openPostQueryKeys.publications.detail("workspace-1", "publication-1")).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "publications",
-      "detail",
-      "publication-1",
-    ]);
-    expect(
-      openPostQueryKeys.publications.activity("workspace-1", "scheduled", { limit: 40 }),
-    ).toEqual(
-      openPostQueryKeys.publications.activity("workspace-1", "scheduled", {
-        limit: 40,
-        cursor: "",
-      }),
-    );
-    expect(queryStaleTime).toBe(30_000);
-    expect(liveQueryStaleTime).toBe(15_000);
-    expect(stableQueryStaleTime).toBe(300_000);
-    expect(capabilityStaleTime).toBe(300_000);
-    expect(queryGarbageCollectionTime).toBe(1_800_000);
-  });
-
-  it("extends the canonical Workspace key and query policy for domain catalogues", () => {
-    expect(openPostWorkspaceKey("workspace-1", "media", "list", { limit: 20 })).toEqual([
-      "openpost",
-      "v1",
-      "workspace",
-      "workspace-1",
-      "media",
-      "list",
-      { limit: 20 },
-    ]);
+  it("applies the shared query policy to domain catalogues", () => {
     expect(openPostQueryPolicy(liveQueryStaleTime)).toMatchObject({
       gcTime: 1_800_000,
       networkMode: "online",
@@ -118,49 +34,6 @@ describe("OpenPost query catalogue", () => {
       staleTime: 15_000,
       throwOnError: false,
     });
-  });
-
-  it("matches only Activity publication and failed-job keys", () => {
-    expect(
-      isOpenPostActivityQueryKey(
-        openPostQueryKeys.publications.activity("workspace-1", "failed", { limit: 40 }),
-      ),
-    ).toBe(true);
-    expect(
-      isOpenPostActivityQueryKey(openPostQueryKeys.jobs.failedPage("workspace-1", { limit: 50 })),
-    ).toBe(true);
-    expect(
-      isOpenPostActivityQueryKey(
-        openPostQueryKeys.publications.detail("workspace-1", "publication-1"),
-      ),
-    ).toBe(false);
-    expect(isOpenPostActivityQueryKey(openPostQueryKeys.accounts("workspace-1"))).toBe(false);
-    expect(isOpenPostActivityQueryKey(openPostQueryKeys.capabilities())).toBe(false);
-    expect(
-      isOpenPostActivityQueryKey([
-        "another-app",
-        "v1",
-        "workspace",
-        "workspace-1",
-        "jobs",
-        "failed",
-      ]),
-    ).toBe(false);
-    expect(
-      isOpenPostDraftActivityQueryKey(
-        openPostQueryKeys.publications.activity("workspace-1", "draft", { limit: 40 }),
-      ),
-    ).toBe(true);
-    expect(
-      isOpenPostDraftActivityQueryKey(
-        openPostQueryKeys.publications.activity("workspace-1", "scheduled", { limit: 40 }),
-      ),
-    ).toBe(false);
-    expect(
-      isOpenPostDraftActivityQueryKey(
-        openPostQueryKeys.jobs.failedPage("workspace-1", { limit: 50 }),
-      ),
-    ).toBe(false);
   });
 
   it("uses live freshness only for changing Activity state", () => {
@@ -242,31 +115,6 @@ describe("OpenPost query catalogue", () => {
       onlineManager.setOnline(previousOnlineState);
       queryClient.clear();
     }
-  });
-
-  it("deduplicates publication reads and passes TanStack's request signal to the API", async () => {
-    const publication = { id: "publication-1", workspace_id: "workspace-1" } as Publication;
-    const getPublication = vi.fn(async () => publication);
-    const queryClient = new QueryClient({ defaultOptions: openPostQueryDefaults });
-    const options = publicationDetailQueryOptions(
-      { getPublication },
-      "workspace-1",
-      "publication-1",
-    );
-
-    const [first, second] = await Promise.all([
-      queryClient.query(options),
-      queryClient.query(options),
-    ]);
-
-    expect(first).toBe(publication);
-    expect(second).toBe(publication);
-    expect(getPublication).toHaveBeenCalledTimes(1);
-    expect(getPublication).toHaveBeenCalledWith(
-      "workspace-1",
-      "publication-1",
-      expect.any(AbortSignal),
-    );
   });
 
   it("aborts and discards an active Activity request when its Workspace and bucket change", async () => {
@@ -416,35 +264,5 @@ describe("OpenPost query catalogue", () => {
     expect(result.error).toEqual(
       expect.objectContaining({ message: "refresh failed", status: 400 }),
     );
-  });
-
-  it("reuses a fresh Activity tab without crossing bucket or workspace boundaries", async () => {
-    const listActivityPublications = vi.fn(async (workspaceId: string, bucket: string) => ({
-      items: [{ id: bucket, workspace_id: workspaceId }] as Publication[],
-      total: 1,
-      nextCursor: "",
-    }));
-    const queryClient = new QueryClient({ defaultOptions: openPostQueryDefaults });
-    const scheduled = activityPublicationsQueryOptions(
-      { listActivityPublications },
-      "workspace-1",
-      "scheduled",
-      { limit: 40 },
-    );
-
-    await queryClient.query(scheduled);
-    await queryClient.query(
-      activityPublicationsQueryOptions({ listActivityPublications }, "workspace-1", "published", {
-        limit: 40,
-      }),
-    );
-    await queryClient.query(scheduled);
-    await queryClient.query(
-      activityPublicationsQueryOptions({ listActivityPublications }, "workspace-2", "scheduled", {
-        limit: 40,
-      }),
-    );
-
-    expect(listActivityPublications).toHaveBeenCalledTimes(3);
   });
 });

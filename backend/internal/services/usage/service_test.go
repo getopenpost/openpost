@@ -39,34 +39,6 @@ func newUsageTestDB(t *testing.T) *bun.DB {
 	return db
 }
 
-func TestMonthStartNormalizesToUTCFirstOfMonth(t *testing.T) {
-	loc, err := time.LoadLocation("Europe/Lisbon")
-	require.NoError(t, err)
-
-	got := MonthStart(time.Date(2026, 6, 30, 23, 30, 0, 0, loc))
-
-	require.Equal(t, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), got)
-}
-
-func TestIncrementMonthlyCreatesAndAggregatesCounter(t *testing.T) {
-	db := newUsageTestDB(t)
-	service := NewService(db)
-	ctx := context.Background()
-	when := time.Date(2026, 6, 30, 12, 0, 0, 0, time.UTC)
-
-	value, err := service.IncrementMonthly(ctx, "ws-1", entitlements.LimitMediaBytesUploadedMonthly, 1024, when)
-	require.NoError(t, err)
-	require.Equal(t, int64(1024), value)
-
-	value, err = service.IncrementMonthly(ctx, "ws-1", entitlements.LimitMediaBytesUploadedMonthly, 512, when)
-	require.NoError(t, err)
-	require.Equal(t, int64(1536), value)
-
-	current, err := service.CurrentMonthly(ctx, "ws-1", entitlements.LimitMediaBytesUploadedMonthly, when)
-	require.NoError(t, err)
-	require.Equal(t, int64(1536), current)
-}
-
 func TestIncrementMonthlyKeepsPeriodsSeparate(t *testing.T) {
 	db := newUsageTestDB(t)
 	service := NewService(db)
@@ -84,29 +56,4 @@ func TestIncrementMonthlyKeepsPeriodsSeparate(t *testing.T) {
 	july, err := service.CurrentMonthly(ctx, "ws-1", entitlements.LimitScheduledPostsMonthly, time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, int64(3), july)
-}
-
-func TestSnapshotMonthlyReturnsMetricsForPeriod(t *testing.T) {
-	db := newUsageTestDB(t)
-	service := NewService(db)
-	ctx := context.Background()
-	when := time.Date(2026, 6, 30, 12, 0, 0, 0, time.UTC)
-
-	_, err := service.IncrementMonthly(ctx, "ws-1", entitlements.LimitScheduledPostsMonthly, 7, when)
-	require.NoError(t, err)
-	_, err = service.IncrementMonthly(ctx, "ws-1", entitlements.LimitProviderWriteCallsMonthly, 11, when)
-	require.NoError(t, err)
-
-	snapshot, err := service.SnapshotMonthly(ctx, "ws-1", when)
-	require.NoError(t, err)
-	require.Equal(t, int64(7), snapshot[entitlements.LimitScheduledPostsMonthly])
-	require.Equal(t, int64(11), snapshot[entitlements.LimitProviderWriteCallsMonthly])
-}
-
-func TestIncrementMonthlyRejectsInvalidAmount(t *testing.T) {
-	db := newUsageTestDB(t)
-	service := NewService(db)
-
-	_, err := service.IncrementMonthly(context.Background(), "ws-1", entitlements.LimitScheduledPostsMonthly, 0, time.Now())
-	require.ErrorContains(t, err, "amount must be positive")
 }

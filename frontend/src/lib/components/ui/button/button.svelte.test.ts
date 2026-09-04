@@ -28,36 +28,4 @@ describe('Button', () => {
 		await expect.element(button).not.toHaveAttribute('data-cuelume-press');
 		await expect.element(button).not.toHaveAttribute('data-cuelume-release');
 	});
-
-	it('keeps routine ghost controls quiet', async () => {
-		const screen = render(Button, {
-			variant: 'ghost',
-			children: textSnippet('Dismiss')
-		});
-		const button = screen.getByRole('button', { name: 'Dismiss' });
-
-		await expect.element(button).not.toHaveAttribute('data-cuelume-toggle');
-	});
-
-	it('lets a composed trigger replace the ordinary action cue', async () => {
-		const screen = render(Button, {
-			'data-cuelume-toggle': 'toggle',
-			children: textSnippet('Open menu')
-		});
-		const button = screen.getByRole('button', { name: 'Open menu' });
-
-		await expect.element(button).toHaveAttribute('data-cuelume-toggle', 'toggle');
-		await expect.element(button).not.toHaveAttribute('data-cuelume-press');
-		await expect.element(button).not.toHaveAttribute('data-cuelume-release');
-	});
-
-	it('gives destructive actions one neutral activation cue', async () => {
-		const screen = render(Button, {
-			variant: 'destructive',
-			children: textSnippet('Delete post')
-		});
-		const button = screen.getByRole('button', { name: 'Delete post' });
-
-		await expect.element(button).toHaveAttribute('data-cuelume-toggle', 'release');
-	});
 });

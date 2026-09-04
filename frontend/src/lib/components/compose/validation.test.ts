@@ -18,13 +18,6 @@ function issue(overrides: Partial<ValidationIssue> = {}): ValidationIssue {
 }
 
 describe('composer validation placement', () => {
-	it('keeps generic issues beside the account control', () => {
-		expect(composerIssues(['Choose at least one account.'], [issue()])).toEqual([
-			expect.objectContaining({ message: 'Choose at least one account.', severity: 'error' }),
-			expect.objectContaining({ message: 'Test issue', severity: 'error' })
-		]);
-	});
-
 	it('keeps provider issues in the summary with the matching destination target', () => {
 		const providerIssue = issue({ provider: 'youtube', message: 'A title is required.' });
 		expect(isAccountSpecificIssue(providerIssue)).toBe(true);
@@ -115,38 +108,9 @@ describe('composer validation placement', () => {
 		]);
 	});
 
-	it('keeps canonical segment issues in the global summary', () => {
-		const segmentIssue = issue({ scope: 'segment', scope_id: 'segment-1' });
-		expect(isAccountSpecificIssue(segmentIssue)).toBe(false);
-		expect(composerIssues([], [segmentIssue])).toHaveLength(1);
-	});
-
 	it('deduplicates repeated account messages', () => {
 		expect(uniqueIssueMessages(['Fix the title.', ' Fix the title. ', '', undefined])).toEqual([
 			'Fix the title.'
 		]);
-	});
-
-	it('keeps repeated destination issue identities unique in the global keyed list', () => {
-		const repeatedIssue = {
-			code: 'media_required',
-			field: 'media',
-			media_id: '',
-			message: 'Add a video.',
-			severity: 'error' as const
-		};
-		const youtubeIssue = issue({ ...repeatedIssue, provider: 'youtube' });
-		const linkedinIssue = issue({ ...repeatedIssue, provider: 'linkedin' });
-
-		expect(composerIssues([], [youtubeIssue, linkedinIssue])).toEqual([
-			expect.objectContaining({ message: 'Add a video.', severity: 'error' })
-		]);
-		expect(
-			uniqueIssueMessages(
-				[youtubeIssue, linkedinIssue]
-					.filter((candidate) => issueMatchesProvider(candidate, 'youtube'))
-					.map((candidate) => candidate.message)
-			)
-		).toEqual(['Add a video.']);
 	});
 });

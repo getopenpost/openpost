@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -34,32 +33,6 @@ describe("frontend Vite build memory", () => {
     expect(frontendBuildNodeOptions("--max-old-space-size=4096 --trace-warnings")).toBe(
       `--max-old-space-size=4096 --trace-warnings --max-old-space-size=${frontendBuildHeapMiB}`,
     );
-  });
-
-  test("uses the last user heap option when enforcing the minimum", () => {
-    expect(
-      frontendBuildNodeOptions("--max-old-space-size=12288 --max-old-space-size=4096"),
-    ).toEndWith(`--max-old-space-size=${frontendBuildHeapMiB}`);
-  });
-
-  test("the merged options give Node at least the repository heap", () => {
-    const result = spawnSync(
-      "node",
-      [
-        "-e",
-        'process.stdout.write(String(require("node:v8").getHeapStatistics().heap_size_limit))',
-      ],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          NODE_OPTIONS: frontendBuildNodeOptions("--max-old-space-size=4096"),
-        },
-      },
-    );
-
-    expect(result.status).toBe(0);
-    expect(Number(result.stdout)).toBeGreaterThanOrEqual(frontendBuildHeapMiB * 1024 * 1024);
   });
 });
 

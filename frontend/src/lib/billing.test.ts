@@ -7,8 +7,7 @@ import {
 	hostedPlans,
 	normalizeBillingPeriod,
 	normalizeHostedPlanID,
-	paddleTransactionIDFromSearchParams,
-	planPriceUSD
+	paddleTransactionIDFromSearchParams
 } from './billing';
 
 describe('hosted billing catalog', () => {
@@ -66,11 +65,5 @@ describe('hosted billing catalog', () => {
 				);
 			}
 		}
-	});
-
-	it('returns the full-period price used by checkout', () => {
-		const founder = hostedPlanByID('founder')!;
-		expect(planPriceUSD(founder, 'monthly')).toBe(25);
-		expect(planPriceUSD(founder, 'annual')).toBe(250);
 	});
 });

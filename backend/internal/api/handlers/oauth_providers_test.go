@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/mastodonapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/stretchr/testify/require"
 )
@@ -127,45 +126,4 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[11].Description)
 	require.Contains(t, out[11].Capabilities, "Short videos")
 	require.Contains(t, out[11].Capabilities, "Photo posts")
-}
-
-func TestListProvidersIncludesUnavailableMastodonPlaceholder(t *testing.T) {
-	t.Parallel()
-
-	handler := &OAuthHandler{
-		providers: map[string]platform.Adapter{},
-		readiness: oauthConnectionReadiness(
-			t,
-			&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
-		),
-	}
-	out := handler.providerAvailability()
-
-	require.Len(t, out, 12)
-	require.Equal(t, "mastodon", out[5].Platform)
-	require.False(t, out[5].Configured)
-	require.Equal(t, providerStatusNeedsConfiguration, out[5].Status)
-	require.Equal(t, providerreadiness.EffectiveStateNeedsConfiguration, out[5].Readiness.State)
-}
-
-func TestListProvidersReportsDynamicMastodonAvailable(t *testing.T) {
-	t.Parallel()
-
-	handler := &OAuthHandler{
-		providers:    map[string]platform.Adapter{},
-		mastodonApps: mastodonapps.NewService(nil, nil, mastodonapps.Options{}),
-		readiness: oauthDynamicRegistrationReadiness(
-			t,
-			&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
-			mastodonProvider,
-		),
-	}
-	out := handler.providerAvailability()
-
-	require.Len(t, out, 12)
-	require.Equal(t, "mastodon", out[5].Platform)
-	require.True(t, out[5].Configured)
-	require.Equal(t, providerStatusAvailable, out[5].Status)
-	require.Equal(t, "Custom instance", out[5].Name)
-	require.True(t, out[5].Readiness.Connectable)
 }

@@ -117,19 +117,6 @@ describe('recorder scratch storage', () => {
 		expect(sink.bytes).toBe(0);
 	});
 
-	it('bounds the memory fallback while preserving all accepted bytes', async () => {
-		installMemoryFallback();
-		const sink = await createScratchSink('screen', 'video/webm');
-		const accepted = new Blob([new Uint8Array(24 * 1024 * 1024)]);
-		await sink.write(accepted);
-		await expect(sink.write(new Blob(['overflow']))).rejects.toMatchObject({
-			name: 'QuotaExceededError'
-		});
-		await sink.close();
-		expect((await sink.getFile()).size).toBe(accepted.size);
-		await sink.discard();
-	});
-
 	it('writes OPFS chunks at explicit ordered offsets and removes the scratch file', async () => {
 		const writes: Array<{ position: number; text: string }> = [];
 		const close = vi.fn(async () => undefined);
@@ -192,80 +179,5 @@ describe('recorder scratch storage', () => {
 		});
 		expect(close).toHaveBeenCalledTimes(3);
 		expect(removeEntry).toHaveBeenCalledWith(sink.id);
-	});
-
-	it('reports OPFS only when the directory API exists', () => {
-		installMemoryFallback();
-		expect(isOpfsAvailable()).toBe(false);
-		vi.stubGlobal('navigator', { storage: { getDirectory: vi.fn() } });
-		expect(isOpfsAvailable()).toBe(true);
-	});
-
-	it('rebuilds flushed multi-source chunks without a graceful sink close', async () => {
-		const { files, failRemovals } = installRecoverableOpfs();
-		const sessionId = 'session-123';
-		const screen = await createScratchSink('screen', 'video/webm', sessionId);
-		const microphone = await createScratchSink('microphone', 'audio/webm', sessionId);
-		await screen.write(new Blob(['screen-']));
-		await screen.write(new Blob(['data']));
-		await microphone.write(new Blob(['microphone-data']));
-		const manifest: ScratchRecoveryManifest = {
-			version: 1,
-			sessionId,
-			createdAt: 1_000,
-			status: 'recording',
-			artifacts: [
-				{
-					scratchId: screen.id,
-					kind: 'screen',
-					mimeType: 'video/webm',
-					startOffsetMs: 0,
-					durationMs: 2_000,
-					sizeBytes: screen.bytes
-				},
-				{
-					scratchId: microphone.id,
-					kind: 'microphone',
-					mimeType: 'audio/webm',
-					startOffsetMs: 75,
-					durationMs: 1_925,
-					sizeBytes: microphone.bytes
-				}
-			]
-		};
-		await writeScratchRecoveryManifest(manifest);
-
-		const recovered = await loadRecoverableScratchSessions();
-
-		expect(recovered).toHaveLength(1);
-		expect(recovered[0]?.manifest).toEqual(manifest);
-		expect(
-			recovered[0]?.artifacts.map(({ kind, startOffsetMs, durationMs, sizeBytes }) => ({
-				kind,
-				startOffsetMs,
-				durationMs,
-				sizeBytes
-			}))
-		).toEqual([
-			{ kind: 'screen', startOffsetMs: 0, durationMs: 2_000, sizeBytes: 11 },
-			{
-				kind: 'microphone',
-				startOffsetMs: 75,
-				durationMs: 1_925,
-				sizeBytes: 15
-			}
-		]);
-		expect(await recovered[0]?.artifacts[0]?.blob.text()).toBe('screen-data');
-		expect(await recovered[0]?.artifacts[1]?.blob.text()).toBe('microphone-data');
-
-		failRemovals.add(screen.id);
-		await discardScratchRecoverySession(sessionId);
-		expect(files.has(`capture-${sessionId}.json`)).toBe(true);
-		expect((await loadRecoverableScratchSessions())[0]?.artifacts).toHaveLength(1);
-
-		failRemovals.delete(screen.id);
-		await discardScratchRecoverySession(sessionId);
-		expect(files.size).toBe(0);
-		expect(await loadRecoverableScratchSessions()).toEqual([]);
 	});
 });

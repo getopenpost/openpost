@@ -4,161 +4,51 @@ import { assertUniqueDocumentationRoutes } from "../../../scripts/social-images/
 import { docsPageCatalog } from "./docs-catalog.js";
 import {
   docsSocialEntries,
-  docsImageKey,
   docsRouteFromPage,
   marketingPrerenderEntries,
-  marketingAgentMarkdownUrl,
   marketingSocialEntries,
-  resolveDocsSocial,
-  resolveMarketingSocial,
-  resolveSocialImageEntry,
-  socialImagePlatformSlugs,
   socialRendererVersion,
 } from "./index.js";
 
-test("marketing social entries have unique paths, keys, and complete image metadata", () => {
-  const paths = new Set();
-  const keys = new Set();
+function assertRendererUrl(entry, owner) {
+  const image = new URL(entry.imageUrl);
+  assert.equal(image.origin, "https://openpo.st", `${owner} leaves the image origin`);
+  assert.equal(image.pathname, "/og", `${owner} leaves the renderer path`);
+  assert.ok(image.searchParams.get("id"), `${owner} needs a renderer id`);
+  assert.equal(image.searchParams.get("v"), socialRendererVersion, `${owner} pins stale output`);
+  assert.equal(image.searchParams.has("title"), false, `${owner} leaks a title into the URL`);
+}
 
+test("every social entry is unique and honors the renderer contract", () => {
+  const seen = new Set();
   for (const entry of marketingSocialEntries) {
-    assert.equal(paths.has(entry.path), false, `duplicate path ${entry.path}`);
-    assert.equal(keys.has(entry.key), false, `duplicate key ${entry.key}`);
-    const image = new URL(entry.imageUrl);
-    assert.equal(image.origin, "https://openpo.st");
-    assert.equal(image.pathname, "/og");
-    assert.equal(image.searchParams.get("id"), entry.id);
-    assert.equal(image.searchParams.get("v"), socialRendererVersion);
-    assert.equal(image.searchParams.has("title"), false);
-    assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
+    for (const key of [`path:${entry.path}`, `key:${entry.key}`, `id:${entry.id}`]) {
+      assert.ok(!seen.has(key), `duplicate social entry ${key}`);
+      seen.add(key);
+    }
+    assertRendererUrl(entry, entry.key);
     assert.match(entry.canonical, /^https:\/\/openpo\.st(?:\/|$)/);
-    assert.match(entry.priority, /^(?:1\.0|0\.[0-9])$/u);
-    assert.match(entry.agentRepresentation, /^(?:static|platform|tool)$/u);
-    assert.match(entry.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
     assert.ok(entry.socialTitle.length <= 72, `${entry.key} social title is too long`);
     assert.ok(entry.description.length <= 160, `${entry.key} description is too long`);
-    paths.add(entry.path);
-    keys.add(entry.key);
   }
-});
 
-test("the social image platform motif uses every catalog destination", () => {
-  assert.deepEqual(socialImagePlatformSlugs, [
-    "x",
-    "mastodon",
-    "bluesky",
-    "linkedin",
-    "threads",
-    "facebook",
-    "instagram",
-    "tiktok",
-    "youtube",
-    "pinterest",
-    "telegram",
-    "discord",
-  ]);
-});
+  const pages = new Map(docsPageCatalog.map((page) => [page.page, page]));
+  for (const entry of docsSocialEntries) {
+    assert.ok(!seen.has(`id:${entry.id}`), `duplicate social entry id:${entry.id}`);
+    seen.add(`id:${entry.id}`);
+    assertRendererUrl(entry, entry.id);
+    const page = pages.get(entry.page);
+    assert.ok(page, `${entry.id} points at an unknown docs page`);
+    assert.equal(entry.route, page.route, `${entry.id} disagrees with the catalog route`);
+    assert.equal(
+      entry.route,
+      docsRouteFromPage(page.page),
+      `${entry.id} disagrees with the VitePress route convention`,
+    );
+  }
 
-test("the public route manifest owns social, sitemap, and prerender metadata", () => {
-  assert.equal(resolveMarketingSocial("/trust").key, "trust");
-  assert.equal(resolveMarketingSocial("/self-hosting").key, "self-hosting");
-  assert.deepEqual(marketingPrerenderEntries("/platforms")[0], { slug: "x" });
-  assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/")),
-    "https://openpo.st/index.md",
-  );
-  assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/platforms/x")),
-    "https://openpo.st/platforms/x.md",
-  );
-  assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/pricing")),
-    "https://openpo.st/pricing.md",
-  );
-  assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/self-hosting")),
-    "https://openpo.st/self-hosting.md",
-  );
-  assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/tools/thread-splitter")),
-    "https://openpo.st/tools/thread-splitter.md",
-  );
-  assert.throws(
-    () => marketingPrerenderEntries("/pricing"),
-    /Unknown marketing prerender section/u,
-  );
-});
-
-test("marketing paths resolve without query strings or trailing slashes", () => {
-  assert.equal(resolveMarketingSocial("/features/").key, "features");
-  assert.equal(resolveMarketingSocial("/pricing/").key, "pricing");
-  assert.equal(resolveMarketingSocial("/faq/").key, "faq");
-  assert.equal(resolveMarketingSocial("/tools/thread-splitter?from=x").key, "tool-thread-splitter");
-  assert.equal(resolveMarketingSocial("/unknown").canonical, "https://openpo.st/unknown");
-});
-
-test("docs routes and image keys match VitePress output paths", () => {
   assert.equal(docsRouteFromPage("index.md"), "/");
-  assert.equal(docsRouteFromPage("usage/index.md"), "/usage/");
   assert.equal(docsRouteFromPage("providers/x.md"), "/providers/x");
-  assert.equal(docsImageKey("usage/index.md"), "usage");
-  assert.equal(docsImageKey("providers/index.md"), "providers");
-
-  const social = resolveDocsSocial({
-    page: "providers/x.md",
-    title: "X",
-  });
-  assert.equal(social.label, "Provider guide");
-  assert.equal(social.canonical, "https://docs.openpo.st/providers/x");
-  assert.equal(new URL(social.imageUrl).origin, "https://openpo.st");
-  assert.equal(new URL(social.imageUrl).searchParams.get("id"), "docs:providers--x");
-  assert.equal(resolveSocialImageEntry(social.id).socialTitle, "X");
-});
-
-test("every generated docs card has a unique, server-resolvable catalog id", () => {
-  assert.equal(docsSocialEntries.length, docsPageCatalog.length);
-  assert.equal(new Set(docsSocialEntries.map((entry) => entry.id)).size, docsSocialEntries.length);
-  for (const [index, entry] of docsSocialEntries.entries()) {
-    const page = docsPageCatalog[index];
-    assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
-    assert.equal(entry.page, page.page);
-    assert.equal(entry.route, page.route);
-    assert.equal(entry.route, docsRouteFromPage(page.page));
-    assert.equal(entry.description, page.description);
-    assert.deepEqual(entry.agentRepresentation, page.agentRepresentation);
-    assert.deepEqual(entry.agentDiscovery, page.agentDiscovery);
-    assert.deepEqual(entry.agentCorpus, page.agentCorpus);
-    assert.match(page.route, /^\/(?:$|[^.]*(?:\/$)?)/u);
-    assert.match(page.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
-    assert.match(page.agentRepresentation.membership, /^(?:ordinary|special)$/u);
-    assert.match(page.agentCorpus.membership, /^(?:included|excluded)$/u);
-  }
-
-  const entrypoints = docsPageCatalog.filter(
-    (page) => page.agentDiscovery.membership === "primary" && page.agentDiscovery.section,
-  );
-  assert.deepEqual(entrypoints.map((page) => page.agentDiscovery.section).toSorted(), [
-    "api",
-    "cli",
-    "configuration",
-    "development",
-    "installation",
-    "mcp",
-    "operations",
-    "providers",
-    "self-hosting",
-    "user-guide",
-  ]);
-  assert.deepEqual(docsPageCatalog.find((page) => page.page === "index.md").agentDiscovery, {
-    membership: "primary",
-  });
-  assert.equal(
-    docsPageCatalog.find((page) => page.page === "installation/docker-compose.md").description,
-    "Docker Compose is the recommended installation path for long-running OpenPost deployments.",
-  );
-  assert.equal(
-    docsPageCatalog.some((page) => page.description.endsWith("…")),
-    false,
-  );
   assertUniqueDocumentationRoutes(docsPageCatalog);
   assert.throws(
     () =>
@@ -167,6 +57,10 @@ test("every generated docs card has a unique, server-resolvable catalog id", () 
         { page: "special.md", route: "/collision/" },
       ]),
     /duplicate documentation route/u,
+  );
+  assert.throws(
+    () => marketingPrerenderEntries("/pricing"),
+    /Unknown marketing prerender section/u,
   );
 });
 
@@ -184,6 +78,14 @@ test("documentation corpus policy is complete canonical metadata", () => {
     "development",
   ]);
   for (const page of docsPageCatalog) {
+    for (const [field, pattern] of [
+      ["agentDiscovery.membership", /^(?:primary|optional|unlisted)$/u],
+      ["agentRepresentation.membership", /^(?:ordinary|special)$/u],
+      ["agentCorpus.membership", /^(?:included|excluded)$/u],
+    ]) {
+      const value = field.split(".").reduce((node, part) => node[part], page);
+      assert.match(value, pattern, `${page.page} has an unknown ${field}`);
+    }
     if (page.agentCorpus.membership === "included") {
       assert.ok(sections.has(page.agentCorpus.section), `${page.page} needs a corpus section`);
       continue;

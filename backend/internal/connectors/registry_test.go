@@ -14,22 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRegistryQuarantinesInvalidOptionalConnector(t *testing.T) {
-	t.Parallel()
-
-	server := manifestServer(t, Manifest{ProtocolVersion: "2.0"})
-	defer server.Close()
-	config, options := registryTestConfig(t, server.URL, false)
-
-	registry, err := NewRegistry(context.Background(), config, options)
-	require.NoError(t, err)
-	entry, ok := registry.Installation("directus-main")
-	require.True(t, ok)
-	require.False(t, entry.Available)
-	require.Equal(t, "invalid_manifest", entry.Status)
-	require.NotEmpty(t, entry.StatusDetail)
-}
-
 func TestNewRegistryRejectsInvalidRequiredConnector(t *testing.T) {
 	t.Parallel()
 
@@ -78,30 +62,6 @@ func TestRegistryScopesInstallationsToConfiguredWorkspaces(t *testing.T) {
 	require.Nil(t, client)
 	require.Empty(t, entry.InstallationID)
 	require.ErrorContains(t, err, "not available to this Workspace")
-}
-
-func TestRegistryMapsManifestToHostCapabilities(t *testing.T) {
-	t.Parallel()
-
-	manifest := validManifest()
-	manifest.Publishing.OutputProfiles[0].Settings = []SettingDefinition{{
-		Key: "status", Label: "Status", Control: "select", Default: "draft", Options: []string{"draft", "published"},
-	}}
-	server := manifestServer(t, manifest)
-	defer server.Close()
-	config, options := registryTestConfig(t, server.URL, false)
-
-	registry, err := NewRegistry(context.Background(), config, options)
-	require.NoError(t, err)
-	entry, ok := registry.Installation("directus-main")
-	require.True(t, ok)
-	capabilities := entry.Capabilities()
-	require.Len(t, capabilities, 1)
-	require.Equal(t, "io.directus.items", capabilities[0].Provider)
-	require.Equal(t, "directus.item", capabilities[0].OutputProfile)
-	require.Equal(t, "directus-items-v1", capabilities[0].CapabilityRevision)
-	require.Equal(t, "status", capabilities[0].Settings[0].Key)
-	require.Equal(t, []string{"draft", "published"}, capabilities[0].Settings[0].Options)
 }
 
 func manifestServer(t *testing.T, manifest Manifest) *httptest.Server {

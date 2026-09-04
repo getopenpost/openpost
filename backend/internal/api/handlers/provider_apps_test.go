@@ -57,26 +57,6 @@ func newProviderAppAdminTestServerWithAuthenticator(
 	return &providerAppAdminTestServer{echo: e, db: db, encryptor: encryptor}
 }
 
-func TestProviderAppAdminRejectsBearerAdminTokens(t *testing.T) {
-	t.Parallel()
-
-	srv := newProviderAppAdminTestServerWithAuthenticator(t, true, unboundCLIFullTestAuthenticator())
-	requests := []struct {
-		method string
-		path   string
-		body   any
-	}{
-		{method: http.MethodGet, path: "/api/v1/admin/provider-apps"},
-		{method: http.MethodPost, path: "/api/v1/admin/provider-apps", body: map[string]any{"provider": "x", "client_id": "x-client"}},
-		{method: http.MethodDelete, path: "/api/v1/admin/provider-apps/missing"},
-	}
-	for _, request := range requests {
-		response := srv.requestJSON(t, request.method, request.path, request.body)
-		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
-		require.Contains(t, response.Body.String(), "browser session")
-	}
-}
-
 func (s *providerAppAdminTestServer) requestJSON(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
 	return s.requestJSONWithToken(t, method, path, body, "web-token")
 }
@@ -202,11 +182,10 @@ func TestProviderAppAdminUpdateCanPreserveExistingSecretAndDeactivate(t *testing
 	require.Equal(t, secret, decrypted)
 }
 
-func TestProviderAppAdminRequiresInstanceAdmin(t *testing.T) {
+func TestProviderAppAdminAuthorization(t *testing.T) {
 	t.Parallel()
 
-	srv := newProviderAppAdminTestServer(t, false)
-	requests := []struct {
+	routes := []struct {
 		name   string
 		method string
 		path   string
@@ -216,87 +195,53 @@ func TestProviderAppAdminRequiresInstanceAdmin(t *testing.T) {
 		{name: "save", method: http.MethodPost, path: "/api/v1/admin/provider-apps", body: map[string]any{"provider": "x", "client_id": "x-client"}},
 		{name: "delete", method: http.MethodDelete, path: "/api/v1/admin/provider-apps/missing"},
 	}
-	for _, request := range requests {
-		t.Run(request.name, func(t *testing.T) {
-			resp := srv.requestJSON(t, request.method, request.path, request.body)
-			require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
+
+	t.Run("non-admin browser session", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newProviderAppAdminTestServer(t, false)
+		for _, route := range routes {
+			resp := srv.requestJSON(t, route.method, route.path, route.body)
+			require.Equal(t, http.StatusForbidden, resp.Code, route.name+": "+resp.Body.String())
 			require.Contains(t, resp.Body.String(), "instance admin role required")
+		}
+	})
+
+	t.Run("anonymous caller", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newProviderAppAdminTestServer(t, true)
+		for _, route := range routes {
+			resp := srv.requestJSONWithToken(t, route.method, route.path, route.body, "")
+			require.Equal(t, http.StatusUnauthorized, resp.Code, route.name+": "+resp.Body.String())
+		}
+	})
+
+	t.Run("workspace-scoped credential", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newProviderAppAdminTestServerWithAuthenticator(t, true, workspaceTestAuthenticator{
+			"scoped-token": {
+				UserID: "user-1", Email: "user@example.com", WorkspaceID: "ws-1", SessionID: "browser-session",
+			},
 		})
-	}
-}
+		for _, route := range routes {
+			resp := srv.requestJSONWithToken(t, route.method, route.path, route.body, "scoped-token")
+			require.Equal(t, http.StatusForbidden, resp.Code, route.name+": "+resp.Body.String())
+			require.Contains(t, resp.Body.String(), "unscoped credentials")
+		}
+	})
 
-func TestProviderAppAdminRequiresAuthenticationForEveryRoute(t *testing.T) {
-	t.Parallel()
+	t.Run("unscoped CLI bearer token", func(t *testing.T) {
+		t.Parallel()
 
-	srv := newProviderAppAdminTestServer(t, true)
-	requests := []struct {
-		name   string
-		method string
-		path   string
-		body   any
-	}{
-		{name: "list", method: http.MethodGet, path: "/api/v1/admin/provider-apps"},
-		{name: "save", method: http.MethodPost, path: "/api/v1/admin/provider-apps", body: map[string]any{"provider": "x", "client_id": "x-client"}},
-		{name: "delete", method: http.MethodDelete, path: "/api/v1/admin/provider-apps/missing"},
-	}
-	for _, request := range requests {
-		t.Run(request.name, func(t *testing.T) {
-			resp := srv.requestJSONWithToken(t, request.method, request.path, request.body, "")
-			require.Equal(t, http.StatusUnauthorized, resp.Code, resp.Body.String())
-		})
-	}
-}
-
-func TestProviderAppAdminRejectsWorkspaceScopedTokens(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil), (*models.ProviderApp)(nil))
-	_, err := db.NewInsert().Model(&models.User{
-		ID:           "user-1",
-		Email:        "user@example.com",
-		PasswordHash: "hash",
-		IsAdmin:      true,
-		CreatedAt:    time.Now().UTC(),
-	}).Exec(context.Background())
-	require.NoError(t, err)
-
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
-	NewProviderAppHandler(providerapps.NewService(db, encryptor), db, workspaceTestAuthenticator{
-		"scoped-token": {
-			UserID: "user-1", Email: "user@example.com", WorkspaceID: "ws-1", SessionID: "browser-session",
-		},
-	}).RegisterRoutes(api)
-
-	requests := []struct {
-		name   string
-		method string
-		path   string
-		body   any
-	}{
-		{name: "list", method: http.MethodGet, path: "/api/v1/admin/provider-apps"},
-		{name: "save", method: http.MethodPost, path: "/api/v1/admin/provider-apps", body: map[string]any{"provider": "x", "client_id": "x-client"}},
-		{name: "delete", method: http.MethodDelete, path: "/api/v1/admin/provider-apps/missing"},
-	}
-	for _, request := range requests {
-		t.Run(request.name, func(t *testing.T) {
-			var payload bytes.Buffer
-			if request.body != nil {
-				require.NoError(t, json.NewEncoder(&payload).Encode(request.body))
-			}
-			req := httptest.NewRequestWithContext(t.Context(), request.method, request.path, &payload)
-			req.Header.Set("Authorization", "Bearer scoped-token")
-			if request.body != nil {
-				req.Header.Set("Content-Type", "application/json")
-			}
-			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
-			require.Contains(t, rec.Body.String(), "unscoped credentials")
-		})
-	}
+		srv := newProviderAppAdminTestServerWithAuthenticator(t, true, unboundCLIFullTestAuthenticator())
+		for _, route := range routes {
+			resp := srv.requestJSON(t, route.method, route.path, route.body)
+			require.Equal(t, http.StatusForbidden, resp.Code, route.name+": "+resp.Body.String())
+			require.Contains(t, resp.Body.String(), "browser session")
+		}
+	})
 }
 
 func TestProviderAppAdminRejectsUnsupportedProvider(t *testing.T) {
@@ -408,17 +353,4 @@ func TestProviderAppAdminExposesShadowedDatabaseFallbackForDeletion(t *testing.T
 
 	deleteResp := srv.requestJSON(t, http.MethodDelete, "/api/v1/admin/provider-apps/"+fallback.ID, nil)
 	require.Equal(t, http.StatusOK, deleteResp.Code, deleteResp.Body.String())
-}
-
-func TestProviderAppAdminDerivesDefaultCallbackFromFrontendURL(t *testing.T) {
-	t.Parallel()
-
-	srv := newProviderAppAdminTestServer(t, true, WithProviderAppFrontendURL("https://app.test/"))
-	resp := srv.requestJSON(t, http.MethodPost, "/api/v1/admin/provider-apps", map[string]any{
-		"provider": "youtube", "client_id": "youtube-client", "client_secret": "youtube-secret",
-	})
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var saved SaveProviderAppResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &saved))
-	require.Equal(t, "https://app.test/api/v1/accounts/youtube/callback", saved.App.RedirectURI)
 }

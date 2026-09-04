@@ -6,25 +6,6 @@ import (
 	"time"
 )
 
-func TestEvaluateHealthyLiveCertifiedPublication(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	decision := Evaluate(input)
-
-	if decision.State != EffectiveStateHealthy {
-		t.Fatalf("state = %q, want %q; blockers = %#v", decision.State, EffectiveStateHealthy, decision.Blockers)
-	}
-	if !decision.Executable || !decision.Publishable || decision.Connectable || !decision.Advertisable {
-		t.Fatalf("unexpected decision flags: %#v", decision)
-	}
-	if decision.Facts.Configuration != ConfigurationStateConfigured ||
-		decision.Facts.LocalTest != EvidenceStateCurrent ||
-		decision.Facts.LiveCertification != EvidenceStateCurrent {
-		t.Fatalf("unexpected facts: %#v", decision.Facts)
-	}
-}
-
 func TestEvaluateFailClosedStatePrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -199,6 +180,31 @@ func TestEvaluateFailClosedStatePrecedence(t *testing.T) {
 			},
 			wantState: EffectiveStateCertificationNeeded, wantBlocker: BlockerLiveEvidenceFailed,
 		},
+		{
+			name: "empty live test-account reference is rejected",
+			mutate: func(input *EvaluationInput) {
+				input.LiveEvidence.AccountReferenceHash = ""
+			},
+			wantState: EffectiveStateCertificationNeeded, wantBlocker: BlockerLiveEvidenceMismatch,
+		},
+		{
+			name: "empty final provider result reference is rejected",
+			mutate: func(input *EvaluationInput) {
+				for index := range input.LiveEvidence.Checks {
+					if input.LiveEvidence.Checks[index].Kind == CheckFinalResult {
+						input.LiveEvidence.Checks[index].ExternalRefHash = ""
+					}
+				}
+			},
+			wantState: EffectiveStateCertificationNeeded, wantBlocker: BlockerLiveEvidenceMismatch,
+		},
+		{
+			name: "account A live proof does not authorize account B",
+			mutate: func(input *EvaluationInput) {
+				input.CurrentAccountReferenceHash = "sha256:" + strings.Repeat("9", 64)
+			},
+			wantState: EffectiveStateCertificationNeeded, wantBlocker: BlockerLiveEvidenceMismatch,
+		},
 	}
 
 	for _, test := range tests {
@@ -216,229 +222,6 @@ func TestEvaluateFailClosedStatePrecedence(t *testing.T) {
 			}
 			if !hasBlocker(decision.Blockers, test.wantBlocker) {
 				t.Fatalf("blockers = %#v, want %q", decision.Blockers, test.wantBlocker)
-			}
-		})
-	}
-}
-
-func TestEvaluateCertificationIntentBypassesOnlyPriorProof(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	input.Intent = ExecutionIntentCertificationTest
-	input.LocalEvidence = nil
-	input.LiveEvidence = nil
-	decision := Evaluate(input)
-	if decision.State != EffectiveStateHealthy || !decision.Executable || decision.Advertisable {
-		t.Fatalf("certification test should bypass prior proof without creating a claim: %#v", decision)
-	}
-
-	input.Authorization.State = AuthorizationStateReconnectRequired
-	decision = Evaluate(input)
-	if decision.State != EffectiveStateReconnectRequired || decision.Executable {
-		t.Fatalf("certification test bypassed authorization: %#v", decision)
-	}
-
-	input = healthyInput()
-	input.Intent = ExecutionIntentCertificationTest
-	input.LocalEvidence = nil
-	input.LiveEvidence = nil
-	input.Approval.State = ApprovalStateTrial
-	input.Contract.Requirements.AllowTrialExecution = true
-	decision = Evaluate(input)
-	if decision.State != EffectiveStateHealthy || !decision.Executable || decision.Advertisable {
-		t.Fatalf("explicit trial certification should execute without becoming a claim: %#v", decision)
-	}
-}
-
-func TestEvaluateSelfHostedExecutionDoesNotBecomeAPublicClaim(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	input.Subject.DeploymentEnvironment = DeploymentEnvironmentLocal
-	input.Subject.ProviderEnvironment = ProviderEnvironmentDevelopment
-	input.Contract.Requirements.RequireProductionDeployment = false
-	input.Contract.Requirements.RequireProductionProviderApp = false
-	input.Contract.Requirements.RequireApproval = false
-	input.Contract.Requirements.RequireLocalEvidence = false
-	input.Contract.Requirements.RequireLiveEvidence = false
-	input.Contract.Requirements.RequiredLocalChecks = nil
-	input.Contract.Requirements.RequiredLiveChecks = nil
-	input.Approval = ApprovalEvidence{State: ApprovalStateUnknown}
-	input.LocalEvidence = nil
-	input.LiveEvidence = nil
-
-	decision := Evaluate(input)
-	if decision.State != EffectiveStateHealthy || !decision.Executable || !decision.Publishable || decision.Advertisable {
-		t.Fatalf("self-hosted execution should stay usable without becoming a public claim: %#v", decision)
-	}
-}
-
-func TestEvaluateAllowsExplicitlyInapplicableLifecycleChecks(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	for _, evidence := range []*CertificationEvidence{input.LocalEvidence, input.LiveEvidence} {
-		for index := range evidence.Checks {
-			if evidence.Checks[index].Kind != CheckRefresh && evidence.Checks[index].Kind != CheckRevoke {
-				continue
-			}
-			evidence.Checks[index].Outcome = CheckOutcomeNotApplicable
-			evidence.Checks[index].NotApplicableReason = "provider_managed_lifecycle"
-		}
-	}
-	decision := Evaluate(input)
-	if decision.State != EffectiveStateHealthy || !decision.Executable || !decision.Advertisable {
-		t.Fatalf("explicit lifecycle applicability should remain certifiable: %#v", decision)
-	}
-}
-
-func TestEvaluateContractCompatibilityAndExactRevision(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	if input.LiveEvidence.TestedRevision == input.CurrentRevision {
-		t.Fatal("fixture must prove a prior revision with an unchanged contract digest")
-	}
-	if decision := Evaluate(input); decision.State != EffectiveStateHealthy {
-		t.Fatalf("matching contract digest should keep compatible evidence current: %#v", decision)
-	}
-
-	input = cloneInput(input)
-	input.Contract.Requirements.RequireExactRevision = true
-	refreshEvidenceContractDigests(&input)
-	decision := Evaluate(input)
-	if decision.State != EffectiveStateCertificationNeeded || !hasBlocker(decision.Blockers, BlockerLocalEvidenceMismatch) {
-		t.Fatalf("exact-revision requirement did not invalidate prior proof: %#v", decision)
-	}
-
-	input = healthyInput()
-	input.Contract.CapabilityDigest = "sha256:" + strings.Repeat("d", 64)
-	decision = Evaluate(input)
-	if decision.State != EffectiveStateCertificationNeeded || !hasBlocker(decision.Blockers, BlockerLiveEvidenceMismatch) {
-		t.Fatalf("contract change did not invalidate evidence: %#v", decision)
-	}
-}
-
-func TestEvaluateConnectProjectionNeverCreatesPublicClaim(t *testing.T) {
-	t.Parallel()
-
-	input := healthyInput()
-	input.Subject.Operation = OperationConnect
-	input.Subject.AccountKind = ""
-	input.Subject.OutputProfile = ""
-	input.Contract.Requirements.RequireAuthorization = false
-	input.Contract.Requirements.RequireLocalEvidence = false
-	input.Contract.Requirements.RequireLiveEvidence = false
-	input.Contract.Requirements.RequiredScopes = nil
-	input.Contract.Requirements.RequiredLocalChecks = nil
-	input.Contract.Requirements.RequiredLiveChecks = nil
-	input.LocalEvidence = nil
-	input.LiveEvidence = nil
-
-	decision := Evaluate(input)
-	if decision.State != EffectiveStateHealthy || !decision.Executable || !decision.Connectable || decision.Publishable || decision.Advertisable {
-		t.Fatalf("unexpected connect decision: %#v", decision)
-	}
-}
-
-func TestEvaluateRejectsEmptyLiveAccountAndProviderResultProof(t *testing.T) {
-	t.Parallel()
-
-	input := cloneInput(healthyInput())
-	input.LiveEvidence.AccountReferenceHash = ""
-	decision := Evaluate(input)
-	if decision.Executable || decision.State != EffectiveStateCertificationNeeded ||
-		!hasBlocker(decision.Blockers, BlockerLiveEvidenceMismatch) {
-		t.Fatalf("empty live test-account reference was accepted: %#v", decision)
-	}
-
-	input = cloneInput(healthyInput())
-	for index := range input.LiveEvidence.Checks {
-		if input.LiveEvidence.Checks[index].Kind == CheckFinalResult {
-			input.LiveEvidence.Checks[index].ExternalRefHash = ""
-		}
-	}
-	decision = Evaluate(input)
-	if decision.Executable || decision.State != EffectiveStateCertificationNeeded ||
-		!hasBlocker(decision.Blockers, BlockerLiveEvidenceMismatch) {
-		t.Fatalf("empty final provider result reference was accepted: %#v", decision)
-	}
-}
-
-func TestEvaluateDoesNotTransferLiveProofBetweenAccounts(t *testing.T) {
-	t.Parallel()
-
-	input := cloneInput(healthyInput())
-	input.CurrentAccountReferenceHash = "sha256:" + strings.Repeat("9", 64)
-	decision := Evaluate(input)
-	if decision.Executable || decision.State != EffectiveStateCertificationNeeded ||
-		!hasBlocker(decision.Blockers, BlockerLiveEvidenceMismatch) {
-		t.Fatalf("account A live proof authorized account B: %#v", decision)
-	}
-}
-
-func TestEvaluateRejectsMalformedFactsAndIncompleteContracts(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		mutate func(*EvaluationInput)
-	}{
-		{
-			name: "unknown runtime state",
-			mutate: func(input *EvaluationInput) {
-				input.Control.State = RuntimeControlState("bypassed")
-			},
-		},
-		{
-			name: "approved without review evidence",
-			mutate: func(input *EvaluationInput) {
-				input.Approval.SourceURL = ""
-			},
-		},
-		{
-			name: "valid authorization without validation time",
-			mutate: func(input *EvaluationInput) {
-				input.Authorization.ValidatedAt = time.Time{}
-			},
-		},
-		{
-			name: "invalid source digest even without proof lookup",
-			mutate: func(input *EvaluationInput) {
-				input.Contract.PolicyDigest = "main"
-			},
-		},
-		{
-			name: "live evidence cannot skip local evidence",
-			mutate: func(input *EvaluationInput) {
-				input.Contract.Requirements.RequireLocalEvidence = false
-				input.Contract.Requirements.RequiredLocalChecks = nil
-			},
-		},
-		{
-			name: "production publication cannot opt out of live proof",
-			mutate: func(input *EvaluationInput) {
-				input.Contract.Requirements.RequireLiveEvidence = false
-				input.Contract.Requirements.RequiredLiveChecks = nil
-				input.LiveEvidence = nil
-			},
-		},
-		{
-			name: "publication proof requires final outcome",
-			mutate: func(input *EvaluationInput) {
-				input.Contract.Requirements.RequiredLiveChecks = input.Contract.Requirements.RequiredLiveChecks[:3]
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			input := cloneInput(healthyInput())
-			test.mutate(&input)
-			decision := Evaluate(input)
-			if decision.State != EffectiveStateDegraded || decision.Executable || !hasBlocker(decision.Blockers, BlockerInvalidEvaluation) {
-				t.Fatalf("malformed input did not fail closed: %#v", decision)
 			}
 		})
 	}

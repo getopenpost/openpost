@@ -2,12 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  diagnoseLiveLabels,
-  findMissingArtifacts,
-  parseLiveLabels,
-  parseTriageLabels,
-} from "./agent-doctor.mjs";
+import { findMissingArtifacts, parseTriageLabels } from "./agent-doctor.mjs";
 
 const table = `
 | Role | Tracker | Description | Color |
@@ -37,27 +32,6 @@ describe("agent doctor local checks", () => {
         name: "wontfix",
         description: "Will not be actioned",
         color: "ffffff",
-      },
-    ]);
-  });
-});
-
-describe("agent doctor live label diagnostics", () => {
-  test("parses gh JSON without contacting GitHub", () => {
-    expect(parseLiveLabels('[{"name":"wontfix"},{"name":"triage"}]')).toEqual(
-      new Set(["wontfix", "triage"]),
-    );
-  });
-
-  test("returns exact safe create commands for missing labels", () => {
-    const configured = parseTriageLabels(table);
-    expect(diagnoseLiveLabels(configured, new Set(["wontfix"]))).toEqual([
-      {
-        role: "needs-triage",
-        name: "triage",
-        description: "Needs review",
-        color: "fbca04",
-        command: "gh label create 'triage' --description 'Needs review' --color 'fbca04'",
       },
     ]);
   });

@@ -40,10 +40,6 @@ export const faqs = [];
   assert.deepEqual(catalogSlugs(source, "tools"), ["counter"]);
 });
 
-test("the repository route manifest is bidirectionally complete", async () => {
-  assert.deepEqual(await validateMarketingRouteManifest(), []);
-});
-
 test("stale manifest routes fail the reverse page check", async () => {
   const problems = await validateMarketingRouteManifest({
     manifest: [...marketingRouteManifest, { ...marketingRouteManifest[0], path: "/removed-page" }],

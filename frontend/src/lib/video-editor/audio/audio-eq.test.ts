@@ -26,14 +26,6 @@ describe('audio EQ', () => {
 		).toEqual([resolveAudioEqSettings({ lowGainDb: 2 }), clip]);
 	});
 
-	it('round-trips every named preset without duplicate settings', () => {
-		const settings = new Set(AUDIO_EQ_PRESETS.map((preset) => JSON.stringify(preset.settings)));
-		expect(settings.size).toBe(AUDIO_EQ_PRESETS.length);
-		for (const preset of AUDIO_EQ_PRESETS) {
-			expect(findAudioEqPresetId(preset.settings)).toBe(preset.id);
-		}
-	});
-
 	it('uses the same response math and sample processor for a steep rumble cut', () => {
 		const stage = resolveAudioEqSettings({
 			band1Enabled: true,

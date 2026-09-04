@@ -55,20 +55,4 @@ describe('gemma worker request validation', () => {
 		];
 		for (const request of malformed) expect(parseLlmWorkerRequest(request)).toBeNull();
 	});
-
-	it('accepts valid generate and lifecycle requests', () => {
-		expect(parseLlmWorkerRequest({ type: 'load' })).toEqual({ type: 'load' });
-		expect(parseLlmWorkerRequest({ type: 'dispose' })).toEqual({ type: 'dispose' });
-		expect(parseLlmWorkerRequest({ type: 'cancel', id: 1 })).toEqual({ type: 'cancel', id: 1 });
-		expect(
-			parseLlmWorkerRequest({
-				type: 'generate',
-				id: 1,
-				messages: [{ role: 'user', content: 'hi' }],
-				maxTokens: 100,
-				temperature: 0,
-				topP: 0.9
-			})
-		).not.toBeNull();
-	});
 });

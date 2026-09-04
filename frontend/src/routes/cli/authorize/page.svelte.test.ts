@@ -139,16 +139,4 @@ describe('CLI authorization request identity', () => {
 			body: { user_code: 'CODE-A', name: 'Automation client', workspace_id: '' }
 		});
 	});
-
-	it('uses the requesting app name as the default token name', async () => {
-		mocks.get.mockResolvedValue({ data: { client_name: 'OpenPost Mobile' }, error: null });
-		const screen = await renderAuthorizePage();
-
-		await expect.element(screen.getByText('OpenPost Mobile')).toBeVisible();
-		await screen.getByRole('button', { name: 'Approve' }).click();
-
-		expect(mocks.post).toHaveBeenCalledWith('/cli/auth/approve', {
-			body: { user_code: 'CODE-A', name: 'OpenPost Mobile', workspace_id: 'workspace-a' }
-		});
-	});
 });

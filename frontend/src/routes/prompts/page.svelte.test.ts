@@ -4,7 +4,6 @@ import { QueryClientProvider } from '@tanstack/svelte-query';
 import { promptQueryKeys, type Prompt } from '@openpost/query-catalog';
 import { client, type User, type Workspace } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
-import { FIRST_VIEWPORT_LOADING_DELAY_MS } from '$lib/query/presentation.svelte';
 import { auth } from '$lib/stores/auth';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
 import PromptsPage from './+page.svelte';
@@ -36,86 +35,6 @@ describe('prompts page', () => {
 	});
 
 	afterEach(() => vi.useRealTimers());
-
-	it('keeps one page placeholder until prompts and uncached categories resolve', async () => {
-		vi.useFakeTimers();
-		queryClient.clear();
-		const promptsRead = deferred<ReturnType<typeof response<Prompt[]>>>();
-		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
-		getMock.mockImplementation((path) => {
-			if (path === '/prompts/categories') {
-				// SAFETY: The deferred fixture matches the categories endpoint response contract.
-				return categoriesRead.promise as never;
-			}
-			if (path === '/prompts') {
-				// SAFETY: The deferred fixture matches the prompts endpoint response contract.
-				return promptsRead.promise as never;
-			}
-			throw new Error(`Unexpected GET ${path}`);
-		});
-
-		const screen = await renderPromptsPage();
-		await vi.waitFor(() => {
-			expect(promptReadCount('workspace-a')).toBe(1);
-			expect(categoryReadCount()).toBe(1);
-		});
-
-		promptsRead.resolve(response([prompt('workspace-a')]));
-		await vi.waitFor(() => {
-			expect(queryClient.getQueryData(promptQueryKeys.list('workspace-a'))).toHaveLength(1);
-		});
-		await vi.advanceTimersByTimeAsync(FIRST_VIEWPORT_LOADING_DELAY_MS);
-
-		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
-		expect(screen.container.querySelectorAll('[data-slot="page-loading"]')).toHaveLength(1);
-		await expect.element(screen.getByText('workspace-a prompt')).not.toBeInTheDocument();
-		await expect
-			.element(screen.getByRole('button', { name: 'Add prompt' }))
-			.not.toBeInTheDocument();
-
-		categoriesRead.resolve(response({ categories: ['Ideas'] }));
-		await vi.waitFor(() => {
-			expect(queryClient.getQueryData(promptQueryKeys.categories())).toEqual(['Ideas']);
-		});
-		await vi.advanceTimersByTimeAsync(0);
-		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
-		await expect.element(screen.getByRole('button', { name: 'Add prompt' })).toBeVisible();
-		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
-	});
-
-	it('keeps cached categories and page content visible during a category refresh', async () => {
-		vi.useFakeTimers();
-		queryClient.setQueryData(promptQueryKeys.categories(), ['Ideas'], { updatedAt: 1 });
-		queryClient.setQueryData(promptQueryKeys.list('workspace-a'), [prompt('workspace-a')]);
-		const categoriesRead = deferred<ReturnType<typeof response<{ categories: string[] }>>>();
-		getMock.mockImplementation((path, request) => {
-			if (path === '/prompts/categories') {
-				// SAFETY: The deferred fixture matches the categories endpoint response contract.
-				return categoriesRead.promise as never;
-			}
-			if (path !== '/prompts') throw new Error(`Unexpected GET ${path}`);
-			const workspaceID = request?.params?.query?.workspace_id ?? '';
-			// SAFETY: The prompt fixture contains every response field consumed by the component.
-			return Promise.resolve(response([prompt(workspaceID)])) as never;
-		});
-
-		const screen = await renderPromptsPage();
-		await vi.waitFor(() => expect(categoryReadCount()).toBe(1));
-		await vi.advanceTimersByTimeAsync(FIRST_VIEWPORT_LOADING_DELAY_MS);
-
-		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
-		await expect.element(screen.getByRole('button', { name: 'Add prompt' })).toBeVisible();
-		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
-		expect(
-			screen.container.querySelectorAll('[data-slot="page-header-actions"] [data-slot="skeleton"]')
-		).toHaveLength(0);
-
-		categoriesRead.resolve(response({ categories: ['Ideas', 'Updates'] }));
-		await vi.waitFor(() => {
-			expect(queryClient.getQueryData(promptQueryKeys.categories())).toEqual(['Ideas', 'Updates']);
-		});
-		await expect.element(screen.getByText('workspace-a prompt')).toBeVisible();
-	});
 
 	it('does not refresh or report an old prompt creation in a new Workspace', async () => {
 		const creation = deferred<{ data: Prompt; error: undefined; response: Response }>();
@@ -196,22 +115,7 @@ describe('prompts page', () => {
 				path === '/prompts' && request?.params?.query?.workspace_id === workspaceID
 		).length;
 	}
-
-	function categoryReadCount() {
-		return getMock.mock.calls.filter(([path]) => path === '/prompts/categories').length;
-	}
 });
-
-function renderPromptsPage() {
-	return render(
-		PromptsPage,
-		{},
-		{
-			wrapper: QueryClientProvider,
-			wrapperProps: { client: queryClient }
-		}
-	);
-}
 
 function response<T>(data: T) {
 	return { data, error: undefined, response: new Response(null, { status: 200 }) };

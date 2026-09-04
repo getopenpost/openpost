@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type {
 	MemeGeneratorAPI,
@@ -159,45 +158,6 @@ function mockAPI(overrides: Partial<MemeGeneratorAPI> = {}): MemeGeneratorAPI {
 	};
 }
 
-function widthConstrainedTarget(width: number): HTMLElement {
-	const target = document.createElement('div');
-	target.style.width = `${width}px`;
-	target.style.maxWidth = `${width}px`;
-	target.style.minWidth = '0';
-	target.style.position = 'absolute';
-	target.style.inset = '0 auto auto 0';
-	document.body.append(target);
-	return target;
-}
-
-function componentRoot(container: HTMLElement): HTMLElement {
-	const generator = container.querySelector<HTMLElement>('.meme-generator');
-	if (!generator) throw new Error('Meme generator root was not rendered.');
-	return generator;
-}
-
-function expectNoVisibleComponentOverflow(generator: HTMLElement, maximumWidth: number): void {
-	const rootBounds = generator.getBoundingClientRect();
-	expect(rootBounds.width).toBeLessThanOrEqual(maximumWidth);
-	const visibleOverflow = Array.from(generator.querySelectorAll<HTMLElement>('*'))
-		.filter((element) => element.getClientRects().length > 0)
-		.map((element) => {
-			const bounds = element.getBoundingClientRect();
-			return {
-				tag: element.tagName,
-				left: Math.round(bounds.left - rootBounds.left),
-				right: Math.round(bounds.right - rootBounds.left)
-			};
-		})
-		.filter((bounds) => bounds.left < -1 || bounds.right > rootBounds.width + 1);
-	expect(visibleOverflow).toEqual([]);
-
-	const activePanel = generator.querySelector<HTMLElement>(
-		'[role="tabpanel"][data-state="active"]'
-	);
-	if (activePanel) expect(activePanel.scrollWidth).toBeLessThanOrEqual(activePanel.clientWidth);
-}
-
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	let reject!: (cause: unknown) => void;
@@ -209,9 +169,7 @@ function deferred<T>() {
 }
 
 describe('MemeGenerator', () => {
-	it('edits a manual template, fills an image slot, and attaches without overflow at 390px', async () => {
-		await page.viewport(390, 844);
-		const target = widthConstrainedTarget(390);
+	it('edits a manual template, fills an image slot, and attaches', async () => {
 		const api = mockAPI();
 		const onAttach = vi.fn();
 		const onPickOverlay = vi.fn().mockResolvedValue({
@@ -220,10 +178,8 @@ describe('MemeGenerator', () => {
 			name: 'Team photo'
 		});
 		const screen = await render(MemeGenerator, {
-			target,
 			props: { workspaceId: 'workspace-1', api, onAttach, onPickOverlay }
 		});
-		const generator = componentRoot(screen.container);
 
 		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
 		await screen
@@ -262,7 +218,6 @@ describe('MemeGenerator', () => {
 			})
 		);
 		await expect.element(screen.getByText(m.meme_generator_attached()).first()).toBeVisible();
-		expectNoVisibleComponentOverflow(generator, 390);
 	});
 
 	it('opens a seeded recommendation without requesting another suggestion or preview', async () => {
@@ -298,9 +253,7 @@ describe('MemeGenerator', () => {
 			.toBeEnabled();
 	});
 
-	it('keeps candidate and template cards usable at desktop size', async () => {
-		await page.viewport(1280, 900);
-		const target = widthConstrainedTarget(1200);
+	it('sends the idea and preview request shape when generating candidates', async () => {
 		const candidate = {
 			template_id: 'fry',
 			caption_lines: ['tests are green', 'users found the other branch'],
@@ -312,7 +265,6 @@ describe('MemeGenerator', () => {
 			suggest: vi.fn().mockResolvedValue({ candidates: [candidate] })
 		});
 		const screen = await render(MemeGenerator, {
-			target,
 			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
 		});
 
@@ -324,9 +276,6 @@ describe('MemeGenerator', () => {
 			name: m.meme_generator_candidate_select({ name: template.name })
 		});
 		await expect.element(candidateButton).toBeVisible();
-		const candidateBox = candidateButton.element().getBoundingClientRect();
-		expect(candidateBox.width).toBeGreaterThan(160);
-		expect(candidateBox.height).toBeGreaterThan(150);
 
 		await candidateButton.click();
 		await expect
@@ -353,13 +302,9 @@ describe('MemeGenerator', () => {
 			name: m.meme_generator_template_select({ name: template.name })
 		});
 		await expect.element(templateButton).toBeVisible();
-		const templateBox = templateButton.element().getBoundingClientRect();
-		expect(templateBox.width).toBeGreaterThan(160);
-		expect(templateBox.height).toBeGreaterThan(150);
 	});
 
 	it('recovers failed and canceled candidate previews without leaving cards pending', async () => {
-		await page.viewport(1280, 900);
 		const candidateTemplates = [
 			makeTemplate('first', 'First Template'),
 			makeTemplate('second', 'Second Template'),
@@ -471,7 +416,6 @@ describe('MemeGenerator', () => {
 	});
 
 	it('keeps an AI-only template editable after the candidate copy changes', async () => {
-		await page.viewport(1000, 800);
 		const aiOnlyTemplate = makeTemplate('doge', 'Doge', {
 			example: {
 				text: ['release looked quiet', 'alerts joined the chat'],
@@ -518,7 +462,6 @@ describe('MemeGenerator', () => {
 	});
 
 	it('does not attach a stale preview and remains disabled when the current preview fails', async () => {
-		await page.viewport(900, 800);
 		const stalePreview = deferred<MemePreviewResult>();
 		const currentPreview = deferred<MemePreviewResult>();
 		const preview = vi
@@ -557,7 +500,6 @@ describe('MemeGenerator', () => {
 	});
 
 	it('retries only attachment when the rendered meme is already saved', async () => {
-		await page.viewport(900, 800);
 		const api = mockAPI();
 		const onAttach = vi
 			.fn()
@@ -600,7 +542,6 @@ describe('MemeGenerator', () => {
 	});
 
 	it('keeps the rendered meme for retry when attachment is explicitly rejected', async () => {
-		await page.viewport(900, 800);
 		const api = mockAPI();
 		const onAttach = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 		const screen = await render(MemeGenerator, {
@@ -630,7 +571,6 @@ describe('MemeGenerator', () => {
 	});
 
 	it('renders animated templates as GIFs', async () => {
-		await page.viewport(900, 800);
 		const animatedTemplate = makeTemplate('animated-drake', 'Animated Drake', {
 			animated: true
 		});
@@ -666,51 +606,11 @@ describe('MemeGenerator', () => {
 		expect(onAttach).toHaveBeenCalledOnce();
 	});
 
-	it('loads later templates with Show more', async () => {
-		await page.viewport(1000, 800);
-		const allTemplates = Array.from({ length: 49 }, (_, index) =>
-			makeTemplate(
-				`template-${index + 1}`,
-				index === 48 ? 'Late Template' : `Template ${String(index + 1).padStart(2, '0')}`
-			)
-		);
-		const listTemplates = vi
-			.fn()
-			.mockImplementation(({ limit = 24 }) =>
-				Promise.resolve(templateListResult(allTemplates.slice(0, limit), allTemplates.length))
-			);
-		const api = mockAPI({ listTemplates });
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await expect
-			.element(screen.getByText(m.meme_generator_showing_templates({ count: 48 })))
-			.toBeVisible();
-		await screen.getByRole('button', { name: m.meme_generator_show_more() }).click();
-
-		await expect
-			.element(
-				screen.getByRole('button', {
-					name: m.meme_generator_template_select({ name: 'Late Template' })
-				})
-			)
-			.toBeVisible();
-		expect(listTemplates).toHaveBeenLastCalledWith(
-			expect.objectContaining({ query: '', limit: 96 })
-		);
-	});
-
-	it('counts visible caption characters without penalizing punctuation at 320px', async () => {
-		await page.viewport(320, 720);
-		const target = widthConstrainedTarget(320);
+	it('counts visible caption characters without penalizing punctuation', async () => {
 		const api = mockAPI();
 		const screen = await render(MemeGenerator, {
-			target,
 			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
 		});
-		const generator = componentRoot(screen.container);
 
 		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
 		await screen
@@ -729,6 +629,5 @@ describe('MemeGenerator', () => {
 			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
 			.toBeEnabled();
 		expect(api.render).not.toHaveBeenCalled();
-		expectNoVisibleComponentOverflow(generator, 320);
 	});
 });

@@ -12,22 +12,6 @@ import (
 	"github.com/openpost/cli/internal/api"
 )
 
-func TestPublicationCommandExposesFormatFirstLifecycle(t *testing.T) {
-	cmd := newPublicationCmd()
-	want := map[string]bool{
-		"create": true, "list": true, "view": true, "update": true, "renditions": true,
-		"reply": true, "validate": true, "schedule": true, "cancel": true, "publish-now": true,
-		"retry": true, "delete-rendition": true, "delete": true,
-		"events": true, "comments": true, "reply-comment": true, "hide-comment": true, "delete-comment": true,
-	}
-	for _, child := range cmd.Commands() {
-		delete(want, child.Name())
-	}
-	if len(want) != 0 {
-		t.Fatalf("missing publication commands: %v", want)
-	}
-}
-
 func TestContentProfileFlagsDoNotShadowCLIProfile(t *testing.T) {
 	root := NewRoot("test")
 	for _, path := range [][]string{

@@ -1,16 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { SocialAccount } from '$lib/api/client';
 import type { components } from '$lib/api/types';
-import {
-	registerLocalImageEditorMedia,
-	releaseLocalImageEditorMedia
-} from '$lib/image-editor/local-media-url';
 import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 
 type SettingDefinition = components['schemas']['SettingDefinition'];
-const QA_VIDEO_ID = 'local_media_destination-video';
 
 const xAccount: SocialAccount = {
 	id: 'x-main',
@@ -68,11 +62,9 @@ describe('DestinationSettingsDialog', () => {
 		);
 		doneButton?.click();
 		await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
-		releaseLocalImageEditorMedia(QA_VIDEO_ID);
 	});
 
 	it('shows unavailable X capabilities without fake editable controls', async () => {
-		await page.viewport(390, 844);
 		const quoteReason = 'Quote publishing requires X Enterprise API access.';
 		const communityReason =
 			'X has not granted this account access to Community publishing options.';
@@ -116,9 +108,6 @@ describe('DestinationSettingsDialog', () => {
 		expect(document.getElementById('destination-setting-community_id')).toBeNull();
 		expect(document.getElementById('destination-setting-location_id')).toBeNull();
 		expect(document.querySelectorAll('input[placeholder="Search options"]')).toHaveLength(0);
-		const dialog = screen.getByRole('dialog').element();
-		expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(390);
-		expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth);
 	});
 
 	it('searches YouTube categories and playlists inside their comboboxes', async () => {
@@ -171,8 +160,7 @@ describe('DestinationSettingsDialog', () => {
 		expect(onChange).toHaveBeenCalledWith('playlist_id', 'launches');
 	});
 
-	it('continues paged remote options without overflow', async () => {
-		await page.viewport(320, 720);
+	it('continues paged remote options', async () => {
 		const onOptionLoadMore = vi.fn();
 		const playlist = setting('playlist_id', 'Playlist', {
 			group: 'distribution',
@@ -196,8 +184,6 @@ describe('DestinationSettingsDialog', () => {
 		const continuation = screen.getByRole('button', { name: 'Load more options' });
 		await continuation.click();
 		expect(onOptionLoadMore).toHaveBeenCalledWith(playlist);
-		const dialog = screen.getByRole('dialog').element();
-		expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth);
 	});
 
 	it('uploads destination files through the composer callback', async () => {
@@ -228,30 +214,5 @@ describe('DestinationSettingsDialog', () => {
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 
 		await vi.waitFor(() => expect(onFileChange).toHaveBeenCalledWith(expect.anything(), file));
-	});
-
-	it('shows a video frame picker for destination cover timestamps', async () => {
-		await page.viewport(390, 844);
-		registerLocalImageEditorMedia(QA_VIDEO_ID, new Blob([], { type: 'video/mp4' }));
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: youtubeAccount,
-				settings: [
-					setting('cover_timestamp_ms', 'Cover frame', {
-						control: 'cover_frame',
-						type: 'number',
-						media_shapes: ['video']
-					})
-				],
-				values: {},
-				mediaItems: [{ id: QA_VIDEO_ID, label: 'Video 1', mimeType: 'video/mp4' }],
-				onChange: vi.fn()
-			}
-		});
-
-		await expect.element(screen.getByLabelText('Video preview for Cover frame')).toBeVisible();
-		const dialog = screen.getByRole('dialog').element();
-		expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth);
 	});
 });

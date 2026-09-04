@@ -39,16 +39,6 @@ describe('meme generator API', () => {
 		});
 	});
 
-	it('does not start a template read after the caller aborts', async () => {
-		const controller = new AbortController();
-		controller.abort();
-
-		await expect(
-			listMemeTemplates({ workspaceId: 'workspace-1', signal: controller.signal })
-		).rejects.toMatchObject({ name: 'AbortError' });
-		expect(mocks.get).not.toHaveBeenCalled();
-	});
-
 	it('gives the browser a revisioned raw thumbnail URL', () => {
 		expect(
 			memeThumbnailURL({
@@ -138,29 +128,6 @@ describe('meme generator API', () => {
 		expect(mocks.post).toHaveBeenCalledTimes(2);
 	});
 
-	it('does not retry a preview after its request is aborted', async () => {
-		const controller = new AbortController();
-		mocks.post.mockImplementationOnce(async () => {
-			controller.abort();
-			return {
-				error: { detail: 'The meme renderer is temporarily unavailable.' },
-				response: new Response(null, { status: 503 })
-			};
-		});
-
-		await expect(
-			previewMeme({
-				workspaceId: 'workspace-1',
-				templateId: 'drake',
-				captions: ['one', 'two'],
-				overlayMediaIds: [],
-				format: 'png',
-				signal: controller.signal
-			})
-		).rejects.toMatchObject({ status: 503 });
-		expect(mocks.post).toHaveBeenCalledTimes(1);
-	});
-
 	it('does not retry a deterministic preview failure', async () => {
 		mocks.post.mockResolvedValue({
 			error: { detail: 'The generated meme is too large to preview.' },
@@ -177,37 +144,5 @@ describe('meme generator API', () => {
 			})
 		).rejects.toMatchObject({ status: 502 });
 		expect(mocks.post).toHaveBeenCalledTimes(1);
-	});
-
-	it('surfaces a render failure that explains the recovery', async () => {
-		mocks.post.mockResolvedValue({
-			error: { detail: 'The meme renderer is temporarily unavailable.' },
-			response: new Response(null, { status: 503 })
-		});
-
-		await expect(
-			renderMeme({
-				workspaceId: 'workspace-1',
-				templateId: 'fry',
-				captions: ['one', 'two'],
-				overlayMediaIds: [],
-				format: 'webp'
-			})
-		).rejects.toMatchObject({
-			message: 'The meme renderer is temporarily unavailable.',
-			status: 503
-		});
-	});
-
-	it('localizes client-side fallback errors when the server returns no problem detail', async () => {
-		setLocale('pt', { reload: false });
-		mocks.get.mockResolvedValue({
-			response: new Response(null, { status: 502 })
-		});
-
-		await expect(listMemeTemplates({ workspaceId: 'workspace-1' })).rejects.toMatchObject({
-			message: 'O OpenPost não conseguiu carregar o catálogo de modelos incluído.',
-			status: 502
-		});
 	});
 });

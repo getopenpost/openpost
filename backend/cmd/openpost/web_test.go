@@ -76,43 +76,19 @@ func TestSpaStaticAssetsPreferPrecompressedImmutableResponses(t *testing.T) {
 	require.Equal(t, "Accept-Encoding", rec.Header().Get("Vary"))
 	require.Equal(t, "public, max-age=31536000, immutable", rec.Header().Get("Cache-Control"))
 	require.Contains(t, rec.Header().Get("Content-Type"), "javascript")
-}
 
-func TestSpaStaticAssetsRespectEncodingQualityAndRangeRequests(t *testing.T) {
-	modTime := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
-	webFS := fstest.MapFS{
-		"index.html": {
-			Data:    []byte("<html>app</html>"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js": {
-			Data:    []byte("identity"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js.br": {
-			Data:    []byte("brotli"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js.gz": {
-			Data:    []byte("gzip"),
-			ModTime: modTime,
-		},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	gzipReq := httptest.NewRequestWithContext(
+	qualityReq := httptest.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,
 		"/_app/immutable/chunks/app.hash.js",
 		nil,
 	)
-	gzipReq.Header.Set("Accept-Encoding", "br;q=0.5, gzip")
-	gzipRec := httptest.NewRecorder()
-	e.ServeHTTP(gzipRec, gzipReq)
-	require.Equal(t, http.StatusOK, gzipRec.Code)
-	require.Equal(t, "gzip", gzipRec.Body.String())
-	require.Equal(t, "gzip", gzipRec.Header().Get("Content-Encoding"))
+	qualityReq.Header.Set("Accept-Encoding", "br;q=0.5, gzip")
+	qualityRec := httptest.NewRecorder()
+	e.ServeHTTP(qualityRec, qualityReq)
+	require.Equal(t, http.StatusOK, qualityRec.Code)
+	require.Equal(t, "gzip", qualityRec.Body.String())
+	require.Equal(t, "gzip", qualityRec.Header().Get("Content-Encoding"))
 
 	rangeReq := httptest.NewRequestWithContext(
 		context.Background(),
@@ -130,7 +106,7 @@ func TestSpaStaticAssetsRespectEncodingQualityAndRangeRequests(t *testing.T) {
 	require.Equal(t, "Accept-Encoding", rangeRec.Header().Get("Vary"))
 }
 
-func TestSpaHTMLIsNoindexAndCompressesNegotiatedResponses(t *testing.T) {
+func TestSpaHTMLDocumentServing(t *testing.T) {
 	const document = `<html><head></head><body>application document with enough repeated content to compress application document</body></html>`
 	webFS := fstest.MapFS{
 		"index.html": {Data: []byte(document)},
@@ -179,23 +155,23 @@ func TestSpaHTMLIsNoindexAndCompressesNegotiatedResponses(t *testing.T) {
 			require.Equal(t, document, string(decoded))
 		})
 	}
-}
 
-func TestSpaCompressedHeadMatchesGetHeadersWithoutBody(t *testing.T) {
-	webFS := fstest.MapFS{"index.html": {Data: []byte(`<html><head></head><body>application document application document application document</body></html>`)}}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
+	plainReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil)
+	plainRec := httptest.NewRecorder()
+	e.ServeHTTP(plainRec, plainReq)
+	require.Equal(t, http.StatusOK, plainRec.Code)
+	require.Equal(t, "no-cache, no-store, must-revalidate", plainRec.Header().Get("Cache-Control"))
+	require.Equal(t, document, plainRec.Body.String())
 
-	request := func(method string) *httptest.ResponseRecorder {
-		req := httptest.NewRequestWithContext(t.Context(), method, "/", nil)
+	compressed := func(method string) *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), method, "/login", nil)
 		req.Header.Set("Accept-Encoding", "br, gzip;q=0.5")
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		return rec
 	}
-	getRec := request(http.MethodGet)
-	headRec := request(http.MethodHead)
-
+	getRec := compressed(http.MethodGet)
+	headRec := compressed(http.MethodHead)
 	require.Equal(t, getRec.Code, headRec.Code)
 	for _, header := range []string{"Content-Type", "Content-Encoding", "Content-Length", "Cache-Control", "X-Robots-Tag", "Vary"} {
 		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
@@ -204,24 +180,7 @@ func TestSpaCompressedHeadMatchesGetHeadersWithoutBody(t *testing.T) {
 	require.Empty(t, headRec.Body.String())
 }
 
-func TestSpaHTMLRemainsUncached(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte("<html>app</html>")},
-		"login.html": {Data: []byte("<html>login</html>")},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/login", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "no-cache, no-store, must-revalidate", rec.Header().Get("Cache-Control"))
-	require.Equal(t, "<html>login</html>", rec.Body.String())
-}
-
-func TestSpaFallbackDistinguishesKnownDynamicRoutesFromUnknownDocuments(t *testing.T) {
+func TestSpaFallbackRouting(t *testing.T) {
 	webFS := withAppRoutes(fstest.MapFS{
 		"index.html": {Data: []byte("<html>app</html>")},
 	}, "/", "/calendar", "/publications/[id]", "/video-editor/[...path]")
@@ -252,27 +211,23 @@ func TestSpaFallbackDistinguishesKnownDynamicRoutesFromUnknownDocuments(t *testi
 			require.Equal(t, "no-cache, no-store, must-revalidate", recorder.Header().Get("Cache-Control"))
 		})
 	}
-}
 
-func TestSpaUnknownHeadMatchesGetStatusAndHeadersWithoutBody(t *testing.T) {
-	webFS := withAppRoutes(fstest.MapFS{
-		"index.html": {Data: []byte("<html>app</html>")},
-	}, "/")
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	getRecorder := httptest.NewRecorder()
-	e.ServeHTTP(getRecorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil))
-	headRecorder := httptest.NewRecorder()
-	e.ServeHTTP(headRecorder, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/missing", nil))
-
-	require.Equal(t, http.StatusNotFound, getRecorder.Code)
-	require.Equal(t, getRecorder.Code, headRecorder.Code)
+	unknownGET := httptest.NewRecorder()
+	e.ServeHTTP(unknownGET, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil))
+	unknownHEAD := httptest.NewRecorder()
+	e.ServeHTTP(unknownHEAD, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/missing", nil))
+	require.Equal(t, http.StatusNotFound, unknownGET.Code)
+	require.Equal(t, unknownGET.Code, unknownHEAD.Code)
 	for _, header := range []string{"Content-Type", "Content-Length", "Cache-Control", "Pragma", "Expires"} {
-		require.Equal(t, getRecorder.Header().Get(header), headRecorder.Header().Get(header), header)
+		require.Equal(t, unknownGET.Header().Get(header), unknownHEAD.Header().Get(header), header)
 	}
-	require.Equal(t, strconv.Itoa(getRecorder.Body.Len()), headRecorder.Header().Get("Content-Length"))
-	require.Empty(t, headRecorder.Body.String())
+	require.Equal(t, strconv.Itoa(unknownGET.Body.Len()), unknownHEAD.Header().Get("Content-Length"))
+	require.Empty(t, unknownHEAD.Body.String())
+
+	apiHEAD := httptest.NewRecorder()
+	e.ServeHTTP(apiHEAD, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/api/missing", nil))
+	require.Equal(t, http.StatusNotFound, apiHEAD.Code, "API paths stay isolated from the SPA fallback")
+	require.Empty(t, apiHEAD.Body.String())
 }
 
 func TestSpaStartupRejectsMissingOrMalformedRouteManifest(t *testing.T) {
@@ -326,124 +281,35 @@ func TestSpaStartupRejectsMissingOrMalformedRouteManifest(t *testing.T) {
 	}
 }
 
-func TestManagedSpaRootUsesTheApplicationForTheRoot(t *testing.T) {
-	webFS := fstest.MapFS{"index.html": {Data: []byte(`<html><head></head><body>app</body></html>`)}}
-	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Contains(t, rec.Body.String(), "app")
-}
-
-func TestManagedSpaHeadMatchesGetHeadersWithoutBody(t *testing.T) {
+func TestManagedAndSelfHostedSpaRoot(t *testing.T) {
 	webFS := fstest.MapFS{
 		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
 	}
 	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(
-		e,
-		webFS,
-		nil,
-		"https://app.openpo.st",
-		true,
-		true,
-	)
+	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
 
 	getRec := httptest.NewRecorder()
 	e.ServeHTTP(getRec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
+	require.Equal(t, http.StatusOK, getRec.Code)
+	require.Contains(t, getRec.Body.String(), "app")
+	require.Empty(t, getRec.Header().Get("X-Robots-Tag"))
+	html := getRec.Body.String()
+	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
+	require.Contains(t, html, `<title data-openpost-review-fallback>`)
+	require.Contains(t, html, `data-openpost-review-fallback name="description"`)
+	require.Contains(t, html, `data-openpost-review-fallback rel="canonical" href="https://app.openpo.st/"`)
+	require.Contains(t, html, `<main data-openpost-review-fallback`)
+	require.NotContains(t, html, `<noscript data-openpost-review-fallback`)
+	require.Contains(t, html, `document.querySelectorAll('[data-openpost-review-fallback]').forEach((element) => element.remove())`)
+
 	headRec := httptest.NewRecorder()
 	e.ServeHTTP(headRec, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/", nil))
-
 	require.Equal(t, getRec.Code, headRec.Code)
 	for _, header := range []string{"Content-Type", "Content-Length", "Cache-Control", "Pragma", "Expires"} {
 		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
 	}
 	require.Equal(t, strconv.Itoa(getRec.Body.Len()), headRec.Header().Get("Content-Length"))
 	require.Empty(t, headRec.Body.String())
-}
-
-func TestSpaHeadPreservesRedirectsAPIIsolationAndStaticHeaders(t *testing.T) {
-	modTime := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
-	webFS := fstest.MapFS{
-		"index.html":                        {Data: []byte("<html>app</html>")},
-		"_app/immutable/chunks/app.hash.js": {Data: []byte("identity"), ModTime: modTime},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	tests := []struct {
-		name       string
-		path       string
-		status     int
-		headerName string
-		header     string
-	}{
-		{name: "API path", path: "/api/missing", status: http.StatusNotFound},
-		{name: "immutable asset", path: "/_app/immutable/chunks/app.hash.js", status: http.StatusOK, headerName: "Cache-Control", header: "public, max-age=31536000, immutable"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodHead, test.path, nil)
-			e.ServeHTTP(rec, req)
-
-			require.Equal(t, test.status, rec.Code)
-			require.Equal(t, test.header, rec.Header().Get(test.headerName))
-			require.Empty(t, rec.Body.String())
-		})
-	}
-}
-
-func TestSelfHostedSpaRootDoesNotAdvertiseManagedPlans(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.NotContains(t, rec.Body.String(), `name="openpost-edition"`)
-}
-
-func TestManagedSpaRootProvidesProductReviewFallback(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
-	}
-	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Empty(t, rec.Header().Get("X-Robots-Tag"))
-	html := rec.Body.String()
-	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
-	require.Contains(t, html, `<title data-openpost-review-fallback>OpenPost - content publishing workspace</title>`)
-	require.Contains(t, html, `data-openpost-review-fallback name="description" content="Create, adapt, schedule, publish, and review social content from one OpenPost workspace."`)
-	require.Contains(t, html, `data-openpost-review-fallback rel="canonical" href="https://app.openpo.st/"`)
-	require.Contains(t, html, `<main data-openpost-review-fallback`)
-	require.NotContains(t, html, `<noscript data-openpost-review-fallback`)
-	require.Contains(t, html, `document.querySelectorAll('[data-openpost-review-fallback]').forEach((element) => element.remove())`)
-	require.Contains(t, html, "Your content operation, together in one workspace.")
-	require.Contains(t, html, "Starter: $15/month")
-	require.Contains(t, html, "Agency: $199/month")
-	require.Contains(t, html, "Every plan starts with a 14-day free trial")
-	require.Contains(t, html, `href="/register?plan=founder&amp;billing_period=monthly"`)
-	require.Contains(t, html, `href="https://openpo.st/pricing"`)
-	require.Contains(t, html, `href="https://openpo.st/terms"`)
-	require.Contains(t, html, `href="https://openpo.st/privacy"`)
-	require.Contains(t, html, `href="https://openpo.st/refunds"`)
-}
-
-func TestManagedSpaRootReviewPricingMatchesCatalog(t *testing.T) {
-	t.Parallel()
 
 	data, err := os.ReadFile("../../../packages/plan-catalog/src/catalog.json")
 	require.NoError(t, err)
@@ -462,9 +328,16 @@ func TestManagedSpaRootReviewPricingMatchesCatalog(t *testing.T) {
 			fmt.Sprintf("<li>%s: $%d/month</li>", plan.Name, plan.MonthlyPriceUSD),
 		)
 	}
+
+	selfHosted := echo.New()
+	registerSpaRoutes(selfHosted, webFS)
+	selfRec := httptest.NewRecorder()
+	selfHosted.ServeHTTP(selfRec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
+	require.Equal(t, http.StatusOK, selfRec.Code)
+	require.NotContains(t, selfRec.Body.String(), `name="openpost-edition"`)
 }
 
-func TestRenderPublicProfileHTMLAddsEscapedShareMetadata(t *testing.T) {
+func TestPublicProfileHTML(t *testing.T) {
 	t.Parallel()
 
 	rendered := renderPublicProfileHTML(
@@ -482,13 +355,9 @@ func TestRenderPublicProfileHTMLAddsEscapedShareMetadata(t *testing.T) {
 	require.Contains(t, html, `property="og:type" content="profile"`)
 	require.Contains(t, html, `rel="canonical" href="https://app.openpo.st/u/rodrgds"`)
 	require.Contains(t, html, `property="og:image" content="https://cdn.example/avatar?a=1&amp;b=2"`)
-}
 
-func TestRenderUnavailablePublicProfileHTMLIsNotIndexed(t *testing.T) {
-	t.Parallel()
-
-	rendered := renderPublicProfileHTML([]byte("<html><head></head><body>app</body></html>"), nil, "")
-	require.Contains(t, string(rendered), `name="robots" content="noindex"`)
+	unavailable := renderPublicProfileHTML([]byte("<html><head></head><body>app</body></html>"), nil, "")
+	require.Contains(t, string(unavailable), `name="robots" content="noindex"`)
 }
 
 func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {

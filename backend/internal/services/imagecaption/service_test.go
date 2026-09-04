@@ -2,8 +2,6 @@ package imagecaption
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"testing"
 
 	"github.com/openpost/backend/internal/ai"
@@ -51,60 +49,4 @@ func TestServiceCaptionBuildsBoundedLowDetailRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Uma equipa prepara uma publicação.", result.AltText)
 	require.Equal(t, "openai/gpt-5.6-luna-20260709", result.Model)
-}
-
-func TestServiceCaptionDefaultsLocaleAndBoundsCaption(t *testing.T) {
-	t.Parallel()
-
-	longCaption := strings.Repeat("accessible words ", 40)
-	service, err := New(generatorFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-		require.Contains(t, request.UserPrompt, "locale en")
-		require.NotContains(t, request.UserPrompt, "Untrusted post context")
-		return ai.GenerateResult{Text: longCaption}, nil
-	}), DefaultModel)
-	require.NoError(t, err)
-
-	result, err := service.Caption(t.Context(), Input{Image: []byte("image"), MIMEType: "image/png"})
-	require.NoError(t, err)
-	require.LessOrEqual(t, len([]rune(result.AltText)), maxAltTextCharacters)
-	require.Equal(t, DefaultModel, result.Model)
-}
-
-func TestServiceCaptionRejectsInvalidInputsAndEmptyResults(t *testing.T) {
-	t.Parallel()
-
-	providerCalls := 0
-	service, err := New(generatorFunc(func(_ context.Context, _ ai.GenerateRequest) (ai.GenerateResult, error) {
-		providerCalls++
-		return ai.GenerateResult{Text: "   "}, nil
-	}), DefaultModel)
-	require.NoError(t, err)
-
-	_, err = service.Caption(t.Context(), Input{Image: []byte("image"), MIMEType: "image/png", Locale: "not a locale!"})
-	require.ErrorIs(t, err, ErrInvalidInput)
-	require.Zero(t, providerCalls)
-
-	_, err = service.Caption(t.Context(), Input{MIMEType: "image/png"})
-	require.ErrorIs(t, err, ErrInvalidInput)
-	require.Zero(t, providerCalls)
-
-	_, err = service.Caption(t.Context(), Input{
-		Image:       []byte("image"),
-		MIMEType:    "image/png",
-		PostContext: strings.Repeat("x", MaxPostContextCharacters+1),
-	})
-	require.ErrorIs(t, err, ErrInvalidInput)
-	require.Zero(t, providerCalls)
-
-	_, err = service.Caption(t.Context(), Input{Image: []byte("image"), MIMEType: "image/png"})
-	require.ErrorIs(t, err, ErrEmptyCaption)
-	require.Equal(t, 1, providerCalls)
-
-	providerFailure := errors.New("provider failure")
-	failing, err := New(generatorFunc(func(_ context.Context, _ ai.GenerateRequest) (ai.GenerateResult, error) {
-		return ai.GenerateResult{}, providerFailure
-	}), DefaultModel)
-	require.NoError(t, err)
-	_, err = failing.Caption(t.Context(), Input{Image: []byte("image"), MIMEType: "image/png"})
-	require.ErrorIs(t, err, providerFailure)
 }

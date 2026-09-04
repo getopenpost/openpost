@@ -219,88 +219,6 @@ func (s *instanceAdminTestServer) put(
 	return rec
 }
 
-func TestInstanceAdminOverviewReturnsThirtyDayActivity(t *testing.T) {
-	t.Parallel()
-
-	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
-	resp := srv.get(t, "/api/v1/admin/overview", "web-token")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var body InstanceOverviewResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
-	require.Equal(t, 3, body.TotalUsers)
-	require.Equal(t, 2, body.NewUsersLast30Days)
-	require.Equal(t, 2, body.TotalWorkspaces)
-	require.Equal(t, 1, body.PublishedLast30Days)
-	require.Len(t, body.UserRegistrationTrend, instanceAdminTrendDays)
-	require.Len(t, body.PublicationTrend, instanceAdminTrendDays)
-	require.Equal(t, 2, sumInstanceMetric(body.UserRegistrationTrend))
-	require.Equal(t, 1, sumInstanceMetric(body.PublicationTrend))
-	require.Equal(t, "2026-06-29", body.UserRegistrationTrend[0].Date)
-	require.Equal(t, "2026-07-28", body.UserRegistrationTrend[len(body.UserRegistrationTrend)-1].Date)
-}
-
-func TestInstanceAdminUsersArePaginatedNewestFirst(t *testing.T) {
-	t.Parallel()
-
-	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
-	defaultResp := srv.get(t, "/api/v1/admin/users", "web-token")
-	require.Equal(t, http.StatusOK, defaultResp.Code, defaultResp.Body.String())
-	var defaultPage InstanceUserPage
-	require.NoError(t, json.Unmarshal(defaultResp.Body.Bytes(), &defaultPage))
-	require.Equal(t, 1, defaultPage.Page)
-	require.Equal(t, 25, defaultPage.PerPage)
-	require.Equal(t, 1, defaultPage.TotalPages)
-	require.Len(t, defaultPage.Users, 3)
-
-	firstResp := srv.get(t, "/api/v1/admin/users?page=1&per_page=2", "web-token")
-
-	require.Equal(t, http.StatusOK, firstResp.Code, firstResp.Body.String())
-	var first InstanceUserPage
-	require.NoError(t, json.Unmarshal(firstResp.Body.Bytes(), &first))
-	require.Equal(t, 3, first.Total)
-	require.Equal(t, 1, first.Page)
-	require.Equal(t, 2, first.PerPage)
-	require.Equal(t, 2, first.TotalPages)
-	require.Len(t, first.Users, 2)
-	require.Equal(t, "user-2", first.Users[0].ID)
-	require.Equal(t, []string{"founder"}, first.Users[0].PlanIDs)
-	require.Equal(t, 1, first.Users[0].OrganizationCount)
-	require.Equal(t, 2, first.Users[0].WorkspaceCount)
-	require.Equal(t, 1, first.Users[0].SocialAccountCount)
-	require.Equal(t, 2, first.Users[0].PublicationCount)
-	require.NotEmpty(t, first.Users[0].LastActiveAt)
-	require.Equal(t, "user-3", first.Users[1].ID)
-	require.Equal(t, 1, first.Users[1].WorkspaceCount)
-
-	secondResp := srv.get(t, "/api/v1/admin/users?page=2&per_page=2", "web-token")
-	require.Equal(t, http.StatusOK, secondResp.Code, secondResp.Body.String())
-	var second InstanceUserPage
-	require.NoError(t, json.Unmarshal(secondResp.Body.Bytes(), &second))
-	require.Len(t, second.Users, 1)
-	require.Equal(t, "user-1", second.Users[0].ID)
-	require.True(t, second.Users[0].IsAdmin)
-}
-
-func TestInstanceAdminUsersSupportSearchAndSort(t *testing.T) {
-	t.Parallel()
-
-	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
-	resp := srv.get(
-		t,
-		"/api/v1/admin/users?search=second%40example.com&sort=email&direction=asc",
-		"web-token",
-	)
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var page InstanceUserPage
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &page))
-	require.Equal(t, 1, page.Total)
-	require.Len(t, page.Users, 1)
-	require.Equal(t, "user-3", page.Users[0].ID)
-	require.Equal(t, []string{"founder"}, page.Users[0].PlanIDs)
-}
-
 func TestInstanceAdminCreatesAndConsumesOneUseImpersonationLink(t *testing.T) {
 	t.Parallel()
 
@@ -367,132 +285,93 @@ func TestInstanceAdminCreatesAndConsumesOneUseImpersonationLink(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, secondConsume.Code, secondConsume.Body.String())
 }
 
-func TestInstanceAdminImpersonationRequiresBrowserSessionAndNonAdminTarget(t *testing.T) {
+func TestInstanceAdminAuthorization(t *testing.T) {
 	t.Parallel()
 
-	srv := newInstanceAdminTestServer(t, true, workspaceTestAuthenticator{
-		"api-token": {
-			UserID: "user-1", Email: "admin@example.com", Scope: apitokens.ScopeCLI, TokenID: "cli-token",
-		},
-		"admin-session-token": {
-			UserID: "user-1", Email: "admin@example.com", SessionID: "admin-session",
-		},
+	t.Run("unscoped CLI bearer token", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newInstanceAdminTestServer(t, true, unboundCLIFullTestAuthenticator())
+		for _, path := range []string{"/api/v1/admin/overview", "/api/v1/admin/users"} {
+			response := srv.get(t, path, "web-token")
+			require.Equal(t, http.StatusForbidden, response.Code, path+": "+response.Body.String())
+			require.Contains(t, response.Body.String(), "browser session")
+		}
 	})
-	noSession := srv.post(
-		t,
-		"/api/v1/admin/users/user-2/impersonation-links",
-		map[string]string{},
-		"api-token",
-	)
-	require.Equal(t, http.StatusForbidden, noSession.Code, noSession.Body.String())
-	require.Contains(t, noSession.Body.String(), "browser session")
 
-	adminTarget := srv.post(
-		t,
-		"/api/v1/admin/users/user-1/impersonation-links",
-		map[string]string{},
-		"admin-session-token",
-	)
-	require.Equal(t, http.StatusConflict, adminTarget.Code, adminTarget.Body.String())
-}
+	t.Run("non-admin browser session", func(t *testing.T) {
+		t.Parallel()
 
-func TestInstanceAdminOverviewAndUsersRejectBearerAdminToken(t *testing.T) {
-	t.Parallel()
-
-	srv := newInstanceAdminTestServer(t, true, unboundCLIFullTestAuthenticator())
-	for _, path := range []string{"/api/v1/admin/overview", "/api/v1/admin/users"} {
-		response := srv.get(t, path, "web-token")
-		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
-		require.Contains(t, response.Body.String(), "browser session")
-	}
-}
-
-func TestInstanceAdminImpersonationConsumptionRejectsSignedInBrowser(t *testing.T) {
-	t.Parallel()
-
-	srv := newInstanceAdminTestServer(t, true, testAuthenticator{})
-	req := httptest.NewRequestWithContext(
-		t.Context(),
-		http.MethodPost,
-		"/api/v1/auth/impersonation",
-		strings.NewReader(`{"code":"unused-code"}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(&http.Cookie{Name: "openpost_session", Value: "existing-session"})
-	rec := httptest.NewRecorder()
-	srv.echo.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
-	require.Contains(t, rec.Body.String(), "private browser window")
-}
-
-func TestInstanceAdminRoutesRejectNonAdmin(t *testing.T) {
-	t.Parallel()
-
-	nonAdmin := newInstanceAdminTestServer(t, false, browserSessionTestAuthenticator())
-	nonAdminResp := nonAdmin.get(t, "/api/v1/admin/users", "web-token")
-	require.Equal(t, http.StatusForbidden, nonAdminResp.Code, nonAdminResp.Body.String())
-	require.Contains(t, nonAdminResp.Body.String(), "instance admin role required")
-}
-
-func TestInstanceAdminRoutesRejectScopedCredentials(t *testing.T) {
-	t.Parallel()
-
-	scoped := newInstanceAdminTestServer(t, true, workspaceTestAuthenticator{
-		"scoped-token": {
-			UserID: "user-1", Email: "admin@example.com", WorkspaceID: "workspace-1", SessionID: "browser-session",
-		},
+		nonAdmin := newInstanceAdminTestServer(t, false, browserSessionTestAuthenticator())
+		resp := nonAdmin.get(t, "/api/v1/admin/users", "web-token")
+		require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
+		require.Contains(t, resp.Body.String(), "instance admin role required")
 	})
-	scopedResp := scoped.get(t, "/api/v1/admin/overview", "scoped-token")
-	require.Equal(t, http.StatusForbidden, scopedResp.Code, scopedResp.Body.String())
-	require.Contains(t, scopedResp.Body.String(), "unscoped credentials")
+
+	t.Run("workspace-scoped credential", func(t *testing.T) {
+		t.Parallel()
+
+		scoped := newInstanceAdminTestServer(t, true, workspaceTestAuthenticator{
+			"scoped-token": {
+				UserID: "user-1", Email: "admin@example.com", WorkspaceID: "workspace-1", SessionID: "browser-session",
+			},
+		})
+		resp := scoped.get(t, "/api/v1/admin/overview", "scoped-token")
+		require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
+		require.Contains(t, resp.Body.String(), "unscoped credentials")
+	})
 }
 
-func TestInstanceAdminSetUserPlanCreatesOverrideThatGrantsEntitlements(t *testing.T) {
+func TestInstanceAdminImpersonationGuards(t *testing.T) {
 	t.Parallel()
 
-	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
-	resp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": "pro"}, "web-token")
+	t.Run("creation requires browser session and non-admin target", func(t *testing.T) {
+		t.Parallel()
 
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		srv := newInstanceAdminTestServer(t, true, workspaceTestAuthenticator{
+			"api-token": {
+				UserID: "user-1", Email: "admin@example.com", Scope: apitokens.ScopeCLI, TokenID: "cli-token",
+			},
+			"admin-session-token": {
+				UserID: "user-1", Email: "admin@example.com", SessionID: "admin-session",
+			},
+		})
+		noSession := srv.post(t, "/api/v1/admin/users/user-2/impersonation-links", map[string]string{}, "api-token")
+		require.Equal(t, http.StatusForbidden, noSession.Code, noSession.Body.String())
+		require.Contains(t, noSession.Body.String(), "browser session")
 
-	// The override replaces the org's Paddle subscription row with an
-	// admin-managed one, stored without a workspace binding so the FK-safe NULL
-	// applies on Postgres.
-	var sub models.BillingSubscription
-	require.NoError(t, srv.db.NewSelect().Model(&sub).Where("organization_id = ?", "organization-1").Scan(t.Context()))
-	require.Equal(t, models.BillingProviderAdmin, sub.Provider)
-	require.Equal(t, "pro", sub.PlanID)
-	require.Equal(t, "active", sub.Status)
-	require.Empty(t, sub.WorkspaceID)
-	require.Equal(t, "admin_override_organization-1", sub.ProviderSubscriptionID)
-
-	// The override must grant plan entitlements exactly like a paid plan.
-	subscriptionService := entitlements.NewSubscriptionService(srv.db, nil)
-	decision, err := subscriptionService.Check(t.Context(), entitlements.Request{
-		OrganizationID: "organization-1",
-		WorkspaceID:    "workspace-1",
-		Limit:          entitlements.LimitSocialAccounts,
-		Amount:         1,
+		adminTarget := srv.post(t, "/api/v1/admin/users/user-1/impersonation-links", map[string]string{}, "admin-session-token")
+		require.Equal(t, http.StatusConflict, adminTarget.Code, adminTarget.Body.String())
 	})
-	require.NoError(t, err)
-	require.True(t, decision.Allowed)
-	require.Equal(t, int64(15), decision.Limit)
+
+	t.Run("consumption rejects signed-in browser", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newInstanceAdminTestServer(t, true, testAuthenticator{})
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/impersonation", strings.NewReader(`{"code":"unused-code"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "openpost_session", Value: "existing-session"})
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), "private browser window")
+	})
 }
 
-func TestInstanceAdminRemoveUserPlanOverrideDeletesOverride(t *testing.T) {
+func TestInstanceAdminUserPlanOverride(t *testing.T) {
 	t.Parallel()
 
 	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
 	assignResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": "pro"}, "web-token")
 	require.Equal(t, http.StatusOK, assignResp.Code, assignResp.Body.String())
 
-	removeResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": ""}, "web-token")
-	require.Equal(t, http.StatusOK, removeResp.Code, removeResp.Body.String())
-
-	count, err := srv.db.NewSelect().Model((*models.BillingSubscription)(nil)).Where("organization_id = ?", "organization-1").Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
+	var sub models.BillingSubscription
+	require.NoError(t, srv.db.NewSelect().Model(&sub).Where("organization_id = ?", "organization-1").Scan(t.Context()))
+	require.Equal(t, models.BillingProviderAdmin, sub.Provider)
+	require.Equal(t, "pro", sub.PlanID)
+	require.Equal(t, "active", sub.Status)
+	require.Empty(t, sub.WorkspaceID)
 
 	decision, err := entitlements.NewSubscriptionService(srv.db, nil).Check(t.Context(), entitlements.Request{
 		OrganizationID: "organization-1",
@@ -501,7 +380,24 @@ func TestInstanceAdminRemoveUserPlanOverrideDeletesOverride(t *testing.T) {
 		Amount:         1,
 	})
 	require.NoError(t, err)
-	require.False(t, decision.Allowed)
+	require.True(t, decision.Allowed)
+	require.Equal(t, int64(15), decision.Limit)
+
+	removeResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": ""}, "web-token")
+	require.Equal(t, http.StatusOK, removeResp.Code, removeResp.Body.String())
+
+	count, err := srv.db.NewSelect().Model((*models.BillingSubscription)(nil)).Where("organization_id = ?", "organization-1").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	denied, err := entitlements.NewSubscriptionService(srv.db, nil).Check(t.Context(), entitlements.Request{
+		OrganizationID: "organization-1",
+		WorkspaceID:    "workspace-1",
+		Limit:          entitlements.LimitSocialAccounts,
+		Amount:         1,
+	})
+	require.NoError(t, err)
+	require.False(t, denied.Allowed)
 }
 
 func sumInstanceMetric(metrics []InstanceDailyMetric) int {

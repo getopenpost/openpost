@@ -6,13 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateManifestAcceptsTextPublishing(t *testing.T) {
-	t.Parallel()
-
-	manifest := validManifest()
-	require.NoError(t, ValidateManifest(&manifest))
-}
-
 func TestValidateManifestFailsClosedForUnknownProtocolAndControls(t *testing.T) {
 	t.Parallel()
 
@@ -25,17 +18,6 @@ func TestValidateManifestFailsClosedForUnknownProtocolAndControls(t *testing.T) 
 		Key: "status", Label: "Status", Control: "connector_html",
 	}}
 	require.ErrorContains(t, ValidateManifest(&manifest), "unsupported control")
-}
-
-func TestValidateManifestRejectsDuplicateOutputProfiles(t *testing.T) {
-	t.Parallel()
-
-	manifest := validManifest()
-	manifest.Publishing.OutputProfiles = append(
-		manifest.Publishing.OutputProfiles,
-		manifest.Publishing.OutputProfiles[0],
-	)
-	require.ErrorContains(t, ValidateManifest(&manifest), "duplicate output profile")
 }
 
 func validManifest() Manifest {

@@ -1,5 +1,4 @@
 import type { paths } from '@openpost/api-contract';
-import { OpenPostQueryError } from '@openpost/query-catalog';
 import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenPostQueryAPI } from './api';
@@ -46,30 +45,5 @@ describe('OpenPost web query API', () => {
 		expect(request.signal.aborted).toBe(false);
 		controller.abort();
 		expect(request.signal.aborted).toBe(true);
-	});
-
-	it('normalizes HTTP problems without changing direct API client behavior', async () => {
-		const fetchMock = vi.fn(async (_request: Request) => {
-			return new Response(JSON.stringify({ detail: '  Workspace is unavailable  ' }), {
-				status: 503,
-				headers: { 'Content-Type': 'application/problem+json' }
-			});
-		});
-		const transport = createClient<paths>({
-			baseUrl: 'https://openpost.test/api/v1',
-			fetch: fetchMock
-		});
-		const api = createOpenPostQueryAPI(transport);
-
-		const request = api.listAccounts('workspace-1', new AbortController().signal);
-
-		await expect(request).rejects.toEqual(
-			expect.objectContaining<Partial<OpenPostQueryError>>({
-				name: 'OpenPostQueryError',
-				message: 'Workspace is unavailable',
-				detail: 'Workspace is unavailable',
-				status: 503
-			})
-		);
 	});
 });

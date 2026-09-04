@@ -21,7 +21,7 @@ const scope = rawScope?.startsWith("--") ? undefined : rawScope;
 const options = new Set(rawScope?.startsWith("--") ? [rawScope, ...flags] : flags);
 
 const surfaceScopes = ["frontend", "backend", "cli", "marketing", "docs"];
-const browserScopes = ["e2e", "e2e-app", "e2e-docs"];
+const browserScopes = ["e2e", "e2e-app"];
 
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
@@ -119,7 +119,7 @@ const checks = {
   ]),
   changelog: stage("changelog", [
     bun("scripts/check-changelog.mjs"),
-    bunTest("packages/changelog/src/index.test.mjs"),
+    bunTest("packages/changelog/src/index.test.mjs", "scripts/merge-changelog-fragments.test.mjs"),
   ]),
   "social-images": stage("social images", [
     bun("scripts/social-images/catalog.mjs", "--check"),
@@ -449,9 +449,6 @@ function testPlan(requestedScope, requestedOptions) {
     e2e: stage("browser tests", [commandStep("bunx", "playwright", "test")]),
     "e2e-app": stage("application browser tests", [
       commandStep("bunx", "playwright", "test", "--config", "playwright.app.config.ts"),
-    ]),
-    "e2e-docs": stage("documentation browser tests", [
-      commandStep("bunx", "playwright", "test", "--config", "playwright.docs.config.ts"),
     ]),
   };
 

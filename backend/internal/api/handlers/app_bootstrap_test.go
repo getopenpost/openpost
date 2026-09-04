@@ -59,81 +59,85 @@ func (a appBootstrapErrorAuthenticator) AuthenticateBearer(context.Context, stri
 	return nil, a.err
 }
 
-func TestAppBootstrapReturns503WhenAuthenticationIsUnavailable(t *testing.T) {
+func TestAppBootstrapFailsClosedWhenAuthenticationIsUnavailable(t *testing.T) {
 	t.Parallel()
 
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAppBootstrapHandler(
-		db,
-		appBootstrapErrorAuthenticator{err: context.DeadlineExceeded},
-		AccountPolicy{},
-		nil,
-	).RegisterRoutes(api)
+	t.Run("generic authentication error", func(t *testing.T) {
+		t.Parallel()
 
-	response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", "valid-looking-token")
+		db := createHandlerTestDB(t, (*models.User)(nil))
+		e := echo.New()
+		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		NewAppBootstrapHandler(
+			db,
+			appBootstrapErrorAuthenticator{err: context.DeadlineExceeded},
+			AccountPolicy{},
+			nil,
+		).RegisterRoutes(api)
 
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
-}
+		response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", "valid-looking-token")
 
-func TestAppBootstrapReturns503WhenRealAPITokenValidationIsUnavailable(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil), (*models.APIToken)(nil))
-	user := &models.User{ID: "api-token-user", Email: "api-token@example.com", CreatedAt: time.Now().UTC()}
-	_, err := db.NewInsert().Model(user).Exec(t.Context())
-	require.NoError(t, err)
-	tokenService := apitokens.NewService(db)
-	generated, err := tokenService.GenerateToken(t.Context(), user.ID, "Bootstrap", apitokens.ScopeCLI, nil)
-	require.NoError(t, err)
-	authenticator := middleware.NewCompositeServiceWithSessions(
-		authservice.NewService("bootstrap-test-secret"),
-		tokenService,
-		nil,
-	)
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
-
-	invalid := getAppBootstrap(t, e, "/api/v1/app/bootstrap", "op_cli_12345678_not-the-secret")
-	require.Equal(t, http.StatusOK, invalid.Code, invalid.Body.String())
-	require.False(t, decodeAppBootstrap(t, invalid).Body.Authenticated)
-
-	require.NoError(t, db.Close())
-	response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", generated.Token)
-
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
-}
-
-func TestAppBootstrapReturns503WhenRealSessionValidationIsUnavailable(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil), (*models.UserSession)(nil))
-	user := &models.User{ID: "session-user", Email: "session@example.com", CreatedAt: time.Now().UTC()}
-	_, err := db.NewInsert().Model(user).Exec(t.Context())
-	require.NoError(t, err)
-	sessionService := sessions.NewService(db)
-	session, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
-		UserID:    user.ID,
-		ExpiresAt: time.Now().UTC().Add(time.Hour),
+		require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+		require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
 	})
-	require.NoError(t, err)
-	authService := authservice.NewService("bootstrap-test-secret")
-	token, err := authService.GenerateTokenWithSession(user.ID, user.Email, session.ID, session.ExpiresAt)
-	require.NoError(t, err)
-	authenticator := middleware.NewCompositeServiceWithSessions(authService, nil, sessionService)
-	require.NoError(t, db.Close())
 
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
-	response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", token)
+	t.Run("token validation without database", func(t *testing.T) {
+		t.Parallel()
 
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
+		db := createHandlerTestDB(t, (*models.User)(nil), (*models.APIToken)(nil))
+		user := &models.User{ID: "api-token-user", Email: "api-token@example.com", CreatedAt: time.Now().UTC()}
+		_, err := db.NewInsert().Model(user).Exec(t.Context())
+		require.NoError(t, err)
+		tokenService := apitokens.NewService(db)
+		generated, err := tokenService.GenerateToken(t.Context(), user.ID, "Bootstrap", apitokens.ScopeCLI, nil)
+		require.NoError(t, err)
+		authenticator := middleware.NewCompositeServiceWithSessions(
+			authservice.NewService("bootstrap-test-secret"),
+			tokenService,
+			nil,
+		)
+		e := echo.New()
+		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
+
+		invalid := getAppBootstrap(t, e, "/api/v1/app/bootstrap", "op_cli_12345678_not-the-secret")
+		require.Equal(t, http.StatusOK, invalid.Code, invalid.Body.String())
+		require.False(t, decodeAppBootstrap(t, invalid).Body.Authenticated)
+
+		require.NoError(t, db.Close())
+		response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", generated.Token)
+
+		require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+		require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
+	})
+
+	t.Run("session validation without database", func(t *testing.T) {
+		t.Parallel()
+
+		db := createHandlerTestDB(t, (*models.User)(nil), (*models.UserSession)(nil))
+		user := &models.User{ID: "session-user", Email: "session@example.com", CreatedAt: time.Now().UTC()}
+		_, err := db.NewInsert().Model(user).Exec(t.Context())
+		require.NoError(t, err)
+		sessionService := sessions.NewService(db)
+		session, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
+			UserID:    user.ID,
+			ExpiresAt: time.Now().UTC().Add(time.Hour),
+		})
+		require.NoError(t, err)
+		authService := authservice.NewService("bootstrap-test-secret")
+		token, err := authService.GenerateTokenWithSession(user.ID, user.Email, session.ID, session.ExpiresAt)
+		require.NoError(t, err)
+		authenticator := middleware.NewCompositeServiceWithSessions(authService, nil, sessionService)
+		require.NoError(t, db.Close())
+
+		e := echo.New()
+		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
+		response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", token)
+
+		require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+		require.Contains(t, response.Body.String(), "authentication is temporarily unavailable")
+	})
 }
 
 func TestAppBootstrapReturnsAuthenticatedStateWithoutAWorkspace(t *testing.T) {

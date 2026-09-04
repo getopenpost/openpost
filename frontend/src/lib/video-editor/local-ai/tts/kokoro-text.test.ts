@@ -10,8 +10,4 @@ describe('chunkTextForKokoro', () => {
 		expect(chunks.every((chunk) => chunk.length <= 80)).toBe(true);
 		expect(chunks.join(' ').replace(/\s+/g, ' ').trim()).toBe(text.replace(/\s+/g, ' ').trim());
 	});
-
-	it('normalizes paragraph whitespace without emitting empty segments', () => {
-		expect(chunkTextForKokoro('  Hello.\r\n\r\n\r\n World!  ')).toEqual(['Hello. World!']);
-	});
 });

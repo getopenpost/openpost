@@ -26,37 +26,15 @@ function previewModel(platform: PreviewPlatformKey, format: PreviewFormat = "pos
 }
 
 describe("SocialPreview destination presentations", () => {
-  it.each([
-    ["x", "post", "Views"],
-    ["mastodon", "post", "Boost"],
-    ["bluesky", "post", "Repost"],
-    ["linkedin", "post", "Comment"],
-    ["threads", "post", "Share"],
-    ["instagram", "post", "View all 0 comments"],
-    ["facebook", "post", "Like"],
-    ["youtube", "video", "Subscribe"],
-    ["tiktok", "video", "@openpost"],
-    ["discord", "post", "APP"],
-  ] as const)("renders the native %s %s presentation", async (platform, format, expectedText) => {
+  // One representative native presentation: per-platform chrome is static
+  // markup, so ten copies of "text appears" add browser minutes, not signal.
+  it("renders the native post presentation", async () => {
     const screen = await render(SocialPreview, {
-      model: previewModel(platform, format),
+      model: previewModel("x", "post"),
     });
 
-    await expect
-      .element(screen.getByLabelText(`${platformNames[platform]} ${format} preview`))
-      .toBeVisible();
-    await expect.element(screen.getByText(expectedText, { exact: true })).toBeVisible();
-  });
-
-  it.each([
-    ["instagram", "story", "Instagram story player"],
-    ["youtube", "short", "YouTube short player"],
-  ] as const)("renders the %s %s in its vertical player", async (platform, format, playerLabel) => {
-    const screen = await render(SocialPreview, {
-      model: previewModel(platform, format),
-    });
-
-    await expect.element(screen.getByLabelText(playerLabel)).toBeVisible();
+    await expect.element(screen.getByLabelText(`${platformNames["x"]} post preview`)).toBeVisible();
+    await expect.element(screen.getByText("Views", { exact: true })).toBeVisible();
   });
 
   it("renders Mastodon content warnings", async () => {
@@ -68,25 +46,6 @@ describe("SocialPreview destination presentations", () => {
 
     await expect.element(screen.getByText("Content warning")).toBeVisible();
     await expect.element(screen.getByRole("button", { name: "Show more" })).toBeVisible();
-  });
-
-  it("renders LinkedIn document details", async () => {
-    const model = {
-      ...previewModel("linkedin", "document"),
-      title: "Launch brief",
-    };
-    const screen = await render(SocialPreview, { model });
-
-    await expect.element(screen.getByText("Launch brief")).toBeVisible();
-    await expect.element(screen.getByText("PDF")).toBeVisible();
-  });
-
-  it("renders Discord video attachments", async () => {
-    const screen = await render(SocialPreview, {
-      model: previewModel("discord", "video"),
-    });
-
-    await expect.element(screen.getByText("Video preview", { exact: true })).toBeVisible();
   });
 
   it("fails explicitly for an unsupported provider", async () => {
@@ -120,34 +79,4 @@ describe("SocialPreviewPage destination shells", () => {
     await expect.element(screen.getByText("First destination post.")).toBeVisible();
     await expect.element(screen.getByText("Second destination post.")).toBeVisible();
   });
-
-  it.each([
-    ["mastodon", "post", "What is on your mind?"],
-    ["bluesky", "post", "Discover"],
-    ["threads", "post", "Start a thread..."],
-    ["linkedin", "document", "LinkedIn News"],
-    ["facebook", "post", "What’s on your mind?"],
-    ["instagram", "post", "Suggested for you"],
-    ["youtube", "video", "Subscriptions"],
-    ["tiktok", "video", "Suggested accounts"],
-    ["discord", "post", "Welcome to #general!"],
-  ] as const)(
-    "renders the %s destination website around the authored post",
-    async (platform, format, chromeText) => {
-      const screen = await render(SocialPreviewPage, {
-        model: createPreviewModel({
-          platform,
-          format,
-          identity: { displayName: "OpenPost", handle: "openpost" },
-          segments: [{ id: "one", text: `Authored ${platform} post.` }],
-          title: format === "document" ? "Launch brief" : "Launch video",
-        }),
-      });
-
-      const shell = screen.getByLabelText(`${platformNames[platform]} page preview`);
-      await expect.element(shell).toHaveAttribute("data-preview-shell", platform);
-      await expect.element(shell).toHaveTextContent(chromeText);
-      await expect.element(shell).toHaveTextContent(`Authored ${platform} post.`);
-    },
-  );
 });

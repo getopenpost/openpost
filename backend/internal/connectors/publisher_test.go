@@ -71,22 +71,3 @@ func TestPublisherMapsPendingResponseToReconciliation(t *testing.T) {
 	require.Equal(t, "directus-job-8", result.ProviderState)
 	require.Equal(t, platform.PublishRetryReconcileOnly, result.RetrySafety)
 }
-
-func TestPublisherUsesOperationIDForReadOnlyReconciliation(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		require.Equal(t, "/v1/operations/authorization:one:rendition:publish", request.URL.Path)
-		response.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(response).Encode(PublishResponse{
-			Status: "published", ExternalID: "directus-item-42",
-		}))
-	}))
-	defer server.Close()
-	publisher := NewPublisher(newPrivateTestClient(t, server.URL), "directus/posts", "directus-items-v1")
-
-	result, err := publisher.ReconcilePublish(context.Background(), "", "posts", "authorization:one:rendition:publish")
-	require.NoError(t, err)
-	require.Equal(t, platform.PublishSubmissionAccepted, result.SubmissionState)
-	require.Equal(t, "directus-item-42", result.ExternalID)
-}

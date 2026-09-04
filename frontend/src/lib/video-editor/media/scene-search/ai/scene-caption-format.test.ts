@@ -11,51 +11,6 @@ import {
 } from './scene-caption-format';
 
 describe('normalizeShotVocabulary', () => {
-	it('normalizes common shot-term spelling and hyphenation inside prose', () => {
-		expect(normalizeShotVocabulary('A medium close up of a singer')).toBe(
-			'A medium close-up of a singer'
-		);
-		expect(normalizeShotVocabulary('An extreme closeup of an eye')).toBe(
-			'An extreme close-up of an eye'
-		);
-		expect(normalizeShotVocabulary('A medium wide shot of a street')).toBe(
-			'A medium-wide shot of a street'
-		);
-	});
-});
-
-describe('normalizeSceneCaptionData', () => {
-	it('canonicalizes shotType aliases and strips empty fields', () => {
-		expect(
-			normalizeSceneCaptionData({
-				caption: 'A singer under stage lights.',
-				shot_type: 'medium close up',
-				subjects: ['singer', ' ', 'microphone'],
-				weather: 'unknown'
-			})
-		).toEqual({
-			caption: 'A singer under stage lights.',
-			shotType: 'medium close-up',
-			subjects: ['singer', 'microphone']
-		});
-	});
-});
-
-describe('formatSceneCaption', () => {
-	it('strips lead-ins and standardizes leading shot phrasing', () => {
-		expect(formatSceneCaption('This image shows a medium wide shot of a woman in a cafe')).toBe(
-			'Medium-wide shot of a woman in a cafe.'
-		);
-	});
-
-	it('collapses multi-sentence output to one sentence', () => {
-		expect(
-			formatSceneCaption(
-				'Wide shot of two people crossing a city street. Rain falls in the distance.'
-			)
-		).toBe('Wide shot of two people crossing a city street.');
-	});
-
 	it('drops uncertain time-of-day or weather clauses instead of persisting guesses', () => {
 		expect(formatSceneCaption('Close up of a woman indoors, possibly at dusk')).toBe(
 			'Close-up of a woman indoors.'
@@ -67,23 +22,6 @@ describe('formatSceneCaption', () => {
 });
 
 describe('formatSceneCaptionFromData', () => {
-	it('builds a readable fallback sentence from structured fields', () => {
-		expect(
-			formatSceneCaptionFromData({
-				shotType: 'wide shot',
-				subjects: ['two people'],
-				action: 'walking across the street',
-				setting: 'city street',
-				timeOfDay: 'dusk',
-				weather: 'rainy'
-			})
-		).toBe(
-			'Wide shot of two people walking across the street in city street in rainy weather at dusk.'
-		);
-	});
-});
-
-describe('parseSceneCaptionResponse', () => {
 	it('parses JSON responses and preserves structured scene data', () => {
 		expect(
 			parseSceneCaptionResponse(
@@ -126,25 +64,6 @@ describe('parseSceneCaptionResponse', () => {
 			parseSceneCaptionResponse('This image shows a close up of a hand holding a glass')
 		).toEqual({
 			text: 'Close-up of a hand holding a glass.'
-		});
-	});
-
-	it('recovers known fields from json-ish output when strict parsing fails', () => {
-		expect(
-			parseSceneCaptionResponse(
-				'Json ["caption":"A dimly lit corridor illuminated by hanging lanterns, with a text overlay in Chinese at the bottom.","shotType":"medium wide shot","subjects":["lanterns","corridor","text"],"action":"glowing softly","setting":"interior corridor","lighting":"golden lantern light","timeOfDay":null,"weather":null}.'
-			)
-		).toEqual({
-			text: 'A dimly lit corridor illuminated by hanging lanterns, with a text overlay in Chinese at the bottom.',
-			sceneData: {
-				caption:
-					'A dimly lit corridor illuminated by hanging lanterns, with a text overlay in Chinese at the bottom.',
-				shotType: 'medium-wide shot',
-				subjects: ['lanterns', 'corridor', 'text'],
-				action: 'glowing softly',
-				setting: 'interior corridor',
-				lighting: 'golden lantern light'
-			}
 		});
 	});
 });

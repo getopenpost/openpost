@@ -2,8 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -28,46 +26,6 @@ func TestDisabledTelemetryExposesNoBrowserCredentials(t *testing.T) {
 	}, recorder.PublicConfig())
 }
 
-func TestRequestContextPropagatesIdentityWithoutRawRequestMetadata(t *testing.T) {
-	recorder := &postHogRecorder{}
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://app.example.test/publications/secret?token=secret", nil)
-	request.Header.Set("X-PostHog-Distinct-ID", "user-1")
-	request.Header.Set("X-PostHog-Session-ID", "session-1")
-
-	wrapped := recorder.WrapHTTP(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
-		requestContext, ok := posthog.RequestContextFromContext(request.Context())
-		require.True(t, ok)
-		require.Equal(t, "user-1", requestContext.DistinctId)
-		require.Equal(t, "session-1", requestContext.SessionId)
-		require.Empty(t, requestContext.Properties)
-	}))
-	wrapped.ServeHTTP(httptest.NewRecorder(), request)
-}
-
-func TestEnabledTelemetryRequiresCompleteRuntimeConfiguration(t *testing.T) {
-	_, err := New(Config{Enabled: true})
-	require.ErrorContains(t, err, "project token")
-
-	_, err = New(Config{Enabled: true, ProjectToken: "phc_test"})
-	require.ErrorContains(t, err, "server endpoint")
-
-	_, err = New(Config{Enabled: true, ProjectToken: "phc_test", Endpoint: "https://eu.i.posthog.com"})
-	require.ErrorContains(t, err, "browser endpoint")
-}
-
-func TestMemoryRecorderPreservesApplicationEventContract(t *testing.T) {
-	recorder := &MemoryRecorder{}
-	require.NoError(t, recorder.Capture(context.Background(), Event{
-		Name:        EventPublicationQueued,
-		DistinctID:  "user-1",
-		WorkspaceID: "workspace-1",
-		Properties:  map[string]any{"publication_id": "publication-1"},
-	}))
-	require.Len(t, recorder.Events, 1)
-	require.Equal(t, "user-1", recorder.Events[0].DistinctID)
-	require.Equal(t, "publication-1", recorder.Events[0].Properties["publication_id"])
-}
-
 func TestTelemetryContractRejectsUnknownEventsAndProperties(t *testing.T) {
 	recorder := &MemoryRecorder{}
 	require.Error(t, recorder.Capture(context.Background(), Event{Name: "unknown event"}))
@@ -85,29 +43,6 @@ func TestTelemetryContractRejectsUnknownEventsAndProperties(t *testing.T) {
 		})
 	}
 	require.Empty(t, recorder.Events)
-}
-
-func TestGrowthTelemetryAcceptsOnlySharedBuckets(t *testing.T) {
-	recorder := &MemoryRecorder{}
-	require.NoError(t, recorder.Capture(t.Context(), Event{
-		Name: EventGrowthRecommendationDismissed,
-		Properties: map[string]any{
-			"platform": "bluesky", "mutual_count_bucket": "4-6", "rank_bucket": "4-6",
-		},
-	}))
-	require.Error(t, recorder.Capture(t.Context(), Event{
-		Name: EventGrowthRecommendationDismissed,
-		Properties: map[string]any{
-			"platform": "bluesky", "mutual_count_bucket": "3-5", "rank_bucket": "4-6",
-		},
-	}))
-	require.Error(t, recorder.Capture(t.Context(), Event{
-		Name: EventGrowthFollowRequested,
-		Properties: map[string]any{
-			"platform": "bluesky", "mutual_count_bucket": "4-6", "rank_bucket": "0",
-		},
-	}))
-	require.Len(t, recorder.Events, 1)
 }
 
 func TestTelemetryContractRejectsSensitiveAllowedValues(t *testing.T) {

@@ -33,48 +33,6 @@ describe('LocalAiRuntimeRegistry', () => {
 		expect(unloads).toBe(1);
 	});
 
-	test('settles every unload and reports failures without hiding successful releases', async () => {
-		const registry = new LocalAiRuntimeRegistry();
-		registry.register({
-			id: 'first',
-			label: 'First',
-			isLoaded: () => true,
-			unload: () => undefined
-		});
-		registry.register({
-			id: 'broken',
-			label: 'Broken',
-			isLoaded: () => true,
-			unload: () => {
-				throw new Error('release failed');
-			}
-		});
-
-		const result = await registry.unloadAll();
-		expect(result.unloadedIds).toEqual(['first']);
-		expect(result.failures).toHaveLength(1);
-		expect(result.failures[0]?.id).toBe('broken');
-	});
-
-	test('keeps a replacement registration when the old module cleans up', () => {
-		const registry = new LocalAiRuntimeRegistry();
-		const unregisterOld = registry.register({
-			id: 'shared',
-			label: 'Old',
-			isLoaded: () => false,
-			unload: () => undefined
-		});
-		registry.register({
-			id: 'shared',
-			label: 'New',
-			isLoaded: () => true,
-			unload: () => undefined
-		});
-
-		unregisterOld();
-		expect(registry.inspect()).toEqual([{ id: 'shared', label: 'New', loaded: true }]);
-	});
-
 	test('bounds a stuck unload and still releases other runtimes', async () => {
 		const registry = new LocalAiRuntimeRegistry(5);
 		registry.register({

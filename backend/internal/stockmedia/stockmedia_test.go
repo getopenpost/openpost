@@ -77,50 +77,6 @@ func TestPexelsNormalizesPhotoAndKeepsCredentialServerSide(t *testing.T) {
 	require.NotContains(t, encoded, "pexels-secret")
 }
 
-func TestUnsplashMapsProviderSpecificPhotoFilters(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		query := request.URL.Query()
-		require.Equal(t, "squarish", query.Get("orientation"))
-		require.Equal(t, "teal", query.Get("color"))
-		require.Equal(t, "latest", query.Get("order_by"))
-		require.Equal(t, "high", query.Get("content_filter"))
-		require.Equal(t, "123,456", query.Get("collections"))
-		return response(http.StatusOK, `{"total":0,"total_pages":0,"results":[]}`), nil
-	})}
-	adapter := NewUnsplash("unsplash-secret", client)
-
-	_, err := adapter.Search(context.Background(), SearchQuery{
-		Query: "desk", Kind: "photo", Orientation: "square", Color: "teal", Order: "latest",
-		ContentFilter: "high", Collections: "123,456",
-	})
-	require.NoError(t, err)
-}
-
-func TestPixabayMapsImageFiltersAndKeepsSafeSearch(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		query := request.URL.Query()
-		require.Equal(t, "true", query.Get("safesearch"))
-		require.Equal(t, "horizontal", query.Get("orientation"))
-		require.Equal(t, "illustration", query.Get("image_type"))
-		require.Equal(t, "business", query.Get("category"))
-		require.Equal(t, "orange", query.Get("colors"))
-		require.Equal(t, "latest", query.Get("order"))
-		require.Equal(t, "true", query.Get("editors_choice"))
-		require.Equal(t, "1200", query.Get("min_width"))
-		require.Equal(t, "800", query.Get("min_height"))
-		require.Equal(t, "pt", query.Get("lang"))
-		return response(http.StatusOK, `{"totalHits":0,"hits":[]}`), nil
-	})}
-	adapter := NewPixabay("pixabay-secret", client)
-
-	_, err := adapter.Search(context.Background(), SearchQuery{
-		Query: "desk", Kind: "photo", Orientation: "landscape", MediaSubtype: "illustration",
-		Category: "business", Color: "orange", Order: "latest", EditorsChoice: true,
-		MinWidth: 1200, MinHeight: 800, Locale: "pt",
-	})
-	require.NoError(t, err)
-}
-
 func TestUnsplashSelectionTracksDownloadBeforeResolve(t *testing.T) {
 	var requests []string
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {

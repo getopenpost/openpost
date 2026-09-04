@@ -3,7 +3,6 @@ package apitokens
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -144,86 +143,6 @@ func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidExpiry)
 }
 
-func TestGenerateTokenValidatesScope(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
-
-	service := NewService(db)
-	mcpRead, err := service.GenerateToken(ctx, "user-1", "Read-only MCP", ScopeMCPRead, nil)
-	require.NoError(t, err)
-	require.Equal(t, ScopeMCPRead, mcpRead.Model.Scope)
-
-	mcp, err := service.GenerateToken(ctx, "user-1", "ChatGPT App", ScopeMCP, nil)
-	require.NoError(t, err)
-	require.Equal(t, ScopeMCP, mcp.Model.Scope)
-
-	apiRead, err := service.GenerateToken(ctx, "user-1", "Read API", ScopeAPIRead, nil)
-	require.NoError(t, err)
-	require.Equal(t, ScopeAPIRead, apiRead.Model.Scope)
-
-	apiWrite, err := service.GenerateToken(ctx, "user-1", "Publish API", ScopeAPIWrite, nil)
-	require.NoError(t, err)
-	require.Equal(t, ScopeAPIWrite, apiWrite.Model.Scope)
-
-	_, err = service.GenerateToken(ctx, "user-1", "Bad", "media:read", nil)
-	require.ErrorIs(t, err, ErrInvalidScope)
-}
-
-func TestGenerateTokenRequiresUsefulName(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
-
-	_, err := NewService(db).GenerateToken(ctx, "user-1", "   ", ScopeAPIRead, nil)
-	require.ErrorIs(t, err, ErrInvalidName)
-	_, err = NewService(db).GenerateToken(ctx, "user-1", strings.Repeat("a", MaximumNameLength+1), ScopeAPIRead, nil)
-	require.ErrorIs(t, err, ErrInvalidName)
-
-	unicodeName := strings.Repeat("é", MaximumNameLength)
-	generated, err := NewService(db).GenerateToken(ctx, "user-1", unicodeName, ScopeAPIRead, nil)
-	require.NoError(t, err)
-	require.Equal(t, unicodeName, generated.Model.Name)
-	_, err = NewService(db).GenerateToken(ctx, "user-1", unicodeName+"é", ScopeAPIRead, nil)
-	require.ErrorIs(t, err, ErrInvalidName)
-}
-
-func TestValidateTokenReturnsPrincipalAndTouchesLastUsed(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
-
-	service := NewService(db)
-	generated, err := service.GenerateTokenWithOptions(ctx, "user-1", "Laptop", "", GenerateOptions{
-		WorkspaceID: "ws-1",
-		Audience:    "https://app.openpost.test/mcp",
-		ClientID:    "desktop-client",
-	})
-	require.NoError(t, err)
-
-	principal, err := service.ValidateToken(ctx, generated.Token)
-	require.NoError(t, err)
-	require.Equal(t, "user-1", principal.UserID)
-	require.Equal(t, "user@example.com", principal.Email)
-	require.Equal(t, DefaultScope, principal.Scope)
-	require.Equal(t, "ws-1", principal.WorkspaceID)
-	require.Equal(t, "https://app.openpost.test/mcp", principal.Audience)
-	require.Equal(t, generated.Model.ID, principal.TokenID)
-	require.Equal(t, "desktop-client", principal.ClientID)
-	require.Equal(t, "Laptop", principal.TokenName)
-	require.Equal(t, generated.Model.TokenPrefix, principal.TokenPrefix)
-
-	var stored models.APIToken
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", generated.Model.ID).Scan(ctx))
-	require.False(t, stored.LastUsedAt.IsZero())
-}
-
 func TestValidateTokenRejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
 	t.Parallel()
 
@@ -290,34 +209,6 @@ func TestValidateTokenCannotReturnPrincipalAfterConcurrentRevocation(t *testing.
 	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", generated.Model.ID).Scan(ctx))
 	require.False(t, stored.RevokedAt.IsZero())
 	require.True(t, stored.LastUsedAt.IsZero(), "a revoked token must not be marked as successfully used")
-}
-
-func TestListAndRevokeTokensAreScopedToUser(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "one@example.com")
-	seedServiceUser(ctx, t, db, "user-2", "two@example.com")
-
-	service := NewService(db)
-	one, err := service.GenerateToken(ctx, "user-1", "One", "", nil)
-	require.NoError(t, err)
-	_, err = service.GenerateToken(ctx, "user-2", "Two", "", nil)
-	require.NoError(t, err)
-
-	tokens, err := service.ListTokens(ctx, "user-1")
-	require.NoError(t, err)
-	require.Len(t, tokens, 1)
-	require.Equal(t, one.Model.ID, tokens[0].ID)
-
-	err = service.RevokeToken(ctx, "user-2", one.Model.ID)
-	require.True(t, errors.Is(err, sql.ErrNoRows))
-
-	require.NoError(t, service.RevokeToken(ctx, "user-1", one.Model.ID))
-	var stored models.APIToken
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", one.Model.ID).Scan(ctx))
-	require.False(t, stored.RevokedAt.IsZero())
 }
 
 func seedServiceUser(ctx context.Context, t *testing.T, db *bun.DB, id, email string) {

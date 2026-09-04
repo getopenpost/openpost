@@ -18,12 +18,24 @@ func TestSearchTemplatesUsesSemanticMeaningAndTags(t *testing.T) {
 		},
 	}
 	template.SearchTerms, template.searchText = buildSearchMetadata(template)
+	other := Template{
+		ID:   "reaction",
+		Name: "Shocked face",
+		Semantic: TemplateSemantic{
+			Meaning: "Express surprise at unexpected news.",
+			Tags:    []string{"reaction", "surprise"},
+		},
+	}
+	other.SearchTerms, other.searchText = buildSearchMetadata(other)
+	corpus := []Template{template, other}
 
-	byMeaning := searchTemplates([]Template{template}, "stronger option", 10)
+	byMeaning := searchTemplates(corpus, "stronger option", 10)
 	require.Len(t, byMeaning, 1)
 	require.Equal(t, template.ID, byMeaning[0].ID)
 
-	byTag := searchTemplates([]Template{template}, "preference", 10)
+	byTag := searchTemplates(corpus, "preference", 10)
 	require.Len(t, byTag, 1)
 	require.Equal(t, template.ID, byTag[0].ID)
+
+	require.Empty(t, searchTemplates(corpus, "tax filing deadline", 10))
 }

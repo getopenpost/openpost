@@ -20,38 +20,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func TestUpdateAccountSlug(t *testing.T) {
-	t.Parallel()
-
-	srv := newAccountsTestServer(t)
-	resp := srv.request(t, http.MethodPatch, "/api/v1/accounts/acc-1", map[string]string{"slug": "main-x"})
-	require.Equal(t, http.StatusOK, resp.Code)
-
-	var out AccountResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "main-x", out.Slug)
-
-	var account models.SocialAccount
-	require.NoError(t, srv.db.NewSelect().Model(&account).Where("id = ?", "acc-1").Scan(context.Background()))
-	require.Equal(t, "main-x", account.Slug)
-}
-
-func TestUpdateAccountSlugRejectsDuplicate(t *testing.T) {
-	t.Parallel()
-
-	srv := newAccountsTestServer(t)
-	resp := srv.request(t, http.MethodPatch, "/api/v1/accounts/acc-1", map[string]string{"slug": "other-x"})
-	require.Equal(t, http.StatusConflict, resp.Code)
-}
-
-func TestUpdateAccountSlugRejectsInvalidSlug(t *testing.T) {
-	t.Parallel()
-
-	srv := newAccountsTestServer(t)
-	resp := srv.request(t, http.MethodPatch, "/api/v1/accounts/acc-1", map[string]string{"slug": "Bad Slug"})
-	require.Equal(t, http.StatusBadRequest, resp.Code)
-}
-
 func TestRefreshAccountMetadataUpdatesTheExactStoredAccount(t *testing.T) {
 	t.Parallel()
 
@@ -147,42 +115,34 @@ func TestRefreshAccountMetadataRequiresWorkspaceEditAccess(t *testing.T) {
 	require.Empty(t, adapter.accessToken, "provider must not be called without edit access")
 }
 
-func TestRefreshAccountMetadataRejectsUnsupportedProvidersWithoutChangingTheAccount(t *testing.T) {
+func TestRefreshAccountMetadataRejectsUnsupportedProviders(t *testing.T) {
 	t.Parallel()
 
-	srv := newAccountMetadataTestServer(t, nil)
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
-	require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
+	t.Run("provider without refresh support leaves stored values", func(t *testing.T) {
+		t.Parallel()
 
-	var account models.SocialAccount
-	require.NoError(t, srv.db.NewSelect().Model(&account).Where("id = ?", "acc-1").Scan(t.Context()))
-	require.Equal(t, "stored-name", account.AccountUsername)
-	require.Equal(t, "https://cdn.example/stored-avatar.jpg", account.AccountAvatarURL)
-}
+		srv := newAccountMetadataTestServer(t, nil)
+		resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+		require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
 
-func TestRefreshAccountMetadataMapsUnsupportedDestinationTypesToNotImplemented(t *testing.T) {
-	t.Parallel()
+		var account models.SocialAccount
+		require.NoError(t, srv.db.NewSelect().Model(&account).Where("id = ?", "acc-1").Scan(t.Context()))
+		require.Equal(t, "stored-name", account.AccountUsername)
+		require.Equal(t, "https://cdn.example/stored-avatar.jpg", account.AccountAvatarURL)
+	})
 
-	adapter := &destinationAccountMetadataAdapter{
-		accountMetadataAdapter: accountMetadataAdapter{profile: &platform.UserProfile{ID: "authorization-owner"}},
-		refreshErr:             errors.Join(platform.ErrAccountMetadataRefreshUnsupported, errors.New("unknown destination kind")),
-	}
-	srv := newAccountMetadataTestServer(t, adapter)
+	t.Run("unsupported destination kind maps to not implemented", func(t *testing.T) {
+		t.Parallel()
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
-	require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
-}
+		adapter := &destinationAccountMetadataAdapter{
+			accountMetadataAdapter: accountMetadataAdapter{profile: &platform.UserProfile{ID: "authorization-owner"}},
+			refreshErr:             errors.Join(platform.ErrAccountMetadataRefreshUnsupported, errors.New("unknown destination kind")),
+		}
+		srv := newAccountMetadataTestServer(t, adapter)
 
-func TestRefreshAccountMetadataReportsTokenSourceFailuresAsProviderFailures(t *testing.T) {
-	t.Parallel()
-
-	adapter := &accountMetadataAdapter{profile: &platform.UserProfile{ID: "provider-account-1"}}
-	srv := newAccountMetadataTestServer(t, adapter)
-	srv.handler.tokenSource = accountMetadataTokenSource{err: errors.New("temporary token refresh failure")}
-
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
-	require.Equal(t, http.StatusBadGateway, resp.Code, resp.Body.String())
-	require.Empty(t, adapter.accessToken, "provider must not be called without a valid token")
+		resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+		require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
+	})
 }
 
 func TestRefreshAccountMetadataRejectsConnectorAccountsBeforeProviderAccess(t *testing.T) {

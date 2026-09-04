@@ -223,7 +223,7 @@ func TestProviderReadinessAdminAppendsRuntimeControlWithHashedOperator(t *testin
 	require.Equal(t, operatorReference("user-1"), stored.OperatorRef)
 }
 
-func TestProviderReadinessAdminRejectsNonAdminAndWorkspaceScopedCredentials(t *testing.T) {
+func TestProviderReadinessAdminAuthorization(t *testing.T) {
 	t.Parallel()
 	t.Run("non-admin", func(t *testing.T) {
 		nonAdmin := newProviderReadinessAdminTestServer(t, false, browserSessionTestAuthenticator())
@@ -250,37 +250,35 @@ func TestProviderReadinessAdminRejectsNonAdminAndWorkspaceScopedCredentials(t *t
 		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
 		require.Contains(t, response.Body.String(), "unscoped credentials")
 	})
-}
 
-func TestProviderReadinessAdminRejectsBearerAdminToken(t *testing.T) {
-	t.Parallel()
-
-	srv := newProviderReadinessAdminTestServer(t, true, unboundCLIFullTestAuthenticator())
-	requests := []struct {
-		path string
-		body any
-	}{
-		{
-			path: "/api/v1/admin/provider-readiness/approval-reviews",
-			body: providerApprovalReviewRequest(srv),
-		},
-		{
-			path: "/api/v1/admin/provider-readiness/runtime-controls",
-			body: map[string]any{
-				"selector": map[string]any{"provider": capabilities.ProviderX},
-				"state":    "disabled", "reason_code": "provider_incident", "starts_at": srv.now,
+	t.Run("unscoped CLI bearer token", func(t *testing.T) {
+		srv := newProviderReadinessAdminTestServer(t, true, unboundCLIFullTestAuthenticator())
+		requests := []struct {
+			path string
+			body any
+		}{
+			{
+				path: "/api/v1/admin/provider-readiness/approval-reviews",
+				body: providerApprovalReviewRequest(srv),
 			},
-		},
-		{
-			path: "/api/v1/admin/provider-readiness/certifications",
-			body: providerCertificationRequest(t, srv, "review-id"),
-		},
-	}
-	for _, request := range requests {
-		response := srv.postJSON(t, request.path, request.body, "web-token")
-		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
-		require.Contains(t, response.Body.String(), "browser session")
-	}
+			{
+				path: "/api/v1/admin/provider-readiness/runtime-controls",
+				body: map[string]any{
+					"selector": map[string]any{"provider": capabilities.ProviderX},
+					"state":    "disabled", "reason_code": "provider_incident", "starts_at": srv.now,
+				},
+			},
+			{
+				path: "/api/v1/admin/provider-readiness/certifications",
+				body: providerCertificationRequest(t, srv, "review-id"),
+			},
+		}
+		for _, request := range requests {
+			response := srv.postJSON(t, request.path, request.body, "web-token")
+			require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+			require.Contains(t, response.Body.String(), "browser session")
+		}
+	})
 }
 
 func providerApprovalReviewRequest(srv *providerReadinessAdminTestServer) map[string]any {

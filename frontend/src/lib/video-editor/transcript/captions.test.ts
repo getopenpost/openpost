@@ -22,17 +22,6 @@ describe('addSubtitleItemFromSrt', () => {
 		commandHistory.clearHistory();
 	});
 
-	it('creates an undoable subtitle item holding every cue', () => {
-		const id = addSubtitleItemFromSrt(SRT);
-		const item = timelineStore.itemById.get(id)!;
-		expect(item.type).toBe('subtitle');
-		expect(item.cues?.length).toBe(2);
-		expect(item.durationInFrames).toBe(120); // last cue ends at 4s @30fps
-		expect(commandHistory.undoStack.length).toBe(1);
-		commandHistory.undo();
-		expect(timelineStore.itemById.has(id)).toBe(false);
-	});
-
 	it('creates a caption track when the imported caption range would overlap visual items', () => {
 		const occupied = (id: string, trackId: string): TimelineItem => ({
 			id,

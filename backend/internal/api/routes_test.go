@@ -65,93 +65,84 @@ func systemGET(t *testing.T, e *echo.Echo, path string) *httptest.ResponseRecord
 	return rec
 }
 
-func TestHealthCheckReturnsLivenessOnly(t *testing.T) {
+func TestSystemEndpointsReportLivenessAndRunningRevision(t *testing.T) {
 	t.Parallel()
 
 	e, _, _ := newSystemTestServer(t)
 
-	resp := systemGET(t, e, "/api/v1/health")
+	health := systemGET(t, e, "/api/v1/health")
+	require.Equal(t, http.StatusOK, health.Code, health.Body.String())
+	var healthOut map[string]any
+	require.NoError(t, json.Unmarshal(health.Body.Bytes(), &healthOut))
+	require.Equal(t, "ok", healthOut["status"])
 
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "ok", out["status"])
+	version := systemGET(t, e, "/api/v1/version")
+	require.Equal(t, http.StatusOK, version.Code, version.Body.String())
+	var versionOut map[string]any
+	require.NoError(t, json.Unmarshal(version.Body.Bytes(), &versionOut))
+	require.Equal(t, "v1.2.3", versionOut["version"])
+	require.Equal(t, "abcdef", versionOut["revision"])
+	require.Equal(t, "cloud", versionOut["edition"])
 }
 
-func TestReadinessCheckProbesDatabase(t *testing.T) {
+func TestReadinessLifecycle(t *testing.T) {
 	t.Parallel()
 
-	e, _, _ := newSystemTestServer(t)
+	t.Run("healthy database reports ready", func(t *testing.T) {
+		e, _, _ := newSystemTestServer(t)
 
-	resp := systemGET(t, e, "/api/v1/ready")
+		resp := systemGET(t, e, "/api/v1/ready")
 
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "ready", out["status"])
-	require.Equal(t, "ok", out["database"])
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		require.Equal(t, "ready", out["status"])
+		require.Equal(t, "ok", out["database"])
+	})
+
+	t.Run("closed database fails readiness", func(t *testing.T) {
+		e, db, _ := newSystemTestServer(t)
+		require.NoError(t, db.Close())
+
+		resp := systemGET(t, e, "/api/v1/ready")
+
+		require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
+		require.Contains(t, resp.Body.String(), "database is not ready")
+	})
+
+	t.Run("draining process fails readiness but remains live", func(t *testing.T) {
+		e, _, readiness := newSystemTestServer(t)
+		readiness.BeginDrain()
+
+		readyResponse := systemGET(t, e, "/api/v1/ready")
+		require.Equal(t, http.StatusServiceUnavailable, readyResponse.Code, readyResponse.Body.String())
+		require.Contains(t, readyResponse.Body.String(), "process is draining")
+
+		healthResponse := systemGET(t, e, "/api/v1/health")
+		require.Equal(t, http.StatusOK, healthResponse.Code, healthResponse.Body.String())
+	})
 }
 
-func TestReadinessCheckFailsWhenDatabaseIsClosed(t *testing.T) {
+func TestReadinessLifecycleObjectStorageAndDrain(t *testing.T) {
 	t.Parallel()
 
-	e, db, _ := newSystemTestServer(t)
-	require.NoError(t, db.Close())
+	t.Run("unavailable object storage fails readiness", func(t *testing.T) {
+		e, _, _ := newSystemTestServer(t, &systemReadinessStorage{err: errors.New("bucket unavailable")})
 
-	resp := systemGET(t, e, "/api/v1/ready")
+		resp := systemGET(t, e, "/api/v1/ready")
 
-	require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "database is not ready")
-}
+		require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
+		require.Contains(t, resp.Body.String(), "object storage is not ready")
+	})
 
-func TestDrainingProcessFailsReadinessButRemainsLive(t *testing.T) {
-	t.Parallel()
+	t.Run("healthy object storage reports ready", func(t *testing.T) {
+		e, _, _ := newSystemTestServer(t, &systemReadinessStorage{})
 
-	e, _, readiness := newSystemTestServer(t)
-	readiness.BeginDrain()
+		resp := systemGET(t, e, "/api/v1/ready")
 
-	readyResponse := systemGET(t, e, "/api/v1/ready")
-	require.Equal(t, http.StatusServiceUnavailable, readyResponse.Code, readyResponse.Body.String())
-	require.Contains(t, readyResponse.Body.String(), "process is draining")
-
-	healthResponse := systemGET(t, e, "/api/v1/health")
-	require.Equal(t, http.StatusOK, healthResponse.Code, healthResponse.Body.String())
-}
-
-func TestReadinessCheckFailsWhenRequiredObjectStorageIsUnavailable(t *testing.T) {
-	t.Parallel()
-
-	e, _, _ := newSystemTestServer(t, &systemReadinessStorage{err: errors.New("bucket unavailable")})
-
-	resp := systemGET(t, e, "/api/v1/ready")
-
-	require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "object storage is not ready")
-}
-
-func TestReadinessCheckReportsRequiredObjectStorage(t *testing.T) {
-	t.Parallel()
-
-	e, _, _ := newSystemTestServer(t, &systemReadinessStorage{})
-
-	resp := systemGET(t, e, "/api/v1/ready")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "ok", out["storage"])
-}
-
-func TestVersionReportsExactRunningRevision(t *testing.T) {
-	t.Parallel()
-
-	e, _, _ := newSystemTestServer(t)
-	resp := systemGET(t, e, "/api/v1/version")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "v1.2.3", out["version"])
-	require.Equal(t, "abcdef", out["revision"])
-	require.Equal(t, "cloud", out["edition"])
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		require.Equal(t, "ok", out["storage"])
+	})
 }

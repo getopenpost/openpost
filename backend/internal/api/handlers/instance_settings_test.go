@@ -46,11 +46,19 @@ func newInstanceSettingsTestServerWithAuthenticator(
 	return e
 }
 
-func TestInstanceSettingsAdminRejectsBearerAdminToken(t *testing.T) {
-	e := newInstanceSettingsTestServerWithAuthenticator(t, true, unboundCLIFullTestAuthenticator())
-	response := requestInstanceSettings(t, e, http.MethodGet, nil)
-	require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "browser session")
+func TestInstanceSettingsAdminAuthorization(t *testing.T) {
+	t.Run("unscoped CLI bearer token", func(t *testing.T) {
+		e := newInstanceSettingsTestServerWithAuthenticator(t, true, unboundCLIFullTestAuthenticator())
+		response := requestInstanceSettings(t, e, http.MethodGet, nil)
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+		require.Contains(t, response.Body.String(), "browser session")
+	})
+
+	t.Run("non-admin browser session", func(t *testing.T) {
+		e := newInstanceSettingsTestServer(t, false)
+		response := requestInstanceSettings(t, e, http.MethodGet, nil)
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+	})
 }
 
 func requestInstanceSettings(t *testing.T, e *echo.Echo, method string, body any) *httptest.ResponseRecorder {
@@ -98,12 +106,6 @@ func TestInstanceSettingsAdminListsAndSavesRedactedSettings(t *testing.T) {
 	require.True(t, resendKey.SecretConfigured)
 	require.Empty(t, resendKey.Value)
 	require.Equal(t, "database", resendKey.Source)
-}
-
-func TestInstanceSettingsAdminRejectsNonAdmin(t *testing.T) {
-	e := newInstanceSettingsTestServer(t, false)
-	response := requestInstanceSettings(t, e, http.MethodGet, nil)
-	require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
 }
 
 func TestInstanceSettingsAdminOverridesEnvironmentManagedValue(t *testing.T) {

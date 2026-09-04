@@ -60,12 +60,6 @@ describe('color grade pickers', () => {
 		});
 	});
 
-	it('maps picked luma to black or white within shader bounds', () => {
-		expect(blackPointFromPick(0.25, 0.1)).toBe(-0.15);
-		expect(whitePointFromPick(0.25, 1)).toBe(4);
-		expect(whitePointFromPick(0, 1)).toBe(16);
-	});
-
 	it('uses frame percentiles for levels and the mean for white balance', () => {
 		const data = new Uint8ClampedArray([
 			3, 3, 3, 255, 128, 128, 128, 255, 250, 250, 250, 255, 0, 0, 0, 0

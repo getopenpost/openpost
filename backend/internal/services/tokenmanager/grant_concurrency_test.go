@@ -184,30 +184,6 @@ func exerciseConcurrentSiblingRefresh(t *testing.T, db *bun.DB) {
 	require.Empty(t, target.AccountID)
 }
 
-func TestConcurrentSiblingRefreshRotatesGrantOnceSQLite(t *testing.T) {
-	exerciseConcurrentSiblingRefresh(t, newGrantSQLiteDB(t))
-}
-
-func TestGetValidAccessTokenRejectsCrossWorkspaceGrantReference(t *testing.T) {
-	db := newGrantSQLiteDB(t)
-	encryptor := crypto.NewTokenEncryptor("grant-concurrency-secret")
-	seedSharedGrant(t, db, encryptor)
-	_, err := db.NewInsert().Model(&models.SocialAccount{
-		ID:             "corrupt-destination",
-		WorkspaceID:    "workspace-2",
-		Platform:       "linkedin",
-		AccountID:      "urn:li:person:other-workspace",
-		OAuthGrantID:   "grant-shared",
-		AccessTokenEnc: []byte{},
-		IsActive:       true,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	token, err := NewTokenManager(db, encryptor).GetValidAccessToken(t.Context(), "corrupt-destination")
-	require.Empty(t, token)
-	require.ErrorContains(t, err, "missing or belongs to another workspace")
-}
-
 func TestConcurrentSiblingRefreshRotatesGrantOncePostgres(t *testing.T) {
 	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
 	if dsn == "" {

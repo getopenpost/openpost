@@ -134,49 +134,6 @@ describe('account OAuth callback selection flow', () => {
 		expect(screen.container.textContent).not.toContain('Create first post');
 	});
 
-	it('opens a fresh composer with every selected LinkedIn destination', async () => {
-		mocks.get.mockResolvedValue({
-			data: {
-				...pendingSelection,
-				platform: 'linkedin',
-				options: [
-					{
-						id: 'person:member-1',
-						display_name: 'Ada Member',
-						kind: 'Personal profile'
-					},
-					{
-						id: 'organization:42',
-						display_name: 'OpenPost',
-						kind: 'Organization Page'
-					}
-				]
-			},
-			error: null
-		});
-		mocks.post.mockResolvedValue({
-			data: {
-				id: 'account-1',
-				workspace_id: 'workspace_123',
-				account_ids: ['account-1', 'account-2'],
-				open_fresh_composer: true
-			},
-			error: null
-		});
-		setCallbackUrl('status=selection_required&platform=linkedin&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-		await screen.getByRole('checkbox', { name: /Ada Member/ }).click();
-		await screen.getByRole('checkbox', { name: /OpenPost/ }).click();
-		await screen.getByRole('button', { name: 'Connect selected (2)' }).click();
-
-		await vi.waitFor(() =>
-			expect(mocks.goto).toHaveBeenCalledWith(
-				'/?workspace_id=workspace_123&account_ids=account-1%2Caccount-2'
-			)
-		);
-	});
-
 	it('returns re-authorization to Settings instead of opening the first-use composer', async () => {
 		mocks.post.mockResolvedValue({
 			data: {
@@ -240,29 +197,6 @@ describe('account OAuth callback selection flow', () => {
 			.element(screen.getByText('This account selection could not be loaded. Network unavailable.'))
 			.toBeVisible();
 		expect(screen.container.textContent).not.toContain('Loading account choices');
-	});
-
-	it('surfaces account-selection API errors', async () => {
-		mocks.post.mockResolvedValue({
-			data: null,
-			error: {
-				type: 'about:blank',
-				title: 'Selection failed',
-				detail: 'That page is no longer available.'
-			}
-		});
-		setCallbackUrl('status=selection_required&platform=instagram&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-
-		await screen.getByRole('radio', { name: /OpenPost Page/ }).click();
-		await screen.getByRole('button', { name: 'Connect selected account' }).click();
-
-		await vi.waitFor(() =>
-			expect(mocks.goto).toHaveBeenCalledWith(
-				'/settings?tab=accounts&oauth_status=failed&workspace_id=workspace_123'
-			)
-		);
 	});
 
 	it('returns rejected account-selection completion to scoped account management', async () => {

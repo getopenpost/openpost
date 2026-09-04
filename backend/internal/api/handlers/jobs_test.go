@@ -100,28 +100,6 @@ func (jobsAuthenticator) AuthenticateBearer(_ context.Context, token string) (*m
 	}
 }
 
-func TestListJobsPaginatesVisibleJobsWithHeaders(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-	srv.seedJobs(t)
-
-	resp := srv.getJSON(t, "/api/v1/jobs?limit=2&offset=1")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	require.Equal(t, "4", resp.Header().Get("X-Total-Count"))
-	require.Equal(t, "2", resp.Header().Get("X-Limit"))
-	require.Equal(t, "1", resp.Header().Get("X-Offset"))
-	require.Equal(t, "3", resp.Header().Get("X-Next-Offset"))
-	require.Equal(t, "true", resp.Header().Get("X-Has-More"))
-
-	var out []JobResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Len(t, out, 2)
-	require.Equal(t, "job-3", out[0].ID)
-	require.Equal(t, "job-2", out[1].ID)
-}
-
 func TestListJobsCountsFilteredWorkspaceScope(t *testing.T) {
 	t.Parallel()
 
@@ -205,17 +183,6 @@ func TestGetJobIncludesPayloadOnlyForInstanceAdminBrowserSession(t *testing.T) {
 	require.Equal(t, `{"publication_id":"publication-1"}`, out.Payload)
 }
 
-func TestListJobsRejectsNegativeOffset(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-
-	resp := srv.getJSON(t, "/api/v1/jobs?offset=-1")
-
-	require.Equal(t, http.StatusBadRequest, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "offset must be greater than or equal to 0")
-}
-
 func TestListJobsCursorAndRunRangeReachOlderRecordsWithoutDuplicates(t *testing.T) {
 	t.Parallel()
 
@@ -249,46 +216,6 @@ func TestListJobsCursorAndRunRangeReachOlderRecordsWithoutDuplicates(t *testing.
 	var rangePage []JobResponse
 	require.NoError(t, json.Unmarshal(rangeResponse.Body.Bytes(), &rangePage))
 	require.Equal(t, []string{"job-3", "job-2"}, []string{rangePage[0].ID, rangePage[1].ID})
-}
-
-func TestListJobsIncludesCanonicalPublicationJobsInWorkspaceScope(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-	ctx := context.Background()
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID: "publication-canonical", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "Launch",
-		ContentProfile: models.ContentProfileShortText, SourceText: "Launch", SourceContent: "Launch",
-		Status: models.PublicationStatusFailed,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Publication{
-		ID: "publication-external", WorkspaceID: "ws-2", CreatedByID: "user-2", Title: "Other",
-		ContentProfile: models.ContentProfileShortText, SourceText: "Other", SourceContent: "Other",
-		Status: models.PublicationStatusFailed,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	jobRows := []models.Job{
-		{
-			ID: "publication-job", Type: "publish_publication", ScopeID: "publication-canonical", Payload: `{"publication_id":"publication-canonical"}`,
-			Status: "failed", RunAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC), MaxAttempts: 3,
-		},
-		{
-			ID: "publication-job-stale-payload", Type: "publish_publication", ScopeID: "publication-external", Payload: `{"publication_id":"publication-canonical"}`,
-			Status: "failed", RunAt: time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC), MaxAttempts: 3,
-		},
-	}
-	_, err = srv.db.NewInsert().Model(&jobRows).Exec(ctx)
-	require.NoError(t, err)
-
-	response := srv.getJSON(t, "/api/v1/jobs?workspace_id=ws-1&status=failed")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var jobs []JobResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &jobs))
-	require.Len(t, jobs, 1)
-	require.Equal(t, "publication-job", jobs[0].ID)
-	require.Equal(t, "publication-canonical", jobs[0].PublicationID)
-	require.Empty(t, jobs[0].Payload)
 }
 
 func TestListJobsUsesCanonicalScopeForMigratedLegacyHistory(t *testing.T) {

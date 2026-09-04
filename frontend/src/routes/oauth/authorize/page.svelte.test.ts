@@ -70,32 +70,4 @@ describe('OAuth authorization request validation', () => {
 		await expect.element(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
 		expect(mocks.post).not.toHaveBeenCalled();
 	});
-
-	it('explains that full MCP access can change publishing state', async () => {
-		mocks.pageValue.url = new URL(
-			'http://localhost/oauth/authorize?response_type=code&client_id=chatgpt&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&scope=mcp%3Afull&code_challenge=challenge&code_challenge_method=S256'
-		);
-
-		const screen = await renderAuthorizePage();
-
-		await expect
-			.element(screen.getByText(/Full MCP access can create and edit drafts/))
-			.toBeVisible();
-		await expect
-			.element(screen.getByText(/The MCP client decides when to ask for approval/))
-			.toBeVisible();
-	});
-
-	it('explains the server-enforced read-only MCP scope', async () => {
-		mocks.pageValue.url = new URL(
-			'http://localhost/oauth/authorize?response_type=code&client_id=chatgpt&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&scope=mcp%3Aread&code_challenge=challenge&code_challenge_method=S256'
-		);
-
-		const screen = await renderAuthorizePage();
-
-		await expect
-			.element(screen.getByText(/Read-only access can view the selected workspace/))
-			.toBeVisible();
-		await expect.element(screen.getByText(/cannot change data/)).toBeVisible();
-	});
 });

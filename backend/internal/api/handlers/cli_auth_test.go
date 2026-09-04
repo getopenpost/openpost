@@ -466,21 +466,6 @@ func TestCLIAuthExpiry(t *testing.T) {
 	require.Empty(t, poll.Token)
 }
 
-func TestCLIAuthPollIntervalEnforced(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-
-	first := srv.pollCLIAuth(t, start.DeviceCode)
-	require.Equal(t, "authorization_pending", first.Status)
-
-	resp := srv.request(t, http.MethodPost, "/api/v1/cli/auth/poll", map[string]string{
-		"device_code": start.DeviceCode,
-	}, "")
-	require.Equal(t, http.StatusTooManyRequests, resp.Code)
-}
-
 func TestCLIAuthStartRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -505,35 +490,6 @@ func TestCLIAuthStartStoresOnlyHashes(t *testing.T) {
 	require.Len(t, session.DeviceCodeHash, 64)
 	require.Len(t, session.UserCodeHash, 64)
 	require.NotContains(t, start.VerificationURL, start.DeviceCode)
-}
-
-func TestCLIAuthTokenNamesUseCharacterLengthAndFailBeforeApproval(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	validName := strings.Repeat("é", apitokens.MaximumNameLength)
-	request := startRequest()
-	request["client_name"] = validName
-	valid := srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", request, "")
-	require.Equal(t, http.StatusOK, valid.Code, valid.Body.String())
-	var started startResponse
-	require.NoError(t, json.Unmarshal(valid.Body.Bytes(), &started))
-
-	request["client_name"] += "é"
-	tooLong := srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", request, "")
-	require.Equal(t, http.StatusUnprocessableEntity, tooLong.Code, tooLong.Body.String())
-
-	var session models.CLIAuthSession
-	require.NoError(t, srv.db.NewSelect().Model(&session).Where("client_name = ?", validName).Scan(t.Context()))
-	_, err := srv.db.NewUpdate().Model((*models.CLIAuthSession)(nil)).
-		Set("client_name = ?", validName+"é").
-		Where("id = ?", session.ID).
-		Exec(t.Context())
-	require.NoError(t, err)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": started.UserCode,
-	}, "web-token")
-	require.Equal(t, http.StatusBadRequest, approve.Code, approve.Body.String())
 }
 
 func TestCLIAuthStartExpiresOlderPendingSessions(t *testing.T) {

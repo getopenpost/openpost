@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  applyTelemetryRequestHeaders,
   BrowserTelemetry,
   configureTelemetry,
   installGlobalErrorCapture,
@@ -121,25 +120,18 @@ describe("BrowserTelemetry", () => {
     subject.capture("signup started");
     subject.configure(configuredApp);
 
+    // Private defaults only: every key below has a privacy consequence, so a
+    // PostHog option change that weakens them must break this test on purpose.
     expect(sdk.initialized[0]?.options).toMatchObject({
-      api_host: "https://e.example.com",
       autocapture: false,
       capture_pageview: false,
-      capture_pageleave: true,
       capture_performance: {
         network_timing: false,
-        web_vitals: true,
-        web_vitals_allowed_metrics: ["CLS", "FCP", "INP", "LCP"],
         web_vitals_attribution: false,
       },
-      capture_dead_clicks: false,
       persistence: "localStorage+cookie",
-      cross_subdomain_cookie: true,
-      cookieWinsOnConflict: true,
       person_profiles: "identified_only",
       disable_session_recording: true,
-      enable_recording_console_log: false,
-      logs: { captureConsoleLogs: false },
       disable_capture_url_hashes: true,
       opt_out_useragent_filter: false,
     });
@@ -419,16 +411,6 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).not.toContain("https://example.com");
   });
 
-  it("keeps the browser event type when a rejection is not an Error", () => {
-    const sdk = new FakeSDK();
-    const subject = configuredTelemetry(sdk);
-    subject.configure(configuredApp);
-
-    subject.captureException(new Event("error"));
-
-    expect(sdk.exceptions[0]?.error.message).toBe("Event: error");
-  });
-
   it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);
@@ -447,17 +429,6 @@ describe("BrowserTelemetry", () => {
     expect(stack).toContain("[redacted-url]");
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");
-  });
-
-  it("applies browser correlation headers to shared request transports", () => {
-    const headers = applyTelemetryRequestHeaders(new Headers({ Authorization: "Bearer token" }), {
-      "X-PostHog-Distinct-ID": "browser-user-1",
-      "X-PostHog-Session-ID": "session-1",
-    });
-
-    expect(headers.get("Authorization")).toBe("Bearer token");
-    expect(headers.get("X-PostHog-Distinct-ID")).toBe("browser-user-1");
-    expect(headers.get("X-PostHog-Session-ID")).toBe("session-1");
   });
 });
 

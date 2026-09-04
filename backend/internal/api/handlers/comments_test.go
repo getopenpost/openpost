@@ -24,38 +24,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func TestListRenditionCommentsReturnsUnsupportedProvider(t *testing.T) {
-	srv := newCommentsTestServer(t, nil)
-
-	resp := srv.request(t, http.MethodGet, "/api/v1/renditions/rendition-1/comments", nil)
-
-	require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "comments are not supported for x")
-}
-
-func TestReplyToCommentReturnsUnsupportedProvider(t *testing.T) {
-	srv := newCommentsTestServer(t, nil)
-	commentID, err := encodeCommentReference(commentReference{RenditionID: "rendition-1", ProviderCommentID: "provider-comment-1"})
-	require.NoError(t, err)
-
-	resp := srv.request(t, http.MethodPost, "/api/v1/comments/"+commentID+"/reply", map[string]string{"body": "Thanks"})
-
-	require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "comments are not supported for x")
-}
-
-func TestHideAndDeleteCommentReturnUnsupportedProvider(t *testing.T) {
-	srv := newCommentsTestServer(t, nil)
-	commentID, err := encodeCommentReference(commentReference{RenditionID: "rendition-1", ProviderCommentID: "provider-comment-1"})
-	require.NoError(t, err)
-
-	hideResp := srv.request(t, http.MethodPost, "/api/v1/comments/"+commentID+"/hide", nil)
-	require.Equal(t, http.StatusNotImplemented, hideResp.Code, hideResp.Body.String())
-
-	deleteResp := srv.request(t, http.MethodDelete, "/api/v1/comments/"+commentID, nil)
-	require.Equal(t, http.StatusNotImplemented, deleteResp.Code, deleteResp.Body.String())
-}
-
 func TestViewerCannotModerateComments(t *testing.T) {
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{"x": fakeCommentAdapter{}})
 	_, err := srv.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).

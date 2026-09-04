@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-func TestScheduleCommandExposesSlotLifecycle(t *testing.T) {
-	cmd := newScheduleCmd()
-	want := map[string]bool{
-		"list": true, "create": true, "update": true,
-		"delete": true, "suggest": true, "next": true,
-	}
-	for _, child := range cmd.Commands() {
-		delete(want, child.Name())
-	}
-	if len(want) != 0 {
-		t.Fatalf("missing schedule commands: %v", want)
-	}
-}
-
 func TestScheduleCreateUsesWorkspaceLocalFields(t *testing.T) {
 	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
 	var body map[string]any

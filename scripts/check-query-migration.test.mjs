@@ -411,11 +411,12 @@ test("requires Query adapters to cross the central transport boundary", () => {
   );
 });
 
-test("classifies the CLI session read as pairing instead of imperative", () => {
+test("classifies the CLI session read as pairing with an exact count", () => {
   const file = "frontend/src/routes/cli/authorize/cli-authorize-page.svelte";
   withFixture(
     {
       [file]: `<script lang="ts">
+        await dependencies.get('/cli/auth/session');
         await dependencies.get('/cli/auth/session');
       </script>`,
     },
@@ -423,29 +424,10 @@ test("classifies the CLI session read as pairing instead of imperative", () => {
       const result = scan(repoRoot, {
         pairingAllowlist: [{ file, endpoint: "/cli/auth/session", count: 1 }],
       });
-      assert.deepEqual(result.violations, []);
-      assert.deepEqual(result.pairingMissing, []);
       assert.deepEqual(
         result.pairingCalls.map(({ endpoint }) => endpoint),
-        ["/cli/auth/session"],
+        ["/cli/auth/session", "/cli/auth/session"],
       );
-    },
-  );
-});
-
-test("requires the exact CLI pairing read count", () => {
-  const file = "frontend/src/routes/cli/authorize/cli-authorize-page.svelte";
-  withFixture(
-    {
-      [file]: `<script lang="ts">
-        await dependencies.get('/cli/auth/session');
-        await dependencies.get('/cli/auth/session');
-      </script>`,
-    },
-    (repoRoot) => {
-      const result = scan(repoRoot, {
-        pairingAllowlist: [{ file, endpoint: "/cli/auth/session", count: 1 }],
-      });
       assert.deepEqual(
         result.violations.map(({ endpoint }) => endpoint),
         ["/cli/auth/session"],

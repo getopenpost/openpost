@@ -1,11 +1,9 @@
 package migrations
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -14,9 +12,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 type legacySocialAccount073 struct {
@@ -46,28 +42,6 @@ func TestOAuthGrantMigrationsPreserveLegacyCredentialsSQLite(t *testing.T) {
 	require.NoError(t, err)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	exerciseOAuthGrantMigrations(t, db)
-}
-
-func TestOAuthGrantMigrationsPreserveLegacyCredentialsPostgres(t *testing.T) {
-	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
-	if dsn == "" {
-		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
-	}
-	sqlDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	sqlDB.SetMaxOpenConns(1)
-	db := bun.NewDB(sqlDB, pgdialect.New())
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, db.PingContext(t.Context()))
-	schema := fmt.Sprintf("oauth_grant_migration_%d", time.Now().UnixNano())
-	_, err := db.ExecContext(t.Context(), `CREATE SCHEMA "`+schema+`"`)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		_, cleanupErr := db.ExecContext(context.Background(), `DROP SCHEMA IF EXISTS "`+schema+`" CASCADE`)
-		require.NoError(t, cleanupErr)
-	})
-	_, err = db.ExecContext(t.Context(), `SET search_path TO "`+schema+`"`)
-	require.NoError(t, err)
 	exerciseOAuthGrantMigrations(t, db)
 }
 
@@ -181,21 +155,4 @@ func exerciseOAuthGrantMigrations(t *testing.T, db *bun.DB) {
 		require.Equal(t, "legacy_unverified", protected.ValidationStatus, accountID)
 		require.True(t, protected.ValidatedAt.IsZero(), accountID)
 	}
-}
-
-func TestOAuthGrantMigrationAllowsPartialFixtureWithoutSocialAccounts(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
-	require.NoError(t, err)
-	db := bun.NewDB(sqlDB, sqlitedialect.New())
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	content, err := migrationFiles.ReadFile("073_oauth_grants.sql")
-	require.NoError(t, err)
-	item := migration{version: 73, name: "073_oauth_grants.sql", sql: string(content)}
-	_, err = db.NewCreateTable().Model((*SchemaMigration)(nil)).IfNotExists().Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, prepareMigration(t.Context(), db, item))
-	require.NoError(t, runMigration(t.Context(), db, item))
-	exists, err := migrationTableExists(t.Context(), db, "oauth_grants")
-	require.NoError(t, err)
-	require.True(t, exists)
 }

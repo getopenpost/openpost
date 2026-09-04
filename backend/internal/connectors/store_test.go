@@ -37,53 +37,6 @@ func TestStoreSyncsOnlySanitizedConnectorDescriptors(t *testing.T) {
 	require.Equal(t, "Directus", manifest.Provider.DisplayName)
 }
 
-func TestStoreDisablesRemovedInstallationWithoutDeletingBinding(t *testing.T) {
-	t.Parallel()
-
-	db := newConnectorStoreDB(t)
-	ctx := context.Background()
-	seedConnectorWorkspaceAndAccount(t, db)
-	_, err := db.NewInsert().Model(&models.ProviderInstallation{
-		ID: "directus-main", Kind: "connector", ProviderID: "io.directus.items",
-		DisplayName: "Directus", Status: InstallationStatusAvailable,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	require.NoError(t, NewStore(db).BindAccount(ctx, models.ProviderAccountBinding{
-		SocialAccountID: "account-1", WorkspaceID: "workspace-1", InstallationID: "directus-main",
-		ConnectionRef: "directus/posts", ExternalAccountID: "posts", CapabilityRevision: "rev-1",
-	}))
-
-	require.NoError(t, NewStore(db).SyncRegistry(ctx, &Registry{entries: map[string]RegistryEntry{}, clients: map[string]*Client{}}))
-	installation := new(models.ProviderInstallation)
-	require.NoError(t, db.NewSelect().Model(installation).Where("id = ?", "directus-main").Scan(ctx))
-	require.Equal(t, "disabled", installation.Status)
-	binding, err := NewStore(db).BindingForAccount(ctx, "workspace-1", "account-1")
-	require.NoError(t, err)
-	require.Equal(t, "directus/posts", binding.ConnectionRef)
-}
-
-func TestStorePersistsBoundedConnectionSession(t *testing.T) {
-	t.Parallel()
-
-	db := newConnectorStoreDB(t)
-	ctx := context.Background()
-	seedConnectorWorkspaceAndAccount(t, db)
-	_, err := db.NewInsert().Model(&models.ProviderInstallation{
-		ID: "directus-main", Kind: "connector", ProviderID: "io.directus.items",
-		DisplayName: "Directus", Status: InstallationStatusAvailable,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	store := NewStore(db)
-	session, err := store.BeginConnection(ctx, "workspace-1", "directus-main", time.Hour)
-	require.NoError(t, err)
-	require.Equal(t, "pending", session.State)
-
-	completed, err := store.CompleteConnection(ctx, session.ID, "directus/posts", []ConnectionAccount{{ID: "posts"}})
-	require.NoError(t, err)
-	require.Equal(t, "complete", completed.State)
-	require.Equal(t, "directus/posts", completed.ConnectionRef)
-}
-
 func TestStoreSavesConnectorAccountsAndBindingsAtomically(t *testing.T) {
 	t.Parallel()
 

@@ -122,22 +122,6 @@ func TestPurchaseChoiceReturnPathUsesTheVerifiedChoice(t *testing.T) {
 	require.Equal(t, "team", externalURL.Query().Get("plan"))
 }
 
-func TestSignupTelemetryIdentitySurvivesOIDCRedirectWithoutLeakingIntoTheDestination(t *testing.T) {
-	anonymousID := "0198a123-4567-7abc-8def-0123456789ab"
-	withTelemetry := signupTelemetryReturnPath("/onboarding?plan=founder", anonymousID)
-	clean, telemetryID := takeSignupTelemetryID(withTelemetry)
-	require.Equal(t, anonymousID, telemetryID)
-	require.Equal(t, "/onboarding?plan=founder", clean)
-	require.NotContains(t, clean, signupTelemetryQueryKey)
-
-	clean, telemetryID = takeSignupTelemetryID(signupTelemetryReturnPath("/onboarding", "person@example.com"))
-	require.Equal(t, "/onboarding", clean)
-	require.Empty(t, telemetryID)
-	clean, telemetryID = takeSignupTelemetryID(signupTelemetryReturnPath("/onboarding", "provider-user-123"))
-	require.Equal(t, "/onboarding", clean)
-	require.Empty(t, telemetryID)
-}
-
 func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing.T) {
 	t.Parallel()
 

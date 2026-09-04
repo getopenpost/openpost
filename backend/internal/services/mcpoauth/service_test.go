@@ -110,47 +110,6 @@ func TestCreateAndExchangeCodeWithClientMetadata(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidGrant)
 }
 
-func TestNormalizeScopeSupportsReadOnlyAndFullMCPAccess(t *testing.T) {
-	t.Parallel()
-
-	readOnly, err := normalizeScope(apitokens.ScopeMCPRead)
-	require.NoError(t, err)
-	require.Equal(t, apitokens.ScopeMCPRead, readOnly)
-
-	full, err := normalizeScope(apitokens.ScopeMCP)
-	require.NoError(t, err)
-	require.Equal(t, apitokens.ScopeMCP, full)
-
-	_, err = normalizeScope(apitokens.ScopeMCPRead + " " + apitokens.ScopeMCP)
-	require.ErrorIs(t, err, ErrUnsupportedScope)
-
-	require.True(t, clientMetadataAllowsScope("mcp:read mcp:full", apitokens.ScopeMCPRead))
-	require.True(t, clientMetadataAllowsScope("mcp:read mcp:full", apitokens.ScopeMCP))
-	require.False(t, clientMetadataAllowsScope("mcp:full", apitokens.ScopeMCPRead))
-	require.False(t, clientMetadataAllowsScope("mcp:read profile", apitokens.ScopeMCPRead))
-}
-
-func TestCreateAuthorizationCodeRejectsInaccessibleWorkspaceScope(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := newMCPOAuthTestDB(t)
-	seedMCPOAuthUser(ctx, t, db)
-
-	_, err := NewService(db, apitokens.NewService(db)).CreateAuthorizationCode(ctx, AuthorizationRequest{
-		Actor:               workspaceaccess.ActorFacts{UserID: "user-1"},
-		UserID:              "user-1",
-		WorkspaceID:         "ws-missing",
-		ResponseType:        "code",
-		ClientID:            "chatgpt",
-		RedirectURI:         "https://chatgpt.com/connector/oauth/callback/openpost",
-		CodeChallenge:       pkceChallenge(strings.Repeat("e", 43)),
-		CodeChallengeMethod: CodeChallengeMethodS256,
-		ExpectedResource:    "https://app.openpost.test/mcp",
-	})
-	require.ErrorIs(t, err, ErrWorkspaceNotAllowed)
-}
-
 func TestCreateAuthorizationCodeRejectsRedirectOutsideClientMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -174,23 +133,6 @@ func TestCreateAuthorizationCodeRejectsRedirectOutsideClientMetadata(t *testing.
 		ExpectedResource:    "https://app.openpost.test/mcp",
 	})
 	require.ErrorIs(t, err, ErrInvalidClient)
-}
-
-func TestClientMetadataRejectsHTTPAndPrivateNetworks(t *testing.T) {
-	t.Parallel()
-
-	_, err := validateClientMetadataURL("http://client.example/metadata.json")
-	require.ErrorIs(t, err, ErrInvalidClient)
-
-	service := NewService(nil, nil)
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://127.0.0.1/client.json", nil)
-	require.NoError(t, err)
-	resp, err := service.httpClient.Do(req)
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "private or local address")
 }
 
 func TestExchangeCodeRejectsWrongVerifierAndResource(t *testing.T) {

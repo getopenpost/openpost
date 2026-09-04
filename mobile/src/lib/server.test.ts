@@ -65,14 +65,7 @@ const secureStore = {
 
 mock.module("expo-secure-store", () => secureStore);
 
-const {
-  clearServer,
-  getPendingServerMutationCount,
-  getServer,
-  getServerMutationRevision,
-  loadServer,
-  setServer,
-} = await import("./server");
+const { clearServer, getServer, loadServer, setServer } = await import("./server");
 const { createIdentityStore } = await import("./identity-store");
 const { getToken, getWorkspaceId, loadToken, loadWorkspaceId } = await import("./api/token-store");
 
@@ -95,7 +88,7 @@ describe("server persistence", () => {
     failingDeleteKey = null;
   });
 
-  test("preserves self-hosted servers", async () => {
+  test("switches servers atomically once the replacement is durable", async () => {
     await setServer("https://social.example.com");
 
     expect(await loadServer()).toEqual({
@@ -103,10 +96,7 @@ describe("server persistence", () => {
       isHosted: false,
     });
     expect(values.get(SERVER_KEY)).toBe("https://social.example.com");
-  });
 
-  test("clears the server-scoped session only after a replacement server is durable", async () => {
-    await setServer("https://old-session.example.com");
     values.set(TOKEN_KEY, "token-old");
     values.set(WORKSPACE_KEY, "workspace-old");
     await loadToken();
@@ -142,11 +132,15 @@ describe("server persistence", () => {
     expect(values.has(TRANSACTION_KEY)).toBe(false);
   });
 
-  test("a fresh startup quarantines every key from an interrupted server change", async () => {
-    values.set(SERVER_KEY, "https://aborted-server.example.com");
-    values.set(TOKEN_KEY, "token-from-old-server");
-    values.set(WORKSPACE_KEY, "workspace-from-old-server");
-    values.set(TRANSACTION_KEY, "server");
+  test("quarantines an interrupted server change and retries until clean", async () => {
+    const seedInterruptedChange = () => {
+      values.set(SERVER_KEY, "https://aborted-server.example.com");
+      values.set(TOKEN_KEY, "token-from-old-server");
+      values.set(WORKSPACE_KEY, "workspace-from-old-server");
+      values.set(TRANSACTION_KEY, "server");
+    };
+
+    seedInterruptedChange();
     const restarted = createIdentityStore(secureStore);
 
     expect(await restarted.loadServerBaseUrl()).toBeNull();
@@ -156,13 +150,10 @@ describe("server persistence", () => {
     expect(values.has(TOKEN_KEY)).toBe(false);
     expect(values.has(WORKSPACE_KEY)).toBe(false);
     expect(values.has(TRANSACTION_KEY)).toBe(false);
-  });
 
-  test("a later startup retries an incomplete server quarantine", async () => {
-    values.set(SERVER_KEY, "https://aborted-server.example.com");
-    values.set(TOKEN_KEY, "token-from-old-server");
-    values.set(WORKSPACE_KEY, "workspace-from-old-server");
-    values.set(TRANSACTION_KEY, "server");
+    // A failed quarantine delete retries on the next startup instead of
+    // leaving residue behind.
+    seedInterruptedChange();
     failingServerDelete = true;
 
     const firstRestart = createIdentityStore(secureStore);
@@ -176,9 +167,9 @@ describe("server persistence", () => {
     expect(await secondRestart.loadServerBaseUrl()).toBeNull();
     expect(values.has(SERVER_KEY)).toBe(false);
     expect(values.has(TRANSACTION_KEY)).toBe(false);
-  });
 
-  test("does not snapshot residue when a server choice encounters incomplete recovery", async () => {
+    // A commit attempted while recovery is incomplete aborts and keeps the
+    // trusted server instead of snapshotting residue.
     values.set(SERVER_KEY, "https://trusted-server.example.com");
     values.set(TOKEN_KEY, "quarantined-token");
     values.set(WORKSPACE_KEY, "quarantined-workspace");
@@ -196,14 +187,14 @@ describe("server persistence", () => {
     expect(values.get(TRANSACTION_KEY)).toBe("session");
 
     failingServerValue = null;
-    const restarted = createIdentityStore(secureStore);
-    expect(await restarted.loadServerBaseUrl()).toBe("https://trusted-server.example.com");
-    expect(await restarted.loadToken()).toBeNull();
+    const recovered = createIdentityStore(secureStore);
+    expect(await recovered.loadServerBaseUrl()).toBe("https://trusted-server.example.com");
+    expect(await recovered.loadToken()).toBeNull();
     expect(values.has(TOKEN_KEY)).toBe(false);
     expect(values.has(TRANSACTION_KEY)).toBe(false);
   });
 
-  test("does not publish an old load after a newer server change queues", async () => {
+  test("suppresses stale loads and superseded writes during a server change", async () => {
     const started = deferred<void>();
     const release = deferred<void>();
     serverRead = { started, release, value: "https://old.example.com" };
@@ -217,71 +208,26 @@ describe("server persistence", () => {
     await setting;
     expect(getServer()?.baseUrl).toBe("https://new.example.com");
     expect(values.get(SERVER_KEY)).toBe("https://new.example.com");
-  });
 
-  test("exposes a queued server mutation before its durable write finishes", async () => {
-    const started = deferred<void>();
-    const release = deferred<void>();
-    serverWrite = { operation: "set", started, release };
-    const previousRevision = getServerMutationRevision();
-
-    const setting = setServer("https://queued.example.com");
-    expect(getServerMutationRevision()).toBe(previousRevision + 1);
-    expect(getPendingServerMutationCount()).toBe(1);
-    await started.promise;
-    expect(getServer()).toBeNull();
-
-    release.resolve();
-    await setting;
-    expect(getPendingServerMutationCount()).toBe(0);
-  });
-
-  for (const outcome of ["success", "failure"] as const) {
-    test(`tracks a pending server clear through ${outcome}`, async () => {
-      await setServer("https://clear-pending.example.com");
-      const started = deferred<void>();
-      const release = deferred<void>();
-      serverWrite = { operation: "delete", started, release };
-      failingServerDelete = outcome === "failure";
-
-      const clearing = clearServer();
-      expect(getPendingServerMutationCount()).toBe(1);
-      await started.promise;
-      expect(getPendingServerMutationCount()).toBe(1);
-      release.resolve();
-      const actualOutcome = await clearing.then(
-        () => "success",
-        () => "failure",
-      );
-
-      expect(actualOutcome).toBe(outcome);
-      expect(getPendingServerMutationCount()).toBe(0);
-      expect(getServer()?.baseUrl).toBe(
-        outcome === "success" ? undefined : "https://clear-pending.example.com",
-      );
-    });
-  }
-
-  test("repairs a superseded write before a newer failing write runs", async () => {
+    // A superseded write aborts instead of racing the newer failing write,
+    // and the last durable server wins.
     await setServer("https://old.example.com");
-    const started = deferred<void>();
-    const release = deferred<void>();
-    serverWrite = { operation: "set", started, release };
+    const writeStarted = deferred<void>();
+    const writeRelease = deferred<void>();
+    serverWrite = { operation: "set", started: writeStarted, release: writeRelease };
 
     const staleSetting = setServer("https://stale.example.com");
-    await started.promise;
+    await writeStarted.promise;
     failingServerValue = "https://failed.example.com";
     const newerSetting = setServer(failingServerValue);
     const newerOutcome = newerSetting.then(
       () => null,
       (cause: unknown) => cause,
     );
-    expect(getPendingServerMutationCount()).toBe(2);
-    release.resolve();
+    writeRelease.resolve();
 
     await expect(staleSetting).rejects.toMatchObject({ name: "AbortError" });
     expect(await newerOutcome).toMatchObject({ message: "SecureStore set failed" });
-    expect(getPendingServerMutationCount()).toBe(0);
     expect(values.get(SERVER_KEY)).toBe("https://old.example.com");
     expect(getServer()?.baseUrl).toBe("https://old.example.com");
   });

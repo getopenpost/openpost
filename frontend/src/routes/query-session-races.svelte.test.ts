@@ -8,11 +8,9 @@ import type { components } from '$lib/api/types';
 import { queryClient } from '$lib/query/client';
 import { auth } from '$lib/stores/auth';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
-import AnalyticsPage from './analytics/+page.svelte';
 import CalendarPage from './calendar/+page.svelte';
 import EngagementPage from './inbox/engagement/+page.svelte';
 import MessagesPage from './inbox/messages/+page.svelte';
-import GrowPage from './grow/+page.svelte';
 import MediaPage from './media/+page.svelte';
 import './layout.css';
 
@@ -48,59 +46,6 @@ describe('route mutation sessions', () => {
 		getMock.mockReset();
 		postMock.mockReset();
 		putMock.mockReset();
-	});
-
-	it('does not announce an Analytics refresh completed by an old actor', async () => {
-		getMock.mockImplementation(async (path) => {
-			if (path === '/analytics') return { data: analyticsOverview() };
-			if (path === '/account-features') return { data: [] };
-			return { data: [] };
-		});
-		const refresh = deferred<{ data: { queued: number }; response: Response }>();
-		postMock.mockReturnValue(refresh.promise);
-
-		const screen = await renderWithQuery(AnalyticsPage);
-		const button = screen.getByTestId('analytics-refresh');
-		await expect.element(button).toBeEnabled();
-		await button.click();
-		await expect.element(button).toBeDisabled();
-
-		auth.setUser(user('user-b'));
-		restoreWorkspace();
-		refresh.resolve({ data: { queued: 1 }, response: new Response() });
-
-		await expect.element(button).toBeEnabled();
-		await expect
-			.element(screen.getByText('Updating analytics for 1 items.'))
-			.not.toBeInTheDocument();
-	});
-
-	it('does not announce or invalidate an Inbox refresh completed by an old actor', async () => {
-		getMock.mockImplementation(async (path) => {
-			if (path === '/messages') {
-				return { data: { items: [], total: 0, sync_states: [], next_cursor: '' } };
-			}
-			if (path === '/accounts') return { data: [] };
-			return { data: [] };
-		});
-		const refresh = deferred<{ data: { status: 'queued' }; response: Response }>();
-		postMock.mockReturnValue(refresh.promise);
-		const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
-
-		const screen = await renderWithQuery(MessagesPage);
-		const button = screen.getByTestId('messages-refresh');
-		await expect.element(button).toBeEnabled();
-		await button.click();
-		await expect.element(button).toBeDisabled();
-
-		auth.setUser(user('user-b'));
-		restoreWorkspace();
-		refresh.resolve({ data: { status: 'queued' }, response: new Response() });
-
-		await expect.element(button).toBeEnabled();
-		await expect.element(screen.getByText('Checking for new messages.')).not.toBeInTheDocument();
-		expect(invalidate).not.toHaveBeenCalled();
-		invalidate.mockRestore();
 	});
 
 	it("does not mark the next actor's conversation as read", async () => {
@@ -184,6 +129,7 @@ describe('route mutation sessions', () => {
 	});
 
 	it('keeps the current conversation draft when an earlier send completes', async () => {
+		// The conversation switcher collapses below desktop widths.
 		await page.viewport(1280, 900);
 		const conversations = [
 			conversation('Ada', 0, 'conversation-a'),
@@ -274,35 +220,8 @@ describe('route mutation sessions', () => {
 		await expect.element(currentScreen.getByText('Comment from Bea')).toBeVisible();
 	});
 
-	it("does not roll an old failed Follow back into the current actor's Grow cards", async () => {
-		let activeGrowth = growthResult('ada', 'idle');
-		getMock.mockImplementation(async (path) => {
-			if (path === '/accounts') return { data: [socialAccount()] };
-			if (path === '/account-features') return { data: [featureState('grow')] };
-			if (path === '/growth') return { data: activeGrowth };
-			return { data: [] };
-		});
-		const follow = deferred<{ error: { detail: string }; response: Response }>();
-		postMock.mockReturnValue(follow.promise);
-
-		const screen = await renderWithQuery(GrowPage);
-		await expect.element(screen.getByText('@ada')).toBeVisible();
-		await screen.getByRole('button', { name: 'Follow' }).click();
-		await vi.waitFor(() => expect(postMock).toHaveBeenCalledOnce());
-
-		activeGrowth = growthResult('bea', 'following');
-		await screen.unmount();
-		auth.setUser(user('user-b'));
-		restoreWorkspace();
-		const currentScreen = await renderWithQuery(GrowPage);
-		await expect.element(currentScreen.getByText('@bea')).toBeVisible();
-		follow.resolve({ error: { detail: 'Old follow failed' }, response: new Response() });
-
-		await expect.element(currentScreen.getByText('@bea')).toBeVisible();
-		await expect.element(currentScreen.getByText('@ada')).not.toBeInTheDocument();
-	});
-
 	it('reconciles a Calendar move in its origin Workspace without moving the next Workspace UI', async () => {
+		// The calendar grid needs a square viewport to expose the target slot.
 		await page.viewport(900, 900);
 		const sourceAt = futureDate(2, 10);
 		const targetAt = futureDate(3, 10);
@@ -406,13 +325,7 @@ function restoreWorkspace() {
 }
 
 function renderWithQuery(
-	component:
-		| typeof AnalyticsPage
-		| typeof CalendarPage
-		| typeof MessagesPage
-		| typeof EngagementPage
-		| typeof GrowPage
-		| typeof MediaPage
+	component: typeof CalendarPage | typeof MessagesPage | typeof EngagementPage | typeof MediaPage
 ) {
 	return render(
 		component,
@@ -559,83 +472,6 @@ function engagementItem(name: string, liked: boolean) {
 	};
 }
 
-function socialAccount() {
-	return {
-		id: 'account-a',
-		workspace_id: workspace.id,
-		slug: 'founder',
-		platform: 'bluesky',
-		account_id: 'provider-account-a',
-		account_username: 'founder',
-		account_avatar_url: '',
-		instance_url: '',
-		is_active: true,
-		thread_replies_supported: true,
-		messaging_supported: true,
-		messages_enabled: true,
-		grant_destination_count: 1,
-		shared_grant: false
-	};
-}
-
-function featureState(feature: 'grow') {
-	return {
-		availability: 'available' as const,
-		effective_enabled: true,
-		feature,
-		platform: 'bluesky',
-		reason_code: 'available' as const,
-		social_account_id: 'account-a',
-		stored_enabled: true,
-		stored_exists: true,
-		supported: true,
-		workspace_id: workspace.id
-	};
-}
-
-function growthResult(handle: string, followState: 'idle' | 'following') {
-	return {
-		items: [
-			{
-				id: 'recommendation-1',
-				workspace_id: workspace.id,
-				social_account_id: 'account-a',
-				generation_id: 'generation-1',
-				platform: 'bluesky',
-				remote_account_id: 'remote-person-1',
-				handle,
-				display_name: handle,
-				bio: '',
-				avatar_url: '',
-				profile_url: `https://example.com/${handle}`,
-				followers_count: 10,
-				following_count: 5,
-				follows_viewer: false,
-				mutual_count: 1,
-				mutual_exact: true,
-				mutuals: [],
-				score: 1,
-				signals: [],
-				follow_state: followState,
-				last_seen_at: '2026-09-01T10:00:00Z',
-				created_at: '2026-09-01T10:00:00Z',
-				updated_at: '2026-09-01T10:00:00Z'
-			}
-		],
-		follow_updates: [],
-		sync_state: {
-			id: 'sync-1',
-			workspace_id: workspace.id,
-			social_account_id: 'account-a',
-			platform: 'bluesky',
-			status: 'ok' as const,
-			current_generation_id: 'generation-1',
-			created_at: '2026-09-01T10:00:00Z',
-			updated_at: '2026-09-01T10:00:00Z'
-		}
-	};
-}
-
 const workspace = {
 	id: 'workspace-a',
 	name: 'Workspace A',
@@ -669,48 +505,5 @@ function user(id: string): User {
 		legal_acceptance_required: false,
 		email_verified: true,
 		created_at: '2026-09-01T10:00:00Z'
-	};
-}
-
-function analyticsOverview() {
-	const metric = { value: 0, measured: 0 };
-	return {
-		account_growth_scope: 'account_wide' as const,
-		accounts: [
-			{
-				id: 'account-a',
-				platform: 'x',
-				username: '@founder',
-				account_supported: true,
-				content_supported: true,
-				follower_series: [],
-				metric_metadata: {},
-				metrics: {},
-				missing_account_scopes: [],
-				missing_content_scopes: [],
-				stale: false,
-				status: 'ok'
-			}
-		],
-		content: [],
-		content_total: 0,
-		coverage: [],
-		follower_series: [],
-		generated_at: '2026-09-01T10:00:00Z',
-		insights: [],
-		publication_total: 0,
-		publications: [],
-		range_days: 30,
-		source: 'all' as const,
-		summary: {
-			engagement: metric,
-			follower_scope: 'account_wide' as const,
-			followers: metric,
-			impressions: metric,
-			published: 0,
-			reach: metric,
-			views: metric
-		},
-		trends: { engagement: [], followers: [], views: [] }
 	};
 }

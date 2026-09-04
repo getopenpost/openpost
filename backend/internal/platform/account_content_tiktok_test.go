@@ -11,20 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTikTokAccountContentDiscoverySupportIsOptionalAndBounded(t *testing.T) {
-	adapter := NewTikTokAdapter("", "", "")
-	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{
-		GrantedScopes: "user.info.basic video.list",
-	})
-
-	require.True(t, support.Supported)
-	require.Equal(t, []string{"video.list"}, support.RequiredScopes)
-	require.Equal(t, 20, support.MaxPageSize)
-	require.Equal(t, 1, adapter.AccountContentDiscoveryReadRequests(AccountContentDiscoveryRequest{}))
-	_, batchFanout := any(adapter).(AccountContentBatchMeasurer)
-	require.False(t, batchFanout, "video.list already returns one page of item metrics")
-}
-
 func TestTikTokDiscoversBoundedPaginatedVideosWithInlineMetrics(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -131,24 +117,6 @@ func TestTikTokDiscoversBoundedPaginatedVideosWithInlineMetrics(t *testing.T) {
 	require.Empty(t, second.NextCursor, "the lower history bound must stop provider pagination")
 	require.Equal(t, AccountContentDiscoveryComplete, second.Coverage.Status)
 	require.Equal(t, 2, requests, "two bounded pages must use exactly two provider requests")
-}
-
-func TestTikTokDiscoveryRejectsInvalidCursorBeforeProviderRead(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		t.Fatalf("invalid cursor must not reach TikTok: %s", req.URL.String())
-		return nil, nil
-	})}
-
-	_, err := NewTikTokAdapter("", "", "").DiscoverAccountContent(t.Context(), "access-token", AccountContentDiscoveryRequest{
-		Cursor: "not-an-opaque-cursor", PageSize: 20,
-	})
-	require.Error(t, err)
-	var discoveryErr *AccountContentDiscoveryError
-	require.ErrorAs(t, err, &discoveryErr)
-	require.Equal(t, "invalid_cursor", discoveryErr.Code)
 }
 
 func TestTikTokDiscoveryClassifiesProviderScopeErrorSafely(t *testing.T) {

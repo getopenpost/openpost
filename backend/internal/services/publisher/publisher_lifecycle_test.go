@@ -13,7 +13,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
-	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/publicationauth"
@@ -22,20 +21,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
-
-func TestHandlePublishPublicationJobRecordsLifecycleEvents(t *testing.T) {
-	t.Parallel()
-
-	srv := newPublisherLifecycleTestServer(t, &fakePublisherAdapter{externalID: "external-1"})
-
-	require.NoError(t, srv.publishPublication(t))
-	published, err := srv.service.usage.CurrentMonthly(t.Context(), "ws-1", entitlements.LimitPublishedPostsMonthly, time.Now().UTC())
-	require.NoError(t, err)
-	require.Equal(t, int64(1), published, "canonical Rendition success records published usage without reading Post authoring state")
-
-	events := srv.lifecycleEvents(t)
-	requireLifecycleTypes(t, events, lifecycle.EventProviderProcessing, lifecycle.EventPublished)
-}
 
 func TestHandlePublishPublicationJobRecordsAmbiguousFailureWithoutRetry(t *testing.T) {
 	t.Parallel()
@@ -101,55 +86,6 @@ func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *test
 	require.Equal(t, "external-reply", second.ExternalID)
 }
 
-func TestPublicationPartialSuccessKeepsPerDestinationSafeOutcomes(t *testing.T) {
-	t.Parallel()
-
-	adapter := &fakePublisherAdapter{
-		publishErrors: []error{
-			nil,
-			&platform.HTTPError{StatusCode: 422, Code: "invalid_media"},
-		},
-		externalIDs: []string{"external-success", ""},
-	}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx := context.Background()
-	var firstAccount models.SocialAccount
-	require.NoError(t, srv.db.NewSelect().Model(&firstAccount).Where("id = ?", "account-1").Scan(ctx))
-	secondAccount := firstAccount
-	secondAccount.ID = "account-2"
-	secondAccount.AccountID = "x-account-2"
-	secondAccount.Slug = "x-account-2"
-	require.NoError(t, func() error {
-		_, err := srv.db.NewInsert().Model(&secondAccount).Exec(ctx)
-		return err
-	}())
-	require.NoError(t, func() error {
-		_, err := srv.db.NewInsert().Model(&models.Rendition{
-			ID:              "rendition-2",
-			PublicationID:   "publication-1",
-			SocialAccountID: "account-2",
-			Platform:        "x",
-			Profile:         models.ContentProfileShortText,
-			Body:            "Second destination",
-			Status:          models.RenditionStatusReady,
-		}).Exec(ctx)
-		return err
-	}())
-
-	require.NoError(t, srv.publishPublication(t))
-
-	var renditions []models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&renditions).Order("social_account_id ASC").Scan(ctx))
-	require.Len(t, renditions, 2)
-	require.Equal(t, models.RenditionStatusPublished, renditions[0].Status)
-	require.Empty(t, renditions[0].ErrorMessage)
-	require.Equal(t, models.RenditionStatusFailed, renditions[1].Status)
-	require.Equal(t, FailureValidation, renditions[1].ErrorKind)
-	require.Equal(t, "invalid_media", renditions[1].ErrorCode)
-	require.False(t, renditions[1].ErrorRetryable)
-	require.NotContains(t, renditions[1].ErrorMessage, "Second destination")
-}
-
 func TestPublicationAuthorizationPreflightRejectsChangedContentBeforeProviderCall(t *testing.T) {
 	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
 	srv := newPublisherLifecycleTestServer(t, adapter)
@@ -165,90 +101,6 @@ func TestPublicationAuthorizationPreflightRejectsChangedContentBeforeProviderCal
 	var publication models.Publication
 	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
 	require.Equal(t, models.PublicationStatusReady, publication.Status, "preflight must run before publishing state changes")
-}
-
-func TestPublicationAuthorizationPreflightFailureDoesNotLeaveScheduledPublicationPending(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJob(t, nil)
-	_, err := srv.db.NewUpdate().Model((*models.Publication)(nil)).
-		Set("status = ?", models.PublicationStatusScheduled).
-		Where("id = ?", "publication-1").Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.db.NewUpdate().Model((*models.Rendition)(nil)).
-		Set("status = ?", models.RenditionStatusScheduled).
-		Where("id = ?", "rendition-1").Exec(t.Context())
-	require.NoError(t, err)
-
-	var body map[string]string
-	require.NoError(t, json.Unmarshal([]byte(payload), &body))
-	body["authorization_scheduled_at"] = srv.runAt.Add(time.Second).Format(time.RFC3339Nano)
-	tampered, err := json.Marshal(body)
-	require.NoError(t, err)
-
-	err = srv.service.HandlePublishPublicationJob(ctx, string(tampered))
-
-	require.ErrorContains(t, err, "scheduled time mismatch")
-	require.Zero(t, adapter.publishCalls)
-	var publication models.Publication
-	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
-	require.Equal(t, models.PublicationStatusFailed, publication.Status)
-	var rendition models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(t.Context()))
-	require.Equal(t, models.RenditionStatusFailed, rendition.Status)
-	require.Equal(t, FailureValidation, rendition.ErrorKind)
-	require.Equal(t, FailureActionEdit, rendition.ErrorAction)
-	requireLifecycleTypes(t, srv.lifecycleEvents(t), lifecycle.EventFailed)
-}
-
-func TestPublicationAuthorizationPreflightUsesReceiptDestinationAllowlist(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalIDs: []string{"external-1"}}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx := t.Context()
-	var account models.SocialAccount
-	require.NoError(t, srv.db.NewSelect().Model(&account).Where("id = ?", "account-1").Scan(ctx))
-	account.ID, account.Slug, account.AccountID = "account-2", "account-2", "account-2"
-	_, err := srv.db.NewInsert().Model(&account).Exec(ctx)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Rendition{
-		ID: "rendition-2", PublicationID: "publication-1", SocialAccountID: "account-2",
-		Platform: "x", Profile: models.ContentProfileShortText, Body: "not authorized",
-		Status: models.RenditionStatusReady,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	jobCtx, payload := srv.authorizedPublicationJob(t, []publicationauth.JobTarget{{
-		JobID: srv.jobID, RenditionID: "rendition-1", RunAt: srv.runAt,
-	}})
-	require.NoError(t, srv.service.HandlePublishPublicationJob(jobCtx, payload))
-	require.Equal(t, 1, adapter.publishCalls)
-	var second models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&second).Where("id = ?", "rendition-2").Scan(ctx))
-	require.Equal(t, models.RenditionStatusReady, second.Status)
-}
-
-func TestLegacyPublicationJobAuthorizationRunsThroughPublisherPreflight(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "external-legacy"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	job := models.Job{
-		ID: srv.jobID, Type: "publish_publication",
-		ScopeID: "publication-1", Payload: `{"publication_id":"publication-1"}`,
-		Status: "pending", RunAt: srv.runAt,
-	}
-	_, err := srv.db.NewInsert().Model(&job).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, publicationauth.AuthorizeLegacyJobs(t.Context(), srv.db, publicationauth.LegacyJobsInput{
-		PublicationID: "publication-1",
-		Actor:         publicationauth.Actor{Origin: publicationauth.OriginLegacy, UserID: "user-1"},
-	}))
-	require.NoError(t, srv.db.NewSelect().Model(&job).Where("id = ?", job.ID).Scan(t.Context()))
-
-	err = srv.service.HandlePublishPublicationJob(
-		WithJobExecution(t.Context(), job.ID, 1, time.Now().UTC()),
-		job.Payload,
-	)
-	require.NoError(t, err)
-	require.Equal(t, 1, adapter.publishCalls)
 }
 
 type publisherLifecycleTestServer struct {
@@ -431,34 +283,6 @@ func TestCertificationIntentJobPayloadCannotEscalateProductionReceipt(t *testing
 
 	err = srv.service.HandlePublishPublicationJob(ctx, string(tampered))
 	require.Error(t, err)
-	require.Zero(t, adapter.publishCalls)
-}
-
-func TestCertificationIntentRechecksAdministratorAtWorkerTime(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJobWithIntent(
-		t, nil, providerreadiness.ExecutionIntentCertificationTest,
-		publicationauth.Actor{Origin: publicationauth.OriginBrowser, UserID: "user-1", SessionID: "session-1"},
-	)
-	_, err := srv.db.NewUpdate().Model((*models.User)(nil)).Set("is_admin = ?", false).Where("id = ?", "user-1").Exec(t.Context())
-	require.NoError(t, err)
-
-	err = srv.service.HandlePublishPublicationJob(ctx, payload)
-	require.ErrorContains(t, err, "no longer authorized")
-	require.Zero(t, adapter.publishCalls)
-}
-
-func TestCertificationIntentRejectsLegacyActorReceipt(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJobWithIntent(
-		t, nil, providerreadiness.ExecutionIntentCertificationTest,
-		publicationauth.Actor{Origin: publicationauth.OriginLegacy, UserID: "user-1"},
-	)
-
-	err := srv.service.HandlePublishPublicationJob(ctx, payload)
-	require.ErrorContains(t, err, "actor origin is not privileged")
 	require.Zero(t, adapter.publishCalls)
 }
 

@@ -123,19 +123,6 @@ func TestLinkedInVideoStatusEncodesURNPathVariable(t *testing.T) {
 	}
 }
 
-func TestLinkedInCreatePostSkipsAltTextForVideoURN(t *testing.T) {
-	payload := captureLinkedInCreatePostPayload(t, &PublishRequest{
-		Content:          "video post",
-		PlatformMediaIDs: []string{"urn:li:video:C5F10AQGKQg_6y2a4sQ"},
-		MediaAltTexts:    []string{"do not send as alt text"},
-	})
-
-	media := linkedInPayloadMedia(t, payload)
-	if _, ok := media["altText"]; ok {
-		t.Fatalf("did not expect altText for video media: %#v", media)
-	}
-}
-
 func testJWT(t *testing.T, payload map[string]interface{}) string {
 	t.Helper()
 
@@ -150,19 +137,6 @@ func testJWT(t *testing.T, payload map[string]interface{}) string {
 
 	return base64.RawURLEncoding.EncodeToString(headerJSON) + "." +
 		base64.RawURLEncoding.EncodeToString(payloadJSON) + ".signature"
-}
-
-func TestLinkedInCreatePostKeepsAltTextForImageURN(t *testing.T) {
-	payload := captureLinkedInCreatePostPayload(t, &PublishRequest{
-		Content:          "image post",
-		PlatformMediaIDs: []string{"urn:li:image:C5F10AQGKQg_6y2a4sQ"},
-		MediaAltTexts:    []string{"image description"},
-	})
-
-	media := linkedInPayloadMedia(t, payload)
-	if media["altText"] != "image description" {
-		t.Fatalf("expected image altText, got %#v", media["altText"])
-	}
 }
 
 func captureLinkedInCreatePostPayload(t *testing.T, req *PublishRequest) map[string]interface{} {

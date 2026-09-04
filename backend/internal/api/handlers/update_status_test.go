@@ -17,28 +17,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUpdateStatusRequiresInstanceAdmin(t *testing.T) {
+func TestUpdateStatusAuthorization(t *testing.T) {
 	t.Parallel()
 
-	e := newUpdateStatusTestServer(t, false, browserSessionTestAuthenticator())
-	resp := updateStatusRequest(t, e, "web-token")
-
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "instance admin role required")
-}
-
-func TestUpdateStatusRejectsWorkspaceScopedCredentials(t *testing.T) {
-	t.Parallel()
-
-	e := newUpdateStatusTestServer(t, true, workspaceTestAuthenticator{
-		"scoped-token": {
-			UserID: "user-1", Email: "user@example.com", WorkspaceID: "ws-1", SessionID: "browser-session",
+	for _, test := range []struct {
+		name          string
+		isAdmin       bool
+		authenticator func() middleware.Authenticator
+		token         string
+		want          string
+	}{
+		{
+			name:          "non-admin browser session",
+			isAdmin:       false,
+			authenticator: browserSessionTestAuthenticator,
+			token:         "web-token",
+			want:          "instance admin role required",
 		},
-	})
-	resp := updateStatusRequest(t, e, "scoped-token")
+		{
+			name:    "workspace-scoped credential",
+			isAdmin: true,
+			authenticator: func() middleware.Authenticator {
+				return workspaceTestAuthenticator{
+					"scoped-token": {
+						UserID: "user-1", Email: "user@example.com", WorkspaceID: "ws-1", SessionID: "browser-session",
+					},
+				}
+			},
+			token: "scoped-token",
+			want:  "unscoped credentials",
+		},
+		{
+			name:          "unscoped CLI bearer token",
+			isAdmin:       true,
+			authenticator: unboundCLIFullTestAuthenticator,
+			token:         "web-token",
+			want:          "browser session",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "unscoped credentials")
+			e := newUpdateStatusTestServer(t, test.isAdmin, test.authenticator())
+			resp := updateStatusRequest(t, e, test.token)
+
+			require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
+			require.Contains(t, resp.Body.String(), test.want)
+		})
+	}
 }
 
 func TestUpdateStatusReturnsReadOnlyDisabledState(t *testing.T) {
@@ -57,16 +83,6 @@ func TestUpdateStatusReturnsReadOnlyDisabledState(t *testing.T) {
 	require.False(t, body.EffectiveEnabled)
 	require.False(t, body.ConfiguredEnabled)
 	require.Equal(t, "default", body.ConfigurationSource)
-}
-
-func TestUpdateStatusRejectsBearerAdminToken(t *testing.T) {
-	t.Parallel()
-
-	e := newUpdateStatusTestServer(t, true, unboundCLIFullTestAuthenticator())
-	resp := updateStatusRequest(t, e, "web-token")
-
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "browser session")
 }
 
 func newUpdateStatusTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator) *echo.Echo {

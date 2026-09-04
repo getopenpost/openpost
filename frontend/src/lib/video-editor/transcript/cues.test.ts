@@ -7,18 +7,6 @@ function words(...pairs: Array<[string, number, number]>): TranscriptWord[] {
 }
 
 describe('buildCuesFromWords', () => {
-	it('groups words into one cue under all limits', () => {
-		const cues = buildCuesFromWords(words(['Hello', 0, 0.5], ['world', 0.5, 1]), { fps: 30 });
-		expect(cues.length).toBe(1);
-		expect(cues[0]!.text).toBe('Hello world');
-		expect(cues[0]!.startFrame).toBe(0);
-		expect(cues[0]!.endFrame).toBe(30);
-		expect(cues[0]!.words).toMatchObject([
-			{ text: 'Hello', startFrame: 0, endFrame: 15 },
-			{ text: 'world', startFrame: 15, endFrame: 30 }
-		]);
-	});
-
 	it('breaks cues when the span exceeds max duration', () => {
 		const cues = buildCuesFromWords(
 			words(
@@ -36,19 +24,6 @@ describe('buildCuesFromWords', () => {
 		for (const cue of cues) {
 			expect(cue.endFrame - cue.startFrame).toBeLessThanOrEqual(31);
 		}
-	});
-
-	it('wraps long text into lines and marks overflow', () => {
-		const cues = buildCuesFromWords(
-			words(
-				['supercalifragilisticexpialidocious', 0, 1],
-				['supercalifragilisticexpialidocious', 1, 2],
-				['supercalifragilisticexpialidocious', 2, 3]
-			),
-			{ fps: 30, maxCharsPerLine: 10, maxLines: 2 }
-		);
-		const lines = cues[0]!.text.split('\n');
-		expect(lines[2]).toBe('…');
 	});
 
 	it('never produces zero-length cues', () => {

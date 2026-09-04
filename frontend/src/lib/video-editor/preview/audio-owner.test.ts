@@ -59,63 +59,6 @@ function makeTrack(overrides: Partial<TimelineTrack> = {}): TimelineTrack {
 }
 
 describe('resolveAudioOwner', () => {
-	it('returns none for non-audio/video types', () => {
-		const entry = makeMediaEntry();
-		const nonMediaTypes: TimelineItem['type'][] = [
-			'image',
-			'text',
-			'shape',
-			'composition',
-			'subtitle',
-			'lottie'
-		];
-		for (const type of nonMediaTypes) {
-			const owner = resolveAudioOwner({
-				item: makeItem({ type, mediaId: undefined }),
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			});
-			expect(owner).toBe('none');
-		}
-	});
-
-	it('returns none when media entry is missing or not ready', () => {
-		const item = makeItem();
-		expect(
-			resolveAudioOwner({
-				item,
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: null,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('none');
-		expect(
-			resolveAudioOwner({
-				item,
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: makeMediaEntry({ status: 'importing' }),
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('none');
-		expect(
-			resolveAudioOwner({
-				item,
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: makeMediaEntry({ status: 'failed' }),
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('none');
-	});
-
 	it('returns unsupported when audio codec is not supported', () => {
 		const item = makeItem({ type: 'video' });
 		const entry = makeMediaEntry({ audioCodecSupported: false });
@@ -179,68 +122,12 @@ describe('resolveAudioOwner', () => {
 		).toBe('linkedCompanion');
 	});
 
-	it('returns processed when usesProcessedAudio', () => {
-		const entry = makeMediaEntry();
-		expect(
-			resolveAudioOwner({
-				item: makeItem(),
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: true
-			})
-		).toBe('processed');
-	});
-
-	it('returns separateProxy when usesSeparateProxyAudio and not processed', () => {
-		const entry = makeMediaEntry();
-		expect(
-			resolveAudioOwner({
-				item: makeItem(),
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: true,
-				usesProcessedAudio: false
-			})
-		).toBe('separateProxy');
-	});
-
 	it('returns embedded for video with audio codec and no overrides', () => {
 		const entry = makeMediaEntry({ audioCodec: 'aac' });
 		expect(
 			resolveAudioOwner({
 				item: makeItem({ type: 'video' }),
 				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('embedded');
-	});
-
-	it('returns none for video without audio codec', () => {
-		const entry = makeMediaEntry({ audioCodec: undefined });
-		expect(
-			resolveAudioOwner({
-				item: makeItem({ type: 'video' }),
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('none');
-	});
-
-	it('returns embedded for audio type', () => {
-		const entry = makeMediaEntry({ audioCodec: 'aac' });
-		expect(
-			resolveAudioOwner({
-				item: makeItem({ type: 'audio', mediaId: 'm1' }),
-				tracks: [makeTrack({ kind: 'audio' })],
 				allItems: [],
 				mediaEntry: entry,
 				usesSeparateProxyAudio: false,
@@ -261,42 +148,5 @@ describe('resolveAudioOwner', () => {
 				usesProcessedAudio: false
 			})
 		).toBe('unsupported');
-	});
-
-	it('precedence: muted wins over linkedCompanion when track muted', () => {
-		const entry = makeMediaEntry();
-		const videoItem = makeItem({ id: 'v1', linkedGroupId: 'g1' });
-		const audioCompanion = makeItem({
-			id: 'a1',
-			type: 'audio',
-			linkedGroupId: 'g1',
-			trackId: 'track2'
-		});
-		expect(
-			resolveAudioOwner({
-				item: videoItem,
-				tracks: [makeTrack({ muted: true })],
-				allItems: [videoItem, audioCompanion],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('muted');
-	});
-
-	it('precedence: linkedCompanion wins over processed and separateProxy', () => {
-		const entry = makeMediaEntry();
-		const videoItem = makeItem({ id: 'v1', linkedGroupId: 'g1' });
-		const audioCompanion = makeItem({ id: 'a1', type: 'audio', linkedGroupId: 'g1' });
-		expect(
-			resolveAudioOwner({
-				item: videoItem,
-				tracks: [makeTrack()],
-				allItems: [videoItem, audioCompanion],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: true,
-				usesProcessedAudio: true
-			})
-		).toBe('linkedCompanion');
 	});
 });

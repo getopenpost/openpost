@@ -277,7 +277,11 @@
 			queryError = '';
 			return;
 		}
-		if (activeActivityBucket === 'failed' && failedJobsInfinite.isError && !failedJobsInfinite.data) {
+		if (
+			activeActivityBucket === 'failed' &&
+			failedJobsInfinite.isError &&
+			!failedJobsInfinite.data
+		) {
 			queryError = m.activity_failed_jobs();
 			return;
 		}
@@ -644,7 +648,12 @@
 				if (retryError) {
 					throw new Error(retryError.detail || m.activity_delivery_failed());
 				}
-				if (!(await reconcileActivityPublication(operation, post.publication_id, ['failed', 'scheduled'])))
+				if (
+					!(await reconcileActivityPublication(operation, post.publication_id, [
+						'failed',
+						'scheduled'
+					]))
+				)
 					return;
 				if (actionSequence === destinationActionSequence && activityViewIsCurrent(operation)) {
 					successMessage = m.activity_retry_queued();
@@ -705,8 +714,7 @@
 							}
 							return;
 						}
-						if (!(await reconcileActivityPublication(operation, publicationID, ['failed'])))
-							return;
+						if (!(await reconcileActivityPublication(operation, publicationID, ['failed']))) return;
 						if (activityViewIsCurrent(operation)) await loadData();
 					})();
 				}
@@ -885,9 +893,7 @@
 	{/if}
 	{#if currentViewLoaded}
 		<Tabs bind:value={activeTab}>
-			<TabsList
-				class="mb-6 no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden"
-			>
+			<TabsList class="mb-6 no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden">
 				<TabsTrigger value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
 				<TabsTrigger value="published">{m.activity_tab_published()}</TabsTrigger>
 				<TabsTrigger value="failed">{m.activity_tab_failed()}</TabsTrigger>

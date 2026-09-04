@@ -79,6 +79,6 @@ export const playroomTheme: ThemeManifest = theme(
 	'Rounded classroom forms with energetic green actions.',
 	'phosphor',
 	{
-			light: playroomLight
-		}
+		light: playroomLight
+	}
 );

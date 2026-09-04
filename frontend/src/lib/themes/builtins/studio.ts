@@ -52,6 +52,6 @@ export const studioTheme: ThemeManifest = theme(
 	'Cool white space and a precise cobalt control signal.',
 	'heroicons-outline',
 	{
-			light: studioLight
-		}
+		light: studioLight
+	}
 );

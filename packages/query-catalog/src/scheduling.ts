@@ -176,18 +176,14 @@ export function publicationEventsInfiniteQueryOptions(
     queryKey,
     enabled: Boolean(workspaceId && publicationId),
     initialPageParam: "",
-    queryFn: ({
-      pageParam,
-      signal,
-    }: QueryFunctionContext<typeof queryKey, string>) =>
+    queryFn: ({ pageParam, signal }: QueryFunctionContext<typeof queryKey, string>) =>
       api.listPublicationEvents(
         workspaceId,
         publicationId,
         { limit: page.limit, cursor: pageParam },
         signal,
       ),
-    getNextPageParam: (lastPage: PublicationHistoryPageResult) =>
-      lastPage.nextCursor || undefined,
+    getNextPageParam: (lastPage: PublicationHistoryPageResult) => lastPage.nextCursor || undefined,
   };
 }
 

@@ -67,6 +67,6 @@ export const studyHallTheme: ThemeManifest = theme(
 	'Cool structured surfaces with indigo study signals.',
 	'lucide',
 	{
-			light: studyHallLight
-		}
+		light: studyHallLight
+	}
 );

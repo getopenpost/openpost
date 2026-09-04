@@ -13,12 +13,7 @@ const mobileQueryAdapters = new Set([
   "mobile/src/lib/query-api.ts",
 ]);
 
-const effectHookNames = new Set([
-  "$effect",
-  "useEffect",
-  "useLayoutEffect",
-  "useFocusEffect",
-]);
+const effectHookNames = new Set(["$effect", "useEffect", "useLayoutEffect", "useFocusEffect"]);
 
 const transportReadMethods = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "fetch"]);
 const transportReadFunctions = new Set(["fetch", "apiURL"]);
@@ -140,8 +135,7 @@ function readsInsideEffectBody(body, violations, context) {
         (ts.isFunctionExpression(node) && node.name) ||
         (ts.isVariableDeclaration(node) &&
           node.initializer &&
-          (ts.isArrowFunction(node.initializer) ||
-            ts.isFunctionExpression(node.initializer)))) &&
+          (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer)))) &&
       node !== body
     ) {
       escaped = true;

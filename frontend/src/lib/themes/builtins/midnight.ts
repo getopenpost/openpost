@@ -92,6 +92,6 @@ export const midnightTheme: ThemeManifest = theme(
 	'A dark precision instrument with a chartreuse focal signal.',
 	'phosphor',
 	{
-			dark: midnightDark
-		}
+		dark: midnightDark
+	}
 );

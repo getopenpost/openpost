@@ -7,10 +7,7 @@ import {
   failedJobsInfiniteQueryOptions,
 } from "./options";
 
-function activityPage(
-  ids: string[],
-  nextCursor = "",
-): QueryPageResult<Publication> {
+function activityPage(ids: string[], nextCursor = ""): QueryPageResult<Publication> {
   return {
     items: ids.map((id) => ({ id, workspace_id: "workspace-1" }) as Publication),
     total: ids.length,
@@ -32,10 +29,7 @@ describe("infinite publication options", () => {
       async (_workspaceId: string, _bucket: string, page: { limit: number; cursor: string }) =>
         activityPage([`post-${page.cursor || "first"}`], page.cursor ? "" : "cursor-2"),
     );
-    const api = { listActivityPublications } as Pick<
-      OpenPostQueryAPI,
-      "listActivityPublications"
-    >;
+    const api = { listActivityPublications } as Pick<OpenPostQueryAPI, "listActivityPublications">;
     const options = activityPublicationsInfiniteQueryOptions(api, "workspace-1", "scheduled", {
       limit: 40,
     });

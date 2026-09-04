@@ -76,6 +76,6 @@ export const notebookTheme: ThemeManifest = theme(
 	'Warm paper, editorial headings, and quiet blue selection.',
 	'tabler',
 	{
-			light: notebookLight
-		}
+		light: notebookLight
+	}
 );

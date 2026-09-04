@@ -73,6 +73,6 @@ export const corkboardTheme: ThemeManifest = theme(
 	'Tactile paper surfaces, moss ink, and pinned amber actions.',
 	'tabler',
 	{
-			light: corkboardLight
-		}
+		light: corkboardLight
+	}
 );

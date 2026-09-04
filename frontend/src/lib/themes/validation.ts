@@ -425,12 +425,12 @@ function hasReadableActionStates(colors: ThemeColorTokens): boolean {
 }
 
 function hasVisibleFocus(colors: ThemeColorTokens): boolean {
-	const contrastVisible = (['canvas', 'surface', 'field', 'sidebar', 'actionOrdinary'] as const).every(
-		(background) => {
-			const ratio = themeColorContrastRatio(colors.focus, colors[background], colors.canvas);
-			return ratio !== undefined && ratio >= MINIMUM_FOCUS_CONTRAST;
-		}
-	);
+	const contrastVisible = (
+		['canvas', 'surface', 'field', 'sidebar', 'actionOrdinary'] as const
+	).every((background) => {
+		const ratio = themeColorContrastRatio(colors.focus, colors[background], colors.canvas);
+		return ratio !== undefined && ratio >= MINIMUM_FOCUS_CONTRAST;
+	});
 	if (!contrastVisible) return false;
 	return (['actionFocal', 'actionFocalHover', 'actionFocalActive'] as const).every((focal) => {
 		const distance = perceptualColorDistance(colors.focus, colors[focal], colors.canvas);
@@ -444,7 +444,11 @@ const ACTION_STATE_SETS = [
 	['actionOrdinary', 'actionOrdinaryHover', 'actionOrdinaryActive'],
 	['actionQuiet', 'actionQuietHover', 'actionQuietActive'],
 	['actionDestructive', 'actionDestructiveHover', 'actionDestructiveActive']
-] as const satisfies readonly (readonly [keyof ThemeColorTokens, keyof ThemeColorTokens, keyof ThemeColorTokens])[];
+] as const satisfies readonly (readonly [
+	keyof ThemeColorTokens,
+	keyof ThemeColorTokens,
+	keyof ThemeColorTokens
+])[];
 
 function hasDistinctActionStates(colors: ThemeColorTokens): boolean {
 	for (const [base, hover, active] of ACTION_STATE_SETS) {

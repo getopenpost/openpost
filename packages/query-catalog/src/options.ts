@@ -125,8 +125,7 @@ export function activityPublicationsInfiniteQueryOptions(
       }
       return result;
     },
-    getNextPageParam: (lastPage: QueryPageResult<Publication>) =>
-      lastPage.nextCursor || undefined,
+    getNextPageParam: (lastPage: QueryPageResult<Publication>) => lastPage.nextCursor || undefined,
   };
 }
 

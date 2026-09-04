@@ -23,19 +23,20 @@ import (
 type contextKey string
 
 const (
-	UserIDKey         contextKey = "user_id"
-	EmailKey          contextKey = "email"
-	WorkspaceIDKey    contextKey = "workspace_id"
-	SessionIDKey      contextKey = "session_id"
-	TokenIDKey        contextKey = "token_id"
-	ClientIDKey       contextKey = "client_id"
-	ClientNameKey     contextKey = "client_name"
-	ScopeKey          contextKey = "scope"
-	UserAgentKey      contextKey = "user_agent"
-	ClientIPKey       contextKey = "client_ip"
-	SecureKey         contextKey = "secure_request"
-	InstallationIDKey contextKey = "external_app_installation_id"
-	errorKey          contextKey = "error"
+	UserIDKey          contextKey = "user_id"
+	EmailKey           contextKey = "email"
+	WorkspaceIDKey     contextKey = "workspace_id"
+	SessionIDKey       contextKey = "session_id"
+	TokenIDKey         contextKey = "token_id"
+	ClientIDKey        contextKey = "client_id"
+	ClientNameKey      contextKey = "client_name"
+	ScopeKey           contextKey = "scope"
+	UserAgentKey       contextKey = "user_agent"
+	ClientIPKey        contextKey = "client_ip"
+	SecureKey          contextKey = "secure_request"
+	InstallationIDKey  contextKey = "external_app_installation_id"
+	DelegatedScopesKey contextKey = "external_app_delegated_scopes"
+	errorKey           contextKey = "error"
 
 	// bearerPrefix is the canonical HTTP Authorization scheme this
 	// middleware accepts. Centralised as a const to satisfy
@@ -322,30 +323,7 @@ func AuthMiddleware(api huma.API, authenticator Authenticator) func(ctx huma.Con
 			return
 		}
 
-		ctx = huma.WithValue(ctx, UserIDKey, principal.UserID)
-		ctx = huma.WithValue(ctx, EmailKey, principal.Email)
-		if principal.WorkspaceID != "" {
-			ctx = huma.WithValue(ctx, WorkspaceIDKey, principal.WorkspaceID)
-		}
-		if principal.SessionID != "" {
-			ctx = huma.WithValue(ctx, SessionIDKey, principal.SessionID)
-		}
-		if principal.TokenID != "" {
-			ctx = huma.WithValue(ctx, TokenIDKey, principal.TokenID)
-		}
-		if principal.ClientID != "" {
-			ctx = huma.WithValue(ctx, ClientIDKey, principal.ClientID)
-		}
-		if principal.ClientName != "" {
-			ctx = huma.WithValue(ctx, ClientNameKey, principal.ClientName)
-		}
-		if principal.Scope != "" {
-			ctx = huma.WithValue(ctx, ScopeKey, principal.Scope)
-		}
-		if principal.InstallationID != "" {
-			ctx = huma.WithValue(ctx, InstallationIDKey, principal.InstallationID)
-		}
-		next(ctx)
+		next(withHumaPrincipal(ctx, principal))
 	}
 }
 
@@ -381,31 +359,32 @@ func OptionalAuthMiddleware(api huma.API, authenticator Authenticator) func(ctx 
 			return
 		}
 
-		ctx = huma.WithValue(ctx, UserIDKey, principal.UserID)
-		ctx = huma.WithValue(ctx, EmailKey, principal.Email)
-		if principal.WorkspaceID != "" {
-			ctx = huma.WithValue(ctx, WorkspaceIDKey, principal.WorkspaceID)
-		}
-		if principal.SessionID != "" {
-			ctx = huma.WithValue(ctx, SessionIDKey, principal.SessionID)
-		}
-		if principal.TokenID != "" {
-			ctx = huma.WithValue(ctx, TokenIDKey, principal.TokenID)
-		}
-		if principal.ClientID != "" {
-			ctx = huma.WithValue(ctx, ClientIDKey, principal.ClientID)
-		}
-		if principal.ClientName != "" {
-			ctx = huma.WithValue(ctx, ClientNameKey, principal.ClientName)
-		}
-		if principal.Scope != "" {
-			ctx = huma.WithValue(ctx, ScopeKey, principal.Scope)
-		}
-		if principal.InstallationID != "" {
-			ctx = huma.WithValue(ctx, InstallationIDKey, principal.InstallationID)
-		}
-		next(ctx)
+		next(withHumaPrincipal(ctx, principal))
 	}
+}
+
+func withHumaPrincipal(ctx huma.Context, principal *Principal) huma.Context {
+	ctx = huma.WithValue(ctx, UserIDKey, principal.UserID)
+	ctx = huma.WithValue(ctx, EmailKey, principal.Email)
+	values := []struct {
+		key   contextKey
+		value string
+	}{
+		{WorkspaceIDKey, principal.WorkspaceID},
+		{SessionIDKey, principal.SessionID},
+		{TokenIDKey, principal.TokenID},
+		{ClientIDKey, principal.ClientID},
+		{ClientNameKey, principal.ClientName},
+		{ScopeKey, principal.Scope},
+		{InstallationIDKey, principal.InstallationID},
+		{DelegatedScopesKey, principal.DelegatedScopes},
+	}
+	for _, value := range values {
+		if value.value != "" {
+			ctx = huma.WithValue(ctx, value.key, value.value)
+		}
+	}
+	return ctx
 }
 
 func contextOperationID(ctx huma.Context) string {
@@ -445,6 +424,13 @@ func GetTokenID(ctx context.Context) string {
 
 func GetInstallationID(ctx context.Context) string {
 	if v, ok := ctx.Value(InstallationIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func GetDelegatedScopes(ctx context.Context) string {
+	if v, ok := ctx.Value(DelegatedScopesKey).(string); ok {
 		return v
 	}
 	return ""
@@ -593,6 +579,10 @@ func AttachPrincipal(c echo.Context, principal *Principal) {
 	if principal.InstallationID != "" {
 		c.Set(string(InstallationIDKey), principal.InstallationID)
 		requestCtx = context.WithValue(requestCtx, InstallationIDKey, principal.InstallationID)
+	}
+	if principal.DelegatedScopes != "" {
+		c.Set(string(DelegatedScopesKey), principal.DelegatedScopes)
+		requestCtx = context.WithValue(requestCtx, DelegatedScopesKey, principal.DelegatedScopes)
 	}
 	c.SetRequest(c.Request().WithContext(requestCtx))
 }

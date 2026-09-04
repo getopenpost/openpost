@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS external_applications (
   revoked_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
   updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-  FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS external_app_installations (

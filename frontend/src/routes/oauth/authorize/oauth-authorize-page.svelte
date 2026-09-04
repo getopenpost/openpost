@@ -57,9 +57,12 @@
 	let externalRequestLoading = $state(false);
 	let selectedWorkspaceIDs = $state<string[]>([]);
 	let accountsByWorkspace = $state<Record<string, SocialAccount[]>>({});
+	let accountLoadingByWorkspace = $state<Record<string, boolean>>({});
+	let accountErrorByWorkspace = $state<Record<string, string>>({});
 	let selectedAccountIDs = $state<Record<string, string[]>>({});
 	let allCurrentAccounts = $state<Record<string, boolean>>({});
 	let initializedExternalSelection = false;
+	const accountLoadPromises = new Map<string, Promise<void>>();
 
 	let params = $derived({
 		response_type: $pageStore.url.searchParams.get('response_type') ?? '',
@@ -84,6 +87,14 @@
 	let isExternalApplication = $derived(scopes.some((scope) => !scope.startsWith('mcp:')));
 	let eligibleWorkspaces = $derived(
 		dependencies.workspace.workspaces.filter((workspace) => workspace.role === 'admin')
+	);
+	let externalAccountsReady = $derived(
+		selectedWorkspaceIDs.every(
+			(workspaceID) =>
+				accountsByWorkspace[workspaceID] !== undefined &&
+				accountLoadingByWorkspace[workspaceID] !== true &&
+				!accountErrorByWorkspace[workspaceID]
+		)
 	);
 
 	let clientLabel = $derived(externalApplicationName || clientDisplayName(params.client_id));
@@ -160,6 +171,12 @@
 
 		try {
 			if (isExternalApplication) {
+				if (approved) {
+					await Promise.all(selectedWorkspaceIDs.map(loadAccounts));
+					if (!selectedWorkspaceIDs.every((workspaceID) => accountsByWorkspace[workspaceID])) {
+						throw new Error(m.oauth_authorize_accounts_failed());
+					}
+				}
 				const body: components['schemas']['AuthorizeExternalApplicationInputBody'] = {
 					approved,
 					client_id: params.client_id,
@@ -247,21 +264,36 @@
 		externalRequestLoading = false;
 	}
 
-	async function loadAccounts(workspaceID: string) {
-		if (accountsByWorkspace[workspaceID]) return;
-		const { data, error: apiError } = await dependencies.get('/accounts', {
-			params: { query: { workspace_id: workspaceID } }
-		});
-		if (apiError) {
-			error = apiError.detail ?? m.oauth_authorize_accounts_failed();
-			return;
-		}
-		const accounts = (data ?? []).filter((account) => account.is_active);
-		accountsByWorkspace = { ...accountsByWorkspace, [workspaceID]: accounts };
-		selectedAccountIDs = {
-			...selectedAccountIDs,
-			[workspaceID]: accounts.map((account) => account.id)
-		};
+	function loadAccounts(workspaceID: string): Promise<void> {
+		if (accountsByWorkspace[workspaceID] !== undefined) return Promise.resolve();
+		const inFlight = accountLoadPromises.get(workspaceID);
+		if (inFlight) return inFlight;
+		accountLoadingByWorkspace = { ...accountLoadingByWorkspace, [workspaceID]: true };
+		accountErrorByWorkspace = { ...accountErrorByWorkspace, [workspaceID]: '' };
+		const request = (async () => {
+			try {
+				const { data, error: apiError } = await dependencies.get('/accounts', {
+					params: { query: { workspace_id: workspaceID } }
+				});
+				if (apiError) {
+					const message = apiError.detail ?? m.oauth_authorize_accounts_failed();
+					accountErrorByWorkspace = { ...accountErrorByWorkspace, [workspaceID]: message };
+					error = message;
+					return;
+				}
+				const accounts = (data ?? []).filter((account) => account.is_active);
+				accountsByWorkspace = { ...accountsByWorkspace, [workspaceID]: accounts };
+				selectedAccountIDs = {
+					...selectedAccountIDs,
+					[workspaceID]: accounts.map((account) => account.id)
+				};
+			} finally {
+				accountLoadingByWorkspace = { ...accountLoadingByWorkspace, [workspaceID]: false };
+				accountLoadPromises.delete(workspaceID);
+			}
+		})();
+		accountLoadPromises.set(workspaceID, request);
+		return request;
 	}
 
 	$effect(() => {
@@ -364,6 +396,11 @@
 						</Label>
 						{#if selectedWorkspaceIDs.includes(workspace.id)}
 							<div class="mt-3 space-y-2 border-t pt-3 pl-7">
+								{#if accountLoadingByWorkspace[workspace.id]}
+									<ProtectedIcon icon="loading" class="size-4 animate-spin" />
+								{:else if accountErrorByWorkspace[workspace.id]}
+									<InlineNotice tone="error" message={accountErrorByWorkspace[workspace.id]} />
+								{/if}
 								<Label class="flex items-center gap-2 text-sm font-normal">
 									<Checkbox
 										checked={allCurrentAccounts[workspace.id] === true}
@@ -422,6 +459,7 @@
 					externalRequestLoading ||
 					!!requestError ||
 					(isExternalApplication && selectedWorkspaceIDs.length === 0) ||
+					(isExternalApplication && !externalAccountsReady) ||
 					(!isExternalApplication &&
 						oauthWorkspaceScope === 'current' &&
 						!dependencies.workspace.currentWorkspace)}

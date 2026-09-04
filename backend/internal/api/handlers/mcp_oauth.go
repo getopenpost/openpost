@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -15,7 +17,10 @@ import (
 	"github.com/openpost/backend/internal/services/externalapps"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/mcpoauth"
+	"github.com/openpost/backend/internal/services/ratelimit"
 )
+
+const dynamicClientRegistrationsPerHour = 10
 
 type MCPOAuthHandler struct {
 	service       *mcpoauth.Service
@@ -23,6 +28,7 @@ type MCPOAuthHandler struct {
 	publicURL     string
 	identity      *identity.Service
 	externalApps  *externalapps.Service
+	limiter       *ratelimit.Limiter
 }
 
 func (h *MCPOAuthHandler) SetExternalApplicationService(service *externalapps.Service) {
@@ -38,6 +44,7 @@ func NewMCPOAuthHandler(service *mcpoauth.Service, authenticator middleware.Auth
 		service:       service,
 		authenticator: authenticator,
 		publicURL:     strings.TrimRight(publicURL, "/"),
+		limiter:       ratelimit.New(),
 	}
 }
 
@@ -179,10 +186,16 @@ func (h *MCPOAuthHandler) registerExternalApplication(c echo.Context) error {
 	if h.externalApps == nil || !h.externalApps.DynamicRegistrationEnabled() {
 		return h.oauthError(c, http.StatusForbidden, "access_denied", "Dynamic client registration is disabled")
 	}
+	if h.limiter == nil || !h.limiter.Allow("oauth-register:"+registrationPeerIP(c.Request()), dynamicClientRegistrationsPerHour, time.Hour) {
+		return h.oauthError(c, http.StatusTooManyRequests, "temporarily_unavailable", "Dynamic client registration is rate limited")
+	}
 	var request dynamicClientRegistrationRequest
 	decoder := json.NewDecoder(http.MaxBytesReader(c.Response().Writer, c.Request().Body, 64*1024))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
+		return h.oauthError(c, http.StatusBadRequest, "invalid_client_metadata", "Invalid client metadata")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return h.oauthError(c, http.StatusBadRequest, "invalid_client_metadata", "Invalid client metadata")
 	}
 	clientType := externalapps.ClientTypePublic
@@ -209,6 +222,20 @@ func (h *MCPOAuthHandler) registerExternalApplication(c echo.Context) error {
 		"grant_types":                []string{"authorization_code", "refresh_token"}, "response_types": []string{"code"},
 		"scope": registered.Application.AllowedScopes,
 	})
+}
+
+func registrationPeerIP(request *http.Request) string {
+	if request == nil {
+		return "unknown"
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(request.RemoteAddr))
+	if err == nil && host != "" {
+		return host
+	}
+	if host = strings.TrimSpace(request.RemoteAddr); host != "" {
+		return host
+	}
+	return "unknown"
 }
 
 func (h *MCPOAuthHandler) token(c echo.Context) error {

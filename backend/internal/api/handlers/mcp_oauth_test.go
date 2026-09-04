@@ -218,6 +218,20 @@ func TestOAuthDynamicClientRegistrationIsPolicyControlled(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Contains(t, response["client_id"], "op_app_")
 	require.Equal(t, "none", response["token_endpoint_auth_method"])
+
+	for attempt := 1; attempt < dynamicClientRegistrationsPerHour; attempt++ {
+		request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
+		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		request.Header.Set(echo.HeaderXForwardedFor, fmt.Sprintf("203.0.113.%d", attempt))
+		recorder = httptest.NewRecorder()
+		e.ServeHTTP(recorder, request)
+		require.Equal(t, http.StatusCreated, recorder.Code)
+	}
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
+	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recorder = httptest.NewRecorder()
+	e.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusTooManyRequests, recorder.Code)
 }
 
 func TestMCPOAuthDenyReturnsAccessDeniedRedirect(t *testing.T) {

@@ -24,6 +24,9 @@ func TestRecordCommitsEventWebhookDeliveryAndJobTogether(t *testing.T) {
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	for _, model := range []any{
+		(*models.User)(nil),
+		(*models.Workspace)(nil),
+		(*models.WorkspaceMember)(nil),
 		(*models.PublicationLifecycleEvent)(nil),
 		(*models.ExternalAppInstallation)(nil),
 		(*models.ExternalAppWorkspaceGrant)(nil),
@@ -34,6 +37,12 @@ func TestRecordCommitsEventWebhookDeliveryAndJobTogether(t *testing.T) {
 		require.NoError(t, err)
 	}
 	now := time.Date(2026, time.September, 4, 10, 0, 0, 0, time.UTC)
+	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "user@example.test", CreatedAt: now}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "One", CreatedAt: now}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive}).Exec(ctx)
+	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.ExternalAppInstallation{ID: "installation-1", ApplicationID: "app-1", SponsorUserID: "user-1", Scopes: "events:subscribe", TokenFamilyID: "family-1", CreatedAt: now, UpdatedAt: now}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.ExternalAppWorkspaceGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", CreatedAt: now, UpdatedAt: now}).Exec(ctx)

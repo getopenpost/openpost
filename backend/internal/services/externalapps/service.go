@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
+	"github.com/openpost/backend/internal/services/delegatedaccess"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/uptrace/bun"
 )
@@ -46,6 +47,9 @@ const (
 	accessTokenLifetime       = time.Hour
 	refreshTokenLifetime      = 90 * 24 * time.Hour
 	authorizationCodeLifetime = 10 * time.Minute
+	maxApplicationNameLength  = 120
+	maxRedirectURIs           = 10
+	maxRedirectURILength      = 2048
 )
 
 var (
@@ -130,7 +134,8 @@ func (s *Service) DynamicRegistrationEnabled() bool {
 func (s *Service) RegisterApplication(ctx context.Context, input RegisterApplicationInput) (*RegisterApplicationResult, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.CreatedByUserID = strings.TrimSpace(input.CreatedByUserID)
-	if input.Name == "" || (input.ClientType != ClientTypePublic && input.ClientType != ClientTypeConfidential) {
+	if input.Name == "" || len([]rune(input.Name)) > maxApplicationNameLength ||
+		(input.ClientType != ClientTypePublic && input.ClientType != ClientTypeConfidential) {
 		return nil, ErrInvalidRequest
 	}
 	redirects, err := normalizeRedirectURIs(input.RedirectURIs)
@@ -328,7 +333,9 @@ func (s *Service) Refresh(ctx context.Context, input RefreshInput) (*TokenResult
 		return nil, ErrInvalidGrant
 	}
 	if !current.UsedAt.IsZero() {
-		_ = s.revokeFamily(ctx, current.FamilyID, current.InstallationID)
+		if err := s.revokeFamily(ctx, current.FamilyID, current.InstallationID); err != nil {
+			return nil, err
+		}
 		return nil, ErrRefreshReplay
 	}
 	if !current.RevokedAt.IsZero() || !current.ExpiresAt.After(s.now()) {
@@ -354,7 +361,9 @@ func (s *Service) Refresh(ctx context.Context, input RefreshInput) (*TokenResult
 		return updateErr
 	})
 	if errors.Is(err, ErrRefreshReplay) {
-		_ = s.revokeFamily(ctx, current.FamilyID, current.InstallationID)
+		if revokeErr := s.revokeFamily(ctx, current.FamilyID, current.InstallationID); revokeErr != nil {
+			return nil, revokeErr
+		}
 	}
 	return result, err
 }
@@ -528,13 +537,7 @@ func (s *Service) revokeFamily(ctx context.Context, familyID, installationID str
 }
 
 func (s *Service) WorkspaceAllowed(ctx context.Context, installationID, sponsorUserID, workspaceID string) (bool, error) {
-	count, err := s.db.NewSelect().TableExpr("external_app_workspace_grants AS g").
-		Join("JOIN external_app_installations AS i ON i.id = g.installation_id").
-		Join("JOIN workspace_members AS m ON m.workspace_id = g.workspace_id AND m.user_id = i.sponsor_user_id").
-		Where("g.installation_id = ? AND g.workspace_id = ?", strings.TrimSpace(installationID), strings.TrimSpace(workspaceID)).
-		Where("i.sponsor_user_id = ? AND i.revoked_at IS NULL AND g.revoked_at IS NULL", strings.TrimSpace(sponsorUserID)).
-		Where("m.status = ? AND m.role = ?", models.WorkspaceMemberStatusActive, models.WorkspaceRoleAdmin).Count(ctx)
-	return count == 1, err
+	return delegatedaccess.WorkspaceAllowed(ctx, s.db, installationID, sponsorUserID, workspaceID)
 }
 
 func (s *Service) AccountAllowed(ctx context.Context, installationID, workspaceID, accountID string) (bool, error) {
@@ -544,10 +547,6 @@ func (s *Service) AccountAllowed(ctx context.Context, installationID, workspaceI
 			return false, nil
 		}
 		return false, err
-	}
-	if grant.AllCurrentAccounts {
-		count, err := s.db.NewSelect().Model((*models.SocialAccount)(nil)).Where("id = ? AND workspace_id = ? AND is_active = ? AND created_at <= ?", accountID, workspaceID, true, grant.CreatedAt).Count(ctx)
-		return count == 1, err
 	}
 	count, err := s.db.NewSelect().Model((*models.ExternalAppAccountGrant)(nil)).Where("installation_id = ? AND workspace_id = ? AND social_account_id = ?", installationID, workspaceID, accountID).Count(ctx)
 	return count == 1, err
@@ -576,32 +575,54 @@ func (s *Service) validateWorkspaceGrants(ctx context.Context, userID, sessionID
 			return nil, ErrInvalidRequest
 		}
 		seen[input.WorkspaceID] = struct{}{}
-		count, err := s.db.NewSelect().Model((*models.WorkspaceMember)(nil)).Where("workspace_id = ? AND user_id = ? AND role = ? AND status = ?", input.WorkspaceID, userID, models.WorkspaceRoleAdmin, models.WorkspaceMemberStatusActive).Count(ctx)
-		if err != nil || count != 1 {
-			return nil, ErrWorkspaceNotAllowed
+		validated, err := s.validateWorkspaceGrant(ctx, userID, sessionID, input)
+		if err != nil {
+			return nil, err
 		}
-		input.AccountIDs = uniqueSorted(input.AccountIDs)
-		if input.AllCurrentAccounts && len(input.AccountIDs) > 0 {
-			return nil, ErrInvalidRequest
-		}
-		if len(input.AccountIDs) > 0 {
-			count, err = s.db.NewSelect().Model((*models.SocialAccount)(nil)).Where("workspace_id = ? AND is_active = ? AND id IN (?)", input.WorkspaceID, true, bun.List(input.AccountIDs)).Count(ctx)
-			if err != nil || count != len(input.AccountIDs) {
-				return nil, ErrAccountNotAllowed
-			}
-		}
-		policy, err := identity.AuthorizeTokenCreation(ctx, s.db, userID, sessionID, input.WorkspaceID, s.now().Add(refreshTokenLifetime))
-		if err != nil || !policy.Allowed {
-			return nil, ErrWorkspaceNotAllowed
-		}
-		input.OrganizationID = policy.OrganizationID
-		input.IdentityProviderID = policy.ProviderID
-		input.AssuredAt = policy.AssuredAt
-		input.CredentialExpiresAt = policy.ExpiresAt
-		out = append(out, input)
+		out = append(out, validated)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].WorkspaceID < out[j].WorkspaceID })
 	return out, nil
+}
+
+func (s *Service) validateWorkspaceGrant(ctx context.Context, userID, sessionID string, input WorkspaceGrantInput) (WorkspaceGrantInput, error) {
+	count, err := s.db.NewSelect().Model((*models.WorkspaceMember)(nil)).Where("workspace_id = ? AND user_id = ? AND role = ? AND status = ?", input.WorkspaceID, userID, models.WorkspaceRoleAdmin, models.WorkspaceMemberStatusActive).Count(ctx)
+	if err != nil || count != 1 {
+		return WorkspaceGrantInput{}, ErrWorkspaceNotAllowed
+	}
+	input.AccountIDs = uniqueSorted(input.AccountIDs)
+	if input.AllCurrentAccounts && len(input.AccountIDs) > 0 {
+		return WorkspaceGrantInput{}, ErrInvalidRequest
+	}
+	if input.AllCurrentAccounts {
+		input.AccountIDs, err = s.activeAccountIDs(ctx, input.WorkspaceID)
+		if err != nil {
+			return WorkspaceGrantInput{}, err
+		}
+	}
+	if len(input.AccountIDs) > 0 {
+		count, err = s.db.NewSelect().Model((*models.SocialAccount)(nil)).Where("workspace_id = ? AND is_active = ? AND id IN (?)", input.WorkspaceID, true, bun.List(input.AccountIDs)).Count(ctx)
+		if err != nil || count != len(input.AccountIDs) {
+			return WorkspaceGrantInput{}, ErrAccountNotAllowed
+		}
+	}
+	policy, err := identity.AuthorizeTokenCreation(ctx, s.db, userID, sessionID, input.WorkspaceID, s.now().Add(refreshTokenLifetime))
+	if err != nil || !policy.Allowed {
+		return WorkspaceGrantInput{}, ErrWorkspaceNotAllowed
+	}
+	input.OrganizationID = policy.OrganizationID
+	input.IdentityProviderID = policy.ProviderID
+	input.AssuredAt = policy.AssuredAt
+	input.CredentialExpiresAt = policy.ExpiresAt
+	return input, nil
+}
+
+func (s *Service) activeAccountIDs(ctx context.Context, workspaceID string) ([]string, error) {
+	var accountIDs []string
+	err := s.db.NewSelect().Model((*models.SocialAccount)(nil)).Column("id").
+		Where("workspace_id = ? AND is_active = ?", workspaceID, true).
+		Order("id").Scan(ctx, &accountIDs)
+	return accountIDs, err
 }
 
 func normalizeScopes(values []string) (string, error) {
@@ -632,12 +653,12 @@ func scopeSubset(requested, allowed string) bool {
 
 func normalizeRedirectURIs(values []string) ([]string, error) {
 	values = uniqueSorted(values)
-	if len(values) == 0 {
+	if len(values) == 0 || len(values) > maxRedirectURIs {
 		return nil, ErrInvalidRequest
 	}
 	for _, value := range values {
 		parsed, err := url.Parse(value)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Fragment != "" || parsed.User != nil {
+		if err != nil || len(value) > maxRedirectURILength || parsed.Scheme != "https" || parsed.Host == "" || parsed.Fragment != "" || parsed.User != nil {
 			return nil, ErrInvalidRequest
 		}
 	}

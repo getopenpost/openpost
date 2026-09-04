@@ -146,4 +146,27 @@ describe('OAuth authorization request validation', () => {
 			})
 		});
 	});
+
+	it('blocks approval until every selected workspace account list is loaded', async () => {
+		mocks.pageValue.url = new URL(
+			'http://localhost/oauth/authorize?response_type=code&client_id=op_app_1&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&scope=workspace%3Aread+accounts%3Aread&code_challenge=challenge&code_challenge_method=S256'
+		);
+		let resolveAccounts: ((value: { data: never[]; error: undefined }) => void) | undefined;
+		mocks.get.mockImplementation(async (path) => {
+			if (path === '/external-applications/oauth/request') {
+				return { data: { application: { name: 'Workflow app' } }, error: undefined };
+			}
+			return new Promise((resolve) => {
+				resolveAccounts = resolve;
+			});
+		});
+
+		const screen = await renderAuthorizePage();
+		await expect.element(screen.getByText('Workflow app', { exact: true })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Authorize' })).toBeDisabled();
+		expect(mocks.post).not.toHaveBeenCalled();
+
+		resolveAccounts?.({ data: [], error: undefined });
+		await expect.element(screen.getByRole('button', { name: 'Authorize' })).toBeEnabled();
+	});
 });

@@ -19,7 +19,7 @@ An instance administrator opens **Settings → Instance → External application
 
 OpenPost returns the client ID and, for a confidential client, its secret. The secret is shown once. Rotating it invalidates the previous client secret. Revoking the application revokes every installation and access credential issued to it.
 
-Registration is operator-controlled by default. An operator can enable RFC 7591-style dynamic registration with `OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED=true`. When enabled, the authorization-server metadata advertises `/oauth/register`. Do not enable it unless the instance is intended to accept unreviewed clients.
+Registration is operator-controlled by default. An operator can enable RFC 7591-style dynamic registration with `OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED=true`. When enabled, the authorization-server metadata advertises `/oauth/register`. The endpoint accepts at most 10 registrations per source IP each hour, 10 redirect URLs per client, 120 characters in a client name, and 2,048 characters in each redirect URL. Do not enable it unless the instance is intended to accept unreviewed clients.
 
 ## OAuth flow
 

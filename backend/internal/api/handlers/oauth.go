@@ -2014,15 +2014,6 @@ func filterExternalAppAccounts(ctx context.Context, db *bun.DB, installationID, 
 	if err := db.NewSelect().Model(&grant).Where("installation_id = ? AND workspace_id = ? AND revoked_at IS NULL", installationID, workspaceID).Scan(ctx); err != nil {
 		return nil, err
 	}
-	if grant.AllCurrentAccounts {
-		out := make([]models.SocialAccount, 0, len(accounts))
-		for _, account := range accounts {
-			if !account.CreatedAt.After(grant.CreatedAt) {
-				out = append(out, account)
-			}
-		}
-		return out, nil
-	}
 	var rows []models.ExternalAppAccountGrant
 	if err := db.NewSelect().Model(&rows).Where("installation_id = ? AND workspace_id = ?", installationID, workspaceID).Scan(ctx); err != nil {
 		return nil, err

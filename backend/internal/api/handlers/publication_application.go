@@ -498,6 +498,25 @@ func (commands publicationApplication) updateTx(
 	); err != nil {
 		return PublicationResponse{}, err
 	}
+	eventType := lifecycle.EventDraftUpdated
+	eventMessage := "Publication draft updated"
+	switch {
+	case prepared.input.ClearSchedule:
+		eventType = lifecycle.EventCancelled
+		eventMessage = "Publication schedule cancelled"
+	case prepared.input.ScheduledAt != nil:
+		eventType = lifecycle.EventScheduleChanged
+		eventMessage = "Publication schedule changed"
+	}
+	if _, err := lifecycle.NewService(tx).Record(ctx, lifecycle.EventInput{
+		WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
+		Type: eventType, Status: lifecycle.StatusSucceeded, Message: eventMessage,
+		Metadata:       map[string]any{"revision": publication.Revision},
+		IdempotencyKey: eventType + ":" + publication.ID + ":" + fmt.Sprint(publication.Revision),
+		CreatedAt:      prepared.now,
+	}); err != nil {
+		return PublicationResponse{}, err
+	}
 	responses, err := commands.handler.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})
 	if err != nil {
 		return PublicationResponse{}, err

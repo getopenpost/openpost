@@ -27,6 +27,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/netguard"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/delegatedaccess"
 	"github.com/uptrace/bun"
 )
 
@@ -34,6 +35,7 @@ const (
 	StatusPending   = "pending"
 	StatusDelivered = "delivered"
 	StatusFailed    = "failed"
+	StatusCancelled = "cancelled"
 )
 
 var ErrInvalidSubscription = errors.New("invalid webhook subscription")
@@ -92,8 +94,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*CreateResult,
 	if len(events) == 0 {
 		return nil, ErrInvalidSubscription
 	}
-	grantCount, err := s.db.NewSelect().Model((*models.ExternalAppWorkspaceGrant)(nil)).Where("installation_id = ? AND workspace_id = ? AND revoked_at IS NULL", input.InstallationID, input.WorkspaceID).Count(ctx)
-	if err != nil || grantCount != 1 {
+	allowed, err := subscriptionGrantAllowed(ctx, s.db, input.InstallationID, input.WorkspaceID)
+	if err != nil || !allowed {
 		return nil, ErrInvalidSubscription
 	}
 	secret, err := webhookSecret()
@@ -118,7 +120,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*CreateResult,
 func (s *Service) List(ctx context.Context, installationID string) ([]models.ExternalWebhookSubscription, error) {
 	var subscriptions []models.ExternalWebhookSubscription
 	err := s.db.NewSelect().Model(&subscriptions).Where("installation_id = ?", strings.TrimSpace(installationID)).Order("created_at DESC").Scan(ctx)
-	return subscriptions, err
+	if err != nil {
+		return nil, err
+	}
+	return authorizedSubscriptions(ctx, s.db, subscriptions)
 }
 
 func (s *Service) Revoke(ctx context.Context, installationID, subscriptionID string) error {
@@ -137,20 +142,44 @@ func (s *Service) ListDeliveries(ctx context.Context, installationID string, lim
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
+	var subscriptions []models.ExternalWebhookSubscription
+	if err := s.db.NewSelect().Model(&subscriptions).Where("installation_id = ?", strings.TrimSpace(installationID)).Scan(ctx); err != nil {
+		return nil, err
+	}
+	subscriptions, err := authorizedSubscriptions(ctx, s.db, subscriptions)
+	if err != nil || len(subscriptions) == 0 {
+		return nil, err
+	}
+	ids := make([]string, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
+		ids = append(ids, subscription.ID)
+	}
 	var deliveries []models.ExternalWebhookDelivery
-	err := s.db.NewSelect().Model(&deliveries).
-		Join("JOIN external_webhook_subscriptions AS subscription ON subscription.id = external_webhook_delivery.subscription_id").
-		Where("subscription.installation_id = ?", installationID).Order("external_webhook_delivery.created_at DESC").Limit(limit).Scan(ctx)
+	err = s.db.NewSelect().Model(&deliveries).
+		Where("subscription_id IN (?)", bun.List(ids)).
+		Order("created_at DESC").Limit(limit).Scan(ctx)
 	return deliveries, err
+}
+
+func authorizedSubscriptions(ctx context.Context, db bun.IDB, subscriptions []models.ExternalWebhookSubscription) ([]models.ExternalWebhookSubscription, error) {
+	authorized := make([]models.ExternalWebhookSubscription, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
+		allowed, err := subscriptionGrantAllowed(ctx, db, subscription.InstallationID, subscription.WorkspaceID)
+		if err != nil {
+			return nil, err
+		}
+		if allowed {
+			authorized = append(authorized, subscription)
+		}
+	}
+	return authorized, nil
 }
 
 func EnqueueEvent(ctx context.Context, db bun.IDB, event models.PublicationLifecycleEvent) error {
 	var subscriptions []models.ExternalWebhookSubscription
 	if err := db.NewSelect().Model(&subscriptions).
-		Join("JOIN external_app_workspace_grants AS grant ON grant.installation_id = external_webhook_subscription.installation_id AND grant.workspace_id = external_webhook_subscription.workspace_id").
-		Join("JOIN external_app_installations AS installation ON installation.id = external_webhook_subscription.installation_id").
 		Where("external_webhook_subscription.workspace_id = ?", event.WorkspaceID).
-		Where("external_webhook_subscription.revoked_at IS NULL AND grant.revoked_at IS NULL AND installation.revoked_at IS NULL").
+		Where("external_webhook_subscription.revoked_at IS NULL").
 		Scan(ctx); err != nil {
 		if missingTable(err) {
 			return nil
@@ -170,6 +199,13 @@ func EnqueueEvent(ctx context.Context, db bun.IDB, event models.PublicationLifec
 		return err
 	}
 	for _, subscription := range subscriptions {
+		allowed, allowErr := subscriptionGrantAllowed(ctx, db, subscription.InstallationID, subscription.WorkspaceID)
+		if allowErr != nil {
+			return allowErr
+		}
+		if !allowed {
+			continue
+		}
 		if !eventSubscribed(subscription.EventTypes, event.Type) {
 			continue
 		}
@@ -216,15 +252,22 @@ func (s *Service) HandleJob(ctx context.Context, payload string) error {
 	}
 	var subscription models.ExternalWebhookSubscription
 	if err := s.db.NewSelect().Model(&subscription).
-		Join("JOIN external_app_workspace_grants AS grant ON grant.installation_id = external_webhook_subscription.installation_id AND grant.workspace_id = external_webhook_subscription.workspace_id").
-		Join("JOIN external_app_installations AS installation ON installation.id = external_webhook_subscription.installation_id").
 		Where("external_webhook_subscription.id = ?", delivery.SubscriptionID).
-		Where("external_webhook_subscription.revoked_at IS NULL AND grant.revoked_at IS NULL AND installation.revoked_at IS NULL").
 		Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
+	}
+	if !subscription.RevokedAt.IsZero() {
+		return s.cancelDelivery(ctx, delivery.ID)
+	}
+	allowed, err := subscriptionGrantAllowed(ctx, s.db, subscription.InstallationID, subscription.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return s.cancelDelivery(ctx, delivery.ID)
 	}
 	secret, err := s.encryptor.Decrypt(subscription.SecretEncrypted)
 	if err != nil {
@@ -257,6 +300,32 @@ func (s *Service) HandleJob(ctx context.Context, payload string) error {
 	now := s.now()
 	_, err = s.db.NewUpdate().Model((*models.ExternalWebhookDelivery)(nil)).Set("status = ?", StatusDelivered).Set("attempt_count = attempt_count + 1").Set("response_status = ?", response.StatusCode).Set("last_error = ''").Set("delivered_at = ?", now).Set("updated_at = ?", now).Where("id = ?", delivery.ID).Exec(ctx)
 	return err
+}
+
+func (s *Service) cancelDelivery(ctx context.Context, deliveryID string) error {
+	_, err := s.db.NewUpdate().Model((*models.ExternalWebhookDelivery)(nil)).
+		Set("status = ?", StatusCancelled).
+		Set("last_error = ?", "authorization revoked").
+		Set("updated_at = ?", s.now()).
+		Where("id = ? AND status = ?", deliveryID, StatusPending).
+		Exec(ctx)
+	return err
+}
+
+func subscriptionGrantAllowed(ctx context.Context, db bun.IDB, installationID, workspaceID string) (bool, error) {
+	var installation models.ExternalAppInstallation
+	if err := db.NewSelect().Model(&installation).
+		Where("id = ? AND revoked_at IS NULL", strings.TrimSpace(installationID)).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !slices.Contains(strings.Fields(installation.Scopes), "events:subscribe") {
+		return false, nil
+	}
+	return delegatedaccess.WorkspaceAllowed(ctx, db, installation.ID, installation.SponsorUserID, workspaceID)
 }
 
 func (s *Service) recordFailure(ctx context.Context, deliveryID string, status int, message string) {

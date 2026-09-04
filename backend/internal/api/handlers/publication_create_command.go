@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
@@ -129,6 +130,14 @@ func (command publicationApplication) persistCreateTx(
 		prepared.input.Media,
 		prepared.accounts,
 	); err != nil {
+		return PublicationResponse{}, err
+	}
+	if _, err := lifecycle.NewService(tx).Record(ctx, lifecycle.EventInput{
+		WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
+		Type: lifecycle.EventDraftCreated, Status: lifecycle.StatusSucceeded,
+		Message: "Publication draft created", IdempotencyKey: "draft-created:" + publication.ID,
+		CreatedAt: prepared.now,
+	}); err != nil {
 		return PublicationResponse{}, err
 	}
 	responses, err := command.handler.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})

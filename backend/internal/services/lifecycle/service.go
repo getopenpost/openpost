@@ -22,6 +22,12 @@ const (
 	EventFailed                 = "failed"
 	EventRetried                = "retried"
 	EventAuthorizationConfirmed = "authorization_confirmed"
+	EventDraftCreated           = "draft_created"
+	EventDraftUpdated           = "draft_updated"
+	EventScheduleChanged        = "schedule_changed"
+	EventScheduled              = "scheduled"
+	EventPublishQueued          = "publish_queued"
+	EventCancelled              = "cancelled"
 	EventCommentActionSucceeded = "comment_action_succeeded"
 	EventModerationActionFailed = "moderation_action_failed"
 

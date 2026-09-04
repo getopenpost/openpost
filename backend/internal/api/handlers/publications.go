@@ -27,6 +27,7 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/drafts"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/medialifecycle"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
@@ -452,6 +453,11 @@ func (h *PublicationHandler) createPublication(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403},
 	}, func(ctx context.Context, input *CreatePublicationInput) (*PublicationOutput, error) {
+		if input.Body.ScheduledAt != nil {
+			if err := requireExternalDelegatedScope(ctx, "publications:schedule"); err != nil {
+				return nil, err
+			}
+		}
 		userID := middleware.GetUserID(ctx)
 		if strings.TrimSpace(input.IdempotencyKey) == "" {
 			publication, err := h.publicationApplication().Create(ctx, userID, input.Body)
@@ -515,6 +521,11 @@ func (h *PublicationHandler) listPublications(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
+		for index := range page.Publications {
+			if err := h.filterExternalPublicationRenditions(ctx, &page.Publications[index]); err != nil {
+				return nil, err
+			}
+		}
 		return &PublicationListOutput{
 			TotalCount: page.TotalCount, Limit: page.Limit, Offset: page.Offset,
 			NextOffset: page.NextOffset, NextCursor: page.NextCursor, HasMore: page.HasMore,
@@ -535,6 +546,9 @@ func (h *PublicationHandler) getPublication(api huma.API) {
 	}, func(ctx context.Context, input *GetPublicationInput) (*PublicationOutput, error) {
 		resp, err := h.publicationApplication().Get(ctx, middleware.GetUserID(ctx), input.PathID)
 		if err != nil {
+			return nil, err
+		}
+		if err := h.filterExternalPublicationRenditions(ctx, &resp); err != nil {
 			return nil, err
 		}
 		return &PublicationOutput{Body: resp}, nil
@@ -578,6 +592,9 @@ func (h *PublicationHandler) listPublicationEvents(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{404},
 	}, func(ctx context.Context, input *ListPublicationEventsInput) (*PublicationEventsOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		page, err := h.publicationApplication().History(
 			ctx, middleware.GetUserID(ctx), input.PathID, input.Limit, input.Cursor,
 		)
@@ -602,6 +619,16 @@ func (h *PublicationHandler) updatePublication(api huma.API) {
 	}, func(ctx context.Context, input *UpdatePublicationInput) (*PublicationOutput, error) {
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
 			return nil, err
+		}
+		if input.Body.ScheduledAt != nil {
+			if err := requireExternalDelegatedScope(ctx, "publications:schedule"); err != nil {
+				return nil, err
+			}
+		}
+		if input.Body.ClearSchedule {
+			if err := requireExternalDelegatedScope(ctx, "publications:cancel"); err != nil {
+				return nil, err
+			}
 		}
 		userID := middleware.GetUserID(ctx)
 		if strings.TrimSpace(input.IdempotencyKey) != "" {
@@ -981,6 +1008,9 @@ func (h *PublicationHandler) validatePublication(api huma.API) {
 		Tags:        []string{tagPublications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, input *PublicationActionInput) (*PublicationValidationOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		issues, err := h.publicationApplication().Validate(ctx, middleware.GetUserID(ctx), input.PathID)
 		if err != nil {
 			return nil, err
@@ -1002,6 +1032,9 @@ func (h *PublicationHandler) schedulePublication(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, input *PublicationMutationActionInput) (*ActionOutput, error) {
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
+			return nil, err
+		}
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
 			return nil, err
 		}
 		userID := middleware.GetUserID(ctx)
@@ -1105,6 +1138,9 @@ func (h *PublicationHandler) cancelPublication(api huma.API) {
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
 			return nil, err
 		}
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		userID := middleware.GetUserID(ctx)
 		var err error
 		if strings.TrimSpace(input.IdempotencyKey) != "" {
@@ -1138,6 +1174,9 @@ func (h *PublicationHandler) publishNow(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, input *PublicationMutationActionInput) (*ActionOutput, error) {
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
+			return nil, err
+		}
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
 			return nil, err
 		}
 		userID := middleware.GetUserID(ctx)
@@ -3157,6 +3196,68 @@ func (h *PublicationHandler) loadAccounts(ctx context.Context, workspaceID strin
 	return out, nil
 }
 
+func requireExternalDelegatedScope(ctx context.Context, required string) error {
+	if middleware.GetInstallationID(ctx) == "" {
+		return nil
+	}
+	if slices.Contains(strings.Fields(middleware.GetDelegatedScopes(ctx)), required) {
+		return nil
+	}
+	return huma.Error403Forbidden("external application is missing the required permission")
+}
+
+func (h *PublicationHandler) requireExternalPublicationAccounts(ctx context.Context, publicationID string) error {
+	installationID := middleware.GetInstallationID(ctx)
+	if installationID == "" {
+		return nil
+	}
+	var accountIDs []string
+	if err := h.db.NewSelect().Model((*models.Rendition)(nil)).
+		ColumnExpr("DISTINCT social_account_id").
+		Where("publication_id = ?", publicationID).
+		Scan(ctx, &accountIDs); err != nil {
+		return huma.Error500InternalServerError("failed to validate publication account grants")
+	}
+	if len(accountIDs) == 0 {
+		return nil
+	}
+	count, err := h.db.NewSelect().Model((*models.ExternalAppAccountGrant)(nil)).
+		Where("installation_id = ? AND social_account_id IN (?)", installationID, bun.List(accountIDs)).
+		Count(ctx)
+	if err != nil {
+		return huma.Error500InternalServerError("failed to validate publication account grants")
+	}
+	if count != len(accountIDs) {
+		return huma.Error403Forbidden("external application is not granted every publication account")
+	}
+	return nil
+}
+
+func (h *PublicationHandler) filterExternalPublicationRenditions(ctx context.Context, publication *PublicationResponse) error {
+	installationID := middleware.GetInstallationID(ctx)
+	if installationID == "" || publication == nil || len(publication.Renditions) == 0 {
+		return nil
+	}
+	var grants []models.ExternalAppAccountGrant
+	if err := h.db.NewSelect().Model(&grants).
+		Where("installation_id = ? AND workspace_id = ?", installationID, publication.WorkspaceID).
+		Scan(ctx); err != nil {
+		return huma.Error500InternalServerError("failed to apply external application account grants")
+	}
+	allowed := make(map[string]struct{}, len(grants))
+	for _, grant := range grants {
+		allowed[grant.SocialAccountID] = struct{}{}
+	}
+	filtered := publication.Renditions[:0]
+	for _, rendition := range publication.Renditions {
+		if _, ok := allowed[rendition.SocialAccountID]; ok {
+			filtered = append(filtered, rendition)
+		}
+	}
+	publication.Renditions = filtered
+	return nil
+}
+
 func (h *PublicationHandler) validateMediaBelongsToWorkspace(ctx context.Context, workspaceID string, mediaIDs []string) error {
 	uniqueIDs := uniqueNonEmpty(mediaIDs)
 	if len(uniqueIDs) == 0 {
@@ -3408,6 +3509,20 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 		if _, err := tx.NewInsert().Model(event).Exec(ctx); err != nil {
 			return publicationEnqueueResult{}, err
 		}
+	}
+	eventType := lifecycle.EventPublishQueued
+	eventMessage := "Publication queued for publishing"
+	if policyMode == publicationauth.PolicyScheduled {
+		eventType = lifecycle.EventScheduled
+		eventMessage = "Publication scheduled"
+	}
+	if _, err := lifecycle.NewService(tx).Record(ctx, lifecycle.EventInput{
+		WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
+		Type: eventType, Status: lifecycle.StatusStarted, Message: eventMessage,
+		Metadata:       map[string]any{"job_id": result.JobID, "run_at": runAt.UTC().Format(time.RFC3339Nano)},
+		IdempotencyKey: eventType + ":" + result.JobID, CreatedAt: now,
+	}); err != nil {
+		return publicationEnqueueResult{}, err
 	}
 	return result, nil
 }

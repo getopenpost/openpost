@@ -78,6 +78,11 @@ func TestPublicClientAuthorizesSelectedCurrentWorkspacesAndRotatesRefreshTokens(
 	accountAllowed, err = service.AccountAllowed(ctx, authorized.InstallationID, "ws-2", "account-2")
 	require.NoError(t, err)
 	require.True(t, accountAllowed)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = ?", true).Where("id = ?", "account-inactive").Exec(ctx)
+	require.NoError(t, err)
+	accountAllowed, err = service.AccountAllowed(ctx, authorized.InstallationID, "ws-2", "account-inactive")
+	require.NoError(t, err)
+	require.False(t, accountAllowed, "all current accounts must be the exact active snapshot approved at consent")
 
 	rotated, err := service.Refresh(ctx, RefreshInput{ClientID: registered.Application.ClientID, RefreshToken: tokens.RefreshToken})
 	require.NoError(t, err)
@@ -135,6 +140,28 @@ func TestDynamicRegistrationStoresNoOperatorForeignKey(t *testing.T) {
 	require.False(t, createdBy.Valid)
 }
 
+func TestApplicationRegistrationRejectsUnboundedMetadata(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := newExternalAppsTestDB(t)
+	service := NewService(db, apitokens.NewService(db), "https://app.openpost.test")
+
+	_, err := service.RegisterApplication(ctx, RegisterApplicationInput{
+		Name: strings.Repeat("a", maxApplicationNameLength+1), ClientType: ClientTypePublic,
+		RedirectURIs: []string{"https://client.example/callback"}, AllowedScopes: []string{ScopeWorkspaceRead},
+	})
+	require.ErrorIs(t, err, ErrInvalidRequest)
+
+	redirects := make([]string, maxRedirectURIs+1)
+	for index := range redirects {
+		redirects[index] = fmt.Sprintf("https://client.example/callback/%d", index)
+	}
+	_, err = service.RegisterApplication(ctx, RegisterApplicationInput{
+		Name: "Client", ClientType: ClientTypePublic, RedirectURIs: redirects, AllowedScopes: []string{ScopeWorkspaceRead},
+	})
+	require.ErrorIs(t, err, ErrInvalidRequest)
+}
+
 func newExternalAppsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=private", strings.ReplaceAll(t.Name(), "/", "_")))
@@ -178,7 +205,10 @@ func seedExternalAppsTestData(t *testing.T, db *bun.DB) {
 	_, err = db.NewInsert().Model(&[]models.SocialAccount{
 		{ID: "account-1", WorkspaceID: "ws-1", Platform: "x", AccountID: "one", Slug: "one", AccessTokenEnc: []byte("token"), IsActive: true},
 		{ID: "account-2", WorkspaceID: "ws-2", Platform: "linkedin", AccountID: "two", Slug: "two", AccessTokenEnc: []byte("token"), IsActive: true},
+		{ID: "account-inactive", WorkspaceID: "ws-2", Platform: "x", AccountID: "inactive", Slug: "inactive", AccessTokenEnc: []byte("token"), IsActive: false},
 	}).Exec(context.Background())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = ?", false).Where("id = ?", "account-inactive").Exec(context.Background())
 	require.NoError(t, err)
 }
 

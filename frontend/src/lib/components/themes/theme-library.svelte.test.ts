@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { switchLocale } from '$lib/i18n';
-import { getBuiltInTheme } from '$lib/themes';
+import { getBuiltInTheme, type ThemeFamilyId } from '$lib/themes';
 import ThemeLibrary from './theme-library.svelte';
 import { duplicateThemeManifest } from './theme-editor-model';
-import { builtInThemeReference } from './theme-library-model';
+import { builtInManifestReference } from './theme-library-model';
 import '../../../routes/layout.css';
 
-const workshop = builtInThemeReference('workshop');
+function currentBuiltInReference(id: ThemeFamilyId) {
+	const manifest = getBuiltInTheme(id);
+	return builtInManifestReference(manifest.id, manifest.revision);
+}
+
+const workshop = currentBuiltInReference('workshop');
 
 describe('ThemeLibrary', () => {
 	afterEach(() => switchLocale('en', { reload: false }));
@@ -15,8 +20,8 @@ describe('ThemeLibrary', () => {
 	it('shows the current workspace choice and applies another built-in theme', async () => {
 		const onSelect = vi.fn();
 		const screen = render(ThemeLibrary, {
-			selectedReference: builtInThemeReference('studio'),
-			workspaceReference: builtInThemeReference('studio'),
+			selectedReference: currentBuiltInReference('studio'),
+			workspaceReference: currentBuiltInReference('studio'),
 			organizationDefaultReference: workshop,
 			canManageWorkspace: true,
 			onSelect
@@ -28,14 +33,14 @@ describe('ThemeLibrary', () => {
 		await screen.getByRole('button', { name: 'Test Notebook' }).click();
 		expect(onSelect).not.toHaveBeenCalled();
 		await screen.getByRole('button', { name: 'Apply Notebook' }).click();
-		expect(onSelect).toHaveBeenCalledWith(builtInThemeReference('notebook'));
+		expect(onSelect).toHaveBeenCalledWith(currentBuiltInReference('notebook'));
 	});
 
 	it('clears the workspace override when the organization default is chosen', async () => {
 		const onInherit = vi.fn();
 		const screen = render(ThemeLibrary, {
-			selectedReference: builtInThemeReference('studio'),
-			workspaceReference: builtInThemeReference('studio'),
+			selectedReference: currentBuiltInReference('studio'),
+			workspaceReference: currentBuiltInReference('studio'),
 			organizationDefaultReference: workshop,
 			canManageWorkspace: true,
 			onInherit
@@ -98,7 +103,7 @@ describe('ThemeLibrary', () => {
 
 		expect(onCreate).toHaveBeenCalledWith({
 			name: 'Notebook copy',
-			source: builtInThemeReference('notebook')
+			source: currentBuiltInReference('notebook')
 		});
 	});
 

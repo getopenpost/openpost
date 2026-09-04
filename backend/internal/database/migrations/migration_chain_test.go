@@ -38,6 +38,19 @@ func newMigrationsTestDB(t *testing.T) *bun.DB {
 	_, err = db.Exec("PRAGMA foreign_keys=ON")
 	require.NoError(t, err)
 
+	createMigrationBaseTables(t, db)
+
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+	return db
+}
+
+// createMigrationBaseTables mirrors production startup (CreateSchema creates
+// model tables before RunMigrations): historical migrations alter tables
+// that only exist because the base schema created them.
+func createMigrationBaseTables(t *testing.T, db *bun.DB) {
+	t.Helper()
 	modelList := []interface{}{
 		(*models.Workspace)(nil),
 		(*models.User)(nil),
@@ -53,11 +66,6 @@ func newMigrationsTestDB(t *testing.T) *bun.DB {
 		_, err := db.NewCreateTable().Model(m).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
-
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-	return db
 }
 
 func seedMigrationUser(ctx context.Context, t *testing.T, db *bun.DB) {
@@ -119,6 +127,7 @@ func TestMigrationChainAppliesCleanlyOnPostgres(t *testing.T) {
 	})
 	_, err = db.ExecContext(t.Context(), `SET search_path TO "`+schema+`"`)
 	require.NoError(t, err)
+	createMigrationBaseTables(t, db)
 
 	require.NoError(t, RunMigrations(db))
 	require.NoError(t, RunMigrations(db))

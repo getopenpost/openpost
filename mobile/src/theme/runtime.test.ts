@@ -74,7 +74,7 @@ describe("native theme runtime", () => {
     });
     const manifest = base.manifests.light!;
     const { shape: _shape, ...missingShape } = manifest;
-    const invalidManifests: Array<[string, NativeThemeManifest]> = [
+    const invalidManifests: [string, NativeThemeManifest][] = [
       ["missing shape section", missingShape as unknown as NativeThemeManifest],
       [
         "unsafe color value",

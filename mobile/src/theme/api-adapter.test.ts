@@ -84,7 +84,7 @@ describe("resolved theme API adapter", () => {
   });
 
   test("rejects invalid responses instead of returning a partial native theme", () => {
-    const invalidResponses: Array<[string, () => ReturnType<typeof resolvedThemeFixture>]> = [
+    const invalidResponses: [string, () => ReturnType<typeof resolvedThemeFixture>][] = [
       [
         "unsafe color",
         () => {

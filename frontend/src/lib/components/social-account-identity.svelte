@@ -9,6 +9,7 @@
 		avatarUrl?: string | null;
 		detail?: string;
 		size?: 'sm' | 'default' | 'lg';
+		compactOnMobile?: boolean;
 		class?: string;
 	}
 
@@ -19,6 +20,7 @@
 		avatarUrl = '',
 		detail = '',
 		size = 'default',
+		compactOnMobile = false,
 		class: className = ''
 	}: Props = $props();
 
@@ -30,7 +32,9 @@
 	{#if size === 'sm'}
 		<span class="flex min-w-0 items-baseline gap-1.5">
 			<span class="truncate font-medium">{name}</span>
-			<span data-slot="social-account-platform" class="shrink-0 text-xs text-muted-foreground"
+			<span
+				data-slot="social-account-platform"
+				class={cn('shrink-0 text-xs text-muted-foreground', compactOnMobile && 'hidden sm:inline')}
 				>· {platformName}</span
 			>
 		</span>

@@ -286,7 +286,7 @@
 	<ThemeIcon role="audio" class="mr-2 size-4 text-muted-foreground" />
 	{m.sidebar_interface_sounds()}
 </DropdownMenu.CheckboxItem>
-<LanguageSwitcher variant="menu" touchSize={showDestinations} />
+<LanguageSwitcher variant="menu" touchSize={showDestinations} inline={inlineAppearance} />
 <DropdownMenu.Item
 	class={[menuItemClass, 'gap-3']}
 	onclick={() => {

@@ -498,17 +498,16 @@
 						<div
 							data-theme-navigation-item
 							data-active={index === 0}
-							class="flex min-h-[var(--theme-touch-target)] flex-col items-center justify-center gap-1 rounded-[var(--theme-radius-sm)] px-1"
+							class="flex min-h-[var(--theme-touch-target)] items-center justify-center rounded-[var(--theme-radius-sm)] px-1"
 						>
 							{#if item.role === 'add'}
 								<span
-									class="grid size-8 place-items-center rounded-[var(--theme-radius-md,var(--radius))] bg-primary text-primary-foreground"
+									class="grid size-10 place-items-center rounded-[var(--theme-radius-md,var(--radius))] bg-primary text-primary-foreground"
 								>
-									<ThemeIcon role={item.role} class="size-4" />
+									<ThemeIcon role={item.role} class="size-6" />
 								</span>
 							{:else}
-								<ThemeIcon role={item.role} class="size-4" />
-								<span data-theme-type="label" class="max-w-full truncate">{item.label}</span>
+								<ThemeIcon role={item.role} class="size-5" />
 							{/if}
 						</div>
 					</li>
@@ -539,7 +538,7 @@
 		}
 
 		.preview-shell-content {
-			padding-bottom: var(--theme-mobile-navigation-height);
+			padding-bottom: var(--mobile-bottom-nav-height, 3.5rem);
 		}
 
 		.preview-mobile-navigation {

@@ -202,7 +202,7 @@
 	"analytics_other_accounts": "Other accounts",
 	"analytics_other_posts": "Other posts",
 	"analytics_follower_chart_legend": "Colors identify accounts and platforms. Values show net daily change.",
-	"analytics_content_chart_legend": "Colors identify the top posts. Remaining posts are grouped in gray.",
+	"analytics_content_chart_legend": "색상은 플랫폼을 나타냅니다. 활동이 적은 플랫폼은 회색으로 묶입니다.",
 	"analytics_table_post": "Post",
 	"analytics_table_platforms": "Destinations",
 	"analytics_table_published": "Published",

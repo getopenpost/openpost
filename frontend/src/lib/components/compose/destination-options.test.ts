@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { components } from '$lib/api/types';
 import {
+	composerDestinationSettings,
 	invalidateDependentDestinationSettings,
 	loadableDestinationOptionSources
 } from './destination-options';
@@ -43,6 +44,36 @@ describe('loadableDestinationOptionSources', () => {
 				)
 			])
 		).toEqual([]);
+	});
+});
+
+describe('composerDestinationSettings', () => {
+	it('keeps YouTube settings available before a compatible video is attached', () => {
+		const privacy = setting('privacy', '');
+		const title = setting('title', '');
+		const catalog = [
+			{
+				capability_revision: 'test',
+				content: {},
+				intents: ['short_video'],
+				label: 'YouTube Short',
+				media: {},
+				media_shapes: ['video'],
+				native_scheduling: false,
+				openpost_queued: true,
+				output_profile: 'youtube.short',
+				profile: 'short_video',
+				provider: 'youtube',
+				requires_app_review: false,
+				requires_public_media: false,
+				settings: [privacy, title]
+			}
+		];
+
+		expect(composerDestinationSettings('youtube', [], catalog, 'youtube.short')).toEqual([
+			privacy,
+			title
+		]);
 	});
 });
 

@@ -272,9 +272,10 @@
 	--theme-sidebar-width: 16rem;
 	--theme-header-height: 3.5rem;
 	--theme-mobile-navigation-height: 4.5rem;
+	--mobile-bottom-nav-height: 3.5rem;
 	--radius: 0.75rem;
 	--mobile-bottom-nav-clearance: calc(
-		var(--theme-mobile-navigation-height) + env(safe-area-inset-bottom)
+		var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom)
 	);
 	--background: oklch(0.985 0.002 80);
 	--foreground: oklch(0.2 0.01 50);
@@ -731,7 +732,7 @@
 	}
 
 	[data-slot='mobile-bottom-nav'] {
-		min-height: calc(var(--theme-mobile-navigation-height) + env(safe-area-inset-bottom));
+		min-height: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom));
 	}
 
 	[data-theme-disclosure] {

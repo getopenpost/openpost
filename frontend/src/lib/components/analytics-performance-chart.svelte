@@ -36,17 +36,18 @@
 	const chartWidth = $derived(margin.left + plotWidth + margin.right);
 	const barWidth = $derived(Math.max(8, Math.min(24, slotWidth - 7)));
 	const activePoint = $derived(points.find((point) => point.date === activeDate));
-	const rankedKeys = $derived.by(() => {
+	const rankedPlatforms = $derived.by(() => {
 		const totals = new Map<string, number>();
 		for (const point of points) {
 			for (const item of point.items ?? []) {
-				totals.set(item.key, (totals.get(item.key) ?? 0) + Math.abs(item.value));
+				const platform = item.platform || item.key;
+				totals.set(platform, (totals.get(platform) ?? 0) + Math.abs(item.value));
 			}
 		}
 		return [...totals.entries()]
 			.toSorted((left, right) => right[1] - left[1])
 			.slice(0, 5)
-			.map(([key]) => key);
+			.map(([platform]) => platform);
 	});
 	const domain = $derived.by(() => {
 		let highest = 0;
@@ -106,7 +107,7 @@
 	}
 
 	function segmentColor(item: DailyItem) {
-		const index = rankedKeys.indexOf(item.key);
+		const index = rankedPlatforms.indexOf(item.platform || item.key);
 		return index >= 0 ? `var(--analytics-series-${index + 1})` : 'var(--analytics-series-other)';
 	}
 
@@ -167,7 +168,7 @@
 							x={margin.left - 10}
 							y={y(tick) + 4}
 							text-anchor="end"
-							class="fill-muted-foreground text-[11px] tabular-nums"
+							class="fill-muted-foreground text-xs tabular-nums"
 						>
 							{formatValue(Math.round(tick))}
 						</text>
@@ -224,7 +225,7 @@
 									x={x(index) + barWidth / 2}
 									y={chartHeight - 9}
 									text-anchor="middle"
-									class="fill-muted-foreground text-[11px]"
+									class="fill-muted-foreground text-xs"
 								>
 									{formatDate(point.date)}
 								</text>
@@ -256,7 +257,7 @@
 										<p class="truncate text-xs font-medium">{tooltipItemLabel(item)}</p>
 										{#if item.platform}
 											<p
-												class="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"
+												class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
 												data-testid="analytics-tooltip-platform"
 											>
 												<PlatformIcon platform={item.platform} class="size-3" />

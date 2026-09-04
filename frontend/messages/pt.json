@@ -202,7 +202,7 @@
 	"analytics_other_accounts": "Outras contas",
 	"analytics_other_posts": "Outras publicações",
 	"analytics_follower_chart_legend": "As cores identificam contas e plataformas. Os valores mostram a variação diária líquida.",
-	"analytics_content_chart_legend": "As cores identificam as principais publicações. As restantes aparecem agrupadas a cinzento.",
+	"analytics_content_chart_legend": "As cores identificam as plataformas. As menos ativas aparecem agrupadas a cinzento.",
 	"analytics_table_post": "Publicação",
 	"analytics_table_platforms": "Destinos",
 	"analytics_table_published": "Publicado",

@@ -1,6 +1,7 @@
 import type { components } from '$lib/api/types';
 
 type SettingDefinition = components['schemas']['SettingDefinition'];
+type Capability = components['schemas']['Capability'];
 type SettingCondition = components['schemas']['SettingCondition'];
 type DestinationSettings = NonNullable<components['schemas']['RenditionInput']['settings']>;
 type DestinationSettingValue = SettingDefinition['default'];
@@ -13,6 +14,24 @@ export interface DestinationOption {
 export interface DestinationSettingInvalidation {
 	values: DestinationSettings;
 	optionSources: string[];
+}
+
+export function composerDestinationSettings(
+	provider: string,
+	resolvedSettings: SettingDefinition[],
+	catalog: Capability[],
+	outputProfile = ''
+): SettingDefinition[] {
+	if (resolvedSettings.length > 0) return resolvedSettings;
+
+	const providerCapabilities = catalog.filter((capability) => capability.provider === provider);
+	const matchingCapability = outputProfile
+		? providerCapabilities.find((capability) => capability.output_profile === outputProfile)
+		: providerCapabilities.length === 1
+			? providerCapabilities[0]
+			: undefined;
+
+	return matchingCapability?.settings ?? [];
 }
 
 function conditionMatches(condition: SettingCondition, values: DestinationSettings): boolean {

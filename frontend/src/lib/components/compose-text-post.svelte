@@ -117,6 +117,7 @@
 		type TargetedComposerIssue
 	} from './compose/validation';
 	import {
+		composerDestinationSettings,
 		invalidateDependentDestinationSettings,
 		loadableDestinationOptionSources,
 		mergeDestinationOptions
@@ -1336,7 +1337,13 @@
 	}
 
 	function visibleSettings(account: SocialAccount): SettingDefinition[] {
-		return (resolvedCapabilities[account.id]?.settings ?? []).filter((field) => {
+		const resolved = resolvedCapabilities[account.id];
+		return composerDestinationSettings(
+			getPlatformKey(account.platform),
+			resolved?.settings ?? [],
+			capabilities,
+			requestedOutputProfiles[account.id] || resolved?.output_profile || ''
+		).filter((field) => {
 			if (
 				['url', 'link_url', 'link_title', 'link_description'].includes(field.key) &&
 				!linkUrl.trim() &&
@@ -5795,9 +5802,10 @@
 										platform={account.platform}
 										avatarUrl={account.account_avatar_url}
 										size="sm"
+										compactOnMobile
 									/>
 									{#if destinationFormatLabel(account)}
-										<span class="text-xs text-muted-foreground"
+										<span class="hidden text-xs text-muted-foreground sm:inline"
 											>· {destinationFormatLabel(account)}</span
 										>
 									{/if}

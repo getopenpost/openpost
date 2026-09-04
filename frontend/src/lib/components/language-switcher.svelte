@@ -9,18 +9,55 @@
 		compact?: boolean;
 		variant?: 'button' | 'menu';
 		touchSize?: boolean;
+		inline?: boolean;
 	}
 
-	let { compact = false, variant = 'button', touchSize = false }: Props = $props();
+	let { compact = false, variant = 'button', touchSize = false, inline = false }: Props = $props();
 
 	let currentLocale = $derived(getCurrentLocale());
+	let expanded = $state(false);
 
 	function selectLocale(locale: Locale) {
 		switchLocale(locale);
 	}
 </script>
 
-{#if variant === 'menu'}
+{#if variant === 'menu' && inline}
+	<DropdownMenu.Item
+		class={touchSize ? 'min-h-11' : ''}
+		aria-expanded={expanded}
+		onSelect={(event) => {
+			event.preventDefault();
+			expanded = !expanded;
+		}}
+	>
+		<ThemeIcon role="language" class="mr-2 size-4 text-muted-foreground" />
+		<span>{m.language_label()}</span>
+		<span class="ml-auto text-muted-foreground">{localeLabels[currentLocale]}</span>
+		<ThemeIcon
+			role="chevron-down"
+			class={`size-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
+		/>
+	</DropdownMenu.Item>
+	{#if expanded}
+		<div
+			class="grid gap-0.5 border-l border-border/60 pl-8"
+			role="group"
+			aria-label={m.language_label()}
+		>
+			{#each locales as locale (locale)}
+				<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={() => selectLocale(locale)}>
+					<div class="flex w-full items-center justify-between gap-3">
+						<span>{localeLabels[locale]}</span>
+						{#if locale === currentLocale}
+							<ThemeIcon role="check" class="h-4 w-4 text-primary" />
+						{/if}
+					</div>
+				</DropdownMenu.Item>
+			{/each}
+		</div>
+	{/if}
+{:else if variant === 'menu'}
 	<DropdownMenu.Sub>
 		<DropdownMenu.SubTrigger class={touchSize ? 'min-h-11' : ''}>
 			<ThemeIcon role="language" class="mr-2 size-4 text-muted-foreground" />

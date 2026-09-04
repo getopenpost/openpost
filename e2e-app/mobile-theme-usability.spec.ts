@@ -51,6 +51,12 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   const newAction = navigation.getByRole("button", { name: "New" });
   await expect(newAction).toBeVisible();
   expect((await newAction.textContent())?.trim()).toBe("");
+  for (const label of ["Calendar", "Publications", "Media", "More"]) {
+    expect((await navigation.getByRole("button", { name: label }).textContent())?.trim()).toBe("");
+  }
+  const navigationBounds = await navigation.boundingBox();
+  expect(navigationBounds).not.toBeNull();
+  expect(navigationBounds!.height).toBeLessThanOrEqual(64);
 
   await navigation.getByRole("button", { name: "More" }).click();
   const menu = page.getByRole("menu").first();
@@ -70,6 +76,17 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
 
   await page.screenshot({ path: `${screenshotDirectory}/appearance-menu-dark.png` });
 
+  await menu.getByRole("menuitem", { name: /Language/ }).click();
+  const portugueseOption = page.getByRole("menuitem", {
+    name: "Português do Brasil",
+    exact: true,
+  });
+  await expect(portugueseOption).toBeVisible();
+  const languageBounds = await portugueseOption.boundingBox();
+  expect(languageBounds).not.toBeNull();
+  expect(languageBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(languageBounds!.x + languageBounds!.width).toBeLessThanOrEqual(390);
+
   await menu.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
@@ -82,4 +99,19 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).gap));
   expect(pageGap).toBeLessThanOrEqual(32);
   await page.screenshot({ path: `${screenshotDirectory}/publications-dark.png` });
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await navigation.getByRole("button", { name: "More" }).click();
+  await menu.getByRole("menuitem", { name: /Language/ }).click();
+  await expect(portugueseOption).toBeVisible();
+  const narrowLanguageBounds = await portugueseOption.boundingBox();
+  expect(narrowLanguageBounds).not.toBeNull();
+  expect(narrowLanguageBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(narrowLanguageBounds!.x + narrowLanguageBounds!.width).toBeLessThanOrEqual(320);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: `${screenshotDirectory}/language-menu-320.png` });
 });

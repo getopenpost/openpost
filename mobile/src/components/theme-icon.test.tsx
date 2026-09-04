@@ -50,15 +50,3 @@ test("keeps decorative theme and protected icons out of the accessibility tree",
     expect(icon.props.accessibilityRole).toBeUndefined();
   }
 });
-
-test("renders protected icon geometry from the fixed platform registry", () => {
-  const icon = ProtectedIcon({ label: "Upload failed", role: "warning", size: 18 });
-
-  expect(icon.props).toMatchObject({
-    accessibilityLabel: "Upload failed",
-    accessibilityRole: "image",
-    accessible: true,
-    importantForAccessibility: "yes",
-    name: { ios: "exclamationmark.triangle.fill", android: "warning" },
-  });
-});

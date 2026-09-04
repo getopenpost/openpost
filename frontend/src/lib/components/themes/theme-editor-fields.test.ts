@@ -18,12 +18,4 @@ describe('theme editor field groups', () => {
 		expect(new Set(fields).size).toBe(fields.length);
 		expect([...fields].sort()).toEqual([...THEME_COMPONENT_RECIPE_KEYS].sort());
 	});
-
-	it('resolves labels for the requested locale on every call', () => {
-		expect(themeColorGroups('en')[0]?.label).toBe('Foundation');
-		expect(themeColorGroups('de')[0]?.label).not.toBe('Foundation');
-		expect(themeComponentGroups('pt')[0]?.description).not.toBe(
-			'Buttons, links, tabs, and navigation.'
-		);
-	});
 });

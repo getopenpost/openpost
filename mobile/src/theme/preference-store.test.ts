@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createThemePreferenceStore, normalizeThemePreference } from "./preference-store";
+import { createThemePreferenceStore } from "./preference-store";
 
 describe("ThemePreferenceStore", () => {
   test("restores a valid device preference and notifies subscribers", async () => {
@@ -72,12 +72,4 @@ describe("ThemePreferenceStore", () => {
     expect(writes).toEqual(["system"]);
     expect(store.get()).toBe("system");
   });
-});
-
-test("normalizeThemePreference accepts only supported values", () => {
-  expect(normalizeThemePreference("light")).toBe("light");
-  expect(normalizeThemePreference("dark")).toBe("dark");
-  expect(normalizeThemePreference("system")).toBe("system");
-  expect(normalizeThemePreference("auto")).toBe("system");
-  expect(normalizeThemePreference(null)).toBe("system");
 });

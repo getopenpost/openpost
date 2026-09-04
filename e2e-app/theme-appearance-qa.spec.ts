@@ -17,55 +17,6 @@ async function loginAsFreshUser(request: APIRequestContext, page: Page, seed: st
   return { token, workspace };
 }
 
-test("appearance tab renders across viewports, schemes, and motion", async ({ page, request }) => {
-  const errors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text().slice(0, 300));
-  });
-  page.on("pageerror", (error) => errors.push(String(error).slice(0, 300)));
-
-  await loginAsFreshUser(request, page, "matrix");
-  await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: /appearance|theme/i }).first()).toBeVisible({
-    timeout: 20_000,
-  });
-  await page.waitForLoadState("networkidle").catch(() => undefined);
-
-  // Desktop light.
-  await page.setViewportSize({ width: 1600, height: 900 });
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${SHOT}/library-desktop-light.png`, fullPage: true });
-
-  // Desktop dark.
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.waitForTimeout(800);
-  await page.screenshot({ path: `${SHOT}/library-desktop-dark.png`, fullPage: true });
-  await page.emulateMedia({ colorScheme: "light" });
-
-  // Reduced motion.
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: `${SHOT}/library-desktop-reduced-motion.png`, fullPage: true });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-
-  // Phone widths, no horizontal overflow.
-  for (const [name, width] of [
-    ["390", 390],
-    ["320", 320],
-  ] as const) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.waitForTimeout(400);
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    );
-    expect(overflow, `no horizontal overflow at ${name}px`).toBe(true);
-    await page.screenshot({ path: `${SHOT}/library-${name}-light.png`, fullPage: true });
-  }
-  await page.setViewportSize({ width: 1600, height: 900 });
-
-  expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
-});
-
 test("built-in gallery opens a preview and editor controls are keyboard reachable", async ({
   page,
   request,

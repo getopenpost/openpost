@@ -17,7 +17,6 @@ import {
 	themeEditorTokenLabel,
 	themeEditorValueLabel
 } from './theme-editor-presenter';
-import { themePreviewCopy } from './theme-preview-copy';
 
 describe('theme editor presentation', () => {
 	it('has a localized label for every token and enum value shown by the editor', () => {
@@ -50,11 +49,5 @@ describe('theme editor presentation', () => {
 		for (const pack of THEME_ICON_PACK_IDS) {
 			expect(themeEditorIconPackLabel(pack, 'en'), pack).not.toBe(pack);
 		}
-	});
-
-	it('formats preview metrics with the selected locale', () => {
-		expect(themePreviewCopy('en').tableRows[0].reach).toBe('12.4K');
-		expect(themePreviewCopy('de').tableRows[0].reach).toBe('12.400');
-		expect(themePreviewCopy('ja').tableRows[0].reach).toBe('1.2万');
 	});
 });

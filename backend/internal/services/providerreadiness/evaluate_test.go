@@ -372,16 +372,3 @@ func hasBlocker(blockers []Blocker, code BlockerCode) bool {
 	}
 	return false
 }
-
-func refreshEvidenceContractDigests(input *EvaluationInput) {
-	digest, err := input.Contract.Digest()
-	if err != nil {
-		panic(err)
-	}
-	if input.LocalEvidence != nil {
-		input.LocalEvidence.ContractDigest = digest
-	}
-	if input.LiveEvidence != nil {
-		input.LiveEvidence.ContractDigest = digest
-	}
-}

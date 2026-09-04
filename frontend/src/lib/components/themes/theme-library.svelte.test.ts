@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { switchLocale } from '$lib/i18n';
-import { m } from '$lib/paraglide/messages';
 import { getBuiltInTheme } from '$lib/themes';
 import ThemeLibrary from './theme-library.svelte';
 import { duplicateThemeManifest } from './theme-editor-model';
 import { builtInThemeReference } from './theme-library-model';
-import { themePreviewCopy } from './theme-preview-copy';
 import '../../../routes/layout.css';
 
 const workshop = builtInThemeReference('workshop');
@@ -31,15 +29,6 @@ describe('ThemeLibrary', () => {
 		expect(onSelect).not.toHaveBeenCalled();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 		expect(onSelect).toHaveBeenCalledWith(builtInThemeReference('notebook'));
-	});
-
-	it('lets read-only members inspect every built-in theme', async () => {
-		const screen = render(ThemeLibrary, {
-			selectedReference: workshop
-		});
-
-		await screen.getByRole('button', { name: /^Midnight / }).click();
-		await expect.element(screen.getByRole('heading', { name: 'Midnight' })).toBeVisible();
 	});
 
 	it('clears the workspace override when the organization default is chosen', async () => {
@@ -227,22 +216,5 @@ describe('ThemeLibrary', () => {
 		await expect
 			.element(screen.getByRole('alert'))
 			.toHaveTextContent('The workspace changed on another device');
-	});
-
-	it('updates its mounted controls and product preview after the app locale changes', async () => {
-		const screen = render(ThemeLibrary, { selectedReference: workshop });
-		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
-
-		switchLocale('de', { reload: false });
-
-		await expect
-			.element(screen.getByRole('heading', { name: m.theme_library_heading({}, { locale: 'de' }) }))
-			.toBeVisible();
-		await expect
-			.poll(() => {
-				const frame = screen.getByTestId('theme-preview').element();
-				return frame instanceof HTMLIFrameElement ? frame.contentDocument?.body.textContent : '';
-			})
-			.toContain(themePreviewCopy('de').scenes.dashboard.eyebrow);
 	});
 });

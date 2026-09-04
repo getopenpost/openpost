@@ -66,62 +66,50 @@ describe("native theme runtime", () => {
     expect(resolved.manifest.id).toBe("workshop-light-builtin-v1");
   });
 
-  test("rejects an incomplete contract manifest before it reaches React Native", () => {
-    const contract = createBuiltinThemeContract({
+  test("falls back on invalid contract manifests before they reach React Native", () => {
+    const base = createBuiltinThemeContract({
       familyId: "studio",
-      identity: "studio@1",
+      identity: "studio@invalid",
       workspaceId: "workspace-1",
     });
-    const { shape: _shape, ...incomplete } = contract.manifests.light!;
-
-    const resolved = resolveNativeTheme({
-      contract: {
-        ...contract,
-        manifests: { light: incomplete as unknown as NativeThemeManifest },
-      },
-      preference: "light",
-      systemScheme: "light",
-      workspaceId: "workspace-1",
-    });
-
-    expect(resolved.familyId).toBe("workshop");
-    expect(resolved.source).toEqual({
-      kind: "fallback",
-      reason: "invalid-contract",
-    });
-  });
-
-  test("falls back when a complete-looking manifest has unsafe native values", () => {
-    const contract = createBuiltinThemeContract({
-      familyId: "studio",
-      identity: "studio@unsafe",
-      workspaceId: "workspace-1",
-    });
-    const manifest = contract.manifests.light!;
-
-    const resolved = resolveNativeTheme({
-      contract: {
-        ...contract,
-        manifests: {
-          light: {
-            ...manifest,
-            colors: {
-              ...manifest.colors,
-              primary: "invalid-color",
+    const manifest = base.manifests.light!;
+    const { shape: _shape, ...missingShape } = manifest;
+    const invalidManifests: Array<[string, NativeThemeManifest]> = [
+      ["missing shape section", missingShape as unknown as NativeThemeManifest],
+      [
+        "unsafe color value",
+        { ...manifest, colors: { ...manifest.colors, primary: "invalid-color" } },
+      ],
+      [
+        "font role without a matching descriptor",
+        {
+          ...manifest,
+          typography: {
+            ...manifest.typography,
+            bodyMedium: {
+              ...manifest.typography.bodyMedium,
+              fontFamily: "Example Sans",
+              fontResourceId: "missing-font",
             },
           },
         },
-      },
-      preference: "light",
-      systemScheme: "light",
-      workspaceId: "workspace-1",
-    });
+      ],
+    ];
 
-    expect(resolved.familyId).toBe("workshop");
-    expect(resolved.source).toEqual({
-      kind: "fallback",
-      reason: "invalid-contract",
-    });
+    for (const [name, invalid] of invalidManifests) {
+      const resolved = resolveNativeTheme({
+        contract: { ...base, manifests: { light: invalid } },
+        preference: "light",
+        systemScheme: "light",
+        workspaceId: "workspace-1",
+      });
+
+      expect(resolved.familyId, name).toBe("workshop");
+      expect(resolved.source, name).toEqual({
+        kind: "fallback",
+        reason: "invalid-contract",
+      });
+    }
   });
 
   test("activates a resource-backed theme only after the exact complete set is staged", () => {
@@ -277,43 +265,5 @@ describe("native theme runtime", () => {
       uri: "file:///theme/texture-1.avif",
     });
     expect(themeAssetFor(active, "empty-state-illustration")).toBeNull();
-  });
-
-  test("rejects a manifest whose custom font role is not backed by its exact descriptor", () => {
-    const base = createBuiltinThemeContract({
-      familyId: "studio",
-      identity: "studio@8",
-      workspaceId: "workspace-1",
-    });
-    const manifest = base.manifests.light!;
-    const contract = {
-      ...base,
-      manifests: {
-        light: {
-          ...manifest,
-          typography: {
-            ...manifest.typography,
-            bodyMedium: {
-              ...manifest.typography.bodyMedium,
-              fontFamily: "Example Sans",
-              fontResourceId: "missing-font",
-            },
-          },
-        },
-      },
-    };
-
-    const resolved = resolveNativeTheme({
-      contract,
-      preference: "light",
-      systemScheme: "light",
-      workspaceId: "workspace-1",
-    });
-
-    expect(resolved.source).toEqual({
-      kind: "fallback",
-      reason: "invalid-contract",
-    });
-    expect(resolved.familyId).toBe("workshop");
   });
 });

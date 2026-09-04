@@ -20,7 +20,8 @@
 		type ThemeScheme,
 		type ThemeSchemeManifest,
 		type ThemeTypographyRole,
-		type WebResolvedTheme
+		type WebResolvedTheme,
+		type WebThemeRuntime
 	} from '$lib/themes';
 	import ThemePreview, {
 		THEME_PREVIEW_SCENES,
@@ -83,6 +84,10 @@
 			resourceID: string,
 			currentDraft: ThemeManifest
 		) => ThemeManifest | Promise<ThemeManifest>;
+		// Test seam for the live preview. When omitted the preview uses the real
+		// browser runtime; tests inject stub loaders so font/asset staging does
+		// not depend on network resources the test env cannot provide.
+		runtime?: WebThemeRuntime;
 	}
 
 	let {
@@ -100,7 +105,8 @@
 		onClose,
 		onUploadFont,
 		onUploadAsset,
-		onRemoveResource
+		onRemoveResource,
+		runtime
 	}: Props = $props();
 
 	let draft = $state(untrack(() => cloneTheme(initialTheme)));
@@ -1056,6 +1062,7 @@
 					})}
 					locale={activeLocale}
 					interactive
+					{runtime}
 				/>
 				{#if previewTheme.fallbackReason}<p
 						class="rounded-[var(--theme-radius-md,var(--radius))] border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-foreground"

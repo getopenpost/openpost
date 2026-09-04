@@ -2,11 +2,11 @@
 set -euo pipefail
 
 # Bun 1.3.11 includes workspace devDependencies in a production audit. These
-# reviewed advisories are confined to the docs/dev-server, lint, i18n, and
-# Android asset-generation toolchains; none of those packages ship in the Go
-# image or static sites. Keep the exceptions explicit so every new advisory
-# still fails the release gate, and remove them as the upstream tools move to
-# patched major versions.
+# reviewed advisories are confined to the docs/dev-server, lint, i18n, n8n
+# development, and Android asset-generation toolchains; none of those packages
+# ship in the Go image, static sites, or n8n package. Keep the exceptions
+# explicit so every new advisory still fails the release gate, and remove them
+# as the upstream tools move to patched major versions.
 # The advisory endpoint occasionally times out from CI runners; retry a
 # few times before failing the gate.
 attempt=1
@@ -22,7 +22,8 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-4w7w-66w2-5vf9 \
   --ignore GHSA-fx2h-pf6j-xcff \
   --ignore GHSA-67mh-4wv8-2f99 \
-  --ignore GHSA-w5hq-g745-h8pq
+  --ignore GHSA-w5hq-g745-h8pq \
+  --ignore GHSA-528h-pc64-c93x
   then
     break
   fi

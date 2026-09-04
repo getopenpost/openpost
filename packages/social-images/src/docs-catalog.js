@@ -437,6 +437,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "development/external-applications.md",
+    "title": "External applications",
+    "description": "Register external applications, request delegated OpenPost access, exchange OAuth credentials, and receive signed publication events.",
+    "route": "/development/external-applications",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "development"
+    }
+  },
+  {
     "page": "development/frontend.md",
     "title": "Frontend",
     "description": "The frontend is a SvelteKit app using Svelte 5 runes, TailwindCSS, Paraglide for i18n, and typed API access generated from the backend OpenAPI spec.",

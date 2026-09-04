@@ -87,3 +87,27 @@ test("Video Editor sends a rendered export into a new composer", async ({ page, 
   await expect(page.locator("[data-composer-media-id]")).toHaveCount(1);
   await expect(page).toHaveURL(/\/$/u);
 });
+
+test("Video Editor project library and shell fit narrow screens", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installLocalWorkspacePicker(page);
+  await page.goto("/video-editor");
+  await page.getByRole("button", { name: "Choose folder" }).click();
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+
+  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("textbox", { name: "Project name" }).fill("Responsive review");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+});

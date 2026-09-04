@@ -6292,6 +6292,7 @@
 	"video_editor_project_sort_descending": "내림차순",
 	"video_editor_project_thumbnail_alt": "{name} 미리 보기",
 	"video_editor_project_duration": "길이 {duration}",
+	"video_editor_project_summary": "{width}×{height} · {fps} fps · {duration} · 클립 {clips}개 · 미디어 {media}개 · 문제 {issues}개",
 	"video_editor_project_trash_title": "휴지통",
 	"video_editor_project_trash_retention": "30일 후 자동 삭제",
 	"video_editor_project_trash_deleted": "{date}에 삭제됨",

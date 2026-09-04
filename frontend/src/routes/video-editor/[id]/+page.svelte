@@ -56,6 +56,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
 	import { aiCaptionService } from '$lib/video-editor/transcript/ai-caption-service.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
+	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
+	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
+	import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
 	import { conformReversePreview } from '$lib/video-editor/media/reverse-conform-service';
 	import {
 		copyColorGradeFromItem,
@@ -989,6 +992,29 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	const renderProject = $derived(activeRenderProject());
+	const projectSummary = $derived.by(() => {
+		const project = renderProject;
+		if (!project) return '';
+		return m.video_editor_project_summary({
+			width: project.metadata.width,
+			height: project.metadata.height,
+			fps: project.metadata.fps,
+			duration: formatMediaDuration(
+				outputDurationFrames(timelineStore.items) / project.metadata.fps
+			),
+			clips: timelineStore.items.length,
+			media: mediaPool.mediaList.length,
+			issues: mediaRecovery.issueCount
+		});
+	});
+
+	async function retrySave(): Promise<void> {
+		try {
+			await editorSession.saveNow();
+		} catch {
+			showToast(m.video_editor_save_failed(), 'error');
+		}
+	}
 
 	async function handleSendToOpenPost(): Promise<void> {
 		const workspaceId = workspaceCtx.currentWorkspace?.id;
@@ -1684,6 +1710,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			<span class="hidden min-w-0 truncate text-sm font-medium md:block">
 				{editorSession.project?.name}
 			</span>
+			{#if projectSummary}
+				<span
+					class="hidden min-w-0 truncate text-xs text-[var(--video-editor-muted)] tabular-nums xl:inline"
+				>
+					{projectSummary}
+				</span>
+			{/if}
 		</div>
 		<EditorWorkspaceSwitcher value={activeWorkspace} onchange={changeEditorWorkspace} />
 		<div
@@ -1692,9 +1725,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			{#if editorSession.saving}
 				<span class="hidden sm:inline">{m.video_editor_saving()}</span>
 			{:else if editorSession.saveError}
-				<span class="hidden text-destructive sm:inline" title={editorSession.saveError}>
-					{m.video_editor_save_failed()}
-				</span>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-xs"
+					class="h-7 text-destructive hover:text-destructive lg:w-auto lg:px-2"
+					aria-label={`${m.video_editor_save_failed()}. ${m.common_retry()}`}
+					title={editorSession.saveError}
+					onclick={() => void retrySave()}
+				>
+					<ThemeIcon role="refresh" class="size-3.5" />
+					<span class="hidden lg:inline">{m.video_editor_save_failed()}. {m.common_retry()}</span>
+				</Button>
 			{:else if !timelineStore.isDirty}
 				<span class="hidden sm:inline">{m.video_editor_saved()}</span>
 			{/if}

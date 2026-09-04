@@ -7,6 +7,27 @@ Owner bar is **total parity**. Engine/action code without wired UI counts as **P
 Legend: **PRESENT** (shipped, wired UI) · **PARTIAL** (engine or reduced version; UI or breadth missing)
 · **MISSING** (nothing in our tree). Effort: S/M/L. Audited 2026-08-25.
 
+## 2026-09-04 refresh
+
+FreeCut remains at revision `4d62e80`. A fresh source and rendered-interface review found no new
+applicable editing capability since this inventory closed at 173 of 173 present. The remaining
+differences were product-quality gaps rather than missing tools:
+
+- OpenPost now keeps the active resolution, frame rate, duration, timeline item count, media count,
+  and recovery issue count visible in the desktop project bar, following FreeCut's useful project
+  readout without copying its fixed visual styling.
+- A failed local save now exposes an immediate retry action in the project bar instead of leaving a
+  passive error label.
+- The project library and audio-effects rack now inherit the resolved organization theme and type
+  scale instead of carrying fixed dark colors and undersized labels.
+- The project library's hidden import controls no longer force horizontal overflow at 390 px and
+  320 px.
+- The audio-effects pan control now uses the shared editor slider, restoring the same keyboard,
+  focus, and coarse-pointer behavior as other continuous controls.
+
+The FreeCut source remains a behavior reference under its MIT license. OpenPost's local-first
+storage, organization theme, accessibility, and shared-control contracts remain authoritative.
+
 ---
 
 ## 1. Editor shell & workspaces

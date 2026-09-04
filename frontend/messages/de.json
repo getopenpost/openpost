@@ -6292,6 +6292,7 @@
 	"video_editor_project_sort_descending": "Absteigend",
 	"video_editor_project_thumbnail_alt": "Vorschau für {name}",
 	"video_editor_project_duration": "{duration} lang",
+	"video_editor_project_summary": "{width}×{height} · {fps} fps · {duration} · {clips} Clips · {media} Medien · {issues} Probleme",
 	"video_editor_project_trash_title": "Papierkorb",
 	"video_editor_project_trash_retention": "Nach 30 Tagen entfernt",
 	"video_editor_project_trash_deleted": "Gelöscht am {date}",

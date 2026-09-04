@@ -175,8 +175,10 @@ describe('editor route theme color boundary', () => {
 	it('keeps the default editor work path on semantic chrome colors', async () => {
 		const cases = [
 			{ name: 'agent-chat-panel', expected: [] },
+			{ name: 'audio-effects-panel', expected: [] },
 			{ name: 'background-panel', expected: [] },
 			{ name: 'media-pool-list', expected: [] },
+			{ name: 'project-browser', expected: [] },
 			{
 				name: 'clip-properties-panel',
 				expected: ['#000000', '#000000', '#000000', '#ffffff']
@@ -199,6 +201,13 @@ describe('editor route theme color boundary', () => {
 
 		const sourceMonitor = await readFile(videoEditorComponent('source-monitor'), 'utf8');
 		expect(sourceMonitor).toContain('data-editor-protected="source-media"');
+	});
+
+	it('keeps audio effect ranges on the shared editor slider', async () => {
+		const source = await readFile(videoEditorComponent('audio-effects-panel'), 'utf8');
+
+		expect(source).toContain('<Slider');
+		expect(source).not.toContain('type="range"');
 	});
 
 	it('uses the resolved editor palette for every video route shell', async () => {

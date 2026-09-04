@@ -6292,6 +6292,7 @@
 	"video_editor_project_sort_descending": "Décroissant",
 	"video_editor_project_thumbnail_alt": "Aperçu de {name}",
 	"video_editor_project_duration": "Durée {duration}",
+	"video_editor_project_summary": "{width}×{height} · {fps} ips · {duration} · {clips} plans · {media} médias · {issues} problèmes",
 	"video_editor_project_trash_title": "Corbeille",
 	"video_editor_project_trash_retention": "Supprimé après 30 jours",
 	"video_editor_project_trash_deleted": "Supprimé le {date}",

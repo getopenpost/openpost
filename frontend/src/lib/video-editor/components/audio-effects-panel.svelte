@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
@@ -113,12 +114,17 @@
 	}
 </script>
 
-<details {open} class="group rounded-md border border-white/10 bg-black/10">
+<details
+	{open}
+	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+>
 	<summary
-		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 	>
-		<span class="font-medium text-white/85">{m.video_editor_audio_effects_title()}</span>
-		<span class="text-[10px] text-white/45">
+		<span class="font-medium text-[var(--video-editor-text)]"
+			>{m.video_editor_audio_effects_title()}</span
+		>
+		<span class="text-xs text-[var(--video-editor-muted)]">
 			{#if effects.length === 0}
 				{m.common_none()}
 			{:else}
@@ -129,7 +135,7 @@
 			{/if}
 		</span>
 	</summary>
-	<div class="space-y-2 border-t border-white/10 p-2">
+	<div class="space-y-2 border-t border-[var(--video-editor-border)] p-2">
 		<div class="flex items-center gap-1">
 			<AppSelect
 				value=""
@@ -142,35 +148,35 @@
 				onValueChange={addEffect}
 			/>
 			{#if effects.length > 0}
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					class="h-8 px-2 text-[10px]"
-					onclick={resetAll}>{m.video_editor_audio_effects_reset()}</Button
+				<Button type="button" size="sm" variant="ghost" class="h-8 px-2 text-xs" onclick={resetAll}
+					>{m.video_editor_audio_effects_reset()}</Button
 				>
 			{/if}
 		</div>
 
 		{#if effects.length === 0}
-			<p class="rounded bg-white/[0.04] px-2 py-2 text-[11px] leading-4 text-white/55">
+			<p
+				class="rounded bg-[var(--video-editor-control)] px-2 py-2 text-xs leading-4 text-[var(--video-editor-muted)]"
+			>
 				{m.video_editor_audio_effects_empty()}
 			</p>
 		{:else}
 			<ul class="space-y-1" aria-label={m.video_editor_audio_effects_rack_aria()}>
 				{#each effects as effect, index (effect.id)}
-					<li class="rounded border border-white/8 bg-white/[0.02]">
+					<li
+						class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)]"
+					>
 						<details class="group/effect">
 							<summary
-								class="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-2 py-1 text-[11px]"
+								class="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-2 py-1 text-xs"
 							>
-								<span class="shrink-0 text-white/30" aria-hidden="true">≡</span>
-								<span class="flex-1 truncate font-medium text-white/85"
+								<span class="shrink-0 text-[var(--video-editor-muted)]" aria-hidden="true">≡</span>
+								<span class="flex-1 truncate font-medium text-[var(--video-editor-text)]"
 									>{labelFor(effect.type)}</span
 								>
 								<button
 									type="button"
-									class={`rounded px-1.5 py-0.5 text-[9px] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${effect.enabled ? 'bg-[oklch(0.66_0.14_45)] text-black' : 'bg-white/10 text-white/70'}`}
+									class={`rounded px-1.5 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${effect.enabled ? 'bg-primary text-primary-foreground' : 'bg-[var(--video-editor-control)] text-[var(--video-editor-muted)]'}`}
 									aria-pressed={effect.enabled}
 									aria-label={effect.enabled
 										? m.video_editor_audio_effects_bypass({ name: labelFor(effect.type) })
@@ -185,7 +191,7 @@
 								>
 								<button
 									type="button"
-									class="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/60 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+									class="rounded bg-[var(--video-editor-control)] px-1.5 py-0.5 text-xs text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									aria-label={m.video_editor_audio_effects_reset_effect({
 										name: labelFor(effect.type)
 									})}
@@ -196,7 +202,7 @@
 								>
 								<button
 									type="button"
-									class="rounded px-1 py-0.5 text-[11px] text-white/40 hover:text-white/80 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+									class="rounded px-1 py-0.5 text-xs text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									aria-label={m.video_editor_audio_effects_remove_effect({
 										name: labelFor(effect.type)
 									})}
@@ -206,13 +212,13 @@
 									}}>×</button
 								>
 							</summary>
-							<div class="border-t border-white/8 p-2">
+							<div class="border-t border-[var(--video-editor-border)] p-2">
 								<div class="mb-2 flex gap-1">
 									<Button
 										type="button"
 										size="sm"
 										variant="ghost"
-										class="h-6 px-1.5 text-[10px]"
+										class="h-6 px-1.5 text-xs"
 										disabled={index === 0}
 										aria-label={m.video_editor_audio_effects_move_up({
 											name: labelFor(effect.type)
@@ -223,14 +229,14 @@
 										type="button"
 										size="sm"
 										variant="ghost"
-										class="h-6 px-1.5 text-[10px]"
+										class="h-6 px-1.5 text-xs"
 										disabled={index === effects.length - 1}
 										aria-label={m.video_editor_audio_effects_move_down({
 											name: labelFor(effect.type)
 										})}
 										onclick={() => move(index, index + 1)}>↓</Button
 									>
-									<span class="ml-1 self-center text-[10px] text-white/35"
+									<span class="ml-1 self-center text-xs text-[var(--video-editor-muted)]"
 										>{m.video_editor_audio_effects_order({
 											position: index + 1,
 											total: effects.length
@@ -240,7 +246,7 @@
 
 								{#if effect.type === 'compressor'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_threshold()}
 											<Input
 												type="number"
@@ -255,7 +261,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_ratio()}
 											<Input
 												type="number"
@@ -270,7 +276,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_attack()}
 											<Input
 												type="number"
@@ -285,7 +291,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_makeup()}
 											<Input
 												type="number"
@@ -302,17 +308,17 @@
 										</label>
 									</div>
 								{:else if effect.type === 'pan'}
-									<label class="text-[10px] text-white/60"
+									<label class="text-xs text-[var(--video-editor-muted)]"
 										>{m.video_editor_audio_effects_pan_label()}
-										<Input
-											type="range"
-											class="mt-1 h-2 w-full"
+										<Slider
+											class="mt-1 w-full"
 											min={-1}
 											max={1}
 											step={0.05}
 											value={effect.pan}
-											oninput={(event) =>
-												patchEffect(effect.id, 'pan', { pan: Number(event.currentTarget.value) })}
+											ariaLabel={m.video_editor_audio_effects_pan_label()}
+											onValueChange={(pan) => patchEffect(effect.id, 'pan', { pan })}
+											onKeydown={(event) => event.stopPropagation()}
 										/>
 										<Input
 											type="number"
@@ -329,7 +335,7 @@
 									</label>
 								{:else if effect.type === 'reverb'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_decay()}
 											<Input
 												type="number"
@@ -344,7 +350,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_wet()}
 											<Input
 												type="number"
@@ -362,7 +368,7 @@
 									</div>
 								{:else if effect.type === 'delay'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_time()}
 											<Input
 												type="number"
@@ -377,7 +383,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"
@@ -392,7 +398,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_feedback()}
 											<Input
 												type="number"
@@ -410,7 +416,7 @@
 									</div>
 								{:else if effect.type === 'chorus'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
@@ -425,7 +431,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
@@ -443,7 +449,7 @@
 									</div>
 								{:else if effect.type === 'flanger'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
@@ -458,7 +464,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
@@ -476,7 +482,7 @@
 									</div>
 								{:else if effect.type === 'distortion'}
 									<div class="grid grid-cols-2 gap-1">
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_amount()}
 											<Input
 												type="number"
@@ -491,7 +497,7 @@
 													})}
 											/>
 										</label>
-										<label class="text-[10px] text-white/60"
+										<label class="text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"

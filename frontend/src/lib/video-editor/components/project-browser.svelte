@@ -323,7 +323,7 @@
 				bind:ref={jsonImportInput}
 				type="file"
 				accept="application/json,.json,.openpost.json"
-				class="sr-only"
+				class="sr-only !size-px"
 				aria-label={m.video_editor_project_import_json_label()}
 				onchange={(event) => void importFile(event, 'json')}
 			/>
@@ -331,7 +331,7 @@
 				bind:ref={bundleImportInput}
 				type="file"
 				accept="application/zip,.zip,.openpost.zip"
-				class="sr-only"
+				class="sr-only !size-px"
 				aria-label={m.video_editor_project_import_bundle_label()}
 				onchange={(event) => void importFile(event, 'bundle')}
 			/>
@@ -383,7 +383,7 @@
 
 	{#if bundleProgress && bundleOperation}
 		<div
-			class="mt-4 rounded-lg border border-[oklch(0.3_0.025_55)] bg-[oklch(0.16_0.008_55)] px-3 py-2"
+			class="mt-4 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 py-2"
 			role="status"
 			aria-live="polite"
 		>
@@ -411,7 +411,7 @@
 				</div>
 			</div>
 			<div
-				class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[oklch(0.25_0.015_55)]"
+				class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--video-editor-control)]"
 				role="progressbar"
 				aria-valuemin="0"
 				aria-valuemax="100"
@@ -421,13 +421,13 @@
 					: m.video_editor_project_bundle_exporting()}
 			>
 				<div
-					class="h-full rounded-full bg-[oklch(0.66_0.14_45)] transition-[width] motion-reduce:transition-none"
+					class="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
 					style:width={`${Math.max(0, Math.min(100, bundleProgress.percent))}%`}
 				></div>
 			</div>
 			{#if bundleProgress.currentFile}
 				<p
-					class="mt-1 truncate text-xs text-[oklch(0.65_0.015_55)]"
+					class="mt-1 truncate text-xs text-[var(--video-editor-muted)]"
 					title={bundleProgress.currentFile}
 				>
 					{bundleProgress.currentFile}
@@ -438,7 +438,7 @@
 
 	{#if showNewProject}
 		<form
-			class="mt-4 rounded-xl border border-[oklch(0.3_0.025_55)] bg-[oklch(0.16_0.008_55)] p-3"
+			class="mt-4 rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
 			onsubmit={(event) => {
 				event.preventDefault();
 				void createProject();
@@ -453,9 +453,9 @@
 						placeholder={m.video_editor_project_untitled()}
 						aria-label={m.video_editor_project_name()}
 						maxlength={100}
-						class="bg-[oklch(0.145_0.008_55)] text-[oklch(0.9_0.006_85)] placeholder:text-[oklch(0.58_0.015_55)]"
+						class="bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)]"
 					/>
-					<p class="font-normal text-[oklch(0.64_0.012_70)]">
+					<p class="font-normal text-[var(--video-editor-muted)]">
 						{m.video_editor_project_canvas_hint()}
 					</p>
 				</label>
@@ -468,11 +468,11 @@
 							{@const ratio = formatProjectAspectRatio(preset.width, preset.height)}
 							<button
 								type="button"
-								class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-								class:border-[oklch(0.66_0.14_45)]={selectedProjectPreset === preset.id}
-								class:bg-[oklch(0.22_0.025_50)]={selectedProjectPreset === preset.id}
-								class:border-[oklch(0.3_0.025_55)]={selectedProjectPreset !== preset.id}
-								class:bg-[oklch(0.145_0.008_55)]={selectedProjectPreset !== preset.id}
+								class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+								class:border-[var(--video-editor-focus)]={selectedProjectPreset === preset.id}
+								class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === preset.id}
+								class:border-[var(--video-editor-border)]={selectedProjectPreset !== preset.id}
+								class:bg-[var(--video-editor-canvas)]={selectedProjectPreset !== preset.id}
 								aria-pressed={selectedProjectPreset === preset.id}
 								aria-label={m.video_editor_project_preset_label({
 									name,
@@ -491,7 +491,7 @@
 								</span>
 								<span class="min-w-0">
 									<span class="block truncate text-xs font-medium">{name}</span>
-									<span class="block text-[10px] text-[oklch(0.64_0.012_70)]"
+									<span class="block text-xs text-[var(--video-editor-muted)]"
 										>{preset.width}×{preset.height}</span
 									>
 								</span>
@@ -499,11 +499,11 @@
 						{/each}
 						<button
 							type="button"
-							class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-							class:border-[oklch(0.66_0.14_45)]={selectedProjectPreset === 'custom'}
-							class:bg-[oklch(0.22_0.025_50)]={selectedProjectPreset === 'custom'}
-							class:border-[oklch(0.3_0.025_55)]={selectedProjectPreset !== 'custom'}
-							class:bg-[oklch(0.145_0.008_55)]={selectedProjectPreset !== 'custom'}
+							class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+							class:border-[var(--video-editor-focus)]={selectedProjectPreset === 'custom'}
+							class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === 'custom'}
+							class:border-[var(--video-editor-border)]={selectedProjectPreset !== 'custom'}
+							class:bg-[var(--video-editor-canvas)]={selectedProjectPreset !== 'custom'}
 							aria-pressed={selectedProjectPreset === 'custom'}
 							onclick={() => (selectedProjectPreset = 'custom')}
 						>
@@ -565,7 +565,7 @@
 						</Select.Root>
 					</label>
 				</div>
-				<p class="mt-1.5 text-[11px] text-[oklch(0.64_0.012_70)]">
+				<p class="mt-1.5 text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_project_canvas_limits()}
 				</p>
 			{/if}
@@ -587,13 +587,13 @@
 			<span class="sr-only">{m.video_editor_project_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[oklch(0.6_0.015_55)]"
+				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
 				id="video-editor-project-search"
 				bind:value={searchQuery}
 				placeholder={m.video_editor_project_search()}
-				class="bg-[oklch(0.16_0.008_55)] pl-9 text-[oklch(0.9_0.006_85)] placeholder:text-[oklch(0.58_0.015_55)]"
+				class="bg-[var(--video-editor-panel)] pl-9 text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)]"
 			/>
 		</label>
 		<Select.Root
@@ -603,7 +603,7 @@
 		>
 			<Select.Trigger
 				aria-label={m.video_editor_project_filter_resolution()}
-				class="w-full bg-[oklch(0.16_0.008_55)] text-[oklch(0.86_0.008_85)]"
+				class="w-full bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 			>
 				{resolutionFilter === 'all' ? m.video_editor_project_all_resolutions() : resolutionFilter}
 			</Select.Trigger>
@@ -617,7 +617,7 @@
 		<Select.Root type="single" value={fpsFilter} onValueChange={(value) => (fpsFilter = value)}>
 			<Select.Trigger
 				aria-label={m.video_editor_project_filter_fps()}
-				class="w-full bg-[oklch(0.16_0.008_55)] text-[oklch(0.86_0.008_85)]"
+				class="w-full bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 			>
 				{fpsFilter === 'all' ? m.video_editor_project_all_fps() : `${fpsFilter} fps`}
 			</Select.Trigger>
@@ -631,7 +631,7 @@
 		<Select.Root type="single" value={projectSort} onValueChange={changeProjectSort}>
 			<Select.Trigger
 				aria-label={m.video_editor_project_sort()}
-				class="w-full bg-[oklch(0.16_0.008_55)] text-[oklch(0.86_0.008_85)]"
+				class="w-full bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 			>
 				{projectSort === 'updated'
 					? m.video_editor_project_sort_updated()
@@ -651,7 +651,7 @@
 		<Button
 			variant="outline"
 			size="icon"
-			class="w-full bg-[oklch(0.16_0.008_55)] text-[oklch(0.86_0.008_85)] lg:w-auto"
+			class="w-full bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] lg:w-auto"
 			aria-label={sortDirection === 'ascending'
 				? m.video_editor_project_sort_ascending()
 				: m.video_editor_project_sort_descending()}
@@ -669,7 +669,7 @@
 	</div>
 	{#if selectedProjects.length > 0}
 		<div
-			class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[oklch(0.36_0.06_48)] bg-[oklch(0.2_0.025_48)] px-3 py-2"
+			class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--video-editor-focus)] bg-[var(--video-editor-control-hover)] px-3 py-2"
 		>
 			<span class="text-sm font-medium tabular-nums" aria-live="polite">
 				{m.video_editor_project_selected_count({ count: selectedProjects.length })}
@@ -692,11 +692,11 @@
 	{#if loading}
 		<PageLoading label={m.editors_loading()} />
 	{:else if projects.length === 0}
-		<p class="mt-10 text-center text-sm text-[oklch(0.65_0.015_55)]">
+		<p class="mt-10 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_projects_empty()}
 		</p>
 	{:else if visibleProjects.length === 0}
-		<p class="mt-10 text-center text-sm text-[oklch(0.65_0.015_55)]">
+		<p class="mt-10 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_projects_no_match()}
 		</p>
 	{:else}
@@ -706,11 +706,11 @@
 					<ContextMenu.Root>
 						<ContextMenu.Trigger>
 							<div
-								class={`group relative overflow-hidden rounded-xl border bg-[oklch(0.2_0.01_50)] transition-[border-color,transform] active:scale-[0.995] motion-reduce:transition-none ${selectedIds.has(project.id) ? 'border-[oklch(0.66_0.14_45)]' : 'border-[oklch(0.25_0.015_55)] hover:border-[oklch(0.38_0.025_55)]'}`}
+								class={`group relative overflow-hidden rounded-xl border bg-[var(--video-editor-panel)] transition-[border-color,transform] active:scale-[0.995] motion-reduce:transition-none ${selectedIds.has(project.id) ? 'border-[var(--video-editor-focus)]' : 'border-[var(--video-editor-border)] hover:border-[var(--video-editor-focus)]'}`}
 							>
 								<button
 									type="button"
-									class="absolute top-2 left-2 z-10 flex size-11 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)] data-[selected=true]:border-[oklch(0.72_0.15_50)] data-[selected=true]:bg-[oklch(0.58_0.14_45)] data-[selected=true]:opacity-100"
+									class="absolute top-2 left-2 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:border-[var(--video-editor-focus)] data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:opacity-100"
 									data-selected={selectedIds.has(project.id)}
 									role="checkbox"
 									aria-checked={selectedIds.has(project.id)}
@@ -728,11 +728,11 @@
 								</button>
 								<button
 									type="button"
-									class="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[oklch(0.66_0.14_45)]"
+									class="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--video-editor-focus)]"
 									onclick={() => onopen(project)}
 								>
 									<span
-										class="relative block aspect-video overflow-hidden bg-[oklch(0.13_0.008_55)]"
+										class="relative block aspect-video overflow-hidden bg-[var(--video-editor-canvas)]"
 									>
 										{#if thumbnailUrls[project.id]}
 											<img
@@ -745,13 +745,13 @@
 											/>
 										{:else}
 											<span
-												class="flex size-full items-center justify-center text-[oklch(0.48_0.015_55)]"
+												class="flex size-full items-center justify-center text-[var(--video-editor-muted)]"
 											>
 												<ProtectedIcon icon="play" class="size-11" />
 											</span>
 										{/if}
 										<span
-											class="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											class="absolute right-2 bottom-2 rounded bg-[var(--video-editor-panel)] px-1.5 py-0.5 text-xs font-medium text-[var(--video-editor-text)]"
 										>
 											{projectAspectRatio(project)}
 										</span>
@@ -759,12 +759,14 @@
 									<span class="block p-4 pr-12">
 										<span class="block truncate font-medium">{project.name}</span>
 										{#if project.description.trim()}
-											<span class="mt-1 line-clamp-2 block text-xs text-[oklch(0.67_0.015_55)]">
+											<span
+												class="mt-1 line-clamp-2 block text-xs text-[var(--video-editor-muted)]"
+											>
 												{project.description}
 											</span>
 										{/if}
 										<span
-											class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-[oklch(0.68_0.015_55)]"
+											class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-[var(--video-editor-muted)]"
 										>
 											<span>{projectResolution(project)}</span>
 											<span>{project.metadata.fps} fps</span>
@@ -774,12 +776,14 @@
 												})}</span
 											>
 										</span>
-										<span class="mt-2 block text-xs text-[oklch(0.58_0.015_55)]">
+										<span class="mt-2 block text-xs text-[var(--video-editor-muted)]">
 											{new Date(project.updatedAt).toLocaleDateString()}
 										</span>
 									</span>
 								</button>
-								<div class="absolute top-2 right-2 rounded-md bg-black/55 backdrop-blur-sm">
+								<div
+									class="absolute top-2 right-2 rounded-md bg-[var(--video-editor-panel)] backdrop-blur-sm"
+								>
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger>
 											{#snippet child({ props })}
@@ -849,7 +853,7 @@
 											</DropdownMenu.Item>
 											<DropdownMenu.Separator />
 											<DropdownMenu.Item
-												class="text-red-300 focus:text-red-200"
+												class="text-destructive focus:text-destructive"
 												onclick={() => confirmDelete(project)}
 											>
 												<ThemeIcon role="delete" class="size-4" />
@@ -905,7 +909,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<button
 					type="button"
-					class="flex min-h-11 items-center gap-2 rounded-md text-sm text-[oklch(0.68_0.015_55)] hover:text-[oklch(0.92_0.005_85)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					class="flex min-h-11 items-center gap-2 rounded-md text-sm text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
 					aria-expanded={trashOpen}
 					aria-controls="video-editor-trash-list"
 					onclick={() => (trashOpen = !trashOpen)}
@@ -918,7 +922,9 @@
 					<span id="video-editor-trash-title" class="font-medium">
 						{m.video_editor_project_trash_title()}
 					</span>
-					<span class="rounded-full bg-[oklch(0.24_0.012_55)] px-2 py-0.5 text-xs tabular-nums">
+					<span
+						class="rounded-full bg-[var(--video-editor-control)] px-2 py-0.5 text-xs tabular-nums"
+					>
 						{trashedProjects.length}
 					</span>
 					{#if !trashOpen}
@@ -931,7 +937,7 @@
 					<Button
 						variant="outline"
 						size="sm"
-						class="text-red-300 hover:text-red-200"
+						class="text-destructive hover:text-destructive"
 						disabled={emptyingTrash || trashBusyId !== null}
 						onclick={() => confirmPurge('all')}
 					>
@@ -952,16 +958,16 @@
 			{#if trashOpen}
 				<ul
 					id="video-editor-trash-list"
-					class="mt-3 divide-y divide-[oklch(0.27_0.014_55)] overflow-hidden rounded-lg border border-[oklch(0.27_0.014_55)]"
+					class="mt-3 divide-y divide-[var(--video-editor-border)] overflow-hidden rounded-lg border border-[var(--video-editor-border)]"
 					role="list"
 				>
 					{#each trashedProjects as entry (entry.id)}
 						<li
-							class="flex flex-col gap-3 bg-[oklch(0.18_0.009_50)] p-3 sm:flex-row sm:items-center"
+							class="flex flex-col gap-3 bg-[var(--video-editor-panel)] p-3 sm:flex-row sm:items-center"
 						>
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-medium">{entry.marker.originalName}</p>
-								<p class="mt-0.5 text-xs text-[oklch(0.62_0.015_55)]">
+								<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 									{m.video_editor_project_trash_deleted({
 										date: new Date(entry.marker.deletedAt).toLocaleDateString()
 									})}
@@ -987,7 +993,7 @@
 								<Button
 									variant="ghost"
 									size="sm"
-									class="text-red-300 hover:text-red-200"
+									class="text-destructive hover:text-destructive"
 									disabled={trashBusyId !== null || emptyingTrash}
 									onclick={() => confirmPurge(entry)}
 								>

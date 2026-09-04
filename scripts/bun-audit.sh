@@ -7,7 +7,11 @@ set -euo pipefail
 # image or static sites. Keep the exceptions explicit so every new advisory
 # still fails the release gate, and remove them as the upstream tools move to
 # patched major versions.
-bun audit --prod --audit-level low \
+# The advisory endpoint occasionally times out from CI runners; retry a
+# few times before failing the gate.
+attempt=1
+while [ "$attempt" -le 3 ]; do
+  if bun audit --prod --audit-level low \
   --ignore GHSA-3ppc-4f35-3m26 \
   --ignore GHSA-7r86-cg39-jmmj \
   --ignore GHSA-23c5-xmqv-rm74 \
@@ -19,3 +23,10 @@ bun audit --prod --audit-level low \
   --ignore GHSA-fx2h-pf6j-xcff \
   --ignore GHSA-67mh-4wv8-2f99 \
   --ignore GHSA-w5hq-g745-h8pq
+  then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 15
+done
+[ "$attempt" -le 3 ]

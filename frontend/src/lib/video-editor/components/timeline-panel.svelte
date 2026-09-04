@@ -4965,8 +4965,8 @@
 
 <div class="flex size-full min-h-0 flex-col">
 	<div class="flex max-w-full min-w-0 shrink-0 items-center gap-2 overflow-x-auto px-3 py-1">
-		<span class="text-xs text-[oklch(0.65_0.015_55)]">{m.video_editor_timeline()}</span>
-		<div class="flex items-center gap-0.5 border-l border-[oklch(0.25_0.015_55)] pl-2">
+		<span class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_timeline()}</span>
+		<div class="flex items-center gap-0.5 border-l border-[var(--video-editor-border)] pl-2">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -4981,7 +4981,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-7 rounded data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.16)] data-[active=true]:text-[oklch(0.76_0.14_45)]"
+				class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
 				data-active={timelineStore.snapEnabled}
 				aria-pressed={timelineStore.snapEnabled}
 				aria-label={timelineStore.snapEnabled
@@ -5108,7 +5108,9 @@
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
-				<span class="mr-2 max-w-40 truncate rounded bg-[oklch(0.22_0.01_50)] px-2 py-0.5 text-xs">
+				<span
+					class="mr-2 max-w-40 truncate rounded bg-[var(--video-editor-control)] px-2 py-0.5 text-xs"
+				>
 					{selectedItemIds.length > 1
 						? m.video_editor_items_selected({ count: selectedItemIds.length })
 						: selectedItem.label}
@@ -5116,7 +5118,7 @@
 				<Button
 					variant="ghost"
 					size="icon"
-					class="size-7 rounded data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.16)] data-[active=true]:text-[oklch(0.76_0.14_45)]"
+					class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
 					data-active={keyframesOpen}
 					aria-pressed={keyframesOpen}
 					aria-label={m.video_editor_keyframes()}
@@ -5135,14 +5137,14 @@
 					/>
 					<button
 						type="button"
-						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 						onclick={() => addKeyframeAtPlayhead(pendingKeyframeProperty)}
 						><ProtectedIcon icon="editor-keyframe" class="size-2.5 fill-current" />
 						{m.video_editor_keyframe_add()}</button
 					>
 					<button
 						type="button"
-						class="rounded px-1.5 py-0.5 text-xs font-semibold text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] data-[active=true]:bg-[oklch(0.66_0.14_45)] data-[active=true]:text-black [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						class="rounded px-1.5 py-0.5 text-xs font-semibold text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] data-[active=true]:bg-[var(--video-editor-primary)] data-[active=true]:text-[var(--video-editor-primary-text)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 						data-active={selectedItem
 							? autoKeyframeStore.isEnabled(selectedItem.id, pendingKeyframeProperty)
 							: false}
@@ -5158,7 +5160,7 @@
 					>
 					<button
 						type="button"
-						class="rounded px-1 py-0.5 text-xs hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						class="rounded px-1 py-0.5 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 						disabled={clearableKeyframeCount === 0}
 						aria-label={m.video_editor_clear_keyframes_toolbar()}
 						title={m.video_editor_clear_keyframes_toolbar_hint()}
@@ -5178,7 +5180,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-7 rounded data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.16)] data-[active=true]:text-[oklch(0.76_0.14_45)]"
+				class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
 				data-active={beatPanelOpen}
 				aria-pressed={beatPanelOpen}
 				aria-label={m.video_editor_beat_panel_title()}
@@ -5190,7 +5192,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-7 rounded data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.16)] data-[active=true]:text-[oklch(0.76_0.14_45)]"
+				class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
 				data-active={mixerOpen}
 				aria-pressed={mixerOpen}
 				aria-label={m.video_editor_mixer_toggle()}
@@ -5201,7 +5203,7 @@
 			</Button>
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 				aria-label={m.video_editor_zoom_out()}
 				title={m.video_editor_zoom_out_hint()}
 				onclick={() => zoomBy(1 / TIMELINE_ZOOM_STEP)}
@@ -5219,7 +5221,7 @@
 			/>
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 				aria-label={m.video_editor_zoom_in()}
 				title={m.video_editor_zoom_in_hint()}
 				onclick={() => zoomBy(TIMELINE_ZOOM_STEP)}
@@ -5228,7 +5230,7 @@
 			</button>
 			<button
 				type="button"
-				class="min-w-10 rounded px-1 py-0.5 font-mono text-xs text-[oklch(0.7_0.015_55)] tabular-nums hover:bg-[oklch(0.22_0.01_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="min-w-10 rounded px-1 py-0.5 font-mono text-xs text-[var(--video-editor-muted)] tabular-nums hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 				aria-label={m.video_editor_zoom_100()}
 				title={m.video_editor_zoom_100_hint()}
 				onclick={zoomTo100}
@@ -5237,7 +5239,7 @@
 			</button>
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 				aria-label={m.video_editor_zoom_fit()}
 				title={m.video_editor_zoom_fit_hint()}
 				onclick={zoomToFit}
@@ -5298,16 +5300,18 @@
 
 	{#if selectedMarker}
 		<div
-			class="flex min-h-9 max-w-full items-center gap-2 overflow-x-auto border-t border-[oklch(0.25_0.015_55)] px-3 py-1 text-xs"
+			class="flex min-h-9 max-w-full items-center gap-2 overflow-x-auto border-t border-[var(--video-editor-border)] px-3 py-1 text-xs"
 		>
 			<span style={`color:${selectedMarker.color}`} class="inline-flex shrink-0">
 				<ProtectedIcon icon="editor-marker" class="size-3.5" />
 			</span>
-			<span class="shrink-0 font-medium text-white/85">{markerName(selectedMarker)}</span>
-			<label class="flex items-center gap-1 text-[oklch(0.65_0.015_55)]">
+			<span class="shrink-0 font-medium text-[var(--video-editor-text)]"
+				>{markerName(selectedMarker)}</span
+			>
+			<label class="flex items-center gap-1 text-[var(--video-editor-muted)]">
 				{m.video_editor_marker_label()}
 				<Input
-					class="h-7 w-44 rounded border border-[oklch(0.3_0.01_55)] bg-[oklch(0.2_0.008_55)] px-2 text-white outline-none focus:border-[oklch(0.66_0.14_45)]"
+					class="h-7 w-44 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
 					value={markerLabelDraft}
 					oninput={(event) => (markerLabelDraft = event.currentTarget.value)}
 					onblur={() => commitMarkerPatch(selectedMarker, { label: markerLabelDraft.trim() })}
@@ -5320,10 +5324,10 @@
 					}}
 				/>
 			</label>
-			<label class="flex items-center gap-1 text-[oklch(0.65_0.015_55)]">
+			<label class="flex items-center gap-1 text-[var(--video-editor-muted)]">
 				{m.video_editor_marker_frame()}
 				<Input
-					class="h-7 w-20 rounded border border-[oklch(0.3_0.01_55)] bg-[oklch(0.2_0.008_55)] px-2 font-mono text-white outline-none focus:border-[oklch(0.66_0.14_45)]"
+					class="h-7 w-20 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 font-mono text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
 					type="number"
 					aria-label={m.video_editor_marker_frame()}
 					min="0"
@@ -5349,7 +5353,7 @@
 							{...props}
 							variant="ghost"
 							size="icon"
-							class="size-7 rounded border border-[oklch(0.3_0.01_55)]"
+							class="size-7 rounded border border-[var(--video-editor-border)]"
 							aria-label={m.video_editor_marker_color()}
 						>
 							<span
@@ -5362,7 +5366,7 @@
 				<DropdownMenu.Content class="video-editor-theme w-48 p-2" align="start">
 					<div class="flex items-center gap-2 px-1 pb-2 text-xs text-[var(--video-editor-muted)]">
 						<Input
-							class="size-7 cursor-pointer rounded border border-[oklch(0.3_0.01_55)] bg-transparent p-0.5"
+							class="size-7 cursor-pointer rounded border border-[var(--video-editor-border)] bg-transparent p-0.5"
 							type="color"
 							aria-label={m.video_editor_marker_color()}
 							value={markerColorForInput(selectedMarker.color)}
@@ -5374,7 +5378,7 @@
 						{m.video_editor_marker_color()}
 					</div>
 					<div
-						class="grid grid-cols-6 gap-1 border-t border-[oklch(0.28_0.014_55)] pt-2"
+						class="grid grid-cols-6 gap-1 border-t border-[var(--video-editor-border)] pt-2"
 						role="group"
 						aria-label={m.video_editor_marker_color()}
 					>
@@ -5461,7 +5465,7 @@
 					onpointermove={rememberTimelinePointer}
 					onpointerleave={forgetTimelinePointer}
 					onwheel={onTimelineWheel}
-					class="editor-protected-surface relative min-h-24 flex-1 overflow-auto pb-2"
+					class="editor-protected-surface relative min-h-24 flex-1 overflow-auto bg-[var(--timeline-track)] pb-2"
 					data-editor-protected="timeline"
 					role="region"
 					aria-label={m.video_editor_timeline()}
@@ -5491,7 +5495,7 @@
 						{/if}
 						<!-- Ruler -->
 						<div
-							class="sticky top-0 z-20 h-6 cursor-ew-resize touch-none border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="sticky top-0 z-20 h-6 cursor-ew-resize touch-none border-b border-[var(--video-editor-border)] bg-[var(--timeline-track)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--video-editor-focus)]"
 							role="slider"
 							tabindex="0"
 							aria-label={m.video_editor_playhead()}
@@ -5503,12 +5507,12 @@
 							onpointerdown={startRulerScrub}
 						>
 							<div
-								class="sticky left-0 z-30 h-full border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55)]"
+								class="sticky left-0 z-30 h-full border-r border-[var(--video-editor-border)] bg-[var(--timeline-track)]"
 								style="width:{TRACK_HEADER_WIDTH}px"
 							></div>
 							{#each rulerTicks() as tick (tick)}
 								<span
-									class="absolute bottom-0 border-l border-[oklch(0.3_0.01_55)] pl-1 font-mono text-xs text-[oklch(0.65_0.015_55)]"
+									class="absolute bottom-0 border-l border-[var(--video-editor-border)] pl-1 font-mono text-xs text-[var(--video-editor-muted)]"
 									style="left:{timelineX(tick)}px"
 								>
 									{tickLabel(tick)}
@@ -5561,11 +5565,11 @@
 							{@const renderPlan = timelineRenderPlan(track.id)}
 							{@const trackTransitions = visibleTransitionsForTrack(track.id, renderPlan)}
 							<div
-								class="relative border-b border-[oklch(0.22_0.01_50)] {resolvedTrack.visible ===
+								class="relative border-b border-[var(--video-editor-border)] {resolvedTrack.visible ===
 									false ||
 								(track.kind === 'audio' && resolvedTrack.muted)
-									? 'bg-[oklch(0.13_0.006_55)]'
-									: ''} {track.isGroup ? 'z-[31] bg-[oklch(0.18_0.012_55)]' : ''}"
+									? 'bg-[var(--video-editor-control)]'
+									: ''} {track.isGroup ? 'z-[31] bg-[var(--video-editor-control-hover)]' : ''}"
 								style="height:{track.height}px"
 								data-track={track.id}
 								role="group"
@@ -6114,7 +6118,7 @@
 						<!-- Keyframe dopesheet for the selected clip -->
 						{#if selectedItem && keyframesOpen}
 							<div
-								class="relative bg-[oklch(0.145_0.008_55)]"
+								class="relative bg-[var(--timeline-track)]"
 								role="group"
 								aria-label={m.video_editor_keyframe_view()}
 								data-keyframe-shortcuts
@@ -6148,7 +6152,7 @@
 								/>
 								{#if selectedKeyframe && selectedKeyframeIndex >= 0}
 									<div
-										class="flex min-h-10 flex-wrap items-center gap-2 border-t border-[oklch(0.25_0.015_55)] px-2 py-1 text-xs"
+										class="flex min-h-10 flex-wrap items-center gap-2 border-t border-[var(--video-editor-border)] px-2 py-1 text-xs"
 									>
 										<span class="font-medium capitalize"
 											>{keyframeLabel(selectedKeyframe.property)}</span
@@ -6172,7 +6176,7 @@
 											/>
 											{#each BEZIER_KEYS as key (key)}<label
 													>{key}<Input
-														class="ml-0.5 w-14 rounded bg-[oklch(0.22_0.01_50)] px-1 py-0.5"
+														class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
 														type="number"
 														step="0.01"
 														min={key === 'x1' || key === 'x2' ? 0 : -2}
@@ -6185,7 +6189,7 @@
 										{:else if selectedEasing === 'spring'}
 											{#each SPRING_KEYS as key (key)}<label
 													>{key}<Input
-														class="ml-0.5 w-14 rounded bg-[oklch(0.22_0.01_50)] px-1 py-0.5"
+														class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
 														type="number"
 														step={key === 'tension' || key === 'friction' ? 1 : 0.1}
 														min={key === 'tension' || key === 'friction' ? 1 : 0.1}
@@ -6198,7 +6202,7 @@
 										{/if}
 										{#if selectedEasing === 'cubic-bezier' || selectedEasing === 'spring'}
 											<div
-												class="flex items-center gap-1 border-l border-[oklch(0.28_0.012_55)] pl-2"
+												class="flex items-center gap-1 border-l border-[var(--video-editor-border)] pl-2"
 											>
 												<AppSelect
 													class="h-7 w-32 text-xs"
@@ -6208,7 +6212,7 @@
 													onValueChange={applyCustomPreset}
 												/>
 												<Input
-													class="h-7 w-28 rounded bg-[oklch(0.22_0.01_50)] px-1"
+													class="h-7 w-28 rounded bg-[var(--video-editor-field)] px-1 text-[var(--video-editor-field-text)]"
 													value={customPresetName}
 													placeholder={suggestedPresetName}
 													aria-label={m.video_editor_keyframe_preset_name()}
@@ -6216,7 +6220,7 @@
 												/>
 												<button
 													type="button"
-													class="h-7 rounded border border-[oklch(0.32_0.015_55)] px-2 font-medium hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+													class="h-7 rounded border border-[var(--video-editor-border)] px-2 font-medium hover:bg-[var(--video-editor-control-hover)] disabled:opacity-35 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 													disabled={!customPresetName.trim()}
 													onclick={saveCustomPreset}>{m.video_editor_keyframe_preset_save()}</button
 												>

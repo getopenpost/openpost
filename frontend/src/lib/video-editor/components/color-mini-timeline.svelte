@@ -407,23 +407,23 @@
 </script>
 
 <section
-	class="h-[212px] shrink-0 overflow-hidden border-y border-[oklch(0.25_0.015_55)] bg-[#24252b]"
+	class="h-[212px] shrink-0 overflow-hidden border-y border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_timeline_navigator()}
 	data-color-mini-timeline
 >
 	<div
-		class="flex h-[92px] shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-black/45 px-1 pt-1 pb-2"
+		class="flex h-[92px] shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-[var(--video-editor-border)] px-1 pt-1 pb-2"
 	>
 		{#each visualItems as item, index (item.id)}
 			{@const grade = gradeTileByItem[item.id]}
 			{@const gradedUrl = gradedThumbnailUrls[item.id]}
 			<button
 				type="button"
-				class="group grid h-20 w-[118px] shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[#17181d] text-left shadow-sm transition-colors {selectedIds.has(
+				class="group grid h-20 w-[118px] shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[var(--timeline-track)] text-left shadow-sm transition-colors {selectedIds.has(
 					item.id
 				)
-					? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.65)]'
-					: 'border-zinc-700 hover:border-zinc-500'}"
+					? 'border-[var(--video-editor-focus-border)] ring-1 ring-[var(--video-editor-focus)]'
+					: 'border-[var(--video-editor-border)] hover:border-[var(--video-editor-focus-border)]'}"
 				aria-pressed={selectedIds.has(item.id)}
 				aria-label={`${item.label}, ${formatTimelinePreviewTimecode(item.from, timelineStore.fps)}`}
 				onpointerdown={(event) => {
@@ -437,19 +437,19 @@
 				title={item.label}
 			>
 				<span
-					class="flex min-w-0 items-center gap-1 border-b border-black/40 bg-[#24252b] px-1.5 text-[10px] font-semibold text-zinc-200"
+					class="flex min-w-0 items-center gap-1 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1.5 text-[10px] font-semibold text-[var(--video-editor-text)]"
 				>
 					<span
 						class="rounded-[2px] border px-1 leading-3 {selectedIds.has(item.id)
 							? 'border-lime-300/80 bg-indigo-700 text-lime-200'
-							: 'border-indigo-400/70 bg-zinc-800 text-zinc-200'}"
+							: 'border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]'}"
 					>
 						{String(index + 1).padStart(2, '0')}
 					</span>
 					<span class="font-mono"
 						>{formatTimelinePreviewTimecode(item.from, timelineStore.fps).slice(0, 8)}</span
 					>
-					<span class="ml-auto truncate text-[9px] text-zinc-400"
+					<span class="ml-auto truncate text-[9px] text-[var(--video-editor-muted)]"
 						>{trackNameById.get(item.trackId) || 'V1'}</span
 					>
 				</span>
@@ -488,20 +488,22 @@
 				</span>
 
 				<span
-					class="truncate border-t border-black/40 bg-[#202127] px-1.5 text-[10px] font-medium text-zinc-300"
+					class="truncate border-t border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1.5 text-[10px] font-medium text-[var(--video-editor-text)]"
 				>
 					{item.label}
 				</span>
 			</button>
 		{:else}
-			<p class="flex min-w-full items-center justify-center px-3 text-xs text-white/45">
+			<p
+				class="flex min-w-full items-center justify-center px-3 text-xs text-[var(--video-editor-muted)]"
+			>
 				{m.video_editor_no_media()}
 			</p>
 		{/each}
 	</div>
 
 	<div
-		class="relative h-[120px] cursor-ew-resize touch-none overflow-hidden bg-[#1d1e23] outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-inset"
+		class="relative h-[120px] cursor-ew-resize touch-none overflow-hidden bg-[var(--timeline-track)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)] focus-visible:ring-inset"
 		role="group"
 		aria-label={m.video_editor_timeline_navigator()}
 		onpointerdown={startScrub}
@@ -510,9 +512,11 @@
 		onpointercancel={cancelScrub}
 		data-color-timeline-scrub
 	>
-		<div class="relative h-[14px] border-b border-black/45 bg-[#202127]">
+		<div
+			class="relative h-[14px] border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+		>
 			<div
-				class="absolute inset-y-0 left-0 flex w-11 items-center justify-center border-r border-black/40 font-mono text-[9px] text-white/45"
+				class="absolute inset-y-0 left-0 flex w-11 items-center justify-center border-r border-[var(--video-editor-border)] font-mono text-[9px] text-[var(--video-editor-muted)]"
 			>
 				I/O
 			</div>
@@ -529,11 +533,11 @@
 			</div>
 		</div>
 
-		<div class="relative h-5 border-b border-black/45">
+		<div class="relative h-5 border-b border-[var(--video-editor-border)]">
 			<div class="absolute inset-y-0 right-0" style={`left:${LABEL_WIDTH}px`}>
 				{#each RULER_RATIOS as ratio}
 					<span
-						class="absolute top-0 h-full border-l border-white/20 pt-1 pl-1 font-mono text-[8px] text-white/40 first:text-white/55"
+						class="absolute top-0 h-full border-l border-[var(--video-editor-border)] pt-1 pl-1 font-mono text-[8px] text-[var(--video-editor-muted)] first:text-[var(--video-editor-text)]"
 						style={`left:${ratio * 100}%`}
 					>
 						{formatClock(Math.round(ratio * maxFrame))}
@@ -546,11 +550,11 @@
 			<div class="relative h-[86px]">
 				{#each visualTracks as track, index (track.id)}
 					<div
-						class="absolute right-0 left-0 border-b border-white/[0.07]"
+						class="absolute right-0 left-0 border-b border-[var(--video-editor-border)]"
 						style={`top:${index * trackRowHeight}px;height:${trackRowHeight}px`}
 					>
 						<span
-							class="absolute inset-y-0 left-0 flex w-8 items-center justify-center truncate border-r border-black/40 px-1 text-[9px] font-semibold text-zinc-400"
+							class="absolute inset-y-0 left-0 flex w-8 items-center justify-center truncate border-r border-[var(--video-editor-border)] px-1 text-[9px] font-semibold text-[var(--video-editor-muted)]"
 						>
 							{track.name}
 						</span>

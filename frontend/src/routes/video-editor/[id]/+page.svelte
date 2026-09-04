@@ -2179,13 +2179,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{/if}
 
 					<div
-						class="flex min-h-0 w-full min-w-0 flex-1 bg-[oklch(0.205_0.008_55)] {activeWorkspace ===
+						class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 						'edit'
 							? 'lg:col-start-2 lg:row-start-1'
 							: ''}"
 					>
 						<div
-							class="min-h-0 min-w-0 flex-1 bg-[oklch(0.205_0.008_55)] {activeWorkspace === 'color'
+							class="min-h-0 min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
+							'color'
 								? 'flex flex-col lg:flex-row'
 								: showSourceMonitor
 									? 'flex flex-col xl:flex-row'
@@ -2223,7 +2224,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							<section
 								id="video-editor-program-panel"
 								data-video-preview
-								class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] flex min-w-0 flex-1 flex-col bg-[oklch(0.205_0.008_55)]"
+								class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] flex min-w-0 flex-1 flex-col bg-[var(--video-editor-canvas)]"
 							>
 								{#if showSourceMonitor}
 									<div
@@ -2252,7 +2253,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							</section>
 							{#if activeWorkspace === 'color'}
 								<aside
-									class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[oklch(0.135_0.007_55)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
+									class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
 									style:--scopes-panel-width={`${effectiveScopesPanelWidth}px`}
 									aria-label={m.video_editor_scopes()}
 								>
@@ -2561,7 +2562,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				{/if}
 				{#if activeWorkspace !== 'color'}
 					<footer
-						class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[oklch(0.145_0.008_55)] {activeWorkspace ===
+						class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
 						'edit'
 							? 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
 							: 'lg:h-[var(--timeline-height)]'}"
@@ -2586,7 +2587,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<div class="flex min-h-0 flex-1 flex-col">
 							{#if activeWorkspace === 'motion' && !activeMotionComposition}
 								<div
-									class="h-full bg-[oklch(0.145_0.008_55)]"
+									class="h-full bg-[var(--video-editor-canvas)]"
 									data-motion-timeline-empty
 									aria-hidden="true"
 								></div>

@@ -101,6 +101,37 @@ describe('built-in themes', () => {
 		expect(BUILT_IN_THEMES).toEqual(canonicalBuiltIns);
 	});
 
+	it('keeps protected editor surfaces visually aligned with the active scheme', () => {
+		const lightEditor = resolveBuiltInTheme('workshop', 'light').manifest.protectedEditor;
+		const darkEditor = resolveBuiltInTheme('workshop', 'dark').manifest.protectedEditor;
+		const lightness = (color: string) =>
+			Number(color.match(/^oklch\((?<value>[\d.]+)/)?.groups?.value);
+
+		for (const surface of [
+			lightEditor.editorCanvas,
+			lightEditor.editorPanel,
+			lightEditor.editorControl,
+			lightEditor.timelineTrack,
+			lightEditor.canvasPasteboard
+		]) {
+			expect(lightness(surface), surface).toBeGreaterThan(0.8);
+		}
+		expect(lightness(lightEditor.editorText)).toBeLessThan(0.35);
+		expect(lightness(lightEditor.protectedGlyph)).toBeLessThan(0.35);
+
+		for (const surface of [
+			darkEditor.editorCanvas,
+			darkEditor.editorPanel,
+			darkEditor.editorControl,
+			darkEditor.timelineTrack,
+			darkEditor.canvasPasteboard
+		]) {
+			expect(lightness(surface), surface).toBeLessThan(0.35);
+		}
+		expect(lightness(darkEditor.editorText)).toBeGreaterThan(0.8);
+		expect(lightness(darkEditor.protectedGlyph)).toBeGreaterThan(0.8);
+	});
+
 	it('uses pill actions for the reference families that specify them', () => {
 		for (const id of ['apple', 'calcom', 'firecrawl', 'quizlet', 'supabase'] as const) {
 			const theme = getBuiltInTheme(id);

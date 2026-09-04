@@ -144,6 +144,7 @@ Organization themes are versioned visual documents. They may control semantic co
 - Published revisions and built-in versions are complete and immutable. Drafts may be incomplete while editing, but runtime output may not.
 - Web and native consume the same resolved semantic contract through platform renderers. Neither client reconstructs organization defaults, workspace overrides, locks, revisions, or fallback.
 - Workspace name, avatar, and color remain workspace identity. Provider marks, the Converge mark, status meaning, media, and specialized editor glyphs retain their protected colors or geometry.
+- Protected editor roles follow the active light or dark scheme. Protection preserves contrast, signal meaning, and authored output. It does not force dark chrome inside a light theme.
 - Uploaded fonts are local static WOFF2 resources. The backend derives a validated TTF or OTF copy for native clients. Remote font and asset URLs are not theme values.
 - Theme application is atomic. Fonts, icons, assets, and tokens are staged before one complete presentation replaces the prior workspace presentation.
 

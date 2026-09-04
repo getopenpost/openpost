@@ -23,13 +23,13 @@
 </script>
 
 <section
-	class="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[oklch(0.205_0.008_55)] p-6"
+	class="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[var(--video-editor-canvas)] p-6 text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_workspace_motion()}
 	data-motion-preview-empty
 >
 	<div class="flex max-w-sm flex-col items-center text-center">
 		<div
-			class="mb-3 flex size-10 items-center justify-center rounded-lg border border-[oklch(0.31_0.018_55)] bg-[oklch(0.17_0.01_55)] text-[var(--video-editor-focus)] shadow-sm"
+			class="mb-3 flex size-10 items-center justify-center rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] text-[var(--video-editor-focus)] shadow-sm"
 		>
 			<ProtectedIcon icon="editor-animation" class="size-5" />
 		</div>

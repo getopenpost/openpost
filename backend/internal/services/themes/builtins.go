@@ -86,7 +86,7 @@ func protectedEditorTokens(scheme ColorScheme) ThemeProtectedEditorTokens {
 	if scheme == SchemeDark {
 		return ThemeProtectedEditorTokens{"oklch(0.12 0.006 55)", "oklch(0.18 0.008 55)", "oklch(0.22 0.01 55)", "oklch(0.27 0.012 55)", "oklch(0.29 0.01 55)", "oklch(0.7 0.01 75)", "oklch(0.94 0.004 85)", "oklch(0.72 0.16 45)", "oklch(0.52 0.09 45)", "oklch(0.16 0.008 55)", "oklch(0.3 0.04 250)", "oklch(0.76 0.04 245)", "oklch(0.72 0.16 45)", "oklch(0.38 0.08 45)", "oklch(0.1 0.005 55)", "oklch(0.25 0.01 55)", "oklch(0.98 0 0)", "oklch(0.72 0.16 45)", "oklch(0.8 0.03 245 / 0.72)", "oklch(0.94 0.004 85)"}
 	}
-	return ThemeProtectedEditorTokens{"oklch(0.15 0.006 55)", "oklch(0.2 0.008 55)", "oklch(0.24 0.01 55)", "oklch(0.29 0.012 55)", "oklch(0.32 0.01 55)", "oklch(0.7 0.01 75)", "oklch(0.94 0.004 85)", "oklch(0.65 0.15 45)", "oklch(0.5 0.09 45)", "oklch(0.18 0.008 55)", "oklch(0.31 0.04 250)", "oklch(0.74 0.04 245)", "oklch(0.65 0.15 45)", "oklch(0.36 0.07 45)", "oklch(0.12 0.006 55)", "oklch(0.28 0.01 55)", "oklch(0.98 0 0)", "oklch(0.65 0.15 45)", "oklch(0.78 0.03 245 / 0.72)", "oklch(0.94 0.004 85)"}
+	return ThemeProtectedEditorTokens{"oklch(0.965 0.004 80)", "oklch(0.985 0.003 85)", "oklch(0.925 0.006 75)", "oklch(0.89 0.008 70)", "oklch(0.82 0.008 70)", "oklch(0.43 0.015 55)", "oklch(0.2 0.01 50)", "oklch(0.55 0.155 45)", "oklch(0.47 0.11 45)", "oklch(0.93 0.005 75)", "oklch(0.62 0.08 250)", "oklch(0.3 0.05 245)", "oklch(0.55 0.155 45)", "oklch(0.86 0.045 45)", "oklch(0.9 0.006 75)", "oklch(0.72 0.01 65)", "oklch(0.2 0.01 50)", "oklch(0.55 0.155 45)", "oklch(0.43 0.08 245 / 0.72)", "oklch(0.2 0.01 50)"}
 }
 
 func family(id, name, description string, iconPack IconPack, schemes ThemeSchemes) ThemeManifest {

@@ -518,7 +518,7 @@ describe('WebThemeRuntime', () => {
 		expect(await runtime.apply(selected, scope)).toBe(true);
 		expect(scope.getAttribute('data-theme-id')).toBe('workshop');
 		expect(scope.getAttribute('data-theme-fallback')).toBe('invalid-manifest');
-		expect(scope.properties.get('--timeline-waveform')).toBe('oklch(0.74 0.04 245)');
+		expect(scope.properties.get('--timeline-waveform')).toBe('oklch(0.3 0.05 245)');
 	});
 
 	it('rejects remote CSS and negative or unbounded render values before committing', async () => {

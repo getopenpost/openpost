@@ -28,6 +28,10 @@ const compositionTimeline = new URL(
 	import.meta.url
 );
 const colorScopes = new URL('../lib/video-editor/components/color-scopes.svelte', import.meta.url);
+const colorMiniTimeline = new URL(
+	'../lib/video-editor/components/color-mini-timeline.svelte',
+	import.meta.url
+);
 const audioEqCurve = new URL(
 	'../lib/video-editor/components/audio-eq-curve-editor.svelte',
 	import.meta.url
@@ -90,16 +94,8 @@ describe('editor route theme color boundary', () => {
 				name: 'full video editor',
 				url: fullVideoEditorRoute,
 				reason:
-					'The document background, preview pasteboard, scopes, and timeline keep fixed neutral output colors.',
-				expected: [
-					'#000000',
-					'oklch(0.135_0.007_55)',
-					'oklch(0.145_0.008_55)',
-					'oklch(0.145_0.008_55)',
-					'oklch(0.205_0.008_55)',
-					'oklch(0.205_0.008_55)',
-					'oklch(0.205_0.008_55)'
-				]
+					'The authored document background is fixed output data; all editor chrome follows the resolved theme.',
+				expected: ['#000000']
 			},
 			{
 				name: 'recorder',
@@ -238,6 +234,42 @@ describe('editor route theme color boundary', () => {
 		}
 	});
 
+	it('keeps light-scheme workspace and timeline chrome free of fixed dark surfaces', async () => {
+		const previewSource = await readFile(videoPreview, 'utf8');
+		const timelineSource = await readFile(videoTimeline, 'utf8');
+		const colorTimelineSource = await readFile(colorMiniTimeline, 'utf8');
+
+		expect(previewSource).toContain('bg-[var(--canvas-pasteboard)]');
+		expect(previewSource).not.toContain('bg-[oklch(0.205_0.008_55)]');
+
+		for (const fixedDarkSurface of [
+			'bg-[oklch(0.16_0.008_55)]',
+			'bg-[oklch(0.13_0.006_55)]',
+			'bg-[oklch(0.18_0.012_55)]',
+			'bg-[oklch(0.145_0.008_55)]'
+		]) {
+			expect(timelineSource).not.toContain(fixedDarkSurface);
+		}
+		expect(timelineSource).toContain('bg-[var(--timeline-track)]');
+
+		for (const semanticRole of [
+			'bg-[var(--video-editor-panel)]',
+			'bg-[var(--timeline-track)]',
+			'text-[var(--video-editor-text)]',
+			'border-[var(--video-editor-border)]'
+		]) {
+			expect(colorTimelineSource).toContain(semanticRole);
+		}
+		for (const fixedDarkSurface of [
+			'bg-[#24252b]',
+			'bg-[#17181d]',
+			'bg-[#202127]',
+			'bg-[#1d1e23]'
+		]) {
+			expect(colorTimelineSource).not.toContain(fixedDarkSurface);
+		}
+	});
+
 	it('keeps representative editor dialogs and popovers free of raw chrome colors', async () => {
 		for (const name of [
 			'clear-keyframes-dialog',
@@ -349,6 +381,7 @@ describe('editor route theme color boundary', () => {
 			'local-model-cache-control',
 			'media-task-progress',
 			'motion-presets-panel',
+			'motion-workspace-empty',
 			'motion-workspace-panel',
 			'preview-diagnostics-panel',
 			'project-canvas-panel',
@@ -394,6 +427,15 @@ describe('editor route theme color boundary', () => {
 			expect(source).toContain('border-[var(--video-editor-border)]');
 			expect(source).toContain('focus-visible:outline-[var(--video-editor-focus)]');
 		}
+	});
+
+	it('keeps the Motion workspace empty state in the resolved editor theme', async () => {
+		const source = await readFile(videoEditorComponent('motion-workspace-empty'), 'utf8');
+
+		expect(source).toContain('bg-[var(--video-editor-canvas)]');
+		expect(source).toContain('border-[var(--video-editor-border)]');
+		expect(source).toContain('bg-[var(--video-editor-control)]');
+		expect(rawColors(source)).toEqual([]);
 	});
 
 	it('derives image editor chrome from the active theme action color', async () => {

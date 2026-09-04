@@ -63,7 +63,7 @@
 	} = $props();
 
 	const controlClass =
-		'size-6 rounded text-[oklch(0.65_0.015_55)] hover:bg-[oklch(0.27_0.012_55)] hover:text-white focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45)] data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.16)] data-[active=true]:text-[oklch(0.76_0.14_45)]';
+		'size-6 rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)] data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]';
 	const menuItemClass =
 		'flex h-10 w-full items-center justify-start gap-2 rounded px-2.5 text-left text-sm hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-muted';
 	let editingName = $state(false);
@@ -156,7 +156,7 @@
 />
 
 <div
-	class="flex size-full min-w-0 flex-col justify-center gap-0.5 border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55)] px-2"
+	class="flex size-full min-w-0 flex-col justify-center gap-0.5 border-r border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2"
 	class:ring-1={selected}
 	class:ring-inset={selected}
 	class:ring-[oklch(0.66_0.14_45)]={selected}
@@ -182,13 +182,13 @@
 						class="size-3.5"
 					/>{/if}
 			</Button>
-			<ThemeIcon role="folder" class="size-3.5 shrink-0 text-[oklch(0.76_0.14_45)]" />
+			<ThemeIcon role="folder" class="size-3.5 shrink-0 text-[var(--video-editor-focus)]" />
 		{/if}
 		{#if editingName}
 			<Input
 				bind:ref={nameInput}
 				bind:value={nameDraft}
-				class="h-5 min-w-0 flex-1 rounded border border-[oklch(0.66_0.14_45)] bg-[oklch(0.12_0.008_55)] px-1 text-[11px] text-white shadow-none focus-visible:ring-0"
+				class="h-5 min-w-0 flex-1 rounded border border-[var(--video-editor-focus-border)] bg-[var(--video-editor-field)] px-1 text-[11px] text-[var(--video-editor-field-text)] shadow-none focus-visible:ring-0"
 				aria-label={m.video_editor_track_rename()}
 				onblur={() => finishRename(true)}
 				onkeydown={(event) => {
@@ -199,7 +199,7 @@
 		{:else}
 			<button
 				type="button"
-				class="min-w-0 flex-1 truncate rounded-sm text-left text-[11px] font-medium text-white/90 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="min-w-0 flex-1 truncate rounded-sm text-left text-[11px] font-medium text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 				aria-pressed={selected}
 				aria-keyshortcuts={nameAriaKeyShortcuts || undefined}
 				data-track-primary-control
@@ -209,7 +209,7 @@
 				onkeydown={nameKeydown}>{track.name}</button
 			>
 		{/if}
-		<span class="shrink-0 font-mono text-[9px] text-[oklch(0.58_0.015_55)]">
+		<span class="shrink-0 font-mono text-[9px] text-[var(--video-editor-muted)]">
 			{itemCount}
 		</span>
 	</div>
@@ -266,7 +266,7 @@
 			<button
 				bind:this={moreButton}
 				type="button"
-				class="flex size-10 cursor-pointer list-none items-center justify-center rounded text-[oklch(0.65_0.015_55)] hover:bg-[oklch(0.27_0.012_55)] hover:text-white focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45)] focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+				class="flex size-10 cursor-pointer list-none items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)] focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 				data-track-primary-control
 				style="width:40px;height:40px"
 				aria-expanded={moreOpen}

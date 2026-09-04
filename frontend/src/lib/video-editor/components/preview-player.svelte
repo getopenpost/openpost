@@ -1329,7 +1329,7 @@
 <svelte:window onkeydown={handleVisualNudgeShortcut} />
 
 <div
-	class="editor-protected-surface fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[oklch(0.205_0.008_55)] p-4 sm:p-5 xl:p-7"
+	class="editor-protected-surface fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[var(--canvas-pasteboard)] p-4 sm:p-5 xl:p-7"
 	data-editor-protected="preview"
 	data-program-pasteboard
 	role="region"

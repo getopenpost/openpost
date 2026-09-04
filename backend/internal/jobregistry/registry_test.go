@@ -38,6 +38,9 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		require.NotEmpty(t, definition.Failure, definition.Type)
 		require.NotEmpty(t, definition.Recovery, definition.Type)
 		require.Positive(t, definition.DefaultMaxAttempts, definition.Type)
+		if definition.Failure == FailureProviderRead {
+			require.NotEmpty(t, definition.FailureMessage, definition.Type)
+		}
 	}
 	require.ElementsMatch(t, expected, actual)
 }

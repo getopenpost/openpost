@@ -102,7 +102,8 @@ type Definition struct {
 
 var definitions = map[string]Definition{
 	TypePublishPublication: definition(TypePublishPublication, 3, ExecutePublishPublication, FailurePublish, RecoveryReconcilePublication),
-	TypeRefreshToken:       definition(TypeRefreshToken, 5, ExecuteRefreshToken, FailureProviderRead, RecoveryRequeue),
+	TypeRefreshToken: providerReadDefinition(TypeRefreshToken, 5, ExecuteRefreshToken, RecoveryRequeue,
+		"Token refresh failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeMediaCleanup: {
 		Type: TypeMediaCleanup, DefaultMaxAttempts: 3, Recurrence: 24 * time.Hour,
 		Execution: ExecuteMediaCleanup, Failure: FailureMediaCleanup, Recovery: RecoveryRequeue,

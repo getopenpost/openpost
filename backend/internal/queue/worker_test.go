@@ -12,6 +12,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -58,7 +60,7 @@ func createTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
+	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
 		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
@@ -74,6 +76,47 @@ func createTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, jobregistry.EnsureActiveDedupeIndex(context.Background(), db))
 
 	return db
+}
+
+func TestWorkerCompletesObsoleteRefreshJobWithoutTerminalTelemetry(t *testing.T) {
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	grant := models.OAuthGrant{
+		ID: "legacy:account-disconnected", WorkspaceID: "ws-1", Provider: "threads",
+		AccessTokenEnc: []byte("encrypted-access"), TokenVersion: 1,
+		ExecutionMode: "oauth2", AuthorizationEvidence: `{}`, ValidationStatus: "legacy_unverified",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&grant).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.SocialAccount{
+		ID: "account-disconnected", WorkspaceID: "ws-1", Platform: "threads", AccountID: "threads-user",
+		OAuthGrantID: grant.ID, AccessTokenEnc: []byte{}, IsActive: false,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("is_active = ?", false).
+		Where("id = ?", "account-disconnected").
+		Exec(t.Context())
+	require.NoError(t, err)
+	job := models.Job{
+		ID: "refresh-disconnected", Type: jobregistry.TypeRefreshToken,
+		Payload: `{"account_id":"account-disconnected"}`, Status: jobStatusPending,
+		RunAt: now.Add(-time.Minute), MaxAttempts: 1,
+	}
+	_, err = db.NewInsert().Model(&job).Exec(t.Context())
+	require.NoError(t, err)
+
+	tokens := tokenmanager.NewTokenManager(db, crypto.NewTokenEncryptor("test-key"))
+	worker := NewWorker(db, "worker-refresh", time.Hour, nil, tokens, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+	require.NoError(t, db.NewSelect().Model(&job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusCompleted, job.Status)
+	require.Empty(t, job.LastError)
+	require.Empty(t, recorder.Exceptions)
 }
 
 func TestWorkerFailsUnknownJobTypes(t *testing.T) {

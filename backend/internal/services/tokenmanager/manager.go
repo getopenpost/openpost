@@ -25,6 +25,14 @@ const (
 	defaultRefreshWaitInterval  = 25 * time.Millisecond
 )
 
+var errObsoleteRefreshTarget = errors.New("token refresh target is obsolete")
+
+// IsObsoleteRefreshTarget reports whether a durable refresh job no longer has
+// an active credential owner and can finish without retrying or alerting.
+func IsObsoleteRefreshTarget(err error) bool {
+	return errors.Is(err, errObsoleteRefreshTarget)
+}
+
 type TokenManager struct {
 	db            *bun.DB
 	crypto        *crypto.TokenEncryptor
@@ -104,6 +112,9 @@ func (tm *TokenManager) ForceRefreshAccessToken(ctx context.Context, accountID s
 func (tm *TokenManager) ForceRefreshGrant(ctx context.Context, grantID string) (string, error) {
 	var grant models.OAuthGrant
 	if err := tm.db.NewSelect().Model(&grant).Where("id = ?", grantID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("%w: oauth grant %s no longer exists", errObsoleteRefreshTarget, grantID)
+		}
 		return "", err
 	}
 	var account models.SocialAccount
@@ -113,7 +124,7 @@ func (tm *TokenManager) ForceRefreshGrant(ctx context.Context, grantID string) (
 		Limit(1).
 		Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("oauth grant %s has no active destination", grant.ID)
+			return "", fmt.Errorf("%w: oauth grant %s has no active destination", errObsoleteRefreshTarget, grant.ID)
 		}
 		return "", err
 	}
@@ -138,6 +149,9 @@ func (tm *TokenManager) forceRefreshGrant(ctx context.Context, account *models.S
 func (tm *TokenManager) loadAccountAndGrant(ctx context.Context, accountID string) (*models.SocialAccount, *models.OAuthGrant, error) {
 	account := new(models.SocialAccount)
 	if err := tm.db.NewSelect().Model(account).Where("id = ?", accountID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, fmt.Errorf("%w: account %s no longer exists", errObsoleteRefreshTarget, accountID)
+		}
 		return nil, nil, err
 	}
 	if account.OAuthGrantID == "" {
@@ -162,10 +176,10 @@ func (tm *TokenManager) loadAccountAndGrant(ctx context.Context, accountID strin
 
 func activeCredentialError(account *models.SocialAccount, grant *models.OAuthGrant) error {
 	if !account.IsActive {
-		return fmt.Errorf("account is disconnected: %s", account.ErrorMessage)
+		return fmt.Errorf("%w: account is disconnected: %s", errObsoleteRefreshTarget, account.ErrorMessage)
 	}
 	if grant != nil && !grant.RevokedAt.IsZero() {
-		return fmt.Errorf("oauth grant is revoked for account %s", account.ID)
+		return fmt.Errorf("%w: oauth grant is revoked for account %s", errObsoleteRefreshTarget, account.ID)
 	}
 	return nil
 }

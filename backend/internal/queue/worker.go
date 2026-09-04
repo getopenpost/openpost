@@ -778,9 +778,12 @@ func (w *BackgroundWorker) handleRefreshTokenJob(ctx context.Context, payload st
 	}
 	if target.GrantID != "" {
 		_, err = w.tokens.ForceRefreshGrant(ctx, target.GrantID)
-		return err
+	} else {
+		_, err = w.tokens.ForceRefreshAccessToken(ctx, target.AccountID)
 	}
-	_, err = w.tokens.ForceRefreshAccessToken(ctx, target.AccountID)
+	if tokenmanager.IsObsoleteRefreshTarget(err) {
+		return nil
+	}
 	return err
 }
 

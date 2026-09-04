@@ -64,6 +64,8 @@ describe('ThemeEditor', () => {
 			'northstar-studio',
 			'Northstar Studio'
 		);
+		delete initialTheme.schemes.dark;
+		initialTheme.supportedSchemes = ['light'];
 		const screen = render(ThemeEditor, { initialTheme });
 
 		await screen.getByRole('button', { name: /Dark Fallback/ }).click();

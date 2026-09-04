@@ -247,6 +247,10 @@
     "audience": "This page is for contributors preparing a change to OpenPost.",
     "boundary": "Marketing pages and maintained documentation are the canonical sources for public content. Their production builds invoke scripts/generate-agent-surfaces.mjs to add one explicit Markdown representation per eligible route, the host's llms.txt, and the documentation-only llms-full.txt. Generated public artifacts stay in ignored build output. Edit the owning page or catalogue instead of a generated file."
   },
+  "https://docs.openpo.st/development/external-applications": {
+    "audience": "OpenPost can authorize third-party applications without sharing a user's password, social-provider tokens, or broad API token.",
+    "boundary": "It cannot connect, reconnect, or remove a social account."
+  },
   "https://docs.openpo.st/development/frontend": {
     "audience": "This page is for contributors changing the web app or its shared marketing controls.",
     "boundary": "Do not add visible native input, select, or textarea elements outside the shared primitives"

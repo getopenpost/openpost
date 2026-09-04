@@ -22,7 +22,7 @@
 </script>
 
 <Tabs.Root bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
-	<div class="border-b border-[oklch(0.25_0.015_55)] px-2 py-1.5">
+	<div class="border-b border-[var(--video-editor-border)] px-2 py-1.5">
 		<AppSelect
 			class="h-8 w-full text-xs"
 			value={activeTab}

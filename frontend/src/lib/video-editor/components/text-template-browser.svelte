@@ -40,7 +40,7 @@
 	{#each groups as group (group.layout)}
 		<section class="mb-4 last:mb-0">
 			<h3
-				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[oklch(0.62_0.012_55)] uppercase"
+				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"
 			>
 				{group.label()}
 			</h3>
@@ -89,7 +89,7 @@
 <style>
 	.text-browser {
 		container-type: inline-size;
-		scrollbar-color: oklch(0.35 0.015 55) transparent;
+		scrollbar-color: var(--video-editor-border) transparent;
 		scrollbar-width: thin;
 	}
 	.template-grid {
@@ -104,12 +104,12 @@
 	}
 	.template-card {
 		min-width: 0;
-		border: 1px solid oklch(0.29 0.012 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
 		padding: 0.25rem;
 		text-align: left;
-		color: oklch(0.72 0.01 55);
-		background: oklch(0.17 0.008 55);
+		color: var(--video-editor-muted);
+		background: var(--video-editor-control);
 		cursor: grab;
 	}
 	.template-card:active {
@@ -117,12 +117,12 @@
 	}
 	.template-card:hover,
 	.template-card:focus-visible {
-		border-color: oklch(0.52 0.09 45);
-		background: oklch(0.205 0.012 50);
-		color: white;
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 	.template-card:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 	.template-canvas {

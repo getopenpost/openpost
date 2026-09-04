@@ -17,9 +17,9 @@
 	});
 	const statusTone = $derived(
 		previewDiagnostics.health === 'under-load'
-			? 'text-red-300'
+			? 'text-[var(--video-editor-danger)]'
 			: previewDiagnostics.health === 'smooth'
-				? 'text-emerald-300'
+				? 'text-success-foreground'
 				: 'text-[var(--video-editor-muted)]'
 	);
 	const rendererLabel = $derived(
@@ -70,9 +70,11 @@
 	<Popover.Content
 		align="end"
 		sideOffset={8}
-		class="video-editor-theme max-h-[min(36rem,calc(100dvh-4rem))] w-[min(23rem,calc(100vw-1rem))] overflow-y-auto border-[oklch(0.28_0.014_55)] bg-[oklch(0.18_0.01_55)] p-0 text-[var(--video-editor-text)]"
+		class="video-editor-theme max-h-[min(36rem,calc(100dvh-4rem))] w-[min(23rem,calc(100vw-1rem))] overflow-y-auto border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-0 text-[var(--video-editor-text)]"
 	>
-		<div class="flex items-start justify-between gap-4 border-b border-[oklch(0.27_0.014_55)] p-4">
+		<div
+			class="flex items-start justify-between gap-4 border-b border-[var(--video-editor-border)] p-4"
+		>
 			<div>
 				<h2 class="text-sm font-medium">{m.video_editor_diagnostics_title()}</h2>
 				<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
@@ -85,7 +87,7 @@
 		</div>
 
 		<section
-			class="border-b border-[oklch(0.27_0.014_55)] px-4 py-3"
+			class="border-b border-[var(--video-editor-border)] px-4 py-3"
 			aria-labelledby="diagnostics-playback"
 		>
 			<h3 id="diagnostics-playback" class="text-xs font-medium">
@@ -113,7 +115,7 @@
 		</section>
 
 		<section
-			class="border-b border-[oklch(0.27_0.014_55)] px-4 py-3"
+			class="border-b border-[var(--video-editor-border)] px-4 py-3"
 			aria-labelledby="diagnostics-renderer"
 		>
 			<h3 id="diagnostics-renderer" class="text-xs font-medium">
@@ -140,14 +142,16 @@
 				</dd>
 			</dl>
 			{#if snapshot.lastFallback}
-				<p class="mt-2 rounded-md bg-red-950/40 px-2 py-1.5 text-xs text-red-200">
+				<p
+					class="mt-2 rounded-md bg-[color-mix(in_oklch,var(--video-editor-danger)_12%,transparent)] px-2 py-1.5 text-xs text-[var(--video-editor-danger)]"
+				>
 					{m.video_editor_diagnostics_fallback({ reason: snapshot.lastFallback })}
 				</p>
 			{/if}
 		</section>
 
 		<section
-			class="border-b border-[oklch(0.27_0.014_55)] px-4 py-3"
+			class="border-b border-[var(--video-editor-border)] px-4 py-3"
 			aria-labelledby="diagnostics-overlays"
 		>
 			<h3 id="diagnostics-overlays" class="text-xs font-medium">
@@ -158,7 +162,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.performanceOverlay}
-					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[oklch(0.22_0.012_55)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
+					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setPerformanceOverlay(!previewDiagnostics.performanceOverlay)}
@@ -174,7 +178,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.clipTimingOverlay}
-					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[oklch(0.22_0.012_55)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
+					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setClipTimingOverlay(!previewDiagnostics.clipTimingOverlay)}
@@ -204,7 +208,7 @@
 				{m.video_editor_diagnostics_privacy_note()}
 			</p>
 			{#if copyError}
-				<p class="mt-2 text-xs text-red-300" role="alert">
+				<p class="mt-2 text-xs text-[var(--video-editor-danger)]" role="alert">
 					{m.video_editor_diagnostics_copy_failed()}
 				</p>
 			{/if}

@@ -55,20 +55,23 @@
 </script>
 
 {#if activeItem.type === 'composition' && controls.length > 0}
-	<section class="rounded border border-white/10 bg-black/10 p-2.5">
-		<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
+	<section
+		class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
+	>
+		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
 			{m.video_editor_motion_overrides_title()}
 		</h3>
-		<p class="mt-1 text-[10px] leading-4 text-[oklch(0.62_0.01_55)]">
+		<p class="mt-1 text-[10px] leading-4 text-[var(--video-editor-muted)]">
 			{m.video_editor_motion_overrides_hint()}
 		</p>
 		<div class="mt-2 space-y-2">
 			{#each controls as control (control.id)}
-				<label class="block text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="block text-[10px] text-[var(--video-editor-muted)]">
 					<span class="flex items-center gap-1.5">
 						<span
-							class="size-1.5 rounded-full"
-							class:bg-orange-400={isOverridden(control)}
+							class="size-1.5 rounded-full {isOverridden(control)
+								? 'bg-[var(--video-editor-primary)]'
+								: ''}"
 							aria-hidden="true"
 						></span>
 						{control.name}

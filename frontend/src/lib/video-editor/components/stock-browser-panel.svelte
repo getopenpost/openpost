@@ -44,7 +44,7 @@
 </script>
 
 <div
-	class="dark min-h-0 flex-1 overflow-y-auto p-2 text-[oklch(0.92_0.005_85)]"
+	class="min-h-0 flex-1 overflow-y-auto p-2 text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_stock_assets()}
 >
 	<StockMediaBrowser

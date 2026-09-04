@@ -14,22 +14,22 @@
 {:else if gate.state === 'unavailable'}
 	<div class="max-w-md text-center">
 		<h1 class="text-lg font-semibold">{m.video_editor_gate_unavailable_title()}</h1>
-		<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
+		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_gate_unavailable_body()}
 		</p>
 		<Button class="mt-6" onclick={() => history.back()}>{m.video_editor_go_back()}</Button>
 	</div>
 {:else if gate.state === 'pick' || gate.state === 'reconnect'}
 	<div
-		class="w-full max-w-md rounded-xl border border-[oklch(0.25_0.015_55)] bg-[oklch(0.2_0.01_50)] p-8 text-center"
+		class="w-full max-w-md rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-8 text-center"
 	>
-		<ThemeIcon role="workspace" class="mx-auto size-10 text-[oklch(0.66_0.14_45)]" />
+		<ThemeIcon role="workspace" class="mx-auto size-10 text-[var(--video-editor-primary)]" />
 		<h1 class="mt-4 text-lg font-semibold">
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_title()
 				: m.video_editor_gate_reconnect_title()}
 		</h1>
-		<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
+		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_body()
 				: m.video_editor_gate_reconnect_body({ folder: gate.workspaceName })}

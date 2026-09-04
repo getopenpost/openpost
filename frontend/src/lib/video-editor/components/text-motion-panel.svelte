@@ -231,9 +231,9 @@
 <style>
 	.text-motion-panel {
 		margin-top: 0.5rem;
-		border-top: 1px solid oklch(0.25 0.015 55);
+		border-top: 1px solid var(--video-editor-border);
 		padding-top: 0.75rem;
-		color: oklch(0.92 0.012 70);
+		color: var(--video-editor-text);
 	}
 	header {
 		display: flex;
@@ -252,16 +252,16 @@
 	}
 	header p {
 		margin-top: 0.2rem;
-		color: oklch(0.67 0.018 65);
+		color: var(--video-editor-muted);
 		font-size: 0.625rem;
 		line-height: 1.4;
 	}
 	header > span {
 		flex: none;
-		border: 1px solid oklch(0.31 0.02 58);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 999px;
 		padding: 0.15rem 0.4rem;
-		color: oklch(0.72 0.02 68);
+		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
 	}
 	.slot-row {
@@ -269,7 +269,7 @@
 	}
 	h3 {
 		margin-bottom: 0.35rem;
-		color: oklch(0.76 0.02 68);
+		color: var(--video-editor-muted);
 		font-size: 0.625rem;
 		font-weight: 650;
 		text-transform: uppercase;
@@ -283,38 +283,38 @@
 	.preset-grid button {
 		min-height: 2rem;
 		overflow: hidden;
-		border: 1px solid oklch(0.29 0.018 58);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.35rem;
 		padding: 0.25rem;
-		background: oklch(0.17 0.012 55);
-		color: oklch(0.7 0.018 65);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
 		line-height: 1.15;
 		text-overflow: ellipsis;
 		cursor: pointer;
 	}
 	.preset-grid button:hover {
-		border-color: oklch(0.42 0.04 52);
-		color: oklch(0.94 0.012 70);
+		border-color: var(--video-editor-focus-border);
+		color: var(--video-editor-text);
 	}
 	.preset-grid button.active {
-		border-color: oklch(0.62 0.14 45);
-		background: oklch(0.27 0.06 45);
-		color: oklch(0.96 0.02 70);
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-selection);
+		color: var(--video-editor-selection-text);
 	}
 	.controls {
 		display: grid;
 		gap: 0.55rem;
 		margin-top: 0.4rem;
-		border: 1px solid oklch(0.27 0.016 58);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.55rem;
-		background: oklch(0.15 0.01 55);
+		background: var(--video-editor-panel);
 	}
 	.controls label {
 		display: grid;
 		gap: 0.2rem;
-		color: oklch(0.7 0.018 65);
+		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
 	}
 	.controls label > span {
@@ -323,7 +323,7 @@
 		gap: 0.5rem;
 	}
 	output {
-		color: oklch(0.9 0.02 70);
+		color: var(--video-editor-text);
 		font-variant-numeric: tabular-nums;
 	}
 	.select-row {
@@ -332,7 +332,7 @@
 		gap: 0.4rem;
 	}
 	button:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	@media (max-width: 24rem) {

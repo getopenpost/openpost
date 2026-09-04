@@ -187,7 +187,7 @@
 <style>
 	.effect-browser {
 		container-type: inline-size;
-		scrollbar-color: oklch(0.35 0.015 55) transparent;
+		scrollbar-color: var(--video-editor-border) transparent;
 		scrollbar-width: thin;
 	}
 	.effect-grid {
@@ -203,11 +203,11 @@
 	.effect-card {
 		min-width: 0;
 		cursor: grab;
-		border: 1px solid oklch(0.29 0.012 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
-		background: oklch(0.17 0.008 55);
+		background: var(--video-editor-control);
 		padding: 0.3rem;
-		color: oklch(0.68 0.01 55);
+		color: var(--video-editor-muted);
 		font-size: 0.625rem;
 		text-align: center;
 	}
@@ -216,12 +216,12 @@
 	}
 	.effect-card:hover,
 	.effect-card:focus-visible {
-		border-color: oklch(0.52 0.09 45);
-		background: oklch(0.205 0.012 50);
-		color: white;
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 	.effect-card:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 1px;
 	}
 	.effect-card > span {

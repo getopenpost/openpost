@@ -147,7 +147,7 @@
 				id="saved-animation-name"
 				bind:value={presetName}
 				maxlength={80}
-				class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
+				class="h-7 min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
 				onkeydown={(event) => event.key === 'Enter' && savePreset()}
 			/>
 			<div>
@@ -170,7 +170,7 @@
 						type="search"
 						bind:value={localQuery}
 						placeholder={m.video_editor_saved_animation_search()}
-						class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
+						class="h-7 min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
 					/>
 				</label>
 			{/if}
@@ -240,7 +240,7 @@
 <style>
 	.saved-library {
 		margin-top: 0.8rem;
-		border-top: 1px solid oklch(0.25 0.015 55);
+		border-top: 1px solid var(--video-editor-border);
 		padding-top: 0.75rem;
 	}
 	.library-heading,
@@ -259,7 +259,7 @@
 	}
 	h3 {
 		font-size: 0.65rem;
-		color: oklch(0.86 0.02 65);
+		color: var(--video-editor-text);
 	}
 	.library-heading p,
 	.empty,
@@ -267,7 +267,7 @@
 		margin-top: 0.15rem;
 		font-size: 0.5625rem;
 		line-height: 1.4;
-		color: oklch(0.64 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	button {
 		font: inherit;
@@ -285,33 +285,33 @@
 		opacity: 0.4;
 	}
 	button:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.save-button,
 	.accent {
-		border: 1px solid oklch(0.52 0.105 45);
-		background: oklch(0.55 0.125 45);
-		color: oklch(0.98 0.008 70);
+		border: 1px solid var(--video-editor-primary);
+		background: var(--video-editor-primary);
+		color: var(--video-editor-primary-text);
 	}
 	.quiet {
-		border: 1px solid oklch(0.31 0.02 58);
-		background: oklch(0.2 0.013 55);
-		color: oklch(0.7 0.018 65);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 	}
 	.danger {
-		border: 1px solid oklch(0.48 0.11 28);
-		background: oklch(0.4 0.1 28);
-		color: oklch(0.95 0.02 40);
+		border: 1px solid var(--video-editor-danger);
+		background: var(--video-editor-danger);
+		color: var(--video-editor-danger-text);
 	}
 	.save-form,
 	.library-controls,
 	.saved-card {
 		margin-top: 0.55rem;
-		border: 1px solid oklch(0.28 0.018 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.5rem;
-		background: oklch(0.17 0.011 55 / 0.76);
+		background: color-mix(in oklch, var(--video-editor-panel) 76%, transparent);
 	}
 	.save-form,
 	.library-controls {
@@ -323,7 +323,7 @@
 		display: grid;
 		gap: 0.2rem;
 		font-size: 0.5625rem;
-		color: oklch(0.68 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.library-controls .retime-toggle {
 		display: flex;
@@ -343,13 +343,13 @@
 	.saved-card strong {
 		overflow: hidden;
 		font-size: 0.6rem;
-		color: oklch(0.84 0.018 65);
+		color: var(--video-editor-text);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.saved-card span {
 		font-size: 0.5rem;
-		color: oklch(0.58 0.016 65);
+		color: var(--video-editor-muted);
 	}
 	.card-actions {
 		flex: none;
@@ -364,7 +364,7 @@
 	}
 	.status {
 		min-height: 0.8rem;
-		color: oklch(0.73 0.05 58);
+		color: var(--video-editor-muted);
 	}
 	@media (prefers-reduced-motion: reduce) {
 		button {

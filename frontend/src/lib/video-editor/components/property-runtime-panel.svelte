@@ -560,9 +560,9 @@
 
 <style>
 	.runtime-panel {
-		border-top: 1px solid oklch(0.25 0.015 55);
+		border-top: 1px solid var(--video-editor-border);
 		padding: 0.55rem 0.65rem;
-		color: oklch(0.86 0.015 70);
+		color: var(--video-editor-text);
 	}
 	header {
 		display: flex;
@@ -580,14 +580,14 @@
 	header p,
 	.status {
 		margin-top: 0.15rem;
-		color: oklch(0.62 0.015 60);
+		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
 	}
 	button {
-		border: 1px solid oklch(0.3 0.016 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.3rem;
-		background: oklch(0.18 0.01 55);
-		color: oklch(0.88 0.015 70);
+		background: var(--video-editor-control);
+		color: var(--video-editor-text);
 		font: inherit;
 	}
 	button {
@@ -601,10 +601,10 @@
 		margin-top: 0.45rem;
 	}
 	.card {
-		border: 1px solid oklch(0.26 0.014 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.45rem;
-		background: oklch(0.155 0.008 55);
+		background: var(--video-editor-panel);
 		font-size: 0.625rem;
 	}
 	.card-heading {
@@ -614,7 +614,7 @@
 		margin-bottom: 0.35rem;
 	}
 	.card-heading span {
-		color: oklch(0.78 0.12 55);
+		color: var(--video-editor-primary);
 		font-size: 0.5625rem;
 	}
 	.source-row,
@@ -629,10 +629,10 @@
 		gap: 0.35rem;
 		align-items: center;
 		margin-top: 0.45rem;
-		border: 1px solid oklch(0.26 0.014 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.4rem 0.45rem;
-		background: oklch(0.155 0.008 55);
+		background: var(--video-editor-panel);
 		font-size: 0.625rem;
 	}
 	.dimension-strip > div:first-child,
@@ -642,7 +642,7 @@
 	}
 	.dimension-strip > div:first-child span,
 	.dimension-row small {
-		color: oklch(0.62 0.015 60);
+		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
 	}
 	.dimension-row button {
@@ -654,11 +654,11 @@
 		justify-content: space-between;
 		gap: 0.4rem;
 		margin-top: 0.35rem;
-		color: oklch(0.65 0.015 60);
+		color: var(--video-editor-muted);
 	}
 	.preview-values {
 		margin-top: 0.3rem;
-		color: oklch(0.62 0.015 60);
+		color: var(--video-editor-muted);
 	}
 	.preview-values span {
 		display: flex;
@@ -666,7 +666,7 @@
 		gap: 0.4rem;
 	}
 	output {
-		color: oklch(0.88 0.015 70);
+		color: var(--video-editor-text);
 		font-family: ui-monospace, monospace;
 	}
 	.enabled {
@@ -685,14 +685,14 @@
 		cursor: pointer;
 	}
 	.actions .primary {
-		border-color: oklch(0.58 0.13 45);
-		background: oklch(0.52 0.13 45);
-		color: white;
+		border-color: var(--video-editor-primary);
+		background: var(--video-editor-primary);
+		color: var(--video-editor-primary-text);
 	}
 	.actions .pick {
 		width: 2rem;
 		padding: 0;
-		color: oklch(0.8 0.12 55);
+		color: var(--video-editor-primary);
 		font-size: 1rem;
 		cursor: crosshair;
 	}
@@ -702,7 +702,7 @@
 	}
 	.error {
 		margin-top: 0.25rem;
-		color: oklch(0.72 0.17 25);
+		color: var(--video-editor-danger);
 		font-size: 0.5625rem;
 	}
 	.guide {
@@ -711,8 +711,8 @@
 		margin-top: 0.4rem;
 		border-radius: 0.3rem;
 		padding: 0.35rem;
-		background: oklch(0.12 0.008 55);
-		color: oklch(0.7 0.02 65);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 	}
 	.pick-targets {
 		position: fixed;
@@ -722,15 +722,15 @@
 		width: min(32rem, calc(100vw - 2rem));
 		max-height: 50vh;
 		overflow: auto;
-		border: 1px solid oklch(0.65 0.13 50);
+		border: 1px solid var(--video-editor-focus-border);
 		border-radius: 0.5rem;
 		padding: 0.55rem;
-		background: oklch(0.14 0.012 55 / 0.98);
-		box-shadow: 0 1rem 3rem oklch(0.05 0.01 55 / 0.6);
+		background: color-mix(in oklch, var(--video-editor-panel) 98%, transparent);
+		box-shadow: 0 1rem 3rem color-mix(in oklch, var(--video-editor-text) 18%, transparent);
 	}
 	.pick-targets > p {
 		margin-bottom: 0.4rem;
-		color: oklch(0.8 0.02 65);
+		color: var(--video-editor-text);
 		font-size: 0.625rem;
 	}
 	.pick-targets > div {
@@ -758,12 +758,12 @@
 		pointer-events: none;
 	}
 	.pick-line line {
-		stroke: oklch(0.75 0.15 50);
+		stroke: var(--video-editor-primary);
 		stroke-width: 2;
 		stroke-dasharray: 5 4;
 	}
 	button:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	@media (max-width: 48rem) {

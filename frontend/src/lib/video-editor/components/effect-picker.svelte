@@ -86,7 +86,7 @@
 			<button
 				{...props}
 				type="button"
-				class="flex h-8 min-w-0 flex-1 items-center justify-between gap-1 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.18_0.008_50)] px-2 text-xs hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex h-8 min-w-0 flex-1 items-center justify-between gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-50"
 				aria-label={ariaLabel}
 				aria-expanded={open}
 				{draggable}

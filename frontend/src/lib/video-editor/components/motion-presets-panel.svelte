@@ -905,9 +905,9 @@
 <style>
 	.motion-panel {
 		margin-top: 0.5rem;
-		border-top: 1px solid oklch(0.25 0.015 55);
+		border-top: 1px solid var(--video-editor-border);
 		padding-top: 0.75rem;
-		color: oklch(0.92 0.012 70);
+		color: var(--video-editor-text);
 	}
 	.motion-heading {
 		display: flex;
@@ -931,30 +931,30 @@
 		margin-top: 0.2rem;
 		font-size: 0.625rem;
 		line-height: 1.4;
-		color: oklch(0.67 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.selection-count {
 		flex: none;
-		border: 1px solid oklch(0.31 0.02 58);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 999px;
 		padding: 0.15rem 0.4rem;
 		font-size: 0.5625rem;
-		color: oklch(0.72 0.02 68);
+		color: var(--video-editor-muted);
 	}
 	.motion-clip-card {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
 		gap: 0.55rem;
 		margin-top: 0.65rem;
-		border: 1px solid oklch(0.3 0.024 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.45rem;
 		padding: 0.55rem;
-		background: oklch(0.18 0.015 55 / 0.8);
+		background: color-mix(in oklch, var(--video-editor-panel) 80%, transparent);
 	}
 	.motion-clip-card > :global(svg) {
 		width: 1rem;
 		height: 1rem;
-		color: oklch(0.68 0.11 45);
+		color: var(--video-editor-primary);
 	}
 	.motion-clip-card h3 {
 		font-size: 0.625rem;
@@ -964,7 +964,7 @@
 		margin-top: 0.15rem;
 		font-size: 0.55rem;
 		line-height: 1.4;
-		color: oklch(0.64 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.motion-clip-card button {
 		display: flex;
@@ -972,11 +972,11 @@
 		align-items: center;
 		gap: 0.3rem;
 		margin-top: 0.45rem;
-		border: 1px solid oklch(0.38 0.045 45);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.32rem;
 		padding: 0.25rem 0.5rem;
-		background: oklch(0.24 0.025 45);
-		color: oklch(0.88 0.025 60);
+		background: var(--video-editor-control);
+		color: var(--video-editor-text);
 		font-size: 0.55rem;
 		font-weight: 700;
 		cursor: pointer;
@@ -986,10 +986,10 @@
 		height: 0.75rem;
 	}
 	.motion-clip-card button:hover {
-		background: oklch(0.3 0.04 45);
+		background: var(--video-editor-control-hover);
 	}
 	.motion-clip-card button:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.motion-search-row {
@@ -1010,7 +1010,7 @@
 		width: 0.8rem;
 		height: 0.8rem;
 		transform: translateY(-50%);
-		color: oklch(0.58 0.016 65);
+		color: var(--video-editor-muted);
 	}
 	.motion-search-clear {
 		position: absolute;
@@ -1024,7 +1024,7 @@
 		border-radius: 0.25rem;
 		background: transparent;
 		transform: translateY(-50%);
-		color: oklch(0.65 0.018 65);
+		color: var(--video-editor-muted);
 		cursor: pointer;
 	}
 	.motion-search-clear :global(svg),
@@ -1037,35 +1037,35 @@
 		min-height: 2rem;
 		align-items: center;
 		gap: 0.3rem;
-		border: 1px solid oklch(0.3 0.018 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.35rem;
 		padding: 0.3rem 0.45rem;
-		background: oklch(0.17 0.012 55);
-		color: oklch(0.68 0.018 65);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 		font-size: 0.55rem;
 		font-weight: 650;
 		cursor: pointer;
 	}
 	.compatibility-filter.active {
-		border-color: oklch(0.5 0.09 45);
-		background: oklch(0.27 0.045 45);
-		color: oklch(0.92 0.03 60);
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-selection);
+		color: var(--video-editor-selection-text);
 	}
 	.motion-applied {
 		display: grid;
 		gap: 0.4rem;
 		margin-top: 0.65rem;
-		border: 1px solid oklch(0.3 0.024 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.45rem;
 		padding: 0.5rem;
-		background: oklch(0.18 0.015 55 / 0.8);
+		background: color-mix(in oklch, var(--video-editor-panel) 80%, transparent);
 	}
 	.motion-applied > h3 {
 		font-size: 0.55rem;
 		font-weight: 750;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: oklch(0.68 0.02 65);
+		color: var(--video-editor-muted);
 	}
 	.applied-list {
 		display: grid;
@@ -1079,7 +1079,7 @@
 		gap: 0.5rem;
 		border-radius: 0.32rem;
 		padding: 0.3rem 0.4rem;
-		background: oklch(0.145 0.01 55);
+		background: var(--video-editor-panel);
 	}
 	.applied-row > div,
 	.applied-row > label,
@@ -1095,14 +1095,14 @@
 		overflow: hidden;
 		font-size: 0.6rem;
 		font-weight: 650;
-		color: oklch(0.88 0.018 65);
+		color: var(--video-editor-text);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.applied-row div > span,
 	.applied-row-content > span {
 		font-size: 0.5rem;
-		color: oklch(0.6 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.applied-row button {
 		flex: none;
@@ -1111,7 +1111,7 @@
 		border-radius: 0.28rem;
 		padding: 0.2rem 0.4rem;
 		background: transparent;
-		color: oklch(0.72 0.055 35);
+		color: var(--video-editor-danger);
 		font-size: 0.53rem;
 		cursor: pointer;
 	}
@@ -1124,59 +1124,58 @@
 		text-align: left;
 	}
 	.applied-row .applied-row-content:hover:not(:disabled) {
-		background: oklch(0.2 0.015 55);
+		background: var(--video-editor-control-hover);
 	}
 	.applied-row .applied-row-content:disabled {
 		cursor: default;
 	}
 	.applied-row button:hover,
 	.motion-search-clear:hover {
-		background: oklch(0.25 0.025 35);
-		color: oklch(0.9 0.055 35);
+		background: color-mix(in oklch, var(--video-editor-danger) 12%, transparent);
+		color: var(--video-editor-danger);
 	}
 	.applied-row button:focus-visible,
 	.motion-search-clear:focus-visible,
 	.compatibility-filter:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.mode-control {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		margin-top: 0.6rem;
-		border: 1px solid oklch(0.29 0.018 58);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.15rem;
-		background: oklch(0.175 0.012 55);
+		background: var(--video-editor-control);
 	}
 	.mode-control button {
 		min-height: 1.75rem;
 		border: 0;
 		border-radius: 0.28rem;
 		background: transparent;
-		color: oklch(0.65 0.018 65);
+		color: var(--video-editor-muted);
 		font-size: 0.625rem;
 		font-weight: 600;
 		cursor: pointer;
 	}
 	.mode-control button.active {
-		background: oklch(0.29 0.035 55);
-		color: oklch(0.95 0.014 70);
-		box-shadow: 0 1px 2px oklch(0.08 0.01 55 / 0.45);
+		background: var(--video-editor-selection);
+		color: var(--video-editor-selection-text);
 	}
 	.mode-control button:focus-visible,
 	.preset-tile:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.generator-controls {
 		display: grid;
 		gap: 0.45rem;
 		margin-top: 0.65rem;
-		border: 1px solid oklch(0.255 0.016 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.45rem;
 		padding: 0.55rem;
-		background: oklch(0.17 0.01 55 / 0.7);
+		background: color-mix(in oklch, var(--video-editor-panel) 70%, transparent);
 	}
 	.generator-controls label {
 		display: grid;
@@ -1184,13 +1183,13 @@
 		align-items: center;
 		column-gap: 0.5rem;
 		font-size: 0.6rem;
-		color: oklch(0.76 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.generator-controls output {
 		min-width: 2.4rem;
 		font-variant-numeric: tabular-nums;
 		text-align: right;
-		color: oklch(0.68 0.11 45);
+		color: var(--video-editor-primary);
 	}
 	.generator-controls label :global([data-orientation='horizontal']) {
 		grid-column: 1 / -1;
@@ -1202,7 +1201,7 @@
 	}
 	.live-library {
 		margin-top: 0.9rem;
-		border-top: 1px solid oklch(0.25 0.015 55);
+		border-top: 1px solid var(--video-editor-border);
 		padding-top: 0.75rem;
 	}
 	.live-heading {
@@ -1215,13 +1214,13 @@
 	.live-heading h3 {
 		font-size: 0.65rem;
 		font-weight: 700;
-		color: oklch(0.86 0.02 65);
+		color: var(--video-editor-text);
 	}
 	.live-heading p {
 		margin-top: 0.15rem;
 		font-size: 0.5625rem;
 		line-height: 1.35;
-		color: oklch(0.64 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.live-heading > span,
 	.active-dot {
@@ -1243,9 +1242,9 @@
 		padding-inline: 0.2rem;
 	}
 	.live-tile.active {
-		border-color: oklch(0.55 0.1 230);
-		background: oklch(0.23 0.035 225);
-		color: oklch(0.91 0.025 225);
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-selection);
+		color: var(--video-editor-selection-text);
 	}
 	.active-dot {
 		position: absolute;
@@ -1259,10 +1258,10 @@
 	}
 	.live-editor {
 		margin-top: 0.45rem;
-		border: 1px solid oklch(0.29 0.03 225);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.45rem;
 		padding: 0.5rem;
-		background: oklch(0.17 0.018 225 / 0.7);
+		background: color-mix(in oklch, var(--video-editor-panel) 70%, transparent);
 	}
 	.live-editor-heading {
 		display: flex;
@@ -1270,17 +1269,17 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 		font-size: 0.625rem;
-		color: oklch(0.83 0.025 225);
+		color: var(--video-editor-text);
 	}
 	.live-editor-heading button {
 		border: 0;
 		background: transparent;
-		color: oklch(0.68 0.055 38);
+		color: var(--video-editor-danger);
 		font-size: 0.5625rem;
 		cursor: pointer;
 	}
 	.live-editor-heading button:hover {
-		color: oklch(0.82 0.11 38);
+		color: var(--video-editor-danger);
 	}
 	.live-controls {
 		margin-top: 0.45rem;
@@ -1292,20 +1291,20 @@
 		display: grid;
 		gap: 0.5rem;
 		margin-top: 0.65rem;
-		border: 1px solid oklch(0.3 0.035 225);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.45rem;
 		padding: 0.55rem;
-		background: oklch(0.18 0.02 225 / 0.72);
+		background: color-mix(in oklch, var(--video-editor-panel) 72%, transparent);
 	}
 	.motion-utility strong {
 		font-size: 0.625rem;
-		color: oklch(0.87 0.025 225);
+		color: var(--video-editor-text);
 	}
 	.motion-utility p {
 		margin-top: 0.14rem;
 		font-size: 0.5625rem;
 		line-height: 1.4;
-		color: oklch(0.66 0.025 225);
+		color: var(--video-editor-muted);
 	}
 	.motion-utility button {
 		min-height: 1.8rem;
@@ -1316,26 +1315,26 @@
 		cursor: pointer;
 	}
 	.motion-utility button.primary {
-		border: 1px solid oklch(0.56 0.12 45);
-		background: oklch(0.57 0.13 45);
-		color: oklch(0.99 0.006 70);
+		border: 1px solid var(--video-editor-primary);
+		background: var(--video-editor-primary);
+		color: var(--video-editor-primary-text);
 	}
 	.motion-utility button.secondary {
-		border: 1px solid oklch(0.34 0.025 60);
-		background: oklch(0.21 0.015 58);
-		color: oklch(0.77 0.02 65);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 	}
 	.motion-utility button:hover {
 		filter: brightness(1.1);
 	}
 	.motion-utility button:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.confirmation {
 		display: grid;
 		gap: 0.45rem;
-		border-top: 1px solid oklch(0.29 0.025 225);
+		border-top: 1px solid var(--video-editor-border);
 		padding-top: 0.5rem;
 	}
 	.confirmation > div {
@@ -1345,14 +1344,14 @@
 	}
 	.trim-utility {
 		margin-top: 0.75rem;
-		border-color: oklch(0.3 0.025 58);
-		background: oklch(0.18 0.014 58 / 0.72);
+		border-color: var(--video-editor-border);
+		background: color-mix(in oklch, var(--video-editor-panel) 72%, transparent);
 	}
 	.trim-utility strong {
-		color: oklch(0.84 0.02 68);
+		color: var(--video-editor-text);
 	}
 	.trim-utility p {
-		color: oklch(0.65 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	.preset-group h3 {
 		margin-bottom: 0.4rem;
@@ -1360,7 +1359,7 @@
 		font-weight: 700;
 		letter-spacing: 0.09em;
 		text-transform: uppercase;
-		color: oklch(0.64 0.02 65);
+		color: var(--video-editor-muted);
 	}
 	.preset-grid {
 		display: grid;
@@ -1375,11 +1374,11 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.35rem;
-		border: 1px solid oklch(0.27 0.016 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.35rem;
-		background: oklch(0.18 0.012 55);
-		color: oklch(0.7 0.018 65);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 		font-size: 0.55rem;
 		line-height: 1.15;
 		text-align: center;
@@ -1391,9 +1390,9 @@
 	}
 	.preset-tile:hover:not(:disabled),
 	.preset-tile:focus-visible {
-		border-color: oklch(0.48 0.065 50);
-		background: oklch(0.225 0.022 52);
-		color: oklch(0.95 0.014 70);
+		border-color: var(--video-editor-focus-border);
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 	.preset-tile:disabled {
 		cursor: not-allowed;
@@ -1482,10 +1481,10 @@
 	}
 	.layer-add-btn {
 		min-height: 1.5rem;
-		border: 1px solid oklch(0.32 0.04 240);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.32rem;
-		background: oklch(0.22 0.02 240);
-		color: oklch(0.84 0.04 240);
+		background: var(--video-editor-control);
+		color: var(--video-editor-muted);
 		font-size: 0.5rem;
 		font-weight: 700;
 		letter-spacing: 0.04em;
@@ -1493,15 +1492,15 @@
 		cursor: pointer;
 	}
 	.layer-add-btn:hover:not(:disabled) {
-		background: oklch(0.28 0.03 240);
-		color: oklch(0.95 0.02 240);
+		background: var(--video-editor-control-hover);
+		color: var(--video-editor-text);
 	}
 	.layer-add-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
 	.layer-add-btn:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	@media (max-width: 640px) {
@@ -1524,16 +1523,16 @@
 	}
 	.motion-status {
 		min-height: 0.9rem;
-		color: oklch(0.76 0.055 58);
+		color: var(--video-editor-muted);
 	}
 	.motion-no-results {
 		margin-top: 0.75rem;
-		border: 1px dashed oklch(0.3 0.018 55);
+		border: 1px dashed var(--video-editor-border);
 		border-radius: 0.4rem;
 		padding: 0.65rem;
 		text-align: center;
 		font-size: 0.6rem;
-		color: oklch(0.62 0.018 65);
+		color: var(--video-editor-muted);
 	}
 	@keyframes ve-motion-fade {
 		from {

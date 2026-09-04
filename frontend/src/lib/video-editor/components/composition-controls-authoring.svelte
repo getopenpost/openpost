@@ -82,17 +82,21 @@
 </script>
 
 {#if composition?.editorKind === 'composite-2d'}
-	<section class="rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.16_0.01_55)] p-3">
+	<section
+		class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+	>
 		<h3 class="text-sm font-medium">
 			{m.video_editor_motion_published_title({ count: controls.length })}
 		</h3>
-		<p class="mt-1 text-xs leading-5 text-[oklch(0.65_0.015_55)]">
+		<p class="mt-1 text-xs leading-5 text-[var(--video-editor-muted)]">
 			{m.video_editor_motion_published_hint()}
 		</p>
 		{#if controls.length > 0}
 			<div class="mt-3 space-y-2">
 				{#each controls as control (control.id)}
-					<div class="flex items-center gap-2 rounded border border-white/10 p-2">
+					<div
+						class="flex items-center gap-2 rounded border border-[var(--video-editor-border)] p-2"
+					>
 						<div class="min-w-0 flex-1">
 							<Input
 								class="h-8 w-full text-xs"
@@ -101,7 +105,7 @@
 								aria-label={m.video_editor_motion_published_rename({ name: control.name })}
 								onchange={(event) => rename(control, event.currentTarget)}
 							/>
-							<p class="mt-1 truncate text-[10px] text-[oklch(0.6_0.01_55)]">
+							<p class="mt-1 truncate text-[10px] text-[var(--video-editor-muted)]">
 								{timelineStore.itemById.get(control.targetItemId)?.label ?? control.targetItemId} -
 								{propertyLabel(control.property)}
 							</p>
@@ -110,7 +114,7 @@
 							type="button"
 							size="sm"
 							variant="ghost"
-							class="shrink-0 px-2 text-xs text-red-300"
+							class="shrink-0 px-2 text-xs text-[var(--video-editor-danger)]"
 							aria-label={m.video_editor_motion_published_remove({ name: control.name })}
 							onclick={() => remove(control)}
 						>
@@ -147,7 +151,7 @@
 				{m.video_editor_motion_published_add()}
 			</Button>
 		{:else}
-			<p class="mt-3 text-[10px] leading-4 text-[oklch(0.62_0.01_55)]">
+			<p class="mt-3 text-[10px] leading-4 text-[var(--video-editor-muted)]">
 				{controls.length > 0
 					? m.video_editor_motion_published_all()
 					: m.video_editor_motion_published_none()}

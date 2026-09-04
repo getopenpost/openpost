@@ -78,7 +78,7 @@
 	{#if keyframe}
 		<button
 			type="button"
-			class={`size-6 shrink-0 rounded text-[10px] font-semibold hover:bg-[oklch(0.3_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${keyframe.autoEnabled ? 'bg-[oklch(0.66_0.14_45_/_0.2)] text-[oklch(0.78_0.14_45)]' : ''}`}
+			class={`size-6 shrink-0 rounded text-[10px] font-semibold hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${keyframe.autoEnabled ? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]' : ''}`}
 			aria-pressed={keyframe.autoEnabled}
 			aria-label={keyframe.autoEnabled
 				? m.video_editor_effects_auto_key_disable({ parameter: keyframeLabel })
@@ -90,7 +90,7 @@
 		>
 		<button
 			type="button"
-			class={`flex size-6 shrink-0 items-center justify-center rounded hover:bg-[oklch(0.3_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-35 ${keyframe.hasTrack ? 'text-[oklch(0.78_0.14_45)]' : ''}`}
+			class={`flex size-6 shrink-0 items-center justify-center rounded hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35 ${keyframe.hasTrack ? 'text-[var(--video-editor-primary)]' : ''}`}
 			disabled={!keyframe.canKeyframe}
 			aria-label={keyframe.atCurrentFrame
 				? m.video_editor_effects_keyframe_remove({ parameter: keyframeLabel })
@@ -110,7 +110,10 @@
 
 {#if !param.type || param.type === 'number'}
 	<label class="flex items-center gap-2 text-xs">
-		<span class="w-20 shrink-0 truncate text-[oklch(0.65_0.015_55)]" title={localizedParamLabel}>
+		<span
+			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			title={localizedParamLabel}
+		>
 			{localizedParamLabel}
 		</span>
 		<Slider
@@ -130,14 +133,14 @@
 				oncommit(next);
 			}}
 		/>
-		<output class="w-10 shrink-0 text-right text-[oklch(0.65_0.015_55)] tabular-nums">
+		<output class="w-10 shrink-0 text-right text-[var(--video-editor-muted)] tabular-nums">
 			{draftNumber.toFixed(param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0)}
 		</output>
 		{@render keyframeControls()}
 	</label>
 {:else if param.type === 'boolean'}
 	<label class="flex min-h-8 items-center justify-between gap-2 text-xs">
-		<span class="text-[oklch(0.65_0.015_55)]">{localizedParamLabel}</span>
+		<span class="text-[var(--video-editor-muted)]">{localizedParamLabel}</span>
 		<Checkbox
 			checked={booleanValue}
 			aria-label={`${effectLabel}: ${localizedParamLabel}`}
@@ -146,7 +149,10 @@
 	</label>
 {:else if param.type === 'select'}
 	<label class="flex items-center gap-2 text-xs">
-		<span class="w-20 shrink-0 truncate text-[oklch(0.65_0.015_55)]" title={localizedParamLabel}>
+		<span
+			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			title={localizedParamLabel}
+		>
 			{localizedParamLabel}
 		</span>
 		<AppSelect
@@ -159,12 +165,15 @@
 	</label>
 {:else if param.type === 'color'}
 	<div class="flex min-h-8 items-center gap-2 text-xs">
-		<span class="w-20 shrink-0 truncate text-[oklch(0.65_0.015_55)]" title={localizedParamLabel}>
+		<span
+			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			title={localizedParamLabel}
+		>
 			{localizedParamLabel}
 		</span>
 		<Input
 			type="color"
-			class="h-7 w-10 cursor-pointer rounded border border-[oklch(0.32_0.015_55)] bg-transparent p-0.5"
+			class="h-7 w-10 cursor-pointer rounded border border-[var(--video-editor-border)] bg-transparent p-0.5"
 			value={stringValue.slice(0, 7)}
 			aria-label={`${effectLabel}: ${localizedParamLabel}`}
 			onchange={(event) => {
@@ -189,7 +198,7 @@
 	</div>
 {:else if param.type === 'text'}
 	<label class="flex flex-col gap-1 text-xs">
-		<span class="text-[oklch(0.65_0.015_55)]">{localizedParamLabel}</span>
+		<span class="text-[var(--video-editor-muted)]">{localizedParamLabel}</span>
 		<Input
 			class="h-8 text-xs"
 			value={draftText}

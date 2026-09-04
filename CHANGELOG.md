@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.18.0] - 2026-09-04
+
+### Changed
+
+- Keep page and mobile data available while OpenPost refreshes it in the background, with fewer repeated loading states when moving through the app.
+- Load the app shell with one startup request instead of a settings chain, and keep workspace data isolated per workspace and per signed-in actor.
+- Apply one organization theme across authenticated product chrome while preserving provider marks, status meaning, workspace identity, and specialized editor visuals.
+- Page theme revision history and uploaded assets with stable cursors instead of loading an Organization's full history at once.
+- Record the editors hub as the one multi-section loading exception in the server-state query migration spec. Each image and video section keeps its own delayed boundary while the shared header and search stay mounted.
+- CI now runs the full release-candidate matrix for release tags instead of every push to `main`. Main pushes plan from the pushed diff, so untouched surfaces (for example the Android candidate) skip their jobs, and the release workflow waits for the tag's own CI run before promoting its artifacts.
+- Backend tests run once with the race detector and coverage together instead of as two separate suites.
+- Keep the active video project's resolution, frame rate, duration, timeline item count, media count, and recovery issue count visible in the desktop editor bar.
+- Add an immediate retry action when a local video project save fails.
+- Bring the video project library and audio-effects rack onto the organization theme and type scale, including the shared keyboard and touch-friendly slider for audio panning.
+
+### Fixed
+
+- Published Facebook Page image Stories through Meta's required unpublished-photo flow and report generic Meta rejections without suggesting the Story may already be live.
+- Keep published organization themes visible after the full built-in catalog, show mobile navigation inside phone previews, preserve valid color randomization, and render pill actions for theme families that specify them.
+- Paginate the Publications Activity, failed-jobs, and publication-history lists with cached infinite queries. Loaded pages stay in the Query cache under the workspace and bucket key, so revisits and tab switches reuse them instead of refetching page one.
+- Invalidate exact activity buckets on publication moves. Reschedules, retries, dismissals, restores, publishes, draft deletes, and day-dialog deletes carry old and new buckets, so unrelated buckets and the failed-jobs list no longer refetch. Generic refreshes keep the previous whole-workspace behavior.
+- Give the publication detail route a stable loading chrome. The cold detail load renders inside the shared page container instead of a bare loader.
+- Add a lint boundary against effect-driven fetching. `scripts/check-query-effect-fetch.mjs` fails on transport or imperative Query reads inside render-path effects, with named exceptions; it runs in the Query migration policy stage next to the raw-GET gate.
+- Let AI meme suggestions finish after five seconds while keeping meme and feedback request bodies size-limited.
+- Increased the mobile bottom navigation labels from 10px to 12px with a 16px line height, keeping 56px touch targets on small screens.
+- Prevent hidden project import controls from widening the video project library on phones.
+
+### Added
+
+- Give organizations a versioned theme library with built-in and custom themes, workspace assignments, safe scheme fallback, live previews, and web and mobile support.
+- Add a guided theme editor for semantic color, type, spacing, shape, motion, icons, fonts, and decorative assets.
+- Add an Appearance section in organization settings to browse the library, edit drafts, publish revisions, and assign workspace themes.
+- Added an `openpost grant-admin --email <address>` maintenance command so self-host operators can promote an existing account to instance administrator when no account can reach instance settings, for example after restoring a database volume that predates the automatic first-admin bootstrap.
+
 ## [4.17.2] - 2026-09-02
 
 ### Fixed

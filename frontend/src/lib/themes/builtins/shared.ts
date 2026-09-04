@@ -417,6 +417,18 @@ export function scheme(
 	};
 }
 
+export function companionScheme(
+	base: ThemeSchemeManifest,
+	colorSeed: ColorSeed,
+	protectedScheme: ThemeScheme
+): ThemeSchemeManifest {
+	return {
+		...base,
+		colors: colors(colorSeed),
+		protectedEditor: protectedEditorTokens(protectedScheme)
+	};
+}
+
 export function theme(
 	id: ThemeFamilyId,
 	name: string,

@@ -150,11 +150,11 @@ export function themePreviewCopy(locale: Locale = getLocale()): ThemePreviewCopy
 			{ label: m.theme_preview_navigation_media({}, options), role: 'media' }
 		],
 		mobileNavigation: [
-			{ label: m.theme_preview_navigation_home({}, options), role: 'home' },
-			{ label: m.theme_preview_navigation_new({}, options), role: 'compose' },
-			{ label: m.theme_preview_navigation_plan({}, options), role: 'calendar' },
-			{ label: m.theme_preview_navigation_media({}, options), role: 'media' },
-			{ label: m.theme_preview_navigation_more({}, options), role: 'menu' }
+			{ label: m.sidebar_calendar({}, options), role: 'calendar' },
+			{ label: m.sidebar_activity({}, options), role: 'publications' },
+			{ label: m.sidebar_new({}, options), role: 'add' },
+			{ label: m.sidebar_media({}, options), role: 'media' },
+			{ label: m.sidebar_more({}, options), role: 'menu' }
 		],
 		previewNavigation: m.theme_preview_navigation_label({}, options),
 		previewMobileNavigation: m.theme_preview_mobile_navigation_label({}, options),

@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme, familyTypography } from './shared.js';
+import { colors, companionScheme, scheme, theme, familyTypography } from './shared.js';
 
 export const playroomLight = scheme({
 	colors: colors({
@@ -73,12 +73,58 @@ export const playroomLight = scheme({
 	}
 });
 
+export const playroomDark = companionScheme(
+	playroomLight,
+	{
+		canvas: 'oklch(0.16 0.035 265)',
+		ink: 'oklch(0.96 0.015 95)',
+		surface: 'oklch(0.21 0.04 265)',
+		surfaceRaised: 'oklch(0.26 0.045 265)',
+		surfaceSunken: 'oklch(0.12 0.028 265)',
+		mutedInk: 'oklch(0.74 0.035 95)',
+		border: 'oklch(0.48 0.055 265)',
+		focus: 'oklch(0.78 0.15 220)',
+		caret: 'oklch(0.74 0.18 145)',
+		link: 'oklch(0.78 0.14 255)',
+		selection: 'oklch(0.31 0.1 145)',
+		selectionInk: 'oklch(0.95 0.025 145)',
+		actionFocal: 'oklch(0.73 0.18 145)',
+		actionFocalInk: 'oklch(0.14 0.045 145)',
+		actionPrimary: 'oklch(0.89 0.075 95)',
+		actionPrimaryInk: 'oklch(0.18 0.04 265)',
+		actionOrdinary: 'oklch(0.27 0.05 265)',
+		actionOrdinaryInk: 'oklch(0.96 0.015 95)',
+		actionOrdinaryHover: 'oklch(0.31 0.055 265)',
+		actionOrdinaryActive: 'oklch(0.35 0.06 265)',
+		danger: 'oklch(0.36 0.11 25)',
+		dangerInk: 'oklch(0.91 0.1 25)',
+		actionDestructiveInk: 'oklch(0.83 0.14 25)',
+		success: 'oklch(0.29 0.07 145)',
+		successInk: 'oklch(0.82 0.14 145)',
+		warning: 'oklch(0.31 0.09 85)',
+		warningInk: 'oklch(0.86 0.14 85)',
+		info: 'oklch(0.29 0.075 250)',
+		infoInk: 'oklch(0.82 0.13 250)',
+		sidebar: 'oklch(0.13 0.03 265)',
+		sidebarInk: 'oklch(0.96 0.015 95)',
+		sidebarActive: 'oklch(0.31 0.1 145)',
+		sidebarActiveInk: 'oklch(0.95 0.025 145)',
+		chart1: 'oklch(0.73 0.18 145)',
+		chart2: 'oklch(0.72 0.17 255)',
+		chart3: 'oklch(0.8 0.15 80)',
+		chart4: 'oklch(0.73 0.16 25)',
+		chart5: 'oklch(0.72 0.14 320)'
+	},
+	'dark'
+);
+
 export const playroomTheme: ThemeManifest = theme(
 	'playroom',
 	'Playroom',
 	'Rounded classroom forms with energetic green actions.',
 	'phosphor',
 	{
-		light: playroomLight
+		light: playroomLight,
+		dark: playroomDark
 	}
 );

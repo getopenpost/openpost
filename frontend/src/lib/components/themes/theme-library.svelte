@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { getCurrentLocale, onLocaleChange } from '$lib/i18n';
@@ -57,6 +57,7 @@
 		onEdit?: (themeID: string) => void | Promise<void>;
 		onDelete?: (themeID: string) => void | Promise<void>;
 		onToggleLock?: (locked: boolean) => void | Promise<void>;
+		onSchemeChange?: (scheme: ThemeScheme) => void | Promise<void>;
 	}
 
 	let {
@@ -77,7 +78,8 @@
 		onCreate,
 		onEdit,
 		onDelete,
-		onToggleLock
+		onToggleLock,
+		onSchemeChange
 	}: Props = $props();
 	let deleteCandidate = $state<ThemeLibraryItem | null>(null);
 	let deleteDialogOpen = $state(false);
@@ -91,6 +93,7 @@
 	let observedSelectedReferenceKey = $state(untrack(() => themeReferenceKey(selectedReference)));
 	let actionError = $state('');
 	let pendingAction = $state(false);
+	let previewAnchor: HTMLDivElement | undefined = $state();
 
 	const effectiveBuiltInThemes = $derived(
 		builtInThemes.length > 0 ? builtInThemes : localBuiltInThemes
@@ -273,11 +276,49 @@
 			pendingAction = false;
 		}
 	}
+
+	function assignmentVisibleFor(reference: ThemeReference) {
+		const isDefault = sameThemeReference(reference, organizationDefaultReference);
+		const isActive = sameThemeReference(reference, selectedReference);
+		return isDefault ? !workspaceInherits : !isActive || workspaceInherits;
+	}
+
+	function canApply(reference: ThemeReference) {
+		return (
+			assignmentVisibleFor(reference) &&
+			canManageWorkspace &&
+			!workspaceSelectionLocked &&
+			Boolean(sameThemeReference(reference, organizationDefaultReference) ? onInherit : onSelect)
+		);
+	}
+
+	function applyReference(reference: ThemeReference) {
+		void runAction(
+			sameThemeReference(reference, organizationDefaultReference)
+				? onInherit
+				: () => onSelect?.(reference),
+			m.theme_library_workspace_change_failed()
+		);
+	}
+
+	async function testItem(item: ThemeLibraryItem) {
+		previewReference = item.reference;
+		const testScheme = item.manifest.supportedSchemes.includes(scheme)
+			? scheme
+			: item.manifest.supportedSchemes[0];
+		if (testScheme && testScheme !== scheme) await onSchemeChange?.(testScheme);
+		await tick();
+		if (!previewAnchor || window.matchMedia('(min-width: 640px)').matches) return;
+		previewAnchor.scrollIntoView({
+			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+			block: 'start'
+		});
+	}
 </script>
 
 {#key activeLocale}
 	<section
-		class="space-y-8"
+		class="space-y-6 sm:space-y-8"
 		aria-labelledby="theme-library-heading"
 		aria-busy={libraryBusy}
 		data-testid="theme-library"
@@ -311,6 +352,7 @@
 
 		<div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.65fr)]">
 			<div class="min-w-0 space-y-3">
+				<div bind:this={previewAnchor} class="scroll-mt-4"></div>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div>
 						<div class="flex flex-wrap items-center gap-2">
@@ -369,7 +411,7 @@
 							</p>
 						</div>
 						<span
-							class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-xs font-medium text-success"
+							class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-xs font-medium text-success-foreground"
 						>
 							{m.theme_library_active()}
 						</span>
@@ -501,19 +543,34 @@
 			{scheme}
 			locale={activeLocale}
 			busy={libraryBusy}
-			onPreview={(reference) => (previewReference = reference)}
+			onPreview={(reference) => {
+				const item = effectiveBuiltInThemes.find((candidate) =>
+					sameThemeReference(candidate.reference, reference)
+				);
+				if (item) void testItem(item);
+			}}
+			onApply={applyReference}
+			{canApply}
 		/>
 
 		<ThemeLibraryOrganizationList
 			items={organizationThemes}
 			{organizationDefaultReference}
+			{selectedReference}
 			canManage={canManageOrganization}
 			busy={libraryBusy}
 			canCreate={Boolean(onCreate)}
 			onNew={() => openCreateDialog(workshopReference)}
 			onStartWithWorkshop={() =>
 				openCreateDialog(workshopReference, m.theme_library_workshop_copy())}
-			onPreview={(reference) => (previewReference = reference)}
+			onPreview={(reference) => {
+				const item = organizationThemes.find((candidate) =>
+					sameThemeReference(candidate.reference, reference)
+				);
+				if (item) void testItem(item);
+			}}
+			onApply={applyReference}
+			{canApply}
 			onEdit={(themeID) => void runAction(() => onEdit?.(themeID), m.theme_library_open_failed())}
 			onDeleteRequest={(item) => {
 				deleteCandidate = item;

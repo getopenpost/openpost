@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme, familyTypography } from './shared.js';
+import { colors, companionScheme, scheme, theme, familyTypography } from './shared.js';
 
 export const cloudGardenLight = scheme({
 	colors: colors({
@@ -60,10 +60,57 @@ export const cloudGardenLight = scheme({
 	}
 });
 
+export const cloudGardenDark = companionScheme(
+	cloudGardenLight,
+	{
+		canvas: 'oklch(0.14 0.025 160)',
+		ink: 'oklch(0.94 0.018 155)',
+		surface: 'oklch(0.19 0.032 160)',
+		surfaceRaised: 'oklch(0.23 0.04 160)',
+		surfaceSunken: 'oklch(0.11 0.02 160)',
+		mutedInk: 'oklch(0.72 0.035 155)',
+		border: 'oklch(0.29 0.045 160)',
+		focus: 'oklch(0.72 0.14 155)',
+		caret: 'oklch(0.72 0.14 155)',
+		link: 'oklch(0.76 0.12 155)',
+		selection: 'oklch(0.27 0.075 155)',
+		selectionInk: 'oklch(0.94 0.018 155)',
+		actionFocal: 'oklch(0.76 0.13 155)',
+		actionFocalInk: 'oklch(0.12 0.03 160)',
+		actionPrimary: 'oklch(0.37 0.09 155)',
+		actionPrimaryInk: 'oklch(0.97 0.015 155)',
+		actionPrimaryHover: 'oklch(0.43 0.095 155)',
+		actionPrimaryActive: 'oklch(0.49 0.1 155)',
+		actionOrdinary: 'oklch(0.24 0.045 160)',
+		actionOrdinaryInk: 'oklch(0.94 0.018 155)',
+		actionOrdinaryHover: 'oklch(0.28 0.05 160)',
+		actionOrdinaryActive: 'oklch(0.32 0.055 160)',
+		danger: 'oklch(0.34 0.09 25)',
+		dangerInk: 'oklch(0.91 0.09 25)',
+		actionDestructiveInk: 'oklch(0.82 0.13 25)',
+		success: 'oklch(0.28 0.065 155)',
+		successInk: 'oklch(0.82 0.13 155)',
+		warning: 'oklch(0.29 0.07 85)',
+		warningInk: 'oklch(0.85 0.12 85)',
+		info: 'oklch(0.27 0.06 225)',
+		infoInk: 'oklch(0.8 0.11 225)',
+		sidebar: 'oklch(0.12 0.025 160)',
+		sidebarInk: 'oklch(0.94 0.018 155)',
+		sidebarActive: 'oklch(0.27 0.075 155)',
+		sidebarActiveInk: 'oklch(0.94 0.018 155)',
+		chart1: 'oklch(0.72 0.14 155)',
+		chart2: 'oklch(0.72 0.12 190)',
+		chart3: 'oklch(0.73 0.11 225)',
+		chart4: 'oklch(0.8 0.11 100)',
+		chart5: 'oklch(0.7 0.11 315)'
+	},
+	'dark'
+);
+
 export const cloudGardenTheme: ThemeManifest = theme(
 	'cloud-garden',
 	'Cloud Garden',
 	'White and mint layers with restrained botanical depth.',
 	'heroicons-solid',
-	{ light: cloudGardenLight }
+	{ light: cloudGardenLight, dark: cloudGardenDark }
 );

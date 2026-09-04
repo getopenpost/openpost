@@ -15,9 +15,12 @@ const mobileScreenshotThemeIDs = new Set([
 const builtInThemes = [
   { id: "workshop", name: "Workshop", scheme: "light" },
   { id: "studio", name: "Studio", scheme: "light" },
+  { id: "studio", name: "Studio", scheme: "dark" },
   { id: "notebook", name: "Notebook", scheme: "light" },
   { id: "playroom", name: "Playroom", scheme: "light" },
+  { id: "playroom", name: "Playroom", scheme: "dark" },
   { id: "cloud-garden", name: "Cloud Garden", scheme: "light" },
+  { id: "cloud-garden", name: "Cloud Garden", scheme: "dark" },
   { id: "study-hall", name: "Study Hall", scheme: "light" },
   { id: "corkboard", name: "Corkboard", scheme: "light" },
   { id: "midnight", name: "Midnight", scheme: "dark" },
@@ -195,7 +198,7 @@ test("a published organization theme remains visible and assignable after all bu
   });
   const themeRow = page.getByText(name, { exact: true }).locator("../../..");
   await expect(themeRow).toBeVisible();
-  await themeRow.getByRole("button", { name: "Preview" }).click();
+  await themeRow.getByRole("button", { name: `Test ${name}` }).click();
   const preview = page.getByTestId("theme-preview");
   await expect
     .poll(() =>
@@ -204,7 +207,7 @@ test("a published organization theme remains visible and assignable after all bu
       ),
     )
     .toBe(themeID);
-  await page.getByRole("button", { name: `Use ${name}` }).click();
+  await themeRow.getByRole("button", { name: `Apply ${name}` }).click();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.getAttribute("data-theme-id")))
     .toBe(themeID);

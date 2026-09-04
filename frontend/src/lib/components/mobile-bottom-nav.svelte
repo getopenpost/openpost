@@ -83,6 +83,7 @@
 					]}
 					onclick={() => navigate(item)}
 					aria-current={active ? 'page' : undefined}
+					aria-label={item.id === 'new' ? labelFor(item.id) : undefined}
 				>
 					<span
 						class={item.id === 'new'
@@ -91,9 +92,11 @@
 					>
 						<ThemeIcon role={icon} class={item.id === 'new' ? 'size-5' : 'size-4'} />
 					</span>
-					<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
-						>{labelFor(item.id)}</span
-					>
+					{#if item.id !== 'new'}
+						<span data-theme-type="label" class="max-w-full truncate text-xs leading-4"
+							>{labelFor(item.id)}</span
+						>
+					{/if}
 				</button>
 			</li>
 		{/each}
@@ -123,13 +126,14 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content
-					class="mb-1 max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain p-1"
+					class="mb-1 max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border bg-popover! p-1 before:hidden"
 					side="top"
 					align="end"
 					sideOffset={8}
 				>
 					<AccountPreferencesMenu
 						showDestinations
+						inlineAppearance
 						onNavigate={() => {
 							moreMenuOpen = false;
 						}}

@@ -715,8 +715,14 @@
 		flex: 1 1 0%;
 		min-width: 0;
 		flex-direction: column;
-		gap: var(--theme-section-gap);
+		gap: min(var(--theme-section-gap), 2rem);
 		padding-block: calc(var(--theme-space) * 5);
+	}
+
+	@media (max-width: 39.999rem) {
+		[data-slot='page-container'] {
+			gap: min(var(--theme-section-gap), 1.5rem);
+		}
 	}
 
 	[data-slot='page-header'] {

@@ -23,11 +23,11 @@ describe('ThemeLibrary', () => {
 		});
 
 		await expect
-			.element(screen.getByRole('button', { name: /^Studio / }))
+			.element(screen.getByRole('button', { name: 'Test Studio' }))
 			.toHaveAttribute('aria-pressed', 'true');
-		await screen.getByRole('button', { name: /^Notebook / }).click();
+		await screen.getByRole('button', { name: 'Test Notebook' }).click();
 		expect(onSelect).not.toHaveBeenCalled();
-		await screen.getByRole('button', { name: 'Use Notebook' }).click();
+		await screen.getByRole('button', { name: 'Apply Notebook' }).click();
 		expect(onSelect).toHaveBeenCalledWith(builtInThemeReference('notebook'));
 	});
 
@@ -41,7 +41,7 @@ describe('ThemeLibrary', () => {
 			onInherit
 		});
 
-		await screen.getByRole('button', { name: /^Workshop / }).click();
+		await screen.getByRole('button', { name: 'Test Workshop' }).click();
 		await screen.getByRole('button', { name: 'Use organization default' }).click();
 
 		expect(onInherit).toHaveBeenCalledOnce();
@@ -54,7 +54,7 @@ describe('ThemeLibrary', () => {
 			canManageWorkspace: true
 		});
 
-		await screen.getByRole('button', { name: /^Notebook / }).click();
+		await screen.getByRole('button', { name: 'Test Notebook' }).click();
 		const assignment = screen.getByRole('button', { name: 'Use Notebook' });
 		await expect.element(assignment).toBeDisabled();
 		await expect
@@ -91,7 +91,7 @@ describe('ThemeLibrary', () => {
 			onCreate
 		});
 
-		await screen.getByRole('button', { name: /^Notebook / }).click();
+		await screen.getByRole('button', { name: 'Test Notebook' }).click();
 		await screen.getByRole('button', { name: 'Duplicate' }).click();
 		await expect.element(screen.getByLabelText('Theme name')).toHaveValue('Notebook copy');
 		await screen.getByRole('button', { name: 'Create draft' }).click();
@@ -120,7 +120,7 @@ describe('ThemeLibrary', () => {
 			onDelete
 		});
 
-		await screen.getByRole('button', { name: 'Preview' }).click();
+		await screen.getByRole('button', { name: 'Test Northstar' }).click();
 		await expect.element(screen.getByRole('button', { name: 'Use Northstar' })).toBeDisabled();
 		await expect.element(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
 		expect(onDelete).not.toHaveBeenCalled();
@@ -210,11 +210,23 @@ describe('ThemeLibrary', () => {
 			onSelect: vi.fn().mockRejectedValue(new Error('The workspace changed on another device'))
 		});
 
-		await screen.getByRole('button', { name: /^Notebook / }).click();
+		await screen.getByRole('button', { name: 'Test Notebook' }).click();
 		await screen.getByRole('button', { name: 'Use Notebook' }).click();
 
 		await expect
 			.element(screen.getByRole('alert'))
 			.toHaveTextContent('The workspace changed on another device');
+	});
+
+	it('switches to a supported scheme when testing a single-scheme theme', async () => {
+		const onSchemeChange = vi.fn();
+		const screen = render(ThemeLibrary, {
+			scheme: 'dark',
+			onSchemeChange
+		});
+
+		await screen.getByRole('button', { name: 'Test Notebook' }).click();
+
+		expect(onSchemeChange).toHaveBeenCalledWith('light');
 	});
 });

@@ -447,7 +447,7 @@
 									</div>
 									<span
 										data-theme-type="label"
-										class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-success"
+										class="rounded-[var(--theme-radius-pill,999px)] bg-success/12 px-2 py-1 text-success-foreground"
 										>{copy.onTrack}</span
 									>
 								</div>
@@ -499,8 +499,16 @@
 							data-active={index === 0}
 							class="flex min-h-[var(--theme-touch-target)] flex-col items-center justify-center gap-1 rounded-[var(--theme-radius-sm)] px-1"
 						>
-							<ThemeIcon role={item.role} class="size-4" />
-							<span data-theme-type="label" class="max-w-full truncate">{item.label}</span>
+							{#if item.role === 'add'}
+								<span
+									class="grid size-8 place-items-center rounded-[var(--theme-radius-md,var(--radius))] bg-primary text-primary-foreground"
+								>
+									<ThemeIcon role={item.role} class="size-4" />
+								</span>
+							{:else}
+								<ThemeIcon role={item.role} class="size-4" />
+								<span data-theme-type="label" class="max-w-full truncate">{item.label}</span>
+							{/if}
 						</div>
 					</li>
 				{/each}

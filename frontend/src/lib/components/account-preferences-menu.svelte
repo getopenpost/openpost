@@ -21,6 +21,7 @@
 		showDestinations?: boolean;
 		showEditors?: boolean;
 		showSettings?: boolean;
+		inlineAppearance?: boolean;
 		onNavigate?: () => void;
 		onCreateWorkspace?: () => void;
 	}
@@ -29,10 +30,12 @@
 		showDestinations = false,
 		showEditors = showDestinations,
 		showSettings = showDestinations,
+		inlineAppearance = false,
 		onNavigate,
 		onCreateWorkspace
 	}: Props = $props();
 	let workspacesExpanded = $state(false);
+	let appearanceExpanded = $state(false);
 	const menuItemClass = $derived(showDestinations ? 'min-h-11' : '');
 
 	function appearanceLabel(mode: AppearanceMode) {
@@ -212,28 +215,68 @@
 	<ThemeIcon role="user" class="size-4 text-muted-foreground" />
 	{m.sidebar_profile_security()}
 </DropdownMenu.Item>
-<DropdownMenu.Sub>
-	<DropdownMenu.SubTrigger class={menuItemClass}>
-		<ThemeIcon role="appearance" class="mr-2 size-4 text-muted-foreground" />
+{#if inlineAppearance}
+	<DropdownMenu.Item
+		class={[menuItemClass, 'gap-3']}
+		aria-expanded={appearanceExpanded}
+		onSelect={(event) => {
+			event.preventDefault();
+			appearanceExpanded = !appearanceExpanded;
+		}}
+	>
+		<ThemeIcon role="appearance" class="size-4 text-muted-foreground" />
 		{m.sidebar_appearance()}
 		<span class="ml-auto text-muted-foreground capitalize"
 			>{appearanceLabel(userPrefersMode.current as AppearanceMode)}</span
 		>
-	</DropdownMenu.SubTrigger>
-	<DropdownMenu.SubContent class="w-44">
-		{#each ['system', 'light', 'dark'] as appearance (appearance)}
-			<DropdownMenu.Item
-				class={menuItemClass}
-				onclick={() => setMode(appearance as AppearanceMode)}
+		<ThemeIcon
+			role="chevron-down"
+			class={`size-4 text-muted-foreground transition-transform ${appearanceExpanded ? 'rotate-180' : ''}`}
+		/>
+	</DropdownMenu.Item>
+	{#if appearanceExpanded}
+		<div
+			class="grid gap-0.5 border-l border-border/60 pl-8"
+			role="group"
+			aria-label={m.sidebar_appearance()}
+		>
+			{#each ['system', 'light', 'dark'] as appearance (appearance)}
+				<DropdownMenu.Item
+					class={menuItemClass}
+					onclick={() => setMode(appearance as AppearanceMode)}
+				>
+					<span>{appearanceLabel(appearance as AppearanceMode)}</span>
+					{#if userPrefersMode.current === appearance}
+						<ThemeIcon role="check" class="ml-auto size-4 text-primary" />
+					{/if}
+				</DropdownMenu.Item>
+			{/each}
+		</div>
+	{/if}
+{:else}
+	<DropdownMenu.Sub>
+		<DropdownMenu.SubTrigger class={menuItemClass}>
+			<ThemeIcon role="appearance" class="mr-2 size-4 text-muted-foreground" />
+			{m.sidebar_appearance()}
+			<span class="ml-auto text-muted-foreground capitalize"
+				>{appearanceLabel(userPrefersMode.current as AppearanceMode)}</span
 			>
-				<span>{appearanceLabel(appearance as AppearanceMode)}</span>
-				{#if userPrefersMode.current === appearance}
-					<ThemeIcon role="check" class="ml-auto size-4 text-primary" />
-				{/if}
-			</DropdownMenu.Item>
-		{/each}
-	</DropdownMenu.SubContent>
-</DropdownMenu.Sub>
+		</DropdownMenu.SubTrigger>
+		<DropdownMenu.SubContent class="w-44">
+			{#each ['system', 'light', 'dark'] as appearance (appearance)}
+				<DropdownMenu.Item
+					class={menuItemClass}
+					onclick={() => setMode(appearance as AppearanceMode)}
+				>
+					<span>{appearanceLabel(appearance as AppearanceMode)}</span>
+					{#if userPrefersMode.current === appearance}
+						<ThemeIcon role="check" class="ml-auto size-4 text-primary" />
+					{/if}
+				</DropdownMenu.Item>
+			{/each}
+		</DropdownMenu.SubContent>
+	</DropdownMenu.Sub>
+{/if}
 <DropdownMenu.CheckboxItem
 	class={menuItemClass}
 	data-cuelume-toggle={undefined}

@@ -53,15 +53,19 @@ const expectedDarkOnlyFamilies = [
 	'origin'
 ] as const;
 
+const expectedDualSchemeFamilies = ['workshop', 'studio', 'playroom', 'cloud-garden'] as const;
+const expectedDualSchemeFamilyIDs = new Set<string>(expectedDualSchemeFamilies);
+const expectedDarkOnlyFamilyIDs = new Set<string>(expectedDarkOnlyFamilies);
+
 describe('built-in themes', () => {
 	it('publishes the twenty-four versioned families with explicit scheme support', () => {
 		expect(BUILT_IN_THEMES.map((theme) => theme.id)).toEqual(expectedFamilies);
-		expect(getBuiltInTheme('workshop').supportedSchemes).toEqual(['light', 'dark']);
+		for (const id of expectedDualSchemeFamilies) {
+			expect(getBuiltInTheme(id).supportedSchemes).toEqual(['light', 'dark']);
+		}
 		for (const id of expectedFamilies.slice(1)) {
-			// SAFETY: expectedDarkOnlyFamilies is a readonly tuple of family id strings.
-			const expected = (expectedDarkOnlyFamilies as readonly string[]).includes(id)
-				? ['dark']
-				: ['light'];
+			if (expectedDualSchemeFamilyIDs.has(id)) continue;
+			const expected = expectedDarkOnlyFamilyIDs.has(id) ? ['dark'] : ['light'];
 			expect(getBuiltInTheme(id).supportedSchemes).toEqual(expected);
 		}
 

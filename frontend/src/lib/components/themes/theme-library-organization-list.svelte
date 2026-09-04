@@ -1,18 +1,26 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
-	import { sameThemeFamily, themeReferenceKey, type ThemeReference } from './theme-library-model';
+	import {
+		sameThemeFamily,
+		sameThemeReference,
+		themeReferenceKey,
+		type ThemeReference
+	} from './theme-library-model';
 	import type { ThemeLibraryItem } from './theme-library-types';
 
 	interface Props {
 		items: ThemeLibraryItem[];
 		organizationDefaultReference: ThemeReference;
+		selectedReference: ThemeReference;
 		canManage?: boolean;
 		busy?: boolean;
 		canCreate?: boolean;
 		onNew: () => void;
 		onStartWithWorkshop: () => void;
 		onPreview: (reference: ThemeReference) => void;
+		onApply: (reference: ThemeReference) => void;
+		canApply: (reference: ThemeReference) => boolean;
 		onEdit: (themeID: string) => void;
 		onDeleteRequest: (item: ThemeLibraryItem) => void;
 	}
@@ -20,12 +28,15 @@
 	let {
 		items,
 		organizationDefaultReference,
+		selectedReference,
 		canManage = false,
 		busy = false,
 		canCreate = false,
 		onNew,
 		onStartWithWorkshop,
 		onPreview,
+		onApply,
+		canApply,
 		onEdit,
 		onDeleteRequest
 	}: Props = $props();
@@ -63,6 +74,12 @@
 	{:else}
 		<div class="divide-y divide-border border-y border-border">
 			{#each items as item (themeReferenceKey(item.reference))}
+				{@const applicable = canApply(item.reference)}
+				{@const actionLabel = applicable
+					? m.theme_library_apply()
+					: sameThemeReference(item.reference, selectedReference)
+						? m.theme_library_applied()
+						: m.theme_library_apply()}
 				<div class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div class="min-w-0">
 						<div class="flex flex-wrap items-center gap-2">
@@ -99,13 +116,23 @@
 							</p>
 						{/if}
 					</div>
-					<div class="flex gap-2">
+					<div class="flex flex-wrap gap-2">
 						<Button
 							size="sm"
 							intent="ordinary"
+							aria-label={`${m.theme_library_test()} ${item.manifest.name}`}
 							onclick={() => onPreview(item.reference)}
-							disabled={busy}>{m.theme_library_preview()}</Button
+							disabled={busy}>{m.theme_library_test()}</Button
 						>
+						<Button
+							size="sm"
+							intent="focal"
+							aria-label={`${actionLabel} ${item.manifest.name}`}
+							onclick={() => onApply(item.reference)}
+							disabled={busy || !applicable}
+						>
+							{actionLabel}
+						</Button>
 						<Button
 							size="sm"
 							intent="quiet"

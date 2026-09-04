@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import { mode } from 'mode-watcher';
+	import { mode, setMode } from 'mode-watcher';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -396,5 +396,6 @@
 		onEdit={canManageOrganization ? onEdit : undefined}
 		onDelete={canManageOrganization ? onDelete : undefined}
 		onToggleLock={canManageOrganization ? onToggleLock : undefined}
+		onSchemeChange={(nextScheme) => setMode(nextScheme)}
 	/>
 {/if}

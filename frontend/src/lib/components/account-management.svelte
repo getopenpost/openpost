@@ -1701,7 +1701,7 @@
 													<DropdownMenu.Separator />
 													{#each accountRemovalKinds(account) as kind (kind)}
 														<DropdownMenu.Item
-															class="text-destructive"
+															variant="destructive"
 															onclick={() => requestAccountRemoval(account, kind)}
 														>
 															{accountRemovalActionLabel(account, kind)}

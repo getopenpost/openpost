@@ -12,7 +12,9 @@ import { fileURLToPath } from "node:url";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const captureEnabled = process.env.OPENPOST_UPDATE_PRODUCT_SCREENSHOTS === "1";
-const screenshotDirectory = fileURLToPath(new URL("../assets/screenshots/", import.meta.url));
+const screenshotDirectory =
+  process.env.OPENPOST_PRODUCT_SCREENSHOT_DIRECTORY ??
+  fileURLToPath(new URL("../assets/screenshots/", import.meta.url));
 const fixtureDirectory = fileURLToPath(new URL("./fixtures/product-screenshots/", import.meta.url));
 const captureViewport = { width: 1440, height: 960 };
 const fixedNow = "2026-08-20T14:30:00.000Z";

@@ -70,7 +70,7 @@ Write the post once. OpenPost adapts it for each platform, makes the media, sche
 - **Studio**: image editor, video editor, meme creator, and screen recorder, all in the browser.
 - **Calendar**: plan the month, reuse posting slots, track what's live, failed, or waiting.
 - **Inbox**: comments and DMs from every connected account, in one place.
-- **Analytics & Grow**: see what worked, and find people worth following on Bluesky and Mastodon.
+- **Analytics & Grow**: see what worked and do more of it; find people worth following.
 - **AI writing**: Ideate what to post, or turn a draft into one for every destination. You review before anything ships.
 - **Workspaces**: separate brands, clients, and teams, with their own accounts and members.
 - **API, CLI, MCP**: scripts and agents work against the same posts and permissions as the app, without your account passwords.

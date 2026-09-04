@@ -19,7 +19,7 @@
 		ImageEditorLayerStrokeEffect,
 		ImageEditorShadowEffect
 	} from '../types';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { layer }: { layer: ImageEditorLayer } = $props();
@@ -217,7 +217,7 @@
 				{/if}
 				<label class="grid gap-1 text-xs">
 					<span>{m.image_editor_shadow_color()}</span>
-					<ImageEditorColorPicker
+					<ColorPicker
 						label={m.image_editor_shadow_color()}
 						value={shadow.color}
 						disabled={!editor.canEdit}
@@ -336,7 +336,7 @@
 				</div>
 				{#if stroke}
 					<div class="space-y-3 border-t p-2">
-						<ImageEditorColorPicker
+						<ColorPicker
 							label={m.image_editor_border_color()}
 							value={stroke.color}
 							disabled={!editor.canEdit}

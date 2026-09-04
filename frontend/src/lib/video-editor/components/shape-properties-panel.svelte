@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
@@ -193,36 +194,28 @@
 						onValueChange={(value) => commit({ fillType: value as 'solid' | 'linear' })}
 					/>
 				</label>
-				<label class="text-[10px] text-[var(--video-editor-muted)]">
-					{item.fillType === 'linear'
+				<ColorPicker
+					label={item.fillType === 'linear'
 						? m.video_editor_shape_gradient_start()
 						: m.video_editor_shape_fill()}
-					<Input
-						type="color"
-						class="mt-0.5 h-8 w-full rounded bg-transparent"
-						value={item.fillType === 'linear'
-							? (item.gradientStartColor ?? item.fillColor ?? '#f97316')
-							: (item.fillColor ?? '#f97316')}
-						onchange={(event) =>
-							commit(
-								item.fillType === 'linear'
-									? { gradientStartColor: event.currentTarget.value }
-									: { fillColor: event.currentTarget.value }
-							)}
-					/>
-				</label>
+					value={item.fillType === 'linear'
+						? (item.gradientStartColor ?? item.fillColor ?? '#f97316')
+						: (item.fillColor ?? '#f97316')}
+					live={false}
+					onChange={(value) =>
+						commit(
+							item.fillType === 'linear' ? { gradientStartColor: value } : { fillColor: value }
+						)}
+				/>
 			</div>
 			{#if item.fillType === 'linear'}
 				<div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-1">
-					<label class="text-[10px] text-[var(--video-editor-muted)]">
-						{m.video_editor_shape_gradient_end()}
-						<Input
-							type="color"
-							class="mt-0.5 h-8 w-full rounded bg-transparent"
-							value={item.gradientEndColor ?? '#fb7185'}
-							onchange={(event) => commit({ gradientEndColor: event.currentTarget.value })}
-						/>
-					</label>
+					<ColorPicker
+						label={m.video_editor_shape_gradient_end()}
+						value={item.gradientEndColor ?? '#fb7185'}
+						live={false}
+						onChange={(value) => commit({ gradientEndColor: value })}
+					/>
 					<label class="text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_shape_gradient_angle()}
 						<Input
@@ -252,15 +245,12 @@
 
 		{#if item.strokeEnabled}
 			<div class="grid grid-cols-2 gap-1">
-				<label class="text-[10px] text-[var(--video-editor-muted)]">
-					{m.video_editor_shape_stroke()}
-					<Input
-						type="color"
-						class="mt-0.5 h-8 w-full rounded bg-transparent"
-						value={item.strokeColor ?? '#ffffff'}
-						onchange={(event) => commit({ strokeColor: event.currentTarget.value })}
-					/>
-				</label>
+				<ColorPicker
+					label={m.video_editor_shape_stroke()}
+					value={item.strokeColor ?? '#ffffff'}
+					live={false}
+					onChange={(value) => commit({ strokeColor: value })}
+				/>
 				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_stroke_width()}
 					<Input

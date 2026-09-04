@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Input } from '$lib/components/ui/input';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -163,19 +164,18 @@
 			{#each [0, 1, 2, 3] as idx (idx)}
 				<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_background_color_label({ index: idx + 1 })}
-					<Input
-						type="color"
-						class="h-8 w-full rounded bg-transparent"
+					<ColorPicker
 						value={bg.colors[idx] ?? '#000000'}
-						aria-label={m.video_editor_background_color_label({ index: idx + 1 })}
-						onchange={(e) => {
+						label={m.video_editor_background_color_label({ index: idx + 1 })}
+						live={false}
+						onChange={(value) => {
 							const next: [string, string, string, string] = [
 								bg.colors[0] ?? '#000000',
 								bg.colors[1] ?? '#000000',
 								bg.colors[2] ?? '#000000',
 								bg.colors[3] ?? '#000000'
 							];
-							next[idx] = e.currentTarget.value;
+							next[idx] = value;
 							updateBackgroundColors(item.id, next);
 							onedit();
 						}}
@@ -224,26 +224,24 @@
 		<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
 			<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_background_foreground()}
-				<Input
-					type="color"
-					class="h-8 w-full rounded bg-transparent"
+				<ColorPicker
 					value={bg.foreground}
-					aria-label={m.video_editor_background_foreground()}
-					onchange={(e) => {
-						updateBackgroundForeground(item.id, e.currentTarget.value);
+					label={m.video_editor_background_foreground()}
+					live={false}
+					onChange={(value) => {
+						updateBackgroundForeground(item.id, value);
 						onedit();
 					}}
 				/>
 			</label>
 			<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_background_background_color()}
-				<Input
-					type="color"
-					class="h-8 w-full rounded bg-transparent"
+				<ColorPicker
 					value={bg.background}
-					aria-label={m.video_editor_background_background_color()}
-					onchange={(e) => {
-						updateBackgroundBackgroundColor(item.id, e.currentTarget.value);
+					label={m.video_editor_background_background_color()}
+					live={false}
+					onChange={(value) => {
+						updateBackgroundBackgroundColor(item.id, value);
 						onedit();
 					}}
 				/>

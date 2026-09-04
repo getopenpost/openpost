@@ -32,6 +32,10 @@ const colorMiniTimeline = new URL(
 	'../lib/video-editor/components/color-mini-timeline.svelte',
 	import.meta.url
 );
+const timelineNavigator = new URL(
+	'../lib/video-editor/components/timeline-navigator.svelte',
+	import.meta.url
+);
 const audioEqCurve = new URL(
 	'../lib/video-editor/components/audio-eq-curve-editor.svelte',
 	import.meta.url
@@ -436,6 +440,19 @@ describe('editor route theme color boundary', () => {
 		expect(source).toContain('border-[var(--video-editor-border)]');
 		expect(source).toContain('bg-[var(--video-editor-control)]');
 		expect(rawColors(source)).toEqual([]);
+	});
+
+	it('themes the timeline navigator instead of drawing a permanent dark scrollbar', async () => {
+		const source = await readFile(timelineNavigator, 'utf8');
+
+		expect(source).toContain('bg-[var(--video-editor-panel)]');
+		expect(source).toContain('bg-[var(--video-editor-control)]');
+		expect(source).toContain('border-[var(--video-editor-border)]');
+		expect(source).toContain('bg-[var(--video-editor-selection)]');
+		expect(source).not.toContain('bg-[oklch(0.16_0.008_55)]');
+		expect(source).not.toContain('bg-[oklch(0.22_0.012_55)]');
+		const layout = await readFile(layoutStyles, 'utf8');
+		expect(layout).toContain('scrollbar-color: var(--editor-border) var(--editor-canvas);');
 	});
 
 	it('derives image editor chrome from the active theme action color', async () => {

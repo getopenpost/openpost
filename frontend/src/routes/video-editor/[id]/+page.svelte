@@ -67,6 +67,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { renderVideoExport } from '$lib/video-editor/media/render-execution';
 	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { queryImageEditorBrandKit } from '$lib/query/image-editor';
+	import {
+		provideColorPickerPalette,
+		type ColorPickerPreset
+	} from '$lib/components/color-picker-context';
 	import MediaPoolList from '$lib/video-editor/components/media-pool-list.svelte';
 	import EmbeddedSubtitlePicker from '$lib/video-editor/components/embedded-subtitle-picker.svelte';
 	import SceneBrowserPanel from '$lib/video-editor/components/scene-browser-panel.svelte';
@@ -166,6 +171,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	const projectId = $derived(page.params.id ?? '');
 	const gate = createWorkspaceGate();
+	let colorPickerBrandColors = $state.raw<ColorPickerPreset[]>([]);
+	let brandColorRequest = 0;
+	provideColorPickerPalette({
+		get brandColors() {
+			return colorPickerBrandColors;
+		}
+	});
+	$effect(() => {
+		const workspaceId = workspaceCtx.currentWorkspace?.id ?? '';
+		const request = ++brandColorRequest;
+		if (!workspaceId) {
+			colorPickerBrandColors = [];
+			return;
+		}
+		void queryImageEditorBrandKit(workspaceId)
+			.then((kit) => {
+				if (request === brandColorRequest) colorPickerBrandColors = kit.colors;
+			})
+			.catch(() => {
+				if (request === brandColorRequest) colorPickerBrandColors = [];
+			});
+	});
 	let selectedItemId = $state<string | null>(null);
 	let selectedItemIds = $state<string[]>([]);
 	let selectedTransitionId = $state<string | null>(null);

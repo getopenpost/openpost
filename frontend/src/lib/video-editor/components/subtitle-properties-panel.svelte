@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import type { TimelineItem } from '../project/types';
@@ -137,24 +138,18 @@
 				onValueChange={(textAlign) => commit({ textAlign: textAlign as TimelineItem['textAlign'] })}
 			/>
 		</label>
-		<label class="field-label">
-			{m.video_editor_text_color()}
-			<Input
-				class="mt-0.5 h-8 w-full bg-transparent"
-				type="color"
-				value={activeItem.color ?? '#ffffff'}
-				onchange={(event) => commit({ color: event.currentTarget.value })}
-			/>
-		</label>
-		<label class="field-label">
-			{m.video_editor_text_stroke_color()}
-			<Input
-				class="mt-0.5 h-8 w-full bg-transparent"
-				type="color"
-				value={activeItem.strokeColor ?? '#000000'}
-				onchange={(event) => commit({ strokeColor: event.currentTarget.value })}
-			/>
-		</label>
+		<ColorPicker
+			label={m.video_editor_text_color()}
+			value={activeItem.color ?? '#ffffff'}
+			live={false}
+			onChange={(value) => commit({ color: value })}
+		/>
+		<ColorPicker
+			label={m.video_editor_text_stroke_color()}
+			value={activeItem.strokeColor ?? '#000000'}
+			live={false}
+			onChange={(value) => commit({ strokeColor: value })}
+		/>
 		<label class="field-label">
 			{m.video_editor_property_stroke()}
 			<Input
@@ -215,32 +210,23 @@
 		</p>
 		{#if karaokeMode === 'karaoke'}
 			<div class="grid grid-cols-2 gap-1.5">
-				<label class="field-label">
-					{m.video_editor_caption_karaoke_active_color()}
-					<Input
-						class="mt-0.5 h-8 w-full bg-transparent"
-						type="color"
-						value={activeItem.karaokeActiveColor ?? '#FFD400'}
-						onchange={(event) =>
-							commit(
-								{ karaokeActiveColor: event.currentTarget.value },
-								'UPDATE_KARAOKE_ACTIVE_COLOR'
-							)}
-					/>
-				</label>
+				<ColorPicker
+					label={m.video_editor_caption_karaoke_active_color()}
+					value={activeItem.karaokeActiveColor ?? '#FFD400'}
+					live={false}
+					onChange={(value) => commit({ karaokeActiveColor: value }, 'UPDATE_KARAOKE_ACTIVE_COLOR')}
+				/>
 				<label class="field-label">
 					{m.video_editor_caption_karaoke_active_background()}
 					<div class="mt-0.5 flex items-center gap-1">
-						<Input
-							class="h-8 w-full bg-transparent"
-							type="color"
+						<ColorPicker
+							label={m.video_editor_caption_karaoke_active_background()}
 							value={activeItem.karaokeActiveBackground ?? '#FFD400'}
+							variant="swatch"
+							live={false}
 							disabled={!activeItem.karaokeActiveBackground}
-							onchange={(event) =>
-								commit(
-									{ karaokeActiveBackground: event.currentTarget.value },
-									'UPDATE_KARAOKE_ACTIVE_BACKGROUND'
-								)}
+							onChange={(value) =>
+								commit({ karaokeActiveBackground: value }, 'UPDATE_KARAOKE_ACTIVE_BACKGROUND')}
 						/>
 						<Button
 							type="button"

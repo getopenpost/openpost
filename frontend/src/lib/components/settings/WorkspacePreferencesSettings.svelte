@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { Input } from '$lib/components/ui/input';
-	import ImageEditorColorPicker from '$lib/image-editor/components/image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
@@ -160,7 +160,7 @@
 	<div class="mt-4 max-w-sm space-y-2">
 		<Label for="workspace-color">{m.settings_workspace_color()}</Label>
 		<div class="[&>button]:min-h-11">
-			<ImageEditorColorPicker
+			<ColorPicker
 				id="workspace-color"
 				label={m.settings_workspace_color()}
 				value={workspaceCtx.settings.color}

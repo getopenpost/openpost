@@ -208,6 +208,26 @@ async function captureVideoState(
   });
 }
 
+async function captureColorPickerState(
+  page: Page,
+  theme: (typeof themeSchemes)[number],
+  width: number,
+): Promise<void> {
+  if (!captureScreenshots) return;
+  const assets = page.getByRole("complementary", { name: "Assets" });
+  await assets.getByRole("button", { name: "Add layer" }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+  const picker = page.getByRole("button", { name: "Text color" }).first();
+  await expect(picker).toBeVisible({ timeout: 10_000 });
+  await picker.click();
+  await expect(page.getByText(/color/i).last()).toBeVisible();
+  await page.screenshot({
+    path: `${SCREENSHOT_DIRECTORY}/video-color-picker-${width}-${theme.id}-${theme.scheme}.png`,
+    animations: "disabled",
+  });
+  await page.keyboard.press("Escape");
+}
+
 async function reviewVideoPanelStates(
   page: Page,
   url: string,
@@ -277,6 +297,9 @@ test("both editors honor every built-in theme while preserving protected output 
     await assignTheme(request, token, workspace.id, theme.id);
     for (const width of [1440, 390] as const) {
       await openEditor(page, videoURL, "video", theme, width);
+      if (width === 1440 && (theme.id === "workshop" || theme.id === "supabase")) {
+        await captureColorPickerState(page, theme, width);
+      }
       await openEditor(page, imageURL, "image", theme, width);
     }
     if (narrowThemeIDs.has(theme.id)) {

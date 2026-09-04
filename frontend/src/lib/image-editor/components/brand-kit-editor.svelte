@@ -13,7 +13,7 @@
 		type QueryMutationSession
 	} from '$lib/query/authorization-boundary';
 	import { loadImageEditorBrandFontsWithReport } from '../fonts';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type {
@@ -321,7 +321,7 @@
 							/>
 						</label>
 						<div class="col-start-1 sm:col-start-2 sm:row-start-1 sm:pt-1">
-							<ImageEditorColorPicker
+							<ColorPicker
 								label={m.brand_choose_color({ name: color.name || m.image_editor_brand() })}
 								value={color.value}
 								brandColors={colors}
@@ -360,7 +360,7 @@
 				</div>
 				{#each backgrounds as background, index (background.id)}
 					<div class="grid grid-cols-[minmax(0,1fr)_3rem] gap-2">
-						<ImageEditorColorPicker
+						<ColorPicker
 							label={m.brand_choose_background()}
 							value={background.value}
 							brandColors={colors}
@@ -598,7 +598,7 @@
 						<label class="grid gap-1 text-xs font-medium sm:col-span-2">
 							<span>{m.brand_color_value()}</span>
 							<div class="[&>button]:min-h-11">
-								<ImageEditorColorPicker
+								<ColorPicker
 									label={m.brand_choose_color({ name: style.name || m.image_editor_text_styles() })}
 									value={style.color}
 									brandColors={colors}

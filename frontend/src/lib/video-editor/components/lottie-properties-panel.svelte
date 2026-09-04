@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
@@ -382,17 +383,18 @@
 				{/if}
 			</div>
 			{#each namedColors.length > 0 ? namedColors : otherColors as group (group.original)}
-				<label
+				<div
 					class="flex min-h-8 items-center justify-between gap-2 rounded bg-[var(--video-editor-panel)] px-1.5 text-[10px] text-[var(--video-editor-muted)]"
 				>
 					<span class="min-w-0 truncate">{group.label}</span>
-					<Input
-						type="color"
-						class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+					<ColorPicker
+						label={group.label}
 						value={item.lottieColorOverrides?.[group.keys[0]!] ?? group.original}
-						onchange={(event) => setColor(group.keys, group.original, event.currentTarget.value)}
+						variant="swatch"
+						live={false}
+						onChange={(value) => setColor(group.keys, group.original, value)}
 					/>
-				</label>
+				</div>
 			{/each}
 			{#if namedColors.length > 0 && otherColors.length > 0}
 				<button
@@ -406,18 +408,18 @@
 				</button>
 				{#if showOtherColors}
 					{#each otherColors as group (group.original)}
-						<label
+						<div
 							class="flex min-h-8 items-center justify-between gap-2 rounded bg-[var(--video-editor-panel)] px-1.5 text-[10px] text-[var(--video-editor-muted)]"
 						>
 							<span class="min-w-0 truncate">{group.label}</span>
-							<Input
-								type="color"
-								class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+							<ColorPicker
+								label={group.label}
 								value={item.lottieColorOverrides?.[group.keys[0]!] ?? group.original}
-								onchange={(event) =>
-									setColor(group.keys, group.original, event.currentTarget.value)}
+								variant="swatch"
+								live={false}
+								onChange={(value) => setColor(group.keys, group.original, value)}
 							/>
-						</label>
+						</div>
 					{/each}
 				{/if}
 			{/if}

@@ -2,7 +2,7 @@
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import type { ImageEditorBrandColor } from '../types';
 
 	let {
@@ -28,7 +28,7 @@
 
 <div class="flex min-w-0 flex-wrap items-center gap-1" data-testid="image-editor-paint-colors">
 	<div class="w-24 min-w-0 flex-1 sm:w-32 sm:flex-none">
-		<ImageEditorColorPicker
+		<ColorPicker
 			label={gradient ? m.image_editor_gradient_start_color() : m.image_editor_foreground_color()}
 			value={primary}
 			{brandColors}
@@ -52,7 +52,7 @@
 			<ThemeIcon role="swap" />
 		</Button>
 		<div class="w-24 min-w-0 flex-1 sm:w-32 sm:flex-none">
-			<ImageEditorColorPicker
+			<ColorPicker
 				label={m.image_editor_gradient_end_color()}
 				value={secondary}
 				{brandColors}

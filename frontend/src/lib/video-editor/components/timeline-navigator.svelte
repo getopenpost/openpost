@@ -271,14 +271,15 @@
 </script>
 
 <div
-	class="h-6 border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55)] px-2 py-1 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:py-0"
+	class="editor-protected-surface h-6 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:py-0"
+	data-editor-protected="timeline-navigator"
 	data-timeline-navigator
 	role="group"
 	aria-label={m.video_editor_timeline_navigator()}
 >
 	<div
 		bind:this={trackNode}
-		class="relative h-full overflow-hidden rounded-sm bg-[oklch(0.22_0.012_55)]"
+		class="relative h-full overflow-hidden rounded-sm bg-[var(--video-editor-control)]"
 		role="toolbar"
 		tabindex="0"
 		aria-label={m.video_editor_timeline_navigator()}
@@ -297,9 +298,9 @@
 			></span>
 		{/each}
 		<div
-			class="absolute top-0 z-10 flex h-full touch-none items-center justify-between rounded-sm border border-[oklch(0.78_0.03_65_/_0.62)] bg-[oklch(0.72_0.03_65_/_0.28)] shadow-[0_0_0_1px_oklch(0.12_0.006_55_/_0.55)] {dragTarget
+			class="absolute top-0 z-10 flex h-full touch-none items-center justify-between rounded-sm border border-[var(--video-editor-focus-border)] bg-[var(--video-editor-selection)] shadow-[0_0_0_1px_var(--video-editor-border)] {dragTarget
 				? 'cursor-grabbing'
-				: 'cursor-grab hover:bg-[oklch(0.72_0.03_65_/_0.38)]'}"
+				: 'cursor-grab hover:bg-[var(--video-editor-control-hover)]'}"
 			style="left:{renderedThumbLeft}px;width:{renderedThumbWidth}px"
 			role="scrollbar"
 			tabindex="0"
@@ -316,24 +317,27 @@
 		>
 			<button
 				type="button"
-				class="relative z-20 flex h-full w-3 shrink-0 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
+				class="relative z-20 flex h-full w-3 shrink-0 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:w-11"
 				aria-label={m.video_editor_timeline_navigator_zoom_start()}
 				onpointerdown={(event) => startDrag(event, 'left')}
 				onkeydown={(event) => onHandleKeydown(event, 'left')}
 				onclick={(event) => event.stopPropagation()}
 			>
-				<span class="size-1 rounded-full bg-white/85"></span>
+				<span class="size-1 rounded-full bg-[var(--video-editor-text)] opacity-85"></span>
 			</button>
-			<span class="h-0.5 w-8 max-w-[35%] rounded-full bg-white/30" aria-hidden="true"></span>
+			<span
+				class="h-0.5 w-8 max-w-[35%] rounded-full bg-[var(--video-editor-text)] opacity-30"
+				aria-hidden="true"
+			></span>
 			<button
 				type="button"
-				class="relative z-20 flex h-full w-3 shrink-0 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
+				class="relative z-20 flex h-full w-3 shrink-0 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:w-11"
 				aria-label={m.video_editor_timeline_navigator_zoom_end()}
 				onpointerdown={(event) => startDrag(event, 'right')}
 				onkeydown={(event) => onHandleKeydown(event, 'right')}
 				onclick={(event) => event.stopPropagation()}
 			>
-				<span class="size-1 rounded-full bg-white/85"></span>
+				<span class="size-1 rounded-full bg-[var(--video-editor-text)] opacity-85"></span>
 			</button>
 		</div>
 	</div>

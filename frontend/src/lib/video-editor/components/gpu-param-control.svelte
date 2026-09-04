@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -171,14 +172,14 @@
 		>
 			{localizedParamLabel}
 		</span>
-		<Input
-			type="color"
-			class="h-7 w-10 cursor-pointer rounded border border-[var(--video-editor-border)] bg-transparent p-0.5"
+		<ColorPicker
+			label={`${effectLabel}: ${localizedParamLabel}`}
 			value={stringValue.slice(0, 7)}
-			aria-label={`${effectLabel}: ${localizedParamLabel}`}
-			onchange={(event) => {
+			variant="swatch"
+			live={false}
+			onChange={(value) => {
 				const alpha = stringValue.length === 9 ? stringValue.slice(7) : '';
-				oncommit(`${event.currentTarget.value}${alpha}`);
+				oncommit(`${value}${alpha}`);
 			}}
 		/>
 		<Input

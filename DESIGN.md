@@ -243,6 +243,7 @@ Workshop uses a 12px base corner, 10px controls, 12px cards, and 14–16px promi
 - **Focus:** Semantic border plus a visible 2px ring.
 - **Error / Disabled:** Error uses Failure Red border and ring; disabled controls retain legible text while clearly reducing emphasis.
 - **Implementation:** Use the shared Shadcn-svelte `Input`, `Textarea`, `Select`/`AppSelect`, `Checkbox`, `RadioGroup`, `Slider`, and related primitives in the app, public OpenPost Image Editor, and marketing tools. Native controls belong only inside those shared implementations.
+- **Authored colors:** Use the shared brand-aware `ColorPicker` for hex, RGB, and HSL color values. Keep canvas sampling, grading wheels, CSS color expressions, and provider-defined color categories in their specialized controls.
 - **Embedded editors:** When a parent surface owns the complete boundary, the shared `Textarea` may use `unstyled` so default field chrome does not leak into the editor. The text-and-thread composer and media alt-text overlay are intentional examples; ordinary forms keep the default treatment.
 
 ### Navigation

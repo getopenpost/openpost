@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type {
 		TimelineTransition,
@@ -412,17 +413,13 @@
 				{#each definition.parameters as parameter (parameter.key)}
 					<div class="flex items-end gap-1">
 						{#if parameter.type === 'color'}
-							<label
-								class="flex min-w-0 flex-1 items-center justify-between text-[10px] text-[var(--video-editor-muted)]"
-							>
-								{parameterLabel(parameter)}
-								<Input
-									class="h-8 w-14 p-1"
-									type="color"
-									value={rgbToHex(propertyValue(parameter))}
-									oninput={(event) => setProperty(parameter, hexToRgb(event.currentTarget.value))}
-								/>
-							</label>
+							<ColorPicker
+								label={parameterLabel(parameter)}
+								value={rgbToHex(propertyValue(parameter))}
+								variant="swatch"
+								live={false}
+								onChange={(value) => setProperty(parameter, hexToRgb(value))}
+							/>
 						{:else}
 							<label class="min-w-0 flex-1 text-[10px] text-[var(--video-editor-muted)]">
 								<span class="flex justify-between">

@@ -24,7 +24,7 @@
 	import PropertiesPanel from './properties-panel.svelte';
 	import PageStrip from './page-strip.svelte';
 	import TemplatePreview from './template-preview.svelte';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { provideImageEditor, ImageEditorController } from '../editor.svelte';
 	import {
 		completeImageEditorReturnToken,
@@ -4393,7 +4393,7 @@
 			{#if exportHasTransparency && !exportSupportsTransparency}
 				<div class="space-y-3 rounded-lg border border-amber-500/35 bg-amber-500/8 p-3">
 					<p class="text-sm leading-relaxed">{m.image_editor_jpeg_transparency_warning()}</p>
-					<ImageEditorColorPicker
+					<ColorPicker
 						label={m.image_editor_jpeg_matte_color()}
 						value={editor.document?.export_defaults.matte_color ?? '#ffffff'}
 						disabled={!editor.canEdit}

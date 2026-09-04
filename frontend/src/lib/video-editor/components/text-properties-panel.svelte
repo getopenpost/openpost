@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import type { TextSpan, TextStylePresetId, TimelineItem } from '../project/types';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
@@ -285,15 +286,12 @@
 										})}
 								/>
 							</label>
-							<label class="field-label">
-								{m.video_editor_text_color()}
-								<Input
-									class="h-8 w-full bg-transparent"
-									type="color"
-									value={span.color ?? activeItem.color ?? '#ffffff'}
-									onchange={(event) => commitSpan(index, { color: event.currentTarget.value })}
-								/>
-							</label>
+							<ColorPicker
+								label={m.video_editor_text_color()}
+								value={span.color ?? activeItem.color ?? '#ffffff'}
+								live={false}
+								onChange={(value) => commitSpan(index, { color: value })}
+							/>
 						</div>
 						<div class="mt-2 flex gap-1">
 							<Button

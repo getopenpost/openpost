@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -183,12 +184,15 @@
 		>
 			<h3 class="mb-2 text-xs font-medium">{m.video_editor_project_canvas_background()}</h3>
 			<div class="flex items-center gap-2">
-				<Input
-					type="color"
-					class="size-11 shrink-0 cursor-pointer p-1 lg:size-9"
-					bind:value={backgroundDraft}
-					aria-label={m.video_editor_project_canvas_background_color()}
-					onchange={(event) => commitBackground(event.currentTarget.value)}
+				<ColorPicker
+					label={m.video_editor_project_canvas_background_color()}
+					value={backgroundDraft}
+					variant="swatch"
+					live={false}
+					onChange={(value) => {
+						backgroundDraft = value;
+						commitBackground(value);
+					}}
 				/>
 				<Input
 					type="text"

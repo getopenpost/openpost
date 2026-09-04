@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
@@ -5365,14 +5366,14 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content class="video-editor-theme w-48 p-2" align="start">
 					<div class="flex items-center gap-2 px-1 pb-2 text-xs text-[var(--video-editor-muted)]">
-						<Input
-							class="size-7 cursor-pointer rounded border border-[var(--video-editor-border)] bg-transparent p-0.5"
-							type="color"
-							aria-label={m.video_editor_marker_color()}
+						<ColorPicker
+							label={m.video_editor_marker_color()}
 							value={markerColorForInput(selectedMarker.color)}
-							onchange={(event) =>
+							variant="swatch"
+							live={false}
+							onChange={(value) =>
 								commitMarkerPatch(selectedMarker, {
-									color: event.currentTarget.value
+									color: value
 								})}
 						/>
 						{m.video_editor_marker_color()}

@@ -9,7 +9,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Tooltip from '$lib/components/ui/tooltip';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
@@ -813,7 +813,7 @@
 						</label>
 						<label class="grid gap-1 text-xs">
 							<span>{m.image_editor_color()}</span>
-							<ImageEditorColorPicker
+							<ColorPicker
 								label={m.image_editor_color()}
 								value={layer.text.color}
 								disabled={!editor.canEdit}
@@ -938,7 +938,7 @@
 						<div class="grid grid-cols-2 gap-2">
 							<label class="grid gap-1 text-xs">
 								<span>{m.image_editor_highlight()}</span>
-								<ImageEditorColorPicker
+								<ColorPicker
 									label={m.image_editor_highlight()}
 									value={layer.text.highlight_color?.slice(0, 7) || '#ffffff'}
 									disabled={!editor.canEdit}
@@ -953,7 +953,7 @@
 							</label>
 							<label class="grid gap-1 text-xs">
 								<span>{m.image_editor_stroke()}</span>
-								<ImageEditorColorPicker
+								<ColorPicker
 									label={m.image_editor_stroke()}
 									value={layer.text.stroke_color?.slice(0, 7) || '#000000'}
 									disabled={!editor.canEdit}
@@ -1036,7 +1036,7 @@
 						</label>
 						<label class="grid gap-1 text-xs">
 							<span>{m.image_editor_fill()}</span>
-							<ImageEditorColorPicker
+							<ColorPicker
 								label={m.image_editor_fill()}
 								value={layer.shape.fill}
 								disabled={!editor.canEdit}
@@ -1065,7 +1065,7 @@
 						<div class="grid grid-cols-2 gap-2">
 							<label class="grid gap-1 text-xs">
 								<span>{m.image_editor_stroke()}</span>
-								<ImageEditorColorPicker
+								<ColorPicker
 									label={m.image_editor_stroke()}
 									value={layer.shape.stroke}
 									disabled={!editor.canEdit}

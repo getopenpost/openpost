@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
@@ -465,44 +466,38 @@
 					{/each}
 				</div>
 				<div class="mt-1 grid grid-cols-2 gap-1">
-					<label class="text-[10px] text-muted-foreground"
-						>{m.video_editor_text_color()}<Input
-							class="block h-8 w-full rounded bg-transparent"
-							type="color"
-							value={item.color ?? '#ffffff'}
-							onchange={(event) => commitText({ color: event.currentTarget.value })}
-						/></label
-					>
-					<label class="text-[10px] text-muted-foreground"
-						>{m.video_editor_text_background()}<Input
-							class="block h-8 w-full rounded bg-transparent"
-							type="color"
+					<ColorPicker
+						label={m.video_editor_text_color()}
+						value={item.color ?? '#ffffff'}
+						live={false}
+						onChange={(value) => commitText({ color: value })}
+					/>
+					<div class="text-[10px] text-muted-foreground">
+						<ColorPicker
+							label={m.video_editor_text_background()}
 							value={item.backgroundColor ?? '#000000'}
-							onchange={(event) => commitText({ backgroundColor: event.currentTarget.value })}
+							live={false}
+							onChange={(value) => commitText({ backgroundColor: value })}
 						/><button
 							type="button"
 							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-40"
 							disabled={!item.backgroundColor}
 							onclick={() => commitText({ backgroundColor: undefined })}
 							>{m.video_editor_text_clear_background()}</button
-						></label
-					>
-					<label class="text-[10px] text-muted-foreground"
-						>{m.video_editor_text_stroke_color()}<Input
-							class="block h-8 w-full rounded bg-transparent"
-							type="color"
-							value={item.strokeColor ?? '#000000'}
-							onchange={(event) => commitText({ strokeColor: event.currentTarget.value })}
-						/></label
-					>
-					<label class="text-[10px] text-muted-foreground"
-						>{m.video_editor_text_shadow_color()}<Input
-							class="block h-8 w-full rounded bg-transparent"
-							type="color"
-							value={item.textShadow?.color ?? '#000000'}
-							onchange={(event) => commitTextShadowColor(event.currentTarget.value)}
-						/></label
-					>
+						>
+					</div>
+					<ColorPicker
+						label={m.video_editor_text_stroke_color()}
+						value={item.strokeColor ?? '#000000'}
+						live={false}
+						onChange={(value) => commitText({ strokeColor: value })}
+					/>
+					<ColorPicker
+						label={m.video_editor_text_shadow_color()}
+						value={item.textShadow?.color ?? '#000000'}
+						live={false}
+						onChange={commitTextShadowColor}
+					/>
 				</div>
 				<div class="mt-1 grid grid-cols-2 gap-1">
 					<label class="text-[10px] text-muted-foreground">

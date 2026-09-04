@@ -13,7 +13,7 @@
 		ImageEditorGradientValue,
 		ImageEditorPageBackground
 	} from '../types';
-	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 
 	let { onOpenMedia = () => undefined }: { onOpenMedia?: () => void } = $props();
@@ -249,7 +249,7 @@
 	</div>
 
 	{#if background.type === 'solid'}
-		<ImageEditorColorPicker
+		<ColorPicker
 			label={m.image_editor_background_color()}
 			value={background.color ?? '#ffffff'}
 			disabled={!editor.canEdit}
@@ -325,7 +325,7 @@
 								<ThemeIcon role="delete" />
 							</Button>
 						</div>
-						<ImageEditorColorPicker
+						<ColorPicker
 							label={m.image_editor_gradient_stop_color({ number: index + 1 })}
 							value={stop.color}
 							disabled={!editor.canEdit}

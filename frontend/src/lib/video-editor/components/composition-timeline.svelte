@@ -139,6 +139,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import * as Select from '$lib/components/ui/select';
 	import type {
@@ -3197,21 +3198,31 @@
 														<span class="band-label">{m.video_editor_motion_overrides_title()}</span
 														>
 														{#each publishedControls(item) as control (control.id)}
-															<label class="control-row"
-																><span>{control.name}</span><Input
-																	type={control.kind === 'color' ? 'color' : 'text'}
-																	value={compositionControlValue(item, control)}
-																	placeholder={control.defaultValue}
-																	onchange={(e) => {
-																		setCompositionControlValue(
-																			item,
-																			control,
-																			e.currentTarget.value
-																		);
-																	}}
-																	data-testid={`control-override-${item.id}-${control.id}`}
-																/></label
-															>
+															<div class="control-row">
+																<span>{control.name}</span>
+																{#if control.kind === 'color'}
+																	<ColorPicker
+																		label={control.name}
+																		value={compositionControlValue(item, control)}
+																		variant="swatch"
+																		live={false}
+																		onChange={(value) =>
+																			setCompositionControlValue(item, control, value)}
+																	/>
+																{:else}
+																	<Input
+																		value={compositionControlValue(item, control)}
+																		placeholder={control.defaultValue}
+																		onchange={(event) =>
+																			setCompositionControlValue(
+																				item,
+																				control,
+																				event.currentTarget.value
+																			)}
+																		data-testid={`control-override-${item.id}-${control.id}`}
+																	/>
+																{/if}
+															</div>
 														{/each}
 													</div>
 												{/if}

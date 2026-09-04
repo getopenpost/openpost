@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import type { CompositionControlDefinition, TimelineItem } from '$lib/video-editor/project/types';
@@ -66,7 +67,7 @@
 		</p>
 		<div class="mt-2 space-y-2">
 			{#each controls as control (control.id)}
-				<label class="block text-[10px] text-[var(--video-editor-muted)]">
+				<div class="block text-[10px] text-[var(--video-editor-muted)]">
 					<span class="flex items-center gap-1.5">
 						<span
 							class="size-1.5 rounded-full {isOverridden(control)
@@ -84,11 +85,12 @@
 								onchange={(event) => setValue(control, event.currentTarget.value)}
 							/>
 						{:else}
-							<Input
-								class="h-8 min-w-0 flex-1 bg-transparent"
-								type="color"
+							<ColorPicker
+								label={control.name}
 								value={value(control)}
-								onchange={(event) => setValue(control, event.currentTarget.value)}
+								variant="swatch"
+								live={false}
+								onChange={(newValue) => setValue(control, newValue)}
 							/>
 						{/if}
 						{#if isOverridden(control)}
@@ -104,7 +106,7 @@
 							</Button>
 						{/if}
 					</span>
-				</label>
+				</div>
 			{/each}
 		</div>
 		{#if activeItem.compositionControlOverrides}

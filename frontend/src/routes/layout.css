@@ -68,6 +68,10 @@
 	--video-editor-warning-text: var(--warning-foreground);
 }
 
+:is(.editor-protected-surface, [data-editor-protected]) {
+	scrollbar-color: var(--editor-border) var(--editor-canvas);
+}
+
 @source '../../../packages/social-preview/src';
 
 @custom-variant dark (&:is(.dark *));

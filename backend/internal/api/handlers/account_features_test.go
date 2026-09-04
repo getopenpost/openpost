@@ -33,50 +33,13 @@ func (fakeMessagingProvider) SendMessage(_ context.Context, _ string, _ platform
 	return platform.SendMessageResult{}, nil
 }
 
-type fakeAnalyticsProvider struct {
-	platform.Adapter
-	support platform.AnalyticsSupport
-}
-
-func (f fakeAnalyticsProvider) AnalyticsSupport() platform.AnalyticsSupport { return f.support }
-func (fakeAnalyticsProvider) FetchAccountAnalytics(_ context.Context, _ string, _ platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
-	return nil, nil
-}
-func (fakeAnalyticsProvider) FetchContentAnalytics(_ context.Context, _ string, _ platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
-	return nil, nil
-}
-
-type fakeGrowthProvider struct {
-	platform.Adapter
-}
-
-func (fakeGrowthProvider) DiscoverGrowthCandidates(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
-	return nil, nil
-}
-func (fakeGrowthProvider) FollowGrowthCandidate(_ context.Context, _, _, _ string) (platform.GrowthFollowResult, error) {
-	return platform.GrowthFollowResult{}, nil
-}
-
-type fakeUnsupportedProvider struct{ platform.Adapter }
-
-type fakePlanPolicy struct {
-	restricted string
-}
-
-func (f fakePlanPolicy) Allowed(_ context.Context, _, feature string) (bool, string) {
-	if feature == f.restricted {
-		return false, "plan requires upgrade"
-	}
-	return true, ""
-}
-
 type accountFeaturesTestServer struct {
 	echo    *echo.Echo
 	db      *bun.DB
 	service *accountfeatures.Service
 }
 
-func newAccountFeaturesTestServer(t *testing.T, providers map[string]platform.Adapter, plan accountfeatures.PlanPolicy) *accountFeaturesTestServer {
+func newAccountFeaturesTestServer(t *testing.T, providers map[string]platform.Adapter) *accountFeaturesTestServer {
 	t.Helper()
 	db := createHandlerTestDB(t,
 		(*models.Workspace)(nil),
@@ -105,7 +68,7 @@ func newAccountFeaturesTestServer(t *testing.T, providers map[string]platform.Ad
 	if providers == nil {
 		providers = map[string]platform.Adapter{}
 	}
-	svc := accountfeatures.NewService(db, providers, plan)
+	svc := accountfeatures.NewService(db, providers, nil)
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAccountFeaturesHandler(svc, testAuthenticator{})
@@ -138,10 +101,10 @@ func (s *accountFeaturesTestServer) request(t *testing.T, method, path string, b
 	return rec
 }
 
-func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, platform, grantedScopes string) {
+func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string) {
 	t.Helper()
 	_, err := db.NewInsert().Model(&models.SocialAccount{
-		ID: id, WorkspaceID: workspaceID, Slug: id, Platform: platform, AccountID: "remote-" + id,
+		ID: id, WorkspaceID: workspaceID, Slug: id, Platform: "x", AccountID: "remote-" + id,
 		AccessTokenEnc: []byte("tok"), GrantedScopes: grantedScopes, IsActive: true,
 	}).Exec(t.Context())
 	require.NoError(t, err)
@@ -149,8 +112,8 @@ func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, platform, grantedSco
 
 func TestAccountFeaturesReadRequiresAuth(t *testing.T) {
 	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, nil, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "x", "")
+	srv := newAccountFeaturesTestServer(t, nil)
+	seedAccount(t, srv.db, "acc-1", "ws-1", "")
 	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.NotEmpty(t, resp.Body.String())
@@ -161,8 +124,8 @@ func TestAccountFeaturesReadAndBatchSave(t *testing.T) {
 	providers := map[string]platform.Adapter{
 		"x": fakeMessagingProvider{support: platform.MessagingSupport{Enabled: true, RequiredScopes: []string{"dm.read"}}},
 	}
-	srv := newAccountFeaturesTestServer(t, providers, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "x", "dm.read")
+	srv := newAccountFeaturesTestServer(t, providers)
+	seedAccount(t, srv.db, "acc-1", "ws-1", "dm.read")
 
 	// Initially undecided -> effective false
 	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
@@ -230,9 +193,9 @@ func TestAccountFeaturesAtomicBatchValidation(t *testing.T) {
 	providers := map[string]platform.Adapter{
 		"x": fakeMessagingProvider{support: platform.MessagingSupport{Enabled: true}},
 	}
-	srv := newAccountFeaturesTestServer(t, providers, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "x", "")
-	seedAccount(t, srv.db, "acc-2", "ws-1", "x", "")
+	srv := newAccountFeaturesTestServer(t, providers)
+	seedAccount(t, srv.db, "acc-1", "ws-1", "")
+	seedAccount(t, srv.db, "acc-2", "ws-1", "")
 
 	// Batch with one unknown feature should fail and write nothing (Huma enum validation yields 422)
 	saveBody := map[string]any{
@@ -295,8 +258,8 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	handler.ReadFeatures(api)
 	handler.SaveFeatures(api)
 	// Also need OAuth shim for cross-workspace later? Not needed
-	seedAccount(t, db, "acc-1", "ws-1", "x", "")
-	seedAccount(t, db, "acc-cross", "ws-2", "x", "")
+	seedAccount(t, db, "acc-1", "ws-1", "")
+	seedAccount(t, db, "acc-cross", "ws-2", "")
 
 	// Viewer can read (ws-1 viewer)
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
@@ -314,8 +277,8 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, rec.Code)
 
 	// Cross-workspace rejection: account belongs to ws-2 but workspace_id ws-1, using editor server for ws-2? Use original srv for cross check with editor
-	srv2 := newAccountFeaturesTestServer(t, providers, nil)
-	seedAccount(t, srv2.db, "acc-cross2", "ws-2", "x", "")
+	srv2 := newAccountFeaturesTestServer(t, providers)
+	seedAccount(t, srv2.db, "acc-cross2", "ws-2", "")
 	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-cross2", nil)
 	req.Header.Set("Authorization", "Bearer web-token")
 	rec = httptest.NewRecorder()
@@ -325,8 +288,8 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 
 func TestAccountFeaturesUnknownFeatureRejected(t *testing.T) {
 	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, nil, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "x", "")
+	srv := newAccountFeaturesTestServer(t, nil)
+	seedAccount(t, srv.db, "acc-1", "ws-1", "")
 	body := map[string]any{"workspace_id": "ws-1", "choices": []map[string]any{{"account_id": "acc-1", "feature": "not_a_feature", "enabled": true}}}
 	resp := srv.request(t, http.MethodPost, "/api/v1/account-features", body)
 	require.Contains(t, []int{http.StatusBadRequest, 422}, resp.Code)

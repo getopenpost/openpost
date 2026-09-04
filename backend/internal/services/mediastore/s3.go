@@ -107,10 +107,6 @@ func NewS3Storage(ctx context.Context, cfg S3Config) (*S3Storage, error) {
 	return storage, nil
 }
 
-func newS3StorageWithClient(client s3ObjectClient, cfg S3Config) *S3Storage {
-	return newS3StorageWithClients(client, nil, cfg)
-}
-
 func newS3StorageWithClients(client s3ObjectClient, presignClient s3PresignClient, cfg S3Config) *S3Storage {
 	storage := &S3Storage{
 		client:            client,

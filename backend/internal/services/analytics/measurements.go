@@ -97,12 +97,12 @@ func compatibleCountMetricValue(
 	return value, true
 }
 
-func projectedContentEngagement(values platform.AnalyticsValues, metadata map[string]platform.AnalyticsMetricMetadata) (int64, bool) {
+func projectedContentEngagement(values platform.AnalyticsValues, metadata map[string]platform.AnalyticsMetricMetadata) int64 {
 	metrics := engagementProjectionMetricNames(values)
 	var total int64
 	var aggregation platform.AnalyticsMetricAggregation
 	var periodStart, periodEnd string
-	measured := false
+	aggregated := false
 	for _, metric := range metrics {
 		value, present := values[metric]
 		meta, described := metadata[metric]
@@ -117,14 +117,14 @@ func projectedContentEngagement(values platform.AnalyticsValues, metadata map[st
 		if meta.PeriodEnd != nil {
 			end = meta.PeriodEnd.UTC().Format(time.RFC3339Nano)
 		}
-		if measured && (aggregation != meta.Aggregation || periodStart != start || periodEnd != end) {
-			return 0, false
+		if aggregated && (aggregation != meta.Aggregation || periodStart != start || periodEnd != end) {
+			return 0
 		}
 		aggregation, periodStart, periodEnd = meta.Aggregation, start, end
+		aggregated = true
 		total += value
-		measured = true
 	}
-	return total, measured
+	return total
 }
 
 func compatibleContentValues(values platform.AnalyticsValues, metadata map[string]platform.AnalyticsMetricMetadata) platform.AnalyticsValues {

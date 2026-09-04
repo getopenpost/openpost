@@ -89,7 +89,7 @@ func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *test
 func TestPublicationAuthorizationPreflightRejectsChangedContentBeforeProviderCall(t *testing.T) {
 	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
 	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJob(t, nil)
+	ctx, payload := srv.authorizedPublicationJob(t)
 	_, err := srv.db.NewUpdate().Model((*models.Rendition)(nil)).
 		Set("body = ?", "changed after confirmation").Where("id = ?", "rendition-1").Exec(t.Context())
 	require.NoError(t, err)
@@ -229,12 +229,12 @@ func newPublisherLifecycleTestServer(t *testing.T, adapter *fakePublisherAdapter
 
 func (s *publisherLifecycleTestServer) publishPublication(t *testing.T) error {
 	t.Helper()
-	ctx, payload := s.authorizedPublicationJob(t, nil)
+	ctx, payload := s.authorizedPublicationJob(t)
 	return s.service.HandlePublishPublicationJob(ctx, payload)
 }
 
-func (s *publisherLifecycleTestServer) authorizedPublicationJob(t *testing.T, targets []publicationauth.JobTarget) (context.Context, string) {
-	return s.authorizedPublicationJobWithIntent(t, targets, providerreadiness.ExecutionIntentProduction, publicationauth.Actor{
+func (s *publisherLifecycleTestServer) authorizedPublicationJob(t *testing.T) (context.Context, string) {
+	return s.authorizedPublicationJobWithIntent(t, nil, providerreadiness.ExecutionIntentProduction, publicationauth.Actor{
 		Origin: publicationauth.OriginLegacy, UserID: "user-1",
 	})
 }
@@ -274,7 +274,7 @@ func (s *publisherLifecycleTestServer) authorizedPublicationJobWithIntent(
 func TestCertificationIntentJobPayloadCannotEscalateProductionReceipt(t *testing.T) {
 	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
 	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJob(t, nil)
+	ctx, payload := srv.authorizedPublicationJob(t)
 	var body map[string]string
 	require.NoError(t, json.Unmarshal([]byte(payload), &body))
 	body["readiness_intent"] = string(providerreadiness.ExecutionIntentCertificationTest)

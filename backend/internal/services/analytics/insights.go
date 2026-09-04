@@ -138,7 +138,7 @@ func (s *Service) loadStoredInsightContent(
 				snapshot.Platform,
 			)
 			item.CollectedAt = snapshot.CapturedAt
-			item.Engagement, _ = projectedContentEngagement(item.Metrics, item.MetricMetadata)
+			item.Engagement = projectedContentEngagement(item.Metrics, item.MetricMetadata)
 		}
 		stored = append(stored, item)
 	}

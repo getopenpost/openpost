@@ -3,7 +3,6 @@ package providerwrite
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -148,10 +147,6 @@ func TestStaleWorkerAttemptBecomesAmbiguousBeforeJobRecovery(t *testing.T) {
 	require.Equal(t, "worker_interrupted", stored.SafeErrorClass)
 }
 
-func nilSafeSend(context.Context, *Control) (platform.PublishResult, error) {
-	return platform.PublishResult{}, errors.New("send must not be called during reconciliation")
-}
-
 func newProviderWriteTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared&_busy_timeout=5000", uuid.NewString()))
@@ -164,25 +159,6 @@ func newProviderWriteTestDB(t *testing.T) *bun.DB {
 	}
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
-}
-
-func newProviderDeliveryTestDB(t *testing.T) *bun.DB {
-	t.Helper()
-	db := newProviderWriteTestDB(t)
-	_, err := db.NewCreateTable().Model((*models.ProviderDelivery)(nil)).IfNotExists().Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewCreateIndex().Model((*models.ProviderDelivery)(nil)).
-		Index("provider_deliveries_rendition_target_test_idx").
-		Unique().Column("rendition_id", "target_key").Exec(t.Context())
-	require.NoError(t, err)
-	return db
-}
-
-func loadProviderDelivery(t *testing.T, db *bun.DB, renditionID string) models.ProviderDelivery {
-	t.Helper()
-	var delivery models.ProviderDelivery
-	require.NoError(t, db.NewSelect().Model(&delivery).Where("rendition_id = ?", renditionID).Scan(t.Context()))
-	return delivery
 }
 
 func providerWriteTestInput(t *testing.T, operationID string) Input {

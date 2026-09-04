@@ -79,25 +79,6 @@ func TestXIncrementalCommentsClassifyDepletedCreditsWithoutResponseBody(t *testi
 	}
 }
 
-type consumeOnceXRequestStore struct {
-	meta     XRequestMeta
-	consume  int
-	consumed bool
-}
-
-func (s *consumeOnceXRequestStore) Save(_, _, _, _, _ string, _ time.Time) error {
-	return nil
-}
-
-func (s *consumeOnceXRequestStore) Consume(_ string, _ time.Duration) (XRequestMeta, bool, error) {
-	s.consume++
-	if s.consumed {
-		return XRequestMeta{}, false, nil
-	}
-	s.consumed = true
-	return s.meta, true, nil
-}
-
 func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 	_, err := buildXTweetPayload(&PublishRequest{
 		Content:          "Pick one",

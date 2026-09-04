@@ -529,7 +529,7 @@ func buildContentOverviews(
 			now,
 		)
 		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
-		item.Engagement, _ = projectedContentEngagement(item.Metrics, item.MetricMetadata)
+		item.Engagement = projectedContentEngagement(item.Metrics, item.MetricMetadata)
 		summary.Engagement.Value += platform.EngagementTotal(compatible)
 		if platform.HasEngagementMetric(compatible) {
 			summary.Engagement.Measured++

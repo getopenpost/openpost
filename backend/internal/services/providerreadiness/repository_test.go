@@ -42,28 +42,6 @@ func TestRepositoryAuthorizationRequiresTheAccountsExactGrantOwner(t *testing.T)
 	}
 }
 
-func certificationHasOutcome(checks []CheckResult, kind CheckKind, outcome CheckOutcome) bool {
-	for _, check := range checks {
-		if check.Kind == kind && check.Outcome == outcome {
-			return true
-		}
-	}
-	return false
-}
-
-func approvalReviewFixture(input EvaluationInput) ApprovalReview {
-	return ApprovalReview{
-		ID:                  "approval-review-1",
-		Provider:            input.Subject.Provider,
-		AppFingerprint:      input.Subject.AppFingerprint,
-		ProviderEnvironment: input.Subject.ProviderEnvironment,
-		InstanceFingerprint: input.Subject.InstanceFingerprint,
-		Evidence:            input.Approval,
-		OperatorRef:         "operator:sha256:reviewer",
-		CreatedAt:           input.Now,
-	}
-}
-
 func newProviderReadinessRepositoryTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	dsn := "file:" + filepath.Join(t.TempDir(), "provider-readiness.db") + "?mode=rwc"

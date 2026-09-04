@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -30,7 +29,7 @@ func TestRefreshAccountMetadataUpdatesTheExactStoredAccount(t *testing.T) {
 	}}
 	srv := newAccountMetadataTestServer(t, adapter)
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 	require.Equal(t, "access-token", adapter.accessToken)
 
@@ -56,7 +55,7 @@ func TestRefreshAccountMetadataPreservesStoredValuesWhenProviderOmitsThem(t *tes
 		Username: "  ",
 	}})
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 
 	var account models.SocialAccount
@@ -74,7 +73,7 @@ func TestRefreshAccountMetadataRejectsProviderIdentityMismatch(t *testing.T) {
 		AvatarURL: "https://cdn.example/wrong-avatar.jpg",
 	}})
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusConflict, resp.Code, resp.Body.String())
 
 	var account models.SocialAccount
@@ -92,7 +91,7 @@ func TestRefreshAccountMetadataUsesDestinationAwareProviderCapability(t *testing
 	}
 	srv := newAccountMetadataTestServer(t, adapter)
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 	require.Equal(t, "provider-account-1", adapter.request.AccountID)
 	require.Equal(t, "oauth", adapter.request.CapabilityState["connection_type"])
@@ -110,7 +109,7 @@ func TestRefreshAccountMetadataRequiresWorkspaceEditAccess(t *testing.T) {
 		Exec(t.Context())
 	require.NoError(t, err)
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
 	require.Empty(t, adapter.accessToken, "provider must not be called without edit access")
 }
@@ -122,7 +121,7 @@ func TestRefreshAccountMetadataRejectsUnsupportedProviders(t *testing.T) {
 		t.Parallel()
 
 		srv := newAccountMetadataTestServer(t, nil)
-		resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+		resp := srv.request(t)
 		require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
 
 		var account models.SocialAccount
@@ -140,7 +139,7 @@ func TestRefreshAccountMetadataRejectsUnsupportedProviders(t *testing.T) {
 		}
 		srv := newAccountMetadataTestServer(t, adapter)
 
-		resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+		resp := srv.request(t)
 		require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
 	})
 }
@@ -159,7 +158,7 @@ func TestRefreshAccountMetadataRejectsConnectorAccountsBeforeProviderAccess(t *t
 	}).Exec(t.Context())
 	require.NoError(t, err)
 
-	resp := srv.request(t, http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
+	resp := srv.request(t)
 	require.Equal(t, http.StatusNotImplemented, resp.Code, resp.Body.String())
 	require.Empty(t, adapter.accessToken, "built-in provider must not receive connector credentials")
 }
@@ -236,37 +235,9 @@ type accountsTestServer struct {
 	handler *OAuthHandler
 }
 
-func newAccountsTestServer(t *testing.T) *accountsTestServer {
+func (s *accountsTestServer) request(t *testing.T) *httptest.ResponseRecorder {
 	t.Helper()
-
-	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "ws-1",
-		UserID:      "user-1",
-		Role:        "admin",
-	}).Exec(ctx)
-	require.NoError(t, err)
-	accounts := []models.SocialAccount{
-		{ID: "acc-1", WorkspaceID: "ws-1", Slug: "old-x", Platform: "x", AccountID: "1", AccessTokenEnc: []byte("token"), IsActive: true},
-		{ID: "acc-2", WorkspaceID: "ws-1", Slug: "other-x", Platform: "x", AccountID: "2", AccessTokenEnc: []byte("token"), IsActive: true},
-	}
-	_, err = db.NewInsert().Model(&accounts).Exec(ctx)
-	require.NoError(t, err)
-
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler := &OAuthHandler{db: db, auth: testAuthenticator{}}
-	handler.UpdateAccount(api)
-
-	return &accountsTestServer{echo: e, db: db}
-}
-
-func (s *accountsTestServer) request(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
-	t.Helper()
-	var payload bytes.Buffer
-	require.NoError(t, json.NewEncoder(&payload).Encode(body))
-	req := httptest.NewRequestWithContext(t.Context(), method, path, &payload)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/accounts/acc-1/refresh-metadata", nil)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer web-token")
 	rec := httptest.NewRecorder()

@@ -206,7 +206,7 @@ func TestScheduledConnectorPublishSurvivesServiceRestartAndRecordsExternalID(t *
 		ConnectionRef: "directus/posts", ExternalAccountID: "posts",
 		CapabilityRevision: manifest.CapabilityRevision,
 	}))
-	jobContext, payload := srv.authorizedPublicationJob(t, nil)
+	jobContext, payload := srv.authorizedPublicationJob(t)
 
 	restartedRegistry, err := connectors.NewRegistry(t.Context(), config, options)
 	require.NoError(t, err)

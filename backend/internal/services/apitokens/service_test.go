@@ -95,7 +95,7 @@ func TestGenerateTokenStoresHashOnlyAndDefaultExpiry(t *testing.T) {
 
 	ctx := context.Background()
 	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
+	seedServiceUser(ctx, t, db)
 
 	service := NewService(db)
 	generated, err := service.GenerateTokenWithOptions(ctx, "user-1", "Laptop", "", GenerateOptions{
@@ -128,7 +128,7 @@ func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {
 
 	ctx := context.Background()
 	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
+	seedServiceUser(ctx, t, db)
 
 	never := time.Time{}
 	_, err := NewService(db).GenerateToken(ctx, "user-1", "CI", DefaultScope, &never)
@@ -148,7 +148,7 @@ func TestValidateTokenRejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
 
 	ctx := context.Background()
 	db := newServiceTestDB(t)
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
+	seedServiceUser(ctx, t, db)
 
 	service := NewService(db)
 	expired, err := service.GenerateToken(ctx, "user-1", "Expired", "", nil)
@@ -171,7 +171,7 @@ func TestValidateTokenRejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
 func TestValidateTokenCannotReturnPrincipalAfterConcurrentRevocation(t *testing.T) {
 	db := newConcurrentServiceTestDB(t)
 	ctx := t.Context()
-	seedServiceUser(ctx, t, db, "user-1", "user@example.com")
+	seedServiceUser(ctx, t, db)
 
 	service := NewService(db)
 	generated, err := service.GenerateToken(ctx, "user-1", "Race", ScopeAPIRead, nil)
@@ -211,11 +211,11 @@ func TestValidateTokenCannotReturnPrincipalAfterConcurrentRevocation(t *testing.
 	require.True(t, stored.LastUsedAt.IsZero(), "a revoked token must not be marked as successfully used")
 }
 
-func seedServiceUser(ctx context.Context, t *testing.T, db *bun.DB, id, email string) {
+func seedServiceUser(ctx context.Context, t *testing.T, db *bun.DB) {
 	t.Helper()
 	_, err := db.NewInsert().Model(&models.User{
-		ID:           id,
-		Email:        email,
+		ID:           "user-1",
+		Email:        "user@example.com",
 		PasswordHash: "hash",
 	}).Exec(ctx)
 	require.NoError(t, err)

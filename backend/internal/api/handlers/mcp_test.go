@@ -159,34 +159,6 @@ func (alwaysEnabledMCPGate) IsEffectiveEnabled(context.Context, string, string) 
 	return true, nil
 }
 
-func insertMCPTestMedia(t *testing.T, srv *mcpTestServer, media models.MediaAttachment) {
-	t.Helper()
-
-	if media.WorkspaceID == "" {
-		media.WorkspaceID = "ws-1"
-	}
-	if media.FilePath == "" {
-		media.FilePath = media.ID
-	}
-	if media.MimeType == "" {
-		media.MimeType = "image/png"
-	}
-	if media.ProcessingStatus == "" {
-		media.ProcessingStatus = "ready"
-	}
-	if media.OriginalFilename == "" {
-		media.OriginalFilename = media.ID + ".png"
-	}
-	if media.FileHash == "" {
-		media.FileHash = media.ID + "-hash"
-	}
-	if media.CreatedAt.IsZero() {
-		media.CreatedAt = time.Date(2026, 6, 30, 15, 0, 0, 0, time.UTC)
-	}
-	_, err := srv.db.NewInsert().Model(&media).Exec(context.Background())
-	require.NoError(t, err)
-}
-
 func (s *mcpTestServer) request(t *testing.T, token string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -200,12 +172,6 @@ func (s *mcpTestServer) request(t *testing.T, token string, body any) *httptest.
 	rec := httptest.NewRecorder()
 	s.echo.ServeHTTP(rec, req)
 	return rec
-}
-
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
 }
 
 type mcpScopeAuthenticator map[string]middleware.Principal

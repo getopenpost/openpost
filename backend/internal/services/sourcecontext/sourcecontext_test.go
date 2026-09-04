@@ -2,15 +2,11 @@ package sourcecontext
 
 import (
 	"context"
-	"io"
 	"net"
-	"net/http"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/netguard"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,25 +14,6 @@ type resolverFunc func(context.Context, string) ([]net.IPAddr, error)
 
 func (function resolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
 	return function(ctx, host)
-}
-
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (function roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
-	return function(request)
-}
-
-type contextBody struct {
-	context context.Context
-}
-
-func (body *contextBody) Read([]byte) (int, error) {
-	<-body.context.Done()
-	return 0, body.context.Err()
-}
-
-func (body *contextBody) Close() error {
-	return nil
 }
 
 func TestLoadRejectsPrivateLocalCredentialsAndCustomPorts(t *testing.T) {
@@ -85,54 +62,4 @@ func TestLoadRejectsDialTimeDNSRebinding(t *testing.T) {
 	_, err = loader.Load(t.Context(), "http://rebind.example/article")
 	require.ErrorIs(t, err, ErrFetchFailed)
 	require.GreaterOrEqual(t, lookups, 2)
-}
-
-func newTestLoader(
-	t *testing.T,
-	config Config,
-	resolver netguard.Resolver,
-	transport http.RoundTripper,
-) *URLLoader {
-	t.Helper()
-	loader, err := newURLLoader(config, resolver, transport)
-	require.NoError(t, err)
-	return loader
-}
-
-func publicResolver() netguard.Resolver {
-	return resolverFunc(func(_ context.Context, host string) ([]net.IPAddr, error) {
-		if parsed := net.ParseIP(strings.Trim(host, "[]")); parsed != nil {
-			return []net.IPAddr{{IP: parsed}}, nil
-		}
-		return []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}}, nil
-	})
-}
-
-func staticResponse(status int, contentType, body string) http.RoundTripper {
-	return roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		return response(request, status, contentType, body, nil), nil
-	})
-}
-
-func response(
-	request *http.Request,
-	status int,
-	contentType string,
-	body string,
-	headers http.Header,
-) *http.Response {
-	if headers == nil {
-		headers = make(http.Header)
-	}
-	if contentType != "" {
-		headers.Set("Content-Type", contentType)
-	}
-	return &http.Response{
-		StatusCode:    status,
-		Status:        http.StatusText(status),
-		Header:        headers,
-		Body:          io.NopCloser(strings.NewReader(body)),
-		ContentLength: -1,
-		Request:       request,
-	}
 }

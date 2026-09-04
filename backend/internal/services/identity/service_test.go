@@ -174,30 +174,6 @@ func (f *fakeOIDCIssuer) idToken() (string, error) {
 	}).Serialize()
 }
 
-func (f *fakeOIDCIssuer) logoutToken(tokenID, sessionID string, includeNonce bool) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	now := time.Now().UTC()
-	claims := map[string]any{
-		"iss": f.issuer(), "aud": f.audience, "jti": tokenID, "sid": sessionID,
-		"iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
-		"events": map[string]any{
-			"http://schemas.openid.net/event/backchannel-logout": map[string]any{},
-		},
-	}
-	if includeNonce {
-		claims["nonce"] = "not-allowed"
-	}
-	signer, err := jose.NewSigner(
-		jose.SigningKey{Algorithm: jose.RS256, Key: f.key},
-		(&jose.SignerOptions{}).WithType("logout+jwt").WithHeader("kid", f.keyID),
-	)
-	if err != nil {
-		return "", err
-	}
-	return josejwt.Signed(signer).Claims(claims).Serialize()
-}
-
 func (f *fakeOIDCIssuer) writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	require.NoError(f.t, json.NewEncoder(w).Encode(value))

@@ -208,10 +208,3 @@ func TestListPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T) 
 	require.Equal(t, "Alex", secondPage[0].Actor.Name)
 	require.Equal(t, []string{"content", "schedule"}, secondPage[0].ChangedDomains)
 }
-
-func mustParseEventTime(t *testing.T, value string) time.Time {
-	t.Helper()
-	parsed, err := time.Parse(time.RFC3339, value)
-	require.NoError(t, err)
-	return parsed
-}

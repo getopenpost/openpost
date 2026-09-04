@@ -29,7 +29,7 @@ func TestRunMigrationsMovesThreadDraftBlobsToThreadDraftsTable(t *testing.T) {
 	_, err := db.NewInsert().Model(&posts).Exec(ctx)
 	require.NoError(t, err)
 
-	runMigrationsThrough(t, db, 7)
+	runMigrationsThrough(t, db)
 
 	// Both thread parents must now have a thread_drafts row carrying the blob.
 	var drafts []models.ThreadDraft
@@ -66,9 +66,9 @@ func TestRunMigrationsIsIdempotentForThreadDrafts(t *testing.T) {
 	_, err := db.NewInsert().Model(&posts).Exec(ctx)
 	require.NoError(t, err)
 
-	runMigrationsThrough(t, db, 7)
-	runMigrationsThrough(t, db, 7)
-	runMigrationsThrough(t, db, 7)
+	runMigrationsThrough(t, db)
+	runMigrationsThrough(t, db)
+	runMigrationsThrough(t, db)
 
 	// Re-running the migration must not duplicate thread_drafts rows, and
 	// must not change posts.content (which is now empty, and should stay empty).

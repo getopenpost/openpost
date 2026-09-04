@@ -2240,10 +2240,6 @@ func (h *AuthHandler) securityStatusResponse(ctx context.Context, userID string)
 	return resp, nil
 }
 
-func (h *AuthHandler) toUserProfile(user *models.User) *UserProfile {
-	return h.appReadModel().userProfileFromModel(user)
-}
-
 func normalizedComposerExperience(value string) string {
 	if strings.TrimSpace(value) == "unified" {
 		return "unified"

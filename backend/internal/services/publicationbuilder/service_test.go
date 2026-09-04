@@ -1,18 +1,10 @@
 package publicationbuilder
 
 import (
-	"context"
 	"testing"
 
-	"github.com/openpost/backend/internal/ai"
 	"github.com/stretchr/testify/require"
 )
-
-type generatorFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
-
-func (fn generatorFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-	return fn(ctx, request)
-}
 
 func TestDirectorValidationEnforcesLockedDirection(t *testing.T) {
 	t.Parallel()

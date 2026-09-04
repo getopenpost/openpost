@@ -2,11 +2,9 @@ package analytics
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -77,35 +75,6 @@ type staticTokenSource struct{}
 
 func (staticTokenSource) GetValidAccessToken(context.Context, string) (string, error) {
 	return "token", nil
-}
-
-type failingTokenSource struct {
-	calls int32
-}
-
-func (f *failingTokenSource) GetValidAccessToken(context.Context, string) (string, error) {
-	atomic.AddInt32(&f.calls, 1)
-	return "", errors.New("expired provider token")
-}
-
-type fakeExternalAnalyticsAdapter struct {
-	fakeAnalyticsAdapter
-	lastAccountToken string
-	lastContentToken string
-}
-
-func (*fakeExternalAnalyticsAdapter) UsesProviderToken() bool {
-	return false
-}
-
-func (f *fakeExternalAnalyticsAdapter) FetchAccountAnalytics(_ context.Context, accessToken string, _ platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
-	f.lastAccountToken = accessToken
-	return f.account, f.accountErr
-}
-
-func (f *fakeExternalAnalyticsAdapter) FetchContentAnalytics(_ context.Context, accessToken string, _ platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
-	f.lastContentToken = accessToken
-	return f.content, f.contentErr
 }
 
 type fakeAnalyticsAdapter struct {
@@ -309,19 +278,6 @@ func TestProviderFailurePreservesLastSuccessWithoutRetryingQueueJob(t *testing.T
 	require.True(t, now.Add(-time.Hour).Equal(state.LastSuccessAt))
 }
 
-func acceptedDiscordAttempt(id, operationID string, authorization models.PublicationAuthorization, externalID, reference string, now time.Time) models.ProviderWriteAttempt {
-	return models.ProviderWriteAttempt{
-		ID: id, OperationID: operationID, AttemptNumber: 1, AuthorizationID: authorization.ID,
-		WorkspaceID: authorization.WorkspaceID, PublicationID: authorization.PublicationID,
-		RenditionID: authorization.RenditionID, SocialAccountID: authorization.SocialAccountID,
-		TargetKey: authorization.TargetKey, Provider: "discord", Operation: "publish",
-		PayloadFingerprint: "sha256:payload", Status: "accepted",
-		SubmissionState: string(platform.PublishSubmissionAccepted), ProviderState: "discord_message_published",
-		ProviderReference: reference, RetrySafety: string(platform.PublishRetryReconcileOnly),
-		ExternalID: externalID, CompletedAt: now, CreatedAt: now, UpdatedAt: now,
-	}
-}
-
 func seedAnalyticsPublication(t *testing.T, db *bun.DB, workspaceID, id string, now time.Time) models.Publication {
 	t.Helper()
 	publication := models.Publication{
@@ -339,25 +295,6 @@ type alwaysEnabledGate struct{}
 
 func (alwaysEnabledGate) IsEffectiveEnabled(context.Context, string, string) (bool, error) {
 	return true, nil
-}
-
-type disabledGate struct{}
-
-func (disabledGate) IsEffectiveEnabled(context.Context, string, string) (bool, error) {
-	return false, nil
-}
-
-func jsonStringSlice(t *testing.T, raw any) []string {
-	t.Helper()
-	values, ok := raw.([]any)
-	require.True(t, ok)
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		text, ok := value.(string)
-		require.True(t, ok)
-		result = append(result, text)
-	}
-	return result
 }
 
 func newAnalyticsTestDB(t *testing.T) *bun.DB {

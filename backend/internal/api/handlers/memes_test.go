@@ -9,8 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
-	"image"
-	"image/jpeg"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -43,32 +41,6 @@ type memeProviderStub struct {
 	renderRequests []memes.RenderRequest
 	templateImages []string
 	renderedData   []byte
-}
-
-type memeRenderOnlyProvider struct {
-	delegate *memeProviderStub
-}
-
-func (p memeRenderOnlyProvider) Key() string     { return p.delegate.Key() }
-func (p memeRenderOnlyProvider) Available() bool { return p.delegate.Available() }
-func (p memeRenderOnlyProvider) Health(ctx context.Context) (memes.Health, error) {
-	return p.delegate.Health(ctx)
-}
-func (p memeRenderOnlyProvider) Templates(ctx context.Context) (memes.Catalog, error) {
-	return p.delegate.Templates(ctx)
-}
-func (p memeRenderOnlyProvider) Search(
-	ctx context.Context,
-	query string,
-	limit int,
-) (memes.Catalog, error) {
-	return p.delegate.Search(ctx, query, limit)
-}
-func (p memeRenderOnlyProvider) Render(
-	ctx context.Context,
-	request memes.RenderRequest,
-) (memes.RenderedImage, error) {
-	return p.delegate.Render(ctx, request)
 }
 
 func (p *memeProviderStub) Key() string     { return memes.BuiltinProviderKey }
@@ -289,13 +261,6 @@ func validMemePNG(t *testing.T) []byte {
 	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=")
 	require.NoError(t, err)
 	return data
-}
-
-func validMemeJPEG(t *testing.T) []byte {
-	t.Helper()
-	var data bytes.Buffer
-	require.NoError(t, jpeg.Encode(&data, image.NewRGBA(image.Rect(0, 0, 1, 1)), nil))
-	return data.Bytes()
 }
 
 func (s *memeHandlerTestServer) request(t *testing.T, method, path string, body any, token ...string) *httptest.ResponseRecorder {

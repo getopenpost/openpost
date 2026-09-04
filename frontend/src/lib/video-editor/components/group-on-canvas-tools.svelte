@@ -99,53 +99,59 @@
 				)
 			)
 	);
-	const alignmentActions = $derived([
+	interface CanvasAlignmentAction {
+		type: string;
+		label: string;
+		icon: ProtectedIconRole;
+		min: number;
+	}
+	const alignmentActions = $derived<CanvasAlignmentAction[]>([
 		{
 			type: 'left',
 			label: m.image_editor_align_left(),
-			icon: 'editor-align-left' as ProtectedIconRole,
+			icon: 'editor-align-left',
 			min: 1
 		},
 		{
 			type: 'center-horizontal',
 			label: m.image_editor_align_center(),
-			icon: 'editor-align-center-vertical' as ProtectedIconRole,
+			icon: 'editor-align-center-vertical',
 			min: 1
 		},
 		{
 			type: 'right',
 			label: m.image_editor_align_right(),
-			icon: 'editor-align-right' as ProtectedIconRole,
+			icon: 'editor-align-right',
 			min: 1
 		},
 		{
 			type: 'top',
 			label: m.image_editor_align_top(),
-			icon: 'editor-align-top' as ProtectedIconRole,
+			icon: 'editor-align-top',
 			min: 1
 		},
 		{
 			type: 'center-vertical',
 			label: m.image_editor_align_middle(),
-			icon: 'editor-align-center-horizontal' as ProtectedIconRole,
+			icon: 'editor-align-center-horizontal',
 			min: 1
 		},
 		{
 			type: 'bottom',
 			label: m.image_editor_align_bottom(),
-			icon: 'editor-align-bottom' as ProtectedIconRole,
+			icon: 'editor-align-bottom',
 			min: 1
 		},
 		{
 			type: 'distribute-horizontal',
 			label: m.video_editor_distribute_horizontal(),
-			icon: 'editor-distribute-horizontal' as ProtectedIconRole,
+			icon: 'editor-distribute-horizontal',
 			min: 3
 		},
 		{
 			type: 'distribute-vertical',
 			label: m.video_editor_distribute_vertical(),
-			icon: 'editor-distribute-vertical' as ProtectedIconRole,
+			icon: 'editor-distribute-vertical',
 			min: 3
 		}
 	]);

@@ -201,68 +201,6 @@ func TestWorkspaceSetupRetiresAfterActivation(t *testing.T) {
 	require.Empty(t, setup.NextAction)
 }
 
-func runWorkspaceSetupPolicyTest(
-	t *testing.T,
-	db *bun.DB,
-	authenticator middleware.Authenticator,
-	entitlement entitlements.Service,
-	workspaceRole string,
-	organizationRole string,
-	wantSteps []WorkspaceSetupStepResponse,
-	wantAction string,
-	wantHref string,
-	forbidBilling bool,
-) {
-	t.Helper()
-
-	seedWorkspaceUserAndMember(t, db, "role-user", "role@example.com", workspaceRole)
-	_, err := db.NewUpdate().Model((*models.OrganizationMember)(nil)).Set("role = ?", organizationRole).
-		Where("organization_id = ? AND user_id = ?", "org-1", "role-user").Exec(t.Context())
-	require.NoError(t, err)
-
-	rec := requestWorkspaceSetup(t, db, authenticator, entitlement, "role-token")
-
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	var setup WorkspaceSetupResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &setup))
-	require.Equal(t, wantSteps, setup.Steps)
-	require.Equal(t, wantAction != "", setup.Visible)
-	require.Equal(t, wantAction, setup.NextAction)
-	require.Equal(t, wantHref, setup.ActionHref)
-	if forbidBilling {
-		require.NotContains(t, rec.Body.String(), "subscription")
-		require.NotContains(t, rec.Body.String(), "resume_checkout")
-		require.NotContains(t, rec.Body.String(), "checkout")
-	}
-	if len(wantSteps) == 0 {
-		require.Empty(t, setup.NextStep)
-		require.NotContains(t, rec.Body.String(), "settings")
-	}
-}
-
-func newWorkspaceSetupPolicyDB(t *testing.T) *bun.DB {
-	t.Helper()
-	return createHandlerTestDB(
-		t,
-		(*models.User)(nil), (*models.Organization)(nil), (*models.OrganizationMember)(nil),
-		(*models.BillingSubscription)(nil), (*models.BillingCheckoutAttempt)(nil),
-		(*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
-		(*models.SocialAccount)(nil), (*models.WorkspaceFirstComposition)(nil), (*models.Publication)(nil),
-	)
-}
-
-func requestWorkspaceSetup(t *testing.T, db *bun.DB, authenticator middleware.Authenticator, entitlement entitlements.Service, token string) *httptest.ResponseRecorder {
-	t.Helper()
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewWorkspaceHandler(db, authenticator, entitlement).GetWorkspaceSetup(api)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/workspaces/ws-1/setup", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	return rec
-}
-
 func (s *workspaceTestServer) createWorkspace(t *testing.T, name string) *httptest.ResponseRecorder {
 	t.Helper()
 

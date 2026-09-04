@@ -109,32 +109,6 @@ func (f *fakePublisherAdapter) Publish(_ context.Context, _, _ string, req *plat
 	return result, req.Checkpoint(result)
 }
 
-type fakeMetadataPublisherAdapter struct {
-	fakePublisherAdapter
-	uploadReq             platform.UploadMediaRequest
-	uploadedThumbnailBody string
-}
-
-func (f *fakeMetadataPublisherAdapter) UploadMediaWithMetadata(_ context.Context, _, _ string, req platform.UploadMediaRequest) (string, error) {
-	f.uploadCalls++
-	body, err := io.ReadAll(req.Reader)
-	if err != nil {
-		return "", err
-	}
-	f.uploadedBody = string(body)
-	if req.ThumbnailReader != nil {
-		thumbnailBody, err := io.ReadAll(req.ThumbnailReader)
-		if err != nil {
-			return "", err
-		}
-		f.uploadedThumbnailBody = string(thumbnailBody)
-	}
-	req.Reader = nil
-	req.ThumbnailReader = nil
-	f.uploadReq = req
-	return "metadata-media-id", nil
-}
-
 func TestUploadMediaToPlatformReadsFromBlobStorage(t *testing.T) {
 	storage := &fakePublisherStorage{body: "stored-media"}
 	adapter := &fakePublisherAdapter{}

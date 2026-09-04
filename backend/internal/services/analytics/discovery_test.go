@@ -28,15 +28,6 @@ func (f *fakeAccountContentDiscoverer) DiscoverAccountContent(ctx context.Contex
 	return f.discover(ctx, token, request)
 }
 
-type fakeBatchAccountContentDiscoverer struct {
-	*fakeAccountContentDiscoverer
-	measure func(context.Context, string, platform.AccountContentBatchMeasurementRequest) (platform.AccountContentBatchMeasurements, error)
-}
-
-func (f *fakeBatchAccountContentDiscoverer) FetchAccountContentBatchMeasurements(ctx context.Context, token string, request platform.AccountContentBatchMeasurementRequest) (platform.AccountContentBatchMeasurements, error) {
-	return f.measure(ctx, token, request)
-}
-
 func TestDiscoveryCommitsEachPageBeforeCrashSafeContinuationAndDeduplicates(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "content.read")

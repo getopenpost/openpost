@@ -59,7 +59,3 @@ func TestValidateTokenRejectsUnexpectedAlgorithmAndIssuer(t *testing.T) {
 		t.Fatal("expected token with a different issuer to be rejected")
 	}
 }
-
-func isHexChar(r rune) bool {
-	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')
-}

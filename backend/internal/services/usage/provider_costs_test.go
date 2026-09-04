@@ -48,11 +48,11 @@ func newProviderCostTestService(t *testing.T) (*Service, *bun.DB) {
 	return NewService(db), db
 }
 
-func xProviderCostInput(key, operation string, at time.Time) ProviderCostEventInput {
+func xProviderCostInput(key string, at time.Time) ProviderCostEventInput {
 	return ProviderCostEventInput{
 		WorkspaceID:  "ws-1",
 		Provider:     ProviderX,
-		Operation:    operation,
+		Operation:    XOperationPostCreate,
 		OperationKey: key,
 		Units:        1,
 		OccurredAt:   at,
@@ -69,7 +69,7 @@ func TestRecordProviderCostIsIdempotent(t *testing.T) {
 	service, db := newProviderCostTestService(t)
 	enableProviderCostPolicy(t, service, 500_000)
 	at := time.Date(2026, time.July, 10, 12, 0, 0, 0, time.UTC)
-	input := xProviderCostInput("request-1", XOperationPostCreate, at)
+	input := xProviderCostInput("request-1", at)
 
 	first, err := service.RecordProviderCost(t.Context(), input)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestProviderCostReservationIsNotBillableUntilConfirmed(t *testing.T) {
 	service, db := newProviderCostTestService(t)
 	enableProviderCostPolicy(t, service, 500_000)
 	at := time.Date(2026, time.July, 10, 12, 0, 0, 0, time.UTC)
-	input := xProviderCostInput("reserved-request", XOperationPostCreate, at)
+	input := xProviderCostInput("reserved-request", at)
 
 	reserved, err := service.ReserveProviderCost(t.Context(), input)
 
@@ -132,10 +132,10 @@ func TestRecordProviderCostRollsBackWhenBudgetWouldBeExceeded(t *testing.T) {
 	service, db := newProviderCostTestService(t)
 	enableProviderCostPolicy(t, service, 15_000)
 	at := time.Date(2026, time.July, 10, 12, 0, 0, 0, time.UTC)
-	_, err := service.RecordProviderCost(t.Context(), xProviderCostInput("within-budget", XOperationPostCreate, at))
+	_, err := service.RecordProviderCost(t.Context(), xProviderCostInput("within-budget", at))
 	require.NoError(t, err)
 
-	_, err = service.RecordProviderCost(t.Context(), xProviderCostInput("over-budget", XOperationPostCreate, at))
+	_, err = service.RecordProviderCost(t.Context(), xProviderCostInput("over-budget", at))
 
 	require.ErrorIs(t, err, ErrProviderCostBudgetExceeded)
 	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
@@ -149,11 +149,7 @@ func TestRecordProviderCostRollsBackWhenBudgetWouldBeExceeded(t *testing.T) {
 func TestProviderCostPolicyDisabledDoesNotGateSelfHostedRequests(t *testing.T) {
 	t.Parallel()
 	service, db := newProviderCostTestService(t)
-	result, err := service.RecordProviderCost(t.Context(), xProviderCostInput(
-		"selfhost",
-		XOperationPostCreate,
-		time.Now().UTC(),
-	))
+	result, err := service.RecordProviderCost(t.Context(), xProviderCostInput("selfhost", time.Now().UTC()))
 
 	require.NoError(t, err)
 	require.False(t, result.Enabled)

@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -51,29 +50,6 @@ func (*recordingStorage) Open(context.Context, string) (io.ReadCloser, error) {
 type emptyReader struct{}
 
 func (*emptyReader) Read([]byte) (int, error) { return 0, io.EOF }
-
-type stubAdapter struct {
-	capability platform.RefreshCapability
-	tokenResp  *platform.TokenResult
-}
-
-func (s *stubAdapter) GenerateAuthURL(string) (string, map[string]string) { return "", nil }
-func (s *stubAdapter) ExchangeCode(context.Context, string, map[string]string) (*platform.TokenResult, error) {
-	return nil, nil
-}
-func (s *stubAdapter) RefreshCapability() platform.RefreshCapability { return s.capability }
-func (s *stubAdapter) RefreshToken(context.Context, platform.RefreshTokenInput) (*platform.TokenResult, error) {
-	return s.tokenResp, nil
-}
-func (s *stubAdapter) GetProfile(context.Context, string) (*platform.UserProfile, error) {
-	return nil, nil
-}
-func (s *stubAdapter) UploadMedia(context.Context, string, string, string, io.Reader) (string, error) {
-	return "", nil
-}
-func (s *stubAdapter) Publish(context.Context, string, string, *platform.PublishRequest) (platform.PublishResult, error) {
-	return platform.PublishResult{}, nil
-}
 
 func createTestDB(t *testing.T) *bun.DB {
 	t.Helper()

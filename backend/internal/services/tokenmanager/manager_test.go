@@ -2,20 +2,14 @@ package tokenmanager
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"io"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type stubAdapter struct {
@@ -42,43 +36,6 @@ func (s *stubAdapter) UploadMedia(context.Context, string, string, string, io.Re
 }
 func (s *stubAdapter) Publish(context.Context, string, string, *platform.PublishRequest) (platform.PublishResult, error) {
 	return platform.PublishResult{}, nil
-}
-
-func createTestDB(t *testing.T) *bun.DB {
-	t.Helper()
-
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
-	require.NoError(t, err)
-
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil)} {
-		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	now := time.Now().UTC()
-	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Tokens", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "Tokens", CreatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-
-	return db
-}
-
-func insertAccount(t *testing.T, db *bun.DB, encryptor *crypto.TokenEncryptor, account *models.SocialAccount, accessToken, refreshToken string) {
-	t.Helper()
-
-	encAccess, err := encryptor.Encrypt(accessToken)
-	require.NoError(t, err)
-	account.AccessTokenEnc = encAccess
-
-	if refreshToken != "" {
-		encRefresh, err := encryptor.Encrypt(refreshToken)
-		require.NoError(t, err)
-		account.RefreshTokenEnc = encRefresh
-	}
-
-	_, err = db.NewInsert().Model(account).Exec(context.Background())
-	require.NoError(t, err)
 }
 
 func decryptToken(t *testing.T, encryptor *crypto.TokenEncryptor, ciphertext []byte) string {

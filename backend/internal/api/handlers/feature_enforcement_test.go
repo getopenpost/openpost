@@ -38,59 +38,6 @@ func (f *countingMessagingProvider) SendMessage(_ context.Context, _ string, _ p
 func (f *countingMessagingProvider) FetchCount() int { return int(atomic.LoadInt32(&f.fetchCount)) }
 func (f *countingMessagingProvider) SendCount() int  { return int(atomic.LoadInt32(&f.sendCount)) }
 
-type countingEngagementProvider struct {
-	platform.Adapter
-	listCount   int32
-	replyCount  int32
-	hideCount   int32
-	deleteCount int32
-	likeCount   int32
-	support     platform.EngagementSupport
-}
-
-func (f *countingEngagementProvider) EngagementSupport() platform.EngagementSupport { return f.support }
-func (f *countingEngagementProvider) ListComments(_ context.Context, _, _, _ string) ([]platform.Comment, error) {
-	atomic.AddInt32(&f.listCount, 1)
-	return []platform.Comment{}, nil
-}
-func (f *countingEngagementProvider) ReplyToComment(_ context.Context, _, _, _, _ string) (string, error) {
-	atomic.AddInt32(&f.replyCount, 1)
-	return "reply-id", nil
-}
-func (f *countingEngagementProvider) HideComment(_ context.Context, _, _, _ string) error {
-	atomic.AddInt32(&f.hideCount, 1)
-	return nil
-}
-func (f *countingEngagementProvider) DeleteComment(_ context.Context, _, _, _ string) error {
-	atomic.AddInt32(&f.deleteCount, 1)
-	return nil
-}
-func (f *countingEngagementProvider) LikeComment(_ context.Context, _, _, _ string) error {
-	atomic.AddInt32(&f.likeCount, 1)
-	return nil
-}
-func (f *countingEngagementProvider) UnlikeComment(_ context.Context, _, _, _ string) error {
-	atomic.AddInt32(&f.likeCount, 1)
-	return nil
-}
-
-type countingAnalyticsProvider struct {
-	platform.Adapter
-	accountCount int32
-	contentCount int32
-	support      platform.AnalyticsSupport
-}
-
-func (f *countingAnalyticsProvider) AnalyticsSupport() platform.AnalyticsSupport { return f.support }
-func (f *countingAnalyticsProvider) FetchAccountAnalytics(_ context.Context, _ string, _ platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
-	atomic.AddInt32(&f.accountCount, 1)
-	return platform.AnalyticsValues{platform.MetricFollowers: 10}, nil
-}
-func (f *countingAnalyticsProvider) FetchContentAnalytics(_ context.Context, _ string, _ platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
-	atomic.AddInt32(&f.contentCount, 1)
-	return platform.AnalyticsValues{platform.MetricLikes: 1}, nil
-}
-
 type countingGrowthProvider struct {
 	platform.Adapter
 	discoverCount int32

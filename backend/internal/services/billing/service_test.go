@@ -103,15 +103,6 @@ func newBillingTestDB(t *testing.T) *bun.DB {
 	return db
 }
 
-func newConfiguredBillingService(db *bun.DB) *Service {
-	return NewService(db, "", PaddleConfig{
-		Environment: "sandbox",
-		ClientToken: "test_client_token",
-		AppURL:      "https://app.openpost.test",
-		Plans:       testCatalog(),
-	})
-}
-
 func TestCheckoutCancellationWinningBeforeReconciliationLockTerminatesSubscription(t *testing.T) {
 	db := newBillingTestDB(t)
 	now := time.Now().UTC()
@@ -215,13 +206,6 @@ func TestAcceptPaddleWebhookRejectsInvalidSignature(t *testing.T) {
 	require.ErrorContains(t, err, "invalid Paddle webhook signature")
 }
 
-func countBillingSubscriptions(t *testing.T, db *bun.DB, organizationID string) int {
-	t.Helper()
-	count, err := db.NewSelect().Model((*models.BillingSubscription)(nil)).Where("organization_id = ?", organizationID).Count(t.Context())
-	require.NoError(t, err)
-	return count
-}
-
 func recoverySubscription(status paddle.SubscriptionStatus, updatedAt time.Time) *paddle.Subscription {
 	return &paddle.Subscription{
 		ID:         "sub_1",
@@ -233,18 +217,5 @@ func recoverySubscription(status paddle.SubscriptionStatus, updatedAt time.Time)
 			Recurring: true,
 			Price:     paddle.Price{ID: "pri_founder_month", ProductID: "pro_founder"},
 		}},
-	}
-}
-
-func assertStoredSubscriptionRecovery(t *testing.T, db *bun.DB, status string, providerUpdatedAt, pastDueSince time.Time) {
-	t.Helper()
-	var subscription models.BillingSubscription
-	require.NoError(t, db.NewSelect().Model(&subscription).Where("organization_id = ?", "org-1").Scan(context.Background()))
-	require.Equal(t, status, subscription.Status)
-	require.True(t, providerUpdatedAt.Equal(subscription.ProviderUpdatedAt))
-	if pastDueSince.IsZero() {
-		require.True(t, subscription.PastDueSince.IsZero())
-	} else {
-		require.True(t, pastDueSince.Equal(subscription.PastDueSince))
 	}
 }

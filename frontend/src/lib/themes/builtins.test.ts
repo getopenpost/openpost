@@ -58,6 +58,7 @@ describe('built-in themes', () => {
 		expect(BUILT_IN_THEMES.map((theme) => theme.id)).toEqual(expectedFamilies);
 		expect(getBuiltInTheme('workshop').supportedSchemes).toEqual(['light', 'dark']);
 		for (const id of expectedFamilies.slice(1)) {
+			// SAFETY: expectedDarkOnlyFamilies is a readonly tuple of family id strings.
 			const expected = (expectedDarkOnlyFamilies as readonly string[]).includes(id)
 				? ['dark']
 				: ['light'];

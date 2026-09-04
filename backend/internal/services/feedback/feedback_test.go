@@ -1,22 +1,10 @@
 package feedback
 
 import (
-	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-type recordingDestination struct {
-	report Report
-	err    error
-}
-
-func (d *recordingDestination) Deliver(_ context.Context, report Report) error {
-	d.report = report
-	return d.err
-}
 
 func TestSanitizeReportKeepsOnlyAllowlistedDiagnostics(t *testing.T) {
 	report := Report{
@@ -58,9 +46,4 @@ func TestSanitizeReportKeepsOnlyAllowlistedDiagnostics(t *testing.T) {
 	require.NotContains(t, serialized, "10.0.0.2")
 	require.NotContains(t, serialized, "user@example.com")
 	require.Equal(t, "Client operation failed", serialized)
-}
-
-func jsonMarshal(value any) (string, error) {
-	data, err := json.Marshal(value)
-	return string(data), err
 }

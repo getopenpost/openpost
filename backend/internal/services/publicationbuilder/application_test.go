@@ -28,20 +28,6 @@ func (fn packageBuilderFunc) Build(ctx context.Context, input BuildInput) (Build
 	return fn(ctx, input)
 }
 
-type progressPackageBuilderFunc func(context.Context, BuildInput, func(string) error) (BuildResult, error)
-
-func (fn progressPackageBuilderFunc) Build(context.Context, BuildInput) (BuildResult, error) {
-	return BuildResult{}, errors.New("progress-aware builder fallback must not run")
-}
-
-func (fn progressPackageBuilderFunc) BuildWithProgress(
-	ctx context.Context,
-	input BuildInput,
-	report func(string) error,
-) (BuildResult, error) {
-	return fn(ctx, input, report)
-}
-
 type assetLoaderFunc func(context.Context, string, []BuildAsset) (LoadedAssets, error)
 
 func (fn assetLoaderFunc) Load(ctx context.Context, workspaceID string, assets []BuildAsset) (LoadedAssets, error) {

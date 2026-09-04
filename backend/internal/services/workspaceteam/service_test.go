@@ -11,26 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
-	"github.com/openpost/backend/internal/services/notifications"
-	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
-
-type teamInvitationSender struct {
-	messages []transactionalmail.WorkspaceInvitationMessage
-}
-
-func (s *teamInvitationSender) DeliverNotificationEmail(context.Context, notifications.EmailMessage) error {
-	return nil
-}
-
-func (s *teamInvitationSender) DeliverWorkspaceInvitationEmail(_ context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
-	s.messages = append(s.messages, message)
-	return nil
-}
 
 func newTeamTestService(t *testing.T, seatLimit int64) (*Service, *bun.DB) {
 	t.Helper()

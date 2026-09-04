@@ -177,26 +177,6 @@ func (f *fakeResumablePublisherAdapter) UploadMediaResumable(_ context.Context, 
 	return state.ProviderMediaID, nil
 }
 
-type secretLeakingResumablePublisherAdapter struct {
-	fakePublisherAdapter
-	sessionURL string
-}
-
-func (f *secretLeakingResumablePublisherAdapter) UploadMediaWithMetadata(context.Context, string, string, platform.UploadMediaRequest) (string, error) {
-	return "", fmt.Errorf("blocking metadata upload must not be used")
-}
-
-func (f *secretLeakingResumablePublisherAdapter) UploadMediaResumable(_ context.Context, _, _ string, req platform.UploadMediaRequest, state platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
-	state.OpaqueState = `{"session_url":"` + f.sessionURL + `"}`
-	state.TotalBytes = req.Size
-	state.Status = platform.MediaUploadUploading
-	state.RetryClassification = platform.MediaRetrySafeResume
-	if err := checkpoint(state); err != nil {
-		return "", err
-	}
-	return "", fmt.Errorf("provider request to %s failed: connection reset", f.sessionURL)
-}
-
 func TestPublisherPersistsEncryptedRenditionUploadStateAndResumesAfterInterruption(t *testing.T) {
 	t.Parallel()
 

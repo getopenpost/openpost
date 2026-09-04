@@ -42,23 +42,6 @@ func newSubscriptionEntitlementTestDB(t *testing.T) *bun.DB {
 	return db
 }
 
-func seedWorkspaceMember(t *testing.T, db *bun.DB, userID string) {
-	t.Helper()
-
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "ws-1",
-		UserID:      userID,
-		Role:        models.WorkspaceRoleAdmin,
-	}).Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.OrganizationMember{
-		OrganizationID: "org-1",
-		UserID:         userID,
-		Role:           models.OrganizationRoleOwner,
-	}).On("CONFLICT DO NOTHING").Exec(context.Background())
-	require.NoError(t, err)
-}
-
 func seedBillingSubscription(t *testing.T, db *bun.DB, status, snapshot string) {
 	t.Helper()
 

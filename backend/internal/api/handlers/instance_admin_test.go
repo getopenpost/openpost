@@ -399,11 +399,3 @@ func TestInstanceAdminUserPlanOverride(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, denied.Allowed)
 }
-
-func sumInstanceMetric(metrics []InstanceDailyMetric) int {
-	total := 0
-	for _, metric := range metrics {
-		total += metric.Value
-	}
-	return total
-}

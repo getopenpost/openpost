@@ -3,27 +3,11 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func encryptLegacyCiphertext(t *testing.T, key, plaintext string) []byte {
-	t.Helper()
-
-	hash := sha256.Sum256([]byte(key))
-	block, err := aes.NewCipher(hash[:])
-	require.NoError(t, err)
-	gcm, err := cipher.NewGCM(block)
-	require.NoError(t, err)
-	nonce := make([]byte, gcm.NonceSize())
-	_, err = io.ReadFull(rand.Reader, nonce)
-	require.NoError(t, err)
-	return gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-}
 
 func decryptLegacyCiphertext(t *testing.T, key string, ciphertext []byte) string {
 	t.Helper()

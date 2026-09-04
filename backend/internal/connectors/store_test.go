@@ -86,17 +86,3 @@ func newConnectorStoreDB(t *testing.T) *bun.DB {
 	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
-
-func seedConnectorWorkspaceAndAccount(t *testing.T, db *bun.DB) {
-	t.Helper()
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Organization"}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Workspace"}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.SocialAccount{
-		ID: "account-1", WorkspaceID: "workspace-1", Slug: "account-1",
-		Platform: "io.directus.items", AccountID: "posts", AccessTokenEnc: []byte{}, IsActive: true,
-	}).Exec(ctx)
-	require.NoError(t, err)
-}

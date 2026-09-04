@@ -148,7 +148,9 @@ func TestDuplicateColumnMigrationErrorMatchesSQLiteAndPostgres(t *testing.T) {
 	))
 }
 
-func runMigrationsThrough(t *testing.T, db *bun.DB, maximum int64) {
+const migrationChainTestMaximumVersion = 7
+
+func runMigrationsThrough(t *testing.T, db *bun.DB) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := db.NewCreateTable().Model((*SchemaMigration)(nil)).IfNotExists().Exec(ctx)
@@ -168,7 +170,7 @@ func runMigrationsThrough(t *testing.T, db *bun.DB, maximum int64) {
 		}
 		version, parseErr := parseVersion(entry.Name())
 		require.NoError(t, parseErr)
-		if version > maximum {
+		if version > migrationChainTestMaximumVersion {
 			continue
 		}
 		content, readErr := migrationFiles.ReadFile(entry.Name())
@@ -188,28 +190,4 @@ func runMigrationsThrough(t *testing.T, db *bun.DB, maximum int64) {
 		require.NoError(t, runMigration(ctx, db, item), item.name)
 		appliedSet[item.version] = true
 	}
-}
-
-func explainSQLiteQueryPlan(t *testing.T, db *bun.DB, query string) string {
-	t.Helper()
-	type planRow struct {
-		ID      int    `bun:"id"`
-		Parent  int    `bun:"parent"`
-		NotUsed int    `bun:"notused"`
-		Detail  string `bun:"detail"`
-	}
-	var rows []planRow
-	require.NoError(t, db.NewRaw("EXPLAIN QUERY PLAN "+query).Scan(t.Context(), &rows))
-	details := make([]string, 0, len(rows))
-	for _, row := range rows {
-		details = append(details, row.Detail)
-	}
-	return strings.Join(details, "\n")
-}
-
-func explainPostgresQueryPlan(t *testing.T, db *bun.DB, query string) string {
-	t.Helper()
-	var rows []string
-	require.NoError(t, db.NewRaw("EXPLAIN (COSTS OFF) "+query).Scan(t.Context(), &rows))
-	return strings.Join(rows, "\n")
 }

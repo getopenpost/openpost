@@ -491,14 +491,6 @@ func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
 	requireIssueCode(t, issues, "unsupported_setting")
 }
 
-func capabilitySettingKeys(settings []SettingDefinition) []string {
-	keys := make([]string, 0, len(settings))
-	for _, setting := range settings {
-		keys = append(keys, setting.Key)
-	}
-	return keys
-}
-
 func TestValidateFlagsUnsupportedProviderSettings(t *testing.T) {
 	issues := Validate(ProviderYouTube, models.ContentProfileLongVideo, "caption", "Title", "", []MediaItem{{
 		ID:             "video-1",

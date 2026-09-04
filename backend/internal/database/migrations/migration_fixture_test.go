@@ -56,34 +56,3 @@ func ensureSSOPolicyMigrationFixture(t *testing.T, db *bun.DB) error {
 	)`)
 	return err
 }
-
-// recreateLegacyPostSchema restores the Post authoring tables after the full
-// migration set has retired them at the finalize boundary. Historical
-// migration tests that verify a specific pre-retirement migration still need
-// these tables to observe its result.
-func recreateLegacyPostSchema(t *testing.T, db *bun.DB) {
-	t.Helper()
-	for _, model := range []any{
-		(*models.Post)(nil),
-		(*models.PostDestination)(nil),
-		(*models.PostMedia)(nil),
-		(*models.PostVariant)(nil),
-		(*models.PostMediaDelivery)(nil),
-	} {
-		if _, err := db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context()); err != nil {
-			t.Fatalf("recreate legacy post table: %v", err)
-		}
-	}
-	// thread_drafts carries a foreign key to posts that Bun's model reflection
-	// does not reproduce; recreate it with the same DDL as migration 007.
-	_, err := db.ExecContext(t.Context(), `CREATE TABLE IF NOT EXISTS thread_drafts (
-		post_id TEXT PRIMARY KEY,
-		draft_json TEXT NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-		updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
-	)`)
-	if err != nil {
-		t.Fatalf("recreate thread_drafts: %v", err)
-	}
-}

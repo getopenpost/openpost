@@ -133,7 +133,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media. 
+Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media.
 
 [Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
 

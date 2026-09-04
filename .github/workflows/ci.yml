@@ -660,15 +660,18 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Verify the standalone mobile install
         working-directory: mobile
-        # Bun occasionally leaves file: and peer dependencies unlinked after
-        # a cached install; tsc then fails with dozens of cascading errors.
-        # Repair loudly instead of debugging type noise.
+        # Bun occasionally leaves registry and file: dependencies unlinked
+        # after a cached install; tsc then fails with dozens of cascading
+        # errors. Show the tree and repair loudly instead of debugging
+        # type noise.
         run: |
-          if [ ! -d node_modules/@tanstack/query-core ] || [ ! -d node_modules/@openpost/api-contract ]; then
-            bun install --force --frozen-lockfile
+          ls node_modules/@tanstack/ node_modules/@openpost/ || true
+          if [ ! -f node_modules/@tanstack/query-core/package.json ] || [ ! -f node_modules/@openpost/api-contract/package.json ]; then
+            rm -rf node_modules
+            bun install --frozen-lockfile --no-cache
           fi
-          test -d node_modules/@tanstack/query-core
-          test -d node_modules/@openpost/api-contract
+          test -f node_modules/@tanstack/query-core/package.json
+          test -f node_modules/@openpost/api-contract/package.json
       - name: Check the standalone mobile app
         working-directory: mobile
         run: bun run check

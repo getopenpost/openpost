@@ -128,7 +128,7 @@ async function previewTheme(page: Page, theme: (typeof builtInThemes)[number], w
     expect(state.buttonIsPill, `${theme.name} action uses its pill recipe`).toBe(true);
   }
 
-  if (width === 1280 || mobileScreenshotThemeIDs.has(theme.id)) {
+  if (width === 1600 || mobileScreenshotThemeIDs.has(theme.id)) {
     await preview.screenshot({ path: `${SHOT}/${width}-${theme.id}-${theme.scheme}.png` });
   }
 }
@@ -148,7 +148,7 @@ test("every built-in renders its supported scheme without overflow", async ({ pa
   });
   await page.waitForLoadState("networkidle").catch(() => undefined);
 
-  for (const width of [1280, 390, 320] as const) {
+  for (const width of [1600, 1280, 390, 320] as const) {
     await page.setViewportSize({ width, height: 844 });
     for (const theme of builtInThemes) await previewTheme(page, theme, width);
   }

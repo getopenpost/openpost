@@ -304,6 +304,53 @@ describe('MemeGenerator', () => {
 		await expect.element(templateButton).toBeVisible();
 	});
 
+	it('queues candidate previews within the server render limit', async () => {
+		const candidateTemplates = [
+			makeTemplate('first', 'First Template'),
+			makeTemplate('second', 'Second Template'),
+			makeTemplate('third', 'Third Template'),
+			makeTemplate('fourth', 'Fourth Template')
+		];
+		const candidates = candidateTemplates.map((candidateTemplate, index) => ({
+			template_id: candidateTemplate.id,
+			caption_lines: [`setup ${index + 1}`, `punchline ${index + 1}`],
+			alt_text: `${candidateTemplate.name} meme.`,
+			rationale: `Direction ${index + 1}`,
+			template: candidateTemplate
+		}));
+		let activeRenders = 0;
+		const preview = vi.fn().mockImplementation(async ({ captions, templateId }) => {
+			if (activeRenders >= 2) throw new Error('another meme render is still running');
+			activeRenders += 1;
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			activeRenders -= 1;
+			return previewResult(captions, templateId);
+		});
+		const api = mockAPI({
+			suggest: vi.fn().mockResolvedValue({ candidates }),
+			preview
+		});
+		const screen = await render(MemeGenerator, {
+			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		});
+
+		await screen.getByLabelText(m.meme_generator_idea_label()).fill('Four reliable previews');
+		await screen.getByRole('button', { name: m.meme_generator_generate() }).click();
+
+		await vi.waitFor(() => {
+			for (const candidateTemplate of candidateTemplates) {
+				const candidateButton = screen.getByRole('button', {
+					name: m.meme_generator_candidate_select({ name: candidateTemplate.name })
+				});
+				expect(candidateButton.element().querySelector('img')).not.toBeNull();
+			}
+		});
+		expect(
+			screen.getByRole('button', { name: m.meme_generator_candidate_preview_retry() }).elements()
+		).toHaveLength(0);
+		expect(preview).toHaveBeenCalledTimes(4);
+	});
+
 	it('recovers failed and canceled candidate previews without leaving cards pending', async () => {
 		const candidateTemplates = [
 			makeTemplate('first', 'First Template'),

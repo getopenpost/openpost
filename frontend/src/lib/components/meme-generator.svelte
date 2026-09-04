@@ -367,35 +367,35 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			candidates.map((candidate) => [candidateKey(candidate), 'queued' as const])
 		);
 		try {
-			await Promise.all(
-				candidates.map(async (candidate) => {
-					if (controller.signal.aborted) return;
-					const key = candidateKey(candidate);
-					setCandidatePreviewState(key, 'loading');
-					try {
-						const result = await api.preview({
-							workspaceId,
-							templateId: candidate.template_id,
-							captions: candidate.caption_lines,
-							overlayMediaIds: [],
-							format: 'webp',
-							signal: controller.signal
-						});
-						if (!controller.signal.aborted && candidatePreviewController === controller) {
-							candidatePreviews = {
-								...candidatePreviews,
-								[key]: memePreviewDataURL(result)
-							};
-							setCandidatePreviewState(key, 'ready');
-						}
-					} catch (cause) {
-						if (controller.signal.aborted || isAbortError(cause)) return;
-						if (candidatePreviewController === controller) {
-							setCandidatePreviewState(key, 'failed');
-						}
+			// Leave one server render slot free so a selected candidate can take over
+			// without the speculative cards rejecting each other.
+			for (const candidate of candidates) {
+				if (controller.signal.aborted) break;
+				const key = candidateKey(candidate);
+				setCandidatePreviewState(key, 'loading');
+				try {
+					const result = await api.preview({
+						workspaceId,
+						templateId: candidate.template_id,
+						captions: candidate.caption_lines,
+						overlayMediaIds: [],
+						format: 'webp',
+						signal: controller.signal
+					});
+					if (!controller.signal.aborted && candidatePreviewController === controller) {
+						candidatePreviews = {
+							...candidatePreviews,
+							[key]: memePreviewDataURL(result)
+						};
+						setCandidatePreviewState(key, 'ready');
 					}
-				})
-			);
+				} catch (cause) {
+					if (controller.signal.aborted || isAbortError(cause)) break;
+					if (candidatePreviewController === controller) {
+						setCandidatePreviewState(key, 'failed');
+					}
+				}
+			}
 		} finally {
 			if (candidatePreviewController === controller) {
 				candidatePreviewController = null;

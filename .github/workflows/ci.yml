@@ -658,6 +658,17 @@ jobs:
       - name: Install the standalone mobile app
         working-directory: mobile
         run: bun install --frozen-lockfile
+      - name: Verify the standalone mobile install
+        working-directory: mobile
+        # Bun occasionally leaves file: and peer dependencies unlinked after
+        # a cached install; tsc then fails with dozens of cascading errors.
+        # Repair loudly instead of debugging type noise.
+        run: |
+          if [ ! -d node_modules/@tanstack/query-core ] || [ ! -d node_modules/@openpost/api-contract ]; then
+            bun install --force --frozen-lockfile
+          fi
+          test -d node_modules/@tanstack/query-core
+          test -d node_modules/@openpost/api-contract
       - name: Check the standalone mobile app
         working-directory: mobile
         run: bun run check

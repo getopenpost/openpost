@@ -27,7 +27,6 @@ import (
 	// Register native WebP decoding for bounded preview validation.
 	_ "github.com/HugoSmits86/nativewebp"
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/memes"
@@ -67,9 +66,12 @@ const (
 	maxMemeThumbnailEntries              = 128
 	maxMemeThumbnailCacheBytes     int64 = 32 * 1024 * 1024
 	maxMemeRequestBytes                  = 32 * 1024
-	memeThumbnailTTL                     = 12 * time.Hour
-	memeCleanupTimeout                   = 10 * time.Second
-	memeRecipeSchemaVersion              = 1
+	// Huma rejects a body when the read count reaches MaxBodyBytes, so the
+	// operation limit is one byte above the inclusive application limit.
+	maxMemeHumaBodyBytes    = maxMemeRequestBytes + 1
+	memeThumbnailTTL        = 12 * time.Hour
+	memeCleanupTimeout      = 10 * time.Second
+	memeRecipeSchemaVersion = 1
 )
 
 // Keep the no-match fallback useful and visually varied. The built-in catalog is
@@ -86,39 +88,6 @@ type memeConcurrencyLimiter struct {
 	global      chan struct{}
 	perUser     int
 	activeUsers map[string]int
-}
-
-// MemeBodyLimitMiddleware bounds meme request bodies before Huma decodes
-// them. The routes accept text and media IDs only; 32 KiB leaves ample room
-// for every valid request while preventing unbounded authenticated allocations.
-func MemeBodyLimitMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		request := c.Request()
-		if request.Method != http.MethodPost || !isMemeWritePath(request.URL.Path) {
-			return next(c)
-		}
-		if request.ContentLength > maxMemeRequestBytes {
-			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "meme request is too large")
-		}
-		body, err := io.ReadAll(io.LimitReader(request.Body, maxMemeRequestBytes+1))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "failed to read meme request")
-		}
-		if len(body) > maxMemeRequestBytes {
-			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "meme request is too large")
-		}
-		request.Body = io.NopCloser(bytes.NewReader(body))
-		return next(c)
-	}
-}
-
-func isMemeWritePath(path string) bool {
-	switch path {
-	case "/api/v1/memes/suggestions", "/api/v1/memes/preview", "/api/v1/memes/render":
-		return true
-	default:
-		return false
-	}
 }
 
 func newMemeConcurrencyLimiter(global, perUser int) *memeConcurrencyLimiter {
@@ -443,13 +412,14 @@ func (h *MemeHandler) RegisterRoutes(api huma.API) {
 	}, h.listTemplates)
 
 	huma.Register(api, huma.Operation{
-		OperationID: "generate-meme-suggestions",
-		Method:      http.MethodPost,
-		Path:        "/memes/suggestions",
-		Summary:     "Generate meme template and caption suggestions",
-		Tags:        []string{tagMedia},
-		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403, 413, 429, 502, 503},
+		OperationID:  "generate-meme-suggestions",
+		Method:       http.MethodPost,
+		Path:         "/memes/suggestions",
+		Summary:      "Generate meme template and caption suggestions",
+		Tags:         []string{tagMedia},
+		MaxBodyBytes: maxMemeHumaBodyBytes,
+		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:       []int{400, 403, 413, 429, 502, 503},
 	}, h.generateSuggestions)
 
 	huma.Register(api, huma.Operation{
@@ -472,23 +442,25 @@ func (h *MemeHandler) RegisterRoutes(api huma.API) {
 	}, h.getTemplateThumbnail)
 
 	huma.Register(api, huma.Operation{
-		OperationID: "preview-meme",
-		Method:      http.MethodPost,
-		Path:        "/memes/preview",
-		Summary:     "Render a meme preview without saving it",
-		Tags:        []string{tagMedia},
-		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403, 404, 413, 429, 502, 503},
+		OperationID:  "preview-meme",
+		Method:       http.MethodPost,
+		Path:         "/memes/preview",
+		Summary:      "Render a meme preview without saving it",
+		Tags:         []string{tagMedia},
+		MaxBodyBytes: maxMemeHumaBodyBytes,
+		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:       []int{400, 403, 404, 413, 429, 502, 503},
 	}, h.previewMeme)
 
 	huma.Register(api, huma.Operation{
-		OperationID: "render-meme",
-		Method:      http.MethodPost,
-		Path:        "/memes/render",
-		Summary:     "Render and save a meme",
-		Tags:        []string{tagMedia},
-		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403, 404, 413, 429, 500, 502, 503},
+		OperationID:  "render-meme",
+		Method:       http.MethodPost,
+		Path:         "/memes/render",
+		Summary:      "Render and save a meme",
+		Tags:         []string{tagMedia},
+		MaxBodyBytes: maxMemeHumaBodyBytes,
+		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:       []int{400, 403, 404, 413, 429, 500, 502, 503},
 	}, h.renderMeme)
 
 	huma.Register(api, huma.Operation{

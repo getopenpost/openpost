@@ -775,8 +775,6 @@ func main() {
 	}
 
 	apiGroup := e.Group("/api/v1")
-	apiGroup.Use(handlers.FeedbackBodyLimitMiddleware)
-	apiGroup.Use(handlers.MemeBodyLimitMiddleware)
 	humaConfig := apiroutes.OpenAPIConfig("1.0.0")
 	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
 	if telegramConnectionService != nil {

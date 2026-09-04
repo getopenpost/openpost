@@ -25,7 +25,6 @@ func (feedbackTestDestination) Deliver(context.Context, feedback.Report) error {
 func TestFeedbackHandlerRequiresAuthenticationAndConfiguredDestination(t *testing.T) {
 	e := echo.New()
 	group := e.Group("/api/v1")
-	group.Use(FeedbackBodyLimitMiddleware)
 	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
 		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
@@ -72,7 +71,6 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 	}, feedbackTestDestination{})
 	e := echo.New()
 	group := e.Group("/api/v1")
-	group.Use(FeedbackBodyLimitMiddleware)
 	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewFeedbackHandler(service, testAuthenticator{}).RegisterRoutes(api)
 
@@ -122,10 +120,10 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 func TestFeedbackBodyLimitRejectsOversizedReportsBeforeDecoding(t *testing.T) {
 	e := echo.New()
 	group := e.Group("/api/v1")
-	group.Use(FeedbackBodyLimitMiddleware)
-	group.POST("/feedback", func(c echo.Context) error {
-		return c.NoContent(http.StatusNoContent)
-	})
+	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
+		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
+	}, nil), testAuthenticator{}).RegisterRoutes(api)
 
 	request := httptest.NewRequestWithContext(
 		context.Background(),
@@ -133,6 +131,8 @@ func TestFeedbackBodyLimitRejectsOversizedReportsBeforeDecoding(t *testing.T) {
 		"/api/v1/feedback",
 		bytes.NewReader(make([]byte, maxFeedbackRequestBytes+1)),
 	)
+	request.Header.Set("Authorization", "Bearer web-token")
+	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	e.ServeHTTP(recorder, request)
 

@@ -246,7 +246,6 @@ func newMemeHandlerTestServer(t *testing.T, suggester memegeneration.Suggester) 
 	}
 	e := echo.New()
 	group := e.Group("/api/v1")
-	group.Use(MemeBodyLimitMiddleware)
 	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewMemeHandler(db, testAuthenticator{}, mediaHandler, mediaHandler.publicMedia, provider, suggester)
 	handler.RegisterRoutes(api)
@@ -644,7 +643,7 @@ func TestMemePreviewRejectsImagesAboveBase64ResponseLimit(t *testing.T) {
 	require.NotContains(t, response.Body.String(), base64.StdEncoding.EncodeToString(srv.provider.renderedData[:32]))
 }
 
-func TestMemeBodyLimitRejectsOversizedInputBeforeHumaDecode(t *testing.T) {
+func TestMemeBodyLimitRejectsOversizedInputBeforeHandler(t *testing.T) {
 	t.Parallel()
 
 	srv := newMemeHandlerTestServer(t, nil)
@@ -654,6 +653,47 @@ func TestMemeBodyLimitRejectsOversizedInputBeforeHumaDecode(t *testing.T) {
 	})
 	require.Equal(t, http.StatusRequestEntityTooLarge, response.Code, response.Body.String())
 	require.Empty(t, srv.provider.renderedRequests())
+}
+
+func TestMemeSuggestionsCanRunPastFiveSecondsOverHTTP(t *testing.T) {
+	srv := newMemeHandlerTestServer(t, memeSuggesterFunc(func(ctx context.Context, input memegeneration.Input) (memegeneration.Result, error) {
+		select {
+		case <-time.After(5200 * time.Millisecond):
+			captions := make([]string, input.Templates[0].LineCount)
+			for index := range captions {
+				captions[index] = fmt.Sprintf("line %d", index+1)
+			}
+			return memegeneration.Result{Candidates: []memegeneration.Candidate{{
+				TemplateID:   input.Templates[0].ID,
+				CaptionLines: captions,
+				Rationale:    "fit",
+				AltText:      "description",
+			}}}, nil
+		case <-ctx.Done():
+			return memegeneration.Result{}, ctx.Err()
+		}
+	}))
+	server := httptest.NewServer(srv.echo)
+	t.Cleanup(server.Close)
+
+	body, err := json.Marshal(map[string]any{
+		"workspace_id": "ws-1", "idea": "choice", "count": 1,
+	})
+	require.NoError(t, err)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL+"/api/v1/memes/suggestions", bytes.NewReader(body))
+	require.NoError(t, err)
+	request.Header.Set("Authorization", "Bearer web-token")
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 10 * time.Second}).Do(request)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, response.Body.Close()) })
+
+	responseBody, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode, string(responseBody))
+	var output GenerateMemeSuggestionsOutput
+	require.NoError(t, json.Unmarshal(responseBody, &output.Body))
+	require.Len(t, output.Body.Candidates, 1)
 }
 
 func TestMemeSuggestionsAreRateLimitedPerAuthenticatedUser(t *testing.T) {

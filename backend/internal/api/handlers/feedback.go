@@ -1,15 +1,12 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/services/feedback"
 )
@@ -17,25 +14,9 @@ import (
 const feedbackRateLimit = 5
 const maxFeedbackRequestBytes = 2 << 20
 
-// FeedbackBodyLimitMiddleware bounds the only API request that may include an
-// encoded image before Huma allocates or decodes the request body.
-func FeedbackBodyLimitMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		request := c.Request()
-		if request.Method != http.MethodPost || request.URL.Path != "/api/v1/feedback" {
-			return next(c)
-		}
-		body, err := io.ReadAll(io.LimitReader(request.Body, maxFeedbackRequestBytes+1))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "failed to read feedback report")
-		}
-		if len(body) > maxFeedbackRequestBytes {
-			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "feedback report is too large")
-		}
-		request.Body = io.NopCloser(bytes.NewReader(body))
-		return next(c)
-	}
-}
+// Huma treats reaching MaxBodyBytes as oversized, so add one byte to keep the
+// application limit inclusive.
+const maxFeedbackHumaBodyBytes = maxFeedbackRequestBytes + 1
 
 type FeedbackHandler struct {
 	service *feedback.Service
@@ -87,14 +68,15 @@ func (h *FeedbackHandler) RegisterRoutes(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "submit-feedback",
-		Method:      http.MethodPost,
-		Path:        "/feedback",
-		Summary:     "Queue a user-approved feedback report",
-		Description: "Only the message and optional screenshot and diagnostics selected by the user are queued.",
-		Tags:        []string{"Feedback"},
-		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 413, 429, 503},
+		OperationID:  "submit-feedback",
+		Method:       http.MethodPost,
+		Path:         "/feedback",
+		Summary:      "Queue a user-approved feedback report",
+		Description:  "Only the message and optional screenshot and diagnostics selected by the user are queued.",
+		Tags:         []string{"Feedback"},
+		MaxBodyBytes: maxFeedbackHumaBodyBytes,
+		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:       []int{400, 413, 429, 503},
 	}, func(ctx context.Context, input *SubmitFeedbackInput) (*SubmitFeedbackOutput, error) {
 		userID := middleware.GetUserID(ctx)
 		config := h.service.PublicConfig()

@@ -48,6 +48,7 @@ For reference implementations, read `references/README.md` before inspecting a c
 - `@openpost/query-catalog` owns cache-safe remote reads across web and mobile. Mutations reconcile through its affected keys; each route owns one cold loading boundary and keeps cached state visible while refreshing.
 - Mobile server, token, and Workspace persistence is one transaction boundary owned by `mobile/src/lib/identity-store.ts`. Keep all three behind its queue and crash marker; a committed server change clears the server-scoped session.
 - API, CLI, MCP, and product surfaces share terms, authorization, and workspace boundaries. For a contract change, edit its source and regenerate every consumer.
+- Put Huma request size limits on `huma.Operation.MaxBodyBytes`. Do not read and replace an HTTP request body before Huma, because Huma's body-read deadline can then cancel a long-running handler after the body is already buffered.
 - AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.
 

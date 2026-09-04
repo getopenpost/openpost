@@ -277,3 +277,13 @@ production LoC remains 32.1% of FreeCut's. The twelve source-audit gaps are now
 closed. The size difference remains concentrated in React component and state
 plumbing plus FreeCut's separate preview, export, and shared runtime stacks,
 where OpenPost reuses Svelte stores, actions, and one compositor.
+
+- 2026-09-04 (parity): Rechecked FreeCut `4d62e8082c5eb387a96275bcbd323d28f6e41a62`.
+  The export dialog now snapshots Main, every top-level sequence, and reusable
+  2D compositions for read-only selection, then renders or queues the selected
+  timeline with its own canvas, frame rate, duration, range, markers, and mix
+  without switching the editor. The shortcut editor now groups primary and
+  alternate bindings, maps commands onto an accessible interactive keyboard,
+  reviews imports before storage changes, reports new conflicts, and can undo
+  an applied import. Pure snapshot and import-review tests plus Chromium dialog
+  tests cover inactive-sequence export and staged import recovery.

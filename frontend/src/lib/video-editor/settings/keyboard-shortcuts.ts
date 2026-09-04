@@ -213,6 +213,33 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'WORKSPACE_MOTION', section: 'project' }
 ] as const;
 
+export interface EditorShortcutGroup {
+	primaryId: EditorShortcutId;
+	alternateIds: EditorShortcutId[];
+	section: EditorShortcutSection;
+}
+
+const ALTERNATE_SHORTCUT_IDS = new Map<EditorShortcutId, EditorShortcutId>([
+	['SPLIT_AT_PLAYHEAD_ALT', 'SPLIT_AT_PLAYHEAD'],
+	['DELETE_SELECTED_ALT', 'DELETE_SELECTED'],
+	['RIPPLE_DELETE_ALT', 'RIPPLE_DELETE'],
+	['ZOOM_TO_100_ALT', 'ZOOM_TO_100']
+]);
+
+export const EDITOR_SHORTCUT_GROUPS: readonly EditorShortcutGroup[] =
+	EDITOR_SHORTCUT_DEFINITIONS.flatMap((definition): EditorShortcutGroup[] => {
+		if (ALTERNATE_SHORTCUT_IDS.has(definition.id)) return [];
+		return [
+			{
+				primaryId: definition.id,
+				alternateIds: EDITOR_SHORTCUT_DEFINITIONS.filter(
+					(candidate) => ALTERNATE_SHORTCUT_IDS.get(candidate.id) === definition.id
+				).map(({ id }) => id),
+				section: definition.section
+			}
+		];
+	});
+
 const MODIFIERS = ['mod', 'alt', 'shift'] as const;
 const FUNCTION_KEY_COUNT = 12;
 const MODIFIER_SET = new Set<string>(MODIFIERS);
@@ -553,6 +580,12 @@ export interface ShortcutPresetImport {
 	sourceVersion: number | null;
 }
 
+export interface ShortcutImportReview {
+	result: ShortcutPresetImport;
+	changes: Array<{ id: EditorShortcutId; from: string; to: string }>;
+	conflicts: Array<{ binding: string; ids: EditorShortcutId[] }>;
+}
+
 export function createShortcutPreset(
 	overrides: EditorShortcutOverrideMap = {},
 	now = new Date()
@@ -603,6 +636,35 @@ export function parseShortcutPreset(
 		sourceSchema: source.schema ?? null,
 		sourceVersion: source.version ?? null
 	};
+}
+
+export function createShortcutImportReview(
+	result: ShortcutPresetImport,
+	currentOverrides: EditorShortcutOverrideMap
+): ShortcutImportReview {
+	const current = resolveEditorShortcuts(currentOverrides);
+	const next = resolveEditorShortcuts(result.overrides);
+	const changes = EDITOR_SHORTCUT_DEFINITIONS.flatMap(({ id }) =>
+		current[id] === next[id] ? [] : [{ id, from: current[id], to: next[id] }]
+	);
+	const idsByBinding = (bindings: EditorShortcutBindingMap) => {
+		const result = new Map<string, EditorShortcutId[]>();
+		for (const { id } of EDITOR_SHORTCUT_DEFINITIONS) {
+			const binding = normalizeShortcutBinding(bindings[id]);
+			if (!binding) continue;
+			result.set(binding, [...(result.get(binding) ?? []), id]);
+		}
+		return result;
+	};
+	const currentIdsByBinding = idsByBinding(current);
+	const conflicts = [...idsByBinding(next).entries()].flatMap(([binding, ids]) => {
+		if (ids.length < 2) return [];
+		const previous = currentIdsByBinding.get(binding) ?? [];
+		return previous.length === ids.length && previous.every((id, index) => id === ids[index])
+			? []
+			: [{ binding, ids }];
+	});
+	return { result, changes, conflicts };
 }
 
 export function editorShortcutTargetIsDisabled(target: EventTarget | null): boolean {

@@ -5,19 +5,22 @@
 	import { Input } from '$lib/components/ui/input';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import {
+		EDITOR_SHORTCUT_GROUPS,
 		EDITOR_SHORTCUT_DEFINITIONS,
 		browserShortcutConflict,
+		createShortcutImportReview,
 		createShortcutPreset,
 		findShortcutConflicts,
 		formatShortcutBindingWithLabels,
 		hasShortcutPrimaryToken,
 		parseShortcutPreset,
-		resolveEditorShortcuts,
+		splitShortcutBinding,
 		shortcutBindingFromEvent,
-		type EditorShortcutDefinition,
+		type EditorShortcutGroup,
 		type EditorShortcutId,
 		type EditorShortcutSection,
-		type ShortcutPresetImport
+		type EditorShortcutOverrideMap,
+		type ShortcutImportReview
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import {
 		keyboardLayoutLabelForToken,
@@ -28,6 +31,50 @@
 
 	type Filter = 'all' | 'custom' | 'conflicts' | 'unassigned';
 	type Feedback = { tone: 'success' | 'error'; text: string };
+	type KeyboardKey = { token: string; width?: number };
+
+	const KEYBOARD_ROWS: readonly (readonly KeyboardKey[])[] = [
+		[
+			{ token: 'backquote' },
+			...Array.from({ length: 10 }, (_, index) => ({ token: String((index + 1) % 10) })),
+			{ token: 'minus' },
+			{ token: 'equal' },
+			{ token: 'backspace', width: 2 }
+		],
+		[
+			{ token: 'tab', width: 1.5 },
+			...'qwertyuiop'.split('').map((token) => ({ token })),
+			{ token: 'bracketleft' },
+			{ token: 'bracketright' },
+			{ token: 'backslash', width: 1.5 }
+		],
+		[
+			{ token: 'shift', width: 1.75 },
+			...'asdfghjkl'.split('').map((token) => ({ token })),
+			{ token: 'semicolon' },
+			{ token: 'quote' },
+			{ token: 'enter', width: 2.25 }
+		],
+		[
+			{ token: 'mod', width: 1.5 },
+			{ token: 'alt', width: 1.5 },
+			...'zxcvbnm'.split('').map((token) => ({ token })),
+			{ token: 'comma' },
+			{ token: 'period' },
+			{ token: 'slash' },
+			{ token: 'space', width: 3 }
+		],
+		[
+			{ token: 'home', width: 1.5 },
+			{ token: 'end', width: 1.5 },
+			{ token: 'delete', width: 1.5 },
+			{ token: 'left' },
+			{ token: 'down' },
+			{ token: 'up' },
+			{ token: 'right' }
+		]
+	];
+	const MODIFIER_TOKENS = new Set(['mod', 'alt', 'shift']);
 
 	let search = $state('');
 	let filter = $state<Filter>('all');
@@ -38,6 +85,9 @@
 	let importInput = $state<HTMLInputElement | null>(null);
 	let layoutMap = $state<ReadonlyMap<string, string> | null>(null);
 	let layoutStatus = $state<'loading' | 'native' | 'fallback'>('loading');
+	let keyboardToken = $state<string | null>(null);
+	let pendingImport = $state<ShortcutImportReview | null>(null);
+	let undoImportOverrides = $state<EditorShortcutOverrideMap | null>(null);
 
 	onMount(() => {
 		let cancelled = false;
@@ -188,6 +238,23 @@
 		);
 	}
 
+	function commandsForToken(token: string): EditorShortcutId[] {
+		return EDITOR_SHORTCUT_DEFINITIONS.flatMap(({ id }) =>
+			splitShortcutBinding(keyboardShortcuts.bindings[id]).includes(token) ? [id] : []
+		);
+	}
+
+	function keyboardKeyLabel(token: string): string {
+		return formatBinding(token);
+	}
+
+	function keyboardKeyAriaLabel(token: string): string {
+		const commands = commandsForToken(token).map((id) => commandLabels[id]());
+		return commands.length > 0
+			? `${keyboardKeyLabel(token)}: ${commands.join(', ')}`
+			: keyboardKeyLabel(token);
+	}
+
 	function filterCount(id: Exclude<Filter, 'all'>): number {
 		return EDITOR_SHORTCUT_DEFINITIONS.filter(({ id: commandId }) => {
 			if (id === 'custom') return commandId in keyboardShortcuts.overrides;
@@ -203,6 +270,11 @@
 			if (filter === 'custom' && !(id in keyboardShortcuts.overrides)) return false;
 			if (filter === 'conflicts' && !hasConflict(id)) return false;
 			if (filter === 'unassigned' && keyboardShortcuts.bindings[id] !== '') return false;
+			if (
+				keyboardToken &&
+				!splitShortcutBinding(keyboardShortcuts.bindings[id]).includes(keyboardToken)
+			)
+				return false;
 			if (!query) return true;
 			return [
 				commandLabels[id](),
@@ -213,11 +285,21 @@
 		});
 	});
 
-	function definitionsFor(section: EditorShortcutSection): readonly EditorShortcutDefinition[] {
-		return visibleDefinitions.filter((definition) => definition.section === section);
+	function groupsFor(section: EditorShortcutSection): readonly EditorShortcutGroup[] {
+		const visibleIds = new Set(visibleDefinitions.map(({ id }) => id));
+		return EDITOR_SHORTCUT_GROUPS.filter(
+			(group) =>
+				group.section === section &&
+				[group.primaryId, ...group.alternateIds].some((id) => visibleIds.has(id))
+		);
+	}
+
+	function clearImportUndo(): void {
+		undoImportOverrides = null;
 	}
 
 	function beginCapture(id: EditorShortcutId): void {
+		clearImportUndo();
 		captureId = id;
 		draftBinding = '';
 		feedback = null;
@@ -251,51 +333,53 @@
 	}
 
 	function unbind(id: EditorShortcutId): void {
+		clearImportUndo();
 		keyboardShortcuts.unbind(id);
 		if (captureId === id) cancelCapture();
 	}
 
 	function reset(id: EditorShortcutId): void {
+		clearImportUndo();
 		keyboardShortcuts.resetBinding(id);
 		if (captureId === id) cancelCapture();
-	}
-
-	function presetConflictCount(result: ShortcutPresetImport): number {
-		const bindings = resolveEditorShortcuts(result.overrides);
-		return Math.floor(
-			EDITOR_SHORTCUT_DEFINITIONS.reduce(
-				(count, { id }) => count + findShortcutConflicts(bindings, bindings[id], id).length,
-				0
-			) / 2
-		);
 	}
 
 	async function importPreset(file: File): Promise<void> {
 		try {
 			const result = parseShortcutPreset(JSON.parse(await file.text()));
-			const conflicts = presetConflictCount(result);
-			if (conflicts > 0) {
-				feedback = {
-					tone: 'error',
-					text: m.video_editor_shortcuts_import_conflicts({ count: conflicts })
-				};
-				return;
-			}
-			keyboardShortcuts.replaceOverrides(result.overrides);
-			feedback = {
-				tone: 'success',
-				text: [
-					m.video_editor_shortcuts_imported({ count: result.importedCount }),
-					result.ignoredCount > 0
-						? m.video_editor_shortcuts_import_ignored({ count: result.ignoredCount })
-						: ''
-				]
-					.filter(Boolean)
-					.join(' ')
-			};
+			pendingImport = createShortcutImportReview(result, keyboardShortcuts.overrides);
+			feedback = null;
 		} catch {
+			pendingImport = null;
 			feedback = { tone: 'error', text: m.video_editor_shortcuts_import_failed() };
 		}
+	}
+
+	function applyPendingImport(): void {
+		if (!pendingImport || pendingImport.conflicts.length > 0) return;
+		undoImportOverrides = { ...keyboardShortcuts.overrides };
+		keyboardShortcuts.replaceOverrides(pendingImport.result.overrides);
+		feedback = {
+			tone: 'success',
+			text: [
+				m.video_editor_shortcuts_imported({ count: pendingImport.result.importedCount }),
+				pendingImport.result.ignoredCount > 0
+					? m.video_editor_shortcuts_import_ignored({
+							count: pendingImport.result.ignoredCount
+						})
+					: ''
+			]
+				.filter(Boolean)
+				.join(' ')
+		};
+		pendingImport = null;
+	}
+
+	function undoImport(): void {
+		if (!undoImportOverrides) return;
+		keyboardShortcuts.replaceOverrides(undoImportOverrides);
+		undoImportOverrides = null;
+		feedback = { tone: 'success', text: m.video_editor_shortcuts_import_undone() };
 	}
 
 	function exportPreset(): void {
@@ -313,6 +397,7 @@
 	}
 
 	function resetAll(): void {
+		clearImportUndo();
 		keyboardShortcuts.resetAll();
 		confirmReset = false;
 		cancelCapture();
@@ -332,7 +417,7 @@
 				{m.video_editor_shortcuts_description()}
 			</p>
 			{#if layoutStatus === 'fallback'}
-				<p class="mt-1 max-w-lg text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
+				<p class="mt-1 max-w-lg text-xs leading-relaxed text-[var(--video-editor-muted)]">
 					{m.video_editor_shortcuts_layout_fallback()}
 				</p>
 			{/if}
@@ -363,17 +448,120 @@
 	</div>
 
 	{#if feedback}
-		<p
-			class={`rounded-md border px-3 py-2 text-xs ${
+		<div
+			class={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs ${
 				feedback.tone === 'error'
-					? 'border-red-500/30 bg-red-500/10 text-red-200'
-					: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100'
+					? 'border-destructive/30 bg-destructive/10 text-destructive'
+					: 'border-success/30 bg-success/10 text-success'
 			}`}
 			role="status"
 		>
-			{feedback.text}
-		</p>
+			<span>{feedback.text}</span>
+			{#if undoImportOverrides}
+				<Button type="button" variant="outline" size="sm" onclick={undoImport}>
+					<ThemeIcon role="undo" class="size-3.5" />
+					{m.video_editor_shortcuts_import_undo()}
+				</Button>
+			{/if}
+		</div>
 	{/if}
+
+	{#if pendingImport}
+		<div
+			class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
+			role="group"
+			aria-labelledby="shortcut-import-review-title"
+		>
+			<h4 id="shortcut-import-review-title" class="text-sm font-medium">
+				{m.video_editor_shortcuts_import_review()}
+			</h4>
+			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
+				{m.video_editor_shortcuts_import_review_description({
+					count: pendingImport.changes.length
+				})}
+			</p>
+			{#if pendingImport.conflicts.length > 0}
+				<div class="mt-2 space-y-1 text-xs text-destructive" role="alert">
+					<p>
+						{m.video_editor_shortcuts_import_conflicts({ count: pendingImport.conflicts.length })}
+					</p>
+					{#each pendingImport.conflicts as conflict (formatBinding(conflict.binding))}
+						<p>
+							{formatBinding(conflict.binding)}:
+							{conflict.commandIds.map((id) => commandLabels[id]()).join(', ')}
+						</p>
+					{/each}
+				</div>
+			{/if}
+			<div
+				class="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
+			>
+				{#each pendingImport.changes as change (change.id)}
+					<div class="flex min-w-0 items-center justify-between gap-3 text-xs">
+						<span class="min-w-0 flex-1 truncate">{commandLabels[change.id]()}</span>
+						<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
+							<span class="line-through">{formatBinding(change.from)}</span>
+							<span aria-hidden="true"> → </span>
+							<span class="text-[var(--video-editor-text)]">{formatBinding(change.to)}</span>
+						</span>
+					</div>
+				{/each}
+			</div>
+			<div class="mt-3 flex justify-end gap-2">
+				<Button type="button" variant="ghost" size="sm" onclick={() => (pendingImport = null)}>
+					{m.common_cancel()}
+				</Button>
+				<Button
+					type="button"
+					size="sm"
+					disabled={pendingImport.conflicts.length > 0 || pendingImport.changes.length === 0}
+					onclick={applyPendingImport}
+				>
+					{m.video_editor_shortcuts_import_apply()}
+				</Button>
+			</div>
+		</div>
+	{/if}
+
+	<div class="overflow-x-auto pb-1">
+		<div
+			class="min-w-[760px] space-y-1 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
+			role="group"
+			aria-label={m.video_editor_shortcuts_keyboard()}
+		>
+			{#each KEYBOARD_ROWS as row, rowIndex (`keyboard-row-${rowIndex}`)}
+				<div class="flex gap-1">
+					{#each row as key (`${rowIndex}-${key.token}`)}
+						{@const modifier = MODIFIER_TOKENS.has(key.token)}
+						{@const commandCount = commandsForToken(key.token).length}
+						{#if modifier}
+							<span
+								class="flex h-9 min-w-10 items-center justify-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 font-mono text-xs text-[var(--video-editor-muted)]"
+								style:flex-grow={key.width ?? 1}
+								aria-hidden="true"
+							>
+								{keyboardKeyLabel(key.token)}
+							</span>
+						{:else}
+							<button
+								type="button"
+								class="flex h-9 min-w-10 items-center justify-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 font-mono text-xs text-[var(--video-editor-muted)] transition-colors hover:border-[var(--video-editor-focus)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:bg-[var(--video-editor-control-hover)] data-[active=true]:text-[var(--video-editor-focus)] data-[assigned=true]:text-[var(--video-editor-text)] motion-reduce:transition-none"
+								style:flex-grow={key.width ?? 1}
+								data-active={keyboardToken === key.token}
+								data-assigned={commandCount > 0}
+								aria-pressed={keyboardToken === key.token}
+								aria-label={keyboardKeyAriaLabel(key.token)}
+								title={keyboardKeyAriaLabel(key.token)}
+								onclick={() => (keyboardToken = keyboardToken === key.token ? null : key.token)}
+							>
+								{keyboardKeyLabel(key.token)}
+							</button>
+						{/if}
+					{/each}
+				</div>
+			{/each}
+		</div>
+	</div>
 
 	<div class="space-y-2">
 		<Input bind:value={search} type="search" placeholder={m.video_editor_shortcuts_search()} />
@@ -381,14 +569,14 @@
 			{#each filters as item (item.id)}
 				<button
 					type="button"
-					class="min-h-9 shrink-0 rounded-md border border-[oklch(0.29_0.014_55)] px-2.5 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:text-[var(--video-editor-focus)]"
+					class="min-h-9 shrink-0 rounded-md border border-[var(--video-editor-border)] px-2.5 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:text-[var(--video-editor-focus)]"
 					data-active={filter === item.id}
 					aria-pressed={filter === item.id}
 					onclick={() => (filter = item.id)}
 				>
 					<span>{item.label()}</span>
 					{#if item.id !== 'all'}
-						<span class="ml-1 text-[10px] tabular-nums">{filterCount(item.id)}</span>
+						<span class="ml-1 text-xs tabular-nums">{filterCount(item.id)}</span>
 					{/if}
 				</button>
 			{/each}
@@ -397,7 +585,7 @@
 
 	{#if captureId}
 		<div
-			class="rounded-lg border border-[var(--video-editor-focus)]/50 bg-[oklch(0.2_0.018_50)] p-3"
+			class="rounded-lg border border-[var(--video-editor-focus)]/50 bg-[var(--video-editor-control)] p-3"
 			role="group"
 			aria-label={m.video_editor_shortcuts_change()}
 		>
@@ -414,14 +602,14 @@
 					})}
 				</p>
 				{#if captureConflicts.length > 0}
-					<p class="mt-1 text-xs text-amber-200" role="alert">
+					<p class="mt-1 text-xs text-warning-foreground" role="alert">
 						{m.video_editor_shortcuts_conflict({
 							command: captureConflicts.map((id) => commandLabels[id]()).join(', ')
 						})}
 					</p>
 				{/if}
 				{#if captureBrowserConflict}
-					<p class="mt-1 text-xs text-amber-200">
+					<p class="mt-1 text-xs text-warning-foreground">
 						{m.video_editor_shortcuts_browser_conflict({
 							action: captureBrowserConflict.browserAction.toLowerCase()
 						})}
@@ -456,53 +644,73 @@
 	{/if}
 
 	<div
-		class="divide-y divide-[oklch(0.27_0.014_55)] rounded-lg border border-[oklch(0.29_0.014_55)]"
+		class="divide-y divide-[var(--video-editor-border)] rounded-lg border border-[var(--video-editor-border)]"
 	>
 		{#each sectionOrder as section (section)}
-			{@const definitions = definitionsFor(section)}
-			{#if definitions.length > 0}
+			{@const groups = groupsFor(section)}
+			{#if groups.length > 0}
 				<div
-					class="bg-[oklch(0.19_0.012_50)] px-3 py-2 text-[10px] font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
+					class="bg-[var(--video-editor-control)] px-3 py-2 text-xs font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
 				>
 					{sectionLabels[section]()}
 				</div>
-				{#each definitions as definition (definition.id)}
-					{@const id = definition.id}
-					{@const binding = keyboardShortcuts.bindings[id]}
+				{#each groups as group (group.primaryId)}
+					{@const ids = [group.primaryId, ...group.alternateIds]}
 					<div
-						class="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center"
+						class="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-start"
 						role="group"
-						aria-label={commandLabels[id]()}
+						aria-label={commandLabels[group.primaryId]()}
 					>
-						<div class="min-w-0 flex-1">
+						<div class="min-w-0 lg:w-48 lg:shrink-0">
 							<div class="flex flex-wrap items-center gap-1.5">
-								<span class="text-sm">{commandLabels[id]()}</span>
-								{#if id in keyboardShortcuts.overrides}
+								<span class="text-sm">{commandLabels[group.primaryId]()}</span>
+								{#if ids.some((id) => id in keyboardShortcuts.overrides)}
 									<span
-										class="rounded border border-[oklch(0.34_0.03_48)] px-1.5 py-0.5 text-[9px] text-[var(--video-editor-focus)] uppercase"
+										class="rounded border border-[var(--video-editor-focus)]/40 px-1.5 py-0.5 text-xs text-[var(--video-editor-focus)] uppercase"
 									>
 										{m.video_editor_shortcuts_custom()}
 									</span>
 								{/if}
 							</div>
-							<kbd
-								class="mt-1 inline-block rounded border border-[oklch(0.33_0.014_55)] bg-[oklch(0.21_0.012_50)] px-2 py-1 font-mono text-[10px] text-[var(--video-editor-muted)]"
-							>
-								{binding ? formatBinding(binding) : m.video_editor_shortcuts_unassigned()}
-							</kbd>
 						</div>
-						<div class="flex flex-wrap gap-1.5 sm:justify-end">
-							<Button type="button" variant="outline" size="sm" onclick={() => beginCapture(id)}>
-								{m.video_editor_shortcuts_change()}
-							</Button>
-							<Button type="button" variant="ghost" size="sm" onclick={() => unbind(id)}>
-								{m.video_editor_shortcuts_unbind()}
-							</Button>
-							{#if id in keyboardShortcuts.overrides}
-								<Button type="button" variant="ghost" size="sm" onclick={() => reset(id)}>
-									{m.video_editor_shortcuts_reset_one()}
-								</Button>
-							{/if}
+						<div class="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+							{#each ids as id, index (id)}
+								{@const binding = keyboardShortcuts.bindings[id]}
+								<div
+									class="min-w-0 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-2"
+								>
+									<div class="flex items-center justify-between gap-2">
+										<span class="text-xs text-[var(--video-editor-muted)]">
+											{index === 0
+												? m.video_editor_shortcuts_primary()
+												: m.video_editor_shortcuts_alternate()}
+										</span>
+										<kbd
+											class="min-w-0 truncate rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1 font-mono text-xs text-[var(--video-editor-text)]"
+										>
+											{binding ? formatBinding(binding) : m.video_editor_shortcuts_unassigned()}
+										</kbd>
+									</div>
+									<div class="mt-2 flex flex-wrap justify-end gap-1.5">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onclick={() => beginCapture(id)}
+										>
+											{m.video_editor_shortcuts_change()}
+										</Button>
+										<Button type="button" variant="ghost" size="sm" onclick={() => unbind(id)}>
+											{m.video_editor_shortcuts_unbind()}
+										</Button>
+										{#if id in keyboardShortcuts.overrides}
+											<Button type="button" variant="ghost" size="sm" onclick={() => reset(id)}>
+												{m.video_editor_shortcuts_reset_one()}
+											</Button>
+										{/if}
+									</div>
+								</div>
+							{/each}
 						</div>
 					</div>
 				{/each}
@@ -516,7 +724,7 @@
 	</div>
 
 	<div
-		class="flex flex-wrap items-center justify-end gap-2 border-t border-[oklch(0.27_0.014_55)] pt-3"
+		class="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--video-editor-border)] pt-3"
 	>
 		{#if confirmReset}
 			<span class="mr-auto text-xs text-[var(--video-editor-muted)]">

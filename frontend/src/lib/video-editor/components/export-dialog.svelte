@@ -21,8 +21,6 @@
 		renderVideoExport,
 		renderImageSequenceExport
 	} from '$lib/video-editor/media/render-execution';
-	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
 		assessExportPreflight,
@@ -40,6 +38,12 @@
 	import { renderQueueStore } from '../export/render-queue-store';
 	import RenderQueuePanel from './render-queue-panel.svelte';
 	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
+	import {
+		createExportableSequences,
+		type ExportableSequence
+	} from '../export/exportable-sequences';
+	import { formatMediaDuration } from '../media/library-view';
 	import RenderProgress from './render-progress.svelte';
 	import {
 		sanitizeSequenceBaseName,
@@ -106,6 +110,8 @@
 	} = $props();
 
 	let open = $state(false);
+	let exportableSequences = $state<ExportableSequence[]>([]);
+	let selectedSequenceId = $state<string | null>(null);
 	let rendering = $state(false);
 	let format = $state<ExportFormat>('webm');
 	let quality = $state<NonNullable<RenderExportOptions['quality']>>('standard');
@@ -126,6 +132,11 @@
 	const isSequenceFormat = $derived(isSequenceExportFormat(format));
 	let webpSupported = $state<boolean | undefined>(undefined);
 	const videoFormat = $derived(isVideoExportFormat(format) ? format : null);
+	const selectedSequence = $derived(
+		exportableSequences.find(({ id }) => id === selectedSequenceId) ?? exportableSequences[0]
+	);
+	const exportProject = $derived(selectedSequence?.project ?? project);
+	const exportTimeline = $derived(exportProject?.timeline);
 	const codecs = $derived(videoFormat ? supportedExportVideoCodecs(videoFormat) : []);
 	const formatOptions = $derived([
 		{ value: 'mp4', label: 'MP4' },
@@ -153,7 +164,10 @@
 		}
 	});
 	const resolutionOptions = $derived([
-		{ value: 'source', label: `${project?.metadata.width} × ${project?.metadata.height}` },
+		{
+			value: 'source',
+			label: `${exportProject?.metadata.width} × ${exportProject?.metadata.height}`
+		},
 		{ value: '1920x1080', label: '1920 × 1080' },
 		{ value: '1280x720', label: '1280 × 720' },
 		{ value: '854x480', label: '854 × 480' }
@@ -188,16 +202,19 @@
 		setTimeout(() => URL.revokeObjectURL(url), 1_000);
 	}
 	const outputDimensions = $derived.by(() => {
-		if (!project) return { width: 1920, height: 1080 };
+		if (!exportProject) return { width: 1920, height: 1080 };
 		const [width, height] =
 			resolution === 'source'
-				? [project.metadata.width, project.metadata.height]
+				? [exportProject.metadata.width, exportProject.metadata.height]
 				: resolution.split('x').map(Number);
-		return { width: width ?? project.metadata.width, height: height ?? project.metadata.height };
+		return {
+			width: width ?? exportProject.metadata.width,
+			height: height ?? exportProject.metadata.height
+		};
 	});
 	const selectedRange = $derived(
-		useRange && timelineStore.inPoint !== null && timelineStore.outPoint !== null
-			? { startFrame: timelineStore.inPoint, endFrame: timelineStore.outPoint }
+		useRange && exportTimeline?.inPoint !== undefined && exportTimeline.outPoint !== undefined
+			? { startFrame: exportTimeline.inPoint, endFrame: exportTimeline.outPoint }
 			: undefined
 	);
 	const mediaStatuses = $derived.by(() =>
@@ -218,12 +235,12 @@
 						? jpegQualityFor(quality)
 						: undefined
 			},
-			fps: timelineStore.fps,
-			projectWidth: project?.metadata.width,
-			projectHeight: project?.metadata.height,
-			items: timelineStore.items,
-			tracks: timelineStore.tracks,
-			transitions: transitionsStore.list,
+			fps: exportProject?.metadata.fps ?? 30,
+			projectWidth: exportProject?.metadata.width,
+			projectHeight: exportProject?.metadata.height,
+			items: exportTimeline?.items ?? [],
+			tracks: exportTimeline?.tracks ?? [],
+			transitions: exportTimeline?.transitions ?? [],
 			codecSupported: videoFormat ? codecSupport[codec] : true,
 			webpSupported,
 			mediaStatuses,
@@ -242,8 +259,8 @@
 		preflight.checks.filter((check) => check.severity !== 'ok').slice(0, 4)
 	);
 	const sequenceFilePattern = $derived.by(() => {
-		if (!project) return '';
-		const base = sanitizeSequenceBaseName(project.name);
+		if (!exportProject) return '';
+		const base = sanitizeSequenceBaseName(exportProject.name);
 		const total = Math.max(1, preflight.range.frameCount);
 		const ext = format === 'png-sequence' ? 'png' : format === 'webp-sequence' ? 'webp' : 'jpg';
 		return `${base}_${'0'.repeat(Math.max(5, String(total).length) - 1)}1.${ext}`;
@@ -252,12 +269,12 @@
 	$effect(() => {
 		const selectedFormat = videoFormat;
 		const selectedResolution = resolution;
-		if (!selectedFormat || !project) return;
+		if (!selectedFormat || !exportProject) return;
 		const probeVersion = ++codecProbeVersion;
 		codecSupport = {};
 		const [width, height] =
 			selectedResolution === 'source'
-				? [project.metadata.width, project.metadata.height]
+				? [exportProject.metadata.width, exportProject.metadata.height]
 				: selectedResolution.split('x').map(Number);
 		const availableCodecs = supportedExportVideoCodecs(selectedFormat);
 		if (!availableCodecs.includes(codec)) codec = defaultVideoCodec(selectedFormat);
@@ -346,6 +363,26 @@
 		if (next) codec = next;
 	}
 
+	function openExportDialog(): void {
+		if (!project) return;
+		const snapshot = captureSnapshot();
+		exportableSequences = createExportableSequences(
+			project,
+			snapshot,
+			sequenceStore.activeSequenceId
+		);
+		selectedSequenceId = sequenceStore.activeSequenceId;
+		resolution = 'source';
+		useRange = false;
+		open = true;
+	}
+
+	function selectSequence(value: string): void {
+		selectedSequenceId = value === '__main__' ? null : value;
+		resolution = 'source';
+		useRange = false;
+	}
+
 	function queueSettings() {
 		return {
 			format,
@@ -362,19 +399,19 @@
 	}
 
 	function enqueueCurrent(): void {
-		if (!project || !preflight.canExport) return;
-		const snapshot = captureSnapshot();
+		if (!exportProject || !exportTimeline || !preflight.canExport) return;
 		renderQueueStore.enqueue([
 			buildRenderQueueJob({
-				project,
+				project: exportProject,
 				settings: queueSettings(),
 				preflight,
-				tracks: snapshot.tracks,
-				items: snapshot.items,
-				transitions: snapshot.transitions,
-				compositions: snapshot.sequenceRegistry.compositions,
-				masterVolumeDb: snapshot.masterVolumeDb,
-				masterMuted: snapshot.masterMuted
+				tracks: exportTimeline.tracks,
+				items: exportTimeline.items,
+				transitions: exportTimeline.transitions ?? [],
+				compositions: exportTimeline.compositions ?? [],
+				masterVolumeDb: exportTimeline.masterVolumeDb,
+				masterMuted: exportTimeline.masterMuted,
+				busAudioEq: exportTimeline.busAudioEq
 			})
 		]);
 		open = false;
@@ -382,19 +419,21 @@
 
 	function enqueueSegments(
 		ranges: readonly RenderQueueRange[],
-		snapshot: ReturnType<typeof captureSnapshot>
+		selected: ExportableSequence
 	): void {
-		if (!project || ranges.length === 0) return;
+		const selectedProject = selected.project;
+		const selectedTimeline = selectedProject.timeline;
+		if (!selectedTimeline || ranges.length === 0) return;
 		const settings = queueSettings();
 		const segmentPreflights = ranges.map((range) =>
 			assessExportPreflight({
 				settings: { ...settings, range },
-				fps: timelineStore.fps,
-				projectWidth: project?.metadata.width,
-				projectHeight: project?.metadata.height,
-				items: snapshot.items,
-				tracks: snapshot.tracks,
-				transitions: snapshot.transitions,
+				fps: selectedProject.metadata.fps,
+				projectWidth: selectedProject.metadata.width,
+				projectHeight: selectedProject.metadata.height,
+				items: selectedTimeline.items,
+				tracks: selectedTimeline.tracks,
+				transitions: selectedTimeline.transitions ?? [],
 				codecSupported: videoFormat ? codecSupport[codec] : true,
 				webpSupported,
 				mediaStatuses,
@@ -412,26 +451,28 @@
 		}
 		renderQueueStore.enqueue(
 			buildSegmentRenderQueueJobs({
-				project,
+				project: selectedProject,
 				settings,
 				preflight: segmentPreflights[0]!,
-				tracks: snapshot.tracks,
-				items: snapshot.items,
-				transitions: snapshot.transitions,
-				compositions: snapshot.sequenceRegistry.compositions,
-				masterVolumeDb: snapshot.masterVolumeDb,
-				masterMuted: snapshot.masterMuted,
+				tracks: selectedTimeline.tracks,
+				items: selectedTimeline.items,
+				transitions: selectedTimeline.transitions ?? [],
+				compositions: selectedTimeline.compositions ?? [],
+				masterVolumeDb: selectedTimeline.masterVolumeDb,
+				masterMuted: selectedTimeline.masterMuted,
+				busAudioEq: selectedTimeline.busAudioEq,
 				ranges,
-				name: (index) => `${project.name} - ${m.video_editor_queue_part({ number: index + 1 })}`
+				name: (index) =>
+					`${selectedProject.name} - ${m.video_editor_queue_part({ number: index + 1 })}`
 			})
 		);
 		open = false;
 	}
 
 	function enqueueMarkerSegments(): void {
-		const snapshot = captureSnapshot();
+		if (!selectedSequence) return;
 		const ranges = rangesFromMarkers(
-			snapshot.markers,
+			selectedSequence.project.timeline?.markers ?? [],
 			preflight.range.startFrame,
 			preflight.range.endFrame
 		);
@@ -439,23 +480,23 @@
 			onerror(new Error(m.video_editor_queue_no_markers()));
 			return;
 		}
-		enqueueSegments(ranges, snapshot);
+		enqueueSegments(ranges, selectedSequence);
 	}
 
 	function enqueueFixedSegments(seconds: number): void {
-		const snapshot = captureSnapshot();
+		if (!selectedSequence) return;
 		enqueueSegments(
 			rangesFromFixedDuration(
 				preflight.range.startFrame,
 				preflight.range.endFrame,
-				Math.max(1, Math.round(seconds * timelineStore.fps))
+				Math.max(1, Math.round(seconds * selectedSequence.project.metadata.fps))
 			),
-			snapshot
+			selectedSequence
 		);
 	}
 
 	async function start(): Promise<void> {
-		if (!project || rendering || !preflight.canExport) return;
+		if (!exportProject || rendering || !preflight.canExport) return;
 		rendering = true;
 		const totalFrames = Math.max(0, preflight.range.endFrame - preflight.range.startFrame);
 		progress = { phase: 'preparing', framesDone: 0, totalFrames, progress: 0 };
@@ -464,25 +505,7 @@
 		controller = abortController;
 		const { width, height } = outputDimensions;
 		try {
-			const snapshot = captureSnapshot();
-			const renderProject: Project = {
-				...project,
-				metadata: { ...project.metadata, fps: snapshot.fps },
-				timeline: {
-					...project.timeline,
-					tracks: snapshot.tracks,
-					items: snapshot.items,
-					transitions: snapshot.transitions,
-					markers: snapshot.markers,
-					inPoint: snapshot.inPoint ?? undefined,
-					outPoint: snapshot.outPoint ?? undefined,
-					currentFrame: snapshot.currentFrame,
-					scrollPosition: snapshot.scrollPosition,
-					compositions: snapshot.sequenceRegistry.compositions,
-					masterVolumeDb: snapshot.masterVolumeDb,
-					masterMuted: snapshot.masterMuted
-				}
-			};
+			const renderProject: Project = $state.snapshot(exportProject);
 			const range = {
 				startFrame: preflight.range.startFrame,
 				endFrame: preflight.range.endFrame
@@ -600,7 +623,7 @@
 	class={triggerClass}
 	{disabled}
 	aria-label={m.video_editor_export_render()}
-	onclick={() => (open = true)}
+	onclick={openExportDialog}
 >
 	{#if responsiveTrigger}
 		<ThemeIcon role="download" />
@@ -633,6 +656,42 @@
 		<Dialog.Title id="export-title" class="text-base font-semibold"
 			>{m.video_editor_export_title()}</Dialog.Title
 		>
+		{#if exportableSequences.length > 1 && selectedSequence}
+			<div
+				class="mt-4 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
+			>
+				<label class="text-xs text-muted-foreground">
+					{m.video_editor_sequences()}
+					<AppSelect
+						class="mt-1 h-9 w-full text-sm"
+						value={selectedSequenceId ?? '__main__'}
+						options={exportableSequences.map((sequence) => ({
+							value: sequence.id ?? '__main__',
+							label: sequence.id === null ? m.video_editor_main_sequence() : sequence.name
+						}))}
+						disabled={rendering}
+						onValueChange={selectSequence}
+					/>
+				</label>
+				<div
+					class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--video-editor-muted)] tabular-nums"
+					aria-live="polite"
+				>
+					<span
+						>{m.video_editor_export_resolution()}: {selectedSequence.project.metadata.width} × {selectedSequence
+							.project.metadata.height}</span
+					>
+					<span>{selectedSequence.project.metadata.fps} fps</span>
+					<span
+						>{m.video_editor_project_duration({
+							duration: formatMediaDuration(
+								selectedSequence.durationInFrames / selectedSequence.project.metadata.fps
+							)
+						})}</span
+					>
+				</div>
+			</div>
+		{/if}
 		<div class="mt-4 grid grid-cols-2 gap-3">
 			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_format()}<AppSelect
@@ -706,23 +765,23 @@
 			{/if}
 		</div>
 		{#if isSequenceFormat}
-			<p class="mt-2 text-[11px] text-[var(--video-editor-muted)]" aria-live="polite">
+			<p class="mt-2 text-xs text-[var(--video-editor-muted)]" aria-live="polite">
 				{m.video_editor_export_sequence_alpha_hint()}
 			</p>
-			<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_export_sequence_file_pattern({ pattern: sequenceFilePattern })}
 			</p>
 			{#if sequenceDestination === 'directory' && !getDirectoryPickerAvailable()}
-				<p class="mt-1 text-[11px] text-warning-foreground">
+				<p class="mt-1 text-xs text-warning-foreground">
 					{m.video_editor_export_sequence_directory_unavailable()}
 				</p>
 			{/if}
 			{#if sequenceDestination === 'zip'}
-				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+				<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_export_sequence_zip_hint()}
 				</p>
 			{:else}
-				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+				<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_export_sequence_directory_hint()}
 				</p>
 			{/if}
@@ -730,7 +789,9 @@
 		<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">
 			<Checkbox
 				bind:checked={useRange}
-				disabled={rendering || timelineStore.inPoint === null || timelineStore.outPoint === null}
+				disabled={rendering ||
+					exportTimeline?.inPoint === undefined ||
+					exportTimeline.outPoint === undefined}
 			/>{m.video_editor_export_range()}
 		</label>
 		<div
@@ -758,7 +819,7 @@
 								? m.video_editor_preflight_ready()
 								: m.video_editor_preflight_blocked()}
 					</p>
-					<p class="mt-0.5 text-[11px] text-[var(--video-editor-muted)] tabular-nums">
+					<p class="mt-0.5 text-xs text-[var(--video-editor-muted)] tabular-nums">
 						{m.video_editor_preflight_estimate({
 							duration: preflight.estimatedDurationSeconds.toFixed(1),
 							size: formatBytes(preflight.estimatedFileSizeBytes),
@@ -777,7 +838,7 @@
 					{#each visiblePreflightChecks as check (check.id)}
 						<li
 							class={[
-								'text-[11px]',
+								'text-xs',
 								check.severity === 'error'
 									? 'text-destructive'
 									: check.severity === 'warning'

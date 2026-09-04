@@ -1773,8 +1773,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				{/key}
 			{/if}
 			<ExportDialog
-				project={renderProject}
-				disabled={timelineStore.items.length === 0}
+				project={editorSession.project}
+				disabled={!editorSession.project}
 				triggerLabel={m.video_editor_export_title()}
 				responsiveTrigger
 				compactQueueTrigger

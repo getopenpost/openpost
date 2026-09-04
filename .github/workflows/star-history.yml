@@ -19,11 +19,12 @@ jobs:
         id: star-history
         with:
           repos: getopenpost/openpost
+          font-family: Geist
           commit: false
 
-      - name: Apply OpenPost brand color
+      - name: Apply OpenPost brand styles
         if: steps.star-history.outputs.changed == 'true'
-        run: sed -i -e 's/#dd4528/#b74c05/g' -e 's/#ff6b6b/#b74c05/g' assets/star-history/star-history-*.svg
+        run: sed -i -e 's/#dd4528/#b74c05/g' -e 's/#ff6b6b/#b74c05/g' -e 's/font-family:xkcd/font-family:Geist,sans-serif/g' assets/star-history/star-history-*.svg
 
       - name: Commit generated charts
         if: steps.star-history.outputs.changed == 'true'

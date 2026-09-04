@@ -4,6 +4,44 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.19.0] - 2026-09-04
+
+### Added
+
+- Add a vendor-neutral external application platform with operator-managed public and confidential OAuth clients, S256 PKCE, granular REST scopes, one-hour access tokens, rotating refresh tokens, replay-family revocation, RFC 7009 revocation, and optional policy-controlled dynamic client registration.
+- Let workspace administrators approve one, several, or all eligible current workspaces and choose the current social accounts each application can use. Future workspaces and accounts require explicit approval.
+- Add durable signed webhooks for publication lifecycle events, bounded retries, delivery inspection, and one-time signing secrets.
+- Add consent, connected-application, and instance application-registry screens, plus generated API contracts and operator documentation.
+- Restore missing video project media in one batch by scanning a chosen folder and its subfolders, reviewing exact matches and conflicts, then confirming the safe relinks.
+
+### Changed
+
+- Put Test and Apply actions on every theme card, and switch appearance mode when a tested theme only supports light or dark.
+- Add dark variants for Studio, Playroom, and Cloud Garden across web and native theme manifests.
+- Give every built-in theme five distinct analytics colors and show the full palette while previewing a theme.
+- Keep routine app page spacing compact even when a theme uses spacious presentation layouts.
+- Show only the plus icon for the central mobile create action while preserving its accessible name.
+- Apply every organization theme to the Video Editor and Image Editor chrome while keeping preview, timeline, canvas, guide, handle, scope, and meter geometry on stable editor colors.
+- Make dense video inspector, effects, Color, Motion, asset, audio, and workspace controls readable in both light and dark themes.
+- Let Image Editor canvas controls, transparency grids, selection handles, and previews use the protected canvas palette instead of organization page colors.
+- Use one brand-aware color picker across the app, Image Editor, and Video Editor instead of browser color inputs.
+- Export Main, any top-level sequence, or a reusable motion composition without leaving the active editor timeline. The export dialog shows and uses the selected timeline's own resolution, frame rate, duration, range, and mix.
+- Browse shortcuts on an interactive keyboard and edit primary and alternate bindings together.
+- Review every shortcut preset change and conflict before applying it, then undo the import if needed.
+
+### Fixed
+
+- Keep mobile appearance choices inside the More menu instead of opening them beyond the screen edge.
+- Make menus opaque so page content cannot bleed through and reduce text contrast while scrolling.
+- Prevent light themes from leaving dark preview surrounds, transport bars, timeline docks, track canvases, Color timelines, or Motion empty states inside either editor.
+- Restore the anonymous Image Editor create, reload, and export flow after undefined icon bindings broke the public route and tool rails.
+- Prevent the Image Editor custom-size and gradient color controls from overflowing narrow screens.
+- Translate the remaining visible Video Editor color, assistant, and local-processing labels.
+- Theme the Video Editor timeline navigator and protected scrollbars instead of leaving a dark strip in light themes.
+- Load AI meme previews in order so every suggestion appears without a manual retry.
+- Stop obsolete token-refresh jobs for disconnected or revoked accounts from retrying and raising terminal background-job alerts.
+- Record a safe error message when a real token refresh fails.
+
 ## [4.18.0] - 2026-09-04
 
 ### Changed

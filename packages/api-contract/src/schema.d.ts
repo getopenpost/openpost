@@ -3178,6 +3178,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications/queue-reminders/{workspace_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get personal email reminders for a Workspace queue */
+        get: operations["get-workspace-queue-reminders"];
+        /** Update personal email reminders for a Workspace queue */
+        put: operations["update-workspace-queue-reminders"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications/read": {
         parameters: {
             query?: never;
@@ -11088,6 +11106,35 @@ export interface components {
              * @description Trial length in calendar days
              */
             trial_days: number;
+        };
+        QueueReminderSettings: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/QueueReminderSettings.json
+             */
+            readonly $schema?: string;
+            activated: boolean;
+            email_available: boolean;
+            low_runway_enabled: boolean;
+            queue_emptied_enabled: boolean;
+            /** Format: int64 */
+            runway_days: number;
+            workspace_id: string;
+            workspace_name: string;
+            workspace_timezone: string;
+        };
+        QueueReminderUpdate: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/QueueReminderUpdate.json
+             */
+            readonly $schema?: string;
+            low_runway_enabled: boolean;
+            queue_emptied_enabled: boolean;
+            /** Format: int64 */
+            runway_days: number;
         };
         "Readiness-checkResponse": {
             /**
@@ -25590,6 +25637,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreferenceSettings"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-workspace-queue-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace whose queue should be monitored */
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueReminderSettings"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-workspace-queue-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace whose queue should be monitored */
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueReminderUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueReminderSettings"];
                 };
             };
             /** @description Bad Request */

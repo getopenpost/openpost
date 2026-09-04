@@ -14,9 +14,11 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/lifecycle"
+	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/openpost/backend/internal/services/tokenmanager"
+	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -42,6 +44,48 @@ func TestHandlePublishPublicationJobRecordsAmbiguousFailureWithoutRetry(t *testi
 	require.Contains(t, events[len(events)-1].MetadataJSON, "ambiguous_provider_write")
 	require.Contains(t, events[len(events)-1].MetadataJSON, `"retryable":false`)
 	require.NotContains(t, events[len(events)-1].MetadataJSON, "provider rejected post")
+}
+
+func TestSuccessfulFinalPublicationEnqueuesQueueEmptiedReminder(t *testing.T) {
+	t.Parallel()
+
+	srv := newPublisherLifecycleTestServer(t, &fakePublisherAdapter{externalID: "external-1"})
+	notificationService := notifications.NewService(srv.db, notifications.Options{
+		EmailDelivery: publisherTestEmailSender{},
+		PublicURL:     "https://app.openpost.test",
+	})
+	srv.service.SetNotificationService(notificationService)
+	_, err := srv.db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+		Status: models.WorkspaceMemberStatusActive,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.WorkspaceActivation{
+		ID: "activation:ws-1", WorkspaceID: "ws-1", PublicationID: "publication-1",
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.UserWorkspaceQueueReminder{
+		UserID: "user-1", WorkspaceID: "ws-1", QueueEmptiedEnabled: true, RunwayDays: 7,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	require.NoError(t, srv.publishPublication(t))
+
+	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).
+		Where("type = ?", notifications.JobTypeEmailDelivery).
+		Where("payload LIKE ?", "%queue_reminder%").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+type publisherTestEmailSender struct{}
+
+func (publisherTestEmailSender) DeliverNotificationEmail(context.Context, notifications.EmailMessage) error {
+	return nil
+}
+
+func (publisherTestEmailSender) DeliverWorkspaceInvitationEmail(context.Context, transactionalmail.WorkspaceInvitationMessage) error {
+	return nil
 }
 
 func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *testing.T) {
@@ -142,6 +186,14 @@ func newPublisherLifecycleTestServer(t *testing.T, adapter *fakePublisherAdapter
 		(*models.ProviderInstallation)(nil),
 		(*models.ProviderAccountBinding)(nil),
 		(*models.User)(nil),
+		(*models.Organization)(nil),
+		(*models.WorkspaceMember)(nil),
+		(*models.WorkspaceActivation)(nil),
+		(*models.UserNotification)(nil),
+		(*models.UserNotificationPreference)(nil),
+		(*models.UserWorkspaceQueueReminder)(nil),
+		(*models.UserNotificationDigestItem)(nil),
+		(*models.UserNotificationMute)(nil),
 		(*models.APIToken)(nil),
 	} {
 		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
@@ -156,7 +208,9 @@ func newPublisherLifecycleTestServer(t *testing.T, adapter *fakePublisherAdapter
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(ctx)
+	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Launch"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "Launch"}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.User{
 		ID: "user-1", Email: "admin@example.test", Username: "admin", IsAdmin: true,

@@ -24,7 +24,9 @@ const (
 	StatusFailed         = "failed"
 	StorageDeleteMaxKeys = 10_000
 
-	mediaCleanupDedupeKey = "daily"
+	mediaCleanupDedupeKey       = "daily"
+	queueReminderSweepScope     = "notifications"
+	queueReminderSweepDedupeKey = "hourly"
 )
 
 // Identity is the exact database key used to deduplicate active jobs.
@@ -344,6 +346,35 @@ func EnqueueMediaCleanup(ctx context.Context, db bun.IDB, workspaceID string, ru
 		case <-timer.C:
 		}
 	}
+}
+
+// EnqueueQueueReminderSweep creates the single active recurring reminder scan.
+func EnqueueQueueReminderSweep(ctx context.Context, db bun.IDB, runAt time.Time) (string, bool, error) {
+	if runAt.IsZero() {
+		runAt = time.Now().UTC()
+	}
+	job, err := NewJob(TypeQueueReminderSweep, `{}`, runAt)
+	if err != nil {
+		return "", false, err
+	}
+	job.ScopeID = queueReminderSweepScope
+	job.DedupeKey = queueReminderSweepDedupeKey
+	result, err := db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	created, err := result.RowsAffected()
+	if err != nil {
+		return "", false, err
+	}
+	if created == 1 {
+		return job.ID, true, nil
+	}
+	var id string
+	err = db.NewSelect().Model((*models.Job)(nil)).Column("id").
+		Where("type = ? AND scope_id = ? AND dedupe_key = ?", job.Type, job.ScopeID, job.DedupeKey).
+		Where("status IN (?)", bun.List([]string{StatusPending, StatusProcessing})).Scan(ctx, &id)
+	return id, false, err
 }
 
 func enqueueMediaCleanupOnce(ctx context.Context, db bun.IDB, job *models.Job) (string, bool, error) {

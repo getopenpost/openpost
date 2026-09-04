@@ -35,9 +35,13 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 		(*models.WorkspaceMember)(nil),
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
+		(*models.UserWorkspaceQueueReminder)(nil),
 		(*models.UserNotificationDigestItem)(nil),
 		(*models.UserNotificationMute)(nil),
 		(*models.Job)(nil),
+		(*models.WorkspaceActivation)(nil),
+		(*models.Publication)(nil),
+		(*models.Rendition)(nil),
 	)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
@@ -45,6 +49,32 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewNotificationHandler(db, auth, notificationservice.NewService(db)).RegisterRoutes(api)
 	return &notificationTestServer{echo: e, db: db}
+}
+
+func TestQueueReminderSettingsAPIArePerWorkspaceAndRequireEditAccess(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+
+	defaults := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications/queue-reminders/workspace-1", nil, "web-token")
+	require.Equal(t, http.StatusOK, defaults.Code, defaults.Body.String())
+	require.Contains(t, defaults.Body.String(), `"low_runway_enabled":false`)
+	require.Contains(t, defaults.Body.String(), `"queue_emptied_enabled":false`)
+	require.Contains(t, defaults.Body.String(), `"runway_days":7`)
+
+	updated := jsonRequest(t, server.echo, http.MethodPut, "/api/v1/notifications/queue-reminders/workspace-1", map[string]any{
+		"low_runway_enabled": true, "queue_emptied_enabled": true, "runway_days": 14,
+	}, "web-token")
+	require.Equal(t, http.StatusOK, updated.Code, updated.Body.String())
+	require.Contains(t, updated.Body.String(), `"low_runway_enabled":true`)
+	require.Contains(t, updated.Body.String(), `"runway_days":14`)
+
+	forbidden := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications/queue-reminders/workspace-2", nil, "web-token")
+	require.Equal(t, http.StatusForbidden, forbidden.Code, forbidden.Body.String())
+	invalid := jsonRequest(t, server.echo, http.MethodPut, "/api/v1/notifications/queue-reminders/workspace-1", map[string]any{
+		"low_runway_enabled": true, "queue_emptied_enabled": true, "runway_days": 31,
+	}, "web-token")
+	require.Equal(t, http.StatusUnprocessableEntity, invalid.Code, invalid.Body.String())
 }
 
 func TestNotificationMuteAPIValidatesScopeAuthorizationAndEndsEarly(t *testing.T) {

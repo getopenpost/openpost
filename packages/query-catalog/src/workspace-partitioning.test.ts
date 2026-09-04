@@ -40,13 +40,22 @@ describe("workspace key partitioning", () => {
       },
       {
         name: "inbox messages",
-        a: inboxQueryKeys.messages("workspace-a", "conversation-1", { limit: 20 }),
-        b: inboxQueryKeys.messages("workspace-b", "conversation-1", { limit: 20 }),
+        a: inboxQueryKeys.messages("workspace-a", "conversation-1", {
+          limit: 20,
+        }),
+        b: inboxQueryKeys.messages("workspace-b", "conversation-1", {
+          limit: 20,
+        }),
       },
       {
         name: "notifications",
         a: notificationQueryKeys.inbox("workspace-a", 20),
         b: notificationQueryKeys.inbox("workspace-b", 20),
+      },
+      {
+        name: "queue reminders",
+        a: notificationQueryKeys.queueReminders("workspace-a"),
+        b: notificationQueryKeys.queueReminders("workspace-b"),
       },
       {
         name: "voice profiles",
@@ -76,7 +85,9 @@ describe("workspace key partitioning", () => {
 
   it("treats an empty activity cursor as no cursor", () => {
     expect(
-      openPostQueryKeys.publications.activity("workspace-1", "scheduled", { limit: 40 }),
+      openPostQueryKeys.publications.activity("workspace-1", "scheduled", {
+        limit: 40,
+      }),
     ).toEqual(
       openPostQueryKeys.publications.activity("workspace-1", "scheduled", {
         limit: 40,

@@ -13,6 +13,9 @@ const mocks = { list: vi.fn(), post: vi.fn() };
 vi.spyOn(client, 'POST').mockImplementation(mocks.post);
 
 const queryAPI: NotificationQueryAPI = {
+	async getQueueReminderSettings() {
+		throw new Error('not used by notification inbox tests');
+	},
 	async listNotifications(workspaceID, limit, cursor, signal) {
 		const result = await mocks.list('/notifications', {
 			params: { query: { workspace_id: workspaceID, limit, cursor: cursor || undefined } },

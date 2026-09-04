@@ -5,6 +5,7 @@ import { liveQueryStaleTime, openPostQueryPolicy, queryStaleTime } from "./polic
 
 export type NotificationPage = components["schemas"]["NotificationPage"];
 export type NotificationPreferences = components["schemas"]["PreferenceSettings"];
+export type QueueReminderSettings = components["schemas"]["QueueReminderSettings"];
 
 export interface NotificationQueryAPI {
   listNotifications(
@@ -14,12 +15,18 @@ export interface NotificationQueryAPI {
     signal: AbortSignal,
   ): Promise<NotificationPage>;
   getNotificationPreferences(signal: AbortSignal): Promise<NotificationPreferences>;
+  getQueueReminderSettings(
+    workspaceId: string,
+    signal: AbortSignal,
+  ): Promise<QueueReminderSettings>;
 }
 
 export const notificationQueryKeys = {
   inbox: (workspaceId: string, limit: number) =>
     openPostWorkspaceKey(workspaceId, "notifications", "inbox", { limit }),
   preferences: () => [...openPostQueryKeys.all, "account", "notifications", "preferences"] as const,
+  queueReminders: (workspaceId: string) =>
+    openPostWorkspaceKey(workspaceId, "notifications", "queue-reminders"),
 };
 
 export type NotificationInboxQueryKey = ReturnType<typeof notificationQueryKeys.inbox>;
@@ -35,6 +42,20 @@ export function isNotificationInboxQueryKey(
     queryKey[4] === "notifications" &&
     queryKey[5] === "inbox"
   );
+}
+
+export function queueReminderSettingsQueryOptions(
+  api: Pick<NotificationQueryAPI, "getQueueReminderSettings">,
+  workspaceId: string,
+) {
+  const queryKey = notificationQueryKeys.queueReminders(workspaceId);
+  return {
+    ...openPostQueryPolicy(queryStaleTime),
+    queryKey,
+    enabled: Boolean(workspaceId),
+    queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
+      api.getQueueReminderSettings(workspaceId, signal),
+  };
 }
 
 export function notificationInboxQueryOptions(

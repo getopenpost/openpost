@@ -30,6 +30,7 @@
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import NotificationMutes from '$lib/components/notification-mutes.svelte';
+	import QueueReminderSettings from '$lib/components/queue-reminder-settings.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -47,10 +48,12 @@
 	let {
 		workspaceID = '',
 		workspaceName = '',
+		canEditQueue = false,
 		notify = showToast
 	}: {
 		workspaceID?: string;
 		workspaceName?: string;
+		canEditQueue?: boolean;
 		notify?: typeof showToast;
 	} = $props();
 
@@ -310,6 +313,10 @@
 			</p>
 		{:else}
 			<InlineNotice tone="warning" message={m.notifications_email_unavailable()} />
+		{/if}
+
+		{#if canEditQueue && workspaceID}
+			<QueueReminderSettings {workspaceID} {notify} />
 		{/if}
 
 		<div class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">

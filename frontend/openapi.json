@@ -14272,6 +14272,82 @@
 				],
 				"type": "object"
 			},
+			"QueueReminderSettings": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/QueueReminderSettings.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"activated": {
+						"type": "boolean"
+					},
+					"email_available": {
+						"type": "boolean"
+					},
+					"low_runway_enabled": {
+						"type": "boolean"
+					},
+					"queue_emptied_enabled": {
+						"type": "boolean"
+					},
+					"runway_days": {
+						"format": "int64",
+						"maximum": 30,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"workspace_id": {
+						"type": "string"
+					},
+					"workspace_name": {
+						"type": "string"
+					},
+					"workspace_timezone": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"workspace_id",
+					"workspace_name",
+					"workspace_timezone",
+					"low_runway_enabled",
+					"queue_emptied_enabled",
+					"runway_days",
+					"email_available",
+					"activated"
+				],
+				"type": "object"
+			},
+			"QueueReminderUpdate": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/QueueReminderUpdate.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"low_runway_enabled": {
+						"type": "boolean"
+					},
+					"queue_emptied_enabled": {
+						"type": "boolean"
+					},
+					"runway_days": {
+						"format": "int64",
+						"maximum": 30,
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["low_runway_enabled", "queue_emptied_enabled", "runway_days"],
+				"type": "object"
+			},
 			"Readiness-checkResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -36305,6 +36381,146 @@
 					}
 				},
 				"summary": "Update notification delivery preferences",
+				"tags": ["Notifications"]
+			}
+		},
+		"/notifications/queue-reminders/{workspace_id}": {
+			"get": {
+				"operationId": "get-workspace-queue-reminders",
+				"parameters": [
+					{
+						"description": "Workspace whose queue should be monitored",
+						"in": "path",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace whose queue should be monitored",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/QueueReminderSettings"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get personal email reminders for a Workspace queue",
+				"tags": ["Notifications"]
+			},
+			"put": {
+				"operationId": "update-workspace-queue-reminders",
+				"parameters": [
+					{
+						"description": "Workspace whose queue should be monitored",
+						"in": "path",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace whose queue should be monitored",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/QueueReminderUpdate"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/QueueReminderSettings"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Update personal email reminders for a Workspace queue",
 				"tags": ["Notifications"]
 			}
 		},

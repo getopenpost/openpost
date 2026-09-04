@@ -1914,6 +1914,22 @@ type UserNotificationPreference struct {
 	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+// UserWorkspaceQueueReminder stores a person's email reminder choices and the
+// current depletion episode for one Workspace. Episode state prevents repeat
+// mail until the durable queue has recovered beyond the configured horizon.
+type UserWorkspaceQueueReminder struct {
+	bun.BaseModel `bun:"table:user_workspace_queue_reminders"`
+
+	UserID              string    `bun:"user_id,pk" json:"user_id"`
+	WorkspaceID         string    `bun:"workspace_id,pk" json:"workspace_id"`
+	LowRunwayEnabled    bool      `bun:"low_runway_enabled,notnull,default:false" json:"low_runway_enabled"`
+	QueueEmptiedEnabled bool      `bun:"queue_emptied_enabled,notnull,default:false" json:"queue_emptied_enabled"`
+	RunwayDays          int       `bun:"runway_days,notnull,default:7" json:"runway_days"`
+	LowRunwayActive     bool      `bun:"low_runway_active,notnull,default:false" json:"-"`
+	QueueEmptiedActive  bool      `bun:"queue_emptied_active,notnull,default:false" json:"-"`
+	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // UserNotificationMute is a temporary overlay on a user's saved optional
 // notification preferences. Account Mutes use an empty WorkspaceID; ending or
 // expiry never rewrites the underlying channel or frequency choices.

@@ -380,6 +380,63 @@ describe('NotificationPreferences', () => {
 		await screen.getByRole('button', { name: 'Try again' }).click();
 		await expect.element(screen.getByText('Preferences refresh failed')).not.toBeInTheDocument();
 	});
+
+	it('saves independent email reminders for the selected Workspace queue', async () => {
+		const queueSettings = {
+			workspace_id: 'workspace-1',
+			workspace_name: 'Launch',
+			workspace_timezone: 'Europe/Lisbon',
+			low_runway_enabled: false,
+			queue_emptied_enabled: false,
+			runway_days: 7,
+			email_available: true,
+			activated: true
+		};
+		mocks.get.mockImplementation(async (path: string) => ({
+			data: path.includes('queue-reminders') ? queueSettings : notificationSettings([])
+		}));
+		mocks.put.mockImplementation(
+			async (
+				path: string,
+				request: {
+					body: {
+						low_runway_enabled: boolean;
+						queue_emptied_enabled: boolean;
+						runway_days: number;
+					};
+				}
+			) => ({
+				data: path.includes('queue-reminders')
+					? {
+							...queueSettings,
+							...request.body
+						}
+					: notificationSettings([])
+			})
+		);
+
+		const screen = await render(NotificationPreferences, {
+			workspaceID: 'workspace-1',
+			workspaceName: 'Launch',
+			canEditQueue: true,
+			notify: mocks.showToast
+		});
+		await screen.getByLabelText('Low queue runway').click();
+		await screen.getByLabelText('Queue emptied').click();
+		await screen.getByLabelText('Days of runway').fill('14');
+		await screen.getByRole('button', { name: 'Save queue reminders' }).click();
+
+		expect(mocks.put).toHaveBeenCalledWith('/notifications/queue-reminders/{workspace_id}', {
+			params: { path: { workspace_id: 'workspace-1' } },
+			body: {
+				low_runway_enabled: true,
+				queue_emptied_enabled: true,
+				runway_days: 14
+			}
+		});
+		await expect.element(screen.getByText('Queue reminders saved.')).not.toBeInTheDocument();
+		expect(mocks.showToast).toHaveBeenCalledWith('Queue reminders saved.', 'success');
+	});
 });
 
 function notificationSettings(

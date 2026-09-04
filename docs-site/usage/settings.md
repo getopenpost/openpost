@@ -41,9 +41,12 @@ Personal settings follow your user login across every workspace.
 - CLI devices and API tokens
 - MCP and ChatGPT App tokens/activity
 - Per-topic email frequency and the saved daily digest time and timezone
+- Per-Workspace queue reminders for low scheduled-post runway and the final queued Publication
 - Temporary account-wide and selected-Workspace email Mutes with exact end times
 
 The Notifications page shows the same active Mutes and end-now action, so you can inspect or stop a Mute while reviewing notification history.
+
+Open **Settings → Personal → Notifications** to configure **Queue reminders** for the selected Workspace. Editors and administrators can enable a one-time low-runway email, choose 1–30 rolling days, and independently enable an email when the final queued Publication finishes. Both reminders are off by default. Date-assigned drafts do not count as queued work, and reminders start only after the Workspace queues its first Publication. Scheduling more work past the selected horizon rearms the next low-runway reminder.
 
 Use an `mcp:read` token limited to one workspace when an AI tool only needs to read OpenPost. Use `mcp:full` only when it must create or change drafts and account versions, upload media, schedule, publish, cancel, reply, or moderate. You can remove either token. Check recent activity and remove access when the tool no longer needs it.
 

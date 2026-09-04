@@ -271,6 +271,7 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 		return
 	}
 	w.ensureMediaLifecycleJobs(ctx)
+	w.ensureQueueReminderSweepJob(ctx)
 	w.processDueJobs(ctx)
 
 	for {
@@ -813,5 +814,11 @@ func (w *BackgroundWorker) ensureMediaLifecycleJobs(ctx context.Context) {
 		if err := w.scheduleMediaCleanup(ctx, workspaceID); err != nil {
 			log.Printf("Failed to schedule media lifecycle for workspace %s: %v", workspaceID, err)
 		}
+	}
+}
+
+func (w *BackgroundWorker) ensureQueueReminderSweepJob(ctx context.Context) {
+	if _, _, err := jobregistry.EnqueueQueueReminderSweep(ctx, w.db, time.Time{}); err != nil {
+		log.Printf("Failed to schedule queue reminder sweep: %v", err)
 	}
 }

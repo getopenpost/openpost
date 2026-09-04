@@ -2360,6 +2360,11 @@ func (s *Service) createPublicationResultNotifications(
 	if err := s.notifications.RecordWithDB(ctx, db, outcome); err != nil {
 		return err
 	}
+	if status == models.PublicationStatusPublished {
+		if err := s.notifications.RecordQueueEmptiedAfterPublication(ctx, db, publication.WorkspaceID, publication.ID); err != nil {
+			return err
+		}
+	}
 	if !result.reconnect {
 		return nil
 	}

@@ -24,6 +24,7 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		TypeStorageDelete, TypeFeedbackDelivery, TypeAnalyticsSweep, TypeAnalyticsAccount,
 		TypeAnalyticsRendition, TypeAccountContentDiscovery, TypeBillingWebhook, TypeEngagementSweep, TypeEngagementSync,
 		TypeMessagingSweep, TypeMessagesSync, TypeEngagementAction, TypeMessageSend, TypeNotificationEmail,
+		TypeQueueReminderSweep,
 		TypeOwnershipTransferExpiry,
 		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
 		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild, TypeBotIngress,
@@ -128,4 +129,25 @@ func TestEnqueueMediaCleanupIsIdempotentOnlyWhileTheChainIsActive(t *testing.T) 
 	var newest models.Job
 	require.NoError(t, db.NewSelect().Model(&newest).Where("id = ?", thirdID).Scan(t.Context()))
 	require.JSONEq(t, `{"workspace_id":"workspace-1"}`, newest.Payload)
+}
+
+func TestEnqueueQueueReminderSweepCreatesOneActiveRecurringChain(t *testing.T) {
+	t.Parallel()
+
+	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	require.NoError(t, err)
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	_, err = db.NewCreateTable().Model((*models.Job)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, EnsureActiveDedupeIndex(t.Context(), db))
+
+	runAt := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	firstID, created, err := EnqueueQueueReminderSweep(t.Context(), db, runAt)
+	require.NoError(t, err)
+	require.True(t, created)
+	secondID, created, err := EnqueueQueueReminderSweep(t.Context(), db, runAt.Add(time.Hour))
+	require.NoError(t, err)
+	require.False(t, created)
+	require.Equal(t, firstID, secondID)
 }

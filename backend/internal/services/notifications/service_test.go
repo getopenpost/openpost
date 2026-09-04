@@ -31,11 +31,15 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 		(*models.WorkspaceMember)(nil),
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
+		(*models.UserWorkspaceQueueReminder)(nil),
 		(*models.UserNotificationDigestItem)(nil),
 		(*models.UserNotificationMute)(nil),
 		(*models.Job)(nil),
 		(*models.WorkspaceInvitation)(nil),
 		(*models.WorkspaceInvitationDeliveryEvent)(nil),
+		(*models.WorkspaceActivation)(nil),
+		(*models.Publication)(nil),
+		(*models.Rendition)(nil),
 	} {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
 		require.NoError(t, err)

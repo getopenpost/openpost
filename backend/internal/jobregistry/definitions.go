@@ -25,6 +25,7 @@ const (
 	TypeEngagementAction        = "engagement_action"
 	TypeMessageSend             = "message_send"
 	TypeNotificationEmail       = "notification_email"
+	TypeQueueReminderSweep      = "queue_reminder_sweep"
 	TypeOwnershipTransferExpiry = "organization_ownership_transfer_expiry"
 	TypeRepostSweep             = "repost_sweep"
 	TypeRepostEvaluate          = "repost_evaluate"
@@ -139,7 +140,11 @@ var definitions = map[string]Definition{
 		"The provider write failed. OpenPost did not retry because the provider result may be ambiguous."),
 	TypeMessageSend: providerWriteDefinition(TypeMessageSend, ExecuteMessaging,
 		"The provider write failed. OpenPost did not retry because the provider result may be ambiguous."),
-	TypeNotificationEmail:       definition(TypeNotificationEmail, 5, ExecuteNotification, FailureDefault, RecoveryRequeue),
+	TypeNotificationEmail: definition(TypeNotificationEmail, 5, ExecuteNotification, FailureDefault, RecoveryRequeue),
+	TypeQueueReminderSweep: {
+		Type: TypeQueueReminderSweep, DefaultMaxAttempts: 3, Recurrence: time.Hour,
+		Execution: ExecuteNotification, Failure: FailureDefault, Recovery: RecoveryRequeue,
+	},
 	TypeOwnershipTransferExpiry: definition(TypeOwnershipTransferExpiry, 5, ExecuteOrganizationOwnership, FailureDefault, RecoveryRequeue),
 	TypeRepostSweep: providerReadDefinition(TypeRepostSweep, 3, ExecuteRepost, RecoverySupersedeSweep,
 		"Repost evaluation failed. OpenPost will retry when the failure is temporary.",

@@ -32,6 +32,18 @@ export function createNotificationQueryAPI(transport: QueryTransport): Notificat
 					transport.GET('/notifications/preferences', { signal: requestSignal })
 			});
 			return data;
+		},
+		async getQueueReminderSettings(workspaceId, signal) {
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Could not load queue reminders.',
+				request: (requestSignal) =>
+					transport.GET('/notifications/queue-reminders/{workspace_id}', {
+						params: { path: { workspace_id: workspaceId } },
+						signal: requestSignal
+					})
+			});
+			return data;
 		}
 	};
 }

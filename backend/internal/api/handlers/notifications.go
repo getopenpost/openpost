@@ -48,6 +48,19 @@ type UpdateNotificationPreferencesInput struct {
 	Body notifications.PreferenceUpdate
 }
 
+type QueueReminderSettingsOutput struct {
+	Body notifications.QueueReminderSettings
+}
+
+type QueueReminderSettingsInput struct {
+	WorkspaceID string `path:"workspace_id" doc:"Workspace whose queue should be monitored"`
+}
+
+type UpdateQueueReminderSettingsInput struct {
+	WorkspaceID string `path:"workspace_id" doc:"Workspace whose queue should be monitored"`
+	Body        notifications.QueueReminderUpdate
+}
+
 type CreateNotificationMuteInput struct {
 	Body notifications.MuteCreate
 }
@@ -145,6 +158,50 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 	}, h.updateNotificationPreferences)
 
 	h.registerMuteRoutes(api)
+	h.registerQueueReminderRoutes(api)
+}
+
+func (h *NotificationHandler) registerQueueReminderRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "get-workspace-queue-reminders",
+		Method:      http.MethodGet,
+		Path:        "/notifications/queue-reminders/{workspace_id}",
+		Summary:     "Get personal email reminders for a Workspace queue",
+		Tags:        []string{tagNotifications},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{403, 500},
+	}, func(ctx context.Context, input *QueueReminderSettingsInput) (*QueueReminderSettingsOutput, error) {
+		settings, err := h.service.GetQueueReminderSettings(ctx, notificationMuteActor(ctx), input.WorkspaceID)
+		if errors.Is(err, notifications.ErrQueueReminderAccess) {
+			return nil, huma.Error403Forbidden("workspace edit access required")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to load queue reminders")
+		}
+		return &QueueReminderSettingsOutput{Body: settings}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "update-workspace-queue-reminders",
+		Method:      http.MethodPut,
+		Path:        "/notifications/queue-reminders/{workspace_id}",
+		Summary:     "Update personal email reminders for a Workspace queue",
+		Tags:        []string{tagNotifications},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 422, 500},
+	}, func(ctx context.Context, input *UpdateQueueReminderSettingsInput) (*QueueReminderSettingsOutput, error) {
+		settings, err := h.service.UpdateQueueReminderSettings(ctx, notificationMuteActor(ctx), input.WorkspaceID, input.Body)
+		if errors.Is(err, notifications.ErrInvalidQueueReminderSettings) {
+			return nil, huma.Error400BadRequest("invalid queue reminder settings")
+		}
+		if errors.Is(err, notifications.ErrQueueReminderAccess) {
+			return nil, huma.Error403Forbidden("workspace edit access required")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to save queue reminders")
+		}
+		return &QueueReminderSettingsOutput{Body: settings}, nil
+	})
 }
 
 func (h *NotificationHandler) getNotificationPreferences(ctx context.Context, _ *struct{}) (*NotificationPreferencesOutput, error) {

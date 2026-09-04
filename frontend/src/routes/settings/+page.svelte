@@ -239,6 +239,7 @@
 					<NotificationPreferences
 						workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
 						workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
+						canEditQueue={workspaceCtx.currentWorkspace?.can_edit ?? false}
 					/>
 				{:else if activeSettingsTab === 'security'}
 					<SecuritySettingsTab />

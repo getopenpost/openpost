@@ -522,6 +522,7 @@ type emailDeliveryJob struct {
 	AcceptURLEnc        []byte            `json:"accept_url_encrypted,omitempty"`
 	ExpiresAt           time.Time         `json:"expires_at,omitempty"`
 	DeliveryWindowAt    time.Time         `json:"delivery_window_at,omitempty"`
+	QueueRunwayDays     int               `json:"queue_runway_days,omitempty"`
 }
 
 func (s *Service) EnqueueWorkspaceInvitation(ctx context.Context, input WorkspaceInvitationEmailInput) (EmailDelivery, error) {
@@ -779,6 +780,9 @@ func parseDigestTime(value string) (int, int, error) {
 }
 
 func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error {
+	if jobType == jobregistry.TypeQueueReminderSweep {
+		return s.RunQueueReminderSweep(ctx)
+	}
 	if jobType != JobTypeEmailDelivery {
 		return fmt.Errorf("unsupported notification job type %q", jobType)
 	}
@@ -794,6 +798,9 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	}
 	if job.Classification == EmailClassificationDailyDigest {
 		return s.handleDailyDigestEmail(ctx, job)
+	}
+	if job.Classification == EmailClassificationQueueReminder {
+		return s.handleQueueReminderEmail(ctx, job)
 	}
 	return s.handleImmediateEmail(ctx, job)
 }

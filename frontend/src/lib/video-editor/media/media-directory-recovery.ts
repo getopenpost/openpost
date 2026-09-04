@@ -71,18 +71,16 @@ export async function scanMediaRecoveryDirectory(
 	return files.sort((left, right) => left.path.localeCompare(right.path));
 }
 
-function exactCandidate(
+function exactCandidates(
 	media: MediaMetadata,
 	candidates: readonly MediaRecoveryDirectoryFile[]
-): MediaRecoveryDirectoryFile | null {
-	if (!media.sourcePath) return null;
+): MediaRecoveryDirectoryFile[] {
+	if (!media.sourcePath) return [];
 	const expectedPath = normalized(media.sourcePath);
 	const expectedSize = media.sourceFileSize ?? media.fileSize;
-	return (
-		candidates.find(
-			(candidate) =>
-				normalized(candidate.path) === expectedPath && candidate.file.size === expectedSize
-		) ?? null
+	return candidates.filter(
+		(candidate) =>
+			normalized(candidate.path) === expectedPath && candidate.file.size === expectedSize
 	);
 }
 
@@ -91,8 +89,9 @@ function planEntry(
 	media: MediaMetadata,
 	candidates: readonly MediaRecoveryDirectoryFile[]
 ): MediaDirectoryRecoveryEntry {
-	const pathMatch = exactCandidate(media, candidates);
-	if (pathMatch) {
+	const pathMatches = exactCandidates(media, candidates);
+	if (pathMatches.length === 1) {
+		const pathMatch = pathMatches[0]!;
 		return {
 			mediaId: media.id,
 			fileName: issue.fileName,
@@ -100,6 +99,17 @@ function planEntry(
 			status: 'exact',
 			candidatePath: pathMatch.path,
 			candidate: pathMatch
+		};
+	}
+	if (pathMatches.length > 1) {
+		return {
+			mediaId: media.id,
+			fileName: issue.fileName,
+			media,
+			status: 'conflict',
+			candidatePaths: pathMatches
+				.map((candidate) => candidate.path)
+				.sort((left, right) => left.localeCompare(right))
 		};
 	}
 

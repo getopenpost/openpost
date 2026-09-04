@@ -70,6 +70,7 @@ export interface ExportPreflightInput {
 	webpSupported?: boolean | undefined;
 	mediaStatuses: Readonly<Record<string, MediaPreparationStatus | undefined>>;
 	media?: readonly MediaMetadata[];
+	hasRenderableBackground?: boolean;
 	workerAvailable?: boolean;
 }
 
@@ -247,7 +248,12 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 		});
 	}
 
-	if (!audioFormat && range.frameCount > 0 && !hasRenderableContent(activeItems)) {
+	if (
+		!audioFormat &&
+		range.frameCount > 0 &&
+		!input.hasRenderableBackground &&
+		!hasRenderableContent(activeItems)
+	) {
 		checks.push({ id: 'no-renderable-content', severity: 'error' });
 	}
 	if (audioFormat && range.frameCount > 0 && !audible) {

@@ -54,6 +54,7 @@ describe('createExportableSequences', () => {
 		const active = composition('sequence-a', 'Portrait cut', 1080, 48);
 		const nested = composition('sequence-b', 'Logo motion', 800, 36);
 		nested.editorKind = 'composite-2d';
+		nested.durationInFrames = 240;
 		const project: Project = {
 			id: 'project',
 			name: 'Launch film',
@@ -113,6 +114,9 @@ describe('createExportableSequences', () => {
 		});
 		expect(result[1]?.durationInFrames).toBe(72);
 		expect(result[2]?.project.timeline?.items[0]?.id).toBe('sequence-b-stored');
+		expect(result[2]?.durationInFrames).toBe(240);
+		expect(result[2]?.project.duration).toBe(10);
+		expect(result[2]?.hasRenderableBackground).toBe(true);
 		expect(snapshot).toEqual(before);
 	});
 });

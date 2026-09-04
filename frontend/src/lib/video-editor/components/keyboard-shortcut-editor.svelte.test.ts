@@ -52,4 +52,28 @@ describe('KeyboardShortcutEditor', () => {
 		expect(keyboardShortcuts.bindings.SAVE).toBe('alt+s');
 		expect(keyboardShortcuts.bindings.PLAY_PAUSE).toBe('space');
 	});
+
+	it('shows the commands involved in an imported binding conflict', async () => {
+		const screen = await render(KeyboardShortcutEditor);
+		const input = screen.container.querySelector<HTMLInputElement>('input[type="file"]')!;
+		const file = new File(
+			[
+				JSON.stringify({
+					schema: 'openpost-video-editor-shortcuts',
+					version: 1,
+					overrides: { PLAY_PAUSE: 'mod+s' }
+				})
+			],
+			'conflicting-shortcuts.json',
+			{ type: 'application/json' }
+		);
+		const transfer = new DataTransfer();
+		transfer.items.add(file);
+		input.files = transfer.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+
+		await expect.element(screen.getByRole('alert')).toHaveTextContent('Save project');
+		await expect.element(screen.getByRole('alert')).toHaveTextContent('Play or pause');
+		await expect.element(screen.getByRole('button', { name: 'Apply import' })).toBeDisabled();
+	});
 });

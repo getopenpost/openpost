@@ -107,10 +107,10 @@
 	}
 </script>
 
-<div class="col-span-2 border-t border-[oklch(0.27_0.012_55)] pt-1">
+<div class="col-span-2 border-t border-[var(--video-editor-border)] pt-1">
 	<button
 		type="button"
-		class="flex w-full items-center justify-between rounded px-1 py-0.5 text-[10px] text-[oklch(0.66_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="flex w-full items-center justify-between rounded px-1 py-0.5 text-[10px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 		aria-expanded={open}
 		{disabled}
 		onclick={toggle}
@@ -120,12 +120,12 @@
 	</button>
 	{#if open}
 		<div class="mt-1 space-y-1" aria-live="polite">
-			<div class="flex items-center gap-1 rounded bg-[oklch(0.2_0.01_55)] px-1.5 py-1">
+			<div class="flex items-center gap-1 rounded bg-[var(--video-editor-control)] px-1.5 py-1">
 				<div class="min-w-0 flex-1">
-					<div class="text-[10px] text-[oklch(0.82_0.008_70)]">
+					<div class="text-[10px] text-[var(--video-editor-text)]">
 						{m.video_editor_local_models_memory()}
 					</div>
-					<div class="text-[9px] text-[oklch(0.55_0.01_55)]">
+					<div class="text-[9px] text-[var(--video-editor-muted)]">
 						{m.video_editor_local_models_loaded({ count: loadedRuntimeCount })}
 					</div>
 				</div>
@@ -141,7 +141,7 @@
 				</Button>
 			</div>
 			{#if runtimeMessage}
-				<p class="px-1 text-[9px] text-[oklch(0.62_0.012_55)]" role="status">
+				<p class="px-1 text-[9px] text-[var(--video-editor-muted)]" role="status">
 					{runtimeMessage}
 				</p>
 			{/if}
@@ -151,18 +151,18 @@
 				</p>
 			{/if}
 			{#if loading && summaries.length === 0}
-				<div class="flex items-center gap-1 px-1 py-2 text-[10px] text-[oklch(0.6_0.012_55)]">
+				<div class="flex items-center gap-1 px-1 py-2 text-[10px] text-[var(--video-editor-muted)]">
 					<ProtectedIcon icon="loading" class="size-3 animate-spin motion-reduce:animate-none" />
 					{m.video_editor_local_models_checking()}
 				</div>
 			{:else}
 				{#each summaries as summary (summary.id)}
-					<div class="flex items-center gap-1 rounded bg-[oklch(0.2_0.01_55)] px-1.5 py-1">
+					<div class="flex items-center gap-1 rounded bg-[var(--video-editor-control)] px-1.5 py-1">
 						<div class="min-w-0 flex-1">
-							<div class="truncate text-[10px] text-[oklch(0.82_0.008_70)]">
+							<div class="truncate text-[10px] text-[var(--video-editor-text)]">
 								{modelLabel(summary)}
 							</div>
-							<div class="text-[9px] text-[oklch(0.55_0.01_55)]">
+							<div class="text-[9px] text-[var(--video-editor-muted)]">
 								{#if summary.inspectionState !== 'ready'}
 									{m.video_editor_models_load_failed()}
 								{:else if summary.downloaded}

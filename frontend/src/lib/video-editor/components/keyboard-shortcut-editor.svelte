@@ -488,7 +488,7 @@
 					{#each pendingImport.conflicts as conflict (formatBinding(conflict.binding))}
 						<p>
 							{formatBinding(conflict.binding)}:
-							{conflict.commandIds.map((id) => commandLabels[id]()).join(', ')}
+							{conflict.ids.map((id) => commandLabels[id]()).join(', ')}
 						</p>
 					{/each}
 				</div>

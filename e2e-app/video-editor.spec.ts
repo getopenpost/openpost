@@ -88,6 +88,16 @@ test("Video Editor sends a rendered export into a new composer", async ({ page, 
   await expect(page).toHaveURL(/\/$/u);
 });
 
+test("Video Editor opens the full export dialog from a live project", async ({ page }) => {
+  await createProject(page, "Full export dialog proof");
+  await addTextItem(page);
+
+  await page.getByRole("button", { name: "Render full video" }).click();
+
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Render now" })).toBeEnabled();
+});
+
 test("Video Editor project library and shell fit narrow screens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installLocalWorkspacePicker(page);

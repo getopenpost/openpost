@@ -212,11 +212,18 @@
 			height: height ?? exportProject.metadata.height
 		};
 	});
-	const selectedRange = $derived(
-		useRange && exportTimeline?.inPoint !== undefined && exportTimeline.outPoint !== undefined
-			? { startFrame: exportTimeline.inPoint, endFrame: exportTimeline.outPoint }
-			: undefined
-	);
+	const selectedRange = $derived.by(() => {
+		if (
+			useRange &&
+			exportTimeline?.inPoint !== undefined &&
+			exportTimeline.outPoint !== undefined
+		) {
+			return { startFrame: exportTimeline.inPoint, endFrame: exportTimeline.outPoint };
+		}
+		return selectedSequence
+			? { startFrame: 0, endFrame: selectedSequence.durationInFrames }
+			: undefined;
+	});
 	const mediaStatuses = $derived.by(() =>
 		Object.fromEntries(mediaPool.order.map((id) => [id, mediaPool.entry(id)?.status]))
 	);
@@ -245,6 +252,7 @@
 			webpSupported,
 			mediaStatuses,
 			media: mediaPool.mediaList,
+			hasRenderableBackground: selectedSequence?.hasRenderableBackground,
 			workerAvailable: typeof Worker !== 'undefined'
 		})
 	);
@@ -367,7 +375,7 @@
 		if (!project) return;
 		const snapshot = captureSnapshot();
 		exportableSequences = createExportableSequences(
-			project,
+			$state.snapshot(project),
 			snapshot,
 			sequenceStore.activeSequenceId
 		);
@@ -438,6 +446,7 @@
 				webpSupported,
 				mediaStatuses,
 				media: mediaPool.mediaList,
+				hasRenderableBackground: selected.hasRenderableBackground,
 				workerAvailable: typeof Worker !== 'undefined'
 			})
 		);

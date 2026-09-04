@@ -13,6 +13,7 @@ export interface ExportableSequence {
 	id: string | null;
 	name: string;
 	durationInFrames: number;
+	hasRenderableBackground: boolean;
 	project: Project;
 }
 
@@ -73,9 +74,10 @@ function projectForTimeline(
 	resolution: ProjectResolution,
 	timeline: ProjectTimeline,
 	compositions: SubComposition[],
-	topLevelSequenceIds: string[]
+	topLevelSequenceIds: string[],
+	explicitDurationInFrames?: number
 ): Project {
-	const frames = durationInFrames(timeline.items);
+	const frames = explicitDurationInFrames ?? durationInFrames(timeline.items);
 	return {
 		...copy(project),
 		name,
@@ -120,6 +122,7 @@ export function createExportableSequences(
 			id: null,
 			name: project.name,
 			durationInFrames: durationInFrames(rootTimeline.items),
+			hasRenderableBackground: false,
 			project: rootProject
 		},
 		...orderedCompositionIds.flatMap((id): ExportableSequence[] => {
@@ -147,13 +150,15 @@ export function createExportableSequences(
 					id,
 					name: composition.name,
 					durationInFrames: composition.durationInFrames || durationInFrames(composition.items),
+					hasRenderableBackground: composition.editorKind === 'composite-2d',
 					project: projectForTimeline(
 						project,
 						composition.name,
 						resolution,
 						timeline,
 						compositions,
-						topLevelSequenceIds
+						topLevelSequenceIds,
+						composition.durationInFrames || durationInFrames(composition.items)
 					)
 				}
 			];

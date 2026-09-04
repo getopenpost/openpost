@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
-	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { mediaTasks, type MediaTask } from '$lib/video-editor/media/media-tasks.svelte';
 
 	let expanded = $state(false);
@@ -146,18 +146,18 @@
 
 {#if tasks.length > 0}
 	<section
-		class="shrink-0 border-t border-[oklch(0.25_0.012_55)] bg-[oklch(0.155_0.01_50)] px-2 py-2"
+		class="shrink-0 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-2"
 		aria-label={m.video_editor_background_tasks()}
 		aria-live="polite"
 	>
 		<div class="flex items-center gap-2 text-[10px]">
-			<ProtectedIcon
-				icon="loading"
-				class="size-3.5 shrink-0 animate-spin text-[oklch(0.72_0.12_190)] motion-reduce:animate-none"
+			<ThemeIcon
+				role="loading"
+				class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
 			/>
 			<button
 				type="button"
-				class="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded text-left text-[oklch(0.72_0.012_55)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7"
+				class="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7"
 				aria-expanded={expanded}
 				onclick={() => (expanded = !expanded)}
 			>
@@ -171,7 +171,7 @@
 						: m.video_editor_background_task_count({ count: tasks.length })}
 				</span>
 			</button>
-			<span class="shrink-0 text-[oklch(0.66_0.012_55)] tabular-nums">
+			<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
 				{averageProgress === null
 					? tasks.length === 1
 						? taskMeta(tasks[0]!)
@@ -180,7 +180,7 @@
 			</span>
 		</div>
 		<div
-			class="mt-1 h-1 overflow-hidden rounded-full bg-[oklch(0.25_0.012_55)]"
+			class="mt-1 h-1 overflow-hidden rounded-full bg-[var(--video-editor-control)]"
 			role="progressbar"
 			aria-label={m.video_editor_background_task_progress()}
 			aria-valuemin={averageProgress === null ? undefined : 0}
@@ -188,7 +188,7 @@
 			aria-valuenow={averageProgress === null ? undefined : Math.round(averageProgress * 100)}
 		>
 			<div
-				class="h-full rounded-full bg-[oklch(0.69_0.13_190)] transition-[width] duration-300 {averageProgress ===
+				class="h-full rounded-full bg-[var(--video-editor-focus)] transition-[width] duration-300 {averageProgress ===
 				null
 					? 'w-1/3 animate-pulse motion-reduce:animate-none'
 					: ''}"
@@ -198,16 +198,18 @@
 		{#if expanded}
 			<ul class="mt-2 space-y-1" aria-label={m.video_editor_background_task_details()}>
 				{#each tasks as task (task.id)}
-					<li class="flex min-w-0 items-center gap-2 rounded bg-white/5 px-1.5 py-1">
+					<li
+						class="flex min-w-0 items-center gap-2 rounded bg-[var(--video-editor-control)] px-1.5 py-1"
+					>
 						<span class="min-w-0 flex-1">
-							<span class="block truncate text-[10px] text-[oklch(0.82_0.008_65)]">
+							<span class="block truncate text-[10px] text-[var(--video-editor-text)]">
 								{task.label}
 							</span>
-							<span class="block truncate text-[9px] text-[oklch(0.58_0.012_55)]">
+							<span class="block truncate text-[9px] text-[var(--video-editor-muted)]">
 								{stageLabel(task)}
 							</span>
 						</span>
-						<span class="shrink-0 text-[9px] text-[oklch(0.66_0.012_55)] tabular-nums">
+						<span class="shrink-0 text-[9px] text-[var(--video-editor-muted)] tabular-nums">
 							{taskMeta(task)}
 						</span>
 						{#if task.cancellable}

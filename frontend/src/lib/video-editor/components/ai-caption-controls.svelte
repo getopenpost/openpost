@@ -38,19 +38,23 @@
 </script>
 
 <div
-	class="grid w-full max-w-full gap-1 overflow-hidden rounded-md border border-[oklch(0.25_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5"
+	class="grid w-full max-w-full gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-1.5"
 	data-testid="ai-caption-controls"
 >
 	<div class="flex items-center justify-between gap-2">
-		<p class="text-[11px] font-medium text-white">{m.video_editor_ai_captions()}</p>
-		<span class="text-[10px] text-[oklch(0.66_0.015_55)]">{m.video_editor_ai_captions_hint()}</span>
+		<p class="text-[11px] font-medium text-[var(--video-editor-text)]">
+			{m.video_editor_ai_captions()}
+		</p>
+		<span class="text-[10px] text-[var(--video-editor-muted)]"
+			>{m.video_editor_ai_captions_hint()}</span
+		>
 	</div>
-	<p class="text-[10px] leading-tight text-[oklch(0.58_0.012_55)]">
+	<p class="text-[10px] leading-tight text-[var(--video-editor-muted)]">
 		{m.video_editor_ai_captions_description()}
 	</p>
 	{#if error}
 		<p
-			class="rounded bg-[oklch(0.24_0.045_65)] px-1.5 py-1 text-[10px] text-[oklch(0.84_0.08_70)]"
+			class="rounded bg-[var(--video-editor-panel)] px-1.5 py-1 text-[10px] text-[var(--video-editor-danger)]"
 			role="alert"
 		>
 			{error}
@@ -58,7 +62,7 @@
 	{/if}
 	{#if busy && status === 'queued'}
 		<p
-			class="rounded bg-[oklch(0.22_0.015_55)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.02_55)]"
+			class="rounded bg-[var(--video-editor-panel)] px-1.5 py-1 text-[10px] text-[var(--video-editor-muted)]"
 			role="status"
 		>
 			{m.video_editor_transcribe_queued({
@@ -69,12 +73,14 @@
 	{/if}
 	{#if busy && progress}
 		<div class="col-span-2" aria-live="polite">
-			<div class="mb-0.5 flex items-center justify-between text-[9px] text-[oklch(0.66_0.015_55)]">
+			<div
+				class="mb-0.5 flex items-center justify-between text-[9px] text-[var(--video-editor-muted)]"
+			>
 				<span>{stageLabel(progress)}</span>
 				<span>{Math.round(progress.percent)}%</span>
 			</div>
 			<div
-				class="h-1 overflow-hidden rounded-full bg-[oklch(0.27_0.012_55)]"
+				class="h-1 overflow-hidden rounded-full bg-[var(--video-editor-panel)]"
 				role="progressbar"
 				aria-label={stageLabel(progress)}
 				aria-valuemin="0"
@@ -82,7 +88,7 @@
 				aria-valuenow={Math.round(progress.percent)}
 			>
 				<div
-					class="h-full rounded-full bg-[oklch(0.66_0.14_45)] transition-[width]"
+					class="h-full rounded-full bg-[var(--video-editor-focus)] transition-[width]"
 					style:width={`${Math.max(2, progress.percent)}%`}
 				></div>
 			</div>

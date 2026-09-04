@@ -80,6 +80,7 @@ describe('media directory recovery', () => {
 	it('matches only one path or filename with the persisted size', () => {
 		const media = [
 			source('path', 'A.mov', 6, 'camera/A.mov'),
+			source('case-collision', 'B.mov', 6, 'camera/B.mov'),
 			source('name', 'poster.png', 3),
 			{
 				...source('converted', 'art.png', 10),
@@ -97,6 +98,8 @@ describe('media directory recovery', () => {
 		const candidates = [
 			{ path: 'camera/A.mov', file: new File(['camera'], 'A.mov'), handle: handle('A.mov') },
 			{ path: 'other/A.mov', file: new File(['camera'], 'A.mov'), handle: handle('A.mov') },
+			{ path: 'camera/B.mov', file: new File(['camera'], 'B.mov'), handle: handle('B.mov') },
+			{ path: 'Camera/b.mov', file: new File(['camera'], 'b.mov'), handle: handle('b.mov') },
 			{ path: 'poster.png', file: new File(['art'], 'poster.png'), handle: handle('poster.png') },
 			{ path: 'art.svg', file: new File(['12345'], 'art.svg'), handle: handle('art.svg') },
 			{
@@ -132,6 +135,12 @@ describe('media directory recovery', () => {
 				status: 'exact',
 				candidatePath: 'camera/A.mov',
 				candidatePaths: undefined
+			},
+			{
+				mediaId: 'case-collision',
+				status: 'conflict',
+				candidatePath: undefined,
+				candidatePaths: ['camera/B.mov', 'Camera/b.mov']
 			},
 			{ mediaId: 'name', status: 'exact', candidatePath: 'poster.png', candidatePaths: undefined },
 			{

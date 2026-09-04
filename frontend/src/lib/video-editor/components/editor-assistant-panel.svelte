@@ -121,12 +121,12 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col" data-testid="editor-assistant-panel">
-	<div class="shrink-0 border-b border-[oklch(0.25_0.015_55)] p-2">
+	<div class="shrink-0 border-b border-[var(--video-editor-border)] p-2">
 		<!-- svelte-ignore a11y_interactive_supports_focus -->
 		<div
 			role="tablist"
 			aria-label={m.video_editor_agent_mode_label()}
-			class="grid grid-cols-2 gap-1 rounded-md bg-[oklch(0.18_0.01_55)] p-1"
+			class="grid grid-cols-2 gap-1 rounded-md bg-[var(--video-editor-control)] p-1"
 			onkeydown={handleSwitcherKeydown}
 		>
 			<button
@@ -137,10 +137,10 @@
 				aria-controls="assistant-panel"
 				tabindex={mode === 'assistant' ? 0 : -1}
 				type="button"
-				class="min-h-11 rounded px-2 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)] md:min-h-9 {mode ===
+				class="min-h-11 rounded px-2 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 {mode ===
 				'assistant'
-					? 'bg-[oklch(0.27_0.02_45)] text-white'
-					: 'text-[oklch(0.64_0.015_55)] hover:text-white'}"
+					? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]'
+					: 'text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)]'}"
 				onclick={() => (mode = 'assistant')}
 			>
 				{m.video_editor_agent_assistant()}
@@ -153,16 +153,16 @@
 				aria-controls="generate-panel"
 				tabindex={mode === 'generate' ? 0 : -1}
 				type="button"
-				class="min-h-11 rounded px-2 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)] md:min-h-9 {mode ===
+				class="min-h-11 rounded px-2 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 {mode ===
 				'generate'
-					? 'bg-[oklch(0.27_0.02_45)] text-white'
-					: 'text-[oklch(0.64_0.015_55)] hover:text-white'}"
+					? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]'
+					: 'text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)]'}"
 				onclick={() => (mode = 'generate')}
 			>
 				{m.video_editor_agent_generate()}
 			</button>
 		</div>
-		<p class="mt-1.5 text-[11px] leading-relaxed text-[oklch(0.65_0.015_55)]">
+		<p class="mt-1.5 text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
 			{#if mode === 'assistant'}
 				{m.video_editor_agent_assistant_hint()}
 			{:else}
@@ -171,21 +171,21 @@
 		</p>
 		{#if mode === 'assistant'}
 			{#if !agentSupported}
-				<p class="mt-1 text-[11px] text-[oklch(0.82_0.1_25)]">
+				<p class="mt-1 text-[11px] text-[var(--video-editor-danger)]">
 					{m.video_editor_agent_webgpu_required()}
 				</p>
 			{:else if checkingStorage}
-				<p class="mt-1 text-[11px] text-[oklch(0.65_0.015_55)]">
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
 					{m.video_editor_agent_storage_checking()}
 				</p>
 			{:else if storageCheckFailed}
-				<p class="mt-1 text-[11px] text-[oklch(0.65_0.015_55)]">
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
 					{m.video_editor_agent_storage_unknown({ size: formatBytes(AGENT_EXPECTED_BYTES) })}
 				</p>
 			{:else if storage}
 				{#if !storage.sufficient}
 					<p
-						class="mt-1 rounded bg-[oklch(0.25_0.06_25)] px-1.5 py-1 text-[11px] text-[oklch(0.82_0.1_25)]"
+						class="mt-1 rounded bg-[var(--video-editor-control)] px-1.5 py-1 text-[11px] text-[var(--video-editor-danger)]"
 					>
 						{m.video_editor_agent_storage_insufficient({
 							need: formatBytes(storage.missingBytes + storage.headroomBytes),
@@ -193,11 +193,11 @@
 						})}
 					</p>
 				{:else if storage.sizeStatus === 'unknown' && storage.missingBytes > 0}
-					<p class="mt-1 text-[11px] text-[oklch(0.65_0.015_55)]">
+					<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
 						{m.video_editor_agent_storage_unknown({ size: formatBytes(storage.expectedBytes) })}
 					</p>
 				{:else if storage.readyBytes > 0 && storage.missingBytes > 0}
-					<p class="mt-1 text-[11px] text-[oklch(0.65_0.015_55)]">
+					<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
 						{m.video_editor_agent_storage_partial({
 							ready: formatBytes(storage.readyBytes),
 							total: formatBytes(storage.expectedBytes),
@@ -205,11 +205,11 @@
 						})}
 					</p>
 				{:else if storage.missingBytes > 0}
-					<p class="mt-1 text-[11px] text-[oklch(0.65_0.015_55)]">
+					<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
 						{m.video_editor_agent_storage_first_run({ size: formatBytes(storage.expectedBytes) })}
 					</p>
 				{:else}
-					<p class="mt-1 text-[11px] text-[oklch(0.62_0.04_145)]">
+					<p class="mt-1 text-[11px] text-success">
 						{m.video_editor_agent_storage_ready({ size: formatBytes(storage.readyBytes) })}
 					</p>
 				{/if}

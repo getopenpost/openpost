@@ -4,7 +4,9 @@
 node_modules/
 
 # Expo
-.expo/
+.expo/*
+!.expo/types/
+!.expo/types/router.d.ts
 dist/
 artifacts/
 web-build/

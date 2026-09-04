@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/uptrace/bun"
 )
 
@@ -31,7 +32,7 @@ const (
 )
 
 type Service struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 type EventInput struct {
@@ -43,9 +44,10 @@ type EventInput struct {
 	Message        string
 	Metadata       map[string]any
 	IdempotencyKey string
+	CreatedAt      time.Time
 }
 
-func NewService(db *bun.DB) *Service {
+func NewService(db bun.IDB) *Service {
 	return &Service{db: db}
 }
 
@@ -53,6 +55,19 @@ func (s *Service) Record(ctx context.Context, input EventInput) (*models.Publica
 	if s == nil || s.db == nil {
 		return nil, nil
 	}
+	if db, ok := s.db.(*bun.DB); ok {
+		var event *models.PublicationLifecycleEvent
+		err := db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+			var err error
+			event, err = NewService(tx).record(ctx, input)
+			return err
+		})
+		return event, err
+	}
+	return s.record(ctx, input)
+}
+
+func (s *Service) record(ctx context.Context, input EventInput) (*models.PublicationLifecycleEvent, error) {
 	normalized, ok := normalizeEventInput(input)
 	if !ok {
 		return nil, nil
@@ -81,7 +96,7 @@ func (s *Service) Record(ctx context.Context, input EventInput) (*models.Publica
 		Message:        normalized.Message,
 		MetadataJSON:   string(metadataJSON),
 		IdempotencyKey: normalized.IdempotencyKey,
-		CreatedAt:      time.Now().UTC(),
+		CreatedAt:      normalized.CreatedAt,
 	}
 	if _, err := s.db.NewInsert().Model(event).Exec(ctx); err != nil {
 		if event.IdempotencyKey != "" && isDuplicateLifecycleEvent(err) {
@@ -90,6 +105,9 @@ func (s *Service) Record(ctx context.Context, input EventInput) (*models.Publica
 				return existing, nil
 			}
 		}
+		return nil, err
+	}
+	if err := externalwebhooks.EnqueueEvent(ctx, s.db, *event); err != nil {
 		return nil, err
 	}
 	return event, nil
@@ -110,6 +128,11 @@ func normalizeEventInput(input EventInput) (EventInput, bool) {
 	}
 	if input.Metadata == nil {
 		input.Metadata = map[string]any{}
+	}
+	if input.CreatedAt.IsZero() {
+		input.CreatedAt = time.Now().UTC()
+	} else {
+		input.CreatedAt = input.CreatedAt.UTC()
 	}
 	return input, true
 }

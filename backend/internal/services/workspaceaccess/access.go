@@ -23,11 +23,12 @@ const (
 
 // ActorFacts are the transport-independent facts known after authentication.
 type ActorFacts struct {
-	UserID                string
-	SessionID             string
-	TokenID               string
-	ClientID              string
-	CredentialWorkspaceID string
+	UserID                 string
+	SessionID              string
+	TokenID                string
+	ClientID               string
+	CredentialWorkspaceID  string
+	ExternalInstallationID string
 }
 
 // StoredAuthority is exact authorization evidence persisted by a workflow
@@ -110,6 +111,22 @@ func (a Authorizer) Authorize(ctx context.Context, workspaceID string, actor Act
 	if actor.CredentialWorkspaceID != "" && actor.CredentialWorkspaceID != workspaceID {
 		decision.Reason = "credential is bound to another workspace"
 		return decision, nil
+	}
+	if actor.ExternalInstallationID != "" {
+		count, err := a.db.NewSelect().TableExpr("external_app_workspace_grants AS grant").
+			Join("JOIN external_app_installations AS installation ON installation.id = grant.installation_id").
+			Where("grant.installation_id = ? AND grant.workspace_id = ?", actor.ExternalInstallationID, workspaceID).
+			Where("installation.sponsor_user_id = ?", actor.UserID).
+			Where("installation.revoked_at IS NULL AND grant.revoked_at IS NULL").Count(ctx)
+		if err != nil {
+			return Decision{}, err
+		}
+		if count != 1 {
+			decision.Reason = "external application is not granted this workspace"
+			return decision, nil
+		}
+		level = LevelAdminister
+		decision.Level = level
 	}
 
 	var member models.WorkspaceMember
@@ -207,6 +224,7 @@ func normalizeActor(actor ActorFacts) ActorFacts {
 	actor.TokenID = strings.TrimSpace(actor.TokenID)
 	actor.ClientID = strings.TrimSpace(actor.ClientID)
 	actor.CredentialWorkspaceID = strings.TrimSpace(actor.CredentialWorkspaceID)
+	actor.ExternalInstallationID = strings.TrimSpace(actor.ExternalInstallationID)
 	return actor
 }
 

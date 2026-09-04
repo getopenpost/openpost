@@ -381,14 +381,17 @@ func insertAuthorizationEvent(ctx context.Context, db bun.IDB, receipts []models
 	if err != nil {
 		return fmt.Errorf("encode publication authorization event: %w", err)
 	}
-	event := &models.PublicationLifecycleEvent{
-		ID: uuid.NewString(), WorkspaceID: first.WorkspaceID, PublicationID: first.PublicationID,
+	var metadataMap map[string]any
+	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
+		return fmt.Errorf("decode publication authorization metadata: %w", err)
+	}
+	if _, err := lifecycle.NewService(db).Record(ctx, lifecycle.EventInput{
+		WorkspaceID: first.WorkspaceID, PublicationID: first.PublicationID,
 		Type: lifecycle.EventAuthorizationConfirmed, Status: lifecycle.StatusSucceeded,
-		Message: "Publication authorization confirmed", MetadataJSON: string(metadata),
+		Message: "Publication authorization confirmed", Metadata: metadataMap,
 		IdempotencyKey: "publication-authorization:" + first.BatchID,
 		CreatedAt:      first.ConfirmedAt.UTC(),
-	}
-	if _, err := db.NewInsert().Model(event).Exec(ctx); err != nil {
+	}); err != nil {
 		return fmt.Errorf("store publication authorization event: %w", err)
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
+	"github.com/openpost/backend/internal/services/externalapps"
 	"github.com/openpost/backend/internal/services/mcpoauth"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -123,7 +124,8 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 	require.NoError(t, json.Unmarshal(metadataResp.Body.Bytes(), &metadata))
 	require.Equal(t, "https://app.openpost.test/oauth/authorize", metadata["authorization_endpoint"])
 	require.Equal(t, "https://app.openpost.test/oauth/token", metadata["token_endpoint"])
-	require.Equal(t, []any{"mcp:read", "mcp:full"}, metadata["scopes_supported"])
+	require.Subset(t, metadata["scopes_supported"], []any{"mcp:read", "mcp:full"})
+	require.Contains(t, metadata["grant_types_supported"], "refresh_token")
 	require.Equal(t, true, metadata["client_id_metadata_document_supported"])
 
 	verifier := strings.Repeat("e", 43)
@@ -183,6 +185,39 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 	require.Equal(t, "https://app.openpost.test/mcp", stored.Audience)
 	require.Equal(t, "ws-1", stored.WorkspaceID)
 	require.Equal(t, "ChatGPT OpenPost", stored.Name)
+}
+
+func TestOAuthDynamicClientRegistrationIsPolicyControlled(t *testing.T) {
+	t.Parallel()
+	db := createHandlerTestDB(t,
+		(*models.APIToken)(nil),
+		(*models.ExternalApplication)(nil),
+	)
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	tokens := apitokens.NewService(db)
+	external := externalapps.NewService(db, tokens, "https://app.openpost.test")
+	handler := NewMCPOAuthHandler(mcpoauth.NewService(db, tokens), mcpOAuthTestAuthenticator{tokens: tokens}, "https://app.openpost.test")
+	handler.SetExternalApplicationService(external)
+	handler.RegisterRoutes(e, api)
+	body := `{"client_name":"Workflow app","redirect_uris":["https://workflow.example/callback"],"token_endpoint_auth_method":"none","scope":"workspace:read accounts:read"}`
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
+	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recorder := httptest.NewRecorder()
+	e.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+
+	external.SetDynamicRegistrationEnabled(true)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
+	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recorder = httptest.NewRecorder()
+	e.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusCreated, recorder.Code)
+	var response map[string]any
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Contains(t, response["client_id"], "op_app_")
+	require.Equal(t, "none", response["token_endpoint_auth_method"])
 }
 
 func TestMCPOAuthDenyReturnsAccessDeniedRedirect(t *testing.T) {

@@ -24,6 +24,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_APP_URL",
 	"OPENPOST_FRONTEND_URL",
 	"OPENPOST_PUBLIC_URL",
+	"OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED",
 	"OPENPOST_EDITION",
 	"OPENPOST_APP_E2E_HOSTED_SIGNUP",
 	"OPENPOST_APP_E2E_DELIVERY_PROJECTION",
@@ -169,6 +170,12 @@ func TestLoadResolvesRelativeMediaURLAgainstCanonicalPublicURL(t *testing.T) {
 	cfg := Load()
 
 	require.Equal(t, "https://public.example.com/openpost/assets/media", cfg.MediaURL)
+}
+
+func TestLoadControlsOAuthDynamicClientRegistration(t *testing.T) {
+	t.Setenv("OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED", "true")
+
+	require.True(t, Load().OAuthDCR)
 }
 
 func TestLoadPreservesExplicitAbsoluteMediaURL(t *testing.T) {

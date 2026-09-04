@@ -21,6 +21,7 @@ Developer docs are separate from user-facing docs and self-hosting docs. They ca
 - [Backend](/development/backend) covers Go backend conventions.
 - [API Reference](/development/api-reference) renders the generated OpenAPI spec.
 - [API Tokens](/development/api-tokens) documents one-time secrets, expiry, scopes, workspace boundaries, and revocation.
+- [External Applications](/development/external-applications) documents delegated OAuth, workspace and account consent, rotating credentials, and signed webhooks.
 - [Background Jobs](/development/background-jobs) covers durable job behavior.
 - [Platform Adapters](/development/platform-adapters) covers provider integration rules.
 - [Billing and Usage](/development/billing-and-usage) covers entitlements, usage counters, and hosted billing primitives.

@@ -42,6 +42,7 @@ type Config struct {
 	EncryptionPreviousKeys   map[string]string
 	MediaSigningKey          string
 	DisableRegistrations     bool
+	OAuthDCR                 bool
 	PublicProfilesEnabled    bool
 	FrontendURL              string
 	PublicURL                string
@@ -223,6 +224,7 @@ func Load() *Config {
 		EncryptionKey:           getEnvWithFallbacks("OPENPOST_ENCRYPTION_KEY", "", "ENCRYPTION_KEY"),
 		EncryptionKeyID:         strings.TrimSpace(encryptionKeyID),
 		DisableRegistrations:    getEnvBoolWithAliases(false, "OPENPOST_DISABLE_REGISTRATIONS"),
+		OAuthDCR:                getEnvBoolWithAliases(false, "OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED"),
 		PublicProfilesEnabled:   getEnvBoolWithAliases(true, "OPENPOST_PUBLIC_PROFILES_ENABLED"),
 		FrontendURL:             frontendURL,
 		PublicURL:               getEnvWithFallbacks("OPENPOST_PUBLIC_URL", "", "OPENPOST_APP_URL", "OPENPOST_FRONTEND_URL"),

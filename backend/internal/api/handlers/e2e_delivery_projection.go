@@ -224,15 +224,13 @@ func (h *E2EDeliveryProjectionHandler) persistProjection(
 			Exec(txCtx); err != nil {
 			return err
 		}
-		event := &models.PublicationLifecycleEvent{
-			ID: uuid.NewString(), WorkspaceID: publication.WorkspaceID,
-			PublicationID: publication.ID, RenditionID: rendition.ID,
+		_, err := lifecycle.NewService(tx).Record(txCtx, lifecycle.EventInput{
+			WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID, RenditionID: rendition.ID,
 			Type: shape.eventType, Status: shape.eventStatus,
-			Message:      "E2E provider boundary projected " + delivery.State,
-			MetadataJSON: "{}", IdempotencyKey: "e2e-delivery:" + publication.ID + ":" + delivery.State,
-			CreatedAt: now,
-		}
-		_, err := tx.NewInsert().Model(event).Exec(txCtx)
+			Message:        "E2E provider boundary projected " + delivery.State,
+			IdempotencyKey: "e2e-delivery:" + publication.ID + ":" + delivery.State,
+			CreatedAt:      now,
+		})
 		return err
 	})
 	if err != nil {

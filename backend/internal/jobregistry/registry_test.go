@@ -28,6 +28,7 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
 		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild, TypeBotIngress,
 		TypeScheduledAccountCheck,
+		TypeExternalWebhookDelivery,
 	}
 	definitions := Definitions()
 	actual := make([]string, 0, len(definitions))

@@ -1060,6 +1060,30 @@ func (h *WorkspaceHandler) ListWorkspaces(api huma.API) {
 				return nil, huma.Error500InternalServerError("failed to fetch workspaces")
 			}
 		}
+		if installationID := middleware.GetInstallationID(ctx); installationID != "" {
+			var grants []models.ExternalAppWorkspaceGrant
+			if err := h.db.NewSelect().Model(&grants).
+				Where("installation_id = ? AND revoked_at IS NULL", installationID).Scan(ctx); err != nil {
+				return nil, huma.Error500InternalServerError("failed to apply external application workspace grants")
+			}
+			allowed := make(map[string]struct{}, len(grants))
+			for _, grant := range grants {
+				ok, accessErr := workspaceAdminAllowed(ctx, h.db, grant.WorkspaceID, userID)
+				if accessErr != nil {
+					return nil, huma.Error500InternalServerError("failed to apply external application workspace grants")
+				}
+				if ok {
+					allowed[grant.WorkspaceID] = struct{}{}
+				}
+			}
+			filtered := workspaces[:0]
+			for _, workspace := range workspaces {
+				if _, ok := allowed[workspace.WorkspaceID]; ok {
+					filtered = append(filtered, workspace)
+				}
+			}
+			workspaces = filtered
+		}
 		return &ListWorkspacesOutput{Body: workspaces}, nil
 	})
 }

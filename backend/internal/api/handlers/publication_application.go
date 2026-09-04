@@ -1175,17 +1175,12 @@ func (commands publicationApplication) retryFailedRenditionsTx(
 	}); err != nil {
 		return err
 	}
-	event := &models.PublicationLifecycleEvent{
-		ID:             commands.newID(),
-		WorkspaceID:    publication.WorkspaceID,
-		PublicationID:  publication.ID,
-		Type:           lifecycle.EventRetried,
-		Status:         lifecycle.StatusStarted,
-		Message:        "Retry queued for failed destinations",
-		MetadataJSON:   mustJSON(map[string]any{"destination_count": affected}),
+	_, err = lifecycle.NewService(tx).Record(ctx, lifecycle.EventInput{
+		WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
+		Type: lifecycle.EventRetried, Status: lifecycle.StatusStarted,
+		Message: "Retry queued for failed destinations", Metadata: map[string]any{"destination_count": affected},
 		IdempotencyKey: "retry-failed:" + jobID,
 		CreatedAt:      now,
-	}
-	_, err = tx.NewInsert().Model(event).Exec(ctx)
+	})
 	return err
 }

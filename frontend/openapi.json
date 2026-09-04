@@ -2140,6 +2140,71 @@
 				"required": ["authenticated"],
 				"type": "object"
 			},
+			"AuthorizeExternalApplicationInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/AuthorizeExternalApplicationInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"approved": {
+						"type": "boolean"
+					},
+					"client_id": {
+						"type": "string"
+					},
+					"code_challenge": {
+						"type": "string"
+					},
+					"redirect_uri": {
+						"type": "string"
+					},
+					"scope": {
+						"type": "string"
+					},
+					"state": {
+						"type": "string"
+					},
+					"workspace_grants": {
+						"items": {
+							"$ref": "#/components/schemas/WorkspaceGrantInput"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"approved",
+					"client_id",
+					"redirect_uri",
+					"scope",
+					"code_challenge",
+					"workspace_grants"
+				],
+				"type": "object"
+			},
+			"AuthorizeExternalApplicationOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/AuthorizeExternalApplicationOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"installation_id": {
+						"type": "string"
+					},
+					"redirect_url": {
+						"type": "string"
+					}
+				},
+				"required": ["redirect_url"],
+				"type": "object"
+			},
 			"BatchDeleteMediaInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4031,6 +4096,119 @@
 						"type": "string"
 					}
 				},
+				"type": "object"
+			},
+			"CreateExternalApplicationInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateExternalApplicationInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"allowed_scopes": {
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"client_type": {
+						"enum": ["public", "confidential"],
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 120,
+						"minLength": 1,
+						"type": "string"
+					},
+					"redirect_uris": {
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					}
+				},
+				"required": ["name", "client_type", "redirect_uris", "allowed_scopes"],
+				"type": "object"
+			},
+			"CreateExternalApplicationOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateExternalApplicationOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"application": {
+						"$ref": "#/components/schemas/ExternalApplicationResponse"
+					},
+					"client_secret": {
+						"description": "Confidential client secret. Returned once.",
+						"type": "string"
+					}
+				},
+				"required": ["application"],
+				"type": "object"
+			},
+			"CreateExternalWebhookInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateExternalWebhookInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"event_types": {
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"installation_id": {
+						"type": "string"
+					},
+					"url": {
+						"format": "uri",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "url", "event_types"],
+				"type": "object"
+			},
+			"CreateExternalWebhookOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateExternalWebhookOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"signing_secret": {
+						"description": "Webhook signing secret. Returned once.",
+						"type": "string"
+					},
+					"subscription": {
+						"$ref": "#/components/schemas/ExternalWebhookResponse"
+					}
+				},
+				"required": ["subscription", "signing_secret"],
 				"type": "object"
 			},
 			"CreateImageEditorCheckpointInputBody": {
@@ -6471,6 +6649,202 @@
 				"required": ["workspace_id", "server_name", "instance_url", "code"],
 				"type": "object"
 			},
+			"ExternalApplicationResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"allowed_scopes": {
+						"type": "string"
+					},
+					"client_id": {
+						"type": "string"
+					},
+					"client_type": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"revoked_at": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "client_id", "name", "client_type", "allowed_scopes", "created_at"],
+				"type": "object"
+			},
+			"ExternalAuthorizationRequestOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ExternalAuthorizationRequestOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"application": {
+						"$ref": "#/components/schemas/ExternalApplicationResponse"
+					}
+				},
+				"required": ["application"],
+				"type": "object"
+			},
+			"ExternalInstallationResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"application_id": {
+						"type": "string"
+					},
+					"application_name": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"scopes": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string"
+					},
+					"workspace_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"id",
+					"application_id",
+					"application_name",
+					"scopes",
+					"status",
+					"created_at",
+					"workspace_ids"
+				],
+				"type": "object"
+			},
+			"ExternalRevocationOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ExternalRevocationOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"revoked": {
+						"type": "boolean"
+					}
+				},
+				"required": ["revoked"],
+				"type": "object"
+			},
+			"ExternalWebhookDelivery": {
+				"additionalProperties": false,
+				"properties": {
+					"attempt_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"delivered_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"event_id": {
+						"type": "string"
+					},
+					"event_type": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"last_error": {
+						"type": "string"
+					},
+					"payload_json": {
+						"type": "string"
+					},
+					"response_status": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"status": {
+						"type": "string"
+					},
+					"subscription_id": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"subscription_id",
+					"event_id",
+					"event_type",
+					"payload_json",
+					"status",
+					"attempt_count",
+					"response_status",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"ExternalWebhookResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"created_at": {
+						"type": "string"
+					},
+					"event_types": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"installation_id": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"installation_id",
+					"workspace_id",
+					"url",
+					"event_types",
+					"status",
+					"created_at"
+				],
+				"type": "object"
+			},
 			"Facts": {
 				"additionalProperties": false,
 				"properties": {
@@ -7342,14 +7716,7 @@
 						"type": "string"
 					}
 				},
-				"required": [
-					"id",
-					"provider_id",
-					"organization_id",
-					"domain",
-					"created_by_user_id",
-					"created_at"
-				],
+				"required": ["id", "provider_id", "organization_id", "domain", "created_at"],
 				"type": "object"
 			},
 			"ImageEditorBrandColor": {
@@ -15923,6 +16290,26 @@
 				],
 				"type": "object"
 			},
+			"RotateExternalApplicationSecretOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/schemas/RotateExternalApplicationSecretOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"client_secret": {
+						"description": "Replacement confidential client secret. Returned once.",
+						"type": "string"
+					}
+				},
+				"required": ["client_secret"],
+				"type": "object"
+			},
 			"Rule": {
 				"additionalProperties": false,
 				"properties": {
@@ -20173,6 +20560,25 @@
 				],
 				"type": "object"
 			},
+			"WorkspaceGrantInput": {
+				"additionalProperties": false,
+				"properties": {
+					"account_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"all_current_accounts": {
+						"type": "boolean"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
 			"WorkspaceInvitationResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -22822,6 +23228,253 @@
 				},
 				"summary": "Export permission-safe instance audit evidence as JSON",
 				"tags": ["Workspaces"]
+			}
+		},
+		"/admin/external-applications": {
+			"get": {
+				"operationId": "list-external-applications",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/ExternalApplicationResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "List registered external applications",
+				"tags": ["Admin"]
+			},
+			"post": {
+				"operationId": "create-external-application",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateExternalApplicationInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateExternalApplicationOutputBody"
+								}
+							}
+						},
+						"description": "Created"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Register an external application",
+				"tags": ["Admin"]
+			}
+		},
+		"/admin/external-applications/{id}": {
+			"delete": {
+				"operationId": "revoke-external-application",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ExternalRevocationOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Revoke an external application",
+				"tags": ["Admin"]
+			}
+		},
+		"/admin/external-applications/{id}/rotate-secret": {
+			"post": {
+				"operationId": "rotate-external-application-secret",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RotateExternalApplicationSecretOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Rotate a confidential application secret",
+				"tags": ["Admin"]
 			}
 		},
 		"/admin/instance-settings": {
@@ -29532,6 +30185,522 @@
 				},
 				"summary": "Queue a reply or moderation action",
 				"tags": ["Engagement"]
+			}
+		},
+		"/external-applications/installations": {
+			"get": {
+				"operationId": "list-external-app-installations",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/ExternalInstallationResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "List connected external applications",
+				"tags": ["Auth"]
+			}
+		},
+		"/external-applications/installations/{id}": {
+			"delete": {
+				"operationId": "revoke-external-app-installation",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ExternalRevocationOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Disconnect an external application",
+				"tags": ["Auth"]
+			}
+		},
+		"/external-applications/installations/{id}/workspaces/{workspace_id}": {
+			"delete": {
+				"operationId": "revoke-external-app-workspace-grant",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ExternalRevocationOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Remove one workspace from an external application",
+				"tags": ["Auth"]
+			}
+		},
+		"/external-applications/oauth/authorize": {
+			"post": {
+				"operationId": "authorize-external-application",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/AuthorizeExternalApplicationInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthorizeExternalApplicationOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Approve an external application connection",
+				"tags": ["Auth"]
+			}
+		},
+		"/external-applications/oauth/request": {
+			"get": {
+				"operationId": "get-external-authorization-request",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "client_id",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "redirect_uri",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ExternalAuthorizationRequestOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Inspect an external application authorization request",
+				"tags": ["Auth"]
+			}
+		},
+		"/external-webhooks": {
+			"get": {
+				"operationId": "list-external-webhooks",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "installation_id",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/ExternalWebhookResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "List external application webhooks",
+				"tags": ["Integrations"]
+			},
+			"post": {
+				"operationId": "create-external-webhook",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateExternalWebhookInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateExternalWebhookOutputBody"
+								}
+							}
+						},
+						"description": "Created"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a signed publication webhook",
+				"tags": ["Integrations"]
+			}
+		},
+		"/external-webhooks/deliveries": {
+			"get": {
+				"operationId": "list-external-webhook-deliveries",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "installation_id",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 100,
+							"format": "int64",
+							"maximum": 200,
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/ExternalWebhookDelivery"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "List external webhook delivery attempts",
+				"tags": ["Integrations"]
+			}
+		},
+		"/external-webhooks/{id}": {
+			"delete": {
+				"operationId": "delete-external-webhook",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ExternalRevocationOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Revoke an external application webhook",
+				"tags": ["Integrations"]
 			}
 		},
 		"/feedback": {

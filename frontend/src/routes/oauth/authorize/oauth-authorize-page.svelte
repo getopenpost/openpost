@@ -7,11 +7,14 @@
 	import type { Readable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import type { SocialAccount, Workspace } from '$lib/api/client';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -25,7 +28,8 @@
 	interface OAuthAuthorizeDependencies {
 		page: Readable<{ url: URL }>;
 		auth: Readable<AuthorizationAuthState>;
-		workspace: { currentWorkspace: { id: string; name: string } | null };
+		workspace: { currentWorkspace: Workspace | null; workspaces: Workspace[] };
+		get: typeof client.GET;
 		post: typeof client.POST;
 		navigate: typeof goto;
 	}
@@ -34,6 +38,7 @@
 		page,
 		auth,
 		workspace: workspaceCtx,
+		get: client.GET,
 		post: client.POST,
 		navigate: goto
 	};
@@ -48,6 +53,13 @@
 	let submitting = $state(false);
 	let pendingDecision = $state<boolean | null>(null);
 	let oauthWorkspaceScope = $state('current');
+	let externalApplicationName = $state('');
+	let externalRequestLoading = $state(false);
+	let selectedWorkspaceIDs = $state<string[]>([]);
+	let accountsByWorkspace = $state<Record<string, SocialAccount[]>>({});
+	let selectedAccountIDs = $state<Record<string, string[]>>({});
+	let allCurrentAccounts = $state<Record<string, boolean>>({});
+	let initializedExternalSelection = false;
 
 	let params = $derived({
 		response_type: $pageStore.url.searchParams.get('response_type') ?? '',
@@ -69,8 +81,12 @@
 	let requestedReadOnlyAccess = $derived(
 		scopes.includes('mcp:read') && !scopes.includes('mcp:full')
 	);
+	let isExternalApplication = $derived(scopes.some((scope) => !scope.startsWith('mcp:')));
+	let eligibleWorkspaces = $derived(
+		dependencies.workspace.workspaces.filter((workspace) => workspace.role === 'admin')
+	);
 
-	let clientLabel = $derived(clientDisplayName(params.client_id));
+	let clientLabel = $derived(externalApplicationName || clientDisplayName(params.client_id));
 	let redirectHost = $derived(hostname(params.redirect_uri));
 	let requestError = $derived(validateRequest());
 	const oauthWorkspaceOptions = $derived([
@@ -143,6 +159,33 @@
 				: '';
 
 		try {
+			if (isExternalApplication) {
+				const body: components['schemas']['AuthorizeExternalApplicationInputBody'] = {
+					approved,
+					client_id: params.client_id,
+					redirect_uri: params.redirect_uri,
+					scope: params.scope,
+					state: params.state,
+					code_challenge: params.code_challenge,
+					workspace_grants: selectedWorkspaceIDs.map((workspaceID) => ({
+						workspace_id: workspaceID,
+						all_current_accounts: allCurrentAccounts[workspaceID] === true,
+						account_ids:
+							allCurrentAccounts[workspaceID] === true
+								? []
+								: (selectedAccountIDs[workspaceID] ?? [])
+					}))
+				};
+				const { data, error: apiError } = await dependencies.post(
+					'/external-applications/oauth/authorize',
+					{ body }
+				);
+				if (apiError || !data?.redirect_url) {
+					throw new Error(apiError?.detail ?? m.oauth_authorize_failed());
+				}
+				window.location.href = data.redirect_url;
+				return;
+			}
 			const body: components['schemas']['CreateMCPOAuthAuthorizationInputBody'] = {
 				...params,
 				approved
@@ -163,6 +206,64 @@
 		}
 	}
 
+	function toggleWorkspace(workspaceID: string) {
+		selectedWorkspaceIDs = selectedWorkspaceIDs.includes(workspaceID)
+			? selectedWorkspaceIDs.filter((id) => id !== workspaceID)
+			: [...selectedWorkspaceIDs, workspaceID];
+	}
+
+	function toggleAllWorkspaces() {
+		selectedWorkspaceIDs =
+			selectedWorkspaceIDs.length === eligibleWorkspaces.length
+				? []
+				: eligibleWorkspaces.map((workspace) => workspace.id);
+	}
+
+	function toggleAccount(workspaceID: string, accountID: string) {
+		const selected = selectedAccountIDs[workspaceID] ?? [];
+		selectedAccountIDs = {
+			...selectedAccountIDs,
+			[workspaceID]: selected.includes(accountID)
+				? selected.filter((id) => id !== accountID)
+				: [...selected, accountID]
+		};
+	}
+
+	function setAllCurrentAccounts(workspaceID: string, checked: boolean) {
+		allCurrentAccounts = { ...allCurrentAccounts, [workspaceID]: checked };
+	}
+
+	async function loadExternalApplication() {
+		externalRequestLoading = true;
+		const { data, error: apiError } = await dependencies.get(
+			'/external-applications/oauth/request',
+			{ params: { query: { client_id: params.client_id, redirect_uri: params.redirect_uri } } }
+		);
+		if (apiError || !data?.application) {
+			error = apiError?.detail ?? m.oauth_authorize_failed();
+		} else {
+			externalApplicationName = data.application.name;
+		}
+		externalRequestLoading = false;
+	}
+
+	async function loadAccounts(workspaceID: string) {
+		if (accountsByWorkspace[workspaceID]) return;
+		const { data, error: apiError } = await dependencies.get('/accounts', {
+			params: { query: { workspace_id: workspaceID } }
+		});
+		if (apiError) {
+			error = apiError.detail ?? m.oauth_authorize_accounts_failed();
+			return;
+		}
+		const accounts = (data ?? []).filter((account) => account.is_active);
+		accountsByWorkspace = { ...accountsByWorkspace, [workspaceID]: accounts };
+		selectedAccountIDs = {
+			...selectedAccountIDs,
+			[workspaceID]: accounts.map((account) => account.id)
+		};
+	}
+
 	$effect(() => {
 		if (authState.isLoading) return;
 		if (!authState.user && !authState.isAuthenticated) {
@@ -170,10 +271,27 @@
 			return;
 		}
 	});
+
+	$effect(() => {
+		if (!isExternalApplication || !authState.isAuthenticated || initializedExternalSelection)
+			return;
+		initializedExternalSelection = true;
+		const currentID = dependencies.workspace.currentWorkspace?.id;
+		const initialWorkspace = eligibleWorkspaces.find((workspace) => workspace.id === currentID);
+		selectedWorkspaceIDs = initialWorkspace
+			? [initialWorkspace.id]
+			: eligibleWorkspaces.slice(0, 1).map((workspace) => workspace.id);
+		void loadExternalApplication();
+	});
+
+	$effect(() => {
+		if (!isExternalApplication) return;
+		for (const workspaceID of selectedWorkspaceIDs) void loadAccounts(workspaceID);
+	});
 </script>
 
 <svelte:head>
-	<title>{m.oauth_authorize_title()}</title>
+	<title>{isExternalApplication ? m.oauth_authorize_app_title() : m.oauth_authorize_title()}</title>
 </svelte:head>
 
 {#snippet botIcon()}
@@ -181,8 +299,10 @@
 {/snippet}
 
 <StandaloneShell
-	title={m.oauth_authorize_heading()}
-	description={m.oauth_authorize_description({ client: clientLabel })}
+	title={isExternalApplication ? m.oauth_authorize_app_heading() : m.oauth_authorize_heading()}
+	description={isExternalApplication
+		? m.oauth_authorize_app_description({ client: clientLabel })
+		: m.oauth_authorize_description({ client: clientLabel })}
 	icon={botIcon}
 	maxWidth="lg"
 >
@@ -213,39 +333,98 @@
 
 		<InlineNotice
 			tone={requestedReadOnlyAccess ? 'info' : 'warning'}
-			message={requestedReadOnlyAccess
-				? m.oauth_authorize_read_access_description()
-				: m.oauth_authorize_full_access_description()}
+			message={isExternalApplication
+				? m.oauth_authorize_app_access_description()
+				: requestedReadOnlyAccess
+					? m.oauth_authorize_read_access_description()
+					: m.oauth_authorize_full_access_description()}
 		/>
 
-		<div class="space-y-2">
-			<p class="text-sm font-medium">{m.oauth_authorize_access_boundary()}</p>
-			<Select.Root
-				type="single"
-				value={oauthWorkspaceScope}
-				onValueChange={(value) => value && (oauthWorkspaceScope = value)}
-			>
-				<Select.Trigger class="w-full">{selectedOAuthWorkspaceScope.label}</Select.Trigger>
-				<Select.Content>
-					{#each oauthWorkspaceOptions as option (option.value)}
-						<Select.Item value={option.value}>
-							<div class="flex flex-col gap-0.5 text-left">
-								<span>{option.label}</span>
-								<span class="text-xs text-muted-foreground">{option.description}</span>
+		{#if isExternalApplication}
+			<div class="space-y-3">
+				<div class="flex items-center justify-between gap-3">
+					<p class="text-sm font-medium">{m.oauth_authorize_access_boundary()}</p>
+					<Label class="flex items-center gap-2 text-sm font-normal">
+						<Checkbox
+							checked={eligibleWorkspaces.length > 0 &&
+								selectedWorkspaceIDs.length === eligibleWorkspaces.length}
+							onCheckedChange={toggleAllWorkspaces}
+						/>
+						{m.oauth_authorize_all_eligible_workspaces()}
+					</Label>
+				</div>
+				{#each eligibleWorkspaces as workspace (workspace.id)}
+					<div class="rounded-md border p-3">
+						<Label class="flex items-center gap-3 font-medium">
+							<Checkbox
+								checked={selectedWorkspaceIDs.includes(workspace.id)}
+								onCheckedChange={() => toggleWorkspace(workspace.id)}
+							/>
+							{workspace.name}
+						</Label>
+						{#if selectedWorkspaceIDs.includes(workspace.id)}
+							<div class="mt-3 space-y-2 border-t pt-3 pl-7">
+								<Label class="flex items-center gap-2 text-sm font-normal">
+									<Checkbox
+										checked={allCurrentAccounts[workspace.id] === true}
+										onCheckedChange={(checked) =>
+											setAllCurrentAccounts(workspace.id, checked === true)}
+									/>
+									{m.oauth_authorize_all_current_accounts()}
+								</Label>
+								{#if !allCurrentAccounts[workspace.id]}
+									{#each accountsByWorkspace[workspace.id] ?? [] as account (account.id)}
+										<Label class="flex items-center gap-2 text-sm font-normal">
+											<Checkbox
+												checked={(selectedAccountIDs[workspace.id] ?? []).includes(account.id)}
+												onCheckedChange={() => toggleAccount(workspace.id, account.id)}
+											/>
+											<span>{account.account_username || account.platform}</span>
+											<span class="text-muted-foreground">{account.platform}</span>
+										</Label>
+									{/each}
+								{/if}
 							</div>
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-		</div>
+						{/if}
+					</div>
+				{:else}
+					<InlineNotice tone="warning" message={m.oauth_authorize_no_admin_workspaces()} />
+				{/each}
+			</div>
+		{:else}
+			<div class="space-y-2">
+				<p class="text-sm font-medium">{m.oauth_authorize_access_boundary()}</p>
+				<Select.Root
+					type="single"
+					value={oauthWorkspaceScope}
+					onValueChange={(value) => value && (oauthWorkspaceScope = value)}
+				>
+					<Select.Trigger class="w-full">{selectedOAuthWorkspaceScope.label}</Select.Trigger>
+					<Select.Content>
+						{#each oauthWorkspaceOptions as option (option.value)}
+							<Select.Item value={option.value}>
+								<div class="flex flex-col gap-0.5 text-left">
+									<span>{option.label}</span>
+									<span class="text-xs text-muted-foreground">{option.description}</span>
+								</div>
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+		{/if}
 
 		<div class="flex flex-col gap-2 sm:flex-row">
 			<Button
-				class="w-full gap-2"
+				class="w-full gap-2 sm:flex-1"
 				onclick={() => submit(true)}
 				disabled={submitting ||
+					externalRequestLoading ||
 					!!requestError ||
-					(oauthWorkspaceScope === 'current' && !dependencies.workspace.currentWorkspace)}
+					(isExternalApplication && selectedWorkspaceIDs.length === 0) ||
+					(!isExternalApplication &&
+						oauthWorkspaceScope === 'current' &&
+						!dependencies.workspace.currentWorkspace)}
 			>
 				{#if pendingDecision === true}
 					<ProtectedIcon icon="loading" class="size-4 animate-spin" />
@@ -256,7 +435,7 @@
 			</Button>
 			<Button
 				variant="outline"
-				class="w-full gap-2"
+				class="w-full gap-2 sm:flex-1"
 				onclick={() => submit(false)}
 				disabled={submitting || !params.redirect_uri || !params.client_id}
 			>

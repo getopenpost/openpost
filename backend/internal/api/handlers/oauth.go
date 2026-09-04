@@ -1982,6 +1982,12 @@ func (h *OAuthHandler) ListAccounts(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
+		if installationID := middleware.GetInstallationID(ctx); installationID != "" {
+			accounts, err = filterExternalAppAccounts(ctx, h.db, installationID, input.WorkspaceID, accounts)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to apply external application account grants")
+			}
+		}
 		grantCounts := countGrantDestinations(accounts)
 		supported, enabled := h.resolveListMessaging(ctx, input.WorkspaceID, userID, accounts)
 		response := buildListResponses(accounts, grantCounts, supported, enabled, h.disableLinkedInThreadReplies)
@@ -2001,6 +2007,37 @@ func (h *OAuthHandler) ListAccounts(api huma.API) {
 		}
 		return &ListAccountsOutput{Body: response}, nil
 	})
+}
+
+func filterExternalAppAccounts(ctx context.Context, db *bun.DB, installationID, workspaceID string, accounts []models.SocialAccount) ([]models.SocialAccount, error) {
+	var grant models.ExternalAppWorkspaceGrant
+	if err := db.NewSelect().Model(&grant).Where("installation_id = ? AND workspace_id = ? AND revoked_at IS NULL", installationID, workspaceID).Scan(ctx); err != nil {
+		return nil, err
+	}
+	if grant.AllCurrentAccounts {
+		out := make([]models.SocialAccount, 0, len(accounts))
+		for _, account := range accounts {
+			if !account.CreatedAt.After(grant.CreatedAt) {
+				out = append(out, account)
+			}
+		}
+		return out, nil
+	}
+	var rows []models.ExternalAppAccountGrant
+	if err := db.NewSelect().Model(&rows).Where("installation_id = ? AND workspace_id = ?", installationID, workspaceID).Scan(ctx); err != nil {
+		return nil, err
+	}
+	allowed := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		allowed[row.SocialAccountID] = struct{}{}
+	}
+	out := make([]models.SocialAccount, 0, len(accounts))
+	for _, account := range accounts {
+		if _, ok := allowed[account.ID]; ok {
+			out = append(out, account)
+		}
+	}
+	return out, nil
 }
 
 func (h *OAuthHandler) listWorkspaceAccounts(ctx context.Context, workspaceID string) ([]models.SocialAccount, error) {

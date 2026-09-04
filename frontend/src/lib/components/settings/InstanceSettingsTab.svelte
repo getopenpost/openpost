@@ -4,6 +4,7 @@
 	import InstanceAdminOverview from '$lib/components/instance-admin-overview.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
+	import ExternalApplicationAdminSettings from './ExternalApplicationAdminSettings.svelte';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
 	import { ThemeIcon } from '$lib/themes/icons';
@@ -200,4 +201,5 @@
 			</div>
 		{/if}
 	</div>
+	<ExternalApplicationAdminSettings />
 </div>

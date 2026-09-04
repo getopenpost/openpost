@@ -25,6 +25,7 @@ const (
 	ScopeMCP          = "mcp:full"
 	ScopeAPIRead      = "api:read"
 	ScopeAPIWrite     = "api:write"
+	ScopeExternalApp  = "external:delegated"
 	DefaultScope      = ScopeCLI
 	DefaultExpiration = 90 * 24 * time.Hour
 	MaximumExpiration = 365 * 24 * time.Hour
@@ -48,15 +49,17 @@ type Service struct {
 }
 
 type Principal struct {
-	UserID      string
-	Email       string
-	Scope       string
-	WorkspaceID string
-	Audience    string
-	ClientID    string
-	TokenID     string
-	TokenName   string
-	TokenPrefix string
+	UserID          string
+	Email           string
+	Scope           string
+	WorkspaceID     string
+	Audience        string
+	ClientID        string
+	TokenID         string
+	TokenName       string
+	TokenPrefix     string
+	InstallationID  string
+	DelegatedScopes string
 }
 
 type GeneratedToken struct {
@@ -72,6 +75,7 @@ type GenerateOptions struct {
 	AssuredAt          time.Time
 	Audience           string
 	ClientID           string
+	InstallationID     string
 }
 
 func NewService(db *bun.DB) *Service {
@@ -108,6 +112,9 @@ func (s *Service) generateTokenWithOptions(
 	if err != nil {
 		return nil, err
 	}
+	if scope == ScopeExternalApp && (strings.TrimSpace(options.InstallationID) == "" || strings.TrimSpace(options.Audience) == "") {
+		return nil, ErrInvalidScope
+	}
 	name, err = NormalizeName(name)
 	if err != nil {
 		return nil, ErrInvalidName
@@ -136,6 +143,7 @@ func (s *Service) generateTokenWithOptions(
 		UserID:             userID,
 		Name:               name,
 		ClientID:           strings.TrimSpace(options.ClientID),
+		InstallationID:     strings.TrimSpace(options.InstallationID),
 		TokenHash:          tokenHash,
 		TokenPrefix:        tokenPrefix,
 		Scope:              scope,
@@ -161,7 +169,7 @@ func NormalizeScope(scope string) (string, error) {
 		return DefaultScope, nil
 	}
 	switch scope {
-	case ScopeCLI, ScopeMCPRead, ScopeMCP, ScopeAPIRead, ScopeAPIWrite:
+	case ScopeCLI, ScopeMCPRead, ScopeMCP, ScopeAPIRead, ScopeAPIWrite, ScopeExternalApp:
 		return scope, nil
 	default:
 		return "", ErrInvalidScope
@@ -280,18 +288,47 @@ func (s *Service) validateMatchedToken(ctx context.Context, token *models.APITok
 	if err := s.TouchLastUsedAt(ctx, token.ID); err != nil {
 		return nil, err
 	}
+	delegatedScopes := ""
+	if token.Scope == ScopeExternalApp {
+		var installation models.ExternalAppInstallation
+		if err := s.db.NewSelect().Model(&installation).
+			Where("id = ? AND revoked_at IS NULL", token.InstallationID).Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrRevokedToken
+			}
+			return nil, err
+		}
+		delegatedScopes = installation.Scopes
+	}
 
 	return &Principal{
-		UserID:      user.ID,
-		Email:       user.Email,
-		Scope:       token.Scope,
-		WorkspaceID: token.WorkspaceID,
-		Audience:    token.Audience,
-		ClientID:    token.ClientID,
-		TokenID:     token.ID,
-		TokenName:   token.Name,
-		TokenPrefix: token.TokenPrefix,
+		UserID:          user.ID,
+		Email:           user.Email,
+		Scope:           token.Scope,
+		WorkspaceID:     token.WorkspaceID,
+		Audience:        token.Audience,
+		ClientID:        token.ClientID,
+		TokenID:         token.ID,
+		TokenName:       token.Name,
+		TokenPrefix:     token.TokenPrefix,
+		InstallationID:  token.InstallationID,
+		DelegatedScopes: delegatedScopes,
 	}, nil
+}
+
+// RevokePresentedToken implements the non-enumerating access-token half of
+// RFC 7009. Unknown and already-revoked values are intentionally successful.
+func (s *Service) RevokePresentedToken(ctx context.Context, rawToken string) error {
+	prefix, secret, err := parseToken(rawToken)
+	if err != nil {
+		return nil
+	}
+	_, tokenHash := HashToken(secret)
+	_, err = s.db.NewUpdate().Model((*models.APIToken)(nil)).
+		Set("revoked_at = ?", time.Now().UTC()).
+		Where("token_prefix = ? AND token_hash = ? AND revoked_at IS NULL", prefix, tokenHash).
+		Exec(ctx)
+	return err
 }
 
 func generateSecret() (string, error) {

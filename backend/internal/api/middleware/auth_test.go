@@ -315,6 +315,32 @@ func TestPrincipalCanAccessREST(t *testing.T) {
 	require.False(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}))
 }
 
+func TestExternalApplicationRESTAccessRequiresExactGrant(t *testing.T) {
+	principal := &Principal{
+		Scope:           apitokens.ScopeExternalApp,
+		Audience:        "https://app.openpost.test/api/v1",
+		InstallationID:  "installation-1",
+		DelegatedScopes: "workspace:read drafts:write events:subscribe",
+	}
+
+	require.True(t, PrincipalCanAccessREST(principal, "list-workspaces"))
+	require.True(t, PrincipalCanAccessREST(principal, "create-publication"))
+	require.True(t, PrincipalCanAccessREST(principal, "create-external-webhook"))
+	require.False(t, PrincipalCanAccessREST(principal, "list-publications"))
+	require.False(t, PrincipalCanAccessREST(principal, "delete-publication"))
+	require.False(t, PrincipalCanAccessREST(principal))
+	require.False(t, PrincipalCanAccessREST(&Principal{
+		Scope:           apitokens.ScopeExternalApp,
+		InstallationID:  "installation-1",
+		DelegatedScopes: "workspace:read",
+	}, "list-workspaces"))
+	require.False(t, PrincipalCanAccessREST(&Principal{
+		Scope:           apitokens.ScopeExternalApp,
+		Audience:        "https://app.openpost.test/api/v1",
+		DelegatedScopes: "workspace:read",
+	}, "list-workspaces"))
+}
+
 func TestLegacyRESTScopeCatalogIsExplicit(t *testing.T) {
 	read, write := LegacyRESTScopeOperationCatalog()
 	require.Empty(t, read)

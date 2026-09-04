@@ -41,6 +41,7 @@
 		SETTINGS_INITIAL_LOAD_PARTICIPANT
 	} from '$lib/settings-initial-load.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import ConnectedApplicationsSettings from './ConnectedApplicationsSettings.svelte';
 
 	const authState = $derived($auth);
 	const unsavedChanges = getOptionalUnsavedChanges();
@@ -811,6 +812,8 @@
 		</div>
 	{/if}
 </div>
+
+<ConnectedApplicationsSettings />
 
 <DestructiveConfirmDialog
 	bind:open={revokeDialogOpen}

@@ -23,18 +23,19 @@ import (
 type contextKey string
 
 const (
-	UserIDKey      contextKey = "user_id"
-	EmailKey       contextKey = "email"
-	WorkspaceIDKey contextKey = "workspace_id"
-	SessionIDKey   contextKey = "session_id"
-	TokenIDKey     contextKey = "token_id"
-	ClientIDKey    contextKey = "client_id"
-	ClientNameKey  contextKey = "client_name"
-	ScopeKey       contextKey = "scope"
-	UserAgentKey   contextKey = "user_agent"
-	ClientIPKey    contextKey = "client_ip"
-	SecureKey      contextKey = "secure_request"
-	errorKey       contextKey = "error"
+	UserIDKey         contextKey = "user_id"
+	EmailKey          contextKey = "email"
+	WorkspaceIDKey    contextKey = "workspace_id"
+	SessionIDKey      contextKey = "session_id"
+	TokenIDKey        contextKey = "token_id"
+	ClientIDKey       contextKey = "client_id"
+	ClientNameKey     contextKey = "client_name"
+	ScopeKey          contextKey = "scope"
+	UserAgentKey      contextKey = "user_agent"
+	ClientIPKey       contextKey = "client_ip"
+	SecureKey         contextKey = "secure_request"
+	InstallationIDKey contextKey = "external_app_installation_id"
+	errorKey          contextKey = "error"
 
 	// bearerPrefix is the canonical HTTP Authorization scheme this
 	// middleware accepts. Centralised as a const to satisfy
@@ -47,16 +48,18 @@ const (
 var errAuthenticationUnavailable = errors.New("authentication unavailable")
 
 type Principal struct {
-	UserID      string
-	Email       string
-	Scope       string
-	WorkspaceID string
-	Audience    string
-	ClientID    string
-	ClientName  string
-	TokenPrefix string
-	SessionID   string
-	TokenID     string
+	UserID          string
+	Email           string
+	Scope           string
+	WorkspaceID     string
+	Audience        string
+	ClientID        string
+	ClientName      string
+	TokenPrefix     string
+	SessionID       string
+	TokenID         string
+	InstallationID  string
+	DelegatedScopes string
 }
 
 type Authenticator interface {
@@ -69,7 +72,13 @@ const RESTOperationUploadMediaSessionContent = "upload-media-session-content"
 // Huma and legacy Echo authentication. A legacy route with no operation ID is
 // available only to browser sessions and cli:full credentials.
 func PrincipalCanAccessREST(principal *Principal, operationID ...string) bool {
-	if principal == nil || strings.TrimSpace(principal.Audience) != "" {
+	if principal == nil {
+		return false
+	}
+	if principal.Scope == apitokens.ScopeExternalApp {
+		return strings.TrimSpace(principal.Audience) != "" && externalAppOperationAllowed(principal, operationID)
+	}
+	if strings.TrimSpace(principal.Audience) != "" {
 		return false
 	}
 	switch strings.TrimSpace(principal.Scope) {
@@ -85,6 +94,48 @@ func PrincipalCanAccessREST(principal *Principal, operationID ...string) bool {
 	default:
 		return false
 	}
+}
+
+func externalAppOperationAllowed(principal *Principal, operationIDs []string) bool {
+	if strings.TrimSpace(principal.InstallationID) == "" || len(operationIDs) != 1 {
+		return false
+	}
+	return delegatedOperationAllowed(principal.DelegatedScopes, operationIDs[0])
+}
+
+func delegatedOperationAllowed(scopeSet, operationID string) bool {
+	scopes := make(map[string]struct{})
+	for _, scope := range strings.Fields(scopeSet) {
+		scopes[scope] = struct{}{}
+	}
+	required := map[string]string{
+		"list-workspaces":                      "workspace:read",
+		"list-accounts":                        "accounts:read",
+		"list-media":                           "media:read",
+		"list-publications":                    "publications:read",
+		"get-publication":                      "publications:read",
+		"list-publication-events":              "publications:read",
+		"validate-publication":                 "publications:read",
+		"create-publication":                   "drafts:write",
+		"update-publication":                   "drafts:write",
+		"upsert-publication-renditions":        "drafts:write",
+		"create-media-upload-session":          "media:write",
+		RESTOperationUploadMediaSessionContent: "media:write",
+		"complete-media-upload-session":        "media:write",
+		"schedule-publication":                 "publications:schedule",
+		"publish-publication-now":              "publications:publish",
+		"cancel-publication":                   "publications:cancel",
+		"create-external-webhook":              "events:subscribe",
+		"list-external-webhooks":               "events:subscribe",
+		"list-external-webhook-deliveries":     "events:subscribe",
+		"delete-external-webhook":              "events:subscribe",
+	}
+	requiredScope, ok := required[strings.TrimSpace(operationID)]
+	if !ok {
+		return false
+	}
+	_, ok = scopes[requiredScope]
+	return ok
 }
 
 func catalogOperationAllowed(operationIDs []string, allowed ...automationcatalog.Access) bool {
@@ -228,15 +279,17 @@ func (s *CompositeService) AuthenticateBearer(ctx context.Context, token string)
 		return nil, authenticationUnavailableError(apiErr)
 	}
 	return &Principal{
-		UserID:      apiPrincipal.UserID,
-		Email:       apiPrincipal.Email,
-		Scope:       apiPrincipal.Scope,
-		WorkspaceID: apiPrincipal.WorkspaceID,
-		Audience:    apiPrincipal.Audience,
-		ClientID:    firstNonEmpty(apiPrincipal.ClientID, apiPrincipal.TokenID),
-		TokenID:     apiPrincipal.TokenID,
-		ClientName:  apiPrincipal.TokenName,
-		TokenPrefix: apiPrincipal.TokenPrefix,
+		UserID:          apiPrincipal.UserID,
+		Email:           apiPrincipal.Email,
+		Scope:           apiPrincipal.Scope,
+		WorkspaceID:     apiPrincipal.WorkspaceID,
+		Audience:        apiPrincipal.Audience,
+		ClientID:        firstNonEmpty(apiPrincipal.ClientID, apiPrincipal.TokenID),
+		TokenID:         apiPrincipal.TokenID,
+		ClientName:      apiPrincipal.TokenName,
+		TokenPrefix:     apiPrincipal.TokenPrefix,
+		InstallationID:  apiPrincipal.InstallationID,
+		DelegatedScopes: apiPrincipal.DelegatedScopes,
 	}, nil
 }
 
@@ -288,6 +341,9 @@ func AuthMiddleware(api huma.API, authenticator Authenticator) func(ctx huma.Con
 		}
 		if principal.Scope != "" {
 			ctx = huma.WithValue(ctx, ScopeKey, principal.Scope)
+		}
+		if principal.InstallationID != "" {
+			ctx = huma.WithValue(ctx, InstallationIDKey, principal.InstallationID)
 		}
 		next(ctx)
 	}
@@ -345,6 +401,9 @@ func OptionalAuthMiddleware(api huma.API, authenticator Authenticator) func(ctx 
 		if principal.Scope != "" {
 			ctx = huma.WithValue(ctx, ScopeKey, principal.Scope)
 		}
+		if principal.InstallationID != "" {
+			ctx = huma.WithValue(ctx, InstallationIDKey, principal.InstallationID)
+		}
 		next(ctx)
 	}
 }
@@ -379,6 +438,13 @@ func GetSessionID(ctx context.Context) string {
 
 func GetTokenID(ctx context.Context) string {
 	if v, ok := ctx.Value(TokenIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func GetInstallationID(ctx context.Context) string {
+	if v, ok := ctx.Value(InstallationIDKey).(string); ok {
 		return v
 	}
 	return ""
@@ -523,6 +589,10 @@ func AttachPrincipal(c echo.Context, principal *Principal) {
 	if principal.TokenID != "" {
 		c.Set(string(TokenIDKey), principal.TokenID)
 		requestCtx = context.WithValue(requestCtx, TokenIDKey, principal.TokenID)
+	}
+	if principal.InstallationID != "" {
+		c.Set(string(InstallationIDKey), principal.InstallationID)
+		requestCtx = context.WithValue(requestCtx, InstallationIDKey, principal.InstallationID)
 	}
 	c.SetRequest(c.Request().WithContext(requestCtx))
 }

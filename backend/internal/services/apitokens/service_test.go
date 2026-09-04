@@ -143,6 +143,16 @@ func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidExpiry)
 }
 
+func TestGenerateTokenRejectsExternalScopeWithoutInstallation(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := newServiceTestDB(t)
+	seedServiceUser(ctx, t, db)
+
+	_, err := NewService(db).GenerateToken(ctx, "user-1", "Manual", ScopeExternalApp, nil)
+	require.ErrorIs(t, err, ErrInvalidScope)
+}
+
 func TestValidateTokenRejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
 	t.Parallel()
 

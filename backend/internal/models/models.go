@@ -410,7 +410,7 @@ type IdentityProviderDomain struct {
 	Domain           string    `bun:",notnull" json:"domain"`
 	VerificationHash string    `bun:"verification_hash,notnull" json:"-"`
 	VerifiedAt       time.Time `bun:"verified_at,nullzero" json:"verified_at,omitempty"`
-	CreatedByUserID  string    `bun:"created_by_user_id,notnull" json:"created_by_user_id"`
+	CreatedByUserID  string    `bun:"created_by_user_id,nullzero" json:"created_by_user_id,omitempty"`
 	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
@@ -498,6 +498,7 @@ type APIToken struct {
 	UserID             string    `bun:",notnull" json:"user_id"`
 	Name               string    `bun:",notnull" json:"name"`
 	ClientID           string    `bun:"client_id,notnull,default:''" json:"client_id,omitempty"`
+	InstallationID     string    `bun:"installation_id,notnull,default:''" json:"installation_id,omitempty"`
 	TokenHash          string    `bun:",unique,notnull" json:"-"`
 	TokenPrefix        string    `bun:",notnull" json:"token_prefix"`
 	Scope              string    `bun:",notnull,default:'cli:full'" json:"scope"`
@@ -510,6 +511,119 @@ type APIToken struct {
 	LastUsedAt         time.Time `bun:",nullzero" json:"last_used_at"`
 	RevokedAt          time.Time `bun:",nullzero" json:"revoked_at"`
 	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+type ExternalApplication struct {
+	bun.BaseModel `bun:"table:external_applications"`
+
+	ID               string    `bun:",pk" json:"id"`
+	ClientID         string    `bun:"client_id,unique,notnull" json:"client_id"`
+	Name             string    `bun:",notnull" json:"name"`
+	ClientType       string    `bun:"client_type,notnull" json:"client_type"`
+	ClientSecretHash string    `bun:"client_secret_hash,notnull,default:''" json:"-"`
+	RedirectURIsJSON string    `bun:"redirect_uris_json,notnull" json:"-"`
+	AllowedScopes    string    `bun:"allowed_scopes,notnull" json:"allowed_scopes"`
+	CreatedByUserID  string    `bun:"created_by_user_id,nullzero" json:"created_by_user_id,omitempty"`
+	RevokedAt        time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+type ExternalAppInstallation struct {
+	bun.BaseModel `bun:"table:external_app_installations"`
+
+	ID            string    `bun:",pk" json:"id"`
+	ApplicationID string    `bun:"application_id,notnull" json:"application_id"`
+	SponsorUserID string    `bun:"sponsor_user_id,notnull" json:"sponsor_user_id"`
+	Scopes        string    `bun:",notnull" json:"scopes"`
+	TokenFamilyID string    `bun:"token_family_id,notnull" json:"-"`
+	RevokedAt     time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
+	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+type ExternalAppWorkspaceGrant struct {
+	bun.BaseModel `bun:"table:external_app_workspace_grants"`
+
+	InstallationID      string    `bun:"installation_id,pk" json:"installation_id"`
+	WorkspaceID         string    `bun:"workspace_id,pk" json:"workspace_id"`
+	AllCurrentAccounts  bool      `bun:"all_current_accounts,notnull,default:false" json:"all_current_accounts"`
+	OrganizationID      string    `bun:"organization_id,notnull,default:''" json:"organization_id,omitempty"`
+	IdentityProviderID  string    `bun:"identity_provider_id,notnull,default:''" json:"identity_provider_id,omitempty"`
+	AssuredAt           time.Time `bun:"assured_at,nullzero" json:"assured_at,omitempty"`
+	CredentialExpiresAt time.Time `bun:"credential_expires_at,nullzero" json:"credential_expires_at,omitempty"`
+	RevokedAt           time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+type ExternalAppAccountGrant struct {
+	bun.BaseModel `bun:"table:external_app_account_grants"`
+
+	InstallationID  string    `bun:"installation_id,pk" json:"installation_id"`
+	WorkspaceID     string    `bun:"workspace_id,pk" json:"workspace_id"`
+	SocialAccountID string    `bun:"social_account_id,pk" json:"social_account_id"`
+	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+type ExternalOAuthCode struct {
+	bun.BaseModel `bun:"table:external_oauth_codes"`
+
+	ID             string    `bun:",pk" json:"id"`
+	CodeHash       string    `bun:"code_hash,unique,notnull" json:"-"`
+	InstallationID string    `bun:"installation_id,notnull" json:"installation_id"`
+	ClientID       string    `bun:"client_id,notnull" json:"client_id"`
+	RedirectURI    string    `bun:"redirect_uri,notnull" json:"redirect_uri"`
+	Resource       string    `bun:",notnull" json:"resource"`
+	CodeChallenge  string    `bun:"code_challenge,notnull" json:"-"`
+	ExpiresAt      time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	ConsumedAt     time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+type ExternalRefreshToken struct {
+	bun.BaseModel `bun:"table:external_refresh_tokens"`
+
+	ID             string    `bun:",pk" json:"id"`
+	TokenHash      string    `bun:"token_hash,unique,notnull" json:"-"`
+	TokenPrefix    string    `bun:"token_prefix,notnull" json:"token_prefix"`
+	InstallationID string    `bun:"installation_id,notnull" json:"installation_id"`
+	FamilyID       string    `bun:"family_id,notnull" json:"-"`
+	ExpiresAt      time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	UsedAt         time.Time `bun:"used_at,nullzero" json:"used_at,omitempty"`
+	RevokedAt      time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+type ExternalWebhookSubscription struct {
+	bun.BaseModel `bun:"table:external_webhook_subscriptions"`
+
+	ID              string    `bun:",pk" json:"id"`
+	InstallationID  string    `bun:"installation_id,notnull" json:"installation_id"`
+	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	URL             string    `bun:",notnull" json:"url"`
+	SecretHash      string    `bun:"secret_hash,notnull" json:"-"`
+	SecretEncrypted []byte    `bun:"secret_encrypted,notnull" json:"-"`
+	EventTypes      string    `bun:"event_types,notnull" json:"event_types"`
+	RevokedAt       time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
+	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+type ExternalWebhookDelivery struct {
+	bun.BaseModel `bun:"table:external_webhook_deliveries"`
+
+	ID             string    `bun:",pk" json:"id"`
+	SubscriptionID string    `bun:"subscription_id,notnull,unique:subscription_event" json:"subscription_id"`
+	EventID        string    `bun:"event_id,notnull,unique:subscription_event" json:"event_id"`
+	EventType      string    `bun:"event_type,notnull" json:"event_type"`
+	PayloadJSON    string    `bun:"payload_json,notnull" json:"payload_json"`
+	Status         string    `bun:",notnull,default:'pending'" json:"status"`
+	AttemptCount   int       `bun:"attempt_count,notnull,default:0" json:"attempt_count"`
+	ResponseStatus int       `bun:"response_status,notnull,default:0" json:"response_status"`
+	LastError      string    `bun:"last_error,notnull,default:''" json:"last_error,omitempty"`
+	DeliveredAt    time.Time `bun:"delivered_at,nullzero" json:"delivered_at,omitempty"`
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 type MCPOAuthCode struct {

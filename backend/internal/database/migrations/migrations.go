@@ -440,11 +440,23 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 123:
 		description = "provider observation readiness operations"
 		err = extendProviderReadinessOperations(ctx, db)
+	case 129:
+		description = "external application access token ownership"
+		err = ensureExternalApplicationTokenColumn(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+func ensureExternalApplicationTokenColumn(ctx context.Context, db *bun.DB) error {
+	present, err := migrationColumnExists(ctx, db, "api_tokens", "installation_id")
+	if err != nil || present {
+		return err
+	}
+	_, err = db.ExecContext(ctx, "ALTER TABLE api_tokens ADD COLUMN installation_id TEXT NOT NULL DEFAULT ''")
+	return err
 }
 
 func extendProviderReadinessOperations(ctx context.Context, db *bun.DB) error {

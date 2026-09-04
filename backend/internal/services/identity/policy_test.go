@@ -198,6 +198,49 @@ func TestAuthorizeTokenCreationRequiresAndInheritsSSOAssurance(t *testing.T) {
 	require.ErrorIs(t, err, ErrTokenPolicyDenied)
 }
 
+func TestEvaluateWorkspaceAccessUsesPerWorkspaceExternalApplicationAssurance(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	f.setPolicy(t, models.OrganizationSSOTokensScoped)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	_, err := f.db.NewCreateTable().Model((*models.ExternalAppWorkspaceGrant)(nil)).IfNotExists().Exec(ctx)
+	require.NoError(t, err)
+	_, err = f.db.NewInsert().Model(&models.ExternalApplication{
+		ID: "external-app", ClientID: "external-client", Name: "External app", ClientType: "public",
+		RedirectURIsJSON: `[]`, AllowedScopes: "workspace:read", CreatedByUserID: f.user.ID, CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = f.db.NewInsert().Model(&models.ExternalAppInstallation{
+		ID: "installation-1", ApplicationID: "external-app", SponsorUserID: f.user.ID,
+		Scopes: "workspace:read", TokenFamilyID: "family-1", CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = f.db.NewInsert().Model(&models.APIToken{
+		ID: "external-token", UserID: f.user.ID, Name: "External app", TokenHash: "external-hash",
+		TokenPrefix: "external-prefix", Scope: "external:delegated", InstallationID: "installation-1", CreatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	grant := models.ExternalAppWorkspaceGrant{
+		InstallationID: "installation-1", WorkspaceID: f.workspace.ID,
+		OrganizationID: f.workspace.OrganizationID, IdentityProviderID: f.provider.ID,
+		AssuredAt: now, CredentialExpiresAt: now.Add(time.Hour), CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = f.db.NewInsert().Model(&grant).Exec(ctx)
+	require.NoError(t, err)
+
+	decision, err := EvaluateWorkspaceAccess(ctx, f.db, f.workspace.ID, f.user.ID, "", "external-token")
+	require.NoError(t, err)
+	require.True(t, decision.Allowed)
+
+	_, err = f.db.NewUpdate().Model((*models.ExternalAppWorkspaceGrant)(nil)).
+		Set("credential_expires_at = ?", now.Add(-time.Minute)).Where("installation_id = ?", grant.InstallationID).Exec(ctx)
+	require.NoError(t, err)
+	decision, err = EvaluateWorkspaceAccess(ctx, f.db, f.workspace.ID, f.user.ID, "", "external-token")
+	require.NoError(t, err)
+	require.False(t, decision.Allowed)
+}
+
 func TestEvaluateOrganizationAccessRejectsWorkspaceBoundTokens(t *testing.T) {
 	f := newPolicyTestFixture(t)
 	ctx := context.Background()

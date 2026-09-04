@@ -20,6 +20,7 @@ import (
 	billingservice "github.com/openpost/backend/internal/services/billing"
 	botingressservice "github.com/openpost/backend/internal/services/botingress"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
+	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/openpost/backend/internal/services/feedback"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/medialifecycle"
@@ -76,6 +77,7 @@ type BackgroundWorker struct {
 	growth                *growthservice.Service
 	publicationBuilder    *publicationbuilder.Application
 	accountPreflight      *accountpreflightservice.Service
+	externalWebhooks      *externalwebhooks.Service
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
@@ -216,6 +218,16 @@ func (w *BackgroundWorker) SetAccountPreflightService(service *accountpreflights
 			return fmt.Errorf("scheduled account preflight is not configured")
 		}
 		return w.accountPreflight.HandleJob(ctx, job.Type)
+	}
+}
+
+func (w *BackgroundWorker) SetExternalWebhookService(service *externalwebhooks.Service) {
+	w.externalWebhooks = service
+	w.executors[jobregistry.ExecuteExternalWebhook] = func(ctx context.Context, job *models.Job) error {
+		if w.externalWebhooks == nil {
+			return fmt.Errorf("external webhook delivery is not configured")
+		}
+		return w.externalWebhooks.HandleJob(ctx, job.Payload)
 	}
 }
 

@@ -24,6 +24,8 @@ import (
 	"github.com/openpost/backend/internal/services/emailverification"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/externalapps"
+	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/openpost/backend/internal/services/feedback"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
@@ -62,6 +64,8 @@ type RouteDeps struct {
 	APITokenService              *apitokens.Service
 	CLIAuthService               *cliauth.Service
 	MCPOAuthService              *mcpoauth.Service
+	ExternalApps                 *externalapps.Service
+	ExternalWebhooks             *externalwebhooks.Service
 	BillingService               *billing.Service
 	BotIngressService            *botingress.Service
 	TelegramService              *telegramservice.Service
@@ -250,6 +254,8 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	accountLifecycleHandler.RegisterRoutes(api)
 
 	handlers.NewAPITokenHandler(deps.APITokenService, deps.Authenticator, deps.DB).RegisterRoutes(api)
+	handlers.NewExternalApplicationHandler(deps.ExternalApps, deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewExternalWebhookHandler(deps.ExternalWebhooks, deps.DB, deps.Authenticator).RegisterRoutes(api)
 	cliAuthHandler := handlers.NewCLIAuthHandler(deps.CLIAuthService, deps.Authenticator, deps.PublicURL)
 	cliAuthHandler.SetIdentityService(deps.IdentityService)
 	cliAuthHandler.RegisterRoutes(api)
@@ -316,6 +322,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		mcpOAuthHandler = handlers.NewMCPOAuthHandler(deps.MCPOAuthService, deps.Authenticator, deps.PublicURL)
 	}
 	mcpOAuthHandler.SetIdentityService(deps.IdentityService)
+	mcpOAuthHandler.SetExternalApplicationService(deps.ExternalApps)
 	mcpOAuthHandler.RegisterAPIRoutes(api)
 
 	workspaceHandler := handlers.NewWorkspaceHandler(deps.DB, deps.Authenticator, deps.Entitlement)

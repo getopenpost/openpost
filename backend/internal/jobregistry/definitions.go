@@ -35,6 +35,7 @@ const (
 	TypePublicationBuild        = "publication_build"
 	TypeBotIngress              = "bot_ingress"
 	TypeScheduledAccountCheck   = "scheduled_account_preflight"
+	TypeExternalWebhookDelivery = "external_webhook_delivery"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -60,6 +61,7 @@ const (
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
 	ExecuteBotIngress            ExecutionKind = "bot_ingress"
 	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
+	ExecuteExternalWebhook       ExecutionKind = "external_webhook"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -166,6 +168,7 @@ var definitions = map[string]Definition{
 		Execution: ExecuteScheduledAccountCheck, Failure: FailureProviderRead, Recovery: RecoveryRequeue,
 		FailureMessage: "A scheduled account check failed. OpenPost will retry without changing the account connection.",
 	},
+	TypeExternalWebhookDelivery: definition(TypeExternalWebhookDelivery, 8, ExecuteExternalWebhook, FailureDefault, RecoveryRequeue),
 }
 
 func definition(jobType string, attempts int, execution ExecutionKind, failure FailurePolicy, recovery RecoveryPolicy) Definition {

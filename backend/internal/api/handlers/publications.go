@@ -3141,6 +3141,15 @@ func (h *PublicationHandler) loadAccounts(ctx context.Context, workspaceID strin
 	if len(accounts) != len(uniqueIDs) {
 		return nil, huma.Error400BadRequest("one or more social accounts are invalid, disconnected, or outside this workspace")
 	}
+	if installationID := middleware.GetInstallationID(ctx); installationID != "" {
+		allowed, err := filterExternalAppAccounts(ctx, h.db, installationID, workspaceID, accounts)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to apply external application account grants")
+		}
+		if len(allowed) != len(accounts) {
+			return nil, huma.Error403Forbidden("external application is not granted one or more social accounts")
+		}
+	}
 	out := make(map[string]models.SocialAccount, len(accounts))
 	for _, account := range accounts {
 		out[account.ID] = account

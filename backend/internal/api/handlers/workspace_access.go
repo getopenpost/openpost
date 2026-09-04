@@ -10,11 +10,12 @@ import (
 
 func workspaceActor(ctx context.Context, userID string) workspaceaccess.ActorFacts {
 	return workspaceaccess.ActorFacts{
-		UserID:                userID,
-		SessionID:             middleware.GetSessionID(ctx),
-		TokenID:               middleware.GetTokenID(ctx),
-		ClientID:              middleware.GetClientID(ctx),
-		CredentialWorkspaceID: middleware.GetWorkspaceID(ctx),
+		UserID:                 userID,
+		SessionID:              middleware.GetSessionID(ctx),
+		TokenID:                middleware.GetTokenID(ctx),
+		ClientID:               middleware.GetClientID(ctx),
+		CredentialWorkspaceID:  middleware.GetWorkspaceID(ctx),
+		ExternalInstallationID: middleware.GetInstallationID(ctx),
 	}
 }
 

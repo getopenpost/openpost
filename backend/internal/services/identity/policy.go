@@ -403,6 +403,26 @@ func validOrganizationToken(
 		}
 		return false, err
 	}
+	if token.InstallationID != "" {
+		if policy.APITokenMode == models.OrganizationSSOTokensDeny {
+			return false, nil
+		}
+		var grant models.ExternalAppWorkspaceGrant
+		if err := db.NewSelect().Model(&grant).
+			Where("installation_id = ? AND workspace_id = ? AND organization_id = ? AND revoked_at IS NULL", token.InstallationID, workspace.ID, workspace.OrganizationID).
+			Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return false, nil
+			}
+			return false, err
+		}
+		if !grant.CredentialExpiresAt.IsZero() && !grant.CredentialExpiresAt.After(time.Now().UTC()) {
+			return false, nil
+		}
+		token.IdentityProviderID = grant.IdentityProviderID
+		token.AssuredAt = grant.AssuredAt
+		return validOrganizationTokenRecord(ctx, db, token, policy)
+	}
 	if token.OrganizationID != workspace.OrganizationID ||
 		token.WorkspaceID == "" || token.WorkspaceID != workspace.ID ||
 		policy.APITokenMode == models.OrganizationSSOTokensDeny {

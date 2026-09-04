@@ -47,6 +47,8 @@ import (
 	"github.com/openpost/backend/internal/services/encryptionrotation"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/externalapps"
+	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/openpost/backend/internal/services/feedback"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
@@ -352,6 +354,9 @@ func main() {
 	authenticator := apimiddleware.NewCompositeServiceWithSessions(authService, apiTokenService, sessionService)
 	cliAuthService := cliauth.NewService(db, apiTokenService)
 	mcpOAuthService := mcpoauth.NewService(db, apiTokenService)
+	externalApplicationService := externalapps.NewService(db, apiTokenService, cfg.PublicURL)
+	externalApplicationService.SetDynamicRegistrationEnabled(cfg.OAuthDCR)
+	externalWebhookService := externalwebhooks.NewService(db, tokenEncryptor)
 	mediaSigner := mediasigner.New(cfg.MediaSigningKey)
 	mfaService, err := mfa.NewService("OpenPost", mfa.RelyingPartyConfig{
 		Name:    "OpenPost",
@@ -753,6 +758,7 @@ func main() {
 		worker.SetGrowthService(growthService)
 		worker.SetPublicationBuilderService(publicationBuilderApplication)
 		worker.SetAccountPreflightService(accountPreflightService)
+		worker.SetExternalWebhookService(externalWebhookService)
 		worker.SetTelemetry(telemetryRecorder)
 		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 			log.Fatalf("failed to schedule pending video analysis: %v", err)
@@ -817,6 +823,7 @@ func main() {
 	mcpHandler.RegisterRoutes(e)
 	mcpOAuthHandler := handlers.NewMCPOAuthHandler(mcpOAuthService, authenticator, cfg.PublicURL)
 	mcpOAuthHandler.SetIdentityService(identityService)
+	mcpOAuthHandler.SetExternalApplicationService(externalApplicationService)
 	mcpOAuthHandler.RegisterEchoRoutes(e)
 	updateChecksEnabled := cfg.Edition == config.EditionSelfHost && cfg.UpdateCheckEnabled
 	updateChecksDisabledReason := ""
@@ -840,6 +847,8 @@ func main() {
 		APITokenService:           apiTokenService,
 		CLIAuthService:            cliAuthService,
 		MCPOAuthService:           mcpOAuthService,
+		ExternalApps:              externalApplicationService,
+		ExternalWebhooks:          externalWebhookService,
 		BillingService:            billingService,
 		BotIngressService:         botIngressService,
 		TelegramService:           telegramConnectionService,

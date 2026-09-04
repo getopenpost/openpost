@@ -174,6 +174,10 @@ const developmentSidebar = [
       { text: "Architecture", link: "/development/architecture" },
       { text: "API Reference", link: "/development/api-reference" },
       { text: "API Tokens", link: "/development/api-tokens" },
+      {
+        text: "External Applications",
+        link: "/development/external-applications",
+      },
       { text: "API Compatibility", link: "/development/compatibility-policy" },
       {
         text: "Post Migration",

@@ -12368,7 +12368,7 @@ export interface components {
             /** @enum {string} */
             badge: "solid" | "tonal" | "outlined";
             /** @enum {string} */
-            button: "solid" | "tonal" | "outlined" | "precise";
+            button: "solid" | "tonal" | "outlined" | "precise" | "pill";
             /** @enum {string} */
             card: "flat" | "outlined" | "paper" | "lifted";
             /** @enum {string} */

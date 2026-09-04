@@ -101,6 +101,14 @@ describe('built-in themes', () => {
 		expect(BUILT_IN_THEMES).toEqual(canonicalBuiltIns);
 	});
 
+	it('uses pill actions for the reference families that specify them', () => {
+		for (const id of ['apple', 'calcom', 'firecrawl', 'quizlet', 'supabase'] as const) {
+			const theme = getBuiltInTheme(id);
+			const scheme = theme.schemes.light ?? theme.schemes.dark!;
+			expect(scheme.components.button, id).toBe('pill');
+		}
+	});
+
 	it('gives every non-Workshop family a distinct structural identity', () => {
 		const identities = BUILT_IN_THEMES.slice(1).map((theme) => {
 			const manifest = theme.schemes.light ?? theme.schemes.dark!;

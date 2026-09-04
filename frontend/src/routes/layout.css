@@ -925,8 +925,12 @@
 	}
 
 	[data-theme-button='precise'] [data-slot='button'] {
-		border-radius: var(--theme-radius-sm);
+		border-radius: var(--theme-radius-sm) !important;
 		box-shadow: none;
+	}
+
+	[data-theme-button='pill'] [data-slot='button'] {
+		border-radius: var(--theme-radius-pill) !important;
 	}
 
 	[data-theme-link='plain'] a[class]:not([data-slot='button']) {

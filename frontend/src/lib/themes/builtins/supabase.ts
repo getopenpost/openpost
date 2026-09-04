@@ -134,7 +134,7 @@ export const supabaseDark = scheme(
 			canvasTreatment: 'precision'
 		},
 		components: {
-			button: 'solid',
+			button: 'pill',
 			link: 'plain',
 			tabs: 'underline',
 			navigation: 'quiet',

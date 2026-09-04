@@ -96,7 +96,7 @@ export const NATIVE_CANVAS_TREATMENTS = [
 export type NativeCanvasTreatment = (typeof NATIVE_CANVAS_TREATMENTS)[number];
 
 export const NATIVE_COMPONENT_RECIPE_OPTIONS = {
-  button: ["solid", "tonal", "outlined", "precise"],
+  button: ["solid", "tonal", "outlined", "precise", "pill"],
   link: ["underlined", "subtle", "plain"],
   tabs: ["underline", "pill", "segmented"],
   navigation: ["quiet", "tonal", "outlined"],

@@ -138,7 +138,7 @@ export const appleLight = scheme({
 		canvasTreatment: 'plain'
 	},
 	components: {
-		button: 'solid',
+		button: 'pill',
 		link: 'subtle',
 		tabs: 'segmented',
 		navigation: 'quiet',

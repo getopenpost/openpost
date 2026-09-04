@@ -297,26 +297,26 @@ func TestWorkspaceAdministratorCanListOnlyPublishedAvailableThemes(t *testing.T)
 	require.NoError(t, err)
 
 	workspaceAdmin := Actor{UserID: "workspace-admin"}
-	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
-	require.Len(t, available.Items, 9)
-	require.Equal(t, builtInOrder, []string{available.Items[0].Reference.ID, available.Items[1].Reference.ID, available.Items[2].Reference.ID, available.Items[3].Reference.ID, available.Items[4].Reference.ID, available.Items[5].Reference.ID, available.Items[6].Reference.ID, available.Items[7].Reference.ID})
-	require.Equal(t, "Published", available.Items[8].Name)
-	require.Zero(t, available.Items[8].DraftRevision)
+	require.Len(t, available.Items, len(builtInOrder)+1)
+	require.Equal(t, builtInOrder, summaryIDs(available.Items[:len(builtInOrder)]))
+	require.Equal(t, "Published", available.Items[len(builtInOrder)].Name)
+	require.Zero(t, available.Items[len(builtInOrder)].DraftRevision)
 	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
 	require.NoError(t, err)
 	require.Equal(t, publishedTheme.Summary.Reference.ID, preview.Manifest.ID)
 	require.Equal(t, "1", preview.Manifest.Revision)
-	publishedAt := available.Items[8].UpdatedAt
+	publishedAt := available.Items[len(builtInOrder)].UpdatedAt
 	changedDraft := publishedTheme.Draft.Manifest
 	changedDraft.Description = "Unpublished activity"
 	_, err = service.UpdateDraft(t.Context(), admin, publishedTheme.Summary.Reference.ID, UpdateDraftInput{
 		OrganizationID: "org-1", ExpectedRevision: 1, Name: "Published", Manifest: changedDraft,
 	})
 	require.NoError(t, err)
-	available, err = service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
+	available, err = service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
-	require.Equal(t, publishedAt, available.Items[8].UpdatedAt, "catalog timestamps must not reveal draft activity")
+	require.Equal(t, publishedAt, available.Items[len(builtInOrder)].UpdatedAt, "catalog timestamps must not reveal draft activity")
 	preview, err = service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
 	require.NoError(t, err)
 	require.NotEqual(t, "Unpublished activity", preview.Manifest.Description)
@@ -345,7 +345,7 @@ func TestWorkspaceAdministratorCanPreviewPublishedCatalogResources(t *testing.T)
 	require.NoError(t, err)
 
 	workspaceAdmin := Actor{UserID: "workspace-admin"}
-	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{})
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
 	require.Equal(t, theme.Summary.Reference.ID, available.Items[len(available.Items)-1].Reference.ID)
 	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 1)
@@ -451,7 +451,7 @@ func TestResolveUsesPublishedStateWithoutBlobReadsAndFallsBackForCorruptResource
 
 	_, err = db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
 	require.NoError(t, err)
-	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1", PageOptions{})
+	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
 	require.Len(t, available.Items, len(BuiltIns()), "one corrupt custom theme must not make the whole catalog unavailable")
 	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1"})

@@ -239,7 +239,7 @@ func validateComponents(input ThemeComponentRecipes) error {
 		value   string
 		allowed []string
 	}{
-		{"button", input.Button, []string{"solid", "tonal", "outlined", "precise"}},
+		{"button", input.Button, []string{"solid", "tonal", "outlined", "precise", "pill"}},
 		{"link", input.Link, []string{"underlined", "subtle", "plain"}},
 		{"tabs", input.Tabs, []string{"underline", "pill", "segmented"}},
 		{"navigation", input.Navigation, []string{"quiet", "tonal", "outlined"}},

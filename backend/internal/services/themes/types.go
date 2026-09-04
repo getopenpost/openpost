@@ -223,7 +223,7 @@ type ThemeShellTokens struct {
 }
 
 type ThemeComponentRecipes struct {
-	Button       string `json:"button" enum:"solid,tonal,outlined,precise"`
+	Button       string `json:"button" enum:"solid,tonal,outlined,precise,pill"`
 	Link         string `json:"link" enum:"underlined,subtle,plain"`
 	Tabs         string `json:"tabs" enum:"underline,pill,segmented"`
 	Navigation   string `json:"navigation" enum:"quiet,tonal,outlined"`

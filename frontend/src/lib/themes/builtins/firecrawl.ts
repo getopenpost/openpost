@@ -159,7 +159,7 @@ export const firecrawlLight = scheme({
 		canvasTreatment: 'precision'
 	},
 	components: {
-		button: 'solid',
+		button: 'pill',
 		link: 'subtle',
 		tabs: 'underline',
 		navigation: 'quiet',

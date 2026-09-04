@@ -35,7 +35,7 @@
 </script>
 
 <div
-	class="theme-preview-scene relative min-h-[30rem] max-w-full overflow-hidden bg-background text-foreground"
+	class="theme-preview-scene relative h-screen max-w-full overflow-hidden bg-background text-foreground"
 	data-preview-scene={scene}
 	data-slot="app-shell"
 	data-theme-type="body"
@@ -43,7 +43,7 @@
 	<div
 		class="pointer-events-none absolute inset-0 bg-[image:var(--theme-asset-background-texture)] bg-repeat opacity-20"
 	></div>
-	<div class="relative flex min-h-[30rem]">
+	<div class="relative flex h-full">
 		<aside
 			data-slot="sidebar"
 			class="preview-sidebar flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar bg-[image:var(--theme-asset-sidebar-decoration)] bg-bottom bg-no-repeat p-3 text-sidebar-foreground"

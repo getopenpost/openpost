@@ -3042,7 +3042,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           canvasTreatment: "plain",
         },
         components: {
-          button: "solid",
+          button: "pill",
           link: "subtle",
           tabs: "segmented",
           navigation: "quiet",
@@ -3882,7 +3882,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           canvasTreatment: "precision",
         },
         components: {
-          button: "solid",
+          button: "pill",
           link: "plain",
           tabs: "underline",
           navigation: "quiet",
@@ -4442,7 +4442,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           canvasTreatment: "precision",
         },
         components: {
-          button: "solid",
+          button: "pill",
           link: "subtle",
           tabs: "underline",
           navigation: "quiet",
@@ -5002,7 +5002,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           canvasTreatment: "plain",
         },
         components: {
-          button: "solid",
+          button: "pill",
           link: "plain",
           tabs: "segmented",
           navigation: "tonal",
@@ -6962,7 +6962,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           canvasTreatment: "plain",
         },
         components: {
-          button: "solid",
+          button: "pill",
           link: "plain",
           tabs: "pill",
           navigation: "quiet",

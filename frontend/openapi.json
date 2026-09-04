@@ -17885,7 +17885,7 @@
 						"type": "string"
 					},
 					"button": {
-						"enum": ["solid", "tonal", "outlined", "precise"],
+						"enum": ["solid", "tonal", "outlined", "precise", "pill"],
 						"type": "string"
 					},
 					"card": {

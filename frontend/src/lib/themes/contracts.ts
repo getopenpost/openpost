@@ -391,7 +391,7 @@ export const THEME_COMPONENT_RECIPE_KEYS = [
 export type ThemeComponentRecipe = (typeof THEME_COMPONENT_RECIPE_KEYS)[number];
 
 export const THEME_COMPONENT_RECIPE_OPTIONS = {
-	button: ['solid', 'tonal', 'outlined', 'precise'],
+	button: ['solid', 'tonal', 'outlined', 'precise', 'pill'],
 	link: ['underlined', 'subtle', 'plain'],
 	tabs: ['underline', 'pill', 'segmented'],
 	navigation: ['quiet', 'tonal', 'outlined'],

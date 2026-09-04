@@ -25,10 +25,22 @@ interface ThemeLibraryQuery {
 	cursor?: string;
 }
 
+interface AvailableThemeQuery {
+	workspace_id: string;
+	limit: 100;
+	cursor?: string;
+}
+
 function themeLibraryQuery(organizationId: string, cursor: string): ThemeLibraryQuery {
 	const query: ThemeLibraryQuery = {
 		organization_id: organizationId
 	};
+	if (cursor) query.cursor = cursor;
+	return query;
+}
+
+function availableThemeQuery(workspaceId: string, cursor: string): AvailableThemeQuery {
+	const query: AvailableThemeQuery = { workspace_id: workspaceId, limit: 100 };
 	if (cursor) query.cursor = cursor;
 	return query;
 }
@@ -70,16 +82,29 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 			return data;
 		},
 		async listAvailableThemes(workspaceId, signal) {
-			const { data } = await queryGET({
-				signal,
-				fallback: 'Unable to load available themes',
-				request: (requestSignal) =>
-					transport.GET('/themes/available', {
-						params: { query: { workspace_id: workspaceId } },
-						signal: requestSignal
-					})
-			});
-			return data ?? { items: [], next_cursor: null };
+			const items = [];
+			const visitedCursors = new Set<string>();
+			let cursor = '';
+			do {
+				const { data } = await queryGET({
+					signal,
+					fallback: 'Unable to load available themes',
+					request: (requestSignal) =>
+						transport.GET('/themes/available', {
+							params: { query: availableThemeQuery(workspaceId, cursor) },
+							signal: requestSignal
+						})
+				});
+				const page = data ?? { items: [], next_cursor: null };
+				items.push(...page.items);
+				const nextCursor = page.next_cursor?.trim() ?? '';
+				if (nextCursor && visitedCursors.has(nextCursor)) {
+					throw new Error('Unable to load available themes: pagination cursor repeated');
+				}
+				if (nextCursor) visitedCursors.add(nextCursor);
+				cursor = nextCursor;
+			} while (cursor);
+			return { items, next_cursor: null };
 		},
 		async getAvailableCustomTheme(workspaceId, themeId, revision, signal) {
 			const { data } = await queryGET({

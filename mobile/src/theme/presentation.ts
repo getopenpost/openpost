@@ -68,6 +68,7 @@ export function inputPresentation(manifest: NativeThemeManifest): NativeInputPre
 }
 
 export function buttonRadius(manifest: NativeThemeManifest): number {
+  if (manifest.components.button === "pill") return manifest.shape.full;
   if (manifest.components.button === "precise") return manifest.shape.extraSmall;
   if (manifest.components.button === "tonal") return manifest.shape.large;
   return manifest.shape.medium;

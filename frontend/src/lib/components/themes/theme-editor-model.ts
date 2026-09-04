@@ -551,7 +551,12 @@ const randomPalettes = [
 		focalHover: '#004EEB',
 		focalActive: '#0040C1',
 		selection: '#D1E0FF',
-		selectionInk: '#00359E'
+		selectionInk: '#00359E',
+		focus: '#111827',
+		link: '#155EEF',
+		linkHover: '#004EEB',
+		chart1: '#155EEF',
+		chart2: '#004EEB'
 	},
 	{
 		focal: '#087E8B',
@@ -559,7 +564,12 @@ const randomPalettes = [
 		focalHover: '#066B76',
 		focalActive: '#055761',
 		selection: '#C5F0F3',
-		selectionInk: '#064F57'
+		selectionInk: '#064F57',
+		focus: '#111827',
+		link: '#087E8B',
+		linkHover: '#066B76',
+		chart1: '#087E8B',
+		chart2: '#066B76'
 	},
 	{
 		focal: '#A23E48',
@@ -567,7 +577,12 @@ const randomPalettes = [
 		focalHover: '#8D3540',
 		focalActive: '#742A33',
 		selection: '#F6D8DC',
-		selectionInk: '#6A2530'
+		selectionInk: '#6A2530',
+		focus: '#111827',
+		link: '#A23E48',
+		linkHover: '#8D3540',
+		chart1: '#A23E48',
+		chart2: '#8D3540'
 	},
 	{
 		focal: '#5F4BB6',
@@ -575,7 +590,67 @@ const randomPalettes = [
 		focalHover: '#503F9E',
 		focalActive: '#413382',
 		selection: '#E2DDFC',
-		selectionInk: '#382C72'
+		selectionInk: '#382C72',
+		focus: '#111827',
+		link: '#5F4BB6',
+		linkHover: '#503F9E',
+		chart1: '#5F4BB6',
+		chart2: '#503F9E'
+	}
+] as const;
+
+const darkRandomPalettes = [
+	{
+		focal: 'oklch(0.82 0.2 125)',
+		focalInk: 'oklch(0.12 0.03 125)',
+		focalHover: 'color-mix(in oklch, oklch(0.82 0.2 125) 90%, oklch(0.91 0.01 110))',
+		focalActive: 'color-mix(in oklch, oklch(0.82 0.2 125) 82%, oklch(0.91 0.01 110))',
+		selection: 'oklch(0.3 0.09 125)',
+		selectionInk: 'oklch(0.9 0.09 125)',
+		focus: 'oklch(0.91 0.01 110)',
+		link: 'oklch(0.78 0.14 210)',
+		linkHover: 'color-mix(in oklch, oklch(0.78 0.14 210) 82%, oklch(0.91 0.01 110))',
+		chart1: 'oklch(0.82 0.2 125)',
+		chart2: 'oklch(0.74 0.14 210)'
+	},
+	{
+		focal: 'oklch(0.762 0.154 159)',
+		focalInk: 'oklch(0.182 0 90)',
+		focalHover: 'oklch(0.668 0.139 159)',
+		focalActive: 'oklch(0.606 0.122 161)',
+		selection: 'oklch(0.273 0.024 164)',
+		selectionInk: 'oklch(0.985 0 90)',
+		focus: 'oklch(0.724 0.178 155)',
+		link: 'oklch(0.724 0.178 155)',
+		linkHover: 'color-mix(in oklch, oklch(0.724 0.178 155) 82%, oklch(0.985 0 90))',
+		chart1: 'oklch(0.762 0.154 159)',
+		chart2: 'oklch(0.724 0.178 155)'
+	},
+	{
+		focal: 'oklch(0.51 0.19 30)',
+		focalInk: 'oklch(1 0 0)',
+		focalHover: 'oklch(0.45 0.17 29)',
+		focalActive: 'oklch(0.40 0.15 28)',
+		selection: 'oklch(0.24 0 0)',
+		selectionInk: 'oklch(1 0 0)',
+		focus: 'oklch(1 0 0)',
+		link: 'oklch(1 0 0)',
+		linkHover: 'oklch(0.82 0 0)',
+		chart1: 'oklch(0.55 0.19 30)',
+		chart2: 'oklch(0.70 0 0)'
+	},
+	{
+		focal: 'oklch(0.52 0.21 275)',
+		focalInk: 'oklch(0.98 0 0)',
+		focalHover: 'oklch(0.52 0.23 272)',
+		focalActive: 'oklch(0.46 0.21 276)',
+		selection: 'oklch(0.32 0.09 275)',
+		selectionInk: 'oklch(0.96 0.005 285)',
+		focus: 'oklch(0.66 0.16 278)',
+		link: 'oklch(0.66 0.16 278)',
+		linkHover: 'color-mix(in oklch, oklch(0.66 0.16 278) 82%, oklch(0.98 0 0))',
+		chart1: 'oklch(0.52 0.21 275)',
+		chart2: 'oklch(0.66 0.16 278)'
 	}
 ] as const;
 
@@ -601,26 +676,33 @@ export function randomizeThemeManifest(
 		section === undefined || section === candidate;
 
 	if (shouldChange('colors')) {
-		const palette = randomPalettes[Math.floor(random() * randomPalettes.length)]!;
-		target.colors = {
-			...target.colors,
-			actionFocal: palette.focal,
-			actionFocalInk: palette.focalInk,
-			actionFocalHover: palette.focalHover,
-			actionFocalActive: palette.focalActive,
-			actionPrimary: palette.focal,
-			actionPrimaryInk: palette.focalInk,
-			actionPrimaryHover: palette.focalHover,
-			actionPrimaryActive: palette.focalActive,
-			selection: palette.selection,
-			selectionInk: palette.selectionInk,
-			focus: palette.focal,
-			link: palette.focal,
-			actionLink: palette.focal,
-			actionLinkHover: palette.focalHover,
-			chart1: palette.focal,
-			chart2: palette.focalHover
-		};
+		const palettes = scheme === 'dark' ? darkRandomPalettes : randomPalettes;
+		const start = Math.floor(random() * palettes.length);
+		for (let offset = 0; offset < palettes.length; offset += 1) {
+			const palette = palettes[(start + offset) % palettes.length]!;
+			const colors = {
+				...target.colors,
+				actionFocal: palette.focal,
+				actionFocalInk: palette.focalInk,
+				actionFocalHover: palette.focalHover,
+				actionFocalActive: palette.focalActive,
+				actionPrimary: palette.focal,
+				actionPrimaryInk: palette.focalInk,
+				actionPrimaryHover: palette.focalHover,
+				actionPrimaryActive: palette.focalActive,
+				selection: palette.selection,
+				selectionInk: palette.selectionInk,
+				focus: palette.focus,
+				link: palette.link,
+				actionLink: palette.link,
+				actionLinkHover: palette.linkHover,
+				chart1: palette.chart1,
+				chart2: palette.chart2
+			};
+			if (!isCompleteThemeSchemeManifest({ ...target, colors }, scheme)) continue;
+			target.colors = colors;
+			break;
+		}
 	}
 	if (shouldChange('typography')) {
 		const headingWeights = [500, 600, 700] as const;
@@ -682,7 +764,7 @@ export function randomizeThemeManifest(
 		target.shell.canvasTreatment = treatments[Math.floor(random() * treatments.length)]!;
 	}
 	if (shouldChange('components')) {
-		const button = ['solid', 'tonal', 'outlined', 'precise'] as const;
+		const button = ['solid', 'tonal', 'outlined', 'precise', 'pill'] as const;
 		const card = ['flat', 'outlined', 'paper', 'lifted'] as const;
 		target.components.button = button[Math.floor(random() * button.length)]!;
 		target.components.card = card[Math.floor(random() * card.length)]!;

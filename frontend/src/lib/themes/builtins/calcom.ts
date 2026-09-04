@@ -136,7 +136,7 @@ export const calcomLight = scheme({
 		canvasTreatment: 'plain'
 	},
 	components: {
-		button: 'solid',
+		button: 'pill',
 		link: 'plain',
 		tabs: 'segmented',
 		navigation: 'tonal',

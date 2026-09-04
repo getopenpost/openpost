@@ -121,7 +121,7 @@ export const quizletLight = scheme({
 	},
 	shell: { contentMaxWidth: '75rem', canvasTreatment: 'plain' },
 	components: {
-		button: 'solid',
+		button: 'pill',
 		link: 'plain',
 		tabs: 'pill',
 		navigation: 'quiet',

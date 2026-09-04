@@ -63,14 +63,6 @@ func rateLimitError(message string, retryAt time.Time) error {
 	return &LifecycleError{Kind: ErrorRateLimited, Message: message, RetryAt: retryAt.UTC()}
 }
 
-func RetryAtOf(err error) time.Time {
-	var lifecycleErr *LifecycleError
-	if errors.As(err, &lifecycleErr) {
-		return lifecycleErr.RetryAt
-	}
-	return time.Time{}
-}
-
 func ErrorKindOf(err error) ErrorKind {
 	var lifecycleErr *LifecycleError
 	if errors.As(err, &lifecycleErr) {

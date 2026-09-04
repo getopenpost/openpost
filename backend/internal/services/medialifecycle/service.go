@@ -91,17 +91,6 @@ func NormalizeRetention(value string, assetKind string, hasTag bool) (string, er
 	}
 }
 
-func (s *Service) Promote(ctx context.Context, mediaID string) error {
-	_, err := s.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
-		Set("retention_class = ?", RetentionLibrary).
-		Where("id = ?", mediaID).
-		Exec(ctx)
-	return err
-}
-
-// TouchWithDB records use inside the caller's transaction. Callers should pass
-// both the old and new reference sets so detaching media also starts a fresh
-// inactivity window instead of making it immediately eligible for cleanup.
 func TouchWithDB(ctx context.Context, db bun.IDB, mediaIDs []string, at time.Time) error {
 	mediaIDs = uniqueIDs(mediaIDs)
 	if len(mediaIDs) == 0 {

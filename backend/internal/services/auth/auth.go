@@ -1,10 +1,8 @@
 package auth
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"strings"
 	"time"
 
@@ -101,12 +99,4 @@ func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	return nil, jwt.ErrSignatureInvalid
-}
-
-func GenerateState() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }

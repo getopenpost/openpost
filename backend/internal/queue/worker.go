@@ -800,11 +800,3 @@ func (w *BackgroundWorker) ensureMediaLifecycleJobs(ctx context.Context) {
 		}
 	}
 }
-
-func ScheduleMediaCleanup(db *bun.DB, workspaceID string) error {
-	_, _, err := jobregistry.EnqueueMediaCleanup(context.Background(), db, workspaceID, time.Time{})
-	if err != nil {
-		log.Printf("Failed to schedule media cleanup for workspace %s: %v", workspaceID, err)
-	}
-	return err
-}

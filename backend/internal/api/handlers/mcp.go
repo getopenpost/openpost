@@ -126,14 +126,6 @@ func (h *MCPHandler) SetMediaStorage(storage mediastore.BlobStorage) {
 	h.mediaStorage = storage
 }
 
-func (h *MCPHandler) SetMediaURLHTTPClient(client *http.Client) {
-	h.mediaURLHTTP = client
-}
-
-func (h *MCPHandler) SetMediaURLValidator(validator func(context.Context, *url.URL) error) {
-	h.mediaURLValidator = validator
-}
-
 func (h *MCPHandler) SetPublicURL(publicURL string) {
 	h.publicURL = strings.TrimRight(publicURL, "/")
 }

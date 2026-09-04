@@ -25,12 +25,6 @@ type SignatureVerifier interface {
 	Verify(headers http.Header, body []byte) error
 }
 
-type VerifyFunc func(http.Header, []byte) error
-
-func (verify VerifyFunc) Verify(headers http.Header, body []byte) error {
-	return verify(headers, body)
-}
-
 // SecretHeaderVerifier supports providers whose webhook authentication is an
 // exact shared-secret header. Providers with signed bodies can implement
 // SignatureVerifier directly.
@@ -287,12 +281,6 @@ func isTransientSQLiteContention(err error) bool {
 
 type Processor interface {
 	Process(context.Context, models.BotIngressEvent) error
-}
-
-type ProcessorFunc func(context.Context, models.BotIngressEvent) error
-
-func (processor ProcessorFunc) Process(ctx context.Context, event models.BotIngressEvent) error {
-	return processor(ctx, event)
 }
 
 type processorRegistry struct {

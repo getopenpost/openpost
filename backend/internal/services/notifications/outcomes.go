@@ -183,31 +183,6 @@ func NewOwnershipTransferOutcome(recipientUserID, transferID, organizationName s
 	})
 }
 
-type RequiredAccountOutcomeFacts struct {
-	RecipientUserID string
-	EventID         string
-	Kind            string
-}
-
-func NewSecurityActionOutcome(facts RequiredAccountOutcomeFacts) (Outcome, error) {
-	return newRequiredAccountOutcome(TypeSecurityAction, facts)
-}
-
-func NewAccessChangedOutcome(facts RequiredAccountOutcomeFacts) (Outcome, error) {
-	return newRequiredAccountOutcome(TypeAccessChanged, facts)
-}
-
-func NewCriticalBillingOutcome(facts RequiredAccountOutcomeFacts) (Outcome, error) {
-	return newRequiredAccountOutcome(TypeCriticalBilling, facts)
-}
-
-func newRequiredAccountOutcome(topic string, facts RequiredAccountOutcomeFacts) (Outcome, error) {
-	return newOutcome(semanticOutcome{
-		recipientID: facts.RecipientUserID, topic: topic, eventID: facts.EventID,
-		payload: map[string]any{"kind": facts.Kind},
-	})
-}
-
 func newOutcome(value semanticOutcome) (Outcome, error) {
 	value.recipientID = strings.TrimSpace(value.recipientID)
 	value.workspaceID = strings.TrimSpace(value.workspaceID)

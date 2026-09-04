@@ -103,12 +103,6 @@ func NewHTTPBotAPI(token string, client *http.Client) *HTTPBotAPI {
 	return &HTTPBotAPI{token: strings.TrimSpace(token), baseURL: defaultBotAPIBaseURL, client: client}
 }
 
-func NewHTTPBotAPIForTest(token, baseURL string, client *http.Client) *HTTPBotAPI {
-	api := NewHTTPBotAPI(token, client)
-	api.baseURL = strings.TrimRight(baseURL, "/")
-	return api
-}
-
 func (api *HTTPBotAPI) GetMe(ctx context.Context) (User, error) {
 	var user User
 	if err := api.call(ctx, "getMe", struct{}{}, &user); err != nil {

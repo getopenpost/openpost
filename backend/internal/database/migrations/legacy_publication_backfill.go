@@ -81,55 +81,6 @@ func resumeLegacyPublicationAuthoringBackfill(ctx context.Context, db *bun.DB) e
 // drainLegacyPublicationAuthoringBackfill is the explicit maintenance path. It
 // uses the same bounded batches and durable cursor as startup, but continues
 // until the current backlog is complete.
-func drainLegacyPublicationAuthoringBackfill(ctx context.Context, db *bun.DB) error {
-	if err := ensureLegacyPublicationActiveScopeInvariant(ctx, db); err != nil {
-		return err
-	}
-	if err := repairPendingLegacyPublicationJobScopes(ctx, db); err != nil {
-		return err
-	}
-	if err := repairProtectedFailedLegacyPublicationJobScopes(ctx, db); err != nil {
-		return err
-	}
-	if err := requeueStaleLegacyPublicationJobs(ctx, db); err != nil {
-		return err
-	}
-	if err := migratePendingLegacyPublishPostJobs(ctx, db); err != nil {
-		return err
-	}
-	if err := authorizePendingLegacyPublicationJobs(ctx, db); err != nil {
-		return err
-	}
-	for {
-		done, err := runLegacyPublicationAuthoringBackfillBatch(ctx, db, legacyPublicationBackfillBatchSize)
-		if err != nil || done {
-			return err
-		}
-	}
-}
-
-// restartLegacyPublicationAuthoringBackfill starts a maintenance pass from the
-// first key. Translation, scope repair, and authorization are idempotent, so a
-// completed installation can safely use this entry point after importing an
-// older database or compatibility rows.
-func restartLegacyPublicationAuthoringBackfill(ctx context.Context, db *bun.DB) error {
-	if err := ensureLegacyPublicationAuthoringBackfillSchema(ctx, db); err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	if _, err := db.NewUpdate().Model((*legacyPublicationBackfillState)(nil)).
-		Set("phase = ?", legacyPublicationBackfillPhaseJobScopes).
-		Set("cursor_id = ''").
-		Set("processed_count = 0").
-		Set("completed_at = NULL").
-		Set("updated_at = ?", now).
-		Where("key = ? OR key LIKE ?", legacyPublicationBackfillKey, legacyPublicationProtectedScopeKeyPrefix+"%").
-		Exec(ctx); err != nil {
-		return fmt.Errorf("restart legacy publication authoring backfill: %w", err)
-	}
-	return drainLegacyPublicationAuthoringBackfill(ctx, db)
-}
-
 func ensureLegacyPublicationAuthoringBackfillSchema(ctx context.Context, db *bun.DB) error {
 	if _, err := db.NewCreateTable().Model((*legacyPublicationBackfillState)(nil)).IfNotExists().Exec(ctx); err != nil {
 		return fmt.Errorf("create legacy publication authoring backfill state: %w", err)

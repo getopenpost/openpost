@@ -177,16 +177,6 @@ func AppConfigMergeKey(app AppConfig) string {
 	return app.Provider
 }
 
-func IsAppProviderSupported(provider string) bool {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	for _, mode := range []string{ConnectionModeOAuth, ConnectionModeOAuthOOB, ConnectionModeAppPassword, ConnectionModeWebhook, ConnectionModeBot} {
-		if _, ok := ApplicationContract(provider, mode); ok {
-			return true
-		}
-	}
-	return false
-}
-
 // AccountProviderKey selects a mode-specific adapter without exposing
 // credentials. Discord accounts created before connection_type was introduced
 // continue to resolve to the canonical incoming-webhook adapter.

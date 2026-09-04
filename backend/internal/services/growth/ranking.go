@@ -139,20 +139,6 @@ func profileQualityScore(c platform.GrowthCandidate) float64 {
 	return score
 }
 
-// RankCandidates scores and sorts candidates deterministically.
-func RankCandidates(cands []platform.GrowthCandidate) []platform.GrowthCandidate {
-	scored := make([]scoredCandidate, 0, len(cands))
-	for _, c := range cands {
-		scored = append(scored, scoredCandidate{candidate: c, score: ScoreCandidate(c)})
-	}
-	sortScoredCandidates(scored)
-	out := make([]platform.GrowthCandidate, 0, len(scored))
-	for _, s := range scored {
-		out = append(out, s.candidate)
-	}
-	return out
-}
-
 func scoreRanked(cands []platform.GrowthCandidate) []scoredCandidate {
 	scored := make([]scoredCandidate, 0, len(cands))
 	for _, c := range cands {

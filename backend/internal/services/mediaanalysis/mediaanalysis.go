@@ -68,22 +68,6 @@ func (DisabledAnalyzer) AnalyzeFallback(mimeType string) Result {
 	}
 }
 
-type FakeAnalyzer struct {
-	Result Result
-	Err    error
-}
-
-func (f FakeAnalyzer) Analyze(_ context.Context, _ Input) (Result, error) {
-	if f.Err != nil {
-		return Result{AnalysisStatus: AnalysisStatusFailed, AnalysisError: f.Err.Error()}, f.Err
-	}
-	result := f.Result
-	if result.AnalysisStatus == "" {
-		result.AnalysisStatus = AnalysisStatusReady
-	}
-	return result, nil
-}
-
 type FFmpegAnalyzer struct {
 	FFprobePath string
 	FFmpegPath  string

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { QueryClient } from '@tanstack/svelte-query';
 import AuthorizePage from './oauth-authorize-page.svelte';
 import type { Workspace } from '$lib/api/client';
 
@@ -73,6 +74,7 @@ function renderAuthorizePage() {
 			workspace: mocks.workspace,
 			get: mocks.get,
 			post: mocks.post,
+			cache: new QueryClient({ defaultOptions: { queries: { retry: false } } }),
 			navigate: mocks.goto
 		}
 	});

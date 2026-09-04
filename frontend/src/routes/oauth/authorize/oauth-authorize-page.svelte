@@ -5,6 +5,11 @@
 	import { resolveAppPath } from '$lib/app-path';
 	import { page } from '$app/stores';
 	import type { Readable } from 'svelte/store';
+	import type { QueryClient } from '@tanstack/svelte-query';
+	import {
+		externalAuthorizationRequestQueryOptions,
+		workspaceAccountsQueryOptions
+	} from '@openpost/query-catalog';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -13,6 +18,9 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
+	import { queryClient } from '$lib/query/client';
+	import { createOpenPostQueryAPI } from '$lib/query/api';
+	import { createExternalApplicationQueryAPI } from '$lib/query/external-applications';
 	import type { components } from '$lib/api/types';
 	import type { SocialAccount, Workspace } from '$lib/api/client';
 	import { auth } from '$lib/stores/auth';
@@ -31,6 +39,7 @@
 		workspace: { currentWorkspace: Workspace | null; workspaces: Workspace[] };
 		get: typeof client.GET;
 		post: typeof client.POST;
+		cache: Pick<QueryClient, 'fetchQuery'>;
 		navigate: typeof goto;
 	}
 
@@ -40,6 +49,7 @@
 		workspace: workspaceCtx,
 		get: client.GET,
 		post: client.POST,
+		cache: queryClient,
 		navigate: goto
 	};
 
@@ -47,6 +57,8 @@
 		$props();
 	let pageStore = $derived(dependencies.page);
 	let authStore = $derived(dependencies.auth);
+	let externalQueryAPI = $derived(createExternalApplicationQueryAPI({ GET: dependencies.get }));
+	let accountsQueryAPI = $derived(createOpenPostQueryAPI({ GET: dependencies.get }));
 
 	let authState = $derived($authStore);
 	let error = $state('');
@@ -252,16 +264,20 @@
 
 	async function loadExternalApplication() {
 		externalRequestLoading = true;
-		const { data, error: apiError } = await dependencies.get(
-			'/external-applications/oauth/request',
-			{ params: { query: { client_id: params.client_id, redirect_uri: params.redirect_uri } } }
-		);
-		if (apiError || !data?.application) {
-			error = apiError?.detail ?? m.oauth_authorize_failed();
-		} else {
+		try {
+			const data = await dependencies.cache.fetchQuery(
+				externalAuthorizationRequestQueryOptions(
+					externalQueryAPI,
+					params.client_id,
+					params.redirect_uri
+				)
+			);
 			externalApplicationName = data.application.name;
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.oauth_authorize_failed();
+		} finally {
+			externalRequestLoading = false;
 		}
-		externalRequestLoading = false;
 	}
 
 	function loadAccounts(workspaceID: string): Promise<void> {
@@ -272,21 +288,21 @@
 		accountErrorByWorkspace = { ...accountErrorByWorkspace, [workspaceID]: '' };
 		const request = (async () => {
 			try {
-				const { data, error: apiError } = await dependencies.get('/accounts', {
-					params: { query: { workspace_id: workspaceID } }
-				});
-				if (apiError) {
-					const message = apiError.detail ?? m.oauth_authorize_accounts_failed();
-					accountErrorByWorkspace = { ...accountErrorByWorkspace, [workspaceID]: message };
-					error = message;
-					return;
-				}
-				const accounts = (data ?? []).filter((account) => account.is_active);
+				const accounts = (
+					await dependencies.cache.fetchQuery(
+						workspaceAccountsQueryOptions(accountsQueryAPI, workspaceID)
+					)
+				).filter((account) => account.is_active);
 				accountsByWorkspace = { ...accountsByWorkspace, [workspaceID]: accounts };
 				selectedAccountIDs = {
 					...selectedAccountIDs,
 					[workspaceID]: accounts.map((account) => account.id)
 				};
+			} catch (cause) {
+				const message =
+					cause instanceof Error ? cause.message : m.oauth_authorize_accounts_failed();
+				accountErrorByWorkspace = { ...accountErrorByWorkspace, [workspaceID]: message };
+				error = message;
 			} finally {
 				accountLoadingByWorkspace = { ...accountLoadingByWorkspace, [workspaceID]: false };
 				accountLoadPromises.delete(workspaceID);

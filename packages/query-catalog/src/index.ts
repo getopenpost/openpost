@@ -13,6 +13,7 @@ export * from "./cache-plan";
 export * from "./caller-abort";
 export * from "./developer";
 export * from "./errors";
+export * from "./external-applications";
 export * from "./feedback";
 export * from "./features";
 export * from "./growth";

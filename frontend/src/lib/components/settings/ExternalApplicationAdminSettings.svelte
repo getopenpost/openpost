@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		externalAdminApplicationsQueryOptions,
+		externalApplicationQueryKeys
+	} from '@openpost/query-catalog';
 	import { client } from '$lib/api/client';
+	import { queryClient } from '$lib/query/client';
+	import { externalApplicationQueryAPI } from '$lib/query/external-applications';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -28,10 +34,14 @@
 		'events:subscribe'
 	];
 
-	let applications = $state<Application[]>([]);
-	let loading = $state(true);
+	const applicationsQuery = createQuery(() =>
+		externalAdminApplicationsQueryOptions(externalApplicationQueryAPI)
+	);
+	let applications = $derived<Application[]>(applicationsQuery.data ?? []);
+	let loading = $derived(applicationsQuery.isPending);
 	let busy = $state(false);
-	let error = $state('');
+	let actionError = $state('');
+	let error = $derived(actionError || applicationsQuery.error?.message || '');
 	let name = $state('');
 	let clientType = $state('public');
 	let redirectURIs = $state('');
@@ -41,15 +51,6 @@
 	let pendingRevokeID = $state('');
 	let revokeOpen = $state(false);
 
-	async function load() {
-		loading = true;
-		error = '';
-		const { data, error: apiError } = await client.GET('/admin/external-applications');
-		if (apiError) error = apiError.detail ?? m.settings_external_apps_load_failed();
-		else applications = data ?? [];
-		loading = false;
-	}
-
 	function toggleScope(scope: string) {
 		selectedScopes = selectedScopes.includes(scope)
 			? selectedScopes.filter((value) => value !== scope)
@@ -58,7 +59,7 @@
 
 	async function registerApplication() {
 		busy = true;
-		error = '';
+		actionError = '';
 		createdClientID = '';
 		revealedSecret = '';
 		const redirects = redirectURIs
@@ -74,26 +75,29 @@
 			}
 		});
 		if (apiError || !data) {
-			error = apiError?.detail ?? m.settings_external_apps_create_failed();
+			actionError = apiError?.detail ?? m.settings_external_apps_create_failed();
 		} else {
 			createdClientID = data.application.client_id;
 			revealedSecret = data.client_secret ?? '';
 			name = '';
 			redirectURIs = '';
-			await load();
+			await queryClient.invalidateQueries({
+				queryKey: externalApplicationQueryKeys.adminApplications(),
+				exact: true
+			});
 		}
 		busy = false;
 	}
 
 	async function rotateSecret(applicationID: string) {
 		busy = true;
-		error = '';
+		actionError = '';
 		const { data, error: apiError } = await client.POST(
 			'/admin/external-applications/{id}/rotate-secret',
 			{ params: { path: { id: applicationID } } }
 		);
 		if (apiError || !data?.client_secret) {
-			error = apiError?.detail ?? m.settings_external_apps_rotate_failed();
+			actionError = apiError?.detail ?? m.settings_external_apps_rotate_failed();
 		} else {
 			createdClientID = applications.find((app) => app.id === applicationID)?.client_id ?? '';
 			revealedSecret = data.client_secret;
@@ -111,12 +115,13 @@
 			params: { path: { id: pendingRevokeID } }
 		});
 		if (apiError) return { ok: false, message: apiError.detail ?? m.settings_action_failed() };
-		await load();
+		await queryClient.invalidateQueries({
+			queryKey: externalApplicationQueryKeys.adminApplications(),
+			exact: true
+		});
 		pendingRevokeID = '';
 		return { ok: true };
 	}
-
-	onMount(load);
 </script>
 
 <div class="border-t pt-6">

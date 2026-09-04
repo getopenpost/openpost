@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
+	import {
+		externalApplicationQueryKeys,
+		externalInstallationsQueryOptions
+	} from '@openpost/query-catalog';
 	import { client } from '$lib/api/client';
+	import { queryClient } from '$lib/query/client';
+	import { externalApplicationQueryAPI } from '$lib/query/external-applications';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,9 +20,12 @@
 	type Installation = components['schemas']['ExternalInstallationResponse'];
 	type PendingRevocation = { installationID: string; workspaceID?: string };
 
-	let installations = $state<Installation[]>([]);
-	let loading = $state(true);
-	let error = $state('');
+	const installationsQuery = createQuery(() =>
+		externalInstallationsQueryOptions(externalApplicationQueryAPI)
+	);
+	let installations = $derived<Installation[]>(installationsQuery.data ?? []);
+	let loading = $derived(installationsQuery.isPending);
+	let error = $derived(installationsQuery.error?.message ?? '');
 	let pendingRevocation = $state<PendingRevocation | null>(null);
 	let confirmOpen = $state(false);
 
@@ -24,15 +33,6 @@
 		return (
 			workspaceCtx.workspaces.find((workspace) => workspace.id === workspaceID)?.name ?? workspaceID
 		);
-	}
-
-	async function load() {
-		loading = true;
-		error = '';
-		const { data, error: apiError } = await client.GET('/external-applications/installations');
-		if (apiError) error = apiError.detail ?? m.settings_connected_apps_load_failed();
-		else installations = data ?? [];
-		loading = false;
 	}
 
 	function requestRevocation(installationID: string, workspaceID?: string) {
@@ -56,12 +56,13 @@
 				});
 		const { error: apiError } = await request;
 		if (apiError) return { ok: false, message: apiError.detail ?? m.settings_action_failed() };
-		await load();
+		await queryClient.invalidateQueries({
+			queryKey: externalApplicationQueryKeys.installations(),
+			exact: true
+		});
 		pendingRevocation = null;
 		return { ok: true };
 	}
-
-	onMount(load);
 </script>
 
 <div class="mt-6 border-t pt-6">
@@ -75,7 +76,9 @@
 	{#if error}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={load}>{m.common_retry()}</Button>
+				<Button variant="outline" size="sm" onclick={() => installationsQuery.refetch()}
+					>{m.common_retry()}</Button
+				>
 			{/snippet}
 		</InlineNotice>
 	{:else if loading}

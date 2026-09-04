@@ -86,11 +86,11 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.NotContains(t, libraryResponse.Body.String(), `"manifest"`)
 	require.NotContains(t, libraryResponse.Body.String(), `"draft"`)
 
-	catalogResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1", nil)
+	catalogResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1&limit=100", nil)
 	require.Equal(t, http.StatusOK, catalogResponse.Code, catalogResponse.Body.String())
 	var catalog themes.ThemeSummaryPage
 	require.NoError(t, json.Unmarshal(catalogResponse.Body.Bytes(), &catalog))
-	require.Len(t, catalog.Items, 9, "draft-only themes stay out of the published catalog")
+	require.Len(t, catalog.Items, len(themes.BuiltIns())+1, "draft-only themes stay out of the published catalog")
 	publishedSummary := catalog.Items[len(catalog.Items)-1]
 	require.Equal(t, themeID, publishedSummary.Reference.ID)
 	require.Zero(t, publishedSummary.DraftRevision)

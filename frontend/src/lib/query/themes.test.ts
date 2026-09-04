@@ -4,25 +4,29 @@ import { createThemeQueryAPI } from './themes';
 
 describe('theme query transport', () => {
 	it('loads every available-theme page so custom themes remain visible after the built-ins', async () => {
-		const pages = {
-			'': { items: [{ reference: { id: 'workshop' } }], next_cursor: 'built-ins-done' },
-			'built-ins-done': {
-				items: [{ reference: { id: 'organization-theme' } }],
-				next_cursor: null
+		const pages = new Map([
+			['', { items: [{ reference: { id: 'workshop' } }], next_cursor: 'built-ins-done' }],
+			[
+				'built-ins-done',
+				{
+					items: [{ reference: { id: 'organization-theme' } }],
+					next_cursor: null
+				}
+			]
+		]);
+		const get = vi.fn(
+			async (_path: string, options: { params: { query: { cursor?: string; limit: number } } }) => {
+				const cursor = options.params.query.cursor ?? '';
+				const page = pages.get(cursor);
+				if (!page) throw new Error(`Unexpected theme page cursor: ${cursor}`);
+				return {
+					data: page,
+					response: new Response(null, { status: 200 })
+				};
 			}
-		};
-		const get = vi.fn(async (_path: string, options: unknown) => {
-			const query = (options as { params: { query: { cursor?: string; limit: number } } }).params
-				.query;
-			const cursor = (query.cursor ?? '') as keyof typeof pages;
-			return {
-				data: pages[cursor],
-				response: new Response(null, { status: 200 })
-			};
-		});
-		const api = createThemeQueryAPI({ GET: get } as unknown as Parameters<
-			typeof createThemeQueryAPI
-		>[0]);
+		);
+		// SAFETY: This test calls only the mocked available-themes route above.
+		const api = createThemeQueryAPI({ GET: get } as never);
 
 		const result = await api.listAvailableThemes('workspace-1', new AbortController().signal);
 

@@ -119,6 +119,17 @@ describe('media source recovery', () => {
 			fileName: 'old.mp4',
 			kind: 'missing'
 		});
+		await expect(
+			testRuntime.recovery.validateMediaSource({
+				...media('workspace'),
+				fileName: 'prepared.png',
+				sourceFileName: 'original.svg'
+			})
+		).resolves.toEqual({
+			mediaId: 'media',
+			fileName: 'original.svg',
+			kind: 'missing'
+		});
 	});
 
 	it('reprobes a replacement, keeps custom tags, and invalidates derived data before publish', async () => {
@@ -130,7 +141,11 @@ describe('media source recovery', () => {
 		// SAFETY: relinkMediaSource only calls getFile on this test handle.
 		const handle = { getFile: async () => file, name: file.name } as FileSystemFileHandle;
 
-		const restored = await testRuntime.recovery.relinkMediaSource(media(), handle);
+		const restored = await testRuntime.recovery.relinkMediaSource(
+			media(),
+			handle,
+			'camera/restored.mp4'
+		);
 
 		expect(testRuntime.calls.updates).toEqual([
 			{
@@ -138,6 +153,9 @@ describe('media source recovery', () => {
 				updates: expect.objectContaining({
 					storageType: 'handle',
 					fileHandle: handle,
+					sourcePath: 'camera/restored.mp4',
+					sourceFileName: 'restored.mp4',
+					sourceFileSize: 400,
 					fileName: 'restored.mp4',
 					fileSize: 400,
 					duration: 4,

@@ -111,22 +111,23 @@ async function invalidateDerivedMedia(mediaId: string): Promise<void> {
 
 export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {
 	async function validateMediaSource(media: MediaMetadata): Promise<MediaSourceIssue | null> {
+		const sourceFileName = media.sourceFileName ?? media.fileName;
 		if (media.storageType === 'handle') {
 			const validation = await runtime.validateHandle(media.id);
 			switch (validation.kind) {
 				case 'ok':
 					return null;
 				case 'permission':
-					return { mediaId: media.id, fileName: media.fileName, kind: 'permission' };
+					return { mediaId: media.id, fileName: sourceFileName, kind: 'permission' };
 				case 'changed':
-					return { mediaId: media.id, fileName: media.fileName, kind: 'changed' };
+					return { mediaId: media.id, fileName: sourceFileName, kind: 'changed' };
 				default:
-					return { mediaId: media.id, fileName: media.fileName, kind: 'missing' };
+					return { mediaId: media.id, fileName: sourceFileName, kind: 'missing' };
 			}
 		}
 
 		const source = await runtime.readWorkspaceSource(media);
-		return source ? null : { mediaId: media.id, fileName: media.fileName, kind: 'missing' };
+		return source ? null : { mediaId: media.id, fileName: sourceFileName, kind: 'missing' };
 	}
 
 	async function scanMediaSourceIssues(
@@ -138,7 +139,8 @@ export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {
 
 	async function relinkMediaSource(
 		media: MediaMetadata,
-		handle: FileSystemFileHandle
+		handle: FileSystemFileHandle,
+		sourcePath?: string
 	): Promise<MediaMetadata> {
 		const selected = await handle.getFile();
 		const prepared = await runtime.prepareFile(selected);
@@ -162,6 +164,9 @@ export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {
 		const updated = await runtime.update(media.id, {
 			storageType,
 			fileHandle: nextHandle,
+			sourceFileName: selected.name,
+			sourceFileSize: selected.size,
+			sourcePath,
 			fileLastModified: selected.lastModified,
 			fileName: prepared.name,
 			fileSize: prepared.size,

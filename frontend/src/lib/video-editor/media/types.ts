@@ -67,6 +67,11 @@ export interface MediaMetadata {
 	fileHandle?: FileSystemFileHandle;
 	contentHash?: string;
 	fileLastModified?: number;
+	/** Original selected source identity when import preparation changes the stored file. */
+	sourceFileName?: string;
+	sourceFileSize?: number;
+	/** Relative path from the last user-selected recovery directory, when known. */
+	sourcePath?: string;
 	fileName: string;
 	fileSize: number;
 	mimeType: string;

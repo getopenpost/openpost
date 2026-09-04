@@ -144,6 +144,10 @@ export async function importFile(
 		const fileLastModified = resolved.lastModified;
 		const effectiveStorageMode = effectiveMediaStorageMode(storageMode, resolved.file, file);
 		const storedHandle = effectiveStorageMode === 'link' ? handle : undefined;
+		const sourceIdentity =
+			file.name !== resolved.file.name || file.size !== resolved.file.size
+				? { sourceFileName: resolved.file.name, sourceFileSize: resolved.file.size }
+				: {};
 
 		let thumbnailBlob: Blob | undefined;
 		let metadata: MediaMetadata;
@@ -155,6 +159,7 @@ export async function importFile(
 				storageType: effectiveStorageMode === 'copy' ? 'workspace' : 'handle',
 				fileHandle: storedHandle,
 				fileLastModified,
+				...sourceIdentity,
 				fileName: file.name,
 				fileSize: file.size,
 				mimeType:
@@ -188,6 +193,7 @@ export async function importFile(
 				storageType: effectiveStorageMode === 'copy' ? 'workspace' : 'handle',
 				fileHandle: storedHandle,
 				fileLastModified,
+				...sourceIdentity,
 				fileName: file.name,
 				fileSize: file.size,
 				mimeType: file.type || 'application/octet-stream',

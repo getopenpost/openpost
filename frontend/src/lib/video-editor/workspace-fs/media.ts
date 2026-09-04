@@ -35,6 +35,7 @@ async function stashFileHandle(media: MediaMetadata): Promise<SerializedMedia> {
 			handle: fileHandle,
 			name: fileHandle.name,
 			pickedAt: Date.now(),
+			lastSeenPath: media.sourcePath,
 			lastSeenSize: media.fileSize,
 			lastSeenMtime: media.fileLastModified
 		});

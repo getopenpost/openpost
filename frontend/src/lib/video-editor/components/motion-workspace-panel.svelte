@@ -104,18 +104,20 @@
 </script>
 
 <aside
-	class="flex size-full min-w-0 shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto border-t border-[oklch(0.25_0.015_55)] p-2 lg:border-t-0 lg:border-l"
+	class="flex size-full min-w-0 shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto border-t border-[var(--video-editor-border)] p-2 lg:border-t-0 lg:border-l"
 	aria-label={m.video_editor_workspace_motion()}
 >
-	<h2 class="px-1 text-xs font-medium tracking-wide text-[oklch(0.65_0.015_55)] uppercase">
+	<h2 class="px-1 text-xs font-medium tracking-wide text-[var(--video-editor-muted)] uppercase">
 		{m.video_editor_workspace_motion()}
 	</h2>
 	{#if !activeComposite}
-		<section class="rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.16_0.01_55)] p-3">
+		<section
+			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="min-w-0">
 					<h3 class="text-sm font-medium">{m.video_editor_motion_composition_title()}</h3>
-					<p class="mt-1 text-xs leading-5 text-[oklch(0.65_0.015_55)]">
+					<p class="mt-1 text-xs leading-5 text-[var(--video-editor-muted)]">
 						{m.video_editor_motion_composition_description()}
 					</p>
 				</div>
@@ -144,9 +146,11 @@
 	{/if}
 	<CompositionControlsAuthoring {onedit} />
 	{#if supportsMotion}
-		<section class="rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.16_0.01_55)] p-3">
+		<section
+			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+		>
 			<h3 class="text-sm font-medium">{m.video_editor_motion_parent_title()}</h3>
-			<p class="mt-1 text-xs leading-5 text-[oklch(0.65_0.015_55)]">
+			<p class="mt-1 text-xs leading-5 text-[var(--video-editor-muted)]">
 				{m.video_editor_motion_parent_description()}
 			</p>
 			<label class="mt-3 block text-xs font-medium" for="motion-parent-select">
@@ -160,7 +164,7 @@
 				<Select.Trigger
 					id="motion-parent-select"
 					aria-label={m.video_editor_motion_parent_label()}
-					class="mt-1 h-9 w-full justify-between rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.12_0.008_55)] px-2 text-sm shadow-none"
+					class="mt-1 h-9 w-full justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-sm shadow-none"
 				>
 					<span class="truncate"
 						>{parentCandidates.find((c) => c.id === item?.transformParent?.parentItemId)?.label ??
@@ -194,7 +198,7 @@
 			<TextMotionPanel {itemId} {itemIds} {onedit} />
 		{/if}
 	{:else}
-		<p class="p-3 text-center text-xs text-[oklch(0.65_0.015_55)]">
+		<p class="p-3 text-center text-xs text-[var(--video-editor-muted)]">
 			{m.video_editor_motion_select_clip()}
 		</p>
 	{/if}

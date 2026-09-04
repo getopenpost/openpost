@@ -96,18 +96,20 @@
 
 {#if items.length > 0}
 	<section
-		class="overflow-hidden rounded-md border border-white/8 bg-white/[0.025]"
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
 		data-testid="animated-image-playback-section"
 	>
 		<h3
-			class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-xs font-semibold tracking-wider text-white/58 uppercase"
+			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-xs font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
-			<ProtectedIcon icon="editor-speed" class="size-3.5 text-white/42" />
+			<ProtectedIcon icon="editor-speed" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_clip_playback()}
 		</h3>
-		<div class="divide-y divide-white/6">
+		<div class="divide-y divide-[var(--video-editor-border)]">
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-xs font-medium text-white/48">{m.video_editor_clip_speed()}</span>
+				<span class="text-xs font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_clip_speed()}</span
+				>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
 						class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
@@ -133,20 +135,20 @@
 							max={10}
 							step={0.01}
 							decimals={2}
-							class="h-7 w-full rounded border border-white/8 bg-black/18 py-1 pr-4 pl-1.5 text-right text-xs tabular-nums outline-none"
+							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-xs tabular-nums outline-none"
 							onbegin={beginGesture}
 							onlive={writeSpeed}
 							oncommit={commitSpeed}
 							oncancel={cancelGesture}
 						/>
 						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-xs text-white/30"
+							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-xs text-[var(--video-editor-muted)]"
 							>×</span
 						>
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_motion_override_reset({ name: m.video_editor_clip_speed() })}
 						onclick={resetSpeed}
 					>

@@ -137,11 +137,11 @@
 </script>
 
 <section class="flex flex-col gap-2">
-	<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
+	<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
 		{m.video_editor_shapes()}
 	</h3>
 
-	<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+	<label class="text-[10px] text-[var(--video-editor-muted)]">
 		{m.video_editor_shape_kind()}
 		<AppSelect
 			class="mt-0.5 h-8 w-full text-xs"
@@ -160,7 +160,7 @@
 
 	{#if !item.isMask}
 		<div class="grid grid-cols-2 gap-1">
-			<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]">
 				<Checkbox
 					checked={item.fillEnabled ?? true}
 					onCheckedChange={(checked) => commit({ fillEnabled: checked === true })}
@@ -168,7 +168,7 @@
 				/>
 				{m.video_editor_shape_fill_enabled()}
 			</label>
-			<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]">
 				<Checkbox
 					checked={item.strokeEnabled ?? false}
 					onCheckedChange={(checked) => commit({ strokeEnabled: checked === true })}
@@ -180,7 +180,7 @@
 
 		{#if item.fillEnabled ?? true}
 			<div class="grid grid-cols-2 gap-1">
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_fill_style()}
 					<AppSelect
 						class="mt-0.5 h-8 w-full text-xs"
@@ -193,7 +193,7 @@
 						onValueChange={(value) => commit({ fillType: value as 'solid' | 'linear' })}
 					/>
 				</label>
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{item.fillType === 'linear'
 						? m.video_editor_shape_gradient_start()
 						: m.video_editor_shape_fill()}
@@ -214,7 +214,7 @@
 			</div>
 			{#if item.fillType === 'linear'}
 				<div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-1">
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+					<label class="text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_shape_gradient_end()}
 						<Input
 							type="color"
@@ -223,14 +223,14 @@
 							onchange={(event) => commit({ gradientEndColor: event.currentTarget.value })}
 						/>
 					</label>
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+					<label class="text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_shape_gradient_angle()}
 						<Input
 							type="number"
 							min="-360"
 							max="360"
 							step="1"
-							class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 							value={item.gradientAngle ?? 0}
 							onchange={(event) => numberPatch('gradientAngle', event.currentTarget.valueAsNumber)}
 						/>
@@ -252,7 +252,7 @@
 
 		{#if item.strokeEnabled}
 			<div class="grid grid-cols-2 gap-1">
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_stroke()}
 					<Input
 						type="color"
@@ -261,21 +261,21 @@
 						onchange={(event) => commit({ strokeColor: event.currentTarget.value })}
 					/>
 				</label>
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_stroke_width()}
 					<Input
 						type="number"
 						min="0"
 						max="500"
 						step="1"
-						class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 						value={item.strokeWidth ?? 8}
 						onchange={(event) => numberPatch('strokeWidth', event.currentTarget.valueAsNumber)}
 					/>
 				</label>
 			</div>
 			<div class="grid grid-cols-2 gap-1">
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_line_cap()}
 					<AppSelect
 						class="mt-0.5 h-8 w-full text-xs"
@@ -290,7 +290,7 @@
 							commit({ strokeLineCap: value as NonNullable<TimelineItem['strokeLineCap']> })}
 					/>
 				</label>
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_line_join()}
 					<AppSelect
 						class="mt-0.5 h-8 w-full text-xs"
@@ -307,14 +307,14 @@
 				</label>
 			</div>
 			{#if (item.strokeLineJoin ?? 'miter') === 'miter'}
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_miter_limit()}
 					<Input
 						type="number"
 						min="1"
 						max="100"
 						step="0.5"
-						class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 						value={item.strokeMiterLimit ?? 4}
 						onchange={(event) => numberPatch('strokeMiterLimit', event.currentTarget.valueAsNumber)}
 					/>
@@ -322,22 +322,22 @@
 			{/if}
 
 			{#if !item.isMask}
-				<fieldset class="space-y-1.5 border-t border-white/10 pt-2">
+				<fieldset class="space-y-1.5 border-t border-[var(--video-editor-border)] pt-2">
 					<legend
-						class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
+						class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 					>
 						{m.video_editor_shape_trim_paths()}
 					</legend>
 					<div class="grid grid-cols-2 gap-1">
 						{#each trimPathFields as field (field.property)}
-							<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 								{field.label}
 								<Input
 									type="number"
 									min={field.minimum}
 									max={field.maximum}
 									step="1"
-									class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+									class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 									value={item[field.property] ?? field.defaultValue}
 									onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
 								/>
@@ -346,22 +346,22 @@
 					</div>
 				</fieldset>
 
-				<fieldset class="space-y-1.5 border-t border-white/10 pt-2">
+				<fieldset class="space-y-1.5 border-t border-[var(--video-editor-border)] pt-2">
 					<legend
-						class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
+						class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 					>
 						{m.video_editor_shape_taper()}
 					</legend>
 					<div class="grid grid-cols-2 gap-1">
 						{#each taperFields as field (field.property)}
-							<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 								{field.label}
 								<Input
 									type="number"
 									min={field.minimum}
 									max={field.maximum}
 									step="1"
-									class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+									class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 									value={item[field.property] ?? field.defaultValue}
 									onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
 								/>
@@ -373,14 +373,14 @@
 		{/if}
 
 		{#if ['rectangle', 'triangle', 'star', 'polygon'].includes(item.shapeType ?? 'rectangle')}
-			<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_corner_radius()}
 				<Input
 					type="number"
 					min="0"
 					max="1000"
 					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 					value={item.shapeCornerRadius ?? 0}
 					onchange={(event) => numberPatch('shapeCornerRadius', event.currentTarget.valueAsNumber)}
 				/>
@@ -388,7 +388,7 @@
 		{/if}
 
 		{#if item.shapeType === 'triangle'}
-			<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_shape_direction()}
 				<AppSelect
 					class="mt-0.5 h-8 w-full text-xs"
@@ -408,27 +408,27 @@
 
 		{#if item.shapeType === 'star' || item.shapeType === 'polygon'}
 			<div class="grid grid-cols-2 gap-1">
-				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_points()}
 					<Input
 						type="number"
 						min="3"
 						max="64"
 						step="1"
-						class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 						value={item.shapePoints ?? (item.shapeType === 'star' ? 5 : 6)}
 						onchange={(event) => numberPatch('shapePoints', event.currentTarget.valueAsNumber)}
 					/>
 				</label>
 				{#if item.shapeType === 'star'}
-					<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+					<label class="text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_shape_inner_radius()}
 						<Input
 							type="number"
 							min="0.05"
 							max="0.95"
 							step="0.01"
-							class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 							value={item.shapeInnerRadius ?? 0.5}
 							onchange={(event) =>
 								numberPatch('shapeInnerRadius', event.currentTarget.valueAsNumber)}
@@ -439,8 +439,8 @@
 		{/if}
 	{/if}
 
-	<div class="border-t border-[oklch(0.3_0.015_55)] pt-2">
-		<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
+	<div class="border-t border-[var(--video-editor-border)] pt-2">
+		<label class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]">
 			<Checkbox
 				checked={item.isMask ?? false}
 				disabled={pathTopologyLocked && !item.isMask && item.pathClosed === false}
@@ -452,10 +452,10 @@
 	</div>
 
 	{#if item.isMask}
-		<p class="text-[10px] leading-4 text-[oklch(0.6_0.01_55)]">
+		<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
 			{m.video_editor_shape_mask_scope()}
 		</p>
-		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_shape_mask_type()}
 			<AppSelect
 				class="mt-0.5 h-8 w-full text-xs"
@@ -470,34 +470,34 @@
 		</label>
 
 		{#if item.maskType === 'alpha'}
-			<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_shape_mask_feather()}
 				<Input
 					type="number"
 					min="0"
 					max="100"
 					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 					value={item.maskFeather ?? 10}
 					onchange={(event) => numberPatch('maskFeather', event.currentTarget.valueAsNumber)}
 				/>
 			</label>
 		{/if}
 
-		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_shape_mask_opacity()}
 			<Input
 				type="number"
 				min="0"
 				max="100"
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 				value={item.maskOpacity ?? 100}
 				onchange={(event) => numberPatch('maskOpacity', event.currentTarget.valueAsNumber)}
 			/>
 		</label>
 
-		<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]">
 			<Checkbox
 				checked={item.maskInvert ?? false}
 				onCheckedChange={(checked) => commit({ maskInvert: checked === true })}
@@ -508,7 +508,7 @@
 
 		{#if item.shapeType === 'path'}
 			<p
-				class="rounded bg-[oklch(0.18_0.01_50)] px-2 py-1.5 text-[10px] leading-4 text-[oklch(0.72_0.01_55)]"
+				class="rounded bg-[var(--video-editor-panel)] px-2 py-1.5 text-[10px] leading-4 text-[var(--video-editor-muted)]"
 			>
 				{m.video_editor_shape_mask_path_hint()}
 			</p>

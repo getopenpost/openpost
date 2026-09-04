@@ -79,15 +79,15 @@
 </script>
 
 <section
-	class="flex flex-col gap-3 rounded-[10px] border border-[oklch(0.25_0.015_55)] bg-[oklch(0.2_0.01_50)] p-2.5"
+	class="flex flex-col gap-3 rounded-[10px] border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
 	aria-label={m.video_editor_background_inspector()}
 >
-	<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
+	<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
 		{m.video_editor_backgrounds_title()}
 	</h3>
 
 	<div class="flex flex-col gap-1.5">
-		<Label class="text-[10px] text-[oklch(0.7_0.01_55)]" for="bg-preset"
+		<Label class="text-[10px] text-[var(--video-editor-muted)]" for="bg-preset"
 			>{m.video_editor_background_preset()}</Label
 		>
 		<div
@@ -106,7 +106,7 @@
 				>
 					<span
 						aria-hidden="true"
-						class="h-6 w-full rounded-sm border border-white/10"
+						class="h-6 w-full rounded-sm border border-[var(--video-editor-border)]"
 						style:background={preset.background.kind === 'mesh-gradient'
 							? `linear-gradient(135deg, ${preset.background.colors[0]}, ${preset.background.colors[1]}, ${preset.background.colors[2]}, ${preset.background.colors[3]})`
 							: preset.background.background}
@@ -117,7 +117,7 @@
 		</div>
 	</div>
 
-	<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+	<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 		{m.video_editor_background_kind()}
 		<AppSelect
 			class="mt-0.5 h-8 w-full text-xs"
@@ -161,7 +161,7 @@
 	{#if bg.kind === 'mesh-gradient'}
 		<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
 			{#each [0, 1, 2, 3] as idx (idx)}
-				<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_background_color_label({ index: idx + 1 })}
 					<Input
 						type="color"
@@ -184,7 +184,7 @@
 			{/each}
 		</div>
 
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_smoothness()}</span><span class="tabular-nums"
 					>{bg.smoothness.toFixed(2)}</span
@@ -201,7 +201,7 @@
 			/>
 		</label>
 	{:else}
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_background_pattern_kind()}
 			<AppSelect
 				class="mt-0.5 h-8 w-full text-xs"
@@ -222,7 +222,7 @@
 			/>
 		</label>
 		<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
-			<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_background_foreground()}
 				<Input
 					type="color"
@@ -235,7 +235,7 @@
 					}}
 				/>
 			</label>
-			<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_background_background_color()}
 				<Input
 					type="color"
@@ -250,7 +250,7 @@
 			</label>
 		</div>
 
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_density()}</span><span class="tabular-nums"
 					>{bg.density.toFixed(2)}</span
@@ -266,7 +266,7 @@
 					commitKeyframeOr('backgroundDensity', v, () => updateBackgroundDensity(item.id, v))}
 			/>
 		</label>
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_fg_opacity()}</span><span class="tabular-nums"
 					>{Math.round(bg.foregroundOpacity * 100)}%</span
@@ -287,7 +287,7 @@
 	{/if}
 
 	<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_rotation()}</span><span class="tabular-nums"
 					>{Math.round(bg.rotation)}°</span
@@ -303,7 +303,7 @@
 					commitKeyframeOr('backgroundRotation', v, () => updateBackgroundRotation(item.id, v))}
 			/>
 		</label>
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_scale()}</span><span class="tabular-nums"
 					>{bg.scale.toFixed(2)}×</span
@@ -322,7 +322,7 @@
 	</div>
 
 	<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_offset_x()}</span><span class="tabular-nums"
 					>{bg.offsetX.toFixed(2)}</span
@@ -338,7 +338,7 @@
 					commitKeyframeOr('backgroundOffsetX', v, () => updateBackgroundOffsetX(item.id, v))}
 			/>
 		</label>
-		<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between"
 				><span>{m.video_editor_background_offset_y()}</span><span class="tabular-nums"
 					>{bg.offsetY.toFixed(2)}</span
@@ -356,7 +356,7 @@
 		</label>
 	</div>
 
-	<p class="text-[10px] leading-4 text-[oklch(0.65_0.015_55)]">
+	<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
 		{m.video_editor_background_hint()}
 	</p>
 </section>

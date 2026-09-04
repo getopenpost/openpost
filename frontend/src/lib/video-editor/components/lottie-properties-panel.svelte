@@ -196,17 +196,17 @@
 
 <section class="flex flex-col gap-2" aria-label={m.video_editor_lottie()}>
 	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
+		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
 			{m.video_editor_lottie()}
 		</h3>
-		<span class="text-[9px] text-[oklch(0.58_0.01_55)] tabular-nums">
+		<span class="text-[9px] text-[var(--video-editor-muted)] tabular-nums">
 			{item.lottieTotalFrames ?? 1}f · {(item.lottieFrameRate ?? 30).toFixed(2)} fps
 		</span>
 	</div>
 	{#if animations.length > 1 || themes.length > 0}
 		<div class="grid grid-cols-2 gap-1">
 			{#if animations.length > 1}
-				<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_animation()}
 					<AppSelect
 						class="mt-0.5 h-8 w-full text-xs"
@@ -218,7 +218,7 @@
 				</label>
 			{/if}
 			{#if themes.length > 0}
-				<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+				<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_theme()}
 					<AppSelect
 						class="mt-0.5 h-8 w-full text-xs"
@@ -235,19 +235,19 @@
 		</div>
 	{/if}
 	<div class="grid grid-cols-2 gap-1">
-		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_lottie_speed()}
 			<Input
 				type="number"
 				min="0.05"
 				max="16"
 				step="0.05"
-				class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 				value={item.speed ?? 1}
 				onchange={(event) => setNumber('speed', event.currentTarget.valueAsNumber)}
 			/>
 		</label>
-		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_lottie_repeat_mode()}
 			<AppSelect
 				class="mt-0.5 h-8 w-full text-xs"
@@ -262,7 +262,7 @@
 		</label>
 	</div>
 	{#if item.lottieMarkers && item.lottieMarkers.length > 0}
-		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_lottie_marker()}
 			<AppSelect
 				class="mt-0.5 h-8 w-full text-xs"
@@ -280,33 +280,33 @@
 		</label>
 	{/if}
 	<div class="grid grid-cols-2 gap-1">
-		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_property_start()}
 			<Input
 				type="number"
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 				value={item.lottieSegmentStart ?? 0}
 				onchange={(event) => setNumber('lottieSegmentStart', event.currentTarget.valueAsNumber)}
 			/>
 		</label>
-		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_property_end()}
 			<Input
 				type="number"
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 				value={item.lottieSegmentEnd ?? maxFrame}
 				onchange={(event) => setNumber('lottieSegmentEnd', event.currentTarget.valueAsNumber)}
 			/>
 		</label>
 	</div>
-	<div class="grid grid-cols-2 gap-1 rounded bg-[oklch(0.19_0.01_50)] p-1.5">
-		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[oklch(0.72_0.01_55)]">
+	<div class="grid grid-cols-2 gap-1 rounded bg-[var(--video-editor-panel)] p-1.5">
+		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[var(--video-editor-muted)]">
 			<Checkbox
 				checked={item.lottieLoop ?? true}
 				onCheckedChange={(checked) => commit({ lottieLoop: checked === true })}
@@ -314,7 +314,7 @@
 			/>
 			{m.video_editor_lottie_repeat()}
 		</label>
-		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[oklch(0.72_0.01_55)]">
+		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[var(--video-editor-muted)]">
 			<Checkbox
 				checked={item.lottieReversed ?? false}
 				onCheckedChange={(checked) => commit({ lottieReversed: checked === true })}
@@ -323,11 +323,11 @@
 			{m.video_editor_lottie_reverse()}
 		</label>
 	</div>
-	<p class="text-[10px] leading-4 text-[oklch(0.58_0.01_55)]">
+	<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
 		{m.video_editor_lottie_hint()}
 	</p>
 	{#if inspectorLoading}
-		<p class="text-[10px] text-[oklch(0.58_0.01_55)]" role="status">
+		<p class="text-[10px] text-[var(--video-editor-muted)]" role="status">
 			{m.video_editor_lottie_inspecting()}
 		</p>
 	{:else if inspectorError}
@@ -337,15 +337,15 @@
 	{/if}
 
 	{#if textLayers.length > 0}
-		<div class="flex flex-col gap-1.5 border-t border-[oklch(0.27_0.01_50)] pt-2">
+		<div class="flex flex-col gap-1.5 border-t border-[var(--video-editor-border)] pt-2">
 			<div class="flex items-center justify-between gap-2">
-				<h4 class="text-[10px] font-medium text-[oklch(0.72_0.01_55)]">
+				<h4 class="text-[10px] font-medium text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_text_layers()}
 				</h4>
 				{#if item.lottieTextOverrides}
 					<button
 						type="button"
-						class="rounded px-1 text-[9px] text-[oklch(0.68_0.05_45)] hover:bg-[oklch(0.24_0.02_45)]"
+						class="rounded px-1 text-[9px] text-[var(--video-editor-primary)] hover:bg-[var(--video-editor-control-hover)]"
 						onclick={() => commit({ lottieTextOverrides: undefined })}
 					>
 						{m.video_editor_lottie_reset()}
@@ -353,10 +353,10 @@
 				{/if}
 			</div>
 			{#each textLayers as layer (layer.key)}
-				<label class="min-w-0 text-[9px] text-[oklch(0.62_0.01_55)]">
+				<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
 					<span class="block truncate">{layer.label}</span>
 					<Input
-						class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 						value={item.lottieTextOverrides?.[layer.key] ?? layer.text}
 						onchange={(event) => setText(layer, event.currentTarget.value)}
 					/>
@@ -366,15 +366,15 @@
 	{/if}
 
 	{#if colorGroups.length > 0}
-		<div class="flex flex-col gap-1.5 border-t border-[oklch(0.27_0.01_50)] pt-2">
+		<div class="flex flex-col gap-1.5 border-t border-[var(--video-editor-border)] pt-2">
 			<div class="flex items-center justify-between gap-2">
-				<h4 class="text-[10px] font-medium text-[oklch(0.72_0.01_55)]">
+				<h4 class="text-[10px] font-medium text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_colors()}
 				</h4>
 				{#if item.lottieColorOverrides}
 					<button
 						type="button"
-						class="rounded px-1 text-[9px] text-[oklch(0.68_0.05_45)] hover:bg-[oklch(0.24_0.02_45)]"
+						class="rounded px-1 text-[9px] text-[var(--video-editor-primary)] hover:bg-[var(--video-editor-control-hover)]"
 						onclick={() => commit({ lottieColorOverrides: undefined })}
 					>
 						{m.video_editor_lottie_reset()}
@@ -383,7 +383,7 @@
 			</div>
 			{#each namedColors.length > 0 ? namedColors : otherColors as group (group.original)}
 				<label
-					class="flex min-h-8 items-center justify-between gap-2 rounded bg-[oklch(0.2_0.01_50)] px-1.5 text-[10px] text-[oklch(0.68_0.01_55)]"
+					class="flex min-h-8 items-center justify-between gap-2 rounded bg-[var(--video-editor-panel)] px-1.5 text-[10px] text-[var(--video-editor-muted)]"
 				>
 					<span class="min-w-0 truncate">{group.label}</span>
 					<Input
@@ -397,7 +397,7 @@
 			{#if namedColors.length > 0 && otherColors.length > 0}
 				<button
 					type="button"
-					class="min-h-7 rounded px-1.5 text-left text-[10px] text-[oklch(0.62_0.01_55)] hover:bg-[oklch(0.22_0.01_50)]"
+					class="min-h-7 rounded px-1.5 text-left text-[10px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)]"
 					onclick={() => (showOtherColors = !showOtherColors)}
 				>
 					{showOtherColors
@@ -407,7 +407,7 @@
 				{#if showOtherColors}
 					{#each otherColors as group (group.original)}
 						<label
-							class="flex min-h-8 items-center justify-between gap-2 rounded bg-[oklch(0.2_0.01_50)] px-1.5 text-[10px] text-[oklch(0.68_0.01_55)]"
+							class="flex min-h-8 items-center justify-between gap-2 rounded bg-[var(--video-editor-panel)] px-1.5 text-[10px] text-[var(--video-editor-muted)]"
 						>
 							<span class="min-w-0 truncate">{group.label}</span>
 							<Input
@@ -425,15 +425,15 @@
 	{/if}
 
 	{#if valueSlots.length > 0}
-		<div class="flex flex-col gap-1.5 border-t border-[oklch(0.27_0.01_50)] pt-2">
+		<div class="flex flex-col gap-1.5 border-t border-[var(--video-editor-border)] pt-2">
 			<div class="flex items-center justify-between gap-2">
-				<h4 class="text-[10px] font-medium text-[oklch(0.72_0.01_55)]">
+				<h4 class="text-[10px] font-medium text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_properties()}
 				</h4>
 				{#if item.lottieSlotOverrides}
 					<button
 						type="button"
-						class="rounded px-1 text-[9px] text-[oklch(0.68_0.05_45)] hover:bg-[oklch(0.24_0.02_45)]"
+						class="rounded px-1 text-[9px] text-[var(--video-editor-primary)] hover:bg-[var(--video-editor-control-hover)]"
 						onclick={() => commit({ lottieSlotOverrides: undefined })}
 					>
 						{m.video_editor_lottie_reset()}
@@ -442,13 +442,13 @@
 			</div>
 			{#each valueSlots as slot (slot.id)}
 				{@const current = item.lottieSlotOverrides?.[slot.id] ?? slot.value}
-				<label class="min-w-0 text-[9px] text-[oklch(0.62_0.01_55)]">
+				<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
 					<span class="block truncate">{slot.label}</span>
 					{#if slot.type === 'scalar'}
 						<Input
 							type="number"
 							step="0.1"
-							class="mt-0.5 h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 							value={typeof current === 'number' ? current : slot.value}
 							onchange={(event) => setSlot(slot, event.currentTarget.valueAsNumber)}
 						/>
@@ -458,7 +458,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+								class="h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 								aria-label={`${slot.label} X`}
 								value={vector[0]}
 								onchange={(event) => setSlot(slot, [event.currentTarget.valueAsNumber, vector[1]])}
@@ -466,7 +466,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-8 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 text-xs"
+								class="h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
 								aria-label={`${slot.label} Y`}
 								value={vector[1]}
 								onchange={(event) => setSlot(slot, [vector[0], event.currentTarget.valueAsNumber])}

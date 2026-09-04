@@ -21,7 +21,7 @@ Editing never syncs to OpenPost. Only final exports cross the boundary ("Send to
 
 ## Architecture
 
-Ported from FreeCut (adapt React→Svelte 5 runes, Tailwind 4 + bits-ui `ui/` primitives, paraglide i18n, OpenPost dark-theme tokens; editor chrome is dark-only per FreeCut's model, mapped onto OpenPost `*-dark` palette values):
+Ported from FreeCut (adapt React→Svelte 5 runes, Tailwind 4 + bits-ui `ui/` primitives, and paraglide i18n). Product chrome inherits the resolved organization theme. Preview, timeline, image pasteboard, guides, handles, scopes, and signal meters use explicit protected editor roles so authored media and editing geometry remain stable across every theme:
 
 | Layer                                                                                                                                                                                        | Source                                                    | Port strategy                                                                                                   |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |

@@ -512,7 +512,9 @@
 	aria-label={m.video_editor_effects()}
 >
 	{#if showColorTools}<ColorWorkspace {itemId} {itemIds} {onedit} />{/if}
-	<div class="flex h-8 shrink-0 items-center gap-1 border-b border-white/10 px-1">
+	<div
+		class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1"
+	>
 		<EffectPicker
 			bind:value={pendingKind}
 			options={effectOptions}
@@ -532,7 +534,7 @@
 		{#if effects.length > 0}
 			<button
 				type="button"
-				class="flex size-7 shrink-0 items-center justify-center rounded border border-white/10 bg-[oklch(0.22_0.01_50)] hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 				aria-label={m.video_editor_effects_preset_save_current()}
 				title={m.video_editor_effects_preset_save_current()}
 				aria-expanded={showPresetSave}
@@ -542,7 +544,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex size-7 shrink-0 items-center justify-center rounded border border-white/10 bg-[oklch(0.22_0.01_50)] hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 				aria-label={allEffectsEnabled
 					? m.video_editor_effects_disable_all()
 					: m.video_editor_effects_enable_all()}
@@ -561,7 +563,7 @@
 	{#if showPresetSave}
 		<div class="flex items-center gap-1 px-1">
 			<Input
-				class="h-8 min-w-0 flex-1 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.16_0.008_50)] px-2 text-xs"
+				class="h-8 min-w-0 flex-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs"
 				bind:value={presetName}
 				maxlength="80"
 				aria-label={m.video_editor_effects_preset_name()}
@@ -573,7 +575,7 @@
 			/>
 			<button
 				type="button"
-				class="flex h-8 items-center gap-1 rounded bg-[oklch(0.62_0.13_45)] px-2 text-xs font-medium text-black hover:bg-[oklch(0.68_0.14_45)] focus-visible:outline-2 focus-visible:outline-[oklch(0.8_0.12_45)] disabled:opacity-40"
+				class="flex h-8 items-center gap-1 rounded bg-[var(--video-editor-primary)] px-2 text-xs font-medium text-[var(--video-editor-primary-text)] hover:bg-[var(--video-editor-primary)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40"
 				disabled={!presetName.trim() || effects.length === 0}
 				onclick={saveCurrentPreset}
 			>
@@ -581,7 +583,7 @@
 			</button>
 			<button
 				type="button"
-				class="rounded p-1.5 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="rounded p-1.5 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 				aria-label={m.common_cancel()}
 				title={m.common_cancel()}
 				onclick={() => (showPresetSave = false)}
@@ -590,18 +592,18 @@
 			</button>
 		</div>
 	{/if}
-	{#if presetStatus}<p class="px-1 text-[10px] text-[oklch(0.7_0.02_55)]" role="status">
+	{#if presetStatus}<p class="px-1 text-[10px] text-[var(--video-editor-muted)]" role="status">
 			{presetStatus}
 		</p>{/if}
 	{#if !itemId || effects.length === 0}
-		<p class="px-1 text-xs text-[oklch(0.65_0.015_55)]">{m.video_editor_effects_none()}</p>
+		<p class="px-1 text-xs text-[var(--video-editor-muted)]">{m.video_editor_effects_none()}</p>
 	{:else}
 		<ul class="min-h-0 flex-1 overflow-y-auto">
 			{#each effects as effect, index (effect.id)}
 				{@const definition = definitionFor(effect.type)}
 				{@const gpuDefinition = effect.type === 'gpu' ? getGpuEffect(effect.effectId) : undefined}
 				<li
-					class="border-b border-white/10 bg-[oklch(0.18_0.008_50)]"
+					class="border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 					data-effect-id={effect.id}
 					data-enabled={effect.enabled}
 				>
@@ -610,12 +612,12 @@
 							{#snippet child({ props })}
 								<div
 									{...props}
-									class="flex min-h-8 items-center justify-between gap-1 bg-white/[0.025] px-1"
+									class="flex min-h-8 items-center justify-between gap-1 bg-[var(--video-editor-control-hover)] px-1"
 									data-effect-context-trigger
 								>
 									<button
 										type="button"
-										class="flex min-w-0 flex-1 items-center gap-1 px-1 text-left text-xs text-white/70 hover:text-white"
+										class="flex min-w-0 flex-1 items-center gap-1 px-1 text-left text-xs text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)]"
 										class:opacity-55={!effect.enabled}
 										aria-expanded={!collapsedEffects.has(effect.id)}
 										onclick={() => toggleEffectCollapsed(effect.id)}
@@ -632,14 +634,17 @@
 												aria-label={m.video_editor_effects_modified()}
 												data-effect-modified
 											>
-												<span class="size-1.5 rounded-full bg-orange-400" aria-hidden="true"></span>
+												<span
+													class="size-1.5 rounded-full bg-[var(--video-editor-primary)]"
+													aria-hidden="true"
+												></span>
 											</span>
 										{/if}
 									</button>
 									<div class="flex shrink-0 items-center">
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
 											disabled={index === 0}
 											aria-label={m.video_editor_effects_move_up()}
 											title={m.video_editor_effects_move_up()}
@@ -649,7 +654,7 @@
 										</button>
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
 											disabled={index === effects.length - 1}
 											aria-label={m.video_editor_effects_move_down()}
 											title={m.video_editor_effects_move_down()}
@@ -659,7 +664,7 @@
 										</button>
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
 											disabled={isEffectAtDefaults(effect)}
 											aria-label={m.video_editor_effects_reset()}
 											title={m.video_editor_effects_reset()}
@@ -669,7 +674,7 @@
 										</button>
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 											aria-label={effect.enabled
 												? m.video_editor_effects_disable()
 												: m.video_editor_effects_enable()}
@@ -686,7 +691,7 @@
 										</button>
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 											aria-label={m.video_editor_effects_remove()}
 											title={m.video_editor_effects_remove()}
 											onclick={() => removeStackEffect(effect.id)}
@@ -754,10 +759,10 @@
 								{#if getSpatialPointEffectConfig(effect.effectId)}
 									<button
 										type="button"
-										class="mt-1 flex h-7 w-full items-center justify-center gap-1.5 rounded border border-[oklch(0.32_0.015_55)] px-2 text-xs hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:h-11 {isSpatialEditing(
+										class="mt-1 flex h-7 w-full items-center justify-center gap-1.5 rounded border border-[var(--video-editor-border)] px-2 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:h-11 {isSpatialEditing(
 											effect.id
 										)
-											? 'border-[oklch(0.66_0.14_45)] bg-[oklch(0.66_0.14_45)] text-black hover:bg-[oklch(0.72_0.14_45)]'
+											? 'border-[oklch(0.66_0.14_45)] bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)] hover:bg-[var(--video-editor-primary)]'
 											: ''}"
 										disabled={!effect.enabled || selectedEffectItemIds.length !== 1}
 										aria-pressed={isSpatialEditing(effect.id)}
@@ -775,7 +780,7 @@
 								{#if effect.effectId === 'gpu-lut'}
 									<button
 										type="button"
-										class="mt-1 w-full rounded border border-[oklch(0.32_0.015_55)] px-2 py-1 text-xs hover:bg-[oklch(0.28_0.015_50)]"
+										class="mt-1 w-full rounded border border-[var(--video-editor-border)] px-2 py-1 text-xs hover:bg-[var(--video-editor-control-hover)]"
 										onclick={() => importLut(effect)}
 										>{typeof effect.params.lutName === 'string'
 											? effect.params.lutName

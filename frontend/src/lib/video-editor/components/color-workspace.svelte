@@ -213,16 +213,16 @@
 
 {#if isVisual}
 	<section
-		class="flex h-full min-h-0 flex-col overflow-hidden bg-[oklch(0.16_0.009_55)]"
+		class="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--video-editor-panel)]"
 		aria-label={m.video_editor_color_workspace()}
 	>
-		<div class="shrink-0 border-b border-white/10 px-2 py-1.5">
+		<div class="shrink-0 border-b border-[var(--video-editor-border)] px-2 py-1.5">
 			<div class="flex items-center justify-between gap-2">
-				<h3 class="text-xs font-semibold tracking-wide text-[oklch(0.78_0.03_55)] uppercase">
+				<h3 class="text-xs font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase">
 					{m.video_editor_color_workspace()}
 				</h3>
 				<div
-					class="grid grid-cols-3 overflow-hidden rounded border border-[oklch(0.32_0.015_55)]"
+					class="grid grid-cols-3 overflow-hidden rounded border border-[var(--video-editor-border)]"
 					role="group"
 					aria-label={m.video_editor_color_compare_mode()}
 				>
@@ -230,8 +230,8 @@
 						type="button"
 						class="flex h-7 items-center gap-1 px-2 text-[10px] {colorPreviewStore.comparisonMode ===
 						'after'
-							? 'bg-[oklch(0.62_0.13_45)] text-black'
-							: 'hover:bg-[oklch(0.25_0.015_55)]'}"
+							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
+							: 'hover:bg-[var(--video-editor-control)]'}"
 						aria-pressed={colorPreviewStore.comparisonMode === 'after'}
 						onclick={() => setComparison('after')}
 					>
@@ -239,10 +239,10 @@
 					</button>
 					<button
 						type="button"
-						class="flex h-7 items-center gap-1 border-l border-[oklch(0.32_0.015_55)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
+						class="flex h-7 items-center gap-1 border-l border-[var(--video-editor-border)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
 						'before'
-							? 'bg-[oklch(0.62_0.13_45)] text-black'
-							: 'hover:bg-[oklch(0.25_0.015_55)]'}"
+							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
+							: 'hover:bg-[var(--video-editor-control)]'}"
 						disabled={!hasGrade}
 						aria-pressed={colorPreviewStore.comparisonMode === 'before'}
 						onclick={() => setComparison('before')}
@@ -251,10 +251,10 @@
 					</button>
 					<button
 						type="button"
-						class="flex h-7 items-center gap-1 border-l border-[oklch(0.32_0.015_55)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
+						class="flex h-7 items-center gap-1 border-l border-[var(--video-editor-border)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
 						'split'
-							? 'bg-[oklch(0.62_0.13_45)] text-black'
-							: 'hover:bg-[oklch(0.25_0.015_55)]'}"
+							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
+							: 'hover:bg-[var(--video-editor-control)]'}"
 						disabled={!hasGrade}
 						aria-pressed={colorPreviewStore.comparisonMode === 'split'}
 						onclick={() => setComparison('split')}
@@ -329,7 +329,7 @@
 			{#if showPresetSave}
 				<div class="mt-1 grid grid-cols-[1fr_auto] gap-1">
 					<Input
-						class="h-7 min-w-0 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.12_0.006_55)] px-2 text-xs"
+						class="h-7 min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs"
 						bind:value={presetName}
 						placeholder={m.video_editor_color_preset_name()}
 						aria-label={m.video_editor_color_preset_name()}
@@ -352,17 +352,17 @@
 			{/if}
 			{#if presets.length > 0}
 				<div class="mt-1" aria-label={m.video_editor_color_presets()}>
-					<div class="mb-1 text-[9px] tracking-wide text-white/40 uppercase">
+					<div class="mb-1 text-[9px] tracking-wide text-[var(--video-editor-muted)] uppercase">
 						{m.video_editor_color_presets()}
 					</div>
 					<div class="flex gap-1 overflow-x-auto pb-1">
 						{#each presets as preset (preset.id)}
 							<div
-								class="group relative min-w-24 rounded-sm border border-white/10 bg-white/[0.025]"
+								class="group relative min-w-24 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
 							>
 								<button
 									type="button"
-									class="flex h-11 w-full flex-col items-start justify-between rounded-sm px-2 py-1 text-left hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-orange-400"
+									class="flex h-11 w-full flex-col items-start justify-between rounded-sm px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									title={preset.name}
 									onclick={() => applyPreset(preset)}
 								>
@@ -373,7 +373,7 @@
 								</button>
 								<button
 									type="button"
-									class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-black/60 text-white/60 opacity-0 group-hover:opacity-100 hover:text-white focus:opacity-100 focus-visible:outline-2 focus-visible:outline-orange-400"
+									class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-[var(--video-editor-control)] text-[var(--video-editor-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--video-editor-text)] focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									title={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
 									aria-label={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
 									onclick={(event) => {
@@ -389,7 +389,7 @@
 				</div>
 			{/if}
 			{#if status}
-				<p class="mt-0.5 truncate text-[9px] text-[oklch(0.68_0.02_55)]" aria-live="polite">
+				<p class="mt-0.5 truncate text-[9px] text-[var(--video-editor-muted)]" aria-live="polite">
 					{status}
 				</p>
 			{/if}

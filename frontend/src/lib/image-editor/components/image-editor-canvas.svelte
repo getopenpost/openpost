@@ -187,6 +187,8 @@
 				document: editor.document,
 				page: editor.activePage,
 				readOnly: !editor.canEdit,
+				selectionColor: getComputedStyle(node).getPropertyValue('--canvas-selection').trim(),
+				handleColor: getComputedStyle(node).getPropertyValue('--canvas-handle').trim(),
 				onSelection(ids) {
 					editor.selectedLayerIDs = ids;
 				},
@@ -2227,7 +2229,7 @@
 
 <div
 	{@attach attachViewport}
-	class="editor-protected-surface image-editor-pasteboard relative size-full min-h-0 touch-none overflow-hidden bg-neutral-800 dark:bg-neutral-950"
+	class="editor-protected-surface image-editor-pasteboard relative size-full min-h-0 touch-none overflow-hidden bg-[var(--canvas-pasteboard)]"
 	data-editor-protected="canvas"
 	class:cursor-grab={(editor.activeTool === 'hand' || spacePressed) && !panning}
 	class:cursor-grabbing={panning}
@@ -2250,11 +2252,11 @@
 	<div class="sr-only" aria-live="polite">{canvasAnnouncement}</div>
 	{#if mediaDropActive}
 		<div
-			class="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-primary/12 ring-4 ring-primary ring-inset"
+			class="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-[color-mix(in_oklch,var(--editor-focus)_12%,transparent)] ring-4 ring-[var(--editor-focus)] ring-inset"
 			data-testid="image-editor-media-drop-target"
 		>
 			<span
-				class="max-w-[calc(100%-2rem)] rounded-full border border-white/15 bg-neutral-950/90 px-4 py-2 text-center text-sm font-semibold text-white shadow-xl backdrop-blur"
+				class="max-w-[calc(100%-2rem)] rounded-full border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_90%,transparent)] px-4 py-2 text-center text-sm font-semibold text-[var(--editor-text)] shadow-xl backdrop-blur"
 			>
 				{m.image_editor_drop_to_place()}
 			</span>
@@ -2263,7 +2265,7 @@
 	{#if editor.document}
 		{#if editor.activeTool === 'eyedropper'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-white/10 bg-neutral-950/88 p-1.5 text-neutral-100 shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-eyedropper-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_eyedropper()}</span>
@@ -2277,12 +2279,12 @@
 						{ value: 'selected_stroke', label: m.image_editor_eyedropper_selected_stroke() },
 						{ value: 'page_background', label: m.image_editor_eyedropper_page_background() }
 					]}
-					class="h-8 w-40 border-white/15 bg-neutral-900 text-neutral-100"
+					class="h-8 w-40 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
 				<Button
 					variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
 					size="sm"
-					class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 					aria-pressed={editor.sampleAllLayers}
 					onclick={() => (editor.sampleAllLayers = !editor.sampleAllLayers)}
 				>
@@ -2290,7 +2292,7 @@
 						? m.image_editor_sample_composite()
 						: m.image_editor_sample_active_layer()}
 				</Button>
-				<span class="hidden px-1 text-xs text-neutral-300 xl:inline">
+				<span class="hidden px-1 text-xs text-[var(--editor-muted)] xl:inline">
 					{m.image_editor_eyedropper_keyboard_help()}
 				</span>
 				{#if eyedropperPreview}
@@ -2323,7 +2325,7 @@
 		{/if}
 		{#if editor.activeTool === 'crop' && cropLayer}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-white/10 bg-neutral-950/88 p-1.5 text-neutral-100 shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-crop-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_crop()}</span>
@@ -2340,7 +2342,7 @@
 						{ value: String(9 / 16), label: m.image_editor_crop_story() },
 						{ value: String(16 / 9), label: m.image_editor_crop_thumbnail() }
 					]}
-					class="h-8 w-36 border-white/15 bg-neutral-900 text-neutral-100"
+					class="h-8 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
 				<div
 					class="flex items-center gap-1"
@@ -2350,7 +2352,7 @@
 					<Button
 						variant={cropMode === 'frame' ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:h-11"
+						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 						aria-pressed={cropMode === 'frame'}
 						onclick={() => setCropMode('frame')}
 					>
@@ -2359,7 +2361,7 @@
 					<Button
 						variant={cropMode === 'content' ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:h-11"
+						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 						aria-pressed={cropMode === 'content'}
 						onclick={() => setCropMode('content')}
 					>
@@ -2375,7 +2377,7 @@
 						<Button
 							variant="ghost"
 							size="icon"
-							class="size-8 text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:size-11"
+							class="size-8 text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:size-11"
 							aria-label={control.label}
 							title={control.label}
 							onclick={control.action}
@@ -2387,7 +2389,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:h-11"
+					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 					onclick={resetCrop}
 				>
 					{m.image_editor_reset()}
@@ -2395,7 +2397,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:h-11"
+					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 					onclick={cancelCrop}
 				>
 					{m.common_cancel()}
@@ -2411,7 +2413,7 @@
 		{/if}
 		{#if isAreaSelectionTool() || editor.activeTool === 'pencil' || editor.activeTool === 'eraser' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket' || editor.activeTool === 'gradient'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-white/10 bg-neutral-950/88 p-1.5 text-neutral-100 shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-selection-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">
@@ -2443,7 +2445,7 @@
 							<Button
 								variant={editor.selectionMode === mode.value ? 'secondary' : 'ghost'}
 								size="sm"
-								class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+								class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
 								aria-pressed={editor.selectionMode === mode.value}
 								onclick={() => (editor.selectionMode = mode.value as ImageEditorSelectionMode)}
 							>
@@ -2500,7 +2502,7 @@
 							? 'secondary'
 							: 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.activeTool === 'bucket'
 							? editor.bucketContiguous
 							: editor.activeTool === 'magic_eraser'
@@ -2522,7 +2524,7 @@
 						<Button
 							variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
 							size="sm"
-							class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							aria-pressed={editor.sampleAllLayers}
 							onclick={() => (editor.sampleAllLayers = !editor.sampleAllLayers)}
 						>
@@ -2556,13 +2558,13 @@
 								{ value: 'reflected', label: m.image_editor_gradient_reflected() },
 								{ value: 'diamond', label: m.image_editor_gradient_diamond() }
 							]}
-							class="h-8 w-36 border-white/15 bg-neutral-900 text-neutral-100"
+							class="h-8 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 						/>
 					</label>
 					<Button
 						variant={editor.gradientReverse ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.gradientReverse}
 						onclick={() => (editor.gradientReverse = !editor.gradientReverse)}
 					>
@@ -2630,7 +2632,7 @@
 					<Button
 						variant={editor.pencilPressure ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.pencilPressure}
 						onclick={() => (editor.pencilPressure = !editor.pencilPressure)}
 					>
@@ -2657,7 +2659,7 @@
 				{/if}
 				{#if editor.pixelSelection}
 					{#if editor.floatingPixelSelection}
-						<span class="hidden px-1 text-xs text-neutral-300 xl:inline">
+						<span class="hidden px-1 text-xs text-[var(--editor-muted)] xl:inline">
 							{m.image_editor_floating_pixels_help()}
 						</span>
 						<Button size="sm" class="h-8 px-2 text-xs" onclick={commitFloatingPixels}>
@@ -2674,7 +2676,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={cancelFloatingPixels}
 						>
 							{m.common_cancel()}
@@ -2683,7 +2685,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={() => commitPixelContent('promote')}
 						>
 							{m.image_editor_promote_pixels()}
@@ -2707,7 +2709,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-neutral-100 hover:text-foreground"
+							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={() => editor.clearPixelSelection()}
 						>
 							{m.image_editor_deselect_pixels()}
@@ -2737,7 +2739,7 @@
 			>
 				{#if editor.showRulers}
 					<div
-						class="absolute -top-6 left-0 z-40 h-6 w-full cursor-s-resize overflow-hidden border-b border-neutral-600 bg-neutral-800 text-neutral-300 shadow-sm"
+						class="absolute -top-6 left-0 z-40 h-6 w-full cursor-s-resize overflow-hidden border-b border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_vertical_guide()}
@@ -2749,7 +2751,7 @@
 					>
 						{#each rulerTicks(editor.document.width_px) as tick (tick.value)}
 							<span
-								class="absolute bottom-0 border-l border-neutral-400/70"
+								class="absolute bottom-0 border-l border-[var(--editor-muted)]"
 								class:h-3={tick.major}
 								class:h-1.5={!tick.major}
 								style:left={`${tick.value * editor.zoom}px`}
@@ -2763,7 +2765,7 @@
 						{/each}
 					</div>
 					<div
-						class="absolute top-0 -left-6 z-40 h-full w-6 cursor-e-resize overflow-hidden border-r border-neutral-600 bg-neutral-800 text-neutral-300 shadow-sm"
+						class="absolute top-0 -left-6 z-40 h-full w-6 cursor-e-resize overflow-hidden border-r border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_horizontal_guide()}
@@ -2775,7 +2777,7 @@
 					>
 						{#each rulerTicks(editor.document.height_px) as tick (tick.value)}
 							<span
-								class="absolute right-0 border-t border-neutral-400/70"
+								class="absolute right-0 border-t border-[var(--editor-muted)]"
 								class:w-3={tick.major}
 								class:w-1.5={!tick.major}
 								style:top={`${tick.value * editor.zoom}px`}
@@ -2808,7 +2810,7 @@
 							onkeydown={(event) => guideKeydown(event, 'vertical', index, value)}
 						>
 							<span
-								class="mx-auto block h-full w-px bg-cyan-400 shadow-[0_0_0_1px_rgb(0_0_0/0.45)] group-focus-visible:w-0.5"
+								class="mx-auto block h-full w-px bg-[var(--canvas-safe-area)] shadow-[0_0_0_1px_rgb(0_0_0/0.45)] group-focus-visible:w-0.5"
 							></span>
 						</button>
 					{/each}
@@ -2825,7 +2827,7 @@
 							onkeydown={(event) => guideKeydown(event, 'horizontal', index, value)}
 						>
 							<span
-								class="my-auto block h-px w-full bg-cyan-400 shadow-[0_0_0_1px_rgb(0_0_0/0.45)] group-focus-visible:h-0.5"
+								class="my-auto block h-px w-full bg-[var(--canvas-safe-area)] shadow-[0_0_0_1px_rgb(0_0_0/0.45)] group-focus-visible:h-0.5"
 							></span>
 						</button>
 					{/each}
@@ -2877,7 +2879,7 @@
 				{#if editor.floatingPixelSelection && editor.floatingPixelSelectionBounds}
 					{@const floatingBounds = editor.floatingPixelSelectionBounds}
 					<div
-						class="pointer-events-none absolute z-20 border border-dashed border-orange-400 shadow-[0_0_0_1px_rgb(0_0_0/0.55)]"
+						class="pointer-events-none absolute z-20 border border-dashed border-[var(--canvas-selection)] shadow-[0_0_0_1px_rgb(0_0_0/0.55)]"
 						style:left={`${floatingBounds.x * editor.zoom}px`}
 						style:top={`${floatingBounds.y * editor.zoom}px`}
 						style:width={`${floatingBounds.width * editor.zoom}px`}
@@ -2888,7 +2890,7 @@
 					>
 						<button
 							type="button"
-							class="pointer-events-auto absolute -top-14 left-1/2 size-11 -translate-x-1/2 touch-none rounded-full border border-neutral-950 bg-white shadow after:absolute after:top-10 after:left-1/2 after:h-4 after:border-l after:border-orange-400"
+							class="pointer-events-auto absolute -top-14 left-1/2 size-11 -translate-x-1/2 touch-none rounded-full border border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow after:absolute after:top-10 after:left-1/2 after:h-4 after:border-l after:border-[var(--canvas-selection)]"
 							aria-label={m.image_editor_rotate_floating_pixels()}
 							onpointerdown={(event) => startFloatingTransform(event, 'rotate')}
 							onpointermove={moveFloatingTransform}
@@ -2910,7 +2912,7 @@
 									nudgeFloatingTransform(event, item.handle as FloatingTransformHandle)}
 							>
 								<span
-									class="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 border-neutral-950 bg-white shadow"
+									class="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow"
 								></span>
 							</button>
 						{/each}
@@ -2943,7 +2945,7 @@
 				{#if editor.activeTool === 'crop' && cropPreviewLayer}
 					<div class="pointer-events-none absolute inset-0 z-25 overflow-hidden">
 						<div
-							class="image-editor-crop-frame pointer-events-auto absolute touch-none border-2 border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.58)]"
+							class="image-editor-crop-frame pointer-events-auto absolute touch-none border-2 border-[var(--canvas-handle)] shadow-[0_0_0_9999px_rgb(0_0_0/0.58)]"
 							class:cursor-move={cropMode === 'frame'}
 							class:cursor-grabbing={cropMode === 'content'}
 							role="group"
@@ -2965,13 +2967,17 @@
 							onpointerup={stopCrop}
 							onpointercancel={stopCrop}
 						>
-							<span class="pointer-events-none absolute inset-x-0 top-1/3 border-t border-white/55"
+							<span
+								class="pointer-events-none absolute inset-x-0 top-1/3 border-t border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
-							<span class="pointer-events-none absolute inset-x-0 top-2/3 border-t border-white/55"
+							<span
+								class="pointer-events-none absolute inset-x-0 top-2/3 border-t border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
-							<span class="pointer-events-none absolute inset-y-0 left-1/3 border-l border-white/55"
+							<span
+								class="pointer-events-none absolute inset-y-0 left-1/3 border-l border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
-							<span class="pointer-events-none absolute inset-y-0 left-2/3 border-l border-white/55"
+							<span
+								class="pointer-events-none absolute inset-y-0 left-2/3 border-l border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
 							<button
 								type="button"
@@ -2996,7 +3002,7 @@
 										onkeydown={(event) => nudgeCrop(event, handle.handle as CropHandle)}
 									>
 										<span
-											class="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-neutral-950 bg-white shadow"
+											class="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow"
 										></span>
 									</button>
 								{/each}
@@ -3007,7 +3013,7 @@
 				{#if editor.activeTool === 'eyedropper' && eyedropperPreview}
 					{@const magnifierOffset = eyedropperMagnifierOffset(eyedropperPreview.point)}
 					<div
-						class="pointer-events-none absolute z-30 grid place-items-center gap-1 rounded-lg border-2 border-white bg-neutral-950 p-1.5 text-[9px] font-semibold text-white shadow-xl"
+						class="pointer-events-none absolute z-30 grid place-items-center gap-1 rounded-lg border-2 border-[var(--canvas-handle)] bg-[var(--editor-canvas)] p-1.5 text-[9px] font-semibold text-[var(--editor-text)] shadow-xl"
 						style:left={`${eyedropperPreview.point.x * editor.zoom + magnifierOffset.x}px`}
 						style:top={`${eyedropperPreview.point.y * editor.zoom + magnifierOffset.y}px`}
 						data-testid="image-editor-eyedropper-magnifier"
@@ -3129,7 +3135,7 @@
 		</div>
 		{#if cursorPoint}
 			<div
-				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-neutral-950/80 px-2 py-1 font-mono text-[10px] text-neutral-200 lg:block"
+				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] text-[var(--editor-muted)] lg:block"
 			>
 				{Math.round(cursorPoint.x)}, {Math.round(cursorPoint.y)} px
 			</div>
@@ -3137,7 +3143,7 @@
 	{/if}
 	{#if canvasError}
 		<div
-			class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900/80 p-4 text-center text-sm text-neutral-200"
+			class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] p-4 text-center text-sm text-[var(--editor-muted)]"
 			role="alert"
 		>
 			<p>{canvasError}</p>
@@ -3151,7 +3157,9 @@
 			>
 		</div>
 	{:else if !ready}
-		<div class="absolute inset-0 flex items-center justify-center text-sm text-neutral-300">
+		<div
+			class="absolute inset-0 flex items-center justify-center text-sm text-[var(--editor-muted)]"
+		>
 			{m.image_editor_preparing_canvas()}
 		</div>
 	{/if}
@@ -3159,8 +3167,12 @@
 
 <style>
 	.fabric-stage {
-		--image-editor-checker-light: color-mix(in oklch, var(--background) 72%, var(--foreground));
-		--image-editor-checker-dark: color-mix(in oklch, var(--background) 58%, var(--foreground));
+		--image-editor-checker-light: color-mix(
+			in oklch,
+			var(--canvas-pasteboard) 82%,
+			var(--canvas-grid)
+		);
+		--image-editor-checker-dark: var(--canvas-grid);
 		background-color: var(--image-editor-checker-light);
 		background-image:
 			linear-gradient(45deg, var(--image-editor-checker-dark) 25%, transparent 25%),
@@ -3181,14 +3193,19 @@
 	}
 
 	.eyedropper-grid {
-		background-color: #fff;
-		background-image: conic-gradient(#d4d4d8 25%, #fff 0 50%, #d4d4d8 0 75%, #fff 0);
+		background-color: var(--canvas-handle);
+		background-image: conic-gradient(
+			var(--canvas-grid) 25%,
+			var(--canvas-handle) 0 50%,
+			var(--canvas-grid) 0 75%,
+			var(--canvas-handle) 0
+		);
 		background-size: 0.75rem 0.75rem;
 	}
 
 	.image-editor-selection-outline {
-		fill: rgb(249 115 22 / 0.12);
-		stroke: #fb923c;
+		fill: color-mix(in oklch, var(--canvas-selection) 12%, transparent);
+		stroke: var(--canvas-selection);
 		stroke-width: calc(1.5 / var(--image-editor-zoom));
 		stroke-dasharray: calc(7 / var(--image-editor-zoom)) calc(5 / var(--image-editor-zoom));
 		vector-effect: non-scaling-stroke;
@@ -3196,23 +3213,23 @@
 	}
 
 	.image-editor-magic-pulse {
-		fill: rgb(249 115 22 / 0.14);
-		stroke: #fb923c;
+		fill: color-mix(in oklch, var(--canvas-selection) 14%, transparent);
+		stroke: var(--canvas-selection);
 		stroke-width: 2;
 		vector-effect: non-scaling-stroke;
 		animation: image-editor-magic-pulse 0.42s ease-out forwards;
 	}
 
 	.image-editor-gradient-preview {
-		stroke: #fff;
+		stroke: var(--canvas-handle);
 		stroke-width: calc(2 / var(--image-editor-zoom));
 		vector-effect: non-scaling-stroke;
-		filter: drop-shadow(0 0 1px #000);
+		filter: drop-shadow(0 0 1px var(--canvas-pasteboard));
 	}
 
 	.image-editor-gradient-preview-point {
-		fill: #f97316;
-		stroke: #fff;
+		fill: var(--canvas-selection);
+		stroke: var(--canvas-handle);
 		stroke-width: calc(1.5 / var(--image-editor-zoom));
 		vector-effect: non-scaling-stroke;
 	}
@@ -3225,7 +3242,7 @@
 
 	.image-editor-pencil-preview {
 		fill: none;
-		stroke: var(--image-editor-pencil-color, #f97316);
+		stroke: var(--image-editor-pencil-color, var(--canvas-selection));
 		stroke-linecap: round;
 		stroke-linejoin: round;
 		opacity: 0.86;
@@ -3233,10 +3250,10 @@
 
 	.image-editor-eraser-preview {
 		fill: none;
-		stroke: rgb(255 255 255 / 0.72);
+		stroke: color-mix(in oklch, var(--canvas-handle) 72%, transparent);
 		stroke-linecap: round;
 		stroke-linejoin: round;
-		filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.9));
+		filter: drop-shadow(0 0 1px var(--canvas-pasteboard));
 	}
 
 	@keyframes image-editor-selection-march {

@@ -434,7 +434,7 @@
 	/>
 
 	<div
-		class="grid shrink-0 grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-x-1 border-b border-white/10 px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
+		class="grid shrink-0 grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-x-1 border-b border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
 	>
 		<div class="flex items-center gap-0.5 pr-1">
 			<button
@@ -545,7 +545,7 @@
 					<button
 						type="button"
 						disabled={!controlsEnabled}
-						class="flex size-5 items-center justify-center rounded text-white/45 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-orange-400"
+						class="flex size-5 items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={`Reset ${label(descriptor.level)}`}
 						title={`Reset ${label(descriptor.level)}`}
 						onclick={() => resetWheel(descriptor)}
@@ -561,7 +561,7 @@
 					<button
 						type="button"
 						disabled={!controlsEnabled}
-						class="color-wheel absolute inset-2 touch-none rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
+						class="color-wheel absolute inset-2 touch-none rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-45"
 						style:--wheel-hue={`${value.hue}deg`}
 						style:--wheel-amount={value.amount}
 						style:--ring-fill={`${ringFill(descriptor) * 360}deg`}
@@ -647,7 +647,7 @@
 	</div>
 
 	<div
-		class="grid shrink-0 grid-cols-6 items-center gap-x-1 border-t border-white/10 px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
+		class="grid shrink-0 grid-cols-6 items-center gap-x-1 border-t border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
 	>
 		{#each bottomParameters as name (name)}
 			{@const param = schema(name)}

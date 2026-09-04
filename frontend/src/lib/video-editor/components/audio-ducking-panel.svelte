@@ -109,23 +109,28 @@
 	}
 </script>
 
-<details class="group rounded-md border border-white/10 bg-black/10" open={enabled}>
+<details
+	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+	open={enabled}
+>
 	<summary
-		class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 		aria-label={m.video_editor_duck_title()}
 	>
-		<span class="font-medium text-white/85">{m.video_editor_duck_title()}</span>
-		<span class="text-[10px] text-white/45" aria-live="polite"
+		<span class="font-medium text-[var(--video-editor-text)]">{m.video_editor_duck_title()}</span>
+		<span class="text-[10px] text-[var(--video-editor-muted)]" aria-live="polite"
 			>{enabled ? `${duckDb} dB` : m.video_editor_duck_off()}</span
 		>
 	</summary>
-	<div class="space-y-3 border-t border-white/10 p-2">
-		<p class="text-[11px] leading-relaxed text-white/60">
+	<div class="space-y-3 border-t border-[var(--video-editor-border)] p-2">
+		<p class="text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
 			{m.video_editor_duck_description()}
 		</p>
 
 		<div class="flex min-h-11 items-center justify-between gap-2">
-			<span class="text-[11px] font-medium text-white/70">{m.video_editor_duck_enable()}</span>
+			<span class="text-[11px] font-medium text-[var(--video-editor-muted)]"
+				>{m.video_editor_duck_enable()}</span
+			>
 			<Button
 				type="button"
 				size="sm"
@@ -141,10 +146,10 @@
 
 		{#if enabled}
 			<div class="grid grid-cols-2 gap-2">
-				<label class="flex flex-col gap-1 text-[11px] text-white/60">
+				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_amount()}</span>
 					<Input
-						class="h-11 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+						class="h-11 w-full bg-[var(--video-editor-control)] text-xs"
 						type="number"
 						min={DUCKING_MIN_DB}
 						max={0}
@@ -153,15 +158,17 @@
 						aria-label={m.video_editor_duck_amount()}
 						onchange={(e) => commitDuckDb(e.currentTarget.valueAsNumber)}
 					/>
-					<span class="text-[9px] text-white/40">{m.video_editor_duck_amount_hint()}</span>
+					<span class="text-[9px] text-[var(--video-editor-muted)]"
+						>{m.video_editor_duck_amount_hint()}</span
+					>
 				</label>
-				<div class="flex min-h-11 items-end pb-4 text-[11px] text-white/50">
+				<div class="flex min-h-11 items-end pb-4 text-[11px] text-[var(--video-editor-muted)]">
 					<span aria-live="polite">{m.video_editor_duck_current({ db: String(duckDb) })}</span>
 				</div>
-				<label class="flex flex-col gap-1 text-[11px] text-white/60">
+				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_attack()}</span>
 					<Input
-						class="h-11 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+						class="h-11 w-full bg-[var(--video-editor-control)] text-xs"
 						type="number"
 						min="0"
 						max={DUCKING_MAX_ATTACK_SEC}
@@ -171,10 +178,10 @@
 						onchange={(e) => commitAttack(e.currentTarget.valueAsNumber)}
 					/>
 				</label>
-				<label class="flex flex-col gap-1 text-[11px] text-white/60">
+				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_release()}</span>
 					<Input
-						class="h-11 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+						class="h-11 w-full bg-[var(--video-editor-control)] text-xs"
 						type="number"
 						min="0"
 						max={DUCKING_MAX_RELEASE_SEC}
@@ -188,13 +195,19 @@
 
 			{#if availableTracks.length > 0}
 				<div class="space-y-2">
-					<div class="text-[11px] font-medium text-white/70">{m.video_editor_duck_targets()}</div>
-					<p class="text-[10px] text-white/40">{m.video_editor_duck_targets_hint()}</p>
-					<div class="grid max-h-32 grid-cols-1 gap-1 overflow-y-auto rounded bg-white/[0.03] p-2">
+					<div class="text-[11px] font-medium text-[var(--video-editor-muted)]">
+						{m.video_editor_duck_targets()}
+					</div>
+					<p class="text-[10px] text-[var(--video-editor-muted)]">
+						{m.video_editor_duck_targets_hint()}
+					</p>
+					<div
+						class="grid max-h-32 grid-cols-1 gap-1 overflow-y-auto rounded bg-[var(--video-editor-control-hover)] p-2"
+					>
 						{#each availableTracks as track (track.id)}
 							<label
 								for={`duck-target-${item.id}-${track.id}`}
-								class="flex min-h-11 items-center gap-2 rounded px-1 text-[11px] text-white/75 focus-within:bg-white/5 hover:bg-white/5"
+								class="flex min-h-11 items-center gap-2 rounded px-1 text-[11px] text-[var(--video-editor-muted)] focus-within:bg-[var(--video-editor-control-hover)] hover:bg-[var(--video-editor-control-hover)]"
 							>
 								<Checkbox
 									id={`duck-target-${item.id}-${track.id}`}
@@ -204,7 +217,9 @@
 									class="shrink-0"
 								/>
 								<span class="min-w-0 flex-1 truncate"
-									>{track.name} <span class="text-white/40">({track.kind ?? 'track'})</span></span
+									>{track.name}
+									<span class="text-[var(--video-editor-muted)]">({track.kind ?? 'track'})</span
+									></span
 								>
 							</label>
 						{/each}

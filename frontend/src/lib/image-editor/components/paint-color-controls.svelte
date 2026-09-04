@@ -26,8 +26,8 @@
 	} = $props();
 </script>
 
-<div class="flex items-center gap-1" data-testid="image-editor-paint-colors">
-	<div class="w-32">
+<div class="flex min-w-0 flex-wrap items-center gap-1" data-testid="image-editor-paint-colors">
+	<div class="w-24 min-w-0 flex-1 sm:w-32 sm:flex-none">
 		<ImageEditorColorPicker
 			label={gradient ? m.image_editor_gradient_start_color() : m.image_editor_foreground_color()}
 			value={primary}
@@ -41,7 +41,7 @@
 		<Button
 			variant="ghost"
 			size="icon-xs"
-			class="shrink-0 text-neutral-100 hover:text-foreground"
+			class="shrink-0 text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 			aria-label={m.image_editor_swap_gradient_colors()}
 			title={m.image_editor_swap_gradient_colors()}
 			onclick={() => {
@@ -51,7 +51,7 @@
 		>
 			<ThemeIcon role="swap" />
 		</Button>
-		<div class="w-32">
+		<div class="w-24 min-w-0 flex-1 sm:w-32 sm:flex-none">
 			<ImageEditorColorPicker
 				label={m.image_editor_gradient_end_color()}
 				value={secondary}

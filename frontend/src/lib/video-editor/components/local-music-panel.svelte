@@ -244,27 +244,31 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col" data-testid="local-music-panel">
-	<div class="border-b border-[oklch(0.24_0.012_55)] px-2 py-1.5">
-		<h2 class="text-xs font-semibold text-white">{m.video_editor_local_music()}</h2>
-		<p class="mt-0.5 text-[9px] leading-tight text-[oklch(0.58_0.012_55)]">
+	<div class="border-b border-[var(--video-editor-border)] px-2 py-1.5">
+		<h2 class="text-xs font-semibold text-[var(--video-editor-text)]">
+			{m.video_editor_local_music()}
+		</h2>
+		<p class="mt-0.5 text-[9px] leading-tight text-[var(--video-editor-muted)]">
 			{m.video_editor_local_music_description()}
 		</p>
 	</div>
 
-	<div class="space-y-1.5 border-b border-[oklch(0.24_0.012_55)] p-2">
+	<div class="space-y-1.5 border-b border-[var(--video-editor-border)] p-2">
 		<div>
-			<label for="local-music-preset" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
+			<label for="local-music-preset" class="block text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_local_music_starting_point()}
 			</label>
 			<Select.Root type="single" disabled={generating} onValueChange={selectPreset}>
 				<Select.Trigger
 					id="local-music-preset"
 					aria-label={m.video_editor_local_music_starting_point()}
-					class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none hover:translate-y-0 hover:bg-[oklch(0.21_0.01_55)] data-placeholder:text-[oklch(0.45_0.01_55)]"
+					class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)] data-placeholder:text-[var(--video-editor-muted)]"
 				>
 					<span class="truncate">{presets[0].label}</span>
 				</Select.Trigger>
-				<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				<Select.Content
+					class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+				>
 					{#each presets as preset, index}
 						<Select.Item value={String(index)}>{preset.label}</Select.Item>
 					{/each}
@@ -273,12 +277,12 @@
 		</div>
 
 		<div>
-			<label for="local-music-prompt" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
+			<label for="local-music-prompt" class="block text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_local_music_prompt()}
 			</label>
 			<Textarea
 				id="local-music-prompt"
-				class="mt-0.5 min-h-20 resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:border-[oklch(0.66_0.14_45)]"
+				class="mt-0.5 min-h-20 resize-y rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1.5 text-[11px] leading-relaxed text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)]"
 				bind:value={prompt}
 				disabled={generating}
 				maxlength={1000}
@@ -288,7 +292,7 @@
 
 		<div class="grid grid-cols-[1fr_7.25rem] gap-1.5">
 			<div>
-				<label for="local-music-duration" class="text-[10px] text-[oklch(0.66_0.015_55)]">
+				<label for="local-music-duration" class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_music_duration()}
 				</label>
 				<Slider
@@ -301,12 +305,12 @@
 					onValueChange={(v) => (durationSeconds = v)}
 					class="mt-0.5"
 				/>
-				<span class="block text-center text-[9px] text-[oklch(0.72_0.012_55)]">
+				<span class="block text-center text-[9px] text-[var(--video-editor-muted)]">
 					{durationSeconds}s
 				</span>
 			</div>
 			<div>
-				<label for="local-music-quality" class="text-[10px] text-[oklch(0.66_0.015_55)]">
+				<label for="local-music-quality" class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_music_quality()}
 				</label>
 				<Select.Root
@@ -318,13 +322,15 @@
 					<Select.Trigger
 						id="local-music-quality"
 						aria-label={m.video_editor_local_music_quality()}
-						class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none hover:translate-y-0 hover:bg-[oklch(0.21_0.01_55)]"
+						class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)]"
 					>
 						{audioQuality === 'high'
 							? m.video_editor_local_music_high()
 							: m.video_editor_local_music_standard()}
 					</Select.Trigger>
-					<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+					<Select.Content
+						class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+					>
 						<Select.Item value="standard">{m.video_editor_local_music_standard()}</Select.Item>
 						<Select.Item value="high">{m.video_editor_local_music_high()}</Select.Item>
 					</Select.Content>
@@ -338,7 +344,7 @@
 			{m.video_editor_local_music_download_notice({ size: formatBytes(downloadBytes) })}
 		</div>
 		{#if checkingStorage}
-			<p class="text-[9px] text-[oklch(0.58_0.012_55)]" role="status">
+			<p class="text-[9px] text-[var(--video-editor-muted)]" role="status">
 				{m.video_editor_local_music_storage_checking()}
 			</p>
 		{:else if storage && !storage.sufficient}
@@ -361,7 +367,7 @@
 		{/if}
 
 		{#if support === null}
-			<p class="text-[10px] text-[oklch(0.58_0.012_55)]" role="status">
+			<p class="text-[10px] text-[var(--video-editor-muted)]" role="status">
 				{m.video_editor_local_music_checking()}
 			</p>
 		{:else if !support.supported}
@@ -385,13 +391,13 @@
 		{#if generating && progress}
 			<div aria-live="polite">
 				<div
-					class="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-[oklch(0.66_0.015_55)]"
+					class="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-[var(--video-editor-muted)]"
 				>
 					<span class="min-w-0 truncate">{progress.message}</span>
 					{#if progress.progress !== null}<span>{Math.round(progress.progress * 100)}%</span>{/if}
 				</div>
 				<div
-					class="h-1 overflow-hidden rounded-full bg-[oklch(0.27_0.012_55)]"
+					class="h-1 overflow-hidden rounded-full bg-[var(--video-editor-control)]"
 					role="progressbar"
 					aria-label={progress.message}
 					aria-valuemin="0"
@@ -401,7 +407,7 @@
 						: Math.round(progress.progress * 100)}
 				>
 					<div
-						class="h-full rounded-full bg-[oklch(0.66_0.14_45)] {progress.progress === null
+						class="h-full rounded-full bg-[var(--video-editor-primary)] {progress.progress === null
 							? 'w-1/3 animate-pulse motion-reduce:animate-none'
 							: ''}"
 						style:width={progress.progress === null
@@ -410,7 +416,7 @@
 					></div>
 				</div>
 				{#if progress.receivedBytes && progress.totalBytes}
-					<p class="mt-0.5 text-right text-[9px] text-[oklch(0.5_0.01_55)]">
+					<p class="mt-0.5 text-right text-[9px] text-[var(--video-editor-muted)]">
 						{formatBytes(progress.receivedBytes)} / {formatBytes(progress.totalBytes)}
 					</p>
 				{/if}
@@ -436,20 +442,20 @@
 
 	<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
 		{#if generations.length === 0}
-			<p class="py-6 text-center text-[10px] text-[oklch(0.5_0.01_55)]">
+			<p class="py-6 text-center text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_local_music_empty()}
 			</p>
 		{/if}
 		{#each generations as generation (generation.id)}
 			<article
-				class="min-w-0 overflow-hidden rounded border border-[oklch(0.26_0.012_55)] bg-[oklch(0.18_0.008_55)] p-1.5"
+				class="min-w-0 overflow-hidden rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5"
 			>
 				<div class="mb-1 flex items-start justify-between gap-1">
 					<div class="min-w-0">
-						<p class="line-clamp-2 text-[10px] leading-tight text-[oklch(0.76_0.012_55)]">
+						<p class="line-clamp-2 text-[10px] leading-tight text-[var(--video-editor-muted)]">
 							{generation.result.prompt}
 						</p>
-						<p class="mt-0.5 text-[9px] text-[oklch(0.5_0.01_55)]">
+						<p class="mt-0.5 text-[9px] text-[var(--video-editor-muted)]">
 							{generation.result.duration.toFixed(0)}s · {generation.result.audioQuality} · {m.video_editor_local_music_seed(
 								{ seed: generation.result.seed }
 							)}
@@ -457,7 +463,7 @@
 					</div>
 					<button
 						type="button"
-						class="shrink-0 rounded p-1 text-[oklch(0.55_0.01_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="shrink-0 rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						onclick={() => remove(generation)}
 						aria-label={m.video_editor_local_music_remove_preview()}
 					>

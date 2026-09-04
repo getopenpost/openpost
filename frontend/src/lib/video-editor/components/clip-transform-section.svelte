@@ -255,7 +255,7 @@
 	<div class="flex min-w-0 flex-1 items-center gap-0.5">
 		<div class="relative min-w-0 flex-1">
 			<span
-				class="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[9px] font-semibold text-white/38"
+				class="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
 				>{shortLabel}</span
 			>
 			<ScrubbableNumberInput
@@ -266,21 +266,21 @@
 				{max}
 				step={1}
 				decimals={0}
-				class="h-7 w-full rounded border border-white/8 bg-black/18 py-1 pr-7 pl-5 text-right text-[11px] text-white/88 tabular-nums transition-colors outline-none hover:border-white/14 focus:border-[oklch(0.66_0.14_45)] focus:ring-1 focus:ring-[oklch(0.66_0.14_45/0.35)]"
+				class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-7 pl-5 text-right text-[11px] text-[var(--video-editor-text)] tabular-nums transition-colors outline-none hover:border-[var(--video-editor-focus-border)] focus:border-[var(--video-editor-focus-border)] focus:ring-1 focus:ring-[color-mix(in_oklch,var(--video-editor-focus)_35%,transparent)]"
 				onbegin={beginGesture}
 				onlive={(value) => writeLive(property, value)}
 				oncommit={(value) => commitGesture(property, value)}
 				oncancel={cancelGesture}
 			/>
 			<span
-				class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[9px] text-white/30"
+				class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 				>{unit}</span
 			>
 		</div>
 		<button
 			type="button"
 			class:active={autoKeyEnabled(property)}
-			class="grid size-6 shrink-0 place-items-center rounded text-white/38 transition-colors hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:text-[oklch(0.78_0.16_55)]"
+			class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
 			aria-label={m.video_editor_property_auto_key({ property: ariaLabel })}
 			aria-pressed={autoKeyEnabled(property)}
 			onclick={() => toggleAutoKey(property)}
@@ -295,18 +295,18 @@
 
 <div class="flex flex-col gap-2" data-testid="clip-transform-panel">
 	<section
-		class="overflow-hidden rounded-md border border-white/8 bg-white/[0.025]"
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
 		data-testid="clip-transform-section"
 	>
 		<h3
-			class="flex h-8 items-center gap-2 border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
+			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
-			<ProtectedIcon icon="editor-move" class="size-3.5 text-white/42" />
+			<ProtectedIcon icon="editor-move" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_property_transform()}
 		</h3>
-		<div class="divide-y divide-white/6">
+		<div class="divide-y divide-[var(--video-editor-border)]">
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2 px-2.5 py-2">
-				<span class="pt-1.5 text-[10px] font-medium text-white/48"
+				<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
 					>{m.video_editor_property_position()}</span
 				>
 				<div class="flex min-w-0 items-start gap-1">
@@ -330,7 +330,7 @@
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_position()}
 						onclick={() => reset(() => ({ x: 0, y: 0 }))}
 					>
@@ -340,7 +340,7 @@
 			</div>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2 px-2.5 py-2">
-				<span class="pt-1.5 text-[10px] font-medium text-white/48"
+				<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
 					>{m.video_editor_property_size()}</span
 				>
 				<div class="flex min-w-0 items-start gap-1">
@@ -351,7 +351,7 @@
 					<button
 						type="button"
 						class:active={aspectLocked()}
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:text-[oklch(0.78_0.16_55)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
 						aria-label={aspectLocked()
 							? m.video_editor_property_unlock_aspect()
 							: m.video_editor_property_lock_aspect()}
@@ -365,7 +365,7 @@
 					</button>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_size()}
 						onclick={resetSize}
 					>
@@ -375,7 +375,8 @@
 			</div>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2 px-2.5 py-2">
-				<span class="pt-1.5 text-[10px] font-medium text-white/48">{m.video_editor_rotation()}</span
+				<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_rotation()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
@@ -398,7 +399,7 @@
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_rotation()}
 						onclick={() => reset(() => ({ rotation: 0 }))}
 					>
@@ -408,7 +409,7 @@
 			</div>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2 px-2.5 py-2">
-				<span class="pt-1.5 text-[10px] font-medium text-white/48"
+				<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
 					>{m.video_editor_property_anchor()}</span
 				>
 				<div class="flex min-w-0 items-start gap-1">
@@ -432,7 +433,7 @@
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_anchor()}
 						onclick={() =>
 							reset((item) => ({
@@ -446,13 +447,15 @@
 			</div>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-white/48">{m.video_editor_property_flip()}</span>
+				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_property_flip()}</span
+				>
 				<div class="grid grid-cols-2 gap-1">
 					<Button
 						type="button"
 						size="sm"
 						variant="ghost"
-						class="h-7 justify-center border border-white/8 px-2 text-[10px]"
+						class="h-7 justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipHorizontal === true)}
 						onclick={() => toggleFlip('flipHorizontal')}>{m.video_editor_property_flip_x()}</Button
 					>
@@ -460,7 +463,7 @@
 						type="button"
 						size="sm"
 						variant="ghost"
-						class="h-7 justify-center border border-white/8 px-2 text-[10px]"
+						class="h-7 justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipVertical === true)}
 						onclick={() => toggleFlip('flipVertical')}>{m.video_editor_property_flip_y()}</Button
 					>
@@ -469,15 +472,19 @@
 		</div>
 	</section>
 
-	<section class="overflow-hidden rounded-md border border-white/8 bg-white/[0.025]">
+	<section
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+	>
 		<h3
-			class="flex h-8 items-center border-b border-white/7 px-2.5 text-[10px] font-semibold tracking-wider text-white/58 uppercase"
+			class="flex h-8 items-center border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
 			{m.video_editor_property_appearance()}
 		</h3>
-		<div class="divide-y divide-white/6">
+		<div class="divide-y divide-[var(--video-editor-border)]">
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-white/48">{m.video_editor_clip_opacity()}</span>
+				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_clip_opacity()}</span
+				>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
 						class="h-7 min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
@@ -503,21 +510,21 @@
 							max={100}
 							step={1}
 							decimals={0}
-							class="h-7 w-full rounded border border-white/8 bg-black/18 py-1 pr-5 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 							onbegin={beginGesture}
 							onlive={(value) => writeLive('opacity', value / 100)}
 							oncommit={(value) => commitGesture('opacity', value / 100)}
 							oncancel={cancelGesture}
 						/>
 						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-white/30"
+							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 							>%</span
 						>
 					</div>
 					<button
 						type="button"
 						class:active={autoKeyEnabled('opacity')}
-						class="grid size-6 shrink-0 place-items-center rounded text-white/38 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:text-[oklch(0.78_0.16_55)]"
+						class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
 						aria-label={m.video_editor_property_auto_key({
 							property: m.video_editor_clip_opacity()
 						})}
@@ -531,7 +538,7 @@
 					</button>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_opacity()}
 						onclick={() => reset(() => ({ opacity: 1 }))}
 					>
@@ -540,7 +547,9 @@
 				</div>
 			</div>
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-white/48">{m.video_editor_blend_mode()}</span>
+				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_blend_mode()}</span
+				>
 				<AppSelect
 					class="h-7 min-w-0 text-xs"
 					value={hasShapeMask() ? 'normal' : mixedBlendMode()}
@@ -552,7 +561,8 @@
 				/>
 			</div>
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-white/48">{m.video_editor_property_radius()}</span
+				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+					>{m.video_editor_property_radius()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
 					{@render numberControl(
@@ -565,7 +575,7 @@
 					)}
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-white/35 hover:bg-white/8 hover:text-white/72 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_radius()}
 						onclick={() => reset(() => ({ cornerRadius: 0 }))}
 					>

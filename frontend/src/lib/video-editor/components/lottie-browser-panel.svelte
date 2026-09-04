@@ -135,22 +135,22 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col" aria-label={m.video_editor_lottiefiles()}>
-	<div class="flex flex-col gap-2 border-b border-[oklch(0.25_0.015_55)] p-2">
+	<div class="flex flex-col gap-2 border-b border-[var(--video-editor-border)] p-2">
 		<label class="relative block">
 			<span class="sr-only">{m.video_editor_lottiefiles_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
+				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-8 w-full rounded bg-[oklch(0.2_0.01_50)] pr-8 pl-7 text-xs"
+				class="h-8 w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-xs"
 				placeholder={m.video_editor_lottiefiles_search()}
 				bind:value={inputValue}
 			/>
 			{#if inputValue}
 				<button
 					type="button"
-					class="absolute top-1/2 right-1.5 rounded p-1 text-[oklch(0.6_0.01_55)] hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+					class="absolute top-1/2 right-1.5 rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 					aria-label={m.video_editor_lottiefiles_clear()}
 					onclick={() => (inputValue = '')}
 				>
@@ -164,7 +164,7 @@
 					<button
 						type="button"
 						class:active={category === value}
-						class="rounded px-1 py-1 text-[10px] font-medium text-[oklch(0.62_0.01_55)] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.66_0.14_45)] [&.active]:text-black"
+						class="rounded px-1 py-1 text-[10px] font-medium text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[var(--video-editor-primary)] [&.active]:text-[var(--video-editor-primary-text)]"
 						onclick={() => (category = value)}
 					>
 						{value === 'featured'
@@ -183,20 +183,20 @@
 			<div class="flex h-24 items-center justify-center">
 				<ProtectedIcon
 					icon="loading"
-					class="size-5 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
+					class="size-5 animate-spin text-[var(--video-editor-primary)] motion-reduce:animate-none"
 				/>
 			</div>
 		{:else if status === 'error'}
 			<div class="flex flex-col items-center gap-2 py-8 text-center">
-				<p class="text-xs leading-5 text-[oklch(0.65_0.015_55)]">{error}</p>
+				<p class="text-xs leading-5 text-[var(--video-editor-muted)]">{error}</p>
 				<button
 					type="button"
-					class="rounded bg-white/10 px-2.5 py-1 text-xs hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
+					class="rounded bg-[var(--video-editor-control-hover)] px-2.5 py-1 text-xs hover:bg-[var(--video-editor-selection)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 					onclick={() => void loadPage(page)}>{m.video_editor_lottiefiles_retry()}</button
 				>
 			</div>
 		{:else if items.length === 0}
-			<p class="py-8 text-center text-xs text-[oklch(0.62_0.01_55)]">
+			<p class="py-8 text-center text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_lottiefiles_empty()}
 			</p>
 		{:else}
@@ -208,7 +208,7 @@
 					<li class="group min-w-0">
 						<button
 							type="button"
-							class="relative aspect-square w-full overflow-hidden rounded-md border border-white/10 bg-[oklch(0.2_0.01_50)] hover:border-[oklch(0.66_0.14_45)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-default"
+							class="relative aspect-square w-full overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] hover:border-[var(--video-editor-focus-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-default"
 							style:background-color={animation.bgColor ?? undefined}
 							disabled={isImporting || (isImported && !oninserted)}
 							aria-label={`${
@@ -234,31 +234,33 @@
 							{:else}
 								<ProtectedIcon
 									icon="editor-animation"
-									class="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-black/50"
+									class="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-[var(--video-editor-muted)]"
 								/>
 							{/if}
 							{#if !isImporting && (!isImported || oninserted) && !isFailed}
 								<span
-									class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
+									class="absolute inset-0 flex items-center justify-center bg-[var(--video-editor-control)] opacity-0 transition-opacity group-hover:opacity-100"
 								>
-									<ThemeIcon role="add" class="size-5 text-white" />
+									<ThemeIcon role="add" class="size-5 text-[var(--video-editor-text)]" />
 								</span>
 							{:else if isImporting}
-								<span class="absolute inset-0 flex items-center justify-center bg-black/45">
+								<span
+									class="absolute inset-0 flex items-center justify-center bg-[var(--video-editor-control)]"
+								>
 									<ProtectedIcon
 										icon="loading"
-										class="size-5 animate-spin text-white motion-reduce:animate-none"
+										class="size-5 animate-spin text-[var(--video-editor-text)] motion-reduce:animate-none"
 									/>
 								</span>
 							{:else if isImported}
 								<span
-									class="absolute top-1 right-1 rounded-full bg-[oklch(0.66_0.14_45)] p-0.5 text-black"
+									class="absolute top-1 right-1 rounded-full bg-[var(--video-editor-primary)] p-0.5 text-[var(--video-editor-primary-text)]"
 								>
 									<ProtectedIcon icon="success" class="size-3" />
 								</span>
 							{:else}
 								<span class="absolute inset-0 flex items-center justify-center bg-red-950/40">
-									<ThemeIcon role="refresh" class="size-5 text-white" />
+									<ThemeIcon role="refresh" class="size-5 text-[var(--video-editor-text)]" />
 								</span>
 							{/if}
 						</button>
@@ -266,7 +268,7 @@
 							{animation.name}
 						</p>
 						{#if animation.author}
-							<p class="truncate px-0.5 text-[9px] text-[oklch(0.58_0.01_55)]">
+							<p class="truncate px-0.5 text-[9px] text-[var(--video-editor-muted)]">
 								{m.video_editor_lottiefiles_by({ author: animation.author })}
 							</p>
 						{/if}
@@ -277,22 +279,24 @@
 	</div>
 
 	{#if totalPages > 1 && status !== 'error'}
-		<div class="flex items-center justify-between border-t border-white/10 px-2 py-1.5">
+		<div
+			class="flex items-center justify-between border-t border-[var(--video-editor-border)] px-2 py-1.5"
+		>
 			<button
 				type="button"
-				class="rounded p-1 text-[oklch(0.62_0.01_55)] hover:bg-white/10 disabled:opacity-30"
+				class="rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
 				disabled={page === 0 || status === 'loading'}
 				aria-label={m.video_editor_lottiefiles_previous()}
 				onclick={() => void loadPage(page - 1)}
 			>
 				<ThemeIcon role="chevron-left" class="size-4" />
 			</button>
-			<span class="text-[10px] text-[oklch(0.62_0.01_55)] tabular-nums">
+			<span class="text-[10px] text-[var(--video-editor-muted)] tabular-nums">
 				{m.video_editor_lottiefiles_page({ page: page + 1, total: totalPages })}
 			</span>
 			<button
 				type="button"
-				class="rounded p-1 text-[oklch(0.62_0.01_55)] hover:bg-white/10 disabled:opacity-30"
+				class="rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
 				disabled={page >= totalPages - 1 || status === 'loading'}
 				aria-label={m.video_editor_lottiefiles_next()}
 				onclick={() => void loadPage(page + 1)}
@@ -301,13 +305,16 @@
 			</button>
 		</div>
 	{/if}
-	<p class="border-t border-white/10 px-2 py-1.5 text-[9px] leading-4 text-[oklch(0.55_0.01_55)]">
+	<p
+		class="border-t border-[var(--video-editor-border)] px-2 py-1.5 text-[9px] leading-4 text-[var(--video-editor-muted)]"
+	>
 		<span>{m.video_editor_lottiefiles_license()}</span>
 		<a
 			href="https://lottiefiles.com/page/license"
 			target="_blank"
 			rel="noreferrer"
-			class="ml-1 underline hover:text-white">{m.video_editor_lottiefiles_license_link()}</a
+			class="ml-1 underline hover:text-[var(--video-editor-text)]"
+			>{m.video_editor_lottiefiles_license_link()}</a
 		>.
 	</p>
 </div>

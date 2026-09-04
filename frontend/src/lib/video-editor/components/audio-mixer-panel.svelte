@@ -386,7 +386,7 @@
 
 <section
 	bind:this={root}
-	class="relative h-full border-y border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_55)]"
+	class="relative h-full border-y border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 	aria-label={m.video_editor_mixer()}
 	data-audio-mixer
 >
@@ -394,7 +394,7 @@
 		<div class="relative mr-1 w-6 shrink-0" aria-hidden="true">
 			{#each SCALE_MARKS as mark}
 				<span
-					class="absolute right-0 -translate-y-1/2 font-mono text-[8px] text-white/35 tabular-nums"
+					class="absolute right-0 -translate-y-1/2 font-mono text-[8px] text-[var(--video-editor-muted)] tabular-nums"
 					style:bottom={`${mixerDbToFaderPercent(mark)}%`}>{mark}</span
 				>
 			{/each}
@@ -570,15 +570,17 @@
 	{#if eqTarget}
 		<aside
 			id="mixer-eq-panel"
-			class="absolute inset-y-0 right-0 z-20 w-full max-w-md overflow-y-auto border-l border-white/10 bg-[oklch(0.145_0.01_55)] p-2 shadow-2xl"
+			class="absolute inset-y-0 right-0 z-20 w-full max-w-md overflow-y-auto border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
 			aria-label={eqTitle(eqTarget)}
 			data-mixer-eq-panel
 		>
 			<div class="mb-2 flex min-h-9 items-center justify-between gap-2">
-				<h3 class="truncate text-xs font-semibold text-white/90">{eqOwnerName(eqTarget)}</h3>
+				<h3 class="truncate text-xs font-semibold text-[var(--video-editor-text)]">
+					{eqOwnerName(eqTarget)}
+				</h3>
 				<button
 					type="button"
-					class="grid size-9 shrink-0 place-items-center rounded-md border border-white/10 text-white/60 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					class="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--video-editor-border)] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 					aria-label={m.common_close()}
 					onclick={() => (eqTarget = null)}
 				>

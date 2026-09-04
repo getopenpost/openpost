@@ -4,12 +4,7 @@ import { expect, test } from "@playwright/test";
 // export it without an account and without any server write. If local
 // persistence breaks, edits silently vanish; if the public boundary leaks,
 // anonymous work hits the API.
-// BUG (filed 2026-09-03, test-prune audit): the public image-editor page
-// crashes on load with "ReferenceError: ThemeIcon is not defined" (route chunk
-// TDZ, likely from the Sep-3 semantic-icon migration of image-editor
-// surfaces). Skipped, not deleted: re-enable after the icon chunk ships the
-// binding.
-test.skip("public image editor creates, restores, and exports a local design", async ({ page }) => {
+test("public image editor creates, restores, and exports a local design", async ({ page }) => {
   test.setTimeout(60_000);
   const browserErrors: string[] = [];
   const workspaceWrites: string[] = [];
@@ -28,7 +23,11 @@ test.skip("public image editor creates, restores, and exports a local design", a
   await page.getByRole("button", { name: /Instagram square/ }).click();
 
   await expect(page).toHaveURL(/\/image-editor\/local_design_/);
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+    timeout: 20_000,
+  });
 
   const title = page.getByRole("textbox", { name: "Design title" });
   await title.fill("Local launch design");

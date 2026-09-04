@@ -109,7 +109,7 @@
 		{#each shapes as shape (shape.id)}
 			<button
 				type="button"
-				class="group flex min-h-20 cursor-grab flex-col items-center justify-center gap-1.5 rounded-md border border-[oklch(0.27_0.015_55)] bg-[oklch(0.18_0.01_55)] px-2 py-2 text-[11px] text-[oklch(0.72_0.01_55)] hover:border-[oklch(0.5_0.08_45)] hover:bg-[oklch(0.22_0.015_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] active:cursor-grabbing"
+				class="group flex min-h-20 cursor-grab flex-col items-center justify-center gap-1.5 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-2 text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing"
 				draggable="true"
 				onclick={() => insert(shape)}
 				ondragstart={(event) => startDrag(event, shape)}
@@ -117,8 +117,8 @@
 			>
 				{#if shape.preview}
 					<span
-						class="size-10 rounded-md border border-white/10"
-						class:bg-orange-500={shape.preview === 'solid'}
+						class="size-10 rounded-md border border-[var(--video-editor-border)]"
+						class:bg-[var(--video-editor-primary)]={shape.preview === 'solid'}
 						class:bg-gradient-to-br={shape.preview === 'gradient'}
 						class:from-orange-500={shape.preview === 'gradient'}
 						class:to-indigo-500={shape.preview === 'gradient'}

@@ -66,7 +66,7 @@
 </script>
 
 <div
-	class="flex size-full items-center justify-center overflow-hidden bg-neutral-800 {compact
+	class="flex size-full items-center justify-center overflow-hidden bg-[var(--canvas-pasteboard)] {compact
 		? 'p-0.5'
 		: 'p-3'} {className}"
 >
@@ -94,8 +94,12 @@
 
 <style>
 	.template-preview-frame {
-		--image-editor-checker-light: color-mix(in oklch, var(--background) 72%, var(--foreground));
-		--image-editor-checker-dark: color-mix(in oklch, var(--background) 58%, var(--foreground));
+		--image-editor-checker-light: color-mix(
+			in oklch,
+			var(--canvas-pasteboard) 82%,
+			var(--canvas-grid)
+		);
+		--image-editor-checker-dark: var(--canvas-grid);
 		background-color: var(--image-editor-checker-light);
 		background-image:
 			linear-gradient(45deg, var(--image-editor-checker-dark) 25%, transparent 25%),

@@ -279,7 +279,7 @@
 					disabled={!!composerDisabledReason && agentStore.phase === 'idle'}
 					maxlength={500}
 					class="placeholder:text-field-placeholder max-h-28 min-h-11 flex-1 resize-none rounded-md border border-field-border bg-field px-2.5 py-2.5 text-xs leading-relaxed text-field-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 md:min-h-9 md:py-1.5"
-					aria-label="Assistant message"
+					aria-label={m.video_editor_agent_message()}
 					aria-describedby="agent-input-limit"
 				/>
 				{#if agentStore.phase === 'planning'}

@@ -342,12 +342,17 @@
 	}
 </script>
 
-<details {open} class="group rounded-md border border-white/10 bg-black/10">
+<details
+	{open}
+	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+>
 	<summary
-		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 	>
-		<span class="font-medium text-white/85">{title ?? m.video_editor_audio_eq_title()}</span>
-		<span class="text-xs text-white/45"
+		<span class="font-medium text-[var(--video-editor-text)]"
+			>{title ?? m.video_editor_audio_eq_title()}</span
+		>
+		<span class="text-xs text-[var(--video-editor-muted)]"
 			>{mixedSettings || enabledState === 'mixed'
 				? m.video_editor_property_mixed()
 				: bypassed
@@ -357,9 +362,9 @@
 						: presetOptions.find((option) => option.value === selectedPreset)?.label}</span
 		>
 	</summary>
-	<div class="space-y-2 border-t border-white/10 p-2">
+	<div class="space-y-2 border-t border-[var(--video-editor-border)] p-2">
 		<div class="flex items-end gap-1">
-			<label class="min-w-0 flex-1 text-xs text-white/60">
+			<label class="min-w-0 flex-1 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_audio_eq_preset()}
 				<AppSelect
 					value={selectedPreset}
@@ -392,10 +397,10 @@
 			oncancel={cancelCurveGesture}
 		/>
 
-		<label class="block text-xs text-white/60">
+		<label class="block text-xs text-[var(--video-editor-muted)]">
 			{m.video_editor_audio_eq_output_gain()}
 			<Input
-				class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+				class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
 				type="number"
 				min={AUDIO_EQ_GAIN_DB_MIN}
 				max={AUDIO_EQ_GAIN_DB_MAX}
@@ -409,15 +414,17 @@
 		<div class="space-y-1">
 			{#each bands as band (band.key)}
 				{@const bandType = value(band, 'typeKey')}
-				<details class="rounded border border-white/8 bg-white/[0.02]">
+				<details
+					class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+				>
 					<summary class="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-xs">
-						<span class="w-14 font-medium text-white/75">{band.label()}</span>
-						<span class="min-w-0 flex-1 truncate text-white/45"
+						<span class="w-14 font-medium text-[var(--video-editor-muted)]">{band.label()}</span>
+						<span class="min-w-0 flex-1 truncate text-[var(--video-editor-muted)]"
 							>{typeLabel(String(bandType))} · {Math.round(Number(value(band, 'frequencyKey')))} Hz</span
 						>
 						<button
 							type="button"
-							class={`rounded px-1.5 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${enabled(band) ? 'bg-[oklch(0.66_0.14_45)] text-black' : 'bg-white/8'}`}
+							class={`rounded px-1.5 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${enabled(band) ? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]' : 'bg-[var(--video-editor-control-hover)]'}`}
 							aria-pressed={enabled(band)}
 							disabled={controlsDisabled}
 							onclick={(event) => {
@@ -429,8 +436,8 @@
 								: m.video_editor_audio_eq_off()}</button
 						>
 					</summary>
-					<div class="grid grid-cols-2 gap-1 border-t border-white/8 p-2">
-						<label class="text-xs text-white/60">
+					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-2">
+						<label class="text-xs text-[var(--video-editor-muted)]">
 							{m.video_editor_audio_eq_filter()}
 							<AppSelect
 								value={String(bandType)}
@@ -444,10 +451,10 @@
 								onValueChange={(next) => setField(band.typeField, next)}
 							/>
 						</label>
-						<label class="text-xs text-white/60">
+						<label class="text-xs text-[var(--video-editor-muted)]">
 							{m.video_editor_audio_eq_frequency()}
 							<Input
-								class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+								class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
 								type="number"
 								min="20"
 								max="22000"
@@ -459,7 +466,7 @@
 							/>
 						</label>
 						{#if isPass(bandType) && band.slopeField}
-							<label class="col-span-2 text-xs text-white/60">
+							<label class="col-span-2 text-xs text-[var(--video-editor-muted)]">
 								{m.video_editor_audio_eq_slope()}
 								<AppSelect
 									value={String(value(band, 'slopeKey'))}
@@ -471,10 +478,10 @@
 								/>
 							</label>
 						{:else}
-							<label class="text-xs text-white/60">
+							<label class="text-xs text-[var(--video-editor-muted)]">
 								{m.video_editor_audio_eq_gain()}
 								<Input
-									class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+									class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
 									type="number"
 									min={AUDIO_EQ_GAIN_DB_MIN}
 									max={AUDIO_EQ_GAIN_DB_MAX}
@@ -484,10 +491,10 @@
 									onchange={(event) => setField(band.gainField, event.currentTarget.valueAsNumber)}
 								/>
 							</label>
-							<label class="text-xs text-white/60">
+							<label class="text-xs text-[var(--video-editor-muted)]">
 								Q
 								<Input
-									class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+									class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
 									type="number"
 									min={AUDIO_EQ_Q_MIN}
 									max={AUDIO_EQ_Q_MAX}

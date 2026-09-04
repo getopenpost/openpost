@@ -3114,6 +3114,7 @@
 			aria-label={m.image_editor_tools()}
 		>
 			{#each tools as tool (tool.key)}
+				{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
 				{#if tool.key === 'select'}
 					<Tooltip.Root>
 						<Tooltip.Trigger>
@@ -3389,7 +3390,7 @@
 									disabled={!commandEnabled(tool.command.id)}
 									title={commandDisabledReason(tool.command.id) || undefined}
 								>
-									{@render toolGlyph(Icon)}
+									{@render toolGlyph(ToolIcon)}
 								</Button>
 							{/snippet}
 						</Tooltip.Trigger>
@@ -3695,6 +3696,7 @@
 			{m.image_editor_add()}
 		</Button>
 		{#each tools.filter( (tool) => ['select', 'marquee', 'lasso', 'magic_wand', 'crop', 'eyedropper', 'text', 'pencil', 'bucket', 'eraser', 'hand'].includes(tool.key) ) as tool (tool.key)}
+			{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
 			{#if tool.key === 'select'}
 				<Button
 					variant={editor.activeTool === 'select' ? 'secondary' : 'ghost'}
@@ -3826,7 +3828,7 @@
 					disabled={!commandEnabled(tool.command.id)}
 					title={commandDisabledReason(tool.command.id) || undefined}
 				>
-					{@render toolGlyph(Icon)}
+					{@render toolGlyph(ToolIcon)}
 					{tool.label}
 				</Button>
 			{/if}

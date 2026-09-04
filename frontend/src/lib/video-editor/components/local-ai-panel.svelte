@@ -253,7 +253,7 @@
 
 <div class="flex h-full min-h-0 flex-col" data-testid="local-ai-panel">
 	<div
-		class="grid grid-cols-2 gap-1 border-b border-[oklch(0.24_0.012_55)] p-1"
+		class="grid grid-cols-2 gap-1 border-b border-[var(--video-editor-border)] p-1"
 		role="tablist"
 		aria-label={m.video_editor_local_ai_mode()}
 	>
@@ -264,10 +264,10 @@
 			role="tab"
 			aria-selected={activeTab === 'voice'}
 			aria-controls="local-ai-voice-panel"
-			class="rounded px-2 py-1 text-[10px] font-medium focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] {activeTab ===
+			class="rounded px-2 py-1 text-[10px] font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] {activeTab ===
 			'voice'
-				? 'bg-[oklch(0.29_0.035_48)] text-white'
-				: 'text-[oklch(0.62_0.012_55)] hover:bg-[oklch(0.22_0.012_55)]'}"
+				? 'bg-[oklch(0.29_0.035_48)] text-[var(--video-editor-text)]'
+				: 'text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)]'}"
 			onclick={() => (activeTab = 'voice')}
 			onkeydown={handleTabKeydown}
 		>
@@ -280,10 +280,10 @@
 			role="tab"
 			aria-selected={activeTab === 'music'}
 			aria-controls="local-ai-music-panel"
-			class="rounded px-2 py-1 text-[10px] font-medium focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] {activeTab ===
+			class="rounded px-2 py-1 text-[10px] font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] {activeTab ===
 			'music'
-				? 'bg-[oklch(0.29_0.035_48)] text-white'
-				: 'text-[oklch(0.62_0.012_55)] hover:bg-[oklch(0.22_0.012_55)]'}"
+				? 'bg-[oklch(0.29_0.035_48)] text-[var(--video-editor-text)]'
+				: 'text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)]'}"
 			onclick={() => (activeTab = 'music')}
 			onkeydown={handleTabKeydown}
 		>
@@ -297,36 +297,38 @@
 			role="tabpanel"
 			aria-labelledby="local-ai-voice-tab"
 		>
-			<div class="border-b border-[oklch(0.24_0.012_55)] px-2 py-1.5">
-				<h2 class="text-xs font-semibold text-white">{m.video_editor_local_ai_voice()}</h2>
-				<p class="mt-0.5 text-[9px] leading-tight text-[oklch(0.58_0.012_55)]">
+			<div class="border-b border-[var(--video-editor-border)] px-2 py-1.5">
+				<h2 class="text-xs font-semibold text-[var(--video-editor-text)]">
+					{m.video_editor_local_ai_voice()}
+				</h2>
+				<p class="mt-0.5 text-[9px] leading-tight text-[var(--video-editor-muted)]">
 					{m.video_editor_local_ai_voice_description()}
 				</p>
 			</div>
 
-			<div class="space-y-1.5 border-b border-[oklch(0.24_0.012_55)] p-2">
+			<div class="space-y-1.5 border-b border-[var(--video-editor-border)] p-2">
 				{#if sourceTextItemId}
 					<div
-						class="flex items-center justify-between gap-2 rounded border border-[oklch(0.38_0.07_45)] bg-[oklch(0.22_0.025_45)] px-2 py-1 text-[10px] text-[oklch(0.82_0.04_65)]"
+						class="flex items-center justify-between gap-2 rounded border border-[var(--video-editor-focus-border)] bg-[var(--video-editor-selection)] px-2 py-1 text-[10px] text-[oklch(0.82_0.04_65)]"
 						role="status"
 					>
 						<span>{m.video_editor_local_ai_linked_text_hint()}</span>
 						<button
 							type="button"
-							class="shrink-0 rounded px-1 py-0.5 text-[9px] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="shrink-0 rounded px-1 py-0.5 text-[9px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 							onclick={() => (sourceTextItemId = null)}
 						>
 							{m.video_editor_local_ai_unlink_text()}
 						</button>
 					</div>
 				{/if}
-				<label for="local-ai-script" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
+				<label for="local-ai-script" class="block text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_ai_script()}
 				</label>
 				<Textarea
 					bind:ref={scriptTextarea}
 					id="local-ai-script"
-					class="mt-0.5 min-h-24 resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:border-[oklch(0.66_0.14_45)]"
+					class="mt-0.5 min-h-24 resize-y rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1.5 text-[11px] leading-relaxed text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)]"
 					bind:value={text}
 					disabled={generating}
 					placeholder={m.video_editor_local_ai_script_placeholder()}
@@ -338,7 +340,7 @@
 						class="flex flex-wrap items-center gap-1"
 						aria-label={m.video_editor_local_ai_expressive_tags()}
 					>
-						<span class="text-[9px] text-[oklch(0.58_0.012_55)]">
+						<span class="text-[9px] text-[var(--video-editor-muted)]">
 							{m.video_editor_local_ai_expressive_tags()}
 						</span>
 						{#each LOCAL_TTS_EXPRESSIVE_TAG_OPTIONS as tag}
@@ -357,7 +359,7 @@
 				{/if}
 
 				<div>
-					<label for="local-ai-engine" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
+					<label for="local-ai-engine" class="block text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_local_ai_engine()}
 					</label>
 					<Select.Root
@@ -370,13 +372,15 @@
 							id="local-ai-engine"
 							aria-label={m.video_editor_local_ai_engine()}
 							aria-describedby="local-ai-engine-description"
-							class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+							class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none"
 						>
 							<span class="truncate"
 								>{LOCAL_TTS_ENGINE_OPTIONS.find((o) => o.value === engine)?.label ?? engine}</span
 							>
 						</Select.Trigger>
-						<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+						<Select.Content
+							class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+						>
 							{#each LOCAL_TTS_ENGINE_OPTIONS as option}
 								<Select.Item value={option.value}>{option.label}</Select.Item>
 							{/each}
@@ -384,27 +388,29 @@
 					</Select.Root>
 					<span
 						id="local-ai-engine-description"
-						class="mt-0.5 block text-[9px] leading-tight text-[oklch(0.52_0.01_55)]"
+						class="mt-0.5 block text-[9px] leading-tight text-[var(--video-editor-muted)]"
 						>{engineDescription}</span
 					>
 				</div>
 
 				<div class="grid grid-cols-[1fr_5rem] gap-1">
 					<div>
-						<label for="local-ai-voice" class="text-[10px] text-[oklch(0.66_0.015_55)]">
+						<label for="local-ai-voice" class="text-[10px] text-[var(--video-editor-muted)]">
 							{m.video_editor_local_ai_voice_label()}
 						</label>
 						<Select.Root type="single" bind:value={voice} disabled={generating}>
 							<Select.Trigger
 								id="local-ai-voice"
 								aria-label={m.video_editor_local_ai_voice_label()}
-								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none"
 							>
 								<span class="truncate"
 									>{voiceOptions.find((o) => o.value === voice)?.label ?? voice}</span
 								>
 							</Select.Trigger>
-							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+							<Select.Content
+								class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+							>
 								{#each voiceOptions as option}
 									<Select.Item value={option.value}>{option.label}</Select.Item>
 								{/each}
@@ -412,7 +418,7 @@
 						</Select.Root>
 					</div>
 					<div>
-						<label for="local-ai-speed" class="text-[10px] text-[oklch(0.66_0.015_55)]">
+						<label for="local-ai-speed" class="text-[10px] text-[var(--video-editor-muted)]">
 							{m.video_editor_local_ai_speed()}
 						</label>
 						<Slider
@@ -425,27 +431,32 @@
 							onValueChange={(v) => (speed = v)}
 							class="mt-0.5"
 						/>
-						<span class="block text-center text-[9px] text-[oklch(0.72_0.012_55)]"
+						<span class="block text-center text-[9px] text-[var(--video-editor-muted)]"
 							>{speed.toFixed(2)}×</span
 						>
 					</div>
 				</div>
 				{#if engine === 'supertonic'}
 					<div>
-						<label for="local-ai-language" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
+						<label
+							for="local-ai-language"
+							class="block text-[10px] text-[var(--video-editor-muted)]"
+						>
 							{m.video_editor_local_ai_language()}
 						</label>
 						<Select.Root type="single" bind:value={language} disabled={generating}>
 							<Select.Trigger
 								id="local-ai-language"
 								aria-label={m.video_editor_local_ai_language()}
-								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none"
 							>
 								<span class="truncate"
 									>{transcriptionLanguageUiLabel(language === 'auto' ? '' : language)}</span
 								>
 							</Select.Trigger>
-							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+							<Select.Content
+								class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+							>
 								{#each LOCAL_TTS_LANGUAGE_OPTIONS as option}
 									<Select.Item value={option.value}
 										>{transcriptionLanguageUiLabel(
@@ -477,7 +488,7 @@
 				{#if generating && progress}
 					<div aria-live="polite">
 						<div
-							class="mb-0.5 flex items-center justify-between text-[9px] text-[oklch(0.66_0.015_55)]"
+							class="mb-0.5 flex items-center justify-between text-[9px] text-[var(--video-editor-muted)]"
 						>
 							<span
 								>{stageLabel(progress.stage)}{progress.backend
@@ -488,7 +499,7 @@
 								>{/if}
 						</div>
 						<div
-							class="h-1 overflow-hidden rounded-full bg-[oklch(0.27_0.012_55)]"
+							class="h-1 overflow-hidden rounded-full bg-[var(--video-editor-control)]"
 							role="progressbar"
 							aria-label={stageLabel(progress.stage)}
 							aria-valuemin="0"
@@ -498,7 +509,8 @@
 								: Math.round(progress.progress * 100)}
 						>
 							<div
-								class="h-full rounded-full bg-[oklch(0.66_0.14_45)] {progress.progress === null
+								class="h-full rounded-full bg-[var(--video-editor-primary)] {progress.progress ===
+								null
 									? 'w-1/3 animate-pulse motion-reduce:animate-none'
 									: ''}"
 								style:width={progress.progress === null
@@ -526,23 +538,23 @@
 
 			<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
 				{#if generations.length === 0}
-					<p class="py-6 text-center text-[10px] text-[oklch(0.5_0.01_55)]">
+					<p class="py-6 text-center text-[10px] text-[var(--video-editor-muted)]">
 						{m.video_editor_local_ai_empty()}
 					</p>
 				{/if}
 				{#each generations as generation (generation.id)}
 					<article
-						class="rounded border border-[oklch(0.26_0.012_55)] bg-[oklch(0.18_0.008_55)] p-1.5"
+						class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5"
 					>
 						<div class="mb-1 flex items-center justify-between gap-1">
-							<span class="text-[10px] text-[oklch(0.76_0.012_55)]">
+							<span class="text-[10px] text-[var(--video-editor-muted)]">
 								{m.video_editor_local_ai_duration({
 									seconds: generation.result.duration.toFixed(1)
 								})}
 							</span>
 							<button
 								type="button"
-								class="rounded p-1 text-[oklch(0.55_0.01_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+								class="rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 								onclick={() => remove(generation)}
 								aria-label={m.video_editor_local_ai_remove_preview()}
 							>

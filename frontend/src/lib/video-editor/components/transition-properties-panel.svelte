@@ -256,23 +256,23 @@
 
 {#if transition && definition}
 	<section class="flex flex-col gap-2" aria-label={m.video_editor_transition_properties()}>
-		<h3 class="px-1 text-xs font-medium tracking-wide text-[oklch(0.65_0.015_55)] uppercase">
+		<h3 class="px-1 text-xs font-medium tracking-wide text-[var(--video-editor-muted)] uppercase">
 			{m.video_editor_transition_properties()}
 		</h3>
 
-		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_transition_preset()}
 			<Input
-				class="mt-1 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
+				class="mt-1 h-8 w-full bg-[var(--video-editor-control)] text-xs"
 				type="search"
 				placeholder={m.video_editor_transition_search()}
 				aria-label={m.video_editor_transition_search()}
 				bind:value={search}
 			/>
 		</label>
-		<div class="max-h-52 overflow-y-auto rounded border border-[oklch(0.28_0.015_55)] p-1">
+		<div class="max-h-52 overflow-y-auto rounded border border-[var(--video-editor-border)] p-1">
 			{#if !hasFilteredResults}
-				<p class="p-2 text-xs text-[oklch(0.65_0.015_55)]">
+				<p class="p-2 text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_transition_no_results()}
 				</p>
 			{/if}
@@ -280,7 +280,7 @@
 				{@const matches = filteredDefinitions(category)}
 				{#if matches.length > 0}
 					<h4
-						class="px-1 pt-1 text-[9px] font-semibold tracking-wide text-[oklch(0.57_0.015_55)] uppercase"
+						class="px-1 pt-1 text-[9px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
 					>
 						{categoryLabel(category)}
 					</h4>
@@ -288,7 +288,7 @@
 						{#each matches as candidate (candidate.id)}
 							<button
 								type="button"
-								class="min-h-8 rounded px-1.5 py-1 text-left text-[10px] leading-tight hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] data-[selected=true]:bg-[oklch(0.66_0.14_45_/_0.2)] data-[selected=true]:text-[oklch(0.88_0.09_65)]"
+								class="min-h-8 rounded px-1.5 py-1 text-left text-[10px] leading-tight hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:bg-[var(--video-editor-selection)] data-[selected=true]:text-[var(--video-editor-selection-text)]"
 								data-selected={candidate.id === definition.id}
 								aria-pressed={candidate.id === definition.id}
 								onclick={() => choosePresentation(candidate)}
@@ -301,7 +301,7 @@
 			{/each}
 		</div>
 
-		<div class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<div class="text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between">
 				<span>{m.video_editor_transition_duration()}</span>
 				<span class="font-mono"
@@ -333,7 +333,7 @@
 		</div>
 
 		<fieldset>
-			<legend class="text-[10px] text-[oklch(0.7_0.01_55)]">
+			<legend class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_transition_placement()}
 			</legend>
 			<div class="mt-1 grid grid-cols-3 gap-1">
@@ -352,7 +352,7 @@
 			</div>
 		</fieldset>
 
-		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_transition_timing()}
 			<AppSelect
 				class="mt-1 h-8 w-full text-xs"
@@ -366,7 +366,7 @@
 		{#if transition.timing === 'cubic-bezier'}
 			<div class="grid grid-cols-4 gap-1">
 				{#each ['x1', 'y1', 'x2', 'y2'] as point}
-					<label class="text-[9px] text-[oklch(0.65_0.015_55)]">
+					<label class="text-[9px] text-[var(--video-editor-muted)]">
 						{point}
 						<Input
 							class="mt-0.5 h-7 px-1 text-[10px]"
@@ -393,7 +393,7 @@
 		{/if}
 
 		{#if definition.hasDirection}
-			<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_transition_direction()}
 				<AppSelect
 					class="mt-1 h-8 w-full text-xs"
@@ -408,12 +408,12 @@
 		{/if}
 
 		{#if definition.parameters?.length}
-			<div class="flex flex-col gap-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
+			<div class="flex flex-col gap-2 border-t border-[var(--video-editor-border)] pt-2">
 				{#each definition.parameters as parameter (parameter.key)}
 					<div class="flex items-end gap-1">
 						{#if parameter.type === 'color'}
 							<label
-								class="flex min-w-0 flex-1 items-center justify-between text-[10px] text-[oklch(0.7_0.01_55)]"
+								class="flex min-w-0 flex-1 items-center justify-between text-[10px] text-[var(--video-editor-muted)]"
 							>
 								{parameterLabel(parameter)}
 								<Input
@@ -424,7 +424,7 @@
 								/>
 							</label>
 						{:else}
-							<label class="min-w-0 flex-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+							<label class="min-w-0 flex-1 text-[10px] text-[var(--video-editor-muted)]">
 								<span class="flex justify-between">
 									<span>{parameterLabel(parameter)}</span>
 									<span class="font-mono">{propertyValue(parameter)}{parameter.unit ?? ''}</span>

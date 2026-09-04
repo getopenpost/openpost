@@ -107,6 +107,8 @@ interface FabricAdapterOptions {
 	readOnly: boolean;
 	staticCanvas?: boolean;
 	renderScale?: number;
+	selectionColor?: string;
+	handleColor?: string;
 	onSelection(ids: string[]): void;
 	onTransform(id: string, updates: Partial<ImageEditorLayer['transform']>): void;
 	onAltDuplicate?(entries: Array<{ id: string; transform: ImageEditorLayer['transform'] }>): void;
@@ -378,6 +380,8 @@ export class OpenPostFabricAdapter {
 	private snapGridSize = 0;
 	private readonly staticMode: boolean;
 	private readonly renderScale: number;
+	private readonly selectionColor: string;
+	private readonly handleColor: string;
 	private onSelection: FabricAdapterOptions['onSelection'];
 	private onTransform: FabricAdapterOptions['onTransform'];
 	private onAltDuplicate: NonNullable<FabricAdapterOptions['onAltDuplicate']>;
@@ -396,6 +400,8 @@ export class OpenPostFabricAdapter {
 		this.readOnly = options.readOnly;
 		this.staticMode = Boolean(options.staticCanvas);
 		this.renderScale = Math.max(0.01, options.renderScale ?? 1);
+		this.selectionColor = options.selectionColor || '#f97316';
+		this.handleColor = options.handleColor || '#ffffff';
 		this.onSelection = options.onSelection;
 		this.onTransform = options.onTransform;
 		this.onAltDuplicate = options.onAltDuplicate ?? (() => undefined);
@@ -927,7 +933,12 @@ export class OpenPostFabricAdapter {
 	private layerLocalGeometry(
 		id: string,
 		point: SelectionPoint
-	): { point: SelectionPoint; width: number; height: number; scale: number } | null {
+	): {
+		point: SelectionPoint;
+		width: number;
+		height: number;
+		scale: number;
+	} | null {
 		if (!this.fabric) return null;
 		const object = this.objectByLayerID.get(id);
 		if (!object) return null;
@@ -1705,7 +1716,10 @@ export class OpenPostFabricAdapter {
 			if (layer.shape.kind === 'rounded_rectangle') {
 				object.set({ rx: layer.shape.radius, ry: layer.shape.radius });
 			} else if (layer.shape.kind === 'ellipse') {
-				object.set({ rx: layer.transform.width / 2, ry: layer.transform.height / 2 });
+				object.set({
+					rx: layer.transform.width / 2,
+					ry: layer.transform.height / 2
+				});
 			} else if (layer.shape.kind === 'line') {
 				object.set({ x2: layer.transform.width, y2: 0 });
 			}
@@ -2206,9 +2220,9 @@ export class OpenPostFabricAdapter {
 			originX: 'left' as const,
 			originY: 'top' as const,
 			transparentCorners: false,
-			cornerColor: '#f97316',
-			cornerStrokeColor: '#ffffff',
-			borderColor: '#f97316',
+			cornerColor: this.selectionColor,
+			cornerStrokeColor: this.handleColor,
+			borderColor: this.selectionColor,
 			cornerSize: 12,
 			touchCornerSize: 44,
 			padding: 1,
@@ -2232,7 +2246,9 @@ export class OpenPostFabricAdapter {
 		}
 		if (adjustment.contrast) {
 			filters.push(
-				new this.fabric.filters.Contrast({ contrast: clamp(adjustment.contrast, -1, 1) })
+				new this.fabric.filters.Contrast({
+					contrast: clamp(adjustment.contrast, -1, 1)
+				})
 			);
 		}
 		const vibrance = adjustment.vibrance ?? 0;
@@ -2244,7 +2260,9 @@ export class OpenPostFabricAdapter {
 		}
 		if (adjustment.saturation) {
 			filters.push(
-				new this.fabric.filters.Saturation({ saturation: clamp(adjustment.saturation, -1, 1) })
+				new this.fabric.filters.Saturation({
+					saturation: clamp(adjustment.saturation, -1, 1)
+				})
 			);
 		}
 		if (hue) {

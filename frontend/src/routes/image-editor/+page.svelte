@@ -3,7 +3,6 @@ THESIS: Public OpenPost Image Editor is a local workbench that starts with makin
 OWN-WORLD: OpenPost warm neutrals, compact Geist controls, structural borders, and one scarce orange action signal.
 STORY: Choose a social format, open a local image, or use a template; edit and export; save to OpenPost only when cloud value matters.
 FIRST VIEWPORT: A quiet product header, direct promise, image-import action, and real social-format choices, with recent local work leading for returning visitors.
-	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 FORM: Operate surface extending the established OpenPost Image Editor start screen; no marketing hero, editor fork, watermark, or export gate.
 -->
 <script lang="ts">
@@ -39,6 +38,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	let authState = $derived($auth);
 	let localLoading = $state(true);
@@ -477,7 +477,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">{m.image_editor_custom_limits()}</p>
 					</div>
-					<div class="grid grid-cols-[1fr_1fr_auto] gap-2">
+					<div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
 						<label class="grid gap-1 text-xs">
 							<span>{m.image_editor_width()}</span>
 							<Input type="number" min="64" max="4096" bind:value={customWidth} />
@@ -488,7 +488,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 						</label>
 						<Button
 							variant="outline"
-							class="self-end"
+							class="self-end sm:w-auto"
 							onclick={startCustom}
 							disabled={Boolean(creating)}
 						>

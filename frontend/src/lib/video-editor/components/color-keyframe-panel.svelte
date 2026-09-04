@@ -142,18 +142,21 @@
 	aria-label={m.video_editor_keyframe_sheet_title()}
 >
 	<header
-		class="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3"
+		class="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-3"
 	>
 		<div class="min-w-0">
 			<h3 class="truncate text-xs font-semibold">{m.video_editor_keyframe_sheet_title()}</h3>
 			{#if item}
-				<p class="truncate text-[9px] text-white/35">
+				<p class="truncate text-[9px] text-[var(--video-editor-muted)]">
 					{item.label} <span class="font-mono">({item.id.slice(0, 8)})</span>
 				</p>
 			{/if}
 		</div>
 		<div class="flex shrink-0 items-center gap-1">
-			<div class="flex overflow-hidden rounded-sm border border-white/12" role="tablist">
+			<div
+				class="flex overflow-hidden rounded-sm border border-[var(--video-editor-border)]"
+				role="tablist"
+			>
 				<button
 					type="button"
 					class="view-button {view === 'sheet' ? 'view-button-active' : ''}"
@@ -165,7 +168,7 @@
 				</button>
 				<button
 					type="button"
-					class="view-button border-l border-white/12 {view === 'graph'
+					class="view-button border-l border-[var(--video-editor-border)] {view === 'graph'
 						? 'view-button-active'
 						: ''}"
 					role="tab"
@@ -189,20 +192,27 @@
 	</header>
 
 	{#if !item}
-		<p class="m-auto px-4 text-center text-xs text-white/40">{m.video_editor_select_clip()}</p>
+		<p class="m-auto px-4 text-center text-xs text-[var(--video-editor-muted)]">
+			{m.video_editor_select_clip()}
+		</p>
 	{:else if properties.length === 0}
 		<div class="m-auto max-w-52 px-4 text-center">
-			<ProtectedIcon icon="editor-keyframe" class="mx-auto mb-2 size-5 text-white/25" />
-			<p class="text-xs text-white/45">Add a color effect to animate its controls.</p>
+			<ProtectedIcon
+				icon="editor-keyframe"
+				class="mx-auto mb-2 size-5 text-[var(--video-editor-muted)]"
+			/>
+			<p class="text-xs text-[var(--video-editor-muted)]">
+				{m.video_editor_color_keyframes_add_effect()}
+			</p>
 		</div>
 	{:else if view === 'graph' && activeProperty}
 		<div class="flex min-h-0 flex-1 flex-col">
 			<div
-				class="flex h-8 shrink-0 items-center gap-2 border-b border-white/8 px-2 text-[10px] text-white/50"
+				class="flex h-8 shrink-0 items-center gap-2 border-b border-[var(--video-editor-border)] px-2 text-[10px] text-[var(--video-editor-muted)]"
 			>
 				<span class="shrink-0">{m.video_editor_keyframe_property()}</span>
 				<AppSelect
-					class="h-6! min-w-0 flex-1 rounded-sm border-white/10 bg-black/35 px-1 text-[10px] text-white/80 shadow-none hover:bg-white/5"
+					class="h-6! min-w-0 flex-1 rounded-sm border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-[10px] text-[var(--video-editor-text)] shadow-none hover:bg-[var(--video-editor-control-hover)]"
 					value={activeProperty}
 					options={propertyOptions}
 					ariaLabel={m.video_editor_keyframe_property()}

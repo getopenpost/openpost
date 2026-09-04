@@ -125,15 +125,17 @@
 	class="effect-browser min-h-0 flex-1 overflow-y-auto p-2"
 	aria-label={m.video_editor_effects()}
 >
-	<p class="mb-2 text-[10px] leading-4 text-[oklch(0.62_0.012_55)]">
+	<p class="mb-2 text-[10px] leading-4 text-[var(--video-editor-muted)]">
 		{m.video_editor_effects_add_or_drag()}
 	</p>
 	<button
 		type="button"
-		class="mb-3 flex min-h-16 w-full items-center gap-3 rounded-lg border border-[oklch(0.29_0.012_55)] bg-[oklch(0.17_0.008_55)] px-3 text-left text-xs text-[oklch(0.72_0.01_55)] hover:border-[oklch(0.52_0.09_45)] hover:bg-[oklch(0.205_0.012_50)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		class="mb-3 flex min-h-16 w-full items-center gap-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 text-left text-xs text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 		onclick={() => createAdjustment(m.video_editor_adjustment_layer())}
 	>
-		<span class="grid size-10 place-items-center rounded-md border border-white/10 bg-white/5">
+		<span
+			class="grid size-10 place-items-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+		>
 			<ProtectedIcon icon="editor-layers" class="size-5" />
 		</span>
 		<span>{m.video_editor_add_adjustment_layer()}</span>
@@ -142,7 +144,7 @@
 	{#each groups as group (group.id)}
 		<section class="mb-4 last:mb-0">
 			<h3
-				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[oklch(0.62_0.012_55)] uppercase"
+				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"
 			>
 				{group.label}
 			</h3>

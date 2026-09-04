@@ -14,6 +14,7 @@ const imageEditorCanvas = new URL(
 	'../lib/image-editor/components/image-editor-canvas.svelte',
 	import.meta.url
 );
+const imageEditorFabricAdapter = new URL('../lib/image-editor/fabric-adapter.ts', import.meta.url);
 const videoPreview = new URL(
 	'../lib/video-editor/components/preview-player.svelte',
 	import.meta.url
@@ -203,6 +204,50 @@ describe('editor route theme color boundary', () => {
 		expect(sourceMonitor).toContain('data-editor-protected="source-media"');
 	});
 
+	it('keeps deep inspector and asset chrome off the fixed dark palette', async () => {
+		const fixedDarkChrome = [
+			'border-white',
+			'text-white',
+			'bg-black/',
+			'bg-white/',
+			'focus-visible:outline-white',
+			'bg-[oklch(0.18_',
+			'bg-[oklch(0.22_',
+			'bg-[oklch(0.25_',
+			'bg-[oklch(0.28_',
+			'bg-[oklch(0.32_'
+		];
+
+		for (const name of [
+			'animated-image-playback-section',
+			'audio-ducking-panel',
+			'audio-effects-panel',
+			'audio-eq-panel',
+			'background-properties-panel',
+			'clip-audio-core-section',
+			'clip-crop-section',
+			'clip-playback-section',
+			'clip-transform-section',
+			'color-keyframe-panel',
+			'color-workspace',
+			'editor-workspace-switcher',
+			'effects-panel',
+			'lottie-properties-panel',
+			'motion-workspace-panel',
+			'project-canvas-panel',
+			'scene-browser-panel',
+			'shape-properties-panel',
+			'sticker-browser-panel',
+			'transition-properties-panel'
+		]) {
+			const source = await readFile(videoEditorComponent(name), 'utf8');
+			const renderedSource = source.replace(/<script[\s\S]*?<\/script>/u, '');
+			for (const forbidden of fixedDarkChrome) {
+				expect(renderedSource, `${name} still contains ${forbidden}`).not.toContain(forbidden);
+			}
+		}
+	});
+
 	it('keeps audio effect ranges on the shared editor slider', async () => {
 		const source = await readFile(videoEditorComponent('audio-effects-panel'), 'utf8');
 
@@ -231,5 +276,24 @@ describe('editor route theme color boundary', () => {
 
 		expect(source).toContain('--image-editor-accent: var(--primary);');
 		expect(source).not.toContain('--image-editor-accent: oklch(');
+	});
+
+	it('keeps image output geometry on protected canvas roles', async () => {
+		const [canvas, adapter, layout] = await Promise.all([
+			readFile(imageEditorCanvas, 'utf8'),
+			readFile(imageEditorFabricAdapter, 'utf8'),
+			readFile(layoutStyles, 'utf8')
+		]);
+
+		expect(canvas).toContain('var(--canvas-pasteboard)');
+		expect(canvas).toContain('var(--canvas-grid)');
+		expect(canvas).toContain('var(--canvas-selection)');
+		expect(canvas).toContain('var(--canvas-handle)');
+		expect(canvas).not.toContain('hover:text-foreground');
+		expect(canvas).not.toContain('var(--background) 72%');
+		expect(adapter).toContain('cornerColor: this.selectionColor');
+		expect(adapter).toContain('cornerStrokeColor: this.handleColor');
+		expect(adapter).toContain('borderColor: this.selectionColor');
+		expect(layout).toContain(':is(.video-editor-theme, .image-editor-theme)');
 	});
 });

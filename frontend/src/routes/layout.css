@@ -34,6 +34,16 @@
 	--video-editor-text: var(--foreground);
 	--video-editor-focus: var(--ring);
 	--video-editor-focus-border: var(--ring);
+	--video-editor-field: var(--field);
+	--video-editor-field-text: var(--field-foreground);
+	--video-editor-selection: var(--selection);
+	--video-editor-selection-text: var(--selection-foreground);
+	--video-editor-primary: var(--action-primary);
+	--video-editor-primary-text: var(--action-primary-foreground);
+	--video-editor-danger: var(--action-destructive);
+	--video-editor-danger-text: var(--action-destructive-foreground);
+	--video-editor-warning: var(--warning);
+	--video-editor-warning-text: var(--warning-foreground);
 }
 
 .editor-protected-surface {
@@ -46,6 +56,16 @@
 	--video-editor-text: var(--editor-text);
 	--video-editor-focus: var(--editor-focus);
 	--video-editor-focus-border: var(--editor-focus-border);
+	--video-editor-field: var(--editor-control);
+	--video-editor-field-text: var(--editor-text);
+	--video-editor-selection: color-mix(in oklch, var(--editor-focus) 22%, var(--editor-panel));
+	--video-editor-selection-text: var(--editor-text);
+	--video-editor-primary: var(--editor-focus);
+	--video-editor-primary-text: var(--canvas-pasteboard);
+	--video-editor-danger: var(--action-destructive);
+	--video-editor-danger-text: var(--action-destructive-foreground);
+	--video-editor-warning: var(--warning);
+	--video-editor-warning-text: var(--warning-foreground);
 }
 
 @source '../../../packages/social-preview/src';
@@ -1251,13 +1271,13 @@
 		background-size: contain;
 	}
 
-	[data-theme-editor-chrome='compact'] .video-editor-theme,
-	[data-theme-editor-chrome='precision'] .video-editor-theme {
+	[data-theme-editor-chrome='compact'] :is(.video-editor-theme, .image-editor-theme),
+	[data-theme-editor-chrome='precision'] :is(.video-editor-theme, .image-editor-theme) {
 		--theme-component-gap: 0.5rem;
 		--theme-radius-md: 0.375rem;
 	}
 
-	[data-theme-editor-chrome='neutral'] .video-editor-theme {
+	[data-theme-editor-chrome='neutral'] :is(.video-editor-theme, .image-editor-theme) {
 		--theme-component-gap: 0.75rem;
 		--theme-radius-md: 0.625rem;
 	}

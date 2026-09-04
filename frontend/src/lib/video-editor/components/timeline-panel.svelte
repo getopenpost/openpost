@@ -6368,7 +6368,7 @@
 												onclick={() => onsplitscenes(contextPrimaryItem.id, 'adaptive-lfm')}
 											>
 												{m.video_editor_scene_split_adaptive()}
-												<ContextMenu.Shortcut>Local</ContextMenu.Shortcut>
+												<ContextMenu.Shortcut>{m.video_editor_local()}</ContextMenu.Shortcut>
 											</ContextMenu.Item>
 										</ContextMenu.SubContent>
 									</ContextMenu.Sub>

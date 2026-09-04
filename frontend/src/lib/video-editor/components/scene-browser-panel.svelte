@@ -119,16 +119,16 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div class="space-y-2 border-b border-[oklch(0.25_0.015_55)] px-2 pb-2">
+	<div class="space-y-2 border-b border-[var(--video-editor-border)] px-2 pb-2">
 		<label class="relative block">
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
+				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
 				type="search"
 				data-scene-browser-search
-				class="h-8 w-full rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] pr-2 pl-7 text-xs placeholder:text-[oklch(0.52_0.015_55)] focus-visible:border-[oklch(0.66_0.14_45)] focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45/0.25)]"
+				class="h-8 w-full rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] pr-2 pl-7 text-xs placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklch,var(--video-editor-focus)_25%,transparent)]"
 				placeholder={m.video_editor_scene_search()}
 				bind:value={sceneBrowser.query}
 			/>
@@ -141,7 +141,7 @@
 			>
 				<Select.Trigger
 					aria-label={m.video_editor_scene_scope_all()}
-					class="h-7 min-w-0 flex-1 justify-between rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-2 text-[11px] shadow-none"
+					class="h-7 min-w-0 flex-1 justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] shadow-none"
 				>
 					<span class="truncate"
 						>{sceneBrowser.scope
@@ -158,7 +158,7 @@
 			</Select.Root>
 			<button
 				type="button"
-				class="flex h-7 items-center gap-1 rounded-md border border-[oklch(0.3_0.015_55)] px-2 text-[11px] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-50"
+				class="flex h-7 items-center gap-1 rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-50"
 				disabled={batchBusy || analyzableMedia.length === 0}
 				title={m.video_editor_scene_analyze()}
 				onclick={() => analyze(false)}
@@ -173,7 +173,7 @@
 			<button
 				type="button"
 				class:active={sceneBrowser.colorMode}
-				class="flex h-7 items-center rounded-md border border-[oklch(0.3_0.015_55)] px-2 text-[11px] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:border-[oklch(0.58_0.12_45)] [&.active]:bg-[oklch(0.28_0.045_45)]"
+				class="flex h-7 items-center rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:border-[var(--video-editor-focus-border)] [&.active]:bg-[var(--video-editor-selection)]"
 				aria-label={sceneBrowser.colorMode
 					? m.video_editor_scene_colors_hide()
 					: m.video_editor_scene_colors()}
@@ -184,12 +184,12 @@
 		</div>
 		{#if sceneBrowser.colorMode && libraryColors.length > 0}
 			<div class="space-y-1" aria-label={m.video_editor_scene_library_colors()}>
-				<div class="flex items-center justify-between text-[10px] text-[oklch(0.62_0.015_55)]">
+				<div class="flex items-center justify-between text-[10px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_scene_library_colors()}</span>
 					{#if sceneBrowser.referencePalette}
 						<button
 							type="button"
-							class="hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 							onclick={() => (sceneBrowser.referencePalette = null)}
 						>
 							{m.video_editor_scene_palette_clear()}
@@ -200,7 +200,7 @@
 					{#each libraryColors as swatch}
 						<button
 							type="button"
-							class="aspect-square rounded-sm border border-white/20 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							class="aspect-square rounded-sm border border-[var(--video-editor-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 							style:background={`lab(${swatch.l}% ${swatch.a} ${swatch.b})`}
 							aria-label={m.video_editor_scene_palette_search()}
 							onclick={() => searchColor(swatch)}
@@ -211,21 +211,21 @@
 		{/if}
 		{#if activeProgress?.progress}
 			<div class="space-y-1" aria-live="polite">
-				<div class="truncate text-[10px] text-[oklch(0.66_0.015_55)]">
+				<div class="truncate text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_scene_analyzing({
 						name: activeProgress.media?.fileName ?? '',
 						progress: activeProgress.progress.percent
 					})}
 				</div>
-				<div class="h-1 overflow-hidden rounded-full bg-[oklch(0.24_0.012_55)]">
+				<div class="h-1 overflow-hidden rounded-full bg-[var(--video-editor-control)]">
 					<div
-						class="h-full rounded-full bg-[oklch(0.66_0.14_45)] transition-[width]"
+						class="h-full rounded-full bg-[var(--video-editor-primary)] transition-[width]"
 						style:width={`${activeProgress.progress.percent}%`}
 					></div>
 				</div>
 				<button
 					type="button"
-					class="text-[10px] text-[oklch(0.7_0.015_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					class="text-[10px] text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 					onclick={cancelAnalysis}
 				>
 					{m.video_editor_analysis_cancel()}
@@ -235,7 +235,7 @@
 	</div>
 
 	<div
-		class="flex items-center justify-between border-b border-[oklch(0.25_0.015_55)] px-2 py-1.5 text-[10px] text-[oklch(0.64_0.015_55)]"
+		class="flex items-center justify-between border-b border-[var(--video-editor-border)] px-2 py-1.5 text-[10px] text-[var(--video-editor-muted)]"
 	>
 		<span>
 			{m.video_editor_scene_count({ count: scenes.length })} ·
@@ -245,7 +245,7 @@
 			<Select.Root type="single" bind:value={sceneBrowser.sortMode}>
 				<Select.Trigger
 					aria-label={m.video_editor_scene_sort_relevance()}
-					class="h-6 justify-between rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-1 text-[10px] shadow-none"
+					class="h-6 justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1 text-[10px] shadow-none"
 				>
 					<span class="truncate"
 						>{sceneBrowser.sortMode === 'relevance'
@@ -264,7 +264,7 @@
 			<button
 				type="button"
 				class:active={sceneBrowser.viewMode === 'grid'}
-				class="rounded p-1 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.3_0.035_45)] [&.active]:text-white"
+				class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[var(--video-editor-selection)] [&.active]:text-[var(--video-editor-text)]"
 				aria-label={m.video_editor_scene_view_grid()}
 				onclick={() => (sceneBrowser.viewMode = 'grid')}
 			>
@@ -273,7 +273,7 @@
 			<button
 				type="button"
 				class:active={sceneBrowser.viewMode === 'list'}
-				class="rounded p-1 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.3_0.035_45)] [&.active]:text-white"
+				class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[var(--video-editor-selection)] [&.active]:text-[var(--video-editor-text)]"
 				aria-label={m.video_editor_scene_view_list()}
 				onclick={() => (sceneBrowser.viewMode = 'list')}
 			>
@@ -289,14 +289,14 @@
 					{@const scene = sceneBrowser.getScene(ranked.id)}
 					{#if scene}
 						<article
-							class="group mb-1 overflow-hidden rounded-md border border-transparent bg-[oklch(0.18_0.01_55)] hover:border-[oklch(0.34_0.025_45)]"
+							class="group mb-1 overflow-hidden rounded-md border border-transparent bg-[var(--video-editor-panel)] hover:border-[var(--video-editor-focus-border)]"
 							class:flex={sceneBrowser.viewMode === 'list'}
 							draggable="true"
 							ondragstart={(event) => startSceneDrag(event, scene)}
 							ondragend={clearSceneDragData}
 						>
 							<div
-								class="relative aspect-video min-w-0 overflow-hidden bg-[oklch(0.22_0.01_55)]"
+								class="relative aspect-video min-w-0 overflow-hidden bg-[var(--video-editor-control)]"
 								class:w-28={sceneBrowser.viewMode === 'list'}
 								class:w-full={sceneBrowser.viewMode === 'grid'}
 							>
@@ -305,18 +305,18 @@
 									revision={sceneBrowser.analysis(scene.mediaId)?.analyzedAt}
 								/>
 								<span
-									class="absolute right-1 bottom-1 rounded bg-black/75 px-1 font-mono text-[9px] text-white"
+									class="absolute right-1 bottom-1 rounded bg-[var(--video-editor-control)] px-1 font-mono text-[9px] text-[var(--video-editor-text)]"
 								>
 									{formatTime(scene.startSec)}
 								</span>
 								<button
 									type="button"
-									class="focus-visible:outline-inset absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+									class="focus-visible:outline-inset absolute inset-0 flex items-center justify-center bg-[var(--video-editor-control)] opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									aria-label={`${m.video_editor_scene_add()}: ${scene.text || m.video_editor_scene_label({ number: scene.index + 1 })}`}
 									onclick={() => addScene(scene.id)}
 								>
 									<span
-										class="flex size-7 items-center justify-center rounded-full bg-[oklch(0.66_0.14_45)] text-white shadow-md"
+										class="flex size-7 items-center justify-center rounded-full bg-[var(--video-editor-primary)] text-[var(--video-editor-text)] shadow-md"
 									>
 										<ThemeIcon role="add" class="size-4" />
 									</span>
@@ -327,7 +327,7 @@
 									{scene.text || m.video_editor_scene_label({ number: scene.index + 1 })}
 								</p>
 								<p
-									class="truncate text-[9px] text-[oklch(0.6_0.015_55)]"
+									class="truncate text-[9px] text-[var(--video-editor-muted)]"
 									title={ranked.mediaFileName}
 								>
 									{ranked.mediaFileName} · {formatTime(scene.endSec - scene.startSec)}
@@ -338,7 +338,9 @@
 										aria-label={m.video_editor_scene_match_signals()}
 									>
 										{#if ranked.signals.keywordMatched}
-											<span class="rounded bg-white/7 px-1 py-0.5 text-[8px] text-white/70">
+											<span
+												class="rounded bg-[var(--video-editor-control-hover)] px-1 py-0.5 text-[8px] text-[var(--video-editor-muted)]"
+											>
 												{m.video_editor_scene_match_keyword()}
 											</span>
 										{/if}
@@ -368,7 +370,7 @@
 									<div class="flex items-center gap-0.5">
 										<button
 											type="button"
-											class="mr-0.5 rounded p-0.5 text-[oklch(0.64_0.015_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											class="mr-0.5 rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 											aria-label={m.video_editor_scene_palette_similar()}
 											onclick={() => findSimilarPalette(scene)}
 										>
@@ -377,7 +379,7 @@
 										{#each scene.palette.slice(0, 4) as swatch}
 											<button
 												type="button"
-												class="size-3 rounded-sm border border-white/20 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+												class="size-3 rounded-sm border border-[var(--video-editor-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 												style:background={`lab(${swatch.l}% ${swatch.a} ${swatch.b})`}
 												aria-label={m.video_editor_scene_palette_search()}
 												onclick={() => searchColor(swatch)}
@@ -392,7 +394,7 @@
 			</div>
 		{:else}
 			<div
-				class="flex h-full min-h-36 flex-col items-center justify-center gap-2 px-4 text-center text-xs text-[oklch(0.62_0.015_55)]"
+				class="flex h-full min-h-36 flex-col items-center justify-center gap-2 px-4 text-center text-xs text-[var(--video-editor-muted)]"
 			>
 				<ThemeIcon role="sparkles" class="size-5" />
 				<p>
@@ -403,7 +405,7 @@
 				{#if sceneBrowser.totalScenes > 0}
 					<button
 						type="button"
-						class="rounded px-2 py-1 text-[10px] text-[oklch(0.72_0.13_45)] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+						class="rounded px-2 py-1 text-[10px] text-[var(--video-editor-primary)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						onclick={() => analyze(true)}
 					>
 						{m.video_editor_scene_reanalyze()}

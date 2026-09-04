@@ -85,15 +85,15 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col" aria-label={m.video_editor_stickers()}>
-	<div class="border-b border-[oklch(0.25_0.015_55)] p-2">
+	<div class="border-b border-[var(--video-editor-border)] p-2">
 		<label class="relative block">
 			<span class="sr-only">{m.video_editor_stickers_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.01_55)]"
+				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-8 w-full rounded bg-[oklch(0.2_0.01_50)] pl-7 text-xs"
+				class="h-8 w-full rounded bg-[var(--video-editor-panel)] pl-7 text-xs"
 				placeholder={m.video_editor_stickers_search()}
 				bind:value={query}
 			/>
@@ -102,7 +102,7 @@
 
 	{#if status === 'loading'}
 		<div
-			class="flex flex-1 items-center justify-center gap-2 p-4 text-xs text-[oklch(0.65_0.015_55)]"
+			class="flex flex-1 items-center justify-center gap-2 p-4 text-xs text-[var(--video-editor-muted)]"
 			role="status"
 		>
 			<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
@@ -118,13 +118,13 @@
 		</div>
 	{:else}
 		<div class="min-h-0 flex-1 overflow-y-auto p-2">
-			<p class="mb-2 text-[10px] text-[oklch(0.58_0.01_55)]" aria-live="polite">
+			<p class="mb-2 text-[10px] text-[var(--video-editor-muted)]" aria-live="polite">
 				{query.trim()
 					? m.video_editor_stickers_results({ count: matches.length })
 					: m.video_editor_stickers_popular()}
 			</p>
 			{#if visible.length === 0}
-				<p class="py-8 text-center text-xs text-[oklch(0.62_0.012_55)]">
+				<p class="py-8 text-center text-xs text-[var(--video-editor-muted)]">
 					{m.video_editor_stickers_empty()}
 				</p>
 			{:else}
@@ -132,7 +132,7 @@
 					{#each visible as sticker (sticker.name)}
 						<button
 							type="button"
-							class="group relative flex min-h-20 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-[oklch(0.27_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5 text-center hover:border-[oklch(0.48_0.08_45)] hover:bg-[oklch(0.21_0.012_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-60"
+							class="group relative flex min-h-20 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 text-center hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-60"
 							disabled={Boolean(inserting)}
 							aria-label={m.video_editor_sticker_add({ name: sticker.label })}
 							title={m.video_editor_sticker_add({ name: sticker.label })}
@@ -144,20 +144,22 @@
 								class="size-11 object-contain transition-transform group-hover:scale-105"
 								loading="lazy"
 							/>
-							<span class="w-full truncate text-[9px] text-[oklch(0.7_0.012_55)]">
+							<span class="w-full truncate text-[9px] text-[var(--video-editor-muted)]">
 								{sticker.label}
 							</span>
 							{#if inserting === sticker.name}
-								<span class="absolute inset-0 flex items-center justify-center bg-black/55">
+								<span
+									class="absolute inset-0 flex items-center justify-center bg-[var(--video-editor-control)]"
+								>
 									<ProtectedIcon
 										icon="loading"
-										class="size-4 animate-spin text-white motion-reduce:animate-none"
+										class="size-4 animate-spin text-[var(--video-editor-text)] motion-reduce:animate-none"
 									/>
 								</span>
 							{:else}
 								<ThemeIcon
 									role="add"
-									class="absolute top-1 right-1 size-3 text-white opacity-0 group-hover:opacity-100"
+									class="absolute top-1 right-1 size-3 text-[var(--video-editor-text)] opacity-0 group-hover:opacity-100"
 								/>
 							{/if}
 						</button>
@@ -176,13 +178,13 @@
 			{/if}
 		</div>
 		<p
-			class="border-t border-[oklch(0.25_0.015_55)] px-2 py-1.5 text-[9px] text-[oklch(0.55_0.01_55)]"
+			class="border-t border-[var(--video-editor-border)] px-2 py-1.5 text-[9px] text-[var(--video-editor-muted)]"
 		>
 			<a
 				href="https://github.com/microsoft/fluentui-emoji"
 				target="_blank"
 				rel="noreferrer"
-				class="hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+				class="hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			>
 				{m.video_editor_stickers_source()}
 			</a>

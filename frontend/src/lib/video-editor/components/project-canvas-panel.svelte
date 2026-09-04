@@ -107,17 +107,21 @@
 					? m.video_editor_motion_canvas_settings()
 					: m.video_editor_project_canvas_settings()}
 			</h2>
-			<p class="mt-1 text-xs leading-relaxed text-[oklch(0.65_0.015_55)]">
+			<p class="mt-1 text-xs leading-relaxed text-[var(--video-editor-muted)]">
 				{activeComposite
 					? m.video_editor_motion_canvas_settings_hint()
 					: m.video_editor_project_canvas_settings_hint()}
 			</p>
 		</div>
 
-		<div class="rounded-lg border border-[oklch(0.28_0.014_55)] bg-[oklch(0.17_0.01_55)] p-3">
+		<div
+			class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
+		>
 			<div class="mb-2 flex items-center justify-between gap-2">
 				<h3 class="text-xs font-medium">{m.video_editor_project_canvas_dimensions()}</h3>
-				<span class="font-mono text-[10px] text-[oklch(0.65_0.015_55)]">{metadata.fps} fps</span>
+				<span class="font-mono text-[10px] text-[var(--video-editor-muted)]"
+					>{metadata.fps} fps</span
+				>
 			</div>
 			<div class="grid grid-cols-2 gap-2">
 				<label class="grid gap-1 text-xs">
@@ -143,7 +147,7 @@
 					/>
 				</label>
 			</div>
-			<p class="mt-1.5 text-[10px] text-[oklch(0.6_0.012_65)]">
+			<p class="mt-1.5 text-[10px] text-[var(--video-editor-muted)]">
 				{activeComposite
 					? m.video_editor_motion_canvas_limits()
 					: m.video_editor_project_canvas_limits()}
@@ -174,7 +178,9 @@
 			</div>
 		</div>
 
-		<div class="rounded-lg border border-[oklch(0.28_0.014_55)] bg-[oklch(0.17_0.01_55)] p-3">
+		<div
+			class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
+		>
 			<h3 class="mb-2 text-xs font-medium">{m.video_editor_project_canvas_background()}</h3>
 			<div class="flex items-center gap-2">
 				<Input

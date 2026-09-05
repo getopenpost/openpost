@@ -21,6 +21,7 @@ import { queryClient } from '$lib/query/client';
 import { getPasskeyAssertion } from '$lib/auth/webauthn';
 import { notificationInbox } from '$lib/stores/notifications.svelte';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
+import { purgeCloudVideoProjectDeviceData } from '$lib/video-editor/cloud/project-repository';
 
 interface AuthState {
 	user: User | null;
@@ -499,6 +500,7 @@ export function createAuthStore(dependencyOverrides: Partial<AuthStoreDependenci
 			}
 		},
 		clearLocal() {
+			purgeCloudVideoProjectDeviceData();
 			clearAccountState();
 		},
 		setUser(user: User | null) {

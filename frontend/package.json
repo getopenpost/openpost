@@ -96,6 +96,7 @@
 		"@openpost/api-contract": "workspace:*",
 		"@openpost/plan-catalog": "workspace:*",
 		"@openpost/query-catalog": "workspace:*",
+		"@openpost/video-project": "workspace:*",
 		"@openpost/social-preview": "workspace:*",
 		"@openpost/telemetry": "workspace:*",
 		"@paddle/paddle-js": "^1.6.4",

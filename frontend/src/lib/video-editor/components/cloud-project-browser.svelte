@@ -16,6 +16,14 @@
 		onopen,
 		ontrash,
 		onrestore,
+		localProjects,
+		importingId,
+		onimportlocal,
+		exportingId,
+		onexport,
+		offlineProjectIds,
+		offlineBusyId,
+		ontoggleoffline,
 		onrefresh
 	}: {
 		projects: CloudVideoProject<Project>[];
@@ -27,6 +35,14 @@
 		onopen: (project: CloudVideoProject<Project>) => Promise<void>;
 		ontrash: (project: CloudVideoProject<Project>) => Promise<void>;
 		onrestore: (project: CloudVideoProject<Project>) => Promise<void>;
+		localProjects: Project[];
+		importingId: string | null;
+		onimportlocal: (project: Project) => Promise<void>;
+		exportingId: string | null;
+		onexport: (project: CloudVideoProject<Project>) => Promise<void>;
+		offlineProjectIds: string[];
+		offlineBusyId: string | null;
+		ontoggleoffline: (project: CloudVideoProject<Project>) => Promise<void>;
 		onrefresh: () => Promise<void>;
 	} = $props();
 
@@ -62,6 +78,13 @@
 		} finally {
 			busyProjectId = null;
 		}
+	}
+
+	function syncStatus(project: CloudVideoProject<Project>): string {
+		if (project.syncStatus === 'needs_attention' && project.attentionReason) {
+			return `${m.compose_needs_attention()}: ${project.attentionReason}`;
+		}
+		return project.syncStatus.replaceAll('_', ' ');
 	}
 </script>
 
@@ -124,7 +147,9 @@
 			{m.video_editor_cloud_projects_loading()}
 		</p>
 	{:else if error}
-		<p class="mt-8 text-center text-sm text-destructive" role="alert">{error}</p>
+		<p class="mt-8 text-center text-sm text-destructive" role="alert">
+			{error}
+		</p>
 	{:else if visible.length === 0}
 		<p class="mt-8 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_cloud_empty()}
@@ -135,27 +160,108 @@
 				<article
 					class="rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4"
 				>
-					<h2 class="truncate text-sm font-semibold" title={project.name}>{project.name}</h2>
-					<p class="mt-1 text-xs text-[var(--video-editor-muted)] capitalize">
-						{project.syncStatus.replace('_', ' ')}
+					<h2 class="truncate text-sm font-semibold" title={project.name}>
+						{project.name}
+					</h2>
+					<p class="mt-1 text-xs text-[var(--video-editor-muted)] first-letter:uppercase">
+						{syncStatus(project)}
 					</p>
-					<div class="mt-4 flex justify-between gap-2">
+					{#if offlineProjectIds.includes(project.id)}
+						<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
+							{m.video_editor_available_offline()}
+						</p>
+					{/if}
+					<div class="mt-4 flex flex-wrap justify-between gap-2">
 						<Button size="sm" onclick={() => void onopen(project)}
 							>{m.video_editor_project_open()}</Button
 						>
 						<Button
 							variant="ghost"
 							size="sm"
+							disabled={offlineBusyId !== null}
+							onclick={() => void ontoggleoffline(project)}
+						>
+							{#if offlineBusyId === project.id}
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
+							{:else}
+								<ThemeIcon
+									role={offlineProjectIds.includes(project.id) ? 'delete' : 'download'}
+									class="size-4"
+								/>
+							{/if}
+							{offlineProjectIds.includes(project.id)
+								? m.video_editor_remove_offline()
+								: m.video_editor_keep_offline()}
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							disabled={exportingId !== null}
+							onclick={() => void onexport(project)}
+						>
+							{#if exportingId === project.id}
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
+							{:else}
+								<ThemeIcon role="download" class="size-4" />
+							{/if}
+							{m.video_editor_project_export_bundle()}
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
 							disabled={busyProjectId === project.id}
 							onclick={() => void trash(project)}
 						>
-							<ThemeIcon role="trash" class="size-4" />
+							<ThemeIcon role="delete" class="size-4" />
 							{m.common_delete()}
 						</Button>
 					</div>
 				</article>
 			{/each}
 		</div>
+	{/if}
+
+	{#if localProjects.length > 0}
+		<section
+			class="mt-8 border-t border-[var(--video-editor-border)] pt-4"
+			aria-labelledby="cloud-video-local-import-title"
+		>
+			<h2 id="cloud-video-local-import-title" class="text-sm font-semibold">
+				{m.video_editor_cloud_title()}
+			</h2>
+			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
+				{m.video_editor_cloud_description()}
+			</p>
+			<ul class="mt-3 grid gap-2 sm:grid-cols-2" role="list">
+				{#each localProjects as project (project.id)}
+					<li
+						class="flex items-center justify-between gap-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+					>
+						<span class="min-w-0 truncate text-sm" title={project.name}>{project.name}</span>
+						<Button
+							variant="outline"
+							size="xs"
+							disabled={importingId !== null}
+							onclick={() => void onimportlocal(project)}
+						>
+							{#if importingId === project.id}
+								<ProtectedIcon
+									icon="loading"
+									class="size-4 animate-spin motion-reduce:animate-none"
+								/>
+							{/if}
+							{m.video_editor_cloud_start()}
+						</Button>
+					</li>
+				{/each}
+			</ul>
+		</section>
 	{/if}
 
 	{#if trashedProjects.length > 0}

@@ -8,8 +8,9 @@
  * How the media file is stored:
  * - 'handle':    references the user's original file on disk (linked source)
  * - 'workspace': source bytes copied into the workspace folder (collected source)
+ * - 'cloud':     source bytes served by the Workspace-owned Project Asset API
  */
-export type MediaStorageType = 'handle' | 'workspace';
+export type MediaStorageType = 'handle' | 'workspace' | 'cloud';
 
 export interface MediaAttribution {
 	provider: string;
@@ -65,6 +66,10 @@ export interface MediaMetadata {
 	 * Non-serializable; stripped on save and re-attached on load.
 	 */
 	fileHandle?: FileSystemFileHandle;
+	/** Authenticated Project Asset URL when storageType is cloud. */
+	remoteUrl?: string;
+	/** Cache Storage URL for an explicitly pinned cloud original. */
+	offlineUrl?: string;
 	contentHash?: string;
 	fileLastModified?: number;
 	/** Original selected source identity when import preparation changes the stored file. */

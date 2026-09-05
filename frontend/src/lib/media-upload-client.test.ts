@@ -16,6 +16,52 @@ import {
 describe('media-upload-client', () => {
 	afterEach(() => {
 		queryClient.clear();
+		vi.unstubAllGlobals();
+	});
+
+	it('binds hash-deduplicated Project Asset uploads to their reservation', async () => {
+		queryClient.setQueryData(mediaQueryKeys.storage('workspace-1'), {
+			asset_count: 0,
+			direct_upload_supported: true,
+			internal_bytes: 0,
+			limit_bytes: 0,
+			used_bytes: 0
+		} satisfies MediaStorage);
+		const fetchMock = vi.fn().mockResolvedValue(
+			Response.json({
+				media_id: 'server-media-1',
+				deduped: true,
+				complete_url: '/api/v1/media/upload-session/server-media-1/complete',
+				upload: {
+					method: 'PUT',
+					url: '/api/v1/media/upload-session/server-media-1/content',
+					headers: {},
+					expires_at: '2026-09-05T00:00:00Z',
+					object_key: 'server-media-1.mp4'
+				}
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		await uploadMediaFile({
+			workspaceId: 'workspace-1',
+			file: new File(['video'], 'launch.mp4', { type: 'video/mp4' }),
+			source: 'video_editor_source',
+			assetKind: 'project_asset',
+			retentionClass: 'temporary',
+			projectAssetId: 'project-asset-1',
+			clientSHA256: 'a'.repeat(64),
+			prepareVideo: false
+		});
+
+		const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+		expect(JSON.parse(String(request.body))).toMatchObject({
+			asset_kind: 'project_asset',
+			client_sha256: 'a'.repeat(64),
+			project_asset_id: 'project-asset-1',
+			retention_class: 'temporary',
+			source: 'video_editor_source'
+		});
 	});
 
 	it('filters headers that browser uploads cannot set manually', () => {

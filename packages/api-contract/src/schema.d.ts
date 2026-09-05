@@ -4745,6 +4745,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video-projects/{id}/checkpoints/{checkpoint_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a named Video Project checkpoint */
+        delete: operations["delete-video-project-checkpoint"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video-projects/{id}/conflicts": {
         parameters: {
             query?: never;
@@ -4756,6 +4773,26 @@ export interface paths {
         get: operations["list-video-project-conflicts"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-projects/{id}/conflicts/{conflict_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a Video Project conflict branch
+         * @description Keep the current head or promote the preserved conflict branch as a new head revision.
+         */
+        post: operations["resolve-video-project-conflict"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7662,6 +7699,15 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/DeleteThemeOutputBody.json
+             */
+            readonly $schema?: string;
+            deleted: boolean;
+        };
+        DeleteVideoProjectCheckpointOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DeleteVideoProjectCheckpointOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -12098,6 +12144,18 @@ export interface components {
             /** @description Workspace ID */
             workspace_id: string;
         };
+        ResolveVideoProjectConflictInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ResolveVideoProjectConflictInputBody.json
+             */
+            readonly $schema?: string;
+            device_id?: string;
+            /** @enum {string} */
+            resolution: "keep_current" | "use_conflict";
+            workspace_id: string;
+        };
         ResolvedAccountCapability: {
             account_id: string;
             active_constraints: {
@@ -13997,6 +14055,8 @@ export interface components {
         };
         VideoProjectRevisionResponse: {
             author_user_id: string;
+            checkpoint_names: string[] | null;
+            checkpoints: components["schemas"]["VideoProjectCheckpointResponse"][] | null;
             created_at: string;
             device_id?: string;
             document: {
@@ -33243,6 +33303,79 @@ export interface operations {
             };
         };
     };
+    "delete-video-project-checkpoint": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                /** @description Video project ID */
+                id: string;
+                /** @description Checkpoint ID */
+                checkpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteVideoProjectCheckpointOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-video-project-conflicts": {
         parameters: {
             query: {
@@ -33278,6 +33411,89 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-video-project-conflict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Video project ID */
+                id: string;
+                /** @description Conflict branch ID */
+                conflict_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveVideoProjectConflictInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

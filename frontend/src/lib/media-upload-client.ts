@@ -19,8 +19,16 @@ export interface UploadMediaFileOptions {
 		| 'image_editor_edit'
 		| 'background_removal'
 		| 'stock_import'
-		| 'meme_generator';
-	assetKind?: 'library' | 'brand_asset' | 'brand_font' | 'design_preview' | 'template_preview';
+		| 'meme_generator'
+		| 'video_editor_source';
+	assetKind?:
+		| 'library'
+		| 'brand_asset'
+		| 'brand_font'
+		| 'design_preview'
+		| 'template_preview'
+		| 'project_asset';
+	projectAssetId?: string;
 	retentionClass?: 'library' | 'temporary';
 	tagId?: string;
 	parentMediaId?: string;
@@ -46,6 +54,7 @@ type UploadMetadata = {
 	parentMediaId: string;
 	designDocumentId: string;
 	designPageId: string;
+	projectAssetId: string;
 	clientSHA256: string;
 	stockProvenance?: StockMediaProvenance;
 };
@@ -101,6 +110,7 @@ export async function uploadMediaFile({
 	parentMediaId = '',
 	designDocumentId = '',
 	designPageId = '',
+	projectAssetId = '',
 	clientSHA256 = '',
 	stockProvenance,
 	prepareVideo = true,
@@ -129,6 +139,7 @@ export async function uploadMediaFile({
 		parentMediaId,
 		designDocumentId,
 		designPageId,
+		projectAssetId,
 		clientSHA256,
 		stockProvenance
 	};
@@ -374,6 +385,8 @@ async function uploadViaMultipart(
 	if (metadata.parentMediaId) formData.append('parent_media_id', metadata.parentMediaId);
 	if (metadata.designDocumentId) formData.append('design_document_id', metadata.designDocumentId);
 	if (metadata.designPageId) formData.append('design_page_id', metadata.designPageId);
+	if (metadata.projectAssetId) formData.append('project_asset_id', metadata.projectAssetId);
+	if (metadata.clientSHA256) formData.append('client_sha256', metadata.clientSHA256);
 	if (metadata.stockProvenance) {
 		formData.append('stock_provenance', JSON.stringify(metadata.stockProvenance));
 	}
@@ -408,6 +421,7 @@ function createUploadSessionBody(
 	if (metadata.parentMediaId) body.parent_media_id = metadata.parentMediaId;
 	if (metadata.designDocumentId) body.design_document_id = metadata.designDocumentId;
 	if (metadata.designPageId) body.design_page_id = metadata.designPageId;
+	if (metadata.projectAssetId) body.project_asset_id = metadata.projectAssetId;
 	if (metadata.clientSHA256) body.client_sha256 = metadata.clientSHA256;
 	if (metadata.stockProvenance) body.stock_provenance = metadata.stockProvenance;
 	return body;

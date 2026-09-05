@@ -30,6 +30,13 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		CloudVideoProjectRepository,
 		type CloudVideoProject
 	} from '$lib/video-editor/cloud/project-repository';
+	import { importLocalProjectToCloud } from '$lib/video-editor/cloud/import-local-project';
+	import { saveCloudProjectBundle } from '$lib/video-editor/cloud/export-project-bundle';
+	import {
+		isCloudProjectAvailableOffline,
+		keepCloudProjectAvailableOffline,
+		removeCloudProjectOfflineCopy
+	} from '$lib/video-editor/cloud/offline-project-cache';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
 	import { onPermissionLost } from '$lib/video-editor/workspace-fs/root';
@@ -67,12 +74,18 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	let cloudLoading = $state(false);
 	let cloudError = $state('');
 	let cloudCreating = $state(false);
+	let cloudImportingId = $state<string | null>(null);
+	let cloudExportingId = $state<string | null>(null);
+	let cloudOfflineProjectIds = $state<string[]>([]);
+	let cloudOfflineBusyId = $state<string | null>(null);
+	let cloudLoadGeneration = 0;
 	let cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let cloudRepository = $derived(
 		cloudWorkspaceId ? new CloudVideoProjectRepository<Project>(cloudWorkspaceId) : null
 	);
 
 	async function loadCloudProjects(): Promise<void> {
+		const generation = ++cloudLoadGeneration;
 		const repository = cloudRepository;
 		if (!repository) {
 			cloudProjects = [];
@@ -83,12 +96,37 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		cloudError = '';
 		try {
 			const projects = await repository.list(true);
+			if (generation !== cloudLoadGeneration) return;
 			cloudProjects = projects.filter((project) => !project.trashedAt);
 			cloudTrashedProjects = projects.filter((project) => project.trashedAt);
+			cloudLoading = false;
+			void loadCloudOfflineProjectIds(generation, cloudWorkspaceId, cloudProjects);
 		} catch {
+			if (generation !== cloudLoadGeneration) return;
 			cloudError = m.video_editor_cloud_projects_load_failed();
 		} finally {
-			cloudLoading = false;
+			if (generation === cloudLoadGeneration) cloudLoading = false;
+		}
+	}
+
+	async function loadCloudOfflineProjectIds(
+		generation: number,
+		workspaceId: string,
+		projects: CloudVideoProject<Project>[]
+	): Promise<void> {
+		try {
+			const ids = (
+				await Promise.all(
+					projects.map(async (project) =>
+						(await isCloudProjectAvailableOffline(workspaceId, project.id)) ? project.id : null
+					)
+				)
+			).filter((id): id is string => id !== null);
+			if (generation === cloudLoadGeneration && workspaceId === cloudWorkspaceId) {
+				cloudOfflineProjectIds = ids;
+			}
+		} catch {
+			// Offline state is an enhancement. Cloud project loading remains usable if storage is blocked.
 		}
 	}
 
@@ -107,7 +145,11 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		cloudCreating = true;
 		try {
 			const { createBlankProject } = await import('$lib/video-editor/project/defaults');
-			const project = createBlankProject(name, { width: 1920, height: 1080, fps: 30 });
+			const project = createBlankProject(name, {
+				width: 1920,
+				height: 1080,
+				fps: 30
+			});
 			const created = await repository.create(project.name, project);
 			await goto(`/video-editor/${created.id}?storage=cloud`);
 		} catch (error) {
@@ -121,15 +163,64 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		await goto(`/video-editor/${project.id}?storage=cloud`);
 	}
 
+	async function importLocalProject(project: Project): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository || cloudImportingId) return;
+		cloudImportingId = project.id;
+		try {
+			const imported = await importLocalProjectToCloud(project, repository);
+			await loadCloudProjects();
+			await openCloudProject(imported);
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			cloudImportingId = null;
+		}
+	}
+
+	async function exportCloudProject(project: CloudVideoProject<Project>): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository || cloudExportingId) return;
+		cloudExportingId = project.id;
+		try {
+			await saveCloudProjectBundle(repository, project.id, project.name);
+			showToast(m.video_editor_project_bundle_exported({ name: project.name }), 'success');
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			cloudExportingId = null;
+		}
+	}
+
 	async function trashCloudProject(project: CloudVideoProject<Project>): Promise<void> {
 		const repository = cloudRepository;
 		if (!repository) return;
 		try {
 			await repository.trash(project.id);
+			await removeCloudProjectOfflineCopy(repository.workspaceId, project.id);
 			await loadCloudProjects();
 			showToast(m.editors_delete_cloud_video_success(), 'success');
 		} catch {
 			showToast(m.editors_delete_cloud_video_failed(), 'error');
+		}
+	}
+
+	async function toggleCloudProjectOffline(project: CloudVideoProject<Project>): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository || cloudOfflineBusyId) return;
+		cloudOfflineBusyId = project.id;
+		try {
+			if (cloudOfflineProjectIds.includes(project.id)) {
+				await removeCloudProjectOfflineCopy(repository.workspaceId, project.id);
+				cloudOfflineProjectIds = cloudOfflineProjectIds.filter((id) => id !== project.id);
+			} else {
+				await keepCloudProjectAvailableOffline(repository, project.id);
+				cloudOfflineProjectIds = [...cloudOfflineProjectIds, project.id];
+			}
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : m.video_editor_offline_failed(), 'error');
+		} finally {
+			cloudOfflineBusyId = null;
 		}
 	}
 
@@ -321,7 +412,10 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				}),
 				'warning',
 				moved.length > 0
-					? { actionLabel: m.video_editor_project_restore(), onAction: undoMoved }
+					? {
+							actionLabel: m.video_editor_project_restore(),
+							onAction: undoMoved
+						}
 					: undefined
 			);
 			return failed.map((project) => project.id);
@@ -362,7 +456,9 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				);
 			} else {
 				showToast(
-					m.video_editor_project_deleted_forever({ name: entry.marker.originalName }),
+					m.video_editor_project_deleted_forever({
+						name: entry.marker.originalName
+					}),
 					'success'
 				);
 			}
@@ -399,7 +495,9 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				);
 			} else if (mediaCleanupFailures > 0) {
 				showToast(
-					m.video_editor_project_media_cleanup_partial({ count: mediaCleanupFailures }),
+					m.video_editor_project_media_cleanup_partial({
+						count: mediaCleanupFailures
+					}),
 					'warning'
 				);
 			} else {
@@ -562,6 +660,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 					<Button
 						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
 						size="xs"
+						aria-pressed={storageMode === 'cloud'}
 						onclick={() => {
 							storageModeChosen = true;
 							storageMode = 'cloud';
@@ -570,6 +669,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 					<Button
 						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
 						size="xs"
+						aria-pressed={storageMode === 'local'}
 						onclick={() => {
 							storageModeChosen = true;
 							storageMode = 'local';
@@ -591,10 +691,18 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				loading={cloudLoading}
 				error={cloudError}
 				creating={cloudCreating}
+				localProjects={projectCatalog.projects}
+				importingId={cloudImportingId}
+				exportingId={cloudExportingId}
+				offlineProjectIds={cloudOfflineProjectIds}
+				offlineBusyId={cloudOfflineBusyId}
 				oncreate={createCloudProject}
 				onopen={openCloudProject}
 				ontrash={trashCloudProject}
 				onrestore={restoreCloudProject}
+				onimportlocal={importLocalProject}
+				onexport={exportCloudProject}
+				ontoggleoffline={toggleCloudProjectOffline}
 				onrefresh={loadCloudProjects}
 			/>
 		{:else if gate.state !== 'ready'}

@@ -104,17 +104,19 @@ type VideoProjectConflictResponse struct {
 }
 
 type VideoProjectRevisionResponse struct {
-	Revision             int64          `json:"revision"`
-	ParentRevision       int64          `json:"parent_revision"`
-	Kind                 string         `json:"kind"`
-	Document             map[string]any `json:"document"`
-	TouchedTargets       []string       `json:"touched_targets"`
-	AuthorUserID         string         `json:"author_user_id"`
-	DeviceID             string         `json:"device_id,omitempty"`
-	MutationID           string         `json:"mutation_id,omitempty"`
-	RestoredFromRevision int64          `json:"restored_from_revision,omitempty"`
-	CreatedAt            string         `json:"created_at"`
-	ExpiresAt            string         `json:"expires_at,omitempty"`
+	Revision             int64                            `json:"revision"`
+	ParentRevision       int64                            `json:"parent_revision"`
+	Kind                 string                           `json:"kind"`
+	Document             map[string]any                   `json:"document"`
+	TouchedTargets       []string                         `json:"touched_targets"`
+	AuthorUserID         string                           `json:"author_user_id"`
+	DeviceID             string                           `json:"device_id,omitempty"`
+	MutationID           string                           `json:"mutation_id,omitempty"`
+	RestoredFromRevision int64                            `json:"restored_from_revision,omitempty"`
+	CreatedAt            string                           `json:"created_at"`
+	ExpiresAt            string                           `json:"expires_at,omitempty"`
+	CheckpointNames      []string                         `json:"checkpoint_names"`
+	Checkpoints          []VideoProjectCheckpointResponse `json:"checkpoints"`
 }
 
 type VideoProjectCheckpointResponse struct {
@@ -189,6 +191,28 @@ type RestoreVideoProjectRevisionInput struct {
 	}
 }
 
+type DeleteVideoProjectCheckpointInput struct {
+	PathID         string `path:"id" doc:"Video project ID"`
+	PathCheckpoint string `path:"checkpoint_id" doc:"Checkpoint ID"`
+	WorkspaceID    string `query:"workspace_id" required:"true" doc:"Workspace ID"`
+}
+
+type DeleteVideoProjectCheckpointOutput struct {
+	Body struct {
+		Deleted bool `json:"deleted"`
+	}
+}
+
+type ResolveVideoProjectConflictInput struct {
+	PathID       string `path:"id" doc:"Video project ID"`
+	PathConflict string `path:"conflict_id" doc:"Conflict branch ID"`
+	Body         struct {
+		WorkspaceID string `json:"workspace_id" minLength:"1"`
+		Resolution  string `json:"resolution" enum:"keep_current,use_conflict"`
+		DeviceID    string `json:"device_id,omitempty" maxLength:"160"`
+	}
+}
+
 type ChangeVideoProjectTrashInput struct {
 	PathID string `path:"id" doc:"Video project ID"`
 	Body   struct {
@@ -256,6 +280,11 @@ func (h *VideoProjectHandler) RegisterRoutes(api huma.API) {
 		Middlewares: auth, Errors: []int{403, 404},
 	}, h.listConflicts)
 	huma.Register(api, huma.Operation{
+		OperationID: "resolve-video-project-conflict", Method: http.MethodPost, Path: videoProjectsPath + "/{id}/conflicts/{conflict_id}/resolve",
+		Summary: "Resolve a Video Project conflict branch", Description: "Keep the current head or promote the preserved conflict branch as a new head revision.",
+		Tags: []string{"Video Projects"}, Middlewares: auth, Errors: []int{400, 403, 404, 409},
+	}, h.resolveConflict)
+	huma.Register(api, huma.Operation{
 		OperationID: "list-video-project-revisions", Method: http.MethodGet, Path: videoProjectsPath + "/{id}/revisions",
 		Summary: "List Video Project revision history", Tags: []string{"Video Projects"},
 		Middlewares: auth, Errors: []int{403, 404},
@@ -265,6 +294,11 @@ func (h *VideoProjectHandler) RegisterRoutes(api huma.API) {
 		Summary: "Create a named Video Project checkpoint", Tags: []string{"Video Projects"},
 		Middlewares: auth, Errors: []int{400, 403, 404},
 	}, h.createCheckpoint)
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-video-project-checkpoint", Method: http.MethodDelete, Path: videoProjectsPath + "/{id}/checkpoints/{checkpoint_id}",
+		Summary: "Delete a named Video Project checkpoint", Tags: []string{"Video Projects"},
+		Middlewares: auth, Errors: []int{400, 403, 404},
+	}, h.deleteCheckpoint)
 	huma.Register(api, huma.Operation{
 		OperationID: "restore-video-project-revision", Method: http.MethodPost, Path: videoProjectsPath + "/{id}/restore-revision",
 		Summary: "Restore a Video Project revision as a new head", Tags: []string{"Video Projects"},
@@ -402,6 +436,21 @@ func (h *VideoProjectHandler) listConflicts(ctx context.Context, input *GetVideo
 	return &VideoProjectConflictListOutput{Body: responses}, nil
 }
 
+func (h *VideoProjectHandler) resolveConflict(ctx context.Context, input *ResolveVideoProjectConflictInput) (*VideoProjectOutput, error) {
+	project, err := h.service.ResolveConflict(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), videoprojects.ResolveConflictInput{
+		WorkspaceID: input.Body.WorkspaceID, ProjectID: input.PathID, ConflictID: input.PathConflict,
+		Resolution: input.Body.Resolution, DeviceID: input.Body.DeviceID,
+	})
+	if err != nil {
+		return nil, videoProjectError(err, "resolve conflict for")
+	}
+	response, err := videoProjectResponse(project)
+	if err != nil {
+		return nil, err
+	}
+	return &VideoProjectOutput{Body: response}, nil
+}
+
 func (h *VideoProjectHandler) listRevisions(ctx context.Context, input *GetVideoProjectInput) (*VideoProjectRevisionListOutput, error) {
 	revisions, err := h.service.ListRevisions(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), input.WorkspaceID, input.PathID)
 	if err != nil {
@@ -417,7 +466,16 @@ func (h *VideoProjectHandler) listRevisions(ctx context.Context, input *GetVideo
 			Revision: revision.Revision, ParentRevision: revision.ParentRevision, Kind: revision.Kind,
 			Document: document, TouchedTargets: revision.TouchedTargets, AuthorUserID: revision.AuthorUserID,
 			DeviceID: revision.DeviceID, MutationID: revision.MutationID, RestoredFromRevision: revision.RestoredFrom,
-			CreatedAt: revision.CreatedAt.UTC().Format(time.RFC3339Nano),
+			CreatedAt:       revision.CreatedAt.UTC().Format(time.RFC3339Nano),
+			CheckpointNames: revision.CheckpointNames,
+			Checkpoints:     make([]VideoProjectCheckpointResponse, 0, len(revision.Checkpoints)),
+		}
+		for _, checkpoint := range revision.Checkpoints {
+			response.Checkpoints = append(response.Checkpoints, VideoProjectCheckpointResponse{
+				ID: checkpoint.ID, Name: checkpoint.Name, Revision: checkpoint.Revision,
+				CreatedByUserID: checkpoint.CreatedByUserID,
+				CreatedAt:       checkpoint.CreatedAt.UTC().Format(time.RFC3339Nano),
+			})
 		}
 		if !revision.ExpiresAt.IsZero() {
 			response.ExpiresAt = revision.ExpiresAt.UTC().Format(time.RFC3339Nano)
@@ -436,6 +494,15 @@ func (h *VideoProjectHandler) createCheckpoint(ctx context.Context, input *Creat
 		ID: checkpoint.ID, Name: checkpoint.Name, Revision: checkpoint.Revision,
 		CreatedByUserID: checkpoint.CreatedByUserID, CreatedAt: checkpoint.CreatedAt.UTC().Format(time.RFC3339Nano),
 	}}, nil
+}
+
+func (h *VideoProjectHandler) deleteCheckpoint(ctx context.Context, input *DeleteVideoProjectCheckpointInput) (*DeleteVideoProjectCheckpointOutput, error) {
+	if err := h.service.DeleteCheckpoint(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), input.WorkspaceID, input.PathID, input.PathCheckpoint); err != nil {
+		return nil, videoProjectError(err, "delete checkpoint from")
+	}
+	output := &DeleteVideoProjectCheckpointOutput{}
+	output.Body.Deleted = true
+	return output, nil
 }
 
 func (h *VideoProjectHandler) restoreRevision(ctx context.Context, input *RestoreVideoProjectRevisionInput) (*VideoProjectOutput, error) {

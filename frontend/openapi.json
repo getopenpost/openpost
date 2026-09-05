@@ -5641,6 +5641,23 @@
 				"required": ["deleted"],
 				"type": "object"
 			},
+			"DeleteVideoProjectCheckpointOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DeleteVideoProjectCheckpointOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
+				"type": "object"
+			},
 			"DeleteVoiceProfileOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -16101,6 +16118,32 @@
 				"required": ["workspace_id", "account_ids"],
 				"type": "object"
 			},
+			"ResolveVideoProjectConflictInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ResolveVideoProjectConflictInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"device_id": {
+						"maxLength": 160,
+						"type": "string"
+					},
+					"resolution": {
+						"enum": ["keep_current", "use_conflict"],
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "resolution"],
+				"type": "object"
+			},
 			"ResolvedAccountCapability": {
 				"additionalProperties": false,
 				"properties": {
@@ -20932,6 +20975,18 @@
 					"author_user_id": {
 						"type": "string"
 					},
+					"checkpoint_names": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"checkpoints": {
+						"items": {
+							"$ref": "#/components/schemas/VideoProjectCheckpointResponse"
+						},
+						"type": ["array", "null"]
+					},
 					"created_at": {
 						"type": "string"
 					},
@@ -20977,7 +21032,9 @@
 					"document",
 					"touched_targets",
 					"author_user_id",
-					"created_at"
+					"created_at",
+					"checkpoint_names",
+					"checkpoints"
 				],
 				"type": "object"
 			},
@@ -46980,6 +47037,108 @@
 				"tags": ["Video Projects"]
 			}
 		},
+		"/video-projects/{id}/checkpoints/{checkpoint_id}": {
+			"delete": {
+				"operationId": "delete-video-project-checkpoint",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Checkpoint ID",
+						"in": "path",
+						"name": "checkpoint_id",
+						"required": true,
+						"schema": {
+							"description": "Checkpoint ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeleteVideoProjectCheckpointOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Delete a named Video Project checkpoint",
+				"tags": ["Video Projects"]
+			}
+		},
 		"/video-projects/{id}/conflicts": {
 			"get": {
 				"operationId": "list-video-project-conflicts",
@@ -47062,6 +47221,118 @@
 					}
 				},
 				"summary": "List unresolved Video Project conflict branches",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/conflicts/{conflict_id}/resolve": {
+			"post": {
+				"description": "Keep the current head or promote the preserved conflict branch as a new head revision.",
+				"operationId": "resolve-video-project-conflict",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Conflict branch ID",
+						"in": "path",
+						"name": "conflict_id",
+						"required": true,
+						"schema": {
+							"description": "Conflict branch ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ResolveVideoProjectConflictInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Resolve a Video Project conflict branch",
 				"tags": ["Video Projects"]
 			}
 		},

@@ -505,6 +505,7 @@ export function createAuthStore(dependencyOverrides: Partial<AuthStoreDependenci
 		},
 		setUser(user: User | null) {
 			if (!user) {
+				purgeCloudVideoProjectDeviceData();
 				clearAccountState();
 				return;
 			}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -178,12 +179,93 @@ func TestCloudVideoProjectRebasesDisjointEditsAndPreservesOverlappingConflict(t 
 	require.Equal(t, "Phone title", projectItem(t, branches[0].Document, 0)["text"])
 	require.Equal(t, float64(60), projectItem(t, branches[0].Document, 1)["durationInFrames"])
 
+	resolved := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/conflicts/"+branches[0].ID+"/resolve", map[string]any{
+		"workspace_id": "ws-1", "resolution": "use_conflict", "device_id": "desktop-a",
+	})
+	require.Equal(t, http.StatusOK, resolved.Code, resolved.Body.String())
+	var resolvedProject VideoProjectResponse
+	require.NoError(t, json.Unmarshal(resolved.Body.Bytes(), &resolvedProject))
+	require.Equal(t, int64(4), resolvedProject.HeadRevision)
+	require.Equal(t, "Phone title", projectItem(t, resolvedProject.Document, 0)["text"])
+
+	resolvedConflicts := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"/conflicts?workspace_id=ws-1", nil)
+	require.Equal(t, http.StatusOK, resolvedConflicts.Code, resolvedConflicts.Body.String())
+	var remainingBranches []VideoProjectConflictResponse
+	require.NoError(t, json.Unmarshal(resolvedConflicts.Body.Bytes(), &remainingBranches))
+	require.Empty(t, remainingBranches)
+
 	revisions := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"/revisions?workspace_id=ws-1", nil)
 	require.Equal(t, http.StatusOK, revisions.Code, revisions.Body.String())
 	var history []VideoProjectRevisionResponse
 	require.NoError(t, json.Unmarshal(revisions.Body.Bytes(), &history))
-	require.Equal(t, []int64{3, 2, 1}, []int64{history[0].Revision, history[1].Revision, history[2].Revision})
-	require.Equal(t, []string{"user-editor", "user-editor", "user-editor"}, []string{history[0].AuthorUserID, history[1].AuthorUserID, history[2].AuthorUserID})
+	require.Equal(t, []int64{4, 3, 2, 1}, []int64{history[0].Revision, history[1].Revision, history[2].Revision, history[3].Revision})
+	require.Equal(t, "conflict_resolution", history[0].Kind)
+	require.Equal(t, []string{"user-editor", "user-editor", "user-editor", "user-editor"}, []string{history[0].AuthorUserID, history[1].AuthorUserID, history[2].AuthorUserID, history[3].AuthorUserID})
+}
+
+func TestCloudVideoProjectCanDismissConflictWithoutChangingHead(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1", "name": "Dismiss conflict", "document": map[string]any{"id": "dismiss", "title": "Original"},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &project))
+
+	first := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "desktop", "base_revision": 1,
+		"operations": []map[string]any{{"kind": "set", "target": "project:title", "path": "/title", "value": "Desktop"}},
+	})
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	second := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "phone", "base_revision": 1,
+		"operations": []map[string]any{{"kind": "set", "target": "project:title", "path": "/title", "value": "Phone"}},
+	})
+	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
+	var conflict VideoProjectMutationResponse
+	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &conflict))
+
+	dismissed := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/conflicts/"+conflict.ConflictID+"/resolve", map[string]any{
+		"workspace_id": "ws-1", "resolution": "keep_current",
+	})
+	require.Equal(t, http.StatusOK, dismissed.Code, dismissed.Body.String())
+	var dismissedProject VideoProjectResponse
+	require.NoError(t, json.Unmarshal(dismissed.Body.Bytes(), &dismissedProject))
+	require.Equal(t, int64(2), dismissedProject.HeadRevision)
+	require.Equal(t, "Desktop", dismissedProject.Document["title"])
+}
+
+func TestCloudVideoProjectTreatsTimelineMembershipAsOverlappingEntityEdits(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1", "name": "Structural conflict", "document": map[string]any{
+			"id": "structural", "timeline": map[string]any{"items": []map[string]any{{"id": "clip", "from": 0}}},
+		},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &project))
+
+	added := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "add-item", "base_revision": 1,
+		"operations": []map[string]any{{
+			"kind": "set", "target": "timeline:items", "path": "/timeline/items",
+			"value": []map[string]any{{"id": "inserted", "from": 0}, {"id": "clip", "from": 0}},
+		}},
+	})
+	require.Equal(t, http.StatusOK, added.Code, added.Body.String())
+
+	stale := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "move-clip", "base_revision": 1,
+		"operations": []map[string]any{{
+			"kind": "set", "target": "item:clip.from", "path": "/timeline/items/0/from", "value": 30,
+		}},
+	})
+	require.Equal(t, http.StatusOK, stale.Code, stale.Body.String())
+	var result VideoProjectMutationResponse
+	require.NoError(t, json.Unmarshal(stale.Body.Bytes(), &result))
+	require.Equal(t, "conflict", result.Outcome)
+	require.Equal(t, []string{"item:clip.from"}, result.OverlapTargets)
 }
 
 func TestCloudVideoProjectCheckpointRestoreAndTrashRecovery(t *testing.T) {
@@ -232,14 +314,31 @@ func TestCloudVideoProjectCheckpointRestoreAndTrashRecovery(t *testing.T) {
 	require.NoError(t, json.Unmarshal(restored.Body.Bytes(), &restoredProject))
 	require.Equal(t, int64(4), restoredProject.HeadRevision)
 	require.Equal(t, "Second", projectItem(t, restoredProject.Document, 0)["text"])
+	_, err := server.db.NewUpdate().Model((*models.VideoProjectRevision)(nil)).
+		Set("expires_at = ?", time.Now().UTC().Add(-time.Minute)).
+		Where("project_id = ? AND revision = ?", project.ID, 3).
+		Exec(t.Context())
+	require.NoError(t, err)
 
 	revisions := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"/revisions?workspace_id=ws-1", nil)
 	require.Equal(t, http.StatusOK, revisions.Code, revisions.Body.String())
 	var history []VideoProjectRevisionResponse
 	require.NoError(t, json.Unmarshal(revisions.Body.Bytes(), &history))
-	require.Len(t, history, 4)
+	require.Len(t, history, 3)
 	require.Equal(t, int64(2), history[0].RestoredFromRevision)
 	require.Equal(t, "restore", history[0].Kind)
+	require.Equal(t, []string{"Approved cut"}, history[1].CheckpointNames)
+	require.Empty(t, history[1].ExpiresAt)
+	require.Len(t, history[1].Checkpoints, 1)
+	require.Equal(t, checkpoint.ID, history[1].Checkpoints[0].ID)
+
+	deletedCheckpoint := server.request(t, "editor-token", http.MethodDelete, "/api/v1/video-projects/"+project.ID+"/checkpoints/"+checkpoint.ID+"?workspace_id=ws-1", nil)
+	require.Equal(t, http.StatusOK, deletedCheckpoint.Code, deletedCheckpoint.Body.String())
+	revisionsAfterDelete := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"/revisions?workspace_id=ws-1", nil)
+	require.Equal(t, http.StatusOK, revisionsAfterDelete.Code, revisionsAfterDelete.Body.String())
+	require.NoError(t, json.Unmarshal(revisionsAfterDelete.Body.Bytes(), &history))
+	require.Empty(t, history[1].CheckpointNames)
+	require.NotEmpty(t, history[1].ExpiresAt)
 
 	trashed := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/trash", map[string]any{"workspace_id": "ws-1"})
 	require.Equal(t, http.StatusOK, trashed.Code, trashed.Body.String())

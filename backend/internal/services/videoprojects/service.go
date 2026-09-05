@@ -26,6 +26,9 @@ const (
 
 	MutationApplied  = "applied"
 	MutationConflict = "conflict"
+
+	ConflictKeepCurrent = "keep_current"
+	ConflictUseBranch   = "use_conflict"
 )
 
 var (
@@ -80,6 +83,14 @@ type ApplyMutationInput struct {
 	Operations   []MutationOperation
 }
 
+type ResolveConflictInput struct {
+	WorkspaceID string
+	ProjectID   string
+	ConflictID  string
+	Resolution  string
+	DeviceID    string
+}
+
 type MutationResult struct {
 	Outcome        string
 	Revision       int64
@@ -97,8 +108,10 @@ type Conflict struct {
 
 type Revision struct {
 	models.VideoProjectRevision
-	Document       json.RawMessage
-	TouchedTargets []string
+	Document        json.RawMessage
+	TouchedTargets  []string
+	CheckpointNames []string
+	Checkpoints     []models.VideoProjectCheckpoint
 }
 
 func (s *Service) ReserveAsset(ctx context.Context, actor workspaceaccess.ActorFacts, input ReserveAssetInput) (*models.ProjectAsset, error) {
@@ -369,13 +382,64 @@ func (s *Service) CreateCheckpoint(ctx context.Context, actor workspaceaccess.Ac
 			ID: uuid.NewString(), ProjectID: project.ID, Name: name, Revision: project.HeadRevision,
 			CreatedByUserID: actor.UserID, CreatedAt: s.now().UTC(),
 		}
-		_, err = tx.NewInsert().Model(checkpoint).Exec(txCtx)
+		if _, err := tx.NewInsert().Model(checkpoint).Exec(txCtx); err != nil {
+			return err
+		}
+		_, err = tx.NewUpdate().Model((*models.VideoProjectRevision)(nil)).
+			Set("expires_at = NULL").
+			Where("project_id = ? AND revision = ?", project.ID, project.HeadRevision).
+			Exec(txCtx)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return checkpoint, nil
+}
+
+func (s *Service) DeleteCheckpoint(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID, checkpointID string) error {
+	workspaceID = strings.TrimSpace(workspaceID)
+	projectID = strings.TrimSpace(projectID)
+	checkpointID = strings.TrimSpace(checkpointID)
+	if workspaceID == "" || projectID == "" || checkpointID == "" {
+		return ErrInvalid
+	}
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		project, err := loadProject(txCtx, tx, workspaceID, projectID, false)
+		if err != nil {
+			return err
+		}
+		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+			return err
+		}
+		var checkpoint models.VideoProjectCheckpoint
+		if err := tx.NewSelect().Model(&checkpoint).
+			Where("id = ? AND project_id = ? AND deleted_at IS NULL", checkpointID, project.ID).
+			Scan(txCtx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+		now := s.now().UTC()
+		if _, err := tx.NewUpdate().Model((*models.VideoProjectCheckpoint)(nil)).
+			Set("deleted_at = ?", now).
+			Where("id = ? AND project_id = ? AND deleted_at IS NULL", checkpoint.ID, project.ID).
+			Exec(txCtx); err != nil {
+			return err
+		}
+		count, err := tx.NewSelect().Model((*models.VideoProjectCheckpoint)(nil)).
+			Where("project_id = ? AND revision = ? AND deleted_at IS NULL", project.ID, checkpoint.Revision).
+			Count(txCtx)
+		if err != nil || count > 0 {
+			return err
+		}
+		_, err = tx.NewUpdate().Model((*models.VideoProjectRevision)(nil)).
+			Set("expires_at = ?", now.Add(AutosaveRetention)).
+			Where("project_id = ? AND revision = ? AND expires_at IS NULL", project.ID, checkpoint.Revision).
+			Exec(txCtx)
+		return err
+	})
 }
 
 func (s *Service) RestoreRevision(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID string, revision int64, deviceID string) (*models.VideoProject, error) {
@@ -394,7 +458,7 @@ func (s *Service) RestoreRevision(ctx context.Context, actor workspaceaccess.Act
 		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
 			return err
 		}
-		document, err := loadRevisionDocument(txCtx, tx, project.ID, revision)
+		document, err := loadRevisionDocument(txCtx, tx, project.ID, revision, s.now().UTC())
 		if err != nil {
 			return err
 		}
@@ -620,7 +684,7 @@ func (s *Service) ApplyMutation(ctx context.Context, actor workspaceaccess.Actor
 			return err
 		}
 		if len(overlaps) > 0 {
-			baseDocument, err := loadRevisionDocument(txCtx, tx, project.ID, input.BaseRevision)
+			baseDocument, err := loadRevisionDocument(txCtx, tx, project.ID, input.BaseRevision, s.now().UTC())
 			if err != nil {
 				return err
 			}
@@ -724,14 +788,121 @@ func (s *Service) ListConflicts(ctx context.Context, actor workspaceaccess.Actor
 	return out, nil
 }
 
+func (s *Service) ResolveConflict(ctx context.Context, actor workspaceaccess.ActorFacts, input ResolveConflictInput) (*models.VideoProject, error) {
+	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
+	input.ProjectID = strings.TrimSpace(input.ProjectID)
+	input.ConflictID = strings.TrimSpace(input.ConflictID)
+	input.Resolution = strings.TrimSpace(input.Resolution)
+	input.DeviceID = strings.TrimSpace(input.DeviceID)
+	if input.WorkspaceID == "" || input.ProjectID == "" || input.ConflictID == "" ||
+		(input.Resolution != ConflictKeepCurrent && input.Resolution != ConflictUseBranch) {
+		return nil, ErrInvalid
+	}
+
+	var result *models.VideoProject
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		project, err := loadProject(txCtx, tx, input.WorkspaceID, input.ProjectID, false)
+		if err != nil {
+			return err
+		}
+		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+			return err
+		}
+		var conflict models.VideoProjectConflict
+		if err := tx.NewSelect().Model(&conflict).
+			Where("id = ? AND project_id = ? AND resolved_at IS NULL", input.ConflictID, project.ID).
+			Scan(txCtx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		now := s.now().UTC()
+		if input.Resolution == ConflictUseBranch {
+			document, err := normalizeDocument(json.RawMessage(conflict.DocumentJSON))
+			if err != nil {
+				return err
+			}
+			nextRevision := project.HeadRevision + 1
+			update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
+				Set("head_revision = ?", nextRevision).
+				Set("document_json = ?", string(document)).
+				Set("updated_by_user_id = ?", actor.UserID).
+				Set("updated_at = ?", now).
+				Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
+				Exec(txCtx)
+			if err != nil {
+				return err
+			}
+			rows, err := update.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if rows != 1 {
+				return ErrRevisionChanged
+			}
+			revision := &models.VideoProjectRevision{
+				ID: uuid.NewString(), ProjectID: project.ID, Revision: nextRevision,
+				ParentRevision: project.HeadRevision, Kind: "conflict_resolution",
+				DocumentJSON: string(document), TouchedTargetsJSON: conflict.OverlapTargetsJSON,
+				AuthorUserID: actor.UserID, DeviceID: input.DeviceID,
+				CreatedAt: now, ExpiresAt: now.Add(AutosaveRetention),
+			}
+			if _, err := tx.NewInsert().Model(revision).Exec(txCtx); err != nil {
+				return err
+			}
+			project.HeadRevision = nextRevision
+			project.DocumentJSON = string(document)
+			project.UpdatedByUserID = actor.UserID
+			project.UpdatedAt = now
+		}
+
+		updated, err := tx.NewUpdate().Model((*models.VideoProjectConflict)(nil)).
+			Set("resolved_at = ?", now).
+			Where("id = ? AND project_id = ? AND resolved_at IS NULL", conflict.ID, project.ID).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		rows, err := updated.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rows != 1 {
+			return ErrRevisionChanged
+		}
+		result = project
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *Service) ListRevisions(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID string) ([]Revision, error) {
 	project, err := s.Get(ctx, actor, workspaceID, projectID)
 	if err != nil {
 		return nil, err
 	}
 	rows := []models.VideoProjectRevision{}
-	if err := s.db.NewSelect().Model(&rows).Where("project_id = ?", project.ID).OrderExpr("revision DESC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err := s.db.NewSelect().Model(&rows).
+		Where("project_id = ? AND (expires_at IS NULL OR expires_at > ?)", project.ID, s.now().UTC()).
+		OrderExpr("revision DESC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
+	}
+	checkpoints := []models.VideoProjectCheckpoint{}
+	if err := s.db.NewSelect().Model(&checkpoints).
+		Where("project_id = ? AND deleted_at IS NULL", project.ID).
+		OrderExpr("created_at ASC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	checkpointNames := make(map[int64][]string, len(checkpoints))
+	checkpointsByRevision := make(map[int64][]models.VideoProjectCheckpoint, len(checkpoints))
+	for _, checkpoint := range checkpoints {
+		checkpointNames[checkpoint.Revision] = append(checkpointNames[checkpoint.Revision], checkpoint.Name)
+		checkpointsByRevision[checkpoint.Revision] = append(checkpointsByRevision[checkpoint.Revision], checkpoint)
 	}
 	out := make([]Revision, 0, len(rows))
 	for _, row := range rows {
@@ -739,7 +910,12 @@ func (s *Service) ListRevisions(ctx context.Context, actor workspaceaccess.Actor
 		if err := json.Unmarshal([]byte(row.TouchedTargetsJSON), &targets); err != nil {
 			return nil, err
 		}
-		out = append(out, Revision{VideoProjectRevision: row, Document: json.RawMessage(row.DocumentJSON), TouchedTargets: targets})
+		out = append(out, Revision{
+			VideoProjectRevision: row, Document: json.RawMessage(row.DocumentJSON),
+			TouchedTargets:  targets,
+			CheckpointNames: append([]string{}, checkpointNames[row.Revision]...),
+			Checkpoints:     append([]models.VideoProjectCheckpoint{}, checkpointsByRevision[row.Revision]...),
+		})
 	}
 	return out, nil
 }
@@ -933,11 +1109,43 @@ func overlappingTargets(ctx context.Context, db bun.IDB, projectID string, baseR
 	}
 	overlaps := []string{}
 	for _, target := range incoming {
-		if _, found := changed[target]; found {
-			overlaps = append(overlaps, target)
+		for changedTarget := range changed {
+			if mutationTargetsOverlap(target, changedTarget) {
+				overlaps = append(overlaps, target)
+				break
+			}
 		}
 	}
 	return overlaps, nil
+}
+
+func mutationTargetsOverlap(left, right string) bool {
+	if left == right || strings.HasPrefix(left, right+".") || strings.HasPrefix(right, left+".") {
+		return true
+	}
+	if left == "project:timeline" || right == "project:timeline" {
+		return strings.HasPrefix(left, "timeline:") || strings.HasPrefix(right, "timeline:") ||
+			strings.HasPrefix(left, "item:") || strings.HasPrefix(right, "item:") ||
+			strings.HasPrefix(left, "track:") || strings.HasPrefix(right, "track:") ||
+			strings.HasPrefix(left, "transition:") || strings.HasPrefix(right, "transition:") ||
+			strings.HasPrefix(left, "composition:") || strings.HasPrefix(right, "composition:")
+	}
+	collections := []struct {
+		target string
+		prefix string
+	}{
+		{target: "timeline:items", prefix: "item:"},
+		{target: "timeline:tracks", prefix: "track:"},
+		{target: "timeline:transitions", prefix: "transition:"},
+		{target: "timeline:compositions", prefix: "composition:"},
+	}
+	for _, collection := range collections {
+		if (left == collection.target && strings.HasPrefix(right, collection.prefix)) ||
+			(right == collection.target && strings.HasPrefix(left, collection.prefix)) {
+			return true
+		}
+	}
+	return false
 }
 
 func loadMutationReplay(ctx context.Context, db bun.IDB, projectID, mutationID string) (*MutationResult, bool, error) {
@@ -964,9 +1172,11 @@ func loadMutationReplay(ctx context.Context, db bun.IDB, projectID, mutationID s
 	return result, true, nil
 }
 
-func loadRevisionDocument(ctx context.Context, db bun.IDB, projectID string, revision int64) (json.RawMessage, error) {
+func loadRevisionDocument(ctx context.Context, db bun.IDB, projectID string, revision int64, now time.Time) (json.RawMessage, error) {
 	var row models.VideoProjectRevision
-	if err := db.NewSelect().Model(&row).Column("document_json").Where("project_id = ? AND revision = ?", projectID, revision).Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&row).Column("document_json").
+		Where("project_id = ? AND revision = ? AND (expires_at IS NULL OR expires_at > ?)", projectID, revision, now).
+		Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalid
 		}

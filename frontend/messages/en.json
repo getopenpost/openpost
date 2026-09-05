@@ -8178,6 +8178,8 @@
 	"theme_library_settings_unavailable": "Organization theme settings are unavailable right now.",
 	"theme_library_start_workshop": "Start with Workshop",
 	"theme_library_starting_point": "Starting point",
+	"theme_library_testing": "Testing {name}. Your saved theme is unchanged.",
+	"theme_library_stop_testing": "Stop testing",
 	"theme_library_test": "Test",
 	"theme_library_theme_name": "Theme name",
 	"theme_library_this_workspace": "This workspace",

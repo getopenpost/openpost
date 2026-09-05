@@ -223,15 +223,28 @@ describe('ThemeLibrary', () => {
 			.toHaveTextContent('The workspace changed on another device');
 	});
 
-	it('switches to a supported scheme when testing a single-scheme theme', async () => {
+	it('changes the saved scheme only after the tested theme is assigned', async () => {
 		const onSchemeChange = vi.fn();
-		const screen = render(ThemeLibrary, {
-			scheme: 'dark',
-			onSchemeChange
+		const onSelect = vi.fn();
+		const view = render(ThemeLibrary, {
+			scheme: 'light',
+			selectedReference: workshop,
+			onSchemeChange,
+			onSelect,
+			canManageWorkspace: true
 		});
-
-		await screen.getByRole('button', { name: 'Test Notebook' }).click();
-
-		expect(onSchemeChange).toHaveBeenCalledWith('light');
+		await view.getByRole('button', { name: 'Test Supabase' }).click();
+		expect(onSchemeChange).not.toHaveBeenCalled();
+		expect(onSelect).not.toHaveBeenCalled();
+		await view.getByRole('button', { name: 'Apply Supabase' }).click();
+		expect(onSelect).toHaveBeenCalledWith(currentBuiltInReference('supabase'));
+		expect(onSchemeChange).not.toHaveBeenCalled();
+		await view.rerender({
+			selectedReference: currentBuiltInReference('supabase')
+		});
+		expect(onSchemeChange).toHaveBeenCalledWith('dark');
+		await expect
+			.element(view.getByRole('button', { name: 'Stop testing' }))
+			.not.toBeInTheDocument();
 	});
 });

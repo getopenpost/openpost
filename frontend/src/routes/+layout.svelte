@@ -35,11 +35,13 @@
 	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
 	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { queryClient } from '$lib/query/client';
+	import { provideApplicationThemePreview } from '$lib/themes/application-preview.svelte';
 	import ThemeAppShell from '$lib/components/themes/theme-app-shell.svelte';
 	import { createPublicationQueryInvalidationBridge } from '$lib/query/publication-invalidation';
 	import { ui } from '$lib/stores/ui.svelte';
 
 	let { children } = $props();
+	provideApplicationThemePreview();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
 	const publicationQueryInvalidationBridge = createPublicationQueryInvalidationBridge(queryClient);
 

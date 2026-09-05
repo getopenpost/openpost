@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getApplicationThemePreview } from '$lib/themes/application-preview.svelte';
 	import { onDestroy } from 'svelte';
 	import {
 		resolveBuiltInTheme,
@@ -19,6 +20,8 @@
 		runtime?: WebThemeRuntime;
 	} = $props();
 
+	const preview = getApplicationThemePreview();
+
 	$effect(() => {
 		if (!('document' in globalThis)) return;
 		const root = globalThis.document.documentElement;
@@ -26,7 +29,7 @@
 			runtime.clear(root);
 			return;
 		}
-		void runtime.apply(theme ?? unavailableTheme(scheme), root);
+		void runtime.apply(preview?.theme ?? theme ?? unavailableTheme(scheme), root);
 	});
 
 	onDestroy(() => {

@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "Die Einstellungen für das Organisationsdesign sind derzeit nicht verfügbar.",
 	"theme_library_start_workshop": "Beginnen Sie mit Workshop",
 	"theme_library_starting_point": "Ausgangspunkt",
+	"theme_library_testing": "Design {name} wird getestet. Das gespeicherte Design bleibt unverändert.",
+	"theme_library_stop_testing": "Test beenden",
 	"theme_library_test": "Testen",
 	"theme_library_theme_name": "Themenname",
 	"theme_library_this_workspace": "Dieser Arbeitsbereich",

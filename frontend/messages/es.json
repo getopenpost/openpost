@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "La configuración del tema de la organización no está disponible en este momento.",
 	"theme_library_start_workshop": "Comience con Workshop",
 	"theme_library_starting_point": "Punto de partida",
+	"theme_library_testing": "Probando {name}. Tu tema guardado no ha cambiado.",
+	"theme_library_stop_testing": "Dejar de probar",
 	"theme_library_test": "Probar",
 	"theme_library_theme_name": "Nombre del tema",
 	"theme_library_this_workspace": "este espacio de trabajo",

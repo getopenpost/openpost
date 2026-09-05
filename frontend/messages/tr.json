@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "Kuruluş teması ayarları şu anda kullanılamıyor.",
 	"theme_library_start_workshop": "Workshop ile başlayın",
 	"theme_library_starting_point": "Başlangıç noktası",
+	"theme_library_testing": "{name} deneniyor. Kaydedilen temanız değişmedi.",
+	"theme_library_stop_testing": "Testi durdur",
 	"theme_library_test": "Test et",
 	"theme_library_theme_name": "Tema adı",
 	"theme_library_this_workspace": "Bu çalışma alanı",

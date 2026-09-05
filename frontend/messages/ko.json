@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "지금은 조직 테마 설정을 사용할 수 없습니다.",
 	"theme_library_start_workshop": "Workshop로 시작",
 	"theme_library_starting_point": "출발점",
+	"theme_library_testing": "{name} 테마를 테스트 중입니다. 저장된 테마는 변경되지 않습니다.",
+	"theme_library_stop_testing": "테스트 종료",
 	"theme_library_test": "테스트",
 	"theme_library_theme_name": "테마 이름",
 	"theme_library_this_workspace": "이 작업공간",

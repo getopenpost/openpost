@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "组织主题设置目前不可用。",
 	"theme_library_start_workshop": "从 Workshop 开始",
 	"theme_library_starting_point": "起点",
+	"theme_library_testing": "正在试用 {name}。已保存的主题保持不变。",
+	"theme_library_stop_testing": "停止试用",
 	"theme_library_test": "试用",
 	"theme_library_theme_name": "主题名称",
 	"theme_library_this_workspace": "这个工作区",

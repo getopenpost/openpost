@@ -379,23 +379,25 @@
 	{#if failedPreviewCount > 0}
 		<InlineNotice tone="warning" message={m.theme_library_preview_failed()} />
 	{/if}
-	<ThemeLibrary
-		organizationThemes={libraryItems}
-		{selectedReference}
-		{workspaceReference}
-		{organizationDefaultReference}
-		workspaceSelectionLocked={selectionLocked}
-		{scheme}
-		{canManageOrganization}
-		{canManageWorkspace}
-		{busy}
-		onSelect={canManageWorkspace ? onSelect : undefined}
-		onInherit={canManageWorkspace ? onInherit : undefined}
-		onSetDefault={canManageOrganization ? onSetDefault : undefined}
-		onCreate={canManageOrganization ? onCreate : undefined}
-		onEdit={canManageOrganization ? onEdit : undefined}
-		onDelete={canManageOrganization ? onDelete : undefined}
-		onToggleLock={canManageOrganization ? onToggleLock : undefined}
-		onSchemeChange={(nextScheme) => setMode(nextScheme)}
-	/>
+	{#key workspaceID}
+		<ThemeLibrary
+			organizationThemes={libraryItems}
+			{selectedReference}
+			{workspaceReference}
+			{organizationDefaultReference}
+			workspaceSelectionLocked={selectionLocked}
+			{scheme}
+			{canManageOrganization}
+			{canManageWorkspace}
+			{busy}
+			onSelect={canManageWorkspace ? onSelect : undefined}
+			onInherit={canManageWorkspace ? onInherit : undefined}
+			onSetDefault={canManageOrganization ? onSetDefault : undefined}
+			onCreate={canManageOrganization ? onCreate : undefined}
+			onEdit={canManageOrganization ? onEdit : undefined}
+			onDelete={canManageOrganization ? onDelete : undefined}
+			onToggleLock={canManageOrganization ? onToggleLock : undefined}
+			onSchemeChange={(nextScheme) => setMode(nextScheme)}
+		/>
+	{/key}
 {/if}

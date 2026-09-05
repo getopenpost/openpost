@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { getApplicationThemePreview } from '$lib/themes/application-preview.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { getCurrentLocale, onLocaleChange } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
@@ -81,6 +83,19 @@
 		onToggleLock,
 		onSchemeChange
 	}: Props = $props();
+	const applicationPreview = getApplicationThemePreview();
+	let testingScheme = $state<ThemeScheme | null>(null);
+
+	function stopTesting() {
+		testingScheme = null;
+		previewReference = selectedReference;
+		if (applicationPreview) applicationPreview.theme = null;
+	}
+
+	onDestroy(() => {
+		if (applicationPreview) applicationPreview.theme = null;
+	});
+
 	let deleteCandidate = $state<ThemeLibraryItem | null>(null);
 	let deleteDialogOpen = $state(false);
 	let lockDialogOpen = $state(false);
@@ -115,8 +130,8 @@
 		copySourceItems.find((item) => sameThemeReference(item.reference, createSourceReference)) ??
 			effectiveBuiltInThemes[0]!
 	);
-	const selectedPreview = $derived(resolvePreview(selectedItem, scheme));
-	const selectedSchemeLabel = $derived(themeSchemeLabel(scheme, activeLocale));
+	const selectedPreview = $derived(resolvePreview(selectedItem, testingScheme ?? scheme));
+	const selectedSchemeLabel = $derived(themeSchemeLabel(testingScheme ?? scheme, activeLocale));
 	const selectedFallbackMessage = $derived(
 		selectedPreview.fallbackReason === 'unsupported-scheme'
 			? m.theme_library_preview_unsupported(
@@ -160,7 +175,14 @@
 		const nextKey = themeReferenceKey(selectedReference);
 		if (nextKey === observedSelectedReferenceKey) return;
 		observedSelectedReferenceKey = nextKey;
-		previewReference = selectedReference;
+		if (testingScheme && sameThemeReference(previewReference, selectedReference)) {
+			void onSchemeChange?.(testingScheme);
+		}
+		stopTesting();
+	});
+
+	$effect(() => {
+		if (applicationPreview) applicationPreview.theme = testingScheme ? selectedPreview : null;
 	});
 
 	function resolvePreview(item: ThemeLibraryItem, requestedScheme: ThemeScheme): WebResolvedTheme {
@@ -306,7 +328,7 @@
 		const testScheme = item.manifest.supportedSchemes.includes(scheme)
 			? scheme
 			: item.manifest.supportedSchemes[0];
-		if (testScheme && testScheme !== scheme) await onSchemeChange?.(testScheme);
+		testingScheme = testScheme ?? scheme;
 		await tick();
 		if (!previewAnchor || window.matchMedia('(min-width: 640px)').matches) return;
 		previewAnchor.scrollIntoView({
@@ -341,6 +363,18 @@
 			{/if}
 		</div>
 
+		<div bind:this={previewAnchor} class="scroll-mt-4"></div>
+		{#if testingScheme}
+			<InlineNotice
+				class="sticky top-0 z-20 flex-wrap"
+				message={m.theme_library_testing({ name: selectedItem.manifest.name })}
+			>
+				{#snippet actions()}
+					<Button intent="ordinary" onclick={stopTesting}>{m.theme_library_stop_testing()}</Button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
+
 		{#if actionError}
 			<div
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-destructive/35 bg-destructive/8 px-3 py-2 text-sm text-destructive"
@@ -352,7 +386,6 @@
 
 		<div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.65fr)]">
 			<div class="min-w-0 space-y-3">
-				<div bind:this={previewAnchor} class="scroll-mt-4"></div>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div>
 						<div class="flex flex-wrap items-center gap-2">

@@ -8142,6 +8142,8 @@
 	"theme_library_settings_unavailable": "現在、組織のテーマ設定は利用できません。",
 	"theme_library_start_workshop": "Workshop から始める",
 	"theme_library_starting_point": "出発点",
+	"theme_library_testing": "{name} を試しています。保存済みのテーマは変更されません。",
+	"theme_library_stop_testing": "テストを終了",
 	"theme_library_test": "試す",
 	"theme_library_theme_name": "テーマ名",
 	"theme_library_this_workspace": "このワークスペース",

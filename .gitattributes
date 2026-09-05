@@ -1,1 +1,2 @@
 frontend/static/image-editor-models/[0-9a-f]* binary
+frontend/static/image-editor-models/*.json text diff merge

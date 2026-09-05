@@ -1146,21 +1146,18 @@ func (s *Service) platformMediaIDForRendition(ctx context.Context, publication *
 		func() (string, error) {
 			return s.uploadRenditionMediaToPlatform(ctx, account, provider, token, rendition, media)
 		},
-		func(platformMediaID, status, errorMessage string) error {
+		func(platformMediaID, status string, retryClassification platform.MediaRetryClassification, errorMessage string) error {
 			state := platform.ResumableMediaUploadState{
 				ProviderMediaID:     platformMediaID,
 				TotalBytes:          media.Size,
 				Status:              platform.MediaUploadStatus(status),
-				RetryClassification: platform.MediaRetryNone,
-			}
-			if status == providerMediaStatusFailed {
-				state.RetryClassification = platform.MediaRetryTerminal
+				RetryClassification: retryClassification,
 			}
 			return s.saveRenditionMediaDelivery(ctx, publication, rendition, account, media.ID, relations, state, errorMessage)
 		})
 }
 
-func (s *Service) cachedPlatformMediaID(_ context.Context, mediaID string, load func() (string, error), upload func() (string, error), save func(string, string, string) error) (string, error) {
+func (s *Service) cachedPlatformMediaID(_ context.Context, mediaID string, load func() (string, error), upload func() (string, error), save func(string, string, platform.MediaRetryClassification, string) error) (string, error) {
 	platformMediaID, err := load()
 	if err != nil {
 		return "", err
@@ -1171,13 +1168,17 @@ func (s *Service) cachedPlatformMediaID(_ context.Context, mediaID string, load 
 
 	platformMediaID, err = upload()
 	if err != nil {
-		if saveErr := save("", providerMediaStatusFailed, err.Error()); saveErr != nil {
+		retryClassification, classified := platform.MediaRetryClassificationForError(err)
+		if !classified || retryClassification == platform.MediaRetryNone {
+			retryClassification = platform.MediaRetrySafeResume
+		}
+		if saveErr := save("", providerMediaStatusFailed, retryClassification, err.Error()); saveErr != nil {
 			log.Printf("[Publisher] Failed to record provider media upload failure for media %s: %v", mediaID, saveErr)
 		}
 		return "", err
 	}
 
-	if saveErr := save(platformMediaID, providerMediaStatusReady, ""); saveErr != nil {
+	if saveErr := save(platformMediaID, providerMediaStatusReady, platform.MediaRetryNone, ""); saveErr != nil {
 		log.Printf("[Publisher] Failed to record provider media state for media %s: %v", mediaID, saveErr)
 	}
 	return platformMediaID, nil

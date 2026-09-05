@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -17,6 +18,56 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
+
+func TestPublisherRetriesNonResumableMediaAfterTransientProviderFailure(t *testing.T) {
+	t.Parallel()
+
+	adapter := &fakePublisherAdapter{uploadErrors: []error{
+		platform.NewHTTPError(http.StatusBadGateway, nil, []byte(`{"message":"UpstreamFailure"}`)),
+	}}
+	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
+	media := models.MediaAttachment{
+		ID: "image-transient", WorkspaceID: "ws-1", FilePath: "uploads/image-transient.png",
+		MimeType: "image/png", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready",
+	}
+	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-transient", "rendition-transient", media)
+
+	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	require.ErrorContains(t, err, "status 502")
+	require.True(t, ClassifyFailure(err).Retryable)
+	var failed models.RenditionMediaDelivery
+	require.NoError(t, srv.db.NewSelect().Model(&failed).
+		Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).
+		Scan(t.Context()))
+	require.Equal(t, string(platform.MediaRetrySafeResume), failed.RetryClassification)
+
+	providerMediaID, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	require.NoError(t, err)
+	require.Equal(t, "platform-media-id", providerMediaID)
+	require.Equal(t, 2, adapter.uploadCalls)
+}
+
+func TestPublisherDoesNotRetryExplicitTerminalNonResumableMediaFailure(t *testing.T) {
+	t.Parallel()
+
+	adapter := &fakePublisherAdapter{uploadErr: &platform.MediaUploadError{
+		RetryClassification: platform.MediaRetryTerminal,
+		Err:                 fmt.Errorf("provider rejected the image"),
+	}}
+	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
+	media := models.MediaAttachment{
+		ID: "image-rejected", WorkspaceID: "ws-1", FilePath: "uploads/image-rejected.png",
+		MimeType: "image/png", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready",
+	}
+	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-rejected", "rendition-rejected", media)
+
+	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	require.ErrorContains(t, err, "provider rejected the image")
+
+	_, err = srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	require.ErrorContains(t, err, "OpenPost did not upload it again")
+	require.Equal(t, 1, adapter.uploadCalls)
+}
 
 type publisherMediaStateTestServer struct {
 	db        *bun.DB

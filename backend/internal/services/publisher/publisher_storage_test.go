@@ -42,6 +42,7 @@ type fakePublisherAdapter struct {
 	uploadedBody    string
 	uploadCalls     int
 	uploadErr       error
+	uploadErrors    []error
 	publishCalls    int
 	publishErr      error
 	publishErrors   []error
@@ -74,6 +75,9 @@ func (f *fakePublisherAdapter) UploadMedia(_ context.Context, _, _, _ string, re
 		return "", err
 	}
 	f.uploadedBody = string(body)
+	if f.uploadCalls <= len(f.uploadErrors) && f.uploadErrors[f.uploadCalls-1] != nil {
+		return "", f.uploadErrors[f.uploadCalls-1]
+	}
 	if f.uploadErr != nil {
 		return "", f.uploadErr
 	}

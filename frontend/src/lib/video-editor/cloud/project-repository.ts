@@ -103,9 +103,9 @@ export class CloudVideoProjectRepository<TDocument extends PortableVideoProjectD
 
 	constructor(readonly workspaceId: string) {}
 
-	async list(): Promise<CloudVideoProject<TDocument>[]> {
+	async list(includeTrash = false): Promise<CloudVideoProject<TDocument>[]> {
 		const { data, error } = await client.GET('/video-projects', {
-			params: { query: { workspace_id: this.workspaceId } }
+			params: { query: { workspace_id: this.workspaceId, include_trash: includeTrash } }
 		});
 		if (error || !data) throw new Error('Could not load Cloud Video Projects');
 		return data.map((project) => cloudProject<TDocument>(project));
@@ -148,11 +148,14 @@ export class CloudVideoProjectRepository<TDocument extends PortableVideoProjectD
 			queuedAt: Date.now(),
 			attempts: 0
 		});
-		await this.flush();
+		const results = await this.flush();
+		const latest = results.at(-1);
+		if (latest) project.headRevision = latest.revision;
+		project.document = portable;
 	}
 
-	async flush(): Promise<void> {
-		await this.outbox.drain(async (entry) => {
+	async flush() {
+		return this.outbox.drain(async (entry) => {
 			const { data, error } = await client.POST('/video-projects/{id}/mutations', {
 				params: { path: { id: entry.projectId } },
 				body: entry.batch
@@ -166,5 +169,21 @@ export class CloudVideoProjectRepository<TDocument extends PortableVideoProjectD
 					}
 				: { outcome: 'applied' as const, revision: data.revision };
 		});
+	}
+
+	async trash(id: string): Promise<void> {
+		const { error } = await client.POST('/video-projects/{id}/trash', {
+			params: { path: { id } },
+			body: { workspace_id: this.workspaceId }
+		});
+		if (error) throw new Error('Could not move Cloud Video Project to Trash');
+	}
+
+	async restore(id: string): Promise<void> {
+		const { error } = await client.POST('/video-projects/{id}/restore', {
+			params: { path: { id } },
+			body: { workspace_id: this.workspaceId }
+		});
+		if (error) throw new Error('Could not restore Cloud Video Project');
 	}
 }

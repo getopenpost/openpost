@@ -129,7 +129,15 @@ export class VideoProjectMutationOutbox {
       try {
         const result = await deliver(next);
         results.push(result);
-        await this.storage.save(rest);
+        const rebased =
+          result.outcome === "applied"
+            ? rest.map((entry) =>
+                entry.projectId === next.projectId
+                  ? { ...entry, batch: { ...entry.batch, base_revision: result.revision } }
+                  : entry,
+              )
+            : rest;
+        await this.storage.save(rebased);
       } catch (error) {
         await this.storage.save([{ ...next, attempts: next.attempts + 1 }, ...rest]);
         throw error;

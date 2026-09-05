@@ -62,7 +62,7 @@ describe("portable Video Project contract", () => {
 
     const online = vi.fn(async (entry: PendingVideoProjectMutation) => ({
       outcome: "applied" as const,
-      revision: entry.batch.mutation_id === "one" ? 2 : 3,
+      revision: entry.batch.base_revision + 1,
     }));
     await expect(outbox.drain(online)).resolves.toEqual([
       { outcome: "applied", revision: 2 },
@@ -70,5 +70,6 @@ describe("portable Video Project contract", () => {
     ]);
     expect(entries).toEqual([]);
     expect(online).toHaveBeenCalledTimes(2);
+    expect(online.mock.calls[1]?.[0].batch.base_revision).toBe(2);
   });
 });

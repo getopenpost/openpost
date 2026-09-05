@@ -1583,38 +1583,22 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		return result, err
 	}
 	if directMediaUploadFinalized(media) {
-		if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, media.ID, media.FileHash); err != nil {
-			return result, huma.Error500InternalServerError("failed to complete Project Asset")
-		}
-		return mediaUploadResultFromAttachment(media, false), nil
+		return h.completeProjectAssetUpload(ctx, workspaceID, media, media.FileHash)
 	}
 
 	inspection, err := h.inspectDirectMediaUpload(ctx, media)
 	if err != nil {
 		return result, err
 	}
-	if !isInternalMediaAssetKind(media.AssetKind) {
-		if err := h.checkUploadQuotaExcludingMedia(ctx, workspaceID, inspection.Size, media.ID); err != nil {
-			if media.AssetKind == "project_asset" {
-				_ = videoprojects.MarkAssetNeedsStorageForMedia(ctx, h.db, workspaceID, media.ID, err.Error())
-			}
-			return result, huma.Error400BadRequest(err.Error())
-		}
+	if err := h.checkDirectUploadQuota(ctx, workspaceID, media, inspection.Size); err != nil {
+		return result, err
 	}
 
 	fileHash := inspection.FileHash
-	if directMediaUploadSupportsDeduplication(media) {
-		if existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID); err != nil {
-			return result, err
-		} else if found {
-			if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
-				return result, err
-			}
-			if err := h.rollbackMediaRecord(ctx, &media); err != nil {
-				return result, huma.Error500InternalServerError("failed to deduplicate media upload")
-			}
-			return mediaUploadResultFromAttachment(existing, true), nil
-		}
+	if duplicate, found, err := h.deduplicateDirectMediaUpload(ctx, workspaceID, fileHash, media); err != nil {
+		return result, err
+	} else if found {
+		return duplicate, nil
 	}
 
 	media, err = h.finalizeDirectMediaUploadRecord(ctx, media, inspection)
@@ -1624,6 +1608,41 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		}
 		return result, err
 	}
+	return h.completeProjectAssetUpload(ctx, workspaceID, media, fileHash)
+}
+
+func (h *MediaHandler) checkDirectUploadQuota(ctx context.Context, workspaceID string, media models.MediaAttachment, size int64) error {
+	if isInternalMediaAssetKind(media.AssetKind) {
+		return nil
+	}
+	if err := h.checkUploadQuotaExcludingMedia(ctx, workspaceID, size, media.ID); err != nil {
+		if media.AssetKind == "project_asset" {
+			_ = videoprojects.MarkAssetNeedsStorageForMedia(ctx, h.db, workspaceID, media.ID, err.Error())
+		}
+		return huma.Error400BadRequest(err.Error())
+	}
+	return nil
+}
+
+func (h *MediaHandler) deduplicateDirectMediaUpload(ctx context.Context, workspaceID, fileHash string, media models.MediaAttachment) (MediaUploadResult, bool, error) {
+	if !directMediaUploadSupportsDeduplication(media) {
+		return MediaUploadResult{}, false, nil
+	}
+	existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID)
+	if err != nil || !found {
+		return MediaUploadResult{}, false, err
+	}
+	if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
+		return MediaUploadResult{}, false, err
+	}
+	if err := h.rollbackMediaRecord(ctx, &media); err != nil {
+		return MediaUploadResult{}, false, huma.Error500InternalServerError("failed to deduplicate media upload")
+	}
+	return mediaUploadResultFromAttachment(existing, true), true, nil
+}
+
+func (h *MediaHandler) completeProjectAssetUpload(ctx context.Context, workspaceID string, media models.MediaAttachment, fileHash string) (MediaUploadResult, error) {
+	var result MediaUploadResult
 	if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, media.ID, fileHash); err != nil {
 		return result, huma.Error500InternalServerError("failed to complete Project Asset")
 	}
@@ -2062,7 +2081,7 @@ func normalizeMediaProvenance(source, assetKind string) (string, string, error) 
 		return "", "", errors.New("design previews must be produced by OpenPost Image Editor")
 	}
 	if assetKind == "project_asset" && source != "upload" && source != "camera" && source != "video_editor_source" {
-		return "", "", errors.New("Project Assets must come from an upload, camera, or Video Editor source")
+		return "", "", errors.New("project Assets must come from an upload, camera, or Video Editor source")
 	}
 	return source, assetKind, nil
 }

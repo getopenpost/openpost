@@ -115,6 +115,23 @@ type Revision struct {
 }
 
 func (s *Service) ReserveAsset(ctx context.Context, actor workspaceaccess.ActorFacts, input ReserveAssetInput) (*models.ProjectAsset, error) {
+	input, preparation, err := normalizeReserveAssetInput(input)
+	if err != nil {
+		return nil, err
+	}
+
+	var asset *models.ProjectAsset
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		asset, err = s.reserveAsset(txCtx, tx, actor, input, preparation)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return asset, nil
+}
+
+func normalizeReserveAssetInput(input ReserveAssetInput) (ReserveAssetInput, json.RawMessage, error) {
 	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	input.ProjectID = strings.TrimSpace(input.ProjectID)
 	input.StableMediaID = strings.TrimSpace(input.StableMediaID)
@@ -123,59 +140,57 @@ func (s *Service) ReserveAsset(ctx context.Context, actor workspaceaccess.ActorF
 	input.SHA256 = strings.ToLower(strings.TrimSpace(input.SHA256))
 	input.DeviceID = strings.TrimSpace(input.DeviceID)
 	if input.WorkspaceID == "" || input.ProjectID == "" || input.StableMediaID == "" || input.OriginalFilename == "" || input.MimeType == "" || input.Size <= 0 {
-		return nil, ErrInvalid
+		return input, nil, ErrInvalid
 	}
 	preparation := input.Preparation
 	if len(preparation) == 0 {
 		preparation = json.RawMessage(`{}`)
 	}
 	if !json.Valid(preparation) {
-		return nil, ErrInvalid
+		return input, nil, ErrInvalid
 	}
 	var prepared map[string]any
 	if err := json.Unmarshal(preparation, &prepared); err != nil || prepared == nil {
-		return nil, ErrInvalid
+		return input, nil, ErrInvalid
 	}
 	preparation, _ = json.Marshal(prepared)
+	return input, preparation, nil
+}
 
-	var asset *models.ProjectAsset
-	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		project, err := loadProject(txCtx, tx, input.WorkspaceID, input.ProjectID, false)
-		if err != nil {
-			return err
-		}
-		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
-			return err
-		}
-		var existing models.ProjectAsset
-		err = tx.NewSelect().Model(&existing).
-			Where("project_id = ? AND stable_media_id = ?", project.ID, input.StableMediaID).
-			Scan(txCtx)
-		if err == nil {
-			asset = &existing
-			return nil
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		now := s.now().UTC()
-		asset = &models.ProjectAsset{
-			ID: uuid.NewString(), ProjectID: project.ID, WorkspaceID: project.WorkspaceID,
-			StableMediaID: input.StableMediaID, OriginalFilename: input.OriginalFilename,
-			MimeType: input.MimeType, Size: input.Size, SHA256: input.SHA256,
-			Status: models.ProjectAssetStatusPending, PreparationJSON: string(preparation), Required: true,
-			UploadedByUserID: actor.UserID, DeviceID: input.DeviceID, CreatedAt: now, UpdatedAt: now,
-		}
-		if _, err := tx.NewInsert().Model(asset).Exec(txCtx); err != nil {
-			return err
-		}
-		_, err = tx.NewUpdate().Model((*models.VideoProject)(nil)).
-			Set("sync_status = ?", models.VideoProjectSyncPending).
-			Set("attention_reason = ''").
-			Set("updated_at = ?", now).
-			Where("id = ?", project.ID).Exec(txCtx)
-		return err
-	})
+func (s *Service) reserveAsset(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, input ReserveAssetInput, preparation json.RawMessage) (*models.ProjectAsset, error) {
+	project, err := loadProject(ctx, tx, input.WorkspaceID, input.ProjectID, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := authorize(ctx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+		return nil, err
+	}
+	var existing models.ProjectAsset
+	err = tx.NewSelect().Model(&existing).
+		Where("project_id = ? AND stable_media_id = ?", project.ID, input.StableMediaID).
+		Scan(ctx)
+	if err == nil {
+		return &existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	now := s.now().UTC()
+	asset := &models.ProjectAsset{
+		ID: uuid.NewString(), ProjectID: project.ID, WorkspaceID: project.WorkspaceID,
+		StableMediaID: input.StableMediaID, OriginalFilename: input.OriginalFilename,
+		MimeType: input.MimeType, Size: input.Size, SHA256: input.SHA256,
+		Status: models.ProjectAssetStatusPending, PreparationJSON: string(preparation), Required: true,
+		UploadedByUserID: actor.UserID, DeviceID: input.DeviceID, CreatedAt: now, UpdatedAt: now,
+	}
+	if _, err := tx.NewInsert().Model(asset).Exec(ctx); err != nil {
+		return nil, err
+	}
+	_, err = tx.NewUpdate().Model((*models.VideoProject)(nil)).
+		Set("sync_status = ?", models.VideoProjectSyncPending).
+		Set("attention_reason = ''").
+		Set("updated_at = ?", now).
+		Where("id = ?", project.ID).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -661,111 +676,121 @@ func (s *Service) ApplyMutation(ctx context.Context, actor workspaceaccess.Actor
 
 	var result *MutationResult
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		project, err := loadProject(txCtx, tx, input.WorkspaceID, input.ProjectID, false)
-		if err != nil {
-			return err
-		}
-		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
-			return err
-		}
-		if replay, found, err := loadMutationReplay(txCtx, tx, project.ID, input.MutationID); err != nil {
-			return err
-		} else if found {
-			replay.Project = project
-			result = replay
-			return nil
-		}
-		if input.BaseRevision > project.HeadRevision {
-			return ErrInvalid
-		}
-
-		overlaps, err := overlappingTargets(txCtx, tx, project.ID, input.BaseRevision, targets)
-		if err != nil {
-			return err
-		}
-		if len(overlaps) > 0 {
-			baseDocument, err := loadRevisionDocument(txCtx, tx, project.ID, input.BaseRevision, s.now().UTC())
-			if err != nil {
-				return err
-			}
-			branchDocument, err := applyOperations(baseDocument, input.Operations)
-			if err != nil {
-				return err
-			}
-			now := s.now().UTC()
-			conflict := &models.VideoProjectConflict{
-				ID: uuid.NewString(), ProjectID: project.ID,
-				Name:         fmt.Sprintf("Conflict from %s at revision %d", firstNonEmpty(input.DeviceID, "another device"), project.HeadRevision),
-				BaseRevision: input.BaseRevision, HeadRevision: project.HeadRevision, MutationID: input.MutationID,
-				DocumentJSON: string(branchDocument), OverlapTargetsJSON: mustMarshal(overlaps),
-				AuthorUserID: actor.UserID, DeviceID: input.DeviceID, CreatedAt: now,
-			}
-			if _, err := tx.NewInsert().Model(conflict).Exec(txCtx); err != nil {
-				return err
-			}
-			mutation := &models.VideoProjectMutation{ProjectID: project.ID, MutationID: input.MutationID, Outcome: MutationConflict, ConflictID: conflict.ID, CreatedAt: now}
-			if _, err := tx.NewInsert().Model(mutation).Exec(txCtx); err != nil {
-				return err
-			}
-			result = &MutationResult{Outcome: MutationConflict, Revision: project.HeadRevision, ConflictID: conflict.ID, ConflictName: conflict.Name, OverlapTargets: overlaps, Project: project}
-			return nil
-		}
-
-		document, err := applyOperations(json.RawMessage(project.DocumentJSON), input.Operations)
-		if err != nil {
-			return err
-		}
-		now := s.now().UTC()
-		nextRevision := project.HeadRevision + 1
-		status, attention, err := projectSyncState(txCtx, tx, project.ID)
-		if err != nil {
-			return err
-		}
-		update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
-			Set("head_revision = ?", nextRevision).
-			Set("document_json = ?", string(document)).
-			Set("sync_status = ?", status).
-			Set("attention_reason = ?", attention).
-			Set("updated_by_user_id = ?", actor.UserID).
-			Set("updated_at = ?", now).
-			Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
-			Exec(txCtx)
-		if err != nil {
-			return err
-		}
-		rows, err := update.RowsAffected()
-		if err != nil {
-			return err
-		}
-		if rows != 1 {
-			return ErrRevisionChanged
-		}
-		revision := &models.VideoProjectRevision{
-			ID: uuid.NewString(), ProjectID: project.ID, Revision: nextRevision, ParentRevision: project.HeadRevision,
-			Kind: "autosave", DocumentJSON: string(document), TouchedTargetsJSON: mustMarshal(targets),
-			AuthorUserID: actor.UserID, DeviceID: input.DeviceID, MutationID: input.MutationID,
-			CreatedAt: now, ExpiresAt: now.Add(AutosaveRetention),
-		}
-		if _, err := tx.NewInsert().Model(revision).Exec(txCtx); err != nil {
-			return err
-		}
-		mutation := &models.VideoProjectMutation{ProjectID: project.ID, MutationID: input.MutationID, Outcome: MutationApplied, Revision: nextRevision, CreatedAt: now}
-		if _, err := tx.NewInsert().Model(mutation).Exec(txCtx); err != nil {
-			return err
-		}
-		project.HeadRevision = nextRevision
-		project.DocumentJSON = string(document)
-		project.SyncStatus = status
-		project.AttentionReason = attention
-		project.UpdatedByUserID = actor.UserID
-		project.UpdatedAt = now
-		result = &MutationResult{Outcome: MutationApplied, Revision: nextRevision, Project: project}
-		return nil
+		result, err = s.applyMutation(txCtx, tx, actor, input, targets)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *Service) applyMutation(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, input ApplyMutationInput, targets []string) (*MutationResult, error) {
+	project, err := loadProject(ctx, tx, input.WorkspaceID, input.ProjectID, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := authorize(ctx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+		return nil, err
+	}
+	replay, found, err := loadMutationReplay(ctx, tx, project.ID, input.MutationID)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		replay.Project = project
+		return replay, nil
+	}
+	if input.BaseRevision > project.HeadRevision {
+		return nil, ErrInvalid
+	}
+	overlaps, err := overlappingTargets(ctx, tx, project.ID, input.BaseRevision, targets)
+	if err != nil {
+		return nil, err
+	}
+	if len(overlaps) > 0 {
+		return s.createMutationConflict(ctx, tx, actor, input, project, overlaps)
+	}
+	return s.applyMutationToHead(ctx, tx, actor, input, project, targets)
+}
+
+func (s *Service) createMutationConflict(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, input ApplyMutationInput, project *models.VideoProject, overlaps []string) (*MutationResult, error) {
+	baseDocument, err := loadRevisionDocument(ctx, tx, project.ID, input.BaseRevision, s.now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	branchDocument, err := applyOperations(baseDocument, input.Operations)
+	if err != nil {
+		return nil, err
+	}
+	now := s.now().UTC()
+	conflict := &models.VideoProjectConflict{
+		ID: uuid.NewString(), ProjectID: project.ID,
+		Name:         fmt.Sprintf("Conflict from %s at revision %d", firstNonEmpty(input.DeviceID, "another device"), project.HeadRevision),
+		BaseRevision: input.BaseRevision, HeadRevision: project.HeadRevision, MutationID: input.MutationID,
+		DocumentJSON: string(branchDocument), OverlapTargetsJSON: mustMarshal(overlaps),
+		AuthorUserID: actor.UserID, DeviceID: input.DeviceID, CreatedAt: now,
+	}
+	if _, err := tx.NewInsert().Model(conflict).Exec(ctx); err != nil {
+		return nil, err
+	}
+	mutation := &models.VideoProjectMutation{ProjectID: project.ID, MutationID: input.MutationID, Outcome: MutationConflict, ConflictID: conflict.ID, CreatedAt: now}
+	if _, err := tx.NewInsert().Model(mutation).Exec(ctx); err != nil {
+		return nil, err
+	}
+	return &MutationResult{Outcome: MutationConflict, Revision: project.HeadRevision, ConflictID: conflict.ID, ConflictName: conflict.Name, OverlapTargets: overlaps, Project: project}, nil
+}
+
+func (s *Service) applyMutationToHead(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, input ApplyMutationInput, project *models.VideoProject, targets []string) (*MutationResult, error) {
+	document, err := applyOperations(json.RawMessage(project.DocumentJSON), input.Operations)
+	if err != nil {
+		return nil, err
+	}
+	status, attention, err := projectSyncState(ctx, tx, project.ID)
+	if err != nil {
+		return nil, err
+	}
+	now := s.now().UTC()
+	nextRevision := project.HeadRevision + 1
+	update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
+		Set("head_revision = ?", nextRevision).
+		Set("document_json = ?", string(document)).
+		Set("sync_status = ?", status).
+		Set("attention_reason = ?", attention).
+		Set("updated_by_user_id = ?", actor.UserID).
+		Set("updated_at = ?", now).
+		Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
+		Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := update.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if rows != 1 {
+		return nil, ErrRevisionChanged
+	}
+	revision := &models.VideoProjectRevision{
+		ID: uuid.NewString(), ProjectID: project.ID, Revision: nextRevision, ParentRevision: project.HeadRevision,
+		Kind: "autosave", DocumentJSON: string(document), TouchedTargetsJSON: mustMarshal(targets),
+		AuthorUserID: actor.UserID, DeviceID: input.DeviceID, MutationID: input.MutationID,
+		CreatedAt: now, ExpiresAt: now.Add(AutosaveRetention),
+	}
+	if _, err := tx.NewInsert().Model(revision).Exec(ctx); err != nil {
+		return nil, err
+	}
+	mutation := &models.VideoProjectMutation{ProjectID: project.ID, MutationID: input.MutationID, Outcome: MutationApplied, Revision: nextRevision, CreatedAt: now}
+	if _, err := tx.NewInsert().Model(mutation).Exec(ctx); err != nil {
+		return nil, err
+	}
+	project.HeadRevision = nextRevision
+	project.DocumentJSON = string(document)
+	project.SyncStatus = status
+	project.AttentionReason = attention
+	project.UpdatedByUserID = actor.UserID
+	project.UpdatedAt = now
+	return &MutationResult{Outcome: MutationApplied, Revision: nextRevision, Project: project}, nil
 }
 
 func (s *Service) ListConflicts(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID string) ([]Conflict, error) {
@@ -800,85 +825,104 @@ func (s *Service) ResolveConflict(ctx context.Context, actor workspaceaccess.Act
 	}
 
 	var result *models.VideoProject
-	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		project, err := loadProject(txCtx, tx, input.WorkspaceID, input.ProjectID, false)
-		if err != nil {
-			return err
-		}
-		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
-			return err
-		}
-		var conflict models.VideoProjectConflict
-		if err := tx.NewSelect().Model(&conflict).
-			Where("id = ? AND project_id = ? AND resolved_at IS NULL", input.ConflictID, project.ID).
-			Scan(txCtx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrNotFound
-			}
-			return err
-		}
-
-		now := s.now().UTC()
-		if input.Resolution == ConflictUseBranch {
-			document, err := normalizeDocument(json.RawMessage(conflict.DocumentJSON))
-			if err != nil {
-				return err
-			}
-			nextRevision := project.HeadRevision + 1
-			update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
-				Set("head_revision = ?", nextRevision).
-				Set("document_json = ?", string(document)).
-				Set("updated_by_user_id = ?", actor.UserID).
-				Set("updated_at = ?", now).
-				Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
-				Exec(txCtx)
-			if err != nil {
-				return err
-			}
-			rows, err := update.RowsAffected()
-			if err != nil {
-				return err
-			}
-			if rows != 1 {
-				return ErrRevisionChanged
-			}
-			revision := &models.VideoProjectRevision{
-				ID: uuid.NewString(), ProjectID: project.ID, Revision: nextRevision,
-				ParentRevision: project.HeadRevision, Kind: "conflict_resolution",
-				DocumentJSON: string(document), TouchedTargetsJSON: conflict.OverlapTargetsJSON,
-				AuthorUserID: actor.UserID, DeviceID: input.DeviceID,
-				CreatedAt: now, ExpiresAt: now.Add(AutosaveRetention),
-			}
-			if _, err := tx.NewInsert().Model(revision).Exec(txCtx); err != nil {
-				return err
-			}
-			project.HeadRevision = nextRevision
-			project.DocumentJSON = string(document)
-			project.UpdatedByUserID = actor.UserID
-			project.UpdatedAt = now
-		}
-
-		updated, err := tx.NewUpdate().Model((*models.VideoProjectConflict)(nil)).
-			Set("resolved_at = ?", now).
-			Where("id = ? AND project_id = ? AND resolved_at IS NULL", conflict.ID, project.ID).
-			Exec(txCtx)
-		if err != nil {
-			return err
-		}
-		rows, err := updated.RowsAffected()
-		if err != nil {
-			return err
-		}
-		if rows != 1 {
-			return ErrRevisionChanged
-		}
-		result = project
-		return nil
+	var err error
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		result, err = s.resolveConflict(txCtx, tx, actor, input)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *Service) resolveConflict(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, input ResolveConflictInput) (*models.VideoProject, error) {
+	project, err := loadProject(ctx, tx, input.WorkspaceID, input.ProjectID, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := authorize(ctx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+		return nil, err
+	}
+	conflict, err := loadOpenConflict(ctx, tx, project.ID, input.ConflictID)
+	if err != nil {
+		return nil, err
+	}
+	now := s.now().UTC()
+	if input.Resolution == ConflictUseBranch {
+		if err := s.useConflictBranch(ctx, tx, actor, input.DeviceID, project, conflict, now); err != nil {
+			return nil, err
+		}
+	}
+	updated, err := tx.NewUpdate().Model((*models.VideoProjectConflict)(nil)).
+		Set("resolved_at = ?", now).
+		Where("id = ? AND project_id = ? AND resolved_at IS NULL", conflict.ID, project.ID).
+		Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := updated.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if rows != 1 {
+		return nil, ErrRevisionChanged
+	}
+	return project, nil
+}
+
+func loadOpenConflict(ctx context.Context, db bun.IDB, projectID, conflictID string) (*models.VideoProjectConflict, error) {
+	var conflict models.VideoProjectConflict
+	err := db.NewSelect().Model(&conflict).
+		Where("id = ? AND project_id = ? AND resolved_at IS NULL", conflictID, projectID).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &conflict, nil
+}
+
+func (s *Service) useConflictBranch(ctx context.Context, tx bun.Tx, actor workspaceaccess.ActorFacts, deviceID string, project *models.VideoProject, conflict *models.VideoProjectConflict, now time.Time) error {
+	document, err := normalizeDocument(json.RawMessage(conflict.DocumentJSON))
+	if err != nil {
+		return err
+	}
+	nextRevision := project.HeadRevision + 1
+	update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
+		Set("head_revision = ?", nextRevision).
+		Set("document_json = ?", string(document)).
+		Set("updated_by_user_id = ?", actor.UserID).
+		Set("updated_at = ?", now).
+		Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := update.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return ErrRevisionChanged
+	}
+	revision := &models.VideoProjectRevision{
+		ID: uuid.NewString(), ProjectID: project.ID, Revision: nextRevision,
+		ParentRevision: project.HeadRevision, Kind: "conflict_resolution",
+		DocumentJSON: string(document), TouchedTargetsJSON: conflict.OverlapTargetsJSON,
+		AuthorUserID: actor.UserID, DeviceID: deviceID,
+		CreatedAt: now, ExpiresAt: now.Add(AutosaveRetention),
+	}
+	if _, err := tx.NewInsert().Model(revision).Exec(ctx); err != nil {
+		return err
+	}
+	project.HeadRevision = nextRevision
+	project.DocumentJSON = string(document)
+	project.UpdatedByUserID = actor.UserID
+	project.UpdatedAt = now
+	return nil
 }
 
 func (s *Service) ListRevisions(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID string) ([]Revision, error) {
@@ -1124,28 +1168,41 @@ func mutationTargetsOverlap(left, right string) bool {
 		return true
 	}
 	if left == "project:timeline" || right == "project:timeline" {
-		return strings.HasPrefix(left, "timeline:") || strings.HasPrefix(right, "timeline:") ||
-			strings.HasPrefix(left, "item:") || strings.HasPrefix(right, "item:") ||
-			strings.HasPrefix(left, "track:") || strings.HasPrefix(right, "track:") ||
-			strings.HasPrefix(left, "transition:") || strings.HasPrefix(right, "transition:") ||
-			strings.HasPrefix(left, "composition:") || strings.HasPrefix(right, "composition:")
+		return isTimelineMutationTarget(left) || isTimelineMutationTarget(right)
 	}
-	collections := []struct {
-		target string
-		prefix string
-	}{
-		{target: "timeline:items", prefix: "item:"},
-		{target: "timeline:tracks", prefix: "track:"},
-		{target: "timeline:transitions", prefix: "transition:"},
-		{target: "timeline:compositions", prefix: "composition:"},
-	}
-	for _, collection := range collections {
-		if (left == collection.target && strings.HasPrefix(right, collection.prefix)) ||
-			(right == collection.target && strings.HasPrefix(left, collection.prefix)) {
+	for _, collection := range timelineMutationCollections {
+		if collectionContainsMutation(collection, left, right) {
 			return true
 		}
 	}
 	return false
+}
+
+var timelineMutationCollections = []struct {
+	target string
+	prefix string
+}{
+	{target: "timeline:items", prefix: "item:"},
+	{target: "timeline:tracks", prefix: "track:"},
+	{target: "timeline:transitions", prefix: "transition:"},
+	{target: "timeline:compositions", prefix: "composition:"},
+}
+
+func isTimelineMutationTarget(target string) bool {
+	for _, prefix := range []string{"timeline:", "item:", "track:", "transition:", "composition:"} {
+		if strings.HasPrefix(target, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func collectionContainsMutation(collection struct {
+	target string
+	prefix string
+}, left, right string) bool {
+	return (left == collection.target && strings.HasPrefix(right, collection.prefix)) ||
+		(right == collection.target && strings.HasPrefix(left, collection.prefix))
 }
 
 func loadMutationReplay(ctx context.Context, db bun.IDB, projectID, mutationID string) (*MutationResult, bool, error) {

@@ -432,13 +432,6 @@ func (videoProjectTestAuthenticator) AuthenticateBearer(_ context.Context, token
 	}
 }
 
-func testMustJSON(t *testing.T, value any) string {
-	t.Helper()
-	raw, err := json.Marshal(value)
-	require.NoError(t, err)
-	return string(raw)
-}
-
 func projectItem(t *testing.T, document map[string]any, index int) map[string]any {
 	t.Helper()
 	timeline, ok := document["timeline"].(map[string]any)

@@ -24,7 +24,11 @@ import { PeriodicAutosaveController } from './settings/periodic-autosave';
 import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
 import { unsupportedProjectSchemaVersion } from './project/project-editability';
 import { m } from '$lib/paraglide/messages';
-import { CloudVideoProjectRepository, type CloudVideoProject } from './cloud/project-repository';
+import {
+	CloudVideoProjectConflictError,
+	CloudVideoProjectRepository,
+	type CloudVideoProject
+} from './cloud/project-repository';
 
 interface ReactiveTransportState {
 	playing: boolean;
@@ -40,6 +44,7 @@ class EditorSession {
 	loadError = $state('');
 	saving = $state(false);
 	saveError = $state('');
+	saveConflict = $state(false);
 
 	clock = new Clock({ fps: 30, canSeek: () => !timelineStore.seekLocked });
 	private transport = $state<ReactiveTransportState>({
@@ -118,6 +123,7 @@ class EditorSession {
 		this.loading = true;
 		this.loadError = '';
 		this.saveError = '';
+		this.saveConflict = false;
 		this.saveRequested = false;
 		try {
 			sceneBrowser.reset();
@@ -148,7 +154,10 @@ class EditorSession {
 			timelineStore._setMaxUndoHistory(editorSettings.maxUndoHistory);
 			this.clock.setFps(project.metadata.fps);
 			this.syncTimelineClock();
-			const media = this.cloudProject ? [] : await getMediaForProject(projectId);
+			const media =
+				this.cloudProject && this.cloudRepository
+					? await this.cloudRepository.listMedia(projectId)
+					: await getMediaForProject(projectId);
 			mediaPool.loadAll(media);
 			await mediaRecovery.scan(media, timelineStore.items);
 			this.configurePeriodicAutosave();
@@ -291,16 +300,25 @@ class EditorSession {
 					animationPresets: project.animationPresets
 				};
 				if (this.cloudProject && this.cloudRepository) {
-					const nextProject = { ...project, ...updates, id: projectId, updatedAt: Date.now() };
+					const nextProject = {
+						...project,
+						...updates,
+						id: projectId,
+						updatedAt: Date.now()
+					};
 					await this.cloudRepository.save(this.cloudProject, nextProject);
 					this.project = nextProject;
 				} else {
 					await updateProject(projectId, updates);
 				}
 				this.saveError = '';
-				if (!this.saveRequested) timelineStore._clearDirty();
+				this.saveConflict = false;
+				if (!this.saveRequested) {
+					timelineStore._clearDirty();
+				}
 			} catch (error) {
 				this.saveError = error instanceof Error ? error.message : String(error);
+				this.saveConflict = error instanceof CloudVideoProjectConflictError;
 				logger.error('save failed', error);
 				throw error;
 			} finally {

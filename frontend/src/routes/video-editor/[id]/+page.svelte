@@ -53,7 +53,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		updateTransitionPresentation
 	} from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { resolveTransitionTargetFromSelection } from '$lib/video-editor/timeline/transition-drop';
-	import type { TransitionDirection } from '$lib/video-editor/project/types';
+	import type { Project, TransitionDirection } from '$lib/video-editor/project/types';
+	import { CloudVideoProjectRepository } from '$lib/video-editor/cloud/project-repository';
+	import { importCloudProjectAssetsFromPicker } from '$lib/video-editor/cloud/import-project-assets';
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
 	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
 	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
@@ -102,6 +104,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import MediaTaskProgress from '$lib/video-editor/components/media-task-progress.svelte';
 	import SpeechCleanupDialog from '$lib/video-editor/components/speech-cleanup-dialog.svelte';
 	import EditorSettingsDialog from '$lib/video-editor/components/editor-settings-dialog.svelte';
+	import CloudProjectHistory from '$lib/video-editor/components/cloud-project-history.svelte';
 	import PreviewDiagnosticsPanel from '$lib/video-editor/components/preview-diagnostics-panel.svelte';
 	import EditorWorkspaceSwitcher from '$lib/video-editor/components/editor-workspace-switcher.svelte';
 	import ColorGradingDock from '$lib/video-editor/components/color-grading-dock.svelte';
@@ -214,6 +217,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let lastMotionCompositionId = $state<string | null>(null);
 	let motionSelectionByCompositionId = $state<Record<string, string[]>>({});
 	let settingsOpen = $state(false);
+	let historyOpen = $state(false);
 	let recordingOpen = $state(false);
 	let unsupportedAudioRequest = $state<UnsupportedAudioImportRequest | null>(null);
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
@@ -581,11 +585,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	async function handleImport(): Promise<void> {
 		if (!projectId) return;
 		try {
-			const importedIds = await importFromPicker({
-				projectId,
-				storageMode: 'copy',
-				onUnsupportedAudio: requestUnsupportedAudioDecision
-			});
+			const workspaceId = workspaceCtx.currentWorkspace?.id ?? '';
+			const importedIds =
+				cloudStorage && workspaceId
+					? await importCloudProjectAssetsFromPicker({
+							projectId,
+							repository: new CloudVideoProjectRepository<Project>(workspaceId),
+							onUnsupportedAudio: requestUnsupportedAudioDecision
+						})
+					: await importFromPicker({
+							projectId,
+							storageMode: 'copy',
+							onUnsupportedAudio: requestUnsupportedAudioDecision
+						});
 			if (importedIds.length > 0) mediaPanelView = 'project';
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : String(err), 'error');
@@ -1759,6 +1771,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								>{formatShortcutBinding(keyboardShortcuts.bindings.SAVE)}</Menubar.Shortcut
 							>
 						</Menubar.Item>
+						{#if cloudStorage}
+							<Menubar.Item onclick={() => (historyOpen = true)}>
+								{m.video_editor_history()}
+							</Menubar.Item>
+						{/if}
 						<Menubar.Item
 							disabled={exporting || timelineStore.items.length === 0}
 							onclick={() => void handleExport()}
@@ -1846,12 +1863,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					variant="ghost"
 					size="icon-xs"
 					class="h-7 text-destructive hover:text-destructive lg:w-auto lg:px-2"
-					aria-label={`${m.video_editor_save_failed()}. ${m.common_retry()}`}
+					aria-label={editorSession.saveConflict
+						? m.video_editor_conflict_title()
+						: `${m.video_editor_save_failed()}. ${m.common_retry()}`}
 					title={editorSession.saveError}
-					onclick={() => void retrySave()}
+					onclick={() => (editorSession.saveConflict ? (historyOpen = true) : void retrySave())}
 				>
 					<ThemeIcon role="refresh" class="size-3.5" />
-					<span class="hidden lg:inline">{m.video_editor_save_failed()}. {m.common_retry()}</span>
+					<span class="hidden lg:inline">
+						{editorSession.saveConflict
+							? m.video_editor_conflict_title()
+							: `${m.video_editor_save_failed()}. ${m.common_retry()}`}
+					</span>
 				</Button>
 			{:else if !timelineStore.isDirty}
 				<span class="hidden sm:inline">{m.video_editor_saved()}</span>
@@ -1869,6 +1892,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<span class="hidden lg:inline">{m.video_editor_record()}</span>
 			</Button>
 			<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
+			{#if cloudStorage}
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-xs"
+					class="hidden 2xl:inline-flex"
+					aria-label={m.video_editor_history()}
+					title={m.video_editor_history()}
+					onclick={() => (historyOpen = true)}
+				>
+					<ThemeIcon role="history" class="size-3.5" />
+				</Button>
+			{/if}
 			<Button
 				type="button"
 				variant="ghost"
@@ -1922,6 +1958,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{m.video_editor_settings_title()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator class="2xl:hidden" />
+					{#if cloudStorage}
+						<DropdownMenu.Item onclick={() => (historyOpen = true)}>
+							{m.video_editor_history()}
+						</DropdownMenu.Item>
+					{/if}
 					<DropdownMenu.Item
 						disabled={exporting || timelineStore.items.length === 0}
 						onclick={() => void handleExport()}
@@ -2766,6 +2807,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 />
 
 <EditorSettingsDialog bind:open={settingsOpen} />
+
+{#if cloudStorage && workspaceCtx.currentWorkspace}
+	<CloudProjectHistory
+		bind:open={historyOpen}
+		{projectId}
+		workspaceId={workspaceCtx.currentWorkspace.id}
+		onreload={() => editorSession.load(projectId, workspaceCtx.currentWorkspace?.id ?? '')}
+	/>
+{/if}
 
 <MediaRecoveryDialog onedit={() => editorSession.scheduleAutosave()} />
 

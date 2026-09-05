@@ -1,25 +1,29 @@
-# Video editors rebuild: local-first Video Editor + Quick Cut
+# Video editors rebuild: Cloud Video Projects + local-first editing
 
 Status: approved by owner in session (all open questions answered). This spec is the source of truth for the rebuild; tickets reference it.
 
 ## Goal
 
-Replace the current cloud-synced OpenPost Video Editor (~23k frontend lines, ~2k backend sync lines) with two local-first editors and a rebuilt recorder:
+Replace the retired Video Editor with two local-first editing surfaces and a rebuilt recorder, while keeping signed-in authored projects portable through Cloud Video Projects:
 
-1. **Video Editor** (`/video-editor`) — multi-track timeline editor ported from FreeCut (MIT). Projects live in a user-chosen workspace folder on disk. Transcription, transcript/text-based cutting, subtitles, silence removal, export.
+1. **Video Editor** (`/video-editor`) — multi-track timeline editor ported from FreeCut (MIT). Signed-in projects belong to the current OpenPost Workspace by default. Users can still create Local-only projects in a chosen folder. Transcription, transcript/text-based cutting, subtitles, silence removal, export.
 2. **Quick Cut** (`/quick-cut`) — fast lossless trimmer inspired by LosslessCut (**GPL-2.0: behavioral reference only, zero code ported**). No transcoding for eligible cuts; stream copy via mediabunny.
 3. **Recorder** — screen / webcam / combined / audio capture, one shared module, entry points both standalone (`/record`) and inside the Video Editor. Recordings land in the workspace and import like any media.
 
-Editing never syncs to OpenPost. Only final exports cross the boundary ("Send to OpenPost": upload into the Media library, then optional composer handoff).
+Cloud projects synchronize portable authored state, required original Project Assets, revision history, named checkpoints, and conflicts. Device view state, filesystem handles, derived caches, downloaded models, and unsaved exports remain local. Local-only projects never sync unless the user starts an explicit import. Final exports cross into Workspace Media only through an explicit save or composer handoff.
 
 ## Naming and domain terms
 
 - Full editor product name: **OpenPost Video Editor**, route `/video-editor`.
 - Lossless tool: **Quick Cut** (established domain term), route `/quick-cut`. The old in-editor "quick-cut" mode is deleted.
-- Durable domain terms to retain in Hindsight: **Workspace folder** (user-chosen disk folder holding projects/media/caches; source of truth while editing), **Recording** (local capture produced by the recorder).
+- Durable domain terms to retain in Hindsight: **Cloud Video Project** (Workspace-owned portable authored state and required Project Assets), **Project Asset** (source material required to reproduce a project), **Local-only project** (user-chosen disk folder holding project data), and **Recording** (capture produced by the recorder).
 - `/video-editor`, `/quick-cut`, and `/record` are the only editor routes. The old `/video-studio` and `/studio` aliases do not exist.
 
 ## Architecture
+
+`backend/internal/services/videoprojects/` owns authorization, immutable revisions, mutation application, conflict branches, checkpoints, Project Asset references, Trash retention, and completeness. Web and mobile consume the portable contract in `packages/video-project/`. The editor keeps storage mechanics behind its repository boundary, so timeline and route components work with project concepts rather than choosing cloud or filesystem persistence directly.
+
+Cloud saves use versioned, idempotent mutation batches with stable targets. A stale batch rebases when its targets are disjoint from newer work. An overlapping change creates an explicit conflict branch instead of silently replacing another device's edit. Originals use the configured `BlobStorage`; lightweight project state loads before optional originals, and `Keep available offline` pins the required originals on that device.
 
 Ported from FreeCut (adapt React→Svelte 5 runes, Tailwind 4 + bits-ui `ui/` primitives, and paraglide i18n). Product chrome inherits the resolved organization theme. Preview, timeline, image pasteboard, guides, handles, scopes, and signal meters use explicit protected editor roles so authored media and editing geometry remain stable across every theme:
 
@@ -82,4 +86,4 @@ Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new mo
 
 ## Out of scope (v1)
 
-Android wrapper optimization for editors, collaborative editing, and cloud editing remain outside the initial v1 build. Post-v1 parity work now includes three-engine local voice generation, durable editor-generated images, upscaling, frame interpolation, and a commercial-safe local ACE-Step music generator. The other applicable items stay in the active FreeCut parity backlog.
+Android wrapper optimization for the full editor, real-time collaborative editing, presence, and shared cursors remain outside the initial v1 build. Mobile capture and non-destructive clip preparation feed Cloud Video Projects without claiming full timeline or export parity. Post-v1 parity work now includes three-engine local voice generation, durable editor-generated images, upscaling, frame interpolation, and a commercial-safe local ACE-Step music generator. The other applicable items stay in the active FreeCut parity backlog.

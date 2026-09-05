@@ -1,16 +1,18 @@
 # OpenPost Video Editor
 
-OpenPost Video Editor is a local-first multitrack editor for social video. Open [app.openpo.st/video-editor](https://app.openpo.st/video-editor) in current Chrome or Edge, choose a folder on your computer, and create a project. Editing does not require an account and does not add a watermark.
+OpenPost Video Editor is a local-first multitrack editor for social video. Open [app.openpo.st/video-editor](https://app.openpo.st/video-editor) in current Chrome or Edge. Signed-in projects save to the current OpenPost Workspace by default. Choose **Local-only** to keep a project in a folder on your computer. Editing does not add a watermark.
 
 Use [Quick Cut](/usage/quick-cut) when you only need to remove ranges without changing the picture or mix. Use the [Recorder](/usage/recording) to capture a screen, camera, or microphone before editing.
 
-## Choose a workspace folder
+## Choose Cloud or Local-only
 
-The folder you choose is the source of truth for Video Editor work. OpenPost creates readable `projects`, `media`, `recordings`, and `exports` folders inside it. Project documents, copied media, linked-file references, thumbnails, waveforms, transcripts, proxies, render jobs, and finished exports stay on your computer.
+A Cloud project synchronizes its portable authored document, required original Project Assets, revision history, named checkpoints, and conflict branches through the current OpenPost server. Browser file handles, the playhead, selections, zoom, panel layout, proxies, waveforms, downloaded models, and unsaved exports stay on the device. Originals download when an edit or export needs them. Use **Keep available offline** to pin the current revision and its required originals on that device.
+
+A Local-only project's folder is its source of truth. OpenPost creates readable `projects`, `media`, `recordings`, and `exports` folders inside it. Project documents, copied media, linked-file references, thumbnails, waveforms, transcripts, proxies, render jobs, and finished exports stay on your computer.
 
 The browser stores the permission handles needed to reopen known workspace folders, small editor preferences, bounded derived-media and model caches, and temporary recovery data for active recording or export work. It may ask you to reconnect a folder after a browser restart or permission change. Back up the workspace folder like any other work folder. Clearing browser data can remove saved handles, preferences, caches, and recovery data, but it does not delete the workspace folder on disk.
 
-You can keep several known workspace folders, switch between them, or forget a handle without deleting its files. Project trash is recoverable for seven days. Portable `.openpost.zip` bundles include the project and collected media with checksums; JSON snapshots contain the project document without source bytes.
+You can keep several known Local-only folders, switch between them, or forget a handle without deleting its files. Importing a Local-only project into Cloud validates its sources and can resume without deleting the local files. Cloud Trash has a 30-day grace period. Portable `.openpost.zip` bundles include the authored project and required originals, without derived caches or downloaded AI models.
 
 ## Import and organize media
 
@@ -48,9 +50,9 @@ Optional local tools cover scene detection, semantic and visual search, smart fr
 
 ## Save, recover, and share projects
 
-Edits autosave to the project document in the selected workspace. Version history, named checkpoints, restore points, project duplication, trash recovery, snapshots, and portable bundles are local. Video Editor does not create or sync cloud projects.
+Cloud edits autosave as versioned mutation batches. Independent changes from another device rebase automatically. Overlapping changes create a named conflict copy and show **Needs attention** until you choose which result to keep. Version history records the author, named checkpoints remain until deleted, and restoring an older revision creates a new head revision. Cloud projects can move to Trash and be restored during the 30-day grace period.
 
-If another tab changes the same project, the editor protects the newer disk revision instead of overwriting it. Reopen the project or save your current work as a copy. Atomic writes and temporary-file cleanup protect project documents from interrupted saves.
+Local-only projects retain the folder-based autosave and recovery behavior. If another tab changes the same local project, the editor protects the newer disk revision instead of overwriting it. Atomic writes and temporary-file cleanup protect project documents from interrupted saves.
 
 ## Export
 
@@ -62,7 +64,7 @@ Add one job, marker ranges, or fixed-duration ranges to the render queue. Jobs f
 
 ## Send an export to OpenPost
 
-**Send to OpenPost** uploads the selected finished export to the current OpenPost Workspace Media library. After upload, **Open composer** opens a new composer with that exact media item attached. Video Editor does not upload the project, sources, proxies, transcripts, or other exports.
+**Send to OpenPost** uploads the selected finished export to the current OpenPost Workspace Media library. After upload, **Open composer** opens a new composer with that exact media item attached. Project Assets stay separate from Workspace Media unless you explicitly save an asset or export there.
 
 Publishing and scheduling stay in the composer. If you are signed out or have no OpenPost Workspace selected, download the export or sign in before sending.
 
@@ -72,4 +74,4 @@ Publishing and scheduling stay in the composer. If you are signed out or have no
 - Codec, WebGPU, screen-capture, hardware-acceleration, and file-streaming support varies by browser, operating system, and device. The editor probes the selected operation and explains an unavailable option.
 - Local models can require hundreds of megabytes or more. The Models panel shows stored size and provides removal controls.
 - Keep the tab open while a render or local model job is active. Saved projects and queued work remain in the workspace if the page closes.
-- Editing and rendering are local. OpenPost does not provide server rendering, cloud project sync, or a server transcription fallback.
+- Editing, rendering, and transcription run on the device. Cloud Video Projects synchronize authored state and required originals, but OpenPost does not provide server rendering or a server transcription fallback.

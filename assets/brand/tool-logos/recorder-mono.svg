@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Recorder" color="#7952B3">
-  <g id="symbol" transform="translate(16 16)" fill="currentColor">
-    <path id="tool-field" fill-rule="evenodd" d="M24 4H104A20 20 0 0 1 124 24V60H84L66 78Q64 80 62 78L44 60H4V24A20 20 0 0 1 24 4Z M24 12A12 12 0 0 0 12 24V52H47L64 69L81 52H116V24A12 12 0 0 0 104 12Z"/>
-    <path id="detail-record" fill-rule="evenodd" d="M74 32A10 10 0 1 1 54 32A10 10 0 1 1 74 32Z"/>
-    <path id="module-sw" fill-rule="evenodd" d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"/>
-    <path id="module-se" fill-rule="evenodd" d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"/>
-  </g>
-</svg>

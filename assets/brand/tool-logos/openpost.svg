@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="OpenPost" color="#B74C05">
-  <rect id="background" width="160" height="160" rx="36" fill="#B74C05"/>
-  <g id="symbol" transform="translate(16 16)" fill="#FFFFFF">
-    <path id="module-nw" fill-rule="evenodd" d="M24 4H60V32L32 60H4V24A20 20 0 0 1 24 4Z"/>
-    <path id="module-ne" fill-rule="evenodd" d="M68 4H104A20 20 0 0 1 124 24V60H96L68 32Z"/>
-    <path id="module-sw" fill-rule="evenodd" d="M4 68H32L60 96V124H24A20 20 0 0 1 4 104Z"/>
-    <path id="module-se" fill-rule="evenodd" d="M68 96L96 68H124V104A20 20 0 0 1 104 124H68Z"/>
-  </g>
-</svg>

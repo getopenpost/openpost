@@ -16,6 +16,8 @@ Use this map to pull only the context needed for the current ticket. Paths and s
 | Generated contracts                           | The source Huma route, CLI command, message catalog, or manifest                            | `scripts/check-contracts.mjs`, generated OpenAPI/TypeScript/CLI-doc boundaries; change the source, never the generated output alone                                           | `bun run check -- contracts`, `bun run check -- frontend`                                             |
 | Project verification                          | `devenv.nix`, `devenv.yaml`, root `package.json`, and `turbo.json`                          | The root task dispatcher and the closest existing test file before broad gates                                                                                                | scoped root `check`, `lint`, `test`, or `build`, then `bun run verify` in proportion to risk          |
 
+For agent instructions or workflow tooling, read `AGENTS.md`, `.agents/skills/agent-workflow/SKILL.md`, and `scripts/agent-doctor.mjs`; verify with `bun run check -- agents`. The default checker validates repository-owned files and the local label table without network access. See `docs/agents/triage-labels.md` for the explicit live GitHub label check. Global skills are supplied by the agent environment.
+
 Run repository gates from the root with `bun run <gate> -- <scope>`. Omit the scope for the complete repository gate.
 
 Before changing runtime configuration, release workflows, or revision evidence, read `docs/agents/deployable-inventory.md` for each deployable's owner, release path, and proof boundary.

@@ -2,23 +2,13 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { parseArgs } from "node:util";
 
 export const REQUIRED_ARTIFACTS = [
   "AGENTS.md",
   "docs/agents/repository-map.md",
   "docs/agents/triage-labels.md",
   ".agents/skills/agent-workflow/SKILL.md",
-  ...[
-    "grilling",
-    "to-spec",
-    "to-tickets",
-    "implement",
-    "tdd",
-    "code-review",
-    "triage",
-    "handoff",
-    "codebase-design",
-  ].map((name) => `.agents/skills/${name}/SKILL.md`),
 ];
 
 export function findMissingArtifacts(root, required = REQUIRED_ARTIFACTS) {
@@ -65,7 +55,11 @@ function run(command, args, cwd) {
   return spawnSync(command, args, { cwd, encoding: "utf8" });
 }
 
-export async function main({ root = process.cwd(), output = console } = {}) {
+export async function main({
+  root = process.cwd(),
+  output = console,
+  checkLiveLabels = false,
+} = {}) {
   const missingArtifacts = findMissingArtifacts(root);
   if (missingArtifacts.length > 0) {
     output.error("Agent doctor: missing required local artifacts:");
@@ -80,6 +74,7 @@ export async function main({ root = process.cwd(), output = console } = {}) {
     return 1;
   }
   output.log("Agent doctor: local workflow artifacts are present.");
+  if (!checkLiveLabels) return 0;
 
   const remote = run("git", ["remote", "get-url", "origin"], root);
   if (remote.status !== 0 || !/(^|[.@/:])github\.com[/:]/i.test(remote.stdout.trim())) {
@@ -127,4 +122,7 @@ export async function main({ root = process.cwd(), output = console } = {}) {
   return 1;
 }
 
-if (import.meta.main) process.exitCode = await main();
+if (import.meta.main) {
+  const { values } = parseArgs({ options: { "live-labels": { type: "boolean", default: false } } });
+  process.exitCode = await main({ checkLiveLabels: values["live-labels"] });
+}

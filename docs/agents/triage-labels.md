@@ -12,6 +12,6 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-This table is configuration, not proof that the labels exist on GitHub. Run `bun run check -- agents` to validate the local workflow files and, when GitHub CLI access is available, compare this configuration with live labels. The check is read-only; missing labels are reported with explicit `gh label create` commands for a maintainer to review and run.
+This table is configuration, not proof that the labels exist on GitHub. Run `bun run check -- agents` to validate repository-owned workflow files and this label table locally. For public GitHub triage setup, run `bun scripts/agent-doctor.mjs --live-labels` to compare the table with live labels when GitHub CLI access is available. The check is read-only; missing labels are reported with explicit `gh label create` commands for a maintainer to review and run.
 
 Edit the tracker-label column, description, and color together when the repository vocabulary changes.

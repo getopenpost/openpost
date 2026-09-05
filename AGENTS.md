@@ -57,11 +57,11 @@ For reference implementations, read `references/README.md` before inspecting a c
 
 ## Execution
 
-1. **Establish the boundary.** Inspect the worktree and the owning code, tests, docs, and current task. Preserve unrelated changes. The step is complete when every intended file belongs to the requested concern and the expected behavior is explicit.
+1. **Establish the boundary.** For broad, browser, or release work, run `devenv shell -- doctor`. Inspect the worktree and the owning code, tests, docs, and current task. Preserve unrelated changes. The step is complete when every intended file belongs to the requested concern and the expected behavior is explicit.
 2. **Change the owner.** Work through the owning service or abstraction instead of reaching around it. Use Devenv and root `bun run` tasks. The step is complete when the smallest coherent implementation satisfies the behavior without a parallel source of truth.
 3. **Prove behavior.** Reproduce bugs through the closest practical user-facing boundary and add the smallest stable regression test when one can fail on a plausible regression. Prefer focused practical verification over circular tests of private helpers, literals, or implementation branches. The step is complete when the changed behavior has independent evidence and the nearest relevant gate passes.
 4. **Synchronize surfaces.** Update affected contracts, docs, product copy, and generated outputs from their sources. Add user-visible behavior, migration, or operator notes to `changes/<issue>.md` under the right changelog group. The step is complete when no affected surface describes the old behavior and contract checks pass when applicable.
-5. **Finish cleanly.** Run the scoped root gate from `docs/agents/repository-map.md`; scale up to `bun run release -- check` for broad release proof and `bun run verify` only for high-risk production-build proof. Re-run `ux-consistency` for UI or copy. The step is complete when relevant checks pass and residual risks are reported.
+5. **Finish cleanly.** Run the scoped root gate from `docs/agents/repository-map.md`; scale up to `bun run release -- check` for broad release proof and `bun run verify` only for high-risk production-build proof. Re-run `ux-consistency` for UI or copy. Once required checks pass, broaden or repeat them only for new edits, failures, or unresolved risks. The step is complete when relevant checks pass and residual risks are reported.
 
 ## Delivery
 

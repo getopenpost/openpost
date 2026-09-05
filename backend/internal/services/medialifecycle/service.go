@@ -34,6 +34,7 @@ const (
 	lifecycleBatchSize           = 250
 	jsonUpdateBatchSize          = 150
 	editorRevisionPruneBatchSize = 250
+	videoProjectPruneBatchSize   = 100
 	threadDraftPrefix            = "__openpost_thread__:"
 )
 
@@ -315,6 +316,9 @@ func sweepLifecycleBatch(
 	now time.Time,
 	cursor string,
 ) (lifecycleBatchResult, error) {
+	if err := pruneExpiredVideoProjectState(ctx, tx, workspaceID, now); err != nil {
+		return lifecycleBatchResult{}, fmt.Errorf("prune expired video projects: %w", err)
+	}
 	if err := pruneExpiredEditorRevisions(ctx, tx, workspaceID, now); err != nil {
 		return lifecycleBatchResult{}, fmt.Errorf("prune expired editor revisions: %w", err)
 	}
@@ -376,6 +380,100 @@ func sweepLifecycleBatch(
 		return lifecycleBatchResult{}, err
 	}
 	return result, nil
+}
+
+func pruneExpiredVideoProjectState(ctx context.Context, tx bun.Tx, workspaceID string, now time.Time) error {
+	if _, err := tx.NewDelete().Model((*models.VideoProjectRevision)(nil)).
+		Where(`project_id IN (SELECT id FROM video_projects WHERE workspace_id = ?)`, workspaceID).
+		Where("expires_at IS NOT NULL AND expires_at <= ?", now).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("delete expired video project revisions: %w", err)
+	}
+
+	var projectIDs []string
+	query := tx.NewSelect().Model((*models.VideoProject)(nil)).
+		Column("id").
+		Where("workspace_id = ?", workspaceID).
+		Where("trashed_at IS NOT NULL AND retention_expires_at IS NOT NULL AND retention_expires_at <= ?", now).
+		OrderExpr("retention_expires_at ASC, id ASC").
+		Limit(videoProjectPruneBatchSize)
+	if tx.Dialect().Name() == dialect.PG {
+		query = query.For("UPDATE")
+	}
+	if err := query.Scan(ctx, &projectIDs); err != nil {
+		return fmt.Errorf("list expired video projects: %w", err)
+	}
+	if len(projectIDs) == 0 {
+		return nil
+	}
+
+	var mediaIDs []string
+	if err := tx.NewSelect().Model((*models.ProjectAsset)(nil)).
+		ColumnExpr("DISTINCT media_id").
+		Where("project_id IN (?) AND media_id IS NOT NULL AND media_id <> ''", bun.List(projectIDs)).
+		Scan(ctx, &mediaIDs); err != nil {
+		return fmt.Errorf("list expired video project media: %w", err)
+	}
+	if err := deleteVideoProjectRecords(ctx, tx, projectIDs); err != nil {
+		return err
+	}
+	if len(mediaIDs) == 0 {
+		return nil
+	}
+	var referencedMediaIDs []string
+	if err := tx.NewSelect().Model((*models.ProjectAsset)(nil)).
+		ColumnExpr("DISTINCT media_id").
+		Where("media_id IN (?)", bun.List(mediaIDs)).
+		Scan(ctx, &referencedMediaIDs); err != nil {
+		return fmt.Errorf("list retained video project media: %w", err)
+	}
+	unreferencedMediaIDs := excludeIDs(mediaIDs, referencedMediaIDs)
+	if len(unreferencedMediaIDs) == 0 {
+		return nil
+	}
+	_, err := tx.NewUpdate().Model((*models.MediaAttachment)(nil)).
+		Set("trashed_at = ?", now).
+		Set("purge_after = ?", now).
+		Set("trash_reason = ?", TrashReasonExpired).
+		Where("workspace_id = ? AND id IN (?)", workspaceID, bun.List(unreferencedMediaIDs)).
+		Where("asset_kind = ? AND trashed_at IS NULL", "project_asset").
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("trash unreferenced video project media: %w", err)
+	}
+	return nil
+}
+
+func excludeIDs(ids, excluded []string) []string {
+	excludedSet := make(map[string]struct{}, len(excluded))
+	for _, id := range excluded {
+		excludedSet[id] = struct{}{}
+	}
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, found := excludedSet[id]; !found {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+func deleteVideoProjectRecords(ctx context.Context, tx bun.Tx, projectIDs []string) error {
+	for _, model := range []any{
+		(*models.VideoProjectCheckpoint)(nil),
+		(*models.VideoProjectConflict)(nil),
+		(*models.VideoProjectMutation)(nil),
+		(*models.VideoProjectRevision)(nil),
+		(*models.ProjectAsset)(nil),
+	} {
+		if _, err := tx.NewDelete().Model(model).Where("project_id IN (?)", bun.List(projectIDs)).Exec(ctx); err != nil {
+			return fmt.Errorf("delete expired video project records: %w", err)
+		}
+	}
+	if _, err := tx.NewDelete().Model((*models.VideoProject)(nil)).Where("id IN (?)", bun.List(projectIDs)).Exec(ctx); err != nil {
+		return fmt.Errorf("delete expired video projects: %w", err)
+	}
+	return nil
 }
 
 func pruneExpiredEditorRevisions(
@@ -545,6 +643,12 @@ func (snapshot *protectionSnapshot) loadNormalized(
 			FROM design_templates template
 			JOIN candidate_media candidate ON candidate.media_id = template.preview_media_id
 			WHERE template.workspace_id = (SELECT workspace_id FROM batch_scope)
+			UNION
+			SELECT 'reference', asset.media_id
+			FROM project_assets asset
+			JOIN video_projects project ON project.id = asset.project_id
+			JOIN candidate_media candidate ON candidate.media_id = asset.media_id
+			WHERE project.workspace_id = (SELECT workspace_id FROM batch_scope)
 
 			UNION
 			SELECT 'reference', child.parent_media_id

@@ -25,6 +25,7 @@ import {
   captureApiRequestIdentity,
   clearTokenForIdentity,
   commitWorkspaceIdForIdentity,
+  registerUnauthorizedDeviceDataPurge,
 } from "@/lib/api/client";
 import { readAppBootstrap } from "@/lib/app-bootstrap";
 import { registerSignedOutDeviceDataPurge } from "@/lib/auth";
@@ -46,6 +47,7 @@ import {
 
 SplashScreen.preventAutoHideAsync();
 registerSignedOutDeviceDataPurge(purgeVideoProjectDeviceData);
+registerUnauthorizedDeviceDataPurge(purgeVideoProjectDeviceData);
 configureNativeQueryLifecycle();
 
 function useSessionReady() {

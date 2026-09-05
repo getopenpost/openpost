@@ -34,6 +34,11 @@ export type ApiRequestIdentity = {
 
 let client: Api | null = null;
 let clientKey = "";
+let purgeUnauthorizedDeviceData: () => Promise<void> = async () => undefined;
+
+export function registerUnauthorizedDeviceDataPurge(purge: () => Promise<void>): void {
+  purgeUnauthorizedDeviceData = purge;
+}
 
 function rebuild() {
   const server = getServer();
@@ -146,7 +151,7 @@ export async function settleApiUnauthorized(
 ): Promise<void> {
   if (response?.status !== 401 || !identity.token) return;
   if (!apiActorIdentityIsCurrent(identity)) return;
-  await clearTokenForIdentity(identity);
+  if (await clearTokenForIdentity(identity)) await purgeUnauthorizedDeviceData();
 }
 
 /** Extract a readable message from an openapi-fetch error response. */

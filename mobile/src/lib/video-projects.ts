@@ -1,8 +1,16 @@
 import * as FileSystem from "expo-file-system/legacy";
-import type { ImagePickerAsset } from "expo-image-picker";
-import type { ProjectAssetPreparation } from "@openpost/video-project";
+import * as Network from "expo-network";
+import { File } from "expo-file-system";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import {
+  createCapturedVideoProjectDocument,
+  type ProjectAssetPreparation,
+} from "@openpost/video-project";
 
 import { api, errorMessage } from "./api/client";
+import { videoProjectUploadAvailability } from "./video-project-upload-policy";
+import { getAllowCellularVideoUploads } from "./video-project-upload-preferences";
 
 const CAPTURE_QUEUE_DIRECTORY = `${FileSystem.documentDirectory ?? ""}video-project-captures`;
 const CAPTURE_QUEUE_FILE = `${CAPTURE_QUEUE_DIRECTORY}/queue.json`;
@@ -15,6 +23,16 @@ export type MobileVideoProject = {
   updated_at: string;
 };
 
+export type VideoCaptureAsset = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string;
+  fileSize?: number;
+  duration?: number | null;
+  width: number;
+  height: number;
+};
+
 type PendingCapture = {
   id: string;
   workspaceId: string;
@@ -23,6 +41,10 @@ type PendingCapture = {
   filename: string;
   mimeType: string;
   size: number;
+  sha256: string;
+  durationSeconds: number;
+  width: number;
+  height: number;
   preparation: ProjectAssetPreparation;
   queuedAt: number;
 };
@@ -51,7 +73,7 @@ export async function listMobileVideoProjects(workspaceId: string): Promise<Mobi
 
 export async function queueVideoCapture(
   workspaceId: string,
-  asset: ImagePickerAsset,
+  asset: VideoCaptureAsset,
   preparation: ProjectAssetPreparation,
 ): Promise<void> {
   const id = `capture-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -64,6 +86,7 @@ export async function queueVideoCapture(
     throw new Error("The captured video could not be read");
   }
   const queue = await readQueue();
+  const contentHash = await fileSHA256(uri);
   await writeQueue([
     ...queue,
     {
@@ -74,6 +97,10 @@ export async function queueVideoCapture(
       filename: asset.fileName || `${id}.${extension}`,
       mimeType: asset.mimeType || "video/mp4",
       size: info.size,
+      sha256: contentHash,
+      durationSeconds: Math.max(0, (asset.duration ?? 0) / 1000),
+      width: asset.width,
+      height: asset.height,
       preparation,
       queuedAt: Date.now(),
     },
@@ -88,7 +115,27 @@ export async function purgeVideoProjectDeviceData(): Promise<void> {
   await FileSystem.deleteAsync(CAPTURE_QUEUE_DIRECTORY, { idempotent: true });
 }
 
-export async function syncPendingVideoCaptures(workspaceId: string): Promise<number> {
+export class VideoProjectUploadDeferredError extends Error {
+  constructor(readonly reason: "offline" | "wifi_required") {
+    super(
+      reason === "wifi_required"
+        ? "Upload is waiting for Wi-Fi. Enable cellular uploads to continue now."
+        : "Upload is waiting for a connection.",
+    );
+    this.name = "VideoProjectUploadDeferredError";
+  }
+}
+
+export async function syncPendingVideoCaptures(
+  workspaceId: string,
+  networkState?: Network.NetworkState,
+): Promise<number> {
+  const network = networkState ?? (await Network.getNetworkStateAsync());
+  const availability = videoProjectUploadAvailability(
+    network,
+    await getAllowCellularVideoUploads(),
+  );
+  if (availability !== "allowed") throw new VideoProjectUploadDeferredError(availability);
   const queue = await readQueue();
   const remaining = [...queue];
   let synced = 0;
@@ -106,18 +153,23 @@ export async function syncPendingVideoCaptures(workspaceId: string): Promise<num
 
 async function uploadCapture(capture: PendingCapture): Promise<void> {
   const client = api();
+  const contentHash = capture.sha256 || (await fileSHA256(capture.uri));
   const created = await client.POST("/video-projects", {
     body: {
       id: capture.id,
       workspace_id: capture.workspaceId,
       name: capture.name,
       device_id: "mobile",
-      document: {
+      document: createCapturedVideoProjectDocument({
         id: capture.id,
-        schemaVersion: 1,
         name: capture.name,
-        timeline: { tracks: [], items: [] },
-      },
+        fileName: capture.filename,
+        durationSeconds: capture.durationSeconds,
+        width: capture.width,
+        height: capture.height,
+        preparation: capture.preparation,
+        createdAt: capture.queuedAt,
+      }),
     },
   });
   if (created.error || !created.data) {
@@ -131,6 +183,7 @@ async function uploadCapture(capture: PendingCapture): Promise<void> {
       original_filename: capture.filename,
       mime_type: capture.mimeType,
       size: capture.size,
+      sha256: contentHash,
       device_id: "mobile",
       preparation: { ...capture.preparation },
     },
@@ -151,6 +204,7 @@ async function uploadCapture(capture: PendingCapture): Promise<void> {
       source: "camera",
       asset_kind: "project_asset",
       project_asset_id: reserved.data.id,
+      client_sha256: contentHash,
     },
   });
   if (session.error || !session.data) {
@@ -170,5 +224,19 @@ async function uploadCapture(capture: PendingCapture): Promise<void> {
   });
   if (complete.error) {
     throw new Error(await errorMessage(complete.response, "Could not finish Project Asset upload"));
+  }
+}
+
+async function fileSHA256(uri: string): Promise<string> {
+  const hasher = sha256.create();
+  const reader = new File(uri).readableStream().getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return bytesToHex(hasher.digest());
+      hasher.update(value);
+    }
+  } finally {
+    reader.releaseLock();
   }
 }

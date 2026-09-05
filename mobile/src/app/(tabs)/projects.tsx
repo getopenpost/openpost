@@ -1,6 +1,14 @@
 import * as ImagePicker from "expo-image-picker";
+import * as Network from "expo-network";
+import {
+  CameraView,
+  useCameraPermissions,
+  useMicrophonePermissions,
+  type CameraType,
+  type VideoQuality,
+} from "expo-camera";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import {
@@ -16,11 +24,16 @@ import {
 import { getWorkspaceId } from "@/lib/api/token-store";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
 import {
+  getAllowCellularVideoUploads,
+  setAllowCellularVideoUploads,
+} from "@/lib/video-project-upload-preferences";
+import {
   listMobileVideoProjects,
   pendingVideoCaptureCount,
   queueVideoCapture,
   syncPendingVideoCaptures,
   type MobileVideoProject,
+  type VideoCaptureAsset,
 } from "@/lib/video-projects";
 import { useNativeTheme } from "@/theme";
 
@@ -29,9 +42,25 @@ export default function VideoProjectsScreen() {
   const { colors, spacing, typography } = theme.manifest;
   const [projects, setProjects] = useState<MobileVideoProject[]>([]);
   const [pending, setPending] = useState(0);
+  const [allowCellularUploads, setAllowCellularUploads] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [selectedAsset, setSelectedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<VideoCaptureAsset | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+  const camera = useRef<CameraView>(null);
+  const recordingStartedAt = useRef(0);
+  const pausedAt = useRef(0);
+  const pausedDuration = useRef(0);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<CameraType>("back");
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>("1080p");
+  const [recording, setRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
+  const [pauseSupported, setPauseSupported] = useState(false);
+  const resumeInFlight = useRef(false);
   const [trimStart, setTrimStart] = useState("0");
   const [trimEnd, setTrimEnd] = useState("0");
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
@@ -62,23 +91,56 @@ export default function VideoProjectsScreen() {
   useFocusEffect(
     useCallback(() => {
       void refresh();
+      void getAllowCellularVideoUploads().then(setAllowCellularUploads);
     }, [refresh]),
   );
 
-  async function chooseVideo(source: "camera" | "library") {
+  const resumePendingUploads = useCallback(
+    async (networkState?: Network.NetworkState) => {
+      if (!workspaceId || resumeInFlight.current) return;
+      resumeInFlight.current = true;
+      try {
+        const count = await syncPendingVideoCaptures(workspaceId, networkState);
+        if (count > 0) await refresh();
+      } catch {
+        // Offline and Wi-Fi policy pauses are expected. The queue stays durable.
+      } finally {
+        resumeInFlight.current = false;
+      }
+    },
+    [refresh, workspaceId],
+  );
+
+  useEffect(() => {
+    const initialResume = setTimeout(() => void resumePendingUploads(), 0);
+    const subscription = Network.addNetworkStateListener((state) => {
+      void resumePendingUploads(state);
+    });
+    return () => {
+      clearTimeout(initialResume);
+      subscription.remove();
+    };
+  }, [allowCellularUploads, resumePendingUploads]);
+
+  async function changeCellularUploadPolicy(value: boolean) {
+    setAllowCellularUploads(value);
+    try {
+      await setAllowCellularVideoUploads(value);
+      if (value) void resumePendingUploads();
+    } catch (error) {
+      setAllowCellularUploads(!value);
+      setMessage(error instanceof Error ? error.message : "Could not save upload preference");
+    }
+  }
+
+  async function chooseVideo() {
     if (!workspaceId || busy) return;
     setBusy(true);
     try {
-      const result =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ["videos"],
-              videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ["videos"],
-              allowsMultipleSelection: false,
-            });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        allowsMultipleSelection: false,
+      });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
       setSelectedAsset(asset);
@@ -96,6 +158,82 @@ export default function VideoProjectsScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openCamera() {
+    if (busy) return;
+    const cameraAccess = cameraPermission?.granted
+      ? cameraPermission
+      : await requestCameraPermission();
+    if (!cameraAccess.granted) {
+      setMessage("Camera access is required to record video.");
+      return;
+    }
+    if (microphoneEnabled && !microphonePermission?.granted) {
+      const microphoneAccess = await requestMicrophonePermission();
+      if (!microphoneAccess.granted) setMicrophoneEnabled(false);
+    }
+    setCameraOpen(true);
+    setMessage(null);
+  }
+
+  async function startRecording() {
+    if (!camera.current || !cameraReady || recording) return;
+    recordingStartedAt.current = Date.now();
+    pausedAt.current = 0;
+    pausedDuration.current = 0;
+    setRecording(true);
+    setRecordingPaused(false);
+    try {
+      const result = await camera.current.recordAsync();
+      if (!result) return;
+      const endedAt = Date.now();
+      const paused = pausedAt.current > 0 ? endedAt - pausedAt.current : 0;
+      const durationMs = Math.max(
+        1_000,
+        endedAt - recordingStartedAt.current - pausedDuration.current - paused,
+      );
+      const size = videoDimensions(videoQuality);
+      setSelectedAsset({
+        uri: result.uri,
+        fileName: `recording-${recordingStartedAt.current}.mp4`,
+        mimeType: "video/mp4",
+        duration: durationMs,
+        width: size.width,
+        height: size.height,
+      });
+      setTrimStart("0");
+      setTrimEnd(String(durationMs / 1_000));
+      setRotation(0);
+      setCrop("full");
+      setMuted(!microphoneEnabled);
+      setGain("1");
+      setCoverFrame("0");
+      setCameraOpen(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not record video");
+      void errorHaptic();
+    } finally {
+      setRecording(false);
+      setRecordingPaused(false);
+    }
+  }
+
+  function stopRecording() {
+    camera.current?.stopRecording();
+  }
+
+  async function toggleRecordingPause() {
+    if (!camera.current || !recording || !pauseSupported) return;
+    const now = Date.now();
+    await camera.current.toggleRecordingAsync();
+    if (recordingPaused) {
+      pausedDuration.current += now - pausedAt.current;
+      pausedAt.current = 0;
+    } else {
+      pausedAt.current = now;
+    }
+    setRecordingPaused(!recordingPaused);
   }
 
   async function savePreparedVideo() {
@@ -179,18 +317,84 @@ export default function VideoProjectsScreen() {
             with the project.
           </BodyText>
           <View style={styles.actions}>
-            <Button
-              title="Record video"
-              onPress={() => void chooseVideo("camera")}
-              disabled={busy}
-            />
+            <Button title="Record video" onPress={() => void openCamera()} disabled={busy} />
             <Button
               title="Choose from library"
               intent="ordinary"
-              onPress={() => void chooseVideo("library")}
+              onPress={() => void chooseVideo()}
               disabled={busy}
             />
           </View>
+          {cameraOpen ? (
+            <View style={{ gap: spacing.medium }}>
+              <View style={styles.cameraFrame}>
+                <CameraView
+                  ref={camera}
+                  style={StyleSheet.absoluteFill}
+                  mode="video"
+                  facing={cameraFacing}
+                  mute={!microphoneEnabled}
+                  videoQuality={videoQuality}
+                  onCameraReady={() => {
+                    setCameraReady(true);
+                    setPauseSupported(
+                      camera.current?.getSupportedFeatures().toggleRecordingAsyncAvailable ?? false,
+                    );
+                  }}
+                  onMountError={(event) => setMessage(event.message)}
+                />
+              </View>
+              <View style={styles.actions}>
+                <Button
+                  title={cameraFacing === "back" ? "Use front camera" : "Use back camera"}
+                  intent="ordinary"
+                  onPress={() => setCameraFacing(cameraFacing === "back" ? "front" : "back")}
+                  disabled={recording}
+                />
+                <Button
+                  title={microphoneEnabled ? "Microphone on" : "Microphone off"}
+                  intent={microphoneEnabled ? "primary" : "ordinary"}
+                  onPress={() => setMicrophoneEnabled(!microphoneEnabled)}
+                  disabled={recording}
+                />
+              </View>
+              <BodyText>Recording quality</BodyText>
+              <View style={styles.actions}>
+                {(["720p", "1080p", "2160p"] as const).map((quality) => (
+                  <Button
+                    key={quality}
+                    title={quality}
+                    intent={videoQuality === quality ? "primary" : "ordinary"}
+                    onPress={() => setVideoQuality(quality)}
+                    disabled={recording}
+                  />
+                ))}
+              </View>
+              <View style={styles.actions}>
+                {recording ? (
+                  <>
+                    {pauseSupported ? (
+                      <Button
+                        title={recordingPaused ? "Resume" : "Pause"}
+                        intent="ordinary"
+                        onPress={() => void toggleRecordingPause()}
+                      />
+                    ) : null}
+                    <Button title="Stop recording" onPress={stopRecording} />
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      title="Start recording"
+                      onPress={() => void startRecording()}
+                      disabled={!cameraReady}
+                    />
+                    <Button title="Cancel" intent="ordinary" onPress={() => setCameraOpen(false)} />
+                  </>
+                )}
+              </View>
+            </View>
+          ) : null}
           {selectedAsset ? (
             <View style={{ gap: spacing.medium }}>
               <ContentTitle>{selectedAsset.fileName || "Selected video"}</ContentTitle>
@@ -275,6 +479,14 @@ export default function VideoProjectsScreen() {
               loading={busy}
             />
           ) : null}
+          <View style={styles.switchRow}>
+            <BodyText>Upload large videos over cellular</BodyText>
+            <Switch
+              value={allowCellularUploads}
+              onValueChange={(value) => void changeCellularUploadPolicy(value)}
+              accessibilityLabel="Upload large videos over cellular"
+            />
+          </View>
         </Card>
         {message ? (
           <Text
@@ -321,6 +533,22 @@ function cropForMode(asset: ImagePicker.ImagePickerAsset, mode: "full" | "square
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  cameraFrame: { aspectRatio: 16 / 9, overflow: "hidden", borderRadius: 12 },
   field: { flex: 1, minWidth: 140, gap: 6 },
   switchRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12 },
 });
+
+function videoDimensions(quality: VideoQuality): { width: number; height: number } {
+  switch (quality) {
+    case "2160p":
+      return { width: 3840, height: 2160 };
+    case "720p":
+      return { width: 1280, height: 720 };
+    case "480p":
+      return { width: 854, height: 480 };
+    case "4:3":
+      return { width: 640, height: 480 };
+    default:
+      return { width: 1920, height: 1080 };
+  }
+}

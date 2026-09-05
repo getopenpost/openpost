@@ -1583,7 +1583,10 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		return result, err
 	}
 	if directMediaUploadFinalized(media) {
-		return h.completeProjectAssetUpload(ctx, workspaceID, media, media.FileHash)
+		if err := h.completeProjectAssetForMedia(ctx, workspaceID, media.ID, media.FileHash); err != nil {
+			return result, err
+		}
+		return mediaUploadResultFromAttachment(media, false), nil
 	}
 
 	inspection, err := h.inspectDirectMediaUpload(ctx, media)
@@ -1643,8 +1646,8 @@ func (h *MediaHandler) deduplicateDirectMediaUpload(ctx context.Context, workspa
 
 func (h *MediaHandler) completeProjectAssetUpload(ctx context.Context, workspaceID string, media models.MediaAttachment, fileHash string) (MediaUploadResult, error) {
 	var result MediaUploadResult
-	if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, media.ID, fileHash); err != nil {
-		return result, huma.Error500InternalServerError("failed to complete Project Asset")
+	if err := h.completeProjectAssetForMedia(ctx, workspaceID, media.ID, fileHash); err != nil {
+		return result, err
 	}
 	if !isInternalMediaAssetKind(media.AssetKind) {
 		if _, err := h.usage.IncrementMonthly(ctx, workspaceID, entitlements.LimitMediaBytesUploadedMonthly, media.Size, time.Now().UTC()); err != nil {
@@ -1653,6 +1656,13 @@ func (h *MediaHandler) completeProjectAssetUpload(ctx context.Context, workspace
 	}
 
 	return mediaUploadResultFromAttachment(media, false), nil
+}
+
+func (h *MediaHandler) completeProjectAssetForMedia(ctx context.Context, workspaceID, mediaID, fileHash string) error {
+	if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, mediaID, fileHash); err != nil {
+		return huma.Error500InternalServerError("failed to complete Project Asset")
+	}
+	return nil
 }
 
 func (h *MediaHandler) resolveDirectUploadDeduplication(

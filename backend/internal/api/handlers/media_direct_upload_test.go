@@ -131,6 +131,12 @@ func newMediaDirectUploadTestServerWithAuthenticator(
 		(*models.WorkspaceMember)(nil),
 		(*models.MediaAttachment)(nil),
 		(*models.UsageCounter)(nil),
+		(*models.VideoProject)(nil),
+		(*models.VideoProjectRevision)(nil),
+		(*models.VideoProjectMutation)(nil),
+		(*models.VideoProjectConflict)(nil),
+		(*models.VideoProjectCheckpoint)(nil),
+		(*models.ProjectAsset)(nil),
 	)
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(ctx)
@@ -150,6 +156,7 @@ func newMediaDirectUploadTestServerWithAuthenticator(
 	handler.SetEntitlement(entitlement)
 	handler.RegisterRoutes(api)
 	handler.RegisterLegacyRoutes(e)
+	NewVideoProjectHandler(db, authenticator).RegisterRoutes(api)
 
 	fakeStorage, _ := storage.(*fakeDirectUploadStorage)
 	return &mediaDirectUploadTestServer{echo: e, db: db, storage: fakeStorage, usage: usageSvc}
@@ -518,6 +525,94 @@ func TestCompleteMediaUploadSessionFinalizesUploadedObject(t *testing.T) {
 	current, err := srv.usage.CurrentMonthly(context.Background(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(12), current)
+}
+
+func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+
+	createProject := srv.postJSON(t, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1",
+		"name":         "Mobile capture",
+		"device_id":    "phone-a",
+		"document": map[string]any{
+			"id":       "mobile-capture",
+			"timeline": map[string]any{"tracks": []any{}, "items": []any{}},
+		},
+	})
+	require.Equal(t, http.StatusOK, createProject.Code, createProject.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(createProject.Body.Bytes(), &project))
+
+	reserve := srv.postJSON(t, "/api/v1/video-projects/"+project.ID+"/assets", map[string]any{
+		"workspace_id":      "ws-1",
+		"stable_media_id":   "capture-1",
+		"original_filename": "capture.mp4",
+		"mime_type":         "video/mp4",
+		"size":              12,
+		"device_id":         "phone-a",
+		"preparation": map[string]any{
+			"source_range":        map[string]any{"start_seconds": 1.25, "end_seconds": 8.5},
+			"crop":                map[string]any{"x": 0.1, "y": 0.0, "width": 0.8, "height": 1.0},
+			"rotation":            90,
+			"gain":                0.75,
+			"muted":               false,
+			"cover_frame_seconds": 2.5,
+		},
+	})
+	require.Equal(t, http.StatusOK, reserve.Code, reserve.Body.String())
+	var asset ProjectAssetResponse
+	require.NoError(t, json.Unmarshal(reserve.Body.Bytes(), &asset))
+	require.Equal(t, "pending", asset.Status)
+	require.Equal(t, "capture-1", asset.StableMediaID)
+
+	loadPending := srv.postJSON(t, "/api/v1/video-projects/"+project.ID+"/assets/"+asset.ID+"/begin-upload", map[string]any{
+		"workspace_id": "ws-1",
+	})
+	require.Equal(t, http.StatusOK, loadPending.Code, loadPending.Body.String())
+
+	sessionResponse := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
+		"workspace_id":     "ws-1",
+		"filename":         "capture.mp4",
+		"mime_type":        "video/mp4",
+		"size":             12,
+		"source":           "camera",
+		"asset_kind":       "project_asset",
+		"project_asset_id": asset.ID,
+	})
+	require.Equal(t, http.StatusOK, sessionResponse.Code, sessionResponse.Body.String())
+	var session CreateMediaUploadSessionResponse
+	require.NoError(t, json.Unmarshal(sessionResponse.Body.Bytes(), &session))
+	require.Equal(t, asset.ID, session.ProjectAssetID)
+	storage.objects[session.MediaID+".mp4"] = []byte("video bytes!")
+
+	complete := srv.postJSON(t, "/api/v1/media/upload-session/"+session.MediaID+"/complete", map[string]any{"workspace_id": "ws-1"})
+	require.Equal(t, http.StatusOK, complete.Code, complete.Body.String())
+
+	var storedAsset models.ProjectAsset
+	require.NoError(t, srv.db.NewSelect().Model(&storedAsset).Where("id = ?", asset.ID).Scan(t.Context()))
+	require.Equal(t, models.ProjectAssetStatusReady, storedAsset.Status)
+	require.Equal(t, session.MediaID, storedAsset.MediaID)
+
+	listReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/media?workspace_id=ws-1", nil)
+	listReq.Header.Set("Authorization", "Bearer web-token")
+	listResponse := httptest.NewRecorder()
+	srv.echo.ServeHTTP(listResponse, listReq)
+	require.Equal(t, http.StatusOK, listResponse.Code, listResponse.Body.String())
+	var mediaList struct {
+		Media []MediaListItem `json:"media"`
+	}
+	require.NoError(t, json.Unmarshal(listResponse.Body.Bytes(), &mediaList))
+	require.Empty(t, mediaList.Media)
+
+	getReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/video-projects/"+project.ID+"?workspace_id=ws-1", nil)
+	getReq.Header.Set("Authorization", "Bearer web-token")
+	getResponse := httptest.NewRecorder()
+	srv.echo.ServeHTTP(getResponse, getReq)
+	require.Equal(t, http.StatusOK, getResponse.Code, getResponse.Body.String())
+	var completeProject VideoProjectResponse
+	require.NoError(t, json.Unmarshal(getResponse.Body.Bytes(), &completeProject))
+	require.Equal(t, "synced", completeProject.SyncStatus)
 }
 
 func TestCompleteMediaUploadSessionRetryDoesNotRecountQueuedVideo(t *testing.T) {

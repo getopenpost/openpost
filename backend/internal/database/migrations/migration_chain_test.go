@@ -100,6 +100,12 @@ func TestMigrationChainAppliesCleanlyAndIsIdempotent(t *testing.T) {
 		"social_accounts",
 		"publications",
 		"jobs",
+		"video_projects",
+		"video_project_revisions",
+		"video_project_mutations",
+		"video_project_conflicts",
+		"video_project_checkpoints",
+		"project_assets",
 	} {
 		exists, err := migrationTableExists(ctx, db, table)
 		require.NoError(t, err)

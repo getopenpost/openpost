@@ -38,6 +38,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/services/videoprojects"
 	"github.com/uptrace/bun"
 )
 
@@ -397,13 +398,14 @@ type CreateMediaUploadSessionInput struct {
 		Size             int64                 `json:"size" doc:"Expected upload size in bytes"`
 		AltText          string                `json:"alt_text,omitempty" doc:"Alt text for accessibility"`
 		Source           string                `json:"source,omitempty" enum:"upload,camera,image_editor_export,image_editor_edit,background_removal,video_editor_source,video_editor_export,stock_import,meme_generator" doc:"Media provenance"`
-		AssetKind        string                `json:"asset_kind,omitempty" enum:"library,brand_asset,brand_font,design_preview,template_preview" doc:"Media library role"`
+		AssetKind        string                `json:"asset_kind,omitempty" enum:"library,brand_asset,brand_font,design_preview,template_preview,project_asset" doc:"Media library role"`
 		RetentionClass   string                `json:"retention_class,omitempty" enum:"library,temporary" doc:"Keep in the library or manage as temporary post media"`
 		TagID            string                `json:"tag_id,omitempty" doc:"Optional tag to assign to this upload"`
 		ParentMediaID    string                `json:"parent_media_id,omitempty" doc:"Source media ID for a derivative"`
 		DesignDocumentID string                `json:"design_document_id,omitempty" doc:"Producing OpenPost Image Editor design ID"`
 		DesignPageID     string                `json:"design_page_id,omitempty" doc:"Producing OpenPost Image Editor page ID"`
 		ClientSHA256     string                `json:"client_sha256,omitempty" pattern:"^[a-fA-F0-9]{64}$" doc:"Optional SHA-256 used to reuse an identical ready asset in this workspace"`
+		ProjectAssetID   string                `json:"project_asset_id,omitempty" doc:"Reserved Project Asset receiving this upload"`
 		StockProvenance  *StockMediaProvenance `json:"stock_provenance,omitempty" doc:"License and creator provenance for a selected stock asset"`
 	}
 }
@@ -421,10 +423,11 @@ type CreateMediaUploadSessionOutput struct {
 }
 
 type CreateMediaUploadSessionResponse struct {
-	MediaID     string                  `json:"media_id" doc:"Pending media ID"`
-	Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
-	CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
-	Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
+	MediaID        string                  `json:"media_id" doc:"Pending media ID"`
+	Upload         DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
+	CompleteURL    string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
+	Deduped        bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
+	ProjectAssetID string                  `json:"project_asset_id,omitempty" doc:"Project Asset linked to the media"`
 }
 
 type CompleteMediaUploadSessionInput struct {
@@ -1141,6 +1144,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		Errors:      []int{400, 403},
 	}, func(ctx context.Context, input *CreateMediaUploadSessionInput) (*CreateMediaUploadSessionOutput, error) {
 		userID := middleware.GetUserID(ctx)
+		actor := workspaceActor(ctx, userID)
 
 		workspaceID := strings.TrimSpace(input.Body.WorkspaceID)
 		if workspaceID == "" {
@@ -1179,6 +1183,13 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
+		projectAssetID := strings.TrimSpace(input.Body.ProjectAssetID)
+		if assetKind == "project_asset" && projectAssetID == "" {
+			return nil, huma.Error400BadRequest("project_asset_id is required for Project Asset uploads")
+		}
+		if assetKind != "project_asset" && projectAssetID != "" {
+			return nil, huma.Error400BadRequest("project_asset_id is allowed only for Project Asset uploads")
+		}
 		tagID, err := h.resolveMediaUploadTag(ctx, workspaceID, input.Body.TagID, assetKind)
 		if err != nil {
 			return nil, err
@@ -1200,6 +1211,11 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		}
 		if !isInternalMediaAssetKind(assetKind) {
 			if err := h.checkUploadQuota(ctx, workspaceID, input.Body.Size); err != nil {
+				if projectAssetID != "" {
+					if markErr := videoprojects.MarkAssetNeedsStorage(ctx, h.db, actor, workspaceID, projectAssetID, err.Error()); markErr != nil {
+						return nil, videoProjectError(markErr, "mark asset storage state for")
+					}
+				}
 				return nil, huma.Error400BadRequest(err.Error())
 			}
 		}
@@ -1218,15 +1234,21 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			input.Body.ClientSHA256,
 			input.Body.Size,
 			mimeType,
+			assetKind,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if reusable != nil {
-			response := CreateMediaUploadSessionResponse{MediaID: reusable.ID, Deduped: true}
+			response := CreateMediaUploadSessionResponse{MediaID: reusable.ID, Deduped: true, ProjectAssetID: projectAssetID}
 			if idempotencyRequest != nil {
 				idempotencyRequest.ResourceID = reusable.ID
 				result, executeErr := idempotency.Execute(ctx, h.db, *idempotencyRequest, func(txCtx context.Context, tx bun.Tx) (CreateMediaUploadSessionResponse, error) {
+					if projectAssetID != "" {
+						if err := videoprojects.BindAssetMediaWithDB(txCtx, tx, actor, workspaceID, projectAssetID, reusable.ID, models.ProjectAssetStatusReady, input.Body.ClientSHA256); err != nil {
+							return CreateMediaUploadSessionResponse{}, videoProjectError(err, "reuse media for")
+						}
+					}
 					if err := h.persistStockMediaProvenanceWithDB(txCtx, tx, reusable.ID, input.Body.StockProvenance); err != nil {
 						return CreateMediaUploadSessionResponse{}, huma.Error500InternalServerError("failed to save stock media provenance")
 					}
@@ -1245,6 +1267,13 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			}
 			if err := h.addMediaTag(ctx, tagID, reusable.ID); err != nil {
 				return nil, err
+			}
+			if projectAssetID != "" {
+				if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+					return videoprojects.BindAssetMediaWithDB(txCtx, tx, actor, workspaceID, projectAssetID, reusable.ID, models.ProjectAssetStatusReady, input.Body.ClientSHA256)
+				}); err != nil {
+					return nil, videoProjectError(err, "reuse media for")
+				}
 			}
 			return &CreateMediaUploadSessionOutput{Body: response}, nil
 		}
@@ -1301,7 +1330,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			CreatedAt:          now,
 		}
 		response := CreateMediaUploadSessionResponse{
-			MediaID: mediaID,
+			MediaID: mediaID, ProjectAssetID: projectAssetID,
 			Upload: DirectMediaUploadTarget{
 				Method:    session.Method,
 				URL:       session.URL,
@@ -1315,6 +1344,11 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		persist := func(persistCtx context.Context, db bun.IDB) error {
 			if _, err := db.NewInsert().Model(media).Exec(persistCtx); err != nil {
 				return huma.Error500InternalServerError("failed to reserve media upload")
+			}
+			if projectAssetID != "" {
+				if err := videoprojects.BindAssetMediaWithDB(persistCtx, db, actor, workspaceID, projectAssetID, media.ID, models.ProjectAssetStatusUploading, input.Body.ClientSHA256); err != nil {
+					return videoProjectError(err, "bind media to")
+				}
 			}
 			if err := h.addMediaTagWithDB(persistCtx, db, tagID, media.ID); err != nil {
 				return err
@@ -1549,6 +1583,9 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		return result, err
 	}
 	if directMediaUploadFinalized(media) {
+		if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, media.ID, media.FileHash); err != nil {
+			return result, huma.Error500InternalServerError("failed to complete Project Asset")
+		}
 		return mediaUploadResultFromAttachment(media, false), nil
 	}
 
@@ -1558,6 +1595,9 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 	}
 	if !isInternalMediaAssetKind(media.AssetKind) {
 		if err := h.checkUploadQuotaExcludingMedia(ctx, workspaceID, inspection.Size, media.ID); err != nil {
+			if media.AssetKind == "project_asset" {
+				_ = videoprojects.MarkAssetNeedsStorageForMedia(ctx, h.db, workspaceID, media.ID, err.Error())
+			}
 			return result, huma.Error400BadRequest(err.Error())
 		}
 	}
@@ -1583,6 +1623,9 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 			return duplicate, nil
 		}
 		return result, err
+	}
+	if err := videoprojects.CompleteAssetForMedia(ctx, h.db, workspaceID, media.ID, fileHash); err != nil {
+		return result, huma.Error500InternalServerError("failed to complete Project Asset")
 	}
 	if !isInternalMediaAssetKind(media.AssetKind) {
 		if _, err := h.usage.IncrementMonthly(ctx, workspaceID, entitlements.LimitMediaBytesUploadedMonthly, media.Size, time.Now().UTC()); err != nil {
@@ -2011,12 +2054,15 @@ func normalizeMediaProvenance(source, assetKind string) (string, string, error) 
 	}
 	assetKind = defaultMediaAssetKind(assetKind)
 	switch assetKind {
-	case "library", "brand_asset", "brand_font", "design_preview", "template_preview":
+	case "library", "brand_asset", "brand_font", "design_preview", "template_preview", "project_asset":
 	default:
 		return "", "", errors.New("invalid media asset kind")
 	}
 	if assetKind == "design_preview" && source != "image_editor_export" && source != "image_editor_edit" {
 		return "", "", errors.New("design previews must be produced by OpenPost Image Editor")
+	}
+	if assetKind == "project_asset" && source != "upload" && source != "camera" && source != "video_editor_source" {
+		return "", "", errors.New("Project Assets must come from an upload, camera, or Video Editor source")
 	}
 	return source, assetKind, nil
 }
@@ -2088,6 +2134,7 @@ func (h *MediaHandler) reusableMediaForClientHash(
 	clientSHA256 string,
 	size int64,
 	mimeType string,
+	assetKind string,
 ) (*models.MediaAttachment, error) {
 	hash := strings.ToLower(strings.TrimSpace(clientSHA256))
 	if hash == "" {
@@ -2100,16 +2147,14 @@ func (h *MediaHandler) reusableMediaForClientHash(
 		return nil, huma.Error400BadRequest("client_sha256 must be a SHA-256 hex digest")
 	}
 	var media models.MediaAttachment
-	err := h.db.NewSelect().Model(&media).
-		Where(
-			"workspace_id = ? AND file_hash = ? AND size = ? AND mime_type = ? AND processing_status = ? AND asset_kind = ?",
-			workspaceID,
-			hash,
-			size,
-			mimeType,
-			mediaReadyStatus,
-			"library",
-		).
+	query := h.db.NewSelect().Model(&media).
+		Where("workspace_id = ? AND file_hash = ? AND size = ? AND mime_type = ? AND processing_status = ?", workspaceID, hash, size, mimeType, mediaReadyStatus)
+	if assetKind == "project_asset" {
+		query = query.Where("asset_kind NOT IN (?, ?)", "design_preview", "template_preview")
+	} else {
+		query = query.Where("asset_kind = ?", "library")
+	}
+	err := query.
 		OrderExpr("created_at ASC").
 		Limit(1).
 		Scan(ctx)

@@ -1781,6 +1781,47 @@
 				"required": ["selector", "state", "reason_code", "starts_at"],
 				"type": "object"
 			},
+			"ApplyVideoProjectMutationInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ApplyVideoProjectMutationInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"base_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"device_id": {
+						"maxLength": 160,
+						"type": "string"
+					},
+					"mutation_id": {
+						"description": "Client-generated idempotency key",
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"operations": {
+						"items": {
+							"$ref": "#/components/schemas/VideoProjectMutationOperationInput"
+						},
+						"maxItems": 1000,
+						"minItems": 1,
+						"type": ["array", "null"]
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "mutation_id", "base_revision", "operations"],
+				"type": "object"
+			},
 			"ApproveCLIAuthInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -2337,6 +2378,24 @@
 					}
 				},
 				"required": ["current_password", "name"],
+				"type": "object"
+			},
+			"BeginProjectAssetUploadInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/BeginProjectAssetUploadInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
 				"type": "object"
 			},
 			"BillingCheckoutConfigResponse": {
@@ -3042,6 +3101,24 @@
 					}
 				},
 				"required": ["message", "revoked_sessions"],
+				"type": "object"
+			},
+			"ChangeVideoProjectTrashInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ChangeVideoProjectTrashInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
 				"type": "object"
 			},
 			"ChannelPreference": {
@@ -4471,7 +4548,14 @@
 					},
 					"asset_kind": {
 						"description": "Media library role",
-						"enum": ["library", "brand_asset", "brand_font", "design_preview", "template_preview"],
+						"enum": [
+							"library",
+							"brand_asset",
+							"brand_font",
+							"design_preview",
+							"template_preview",
+							"project_asset"
+						],
 						"type": "string"
 					},
 					"client_sha256": {
@@ -4497,6 +4581,10 @@
 					},
 					"parent_media_id": {
 						"description": "Source media ID for a derivative",
+						"type": "string"
+					},
+					"project_asset_id": {
+						"description": "Reserved Project Asset receiving this upload",
 						"type": "string"
 					},
 					"retention_class": {
@@ -4560,6 +4648,10 @@
 					},
 					"media_id": {
 						"description": "Pending media ID",
+						"type": "string"
+					},
+					"project_asset_id": {
+						"description": "Project Asset linked to the media",
 						"type": "string"
 					},
 					"upload": {
@@ -4982,6 +5074,69 @@
 					}
 				},
 				"required": ["url", "expires_at"],
+				"type": "object"
+			},
+			"CreateVideoProjectCheckpointInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoProjectCheckpointInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "name"],
+				"type": "object"
+			},
+			"CreateVideoProjectInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoProjectInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"device_id": {
+						"description": "Stable client device identifier",
+						"maxLength": 160,
+						"type": "string"
+					},
+					"document": {
+						"additionalProperties": {},
+						"description": "Portable authored project document without device view state",
+						"type": "object"
+					},
+					"id": {
+						"description": "Optional client-generated idempotent project ID",
+						"maxLength": 160,
+						"type": "string"
+					},
+					"name": {
+						"description": "Project name",
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Owning Workspace ID",
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "name", "document"],
 				"type": "object"
 			},
 			"CreateVoiceProfileInputBody": {
@@ -12784,6 +12939,88 @@
 				"required": ["key", "name", "description"],
 				"type": "object"
 			},
+			"ProjectAssetResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ProjectAssetResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"attention_reason": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"device_id": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"media_id": {
+						"type": "string"
+					},
+					"mime_type": {
+						"type": "string"
+					},
+					"original_filename": {
+						"type": "string"
+					},
+					"preparation": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"project_id": {
+						"type": "string"
+					},
+					"required": {
+						"type": "boolean"
+					},
+					"sha256": {
+						"type": "string"
+					},
+					"size": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"stable_media_id": {
+						"type": "string"
+					},
+					"status": {
+						"enum": ["pending", "uploading", "ready", "needs_storage", "failed"],
+						"type": "string"
+					},
+					"updated_at": {
+						"type": "string"
+					},
+					"uploaded_by_user_id": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"project_id",
+					"workspace_id",
+					"stable_media_id",
+					"original_filename",
+					"mime_type",
+					"size",
+					"status",
+					"preparation",
+					"required",
+					"uploaded_by_user_id",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
 			"PromptResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -15595,6 +15832,64 @@
 				"required": ["challenge_id"],
 				"type": "object"
 			},
+			"ReserveProjectAssetInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ReserveProjectAssetInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"device_id": {
+						"maxLength": 160,
+						"type": "string"
+					},
+					"mime_type": {
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"original_filename": {
+						"maxLength": 500,
+						"minLength": 1,
+						"type": "string"
+					},
+					"preparation": {
+						"additionalProperties": {},
+						"description": "Non-destructive trim, crop, rotation, gain, mute, and cover-frame recipe",
+						"type": "object"
+					},
+					"sha256": {
+						"pattern": "^[a-fA-F0-9]{64}$",
+						"type": "string"
+					},
+					"size": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"stable_media_id": {
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": [
+					"workspace_id",
+					"stable_media_id",
+					"original_filename",
+					"mime_type",
+					"size",
+					"preparation"
+				],
+				"type": "object"
+			},
 			"ResetPasswordInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -16205,6 +16500,33 @@
 					}
 				},
 				"required": ["message"],
+				"type": "object"
+			},
+			"RestoreVideoProjectRevisionInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RestoreVideoProjectRevisionInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"device_id": {
+						"maxLength": 160,
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "revision"],
 				"type": "object"
 			},
 			"RetryMediaAnalysisOutputBody": {
@@ -20387,6 +20709,276 @@
 					}
 				},
 				"required": ["mfa_token", "code"],
+				"type": "object"
+			},
+			"VideoProjectCheckpointResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoProjectCheckpointResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"created_by_user_id": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["id", "name", "revision", "created_by_user_id", "created_at"],
+				"type": "object"
+			},
+			"VideoProjectConflictResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"author_user_id": {
+						"type": "string"
+					},
+					"base_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"device_id": {
+						"type": "string"
+					},
+					"document": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"head_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"mutation_id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"overlap_targets": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"base_revision",
+					"head_revision",
+					"mutation_id",
+					"document",
+					"overlap_targets",
+					"author_user_id",
+					"created_at"
+				],
+				"type": "object"
+			},
+			"VideoProjectMutationOperationInput": {
+				"additionalProperties": false,
+				"properties": {
+					"kind": {
+						"description": "Mutation operation",
+						"enum": ["set", "delete"],
+						"type": "string"
+					},
+					"path": {
+						"description": "JSON Pointer within the authored document",
+						"minLength": 1,
+						"type": "string"
+					},
+					"target": {
+						"description": "Stable entity or property conflict target",
+						"minLength": 1,
+						"type": "string"
+					},
+					"value": {
+						"description": "Replacement JSON value for a set operation"
+					}
+				},
+				"required": ["kind", "target", "path"],
+				"type": "object"
+			},
+			"VideoProjectMutationResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoProjectMutationResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"conflict_id": {
+						"type": "string"
+					},
+					"conflict_name": {
+						"type": "string"
+					},
+					"outcome": {
+						"enum": ["applied", "conflict"],
+						"type": "string"
+					},
+					"overlap_targets": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"project": {
+						"$ref": "#/components/schemas/VideoProjectResponse"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["outcome", "revision", "project"],
+				"type": "object"
+			},
+			"VideoProjectResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoProjectResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"attention_reason": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"created_by_user_id": {
+						"type": "string"
+					},
+					"document": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"head_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"preview_object_key": {
+						"type": "string"
+					},
+					"retention_expires_at": {
+						"type": "string"
+					},
+					"sync_status": {
+						"enum": ["pending", "uploading", "saving", "synced", "needs_attention"],
+						"type": "string"
+					},
+					"trashed_at": {
+						"type": "string"
+					},
+					"updated_at": {
+						"type": "string"
+					},
+					"updated_by_user_id": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"name",
+					"head_revision",
+					"document",
+					"sync_status",
+					"created_by_user_id",
+					"updated_by_user_id",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"VideoProjectRevisionResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"author_user_id": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"device_id": {
+						"type": "string"
+					},
+					"document": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"expires_at": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"mutation_id": {
+						"type": "string"
+					},
+					"parent_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"restored_from_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"touched_targets": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"revision",
+					"parent_revision",
+					"kind",
+					"document",
+					"touched_targets",
+					"author_user_id",
+					"created_at"
+				],
 				"type": "object"
 			},
 			"Viewport": {
@@ -45795,6 +46387,1152 @@
 				"security": [],
 				"summary": "Running version",
 				"tags": ["System"]
+			}
+		},
+		"/video-projects": {
+			"get": {
+				"operationId": "list-video-projects",
+				"parameters": [
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Include projects in Trash",
+						"explode": false,
+						"in": "query",
+						"name": "include_trash",
+						"schema": {
+							"description": "Include projects in Trash",
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/VideoProjectResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List Cloud Video Projects",
+				"tags": ["Video Projects"]
+			},
+			"post": {
+				"operationId": "create-video-project",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVideoProjectInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a Cloud Video Project",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}": {
+			"get": {
+				"operationId": "get-video-project",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get a Cloud Video Project",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/assets": {
+			"get": {
+				"operationId": "list-video-project-assets",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/ProjectAssetResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List Project Assets",
+				"tags": ["Video Projects"]
+			},
+			"post": {
+				"description": "Project Assets are private editing dependencies and do not appear in the Workspace Media Library.",
+				"operationId": "reserve-video-project-asset",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReserveProjectAssetInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ProjectAssetResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Reserve a Project Asset",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/assets/{asset_id}/begin-upload": {
+			"post": {
+				"operationId": "begin-video-project-asset-upload",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Project Asset ID",
+						"in": "path",
+						"name": "asset_id",
+						"required": true,
+						"schema": {
+							"description": "Project Asset ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/BeginProjectAssetUploadInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ProjectAssetResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Mark a Project Asset upload as started",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/checkpoints": {
+			"post": {
+				"operationId": "create-video-project-checkpoint",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVideoProjectCheckpointInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectCheckpointResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a named Video Project checkpoint",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/conflicts": {
+			"get": {
+				"operationId": "list-video-project-conflicts",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/VideoProjectConflictResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List unresolved Video Project conflict branches",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/mutations": {
+			"post": {
+				"description": "Disjoint stale changes rebase. Overlapping targets create a named conflict branch.",
+				"operationId": "apply-video-project-mutation",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ApplyVideoProjectMutationInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectMutationResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Apply a versioned Video Project mutation batch",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/restore": {
+			"post": {
+				"operationId": "restore-video-project",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ChangeVideoProjectTrashInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Restore a Video Project from Trash",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/restore-revision": {
+			"post": {
+				"operationId": "restore-video-project-revision",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RestoreVideoProjectRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Restore a Video Project revision as a new head",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/revisions": {
+			"get": {
+				"operationId": "list-video-project-revisions",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/VideoProjectRevisionResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List Video Project revision history",
+				"tags": ["Video Projects"]
+			}
+		},
+		"/video-projects/{id}/trash": {
+			"post": {
+				"operationId": "trash-video-project",
+				"parameters": [
+					{
+						"description": "Video project ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Video project ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ChangeVideoProjectTrashInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Move a Video Project to Trash",
+				"tags": ["Video Projects"]
 			}
 		},
 		"/voice-profile-assignments/{account_id}": {

@@ -8,7 +8,7 @@
     "Social credentials are encrypted. Passwords are hashed. OpenPost does not receive full payment-card details.",
     "OpenPost sends data to a social network, identity provider, stock-media service, or AI provider only for the connection or action described in the full policy.",
     "You can export or request deletion of account data. Shared ownership, active billing, legal duties, security needs, and short-lived recovery copies can delay or limit deletion.",
-    "Video Editor projects stay in the workspace folder you choose. Local Image Editor work, recovery data, preferences, and downloaded models stay in browser storage until you clear them or choose an explicit OpenPost save or upload."
+    "Signed-in Cloud Video Projects store authored project state and required Project Assets in the workspace. Local-only Video Editor projects, device view state, recovery data, preferences, and downloaded models stay on the device until you clear them or choose an explicit OpenPost save or upload."
   ],
   "managed_retention": [
     {
@@ -38,6 +38,21 @@
         "backend/internal/models/models.go",
         "backend/internal/api/handlers/workspaces.go",
         "backend/internal/api/handlers/account_lifecycle.go"
+      ]
+    },
+    {
+      "id": "cloud-video-projects",
+      "category": "Cloud Video Projects and Project Assets",
+      "owner": "Managed OpenPost service",
+      "purpose": "Keep authored video edits, required source assets, revisions, checkpoints, trash, and named conflict branches available to authorized workspace members across devices.",
+      "includes": "Portable project documents, mutation identifiers, revision authorship and device labels, preparation recipes, source media files, checksums, sync state, checkpoints, conflicts, and trash timestamps. Browser file handles and device view state are excluded.",
+      "duration": "Current project state and required assets remain until the project or workspace is deleted. Autosave revisions and trashed projects expire after 30 days; named checkpoints remain until removed.",
+      "deletion_trigger": "Project or workspace deletion removes owned cloud project records and Project Assets. Signing out removes local synced copies and pending credentials from that device but does not delete shared workspace data.",
+      "exceptions": "Authorized workspace collaborators can retain access while the project belongs to their workspace. Storage and legal recovery copies follow the service retention terms.",
+      "evidence": [
+        "backend/internal/models/video_projects.go",
+        "backend/internal/services/videoprojects/service.go",
+        "backend/internal/database/migrations/131_cloud_video_projects.sql"
       ]
     },
     {
@@ -372,6 +387,30 @@
     }
   ],
   "browser_storage": [
+    {
+      "id": "local-video-project-outbox",
+      "technology": "IndexedDB",
+      "owner": "OpenPost Video Editor cloud sync",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-project-sync",
+      "purpose": "Keeps authored project mutations until the managed service accepts them, including while the browser is offline.",
+      "scope": "Application origin and browser profile; the mutation-outbox-v1 record includes Workspace and project identifiers.",
+      "duration": "Each entry is removed after the server accepts it, or when site data is cleared.",
+      "necessity": "strictly_necessary",
+      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+    },
+    {
+      "id": "local-video-project-device-id",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor cloud sync",
+      "identifier_kind": "exact",
+      "identifier": "openpost:video-project-device-id:v1",
+      "purpose": "Labels revision authorship and conflict branches with a stable browser installation identifier.",
+      "scope": "Application origin and browser profile.",
+      "duration": "Until site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+    },
     {
       "id": "cookie-session",
       "technology": "cookie",

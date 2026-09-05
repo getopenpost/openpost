@@ -9,6 +9,12 @@ import {
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
+let purgeSignedOutDeviceData: () => Promise<void> = async () => undefined;
+
+export function registerSignedOutDeviceDataPurge(purge: () => Promise<void>): void {
+  purgeSignedOutDeviceData = purge;
+}
+
 export type LoginResult =
   | { kind: "signed-in" }
   | { kind: "mfa"; mfaToken: string; methods: string[] }
@@ -134,7 +140,9 @@ export async function signOut(): Promise<boolean> {
   } catch {
     // A network failure does not prevent clearing the captured local session.
   }
-  return clearTokenForIdentity(identity);
+  const cleared = await clearTokenForIdentity(identity);
+  if (cleared) await purgeSignedOutDeviceData();
+  return cleared;
 }
 
 function requireCurrentIdentity(identity: ReturnType<typeof captureApiRequestIdentity>): void {

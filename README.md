@@ -98,7 +98,7 @@ That's the shape of it; the [docs](https://docs.openpo.st) cover the rest, inclu
     </td>
     <td width="50%" align="center">
       <img alt="OpenPost Video Editor cutting a Study SOS screen recording" src="./assets/screenshots/video-editor-dark.webp" width="100%">
-      <br><strong>Edit the video</strong><br><sub>DaVinci Resolve, in your browser (still in BETA)</sub>
+      <br><strong>Edit the video</strong><br><sub>Capture on mobile, then continue a synced project in your browser (still in BETA)</sub>
     </td>
   </tr>
 </table>

@@ -9,6 +9,7 @@ export default function TabLayout() {
   const drafts = resolveNativeThemeNavigationIcon(theme.manifest, "drafts");
   const calendar = resolveNativeThemeNavigationIcon(theme.manifest, "calendar");
   const queue = resolveNativeThemeNavigationIcon(theme.manifest, "queue");
+  const projects = resolveNativeThemeNavigationIcon(theme.manifest, "drafts");
   const navigation = navigationPresentation(theme.manifest);
   const label = theme.manifest.typography.labelMedium;
 
@@ -54,6 +55,10 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="queue">
         <NativeTabs.Trigger.Label>Queue</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon renderingMode="template" src={queue} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="projects">
+        <NativeTabs.Trigger.Label>Video</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon renderingMode="template" src={projects} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

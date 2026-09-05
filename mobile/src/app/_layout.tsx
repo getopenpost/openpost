@@ -27,8 +27,10 @@ import {
   commitWorkspaceIdForIdentity,
 } from "@/lib/api/client";
 import { readAppBootstrap } from "@/lib/app-bootstrap";
+import { registerSignedOutDeviceDataPurge } from "@/lib/auth";
 import { LaunchSessionProvider, type LaunchSessionState } from "@/lib/launch-session";
 import { loadSessionState, synchronizeSession } from "@/lib/session";
+import { purgeVideoProjectDeviceData } from "@/lib/video-projects";
 import {
   bindNativeThemeSession,
   getNativeThemeActivation,
@@ -43,6 +45,7 @@ import {
 } from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
+registerSignedOutDeviceDataPurge(purgeVideoProjectDeviceData);
 configureNativeQueryLifecycle();
 
 function useSessionReady() {

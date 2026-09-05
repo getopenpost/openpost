@@ -21,6 +21,7 @@
     "@expo/ui": "~57.0.16",
     "@openpost/api-contract": "file:../packages/api-contract",
     "@openpost/query-catalog": "file:../packages/query-catalog",
+    "@openpost/video-project": "file:../packages/video-project",
     "@react-native-community/datetimepicker": "9.1.0",
     "@swmansion/react-native-bottom-sheet": "0.16.2",
     "@tanstack/query-core": "5.102.8",

@@ -344,3 +344,51 @@ func TestXMediaProcessingFailureIsTerminal(t *testing.T) {
 		t.Fatalf("expected terminal media failure, got %q, %v", classification, ok)
 	}
 }
+
+func TestXUnrepost(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == http.MethodDelete && req.URL.Path == "/2/users/target-user/retweets/tweet-123" {
+			called = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"retweeted":false}}`))
+			return
+		}
+		http.NotFound(w, req)
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	err := adapter.Unrepost(t.Context(), "token|secret", "target-user", UnrepostRequest{
+		SourceExternalID: "tweet-123",
+	})
+	if err != nil {
+		t.Fatalf("Unrepost returned error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected delete retweet request to be made")
+	}
+}
+
+func TestXUnrepostIdempotent404(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Could not find tweet"}]}`))
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	err := adapter.Unrepost(t.Context(), "token|secret", "target-user", UnrepostRequest{
+		SourceExternalID: "tweet-123",
+	})
+	if err != nil {
+		t.Fatalf("expected nil on 404, got: %v", err)
+	}
+}
+

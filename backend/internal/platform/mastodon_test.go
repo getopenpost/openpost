@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMastodonResolveAccountPublishingCapabilitiesReadsInstanceVideoLimits(t *testing.T) {
@@ -133,3 +135,48 @@ func assertFormValue(t *testing.T, values url.Values, key, want string) {
 		t.Fatalf("expected %s=%q, got %q in %#v", key, want, got, values)
 	}
 }
+
+func TestMastodonUnrepost(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	called := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost || req.URL.String() != "https://mastodon.example/api/v1/statuses/12345/unreblog" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		if req.Header.Get(headerAuthorization) != "Bearer access-token" {
+			t.Fatalf("unexpected auth header %q", req.Header.Get(headerAuthorization))
+		}
+		called = true
+		return jsonResponse(req, `{"id":"12345"}`), nil
+	})}
+
+	adapter := NewMastodonAdapter("client-id", "client-secret", "https://app.example/callback", "https://mastodon.example")
+	err := adapter.Unrepost(context.Background(), "access-token", "acct-1", UnrepostRequest{
+		RepostExternalID: "12345",
+	})
+	require.NoError(t, err)
+	require.True(t, called)
+}
+
+func TestMastodonUnrepostIdempotent404(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"error":"Record not found"}`)),
+			Request:    req,
+		}, nil
+	})}
+
+	adapter := NewMastodonAdapter("client-id", "client-secret", "https://app.example/callback", "https://mastodon.example")
+	err := adapter.Unrepost(context.Background(), "access-token", "acct-1", UnrepostRequest{
+		RepostExternalID: "12345",
+	})
+	require.NoError(t, err)
+}
+

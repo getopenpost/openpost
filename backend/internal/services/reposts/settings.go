@@ -668,6 +668,7 @@ func ensureGrantTx(ctx context.Context, tx bun.Tx, workspaceID string, account m
 }
 
 func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) *models.RepostPolicy {
+	stagesJSON, _ := json.Marshal(input.Rule.Stages)
 	return &models.RepostPolicy{
 		ID:                      input.ID,
 		WorkspaceID:             workspaceID,
@@ -682,6 +683,7 @@ func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) *
 		MinViews:                input.Rule.MinViews,
 		RequirePlateau:          input.Rule.RequirePlateau,
 		PlateauChecks:           input.Rule.PlateauChecks,
+		StagesJSON:              string(stagesJSON),
 		CreatedByID:             userID,
 		UpdatedByID:             userID,
 		CreatedAt:               now,
@@ -690,7 +692,11 @@ func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) *
 }
 
 func ruleFromPolicy(policy models.RepostPolicy) Rule {
-	return Rule{
+	var stages []RepostStage
+	if policy.StagesJSON != "" && policy.StagesJSON != "[]" && policy.StagesJSON != "{}" {
+		_ = json.Unmarshal([]byte(policy.StagesJSON), &stages)
+	}
+	rule := Rule{
 		DelaySeconds:            policy.DelaySeconds,
 		EvaluationWindowSeconds: policy.EvaluationWindowSeconds,
 		ThresholdMode:           policy.ThresholdMode,
@@ -700,7 +706,13 @@ func ruleFromPolicy(policy models.RepostPolicy) Rule {
 		MinViews:                policy.MinViews,
 		RequirePlateau:          policy.RequirePlateau,
 		PlateauChecks:           policy.PlateauChecks,
+		Stages:                  stages,
 	}
+	normalized, err := NormalizeRule(rule)
+	if err != nil {
+		return rule
+	}
+	return normalized
 }
 
 func (s *Service) repostAdapter(account models.SocialAccount) platform.RepostAdapter {

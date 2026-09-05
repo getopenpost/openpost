@@ -591,6 +591,26 @@ func (l *LinkedInAdapter) Repost(ctx context.Context, accessToken, targetAccount
 	return RepostResult{ExternalID: headers.Get("x-restli-id"), ExternalURL: req.ExternalURL}, nil
 }
 
+func (l *LinkedInAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error {
+	urn := strings.TrimSpace(req.RepostExternalID)
+	if urn == "" {
+		urn = strings.TrimSpace(req.SourceExternalID)
+	}
+	if urn == "" {
+		return fmt.Errorf("linkedin unrepost requires a repost id")
+	}
+	endpoint := "https://api.linkedin.com/rest/posts/" + url.PathEscape(urn)
+	if _, err := DoRequest(ctx, http.MethodDelete, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion())); err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotFound || httpErr.StatusCode == http.StatusGone) {
+			return nil
+		}
+		return fmt.Errorf("unreposting on linkedin: %w", err)
+	}
+	return nil
+}
+
+
 //nolint:gocyclo
 func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN, apiVersion string, req *PublishRequest) (string, error) {
 	visibility := firstNonEmptyString(settingString(req.Settings, "visibility"), "PUBLIC")

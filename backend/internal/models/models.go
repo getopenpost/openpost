@@ -1261,6 +1261,7 @@ type RepostPolicy struct {
 	MinViews                int64     `bun:"min_views,notnull,default:0" json:"min_views"`
 	RequirePlateau          bool      `bun:"require_plateau,notnull,default:false" json:"require_plateau"`
 	PlateauChecks           int       `bun:"plateau_checks,notnull,default:2" json:"plateau_checks"`
+	StagesJSON              string    `bun:"stages_json,notnull,default:'[]'" json:"stages_json,omitempty"`
 	CreatedByID             string    `bun:"created_by,notnull" json:"created_by"`
 	UpdatedByID             string    `bun:"updated_by,notnull" json:"updated_by"`
 	CreatedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -1299,27 +1300,32 @@ type RepostAccountGrant struct {
 type RepostExecution struct {
 	bun.BaseModel `bun:"table:repost_executions"`
 
-	ID               string    `bun:",pk" json:"id"`
-	WorkspaceID      string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	PublicationID    string    `bun:"publication_id,notnull" json:"publication_id"`
-	RenditionID      string    `bun:"rendition_id,notnull,unique:rendition_target" json:"rendition_id"`
-	SourceAccountID  string    `bun:"source_account_id,notnull" json:"source_account_id"`
-	TargetAccountID  string    `bun:"target_account_id,notnull,unique:rendition_target" json:"target_account_id"`
-	PolicyID         string    `bun:"policy_id,nullzero" json:"policy_id,omitempty"`
-	RuleSnapshotJSON string    `bun:"rule_snapshot_json,notnull,default:'{}'" json:"rule_snapshot_json"`
-	Status           string    `bun:",notnull,default:'pending'" json:"status"`
-	EligibleAfter    time.Time `bun:"eligible_after,notnull" json:"eligible_after"`
-	DeadlineAt       time.Time `bun:"deadline_at,notnull" json:"deadline_at"`
-	NextCheckAt      time.Time `bun:"next_check_at,nullzero" json:"next_check_at"`
-	CheckCount       int       `bun:"check_count,notnull,default:0" json:"check_count"`
-	LastMetricsJSON  string    `bun:"last_metrics_json,notnull,default:'{}'" json:"last_metrics_json"`
-	ExternalID       string    `bun:"external_id,notnull,default:''" json:"external_id,omitempty"`
-	ExternalURL      string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
-	ErrorCode        string    `bun:"error_code,notnull,default:''" json:"error_code,omitempty"`
-	ErrorMessage     string    `bun:"error_message,notnull,default:''" json:"error_message,omitempty"`
-	CompletedAt      time.Time `bun:"completed_at,nullzero" json:"completed_at,omitempty"`
-	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID                   string    `bun:",pk" json:"id"`
+	WorkspaceID          string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	PublicationID        string    `bun:"publication_id,notnull" json:"publication_id"`
+	RenditionID          string    `bun:"rendition_id,notnull,unique:rendition_target" json:"rendition_id"`
+	SourceAccountID      string    `bun:"source_account_id,notnull" json:"source_account_id"`
+	TargetAccountID      string    `bun:"target_account_id,notnull,unique:rendition_target" json:"target_account_id"`
+	PolicyID             string    `bun:"policy_id,nullzero" json:"policy_id,omitempty"`
+	RuleSnapshotJSON     string    `bun:"rule_snapshot_json,notnull,default:'{}'" json:"rule_snapshot_json"`
+	Status               string    `bun:",notnull,default:'pending'" json:"status"`
+	CurrentStage         int       `bun:"current_stage,notnull,default:1" json:"current_stage"`
+	TotalStages          int       `bun:"total_stages,notnull,default:1" json:"total_stages"`
+	StageStatus          string    `bun:"stage_status,notnull,default:'pending'" json:"stage_status"`
+	LastRepostExternalID string    `bun:"last_repost_external_id,notnull,default:''" json:"last_repost_external_id,omitempty"`
+	StageHistoryJSON     string    `bun:"stage_history_json,notnull,default:'[]'" json:"stage_history_json"`
+	EligibleAfter        time.Time `bun:"eligible_after,notnull" json:"eligible_after"`
+	DeadlineAt           time.Time `bun:"deadline_at,notnull" json:"deadline_at"`
+	NextCheckAt          time.Time `bun:"next_check_at,nullzero" json:"next_check_at"`
+	CheckCount           int       `bun:"check_count,notnull,default:0" json:"check_count"`
+	LastMetricsJSON      string    `bun:"last_metrics_json,notnull,default:'{}'" json:"last_metrics_json"`
+	ExternalID           string    `bun:"external_id,notnull,default:''" json:"external_id,omitempty"`
+	ExternalURL          string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
+	ErrorCode            string    `bun:"error_code,notnull,default:''" json:"error_code,omitempty"`
+	ErrorMessage         string    `bun:"error_message,notnull,default:''" json:"error_message,omitempty"`
+	CompletedAt          time.Time `bun:"completed_at,nullzero" json:"completed_at,omitempty"`
+	CreatedAt            time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt            time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // PublicationSegment is an ordered canonical content unit. A post has one

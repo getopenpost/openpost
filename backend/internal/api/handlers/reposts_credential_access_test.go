@@ -48,6 +48,15 @@ func (*repostCredentialAdapter) Repost(
 	return platform.RepostResult{}, nil
 }
 
+func (*repostCredentialAdapter) Unrepost(
+	context.Context,
+	string,
+	string,
+	platform.UnrepostRequest,
+) error {
+	return nil
+}
+
 type repostCredentialTestServer struct {
 	echo *echo.Echo
 	db   *bun.DB

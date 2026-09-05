@@ -270,3 +270,54 @@ func TestLinkedInHideCommentUnsupported(t *testing.T) {
 		t.Fatalf("expected unsupported comment action, got %v", err)
 	}
 }
+
+func TestLinkedInUnrepost(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	called := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodDelete || req.URL.String() != "https://api.linkedin.com/rest/posts/urn:li:share:12345" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		if req.Header.Get(headerAuthorization) != "Bearer li-token" {
+			t.Fatalf("unexpected auth header %q", req.Header.Get(headerAuthorization))
+		}
+		called = true
+		return jsonResponseWithStatus(req, http.StatusNoContent, ""), nil
+	})}
+
+	adapter := NewLinkedInAdapter("", "", "", false)
+	err := adapter.Unrepost(context.Background(), "li-token", "target-acct", UnrepostRequest{
+		RepostExternalID: "urn:li:share:12345",
+	})
+	if err != nil {
+		t.Fatalf("Unrepost returned error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected delete request to be made")
+	}
+}
+
+func TestLinkedInUnrepostIdempotent404(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"error":"Not Found"}`)),
+			Request:    req,
+		}, nil
+	})}
+
+	adapter := NewLinkedInAdapter("", "", "", false)
+	err := adapter.Unrepost(context.Background(), "li-token", "target-acct", UnrepostRequest{
+		RepostExternalID: "urn:li:share:12345",
+	})
+	if err != nil {
+		t.Fatalf("expected nil for 404, got: %v", err)
+	}
+}
+

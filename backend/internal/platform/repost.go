@@ -16,8 +16,18 @@ type RepostResult struct {
 	ExternalURL string
 }
 
+type UnrepostRequest struct {
+	SourceAccountID   string
+	SourceInstanceURL string
+	SourceExternalID  string
+	SourceExternalURL string
+	RepostExternalID  string
+}
+
 // RepostAdapter is an optional capability. Keeping it out of Adapter lets
 // providers without a native repost API remain valid publishing adapters.
 type RepostAdapter interface {
 	Repost(ctx context.Context, accessToken, targetAccountID string, req RepostRequest) (RepostResult, error)
+	Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error
 }
+

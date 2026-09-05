@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -742,6 +743,34 @@ func (x *XAdapter) Repost(ctx context.Context, accessToken, targetAccountID stri
 	}
 	return RepostResult{ExternalID: req.ExternalID, ExternalURL: req.ExternalURL}, nil
 }
+
+func (x *XAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error {
+	sourceTweetID := strings.TrimSpace(req.SourceExternalID)
+	if sourceTweetID == "" {
+		sourceTweetID = strings.TrimSpace(req.RepostExternalID)
+	}
+	if strings.TrimSpace(targetAccountID) == "" || sourceTweetID == "" {
+		return fmt.Errorf("x unrepost requires a target account and source post id")
+	}
+	endpoint := x.apiURL("/2/users/" + url.PathEscape(targetAccountID) + "/retweets/" + url.PathEscape(sourceTweetID))
+	_, err := x.doSignedRequest(
+		ctx,
+		accessToken,
+		http.MethodDelete,
+		endpoint,
+		nil,
+		nil,
+	)
+	if err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotFound || httpErr.StatusCode == http.StatusGone) {
+			return nil
+		}
+		return fmt.Errorf("unreposting on X: %w", err)
+	}
+	return nil
+}
+
 
 func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {
 	payload := map[string]interface{}{

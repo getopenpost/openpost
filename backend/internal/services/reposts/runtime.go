@@ -225,26 +225,36 @@ func (s *Service) createExecution(
 		return err
 	}
 	now := time.Now().UTC()
-	eligibleAfter := publishedAt.Add(time.Duration(rule.DelaySeconds) * time.Second)
+	totalStages := len(rule.Stages)
+	if totalStages == 0 {
+		totalStages = 1
+	}
+	firstStageDelay := rule.Stages[0].DelaySeconds
+	eligibleAfter := publishedAt.Add(time.Duration(firstStageDelay) * time.Second)
 	deadline := publishedAt.Add(time.Duration(rule.EvaluationWindowSeconds) * time.Second)
 	if deadline.Before(now) {
 		return nil
 	}
 	execution := &models.RepostExecution{
-		ID:               uuid.NewString(),
-		WorkspaceID:      publication.WorkspaceID,
-		PublicationID:    publication.ID,
-		RenditionID:      rendition.ID,
-		SourceAccountID:  source.ID,
-		TargetAccountID:  target.ID,
-		PolicyID:         policyID,
-		RuleSnapshotJSON: string(snapshot),
-		Status:           StatusPending,
-		EligibleAfter:    eligibleAfter,
-		DeadlineAt:       deadline,
-		NextCheckAt:      maxTime(now, eligibleAfter),
-		CreatedAt:        now,
-		UpdatedAt:        now,
+		ID:                   uuid.NewString(),
+		WorkspaceID:          publication.WorkspaceID,
+		PublicationID:        publication.ID,
+		RenditionID:          rendition.ID,
+		SourceAccountID:      source.ID,
+		TargetAccountID:      target.ID,
+		PolicyID:             policyID,
+		RuleSnapshotJSON:     string(snapshot),
+		Status:               StatusPending,
+		CurrentStage:         1,
+		TotalStages:          totalStages,
+		StageStatus:          StatusPending,
+		LastRepostExternalID: "",
+		StageHistoryJSON:     "[]",
+		EligibleAfter:        eligibleAfter,
+		DeadlineAt:           deadline,
+		NextCheckAt:          maxTime(now, eligibleAfter),
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 	result, err := s.db.NewInsert().Model(execution).On("CONFLICT (rendition_id, target_account_id) DO NOTHING").Exec(ctx)
 	if err != nil {
@@ -261,6 +271,7 @@ func (s *Service) createExecution(
 		"target_account_id": target.ID,
 		"eligible_after":    eligibleAfter.Format(time.RFC3339),
 		"deadline_at":       deadline.Format(time.RFC3339),
+		"total_stages":      totalStages,
 	})
 	return nil
 }
@@ -300,9 +311,16 @@ func (s *Service) evaluate(ctx context.Context, executionID string) error {
 	execution.UpdatedAt = now
 	if eligible {
 		execution.Status = StatusReady
+		execution.StageStatus = StatusReady
 		execution.NextCheckAt = now
-		if _, err := s.db.NewUpdate().Model(execution).Column("status", "next_check_at", "check_count", "last_metrics_json", "updated_at").Where("id = ? AND status = ?", execution.ID, StatusPending).Exec(ctx); err != nil {
+		res, err := s.db.NewUpdate().Model(execution).
+			Column("status", "stage_status", "next_check_at", "check_count", "last_metrics_json", "updated_at").
+			Where("id = ? AND status = ?", execution.ID, StatusPending).Exec(ctx)
+		if err != nil {
 			return err
+		}
+		if rows, _ := res.RowsAffected(); rows == 0 {
+			return nil
 		}
 		return s.enqueueExecution(ctx, execution.ID, JobTypeExecute, now)
 	}
@@ -317,7 +335,7 @@ func (s *Service) evaluate(ctx context.Context, executionID string) error {
 }
 
 func (s *Service) execute(ctx context.Context, executionID string) error {
-	execution, _, err := s.loadExecutionRule(ctx, executionID, StatusReady)
+	execution, rule, err := s.loadExecutionRule(ctx, executionID, StatusReady)
 	if err != nil || execution == nil {
 		return err
 	}
@@ -346,29 +364,146 @@ func (s *Service) execute(ctx context.Context, executionID string) error {
 		s.markExecutionFailed(ctx, execution, "authentication_failed", "The target account needs to be reconnected.")
 		return fmt.Errorf("repost target authentication: %w", err)
 	}
+
+	currentStageIdx := execution.CurrentStage - 1
+	if currentStageIdx < 0 {
+		currentStageIdx = 0
+	}
+	var currentStage RepostStage
+	if currentStageIdx < len(rule.Stages) {
+		currentStage = rule.Stages[currentStageIdx]
+	} else {
+		currentStage = RepostStage{Stage: execution.CurrentStage, DelaySeconds: rule.DelaySeconds}
+	}
+
+	var history []StageHistoryEntry
+	if execution.StageHistoryJSON != "" && execution.StageHistoryJSON != "[]" {
+		_ = json.Unmarshal([]byte(execution.StageHistoryJSON), &history)
+	}
+
+	if execution.CurrentStage >= 2 && currentStage.UnrepostPrevious {
+		lastRepostID := strings.TrimSpace(execution.LastRepostExternalID)
+		if lastRepostID == "" {
+			lastRepostID = strings.TrimSpace(execution.ExternalID)
+		}
+		unrepostReq := platform.UnrepostRequest{
+			SourceAccountID:   source.AccountID,
+			SourceInstanceURL: source.InstanceURL,
+			SourceExternalID:  rendition.ExternalID,
+			SourceExternalURL: repostSourceURL(source, rendition),
+			RepostExternalID:  lastRepostID,
+		}
+		if unrepostErr := adapter.Unrepost(ctx, token, target.AccountID, unrepostReq); unrepostErr != nil {
+			retryNow := time.Now().UTC()
+			backoffTime := retryNow.Add(5 * time.Minute)
+			execution.NextCheckAt = backoffTime
+			execution.StageStatus = StatusPending
+			execution.Status = StatusPending
+			execution.UpdatedAt = retryNow
+			_, _ = s.db.NewUpdate().Model(execution).
+				Column("status", "stage_status", "next_check_at", "updated_at").
+				Where("id = ?", execution.ID).Exec(ctx)
+			_ = s.enqueueExecution(ctx, execution.ID, JobTypeEvaluate, backoffTime)
+			return fmt.Errorf("unreposting previous stage: %w", unrepostErr)
+		}
+		unrepostedAt := time.Now().UTC()
+		if len(history) > 0 {
+			history[len(history)-1].UnrepostedAt = unrepostedAt
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
+	}
+
 	result, err := s.executeRepostWrite(ctx, *execution, source, target, rendition, adapter, token)
 	if err != nil {
 		s.markExecutionFailed(ctx, execution, "provider_write_failed", "The provider write failed. OpenPost did not retry because the result may be ambiguous.")
 		return err
 	}
+
 	now := time.Now().UTC()
-	execution.Status = StatusSucceeded
+
+	history = append(history, StageHistoryEntry{
+		Stage:            execution.CurrentStage,
+		DelaySeconds:     currentStage.DelaySeconds,
+		UnrepostPrevious: currentStage.UnrepostPrevious,
+		RepostExternalID: result.ExternalID,
+		ExternalURL:      result.ExternalURL,
+		ExecutedAt:       now,
+	})
+	historyJSON, _ := json.Marshal(history)
+	execution.StageHistoryJSON = string(historyJSON)
+	execution.LastRepostExternalID = result.ExternalID
 	execution.ExternalID = result.ExternalID
 	execution.ExternalURL = result.ExternalURL
 	execution.ErrorCode = ""
 	execution.ErrorMessage = ""
+	execution.UpdatedAt = now
+
+	var publication models.Publication
+	_ = s.db.NewSelect().Model(&publication).Where("id = ?", execution.PublicationID).Scan(ctx)
+	publishedAt := publication.ActualRunAt
+	if publishedAt.IsZero() {
+		publishedAt = rendition.UpdatedAt
+	}
+	if publishedAt.IsZero() {
+		publishedAt = execution.CreatedAt
+	}
+
+	if execution.CurrentStage < execution.TotalStages && execution.CurrentStage < len(rule.Stages) {
+		nextStageIdx := execution.CurrentStage
+		nextStage := rule.Stages[nextStageIdx]
+		nextEligibleAfter := publishedAt.Add(time.Duration(nextStage.DelaySeconds) * time.Second)
+
+		execution.CurrentStage++
+		execution.Status = StatusPending
+		execution.StageStatus = StatusPending
+		execution.EligibleAfter = nextEligibleAfter
+		execution.NextCheckAt = maxTime(now, nextEligibleAfter)
+
+		res, err := s.db.NewUpdate().Model(execution).
+			Column("current_stage", "status", "stage_status", "eligible_after", "next_check_at", "last_repost_external_id", "external_id", "external_url", "stage_history_json", "error_code", "error_message", "updated_at").
+			Where("id = ? AND status = ?", execution.ID, StatusReady).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if rows, _ := res.RowsAffected(); rows == 0 {
+			return nil
+		}
+		if err := s.enqueueExecution(ctx, execution.ID, JobTypeEvaluate, execution.NextCheckAt); err != nil {
+			return err
+		}
+		s.recordEvent(ctx, *execution, lifecycle.StatusInfo, fmt.Sprintf("stage %d reposted; stage %d scheduled", execution.CurrentStage-1, execution.CurrentStage), map[string]any{
+			"target_account_id": target.ID,
+			"external_id":       result.ExternalID,
+			"external_url":      result.ExternalURL,
+			"current_stage":     execution.CurrentStage,
+			"total_stages":      execution.TotalStages,
+			"next_check_at":     execution.NextCheckAt.Format(time.RFC3339),
+		})
+		return nil
+	}
+
+	execution.Status = StatusSucceeded
+	execution.StageStatus = StatusSucceeded
 	execution.NextCheckAt = time.Time{}
 	execution.CompletedAt = now
-	execution.UpdatedAt = now
-	if _, err := s.db.NewUpdate().Model(execution).
-		Column("status", "external_id", "external_url", "error_code", "error_message", "next_check_at", "completed_at", "updated_at").
-		Where("id = ? AND status = ?", execution.ID, StatusReady).Exec(ctx); err != nil {
+	res, err := s.db.NewUpdate().Model(execution).
+		Column("status", "stage_status", "last_repost_external_id", "external_id", "external_url", "stage_history_json", "error_code", "error_message", "next_check_at", "completed_at", "updated_at").
+		Where("id = ? AND status = ?", execution.ID, StatusReady).Exec(ctx)
+	if err != nil {
 		return err
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return nil
 	}
 	s.recordEvent(ctx, *execution, lifecycle.StatusSucceeded, "post reposted", map[string]any{
 		"target_account_id": target.ID,
 		"external_id":       result.ExternalID,
 		"external_url":      result.ExternalURL,
+		"total_stages":      execution.TotalStages,
 	})
 	return nil
 }
@@ -385,13 +520,26 @@ func (s *Service) executeRepostWrite(
 		SourceAccountID: source.AccountID, SourceInstanceURL: source.InstanceURL,
 		ExternalID: rendition.ExternalID, ExternalURL: repostSourceURL(source, rendition),
 	}
-	fingerprint, err := providerwrite.Fingerprint("provider-repost-v1", request)
+	var fingerprint string
+	var err error
+	if execution.CurrentStage > 1 {
+		fingerprint, err = providerwrite.Fingerprint("provider-repost-v1", struct {
+			Request platform.RepostRequest `json:"request"`
+			Stage   int                    `json:"stage"`
+		}{Request: request, Stage: execution.CurrentStage})
+	} else {
+		fingerprint, err = providerwrite.Fingerprint("provider-repost-v1", request)
+	}
 	if err != nil {
 		return platform.PublishResult{}, err
 	}
+	operationID := "repost:" + execution.ID
+	if execution.CurrentStage > 1 {
+		operationID = fmt.Sprintf("repost:%s:stage:%d", execution.ID, execution.CurrentStage)
+	}
 	jobExecution, _ := providerwrite.JobExecutionFromContext(ctx)
 	return providerwrite.New(s.db).Execute(ctx, providerwrite.Input{
-		OperationID: "repost:" + execution.ID,
+		OperationID: operationID,
 		JobID:       jobExecution.ID, WorkspaceID: execution.WorkspaceID,
 		SocialAccountID: target.ID, TargetKey: repostProviderKey(target),
 		Provider: target.Platform, Operation: "repost", PayloadFingerprint: fingerprint,
@@ -482,8 +630,9 @@ func (s *Service) executionUnavailableReason(ctx context.Context, execution mode
 
 func (s *Service) rescheduleEvaluation(ctx context.Context, execution *models.RepostExecution, runAt time.Time) error {
 	execution.NextCheckAt = runAt
+	execution.StageStatus = StatusPending
 	execution.UpdatedAt = time.Now().UTC()
-	if _, err := s.db.NewUpdate().Model(execution).Column("next_check_at", "updated_at").Where("id = ? AND status = ?", execution.ID, StatusPending).Exec(ctx); err != nil {
+	if _, err := s.db.NewUpdate().Model(execution).Column("next_check_at", "stage_status", "updated_at").Where("id = ? AND status = ?", execution.ID, StatusPending).Exec(ctx); err != nil {
 		return err
 	}
 	return s.enqueueExecution(ctx, execution.ID, JobTypeEvaluate, runAt)
@@ -491,8 +640,9 @@ func (s *Service) rescheduleEvaluation(ctx context.Context, execution *models.Re
 
 func (s *Service) rescheduleEvaluationWithMetrics(ctx context.Context, execution *models.RepostExecution, runAt time.Time) error {
 	execution.NextCheckAt = runAt
+	execution.StageStatus = StatusPending
 	if _, err := s.db.NewUpdate().Model(execution).
-		Column("next_check_at", "check_count", "last_metrics_json", "updated_at").
+		Column("next_check_at", "stage_status", "check_count", "last_metrics_json", "updated_at").
 		Where("id = ? AND status = ?", execution.ID, StatusPending).Exec(ctx); err != nil {
 		return err
 	}
@@ -502,13 +652,14 @@ func (s *Service) rescheduleEvaluationWithMetrics(ctx context.Context, execution
 func (s *Service) finishExecution(ctx context.Context, execution *models.RepostExecution, code, message string) error {
 	now := time.Now().UTC()
 	execution.Status = StatusSkipped
+	execution.StageStatus = StatusSkipped
 	execution.ErrorCode = code
 	execution.ErrorMessage = message
 	execution.NextCheckAt = time.Time{}
 	execution.CompletedAt = now
 	execution.UpdatedAt = now
 	if _, err := s.db.NewUpdate().Model(execution).
-		Column("status", "error_code", "error_message", "next_check_at", "check_count", "last_metrics_json", "completed_at", "updated_at").
+		Column("status", "stage_status", "error_code", "error_message", "next_check_at", "check_count", "last_metrics_json", "completed_at", "updated_at").
 		Where("id = ?", execution.ID).Exec(ctx); err != nil {
 		return err
 	}
@@ -523,13 +674,14 @@ func (s *Service) finishExecution(ctx context.Context, execution *models.RepostE
 func (s *Service) markExecutionFailed(ctx context.Context, execution *models.RepostExecution, code, message string) {
 	now := time.Now().UTC()
 	execution.Status = StatusFailed
+	execution.StageStatus = StatusFailed
 	execution.ErrorCode = code
 	execution.ErrorMessage = message
 	execution.NextCheckAt = time.Time{}
 	execution.CompletedAt = now
 	execution.UpdatedAt = now
 	_, _ = s.db.NewUpdate().Model(execution).
-		Column("status", "error_code", "error_message", "next_check_at", "completed_at", "updated_at").
+		Column("status", "stage_status", "error_code", "error_message", "next_check_at", "completed_at", "updated_at").
 		Where("id = ?", execution.ID).Exec(ctx)
 	s.recordEvent(ctx, *execution, lifecycle.StatusFailed, "repost failed", map[string]any{
 		"target_account_id": execution.TargetAccountID,
@@ -557,6 +709,8 @@ func (s *Service) enqueueExecution(ctx context.Context, executionID, jobType str
 		if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
 			return err
 		}
+		job.ScopeID = workspaceID
+		job.DedupeKey = fmt.Sprintf("repost:%s:%s", executionID, jobType)
 		_, err := tx.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(txCtx)
 		return err
 	})

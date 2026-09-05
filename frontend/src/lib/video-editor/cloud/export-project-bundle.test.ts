@@ -30,7 +30,7 @@ describe('cloud Video Project bundle export', () => {
 				}
 			]
 		};
-		const runtime = createCloudBundleRuntime(repository as never);
+		const runtime = createCloudBundleRuntime(repository);
 
 		const snapshot = await runtime.exportSnapshot('project-1');
 		expect(snapshot.project).toEqual(expect.objectContaining({ id: 'project-1', name: 'Launch' }));

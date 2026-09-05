@@ -14,8 +14,12 @@ import type {
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import type { MediaMetadata } from '../media/types';
 import type { Project } from '../project/types';
-import type { CloudVideoProjectRepository } from './project-repository';
 import { m } from '$lib/paraglide/messages';
+
+export interface CloudBundleRepository {
+	get(projectId: string): Promise<{ document: Project }>;
+	listMedia(projectId: string): Promise<MediaMetadata[]>;
+}
 
 function mediaReference(media: MediaMetadata): SnapshotMediaReference {
 	return {
@@ -31,9 +35,7 @@ function mediaReference(media: MediaMetadata): SnapshotMediaReference {
 	};
 }
 
-export function createCloudBundleRuntime(
-	repository: CloudVideoProjectRepository<Project>
-): BundleExportRuntime {
+export function createCloudBundleRuntime(repository: CloudBundleRepository): BundleExportRuntime {
 	const mediaByProject = new Map<string, Promise<MediaMetadata[]>>();
 	const media = (projectId: string) => {
 		const existing = mediaByProject.get(projectId);
@@ -72,7 +74,7 @@ export function createCloudBundleRuntime(
 }
 
 export async function saveCloudProjectBundle(
-	repository: CloudVideoProjectRepository<Project>,
+	repository: CloudBundleRepository,
 	projectId: string,
 	projectName: string,
 	onProgress?: (progress: BundleProgress) => void,
@@ -93,7 +95,11 @@ export async function saveCloudProjectBundle(
 		});
 		const writable = await handle.createWritable();
 		const output: BundleOutput = {
-			write: (chunk) => writable.write(chunk as Uint8Array<ArrayBuffer>),
+			write: (chunk) => {
+				const owned = new Uint8Array(chunk.byteLength);
+				owned.set(chunk);
+				return writable.write(owned);
+			},
 			close: () => writable.close(),
 			abort: (reason) => writable.abort(reason)
 		};

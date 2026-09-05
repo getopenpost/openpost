@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { z } from 'zod';
 import { uploadMediaFile } from '$lib/media-upload-client';
 import type { Project } from '$lib/video-editor/project/types';
 import { hashBlob } from '$lib/video-editor/project-bundle/bundle-utils';
@@ -7,21 +8,27 @@ import { getMediaForProject } from '$lib/video-editor/workspace-fs/project-media
 import type { CloudVideoProject, CloudVideoProjectRepository } from './project-repository';
 
 const IMPORT_IDS_KEY = 'openpost:video-project-local-imports:v1';
+const storedImportIdsSchema = z.record(z.string(), z.string());
 
 function importId(workspaceId: string, localProjectId: string): string {
 	if (!browser) return crypto.randomUUID();
-	let ids: Record<string, string> = {};
-	try {
-		ids = JSON.parse(localStorage.getItem(IMPORT_IDS_KEY) ?? '{}') as Record<string, string>;
-	} catch {
-		ids = {};
-	}
+	const ids = storedImportIds(localStorage.getItem(IMPORT_IDS_KEY));
 	const key = `${workspaceId}:${localProjectId}`;
 	const existing = ids[key];
 	if (existing) return existing;
 	const created = crypto.randomUUID();
 	localStorage.setItem(IMPORT_IDS_KEY, JSON.stringify({ ...ids, [key]: created }));
 	return created;
+}
+
+function storedImportIds(raw: string | null): { [key: string]: string } {
+	if (!raw) return {};
+	try {
+		const result = storedImportIdsSchema.safeParse(JSON.parse(raw));
+		return result.success ? result.data : {};
+	} catch {
+		return {};
+	}
 }
 
 /** Import is intentionally idempotent. The local project and its files remain untouched. */

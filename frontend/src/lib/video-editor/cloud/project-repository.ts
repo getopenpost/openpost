@@ -6,6 +6,8 @@ import {
 	type PendingVideoProjectMutation,
 	type VideoProjectMutationOperation
 } from '@openpost/video-project';
+import type { components } from '@openpost/api-contract';
+import { z } from 'zod';
 import { browser } from '$app/environment';
 import { client } from '$lib/api/client';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
@@ -20,6 +22,28 @@ const OUTBOX_DATABASE = 'openpost-video-project-sync';
 const OUTBOX_STORE = 'state';
 const OUTBOX_KEY = 'mutation-outbox-v1';
 const DEVICE_KEY = 'openpost:video-project-device-id:v1';
+
+const pendingVideoProjectMutationSchema = z.object({
+	projectId: z.string(),
+	batch: z.object({
+		workspace_id: z.string(),
+		mutation_id: z.string(),
+		base_revision: z.number(),
+		device_id: z.string().optional(),
+		operations: z.array(
+			z.object({
+				kind: z.enum(['set', 'delete']),
+				target: z.string(),
+				path: z.string().startsWith('/'),
+				value: z.unknown().optional()
+			})
+		)
+	}),
+	queuedAt: z.number(),
+	attempts: z.number()
+});
+const cloudDocumentSchema = z.looseObject({});
+type CloudVideoProjectDocument = components['schemas']['VideoProjectResponse']['document'];
 
 export function purgeCloudVideoProjectDeviceData(): void {
 	if (!browser) return;
@@ -75,8 +99,10 @@ class BrowserMutationStorage implements MutationOutboxStorage {
 		const database = await openOutboxDatabase();
 		return new Promise((resolve, reject) => {
 			const request = database.transaction(OUTBOX_STORE).objectStore(OUTBOX_STORE).get(OUTBOX_KEY);
-			request.onsuccess = () =>
-				resolve((request.result as PendingVideoProjectMutation[] | undefined) ?? []);
+			request.onsuccess = () => {
+				const stored = request.result;
+				resolve(Array.isArray(stored) ? stored.filter(isPendingMutation) : []);
+			};
 			request.onerror = () =>
 				reject(request.error ?? new Error('Could not read the Video Project outbox'));
 		});
@@ -93,6 +119,10 @@ class BrowserMutationStorage implements MutationOutboxStorage {
 				reject(transaction.error ?? new Error('Could not save the Video Project outbox'));
 		});
 	}
+}
+
+function isPendingMutation(value: unknown): value is PendingVideoProjectMutation {
+	return pendingVideoProjectMutationSchema.safeParse(value).success;
 }
 
 function openOutboxDatabase(): Promise<IDBDatabase> {
@@ -119,7 +149,7 @@ function cloudProject<TDocument extends object>(raw: {
 	workspace_id: string;
 	name: string;
 	head_revision: number;
-	document: Record<string, unknown>;
+	document: CloudVideoProjectDocument;
 	sync_status: CloudVideoProject<TDocument>['syncStatus'];
 	attention_reason?: string;
 	trashed_at?: string;
@@ -130,12 +160,19 @@ function cloudProject<TDocument extends object>(raw: {
 		workspaceId: raw.workspace_id,
 		name: raw.name,
 		headRevision: raw.head_revision,
-		document: raw.document as TDocument,
+		document: documentFromAPI<TDocument>(raw.document),
 		syncStatus: raw.sync_status,
 		attentionReason: raw.attention_reason ?? '',
 		trashedAt: raw.trashed_at ?? '',
 		updatedAt: raw.updated_at
 	};
+}
+
+function documentFromAPI<TDocument extends object>(value: CloudVideoProjectDocument): TDocument {
+	const result = cloudDocumentSchema.safeParse(value);
+	if (!result.success) throw new Error('Cloud Video Project document must be an object');
+	// SAFETY: Zod proved this is a JSON object. The editor validates its versioned document when loading it.
+	return result.data as TDocument;
 }
 
 export class CloudVideoProjectRepository<TDocument extends object> {
@@ -193,8 +230,8 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 	async save(project: CloudVideoProject<TDocument>, document: TDocument): Promise<void> {
 		const portable = portableVideoProjectDocument(document);
 		const operations = videoProjectMutationOperations(
-			project.document as Record<string, unknown>,
-			portable as Record<string, unknown>
+			project.document,
+			portable
 		) satisfies VideoProjectMutationOperation[];
 		if (operations.length === 0) return;
 		await this.outbox.enqueue({
@@ -227,7 +264,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			revision: revision.revision,
 			parentRevision: revision.parent_revision,
 			kind: revision.kind,
-			document: revision.document as TDocument,
+			document: documentFromAPI<TDocument>(revision.document),
 			createdAt: revision.created_at,
 			expiresAt: revision.expires_at ?? '',
 			checkpointNames: revision.checkpoint_names ?? [],
@@ -246,7 +283,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 		return data.map((conflict) => ({
 			id: conflict.id,
 			name: conflict.name,
-			document: conflict.document as TDocument,
+			document: documentFromAPI<TDocument>(conflict.document),
 			overlapTargets: conflict.overlap_targets,
 			createdAt: conflict.created_at
 		}));

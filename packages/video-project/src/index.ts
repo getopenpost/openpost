@@ -195,6 +195,7 @@ const DEVICE_ONLY_KEYS = new Set([
 ]);
 
 export function portableVideoProjectDocument<T extends object>(document: T): T {
+  // SAFETY: stripDeviceState preserves the input object's shape while removing device-only keys recursively.
   return stripDeviceState(structuredClone(document)) as T;
 }
 
@@ -207,19 +208,21 @@ const STABLE_TIMELINE_COLLECTIONS = new Set(["tracks", "items", "transitions", "
  * independently across devices.
  */
 export function videoProjectMutationOperations(
-  previousDocument: Record<string, unknown>,
-  nextDocument: Record<string, unknown>,
+  previousDocument: object,
+  nextDocument: object,
 ): VideoProjectMutationOperation[] {
   const previous = portableVideoProjectDocument(previousDocument);
   const next = portableVideoProjectDocument(nextDocument);
   const operations: VideoProjectMutationOperation[] = [];
   const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
   for (const key of [...keys].sort()) {
-    if (key === "timeline" && isRecord(previous[key]) && isRecord(next[key])) {
-      diffTimeline(previous[key], next[key], operations);
+    const before = Reflect.get(previous, key);
+    const after = Reflect.get(next, key);
+    if (key === "timeline" && isRecord(before) && isRecord(after)) {
+      diffTimeline(before, after, operations);
       continue;
     }
-    appendValueMutation(operations, previous[key], next[key], `project:${key}`, `/${pointer(key)}`);
+    appendValueMutation(operations, before, after, `project:${key}`, `/${pointer(key)}`);
   }
   return operations;
 }

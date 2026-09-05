@@ -27,20 +27,24 @@ describe('media-upload-client', () => {
 			limit_bytes: 0,
 			used_bytes: 0
 		} satisfies MediaStorage);
-		const fetchMock = vi.fn().mockResolvedValue(
-			Response.json({
-				media_id: 'server-media-1',
-				deduped: true,
-				complete_url: '/api/v1/media/upload-session/server-media-1/complete',
-				upload: {
-					method: 'PUT',
-					url: '/api/v1/media/upload-session/server-media-1/content',
-					headers: {},
-					expires_at: '2026-09-05T00:00:00Z',
-					object_key: 'server-media-1.mp4'
-				}
-			})
-		);
+		let capturedRequest: RequestInit | undefined;
+		const fetchMock = vi.fn((_input: RequestInfo | URL, request?: RequestInit) => {
+			capturedRequest = request;
+			return Promise.resolve(
+				Response.json({
+					media_id: 'server-media-1',
+					deduped: true,
+					complete_url: '/api/v1/media/upload-session/server-media-1/complete',
+					upload: {
+						method: 'PUT',
+						url: '/api/v1/media/upload-session/server-media-1/content',
+						headers: {},
+						expires_at: '2026-09-05T00:00:00Z',
+						object_key: 'server-media-1.mp4'
+					}
+				})
+			);
+		});
 		vi.stubGlobal('fetch', fetchMock);
 
 		await uploadMediaFile({
@@ -54,8 +58,8 @@ describe('media-upload-client', () => {
 			prepareVideo: false
 		});
 
-		const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-		expect(JSON.parse(String(request.body))).toMatchObject({
+		expect(capturedRequest).toBeDefined();
+		expect(JSON.parse(String(capturedRequest?.body))).toMatchObject({
 			asset_kind: 'project_asset',
 			client_sha256: 'a'.repeat(64),
 			project_asset_id: 'project-asset-1',

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -495,6 +496,48 @@ func (b *BlueskyAdapter) Repost(ctx context.Context, accessToken, targetAccountI
 	return RepostResult{ExternalID: string(externalID), ExternalURL: req.ExternalURL}, nil
 }
 
+func (b *BlueskyAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error {
+	rkey := extractBlueskyRKey(req.RepostExternalID)
+	if strings.TrimSpace(targetAccountID) == "" || rkey == "" {
+		return fmt.Errorf("bluesky unrepost requires a target account and repost id")
+	}
+	payload := map[string]interface{}{
+		"repo":       targetAccountID,
+		"collection": "app.bsky.feed.repost",
+		"rkey":       rkey,
+	}
+	_, err := DoJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.deleteRecord", payload, map[string]string{
+		headerAuthorization: bearerPrefix + accessToken,
+	})
+	if err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotFound || httpErr.StatusCode == http.StatusBadRequest) {
+			return nil
+		}
+		return fmt.Errorf("unreposting on bluesky: %w", err)
+	}
+	return nil
+}
+
+func extractBlueskyRKey(externalID string) string {
+	trimmed := strings.TrimSpace(externalID)
+	if trimmed == "" {
+		return ""
+	}
+	var ref struct {
+		URI string `json:"uri"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &ref); err == nil && ref.URI != "" {
+		parts := strings.Split(ref.URI, "/")
+		return parts[len(parts)-1]
+	}
+	if strings.Contains(trimmed, "/") {
+		parts := strings.Split(trimmed, "/")
+		return parts[len(parts)-1]
+	}
+	return trimmed
+}
+
 func (b *BlueskyAdapter) buildPostRecord(_ string, req *PublishRequest, createdAt time.Time) (map[string]interface{}, error) {
 	record := map[string]interface{}{
 		bskyRecordTypeField: "app.bsky.feed.post",
@@ -536,10 +579,16 @@ func (b *BlueskyAdapter) resolveBlueskyComposerReferences(ctx context.Context, a
 	}
 	mentions := map[string]string{}
 	for _, match := range blueskyMentionPattern.FindAllStringSubmatch(req.Content, -1) {
-		if len(match) < 2 {
+		if len(match) == 0 || match[0] == "" {
 			continue
 		}
-		handle := strings.ToLower(strings.TrimSpace(match[1]))
+		handle := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(match[0]), "@"))
+		if handle == "" {
+			continue
+		}
+		if _, exists := mentions[handle]; exists {
+			continue
+		}
 		did, err := b.resolveBlueskyHandle(ctx, accessToken, handle)
 		if err != nil {
 			return err
@@ -661,7 +710,7 @@ func copyPlatformSettings(source map[string]interface{}) map[string]interface{} 
 
 var (
 	blueskyURLPattern     = regexp.MustCompile(`https?://[-A-Za-z0-9@:%._+~#=]{1,256}\.[A-Za-z0-9()]{1,6}\b[-A-Za-z0-9()@:%_+.~#?&/=]*`)
-	blueskyMentionPattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?`)
+	blueskyMentionPattern = regexp.MustCompile(`@((?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)`)
 	blueskyTagPattern     = regexp.MustCompile(`#[A-Za-z0-9_]+`)
 )
 

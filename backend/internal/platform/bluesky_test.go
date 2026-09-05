@@ -1,6 +1,11 @@
 package platform
 
 import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,3 +117,118 @@ func requireFacet(t *testing.T, facets []map[string]interface{}, byteStart, byte
 	}
 	require.Failf(t, "facet not found", "missing facet %d-%d in %#v", byteStart, byteEnd, facets)
 }
+
+func TestExtractBlueskyRKey(t *testing.T) {
+	// JSON with URI
+	require.Equal(t, "3lb7v4d3t2c2f", extractBlueskyRKey(`{"uri":"at://did:plc:123/app.bsky.feed.repost/3lb7v4d3t2c2f","cid":"bafy123"}`))
+	// Raw AT URI
+	require.Equal(t, "3lb7v4d3t2c2f", extractBlueskyRKey("at://did:plc:123/app.bsky.feed.repost/3lb7v4d3t2c2f"))
+	// Raw RKey
+	require.Equal(t, "3lb7v4d3t2c2f", extractBlueskyRKey("3lb7v4d3t2c2f"))
+	// Empty
+	require.Equal(t, "", extractBlueskyRKey(""))
+}
+
+func TestBlueskyUnrepost(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	called := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost || req.URL.String() != "https://bsky.social/xrpc/com.atproto.repo.deleteRecord" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		if req.Header.Get(headerAuthorization) != "Bearer bsky-token" {
+			t.Fatalf("unexpected auth header %q", req.Header.Get(headerAuthorization))
+		}
+		var payload map[string]string
+		body, _ := io.ReadAll(req.Body)
+		_ = json.Unmarshal(body, &payload)
+		require.Equal(t, "did:plc:user1", payload["repo"])
+		require.Equal(t, "app.bsky.feed.repost", payload["collection"])
+		require.Equal(t, "3lb7v4d3t2c2f", payload["rkey"])
+		called = true
+		return jsonResponse(req, `{}`), nil
+	})}
+
+	adapter := NewBlueskyAdapter("https://bsky.social")
+	err := adapter.Unrepost(context.Background(), "bsky-token", "did:plc:user1", UnrepostRequest{
+		RepostExternalID: `{"uri":"at://did:plc:user1/app.bsky.feed.repost/3lb7v4d3t2c2f","cid":"bafy123"}`,
+	})
+	require.NoError(t, err)
+	require.True(t, called)
+}
+
+func TestBlueskyUnrepostIdempotent400And404(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	for _, status := range []int{http.StatusBadRequest, http.StatusNotFound} {
+		httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: status,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"error":"RecordNotFound"}`)),
+				Request:    req,
+			}, nil
+		})}
+
+		adapter := NewBlueskyAdapter("https://bsky.social")
+		err := adapter.Unrepost(context.Background(), "bsky-token", "did:plc:user1", UnrepostRequest{
+			RepostExternalID: "3lb7v4d3t2c2f",
+		})
+		require.NoError(t, err)
+	}
+}
+
+func TestResolveBlueskyComposerReferencesMultiSegmentHandles(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	resolvedHandles := []string{}
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if strings.Contains(req.URL.Path, "com.atproto.identity.resolveHandle") {
+			handle := req.URL.Query().Get("handle")
+			resolvedHandles = append(resolvedHandles, handle)
+			if handle == "mercurykitsune.bsky.social" {
+				return jsonResponse(req, `{"did":"did:plc:mercury123"}`), nil
+			}
+			if handle == "anielde.bsky.social" {
+				return jsonResponse(req, `{"did":"did:plc:anielde123"}`), nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"error":"InvalidRequest","message":"Unable to resolve handle"}`)),
+				Request:    req,
+			}, nil
+		}
+		return jsonResponse(req, `{}`), nil
+	})}
+
+	adapter := NewBlueskyAdapter("https://bsky.social")
+	req := &PublishRequest{
+		Content:  "👅💦 ... @mercurykitsune.bsky.social doing the work of gods with @anielde.bsky.social 👌",
+		Settings: map[string]interface{}{},
+	}
+
+	err := adapter.resolveBlueskyComposerReferences(context.Background(), "test-token", req)
+	require.NoError(t, err)
+
+	require.Contains(t, resolvedHandles, "mercurykitsune.bsky.social")
+	require.Contains(t, resolvedHandles, "anielde.bsky.social")
+	require.NotContains(t, resolvedHandles, "bsky.")
+
+	rawDIDs, ok := req.Settings["mention_dids"].(string)
+	require.True(t, ok)
+	var mentionMap map[string]string
+	require.NoError(t, json.Unmarshal([]byte(rawDIDs), &mentionMap))
+	require.Equal(t, "did:plc:mercury123", mentionMap["mercurykitsune.bsky.social"])
+	require.Equal(t, "did:plc:anielde123", mentionMap["anielde.bsky.social"])
+
+	// Test facet generation
+	facets := buildBlueskyFacets(req.Content, req.Settings)
+	require.Len(t, facets, 2)
+}
+
+

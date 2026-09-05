@@ -2,6 +2,10 @@ import { QueryClient } from '@tanstack/svelte-query';
 import { openPostQueryKeys } from '@openpost/query-catalog';
 import { describe, expect, it } from 'vitest';
 import { createPublicationQueryInvalidationBridge } from './publication-invalidation';
+import {
+	PublicationInvalidationCoalescer,
+	publicationInvalidationForWorkspace
+} from '$lib/publication-invalidation';
 
 function seedQuery(client: QueryClient, queryKey: readonly unknown[]) {
 	client.setQueryData(queryKey, { seeded: true });
@@ -12,6 +16,68 @@ function isInvalidated(client: QueryClient, queryKey: readonly unknown[]) {
 }
 
 describe('publication query invalidation bridge', () => {
+	it.each([
+		{
+			scopes: ['activity', 'drafts'] as const,
+			activities: ['draft', 'scheduled'] as const,
+			stale: ['draft', 'scheduled']
+		},
+		{ scopes: ['activity'] as const, activities: ['draft'] as const, stale: ['draft'] }
+	])('refreshes only affected buckets for $activities', async ({ scopes, activities, stale }) => {
+		const client = new QueryClient();
+		const bridge = createPublicationQueryInvalidationBridge(client);
+		const buckets = ['draft', 'scheduled', 'published', 'failed'] as const;
+		for (const bucket of buckets)
+			seedQuery(
+				client,
+				openPostQueryKeys.publications.activity('workspace-1', bucket, { limit: 40 })
+			);
+		const jobs = openPostQueryKeys.jobs.failedPage('workspace-1', { limit: 50 });
+		seedQuery(client, jobs);
+		await bridge.observe({
+			revision: 1,
+			entries: [
+				{
+					workspaceId: 'workspace-1',
+					scopes: [...scopes],
+					activities: [...activities],
+					dateKeys: []
+				}
+			]
+		});
+		for (const bucket of buckets)
+			expect(
+				isInvalidated(
+					client,
+					openPostQueryKeys.publications.activity('workspace-1', bucket, { limit: 40 })
+				)
+			).toBe(stale.includes(bucket));
+		expect(isInvalidated(client, jobs)).toBe(false);
+	});
+
+	it.each([false, true])(
+		'keeps broad invalidations when batched with exact buckets, wildcard=%s',
+		async (wildcard) => {
+			const client = new QueryClient();
+			const bridge = createPublicationQueryInvalidationBridge(client);
+			const key = openPostQueryKeys.publications.activity('workspace-1', 'published', {
+				limit: 40
+			});
+			seedQuery(client, key);
+			const coalescer = new PublicationInvalidationCoalescer();
+			coalescer.add({ workspaceId: wildcard ? '*' : 'workspace-1', scopes: ['activity'] });
+			coalescer.add({
+				workspaceId: 'workspace-1',
+				scopes: ['activity'],
+				activities: ['scheduled']
+			});
+			const batch = coalescer.drain(1)!;
+			const entry = publicationInvalidationForWorkspace(batch, 'workspace-1')!;
+			await bridge.observe({ revision: 1, entries: [entry] });
+			expect(isInvalidated(client, key)).toBe(true);
+		}
+	);
+
 	it('handles every off-route batch without crossing workspace boundaries', async () => {
 		const client = new QueryClient();
 		const bridge = createPublicationQueryInvalidationBridge(client);

@@ -31,16 +31,13 @@ export function publicationInvalidationCachePlan(
     };
   }
 
-  const activityWorkspaceIds = new Set(activityEntries.map((entry) => entry.workspaceId));
   const draftWorkspaceIds = new Set(
-    draftEntries
-      .map((entry) => entry.workspaceId)
-      .filter((workspaceId) => workspaceId !== "*" && !activityWorkspaceIds.has(workspaceId)),
+    draftEntries.map((entry) => entry.workspaceId).filter((workspaceId) => workspaceId !== "*"),
   );
   const exactActivityBuckets = new Map<string, Set<ActivityPublicationBucket>>();
   const coarseActivityWorkspaceIds = new Set<string>();
   for (const entry of activityEntries) {
-    const buckets = entry.activities?.filter((bucket) => bucket !== "draft") ?? [];
+    const buckets = entry.activities ?? [];
     if (buckets.length === 0) {
       coarseActivityWorkspaceIds.add(entry.workspaceId);
       continue;
@@ -73,6 +70,11 @@ export function publicationInvalidationCachePlan(
     });
   }
   for (const workspaceId of draftWorkspaceIds) {
+    if (
+      coarseActivityWorkspaceIds.has(workspaceId) ||
+      exactActivityBuckets.get(workspaceId)?.has("draft")
+    )
+      continue;
     invalidate.push({
       queryKey: openPostQueryKeys.publications.activityAll(workspaceId, "draft"),
     });

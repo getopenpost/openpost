@@ -54,6 +54,7 @@ type PendingInvalidation = {
 	scopes: Set<PublicationRefreshScope>;
 	dateKeys: Set<string>;
 	activities: Set<ActivityPublicationBucket>;
+	coarseActivity: boolean;
 };
 
 /**
@@ -69,9 +70,12 @@ export class PublicationInvalidationCoalescer {
 		const pending = this.#pending.get(workspaceId) ?? {
 			scopes: new Set<PublicationRefreshScope>(),
 			dateKeys: new Set<string>(),
-			activities: new Set<ActivityPublicationBucket>()
+			activities: new Set<ActivityPublicationBucket>(),
+			coarseActivity: false
 		};
-		for (const scope of request.scopes?.length ? request.scopes : allScopes) {
+		const scopes = request.scopes?.length ? request.scopes : allScopes;
+		if (scopes.includes('activity') && !request.activities?.length) pending.coarseActivity = true;
+		for (const scope of scopes) {
 			pending.scopes.add(scope);
 		}
 		for (const dateKey of request.dateKeys ?? []) {
@@ -92,7 +96,7 @@ export class PublicationInvalidationCoalescer {
 					workspaceId,
 					scopes: [...pending.scopes].sort(),
 					dateKeys: [...pending.dateKeys].sort(),
-					activities: [...pending.activities].sort()
+					activities: pending.coarseActivity ? [] : [...pending.activities].sort()
 				})
 			)
 			.sort((left, right) => left.workspaceId.localeCompare(right.workspaceId));
@@ -113,6 +117,10 @@ export function publicationInvalidationForWorkspace(
 		workspaceId,
 		scopes: [...new Set(matching.flatMap((entry) => entry.scopes))].sort(),
 		dateKeys: [...new Set(matching.flatMap((entry) => entry.dateKeys))].sort(),
-		activities: [...new Set(matching.flatMap((entry) => entry.activities))].sort()
+		activities: matching.some(
+			(entry) => entry.scopes.includes('activity') && !entry.activities.length
+		)
+			? []
+			: [...new Set(matching.flatMap((entry) => entry.activities))].sort()
 	};
 }

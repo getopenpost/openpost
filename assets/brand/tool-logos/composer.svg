@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Composer" color="#B74C05">
+  <rect id="background" width="160" height="160" rx="36" fill="#B74C05"/>
+  <g id="symbol" transform="translate(16 16)" fill="#FFFFFF">
+    <path id="tool-field" fill-rule="evenodd" d="M24 4H40V36L64 68L88 36V4H104A20 20 0 0 1 124 24V60H84L64 80L44 60H4V24A20 20 0 0 1 24 4Z"/>
+    <path id="detail-nib" fill-rule="evenodd" d="M62 4H66V21A7 7 0 0 1 66 35V64L64 68L62 64V35A7 7 0 0 1 62 21Z"/>
+    <path id="module-sw" fill-rule="evenodd" d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"/>
+    <path id="module-se" fill-rule="evenodd" d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"/>
+  </g>
+</svg>

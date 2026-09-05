@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Image Editor" color="#7952B3">
+  <rect id="background" width="160" height="160" rx="36" fill="#7952B3"/>
+  <g id="symbol" transform="translate(16 16)" fill="#FFFFFF">
+    <path id="tool-field" fill-rule="evenodd" d="M4 58L42 22Q44 20 46 22L81 54L98 39Q100 37 102 39L124 58V60H84L66 78Q64 80 62 78L44 60H4Z"/>
+    <path id="detail-sun" fill-rule="evenodd" d="M96 22A12 12 0 1 1 72 22A12 12 0 1 1 96 22Z"/>
+    <path id="module-sw" fill-rule="evenodd" d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"/>
+    <path id="module-se" fill-rule="evenodd" d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"/>
+  </g>
+</svg>

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>OpenPost tool logos</title
+  ><style>
+    :root {
+      color-scheme: light dark;
+      --bg: #faf8f5;
+      --ink: #302b28;
+      --line: #d9d3cd;
+      --muted: #6f635c;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font:
+        16px/1.5 system-ui,
+        sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: auto;
+      padding: 44px 28px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 42px;
+    }
+    header img {
+      width: 36px;
+      height: 36px;
+    }
+    h1 {
+      font-size: 25px;
+      letter-spacing: -0.025em;
+      margin: 0;
+    }
+    p {
+      max-width: 64ch;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 32px;
+      padding: 24px 0 48px;
+      border-bottom: 1px solid var(--line);
+    }
+    article {
+      text-align: center;
+      min-width: 0;
+    }
+    .hero-logo {
+      width: min(100%, 160px);
+      height: auto;
+    }
+    h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 16px 0 4px;
+    }
+    a {
+      color: inherit;
+      text-underline-offset: 4px;
+      font-size: 13px;
+    }
+    .sizes {
+      height: 86px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .motion {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 36px;
+      align-items: center;
+      padding: 40px 0;
+    }
+    label {
+      display: block;
+      margin: 12px 0 6px;
+    }
+    select,
+    button {
+      font: inherit;
+      color: inherit;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 44px;
+      padding: 8px 12px;
+    }
+    input {
+      width: 100%;
+      min-height: 44px;
+      accent-color: #b74c05;
+    }
+    button {
+      cursor: pointer;
+    }
+    a:focus-visible,
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible {
+      outline: 3px solid #b74c05;
+      outline-offset: 4px;
+    }
+    .mono {
+      display: flex;
+      gap: 28px;
+      padding: 28px;
+      background: #302b28;
+      color: #fff;
+      border-radius: 12px;
+      justify-content: space-around;
+    }
+    .mono svg {
+      width: 64px;
+      height: 64px;
+      color: inherit;
+    }
+    .small {
+      font-size: 13px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #211e1b;
+        --ink: #f5f0eb;
+        --line: #49403a;
+        --muted: #b9ada4;
+      }
+    }
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 28px 16px;
+      }
+      main {
+        padding: 28px 16px;
+      }
+      .motion {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .motion > svg {
+        margin: auto;
+      }
+      .mono {
+        gap: 12px;
+        padding: 20px;
+      }
+      .mono svg {
+        width: 48px;
+        height: 48px;
+      }
+      .sizes {
+        gap: 8px;
+      }
+      .sizes img:last-child {
+        width: 48px;
+        height: 48px;
+      }
+    }
+  </style>
+  <main>
+    <header>
+      <img src="../logo.svg" alt="" />
+      <h1>OpenPost tool logos</h1>
+    </header>
+    <p>
+      Four tool identities derived from Converge. Flat SVGs, with separate geometry for future
+      motion. These assets do not replace theme icons.
+    </p>
+    <section class="grid">
+      <article>
+        <img class="hero-logo" src="composer.svg" alt="Composer logo" width="160" height="160" />
+        <h2>Composer</h2>
+        <a href="composer.svg" download>SVG</a><span> · </span
+        ><a href="composer-mono.svg" download>Monochrome SVG</a>
+        <div class="sizes">
+          <img src="composer.svg" width="16" height="16" alt="16 pixels" /><img
+            src="composer.svg"
+            width="24"
+            height="24"
+            alt="24 pixels"
+          /><img src="composer.svg" width="32" height="32" alt="32 pixels" /><img
+            src="composer.svg"
+            width="64"
+            height="64"
+            alt="64 pixels"
+          />
+        </div>
+      </article>
+      <article>
+        <img
+          class="hero-logo"
+          src="image-editor.svg"
+          alt="Image Editor logo"
+          width="160"
+          height="160"
+        />
+        <h2>Image Editor</h2>
+        <a href="image-editor.svg" download>SVG</a><span> · </span
+        ><a href="image-editor-mono.svg" download>Monochrome SVG</a>
+        <div class="sizes">
+          <img src="image-editor.svg" width="16" height="16" alt="16 pixels" /><img
+            src="image-editor.svg"
+            width="24"
+            height="24"
+            alt="24 pixels"
+          /><img src="image-editor.svg" width="32" height="32" alt="32 pixels" /><img
+            src="image-editor.svg"
+            width="64"
+            height="64"
+            alt="64 pixels"
+          />
+        </div>
+      </article>
+      <article>
+        <img
+          class="hero-logo"
+          src="video-editor.svg"
+          alt="Video Editor logo"
+          width="160"
+          height="160"
+        />
+        <h2>Video Editor</h2>
+        <a href="video-editor.svg" download>SVG</a><span> · </span
+        ><a href="video-editor-mono.svg" download>Monochrome SVG</a>
+        <div class="sizes">
+          <img src="video-editor.svg" width="16" height="16" alt="16 pixels" /><img
+            src="video-editor.svg"
+            width="24"
+            height="24"
+            alt="24 pixels"
+          /><img src="video-editor.svg" width="32" height="32" alt="32 pixels" /><img
+            src="video-editor.svg"
+            width="64"
+            height="64"
+            alt="64 pixels"
+          />
+        </div>
+      </article>
+      <article>
+        <img class="hero-logo" src="recorder.svg" alt="Recorder logo" width="160" height="160" />
+        <h2>Recorder</h2>
+        <a href="recorder.svg" download>SVG</a><span> · </span
+        ><a href="recorder-mono.svg" download>Monochrome SVG</a>
+        <div class="sizes">
+          <img src="recorder.svg" width="16" height="16" alt="16 pixels" /><img
+            src="recorder.svg"
+            width="24"
+            height="24"
+            alt="24 pixels"
+          /><img src="recorder.svg" width="32" height="32" alt="32 pixels" /><img
+            src="recorder.svg"
+            width="64"
+            height="64"
+            alt="64 pixels"
+          />
+        </div>
+      </article>
+    </section>
+    <section class="motion">
+      <svg
+        id="demo"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 160 160"
+        width="180"
+        height="180"
+        role="img"
+        aria-label="OpenPost to Composer transition"
+      >
+        <rect id="tile" width="160" height="160" rx="36" fill="#B74C05" />
+        <g fill="white" transform="translate(16 16)">
+          <g id="parent"></g>
+          <g id="tool"></g>
+          <path id="sw" />
+          <path id="se" />
+        </g>
+      </svg>
+      <div>
+        <h2>From OpenPost to a tool</h2>
+        <p class="small">
+          The lower modules change shape. The upper geometry crossfades. Scrub to inspect every
+          step.
+        </p>
+        <label for="target">Tool</label
+        ><select id="target">
+          <option value="composer">Composer</option>
+          <option value="image-editor">Image Editor</option>
+          <option value="video-editor">Video Editor</option>
+          <option value="recorder">Recorder</option></select
+        ><label for="progress">Transition <output id="value">0%</output></label
+        ><input id="progress" type="range" min="0" max="100" value="0" /><button id="replay">
+          Play transition
+        </button>
+      </div>
+    </section>
+    <div class="mono" aria-label="Monochrome marks">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="160"
+        height="160"
+        viewBox="0 0 160 160"
+        role="img"
+        aria-label="Composer"
+      >
+        <g data-part="symbol" transform="translate(16 16)" fill="currentColor">
+          <path
+            data-part="module-nw"
+            fill-rule="evenodd"
+            d="M24 4H40V36L64 68L88 36V4H104A20 20 0 0 1 124 24V60H84L64 80L44 60H4V24A20 20 0 0 1 24 4Z"
+          />
+          <path
+            data-part="detail-nib"
+            fill-rule="evenodd"
+            d="M62 4H66V21A7 7 0 0 1 66 35V64L64 68L62 64V35A7 7 0 0 1 62 21Z"
+          />
+          <path
+            data-part="module-sw"
+            fill-rule="evenodd"
+            d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"
+          />
+          <path
+            data-part="module-se"
+            fill-rule="evenodd"
+            d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"
+          />
+        </g>
+      </svg>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="160"
+        height="160"
+        viewBox="0 0 160 160"
+        role="img"
+        aria-label="Image Editor"
+      >
+        <g data-part="symbol" transform="translate(16 16)" fill="currentColor">
+          <path
+            data-part="module-nw"
+            fill-rule="evenodd"
+            d="M4 58L42 22Q44 20 46 22L81 54L98 39Q100 37 102 39L124 58V60H84L66 78Q64 80 62 78L44 60H4Z"
+          />
+          <path
+            data-part="detail-sun"
+            fill-rule="evenodd"
+            d="M96 22A12 12 0 1 1 72 22A12 12 0 1 1 96 22Z"
+          />
+          <path
+            data-part="module-sw"
+            fill-rule="evenodd"
+            d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"
+          />
+          <path
+            data-part="module-se"
+            fill-rule="evenodd"
+            d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"
+          />
+        </g>
+      </svg>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="160"
+        height="160"
+        viewBox="0 0 160 160"
+        role="img"
+        aria-label="Video Editor"
+      >
+        <g data-part="symbol" transform="translate(16 16)" fill="currentColor">
+          <path
+            data-part="module-nw"
+            fill-rule="evenodd"
+            d="M24 4H104A20 20 0 0 1 124 24V60H84L66 78Q64 80 62 78L44 60H4V24A20 20 0 0 1 24 4Z M52 19Q50 18 50 21V49Q50 52 53 50L77 36Q80 34 77 32Z"
+          />
+          <path
+            data-part="module-sw"
+            fill-rule="evenodd"
+            d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"
+          />
+          <path
+            data-part="module-se"
+            fill-rule="evenodd"
+            d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"
+          />
+        </g>
+      </svg>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="160"
+        height="160"
+        viewBox="0 0 160 160"
+        role="img"
+        aria-label="Recorder"
+      >
+        <g data-part="symbol" transform="translate(16 16)" fill="currentColor">
+          <path
+            data-part="module-nw"
+            fill-rule="evenodd"
+            d="M24 4H104A20 20 0 0 1 124 24V60H84L66 78Q64 80 62 78L44 60H4V24A20 20 0 0 1 24 4Z M24 12A12 12 0 0 0 12 24V52H47L64 69L81 52H116V24A12 12 0 0 0 104 12Z"
+          />
+          <path
+            data-part="detail-record"
+            fill-rule="evenodd"
+            d="M74 32A10 10 0 1 1 54 32A10 10 0 1 1 74 32Z"
+          />
+          <path
+            data-part="module-sw"
+            fill-rule="evenodd"
+            d="M4 68H44L60 84V124H24A20 20 0 0 1 4 104Z"
+          />
+          <path
+            data-part="module-se"
+            fill-rule="evenodd"
+            d="M68 84L84 68H124V104A20 20 0 0 1 104 124H68Z"
+          />
+        </g>
+      </svg>
+    </div>
+    <p class="small">
+      The original mark already exists as <a href="../logo.svg">logo.svg</a>. The matching tile here
+      uses its exact symbol geometry with the tool family’s padding. Tool logos are intended for
+      branded headers, launchers and marketing. Navigation continues to use the selected theme’s
+      icon pack.
+    </p>
+  </main>
+  <script>
+    const upper = {
+      openpost:
+        '<path fill-rule="evenodd" d="M24 4H60V32L32 60H4V24A20 20 0 0 1 24 4Z"/><path fill-rule="evenodd" d="M68 4H104A20 20 0 0 1 124 24V60H96L68 32Z"/>',
+      composer:
+        '<path fill-rule="evenodd" d="M24 4H40V36L64 68L88 36V4H104A20 20 0 0 1 124 24V60H84L64 80L44 60H4V24A20 20 0 0 1 24 4Z"/><path fill-rule="evenodd" d="M62 4H66V21A7 7 0 0 1 66 35V64L64 68L62 64V35A7 7 0 0 1 62 21Z"/>',
+      "image-editor":
+        '<path fill-rule="evenodd" d="M4 58L42 22Q44 20 46 22L81 54L98 39Q100 37 102 39L124 58V60H84L66 78Q64 80 62 78L44 60H4Z"/><path fill-rule="evenodd" d="M96 22A12 12 0 1 1 72 22A12 12 0 1 1 96 22Z"/>',
+      "video-editor":
+        '<path fill-rule="evenodd" d="M24 4H104A20 20 0 0 1 124 24V60H84L66 78Q64 80 62 78L44 60H4V24A20 20 0 0 1 24 4Z M52 19Q50 18 50 21V49Q50 52 53 50L77 36Q80 34 77 32Z"/>',
+      recorder:
+        '<path fill-rule="evenodd" d="M24 4H104A20 20 0 0 1 124 24V60H84L66 78Q64 80 62 78L44 60H4V24A20 20 0 0 1 24 4Z M24 12A12 12 0 0 0 12 24V52H47L64 69L81 52H116V24A12 12 0 0 0 104 12Z"/><path fill-rule="evenodd" d="M74 32A10 10 0 1 1 54 32A10 10 0 1 1 74 32Z"/>',
+    };
+    const names = {
+      openpost: "OpenPost",
+      composer: "Composer",
+      "image-editor": "Image Editor",
+      "video-editor": "Video Editor",
+      recorder: "Recorder",
+    };
+    const select = document.querySelector("#target"),
+      range = document.querySelector("#progress");
+    let frame;
+    function draw() {
+      const t = Number(range.value) / 100;
+      document.querySelector("#parent").innerHTML = upper.openpost;
+      document.querySelector("#parent").setAttribute("opacity", 1 - t);
+      document.querySelector("#tool").innerHTML = upper[select.value];
+      document.querySelector("#tool").setAttribute("opacity", t);
+      document
+        .querySelector("#sw")
+        .setAttribute("d", `M4 68H${32 + 12 * t}L60 ${96 - 12 * t}V124H24A20 20 0 0 1 4 104Z`);
+      document
+        .querySelector("#se")
+        .setAttribute("d", `M68 ${96 - 12 * t}L${96 - 12 * t} 68H124V104A20 20 0 0 1 104 124H68Z`);
+      const a = [183, 76, 5],
+        b = select.value === "composer" ? a : [121, 82, 179];
+      document
+        .querySelector("#tile")
+        .setAttribute("fill", `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`);
+      document.querySelector("#value").textContent = Math.round(t * 100) + "%";
+      document
+        .querySelector("#demo")
+        .setAttribute("aria-label", "OpenPost to " + names[select.value] + " transition");
+    }
+    range.addEventListener("input", () => {
+      cancelAnimationFrame(frame);
+      draw();
+    });
+    select.addEventListener("change", () => {
+      cancelAnimationFrame(frame);
+      draw();
+    });
+    document.querySelector("#replay").addEventListener("click", () => {
+      cancelAnimationFrame(frame);
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        range.value = 100;
+        draw();
+        return;
+      }
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / 1100);
+        range.value = 100 * (1 - Math.pow(1 - t, 3));
+        draw();
+        if (t < 1) frame = requestAnimationFrame(step);
+      }
+      frame = requestAnimationFrame(step);
+    });
+    draw();
+  </script>
+</html>

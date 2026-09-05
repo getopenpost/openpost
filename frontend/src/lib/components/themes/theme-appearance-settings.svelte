@@ -1,17 +1,21 @@
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
+	import { createQueries, createQuery } from '@tanstack/svelte-query';
 	import { mode, setMode } from 'mode-watcher';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 
 	import { themeMutationCachePlan } from '@openpost/query-catalog';
 	import { client } from '$lib/api/client';
-	import { executeQueryCachePlan } from '$lib/query/cache-plan';
+	import {
+		captureQueryMutationSession,
+		queryMutationSessionIsCurrent
+	} from '$lib/query/authorization-boundary';
+	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { queryClient } from '$lib/query/client';
 	import {
 		themeAvailableThemesOptions,
 		themeOrganizationThemeOptions,
-		themeQueryAPI,
+		themeAvailableThemeOptions,
 		themeRevisionsOptions,
 		themeSettingsOptions
 	} from '$lib/query/themes';
@@ -27,7 +31,6 @@
 	import type { components } from '$lib/api/types';
 
 	type ThemeSettings = components['schemas']['ThemeSettings'];
-	type ThemeSummary = components['schemas']['ThemeSummary'];
 
 	let workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let organizationID = $derived(workspaceCtx.currentWorkspace?.organization_id ?? '');
@@ -56,54 +59,38 @@
 	let canManageOrganization = $derived(settingsData?.can_manage_organization ?? false);
 	let canManageWorkspace = $derived(settingsData?.can_manage_workspace ?? false);
 
-	// Published custom themes need their manifest for real previews. One query
-	// resolves the bounded page plus each published manifest so the library
-	// renders every entry through the product runtime.
-	const library = createQuery(() => ({
-		queryKey: [...themeAvailableThemesOptions(workspaceID).queryKey, 'manifests'],
-		enabled: available.data !== undefined && Boolean(workspaceID),
-		queryFn: async ({ signal }: { signal: AbortSignal }) => {
-			const pageResult = await themeQueryAPI.listAvailableThemes(workspaceID, signal);
-			let failedPreviewCount = 0;
-			const items = await Promise.all(
-				pageResult.items.map(async (summary: ThemeSummary) => {
-					const reference = summary.reference;
-					if (reference.kind !== 'custom' || !summary.published_revision) return null;
-					try {
-						const detail = await themeQueryAPI.getAvailableCustomTheme(
-							workspaceID,
-							reference.id,
-							summary.published_revision,
-							signal
-						);
-						return {
-							manifest: detail.manifest,
-							reference,
-							source: 'organization' as const,
-							state: 'published' as const,
-							hasDraftChanges: Boolean(
-								summary.draft_revision &&
-								summary.published_revision &&
-								summary.draft_revision > summary.published_revision.version
-							),
-							assignedWorkspaces: summary.assigned_workspace_count
-						} satisfies ThemeLibraryItem;
-					} catch {
-						// Keep the failure visible instead of silently dropping the theme.
-						failedPreviewCount += 1;
-						return null;
-					}
-				})
-			);
-			return {
-				items: items.filter((item): item is ThemeLibraryItem => item !== null),
-				failedPreviewCount
-			};
-		}
+	const publishedThemes = $derived(
+		(available.data?.items ?? []).filter(
+			(summary) => summary.reference.kind === 'custom' && summary.published_revision
+		)
+	);
+	const previews = createQueries(() => ({
+		queries: publishedThemes.map((summary) =>
+			themeAvailableThemeOptions(workspaceID, summary.reference.id, summary.published_revision!)
+		)
 	}));
+	const libraryItems = $derived.by(() => {
+		const items: ThemeLibraryItem[] = [];
+		for (const [index, summary] of publishedThemes.entries()) {
+			const preview = previews[index]?.data;
+			if (!preview) continue;
+			items.push({
+				manifest: preview.manifest,
+				reference: summary.reference,
+				source: 'organization',
+				state: 'published',
+				hasDraftChanges: Boolean(
+					summary.draft_revision &&
+					summary.published_revision &&
+					summary.draft_revision > summary.published_revision
+				),
+				assignedWorkspaces: summary.assigned_workspace_count
+			});
+		}
+		return items;
+	});
+	const failedPreviewCount = $derived(previews.filter((preview) => preview.isError).length);
 
-	let libraryItems = $derived(library.data?.items ?? []);
-	let failedPreviewCount = $derived(library.data?.failedPreviewCount ?? 0);
 	let selectedReference = $derived(settingsData?.effective_selection ?? undefined);
 	let workspaceReference = $derived(settingsData?.workspace_selection ?? undefined);
 	let organizationDefaultReference = $derived(settingsData?.organization_default ?? undefined);
@@ -112,21 +99,36 @@
 	let pendingMutations = $state(0);
 	let actionError = $state<string | null>(null);
 	let busy = $derived(
-		settings.isFetching || available.isFetching || library.isFetching || pendingMutations > 0
+		settings.isFetching ||
+			available.isFetching ||
+			previews.some((preview) => preview.isFetching) ||
+			pendingMutations > 0
 	);
 
 	async function runWrite(action: () => Promise<void>, failure: string) {
+		const session = captureQueryMutationSession();
+		const targetWorkspaceID = workspaceID;
+		const targetOrganizationID = organizationID;
+		const targetThemeID = editingThemeID;
+		const affectedWorkspaces = new Set([
+			targetWorkspaceID,
+			...workspaceCtx.workspaces
+				.filter((workspace) => workspace.organization_id === targetOrganizationID)
+				.map((workspace) => workspace.id)
+		]);
 		actionError = null;
 		pendingMutations += 1;
 		try {
 			await action();
-			await executeQueryCachePlan(queryClient, themeMutationCachePlan(workspaceID));
-			await queryClient.invalidateQueries({ queryKey: themeSettingsOptions(workspaceID).queryKey });
-			await queryClient.invalidateQueries({
-				queryKey: themeAvailableThemesOptions(workspaceID).queryKey
+			await reconcileQueryMutation(queryClient, session, {
+				invalidate: [...affectedWorkspaces].flatMap(
+					(id) => themeMutationCachePlan(id, targetThemeID || undefined).invalidate
+				)
 			});
 		} catch (cause) {
-			actionError = cause instanceof Error && cause.message ? cause.message : failure;
+			if (queryMutationSessionIsCurrent(session) && workspaceID === targetWorkspaceID) {
+				actionError = cause instanceof Error && cause.message ? cause.message : failure;
+			}
 		} finally {
 			pendingMutations -= 1;
 		}
@@ -280,21 +282,30 @@
 	});
 
 	async function saveDraft(manifest: ThemeManifest) {
+		const session = captureQueryMutationSession();
+		const targetWorkspaceID = workspaceID;
+		const targetOrganizationID = organizationID;
 		const current = detail;
 		if (!current?.draft) throw new Error(m.theme_editor_draft_save_failed());
 		const themeID = current.summary.reference.id;
 		const { data, error } = await client.PUT('/themes/{id}/draft', {
 			params: { path: { id: themeID } },
 			body: {
-				organization_id: organizationID,
+				organization_id: targetOrganizationID,
 				expected_revision: current.draft.revision,
 				name: current.summary.name,
 				manifest
 			}
 		});
 		if (error || !data) throw new Error(m.theme_editor_draft_save_failed());
-		await queryClient.invalidateQueries({
-			queryKey: themeOrganizationThemeOptions(workspaceID, organizationID, themeID).queryKey
+		const queryKey = themeOrganizationThemeOptions(
+			targetWorkspaceID,
+			targetOrganizationID,
+			themeID
+		).queryKey;
+		await reconcileQueryMutation(queryClient, session, {
+			cancel: [{ queryKey, exact: true }],
+			reconcile: () => queryClient.setQueryData(queryKey, data)
 		});
 		return data;
 	}
@@ -306,21 +317,21 @@
 	}
 
 	async function onPublish(manifest: ThemeManifest) {
+		const targetOrganizationID = organizationID;
+		const session = captureQueryMutationSession();
 		await runWrite(async () => {
 			const saved = await saveDraft(manifest);
+			if (!queryMutationSessionIsCurrent(session)) return;
 			const themeID = saved.summary.reference.id;
 			const { error } = await client.POST('/themes/{id}/publish', {
 				params: { path: { id: themeID } },
 				body: {
-					organization_id: organizationID,
+					organization_id: targetOrganizationID,
 					expected_draft_revision: saved.draft?.revision ?? 0,
 					expected_published_revision: saved.summary.published_revision?.version ?? 0
 				}
 			});
 			if (error) throw new Error(m.theme_editor_publish_failed());
-			await queryClient.invalidateQueries({
-				queryKey: themeOrganizationThemeOptions(workspaceID, organizationID, themeID).queryKey
-			});
 		}, m.theme_editor_publish_failed());
 	}
 
@@ -341,9 +352,6 @@
 			});
 			if (error || !data) throw new Error(m.theme_editor_restore_failed());
 			rolledManifest = data.manifest;
-			await queryClient.invalidateQueries({
-				queryKey: themeOrganizationThemeOptions(workspaceID, organizationID, themeID).queryKey
-			});
 		}, m.theme_editor_restore_failed());
 		if (!rolledManifest) throw new Error(m.theme_editor_restore_failed());
 		return rolledManifest;

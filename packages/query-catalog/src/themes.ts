@@ -245,12 +245,7 @@ export function themeMutationCachePlan(workspaceId: string, themeId?: string): Q
       { queryKey: themeQueryKeys.available(workspaceId) },
       { queryKey: themeQueryKeys.settings(workspaceId) },
       { queryKey: themeQueryKeys.resolvedScope(workspaceId) },
-      ...(themeId
-        ? [
-            { queryKey: themeQueryKeys.detail(workspaceId, themeId) },
-            { queryKey: themeQueryKeys.revisions(workspaceId, themeId) },
-          ]
-        : []),
+      ...(themeId ? [{ queryKey: themeQueryKeys.detail(workspaceId, themeId) }] : []),
     ],
   };
 }

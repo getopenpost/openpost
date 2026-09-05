@@ -1,8 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createThemeQueryAPI } from './themes';
+import { QueryClient, QueryObserver } from '@tanstack/query-core';
+import { themeMutationCachePlan, themeQueryKeys } from '@openpost/query-catalog';
+import { executeQueryCachePlan } from './cache-plan';
 
 describe('theme query transport', () => {
+	it('refreshes an observed revision list once after a theme write', async () => {
+		const cache = new QueryClient();
+		const queryKey = themeQueryKeys.revisions('workspace-a', 'theme-a');
+		cache.setQueryData(queryKey, { items: [] });
+		const read = vi.fn(async ({ signal }: { signal: AbortSignal }) => {
+			signal.throwIfAborted();
+			return { items: [] };
+		});
+		const observer = new QueryObserver(cache, { queryKey, queryFn: read, staleTime: Infinity });
+		const unsubscribe = observer.subscribe(() => undefined);
+		try {
+			await executeQueryCachePlan(cache, themeMutationCachePlan('workspace-a', 'theme-a'));
+			expect(read).toHaveBeenCalledOnce();
+		} finally {
+			unsubscribe();
+			cache.clear();
+		}
+	});
+
 	it('loads every available-theme page so custom themes remain visible after the built-ins', async () => {
 		const pages = new Map([
 			['', { items: [{ reference: { id: 'workshop' } }], next_cursor: 'built-ins-done' }],

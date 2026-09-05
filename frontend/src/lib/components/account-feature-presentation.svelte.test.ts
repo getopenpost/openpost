@@ -25,6 +25,25 @@ function feature(name: Feature['feature'], overrides: Partial<Feature> = {}): Fe
 }
 
 describe('account feature presentation', () => {
+	it('fills the feature card with the selected row background', async () => {
+		const screen = await render(AccountFeaturePresentation, {
+			accountId: 'account-1',
+			features: [feature('engagement')],
+			selections: { engagement: true },
+			mode: 'details',
+			onToggle: vi.fn()
+		});
+
+		const label = screen.getByText('Comments and replies', { exact: true }).element();
+		const row = label.closest('div');
+		const card = row?.parentElement;
+		if (!row || !card) throw new Error('Expected the selected feature row inside its card.');
+
+		expect(
+			Math.abs(card.getBoundingClientRect().width - row.getBoundingClientRect().width)
+		).toBeLessThanOrEqual(2);
+	});
+
 	it('explains unavailable features without allowing a change', async () => {
 		const screen = await render(AccountFeaturePresentation, {
 			accountId: 'account-1',

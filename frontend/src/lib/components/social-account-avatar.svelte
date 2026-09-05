@@ -30,15 +30,43 @@
 		}
 		return normalized.slice(0, 2).toUpperCase();
 	});
+
+	let loadedAvatarUrl = $state('');
+	const avatarLoaded = $derived(Boolean(avatarUrl) && loadedAvatarUrl === avatarUrl);
+
+	function handleAvatarLoad(event: Event) {
+		const image = event.currentTarget;
+		if (image instanceof HTMLImageElement && image.getAttribute('src') === avatarUrl) {
+			loadedAvatarUrl = avatarUrl;
+		}
+	}
+
+	function handleAvatarError(event: Event) {
+		const image = event.currentTarget;
+		if (image instanceof HTMLImageElement && image.getAttribute('src') === avatarUrl) {
+			loadedAvatarUrl = '';
+		}
+	}
 </script>
 
 <Avatar.Root {size} class={cn('overflow-visible', className)} {...restProps}>
 	{#snippet child({ props })}
 		<span {...props} aria-hidden="true">
 			{#if avatarUrl}
-				<Avatar.Image src={avatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
+				<img
+					class={cn(
+						'absolute inset-0 z-[1] aspect-square size-full rounded-full object-cover',
+						avatarLoaded ? 'opacity-100' : 'opacity-0'
+					)}
+					src={avatarUrl}
+					alt=""
+					loading="lazy"
+					referrerpolicy="no-referrer"
+					onload={handleAvatarLoad}
+					onerror={handleAvatarError}
+				/>
 			{/if}
-			<Avatar.Fallback>{fallback}</Avatar.Fallback>
+			<Avatar.Fallback class={avatarLoaded ? 'invisible' : ''}>{fallback}</Avatar.Fallback>
 			<span
 				class={cn(
 					'absolute -right-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',

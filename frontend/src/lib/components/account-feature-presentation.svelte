@@ -90,7 +90,7 @@
 		{@const note = availabilityNote(f)}
 		<div
 			class={[
-				'flex min-h-11 cursor-pointer items-start gap-3 py-3 transition-colors',
+				'flex min-h-11 cursor-pointer items-start gap-3 px-3 py-3 transition-colors',
 				disabled ? 'cursor-not-allowed opacity-85' : 'hover:bg-muted/30',
 				checkedFor(key) && !disabled ? 'bg-primary/5' : ''
 			]}
@@ -121,7 +121,7 @@
 {/snippet}
 
 {#if mode === 'details'}
-	<div class="divide-y rounded-lg border bg-card px-3">
+	<div class="divide-y overflow-hidden rounded-lg border bg-card">
 		{#each [...inboxKeys, ...soloKeys] as key (key)}
 			{@render featureRow(key)}
 		{/each}
@@ -138,7 +138,7 @@
 						{m.account_setup_inbox_description()}
 					</p>
 				</div>
-				<div class="divide-y rounded-lg border bg-card px-3">
+				<div class="divide-y overflow-hidden rounded-lg border bg-card">
 					{#each inboxKeys as key (key)}
 						{@render featureRow(key)}
 					{/each}
@@ -147,7 +147,7 @@
 		{/if}
 
 		{#if soloKeys.some((key) => isOffered(featureFor(key)))}
-			<div class="divide-y rounded-lg border bg-card px-3">
+			<div class="divide-y overflow-hidden rounded-lg border bg-card">
 				{#each soloKeys as key (key)}
 					{@render featureRow(key)}
 				{/each}

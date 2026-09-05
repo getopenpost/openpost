@@ -1,3 +1,5 @@
+import { marketingGuides } from "./guides.js";
+export { marketingGuides } from "./guides.js";
 import { docsPageCatalog } from "./docs-catalog.js";
 import { docsRouteFromPage } from "./docs-route.js";
 
@@ -93,6 +95,31 @@ const toolPages = [
 ];
 
 const staticMarketingEntries = [
+  {
+    path: "/guides",
+    key: "guides",
+    title: "Social media tool guides - OpenPost",
+    socialTitle: "Choose a social media workflow that fits.",
+    description:
+      "Practical answers about social media tools, scheduling, content, self-hosting, and automation, with sources and limitations.",
+    label: "Buying guides",
+    kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: { membership: "primary" },
+    priority: "0.8",
+  },
+  ...marketingGuides.map((guide) => ({
+    path: `/guides/${guide.slug}`,
+    key: `guide-${guide.slug}`,
+    title: `${guide.question} - OpenPost`,
+    socialTitle: guide.question,
+    description: guide.answer,
+    label: "Social media guide",
+    kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: { membership: "primary" },
+    priority: "0.7",
+  })),
   {
     path: "/",
     key: "home",
@@ -345,7 +372,7 @@ export const marketingRouteManifest = Object.freeze(
 
 export const marketingSocialEntries = marketingRouteManifest;
 
-const prerenderSections = new Set(["/platforms", "/tools"]);
+const prerenderSections = new Set(["/platforms", "/tools", "/guides"]);
 
 export function marketingPrerenderEntries(section) {
   const normalizedSection = normalizeMarketingPath(section);

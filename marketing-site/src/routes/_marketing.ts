@@ -117,6 +117,13 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 		surfaces: ['resources', 'mobile', 'footer']
 	},
 	{
+		label: 'Buying guides',
+		href: '/guides',
+		group: 'Build',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
 		label: 'About',
 		href: '/about',
 		group: 'OpenPost',

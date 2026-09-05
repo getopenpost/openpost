@@ -83,7 +83,9 @@ export function normalizeMarketingPath(pathname: string): string;
 export function canonicalMarketingUrl(pathname: string): string;
 export function marketingAgentMarkdownUrl(entry: MarketingRouteEntry): string | undefined;
 export function resolveMarketingSocial(pathname: string): MarketingRouteEntry;
-export function marketingPrerenderEntries(section: "/platforms" | "/tools"): { slug: string }[];
+export function marketingPrerenderEntries(
+  section: "/platforms" | "/tools" | "/guides",
+): { slug: string }[];
 export function docsRouteFromPage(page: string): string;
 export function docsImageKey(page: string): string;
 export function docsSectionForPage(page: string): string;
@@ -93,3 +95,13 @@ export function resolveDocsSocial(input: {
   title?: string;
   description?: string;
 }): SocialEntry;
+
+export interface MarketingGuide {
+  slug: string;
+  question: string;
+  answer: string;
+  sections: { title: string; text: string; items?: string[] }[];
+  sources: { label: string; href: string }[];
+  next: { label: string; href: string };
+}
+export const marketingGuides: MarketingGuide[];

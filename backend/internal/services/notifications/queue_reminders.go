@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
 )
 
@@ -21,8 +22,14 @@ const (
 	MinQueueRunwayDays               = 1
 	MaxQueueRunwayDays               = 30
 	EmailClassificationQueueReminder = "queue_reminder"
-	QueueReminderLowRunway           = "low_runway"
-	QueueReminderEmptied             = "queue_emptied"
+	queueReminderCoalescingDelay     = time.Minute
+)
+
+type QueueReminderKind string
+
+const (
+	QueueReminderLowRunway QueueReminderKind = "low_runway"
+	QueueReminderEmptied   QueueReminderKind = "queue_emptied"
 )
 
 var (
@@ -54,14 +61,14 @@ type queueSnapshot struct {
 
 func (s *Service) GetQueueReminderSettings(ctx context.Context, actor MuteActor, workspaceID string) (QueueReminderSettings, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
-	userID := strings.TrimSpace(actor.UserID)
-	if binding := strings.TrimSpace(actor.CredentialWorkspaceID); binding != "" && binding != workspaceID {
+	allowed, err := authorizeQueueReminderActor(ctx, s.db, actor, workspaceID)
+	if err != nil {
+		return QueueReminderSettings{}, err
+	}
+	if !allowed {
 		return QueueReminderSettings{}, ErrQueueReminderAccess
 	}
-	if !s.queueReminderActorCanEdit(ctx, s.db, userID, workspaceID) {
-		return QueueReminderSettings{}, ErrQueueReminderAccess
-	}
-	return s.getQueueReminderSettings(ctx, s.db, userID, workspaceID)
+	return s.getQueueReminderSettings(ctx, s.db, strings.TrimSpace(actor.UserID), workspaceID)
 }
 
 func (s *Service) UpdateQueueReminderSettings(
@@ -72,18 +79,19 @@ func (s *Service) UpdateQueueReminderSettings(
 ) (QueueReminderSettings, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	userID := strings.TrimSpace(actor.UserID)
-	if binding := strings.TrimSpace(actor.CredentialWorkspaceID); binding != "" && binding != workspaceID {
+	allowed, err := authorizeQueueReminderActor(ctx, s.db, actor, workspaceID)
+	if err != nil {
+		return QueueReminderSettings{}, err
+	}
+	if !allowed {
 		return QueueReminderSettings{}, ErrQueueReminderAccess
 	}
 	if update.RunwayDays < MinQueueRunwayDays || update.RunwayDays > MaxQueueRunwayDays {
 		return QueueReminderSettings{}, ErrInvalidQueueReminderSettings
 	}
-	if !s.queueReminderActorCanEdit(ctx, s.db, userID, workspaceID) {
-		return QueueReminderSettings{}, ErrQueueReminderAccess
-	}
 	now := s.now()
 	current := models.UserWorkspaceQueueReminder{RunwayDays: DefaultQueueRunwayDays}
-	err := s.db.NewSelect().Model(&current).
+	err = s.db.NewSelect().Model(&current).
 		Where("user_id = ? AND workspace_id = ?", userID, workspaceID).Scan(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return QueueReminderSettings{}, err
@@ -93,14 +101,8 @@ func (s *Service) UpdateQueueReminderSettings(
 		lowRunwayActive = false
 	}
 	queueEmptiedActive := current.QueueEmptiedActive
-	if !update.QueueEmptiedEnabled {
+	if !update.QueueEmptiedEnabled || !current.QueueEmptiedEnabled {
 		queueEmptiedActive = false
-	} else if !current.QueueEmptiedEnabled {
-		snapshot, snapshotErr := s.queueSnapshot(ctx, s.db, workspaceID)
-		if snapshotErr != nil {
-			return QueueReminderSettings{}, snapshotErr
-		}
-		queueEmptiedActive = snapshot.PendingCount == 0
 	}
 	row := &models.UserWorkspaceQueueReminder{
 		UserID: userID, WorkspaceID: workspaceID,
@@ -160,15 +162,16 @@ func normalizedQueueReminderTimezone(value string) string {
 	return value
 }
 
-func (s *Service) queueReminderActorCanEdit(ctx context.Context, db bun.IDB, userID, workspaceID string) bool {
-	if userID == "" || workspaceID == "" {
-		return false
-	}
-	exists, err := db.NewSelect().Model((*models.WorkspaceMember)(nil)).
-		Where("user_id = ? AND workspace_id = ?", userID, workspaceID).
-		Where("role IN (?)", bun.List([]string{models.WorkspaceRoleAdmin, models.WorkspaceRoleEditor})).
-		Where("status = ? OR status = ''", models.WorkspaceMemberStatusActive).Exists(ctx)
-	return err == nil && exists
+func authorizeQueueReminderActor(ctx context.Context, db bun.IDB, actor MuteActor, workspaceID string) (bool, error) {
+	decision, err := workspaceaccess.NewAuthorizer(db).Authorize(ctx, workspaceID, actor, workspaceaccess.LevelEdit)
+	return decision.Allowed, err
+}
+
+func authorizeQueueReminderSubscription(ctx context.Context, db bun.IDB, userID, workspaceID string) (bool, error) {
+	decision, err := workspaceaccess.NewAuthorizer(db).AuthorizeStored(ctx, workspaceaccess.StoredAuthority{
+		UserID: userID, WorkspaceID: workspaceID,
+	}, workspaceaccess.LevelEdit)
+	return decision.Allowed, err
 }
 
 func (s *Service) RunQueueReminderSweep(ctx context.Context) error {
@@ -205,13 +208,12 @@ func (s *Service) evaluateQueueReminderSubscription(ctx context.Context, subscri
 }
 
 func (s *Service) evaluateQueueReminderSubscriptionWithDB(ctx context.Context, db bun.IDB, subscription models.UserWorkspaceQueueReminder) error {
-	if !s.queueReminderActorCanEdit(ctx, db, subscription.UserID, subscription.WorkspaceID) {
-		return nil
-	}
-	activated, err := db.NewSelect().Model((*models.WorkspaceActivation)(nil)).
-		Where("workspace_id = ?", subscription.WorkspaceID).Exists(ctx)
-	if err != nil || !activated {
+	active, err := queueReminderSubscriptionIsActive(ctx, db, subscription)
+	if err != nil {
 		return err
+	}
+	if !active {
+		return nil
 	}
 	snapshot, err := s.queueSnapshot(ctx, db, subscription.WorkspaceID)
 	if err != nil {
@@ -236,13 +238,16 @@ func (s *Service) evaluateQueueReminderSubscriptionWithDB(ctx context.Context, d
 	if !subscription.LowRunwayEnabled || subscription.LowRunwayActive {
 		return nil
 	}
-	if snapshot.PendingCount == 0 && subscription.QueueEmptiedEnabled && subscription.QueueEmptiedActive {
-		_, err = db.NewUpdate().Model((*models.UserWorkspaceQueueReminder)(nil)).
-			Set("low_runway_active = ?", true).
-			Where("user_id = ? AND workspace_id = ? AND low_runway_active = ?", subscription.UserID, subscription.WorkspaceID, false).Exec(ctx)
-		return err
+	return s.markAndEnqueueLowRunwayReminder(ctx, db, subscription, snapshot)
+}
+
+func queueReminderSubscriptionIsActive(ctx context.Context, db bun.IDB, subscription models.UserWorkspaceQueueReminder) (bool, error) {
+	allowed, err := authorizeQueueReminderSubscription(ctx, db, subscription.UserID, subscription.WorkspaceID)
+	if err != nil || !allowed {
+		return false, err
 	}
-	return s.markAndEnqueueQueueReminder(ctx, db, subscription, QueueReminderLowRunway, snapshot)
+	return db.NewSelect().Model((*models.WorkspaceActivation)(nil)).
+		Where("workspace_id = ?", subscription.WorkspaceID).Exists(ctx)
 }
 
 func (s *Service) RecordQueueEmptiedAfterPublication(ctx context.Context, db bun.IDB, workspaceID, publicationID string) error {
@@ -264,36 +269,31 @@ func (s *Service) RecordQueueEmptiedAfterPublication(ctx context.Context, db bun
 		return err
 	}
 	for _, subscription := range subscriptions {
-		if !s.queueReminderActorCanEdit(ctx, db, subscription.UserID, workspaceID) {
+		allowed, authorizationErr := authorizeQueueReminderSubscription(ctx, db, subscription.UserID, workspaceID)
+		if authorizationErr != nil {
+			return authorizationErr
+		}
+		if !allowed {
 			continue
 		}
-		if err := s.markAndEnqueueQueueReminder(ctx, db, subscription, QueueReminderEmptied, snapshot); err != nil {
+		if err := s.markAndEnqueueQueueEmptiedReminder(ctx, db, subscription, publicationID, snapshot); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Service) markAndEnqueueQueueReminder(
+func (s *Service) markAndEnqueueLowRunwayReminder(
 	ctx context.Context,
 	db bun.IDB,
 	subscription models.UserWorkspaceQueueReminder,
-	kind string,
 	snapshot queueSnapshot,
 ) error {
-	activeColumn := "low_runway_active"
-	if kind == QueueReminderEmptied {
-		activeColumn = "queue_emptied_active"
-	}
-	query := db.NewUpdate().Model((*models.UserWorkspaceQueueReminder)(nil)).
-		Set(activeColumn+" = ?", true).
+	result, err := db.NewUpdate().Model((*models.UserWorkspaceQueueReminder)(nil)).
+		Set("low_runway_active = ?", true).
 		Set("updated_at = ?", s.now()).
 		Where("user_id = ? AND workspace_id = ?", subscription.UserID, subscription.WorkspaceID).
-		Where(activeColumn+" = ?", false)
-	if kind == QueueReminderEmptied && subscription.LowRunwayEnabled {
-		query = query.Set("low_runway_active = ?", true)
-	}
-	result, err := query.Exec(ctx)
+		Where("low_runway_active = ?", false).Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -301,15 +301,43 @@ func (s *Service) markAndEnqueueQueueReminder(
 	if err != nil || changed == 0 {
 		return err
 	}
-	return s.enqueueQueueReminderEmail(ctx, db, subscription, kind, snapshot)
+	return s.enqueueQueueReminderEmail(ctx, db, subscription, QueueReminderLowRunway, snapshot, "")
+}
+
+func (s *Service) markAndEnqueueQueueEmptiedReminder(
+	ctx context.Context,
+	db bun.IDB,
+	subscription models.UserWorkspaceQueueReminder,
+	publicationID string,
+	snapshot queueSnapshot,
+) error {
+	query := db.NewUpdate().Model((*models.UserWorkspaceQueueReminder)(nil)).
+		Set("queue_emptied_active = ?", true).
+		Set("updated_at = ?", s.now()).
+		Where("user_id = ? AND workspace_id = ?", subscription.UserID, subscription.WorkspaceID)
+	if subscription.LowRunwayEnabled {
+		query = query.Set("low_runway_active = ?", true)
+	}
+	if _, err := query.Exec(ctx); err != nil {
+		return err
+	}
+	deliveryID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(strings.Join([]string{
+		EmailClassificationQueueReminder,
+		string(QueueReminderEmptied),
+		subscription.UserID,
+		subscription.WorkspaceID,
+		publicationID,
+	}, ":"))).String()
+	return s.enqueueQueueReminderEmail(ctx, db, subscription, QueueReminderEmptied, snapshot, deliveryID)
 }
 
 func (s *Service) enqueueQueueReminderEmail(
 	ctx context.Context,
 	db bun.IDB,
 	subscription models.UserWorkspaceQueueReminder,
-	kind string,
+	kind QueueReminderKind,
 	snapshot queueSnapshot,
+	deliveryID string,
 ) error {
 	var workspace models.Workspace
 	if err := db.NewSelect().Model(&workspace).Column("name", "timezone").Where("id = ?", subscription.WorkspaceID).Scan(ctx); err != nil {
@@ -327,19 +355,27 @@ func (s *Service) enqueueQueueReminderEmail(
 			dayLabel = "day"
 		}
 		title = fmt.Sprintf("Your OpenPost queue has %d %s left", daysLeft, dayLabel)
-		body = fmt.Sprintf("%s has less than %d days of scheduled posts left.", workspace.Name, subscription.RunwayDays)
+		body = fmt.Sprintf("%s has %d days or less of scheduled posts left.", workspace.Name, subscription.RunwayDays)
 	}
-	deliveryID := uuid.NewString()
+	if deliveryID == "" {
+		deliveryID = uuid.NewString()
+	}
 	payload, err := json.Marshal(emailDeliveryJob{
 		DeliveryID: deliveryID, Classification: EmailClassificationQueueReminder,
 		UserID: subscription.UserID, WorkspaceID: subscription.WorkspaceID, WorkspaceScopeKnown: true,
-		Type: kind, Title: title, Body: body, Href: "/calendar",
+		Type: string(kind), Title: title, Body: body, Href: "/calendar",
 		QueueRunwayDays: subscription.RunwayDays,
 	})
 	if err != nil {
 		return fmt.Errorf("encode queue reminder email job: %w", err)
 	}
-	job, err := jobregistry.NewJob(JobTypeEmailDelivery, string(payload), s.now())
+	runAt := s.now()
+	if kind == QueueReminderLowRunway {
+		// Give an in-flight final publication time to replace this warning with
+		// the more specific empty-queue email before delivery revalidates it.
+		runAt = runAt.Add(queueReminderCoalescingDelay)
+	}
+	job, err := jobregistry.NewJob(JobTypeEmailDelivery, string(payload), runAt)
 	if err != nil {
 		return err
 	}
@@ -353,7 +389,6 @@ func (s *Service) queueSnapshot(ctx context.Context, db bun.IDB, workspaceID str
 		return db.NewSelect().TableExpr("renditions AS rendition").
 			Join("JOIN publications AS publication ON publication.id = rendition.publication_id").
 			Where("publication.workspace_id = ?", workspaceID).
-			Where("publication.status IN (?)", bun.List([]string{models.PublicationStatusScheduled, models.PublicationStatusPublishing})).
 			Where("rendition.status IN (?)", bun.List([]string{models.RenditionStatusScheduled, models.RenditionStatusPublishing}))
 	}
 	pendingCount, err := queueQuery().Count(ctx)
@@ -433,7 +468,11 @@ func (s *Service) queueReminderDeliverySubscription(
 	if err != nil {
 		return subscription, false, err
 	}
-	if !s.queueReminderActorCanEdit(ctx, s.db, job.UserID, job.WorkspaceID) {
+	allowed, err := authorizeQueueReminderSubscription(ctx, s.db, job.UserID, job.WorkspaceID)
+	if err != nil {
+		return subscription, false, err
+	}
+	if !allowed {
 		return subscription, false, nil
 	}
 	activated, err := s.db.NewSelect().Model((*models.WorkspaceActivation)(nil)).
@@ -454,11 +493,12 @@ func (s *Service) queueReminderStillRelevant(
 	subscription models.UserWorkspaceQueueReminder,
 	snapshot queueSnapshot,
 ) (bool, error) {
-	switch job.Type {
+	switch QueueReminderKind(job.Type) {
 	case QueueReminderLowRunway:
 		horizon := s.now().Add(time.Duration(subscription.RunwayDays) * 24 * time.Hour)
 		if job.QueueRunwayDays != subscription.RunwayDays || !subscription.LowRunwayEnabled || !subscription.LowRunwayActive ||
-			(snapshot.PendingCount > 0 && snapshot.LatestRunAt.After(horizon)) {
+			(snapshot.PendingCount > 0 && snapshot.LatestRunAt.After(horizon)) ||
+			(snapshot.PendingCount == 0 && subscription.QueueEmptiedEnabled && subscription.QueueEmptiedActive) {
 			return false, nil
 		}
 	case QueueReminderEmptied:

@@ -8,7 +8,6 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -24,6 +23,10 @@
 	import { notificationQueryAPI } from '$lib/query/notifications';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
+	import {
+		registerSettingsInitialLoad,
+		SETTINGS_INITIAL_LOAD_PARTICIPANT
+	} from '$lib/settings-initial-load.svelte';
 
 	let {
 		workspaceID,
@@ -59,6 +62,10 @@
 	const dirty = $derived(
 		JSON.stringify({ lowRunwayEnabled, queueEmptiedEnabled, runwayDays }) !== savedSnapshot
 	);
+	const reportInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.queueReminders
+	);
+	$effect(() => reportInitialLoad(loading));
 
 	$effect(() => {
 		const nextWorkspaceID = workspaceID;
@@ -151,9 +158,7 @@
 		themeIconRole="calendar"
 	/>
 
-	{#if loading}
-		<PageLoading layout="list" label={m.common_loading()} items={2} />
-	{:else if error}
+	{#if error}
 		<InlineNotice tone="error" message={error}>
 			{#snippet actions()}
 				<Button variant="outline" size="sm" onclick={() => void settingsQuery.refetch()}>

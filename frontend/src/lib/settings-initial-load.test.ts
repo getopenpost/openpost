@@ -92,6 +92,12 @@ describe('getSettingsInitialLoadPlan', () => {
 			SETTINGS_INITIAL_LOAD_PARTICIPANT.security,
 			SETTINGS_INITIAL_LOAD_PARTICIPANT.authSessions
 		]);
+		expect(
+			getSettingsInitialLoadPlan('notifications', { ...scope, canEditQueue: true }).participants
+		).toEqual([
+			SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications,
+			SETTINGS_INITIAL_LOAD_PARTICIPANT.queueReminders
+		]);
 
 		for (const tab of [
 			'notifications',
@@ -121,5 +127,27 @@ describe('getSettingsInitialLoadPlan', () => {
 		expect(getSettingsInitialLoadPlan('notifications', scope).participants).toEqual([
 			SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications
 		]);
+	});
+
+	it('restarts the notifications boundary when an editor switches Workspaces', () => {
+		const scope = {
+			userID: 'user-a',
+			workspaceID: 'workspace-a',
+			organizationID: 'organization-a',
+			canEditQueue: true
+		};
+		const workspaceA = getSettingsInitialLoadPlan('notifications', scope);
+		const boundary = new SettingsInitialLoadBoundary(workspaceA);
+		boundary.register(SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications).update(false);
+		boundary.register(SETTINGS_INITIAL_LOAD_PARTICIPANT.queueReminders).update(false);
+		expect(boundary.loading).toBe(false);
+
+		const workspaceB = getSettingsInitialLoadPlan('notifications', {
+			...scope,
+			workspaceID: 'workspace-b'
+		});
+		expect(workspaceB.key).not.toBe(workspaceA.key);
+		boundary.activate(workspaceB);
+		expect(boundary.loading).toBe(true);
 	});
 });

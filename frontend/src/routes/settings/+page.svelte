@@ -92,7 +92,8 @@
 			userID: authState.user?.id ?? '',
 			workspaceID: workspaceCtx.currentWorkspace?.id ?? '',
 			organizationID: workspaceCtx.currentWorkspace?.organization_id ?? '',
-			preferredOrganizationID: page.url.searchParams.get('organization') ?? ''
+			preferredOrganizationID: page.url.searchParams.get('organization') ?? '',
+			canEditQueue: workspaceCtx.currentWorkspace?.can_edit ?? false
 		})
 	);
 	const settingsInitialLoad = provideSettingsInitialLoadBoundary(() => settingsInitialLoadPlan);

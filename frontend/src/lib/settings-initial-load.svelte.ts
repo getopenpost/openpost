@@ -3,6 +3,7 @@ import type { SettingsTabID } from '$lib/settings-navigation';
 
 export const SETTINGS_INITIAL_LOAD_PARTICIPANT = {
 	notifications: 'notifications.preferences',
+	queueReminders: 'notifications.queue-reminders',
 	security: 'security.status',
 	authSessions: 'security.sessions',
 	apiTokens: 'developer.tokens',
@@ -38,6 +39,7 @@ interface SettingsInitialLoadScope {
 	workspaceID: string;
 	organizationID: string;
 	preferredOrganizationID?: string;
+	canEditQueue?: boolean;
 }
 
 interface SettingsInitialLoadParticipant {
@@ -52,8 +54,13 @@ export function getSettingsInitialLoadPlan(
 	scope: SettingsInitialLoadScope
 ): SettingsInitialLoadPlan {
 	switch (tab) {
-		case 'notifications':
-			return scopedPlan(tab, scope.userID, [SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications]);
+		case 'notifications': {
+			const queueScope = scope.workspaceID && scope.canEditQueue ? scope.workspaceID : '';
+			return scopedPlan(tab, `${scope.userID}:${queueScope}`, [
+				SETTINGS_INITIAL_LOAD_PARTICIPANT.notifications,
+				...(queueScope ? [SETTINGS_INITIAL_LOAD_PARTICIPANT.queueReminders] : [])
+			]);
+		}
 		case 'security':
 			return scopedPlan(tab, scope.userID, [
 				SETTINGS_INITIAL_LOAD_PARTICIPANT.security,

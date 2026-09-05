@@ -49,6 +49,7 @@ test("an editor can configure queue reminder emails on desktop and phone", async
   ]) {
     await page.setViewportSize(viewport);
     await expect(section).toBeVisible();
+    await section.scrollIntoViewIfNeeded();
     await page.screenshot({
       path: `/tmp/openpost-queue-reminders-${viewport.width}.png`,
       fullPage: true,

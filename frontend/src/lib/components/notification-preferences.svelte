@@ -315,10 +315,6 @@
 			<InlineNotice tone="warning" message={m.notifications_email_unavailable()} />
 		{/if}
 
-		{#if canEditQueue && workspaceID}
-			<QueueReminderSettings {workspaceID} {notify} />
-		{/if}
-
 		<div class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
 			<div class="space-y-2">
 				<label class="text-sm font-medium" for="notification-digest-time">
@@ -444,4 +440,8 @@
 			onSave={() => void save()}
 		/>
 	</div>
+{/if}
+
+{#if canEditQueue && workspaceID}
+	<QueueReminderSettings {workspaceID} {notify} />
 {/if}

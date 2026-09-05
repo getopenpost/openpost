@@ -68,6 +68,29 @@ func TestQueueReminderEmailRechecksRecoveredQueueBeforeDelivery(t *testing.T) {
 	require.Empty(t, sender.messages)
 }
 
+func TestLowRunwayReminderSendsForAnAlreadyEmptyActivatedWorkspace(t *testing.T) {
+	db := notificationsTestDB(t)
+	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{EmailDelivery: sender})
+	service.now = func() time.Time { return now }
+	_, err := db.NewInsert().Model(&models.WorkspaceActivation{
+		ID: "activation:workspace-1", WorkspaceID: "workspace-1", PublicationID: "first", CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = service.UpdateQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1", QueueReminderUpdate{
+		LowRunwayEnabled: true, QueueEmptiedEnabled: true, RunwayDays: 7,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, service.RunQueueReminderSweep(t.Context()))
+	jobs := queueReminderEmailJobs(t, db)
+	require.Len(t, jobs, 1)
+	require.NoError(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))
+	require.Len(t, sender.messages, 1)
+	require.Equal(t, "Your OpenPost queue has 0 days left", sender.messages[0].Title)
+}
+
 func TestQueueEmptiedReminderOnlyFiresAfterTheLastQueuedPublicationFinishes(t *testing.T) {
 	db := notificationsTestDB(t)
 	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
@@ -91,6 +114,88 @@ func TestQueueEmptiedReminderOnlyFiresAfterTheLastQueuedPublicationFinishes(t *t
 	require.NoError(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))
 	require.Len(t, sender.messages, 1)
 	require.Equal(t, "Your OpenPost queue is empty", sender.messages[0].Title)
+}
+
+func TestQueueEmptiedReminderCatchesQueueFilledAndDrainedBetweenSweeps(t *testing.T) {
+	db := notificationsTestDB(t)
+	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	service := NewService(db, Options{EmailDelivery: &recordingNotificationSender{}})
+	service.now = func() time.Time { return now }
+	_, err := db.NewInsert().Model(&models.WorkspaceActivation{
+		ID: "activation:workspace-1", WorkspaceID: "workspace-1", PublicationID: "first", CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = service.UpdateQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1", QueueReminderUpdate{
+		QueueEmptiedEnabled: true, RunwayDays: 7,
+	})
+	require.NoError(t, err)
+
+	seedQueuedPublication(t, db, "between-sweeps", now.Add(time.Hour))
+	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("status = ?", models.PublicationStatusPublished).Where("id = ?", "between-sweeps").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.Rendition)(nil)).Set("status = ?", models.RenditionStatusPublished).Where("publication_id = ?", "between-sweeps").Exec(t.Context())
+	require.NoError(t, err)
+
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "between-sweeps"))
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "between-sweeps"))
+	require.Len(t, queueReminderEmailJobs(t, db), 1)
+}
+
+func TestQueueReminderSnapshotKeepsFailedPublicationWithScheduledRendition(t *testing.T) {
+	db := notificationsTestDB(t)
+	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	seedQueuedPublication(t, db, "partially-failed", now.Add(4*24*time.Hour))
+	_, err := db.NewUpdate().Model((*models.Publication)(nil)).Set("status = ?", models.PublicationStatusFailed).Where("id = ?", "partially-failed").Exec(t.Context())
+	require.NoError(t, err)
+
+	snapshot, err := NewService(db, Options{}).queueSnapshot(t.Context(), db, "workspace-1")
+	require.NoError(t, err)
+	require.Equal(t, 1, snapshot.PendingCount)
+	require.Equal(t, now.Add(4*24*time.Hour), snapshot.LatestRunAt)
+}
+
+func TestQueueEmptiedReminderSupersedesPendingLowRunwayEmail(t *testing.T) {
+	db := notificationsTestDB(t)
+	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{EmailDelivery: sender})
+	service.now = func() time.Time { return now }
+	seedQueueReminderWorkspace(t, db, now)
+	_, err := service.UpdateQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1", QueueReminderUpdate{
+		LowRunwayEnabled: true, QueueEmptiedEnabled: true, RunwayDays: 7,
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.RunQueueReminderSweep(t.Context()))
+
+	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("status = ?", models.PublicationStatusPublished).Where("id = ?", "queued").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.Rendition)(nil)).Set("status = ?", models.RenditionStatusPublished).Where("publication_id = ?", "queued").Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "queued"))
+
+	jobs := queueReminderEmailJobs(t, db)
+	require.Len(t, jobs, 2)
+	for _, job := range jobs {
+		require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	}
+	require.Len(t, sender.messages, 1)
+	require.Equal(t, "Your OpenPost queue is empty", sender.messages[0].Title)
+}
+
+func TestQueueReminderSettingsRequireActiveMembershipAndPropagateAuthorizationErrors(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{})
+	_, err := db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("status = ''").Where("workspace_id = ? AND user_id = ?", "workspace-1", "user-1").Exec(t.Context())
+	require.NoError(t, err)
+
+	_, err = service.GetQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1")
+	require.ErrorIs(t, err, ErrQueueReminderAccess)
+
+	_, err = db.ExecContext(t.Context(), "DROP TABLE workspace_members")
+	require.NoError(t, err)
+	_, err = service.GetQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrQueueReminderAccess)
 }
 
 func seedQueueReminderWorkspace(t *testing.T, db *bun.DB, now time.Time) {

@@ -1,0 +1,7 @@
+{
+  "name": "openpost-rich-content",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "src/index.ts"
+}

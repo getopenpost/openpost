@@ -4,12 +4,14 @@ import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Linking,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { ProtectedIcon } from "@/components/protected-icon";
@@ -31,7 +33,7 @@ import {
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
-import type { PendingAttachment } from "@/lib/media";
+import { MAX_ATTACHMENT_BYTES, type PendingAttachment } from "@/lib/media";
 import { stashPendingAttachments, stashSharedFiles } from "@/lib/share";
 import { cacheCreatedPublication, invalidatePublicationData } from "@/lib/query-cache";
 import { queryKeys } from "@/lib/query-policy";
@@ -66,6 +68,7 @@ export default function DraftsScreen() {
   const [idea, setIdea] = useState("");
   const [image, setImage] = useState<PendingAttachment | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const ideaInputRef = useRef<TextInput | null>(null);
   const drafts = usePublications("draft");
   const workspaces = useWorkspaces();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -152,19 +155,51 @@ export default function DraftsScreen() {
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;
       const capturedAt = Date.now();
-      setImage({
-        localId: `local-${capturedAt}`,
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? "image/jpeg",
-        filename: asset.fileName ?? `photo-${capturedAt}.jpg`,
-        size: asset.fileSize ?? null,
-      });
-      setCaptureError(null);
-      void selectionHaptic();
+      applyImage(
+        {
+          localId: `local-${capturedAt}`,
+          uri: asset.uri,
+          mimeType: asset.mimeType ?? "image/jpeg",
+          filename: asset.fileName ?? `photo-${capturedAt}.jpg`,
+          size: asset.fileSize ?? null,
+        },
+        () => ideaInputRef.current?.focus(),
+      );
     } catch {
       setCaptureError("Could not open your photo library. Try again.");
       void errorHaptic();
     }
+  }
+
+  function applyImage(nextImage: PendingAttachment, focus?: () => void) {
+    if (nextImage.size !== null && nextImage.size > MAX_ATTACHMENT_BYTES) {
+      setCaptureError("Images must be 50 MB or smaller.");
+      void errorHaptic();
+      focus?.();
+      return;
+    }
+
+    const commit = () => {
+      setImage(nextImage);
+      setCaptureError(null);
+      void selectionHaptic();
+    };
+
+    if (!image) {
+      commit();
+      focus?.();
+      return;
+    }
+
+    Alert.alert(
+      "Replace image?",
+      "Your current image will be removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Replace", style: "destructive", onPress: commit },
+      ],
+      { onDismiss: focus },
+    );
   }
 
   useEffect(() => {
@@ -245,12 +280,21 @@ export default function DraftsScreen() {
       >
         <ContentTitle>Jot an idea</ContentTitle>
         <TextField
+          ref={ideaInputRef}
           value={idea}
           onChangeText={setIdea}
           accessibilityLabel="Draft idea"
           placeholder="What are you building, learning, or launching?"
           multiline
           textAlignVertical="top"
+          imageKeyboard={{
+            onImageReceived: (attachment, context) => applyImage(attachment, context.focus),
+            onError: (message, context) => {
+              setCaptureError(message);
+              void errorHaptic();
+              context.focus();
+            },
+          }}
           style={[
             styles.ideaField,
             typography.bodyLarge,

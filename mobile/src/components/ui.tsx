@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -18,6 +18,10 @@ import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { STATUS_LABEL } from "@/lib/format";
 import { pressHaptic } from "@/lib/haptics";
+import {
+  useAndroidImageKeyboard,
+  type AndroidImageKeyboardOptions,
+} from "@/lib/rich-content-native";
 import { ThemeIcon } from "@/components/theme-icon";
 import {
   actionPresentation,
@@ -236,12 +240,34 @@ export function Button({
   );
 }
 
-export function TextField({ style, ...props }: React.ComponentProps<typeof TextInput>) {
+export type TextFieldProps = React.ComponentPropsWithoutRef<typeof TextInput> & {
+  imageKeyboard?: AndroidImageKeyboardOptions;
+};
+
+export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
+  { imageKeyboard, style, ...props },
+  forwardedRef,
+) {
   const theme = useNativeTheme();
   const { colors, typography } = theme.manifest;
   const presentation = inputPresentation(theme.manifest);
+  const inputRef = useRef<TextInput | null>(null);
+  useAndroidImageKeyboard(inputRef, imageKeyboard);
+  const setInputRef = useCallback(
+    (instance: TextInput | null) => {
+      inputRef.current = instance;
+      if (typeof forwardedRef === "function") {
+        forwardedRef(instance);
+      } else if (forwardedRef) {
+        forwardedRef.current = instance;
+      }
+    },
+    [forwardedRef],
+  );
+
   return (
     <TextInput
+      ref={setInputRef}
       placeholderTextColor={colors.onSurfaceVariant}
       {...props}
       style={[
@@ -256,7 +282,7 @@ export function TextField({ style, ...props }: React.ComponentProps<typeof TextI
       ]}
     />
   );
-}
+});
 
 export function ThemeAsset({
   contentFit = "contain",

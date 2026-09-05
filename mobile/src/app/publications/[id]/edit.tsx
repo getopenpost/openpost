@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -34,7 +35,12 @@ import { api, errorMessage, type Api } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
-import { uploadAttachment, type PendingAttachment } from "@/lib/media";
+import {
+  MAX_ATTACHMENT_BYTES,
+  MAX_MOBILE_ATTACHMENT_COUNT,
+  uploadAttachment,
+  type PendingAttachment,
+} from "@/lib/media";
 import { takePendingAttachments } from "@/lib/share";
 import { invalidatePublicationData, type Publication } from "@/lib/query-cache";
 import { currentWorkspaceId, useAccounts, usePublication, useSocialSets } from "@/lib/queries";
@@ -201,6 +207,7 @@ function Composer({
   const theme = useNativeTheme();
   const { colors, editor, typography } = theme.manifest;
   const queryClient = useQueryClient();
+  const bodyInputRef = useRef<TextInput | null>(null);
   const [initialPendingAttachments] = useState(() => takePendingAttachments());
   const editorDirty = useRef(initialPendingAttachments.length > 0);
 
@@ -681,20 +688,71 @@ function Composer({
     setSelectionTouched(true);
   }
 
-  function addAttachment(asset: ImagePicker.ImagePickerAsset) {
+  type LocalAttachmentInput = Pick<Attachment, "uri" | "mimeType" | "filename" | "size"> & {
+    localId?: string;
+  };
+
+  function appendAttachments(items: LocalAttachmentInput[], focus?: () => void) {
+    const validItems = items.filter(
+      (item) =>
+        !item.mimeType.startsWith("image/") ||
+        item.size === null ||
+        item.size <= MAX_ATTACHMENT_BYTES,
+    );
+    if (validItems.length < items.length) {
+      setActionError("Each image must be 50 MB or smaller.");
+      void errorHaptic();
+    }
+
+    const available = MAX_MOBILE_ATTACHMENT_COUNT - attachments.length;
+    if (available <= 0) {
+      setActionError(`You can attach up to ${MAX_MOBILE_ATTACHMENT_COUNT} files.`);
+      void errorHaptic();
+      focus?.();
+      return;
+    }
+
+    const accepted = validItems.slice(0, available);
+    if (accepted.length < validItems.length) {
+      setActionError(`You can attach up to ${MAX_MOBILE_ATTACHMENT_COUNT} files.`);
+      void errorHaptic();
+    }
+    if (accepted.length === 0) {
+      focus?.();
+      return;
+    }
+
     markEditorDirty();
     void selectionHaptic();
     setAttachments((current) => [
       ...current,
-      {
-        localId: `local-${Date.now()}-${current.length}`,
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? "image/jpeg",
-        filename: asset.fileName ?? `photo-${Date.now()}.jpg`,
-        size: asset.fileSize ?? null,
-        status: "local",
-      },
+      ...accepted.map((item, index) => ({
+        ...item,
+        localId: item.localId ?? `local-${current.length + index}-${item.uri}`,
+        status: "local" as const,
+      })),
     ]);
+    if (validItems.length === items.length && accepted.length === validItems.length) {
+      setActionError(null);
+    }
+    focus?.();
+  }
+
+  function attachmentFromAsset(
+    asset: ImagePicker.ImagePickerAsset,
+    index = 0,
+  ): LocalAttachmentInput {
+    return {
+      localId: `local-${asset.assetId ?? asset.uri}-${attachments.length + index}`,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "image/jpeg",
+      filename: asset.fileName ?? `photo-${index + 1}.jpg`,
+      size: asset.fileSize ?? null,
+    };
+  }
+
+  function addAttachment(asset: ImagePicker.ImagePickerAsset, index = 0) {
+    appendAttachments([attachmentFromAsset(asset, index)]);
   }
 
   async function pickFromLibrary() {
@@ -705,7 +763,7 @@ function Composer({
       quality: 0.9,
     });
     if (!result.canceled) {
-      for (const asset of result.assets) addAttachment(asset);
+      appendAttachments(result.assets.map((asset, index) => attachmentFromAsset(asset, index)));
     }
   }
 
@@ -835,6 +893,7 @@ function Composer({
           />
         </View>
         <TextField
+          ref={bodyInputRef}
           value={body}
           onChangeText={(text) => {
             markEditorDirty();
@@ -844,6 +903,15 @@ function Composer({
           placeholder="What do you want to say?"
           multiline
           textAlignVertical="top"
+          imageKeyboard={{
+            onImageReceived: (attachment, context) =>
+              appendAttachments([attachment], context.focus),
+            onError: (message, context) => {
+              setActionError(message);
+              void errorHaptic();
+              context.focus();
+            },
+          }}
           style={[
             styles.writingField,
             {

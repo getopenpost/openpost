@@ -2,6 +2,9 @@ import * as FileSystem from "expo-file-system/legacy";
 
 import { api, errorMessage, type Api } from "./api/client";
 
+export const MAX_MOBILE_ATTACHMENT_COUNT = 10;
+export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+
 export type PendingAttachment = {
   localId: string;
   uri: string;

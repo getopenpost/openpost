@@ -10,6 +10,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import ProjectBrowser from '$lib/video-editor/components/project-browser.svelte';
+	import CloudProjectBrowser from '$lib/video-editor/components/cloud-project-browser.svelte';
 	import WorkspaceIndicator from '$lib/video-editor/components/workspace-indicator.svelte';
 	import WorkspaceGatePanel from '$lib/video-editor/components/workspace-gate-panel.svelte';
 	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
@@ -25,6 +26,11 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	import type { ProjectCreationSettings } from '$lib/video-editor/project/project-presets';
 	import { permanentlyDeleteProject } from '$lib/video-editor/project/project-trash';
 	import type { Project } from '$lib/video-editor/project/types';
+	import {
+		CloudVideoProjectRepository,
+		type CloudVideoProject
+	} from '$lib/video-editor/cloud/project-repository';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
 	import { onPermissionLost } from '$lib/video-editor/workspace-fs/root';
 	import { createProject, updateProject } from '$lib/video-editor/workspace-fs/projects';
@@ -54,6 +60,90 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	let bundleController = $state<AbortController | null>(null);
 	let bundleCanceling = $state(false);
 	let trashLoadGeneration = 0;
+	let storageMode = $state<'cloud' | 'local'>('cloud');
+	let storageModeChosen = $state(false);
+	let cloudProjects = $state<CloudVideoProject<Project>[]>([]);
+	let cloudTrashedProjects = $state<CloudVideoProject<Project>[]>([]);
+	let cloudLoading = $state(false);
+	let cloudError = $state('');
+	let cloudCreating = $state(false);
+	let cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	let cloudRepository = $derived(
+		cloudWorkspaceId ? new CloudVideoProjectRepository<Project>(cloudWorkspaceId) : null
+	);
+
+	async function loadCloudProjects(): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository) {
+			cloudProjects = [];
+			cloudTrashedProjects = [];
+			return;
+		}
+		cloudLoading = true;
+		cloudError = '';
+		try {
+			const projects = await repository.list(true);
+			cloudProjects = projects.filter((project) => !project.trashedAt);
+			cloudTrashedProjects = projects.filter((project) => project.trashedAt);
+		} catch {
+			cloudError = m.video_editor_cloud_projects_load_failed();
+		} finally {
+			cloudLoading = false;
+		}
+	}
+
+	$effect(() => {
+		void cloudWorkspaceId;
+		if (!cloudWorkspaceId) storageMode = 'local';
+		else {
+			if (!storageModeChosen) storageMode = 'cloud';
+			untrack(() => void loadCloudProjects());
+		}
+	});
+
+	async function createCloudProject(name: string): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository || cloudCreating) return;
+		cloudCreating = true;
+		try {
+			const { createBlankProject } = await import('$lib/video-editor/project/defaults');
+			const project = createBlankProject(name, { width: 1920, height: 1080, fps: 30 });
+			const created = await repository.create(project.name, project);
+			await goto(`/video-editor/${created.id}?storage=cloud`);
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			cloudCreating = false;
+		}
+	}
+
+	async function openCloudProject(project: CloudVideoProject<Project>): Promise<void> {
+		await goto(`/video-editor/${project.id}?storage=cloud`);
+	}
+
+	async function trashCloudProject(project: CloudVideoProject<Project>): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository) return;
+		try {
+			await repository.trash(project.id);
+			await loadCloudProjects();
+			showToast(m.editors_delete_cloud_video_success(), 'success');
+		} catch {
+			showToast(m.editors_delete_cloud_video_failed(), 'error');
+		}
+	}
+
+	async function restoreCloudProject(project: CloudVideoProject<Project>): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository) return;
+		try {
+			await repository.restore(project.id);
+			await loadCloudProjects();
+			showToast(m.video_editor_project_restored({ name: project.name }), 'success');
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		}
+	}
 
 	async function loadTrash(sweepExpired = false): Promise<void> {
 		if (gate.state !== 'ready') return;
@@ -463,13 +553,51 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.video_editor_title()}</span>
 		</a>
-		{#if gate.state === 'ready'}
-			<WorkspaceIndicator {gate} />
-		{/if}
+		<div class="flex items-center gap-2">
+			{#if cloudWorkspaceId}
+				<div
+					class="flex rounded-lg border border-[var(--video-editor-border)] p-0.5"
+					aria-label={m.video_editor_projects_title()}
+				>
+					<Button
+						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
+						size="xs"
+						onclick={() => {
+							storageModeChosen = true;
+							storageMode = 'cloud';
+						}}>{m.video_editor_cloud_projects()}</Button
+					>
+					<Button
+						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
+						size="xs"
+						onclick={() => {
+							storageModeChosen = true;
+							storageMode = 'local';
+						}}>{m.video_editor_local_only()}</Button
+					>
+				</div>
+			{/if}
+			{#if storageMode === 'local' && gate.state === 'ready'}
+				<WorkspaceIndicator {gate} />
+			{/if}
+		</div>
 	</header>
 
 	<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
-		{#if gate.state !== 'ready'}
+		{#if storageMode === 'cloud' && cloudRepository}
+			<CloudProjectBrowser
+				projects={cloudProjects}
+				trashedProjects={cloudTrashedProjects}
+				loading={cloudLoading}
+				error={cloudError}
+				creating={cloudCreating}
+				oncreate={createCloudProject}
+				onopen={openCloudProject}
+				ontrash={trashCloudProject}
+				onrestore={restoreCloudProject}
+				onrefresh={loadCloudProjects}
+			/>
+		{:else if gate.state !== 'ready'}
 			<WorkspaceGatePanel {gate} />
 		{:else if gate.state === 'ready'}
 			<ProjectBrowser

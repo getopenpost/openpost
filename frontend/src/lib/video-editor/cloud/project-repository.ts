@@ -20,7 +20,7 @@ export function purgeCloudVideoProjectDeviceData(): void {
 	indexedDB.deleteDatabase(OUTBOX_DATABASE);
 }
 
-export interface CloudVideoProject<TDocument extends PortableVideoProjectDocument> {
+export interface CloudVideoProject<TDocument extends object> {
 	id: string;
 	workspaceId: string;
 	name: string;
@@ -28,6 +28,7 @@ export interface CloudVideoProject<TDocument extends PortableVideoProjectDocumen
 	document: TDocument;
 	syncStatus: 'pending' | 'uploading' | 'saving' | 'synced' | 'needs_attention';
 	attentionReason: string;
+	trashedAt: string;
 	updatedAt: string;
 }
 
@@ -76,7 +77,7 @@ function deviceId(): string {
 	return created;
 }
 
-function cloudProject<TDocument extends PortableVideoProjectDocument>(raw: {
+function cloudProject<TDocument extends object>(raw: {
 	id: string;
 	workspace_id: string;
 	name: string;
@@ -84,6 +85,7 @@ function cloudProject<TDocument extends PortableVideoProjectDocument>(raw: {
 	document: Record<string, unknown>;
 	sync_status: CloudVideoProject<TDocument>['syncStatus'];
 	attention_reason?: string;
+	trashed_at?: string;
 	updated_at: string;
 }): CloudVideoProject<TDocument> {
 	return {
@@ -94,11 +96,12 @@ function cloudProject<TDocument extends PortableVideoProjectDocument>(raw: {
 		document: raw.document as TDocument,
 		syncStatus: raw.sync_status,
 		attentionReason: raw.attention_reason ?? '',
+		trashedAt: raw.trashed_at ?? '',
 		updatedAt: raw.updated_at
 	};
 }
 
-export class CloudVideoProjectRepository<TDocument extends PortableVideoProjectDocument> {
+export class CloudVideoProjectRepository<TDocument extends object> {
 	readonly outbox = new VideoProjectMutationOutbox(new BrowserMutationStorage());
 
 	constructor(readonly workspaceId: string) {}

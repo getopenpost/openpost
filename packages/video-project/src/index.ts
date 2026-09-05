@@ -68,7 +68,7 @@ const DEVICE_ONLY_KEYS = new Set([
   "panelLayout",
 ]);
 
-export function portableVideoProjectDocument<T extends Record<string, unknown>>(document: T): T {
+export function portableVideoProjectDocument<T extends object>(document: T): T {
   return stripDeviceState(structuredClone(document)) as T;
 }
 

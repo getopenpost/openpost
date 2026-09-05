@@ -24,6 +24,7 @@ import { PeriodicAutosaveController } from './settings/periodic-autosave';
 import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
 import { unsupportedProjectSchemaVersion } from './project/project-editability';
 import { m } from '$lib/paraglide/messages';
+import { CloudVideoProjectRepository, type CloudVideoProject } from './cloud/project-repository';
 
 interface ReactiveTransportState {
 	playing: boolean;
@@ -48,6 +49,8 @@ class EditorSession {
 	});
 
 	private projectId: string | null = null;
+	private cloudProject: CloudVideoProject<Project> | null = null;
+	private cloudRepository: CloudVideoProjectRepository<Project> | null = null;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
 	private saveRequested = false;
 	private saveLoop: Promise<void> | null = null;
@@ -97,7 +100,7 @@ class EditorSession {
 		return this.project ? timelineStore.fps : 30;
 	}
 
-	async load(projectId: string): Promise<void> {
+	async load(projectId: string, cloudWorkspaceId = ''): Promise<void> {
 		if (this.projectId && this.projectId !== projectId) {
 			try {
 				await this.flushAutosave();
@@ -108,6 +111,10 @@ class EditorSession {
 		}
 		this.stopAutosaveTimers();
 		this.projectId = projectId;
+		this.cloudRepository = cloudWorkspaceId
+			? new CloudVideoProjectRepository<Project>(cloudWorkspaceId)
+			: null;
+		this.cloudProject = null;
 		this.loading = true;
 		this.loadError = '';
 		this.saveError = '';
@@ -116,7 +123,8 @@ class EditorSession {
 			sceneBrowser.reset();
 			mediaPool.clear();
 			mediaRecovery.reset();
-			const project = await getProject(projectId);
+			const cloudProject = this.cloudRepository ? await this.cloudRepository.get(projectId) : null;
+			const project = cloudProject?.document ?? (await getProject(projectId));
 			if (!project) {
 				this.loadError = 'Project not found';
 				return;
@@ -133,13 +141,14 @@ class EditorSession {
 				...project,
 				animationPresets: normalizeAnimationPresets(project.animationPresets)
 			};
+			this.cloudProject = cloudProject;
 			commandHistory.clearHistory();
 			sequenceStore.load(project.timeline ?? { tracks: [], items: [] }, project.metadata);
 			timelineStore._setSnapEnabled(editorSettings.snapByDefault);
 			timelineStore._setMaxUndoHistory(editorSettings.maxUndoHistory);
 			this.clock.setFps(project.metadata.fps);
 			this.syncTimelineClock();
-			const media = await getMediaForProject(projectId);
+			const media = this.cloudProject ? [] : await getMediaForProject(projectId);
 			mediaPool.loadAll(media);
 			await mediaRecovery.scan(media, timelineStore.items);
 			this.configurePeriodicAutosave();
@@ -235,6 +244,12 @@ class EditorSession {
 		this.scheduleAutosave();
 	}
 
+	renameProject(name: string): void {
+		if (!this.projectState || this.projectState.name === name) return;
+		this.projectState = { ...this.projectState, name };
+		this.scheduleAutosave();
+	}
+
 	async saveNow(): Promise<void> {
 		if (!this.projectId || !this.project) return;
 		this.saveRequested = true;
@@ -264,7 +279,8 @@ class EditorSession {
 				const project = this.project;
 				if (!projectId || !project) return;
 				const timeline = sequenceStore.projectTimeline();
-				await updateProject(projectId, {
+				const updates: Partial<Project> = {
+					name: project.name,
 					duration:
 						timeline.items.reduce(
 							(max, item) => Math.max(max, item.from + item.durationInFrames),
@@ -273,7 +289,14 @@ class EditorSession {
 					timeline,
 					metadata: project.metadata,
 					animationPresets: project.animationPresets
-				});
+				};
+				if (this.cloudProject && this.cloudRepository) {
+					const nextProject = { ...project, ...updates, id: projectId, updatedAt: Date.now() };
+					await this.cloudRepository.save(this.cloudProject, nextProject);
+					this.project = nextProject;
+				} else {
+					await updateProject(projectId, updates);
+				}
 				this.saveError = '';
 				if (!this.saveRequested) timelineStore._clearDirty();
 			} catch (error) {

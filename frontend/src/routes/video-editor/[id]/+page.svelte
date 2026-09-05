@@ -13,6 +13,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { page } from '$app/state';
 	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
+	import * as Menubar from '$lib/components/ui/menubar';
+	import EditorMenubar from '$lib/components/editor-menubar.svelte';
+	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
@@ -141,6 +144,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		editorDeleteModeForEvent,
 		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
+		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut,
 		handleOpenSceneBrowserShortcut,
 		type EditorShortcutId
@@ -170,6 +174,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	} from '$lib/video-editor/components/edit-inspector-tabs';
 
 	const projectId = $derived(page.params.id ?? '');
+	const cloudStorage = $derived(page.url.searchParams.get('storage') === 'cloud');
 	const gate = createWorkspaceGate();
 	let colorPickerBrandColors = $state.raw<ColorPickerPreset[]>([]);
 	let brandColorRequest = 0;
@@ -563,8 +568,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	$effect(() => {
 		voiceoverRecorder.reconcileProject(projectId);
-		if (gate.state !== 'ready' || !projectId) return;
-		void editorSession.load(projectId);
+		const workspaceId = cloudStorage ? (workspaceCtx.currentWorkspace?.id ?? '') : '';
+		if (!projectId || (cloudStorage ? !workspaceId : gate.state !== 'ready')) return;
+		void editorSession.load(projectId, workspaceId);
 		return () => {
 			editorSession.pausePlayback();
 			editorSession.stopAutosaveTimers();
@@ -1041,6 +1047,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		} catch {
 			showToast(m.video_editor_save_failed(), 'error');
 		}
+	}
+
+	function saveProject(): void {
+		void editorSession.saveNow().catch(() => showToast(m.video_editor_save_failed(), 'error'));
+	}
+
+	function undoProject(): void {
+		if (!commandHistory.canUndo) return;
+		commandHistory.undo();
+		editorSession.scheduleAutosave();
+	}
+
+	function redoProject(): void {
+		if (!commandHistory.canRedo) return;
+		commandHistory.redo();
+		editorSession.scheduleAutosave();
 	}
 
 	async function handleSendToOpenPost(): Promise<void> {
@@ -1580,7 +1602,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 		if (matches('SAVE')) {
 			event.preventDefault();
-			void editorSession.saveNow().catch(() => showToast(m.video_editor_save_failed(), 'error'));
+			saveProject();
 		} else if (matches('EXPORT')) {
 			event.preventDefault();
 			if (!exporting && timelineStore.items.length > 0) void handleExport();
@@ -1604,16 +1626,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			}
 		} else if (matches('UNDO')) {
 			event.preventDefault();
-			if (commandHistory.canUndo) {
-				commandHistory.undo();
-				editorSession.scheduleAutosave();
-			}
+			undoProject();
 		} else if (matches('REDO')) {
 			event.preventDefault();
-			if (commandHistory.canRedo) {
-				commandHistory.redo();
-				editorSession.scheduleAutosave();
-			}
+			redoProject();
 		} else if (matches('PREVIOUS_FRAME', 'NEXT_FRAME', 'GO_TO_START', 'GO_TO_END')) {
 			event.preventDefault();
 			const frame = matches('GO_TO_START')
@@ -1734,9 +1750,82 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<Logo class="h-5 w-auto" />
 				<span class="hidden text-sm font-semibold lg:inline">{m.video_editor_title()}</span>
 			</a>
-			<span class="hidden min-w-0 truncate text-sm font-medium md:block">
-				{editorSession.project?.name}
-			</span>
+			<EditorMenubar class="ml-1" ariaLabel={m.video_editor_menus()}>
+				<Menubar.Menu value="file">
+					<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-44">
+						<Menubar.Item onclick={saveProject}>
+							{m.common_save()}<Menubar.Shortcut
+								>{formatShortcutBinding(keyboardShortcuts.bindings.SAVE)}</Menubar.Shortcut
+							>
+						</Menubar.Item>
+						<Menubar.Item
+							disabled={exporting || timelineStore.items.length === 0}
+							onclick={() => void handleExport()}
+						>
+							{m.video_editor_export_title()}<Menubar.Shortcut
+								>{formatShortcutBinding(keyboardShortcuts.bindings.EXPORT)}</Menubar.Shortcut
+							>
+						</Menubar.Item>
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="edit">
+					<Menubar.Trigger>{m.image_editor_edit()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-44">
+						<Menubar.Item disabled={!commandHistory.canUndo} onclick={undoProject}>
+							{m.video_editor_undo()}<Menubar.Shortcut
+								>{formatShortcutBinding(keyboardShortcuts.bindings.UNDO)}</Menubar.Shortcut
+							>
+						</Menubar.Item>
+						<Menubar.Item disabled={!commandHistory.canRedo} onclick={redoProject}>
+							{m.video_editor_redo()}<Menubar.Shortcut
+								>{formatShortcutBinding(keyboardShortcuts.bindings.REDO)}</Menubar.Shortcut
+							>
+						</Menubar.Item>
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="view">
+					<Menubar.Trigger>{m.image_editor_view()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-44">
+						<Menubar.Item onclick={() => changeEditorWorkspace('edit')}
+							>{m.video_editor_workspace_edit()}<Menubar.Shortcut
+								>{formatShortcutBinding(
+									keyboardShortcuts.bindings.WORKSPACE_EDIT
+								)}</Menubar.Shortcut
+							></Menubar.Item
+						>
+						<Menubar.Item onclick={() => changeEditorWorkspace('color')}
+							>{m.video_editor_workspace_color()}<Menubar.Shortcut
+								>{formatShortcutBinding(
+									keyboardShortcuts.bindings.WORKSPACE_COLOR
+								)}</Menubar.Shortcut
+							></Menubar.Item
+						>
+						<Menubar.Item onclick={() => changeEditorWorkspace('motion')}
+							>{m.video_editor_workspace_motion()}<Menubar.Shortcut
+								>{formatShortcutBinding(
+									keyboardShortcuts.bindings.WORKSPACE_MOTION
+								)}</Menubar.Shortcut
+							></Menubar.Item
+						>
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="help">
+					<Menubar.Trigger>{m.image_editor_help()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-44">
+						<Menubar.Item onclick={() => (settingsOpen = true)}>
+							{m.video_editor_settings_title()}
+						</Menubar.Item>
+					</Menubar.Content>
+				</Menubar.Menu>
+			</EditorMenubar>
+			<EditorTitleInput
+				value={editorSession.project?.name ?? ''}
+				ariaLabel={m.video_editor_project_name()}
+				class="hidden max-w-48 min-w-28 text-sm md:block"
+				disabled={!editorSession.project}
+				onchange={(value) => editorSession.renameProject(value)}
+			/>
 			{#if projectSummary}
 				<span
 					class="hidden min-w-0 truncate text-xs text-[var(--video-editor-muted)] tabular-nums xl:inline"
@@ -1856,7 +1945,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		</div>
 	</header>
 
-	{#if gate.state !== 'ready'}
+	{#if !cloudStorage && gate.state !== 'ready'}
 		<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
 			<WorkspaceGatePanel {gate} />
 		</main>

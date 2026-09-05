@@ -13,17 +13,28 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/netguard"
 )
 
 type BlueskyAdapter struct {
 	pdsURL string
 }
 
+// BlueskyDefaultPDSURL is the entryway for Bluesky-hosted repositories. Accounts
+// on it keep the plain "bluesky" adapter key; any other PDS gets its own.
+const BlueskyDefaultPDSURL = "https://bsky.social"
+
 func NewBlueskyAdapter(pdsURL string) *BlueskyAdapter {
 	if pdsURL == "" {
-		pdsURL = "https://bsky.social"
+		pdsURL = BlueskyDefaultPDSURL
 	}
 	return &BlueskyAdapter{pdsURL: pdsURL}
+}
+
+// PDSURL is the personal data server this adapter talks to.
+func (b *BlueskyAdapter) PDSURL() string {
+	return b.pdsURL
 }
 
 func (b *BlueskyAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescriptor {
@@ -359,6 +370,161 @@ func serviceAuthPDSHost(pdsURL string) (string, error) {
 		return "", fmt.Errorf("bluesky PDS URL has no host")
 	}
 	return host, nil
+}
+
+const blueskyResolveTimeout = 5 * time.Second
+
+// Tests substitute a resolver so URL validation never performs real DNS.
+var blueskyPDSDNSResolver netguard.Resolver
+
+func blueskyPDSPolicy() netguard.URLPolicy {
+	return netguard.URLPolicy{
+		Label:            "bluesky pds",
+		AllowedSchemes:   []string{"https"},
+		AllowCustomPorts: false,
+		Resolver:         blueskyPDSDNSResolver,
+	}
+}
+
+// Tests substitute the resolver's HTTP client; it is nil in production.
+var blueskyPDSClientOverride *http.Client
+
+func blueskyPDSHTTPClient(policy netguard.URLPolicy) *http.Client {
+	if blueskyPDSClientOverride != nil {
+		return blueskyPDSClientOverride
+	}
+	return netguard.NewHTTPClient(blueskyResolveTimeout, policy)
+}
+
+// ResolveBlueskyPDS reads the personal data server hosting identifier from its
+// DID document. An empty pdsURL means "unresolved": the caller falls back to
+// BlueskyDefaultPDSURL. That happens for an email identifier, a DID document
+// that names no PDS, and a Bluesky-hosted endpoint. Every other failure is an
+// error, because silently signing in against the wrong server would strand the
+// account on a PDS that does not hold its repository.
+func ResolveBlueskyPDS(ctx context.Context, identifier string) (pdsURL string, did string, err error) {
+	identifier = strings.TrimPrefix(strings.TrimSpace(identifier), "@")
+	if identifier == "" || strings.Contains(identifier, "@") {
+		return "", "", nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, blueskyResolveTimeout)
+	defer cancel()
+
+	policy := blueskyPDSPolicy()
+	client := blueskyPDSHTTPClient(policy)
+
+	did, err = blueskyResolveDID(ctx, client, policy, identifier)
+	if err != nil {
+		return "", "", err
+	}
+	documentURL, err := blueskyDIDDocumentURL(did)
+	if err != nil {
+		return "", "", err
+	}
+	document, err := blueskyGuardedGet(ctx, client, policy, documentURL)
+	if err != nil {
+		return "", "", fmt.Errorf("fetching bluesky did document: %w", err)
+	}
+	endpoint, ok := blueskyPDSEndpoint(document)
+	if !ok {
+		return "", did, nil
+	}
+	pdsURL, err = normalizeBlueskyPDSURL(ctx, endpoint, policy)
+	if err != nil {
+		return "", "", err
+	}
+	return pdsURL, did, nil
+}
+
+func blueskyResolveDID(ctx context.Context, client *http.Client, policy netguard.URLPolicy, identifier string) (string, error) {
+	if strings.HasPrefix(identifier, "did:") {
+		return identifier, nil
+	}
+	body, err := blueskyGuardedGet(ctx, client, policy,
+		"https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle="+url.QueryEscape(identifier))
+	if err != nil {
+		return "", fmt.Errorf("resolving bluesky handle: %w", err)
+	}
+	var resolved struct {
+		DID string `json:"did"`
+	}
+	if err := json.Unmarshal(body, &resolved); err != nil || resolved.DID == "" {
+		return "", fmt.Errorf("bluesky handle did not resolve to a did")
+	}
+	return resolved.DID, nil
+}
+
+func blueskyDIDDocumentURL(did string) (string, error) {
+	switch {
+	case strings.HasPrefix(did, "did:plc:"):
+		return "https://plc.directory/" + url.PathEscape(did), nil
+	case strings.HasPrefix(did, "did:web:"):
+		host := strings.ToLower(strings.TrimPrefix(did, "did:web:"))
+		if host == "" || strings.ContainsAny(host, `/?#@\%:`) {
+			return "", fmt.Errorf("unsupported did:web identifier")
+		}
+		return "https://" + host + "/.well-known/did.json", nil
+	default:
+		return "", fmt.Errorf("unsupported did method for bluesky sign-in")
+	}
+}
+
+func blueskyGuardedGet(ctx context.Context, client *http.Client, policy netguard.URLPolicy, rawURL string) ([]byte, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing bluesky pds url: %w", err)
+	}
+	if err := netguard.ValidateURL(ctx, parsed, policy); err != nil {
+		return nil, err
+	}
+	return doRequestWithClient(ctx, client, http.MethodGet, rawURL, nil, nil)
+}
+
+func blueskyPDSEndpoint(document []byte) (string, bool) {
+	var parsed struct {
+		Service []struct {
+			ID              string `json:"id"`
+			Type            string `json:"type"`
+			ServiceEndpoint string `json:"serviceEndpoint"`
+		} `json:"service"`
+	}
+	if err := json.Unmarshal(document, &parsed); err != nil {
+		return "", false
+	}
+	for _, service := range parsed.Service {
+		if !strings.HasSuffix(service.ID, "#atproto_pds") || service.Type != "AtprotoPersonalDataServer" {
+			continue
+		}
+		if endpoint := strings.TrimSpace(service.ServiceEndpoint); endpoint != "" {
+			return endpoint, true
+		}
+	}
+	return "", false
+}
+
+// An empty return means the endpoint is Bluesky-hosted, which the default PDS
+// already serves.
+func normalizeBlueskyPDSURL(ctx context.Context, raw string, policy netguard.URLPolicy) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Hostname() == "" {
+		return "", fmt.Errorf("bluesky pds endpoint is not a valid url")
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	parsed.User = nil
+	parsed.Path = ""
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+
+	if host := strings.ToLower(parsed.Hostname()); host == "bsky.network" || strings.HasSuffix(host, ".bsky.network") {
+		return "", nil
+	}
+	if err := netguard.ValidateURL(ctx, parsed, policy); err != nil {
+		return "", err
+	}
+	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
 type blueskyVideoJobStatus struct {

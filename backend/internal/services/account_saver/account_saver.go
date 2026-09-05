@@ -531,7 +531,7 @@ func (s *AccountSaver) findExistingAccount(ctx context.Context, input SaveAccoun
 		Where("account_id = ?", input.AccountID).
 		Order("is_active DESC", "created_at DESC").
 		Limit(1)
-	if input.PlatformName == "mastodon" {
+	if input.PlatformName == "mastodon" || input.PlatformName == "bluesky" {
 		query = query.Where("instance_url = ?", input.InstanceURL)
 	}
 	var account models.SocialAccount
@@ -546,7 +546,7 @@ func (s *AccountSaver) findExistingAccount(ctx context.Context, input SaveAccoun
 
 func accountIdentityKey(input SaveAccountInput) string {
 	key := input.PlatformName + "\x00" + input.AccountID
-	if input.PlatformName == "mastodon" {
+	if input.PlatformName == "mastodon" || input.PlatformName == "bluesky" {
 		key += "\x00" + input.InstanceURL
 	}
 	return key

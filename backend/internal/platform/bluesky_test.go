@@ -1,6 +1,11 @@
 package platform
 
 import (
+	"context"
+	"io"
+	"net"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,4 +97,230 @@ func requireFacet(t *testing.T, facets []map[string]interface{}, byteStart, byte
 		return
 	}
 	require.Failf(t, "facet not found", "missing facet %d-%d in %#v", byteStart, byteEnd, facets)
+}
+
+type resolverFunc func(context.Context, string) ([]net.IPAddr, error)
+
+func (fn resolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return fn(ctx, host)
+}
+
+func stubBlueskyResolution(t *testing.T, responses map[string]string, calls *int) {
+	t.Helper()
+
+	originalClient := httpClient
+	originalOverride := blueskyPDSClientOverride
+	originalResolver := blueskyPDSDNSResolver
+	t.Cleanup(func() {
+		httpClient = originalClient
+		blueskyPDSClientOverride = originalOverride
+		blueskyPDSDNSResolver = originalResolver
+	})
+
+	blueskyPDSDNSResolver = resolverFunc(func(_ context.Context, host string) ([]net.IPAddr, error) {
+		if host == "private.example" {
+			return []net.IPAddr{{IP: net.ParseIP("10.0.0.5")}}, nil
+		}
+		return []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}}, nil
+	})
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if calls != nil {
+			*calls++
+		}
+		body, ok := responses[req.URL.String()]
+		if !ok {
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+	})}
+	blueskyPDSClientOverride = httpClient
+}
+
+func blueskyDIDDocument(endpoint string) string {
+	return `{"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"` + endpoint + `"}]}`
+}
+
+func TestResolveBlueskyPDS(t *testing.T) {
+	const handleURL = "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=alice.example"
+	const plcURL = "https://plc.directory/did:plc:selfhostedexample000000"
+	const wellKnownURL = "https://pds.example/.well-known/did.json"
+
+	cases := []struct {
+		name       string
+		identifier string
+		responses  map[string]string
+		wantPDS    string
+		wantDID    string
+		wantErr    string
+		wantCalls  int
+	}{
+		{
+			name:       "handle resolves through its plc document",
+			identifier: "alice.example",
+			responses: map[string]string{
+				handleURL: `{"did":"did:plc:selfhostedexample000000"}`,
+				plcURL:    blueskyDIDDocument("https://pds.example/"),
+			},
+			wantPDS:   "https://pds.example",
+			wantDID:   "did:plc:selfhostedexample000000",
+			wantCalls: 2,
+		},
+		{
+			name:       "leading at sign is stripped from the handle",
+			identifier: "@alice.example",
+			responses: map[string]string{
+				handleURL: `{"did":"did:plc:selfhostedexample000000"}`,
+				plcURL:    blueskyDIDDocument("https://pds.example/"),
+			},
+			wantPDS:   "https://pds.example",
+			wantDID:   "did:plc:selfhostedexample000000",
+			wantCalls: 2,
+		},
+		{
+			name:       "did:web identifier reads its well-known document",
+			identifier: "did:web:pds.example",
+			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("https://pds.example")},
+			wantPDS:    "https://pds.example",
+			wantDID:    "did:web:pds.example",
+			wantCalls:  1,
+		},
+		{
+			name:       "endpoint userinfo query and path are normalized away",
+			identifier: "did:web:PDS.Example",
+			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("https://user:pw@PDS.Example/xrpc/?a=1#f")},
+			wantPDS:    "https://pds.example",
+			wantDID:    "did:web:PDS.Example",
+			wantCalls:  1,
+		},
+		{
+			name:       "unresolvable handle is an error",
+			identifier: "alice.example",
+			wantErr:    "resolving bluesky handle",
+			wantCalls:  1,
+		},
+		{
+			name:       "document without a pds service is unresolved",
+			identifier: "did:web:pds.example",
+			responses: map[string]string{
+				wellKnownURL: `{"service":[{"id":"#atproto_labeler","type":"AtprotoLabeler","serviceEndpoint":"https://pds.example"}]}`,
+			},
+			wantDID:   "did:web:pds.example",
+			wantCalls: 1,
+		},
+		{
+			name:       "malformed service entries are skipped",
+			identifier: "did:web:pds.example",
+			responses: map[string]string{
+				wellKnownURL: `{"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":""},` +
+					`{"id":"did:web:pds.example#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example"}]}`,
+			},
+			wantPDS:   "https://pds.example",
+			wantDID:   "did:web:pds.example",
+			wantCalls: 1,
+		},
+		{
+			name:       "bluesky hosted endpoint is unresolved",
+			identifier: "did:web:pds.example",
+			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("https://polypore.us-west.host.bsky.network")},
+			wantDID:    "did:web:pds.example",
+			wantCalls:  1,
+		},
+		{
+			name:       "plain http endpoint is rejected",
+			identifier: "did:web:pds.example",
+			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("http://pds.example")},
+			wantErr:    "bluesky pds scheme must be https",
+			wantCalls:  1,
+		},
+		{
+			name:       "endpoint on a private address is rejected",
+			identifier: "did:web:pds.example",
+			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("https://private.example")},
+			wantErr:    "private or local address",
+			wantCalls:  1,
+		},
+		{
+			name:       "email sign-in resolves nothing",
+			identifier: "founder@example.com",
+			wantCalls:  0,
+		},
+		{
+			name:       "did:web host with a port is rejected",
+			identifier: "did:web:pds.example:3000",
+			wantErr:    "unsupported did:web identifier",
+		},
+		{
+			name:       "did:web host with a path is rejected",
+			identifier: `did:web:pds.example\bad`,
+			wantErr:    "unsupported did:web identifier",
+		},
+		{
+			name:       "did:web host with a fragment is rejected",
+			identifier: "did:web:pds.example#frag",
+			wantErr:    "unsupported did:web identifier",
+		},
+		{
+			name:       "did:web host with a query is rejected",
+			identifier: "did:web:pds.example?a=1",
+			wantErr:    "unsupported did:web identifier",
+		},
+		{
+			name:       "unsupported did method is rejected",
+			identifier: "did:key:z6Mk",
+			wantErr:    "unsupported did method",
+		},
+	}
+
+	// An "@" identifier never reaches DID handling: it is taken for an email.
+	_, err := blueskyDIDDocumentURL("did:web:user@pds.example")
+	require.ErrorContains(t, err, "unsupported did:web identifier")
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			calls := 0
+			stubBlueskyResolution(t, testCase.responses, &calls)
+
+			pdsURL, did, err := ResolveBlueskyPDS(context.Background(), testCase.identifier)
+			if testCase.wantErr != "" {
+				require.ErrorContains(t, err, testCase.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, testCase.wantPDS, pdsURL)
+				require.Equal(t, testCase.wantDID, did)
+			}
+			require.Equal(t, testCase.wantCalls, calls)
+		})
+	}
+}
+
+// The adapter reached through a bluesky:<pds> key must build content identities
+// on the same base the account stores, or discovery cannot match its renditions.
+func TestBlueskyProviderKeyAdapterSharesAccountContentIdentity(t *testing.T) {
+	const instanceURL = "https://pds.example"
+	const did = "did:plc:selfhostedexample000000"
+	const uri = "at://" + did + "/app.bsky.feed.post/3kabcdefghi"
+
+	providers := map[string]Adapter{
+		providerBluesky: NewBlueskyAdapter(""),
+		AccountProviderKey(providerBluesky, instanceURL, ""): NewBlueskyAdapter(instanceURL),
+	}
+	adapter, ok := providers[AccountProviderKey(providerBluesky, instanceURL, "")].(*BlueskyAdapter)
+	require.True(t, ok)
+
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "pds.example", req.URL.Host)
+		body := `{"feed":[{"post":{"uri":"` + uri + `","author":{"did":"` + did + `"},` +
+			`"record":{"text":"hello","createdAt":"2026-01-02T03:04:05Z"}}}]}`
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+	})}
+
+	page, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{AccountID: did, PageSize: 10})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+
+	want, ok := CanonicalSocialAccountContentID(providerBluesky, instanceURL, did, uri)
+	require.True(t, ok)
+	require.Equal(t, want, page.Items[0].ProviderContentID)
 }

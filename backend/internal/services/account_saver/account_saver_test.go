@@ -296,3 +296,39 @@ func TestSaveAccountRejectsSocialAccountQuota(t *testing.T) {
 // TestSaveAccount_EncryptionError tests handling of encryption failures.
 
 // TestSaveAccount_DatabaseError tests handling of database failures.
+
+func TestSaveAccountKeepsBlueskyDIDsOnDifferentPDSesApart(t *testing.T) {
+	db := createTestDB(t)
+	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
+	seedWorkspaceMember(t, db, "workspace-bluesky", "user-bluesky")
+
+	save := func(instanceURL string) *models.SocialAccount {
+		account, err := saver.SaveAccountFromInput(t.Context(), SaveAccountInput{
+			Actor:           accountSaverActor("user-bluesky"),
+			UserID:          "user-bluesky",
+			PlatformName:    "bluesky",
+			WorkspaceID:     "workspace-bluesky",
+			AccountID:       "did:plc:selfhostedexample000000",
+			AccountUsername: "alice.example",
+			InstanceURL:     instanceURL,
+			Token:           &platform.TokenResult{AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 3600},
+			Grant: AuthorizationGrantInput{
+				ProviderProjectID: platform.BlueskyDefaultPDSURL,
+				ProviderSubject:   "did:plc:selfhostedexample000000",
+				ExecutionMode:     "app_password",
+			},
+		})
+		require.NoError(t, err)
+		return account
+	}
+
+	hosted := save(platform.BlueskyDefaultPDSURL)
+	selfHosted := save("https://pds.example")
+	require.NotEqual(t, hosted.ID, selfHosted.ID)
+	require.Equal(t, hosted.ID, save(platform.BlueskyDefaultPDSURL).ID)
+
+	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
+		Where("workspace_id = ? AND platform = ?", "workspace-bluesky", "bluesky").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+}

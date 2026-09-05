@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -47,6 +48,7 @@ type OAuthHandler struct {
 	db                           *bun.DB
 	crypto                       *crypto.TokenEncryptor
 	providers                    map[string]platform.Adapter
+	providersMu                  sync.RWMutex
 	providerRegistrars           []func(string, platform.Adapter)
 	auth                         middleware.Authenticator
 	disableLinkedInThreadReplies bool
@@ -58,6 +60,7 @@ type OAuthHandler struct {
 	connectorRegistry            *connectors.Registry
 	connectorStore               *connectors.Store
 	tokenSource                  AccessTokenSource
+	blueskyPDS                   func(context.Context, string) (string, string, error)
 	// frontendURL is the absolute base URL the SPA is served from
 	// (e.g. "https://openpost.example.com"). OAuth callback redirects go
 	// here so they work behind reverse proxies and subpath mounts.
@@ -97,7 +100,52 @@ func NewOAuthHandler(
 		accountSaver:                 account_saver.NewAccountSaver(db, encryptor),
 		oauthStates:                  oauthstate.NewStore(db),
 		frontendURL:                  strings.TrimRight(frontendURL, "/"),
+		blueskyPDS:                   platform.ResolveBlueskyPDS,
 	}
+}
+
+// blueskyLoginAdapter targets the PDS named by the handle's DID document. It
+// falls back to the configured PDS only when resolution succeeded and named
+// none; a resolution failure fails the login rather than signing in against a
+// server that may not hold the repository.
+func (h *OAuthHandler) blueskyLoginAdapter(ctx context.Context, adapter platform.Adapter, handle string) (*platform.BlueskyAdapter, string, error) {
+	configured, ok := adapter.(*platform.BlueskyAdapter)
+	if !ok {
+		return nil, "", huma.Error500InternalServerError("bluesky adapter type mismatch")
+	}
+	resolve := h.blueskyPDS
+	if resolve == nil {
+		resolve = platform.ResolveBlueskyPDS
+	}
+	pdsURL, resolvedDID, err := resolve(ctx, handle)
+	if err != nil {
+		log.Printf("[BlueskyLogin] PDS resolution failed: %v", err)
+		return nil, "", huma.Error502BadGateway("could not resolve the Bluesky account's personal data server")
+	}
+	if pdsURL == "" {
+		return configured, resolvedDID, nil
+	}
+	return platform.NewBlueskyAdapter(pdsURL), resolvedDID, nil
+}
+
+// setBlueskyPDSResolver keeps DID resolution off the network in tests.
+func (h *OAuthHandler) setBlueskyPDSResolver(resolve func(context.Context, string) (string, string, error)) {
+	h.blueskyPDS = resolve
+}
+
+// provider guards the reads that race registerProvider. ProviderMap hands the
+// same map to accountfeatures, so callers outside this handler stay unguarded.
+func (h *OAuthHandler) provider(key string) (platform.Adapter, bool) {
+	h.providersMu.RLock()
+	defer h.providersMu.RUnlock()
+	adapter, ok := h.providers[key]
+	return adapter, ok
+}
+
+func (h *OAuthHandler) providerSnapshot() map[string]platform.Adapter {
+	h.providersMu.RLock()
+	defer h.providersMu.RUnlock()
+	return cloneProviderAdapters(h.providers)
 }
 
 func cloneProviderAdapters(providers map[string]platform.Adapter) map[string]platform.Adapter {
@@ -443,7 +491,7 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 			return nil, fmt.Errorf("server_name required for mastodon")
 		}
 		key := "mastodon:" + serverName
-		adapter, ok := h.providers[key]
+		adapter, ok := h.provider(key)
 		if !ok {
 			return nil, fmt.Errorf("unknown mastodon server: %s", serverName)
 		}
@@ -454,7 +502,7 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 	if platform == "discord" {
 		key = "discord:bot"
 	}
-	adapter, ok := h.providers[key]
+	adapter, ok := h.provider(key)
 	if !ok {
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -471,7 +519,7 @@ func (h *OAuthHandler) getMastodonProvider(ctx context.Context, serverName, inst
 	}
 	if strings.Contains(serverName, "://") {
 		requestedInstanceURL := strings.TrimRight(strings.TrimSpace(serverName), "/")
-		for key, candidate := range h.providers {
+		for key, candidate := range h.providerSnapshot() {
 			if !strings.HasPrefix(key, mastodonProvider+":") {
 				continue
 			}
@@ -493,9 +541,6 @@ func (h *OAuthHandler) getDynamicMastodonProvider(ctx context.Context, instanceU
 	adapter, canonicalURL, err := h.mastodonApps.AdapterForInstance(ctx, instanceURL)
 	if err != nil {
 		return nil, "", err
-	}
-	if h.providers == nil {
-		h.providers = map[string]platform.Adapter{}
 	}
 	h.registerProvider("mastodon:"+canonicalURL, adapter)
 	if h.readiness != nil {
@@ -521,10 +566,12 @@ func (h *OAuthHandler) getDynamicMastodonProvider(ctx context.Context, instanceU
 }
 
 func (h *OAuthHandler) registerProvider(key string, adapter platform.Adapter) {
+	h.providersMu.Lock()
 	if h.providers == nil {
 		h.providers = map[string]platform.Adapter{}
 	}
 	h.providers[key] = adapter
+	h.providersMu.Unlock()
 	for _, registrar := range h.providerRegistrars {
 		if registrar != nil {
 			registrar(key, adapter)
@@ -573,7 +620,7 @@ func (h *OAuthHandler) ListProviders(api huma.API) {
 }
 
 func (h *OAuthHandler) providerAvailability(contexts ...context.Context) []ProviderInfo {
-	infos := providerAvailability(h.providers, h.isDynamicMastodonConfigured())
+	infos := providerAvailability(h.providerSnapshot(), h.isDynamicMastodonConfigured())
 	ctx := context.Background()
 	if len(contexts) > 0 && contexts[0] != nil {
 		ctx = contexts[0]
@@ -725,7 +772,7 @@ func dynamicMastodonInfo() ProviderInfo {
 }
 
 func (h *OAuthHandler) configuredMastodonServers() []MastodonServerInfo {
-	return configuredMastodonServers(h.providers)
+	return configuredMastodonServers(h.providerSnapshot())
 }
 
 func configuredMastodonServers(providers map[string]platform.Adapter) []MastodonServerInfo {
@@ -1487,7 +1534,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			return nil, err
 		}
 
-		adapter, ok := h.providers["bluesky"]
+		adapter, ok := h.provider("bluesky")
 		if !ok {
 			return nil, huma.Error400BadRequest("bluesky not configured")
 		}
@@ -1495,14 +1542,21 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			return nil, err
 		}
 
-		blueskyAdapter, ok := adapter.(*platform.BlueskyAdapter)
-		if !ok {
-			return nil, huma.Error500InternalServerError("bluesky adapter type mismatch")
-		}
-
-		did, handle, accessToken, refreshToken, expiresIn, err := blueskyAdapter.CreateSession(ctx, input.Body.Handle, input.Body.AppPassword)
+		loginAdapter, resolvedDID, err := h.blueskyLoginAdapter(ctx, adapter, input.Body.Handle)
 		if err != nil {
-			return nil, huma.Error500InternalServerError(fmt.Sprintf("bluesky login failed: %s", err.Error()))
+			return nil, err
+		}
+		pdsURL := loginAdapter.PDSURL()
+
+		did, handle, accessToken, refreshToken, expiresIn, err := loginAdapter.CreateSession(ctx, input.Body.Handle, input.Body.AppPassword)
+		if err != nil {
+			// Transport errors name internal hosts, so only the log carries the detail.
+			log.Printf("[BlueskyLogin] Session creation failed: %v", err)
+			return nil, huma.Error500InternalServerError("bluesky login failed")
+		}
+		if resolvedDID != "" && did != resolvedDID {
+			log.Printf("[BlueskyLogin] PDS %s returned did %s for a handle resolving to %s", pdsURL, did, resolvedDID)
+			return nil, huma.Error500InternalServerError("bluesky login failed")
 		}
 		if err := h.requireProviderConnectionCompletion(
 			ctx, "bluesky", "", string(intent), userID,
@@ -1521,7 +1575,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			ID:       did,
 			Username: firstNonEmpty(handle, input.Body.Handle),
 		}
-		providerProfile, profileErr := blueskyAdapter.GetProfile(ctx, accessToken)
+		providerProfile, profileErr := loginAdapter.GetProfile(ctx, accessToken)
 		if profileErr != nil {
 			log.Printf("[BlueskyLogin] Profile unavailable after session creation: %v", profileErr)
 		} else if providerProfile != nil {
@@ -1537,6 +1591,9 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			return nil, err
 		}
 		accountID := firstNonEmpty(profile.ID, did)
+		if providerKey := platform.AccountProviderKey("bluesky", pdsURL, ""); providerKey != "bluesky" {
+			h.registerProvider(providerKey, loginAdapter)
+		}
 
 		account, err := h.accountSaver.SaveAccountFromInput(ctx, account_saver.SaveAccountInput{
 			Actor:            workspaceActor(ctx, userID),
@@ -1546,7 +1603,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			AccountID:        accountID,
 			AccountUsername:  firstNonEmpty(profile.Username, input.Body.Handle),
 			AccountAvatarURL: profile.AvatarURL,
-			InstanceURL:      "https://bsky.social",
+			InstanceURL:      pdsURL,
 			Token:            tokenResp,
 			Grant:            authorizationGrantInput(adapter, accountID),
 		})
@@ -1590,9 +1647,11 @@ func (h *OAuthHandler) DiscordWebhookLogin(api huma.API) {
 		if err := h.ensureCanStartAccountConnection(ctx, input.Body.WorkspaceID, userID); err != nil {
 			return nil, err
 		}
-		adapter, ok := h.providers["discord:"+platform.ConnectionModeWebhook].(*platform.DiscordAdapter)
+		webhookAdapter, _ := h.provider("discord:" + platform.ConnectionModeWebhook)
+		adapter, ok := webhookAdapter.(*platform.DiscordAdapter)
 		if !ok {
-			adapter, ok = h.providers["discord"].(*platform.DiscordAdapter)
+			legacyAdapter, _ := h.provider("discord")
+			adapter, ok = legacyAdapter.(*platform.DiscordAdapter)
 		}
 		if !ok {
 			return nil, huma.Error400BadRequest("discord webhooks are not configured")
@@ -2157,7 +2216,7 @@ func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
 			}
 		}
 
-		adapter := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+		adapter, _ := h.provider(platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState))
 		if adapter == nil {
 			return nil, huma.Error501NotImplemented("profile refresh is unavailable for this account provider")
 		}
@@ -2505,10 +2564,11 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 
 func (h *OAuthHandler) revokeProviderAuthorization(ctx context.Context, account models.SocialAccount) error {
 	key := account.Platform
-	if account.Platform == mastodonProvider {
-		key = mastodonProvider + ":" + account.InstanceURL
+	if account.Platform == mastodonProvider || account.Platform == "bluesky" {
+		key = platform.AccountProviderKey(account.Platform, account.InstanceURL, "")
 	}
-	revoker, ok := h.providers[key].(platform.AuthorizationRevoker)
+	adapter, _ := h.provider(key)
+	revoker, ok := adapter.(platform.AuthorizationRevoker)
 	if !ok {
 		return nil
 	}

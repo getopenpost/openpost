@@ -1068,6 +1068,8 @@
 			if (current) current.original_filename = nextFilename;
 			if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
 			if (mediaToRename?.id === mediaID) mediaToRename.original_filename = nextFilename;
+			if (appliedSearch) await loadMedia(context.workspaceID, false, context);
+			if (!mediaMutationViewIsCurrent(context)) return;
 			notify(m.media_renamed(), 'success');
 		} catch (cause) {
 			if (!mediaMutationSurfaceIsCurrent(context)) return;

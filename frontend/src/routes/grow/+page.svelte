@@ -81,6 +81,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let selectionWorkspaceID = $state('');
 	let appliedGrowthData: GrowthResult | undefined;
 	let appliedGrowthScope = '';
+	const growthPollingInterval = 5000;
 
 	const localeTag = $derived(getLocaleTag());
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -97,9 +98,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		)
 	);
 	const accountFeatures = $derived(featuresQuery.data ?? []);
-	const growthQuery = createQuery(() =>
-		growthQueryOptions(growthQueryAPI, workspaceID, queryAccountID)
-	);
+
 	const accountsLoading = $derived(accountsQuery.isPending && !accountsQuery.data);
 	const featuresLoading = $derived(
 		accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data
@@ -155,6 +154,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	});
 	const isStaleDisabled = $derived(staleGrowFeature !== null);
 	const growDisabled = $derived(isStaleDisabled);
+	const growthQuery = createQuery(() => ({
+		...growthQueryOptions(growthQueryAPI, workspaceID, queryAccountID),
+		refetchInterval:
+			!isStaleDisabled && shouldPollSync(syncState, hasPendingFollow)
+				? growthPollingInterval
+				: false
+	}));
 	const showAccountSelector = $derived(eligible.length > 0);
 	const noCompatible = $derived(
 		!accountsLoading && !featuresLoading && !readError && compatible.length === 0
@@ -281,16 +287,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		appliedGrowthData = data;
 		appliedGrowthScope = scope;
 		void applyGrowthResult(data, wid, acc);
-	});
-
-	$effect(() => {
-		const shouldPoll =
-			!isStaleDisabled && (refreshQueued || shouldPollSync(syncState, hasPendingFollow));
-		if (!shouldPoll || !workspaceID || !selectedAccountID) return;
-		const timer = setTimeout(() => {
-			void growthQuery.refetch();
-		}, 5000);
-		return () => clearTimeout(timer);
 	});
 
 	$effect(() => {

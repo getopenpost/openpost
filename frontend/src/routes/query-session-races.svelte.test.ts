@@ -35,6 +35,44 @@ function deferred<T>() {
 }
 
 describe('route mutation sessions', () => {
+	it('removes renamed media from a search it no longer matches', async () => {
+		let renamed = false;
+		getMock.mockImplementation(async (path) => {
+			if (path === '/media')
+				return {
+					data: {
+						media: renamed ? [] : [mediaItem('media-search', 'report.png')],
+						total: renamed ? 0 : 1
+					},
+					response: new Response()
+				};
+			if (path === '/media/tags') return { data: { tags: [], can_edit: true } };
+			if (path === '/media/storage')
+				return { data: { used_bytes: 0, asset_count: 1, internal_bytes: 0, limit_bytes: 0 } };
+			if (path === '/image-editor/presets') return { data: { enabled: false, presets: [] } };
+			return { data: [] };
+		});
+		const patch = vi.spyOn(client, 'PATCH').mockImplementation(async () => {
+			renamed = true;
+			// SAFETY: Rename checks the successful response status and does not consume response data.
+			return { data: {}, response: new Response() } as never;
+		});
+		try {
+			const screen = await renderWithQuery(MediaPage);
+			await screen.getByPlaceholder('Search filename or alt text').fill('report');
+			await screen.getByRole('button', { name: 'Search', exact: true }).click();
+			await screen.getByText('report.png', { exact: true }).click({ button: 'right' });
+			await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+			await page.getByRole('dialog').getByRole('textbox').fill('other.png');
+			await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+			await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+			await expect.element(screen.getByText('other.png', { exact: true })).not.toBeInTheDocument();
+			expect(patch).toHaveBeenCalledOnce();
+		} finally {
+			patch.mockRestore();
+		}
+	});
+
 	beforeEach(() => {
 		queryClient.clear();
 		auth.setUser(user('user-a'));

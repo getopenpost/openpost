@@ -269,7 +269,7 @@
 	});
 
 	$effect(() => {
-		if (publicationsInfinite.isError && !publicationsInfinite.data) {
+		if (publicationsInfinite.isError) {
 			queryError = m.activity_failed_posts();
 			return;
 		}
@@ -277,11 +277,7 @@
 			queryError = '';
 			return;
 		}
-		if (
-			activeActivityBucket === 'failed' &&
-			failedJobsInfinite.isError &&
-			!failedJobsInfinite.data
-		) {
+		if (activeActivityBucket === 'failed' && failedJobsInfinite.isError) {
 			queryError = m.activity_failed_jobs();
 			return;
 		}
@@ -870,7 +866,7 @@
 
 	{#if visibleError}
 		<InlineNotice
-			tone="error"
+			tone={currentViewLoaded && !error ? 'warning' : 'error'}
 			message={visibleError}
 			onDismiss={() => {
 				error = '';

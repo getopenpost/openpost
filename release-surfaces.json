@@ -3,16 +3,7 @@
   "surfaces": {
     "application": {
       "description": "Server, web and native applications, CLI, shared runtime packages, and application browser coverage",
-      "prefixes": [
-        "backend/",
-        "cli/",
-        "e2e-app/",
-        "examples/",
-        "frontend/",
-        "mobile/",
-        "packages/"
-      ],
-      "paths": ["playwright.app.config.ts"]
+      "prefixes": ["backend/", "cli/", "e2e-app/", "examples/", "frontend/", "mobile/", "packages/"]
     },
     "marketing": {
       "description": "Public marketing site, public social assets, and marketing browser coverage",
@@ -23,9 +14,9 @@
         "packages/legal-policy/",
         "packages/social-images/",
         "packages/social-preview/",
-        "social-assets/"
+        "assets/social/"
       ],
-      "paths": ["marketing-claims.json", "playwright.config.ts"]
+      "paths": ["marketing-claims.json"]
     },
     "documentation": {
       "description": "Product, operator, contributor, policy, and generated documentation",
@@ -33,14 +24,13 @@
       "paths": [
         "AGENTS.md",
         "CHANGELOG.md",
-        "CODE_OF_CONDUCT.md",
-        "CONTRIBUTING.md",
+        ".github/CODE_OF_CONDUCT.md",
+        ".github/CONTRIBUTING.md",
         "DESIGN.md",
         "PRODUCT.md",
         "README.md",
-        "ROADMAP.md",
-        "SECURITY.md",
-        "THIRD_PARTY_NOTICES.md"
+        ".github/SECURITY.md",
+        "licenses/README.md"
       ]
     },
     "delivery": {
@@ -75,7 +65,7 @@
     },
     "launch": {
       "description": "Reviewable launch campaign templates and distribution evidence",
-      "prefixes": ["launch-kit/"]
+      "prefixes": ["docs/launch-kit/"]
     },
     "agent-tools": {
       "description": "Repository-owned agent instructions, skills, hooks, and design-audit tooling",
@@ -84,7 +74,16 @@
     },
     "shared-assets": {
       "description": "Canonical assets copied into one or more shipped web surfaces",
-      "prefixes": ["assets/"]
+      "prefixes": [
+        "assets/ai-logos/",
+        "assets/brand/",
+        "assets/customer-logos/",
+        "assets/logos/",
+        "assets/postiz-socials/",
+        "assets/screenshots/",
+        "assets/star-history/",
+        "assets/testimonial-portraits/"
+      ]
     },
     "repository": {
       "description": "Repository behavior and licensing with no standalone runtime owner",

@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { fileURLToPath } from "node:url";
+
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 
 const port = Number(process.env.OPENPOST_APP_E2E_PORT ?? 18180);
 const host = "127.0.0.1";
@@ -24,18 +27,22 @@ const chromiumUse = {
 };
 
 export default defineConfig({
-  testDir: "./e2e-app",
+  testDir: ".",
+  outputDir: `${repositoryRoot}/test-results`,
   fullyParallel: true,
   workers,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }]]
+    : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
   },
   webServer: [
     {
+      cwd: repositoryRoot,
       command: [
         `rm -f ${mastodonCertPath} ${mastodonKeyPath}`,
         "&&",
@@ -55,6 +62,7 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
+      cwd: repositoryRoot,
       command: [
         `rm -f ${dbPath}`,
         ...(usePrebuiltArtifact ? [] : ["bun run build -- frontend"]),

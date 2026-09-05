@@ -94,7 +94,7 @@
         "scripts/release.mjs",
         ".github/workflows/ci.yml",
         ".github/workflows/release.yml",
-        "SECURITY.md"
+        ".github/SECURITY.md"
       ]
     },
     {
@@ -120,7 +120,7 @@
       "self_hosted_operator": "Owns detection, containment, evidence, recovery, notifications, and post-incident work for its installation and coordinates with OpenPost when a product flaw is involved.",
       "customer_or_provider": "Report suspected OpenPost flaws privately, rotate exposed credentials, follow incident instructions, and contact the relevant provider when the event is provider-side.",
       "evidence": [
-        "SECURITY.md",
+        ".github/SECURITY.md",
         "backend/internal/models/models.go",
         "backend/internal/services/identity/admin.go",
         "packages/legal-policy/src/managed-service.json"

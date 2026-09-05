@@ -17,6 +17,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export function planCI(files, manifest, { full = false } = {}) {
   const touched = new Set(files.flatMap((file) => classifyReleasePath(file, manifest).surfaces));
   const delivery = full || touched.has("delivery");
+  const sharedAssets = manifest.surfaces["shared-assets"].prefixes;
   const matches = (prefixes, paths = []) =>
     full ||
     delivery ||
@@ -28,7 +29,7 @@ export function planCI(files, manifest, { full = false } = {}) {
     application: full || delivery || touched.has("application") || touched.has("shared-assets"),
     backend: matches(["backend/"], ["go.work", "go.work.sum"]),
     frontend: matches(
-      ["frontend/", "packages/", "assets/"],
+      ["frontend/", "packages/", ...sharedAssets],
       ["package.json", "bun.lock", "bunfig.toml", "turbo.json"],
     ),
     marketing: full || delivery || touched.has("marketing") || touched.has("shared-assets"),
@@ -50,7 +51,7 @@ export function planCI(files, manifest, { full = false } = {}) {
       ["bun.lock", "package.json", "go.work", "go.work.sum"],
     ),
     image: matches(
-      ["backend/", "frontend/", "packages/", "assets/", "docker/", "provider-certification/"],
+      ["backend/", "frontend/", "packages/", ...sharedAssets, "docker/", "provider-certification/"],
       [".dockerignore", "bun.lock", "bunfig.toml", "package.json", "turbo.json"],
     ),
     android: matches(

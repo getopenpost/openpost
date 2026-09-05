@@ -174,7 +174,7 @@ const [adapterConfig, assetSync, dockerfile, devenv, frontendDevenv, ci, appPlay
       "devenv.nix",
       "frontend/devenv.nix",
       ".github/workflows/ci.yml",
-      "playwright.app.config.ts",
+      "e2e-app/playwright.config.ts",
     ].map((relativePath) => readFile(path.join(root, relativePath), "utf8")),
   );
 requireIncludes(adapterConfig, "pages: 'build'", "frontend adapter");

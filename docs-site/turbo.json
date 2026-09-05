@@ -6,6 +6,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/assets/**",
+        "!$TURBO_ROOT$/assets/social/**",
         "$TURBO_ROOT$/frontend/openapi.json",
         "$TURBO_ROOT$/docs-site/.generated/**",
         "$TURBO_ROOT$/docs-site/public/openapi.json",

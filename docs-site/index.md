@@ -71,5 +71,5 @@ New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https:
 
 - Use the [CLI](/cli/) from a terminal, scheduled script, or CI job.
 - Connect an AI tool through [MCP](/mcp/) to read, draft, or schedule with the access you grant.
-- Test an AI-assisted campaign with the public [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/launch-kit).
+- Test an AI-assisted campaign with the public [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/docs/launch-kit).
 - Install the [Android app](/installation/android) from the APK shipped with each GitHub release.

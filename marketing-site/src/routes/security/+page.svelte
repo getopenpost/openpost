@@ -84,7 +84,7 @@
 					For people reviewing how OpenPost protects social accounts and scopes tool access.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
-					<Button href={`${githubUrl}/blob/main/SECURITY.md`} size="lg">
+					<Button href={`${githubUrl}/blob/main/.github/SECURITY.md`} size="lg">
 						Read the security policy
 						<ExternalLink data-icon="inline-end" />
 					</Button>

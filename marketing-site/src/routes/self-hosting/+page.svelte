@@ -280,7 +280,7 @@
 				>Review the production checklist</Button
 			>
 			<Button
-				href={`${selfHostedDeploymentSummary.sourceUrl}/blob/main/SECURITY.md`}
+				href={`${selfHostedDeploymentSummary.sourceUrl}/blob/main/.github/SECURITY.md`}
 				variant="outline"
 			>
 				Read the security policy

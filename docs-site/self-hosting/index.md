@@ -11,7 +11,7 @@ These pages assume that you manage the server, public HTTPS origin, access contr
 - **Provider projects:** you create and maintain social network projects, callback URLs, permissions, reviews, API access, and provider budgets. OpenPost still sends requested content and access tokens to those networks.
 - **Support:** OpenPost publishes documentation, source code, a public issue tracker, and community help. A self-hosted operator handles deployment availability, user support, incidents, and operator-specific configuration.
 
-Review the [OpenPost source](https://github.com/getopenpost/openpost), [security policy](https://github.com/getopenpost/openpost/blob/main/SECURITY.md), and current [releases](https://github.com/getopenpost/openpost/releases) before exposing an instance to users.
+Review the [OpenPost source](https://github.com/getopenpost/openpost), [security policy](https://github.com/getopenpost/openpost/blob/main/.github/SECURITY.md), and current [releases](https://github.com/getopenpost/openpost/releases) before exposing an instance to users.
 
 ## When self-hosting fits
 

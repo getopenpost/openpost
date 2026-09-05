@@ -37,5 +37,5 @@ Add any other details, mockups, or screenshots needed to understand the request.
 ## Checklist
 
 - [ ] I have searched for similar feature requests
-- [ ] This aligns with the project roadmap (see ROADMAP.md)
+- [ ] This aligns with the product scope (see [PRODUCT.md](https://github.com/getopenpost/openpost/blob/main/PRODUCT.md))
 - [ ] I understand this is a feature request, not a bug report

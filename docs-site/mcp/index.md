@@ -67,7 +67,7 @@ These tools cover workspaces, social networks, accounts, media, drafts, account 
 
 OpenPost checks workspace access and account ownership before it reads or changes data. Schedules and media uploads use the same plan limits as the web app and CLI.
 
-For a sample brief, prompt, account versions, test log, and review list, see the public [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/launch-kit). These are examples, not proof of a live publish.
+For a sample brief, prompt, account versions, test log, and review list, see the public [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/docs/launch-kit). These are examples, not proof of a live publish.
 
 ## What OpenPost protects
 

@@ -26,7 +26,7 @@ test("root build, Compose, registry, skills, launch, and scripts are classified"
     ["docker-compose.yml", "delivery"],
     ["server.json", "agent-tools"],
     ["skills/openpost/SKILL.md", "agent-tools"],
-    ["launch-kit/README.md", "launch"],
+    ["docs/launch-kit/README.md", "launch"],
     ["scripts/release.mjs", "delivery"],
     ["tools/oxlint/anti-slop/index.ts", "delivery"],
   ]);

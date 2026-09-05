@@ -9,6 +9,18 @@ const manifest = readReleaseSurfaceManifest();
 test("changed files route to their CI paths", () => {
   const cases = [
     {
+      name: "social artwork stays outside application builds",
+      files: ["assets/social/openpost/banners/x-paper.png"],
+      on: ["marketing"],
+      off: ["application", "frontend", "backend", "documentation", "image", "android"],
+    },
+    {
+      name: "shared product assets rebuild their consumers",
+      files: ["assets/brand/icon.svg"],
+      on: ["application", "frontend", "marketing", "documentation", "image"],
+      off: ["backend", "android"],
+    },
+    {
       name: "documentation-only changes",
       files: ["docs-site/guide.md"],
       on: ["documentation"],

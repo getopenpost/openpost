@@ -112,7 +112,7 @@ async function maintainedCopyFiles(root) {
     ".github/copilot-instructions.md",
     "README.md",
     "docs-site",
-    "launch-kit",
+    "docs/launch-kit",
     "marketing-site/src",
     "packages/social-images/src/index.js",
   ];

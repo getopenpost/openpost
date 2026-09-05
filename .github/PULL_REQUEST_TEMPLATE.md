@@ -19,7 +19,7 @@ If this is a UI change, add before/after screenshots.
 
 ## Checklist
 
-- [ ] My code follows the project's coding conventions (see CONTRIBUTING.md)
+- [ ] My code follows the project's coding conventions (see [CONTRIBUTING.md](https://github.com/getopenpost/openpost/blob/main/.github/CONTRIBUTING.md))
 - [ ] I have added tests that prove my fix is effective or my feature works
 - [ ] I have updated documentation if needed
 - [ ] I have used [Conventional Commits](https://www.conventionalcommits.org/) for my commit messages

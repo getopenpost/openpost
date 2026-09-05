@@ -149,7 +149,7 @@ devenv shell -- setup
 bun run verify
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](https://docs.openpo.st/development/setup) before opening a PR.
+Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development setup](https://docs.openpo.st/development/setup) before opening a PR.
 
 ## Help OpenPost grow
 
@@ -164,4 +164,4 @@ If it's useful to you, star the repo; it helps more people find it.
 
 ## License and security
 
-[AGPL-3.0-only](LICENSE). Report vulnerabilities privately through the [security policy](SECURITY.md).
+[AGPL-3.0-only](LICENSE). See [third-party notices](licenses/README.md). Report vulnerabilities privately through the [security policy](.github/SECURITY.md).

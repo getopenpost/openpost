@@ -205,7 +205,7 @@ OpenPost changes the registry version only when it publishes a new registry entr
 - Minor: a backward-compatible tool, prompt, resource, optional input, or result addition.
 - Patch: metadata, description, example, or other behavior-preserving correction.
 
-Every published registry version is immutable. During a coordinated endpoint migration, `server.json` and `launch-kit/listings.md` may identify the same prepared version before publication. The listing must state that it is prepared, name the publication blocker, and preserve the currently published version. After publication, replace that preparation note with the live registry evidence. The repository check rejects ranges, prereleases, a changed Hosted service endpoint, or unexplained version drift.
+Every published registry version is immutable. During a coordinated endpoint migration, `server.json` and `docs/launch-kit/listings.md` may identify the same prepared version before publication. The listing must state that it is prepared, name the publication blocker, and preserve the currently published version. After publication, replace that preparation note with the live registry evidence. The repository check rejects ranges, prereleases, a changed Hosted service endpoint, or unexplained version drift.
 
 The Hosted MCP endpoint is `https://app.openpo.st/mcp`. Clients configured with another origin must reconnect so the OAuth issuer and resource audience match the canonical endpoint.
 

@@ -1,6 +1,8 @@
 # Environment files
 .env
 .env.local
+.env.*
+!.env.example
 *.env
 
 # Go build artifacts
@@ -61,7 +63,13 @@ docs-site/.vitepress/.temp/
 /logs/
 test-results/
 playwright-report/
+blob-report/
+coverage/
+*.tsbuildinfo
 /release-manifest.json
+/openpost-image-evidence.json
+/openpost-image.spdx.json
+/openpost-image-trivy.json
 
 # Android signing
 *.jks
@@ -83,6 +91,8 @@ backend/media/
 .commandcode/
 .impeccable/config.local.json
 .impeccable/hook.cache.json
+.impeccable/critique/
+.impeccable/review/
 TODO.md
 
 cli/openpost
@@ -110,3 +120,12 @@ marketing-site/static/assets/
 
 # Local Pi coding-agent state
 .pi/
+
+# Temporary asset sync state; recovered by scripts/sync-assets.mjs
+/.sync-assets.lock/
+/frontend/static/.assets.staged-*/
+/frontend/static/assets.previous/
+/docs-site/public/.assets.staged-*/
+/docs-site/public/assets.previous/
+/marketing-site/static/.assets.staged-*/
+/marketing-site/static/assets.previous/

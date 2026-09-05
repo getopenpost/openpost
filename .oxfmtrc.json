@@ -7,10 +7,10 @@
     ".impeccable/",
     "**/.svelte-kit/",
     "backend/internal/memes/catalog/",
-    "launch-kit/",
+    "docs/launch-kit/",
     "packages/api-contract/src/schema.d.ts",
     "provider-certification/",
     "references/",
-    "social-assets/"
+    "assets/social/"
   ]
 }

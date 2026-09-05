@@ -38,6 +38,8 @@ For reference implementations, read `references/README.md` before inspecting a c
 - **Hindsight bank `rodrigo`** owns durable product terms, decisions, constraints, and history. Before substantial work, recall `project:openpost`, then verify the result against current code, Vikunja, or the live system. Retain only verified durable facts tagged `project:openpost` and `source:<agent>`.
 - **This repository** owns code, tests, generated contracts, build and security rules, and public technical documentation. Keep project state out of repo-local memory files and mutable task boards.
 
+Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, social artwork in `assets/social/`, and browser configurations with their test suites. Keep `PRODUCT.md` and `DESIGN.md` at the root for design-tool discovery. Local review reports and screenshots are ignored; commit maintained acceptance inputs with their owning tests or design sources.
+
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.

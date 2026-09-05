@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const sourceDir = path.dirname(fileURLToPath(import.meta.url));
 const kitRoot = path.resolve(sourceDir, "..");
-const repoRoot = path.resolve(kitRoot, "../..");
+const repoRoot = path.resolve(kitRoot, "../../..");
 const fontData = (
   await readFile(
     path.join(

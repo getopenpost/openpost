@@ -92,7 +92,7 @@ After OpenPost runs the post, save the result for each account:
 - verification date, account, and format;
 - any manual edit made after the agent's draft.
 
-Use the [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/launch-kit) for a reusable brief, sample prompt, five account versions, a review list, and a result template.
+Use the [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/docs/launch-kit) for a reusable brief, sample prompt, five account versions, a review list, and a result template.
 
 ## Hosted service access
 

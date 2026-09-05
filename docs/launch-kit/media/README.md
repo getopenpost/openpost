@@ -4,13 +4,13 @@ This directory is an asset map, not a record of a published campaign. Keep sourc
 
 ## Current repository assets
 
-- [Composer and destination review screenshot](../../assets/screenshots/main-dark.png)
-- [Connected accounts screenshot](../../assets/screenshots/accounts-dark.png)
-- [Media library screenshot](../../assets/screenshots/media-dark.png)
-- [Settings screenshot](../../assets/screenshots/settings-dark.png)
-- [Open Graph image](../../assets/brand/og-image.png)
-- [Brand assets](../../assets/brand/)
-- [Provider logos](../../assets/logos/)
+- [Composer and destination review screenshot](../../../assets/screenshots/main-dark.png)
+- [Connected accounts screenshot](../../../assets/screenshots/accounts-dark.png)
+- [Media library screenshot](../../../assets/screenshots/media-dark.png)
+- [Settings screenshot](../../../assets/screenshots/settings-dark.png)
+- [Open Graph image](../../../assets/brand/og-image.png)
+- [Brand assets](../../../assets/brand/)
+- [Provider logos](../../../assets/logos/)
 - [Existing product demo](https://www.youtube.com/watch?v=_mZf3HzQaN8)
 
 Check every asset against the release candidate before use. The existing demo can explain the product, but a launch claim about agent-assisted preparation needs a new continuous recording of that exact workflow.

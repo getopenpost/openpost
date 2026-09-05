@@ -446,9 +446,11 @@ function testPlan(requestedScope, requestedOptions) {
     ),
   ]);
   const browser = {
-    e2e: stage("browser tests", [commandStep("bunx", "playwright", "test")]),
+    e2e: stage("browser tests", [
+      commandStep("bunx", "playwright", "test", "--config", "e2e/playwright.config.ts"),
+    ]),
     "e2e-app": stage("application browser tests", [
-      commandStep("bunx", "playwright", "test", "--config", "playwright.app.config.ts"),
+      commandStep("bunx", "playwright", "test", "--config", "e2e-app/playwright.config.ts"),
     ]),
   };
 

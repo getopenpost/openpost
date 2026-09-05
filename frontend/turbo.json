@@ -16,6 +16,7 @@
 				"$TURBO_DEFAULT$",
 				"!static/image-editor-models/**",
 				"$TURBO_ROOT$/assets/**",
+				"!$TURBO_ROOT$/assets/social/**",
 				"$TURBO_ROOT$/scripts/asset-surfaces.mjs",
 				"$TURBO_ROOT$/scripts/asset-surfaces.ts",
 				"$TURBO_ROOT$/scripts/sync-assets.mjs",

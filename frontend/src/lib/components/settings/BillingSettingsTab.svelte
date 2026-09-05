@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { get } from 'svelte/store';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -40,26 +41,31 @@
 	let billingBusyPlan = $state('');
 	let billingPortalBusy = $state(false);
 	let billingError = $state('');
-	let billingLoadError = $state('');
-	let billingStatusLoading = $state(false);
-	let billingStatus = $state<BillingStatus | null>(null);
 	let handledCheckoutPlan = '';
-	let loadedBillingWorkspaceID = '';
+	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const billingQuery = createQuery(
+		() => billingStatusQueryOptions(billingQueryAPI, workspaceID),
+		() => queryClient
+	);
+	const billingAuthorizationFailed = $derived(
+		billingQuery.error instanceof OpenPostQueryError &&
+			(billingQuery.error.status === 401 || billingQuery.error.status === 403)
+	);
+	const billingStatus = $derived(
+		!billingAuthorizationFailed && billingQuery.data
+			? presentBillingStatus(billingQuery.data)
+			: null
+	);
+	const billingStatusLoading = $derived(Boolean(workspaceID) && billingQuery.isPending);
+	const billingLoadError = $derived(
+		billingQuery.error
+			? billingQuery.error instanceof Error
+				? billingQuery.error.message
+				: m.settings_billing_load_failed()
+			: ''
+	);
 	const reportInitialLoad = registerSettingsInitialLoad(SETTINGS_INITIAL_LOAD_PARTICIPANT.billing);
-	$effect(() => {
-		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
-		// Load-state reads stay unconditional so the effect keeps tracking them even
-		// when the scope term short-circuits; otherwise the boundary never settles.
-		const waitingForBilling = billingStatusLoading && !billingStatus;
-		reportInitialLoad(
-			Boolean(
-				workspaceID &&
-				!billingLoadError &&
-				(loadedBillingWorkspaceID !== workspaceID || waitingForBilling)
-			)
-		);
-	});
-	let billingRequestSequence = 0;
+	$effect(() => reportInitialLoad(billingStatusLoading));
 	let billingPortalRequestSequence = 0;
 	let active = true;
 	let billingPortalReturnScope = $state<{
@@ -69,7 +75,6 @@
 
 	onDestroy(() => {
 		active = false;
-		billingRequestSequence += 1;
 		billingPortalRequestSequence += 1;
 	});
 
@@ -204,61 +209,8 @@
 		return Math.min(100, Math.round((exposure / cost.budget_microusd) * 100));
 	}
 
-	async function loadBillingStatus(
-		options: {
-			workspaceID?: string;
-			organizationID?: string;
-			refresh?: boolean;
-		} = {}
-	) {
-		const workspaceID = options.workspaceID ?? workspaceCtx.currentWorkspace?.id ?? '';
-		const organizationID =
-			options.organizationID ?? workspaceCtx.currentWorkspace?.organization_id ?? '';
-		if (!workspaceID) return;
-		const requestSequence = ++billingRequestSequence;
-		const workspaceChanged = loadedBillingWorkspaceID !== workspaceID;
-		loadedBillingWorkspaceID = workspaceID;
-		billingError = '';
-		billingLoadError = '';
-		const cachedStatus = queryClient.getQueryData<BillingStatus>(
-			billingQueryKeys.status(workspaceID)
-		);
-		if (cachedStatus) billingStatus = presentBillingStatus(cachedStatus);
-		else if (workspaceChanged) billingStatus = null;
-		billingStatusLoading = !billingStatus;
-		try {
-			if (options.refresh) {
-				await queryClient.invalidateQueries({
-					queryKey: billingQueryKeys.status(workspaceID),
-					exact: true
-				});
-			}
-			const data = await queryClient.fetchQuery(
-				billingStatusQueryOptions(billingQueryAPI, workspaceID)
-			);
-			if (
-				requestSequence !== billingRequestSequence ||
-				!isCurrentBillingTarget(workspaceID, organizationID)
-			)
-				return;
-			billingStatus = presentBillingStatus(data);
-		} catch (e) {
-			if (
-				requestSequence !== billingRequestSequence ||
-				!isCurrentBillingTarget(workspaceID, organizationID)
-			)
-				return;
-			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
-				queryClient.removeQueries({
-					queryKey: billingQueryKeys.status(workspaceID),
-					exact: true
-				});
-				billingStatus = null;
-			}
-			billingLoadError = e instanceof Error ? e.message : m.settings_billing_load_failed();
-		} finally {
-			if (requestSequence === billingRequestSequence) billingStatusLoading = false;
-		}
+	async function loadBillingStatus() {
+		if (workspaceID) await billingQuery.refetch();
 	}
 
 	async function startCheckout(planID: string) {
@@ -321,11 +273,7 @@
 					refetchType: 'none'
 				});
 			}
-			await loadBillingStatus({
-				workspaceID: workspaceCtx.currentWorkspace.id,
-				organizationID: workspaceCtx.currentWorkspace.organization_id ?? '',
-				refresh: false
-			});
+			await loadBillingStatus();
 		}
 	}
 
@@ -401,14 +349,6 @@
 				current: billingStatus?.usage?.[metric] ?? 0,
 				limit
 			}));
-	});
-
-	$effect(() => {
-		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
-		const organizationID = workspaceCtx.currentWorkspace?.organization_id ?? '';
-		if (workspaceID && loadedBillingWorkspaceID !== workspaceID) {
-			void loadBillingStatus({ workspaceID, organizationID });
-		}
 	});
 
 	$effect(() => {

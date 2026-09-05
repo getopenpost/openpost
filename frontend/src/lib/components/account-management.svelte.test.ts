@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { onlineManager, QueryClientProvider } from '@tanstack/svelte-query';
 import { client, type SocialAccount, type Workspace } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
 import { auth } from '$lib/stores/auth';
-import { openPostQueryKeys } from '@openpost/query-catalog';
+import { openPostQueryKeys, accountCatalogQueryKeys } from '@openpost/query-catalog';
+import SettingsLoadTestBoundary from '$lib/settings-load-test-boundary.svelte';
+import { getSettingsInitialLoadPlan } from '$lib/settings-initial-load.svelte';
 import AccountManagement from './account-management.svelte';
 import '../../routes/layout.css';
 
@@ -73,6 +76,69 @@ function deferred<T>() {
 }
 
 describe('account management modes', () => {
+	it('refreshes stale displayed accounts after reconnect', async () => {
+		queryClient.setQueryData(openPostQueryKeys.accounts(workspace.id), [account], {
+			updatedAt: Date.now() - 60_000
+		});
+		queryClient.setQueryData(accountCatalogQueryKeys.providers(workspace.id), []);
+		getMock.mockImplementation(async (path: string) => ({
+			data: path === '/accounts' ? [{ ...account, account_username: 'after-reconnect' }] : [],
+			response: new Response()
+		}));
+		onlineManager.setOnline(false);
+		try {
+			const screen = await render(
+				AccountManagement,
+				{
+					workspace,
+					workspaces: [workspace],
+					links,
+					onContinue: vi.fn(),
+					onAccountsChanged: vi.fn()
+				},
+				{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+			);
+			await expect
+				.element(screen.getByRole('button', { name: /Actions for.*old-founder/ }))
+				.toBeVisible();
+			onlineManager.setOnline(true);
+			await expect
+				.element(screen.getByRole('button', { name: /Actions for.*after-reconnect/ }))
+				.toBeVisible();
+		} finally {
+			onlineManager.setOnline(true);
+		}
+	});
+
+	it('reveals cached Accounts and Providers inside the settings loading boundary', async () => {
+		queryClient.setQueryData(openPostQueryKeys.accounts(workspace.id), [account]);
+		queryClient.setQueryData(accountCatalogQueryKeys.providers(workspace.id), []);
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged: vi.fn()
+			},
+			{
+				wrapper: SettingsLoadTestBoundary,
+				wrapperProps: {
+					plan: getSettingsInitialLoadPlan('accounts', {
+						userID: user.id,
+						workspaceID: workspace.id,
+						organizationID: workspace.organization_id
+					})
+				}
+			}
+		);
+		await expect.element(screen.getByRole('button', { name: /Actions for/ })).toBeVisible();
+		expect(
+			getMock.mock.calls.filter(([path]) => path === '/accounts' || path === '/accounts/providers')
+		).toEqual([]);
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		queryClient.clear();

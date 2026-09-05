@@ -65,7 +65,7 @@
 	let workspaceID = $state('');
 	let from = $state('');
 	let before = $state('');
-	let loadedScopeKey = '';
+	let loadedScopeKey = $state('');
 	let requestSequence = 0;
 	let exportRequestSequence = 0;
 	let observedExportContextKey = '';

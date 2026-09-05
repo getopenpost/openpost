@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { client, type SocialAccount, type ProviderInfo } from '$lib/api/client';
 	import type { AccountManagementProps } from '$lib/account-management';
@@ -98,50 +99,49 @@
 	let canEditWorkspace = $derived(workspace?.can_edit ?? false);
 	let error = $state('');
 
-	let accounts = $state<SocialAccount[]>([]);
-	let accountsReady = $state(false);
-	let accountsLoading = $state(false);
-	let accountsLoadError = $state('');
-	let accountsWorkspaceID = '';
-	let accountsRequestSequence = 0;
-
-	let providerEntries = $state.raw<ProviderEntry[]>([]);
-	let providersReady = $state(false);
-	let providersLoading = $state(false);
-	let providersLoadError = $state('');
-	let providersWorkspaceID = '';
-	let providersRequestSequence = 0;
+	const accountsQuery = createQuery(
+		() => workspaceAccountsQueryOptions(queryAPI, selectedWorkspaceId),
+		() => queryClient
+	);
+	const providersQuery = createQuery(
+		() => ({
+			...accountProvidersQueryOptions(accountCatalogQueryAPI, selectedWorkspaceId),
+			enabled: !loading
+		}),
+		() => queryClient
+	);
+	let accountsMutationError = $state('');
+	const accountsDenied = $derived(isAuthorizationError(accountsQuery.error));
+	const providersDenied = $derived(isAuthorizationError(providersQuery.error));
+	const accounts = $derived(
+		accountsDenied || accountsMutationError ? [] : (accountsQuery.data ?? [])
+	);
+	const accountsReady = $derived(
+		accountsQuery.data !== undefined && !accountsDenied && !accountsMutationError
+	);
+	const accountsLoading = $derived(Boolean(selectedWorkspaceId) && accountsQuery.isPending);
+	const accountsLoadError = $derived(
+		accountsMutationError ||
+			(accountsQuery.error instanceof Error ? accountsQuery.error.message : '')
+	);
+	const providerEntries = $derived(providersDenied ? [] : (providersQuery.data ?? []));
+	const providersReady = $derived(providersQuery.data !== undefined && !providersDenied);
+	const providersLoading = $derived(providersQuery.isPending);
+	const providersLoadError = $derived(
+		providersQuery.error instanceof Error ? providersQuery.error.message : ''
+	);
 	const reportAccountsInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.accounts
 	);
 	const reportAccountProvidersInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.accountProviders
 	);
-	// The load-state reads must happen on every effect run: hoisting them out of the
-	// conditional keeps them tracked even when the scope term short-circuits, so the
-	// boundary settles as soon as the loads finish.
-	$effect(() => {
-		const workspaceID = selectedWorkspaceId;
-		const waitingForAccounts = accountsLoading && !accountsReady;
-		reportAccountsInitialLoad(
-			Boolean(
-				workspaceID &&
-				!accountsLoadError &&
-				(accountsWorkspaceID !== workspaceID || waitingForAccounts)
-			)
-		);
-	});
-	$effect(() => {
-		const workspaceID = selectedWorkspaceId;
-		const waitingForProviders = providersLoading && !providersReady;
-		reportAccountProvidersInitialLoad(
-			Boolean(
-				workspaceID &&
-				!providersLoadError &&
-				(providersWorkspaceID !== workspaceID || waitingForProviders)
-			)
-		);
-	});
+	$effect(() => reportAccountsInitialLoad(accountsLoading));
+	$effect(() => reportAccountProvidersInitialLoad(providersLoading));
+
+	function isAuthorizationError(cause: unknown) {
+		return cause instanceof OpenPostQueryError && (cause.status === 401 || cause.status === 403);
+	}
 	let mastodonModalOpen = $state(false);
 	let customMastodonInstance = $state('');
 	let customMastodonLoading = $state(false);
@@ -295,102 +295,17 @@
 		lastFailedMessage = '';
 	}
 
-	async function loadAccounts(options: { workspaceID?: string; refresh?: boolean } = {}) {
+	async function loadAccounts(options: { workspaceID?: string } = {}) {
 		const workspaceID = options.workspaceID ?? selectedWorkspaceId;
-		if (!workspaceID) {
-			accountsRequestSequence++;
-			accountsReady = false;
-			accountsLoading = false;
-			accountsLoadError = '';
-			accounts = [];
-			return;
-		}
-		const requestSequence = ++accountsRequestSequence;
-		const isCurrentRequest = () =>
-			requestSequence === accountsRequestSequence && selectedWorkspaceId === workspaceID;
-		const workspaceChanged = accountsWorkspaceID !== workspaceID;
-		accountsWorkspaceID = workspaceID;
-		accountsLoadError = '';
-		const queryKey = openPostQueryKeys.accounts(workspaceID);
-		const cachedAccounts = queryClient.getQueryData<SocialAccount[]>(queryKey);
-		if (cachedAccounts !== undefined) {
-			accounts = cachedAccounts;
-			accountsReady = true;
-		} else if (workspaceChanged) {
-			accounts = [];
-			accountsReady = false;
-		}
-		accountsLoading = !accountsReady;
-		try {
-			if (options.refresh) {
-				await queryClient.invalidateQueries({
-					queryKey,
-					exact: true
-				});
-			}
-			const data = await queryClient.fetchQuery(
-				workspaceAccountsQueryOptions(queryAPI, workspaceID)
-			);
-			if (!isCurrentRequest()) return;
-			accounts = data;
-			accountsReady = true;
-		} catch (e) {
-			if (!isCurrentRequest()) return;
-			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
-				queryClient.removeQueries({ queryKey, exact: true });
-				accounts = [];
-				accountsReady = false;
-			}
-			console.error('Failed to load accounts:', e);
-			accountsLoadError = e instanceof Error ? e.message : m.accounts_load_failed();
-		} finally {
-			if (isCurrentRequest()) accountsLoading = false;
-		}
+		if (!workspaceID || workspaceID !== selectedWorkspaceId) return;
+		accountsMutationError = '';
+		await accountsQuery.refetch();
 	}
 
-	async function loadProviders(loadOptions: { workspaceID?: string; refresh?: boolean } = {}) {
-		const workspaceID = loadOptions.workspaceID ?? selectedWorkspaceId;
-		const requestSequence = ++providersRequestSequence;
-		const isCurrentRequest = () =>
-			requestSequence === providersRequestSequence && selectedWorkspaceId === workspaceID;
-		const workspaceChanged = providersWorkspaceID !== workspaceID;
-		providersWorkspaceID = workspaceID;
-		providersLoadError = '';
-		const options = accountProvidersQueryOptions(accountCatalogQueryAPI, workspaceID);
-		const cachedProviders = queryClient.getQueryData<ProviderEntry[]>(options.queryKey);
-		if (cachedProviders !== undefined) {
-			providerEntries = cachedProviders;
-			providersReady = true;
-		} else if (workspaceChanged) {
-			providerEntries = [];
-			providersReady = false;
-		}
-		providersLoading = !providersReady;
-		try {
-			if (loadOptions.refresh) {
-				await queryClient.invalidateQueries({
-					queryKey: options.queryKey,
-					exact: true
-				});
-			}
-			const data = await queryClient.fetchQuery(options);
-			if (!isCurrentRequest()) return;
-			providerEntries = data;
-			providersReady = true;
-			if (lastFailedMessage) clearConnectionFailure();
-		} catch (e) {
-			if (!isCurrentRequest()) return;
-			if (e instanceof OpenPostQueryError && (e.status === 401 || e.status === 403)) {
-				queryClient.removeQueries({ queryKey: options.queryKey, exact: true });
-				providerEntries = [];
-				providersReady = false;
-			}
-			console.error('Failed to load account providers:', e);
-			providersLoadError =
-				e instanceof Error && e.message ? e.message : m.accounts_providers_load_failed();
-		} finally {
-			if (isCurrentRequest()) providersLoading = false;
-		}
+	async function loadProviders() {
+		const workspaceID = selectedWorkspaceId;
+		const result = await providersQuery.refetch();
+		if (result.isSuccess && selectedWorkspaceId === workspaceID) clearConnectionFailure();
 	}
 
 	let directProviders = $derived(
@@ -501,9 +416,6 @@
 					openPostQueryKeys.accounts(workspaceID),
 					(current) => current?.filter((candidate) => candidate.id !== account.id)
 				);
-				if (isCurrentRequest()) {
-					accounts = accounts.filter((candidate) => candidate.id !== account.id);
-				}
 				await invalidateAccountMutationDependencies(queryClient, workspaceID);
 			} else {
 				await refreshAccountsAfterMutation(workspaceID, identity, isCurrentRequest);
@@ -548,21 +460,15 @@
 		await invalidateAccountMutationDependencies(queryClient, workspaceID);
 		if (!actorIsCurrent(identity)) return;
 		try {
-			const data = await queryClient.fetchQuery(
-				workspaceAccountsQueryOptions(queryAPI, workspaceID)
-			);
+			await queryClient.fetchQuery(workspaceAccountsQueryOptions(queryAPI, workspaceID));
 			if (actorIsCurrent(identity) && shouldPresent() && selectedWorkspaceId === workspaceID) {
-				accounts = data;
-				accountsReady = true;
-				accountsLoadError = '';
+				accountsMutationError = '';
 			}
 		} catch (cause) {
 			if (!actorIsCurrent(identity)) return;
 			queryClient.removeQueries({ queryKey, exact: true });
 			if (shouldPresent() && selectedWorkspaceId === workspaceID) {
-				accounts = [];
-				accountsReady = false;
-				accountsLoadError = cause instanceof Error ? cause.message : m.accounts_load_failed();
+				accountsMutationError = cause instanceof Error ? cause.message : m.accounts_load_failed();
 			}
 		}
 	}
@@ -777,8 +683,6 @@
 	}
 
 	onDestroy(() => {
-		accountsRequestSequence += 1;
-		providersRequestSequence += 1;
 		editRequestSequence += 1;
 		connectionMutationSequence += 1;
 		accountRemovalRequestSequence += 1;
@@ -828,9 +732,6 @@
 			);
 			if (!isCurrentEditor()) return;
 			const refreshed = { ...account, ...data };
-			accounts = accounts.map((candidate) =>
-				candidate.id === account.id ? { ...candidate, ...data } : candidate
-			);
 			if (editingAccount?.id === account.id) editingAccount = refreshed;
 			onAccountsChanged();
 			showToast(
@@ -864,6 +765,7 @@
 		const workspaceID = selectedWorkspaceId;
 		if (workspaceID !== activeAccountScope) {
 			activeAccountScope = workspaceID;
+			accountsMutationError = '';
 			connectionMutationSequence += 1;
 			accountRemovalRequestSequence += 1;
 			accountRemovalDialogOpen = false;
@@ -880,12 +782,6 @@
 			connectingInstallationID = '';
 		}
 		if (editingWorkspaceID && editingWorkspaceID !== workspaceID) resetAccountEditor();
-		if (!loading) void loadProviders({ workspaceID });
-	});
-
-	$effect(() => {
-		const workspaceID = selectedWorkspaceId;
-		void loadAccounts({ workspaceID });
 	});
 
 	async function connectTwitter() {
@@ -1322,7 +1218,7 @@
 		}
 		if (action === 'retry') {
 			clearConnectionFailure();
-			void loadProviders({ refresh: true });
+			void loadProviders();
 		}
 	}
 
@@ -1622,7 +1518,7 @@
 									<Button
 										variant="outline"
 										size="sm"
-										onclick={() => void loadAccounts({ refresh: true })}
+										onclick={() => void loadAccounts()}
 										disabled={accountsLoading}
 									>
 										{m.common_retry()}
@@ -1754,7 +1650,7 @@
 										<Button
 											variant="outline"
 											size="sm"
-											onclick={() => void loadProviders({ refresh: true })}
+											onclick={() => void loadProviders()}
 											disabled={providersLoading}
 										>
 											{m.common_retry()}
@@ -1776,7 +1672,7 @@
 												<Button
 													variant="outline"
 													size="sm"
-													onclick={() => void loadProviders({ refresh: true })}
+													onclick={() => void loadProviders()}
 													disabled={providersLoading}
 												>
 													{m.common_retry()}

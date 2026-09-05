@@ -46,7 +46,7 @@
 	}
 	let { preferredOrganizationID = '', currentUserID, active = false, onDeleted }: Props = $props();
 	let loadedOrganizationID = '';
-	let displayedOrganizationID = '';
+	let displayedOrganizationID = $state('');
 	let organizationsLoaded = false;
 	let organizationsReady = $state(false);
 	let organizationListError = $state('');

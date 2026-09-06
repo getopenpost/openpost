@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -784,6 +785,39 @@ func (b *BlueskyAdapter) Repost(ctx context.Context, accessToken, targetAccountI
 	}
 	externalID, _ := json.Marshal(map[string]string{"uri": result.URI, "cid": result.CID})
 	return RepostResult{ExternalID: string(externalID), ExternalURL: req.ExternalURL}, nil
+}
+
+func (b *BlueskyAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error {
+	rkey := extractBlueskyRecordKey(req.RepostExternalID)
+	if strings.TrimSpace(targetAccountID) == "" || rkey == "" {
+		return fmt.Errorf("bluesky unrepost requires a target account and repost id")
+	}
+	_, err := b.doJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.deleteRecord", map[string]any{
+		"repo": targetAccountID, "collection": "app.bsky.feed.repost", "rkey": rkey,
+	}, map[string]string{headerAuthorization: bearerPrefix + accessToken})
+	if err == nil {
+		return nil
+	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) && httpErr.Code == "RecordNotFound" {
+		return nil
+	}
+	return fmt.Errorf("unreposting on bluesky: %w", err)
+}
+
+func extractBlueskyRecordKey(externalID string) string {
+	trimmed := strings.TrimSpace(externalID)
+	if trimmed == "" {
+		return ""
+	}
+	var record struct {
+		URI string `json:"uri"`
+	}
+	if json.Unmarshal([]byte(trimmed), &record) == nil && record.URI != "" {
+		trimmed = record.URI
+	}
+	parts := strings.Split(strings.TrimRight(trimmed, "/"), "/")
+	return parts[len(parts)-1]
 }
 
 func (b *BlueskyAdapter) buildPostRecord(_ string, req *PublishRequest, createdAt time.Time) (map[string]interface{}, error) {

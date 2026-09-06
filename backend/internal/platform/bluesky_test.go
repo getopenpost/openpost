@@ -411,3 +411,35 @@ func TestBlueskyProviderKeyAdapterSharesAccountContentIdentity(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, want, page.Items[0].ProviderContentID)
 }
+
+func TestBlueskyUnrepostOnlyIgnoresMissingRecord(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	tests := []struct {
+		name    string
+		status  int
+		body    string
+		wantErr bool
+	}{
+		{name: "missing record", status: http.StatusBadRequest, body: `{"error":"RecordNotFound"}`},
+		{name: "unrelated not found", status: http.StatusNotFound, body: `{"error":"NotFound"}`, wantErr: true},
+		{name: "other bad request", status: http.StatusBadRequest, body: `{"error":"InvalidRequest"}`, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: test.status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(test.body)), Request: req}, nil
+			})}
+			adapter := NewBlueskyAdapter(BlueskyDefaultPDSURL)
+			err := adapter.Unrepost(t.Context(), "token", "did:plc:target", UnrepostRequest{
+				RepostExternalID: `{"uri":"at://did:plc:target/app.bsky.feed.repost/record-key","cid":"cid"}`,
+			})
+			if test.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

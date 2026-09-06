@@ -9,6 +9,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
+	import RepostStageEditor from '$lib/components/repost-stage-editor.svelte';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
@@ -69,17 +70,6 @@
 		return m.composer_repost_workspace_rules();
 	});
 
-	const delayOptions = [
-		{ value: 0, label: m.repost_delay_immediately() },
-		{ value: 900, label: m.repost_delay_minutes({ count: 15 }) },
-		{ value: 3600, label: m.repost_delay_hours({ count: 1 }) },
-		{ value: 10800, label: m.repost_delay_hours({ count: 3 }) },
-		{ value: 21600, label: m.repost_delay_hours({ count: 6 }) },
-		{ value: 43200, label: m.repost_delay_hours({ count: 12 }) },
-		{ value: 86400, label: m.repost_delay_days({ count: 1 }) },
-		{ value: 172800, label: m.repost_delay_days({ count: 2 }) },
-		{ value: 604800, label: m.repost_delay_days({ count: 7 }) }
-	];
 	const windowOptions = [
 		{ value: 3600, label: m.repost_delay_hours({ count: 1 }) },
 		{ value: 21600, label: m.repost_delay_hours({ count: 6 }) },
@@ -142,16 +132,6 @@
 		onChange?.();
 	}
 
-	function setDelay(seconds: number) {
-		if (value.mode !== 'custom' || !value.rule) return;
-		value.rule.delay_seconds = seconds;
-		if (value.rule.evaluation_window_seconds < seconds) {
-			value.rule.evaluation_window_seconds =
-				windowOptions.find((option) => option.value >= seconds)?.value ?? 2592000;
-		}
-		onChange?.();
-	}
-
 	function setThreshold(
 		field: 'min_likes' | 'min_comments' | 'min_reposts' | 'min_views',
 		raw: string
@@ -190,7 +170,8 @@
 			min_reposts: 0,
 			min_views: 0,
 			require_plateau: false,
-			plateau_checks: 2
+			plateau_checks: 2,
+			stages: [{ delay_seconds: 86400, unrepost_previous: false }]
 		};
 	}
 
@@ -306,23 +287,12 @@
 				</fieldset>
 
 				<div class="grid gap-3 sm:grid-cols-2">
-					<div class="space-y-2">
-						<Label>{m.repost_delay()}</Label>
-						<Select.Root
-							type="single"
-							value={String(value.rule.delay_seconds)}
-							onValueChange={(raw) => setDelay(Number(raw))}
-						>
-							<Select.Trigger class="w-full" aria-label={m.repost_delay()}
-								>{delayLabel(value.rule.delay_seconds, delayOptions)}</Select.Trigger
-							>
-							<Select.Content>
-								{#each delayOptions as option (option.value)}
-									<Select.Item value={String(option.value)}>{option.label}</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
+					<RepostStageEditor
+						bind:rule={value.rule}
+						idPrefix="composer-repost"
+						{disabled}
+						{onChange}
+					/>
 					<div class="space-y-2">
 						<Label>{m.repost_evaluation_window()}</Label>
 						<Select.Root
@@ -338,7 +308,9 @@
 								{#each windowOptions as option (option.value)}
 									<Select.Item
 										value={String(option.value)}
-										disabled={option.value < value.rule.delay_seconds}>{option.label}</Select.Item
+										disabled={option.value <=
+											(value.rule.stages?.at(-1)?.delay_seconds ?? value.rule.delay_seconds)}
+										>{option.label}</Select.Item
 									>
 								{/each}
 							</Select.Content>

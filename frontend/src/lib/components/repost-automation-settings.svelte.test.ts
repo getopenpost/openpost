@@ -55,6 +55,33 @@ describe('repost automation mutation ownership', () => {
 			workspaceB
 		);
 	});
+
+	it('saves an ordered repost cycle with previous-repost removal', async () => {
+		const initial = repostSettings('workspace-a', 'Cycle rule');
+		queryClient.setQueryData(schedulingQueryKeys.repostAutomation('workspace-a'), initial);
+		putMock.mockResolvedValue({ data: initial, error: undefined, response: new Response(null) });
+
+		const screen = await render(RepostAutomationSettings, { workspaceID: 'workspace-a' });
+		await screen.getByRole('button', { name: 'Add repost' }).click();
+		await expect.element(screen.getByText('Repost 2')).toBeVisible();
+		await screen.getByRole('button', { name: 'Save changes' }).click();
+
+		expect(putMock).toHaveBeenCalledWith('/repost-automation', {
+			body: {
+				workspace_id: 'workspace-a',
+				policies: [
+					expect.objectContaining({
+						rule: expect.objectContaining({
+							stages: [
+								{ delay_seconds: 0, unrepost_previous: false },
+								{ delay_seconds: 900, unrepost_previous: true }
+							]
+						})
+					})
+				]
+			}
+		});
+	});
 });
 
 function repostSettings(workspaceID: string, ruleName: string): RepostSettings {

@@ -36,7 +36,10 @@ const (
 const (
 	maxDelay            = 30 * 24 * time.Hour
 	maxEvaluationWindow = 30 * 24 * time.Hour
+	maxDelaySeconds     = int(maxDelay / time.Second)
+	maxWindowSeconds    = int(maxEvaluationWindow / time.Second)
 	maxAccountsPerRule  = 50
+	maxStagesPerRule    = 20
 	maxThreshold        = int64(1_000_000_000_000)
 )
 
@@ -49,15 +52,59 @@ func invalidInputf(format string, args ...any) error {
 }
 
 type Rule struct {
-	DelaySeconds            int    `json:"delay_seconds" minimum:"0" maximum:"2592000" doc:"Wait after publishing before the first eligibility check"`
-	EvaluationWindowSeconds int    `json:"evaluation_window_seconds" minimum:"900" maximum:"2592000" doc:"How long OpenPost may wait for engagement gates"`
-	ThresholdMode           string `json:"threshold_mode" enum:"all,any" doc:"Require all configured thresholds or any one"`
-	MinLikes                int64  `json:"min_likes" minimum:"0" doc:"Minimum likes; zero disables this gate"`
-	MinComments             int64  `json:"min_comments" minimum:"0" doc:"Minimum comments; zero disables this gate"`
-	MinReposts              int64  `json:"min_reposts" minimum:"0" doc:"Minimum reposts or shares; zero disables this gate"`
-	MinViews                int64  `json:"min_views" minimum:"0" doc:"Minimum views; zero disables this gate"`
-	RequirePlateau          bool   `json:"require_plateau" doc:"Wait until stored engagement has stopped changing"`
-	PlateauChecks           int    `json:"plateau_checks" minimum:"2" maximum:"12" doc:"Consecutive unchanged analytics checks required"`
+	DelaySeconds            int     `json:"delay_seconds" minimum:"0" maximum:"2592000" doc:"Wait after publishing before the first eligibility check"`
+	EvaluationWindowSeconds int     `json:"evaluation_window_seconds" minimum:"900" maximum:"2592000" doc:"How long OpenPost may wait for engagement gates"`
+	ThresholdMode           string  `json:"threshold_mode" enum:"all,any" doc:"Require all configured thresholds or any one"`
+	MinLikes                int64   `json:"min_likes" minimum:"0" doc:"Minimum likes; zero disables this gate"`
+	MinComments             int64   `json:"min_comments" minimum:"0" doc:"Minimum comments; zero disables this gate"`
+	MinReposts              int64   `json:"min_reposts" minimum:"0" doc:"Minimum reposts or shares; zero disables this gate"`
+	MinViews                int64   `json:"min_views" minimum:"0" doc:"Minimum views; zero disables this gate"`
+	RequirePlateau          bool    `json:"require_plateau" doc:"Wait until stored engagement has stopped changing"`
+	PlateauChecks           int     `json:"plateau_checks" minimum:"2" maximum:"12" doc:"Consecutive unchanged analytics checks required"`
+	Stages                  []Stage `json:"stages,omitempty" maxItems:"20" doc:"Ordered repost times measured from the original publish time"`
+	legacyMaximumBoundary   bool
+}
+
+func (rule Rule) MarshalJSON() ([]byte, error) {
+	type wireRule Rule
+	wire := wireRule(rule)
+	if rule.legacyMaximumBoundary {
+		wire.Stages = nil
+	}
+	return json.Marshal(wire)
+}
+
+type Stage struct {
+	DelaySeconds     int  `json:"delay_seconds" minimum:"0" maximum:"2592000" doc:"Wait from the original publish time before this repost"`
+	UnrepostPrevious bool `json:"unrepost_previous" doc:"Remove the preceding repost before creating this one"`
+}
+
+type StageHistoryEntry struct {
+	Stage            int       `json:"stage"`
+	DelaySeconds     int       `json:"delay_seconds"`
+	UnrepostPrevious bool      `json:"unrepost_previous"`
+	RepostExternalID string    `json:"repost_external_id,omitempty"`
+	ExternalURL      string    `json:"external_url,omitempty"`
+	ExecutedAt       time.Time `json:"executed_at"`
+	UnrepostedAt     time.Time `json:"unreposted_at,omitempty"`
+}
+
+// ExecutionContinuationError asks the worker to requeue the current durable
+// execution job after an idempotent unrepost failure.
+type ExecutionContinuationError struct {
+	RetryAfter time.Duration
+}
+
+func (e *ExecutionContinuationError) Error() string {
+	return "repost execution will retry the preceding repost removal"
+}
+
+func IsExecutionContinuation(err error) (time.Duration, bool) {
+	var continuation *ExecutionContinuationError
+	if !errors.As(err, &continuation) {
+		return 0, false
+	}
+	return max(0, continuation.RetryAfter), true
 }
 
 type Override struct {
@@ -157,15 +204,51 @@ func NormalizeRule(rule Rule) (Rule, error) {
 	if rule.PlateauChecks == 0 {
 		rule.PlateauChecks = 2
 	}
-	if rule.DelaySeconds < 0 || time.Duration(rule.DelaySeconds)*time.Second > maxDelay {
+	if rule.DelaySeconds < 0 || rule.DelaySeconds > maxDelaySeconds {
 		return Rule{}, invalidInputf("repost delay must be between 0 and 30 days")
 	}
-	window := time.Duration(rule.EvaluationWindowSeconds) * time.Second
-	if window < 15*time.Minute || window > maxEvaluationWindow {
+	if rule.EvaluationWindowSeconds < int((15*time.Minute)/time.Second) || rule.EvaluationWindowSeconds > maxWindowSeconds {
 		return Rule{}, invalidInputf("repost evaluation window must be between 15 minutes and 30 days")
 	}
-	if rule.EvaluationWindowSeconds < rule.DelaySeconds {
-		return Rule{}, invalidInputf("repost evaluation window cannot end before its delay")
+	legacySingleStage := len(rule.Stages) == 0
+	if legacySingleStage {
+		if rule.EvaluationWindowSeconds == rule.DelaySeconds {
+			if rule.DelaySeconds < maxDelaySeconds {
+				rule.EvaluationWindowSeconds = min(
+					rule.DelaySeconds+int(checkInterval/time.Second),
+					maxWindowSeconds,
+				)
+			} else {
+				rule.legacyMaximumBoundary = true
+			}
+		}
+		rule.Stages = []Stage{{DelaySeconds: rule.DelaySeconds}}
+	} else {
+		if len(rule.Stages) > maxStagesPerRule {
+			return Rule{}, invalidInputf("repost rules support at most %d stages", maxStagesPerRule)
+		}
+		for index := range rule.Stages {
+			stage := &rule.Stages[index]
+			if stage.DelaySeconds < 0 || stage.DelaySeconds > maxDelaySeconds {
+				return Rule{}, invalidInputf("repost stage %d delay must be between 0 and 30 days", index+1)
+			}
+			if index == 0 {
+				stage.UnrepostPrevious = false
+				continue
+			}
+			if stage.DelaySeconds <= rule.Stages[index-1].DelaySeconds {
+				return Rule{}, invalidInputf("repost stage delays must strictly increase")
+			}
+		}
+		rule.DelaySeconds = rule.Stages[0].DelaySeconds
+	}
+	finalStageDelay := rule.Stages[len(rule.Stages)-1].DelaySeconds
+	legacyMaximumBoundary := rule.legacyMaximumBoundary && len(rule.Stages) == 1 &&
+		finalStageDelay == maxDelaySeconds &&
+		rule.EvaluationWindowSeconds == maxWindowSeconds
+	if rule.EvaluationWindowSeconds < finalStageDelay ||
+		(rule.EvaluationWindowSeconds == finalStageDelay && !legacyMaximumBoundary) {
+		return Rule{}, invalidInputf("repost evaluation window must end after its final stage")
 	}
 	if rule.ThresholdMode != ThresholdAll && rule.ThresholdMode != ThresholdAny {
 		return Rule{}, invalidInputf("repost threshold mode must be all or any")

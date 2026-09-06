@@ -12457,6 +12457,8 @@ export interface components {
             plateau_checks: number;
             /** @description Wait until stored engagement has stopped changing */
             require_plateau: boolean;
+            /** @description Ordered repost times measured from the original publish time */
+            stages?: components["schemas"]["Stage"][] | null;
             /**
              * @description Require all configured thresholds or any one
              * @enum {string}
@@ -12819,6 +12821,15 @@ export interface components {
             /** @description Whether the user allowed this source asset to appear in the post */
             publishable?: boolean;
             text?: string;
+        };
+        Stage: {
+            /**
+             * Format: int64
+             * @description Wait from the original publish time before this repost
+             */
+            delay_seconds: number;
+            /** @description Remove the preceding repost before creating this one */
+            unrepost_previous: boolean;
         };
         StartCLIAuthInputBody: {
             /**

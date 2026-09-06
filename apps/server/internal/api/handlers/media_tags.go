@@ -1208,13 +1208,6 @@ func builtinImageEditorTemplatePage(seed, layout, headline, subline, background,
 	text := func(key, value string, x, y, tw, th, size float64, color string, weight int) {
 		layers = append(layers, builtinImageEditorTextStyled(seed+"/"+key, value, w*x, h*y, w*tw, h*th, w*size, color, weight, "left"))
 	}
-	footer := func() {
-		shape("Footer rule", "rectangle", .08, .87, .84, .002, muted)
-		text("Signature", "YOUR NAME / YOUR BRAND", .08, .9, .65, .05, .019, muted, 500)
-		if pageCount > 1 {
-			text("Page", fmt.Sprintf("%02d / %02d", pageIndex+1, pageCount), .79, .9, .15, .05, .019, muted, 500)
-		}
-	}
 	switch layout {
 	case "signal":
 		shape("Signal field", "rectangle", .68, 0, .32, 1, accent)
@@ -1247,7 +1240,7 @@ func builtinImageEditorTemplatePage(seed, layout, headline, subline, background,
 		text("Number", fmt.Sprintf("%02d", pageIndex+1), .06, .035, .87, .31, .29, accent, 750)
 		text("Headline", headline, .08, .4, .82, .27, .078, foreground, 700)
 		text("Detail", subline, .08, .7, .79, .12, .032, muted, 450)
-		footer()
+		layers = append(layers, builtinImageEditorTemplateFooter(seed, w, h, muted, pageIndex, pageCount)...)
 	case "numbered":
 		shape("Number rail", "rectangle", 0, 0, .24, 1, accent)
 		text("Number", fmt.Sprintf("%02d", pageIndex+1), .035, .065, .19, .18, .13, imageEditorTemplateForeground(accent), 700)
@@ -1293,6 +1286,17 @@ func builtinImageEditorTemplatePage(seed, layout, headline, subline, background,
 		BackgroundColor: background,
 		Layers:          layers,
 	}
+}
+
+func builtinImageEditorTemplateFooter(seed string, width, height float64, color string, pageIndex, pageCount int) []ImageEditorLayer {
+	layers := []ImageEditorLayer{
+		builtinImageEditorShape(seed+"/Footer rule", "Footer rule", "rectangle", width*.08, height*.87, width*.84, height*.002, color, 0),
+		builtinImageEditorTextStyled(seed+"/Signature", "YOUR NAME / YOUR BRAND", width*.08, height*.9, width*.65, height*.05, width*.019, color, 500, "left"),
+	}
+	if pageCount > 1 {
+		layers = append(layers, builtinImageEditorTextStyled(seed+"/Page", fmt.Sprintf("%02d / %02d", pageIndex+1, pageCount), width*.79, height*.9, width*.15, height*.05, width*.019, color, 500, "left"))
+	}
+	return layers
 }
 
 func builtinImageEditorShape(seed, name, kind string, x, y, width, height float64, color string, radius float64) ImageEditorLayer {

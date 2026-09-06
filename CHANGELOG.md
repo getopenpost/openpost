@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-09-06
+
+### Fixed
+
+- Images inserted from Android keyboards now attach in native idea capture and publication composers, preserving the written text and existing attachment validation, preview, and upload flow.
+- Fixed cached navigation leaving Plan & usage, Accounts, Audit, and Ownership settings hidden behind loading placeholders.
+- Kept billing and account settings subscribed to query updates and reconnect refreshes.
+- Kept Grow polling until queued work completes, even when successive responses are unchanged.
+- Preserved draft and broad publication invalidations while avoiding unrelated refreshes for draft-only saves.
+- Showed background refresh failures in Activity without hiding cached content.
+- Removed duplicate theme catalog requests and refreshed affected workspace theme caches after organization changes.
+- Refreshed media search results after a rename changes which files match.
+- Kept saved theme draft revisions current when publishing fails, so retries use the latest draft.
+- Testing a theme now previews it across the app without changing saved appearance preferences. Stop testing or leave Appearance to restore the saved theme.
+- Image and Video Editors now share their core chrome, font catalog, and versioned color processing path. Image preview and full-resolution export preserve layer and page grades, while Video grading keeps animated and multi-clip edits intact, applies sequence grades after compositing, bounds imported LUTs, and offers a simultaneous four-scope view.
+- Connected account profile photos now render after a provider profile refresh, including LinkedIn photos served from signed media URLs.
+- Selected account features now fill their card without mismatched side strips.
+- The agent workflow check now validates repository-owned files without requiring machine-managed skills or GitHub access. Use `bun scripts/agent-doctor.mjs --live-labels` for the optional live GitHub label check.
+- Retry media uploads after temporary provider failures instead of asking you to replace valid media.
+
+### Added
+
+- Cloud Video Projects now keep portable authored state, Project Assets, versioned autosaves, named checkpoints, Trash, and explicit conflict branches inside the owning Workspace.
+- The native mobile app can safely capture or import footage offline, then upload it with a non-destructive preparation recipe for completion in the web Video Editor.
+- Quick Cut source projects and standalone or in-editor recordings now use the same Cloud Video Project and Project Asset contract, while keeping an explicit Local-only path.
+- Five sourced buying guides answer questions about founder social tools, product updates, multi-platform scheduling, self-hosting, and automation. Find them under Resources → Buying guides, with current Hosted readiness limits and links to supporting documentation.
+- Added optional per-Workspace email reminders when the publishing queue has fewer scheduled days left or its final queued Publication finishes.
+
+### Changed
+
+- Project Asset uploads use workspace storage limits and checksum reuse without appearing in the normal Media Library. Sync state reports pending work, active upload, saved state, or a storage problem instead of claiming success early.
+- Cloud Video Project lists, history, conflicts, assets, and mobile captures now share cache-safe reads and refresh affected data after each change.
+- Group repository community policies, launch templates, social artwork, and browser configuration with their owners. Remove the outdated roadmap and stop tracking local design review reports. Run browser suites through `bun run test -- e2e` or `bun run test -- e2e-app`.
+
 ## [4.19.1] - 2026-09-04
 
 ### Changed

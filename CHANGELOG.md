@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.22.0] - 2026-09-06
+
+### Changed
+
+- Rebuilt the landing page around a launch workflow with interactive destination examples, real editor previews, and mint, lilac, and blue accents. Motion respects reduced-motion preferences.
+- Removed orange hero glows from marketing pages and the orange gradient and button glow from documentation.
+
+### Fixed
+
+- Removed repeated primary links from the mobile marketing navigation.
+- Made animated pricing amounts readable to screen readers in monthly and yearly billing.
+- Keep thread text clear of the remove button at narrow widths and expose the button on keyboard focus.
+
+### Improved
+
+- Keep AI, save, scheduling, and copy feedback in place with short state transitions. Copy failures offer a retry and ignore results from an old workspace.
+- Navigate image layers without changing selection, with animated group expansion and predictable keyboard focus.
+- Preview page and thread moves with the keyboard, cancel with Escape, and undo an accepted reorder. Thread dragging also works with touch and scrolls at the edge.
+- Add and remove tags with short transitions, composition-safe entry, and a second Backspace before deletion.
+- Show upload and AI phases with measured progress when available and motion for unknown progress.
+- Keep password and scheduling errors next to their fields, with keyboard focus on the first invalid password field.
+
 ## [4.21.0] - 2026-09-06
 
 ### Changed

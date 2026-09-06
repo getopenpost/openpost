@@ -119,7 +119,7 @@ func (b *BlueskyAdapter) ListComments(ctx context.Context, accessToken, accountI
 		return nil, fmt.Errorf("bluesky post reference is invalid")
 	}
 	query := url.Values{"uri": {reference.URI}, "depth": {"100"}, "parentHeight": {"0"}}
-	body, err := DoRequest(ctx, http.MethodGet, b.pdsURL+"/xrpc/app.bsky.feed.getPostThread?"+query.Encode(), nil, map[string]string{
+	body, err := b.doRequest(ctx, http.MethodGet, b.pdsURL+"/xrpc/app.bsky.feed.getPostThread?"+query.Encode(), nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -175,7 +175,7 @@ func (b *BlueskyAdapter) DeleteComment(ctx context.Context, accessToken, account
 	}
 	parts := strings.Split(reference.URI, "/")
 	rkey := parts[len(parts)-1]
-	_, err := DoJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.deleteRecord", map[string]string{
+	_, err := b.doJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.deleteRecord", map[string]string{
 		"repo": accountID, "collection": "app.bsky.feed.post", "rkey": rkey,
 	}, map[string]string{headerAuthorization: bearerPrefix + accessToken})
 	return err

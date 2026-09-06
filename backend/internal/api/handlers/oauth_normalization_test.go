@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -165,6 +166,9 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 	e, handler := newNormServer(t, map[string]platform.Adapter{
 		"bluesky": platform.NewBlueskyAdapter(pds.URL),
 	})
+	handler.setBlueskyPDSResolver(func(context.Context, string) (string, string, error) {
+		return "", "", nil
+	})
 	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
 		"workspace_id": "ws-1",
 		"handle":       "submitted.bsky.social",
@@ -175,7 +179,81 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 	var account models.SocialAccount
 	require.NoError(t, handler.db.NewSelect().Model(&account).Where("account_id = ?", "did:plc:creator").Scan(t.Context()))
 	require.Equal(t, "canonical.bsky.social", account.AccountUsername)
+	require.Equal(t, pds.URL, account.InstanceURL)
 	require.Empty(t, account.AccountAvatarURL)
+
+	var grant models.OAuthGrant
+	require.NoError(t, handler.db.NewSelect().Model(&grant).Where("id = ?", account.OAuthGrantID).Scan(t.Context()))
+	require.Equal(t, pds.URL, grant.ProviderProjectID)
+	require.Equal(t, pds.URL, grant.InstanceURL)
+	require.JSONEq(t, `{"exchange":"create_session","pds_url":"`+pds.URL+`","protocol":"atproto","source":"account_connection"}`, grant.AuthorizationEvidence)
+}
+
+func TestOAuthProviderMapReturnsSnapshot(t *testing.T) {
+	adapter := platform.NewBlueskyAdapter("")
+	handler := NewOAuthHandler(nil, nil, map[string]platform.Adapter{"bluesky": adapter}, nil, false, "")
+	snapshot := handler.ProviderMap()
+
+	handler.registerProvider("bluesky:https://pds.example", platform.NewBlueskyAdapter("https://pds.example"))
+	delete(snapshot, "bluesky")
+
+	_, originalStillRegistered := handler.provider("bluesky")
+	require.True(t, originalStillRegistered)
+	require.NotContains(t, snapshot, "bluesky:https://pds.example")
+}
+
+// A hostile PDS must not be able to claim a DID the handle does not resolve to.
+func TestBlueskyLoginRejectsPDSAssertingAnotherDID(t *testing.T) {
+	payload, err := json.Marshal(map[string]int64{"exp": time.Now().Add(time.Hour).Unix()})
+	require.NoError(t, err)
+	accessJWT := "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/xrpc/com.atproto.server.createSession" {
+			_, _ = io.WriteString(w, `{"did":"did:plc:impostor","handle":"canonical.bsky.social","accessJwt":"`+accessJWT+`","refreshJwt":"refresh-token"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(pds.Close)
+
+	e, handler := newNormServer(t, map[string]platform.Adapter{"bluesky": platform.NewBlueskyAdapter("https://bsky.social")})
+	handler.setBlueskyPDSResolver(func(context.Context, string) (string, string, error) {
+		return pds.URL, "did:plc:creator", nil
+	})
+	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
+		"workspace_id": "ws-1",
+		"handle":       "victim.example",
+		"app_password": "app-password",
+	}, true)
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+	require.Contains(t, response.Body.String(), "bluesky login failed")
+	require.NotContains(t, response.Body.String(), pds.URL)
+
+	count, err := handler.db.NewSelect().Model((*models.SocialAccount)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+}
+
+// A resolution failure must fail the login instead of falling back to the
+// configured PDS, which may not hold the account's repository.
+func TestBlueskyLoginFailsWhenPDSResolutionErrors(t *testing.T) {
+	e, handler := newNormServer(t, map[string]platform.Adapter{"bluesky": platform.NewBlueskyAdapter("https://bsky.social")})
+	handler.setBlueskyPDSResolver(func(context.Context, string) (string, string, error) {
+		return "", "", errors.New("plc.directory is unreachable")
+	})
+	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
+		"workspace_id": "ws-1",
+		"handle":       "alice.example",
+		"app_password": "app-password",
+	}, true)
+	require.Equal(t, http.StatusBadGateway, response.Code, response.Body.String())
+	require.NotContains(t, response.Body.String(), "plc.directory")
+
+	count, err := handler.db.NewSelect().Model((*models.SocialAccount)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
 }
 
 func TestNormReactivatedAccountReturnsToSettings(t *testing.T) {

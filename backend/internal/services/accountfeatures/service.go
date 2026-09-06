@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -78,6 +79,7 @@ type SupportResolver struct {
 
 type Service struct {
 	db               bun.IDB
+	providersMu      sync.RWMutex
 	providers        map[string]platform.Adapter
 	analyticsSources map[string]platform.AnalyticsAdapter
 	planPolicy       PlanPolicy
@@ -88,10 +90,13 @@ func NewService(db bun.IDB, providers map[string]platform.Adapter, policy PlanPo
 	if policy == nil {
 		policy = AlwaysAllowedPolicy{}
 	}
-	ref := providers
+	providerSnapshot := make(map[string]platform.Adapter, len(providers))
+	for name, adapter := range providers {
+		providerSnapshot[name] = adapter
+	}
 	return &Service{
 		db:               db,
-		providers:        ref,
+		providers:        providerSnapshot,
 		analyticsSources: make(map[string]platform.AnalyticsAdapter),
 		planPolicy:       policy,
 		now:              func() time.Time { return time.Now().UTC() },
@@ -111,6 +116,8 @@ func (s *Service) SetAnalyticsSource(name string, adapter platform.AnalyticsAdap
 }
 
 func (s *Service) SetProvider(name string, adapter platform.Adapter) {
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
 	if s.providers == nil {
 		s.providers = map[string]platform.Adapter{}
 	}
@@ -639,6 +646,8 @@ func (s *Service) supportFor(_ context.Context, account models.SocialAccount, fe
 }
 
 func (s *Service) resolveAdapter(providerKey string) (platform.Adapter, bool) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
 	adapter, ok := s.providers[providerKey]
 	if ok {
 		return adapter, true

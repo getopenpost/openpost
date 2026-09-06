@@ -92,12 +92,8 @@ func firstNonEmpty(values ...string) string {
 }
 
 func providerKeyForAccount(account models.SocialAccount) string {
-	if account.Platform == "mastodon" {
-		instance := strings.TrimSpace(account.InstanceURL)
-		instance = strings.TrimRight(instance, "/")
-		if instance != "" {
-			return "mastodon:" + instance
-		}
+	if account.Platform == "mastodon" || account.Platform == "bluesky" {
+		return platform.AccountProviderKey(account.Platform, account.InstanceURL, "")
 	}
 	return account.Platform
 }

@@ -105,3 +105,12 @@ func TestMergeAppConfigsOverridesByCanonicalProviderKey(t *testing.T) {
 	require.Equal(t, "https://masto.pt", got[2].InstanceURL)
 	require.Equal(t, "facebook", got[3].Provider)
 }
+
+func TestAccountProviderKeyIsolatesNonDefaultBlueskyPDS(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "bluesky", AccountProviderKey("bluesky", "", ""))
+	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL, ""))
+	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL+"/", ""))
+	require.Equal(t, "bluesky:https://pds.example", AccountProviderKey("bluesky", "https://pds.example/", ""))
+}

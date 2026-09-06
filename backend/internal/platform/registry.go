@@ -185,6 +185,12 @@ func AccountProviderKey(provider, instanceURL, capabilityStateJSON string) strin
 	if provider == providerMastodon {
 		return providerMastodon + ":" + strings.TrimRight(strings.TrimSpace(instanceURL), "/")
 	}
+	if provider == providerBluesky {
+		if instance := CanonicalBlueskyPDSURL(instanceURL); instance != "" && instance != BlueskyDefaultPDSURL {
+			return providerBluesky + ":" + instance
+		}
+		return providerBluesky
+	}
 	if provider == providerDiscord {
 		state := map[string]string{}
 		_ = json.Unmarshal([]byte(capabilityStateJSON), &state)

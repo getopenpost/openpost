@@ -136,7 +136,7 @@ func (b *BlueskyAdapter) chatRequest(ctx context.Context, accessToken, method, p
 	if method == http.MethodPost {
 		headers[headerContentType] = contentTypeJSON
 	}
-	response, err := DoRequest(ctx, method, b.pdsURL+path, body, headers)
+	response, err := b.doRequest(ctx, method, b.pdsURL+path, body, headers)
 	if err != nil {
 		return nil, fmt.Errorf("bluesky messages: %w", err)
 	}

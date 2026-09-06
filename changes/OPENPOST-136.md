@@ -6,3 +6,4 @@
 ### Fixed
 
 - Removed repeated primary links from the mobile marketing navigation.
+- Made animated pricing amounts readable to screen readers in monthly and yearly billing.

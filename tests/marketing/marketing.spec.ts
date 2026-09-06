@@ -98,7 +98,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
     const card = page
       .getByRole("article")
       .filter({ has: page.getByRole("heading", { name: plan.name }) });
-    await expect(card.locator(".animated-price")).toHaveAttribute("aria-label", plan.monthly);
+    await expect(card.locator(".animated-price")).toMatchAriaSnapshot(`- text: ${plan.monthly}`);
     await expect(card.getByRole("link", { name: `Start ${plan.name}` })).toHaveAttribute(
       "href",
       `https://app.openpo.st/register?plan=${plan.id}&billing_period=monthly`,

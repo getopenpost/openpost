@@ -84,7 +84,7 @@ func (b *BlueskyAdapter) DiscoverAccountContent(ctx context.Context, accessToken
 	if cursor.Cursor != "" {
 		params.Set("cursor", cursor.Cursor)
 	}
-	body, err := DoRequest(ctx, http.MethodGet, pdsURL+"/xrpc/app.bsky.feed.getAuthorFeed?"+params.Encode(), nil, map[string]string{
+	body, err := b.doRequest(ctx, http.MethodGet, pdsURL+"/xrpc/app.bsky.feed.getAuthorFeed?"+params.Encode(), nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {

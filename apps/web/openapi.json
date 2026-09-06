@@ -22039,6 +22039,16 @@
 							}
 						},
 						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
 					}
 				},
 				"summary": "Connect Bluesky account using app password",

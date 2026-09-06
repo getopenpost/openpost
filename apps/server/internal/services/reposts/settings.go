@@ -713,11 +713,10 @@ func (s *Service) repostAdapter(account models.SocialAccount) platform.RepostAda
 }
 
 func repostProviderKey(account models.SocialAccount) string {
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key = "mastodon:" + account.InstanceURL
+	if account.Platform == "mastodon" || account.Platform == "bluesky" {
+		return platform.AccountProviderKey(account.Platform, account.InstanceURL, "")
 	}
-	return key
+	return account.Platform
 }
 
 func firstNonEmpty(values ...string) string {

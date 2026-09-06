@@ -1602,11 +1602,10 @@ func (s *Service) adapter(account models.SocialAccount) platform.EngagementAdapt
 }
 
 func engagementProviderKey(account models.SocialAccount) string {
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key += ":" + account.InstanceURL
+	if account.Platform == "mastodon" || account.Platform == "bluesky" {
+		return platform.AccountProviderKey(account.Platform, account.InstanceURL, "")
 	}
-	return key
+	return account.Platform
 }
 
 func xBudgetWindow(now time.Time) (time.Time, time.Time) {

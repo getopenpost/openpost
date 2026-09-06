@@ -13,17 +13,99 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/netguard"
 )
 
 type BlueskyAdapter struct {
-	pdsURL string
+	pdsURL    string
+	pdsPolicy *netguard.URLPolicy
+	pdsClient *http.Client
 }
+
+// BlueskyDefaultPDSURL is the entryway for Bluesky-hosted repositories. Accounts
+// on it keep the plain "bluesky" adapter key; any other PDS gets its own.
+const BlueskyDefaultPDSURL = "https://bsky.social"
 
 func NewBlueskyAdapter(pdsURL string) *BlueskyAdapter {
 	if pdsURL == "" {
-		pdsURL = "https://bsky.social"
+		pdsURL = BlueskyDefaultPDSURL
 	}
-	return &BlueskyAdapter{pdsURL: pdsURL}
+	return &BlueskyAdapter{pdsURL: CanonicalBlueskyPDSURL(pdsURL)}
+}
+
+// NewResolvedBlueskyAdapter creates an adapter for a PDS discovered from an
+// account's DID document. Every request revalidates and resolves the target
+// through netguard so DNS rebinding and redirects cannot receive credentials.
+func NewResolvedBlueskyAdapter(pdsURL string) *BlueskyAdapter {
+	policy := blueskyPDSPolicy()
+	return &BlueskyAdapter{
+		pdsURL:    CanonicalBlueskyPDSURL(pdsURL),
+		pdsPolicy: &policy,
+		pdsClient: blueskyPDSHTTPClient(policy),
+	}
+}
+
+func CanonicalBlueskyPDSURL(raw string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return trimmed
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	return strings.TrimRight(parsed.String(), "/")
+}
+
+func (b *BlueskyAdapter) doRequest(ctx context.Context, method, rawURL string, body io.Reader, headers map[string]string) ([]byte, error) {
+	if b.pdsPolicy == nil {
+		return DoRequest(ctx, method, rawURL, body, headers)
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing bluesky pds url: %w", err)
+	}
+	if err := netguard.ValidateURL(ctx, parsed, *b.pdsPolicy); err != nil {
+		return nil, err
+	}
+	return doRequestWithClient(ctx, b.pdsClient, method, rawURL, body, headers)
+}
+
+func (b *BlueskyAdapter) doJSON(ctx context.Context, method, rawURL string, payload any, headers map[string]string) ([]byte, error) {
+	var body io.Reader
+	if payload != nil {
+		data, err := jsonMarshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling JSON: %w", err)
+		}
+		body = bytes.NewReader(data)
+	}
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	if _, ok := headers[headerContentType]; !ok {
+		headers[headerContentType] = contentTypeJSON
+	}
+	return b.doRequest(ctx, method, rawURL, body, headers)
+}
+
+func blueskyDoBearerJSON[T any](ctx context.Context, adapter *BlueskyAdapter, method, rawURL, accessToken string, payload any, label string) (*T, error) {
+	body, err := adapter.doJSON(ctx, method, rawURL, payload, map[string]string{
+		headerAuthorization: bearerPrefix + accessToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var result T
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("decoding %s: %w", label, err)
+	}
+	return &result, nil
+}
+
+// PDSURL is the personal data server this adapter talks to.
+func (b *BlueskyAdapter) PDSURL() string {
+	return b.pdsURL
 }
 
 func (b *BlueskyAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescriptor {
@@ -49,7 +131,7 @@ func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword 
 		return "", "", "", "", 0, err
 	}
 
-	respBody, err := DoRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.server.createSession", bytes.NewReader(body), map[string]string{
+	respBody, err := b.doRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.server.createSession", bytes.NewReader(body), map[string]string{
 		headerContentType: contentTypeJSON,
 	})
 	if err != nil {
@@ -90,7 +172,7 @@ func (b *BlueskyAdapter) RefreshToken(ctx context.Context, input RefreshTokenInp
 		return nil, fmt.Errorf("bluesky refresh requires a refresh token")
 	}
 
-	respBody, err := DoRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.server.refreshSession", nil, map[string]string{
+	respBody, err := b.doRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.server.refreshSession", nil, map[string]string{
 		headerAuthorization: bearerPrefix + input.RefreshToken,
 	})
 	if err != nil {
@@ -152,7 +234,7 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 		Handle string `json:"handle"`
 	}
 
-	session, err := DoBearerJSON[blueskySession](ctx, "GET", b.pdsURL+"/xrpc/com.atproto.server.getSession", accessToken, nil, "bluesky session")
+	session, err := blueskyDoBearerJSON[blueskySession](ctx, b, "GET", b.pdsURL+"/xrpc/com.atproto.server.getSession", accessToken, nil, "bluesky session")
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +245,9 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 		Avatar      string `json:"avatar"`
 	}
 	params := url.Values{"actor": []string{session.Did}}
-	profile, err := DoBearerJSON[blueskyActorProfile](
+	profile, err := blueskyDoBearerJSON[blueskyActorProfile](
 		ctx,
+		b,
 		"GET",
 		b.pdsURL+"/xrpc/app.bsky.actor.getProfile?"+params.Encode(),
 		accessToken,
@@ -188,7 +271,7 @@ func (b *BlueskyAdapter) UploadMedia(ctx context.Context, accessToken, accountID
 		return b.uploadVideo(ctx, accessToken, accountID, mimeType, reader)
 	}
 
-	respBody, err := DoRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.uploadBlob", reader, map[string]string{
+	respBody, err := b.doRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.uploadBlob", reader, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 		headerContentType:   mimeType,
 	})
@@ -289,7 +372,7 @@ func (b *BlueskyAdapter) videoServiceAuthToken(ctx context.Context, accessToken 
 	params.Set("exp", strconv.FormatInt(time.Now().UTC().Add(30*time.Minute).Unix(), 10))
 
 	authURL := b.pdsURL + "/xrpc/com.atproto.server.getServiceAuth?" + params.Encode()
-	authResp, err := DoRequest(ctx, "GET", authURL, nil, map[string]string{
+	authResp, err := b.doRequest(ctx, "GET", authURL, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -359,6 +442,194 @@ func serviceAuthPDSHost(pdsURL string) (string, error) {
 		return "", fmt.Errorf("bluesky PDS URL has no host")
 	}
 	return host, nil
+}
+
+const blueskyResolveTimeout = 5 * time.Second
+
+// Tests substitute a resolver so URL validation never performs real DNS.
+var blueskyPDSDNSResolver netguard.Resolver
+
+func blueskyPDSPolicy() netguard.URLPolicy {
+	return netguard.URLPolicy{
+		Label:            "bluesky pds",
+		AllowedSchemes:   []string{"https"},
+		AllowCustomPorts: false,
+		Resolver:         blueskyPDSDNSResolver,
+	}
+}
+
+// Tests substitute the resolver's HTTP client; it is nil in production.
+var blueskyPDSClientOverride *http.Client
+
+func blueskyPDSHTTPClient(policy netguard.URLPolicy) *http.Client {
+	if blueskyPDSClientOverride != nil {
+		return blueskyPDSClientOverride
+	}
+	return netguard.NewHTTPClient(blueskyResolveTimeout, policy)
+}
+
+// ResolveBlueskyPDS reads the personal data server hosting identifier from its
+// DID document. An empty pdsURL means an email identifier or a Bluesky-hosted
+// PDS, both of which use BlueskyDefaultPDSURL. Every other resolution failure
+// is an error because signing in against the wrong server would strand the
+// account on a PDS that does not hold its repository.
+func ResolveBlueskyPDS(ctx context.Context, identifier string) (pdsURL string, did string, err error) {
+	identifier = strings.TrimPrefix(strings.TrimSpace(identifier), "@")
+	if identifier == "" || strings.Contains(identifier, "@") {
+		return "", "", nil
+	}
+	handle := ""
+	if !strings.HasPrefix(identifier, "did:") {
+		handle = strings.ToLower(identifier)
+		if !blueskyHandlePattern.MatchString(handle) {
+			return "", "", fmt.Errorf("invalid bluesky handle")
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, blueskyResolveTimeout)
+	defer cancel()
+
+	policy := blueskyPDSPolicy()
+	client := blueskyPDSHTTPClient(policy)
+
+	did, err = blueskyResolveDID(ctx, client, policy, identifier)
+	if err != nil {
+		return "", "", err
+	}
+	documentURL, err := blueskyDIDDocumentURL(did)
+	if err != nil {
+		return "", "", err
+	}
+	document, err := blueskyGuardedGet(ctx, client, policy, documentURL)
+	if err != nil {
+		return "", "", fmt.Errorf("fetching bluesky did document: %w", err)
+	}
+	endpoint, err := blueskyPDSEndpoint(document, did, handle)
+	if err != nil {
+		return "", "", err
+	}
+	pdsURL, err = normalizeBlueskyPDSURL(ctx, endpoint, policy)
+	if err != nil {
+		return "", "", err
+	}
+	return pdsURL, did, nil
+}
+
+func blueskyResolveDID(ctx context.Context, client *http.Client, policy netguard.URLPolicy, identifier string) (string, error) {
+	if strings.HasPrefix(identifier, "did:") {
+		return identifier, nil
+	}
+	body, err := blueskyGuardedGet(ctx, client, policy,
+		"https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle="+url.QueryEscape(identifier))
+	if err == nil {
+		var resolved struct {
+			DID string `json:"did"`
+		}
+		if decodeErr := json.Unmarshal(body, &resolved); decodeErr == nil && strings.HasPrefix(resolved.DID, "did:") {
+			return resolved.DID, nil
+		}
+	}
+
+	body, fallbackErr := blueskyGuardedGet(ctx, client, policy, "https://"+identifier+"/.well-known/atproto-did")
+	if fallbackErr != nil {
+		return "", fmt.Errorf("resolving bluesky handle: %w", fallbackErr)
+	}
+	did := strings.TrimSpace(string(body))
+	if !strings.HasPrefix(did, "did:") {
+		return "", fmt.Errorf("bluesky handle did not resolve to a did")
+	}
+	return did, nil
+}
+
+func blueskyDIDDocumentURL(did string) (string, error) {
+	switch {
+	case strings.HasPrefix(did, "did:plc:"):
+		return "https://plc.directory/" + url.PathEscape(did), nil
+	case strings.HasPrefix(did, "did:web:"):
+		host := strings.ToLower(strings.TrimPrefix(did, "did:web:"))
+		if host == "" || strings.ContainsAny(host, `/?#@\%:`) {
+			return "", fmt.Errorf("unsupported did:web identifier")
+		}
+		return "https://" + host + "/.well-known/did.json", nil
+	default:
+		return "", fmt.Errorf("unsupported did method for bluesky sign-in")
+	}
+}
+
+func blueskyGuardedGet(ctx context.Context, client *http.Client, policy netguard.URLPolicy, rawURL string) ([]byte, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing bluesky pds url: %w", err)
+	}
+	if err := netguard.ValidateURL(ctx, parsed, policy); err != nil {
+		return nil, err
+	}
+	return doRequestWithClient(ctx, client, http.MethodGet, rawURL, nil, nil)
+}
+
+func blueskyPDSEndpoint(document []byte, expectedDID, expectedHandle string) (string, error) {
+	var parsed struct {
+		ID          string   `json:"id"`
+		AlsoKnownAs []string `json:"alsoKnownAs"`
+		Service     []struct {
+			ID              string `json:"id"`
+			Type            string `json:"type"`
+			ServiceEndpoint string `json:"serviceEndpoint"`
+		} `json:"service"`
+	}
+	if err := json.Unmarshal(document, &parsed); err != nil {
+		return "", fmt.Errorf("decoding bluesky did document: %w", err)
+	}
+	if parsed.ID != expectedDID {
+		return "", fmt.Errorf("bluesky did document id does not match resolved did")
+	}
+	if expectedHandle != "" && !blueskyDIDClaimsHandle(parsed.AlsoKnownAs, expectedHandle) {
+		return "", fmt.Errorf("bluesky did document does not claim handle %s", expectedHandle)
+	}
+	for _, service := range parsed.Service {
+		if !strings.HasSuffix(service.ID, "#atproto_pds") || service.Type != "AtprotoPersonalDataServer" {
+			continue
+		}
+		if endpoint := strings.TrimSpace(service.ServiceEndpoint); endpoint != "" {
+			return endpoint, nil
+		}
+	}
+	return "", fmt.Errorf("bluesky did document has no personal data server")
+}
+
+func blueskyDIDClaimsHandle(aliases []string, expectedHandle string) bool {
+	for _, alias := range aliases {
+		parsed, err := url.Parse(strings.TrimSpace(alias))
+		if err == nil && parsed.Scheme == "at" && parsed.User == nil && parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" &&
+			strings.EqualFold(parsed.Host, expectedHandle) {
+			return true
+		}
+	}
+	return false
+}
+
+// An empty return means the endpoint is Bluesky-hosted, which the default PDS
+// already serves.
+func normalizeBlueskyPDSURL(ctx context.Context, raw string, policy netguard.URLPolicy) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Hostname() == "" {
+		return "", fmt.Errorf("bluesky pds endpoint is not a valid url")
+	}
+	if parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("bluesky pds endpoint must be an origin url")
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	parsed.Path = ""
+	parsed.RawPath = ""
+
+	if host := strings.ToLower(parsed.Hostname()); host == "bsky.network" || strings.HasSuffix(host, ".bsky.network") {
+		return "", nil
+	}
+	if err := netguard.ValidateURL(ctx, parsed, policy); err != nil {
+		return "", err
+	}
+	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
 type blueskyVideoJobStatus struct {
@@ -452,7 +723,7 @@ func (b *BlueskyAdapter) publish(ctx context.Context, accessToken, accountID str
 		"record":     record,
 	}
 
-	respBody, err := DoJSON(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
+	respBody, err := b.doJSON(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -498,7 +769,7 @@ func (b *BlueskyAdapter) Repost(ctx context.Context, accessToken, targetAccountI
 			"createdAt": time.Now().UTC().Format(time.RFC3339Nano),
 		},
 	}
-	respBody, err := DoJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
+	respBody, err := b.doJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -555,11 +826,14 @@ func (b *BlueskyAdapter) resolveBlueskyComposerReferences(ctx context.Context, a
 		req.Settings["quote_cid"] = cid
 	}
 	mentions := map[string]string{}
-	for _, match := range blueskyMentionPattern.FindAllStringSubmatch(req.Content, -1) {
-		if len(match) < 2 {
+	for _, match := range blueskyMentionPattern.FindAllString(req.Content, -1) {
+		handle := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(match), "@"))
+		if handle == "" {
 			continue
 		}
-		handle := strings.ToLower(strings.TrimSpace(match[1]))
+		if _, exists := mentions[handle]; exists {
+			continue
+		}
 		did, err := b.resolveBlueskyHandle(ctx, accessToken, handle)
 		if err != nil {
 			return err
@@ -591,7 +865,7 @@ func (b *BlueskyAdapter) resolveBlueskyPostURL(ctx context.Context, accessToken,
 	}
 	uri := "at://" + did + "/app.bsky.feed.post/" + parts[3]
 	endpoint := b.pdsURL + "/xrpc/app.bsky.feed.getPosts?uris=" + url.QueryEscape(uri)
-	response, err := DoRequest(ctx, "GET", endpoint, nil, map[string]string{
+	response, err := b.doRequest(ctx, "GET", endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -614,7 +888,7 @@ func (b *BlueskyAdapter) resolveBlueskyPostURL(ctx context.Context, accessToken,
 
 func (b *BlueskyAdapter) resolveBlueskyHandle(ctx context.Context, accessToken, handle string) (string, error) {
 	endpoint := b.pdsURL + "/xrpc/com.atproto.identity.resolveHandle?handle=" + url.QueryEscape(handle)
-	response, err := DoRequest(ctx, "GET", endpoint, nil, map[string]string{
+	response, err := b.doRequest(ctx, "GET", endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -663,7 +937,7 @@ func (b *BlueskyAdapter) putThreadGate(ctx context.Context, accessToken, account
 			"createdAt":         time.Now().UTC().Format(time.RFC3339Nano),
 		},
 	}
-	if _, err := DoJSON(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.putRecord", payload, map[string]string{
+	if _, err := b.doJSON(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.repo.putRecord", payload, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	}); err != nil {
 		return fmt.Errorf("setting bluesky thread gate: %w", err)
@@ -682,6 +956,7 @@ func copyPlatformSettings(source map[string]interface{}) map[string]interface{} 
 var (
 	blueskyURLPattern     = regexp.MustCompile(`https?://[-A-Za-z0-9@:%._+~#=]{1,256}\.[A-Za-z0-9()]{1,6}\b[-A-Za-z0-9()@:%_+.~#?&/=]*`)
 	blueskyMentionPattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?`)
+	blueskyHandlePattern  = regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 	blueskyTagPattern     = regexp.MustCompile(`#[A-Za-z0-9_]+`)
 )
 

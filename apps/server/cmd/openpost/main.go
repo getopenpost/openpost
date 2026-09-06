@@ -20,6 +20,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/uptrace/bun"
 
 	"github.com/openpost/backend/internal/ai"
 	apiroutes "github.com/openpost/backend/internal/api"
@@ -516,6 +517,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to build provider app registry: %v", err)
 	}
+	blueskyPDSEntries, err := blueskyPDSRegistryEntries(context.Background(), db, providers)
+	if err != nil {
+		log.Fatalf("failed to load bluesky PDS registry from database: %v", err)
+	}
+	for _, entry := range blueskyPDSEntries {
+		providers[entry.Key] = entry.Adapter
+	}
+	providerEntries = append(providerEntries, blueskyPDSEntries...)
 	connectorConfig, err := connectors.LoadConfig(cfg.ConnectorsFile)
 	if err != nil {
 		log.Fatalf("failed to load connector configuration: %v", err)
@@ -1101,4 +1110,42 @@ func runningBuildRevision() string {
 		return revision + "-dirty"
 	}
 	return revision
+}
+
+// Bluesky has no instance table like Mastodon's, so the connected accounts are
+// the record of which PDSes need an adapter after a restart.
+func blueskyPDSRegistryEntries(ctx context.Context, db *bun.DB, providers map[string]platform.Adapter) ([]platform.RegistryEntry, error) {
+	if _, ok := providers[capabilities.ProviderBluesky]; !ok {
+		return nil, nil
+	}
+	var instanceURLs []string
+	if err := db.NewSelect().
+		ColumnExpr("DISTINCT instance_url").
+		TableExpr("social_accounts").
+		Where("platform = ?", capabilities.ProviderBluesky).
+		Where("is_active = ?", true).
+		Where("instance_url IS NOT NULL AND instance_url <> ?", "").
+		Scan(ctx, &instanceURLs); err != nil {
+		return nil, err
+	}
+	entries := make([]platform.RegistryEntry, 0, len(instanceURLs))
+	seen := map[string]struct{}{}
+	for _, instanceURL := range instanceURLs {
+		key := platform.AccountProviderKey(capabilities.ProviderBluesky, instanceURL, "")
+		if _, exists := providers[key]; exists {
+			continue
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		entries = append(entries, platform.RegistryEntry{
+			Key:         key,
+			Provider:    capabilities.ProviderBluesky,
+			Name:        instanceURL,
+			InstanceURL: instanceURL,
+			Adapter:     platform.NewResolvedBlueskyAdapter(instanceURL),
+		})
+	}
+	return entries, nil
 }

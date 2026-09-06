@@ -223,3 +223,19 @@ func TestLinkedInHideCommentUnsupported(t *testing.T) {
 		t.Fatalf("expected unsupported comment action, got %v", err)
 	}
 }
+
+func TestLinkedInUnrepostDeletesReshareURN(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodDelete || req.URL.RequestURI() != "/rest/posts/urn%3Ali%3Ashare%3A12345" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.RequestURI())
+		}
+		return jsonResponseWithStatus(req, http.StatusNoContent, ""), nil
+	})}
+
+	adapter := NewLinkedInAdapter("", "", "", false)
+	if err := adapter.Unrepost(t.Context(), "token", "target", UnrepostRequest{RepostExternalID: "urn:li:share:12345"}); err != nil {
+		t.Fatalf("unrepost failed: %v", err)
+	}
+}

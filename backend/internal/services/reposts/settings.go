@@ -157,7 +157,10 @@ func (s *Service) ReplacePolicies(
 					}
 				}
 			}
-			policy := policyModel(input, workspaceID, userID, now)
+			policy, err := policyModel(input, workspaceID, userID, now)
+			if err != nil {
+				return err
+			}
 			if _, err := tx.NewInsert().Model(policy).Exec(txCtx); err != nil {
 				return fmt.Errorf("store repost rule %q: %w", input.Name, err)
 			}
@@ -313,6 +316,10 @@ func (s *Service) listPolicies(ctx context.Context, workspaceID string) ([]Polic
 	}
 	result := make([]PolicyResponse, 0, len(policies))
 	for _, policy := range policies {
+		rule, err := ruleFromPolicy(policy)
+		if err != nil {
+			return nil, fmt.Errorf("decode repost rule %q: %w", policy.Name, err)
+		}
 		result = append(result, PolicyResponse{
 			PolicyInput: PolicyInput{
 				ID:               policy.ID,
@@ -320,7 +327,7 @@ func (s *Service) listPolicies(ctx context.Context, workspaceID string) ([]Polic
 				Enabled:          policy.Enabled,
 				SourceAccountIDs: byPolicy[policy.ID][RoleSource],
 				TargetAccountIDs: byPolicy[policy.ID][RoleTarget],
-				Rule:             ruleFromPolicy(policy),
+				Rule:             rule,
 			},
 			CreatedAt: policy.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: policy.UpdatedAt.Format(time.RFC3339),
@@ -667,7 +674,15 @@ func ensureGrantTx(ctx context.Context, tx bun.Tx, workspaceID string, account m
 	return nil
 }
 
-func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) *models.RepostPolicy {
+func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) (*models.RepostPolicy, error) {
+	stages := input.Rule.Stages
+	if input.Rule.legacyMaximumBoundary {
+		stages = nil
+	}
+	stagesJSON, err := json.Marshal(stages)
+	if err != nil {
+		return nil, fmt.Errorf("encode repost stages: %w", err)
+	}
 	return &models.RepostPolicy{
 		ID:                      input.ID,
 		WorkspaceID:             workspaceID,
@@ -682,15 +697,20 @@ func policyModel(input PolicyInput, workspaceID, userID string, now time.Time) *
 		MinViews:                input.Rule.MinViews,
 		RequirePlateau:          input.Rule.RequirePlateau,
 		PlateauChecks:           input.Rule.PlateauChecks,
+		StagesJSON:              string(stagesJSON),
 		CreatedByID:             userID,
 		UpdatedByID:             userID,
 		CreatedAt:               now,
 		UpdatedAt:               now,
-	}
+	}, nil
 }
 
-func ruleFromPolicy(policy models.RepostPolicy) Rule {
-	return Rule{
+func ruleFromPolicy(policy models.RepostPolicy) (Rule, error) {
+	var stages []Stage
+	if err := json.Unmarshal([]byte(policy.StagesJSON), &stages); err != nil {
+		return Rule{}, fmt.Errorf("decode stages: %w", err)
+	}
+	rule := Rule{
 		DelaySeconds:            policy.DelaySeconds,
 		EvaluationWindowSeconds: policy.EvaluationWindowSeconds,
 		ThresholdMode:           policy.ThresholdMode,
@@ -700,7 +720,13 @@ func ruleFromPolicy(policy models.RepostPolicy) Rule {
 		MinViews:                policy.MinViews,
 		RequirePlateau:          policy.RequirePlateau,
 		PlateauChecks:           policy.PlateauChecks,
+		Stages:                  stages,
 	}
+	normalized, err := NormalizeRule(rule)
+	if err != nil {
+		return Rule{}, err
+	}
+	return normalized, nil
 }
 
 func (s *Service) repostAdapter(account models.SocialAccount) platform.RepostAdapter {

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMastodonResolveAccountPublishingCapabilitiesReadsInstanceVideoLimits(t *testing.T) {
@@ -132,4 +134,36 @@ func assertFormValue(t *testing.T, values url.Values, key, want string) {
 	if got := values.Get(key); got != want {
 		t.Fatalf("expected %s=%q, got %q in %#v", key, want, got, values)
 	}
+}
+
+func TestMastodonRepostKeepsTargetLocalSourceIDForUnrepost(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	requests := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		switch requests {
+		case 1:
+			require.Equal(t, "/api/v2/search", req.URL.Path)
+			return jsonResponse(req, `{"statuses":[{"id":"target-local-source"}]}`), nil
+		case 2:
+			require.Equal(t, "/api/v1/statuses/target-local-source/reblog", req.URL.Path)
+			return jsonResponse(req, `{"id":"reblog-wrapper","reblog":{"id":"target-local-source"}}`), nil
+		case 3:
+			require.Equal(t, "/api/v1/statuses/target-local-source/unreblog", req.URL.Path)
+			return jsonResponse(req, `{"id":"target-local-source","reblogged":false}`), nil
+		default:
+			t.Fatalf("unexpected request %d", requests)
+		}
+		return nil, nil
+	})}
+
+	adapter := NewMastodonAdapter("", "", "", "https://target.example")
+	result, err := adapter.Repost(t.Context(), "token", "target", RepostRequest{
+		SourceInstanceURL: "https://source.example", ExternalID: "source-instance-id", ExternalURL: "https://source.example/@author/1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "target-local-source", result.ExternalID)
+	require.NoError(t, adapter.Unrepost(t.Context(), "token", "target", UnrepostRequest{RepostExternalID: result.ExternalID}))
 }

@@ -646,12 +646,8 @@ type classifiedJobFailure struct {
 }
 
 func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.Job, processErr error) classifiedJobFailure {
-	if retryAfter, continuation := analyticsservice.IsDiscoveryContinuation(processErr); continuation {
-		return classifiedJobFailure{
-			retryable: true, retryAfter: retryAfter,
-			message:          "Account content discovery will continue from its committed cursor.",
-			preserveAttempts: true,
-		}
+	if continuation, ok := classifyJobContinuation(processErr); ok {
+		return continuation
 	}
 	if job.Type == jobregistry.TypePublicationBuild {
 		switch {
@@ -697,6 +693,24 @@ func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.J
 		result.retryable = !jobregistry.IsInvalidPayload(processErr)
 	}
 	return result
+}
+
+func classifyJobContinuation(processErr error) (classifiedJobFailure, bool) {
+	if retryAfter, continuation := repostservice.IsExecutionContinuation(processErr); continuation {
+		return classifiedJobFailure{
+			retryable: true, retryAfter: retryAfter,
+			message:          "Repost removal will retry from its persisted stage.",
+			preserveAttempts: true,
+		}, true
+	}
+	if retryAfter, continuation := analyticsservice.IsDiscoveryContinuation(processErr); continuation {
+		return classifiedJobFailure{
+			retryable: true, retryAfter: retryAfter,
+			message:          "Account content discovery will continue from its committed cursor.",
+			preserveAttempts: true,
+		}, true
+	}
+	return classifiedJobFailure{}, false
 }
 
 func (w *BackgroundWorker) hasPendingSuccessor(ctx context.Context, jobType, excludeID string) bool {

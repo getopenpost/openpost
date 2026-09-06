@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -12,6 +13,25 @@ import (
 	"testing"
 	"time"
 )
+
+func TestXUnrepostUsesSourcePostID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodDelete || req.URL.Path != "/2/users/target-user/retweets/source-post" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"retweeted":false}}`))
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("", "", "")
+	adapter.apiBaseURL = server.URL
+	if err := adapter.Unrepost(context.Background(), "access|secret", "target-user", UnrepostRequest{
+		SourceExternalID: "source-post", RepostExternalID: "ignored-repost-id",
+	}); err != nil {
+		t.Fatalf("unrepost failed: %v", err)
+	}
+}
 
 func TestXIncrementalCommentsSendSinceIDAndBoundedNextToken(t *testing.T) {
 	requestCount := 0

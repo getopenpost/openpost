@@ -1383,6 +1383,7 @@ type RepostPolicy struct {
 	MinViews                int64     `bun:"min_views,notnull,default:0" json:"min_views"`
 	RequirePlateau          bool      `bun:"require_plateau,notnull,default:false" json:"require_plateau"`
 	PlateauChecks           int       `bun:"plateau_checks,notnull,default:2" json:"plateau_checks"`
+	StagesJSON              string    `bun:"stages_json,notnull,default:'[]'" json:"stages_json"`
 	CreatedByID             string    `bun:"created_by,notnull" json:"created_by"`
 	UpdatedByID             string    `bun:"updated_by,notnull" json:"updated_by"`
 	CreatedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -1430,6 +1431,10 @@ type RepostExecution struct {
 	PolicyID         string    `bun:"policy_id,nullzero" json:"policy_id,omitempty"`
 	RuleSnapshotJSON string    `bun:"rule_snapshot_json,notnull,default:'{}'" json:"rule_snapshot_json"`
 	Status           string    `bun:",notnull,default:'pending'" json:"status"`
+	CurrentStage     int       `bun:"current_stage,notnull,default:1" json:"current_stage"`
+	TotalStages      int       `bun:"total_stages,notnull,default:1" json:"total_stages"`
+	UnrepostAttempts int       `bun:"unrepost_attempts,notnull,default:0" json:"unrepost_attempts"`
+	StageHistoryJSON string    `bun:"stage_history_json,notnull,default:'[]'" json:"stage_history_json"`
 	EligibleAfter    time.Time `bun:"eligible_after,notnull" json:"eligible_after"`
 	DeadlineAt       time.Time `bun:"deadline_at,notnull" json:"deadline_at"`
 	NextCheckAt      time.Time `bun:"next_check_at,nullzero" json:"next_check_at"`

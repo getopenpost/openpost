@@ -62,7 +62,7 @@ func providerErrorMetadata(body []byte) (string, string, string, string) {
 	if json.Unmarshal(body, &payload) != nil {
 		return "", "", "", ""
 	}
-	candidates := []any{payload["code"], payload["error_code"], payload["type"]}
+	candidates := []any{payload["code"], payload["error_code"], payload["type"], payload["error"]}
 	var subcodeCandidates []any
 	messageCandidates := []any{payload["message"]}
 	traceCandidates := []any{payload["fbtrace_id"], payload["trace_id"]}

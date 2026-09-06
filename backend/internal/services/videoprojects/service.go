@@ -1186,10 +1186,12 @@ var timelineMutationCollections = []struct {
 	{target: "timeline:tracks", prefix: "track:"},
 	{target: "timeline:transitions", prefix: "transition:"},
 	{target: "timeline:compositions", prefix: "composition:"},
+	{target: "timeline:sources", prefix: "source:"},
+	{target: "timeline:segments", prefix: "segment:"},
 }
 
 func isTimelineMutationTarget(target string) bool {
-	for _, prefix := range []string{"timeline:", "item:", "track:", "transition:", "composition:"} {
+	for _, prefix := range []string{"timeline:", "item:", "track:", "transition:", "composition:", "source:", "segment:"} {
 		if strings.HasPrefix(target, prefix) {
 			return true
 		}

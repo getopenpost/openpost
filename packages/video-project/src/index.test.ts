@@ -146,6 +146,34 @@ describe("portable Video Project contract", () => {
     ]);
   });
 
+  it("keeps independent Quick Cut segment edits on stable conflict targets", () => {
+    const previous = {
+      id: "quick-cut-1",
+      timeline: {
+        segments: [{ id: "intro", start: 0, end: 3 }],
+        sources: [{ id: "source", name: "launch.mp4" }],
+      },
+    };
+    const next = structuredClone(previous);
+    next.timeline.segments[0]!.end = 4;
+    next.timeline.sources[0]!.name = "launch-final.mp4";
+
+    expect(videoProjectMutationOperations(previous, next)).toEqual([
+      {
+        kind: "set",
+        target: "segment:intro.end",
+        path: "/timeline/segments/0/end",
+        value: 4,
+      },
+      {
+        kind: "set",
+        target: "source:source.name",
+        path: "/timeline/sources/0/name",
+        value: "launch-final.mp4",
+      },
+    ]);
+  });
+
   it("keeps failed offline work, retries in order, and never redelivers settled mutations", async () => {
     let entries: PendingVideoProjectMutation[] = [];
     const storage = {

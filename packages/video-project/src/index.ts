@@ -17,6 +17,24 @@ export interface PortableVideoProjectDocument {
   [key: string]: unknown;
 }
 
+export interface PortableQuickCutProjectDocument<TSource = unknown, TSegment = unknown> {
+  id: string;
+  name: string;
+  schemaFamily: "quick-cut";
+  schemaVersion: 1;
+  timeline: {
+    sources: TSource[];
+    segments: TSegment[];
+  };
+  settings: {
+    cutMode: "nearestKeyframe" | "exact";
+    merge: boolean;
+    removeMarkedRanges: boolean;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface VideoProjectMutationOperation {
   kind: "set" | "delete";
   target: string;
@@ -199,7 +217,14 @@ export function portableVideoProjectDocument<T extends object>(document: T): T {
   return stripDeviceState(structuredClone(document)) as T;
 }
 
-const STABLE_TIMELINE_COLLECTIONS = new Set(["tracks", "items", "transitions", "compositions"]);
+const STABLE_TIMELINE_COLLECTIONS = new Set([
+  "tracks",
+  "items",
+  "transitions",
+  "compositions",
+  "sources",
+  "segments",
+]);
 
 /**
  * Build mutations at the smallest stable authored entity/property boundary.

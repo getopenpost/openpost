@@ -268,6 +268,50 @@ func TestCloudVideoProjectTreatsTimelineMembershipAsOverlappingEntityEdits(t *te
 	require.Equal(t, []string{"item:clip.from"}, result.OverlapTargets)
 }
 
+func TestCloudVideoProjectTreatsQuickCutMembershipAsOverlappingSegmentEdits(t *testing.T) {
+	t.Parallel()
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1",
+		"name":         "Launch cut",
+		"device_id":    "desktop-a",
+		"document": map[string]any{
+			"id": "quick-cut-1",
+			"timeline": map[string]any{
+				"sources":  []any{map[string]any{"id": "source-1", "name": "launch.mp4"}},
+				"segments": []any{map[string]any{"id": "intro", "start": 0, "end": 3}},
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &project))
+
+	membership := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "add-segment", "base_revision": 1,
+		"operations": []any{map[string]any{
+			"kind": "set", "target": "timeline:segments", "path": "/timeline/segments",
+			"value": []any{
+				map[string]any{"id": "intro", "start": 0, "end": 3},
+				map[string]any{"id": "outro", "start": 4, "end": 8},
+			},
+		}},
+	})
+	require.Equal(t, http.StatusOK, membership.Code, membership.Body.String())
+
+	stale := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "edit-intro", "base_revision": 1,
+		"operations": []any{map[string]any{
+			"kind": "set", "target": "segment:intro.end", "path": "/timeline/segments/0/end", "value": 4,
+		}},
+	})
+	require.Equal(t, http.StatusOK, stale.Code, stale.Body.String())
+	var conflict VideoProjectMutationResponse
+	require.NoError(t, json.Unmarshal(stale.Body.Bytes(), &conflict))
+	require.Equal(t, "conflict", conflict.Outcome)
+	require.Equal(t, []string{"segment:intro.end"}, conflict.OverlapTargets)
+}
+
 func TestCloudVideoProjectCheckpointRestoreAndTrashRecovery(t *testing.T) {
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{

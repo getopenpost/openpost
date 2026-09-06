@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-09-06
+
+### Changed
+
+- Production dead-code analysis now includes application sources. Removed unused components, helpers, dependencies, and testimonial assets.
+- Public-page tests check rendered content without maintaining a second copy of the prose.
+- GitHub releases contain binaries and the signed Android APK. Scan reports stay in Actions; redundant release and Android manifests are removed.
+- Workflow checks use actionlint.
+- Brighten Workshop chart colors in light and dark mode, with matching web and mobile theme tokens.
+- Compact Analytics source filters and row actions, keeping post details accessible without clipped buttons.
+- Group applications under `apps/`, browser tests under `tests/`, deployment files under `deploy/`, and repository manifests under `config/`. Existing root task scopes and public Go module names remain unchanged.
+- Remove the marketing claims ledger and its checks, stale skills locks, obsolete Codex hook, and local Impeccable state. Keep maintained design sources under `assets/design/`.
+
+### Fixed
+
+- Documentation edit links point to the current source directory, and the default theme initializes once.
+- Release builds now place server, CLI, and MCP binaries where the upload step expects them.
+- Bluesky mentions now resolve complete multi-segment handles instead of a single captured domain segment.
+- Bluesky accounts hosted on a self-hosted or third-party PDS can now be connected and used: OpenPost resolves the PDS from the handle's DID document at sign-in and talks to that server for the account. Sign in with the handle, not an email. Accounts on bsky.social are unchanged. Video uploads still go through Bluesky's video service and are not covered for accounts on other PDSes. When the PDS cannot be resolved, sign-in now fails instead of falling back to bsky.social.
+- Composer destination tabs now show only "All" or the connected account name.
+- LinkedIn profile refresh now saves the profile photo on OpenPost storage so browser privacy controls and expiring provider URLs cannot hide it.
+- Preserve each repost stage and completed removal across worker restarts, enforce evaluation deadlines, and use each provider's correct native unrepost identifier.
+- Production pages now link the PWA manifest and register the service worker from nested editor routes. Install icons include PNG and maskable variants.
+- Service-worker updates wait for open windows to close. Public app caches exclude API responses, authorization URLs, query-bearing navigations, and original media. Updates remove the previous unrestricted page cache after activation.
+- Cached local image designs can reopen and export offline without fetching server configuration. Uncached app pages show a translated offline page. Editor code and image models cache when used, without bulk downloads at installation.
+- Use the active theme's chevron for the Developer shortcut disclosure.
+- Applying an updated built-in theme now saves its actual revision instead of failing with a generic workspace-theme error.
+
+### Added
+
+- Let trusted self-hosting proxies sign users into OpenPost and provision their first workspace without a second onboarding flow.
+- Schedule several native repost stages from one workspace rule or publication override, with an option to remove the preceding repost before the next stage.
+- Desktop users can install OpenPost from the profile menu. Supported browsers offer a dismissible, one-time installation invitation; other desktop browsers show manual installation instructions.
+
 ## [4.20.0] - 2026-09-06
 
 ### Fixed

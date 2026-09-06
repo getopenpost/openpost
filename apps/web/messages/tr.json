@@ -8550,5 +8550,13 @@
 	"pwa_install_action": "Uygulamayı yükle",
 	"pwa_install_failed": "Yükleme başlatılamadı. Tarayıcı menüsünden tekrar deneyin.",
 	"pwa_manual_install": "Tarayıcınızın Uygulamayı yükle seçeneğini kullanın. Safari’de Dosya > Dock’a Ekle’yi seçin.",
-	"interaction_copy_failed": "Kopyalanamadı. Metni seçip elle kopyalayın."
+	"interaction_copy_failed": "Kopyalanamadı. Metni seçip elle kopyalayın.",
+	"interaction_reorder_grabbed": "{name} taşımak için seçildi, {total} öğeden {position}. sırada.",
+	"interaction_reorder_moved": "{name}, {total} öğeden {position}. sırada.",
+	"interaction_reorder_dropped": "{name}, {position}. sıraya yerleştirildi.",
+	"interaction_reorder_cancelled": "Özgün sıra geri yüklendi.",
+	"interaction_reorder_hint": "Seçmek için Boşluk, taşımak için ok tuşlarını kullanın. Bırakmak için Boşluk, iptal için Escape tuşuna basın.",
+	"interaction_reorder_undo": "Sıralamayı geri al",
+	"interaction_reorder_previous": "Sayfayı sola taşı",
+	"interaction_reorder_next": "Sayfayı sağa taşı"
 }

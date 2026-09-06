@@ -119,7 +119,6 @@
 		"mode-watcher": "^1.1.0",
 		"onnxruntime-web": "1.26.0-dev.20260410-5e55544225",
 		"openapi-fetch": "^0.17.0",
-		"svelte-reorderable-list": "^1.0.5",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-merge": "^3.5.0",
 		"tailwind-variants": "^3.2.2",

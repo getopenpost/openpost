@@ -49,6 +49,7 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 - Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `apps/server/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
+- Reorder previews stay local to the view until drop. Commit through the owning editor or composer mutation once, preserve selection by key, and let Escape cancel without autosaving.
 - PWA registration uses an absolute root URL through `SvelteKitPWA` and `pwa-manager.svelte`. Updates wait for open windows to close. Cache only public app resources; exclude API, authorization, query-bearing navigations, and original media. Test service workers against the production build with `tests/app/pwa.spec.ts`, not Vite dev.
 - Authored color fields use `$lib/components/color-picker.svelte`. Keep canvas sampling, grading tools, CSS color expressions, and provider color categories in their specialized owners.
 - `@openpost/query-catalog` owns cache-safe remote reads across web and mobile. Mutations reconcile through its affected keys; each route owns one cold loading boundary and keeps cached state visible while refreshing.

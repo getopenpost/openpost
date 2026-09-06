@@ -113,7 +113,6 @@
         "mode-watcher": "^1.1.0",
         "onnxruntime-web": "1.26.0-dev.20260410-5e55544225",
         "openapi-fetch": "^0.17.0",
-        "svelte-reorderable-list": "^1.0.5",
         "svelte-sonner": "^1.1.1",
         "tailwind-merge": "^3.5.0",
         "tailwind-variants": "^3.2.2",
@@ -2924,7 +2923,6 @@
 
     "svelte-eslint-parser": ["svelte-eslint-parser@1.8.0", "", { "dependencies": { "eslint-scope": "8.4.0", "eslint-visitor-keys": "4.2.1", "espree": "10.4.0", "postcss": "8.5.23", "postcss-scss": "4.0.9", "postcss-selector-parser": "7.1.4", "semver": "7.8.5" }, "optionalDependencies": { "svelte": "5.56.4" } }, "sha512-mikR1qwIVy3t5WthUoAXkMwxkXvabZP9FJgdx35Ei7EbGWmctva1Pih16Koeor/bdNNq8NXHlwKGS6NkYTawLg=="],
 
-    "svelte-reorderable-list": ["svelte-reorderable-list@1.0.5", "", { "peerDependencies": { "svelte": "5.56.4" } }, "sha512-99xe1Zvu9T8VR9Olm++m0jJQyrNw6jSEc5IUzzxqkGQUvW8YvcOaVFenvSi/klvXxwtLh+aOTu+lRRla2jkVBg=="],
 
     "svelte-sonner": ["svelte-sonner@1.1.1", "", { "dependencies": { "runed": "0.28.0" }, "peerDependencies": { "svelte": "5.56.4" } }, "sha512-5cd3p7wa4cq0NsqslMwdlPb7x1JglEZ/GKrLePWNr5bCxR1nagAVrY01FRFrXfUGs41miLt3C327+8XJo5BzZw=="],
 

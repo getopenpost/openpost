@@ -8550,5 +8550,13 @@
 	"interaction_tag_duplicate": "{tag} wurde bereits hinzugefügt",
 	"interaction_tag_armed": "Drücke erneut die Rücktaste, um {tag} zu entfernen",
 	"interaction_tag_removed": "{tag} entfernt",
-	"interaction_field_required": "Dieses Feld ist erforderlich."
+	"interaction_field_required": "Dieses Feld ist erforderlich.",
+	"interaction_reorder_grabbed": "{name} zum Verschieben ausgewählt, Position {position} von {total}.",
+	"interaction_reorder_moved": "{name}, Position {position} von {total}.",
+	"interaction_reorder_dropped": "{name} an Position {position} abgelegt.",
+	"interaction_reorder_cancelled": "Ursprüngliche Reihenfolge wiederhergestellt.",
+	"interaction_reorder_hint": "Leertaste zum Aufnehmen. Pfeiltasten zum Verschieben. Leertaste zum Ablegen oder Escape zum Abbrechen.",
+	"interaction_reorder_undo": "Verschieben rückgängig machen",
+	"interaction_reorder_previous": "Seite nach links verschieben",
+	"interaction_reorder_next": "Seite nach rechts verschieben"
 }

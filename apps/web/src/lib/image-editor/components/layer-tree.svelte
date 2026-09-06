@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { flip } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { onDestroy } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -11,6 +14,7 @@
 	import type { ImageEditorLayer, ImageEditorPage } from '../types';
 	import { isEmptyImageEditorPaintLayer } from '../document';
 	import { m } from '$lib/paraglide/messages';
+	import { treeKeyboardAction } from '../tree-keyboard';
 
 	interface LayerTreeItem {
 		layer: ImageEditorLayer;
@@ -25,6 +29,9 @@
 	let pointerTargetPosition = $state<'above' | 'below' | 'inside'>('above');
 	let renamingID = $state('');
 	let renameDraft = $state('');
+	let focusedLayerID = $state('');
+	let treeHasFocus = $state(false);
+	let focusedIndex = $state(0);
 	let scrollContainer: HTMLDivElement | null = null;
 	let pointerID = -1;
 	let pointerStartX = 0;
@@ -75,6 +82,57 @@
 
 	function moveWithKeyboard(id: string, delta: number): void {
 		editor.reorderLayer(id, delta > 0 ? 'forward' : 'backward');
+	}
+
+	function focusLayer(id: string): void {
+		focusedLayerID = id;
+		queueMicrotask(() => {
+			scrollContainer
+				?.querySelector<HTMLElement>(`[data-image-editor-layer-id="${CSS.escape(id)}"]`)
+				?.focus();
+		});
+	}
+
+	function handleTreeKeydown(event: KeyboardEvent, layer: ImageEditorLayer, index: number): void {
+		if (renamingID === layer.id || event.target !== event.currentTarget) return;
+		if (event.key === ' ') {
+			event.preventDefault();
+			editor.selectLayer(
+				layer.id,
+				event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'replace'
+			);
+			return;
+		}
+		if (event.key === 'Enter' || event.key === 'F2') {
+			event.preventDefault();
+			startRename(layer);
+			return;
+		}
+		if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+			event.preventDefault();
+			moveWithKeyboard(layer.id, event.key === 'ArrowUp' ? 1 : -1);
+			return;
+		}
+		if (event.altKey && event.key === 'ArrowLeft' && layer.parent_id) {
+			event.preventDefault();
+			editor.moveLayerOutOfGroup(layer.id);
+			return;
+		}
+		if (event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+		const action = treeKeyboardAction(
+			event,
+			items.map((item) => ({
+				id: item.layer.id,
+				parentId: item.layer.parent_id,
+				hasChildren: item.hasChildren,
+				expanded: !collapsedGroups.has(item.layer.id)
+			})),
+			index
+		);
+		if (action.type === 'none') return;
+		event.preventDefault();
+		if (action.type === 'toggle') toggleGroup(action.id);
+		else focusLayer(action.id);
 	}
 
 	function layerAtPoint(
@@ -258,6 +316,7 @@
 		const name = renameDraft.trim();
 		if (name && name !== layer.name) editor.updateLayer(layer.id, { name });
 		renamingID = '';
+		focusLayer(layer.id);
 	}
 
 	function startContextRename(layer: ImageEditorLayer): void {
@@ -281,6 +340,21 @@
 		if (collapsedGroups.has(id)) collapsedGroups.delete(id);
 		else collapsedGroups.add(id);
 	}
+
+	$effect(() => {
+		if (items.some((item) => item.layer.id === focusedLayerID)) return;
+		const visible = new Set(items.map((item) => item.layer.id));
+		let ancestor = editor.activePage?.layers.find(
+			(layer) => layer.id === focusedLayerID
+		)?.parent_id;
+		while (ancestor && !visible.has(ancestor))
+			ancestor = editor.activePage?.layers.find((layer) => layer.id === ancestor)?.parent_id;
+		const selected = editor.selectedLayerIDs.find((id) => visible.has(id));
+		const next =
+			ancestor ?? selected ?? items[Math.min(focusedIndex, items.length - 1)]?.layer.id ?? '';
+		focusedLayerID = next;
+		if (treeHasFocus && next) focusLayer(next);
+	});
 
 	function flattenLayers(page: ImageEditorPage | null, collapsed: Set<string>): LayerTreeItem[] {
 		if (!page) return [];
@@ -310,7 +384,7 @@
 	onpointercancelcapture={(event) => finishPointerReorder(event, true)}
 />
 
-<div class="flex h-full min-h-0 flex-col" role="tree" aria-label={m.image_editor_layers()}>
+<div class="flex h-full min-h-0 flex-col">
 	<div class="flex min-h-10 items-center border-b px-3">
 		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_layers()}
@@ -333,323 +407,357 @@
 			</Button>
 		</div>
 	</div>
-	<div {@attach attachScrollContainer} class="min-h-0 flex-1 overflow-y-auto p-2">
+	<div
+		{@attach attachScrollContainer}
+		class="min-h-0 flex-1 overflow-y-auto p-2"
+		role="tree"
+		aria-label={m.image_editor_layers()}
+		aria-multiselectable="true"
+		onfocusin={() => {
+			treeHasFocus = true;
+		}}
+		onfocusout={(event) => {
+			if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget))
+				treeHasFocus = false;
+		}}
+	>
 		{#if items.length}
 			{#each items as item (item.layer.id)}
 				{@const layer = item.layer}
 				{@const layerGlyphRef = layerIcon(layer)}
 				{@const groupDestinations = editor.groupDestinationsForLayer(layer.id)}
-				<ContextMenu.Root
-					onOpenChange={(open) => {
-						if (open) ensureContextSelection(layer);
-					}}
+				<div
+					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 160 }}
+					transition:slide={{ duration: prefersReducedMotion.current ? 0 : 160 }}
 				>
-					<ContextMenu.Trigger disabled={!editor.canEdit}>
-						{#snippet child({ props })}
-							<div
-								{...props}
-								role="treeitem"
-								aria-level={item.depth + 1}
-								aria-expanded={item.hasChildren ? !collapsedGroups.has(layer.id) : undefined}
-								aria-selected={editor.selectedLayerIDs.includes(layer.id)}
-								data-image-editor-layer-id={layer.id}
-								data-drop-position={pointerTargetID === layer.id && pointerDraggingID !== layer.id
-									? pointerTargetPosition
-									: undefined}
-								aria-label={m.image_editor_layer_accessible({
-									name: layer.name,
-									type: layer.type,
-									state: `${layer.locked ? m.image_editor_locked_state() : ''}${layer.visible ? '' : m.image_editor_hidden_state()}`
-								})}
-								tabindex="0"
-								draggable={editor.canEdit && renamingID !== layer.id}
-								class="image-editor-layer-row group flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
-									layer.id
-								)
-									? 'bg-primary/10 text-foreground'
-									: 'hover:bg-muted'} {pointerDraggingID === layer.id && pointerDragActive
-									? 'opacity-60'
-									: ''}"
-								style:padding-left={`${item.depth * 14 + 4}px`}
-								onclick={(event) =>
-									editor.selectLayer(
-										layer.id,
-										event.shiftKey ? 'range' : event.metaKey || event.ctrlKey ? 'toggle' : 'replace'
-									)}
-								ondblclick={() => startRename(layer)}
-								ondragstart={() => (draggingID = layer.id)}
-								ondragover={(event) => {
-									event.preventDefault();
-									const target = draggingID
-										? layerAtPoint(event.clientX, event.clientY, draggingID)
-										: null;
-									if (target?.id === layer.id) {
-										pointerTargetID = target.id;
-										pointerTargetPosition = target.position;
-									}
-								}}
-								ondrop={(event) => {
-									if (draggingID) {
-										const target = layerAtPoint(event.clientX, event.clientY, draggingID);
-										if (target?.id === layer.id) reorder(draggingID, target.id, target.position);
-									}
-									draggingID = '';
-									pointerTargetID = '';
-								}}
-								onkeydown={(event) => {
-									if ((event.key === 'Enter' || event.key === 'F2') && renamingID !== layer.id) {
+					<ContextMenu.Root
+						onOpenChange={(open) => {
+							if (open) ensureContextSelection(layer);
+						}}
+					>
+						<ContextMenu.Trigger disabled={!editor.canEdit}>
+							{#snippet child({ props })}
+								<div
+									{...props}
+									role="treeitem"
+									aria-level={item.depth + 1}
+									aria-expanded={item.hasChildren ? !collapsedGroups.has(layer.id) : undefined}
+									aria-selected={editor.selectedLayerIDs.includes(layer.id)}
+									data-image-editor-layer-id={layer.id}
+									data-drop-position={pointerTargetID === layer.id && pointerDraggingID !== layer.id
+										? pointerTargetPosition
+										: undefined}
+									aria-label={m.image_editor_layer_accessible({
+										name: layer.name,
+										type: layer.type,
+										state: `${layer.locked ? m.image_editor_locked_state() : ''}${layer.visible ? '' : m.image_editor_hidden_state()}`
+									})}
+									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? '0' : '-1'}
+									draggable={editor.canEdit && renamingID !== layer.id}
+									class="image-editor-layer-row group flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
+										layer.id
+									)
+										? 'bg-primary/10 text-foreground'
+										: 'hover:bg-muted'} {pointerDraggingID === layer.id && pointerDragActive
+										? 'opacity-60'
+										: ''}"
+									style:padding-left={`${item.depth * 14 + 4}px`}
+									onfocus={() => {
+										focusedLayerID = layer.id;
+										focusedIndex = items.indexOf(item);
+									}}
+									onclick={(event) =>
+										editor.selectLayer(
+											layer.id,
+											event.shiftKey
+												? 'range'
+												: event.metaKey || event.ctrlKey
+													? 'toggle'
+													: 'replace'
+										)}
+									ondblclick={() => startRename(layer)}
+									ondragstart={() => (draggingID = layer.id)}
+									ondragover={(event) => {
 										event.preventDefault();
-										startRename(layer);
-									}
-									if (event.altKey && event.key === 'ArrowUp') {
-										event.preventDefault();
-										moveWithKeyboard(layer.id, 1);
-									}
-									if (event.altKey && event.key === 'ArrowDown') {
-										event.preventDefault();
-										moveWithKeyboard(layer.id, -1);
-									}
-									if (event.altKey && event.key === 'ArrowLeft' && layer.parent_id) {
-										event.preventDefault();
-										editor.moveLayerOutOfGroup(layer.id);
-									}
-								}}
-							>
-								{#if item.hasChildren}
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										class="size-6 shrink-0"
-										onclick={(event) => {
-											event.stopPropagation();
-											toggleGroup(layer.id);
-										}}
-										aria-label={collapsedGroups.has(layer.id)
-											? m.image_editor_expand_group({ name: layer.name })
-											: m.image_editor_collapse_group({ name: layer.name })}
-									>
-										<ThemeIcon
-											role="chevron-right"
-											class="size-3.5 transition-transform {collapsedGroups.has(layer.id)
-												? ''
-												: 'rotate-90'}"
-										/>
-									</Button>
-								{/if}
-								<button
-									type="button"
-									class="image-editor-layer-grip flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
-									aria-label={m.image_editor_reorder_layer({ name: layer.name })}
-									title={m.image_editor_reorder_layer({ name: layer.name })}
-									disabled={!editor.canEdit || renamingID === layer.id}
-									data-testid="image-editor-layer-drag-handle"
-									onclick={(event) => event.stopPropagation()}
-									oncontextmenu={(event) => event.preventDefault()}
-									ondragstart={(event) => event.preventDefault()}
-									onpointerdown={(event) => startPointerReorder(event, layer.id)}
-									onpointerup={finishPointerReorder}
-									onpointercancel={(event) => finishPointerReorder(event, true)}
-									ontouchstart={(event) => startTouchReorder(event, layer.id)}
+										const target = draggingID
+											? layerAtPoint(event.clientX, event.clientY, draggingID)
+											: null;
+										if (target?.id === layer.id) {
+											pointerTargetID = target.id;
+											pointerTargetPosition = target.position;
+										}
+									}}
+									ondrop={(event) => {
+										if (draggingID) {
+											const target = layerAtPoint(event.clientX, event.clientY, draggingID);
+											if (target?.id === layer.id) reorder(draggingID, target.id, target.position);
+										}
+										draggingID = '';
+										pointerTargetID = '';
+									}}
+									onkeydown={(event) => {
+										handleTreeKeydown(event, layer, items.indexOf(item));
+										if (!event.defaultPrevented) props.onkeydown?.(event);
+									}}
 								>
-									<ThemeIcon role="drag" class="size-3.5" />
-								</button>
-								{#if layerGlyphRef.kind === 'theme'}
-									<ThemeIcon role={layerGlyphRef.role} class="size-3.5 shrink-0" />
-								{:else}
-									<ProtectedIcon icon={layerGlyphRef.role} class="size-3.5 shrink-0" />
-								{/if}
-								{#if renamingID === layer.id}
-									<Input
-										{@attach focusInput}
-										class="h-7 min-w-0 flex-1 bg-background px-1.5 text-sm md:text-sm"
-										bind:value={renameDraft}
-										maxlength={120}
+									{#if item.hasChildren}
+										<Button
+											tabindex={-1}
+											variant="ghost"
+											size="icon-xs"
+											class="size-6 shrink-0"
+											onclick={(event) => {
+												event.stopPropagation();
+												toggleGroup(layer.id);
+											}}
+											aria-label={collapsedGroups.has(layer.id)
+												? m.image_editor_expand_group({ name: layer.name })
+												: m.image_editor_collapse_group({ name: layer.name })}
+										>
+											<ThemeIcon
+												role="chevron-right"
+												class="size-3.5 transition-transform {collapsedGroups.has(layer.id)
+													? ''
+													: 'rotate-90'}"
+											/>
+										</Button>
+									{/if}
+									<button
+										type="button"
+										class="image-editor-layer-grip flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+										aria-label={m.image_editor_reorder_layer({ name: layer.name })}
+										title={m.image_editor_reorder_layer({ name: layer.name })}
+										disabled={!editor.canEdit || renamingID === layer.id}
+										data-testid="image-editor-layer-drag-handle"
 										onclick={(event) => event.stopPropagation()}
-										onblur={() => commitRename(layer)}
-										onkeydown={(event) => {
-											event.stopPropagation();
-											if (event.key === 'Enter') {
-												event.preventDefault();
-												commitRename(layer);
-											}
-											if (event.key === 'Escape') {
-												event.preventDefault();
-												renamingID = '';
-											}
-										}}
-										aria-label={m.image_editor_layer_name()}
-									/>
-								{:else}
-									<span class="min-w-0 flex-1 truncate">{layer.name}</span>
-								{/if}
-								{#if editor.selectedLayerIDs.includes(layer.id)}
+										oncontextmenu={(event) => event.preventDefault()}
+										ondragstart={(event) => event.preventDefault()}
+										onpointerdown={(event) => startPointerReorder(event, layer.id)}
+										onpointerup={finishPointerReorder}
+										onpointercancel={(event) => finishPointerReorder(event, true)}
+										ontouchstart={(event) => startTouchReorder(event, layer.id)}
+									>
+										<ThemeIcon role="drag" class="size-3.5" />
+									</button>
+									{#if layerGlyphRef.kind === 'theme'}
+										<ThemeIcon role={layerGlyphRef.role} class="size-3.5 shrink-0" />
+									{:else}
+										<ProtectedIcon icon={layerGlyphRef.role} class="size-3.5 shrink-0" />
+									{/if}
+									{#if renamingID === layer.id}
+										<Input
+											{@attach focusInput}
+											class="h-7 min-w-0 flex-1 bg-background px-1.5 text-sm md:text-sm"
+											bind:value={renameDraft}
+											maxlength={120}
+											onclick={(event) => event.stopPropagation()}
+											onblur={() => commitRename(layer)}
+											onkeydown={(event) => {
+												event.stopPropagation();
+												if (event.key === 'Enter') {
+													event.preventDefault();
+													commitRename(layer);
+												}
+												if (event.key === 'Escape') {
+													event.preventDefault();
+													renamingID = '';
+													focusLayer(layer.id);
+												}
+											}}
+											aria-label={m.image_editor_layer_name()}
+										/>
+									{:else}
+										<span class="min-w-0 flex-1 truncate">{layer.name}</span>
+									{/if}
+									{#if editor.selectedLayerIDs.includes(layer.id)}
+										<Button
+											tabindex={-1}
+											variant="ghost"
+											size="icon-xs"
+											class="image-editor-mobile-order-button"
+											aria-label={m.image_editor_move_layer_up({ name: layer.name })}
+											title={m.image_editor_move_layer_up({ name: layer.name })}
+											onclick={(event) => {
+												event.stopPropagation();
+												editor.reorderLayer(layer.id, 'forward');
+											}}
+										>
+											<ThemeIcon role="arrow-up" />
+										</Button>
+										<Button
+											tabindex={-1}
+											variant="ghost"
+											size="icon-xs"
+											class="image-editor-mobile-order-button"
+											aria-label={m.image_editor_move_layer_down({ name: layer.name })}
+											title={m.image_editor_move_layer_down({ name: layer.name })}
+											onclick={(event) => {
+												event.stopPropagation();
+												editor.reorderLayer(layer.id, 'backward');
+											}}
+										>
+											<ThemeIcon role="arrow-down" />
+										</Button>
+									{/if}
 									<Button
+										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
-										class="image-editor-mobile-order-button"
-										aria-label={m.image_editor_move_layer_up({ name: layer.name })}
-										title={m.image_editor_move_layer_up({ name: layer.name })}
+										aria-label={layer.visible
+											? m.image_editor_hide_layer({ name: layer.name })
+											: m.image_editor_show_layer({ name: layer.name })}
+										title={layer.visible
+											? m.image_editor_hide_layer({ name: layer.name })
+											: m.image_editor_show_layer({ name: layer.name })}
 										onclick={(event) => {
 											event.stopPropagation();
-											editor.reorderLayer(layer.id, 'forward');
+											editor.updateLayer(layer.id, { visible: !layer.visible });
 										}}
+										disabled={!editor.canEdit}
 									>
-										<ThemeIcon role="arrow-up" />
+										<ThemeIcon role={layer.visible ? 'eye' : 'eye-off'} />
 									</Button>
 									<Button
+										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
-										class="image-editor-mobile-order-button"
-										aria-label={m.image_editor_move_layer_down({ name: layer.name })}
-										title={m.image_editor_move_layer_down({ name: layer.name })}
+										aria-label={layer.locked
+											? m.image_editor_unlock_layer({ name: layer.name })
+											: m.image_editor_lock_layer({ name: layer.name })}
+										title={layer.locked
+											? m.image_editor_unlock_layer({ name: layer.name })
+											: m.image_editor_lock_layer({ name: layer.name })}
 										onclick={(event) => {
 											event.stopPropagation();
-											editor.reorderLayer(layer.id, 'backward');
+											editor.updateLayer(layer.id, { locked: !layer.locked });
 										}}
+										disabled={!editor.canEdit}
 									>
-										<ThemeIcon role="arrow-down" />
+										<ThemeIcon role="lock" />
 									</Button>
-								{/if}
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									aria-label={layer.visible
-										? m.image_editor_hide_layer({ name: layer.name })
-										: m.image_editor_show_layer({ name: layer.name })}
-									title={layer.visible
-										? m.image_editor_hide_layer({ name: layer.name })
-										: m.image_editor_show_layer({ name: layer.name })}
-									onclick={(event) => {
-										event.stopPropagation();
-										editor.updateLayer(layer.id, { visible: !layer.visible });
-									}}
-									disabled={!editor.canEdit}
-								>
-									<ThemeIcon role={layer.visible ? 'eye' : 'eye-off'} />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									aria-label={layer.locked
-										? m.image_editor_unlock_layer({ name: layer.name })
-										: m.image_editor_lock_layer({ name: layer.name })}
-									title={layer.locked
-										? m.image_editor_unlock_layer({ name: layer.name })
-										: m.image_editor_lock_layer({ name: layer.name })}
-									onclick={(event) => {
-										event.stopPropagation();
-										editor.updateLayer(layer.id, { locked: !layer.locked });
-									}}
-									disabled={!editor.canEdit}
-								>
-									<ThemeIcon role="lock" />
-								</Button>
-							</div>
-						{/snippet}
-					</ContextMenu.Trigger>
-					<ContextMenu.Portal>
-						<ContextMenu.Content
-							class="z-50 min-w-48 rounded-lg bg-popover/95 p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur outline-none"
-						>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => startContextRename(layer)}
+								</div>
+							{/snippet}
+						</ContextMenu.Trigger>
+						<ContextMenu.Portal>
+							<ContextMenu.Content
+								class="z-50 min-w-48 rounded-lg bg-popover/95 p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur outline-none"
 							>
-								<ThemeIcon role="edit" class="size-4" />
-								{m.image_editor_rename_layer()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => editor.duplicateSelected()}
-							>
-								<ThemeIcon role="copy" class="size-4" />
-								{m.image_editor_duplicate()}
-							</ContextMenu.Item>
-							<ContextMenu.Separator class="my-1 h-px bg-border" />
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								disabled={editor.selectedLayers.length < 2}
-								onclick={() => editor.groupSelected()}
-							>
-								<ProtectedIcon icon="editor-group" class="size-4" />
-								{m.image_editor_group()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								disabled={!editor.selectedLayers.some((selected) => selected.type === 'group')}
-								onclick={() => editor.ungroupSelected()}
-							>
-								<ProtectedIcon icon="editor-ungroup" class="size-4" />
-								{m.image_editor_ungroup()}
-							</ContextMenu.Item>
-							{#if groupDestinations.length > 0}
-								<ContextMenu.Sub>
-									<ContextMenu.SubTrigger class="image-editor-context-item">
-										<ProtectedIcon icon="editor-group" class="size-4" />
-										{m.image_editor_move_into_group()}
-									</ContextMenu.SubTrigger>
-									<ContextMenu.SubContent
-										class="z-50 min-w-48 rounded-lg bg-popover/95 p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur outline-none"
-									>
-										{#each groupDestinations as destination (destination.id)}
-											<ContextMenu.Item
-												class="image-editor-context-item"
-												onclick={() => editor.moveLayerToGroup(layer.id, destination.id)}
-											>
-												<ProtectedIcon icon="editor-group" class="size-4" />
-												{m.image_editor_move_to_group({ name: destination.name })}
-											</ContextMenu.Item>
-										{/each}
-									</ContextMenu.SubContent>
-								</ContextMenu.Sub>
-							{/if}
-							{#if layer.parent_id}
 								<ContextMenu.Item
 									class="image-editor-context-item"
-									onclick={() => editor.moveLayerOutOfGroup(layer.id)}
+									onclick={() => startContextRename(layer)}
+								>
+									<ThemeIcon role="edit" class="size-4" />
+									{m.image_editor_rename_layer()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.duplicateSelected()}
+								>
+									<ThemeIcon role="copy" class="size-4" />
+									{m.image_editor_duplicate()}
+								</ContextMenu.Item>
+								<ContextMenu.Separator class="my-1 h-px bg-border" />
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									disabled={editor.selectedLayers.length < 2}
+									onclick={() => editor.groupSelected()}
+								>
+									<ProtectedIcon icon="editor-group" class="size-4" />
+									{m.image_editor_group()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									disabled={!editor.selectedLayers.some((selected) => selected.type === 'group')}
+									onclick={() => editor.ungroupSelected()}
 								>
 									<ProtectedIcon icon="editor-ungroup" class="size-4" />
-									{m.image_editor_move_out_of_group()}
+									{m.image_editor_ungroup()}
 								</ContextMenu.Item>
-							{/if}
-							<ContextMenu.Separator class="my-1 h-px bg-border" />
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => editor.reorderLayer(layer.id, 'front')}
-							>
-								<ProtectedIcon icon="editor-arrange-front" class="size-4" />
-								{m.image_editor_bring_front()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => editor.reorderLayer(layer.id, 'forward')}
-							>
-								{m.image_editor_bring_forward()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => editor.reorderLayer(layer.id, 'backward')}
-							>
-								{m.image_editor_send_backward()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								class="image-editor-context-item"
-								onclick={() => editor.reorderLayer(layer.id, 'back')}
-							>
-								<ProtectedIcon icon="editor-arrange-back" class="size-4" />
-								{m.image_editor_send_back()}
-							</ContextMenu.Item>
-							<ContextMenu.Separator class="my-1 h-px bg-border" />
-							<ContextMenu.Item
-								class="image-editor-context-item text-destructive"
-								onclick={() => editor.deleteSelected()}
-							>
-								<ThemeIcon role="delete" class="size-4" />
-								{m.image_editor_delete_layer()}
-							</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Portal>
-				</ContextMenu.Root>
+								{#if groupDestinations.length > 0}
+									<ContextMenu.Sub>
+										<ContextMenu.SubTrigger class="image-editor-context-item">
+											<ProtectedIcon icon="editor-group" class="size-4" />
+											{m.image_editor_move_into_group()}
+										</ContextMenu.SubTrigger>
+										<ContextMenu.SubContent
+											class="z-50 min-w-48 rounded-lg bg-popover/95 p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur outline-none"
+										>
+											{#each groupDestinations as destination (destination.id)}
+												<ContextMenu.Item
+													class="image-editor-context-item"
+													onclick={() => editor.moveLayerToGroup(layer.id, destination.id)}
+												>
+													<ProtectedIcon icon="editor-group" class="size-4" />
+													{m.image_editor_move_to_group({ name: destination.name })}
+												</ContextMenu.Item>
+											{/each}
+										</ContextMenu.SubContent>
+									</ContextMenu.Sub>
+								{/if}
+								{#if layer.parent_id}
+									<ContextMenu.Item
+										class="image-editor-context-item"
+										onclick={() => editor.moveLayerOutOfGroup(layer.id)}
+									>
+										<ProtectedIcon icon="editor-ungroup" class="size-4" />
+										{m.image_editor_move_out_of_group()}
+									</ContextMenu.Item>
+								{/if}
+								<ContextMenu.Separator class="my-1 h-px bg-border" />
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.reorderLayer(layer.id, 'front')}
+								>
+									<ProtectedIcon icon="editor-arrange-front" class="size-4" />
+									{m.image_editor_bring_front()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.reorderLayer(layer.id, 'forward')}
+								>
+									{m.image_editor_bring_forward()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.reorderLayer(layer.id, 'backward')}
+								>
+									{m.image_editor_send_backward()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.reorderLayer(layer.id, 'back')}
+								>
+									<ProtectedIcon icon="editor-arrange-back" class="size-4" />
+									{m.image_editor_send_back()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.updateLayer(layer.id, { visible: !layer.visible })}
+								>
+									{layer.visible
+										? m.image_editor_hide_layer({ name: layer.name })
+										: m.image_editor_show_layer({ name: layer.name })}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									class="image-editor-context-item"
+									onclick={() => editor.updateLayer(layer.id, { locked: !layer.locked })}
+								>
+									{layer.locked
+										? m.image_editor_unlock_layer({ name: layer.name })
+										: m.image_editor_lock_layer({ name: layer.name })}
+								</ContextMenu.Item>
+								<ContextMenu.Separator class="my-1 h-px bg-border" />
+								<ContextMenu.Item
+									class="image-editor-context-item text-destructive"
+									onclick={() => editor.deleteSelected()}
+								>
+									<ThemeIcon role="delete" class="size-4" />
+									{m.image_editor_delete_layer()}
+								</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Portal>
+					</ContextMenu.Root>
+				</div>
 			{/each}
 		{:else}
 			<p class="p-3 text-sm text-muted-foreground">{m.image_editor_empty_layers()}</p>
@@ -662,6 +770,10 @@
 		position: relative;
 		content-visibility: auto;
 		contain-intrinsic-size: 40px;
+		transition:
+			transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			background-color 160ms ease,
+			box-shadow 160ms ease;
 	}
 
 	.image-editor-layer-row[data-drop-position='above']::before,
@@ -708,6 +820,12 @@
 			width: 36px;
 			height: 36px;
 			flex: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.image-editor-layer-row {
+			transition-duration: 0ms;
 		}
 	}
 

@@ -91,7 +91,7 @@
 	import { CalendarDate, isEqualDay } from '@internationalized/date';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { ui, type RepurposeHandoff } from '$lib/stores/ui.svelte';
-	import { ReorderableList } from 'svelte-reorderable-list';
+	import ReorderList from '$lib/components/reorder-list.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import {
@@ -297,25 +297,21 @@
 	let isSubmitting = $state(false);
 	let deliveryPublicationID = $state('');
 	let deliveryFeedback = $state.raw<DeliveryOutcome[]>([]);
-	function exposeReorderHandles(node: HTMLElement) {
-		function normalizeItems() {
-			for (const item of node.querySelectorAll<HTMLElement>('[data-reorderable-item]')) {
-				item.setAttribute('role', 'listitem');
-				item.removeAttribute('aria-grabbed');
-				item.setAttribute('tabindex', '-1');
-			}
+	let undoReorderIDs = $state<string[] | null>(null);
+	let reorderScope = $state('');
+	$effect(() => {
+		const scope = `${selectedWorkspaceId}:${publicationId}`;
+		if (scope !== reorderScope) {
+			undoReorderIDs = null;
+			reorderScope = scope;
 		}
-
-		const observer = new MutationObserver(normalizeItems);
-		observer.observe(node, {
-			attributes: true,
-			attributeFilter: ['aria-grabbed'],
-			childList: true,
-			subtree: true
-		});
-		normalizeItems();
-		return { destroy: () => observer.disconnect() };
-	}
+		if (
+			undoReorderIDs &&
+			(undoReorderIDs.length !== posts.length ||
+				posts.some((post) => !undoReorderIDs?.includes(post.key)))
+		)
+			undoReorderIDs = null;
+	});
 	let retryingDeliveryRenditionID = $state('');
 	let isDeleting = $state(false);
 	let showDeleteConfirm = $state(false);
@@ -3985,9 +3981,27 @@
 	}
 
 	function handleReorder(newItems: PostItem[]) {
+		if (newItems.every((post, index) => post.key === posts[index]?.key)) return;
+		undoReorderIDs = posts.map((post) => post.key);
+		const activeKey = posts[activePostIndex]?.key;
 		posts = newItems;
 		variants = normalizeVariantsMap(variants, newItems);
-		activePostIndex = Math.min(activePostIndex, newItems.length - 1);
+		activePostIndex = Math.max(
+			0,
+			newItems.findIndex((post) => post.key === activeKey)
+		);
+		scheduleAutoSave();
+	}
+	function undoThreadReorder() {
+		if (!undoReorderIDs) return;
+		const activeKey = posts[activePostIndex]?.key;
+		posts = undoReorderIDs.flatMap((key) => posts.find((post) => post.key === key) ?? []);
+		variants = normalizeVariantsMap(variants, posts);
+		activePostIndex = Math.max(
+			0,
+			posts.findIndex((post) => post.key === activeKey)
+		);
+		undoReorderIDs = null;
 		scheduleAutoSave();
 	}
 
@@ -5927,15 +5941,17 @@
 				{/if}
 
 				<!-- Posts -->
-				<div class="space-y-0" use:exposeReorderHandles>
-					<ReorderableList
+				<div class="space-y-0">
+					{#if undoReorderIDs}<Button variant="ghost" size="sm" onclick={undoThreadReorder}
+							>{m.interaction_reorder_undo()}</Button
+						>{/if}
+					<ReorderList
 						items={posts}
-						getKey={(post) => post.key}
-						onUpdate={handleReorder}
-						cssSelectorHandle=".drag-handle"
-						direction="vertical"
+						scope={`${selectedWorkspaceId}:${publicationId}`}
+						label={m.compose_post_text()}
+						onReorder={handleReorder}
 					>
-						{#snippet item(post, i)}
+						{#snippet item(post, i, handle)}
 							{@const editorContent = getEditorContentForPost(post)}
 							{@const editorMediaIds = getEditorMediaIdsForPost(post)}
 							{@const pendingMediaUploads = visiblePasteMediaUploads(post)}
@@ -5960,9 +5976,10 @@
 										<div class="relative flex flex-col items-center pt-3">
 											<button
 												type="button"
-												class="drag-handle -ml-6 flex size-10 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 active:cursor-grabbing md:-ml-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60"
+												class="drag-handle -ml-6 flex size-11 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing md:-ml-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60 [@media(pointer:coarse)]:size-11"
 												title={m.compose_drag_to_reorder()}
 												aria-label={m.compose_drag_to_reorder()}
+												{...handle}
 											>
 												<ThemeIcon role="drag" class="h-4 w-4" />
 											</button>
@@ -6475,7 +6492,7 @@
 								</div>
 							</div>
 						{/snippet}
-					</ReorderableList>
+					</ReorderList>
 				</div>
 			</div>
 		</div>

@@ -8550,5 +8550,13 @@
 	"pwa_install_action": "앱 설치",
 	"pwa_install_failed": "설치를 시작할 수 없습니다. 브라우저 메뉴에서 다시 시도하세요.",
 	"pwa_manual_install": "브라우저의 앱 설치 옵션을 사용하세요. Safari에서는 파일 > Dock에 추가를 선택하세요.",
-	"interaction_copy_failed": "복사하지 못했습니다. 텍스트를 선택하여 직접 복사하세요."
+	"interaction_copy_failed": "복사하지 못했습니다. 텍스트를 선택하여 직접 복사하세요.",
+	"interaction_reorder_grabbed": "{name} 이동 준비, {total}개 중 {position}번째.",
+	"interaction_reorder_moved": "{name}, {total}개 중 {position}번째.",
+	"interaction_reorder_dropped": "{name}을(를) {position}번째에 배치했습니다.",
+	"interaction_reorder_cancelled": "원래 순서로 복원했습니다.",
+	"interaction_reorder_hint": "스페이스 키로 이동을 시작하고 화살표 키로 이동하세요. 스페이스 키로 완료하거나 Escape 키로 취소하세요.",
+	"interaction_reorder_undo": "순서 변경 취소",
+	"interaction_reorder_previous": "페이지를 왼쪽으로 이동",
+	"interaction_reorder_next": "페이지를 오른쪽으로 이동"
 }

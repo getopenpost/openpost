@@ -8550,5 +8550,13 @@
 	"pwa_install_action": "Instalar aplicativo",
 	"pwa_install_failed": "Não foi possível iniciar a instalação. Tente novamente no menu do navegador.",
 	"pwa_manual_install": "Use a opção Instalar aplicativo do navegador. No Safari, escolha Arquivo > Adicionar ao Dock.",
-	"interaction_copy_failed": "Não foi possível copiar. Selecione o texto e copie manualmente."
+	"interaction_copy_failed": "Não foi possível copiar. Selecione o texto e copie manualmente.",
+	"interaction_reorder_grabbed": "{name} selecionado para mover, posição {position} de {total}.",
+	"interaction_reorder_moved": "{name}, posição {position} de {total}.",
+	"interaction_reorder_dropped": "{name} colocado na posição {position}.",
+	"interaction_reorder_cancelled": "Ordem original restaurada.",
+	"interaction_reorder_hint": "Pressione Espaço para mover. Use as setas. Pressione Espaço para concluir ou Escape para cancelar.",
+	"interaction_reorder_undo": "Desfazer reordenação",
+	"interaction_reorder_previous": "Mover página para a esquerda",
+	"interaction_reorder_next": "Mover página para a direita"
 }

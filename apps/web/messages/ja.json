@@ -8550,5 +8550,13 @@
 	"pwa_install_action": "アプリをインストール",
 	"pwa_install_failed": "インストールを開始できませんでした。ブラウザのメニューからもう一度お試しください。",
 	"pwa_manual_install": "ブラウザのアプリをインストール機能を使ってください。Safariでは「ファイル」>「Dockに追加」を選びます。",
-	"interaction_copy_failed": "コピーできませんでした。テキストを選択して手動でコピーしてください。"
+	"interaction_copy_failed": "コピーできませんでした。テキストを選択して手動でコピーしてください。",
+	"interaction_reorder_grabbed": "{name}を移動します。{total}件中{position}番目。",
+	"interaction_reorder_moved": "{name}、{total}件中{position}番目。",
+	"interaction_reorder_dropped": "{name}を{position}番目に配置しました。",
+	"interaction_reorder_cancelled": "元の順序に戻しました。",
+	"interaction_reorder_hint": "スペースキーで移動を開始し、矢印キーで移動します。スペースキーで確定、Escapeキーでキャンセルします。",
+	"interaction_reorder_undo": "並べ替えを元に戻す",
+	"interaction_reorder_previous": "ページを左に移動",
+	"interaction_reorder_next": "ページを右に移動"
 }

@@ -45,7 +45,7 @@ func (r *resolver) Resolve(ctx context.Context, input ResolveInput) (ResolvedThe
 func (r *resolver) resolveReference(ctx context.Context, organizationID string, reference ThemeReference, scheme ColorScheme) (ResolvedTheme, error) {
 	if reference.Kind == ReferenceBuiltIn {
 		family, ok := BuiltIns()[reference.ID]
-		if !ok || reference.Version != BuiltInVersion {
+		if !ok || reference.Version != builtInVersion(family) {
 			return workshopFallback(scheme, FallbackInvalidReference), nil
 		}
 		manifest := family.Schemes.For(scheme)
@@ -143,8 +143,8 @@ func runtimeFontFaces(fonts []ThemeFontFace) []ThemeRuntimeFontFace {
 
 func workshopFallback(scheme ColorScheme, reason FallbackReason) ResolvedTheme {
 	family := BuiltIns()["workshop"]
-	reference := ThemeReference{Kind: ReferenceBuiltIn, ID: "workshop", Version: BuiltInVersion}
+	reference := builtInReference(family)
 	result := resolved(family, reference, scheme, Workshop(scheme), ResolutionFallback, reason)
-	result.CacheIdentity = fmt.Sprintf("fallback:workshop:%d:%s:%s", BuiltInVersion, scheme, reason)
+	result.CacheIdentity = fmt.Sprintf("fallback:workshop:%d:%s:%s", reference.Version, scheme, reason)
 	return result
 }

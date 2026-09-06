@@ -230,7 +230,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	deleteInUse := themeRequest(t, e, http.MethodDelete, "/api/v1/themes/"+url.PathEscape(themeID)+"?organization_id=org-1&confirm=true", nil)
 	require.Equal(t, http.StatusConflict, deleteInUse.Code, deleteInUse.Body.String())
 	lockedResponse := themeRequest(t, e, http.MethodPut, "/api/v1/theme-settings/organization", map[string]any{
-		"organization_id": "org-1", "default_reference": map[string]any{"kind": "built_in", "id": "workshop", "version": 1}, "assignments_locked": true,
+		"organization_id": "org-1", "default_reference": map[string]any{"kind": "built_in", "id": "workshop", "version": 2}, "assignments_locked": true,
 	})
 	require.Equal(t, http.StatusOK, lockedResponse.Code, lockedResponse.Body.String())
 	lockedSettingsResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
@@ -269,6 +269,16 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 
 	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM organization_theme_revision_assets WHERE theme_id = ?", themeID).Scan(t.Context(), &linked))
 	require.Zero(t, linked)
+}
+
+func TestThemeAssignmentAcceptsCurrentBuiltInRevision(t *testing.T) {
+	e, _, _ := newThemeTestServer(t)
+
+	response := themeRequest(t, e, http.MethodPut, "/api/v1/theme-assignments/workspace-1", map[string]any{
+		"reference": map[string]any{"kind": "built_in", "id": "studio", "version": 2},
+	})
+
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 }
 
 func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {

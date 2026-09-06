@@ -40,8 +40,8 @@ func (s *Service) get(ctx context.Context, db bun.IDB, organizationID, themeID s
 
 func (s *Service) validateReference(ctx context.Context, db bun.IDB, organizationID string, reference ThemeReference) error {
 	if reference.Kind == ReferenceBuiltIn {
-		_, ok := BuiltIns()[reference.ID]
-		if !ok || reference.Version != BuiltInVersion {
+		family, ok := BuiltIns()[reference.ID]
+		if !ok || reference.Version != builtInVersion(family) {
 			return fmt.Errorf("%w: unknown built-in revision", ErrInvalidInput)
 		}
 		return nil
@@ -162,7 +162,8 @@ func loadSettings(ctx context.Context, db bun.IDB, organizationID string) (setti
 	var row settingsRow
 	err := db.NewSelect().Model(&row).Where("organization_id = ?", organizationID).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return settingsRow{OrganizationID: organizationID, DefaultReferenceKind: string(ReferenceBuiltIn), DefaultReferenceID: "workshop", DefaultReferenceVersion: BuiltInVersion}, nil
+		workshop := builtInReference(BuiltIns()["workshop"])
+		return settingsRow{OrganizationID: organizationID, DefaultReferenceKind: string(workshop.Kind), DefaultReferenceID: workshop.ID, DefaultReferenceVersion: workshop.Version}, nil
 	}
 	if err != nil {
 		return settingsRow{}, fmt.Errorf("%w: load Organization theme settings", ErrUnavailable)

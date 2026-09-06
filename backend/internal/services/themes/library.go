@@ -330,10 +330,11 @@ func summaryFromCustomRow(row customSummaryRow, manifest ThemeManifest, draftRev
 }
 
 func builtInSummary(family BuiltInFamily) ThemeSummary {
+	reference := builtInReference(family)
 	return ThemeSummary{
-		Reference: ThemeReference{Kind: ReferenceBuiltIn, ID: family.ID, Version: BuiltInVersion},
+		Reference: reference,
 		Name:      family.Name, Description: family.Description, IconPack: family.IconPack, BuiltIn: true,
-		PublishedRevision: BuiltInVersion, SupportedSchemes: slices.Clone(family.SupportedSchemes),
+		PublishedRevision: reference.Version, SupportedSchemes: slices.Clone(family.SupportedSchemes),
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 
 const (
 	ManifestSchemaVersion = 1
-	BuiltInVersion        = 1
 )
 
 var (

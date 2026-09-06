@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // builtins.v1.json is the code-owned contract consumed by both the backend and
@@ -41,35 +43,17 @@ var builtInOrder = []string{
 	"quizlet",
 }
 
-var builtInRevisionOverrides = map[string]string{
-	"apple":        "builtin-v2",
-	"calcom":       "builtin-v2",
-	"cloud-garden": "builtin-v2",
-	"column":       "builtin-v2",
-	"duolingo":     "builtin-v2",
-	"ferrari":      "builtin-v2",
-	"firecrawl":    "builtin-v2",
-	"launchdarkly": "builtin-v2",
-	"linear":       "builtin-v2",
-	"mintlify":     "builtin-v2",
-	"notion":       "builtin-v2",
-	"origin":       "builtin-v2",
-	"playroom":     "builtin-v2",
-	"posthog":      "builtin-v2",
-	"quizlet":      "builtin-v2",
-	"studio":       "builtin-v2",
-	"study-hall":   "builtin-v2",
-	"supabase":     "builtin-v2",
-	"todoist":      "builtin-v2",
-	"vercel":       "builtin-v2",
-	"workshop":     "builtin-v2",
+func builtInVersion(family BuiltInFamily) int {
+	value, ok := strings.CutPrefix(family.Revision, "builtin-v")
+	version, err := strconv.Atoi(value)
+	if !ok || err != nil || version < 1 {
+		panic(fmt.Sprintf("built-in theme %q has invalid revision %q", family.ID, family.Revision))
+	}
+	return version
 }
 
-func builtInRevision(id string) string {
-	if revision := builtInRevisionOverrides[id]; revision != "" {
-		return revision
-	}
-	return "builtin-v1"
+func builtInReference(family BuiltInFamily) ThemeReference {
+	return ThemeReference{Kind: ReferenceBuiltIn, ID: family.ID, Version: builtInVersion(family)}
 }
 
 // BuiltIns returns fresh copies so callers cannot mutate the code-owned
@@ -93,9 +77,10 @@ func BuiltIns() map[string]BuiltInFamily {
 		if err != nil {
 			panic(fmt.Sprintf("validate built-in theme %q: %v", candidate.ID, err))
 		}
-		if normalized.ID != builtInOrder[index] || normalized.Revision != builtInRevision(normalized.ID) {
+		if normalized.ID != builtInOrder[index] {
 			panic(fmt.Sprintf("decode built-in theme fixture: unexpected identity %q at index %d", normalized.ID, index))
 		}
+		builtInVersion(normalized)
 		if _, exists := result[normalized.ID]; exists {
 			panic(fmt.Sprintf("decode built-in theme fixture: duplicate id %q", normalized.ID))
 		}

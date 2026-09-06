@@ -179,7 +179,7 @@ func TestWorkspaceAssignmentLockAndDeleteGuards(t *testing.T) {
 	require.ErrorIs(t, err, ErrThemeInUse)
 
 	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
-		OrganizationID: "org-1", DefaultReference: ThemeReference{Kind: ReferenceBuiltIn, ID: "workshop", Version: 1}, AssignmentsLocked: true,
+		OrganizationID: "org-1", DefaultReference: builtInReference(BuiltIns()["workshop"]), AssignmentsLocked: true,
 	})
 	require.NoError(t, err)
 	resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
@@ -189,7 +189,7 @@ func TestWorkspaceAssignmentLockAndDeleteGuards(t *testing.T) {
 	require.ErrorIs(t, err, ErrAssignmentLocked)
 
 	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
-		OrganizationID: "org-1", DefaultReference: ThemeReference{Kind: ReferenceBuiltIn, ID: "workshop", Version: 1}, AssignmentsLocked: false,
+		OrganizationID: "org-1", DefaultReference: builtInReference(BuiltIns()["workshop"]), AssignmentsLocked: false,
 	})
 	require.NoError(t, err)
 	resolved, err = service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})

@@ -18,7 +18,8 @@ describe('copy feedback', () => {
 		const screen = await render(CopyButton, {
 			value: 'sample invitation',
 			scopeKey: 'workspace-1',
-			errorMessage: 'Copy the link manually.'
+			errorMessage: 'Copy the link manually.',
+			fallbackLabel: 'Text to copy'
 		});
 		await screen.getByRole('button', { name: 'Copy', exact: true }).click();
 		await expect
@@ -29,6 +30,9 @@ describe('copy feedback', () => {
 		expect(write).toHaveBeenCalledWith('sample invitation');
 		await screen.getByRole('button', { name: 'Copied', exact: true }).click();
 		await expect.element(screen.getByRole('alert')).toHaveTextContent('Copy the link manually.');
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Text to copy' }))
+			.toHaveValue('sample invitation');
 		await expect
 			.element(screen.getByRole('button', { name: 'Try again', exact: true }))
 			.toBeVisible();

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { writeClipboardText } from '$lib/clipboard';
@@ -9,6 +10,7 @@
 		value: string;
 		scopeKey: string;
 		errorMessage: string;
+		fallbackLabel?: string;
 		label?: string;
 		successLabel?: string;
 	};
@@ -16,6 +18,7 @@
 		value,
 		scopeKey,
 		errorMessage,
+		fallbackLabel,
 		label = m.common_copy(),
 		successLabel = m.common_copied(),
 		...buttonProps
@@ -75,5 +78,12 @@
 	{/key}
 	{#if copyState === 'error'}
 		<p class="max-w-64 text-xs text-destructive" role="alert">{errorMessage}</p>
+		{#if fallbackLabel}<Textarea
+				readonly
+				{value}
+				aria-label={fallbackLabel}
+				rows={4}
+				class="w-64 max-w-full text-xs"
+			/>{/if}
 	{/if}
 </div>

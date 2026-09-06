@@ -6,6 +6,11 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import {
+		PASSWORD_MIN_CHARACTERS,
+		PASSWORD_MAX_CHARACTERS,
+		passwordCharacterCount
+	} from '$lib/password-policy';
 	import FieldFeedback from '$lib/components/field-feedback.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
@@ -19,24 +24,23 @@
 	let complete = $state(false);
 	let newPasswordTouched = $state(false);
 	let confirmPasswordTouched = $state(false);
-	const newPasswordError = $derived(
-		newPasswordTouched
-			? newPassword.length === 0
-				? m.interaction_field_required()
-				: newPassword.length < 12
-					? m.auth_register_password_short()
-					: ''
-			: ''
-	);
+	let passwordInput = $state<HTMLInputElement | null>(null);
+	let confirmationInput = $state<HTMLInputElement | null>(null);
+	const newPasswordError = $derived(validatePassword(newPassword));
 	const confirmPasswordError = $derived(
-		confirmPasswordTouched
-			? confirmPassword.length === 0
-				? m.interaction_field_required()
-				: newPassword !== confirmPassword
-					? m.auth_register_password_mismatch()
-					: ''
-			: ''
+		!confirmPassword
+			? m.interaction_field_required()
+			: newPassword !== confirmPassword
+				? m.auth_register_password_mismatch()
+				: ''
 	);
+	function validatePassword(value: string): string {
+		const count = passwordCharacterCount(value);
+		if (!count) return m.interaction_field_required();
+		if (count < PASSWORD_MIN_CHARACTERS) return m.auth_register_password_short();
+		if (count > PASSWORD_MAX_CHARACTERS) return m.auth_register_password_long();
+		return '';
+	}
 
 	onMount(() => {
 		const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -54,12 +58,12 @@
 			error = m.auth_reset_invalid_link();
 			return;
 		}
-		if (newPassword.length < 12) {
-			error = m.auth_register_password_short();
+		if (newPasswordError) {
+			passwordInput?.focus();
 			return;
 		}
-		if (newPassword !== confirmPassword) {
-			error = m.auth_register_password_mismatch();
+		if (confirmPasswordError) {
+			confirmationInput?.focus();
 			return;
 		}
 
@@ -109,19 +113,20 @@
 			<InlineNotice tone="error" message={error} class="mb-4" />
 		{/if}
 
-		<form onsubmit={submit} class="space-y-4">
+		<form novalidate onsubmit={submit} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="new-password">{m.settings_new_password()}</Label>
 				<Input
 					id="new-password"
+					bind:ref={passwordInput}
 					type="password"
 					bind:value={newPassword}
-					minlength={12}
+					minlength={PASSWORD_MIN_CHARACTERS}
 					autocomplete="new-password"
 					placeholder={m.auth_password_min_placeholder()}
 					required
 					onblur={() => (newPasswordTouched = true)}
-					aria-invalid={Boolean(newPasswordError)}
+					aria-invalid={Boolean(newPasswordTouched && newPasswordError)}
 					aria-describedby="new-password-feedback"
 				/>
 				<FieldFeedback
@@ -134,13 +139,14 @@
 				<Label for="confirm-password">{m.settings_confirm_new_password()}</Label>
 				<Input
 					id="confirm-password"
+					bind:ref={confirmationInput}
 					type="password"
 					bind:value={confirmPassword}
-					minlength={12}
+					minlength={PASSWORD_MIN_CHARACTERS}
 					autocomplete="new-password"
 					required
 					onblur={() => (confirmPasswordTouched = true)}
-					aria-invalid={Boolean(confirmPasswordError)}
+					aria-invalid={Boolean(confirmPasswordTouched && confirmPasswordError)}
 					aria-describedby="confirm-password-feedback"
 				/>
 				<FieldFeedback

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flip } from 'svelte/animate';
 	import { scale } from 'svelte/transition';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -34,7 +35,7 @@
 		requestAnimationFrame(() => (status = message));
 	}
 
-	function commitDraft(restoreFocus = false) {
+	function commitDraft() {
 		const additions = draft
 			.split(/,|\n/)
 			.map((tag) => tag.trim())
@@ -66,7 +67,6 @@
 		}
 		draft = '';
 		armedTag = '';
-		if (restoreFocus) inputRef?.focus();
 	}
 
 	function removeTag(index: number) {
@@ -82,7 +82,7 @@
 		if (event.isComposing || isComposing || event.repeat) return;
 		if (event.key === 'Enter' || event.key === ',') {
 			event.preventDefault();
-			commitDraft(true);
+			commitDraft();
 			return;
 		}
 		if (event.key === 'Backspace' && draft === '' && tags.length > 0) {
@@ -108,7 +108,8 @@
 			class="tag-chip inline-flex min-h-7 max-w-full items-center gap-1 rounded-lg border border-primary/25 bg-primary/8 px-2 text-xs font-medium break-words"
 			class:tag-chip-armed={armedTag === tag}
 			in:scale={{ duration: motionDuration(150), start: 0.86 }}
-			out:scale={{ duration: motionDuration(120), start: 1 }}
+			out:scale={{ duration: motionDuration(120), start: 0.9 }}
+			animate:flip={{ duration: motionDuration(160) }}
 		>
 			<span class="min-w-0 break-words">{tag}</span>
 			<Button

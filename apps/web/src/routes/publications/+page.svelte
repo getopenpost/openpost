@@ -774,6 +774,7 @@
 												label={m.activity_copy_report()}
 												successLabel={m.activity_report_copied()}
 												errorMessage={m.activity_report_copy_failed()}
+												fallbackLabel={m.activity_copy_report()}
 											/>
 											<Button
 												variant="ghost"

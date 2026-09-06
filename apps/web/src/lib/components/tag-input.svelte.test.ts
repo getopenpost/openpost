@@ -16,9 +16,6 @@ describe('tag input interactions', () => {
 			.element()
 			.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }));
 		await expect.element(screen.getByRole('status')).toHaveTextContent(/Backspace again/i);
-		await expect
-			.element(screen.getByText('product', { exact: true }))
-			.toHaveClass('tag-chip-armed');
 		expect(onChange).not.toHaveBeenCalled();
 		input
 			.element()

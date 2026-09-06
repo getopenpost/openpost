@@ -51,9 +51,18 @@ import {
 } from '../vector-keyframes';
 import { isTrackEffectivelyLocked } from '../utils/track-groups';
 import {
+	buildEffectKeyframeProperty,
+	effectKeyframeValue,
 	effectPropertyPatch,
 	isEffectKeyframeProperty
 } from '$lib/video-editor/effects/effect-keyframes';
+import { getGpuEffect } from '$lib/video-editor/effects/gpu/registry';
+import {
+	defaultGpuParams,
+	normalizeGpuParam,
+	type GpuParamValue
+} from '$lib/video-editor/effects/gpu/types';
+import type { GpuEffect } from '$lib/video-editor/effects/types';
 import {
 	clonePathVertices,
 	isPathVertexKeyframeProperty,
@@ -117,7 +126,8 @@ function canWriteKeyframe(item: TimelineItem, relativeFrame: number): boolean {
 		Number.isInteger(relativeFrame) &&
 		relativeFrame >= 0 &&
 		relativeFrame < item.durationInFrames &&
-		!isFrameInTransitionRegion(relativeFrame, item, transitionsStore.list)
+		(item.sequenceColorGrade === true ||
+			!isFrameInTransitionRegion(relativeFrame, item, transitionsStore.list))
 	);
 }
 
@@ -143,7 +153,10 @@ export function setKeyframe(
 				[vector.axis]: scalarToVectorComponent(item, vector.property, vector.axis, value)
 			});
 			timelineStore._updateItems([
-				{ id: itemId, patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes) }
+				{
+					id: itemId,
+					patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+				}
 			]);
 			return true;
 		}
@@ -188,7 +201,10 @@ export function setAnimatedProperty(
 				[vector.axis]: scalarToVectorComponent(item, vector.property, vector.axis, value)
 			});
 			timelineStore._updateItems([
-				{ id: itemId, patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes) }
+				{
+					id: itemId,
+					patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+				}
 			]);
 			return true;
 		}
@@ -214,6 +230,91 @@ export function setAnimatedProperties(
 	return execute('SET_ANIMATED_PROPERTIES', () =>
 		writeAnimatedProperties(itemId, absoluteFrame, values, isAutoKeyEnabled)
 	);
+}
+
+/**
+ * Commit one GPU parameter gesture across selected visual items.
+ *
+ * Each item keeps its own effect values, missing effects are created lazily,
+ * and active or requested keyframe lanes receive the value at the playhead.
+ * The whole gesture is recorded as one undo step.
+ */
+export function setAnimatedGpuEffectParamsOnItems(
+	itemIds: readonly string[],
+	effectType: string,
+	absoluteFrame: number,
+	updates: Record<string, GpuParamValue>,
+	isAutoKeyEnabled: (itemId: string, property: KeyframeProperty) => boolean
+): boolean {
+	const uniqueItemIds = [...new Set(itemIds)];
+	return execute('SET_ANIMATED_GPU_EFFECT_PARAMS_ON_ITEMS', () => {
+		const definition = getGpuEffect(effectType);
+		if (!definition || Object.keys(updates).length === 0) return false;
+		const normalized: Record<string, GpuParamValue> = {};
+		for (const [name, value] of Object.entries(updates)) {
+			const schema = definition.schema.find((entry) => entry.name === name);
+			if (!schema) return false;
+			normalized[name] = normalizeGpuParam(schema, value);
+		}
+
+		const itemUpdates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+		for (const itemId of uniqueItemIds) {
+			const item = timelineStore.itemById.get(itemId);
+			if (!item || item.type === 'audio') continue;
+			const currentEffects = item.effects ?? [];
+			const effectIndex = currentEffects.findIndex(
+				(effect) => effect.type === 'gpu' && effect.effectId === effectType
+			);
+			const existing = currentEffects[effectIndex];
+			const effect: GpuEffect =
+				existing?.type === 'gpu'
+					? existing
+					: {
+							id: crypto.randomUUID(),
+							type: 'gpu',
+							effectId: effectType,
+							params: defaultGpuParams(definition.schema),
+							enabled: true
+						};
+			let params = effect.params;
+			let keyframes = item.keyframes;
+			let changed = false;
+			const relativeFrame = absoluteFrame - item.from;
+
+			for (const [name, value] of Object.entries(normalized)) {
+				const property = buildEffectKeyframeProperty(effectType, effect.id, name);
+				const encoded = effectKeyframeValue(effect, name, value);
+				const track = keyframes?.[property];
+				if (encoded !== null && (track || isAutoKeyEnabled(itemId, property))) {
+					if (!canWriteKeyframe(item, relativeFrame)) continue;
+					const keyIndex = track?.frames.indexOf(relativeFrame) ?? -1;
+					if (keyIndex >= 0 && track?.values[keyIndex] === encoded) continue;
+					keyframes = upsertTrack(keyframes ?? {}, property, relativeFrame, encoded);
+					changed = true;
+					continue;
+				}
+				if (params[name] === value) continue;
+				if (params === effect.params) params = { ...effect.params };
+				params[name] = value;
+				changed = true;
+			}
+
+			if (!changed) continue;
+			const nextEffect = params === effect.params ? effect : { ...effect, params };
+			const effects =
+				effectIndex >= 0
+					? [
+							...currentEffects.slice(0, effectIndex),
+							nextEffect,
+							...currentEffects.slice(effectIndex + 1)
+						]
+					: [...currentEffects, nextEffect];
+			itemUpdates.push({ id: itemId, patch: { effects, keyframes } });
+		}
+		if (itemUpdates.length === 0) return false;
+		timelineStore._updateItems(itemUpdates);
+		return true;
+	});
 }
 
 function writeAnimatedProperties(
@@ -1143,7 +1244,9 @@ function clearKeyframePatch(
 	}
 	const keyframes: ItemKeyframes = { ...item.keyframes };
 	delete keyframes[property];
-	return { keyframes: Object.keys(keyframes).length > 0 ? keyframes : undefined };
+	return {
+		keyframes: Object.keys(keyframes).length > 0 ? keyframes : undefined
+	};
 }
 
 /** Remove an arbitrary selection as one undo step. */

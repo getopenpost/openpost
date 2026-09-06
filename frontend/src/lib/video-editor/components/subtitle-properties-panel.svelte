@@ -4,6 +4,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import type { TimelineItem } from '../project/types';
 	import { updateItemProperties } from '../timeline/actions/items';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
@@ -32,16 +33,6 @@
 		detectActiveCaptionPreset(activeItem, canvasWidth, canvasHeight)?.id ?? null
 	);
 
-	const fontOptions: AppSelectOption[] = [
-		'Inter',
-		'Roboto',
-		'Roboto Slab',
-		'Manrope',
-		'Anton',
-		'Bebas Neue',
-		'Inter Tight',
-		'Orbitron'
-	].map((font) => ({ value: font, label: font }));
 	const alignmentOptions = $derived<AppSelectOption[]>([
 		{ value: 'left', label: m.video_editor_align_left() },
 		{ value: 'center', label: m.video_editor_align_center() },
@@ -108,12 +99,15 @@
 	<div class="grid grid-cols-2 gap-1.5">
 		<label class="field-label col-span-2">
 			{m.video_editor_text_font()}
-			<AppSelect
+			<EditorFontPicker
 				value={activeItem.fontFamily ?? 'Inter'}
-				options={fontOptions}
-				ariaLabel={m.video_editor_text_font()}
-				class="mt-0.5 h-8 w-full text-xs"
-				onValueChange={(fontFamily) => commit({ fontFamily })}
+				onChange={({ family, assetID, weight, style }) =>
+					commit({
+						fontFamily: family,
+						fontAssetId: assetID,
+						...(weight === undefined ? {} : { fontWeight: weight }),
+						...(style === undefined ? {} : { fontStyle: style })
+					})}
 			/>
 		</label>
 		<label class="field-label">

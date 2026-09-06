@@ -1,5 +1,7 @@
 export type ScopeCanvasSource = HTMLCanvasElement | OffscreenCanvas;
 
+export const SEQUENCE_SCOPE_SAMPLE_ID = 'sequence-output';
+
 export interface ScopeSample {
 	itemId: string;
 	source: ScopeCanvasSource | null;

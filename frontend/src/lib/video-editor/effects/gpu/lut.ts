@@ -15,6 +15,7 @@ export interface EncodedCubeLut {
 
 const MIN_LUT_SIZE = 2;
 const MAX_LUT_SIZE = 129;
+const MAX_EMBEDDED_LUT_SIZE = 33;
 const BASE64_CHUNK_SIZE = 8192;
 
 function clamp01(value: number): number {
@@ -210,6 +211,12 @@ export function encodeLutData(data: Uint8Array): string {
 	return btoa(binary);
 }
 
+/** Pack an imported LUT for durable project storage without unbounded document growth. */
+export function packCubeLutForStorage(lut: ParsedCubeLut): EncodedCubeLut {
+	const stored = resampleCubeLut(lut, MAX_EMBEDDED_LUT_SIZE);
+	return { size: stored.size, data: encodeLutData(stored.data) };
+}
+
 export function decodeLutData(encoded: string): Uint8Array {
 	const binary = atob(encoded);
 	const data = new Uint8Array(binary.length);
@@ -259,7 +266,16 @@ vec4 lutFragment(vec2 vUv) {
   vec3 graded = texture(uDataTex, coords).rgb;
   return vec4(mix(source.rgb, graded, clamp(u_intensity, 0.0, 1.0)), source.a);
 }`,
-	schema: [{ name: 'intensity', label: 'Intensity', min: 0, max: 1, step: 0.01, default: 1 }],
+	schema: [
+		{
+			name: 'intensity',
+			label: 'Intensity',
+			min: 0,
+			max: 1,
+			step: 0.01,
+			default: 1
+		}
+	],
 	uniformValues: (params) => ({
 		u_lutSize: numeric(params.lutSize, 2),
 		u_intensity: numeric(params.intensity, 1)

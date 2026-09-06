@@ -31,6 +31,7 @@ type ConsolidatableCaptionItem = TimelineItem & {
 function textStyle(item: TimelineItem): TextStyleFields {
 	return {
 		fontFamily: item.fontFamily,
+		fontAssetId: item.fontAssetId,
 		fontSize: item.fontSize,
 		fontWeight: item.fontWeight,
 		fontStyle: item.fontStyle,

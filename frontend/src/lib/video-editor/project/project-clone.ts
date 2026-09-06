@@ -138,6 +138,11 @@ function remapItem(
 		id: remappedId,
 		trackId: maps.track.get(item.trackId) ?? item.trackId,
 		mediaId: mapped(item.mediaId, mediaIdMap),
+		fontAssetId: mapped(item.fontAssetId, mediaIdMap),
+		textSpans: item.textSpans?.map((span) => ({
+			...span,
+			fontAssetId: mapped(span.fontAssetId, mediaIdMap)
+		})),
 		originId: mapped(item.originId, maps.origin),
 		linkedGroupId: mapped(item.linkedGroupId, maps.linkedGroup),
 		compositionId: mapped(item.compositionId, maps.composition),
@@ -359,6 +364,10 @@ export function cloneProjectDocument(project: Project, options: CloneProjectOpti
 		schemaVersion: CURRENT_SCHEMA_VERSION,
 		thumbnailId: undefined,
 		animationPresets: cloned.animationPresets?.map((preset) => remapPreset(preset, createId, now)),
+		fontAssets: cloned.fontAssets?.map((asset) => ({
+			...asset,
+			id: mediaIdMap.get(asset.id) ?? asset.id
+		})),
 		rootFolderName: undefined
 	};
 }

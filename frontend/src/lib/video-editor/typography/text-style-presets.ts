@@ -471,6 +471,7 @@ function resolvedPresetStyle(
 
 	return {
 		fontFamily: preset.style.fontFamily,
+		fontAssetId: undefined,
 		fontWeight: FONT_WEIGHT[preset.style.fontWeight],
 		fontStyle: preset.style.fontStyle,
 		underline: preset.style.underline,

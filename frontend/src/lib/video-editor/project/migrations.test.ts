@@ -5,7 +5,7 @@ import { createBlankProject } from './defaults';
 describe('project migration registry', () => {
 	it('returns an ordered contiguous migration plan', () => {
 		expect(getMigrationsToApply(1, CURRENT_SCHEMA_VERSION).map((entry) => entry.version)).toEqual([
-			2, 3, 4, 5, 6
+			2, 3, 4, 5, 6, 7
 		]);
 		expect(getMigrationsToApply(CURRENT_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)).toEqual([]);
 	});

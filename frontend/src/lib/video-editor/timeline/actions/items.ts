@@ -198,7 +198,14 @@ export function addTransformController(label: string): string {
 			durationInFrames: Math.max(timelineStore.fps, timelineStore.maxItemEndFrame),
 			label,
 			type: 'controller',
-			transform: { x: 0, y: 0, width: size, height: size, rotation: 0, opacity: 1 }
+			transform: {
+				x: 0,
+				y: 0,
+				width: size,
+				height: size,
+				rotation: 0,
+				opacity: 1
+			}
 		});
 		return id;
 	});
@@ -291,32 +298,56 @@ export function addShapeItem(
 export interface AddAdjustmentLayerOptions {
 	frame?: number;
 	preferredTrackId?: string;
+	durationInFrames?: number;
+	sequenceColorGrade?: boolean;
 }
 
 /** Add a three-second adjustment layer at the requested timeline position. */
 export function addAdjustmentLayer(label: string, options: AddAdjustmentLayerOptions = {}): string {
 	return execute('ADD_ADJUSTMENT_LAYER', () => {
 		const visualTracks = effectiveMediaTracks(timelineStore.tracks)
-			.filter((track) => track.kind !== 'audio' && !track.locked)
+			.filter((track) => track.kind !== 'audio')
 			.toSorted((left, right) => left.order - right.order);
-		let topVisualTrack =
-			visualTracks.find((track) => track.id === options.preferredTrackId) ?? visualTracks[0];
-		if (!topVisualTrack) throw new Error('An unlocked visual track is required.');
+		const editableVisualTracks = visualTracks.filter((track) => !track.locked);
+		let topVisualTrack = options.sequenceColorGrade
+			? (visualTracks.find((track) => track.id === options.preferredTrackId) ?? visualTracks[0])
+			: (editableVisualTracks.find((track) => track.id === options.preferredTrackId) ??
+				editableVisualTracks[0]);
 
 		const from = Math.max(0, Math.round(options.frame ?? timelineStore.currentFrame));
-		const durationInFrames = timelineStore.fps * 3;
-		const end = from + durationInFrames;
-		const topTrackOccupied = (timelineStore.itemsByTrackId.get(topVisualTrack.id) ?? []).some(
-			(item) => item.from < end && item.from + item.durationInFrames > from
+		const durationInFrames = Math.max(
+			1,
+			Math.round(options.durationInFrames ?? timelineStore.fps * 3)
 		);
-		if (topTrackOccupied) {
+		const end = from + durationInFrames;
+		if (options.sequenceColorGrade) {
 			topVisualTrack = {
-				...topVisualTrack,
 				id: crypto.randomUUID(),
 				name: label,
-				order: Math.min(...timelineStore.tracks.map((track) => track.order)) - 1
+				kind: 'video',
+				height: topVisualTrack?.height ?? 64,
+				locked: true,
+				visible: true,
+				muted: false,
+				solo: false,
+				order: Math.min(0, ...timelineStore.tracks.map((track) => track.order)) - 1
 			};
 			timelineStore._setTracks([...timelineStore.tracks, topVisualTrack]);
+		} else {
+			if (!topVisualTrack) throw new Error('An unlocked visual track is required.');
+			const topTrackOccupied = (timelineStore.itemsByTrackId.get(topVisualTrack.id) ?? []).some(
+				(item) => item.from < end && item.from + item.durationInFrames > from
+			);
+			if (topTrackOccupied) {
+				topVisualTrack = {
+					...topVisualTrack,
+					id: crypto.randomUUID(),
+					name: label,
+					locked: false,
+					order: Math.min(...timelineStore.tracks.map((track) => track.order)) - 1
+				};
+				timelineStore._setTracks([...timelineStore.tracks, topVisualTrack]);
+			}
 		}
 
 		const id = crypto.randomUUID();
@@ -327,6 +358,7 @@ export function addAdjustmentLayer(label: string, options: AddAdjustmentLayerOpt
 			durationInFrames,
 			label,
 			type: 'adjustment',
+			sequenceColorGrade: options.sequenceColorGrade,
 			effects: []
 		});
 		return id;
@@ -670,7 +702,10 @@ export function trimItemStart(id: string, newFrom: number, newSourceStart?: numb
 		const delta = newFrom - item.from;
 		const nextDuration = item.durationInFrames - delta;
 		if (nextDuration <= 0 || delta < 0) return false;
-		const patch: Partial<TimelineItem> = { from: newFrom, durationInFrames: nextDuration };
+		const patch: Partial<TimelineItem> = {
+			from: newFrom,
+			durationInFrames: nextDuration
+		};
 		if ((item.type === 'video' || item.type === 'audio') && newSourceStart !== undefined) {
 			patch.sourceStart = newSourceStart;
 		}
@@ -1206,9 +1241,17 @@ export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): Sp
 			? initial
 			: [
 					...initial,
-					{ id: pointId, sourceFrame, speed: baseSpeed, easing: 'linear' as const }
+					{
+						id: pointId,
+						sourceFrame,
+						speed: baseSpeed,
+						easing: 'linear' as const
+					}
 				].sort((left, right) => left.sourceFrame - right.sourceFrame);
-		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+		updates.push({
+			id: candidate.id,
+			patch: speedRampUpdate(candidate, speedRamp)
+		});
 	}
 	if (updates.length === 0) return { changed: [], locked, pointId };
 	execute('ADD_ITEMS_SPEED_POINT', () => {
@@ -1236,7 +1279,10 @@ export function updateItemsSpeedPoint(
 		const speedRamp = current.map((point) =>
 			point.id === pointId ? { ...point, speed: nextSpeed, easing: nextEasing } : point
 		);
-		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+		updates.push({
+			id: candidate.id,
+			patch: speedRampUpdate(candidate, speedRamp)
+		});
 	}
 	if (updates.length === 0) return { changed: [], locked, pointId };
 	execute('UPDATE_ITEMS_SPEED_POINT', () => {
@@ -1254,7 +1300,10 @@ export function removeItemsSpeedPoint(itemIds: string[], pointId: string): Speed
 		const current = candidate.speedRamp ?? [];
 		const speedRamp = current.filter((point) => point.id !== pointId);
 		if (speedRamp.length === current.length) continue;
-		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+		updates.push({
+			id: candidate.id,
+			patch: speedRampUpdate(candidate, speedRamp)
+		});
 	}
 	if (updates.length === 0) return { changed: [], locked, pointId };
 	execute('REMOVE_ITEMS_SPEED_POINT', () => {

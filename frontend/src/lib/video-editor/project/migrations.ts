@@ -1,6 +1,6 @@
 import type { Project, ProjectTimeline, TimelineItem, TimelineTrack } from './types';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 export interface ProjectMigration {
 	version: number;
@@ -188,6 +188,14 @@ const PROJECT_MIGRATIONS: ReadonlyMap<number, ProjectMigration> = new Map([
 					}
 				};
 			}
+		}
+	],
+	[
+		7,
+		{
+			version: 7,
+			description: 'Persist editor color scope and project-owned font semantics',
+			migrate: (project) => project
 		}
 	]
 ]);

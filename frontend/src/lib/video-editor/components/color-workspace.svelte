@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		autoBalanceFromFrame,
 		blackPointFromPick,
-		hasColorGrade,
+		hasEnabledColorGrade,
 		luma601,
 		snapshotColorGrade,
 		whiteBalanceFromPick,
@@ -28,27 +28,38 @@
 		saveColorGradePreset,
 		type ColorGradePreset
 	} from '$lib/video-editor/effects/color-grade-presets';
-	import {
-		replaceColorGradeEffects,
-		upsertGpuEffectParamsOnItems
-	} from '$lib/video-editor/timeline/actions/effects';
+	import { replaceColorGradeEffects } from '$lib/video-editor/timeline/actions/effects';
+	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
+	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
+	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
 	import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import {
 		copyColorGradeFromItem,
 		pasteColorGradeToItems
 	} from '$lib/video-editor/effects/color-grade-clipboard';
 	import ColorPrimaryControls from './color-primary-controls.svelte';
+	import {
+		EDITOR_COLOR_GRADE_PRESETS,
+		editorColorGradePresetLabel,
+		type EditorColorGradePresetID
+	} from '$lib/editor-color-grade/presets';
+	import { defaultEditorColorGradeAdjustments } from '$lib/editor-color-grade/model';
+	import { editorColorGradeAdjustmentsToEffects } from '$lib/editor-color-grade/image-grade';
 
 	let {
 		itemId,
 		itemIds = [],
 		onedit,
-		oncreateadjustment
+		oncreateadjustment,
+		autoKey = false,
+		onAutoKeyChange = () => undefined
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
 		onedit: () => void;
 		oncreateadjustment?: () => void;
+		autoKey?: boolean;
+		onAutoKeyChange?: (enabled: boolean) => void;
 	} = $props();
 	let presets = $state<ColorGradePreset[]>([]);
 	let presetName = $state('');
@@ -57,7 +68,7 @@
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const grade = $derived(snapshotColorGrade(item?.effects));
-	const hasGrade = $derived(hasColorGrade(item?.effects));
+	const hasGrade = $derived(hasEnabledColorGrade(item?.effects));
 	const isVisual = $derived(item?.type !== 'audio' && item !== undefined);
 	const targetItemIds = $derived.by(() => {
 		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
@@ -89,9 +100,9 @@
 
 	function readWheelParam(name: string): number {
 		const defaults = getGpuEffectDefaultParams('gpu-color-wheels');
-		const effect = item?.effects?.find(
-			(entry) => entry.type === 'gpu' && entry.effectId === 'gpu-color-wheels'
-		);
+		const effect = (
+			item ? resolveAnimatedEffectsAt(item, timelineStore.currentFrame) : undefined
+		)?.find((entry) => entry.type === 'gpu' && entry.effectId === 'gpu-color-wheels');
 		if (!effect || effect.type !== 'gpu') return Number(defaults[name] ?? 0);
 		return Number(effect.params[name] ?? defaults[name] ?? 0);
 	}
@@ -99,7 +110,16 @@
 	function applyWheelParams(updates: Record<string, number>, message: string): void {
 		if (!itemId) return;
 		status = message;
-		if (upsertGpuEffectParamsOnItems(targetItemIds, 'gpu-color-wheels', updates)) onedit();
+		if (
+			setAnimatedGpuEffectParamsOnItems(
+				targetItemIds,
+				'gpu-color-wheels',
+				timelineStore.currentFrame,
+				updates,
+				(id, property) => autoKey || autoKeyframeStore.isEnabled(id, property)
+			)
+		)
+			onedit();
 	}
 
 	async function autoBalance(): Promise<void> {
@@ -157,7 +177,7 @@
 
 	function setComparison(mode: ColorComparisonMode): void {
 		if (mode !== 'after' && !hasGrade) return;
-		colorPreviewStore.setComparisonMode(mode);
+		colorPreviewStore.setComparisonMode(mode, targetItemIds);
 	}
 
 	function copyGrade(): void {
@@ -200,6 +220,17 @@
 		applyGrade(preset.effects, m.video_editor_color_preset_applied({ name: preset.name }));
 	}
 
+	function applyBuiltinPreset(id: EditorColorGradePresetID): void {
+		const preset = EDITOR_COLOR_GRADE_PRESETS.find((candidate) => candidate.id === id);
+		if (!preset) return;
+		const name = editorColorGradePresetLabel(id);
+		const effects = editorColorGradeAdjustmentsToEffects({
+			...defaultEditorColorGradeAdjustments(),
+			...preset.adjustments
+		}).map((effect) => ({ ...effect, enabled: true }));
+		applyGrade(effects, m.video_editor_color_preset_applied({ name }));
+	}
+
 	function deletePreset(preset: ColorGradePreset): void {
 		const next = removeColorGradePreset(presets, preset.id);
 		if (!persistColorGradePresets(next)) {
@@ -218,67 +249,39 @@
 	>
 		<div class="shrink-0 border-b border-[var(--video-editor-border)] px-2 py-1.5">
 			<div class="flex items-center justify-between gap-2">
-				<h3 class="text-xs font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase">
-					{m.video_editor_color_workspace()}
-				</h3>
-				<div
-					class="grid grid-cols-3 overflow-hidden rounded border border-[var(--video-editor-border)]"
-					role="group"
-					aria-label={m.video_editor_color_compare_mode()}
-				>
+				<div class="flex items-center gap-1">
+					<h3
+						class="text-xs font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
+					>
+						{m.video_editor_color_workspace()}
+					</h3>
 					<button
 						type="button"
-						class="flex h-7 items-center gap-1 px-2 text-[10px] {colorPreviewStore.comparisonMode ===
-						'after'
-							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
-							: 'hover:bg-[var(--video-editor-control)]'}"
-						aria-pressed={colorPreviewStore.comparisonMode === 'after'}
-						onclick={() => setComparison('after')}
+						class="color-tool h-7 [@media(pointer:coarse)]:h-11"
+						class:bg-[var(--video-editor-primary)]={autoKey}
+						class:text-[var(--video-editor-primary-text)]={autoKey}
+						aria-pressed={autoKey}
+						title={m.video_editor_shortcuts_command_keyframe_auto()}
+						onclick={() => onAutoKeyChange(!autoKey)}
 					>
-						<ThemeIcon role="eye" class="size-3" />{m.video_editor_color_after()}
-					</button>
-					<button
-						type="button"
-						class="flex h-7 items-center gap-1 border-l border-[var(--video-editor-border)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
-						'before'
-							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
-							: 'hover:bg-[var(--video-editor-control)]'}"
-						disabled={!hasGrade}
-						aria-pressed={colorPreviewStore.comparisonMode === 'before'}
-						onclick={() => setComparison('before')}
-					>
-						<ProtectedIcon icon="editor-compare" class="size-3" />{m.video_editor_color_before()}
-					</button>
-					<button
-						type="button"
-						class="flex h-7 items-center gap-1 border-l border-[var(--video-editor-border)] px-2 text-[10px] {colorPreviewStore.comparisonMode ===
-						'split'
-							? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
-							: 'hover:bg-[var(--video-editor-control)]'}"
-						disabled={!hasGrade}
-						aria-pressed={colorPreviewStore.comparisonMode === 'split'}
-						onclick={() => setComparison('split')}
-					>
-						<ThemeIcon role="layout" class="size-3" />{m.video_editor_color_split()}
+						<span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
+						{m.video_editor_shortcuts_command_keyframe_auto()}
 					</button>
 				</div>
+				<EditorColorComparison
+					mode={colorPreviewStore.comparisonMode}
+					disabled={!hasGrade}
+					showSplit
+					splitPosition={colorPreviewStore.splitPosition}
+					ariaLabel={m.video_editor_color_compare_mode()}
+					afterLabel={m.video_editor_color_after()}
+					beforeLabel={m.video_editor_color_before()}
+					splitLabel={m.video_editor_color_split()}
+					splitPositionLabel={m.video_editor_color_split_position()}
+					onmodechange={setComparison}
+					onsplitpositionchange={(value) => colorPreviewStore.setSplitPosition(value)}
+				/>
 			</div>
-
-			{#if colorPreviewStore.comparisonMode === 'split'}
-				<label class="mt-1 grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[10px]">
-					<span>{m.video_editor_color_before()}</span>
-					<Slider
-						min={0.05}
-						max={0.95}
-						step={0.01}
-						value={colorPreviewStore.splitPosition}
-						ariaLabel={m.video_editor_color_split_position()}
-						onValueChange={(value) => colorPreviewStore.setSplitPosition(value)}
-						onValueCommit={(value) => colorPreviewStore.setSplitPosition(value)}
-					/>
-					<span>{m.video_editor_color_after()}</span>
-				</label>
-			{/if}
 
 			<div
 				class="mt-1 flex flex-wrap gap-1"
@@ -350,44 +353,57 @@
 					</button>
 				</div>
 			{/if}
-			{#if presets.length > 0}
-				<div class="mt-1" aria-label={m.video_editor_color_presets()}>
-					<div class="mb-1 text-[9px] tracking-wide text-[var(--video-editor-muted)] uppercase">
-						{m.video_editor_color_presets()}
-					</div>
-					<div class="flex gap-1 overflow-x-auto pb-1">
-						{#each presets as preset (preset.id)}
-							<div
-								class="group relative min-w-24 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
-							>
-								<button
-									type="button"
-									class="flex h-11 w-full flex-col items-start justify-between rounded-sm px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-									title={preset.name}
-									onclick={() => applyPreset(preset)}
-								>
-									<span
-										class="h-1 w-full rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
-									></span>
-									<span class="max-w-20 truncate text-[10px] font-medium">{preset.name}</span>
-								</button>
-								<button
-									type="button"
-									class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-[var(--video-editor-control)] text-[var(--video-editor-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--video-editor-text)] focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-									title={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
-									aria-label={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
-									onclick={(event) => {
-										event.stopPropagation();
-										deletePreset(preset);
-									}}
-								>
-									<ThemeIcon role="delete" class="size-3" />
-								</button>
-							</div>
-						{/each}
-					</div>
+			<div class="mt-1" aria-label={m.video_editor_color_presets()}>
+				<div class="mb-1 text-[9px] tracking-wide text-[var(--video-editor-muted)] uppercase">
+					{m.video_editor_color_presets()}
 				</div>
-			{/if}
+				<div class="flex gap-1 overflow-x-auto pb-1">
+					{#each EDITOR_COLOR_GRADE_PRESETS as preset (preset.id)}
+						<button
+							type="button"
+							class="flex h-11 min-w-20 flex-col items-start justify-between rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)] px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							title={editorColorGradePresetLabel(preset.id)}
+							onclick={() => applyBuiltinPreset(preset.id)}
+						>
+							<span
+								class="h-1 w-full rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+							></span>
+							<span class="max-w-16 truncate text-[10px] font-medium"
+								>{editorColorGradePresetLabel(preset.id)}</span
+							>
+						</button>
+					{/each}
+					{#each presets as preset (preset.id)}
+						<div
+							class="group relative min-w-24 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+						>
+							<button
+								type="button"
+								class="flex h-11 w-full flex-col items-start justify-between rounded-sm px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								title={preset.name}
+								onclick={() => applyPreset(preset)}
+							>
+								<span
+									class="h-1 w-full rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+								></span>
+								<span class="max-w-20 truncate text-[10px] font-medium">{preset.name}</span>
+							</button>
+							<button
+								type="button"
+								class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-[var(--video-editor-control)] text-[var(--video-editor-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--video-editor-text)] focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								title={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
+								aria-label={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
+								onclick={(event) => {
+									event.stopPropagation();
+									deletePreset(preset);
+								}}
+							>
+								<ThemeIcon role="delete" class="size-3" />
+							</button>
+						</div>
+					{/each}
+				</div>
+			</div>
 			{#if status}
 				<p class="mt-0.5 truncate text-[9px] text-[var(--video-editor-muted)]" aria-live="polite">
 					{status}
@@ -401,6 +417,7 @@
 				{onedit}
 				onautobalance={() => void autoBalance()}
 				onpick={(kind) => void pick(kind)}
+				forceAutoKey={autoKey}
 			/>
 		</div>
 	</section>

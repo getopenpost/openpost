@@ -1,12 +1,16 @@
 /** CPU-baked RGB curves LUT. Ported from FreeCut (MIT). */
 import type { GpuParamSchema, GpuParamValue, GpuParamValues, GpuShaderDefinition } from './types';
+import {
+	EDITOR_COLOR_CURVE_CHANNELS,
+	type EditorColorCurveChannel
+} from '$lib/editor-color-grade/controls';
 
 export interface CurvePoint {
 	x: number;
 	y: number;
 }
-export const CURVE_CHANNELS = ['master', 'red', 'green', 'blue'] as const;
-export type CurveChannel = (typeof CURVE_CHANNELS)[number];
+export const CURVE_CHANNELS = EDITOR_COLOR_CURVE_CHANNELS;
+export type CurveChannel = EditorColorCurveChannel;
 export const CURVE_MAX_POINTS = 16;
 export const CURVE_POINT_MIN_GAP = 0.04;
 const defaults = { shadowX: 0.25, shadowY: 0.25, highlightX: 0.75, highlightY: 0.75 };

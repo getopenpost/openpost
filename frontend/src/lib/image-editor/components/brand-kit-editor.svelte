@@ -14,7 +14,7 @@
 	} from '$lib/query/authorization-boundary';
 	import { loadImageEditorBrandFontsWithReport } from '../fonts';
 	import ColorPicker from '$lib/components/color-picker.svelte';
-	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
+	import ImageEditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type {
 		ImageEditorBrandColor,

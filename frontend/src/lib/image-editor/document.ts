@@ -10,6 +10,10 @@ import {
 	type ImageEditorPreset,
 	type ImageEditorTransform
 } from './types';
+import {
+	IMAGE_COLOR_GRADE_VERSION,
+	defaultEditorColorGradeAdjustments
+} from '$lib/editor-color-grade/model';
 
 const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 
@@ -88,7 +92,11 @@ export function blankImageEditorDocument(preset: ImageEditorPreset): ImageEditor
 		width_px: preset.width_px,
 		height_px: preset.height_px,
 		brand_kit_revision: 0,
-		export_defaults: { format: preset.default_format, quality: 0.92, matte_color: '#ffffff' },
+		export_defaults: {
+			format: preset.default_format,
+			quality: 0.92,
+			matte_color: '#ffffff'
+		},
 		pages: [blankImageEditorPage()]
 	};
 }
@@ -101,6 +109,12 @@ export function cloneImageEditorDocument(document: ImageEditorDocument): ImageEd
 	};
 	for (const page of clone.pages) {
 		page.background = imageEditorPageBackground(page);
+		if (page.color_grade) {
+			page.color_grade = {
+				...defaultEditorColorGradeAdjustments(),
+				...page.color_grade
+			};
+		}
 		page.guides = {
 			horizontal: [...(page.guides?.horizontal ?? [])],
 			vertical: [...(page.guides?.vertical ?? [])]
@@ -258,6 +272,17 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 	for (const page of document.pages) {
 		if (!page.id || pageIDs.has(page.id)) errors.push('Every page must have a unique ID.');
 		pageIDs.add(page.id);
+		if (
+			(page.color_grade_version !== undefined &&
+				page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION) ||
+			(page.color_grade !== undefined && page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION) ||
+			(page.color_grade !== undefined &&
+				Object.values(page.color_grade).some(
+					(value) => !Number.isFinite(value) || value < -1 || value > 1
+				))
+		) {
+			errors.push(`${page.name} has an invalid color grade.`);
+		}
 		if (!HEX_COLOR.test(page.background_color))
 			errors.push(`${page.name} has an invalid background.`);
 		if (
@@ -321,6 +346,12 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 			}
 			if (layer.image) {
 				const { crop, adjustments } = layer.image;
+				if (
+					layer.image.color_grade_version !== undefined &&
+					layer.image.color_grade_version !== IMAGE_COLOR_GRADE_VERSION
+				) {
+					errors.push(`${layer.name} has an invalid color grade version.`);
+				}
 				if (
 					!['cover', 'contain', 'stretch'].includes(layer.image.fit) ||
 					![crop.x, crop.y, crop.width, crop.height].every(Number.isFinite) ||
@@ -520,7 +551,10 @@ export function migrateImageEditorDocument(
 	raw: ImageEditorDocumentInput | null
 ): ImageEditorDocumentMigration {
 	if (!raw) {
-		return { readOnly: true, error: 'The OpenPost Image Editor document is missing.' };
+		return {
+			readOnly: true,
+			error: 'The OpenPost Image Editor document is missing.'
+		};
 	}
 	const version = parseImageEditorSchemaVersion(raw);
 	if (version > IMAGE_EDITOR_SCHEMA_VERSION) {
@@ -545,7 +579,10 @@ export function migrateImageEditorDocument(
 		};
 	}
 	if (!isDisplayableImageEditorDocument(raw)) {
-		return { readOnly: true, error: 'The OpenPost Image Editor document is invalid.' };
+		return {
+			readOnly: true,
+			error: 'The OpenPost Image Editor document is invalid.'
+		};
 	}
 	try {
 		// SAFETY: The current schema and required structure are checked before full semantic validation.
@@ -553,7 +590,10 @@ export function migrateImageEditorDocument(
 		const errors = validateImageEditorDocument(document);
 		return errors.length > 0 ? { readOnly: true, error: errors[0] } : { document, readOnly: false };
 	} catch {
-		return { readOnly: true, error: 'The OpenPost Image Editor document is invalid.' };
+		return {
+			readOnly: true,
+			error: 'The OpenPost Image Editor document is invalid.'
+		};
 	}
 }
 

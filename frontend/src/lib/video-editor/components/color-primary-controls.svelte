@@ -11,12 +11,19 @@
 	import { getGpuEffect, getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import { gpuEffectLabel, gpuParamLabel } from '$lib/video-editor/effects/gpu/i18n';
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
+	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
 	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import type { ColorPickerKind } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { upsertGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/effects';
+	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
+	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
 	import ColorEffectHeader from './color-effect-header.svelte';
-	import ScrubbableNumberInput from './scrubbable-number-input.svelte';
+	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import {
+		EDITOR_COLOR_PRIMARY_BOTTOM_PARAMETERS,
+		EDITOR_COLOR_PRIMARY_TOP_PARAMETERS,
+		EDITOR_COLOR_WHEELS
+	} from '$lib/editor-color-grade/controls';
 
 	const EFFECT_ID = 'gpu-color-wheels';
 	const MAX_DOCK_WHEEL_SIZE = 200;
@@ -26,53 +33,13 @@
 	const defaults = getGpuEffectDefaultParams(EFFECT_ID);
 	const definition = getGpuEffect(EFFECT_ID)!;
 
-	const wheelDescriptors = [
-		{
-			hue: 'shadowsHue',
-			amount: 'shadowsAmount',
-			level: 'lift',
-			masterChip: true,
-			display: { scale: 1, bias: 0, step: 0.01, decimals: 2 },
-			ring: { min: -2, max: 2, fromDeg: 0 }
-		},
-		{
-			hue: 'midtonesHue',
-			amount: 'midtonesAmount',
-			level: 'gamma',
-			masterChip: true,
-			display: { scale: 1, bias: -1, step: 0.01, decimals: 2 },
-			ring: { min: 0, max: 2, fromDeg: 0 }
-		},
-		{
-			hue: 'highlightsHue',
-			amount: 'highlightsAmount',
-			level: 'gain',
-			masterChip: true,
-			display: { scale: 1, bias: 0, step: 0.01, decimals: 2 },
-			ring: { min: 0, max: 2, fromDeg: 180 }
-		},
-		{
-			hue: 'offsetHue',
-			amount: 'offsetAmount',
-			level: 'offset',
-			masterChip: false,
-			display: { scale: 100, bias: 25, step: 0.25, decimals: 2 },
-			ring: { min: -2, max: 2, fromDeg: 0 }
-		}
-	] as const;
+	const wheelDescriptors = EDITOR_COLOR_WHEELS;
 	const channelIndices = [0, 1, 2] as const;
 	const channelLabels = ['Red', 'Green', 'Blue'] as const;
 	const channelAccents = ['bg-red-500', 'bg-green-500', 'bg-blue-500'] as const;
 
-	const topParameters = ['temperature', 'tint', 'contrast', 'pivot', 'midDetail'] as const;
-	const bottomParameters = [
-		'colorBoost',
-		'shadows',
-		'highlights',
-		'saturation',
-		'hue',
-		'lumMix'
-	] as const;
+	const topParameters = EDITOR_COLOR_PRIMARY_TOP_PARAMETERS;
+	const bottomParameters = EDITOR_COLOR_PRIMARY_BOTTOM_PARAMETERS;
 	const parameterDisplays = {
 		temperature: { scale: 40, bias: 0, step: 10, decimals: 1 },
 		tint: { scale: 1, bias: 0, step: 0.1, decimals: 2 },
@@ -102,13 +69,15 @@
 		itemIds = [],
 		onedit,
 		onautobalance,
-		onpick
+		onpick,
+		forceAutoKey = false
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
 		onedit: () => void;
 		onautobalance?: () => void;
 		onpick?: (kind: ColorPickerKind) => void;
+		forceAutoKey?: boolean;
 	} = $props();
 
 	let wheelDrafts = $state<Record<string, { hue: number; amount: number }>>({});
@@ -147,15 +116,31 @@
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const wheelEffect = $derived(
-		item?.effects?.find(
+		(item ? resolveAnimatedEffectsAt(item, timelineStore.currentFrame) : undefined)?.find(
 			(effect): effect is GpuEffect => effect.type === 'gpu' && effect.effectId === EFFECT_ID
 		)
+	);
+	const displayEffect = $derived<GpuEffect>(
+		wheelEffect ?? {
+			id: '__color-wheels__',
+			type: 'gpu',
+			effectId: EFFECT_ID,
+			enabled: true,
+			params: defaults
+		}
 	);
 	const controlsEnabled = $derived(wheelEffect?.enabled !== false);
 	const targetItemIds = $derived.by(() => {
 		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
 		return [...new Set(requested)].filter((id) => timelineStore.itemById.get(id)?.type !== 'audio');
 	});
+	const targetWheelEffects = $derived(
+		targetItemIds.map((id) =>
+			resolveAnimatedEffectsAt(timelineStore.itemById.get(id)!, timelineStore.currentFrame)?.find(
+				(effect): effect is GpuEffect => effect.type === 'gpu' && effect.effectId === EFFECT_ID
+			)
+		)
+	);
 
 	function schema(name: string) {
 		return definition?.schema.find((entry) => entry.name === name);
@@ -168,6 +153,18 @@
 
 	function read(name: string): number {
 		return Number(wheelEffect?.params[name] ?? defaults[name] ?? 0);
+	}
+
+	function parameterIsMixed(name: string): boolean {
+		if (targetWheelEffects.length < 2) return false;
+		const values = targetWheelEffects.map((effect) =>
+			Number(effect?.params[name] ?? defaults[name] ?? 0)
+		);
+		return values.some((value) => Math.abs(value - (values[0] ?? 0)) > 0.0001);
+	}
+
+	function wheelIsMixed(descriptor: (typeof wheelDescriptors)[number]): boolean {
+		return [descriptor.hue, descriptor.amount, descriptor.level].some(parameterIsMixed);
 	}
 
 	function wheelValue(descriptor: (typeof wheelDescriptors)[number]): {
@@ -187,7 +184,7 @@
 	}
 
 	function preview(updates: Record<string, number>): void {
-		if (!itemId || !wheelEffect || !controlsEnabled) return;
+		if (!itemId || !controlsEnabled) return;
 		const effectIds = targetItemIds.flatMap((id) => {
 			const effect = timelineStore.itemById
 				.get(id)
@@ -196,13 +193,22 @@
 				);
 			return effect?.type === 'gpu' ? [effect.id] : [];
 		});
-		colorPreviewStore.setEffectDraft(itemId, wheelEffect, updates, effectIds);
+		colorPreviewStore.setEffectDraft(itemId, displayEffect, updates, effectIds, targetItemIds);
 	}
 
 	function commit(updates: Record<string, number>): void {
 		if (!itemId || !controlsEnabled) return;
 		colorPreviewStore.clearEffectDraft(itemId);
-		if (upsertGpuEffectParamsOnItems(targetItemIds, EFFECT_ID, updates)) onedit();
+		if (
+			setAnimatedGpuEffectParamsOnItems(
+				targetItemIds,
+				EFFECT_ID,
+				timelineStore.currentFrame,
+				updates,
+				(id, property) => forceAutoKey || autoKeyframeStore.isEnabled(id, property)
+			)
+		)
+			onedit();
 	}
 
 	function pointFromPointer(event: PointerEvent) {
@@ -247,10 +253,9 @@
 
 	function cancelWheel(event: PointerEvent, descriptor: (typeof wheelDescriptors)[number]): void {
 		if (pointerWheel !== descriptor.hue) return;
-		const value = wheelValue(descriptor);
 		pointerWheel = null;
-		commit({ [descriptor.hue]: value.hue, [descriptor.amount]: value.amount });
 		delete wheelDrafts[descriptor.hue];
+		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
 		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
@@ -314,7 +319,8 @@
 		);
 	}
 
-	function displayParameter(name: string): number {
+	function displayParameter(name: string): number | null {
+		if (parameterIsMixed(name) && parameterDrafts[name] === undefined) return null;
 		const display = parameterDisplay(name);
 		return parameterValue(name) * display.scale + display.bias;
 	}
@@ -343,8 +349,14 @@
 		return Math.min(Number(param.max), Math.max(Number(param.min), value));
 	}
 
-	function displayLevel(descriptor: (typeof wheelDescriptors)[number]): number {
+	function displayLevelNumber(descriptor: (typeof wheelDescriptors)[number]): number {
 		return parameterValue(descriptor.level) * descriptor.display.scale + descriptor.display.bias;
+	}
+
+	function displayLevel(descriptor: (typeof wheelDescriptors)[number]): number | null {
+		return parameterIsMixed(descriptor.level) && parameterDrafts[descriptor.level] === undefined
+			? null
+			: displayLevelNumber(descriptor);
 	}
 
 	function levelFromDisplay(descriptor: (typeof wheelDescriptors)[number], value: number): number {
@@ -364,7 +376,7 @@
 
 	function displayedChannels(descriptor: (typeof wheelDescriptors)[number]): WheelChannels {
 		const wheel = wheelValue(descriptor);
-		const master = displayLevel(descriptor);
+		const master = displayLevelNumber(descriptor);
 		const deviations = wheelChannelsFromHueAmount(wheel.hue, wheel.amount);
 		return [
 			master + deviations[0] * descriptor.display.scale,
@@ -409,6 +421,12 @@
 		delete parameterDrafts[descriptor.level];
 		delete wheelDrafts[descriptor.hue];
 		commit(updates);
+	}
+
+	function cancelChannel(descriptor: (typeof wheelDescriptors)[number]): void {
+		delete parameterDrafts[descriptor.level];
+		delete wheelDrafts[descriptor.hue];
+		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
 	}
 
 	function ringFill(descriptor: (typeof wheelDescriptors)[number]): number {
@@ -508,8 +526,10 @@
 							step={display.step}
 							decimals={display.decimals}
 							class="parameter-chip"
+							placeholder={m.image_editor_mixed_value()}
 							onlive={(next) => updateParameter(name, parameterFromDisplay(name, next))}
 							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
+							oncancel={() => cancelParameter(name)}
 						/>
 						<span class="parameter-accent {parameterAccents[name] ?? 'tonal'}" aria-hidden="true"
 						></span>
@@ -518,7 +538,8 @@
 						type="button"
 						class="parameter-reset"
 						disabled={!controlsEnabled ||
-							Object.is(parameterValue(name), Number(defaults[name] ?? 0))}
+							(!parameterIsMixed(name) &&
+								Object.is(parameterValue(name), Number(defaults[name] ?? 0)))}
 						title={`Reset ${gpuParamLabel(param)}`}
 						aria-label={`Reset ${gpuParamLabel(param)}`}
 						onclick={() => resetParameter(name)}
@@ -572,7 +593,9 @@
 						aria-valuemin="0"
 						aria-valuemax="100"
 						aria-valuenow={Math.round(value.amount * 100)}
-						aria-valuetext={`${Math.round(value.hue)} degrees, ${Math.round(value.amount * 100)} percent`}
+						aria-valuetext={wheelIsMixed(descriptor)
+							? m.image_editor_mixed_value()
+							: `${Math.round(value.hue)} degrees, ${Math.round(value.amount * 100)} percent`}
 						onpointerdown={(event) => startWheel(event, descriptor)}
 						onpointermove={(event) => updateWheel(event, descriptor)}
 						onpointerup={(event) => finishWheel(event, descriptor)}
@@ -582,6 +605,9 @@
 						<span class="wheel-cross wheel-cross-x"></span>
 						<span class="wheel-cross wheel-cross-y"></span>
 						<span class="wheel-puck"></span>
+						{#if wheelIsMixed(descriptor)}
+							<span class="wheel-mixed">{m.image_editor_mixed_value()}</span>
+						{/if}
 					</button>
 				</div>
 				{#if levelSchema}
@@ -601,10 +627,12 @@
 									step={descriptor.display.step}
 									decimals={descriptor.display.decimals}
 									class="wheel-chip"
+									placeholder={m.image_editor_mixed_value()}
 									onlive={(next) =>
 										updateParameter(descriptor.level, levelFromDisplay(descriptor, next))}
 									oncommit={(next) =>
 										commitParameter(descriptor.level, levelFromDisplay(descriptor, next))}
+									oncancel={() => cancelParameter(descriptor.level)}
 								/>
 								<span class="mt-0.5 h-0.5 w-5 rounded-full bg-zinc-200"></span>
 							</span>
@@ -614,14 +642,16 @@
 								<ScrubbableNumberInput
 									disabled={!controlsEnabled}
 									ariaLabel={`${label(descriptor.level)} ${channelLabels[channelIndex]}`}
-									value={channels[channelIndex]}
+									value={wheelIsMixed(descriptor) ? null : channels[channelIndex]}
 									min={levelRange.min - descriptor.display.scale}
 									max={levelRange.max + descriptor.display.scale}
 									step={descriptor.display.step}
 									decimals={descriptor.display.decimals}
 									class="wheel-chip"
+									placeholder={m.image_editor_mixed_value()}
 									onlive={(next) => updateChannel(descriptor, channelIndex, next, 'live')}
 									oncommit={(next) => updateChannel(descriptor, channelIndex, next, 'commit')}
+									oncancel={() => cancelChannel(descriptor)}
 								/>
 								<span class="mt-0.5 h-0.5 w-5 rounded-full {channelAccents[channelIndex]}"></span>
 							</span>
@@ -633,7 +663,10 @@
 						min={levelRange.min}
 						max={levelRange.max}
 						step={descriptor.display.step}
-						value={displayLevel(descriptor)}
+						value={displayLevel(descriptor) ?? descriptor.display.bias}
+						ariaValueText={parameterIsMixed(descriptor.level)
+							? m.image_editor_mixed_value()
+							: undefined}
 						ariaLabel={`${label(descriptor.level)} thumb wheel`}
 						onValueChange={(nextValue) =>
 							updateParameter(descriptor.level, levelFromDisplay(descriptor, nextValue))}
@@ -667,8 +700,10 @@
 							step={display.step}
 							decimals={display.decimals}
 							class="parameter-chip"
+							placeholder={m.image_editor_mixed_value()}
 							onlive={(next) => updateParameter(name, parameterFromDisplay(name, next))}
 							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
+							oncancel={() => cancelParameter(name)}
 						/>
 						<span class="parameter-accent {parameterAccents[name] ?? 'tonal'}" aria-hidden="true"
 						></span>
@@ -677,7 +712,8 @@
 						type="button"
 						class="parameter-reset"
 						disabled={!controlsEnabled ||
-							Object.is(parameterValue(name), Number(defaults[name] ?? 0))}
+							(!parameterIsMixed(name) &&
+								Object.is(parameterValue(name), Number(defaults[name] ?? 0)))}
 						title={`Reset ${gpuParamLabel(param)}`}
 						aria-label={`Reset ${gpuParamLabel(param)}`}
 						onclick={() => resetParameter(name)}

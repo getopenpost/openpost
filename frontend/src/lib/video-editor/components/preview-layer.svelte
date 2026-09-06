@@ -585,6 +585,7 @@
 			width,
 			height,
 			resolved.fontFamily,
+			resolved.fontAssetId,
 			resolved.fontSize,
 			resolved.fontWeight,
 			resolved.fontStyle,

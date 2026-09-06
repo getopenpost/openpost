@@ -3,9 +3,11 @@
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
 	import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
 	import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
+	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
 	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { upsertGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/effects';
+	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
+	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
 	import ColorEffectHeader from './color-effect-header.svelte';
 	import GpuCurvesEditor from './gpu-curves-editor.svelte';
 
@@ -15,8 +17,14 @@
 	let {
 		itemId,
 		itemIds = [],
-		onedit
-	}: { itemId: string | null; itemIds?: string[]; onedit: () => void } = $props();
+		onedit,
+		forceAutoKey = false
+	}: {
+		itemId: string | null;
+		itemIds?: string[];
+		onedit: () => void;
+		forceAutoKey?: boolean;
+	} = $props();
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const storedEffect = $derived(
@@ -25,7 +33,9 @@
 		)
 	);
 	const displayEffect = $derived<GpuEffect>(
-		storedEffect ?? {
+		(item ? resolveAnimatedEffectsAt(item, timelineStore.currentFrame) : undefined)?.find(
+			(effect): effect is GpuEffect => effect.type === 'gpu' && effect.effectId === EFFECT_ID
+		) ?? {
 			id: SYNTHETIC_EFFECT_ID,
 			type: 'gpu',
 			effectId: EFFECT_ID,
@@ -40,7 +50,7 @@
 
 	function draft(params: GpuParamValues | null): void {
 		if (!itemId) return;
-		if (!params || !storedEffect) {
+		if (!params) {
 			colorPreviewStore.clearEffectDraft(itemId, storedEffect?.id);
 			return;
 		}
@@ -52,13 +62,22 @@
 				);
 			return effect?.type === 'gpu' ? [effect.id] : [];
 		});
-		colorPreviewStore.setEffectDraft(itemId, storedEffect, params, effectIds);
+		colorPreviewStore.setEffectDraft(itemId, displayEffect, params, effectIds, targetItemIds);
 	}
 
 	function commit(params: GpuParamValues): void {
 		if (!itemId) return;
 		colorPreviewStore.clearEffectDraft(itemId, storedEffect?.id);
-		if (upsertGpuEffectParamsOnItems(targetItemIds, EFFECT_ID, params)) onedit();
+		if (
+			setAnimatedGpuEffectParamsOnItems(
+				targetItemIds,
+				EFFECT_ID,
+				timelineStore.currentFrame,
+				params,
+				(id, property) => forceAutoKey || autoKeyframeStore.isEnabled(id, property)
+			)
+		)
+			onedit();
 	}
 </script>
 

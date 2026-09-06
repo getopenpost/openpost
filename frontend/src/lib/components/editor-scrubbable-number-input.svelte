@@ -58,13 +58,16 @@
 
 	function commit(raw = displayValue): void {
 		if (raw.trim() === '') {
-			draft = null;
-			gestureActive = false;
+			revert();
 			return;
 		}
 		const parsed = Number(raw);
 		draft = null;
-		if (Number.isFinite(parsed)) oncommit(clamp(parsed));
+		if (!Number.isFinite(parsed)) {
+			revert();
+			return;
+		}
+		oncommit(clamp(parsed));
 		gestureActive = false;
 	}
 
@@ -119,8 +122,9 @@
 	function handleInput(event: Event): void {
 		const raw = event.currentTarget.value;
 		draft = raw;
+		if (raw.trim() === '') return;
 		const parsed = Number(raw);
-		if (Number.isFinite(parsed)) onlive(clamp(parsed));
+		if (Number.isFinite(parsed)) setLive(parsed);
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {

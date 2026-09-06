@@ -155,7 +155,14 @@
 	const assetGridTemplate = $derived(mediaLibraryGridTemplate(assetGridSize));
 	const ownedThumbnailUrls = new Map<string, string>();
 	let loadedThumbnailRevision = -1;
-	const visibleMedia = $derived(filterAndSortMedia(mediaPool.mediaList, query, filter, sort));
+	const visibleMedia = $derived(
+		filterAndSortMedia(
+			mediaPool.mediaList.filter((media) => !media.tags.includes('font')),
+			query,
+			filter,
+			sort
+		)
+	);
 	const mediaGroups = $derived(groupMediaByKind(visibleMedia));
 	const selectedMedia = $derived(
 		mediaPool.mediaList.filter((media) => selectedMediaIds.has(media.id))

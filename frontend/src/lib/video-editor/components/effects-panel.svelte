@@ -81,6 +81,7 @@
 		onedit,
 		showColorTools = false,
 		showScopes = false,
+		gpuOnly = false,
 		hiddenGpuEffectIds = []
 	}: {
 		itemId: string | null;
@@ -88,6 +89,7 @@
 		onedit: () => void;
 		showColorTools?: boolean;
 		showScopes?: boolean;
+		gpuOnly?: boolean;
 		hiddenGpuEffectIds?: readonly string[];
 	} = $props();
 
@@ -95,7 +97,9 @@
 	const hiddenGpuEffects = $derived(new Set(hiddenGpuEffectIds));
 	const effects = $derived(
 		(item?.effects ?? []).filter(
-			(effect) => effect.type !== 'gpu' || !hiddenGpuEffects.has(effect.effectId)
+			(effect) =>
+				(!gpuOnly || effect.type === 'gpu') &&
+				(effect.type !== 'gpu' || !hiddenGpuEffects.has(effect.effectId))
 		)
 	);
 	const allEffectsEnabled = $derived(
@@ -110,12 +114,16 @@
 
 	/** In-flight slider values so dragging stays smooth before the undoable commit. */
 	let draftAmounts = $state<Record<string, number>>({});
-	let pendingKind = $state<string>('brightness');
+	let pendingKind = $state('brightness');
 	let userPresets = $state<EffectPreset[]>([]);
 	let presetName = $state('');
 	let showPresetSave = $state(false);
 	let collapsedEffects = $state<Set<string>>(new Set());
 	let presetStatus = $state('');
+
+	$effect(() => {
+		if (gpuOnly && !pendingKind.startsWith('gpu:')) pendingKind = 'gpu:gpu-brightness';
+	});
 
 	const typeLabels = $derived<Record<Exclude<ItemType, 'gpu'>, string>>({
 		brightness: m.video_editor_effects_brightness(),
@@ -149,13 +157,15 @@
 	});
 
 	const effectOptions = $derived<EffectPickerOption[]>([
-		...EFFECT_DEFINITIONS.map((definition) => ({
-			value: definition.type,
-			label: typeLabels[definition.type],
-			group: m.video_editor_effects_basic(),
-			cssEffect: definition.type,
-			cssAmount: definition.defaultAmount
-		})),
+		...(gpuOnly
+			? []
+			: EFFECT_DEFINITIONS.map((definition) => ({
+					value: definition.type,
+					label: typeLabels[definition.type],
+					group: m.video_editor_effects_basic(),
+					cssEffect: definition.type,
+					cssAmount: definition.defaultAmount
+				}))),
 		...gpuCategories.flatMap((group) =>
 			group.effects
 				.filter((definition) => !hiddenGpuEffects.has(definition.id))
@@ -191,7 +201,9 @@
 
 	function presetIsVisible(templates: readonly EffectTemplate[]): boolean {
 		return templates.every(
-			(template) => template.kind !== 'gpu' || !hiddenGpuEffects.has(template.effectId)
+			(template) =>
+				(!gpuOnly || template.kind === 'gpu') &&
+				(template.kind !== 'gpu' || !hiddenGpuEffects.has(template.effectId))
 		);
 	}
 
@@ -386,22 +398,38 @@
 
 	async function importLut(effect: GpuEffect): Promise<void> {
 		if (!itemId) return;
-		const handles = await window.showOpenFilePicker?.({
-			types: [{ description: '3D LUT', accept: { 'text/plain': ['.cube'] } }],
-			multiple: false
-		});
-		if (!handles?.[0]) return;
-		const file = await handles[0].getFile();
-		const { parseCubeLut, encodeLutData } = await import('$lib/video-editor/effects/gpu/lut');
-		const parsed = parseCubeLut(await file.text());
-		if (
-			setGpuEffectData(itemId, effect.id, {
-				lutName: parsed.title ?? file.name.replace(/\.cube$/i, ''),
-				lutSize: parsed.size,
-				lutData: encodeLutData(parsed.data)
-			})
-		)
+		if (!window.showOpenFilePicker) {
+			presetStatus = m.video_editor_effects_lut_picker_unsupported();
+			return;
+		}
+		try {
+			const handles = await window.showOpenFilePicker({
+				types: [{ description: '3D LUT', accept: { 'text/plain': ['.cube'] } }],
+				multiple: false
+			});
+			if (!handles[0]) return;
+			const file = await handles[0].getFile();
+			const { parseCubeLut, packCubeLutForStorage } =
+				await import('$lib/video-editor/effects/gpu/lut');
+			const parsed = parseCubeLut(await file.text());
+			const stored = packCubeLutForStorage(parsed);
+			const name = parsed.title ?? file.name.replace(/\.cube$/i, '');
+			if (
+				!setGpuEffectData(itemId, effect.id, {
+					lutName: name,
+					lutSize: stored.size,
+					lutData: stored.data
+				})
+			) {
+				presetStatus = m.video_editor_effects_lut_import_failed();
+				return;
+			}
+			presetStatus = m.video_editor_effects_lut_imported({ name });
 			onedit();
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			presetStatus = m.video_editor_effects_lut_import_failed();
+		}
 	}
 
 	function effectLabel(effect: ItemEffect): string {

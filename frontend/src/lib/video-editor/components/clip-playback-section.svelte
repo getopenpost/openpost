@@ -28,7 +28,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { getSynchronizedLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
-	import ScrubbableNumberInput from './scrubbable-number-input.svelte';
+	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
 	import SpeedRampEditor from './speed-ramp-editor.svelte';
 
 	let {

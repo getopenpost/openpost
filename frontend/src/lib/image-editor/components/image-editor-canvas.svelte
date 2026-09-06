@@ -212,6 +212,9 @@
 				},
 				onMissingMedia(mediaID, layerID) {
 					onMissingMedia?.(mediaID, layerID);
+				},
+				onRenderError() {
+					canvasError = m.image_editor_canvas_failed();
 				}
 			});
 			mountedAdapter = next;
@@ -313,6 +316,13 @@
 
 	$effect(() => {
 		adapter?.setSelection(editor.selectedLayerIDs);
+	});
+
+	$effect(() => {
+		void adapter?.setColorGradeComparisonBefore({
+			page: editor.colorComparisonBefore && editor.colorComparisonPage,
+			layerIDs: editor.colorComparisonBefore ? editor.colorComparisonLayerIDs : []
+		});
 	});
 
 	$effect(() => {

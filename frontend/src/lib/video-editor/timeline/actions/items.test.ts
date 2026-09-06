@@ -69,6 +69,68 @@ describe('timeline marker actions', () => {
 	});
 });
 
+describe('sequence color grade item', () => {
+	beforeEach(() => {
+		timelineStore.__resetForTesting();
+		timelineStore._setTracks(createDefaultTracks());
+		commandHistory.clearHistory();
+	});
+
+	it('owns a locked track and follows the complete sequence range', () => {
+		timelineStore._setItems([clip({ durationInFrames: 30 })]);
+		const id = addAdjustmentLayer('Sequence grade', {
+			frame: 0,
+			durationInFrames: 30,
+			sequenceColorGrade: true
+		});
+		const grade = timelineStore.itemById.get(id);
+		expect(grade?.from).toBe(0);
+		expect(grade?.durationInFrames).toBe(30);
+		expect(grade?.sequenceColorGrade).toBe(true);
+		expect(timelineStore.tracks.find((track) => track.id === grade?.trackId)?.locked).toBe(true);
+
+		timelineStore._addItem(clip({ id: 'later', from: 40, durationInFrames: 20 }));
+		expect(timelineStore.itemById.get(id)?.durationInFrames).toBe(60);
+	});
+
+	it('creates a clean output track independent of hidden, grouped, and solo source state', () => {
+		timelineStore._setTracks(
+			timelineStore.tracks.map((track) =>
+				track.id === 'track-video-main'
+					? {
+							...track,
+							visible: false,
+							solo: true,
+							muted: true,
+							parentTrackId: 'group',
+							audioEq: { enabled: true }
+						}
+					: track
+			)
+		);
+		const id = addAdjustmentLayer('Sequence grade', { sequenceColorGrade: true });
+		const grade = timelineStore.itemById.get(id);
+		const track = timelineStore.tracks.find((candidate) => candidate.id === grade?.trackId);
+
+		expect(track).toMatchObject({
+			kind: 'video',
+			locked: true,
+			visible: true,
+			muted: false,
+			solo: false
+		});
+		expect(track?.parentTrackId).toBeUndefined();
+		expect(track?.audioEq).toBeUndefined();
+	});
+
+	it('creates a sequence grade when every source track is locked', () => {
+		timelineStore._setTracks(timelineStore.tracks.map((track) => ({ ...track, locked: true })));
+
+		const id = addAdjustmentLayer('Sequence grade', { sequenceColorGrade: true });
+		expect(timelineStore.itemById.get(id)?.sequenceColorGrade).toBe(true);
+	});
+});
+
 describe('timeline delete actions', () => {
 	beforeEach(() => {
 		timelineStore.__resetForTesting();

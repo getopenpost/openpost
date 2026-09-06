@@ -1,3 +1,4 @@
+import type { EditorColorGradeAdjustments } from '$lib/editor-color-grade/model';
 import type { StockMediaProvenance } from '$lib/stock-media';
 
 export const IMAGE_EDITOR_SCHEMA_VERSION = 1 as const;
@@ -101,17 +102,7 @@ export interface ImageEditorTextValue {
 	curve?: ImageEditorTextCurve;
 }
 
-export interface ImageEditorImageAdjustments {
-	brightness: number;
-	contrast: number;
-	saturation: number;
-	temperature: number;
-	tint: number;
-	vibrance: number;
-	hue: number;
-	exposure: number;
-	highlights: number;
-	shadows: number;
+export interface ImageEditorImageAdjustments extends EditorColorGradeAdjustments {
 	blur: number;
 }
 
@@ -130,6 +121,8 @@ export interface ImageEditorImageValue {
 	fit: 'cover' | 'contain' | 'stretch';
 	crop: ImageEditorCrop;
 	adjustments: ImageEditorImageAdjustments;
+	/** Missing means the legacy Fabric adjustment behavior. New images use the shared GPU grade. */
+	color_grade_version?: 1;
 }
 
 export interface ImageEditorShapeValue {
@@ -261,6 +254,9 @@ export interface ImageEditorPage {
 	name: string;
 	background_color: string;
 	background?: ImageEditorPageBackground;
+	/** Versioned output grade applied after the complete page has been composited. */
+	color_grade_version?: 1;
+	color_grade?: EditorColorGradeAdjustments;
 	guides?: {
 		horizontal: number[];
 		vertical: number[];

@@ -120,6 +120,67 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.saveState).toBe('saved');
 	});
 
+	it('commits a multi-layer image adjustment gesture as one undo step', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.addImage({ id: 'image-one', width: 100, height: 100, name: 'One' });
+		const firstID = editor.selectedLayers[0]?.id ?? '';
+		editor.addImage({ id: 'image-two', width: 100, height: 100, name: 'Two' });
+		const secondID = editor.selectedLayers[0]?.id ?? '';
+		const undoBeforeGesture = editor.undoLabel;
+
+		editor.beginImageAdjustmentGesture([firstID, secondID], 'contrast');
+		editor.previewImageAdjustment([firstID, secondID], 'contrast', 0.1);
+		editor.previewImageAdjustment([firstID, secondID], 'contrast', 0.35);
+		editor.commitImageAdjustmentGesture();
+
+		const images = editor.activePage?.layers.filter((item) => item.image) ?? [];
+		expect(images.map((item) => item.image?.adjustments.contrast)).toEqual([0.35, 0.35]);
+		expect(editor.undoLabel).not.toBe(undoBeforeGesture);
+
+		editor.undo();
+		expect(
+			editor.activePage?.layers
+				.filter((item) => item.image)
+				.map((item) => item.image?.adjustments.contrast)
+		).toEqual([0, 0]);
+	});
+
+	it('cancels an image adjustment preview without adding history', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.addImage({ id: 'image', width: 100, height: 100, name: 'Image' });
+		const imageID = editor.selectedLayers[0]?.id ?? '';
+		delete editor.selectedLayers[0]?.image?.color_grade_version;
+		const undoBeforeGesture = editor.undoLabel;
+		expect(editor.selectedLayers[0]?.image?.color_grade_version).toBeUndefined();
+
+		editor.previewImageAdjustment([imageID], 'temperature', 0.4);
+		expect(editor.selectedLayers[0]?.image?.adjustments.temperature).toBe(0.4);
+		expect(editor.selectedLayers[0]?.image?.color_grade_version).toBe(1);
+		editor.cancelImageAdjustmentGesture();
+
+		expect(editor.selectedLayers[0]?.image?.adjustments.temperature).toBe(0);
+		expect(editor.selectedLayers[0]?.image?.color_grade_version).toBeUndefined();
+		expect(editor.undoLabel).toBe(undoBeforeGesture);
+	});
+
+	it('stores a page output grade as one undoable gesture', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		const pageID = editor.activePage?.id ?? '';
+
+		editor.beginPageColorGradeGesture(pageID, 'contrast');
+		editor.previewPageColorGrade(pageID, 'contrast', 0.1);
+		editor.previewPageColorGrade(pageID, 'contrast', 0.3);
+		editor.commitPageColorGradeGesture();
+
+		expect(editor.activePage?.color_grade_version).toBe(1);
+		expect(editor.activePage?.color_grade?.contrast).toBe(0.3);
+		editor.undo();
+		expect(editor.activePage?.color_grade).toBeUndefined();
+	});
+
 	it('keeps locked layers and selects the nearest editable sibling after deletion', () => {
 		const editor = new ImageEditorController();
 		const initial = response();
@@ -301,7 +362,11 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 
 		const result = editor.updateSelectedTransform('width', 160, true);
 
-		expect(result).toEqual({ applied: 2, skippedLocked: 1, skippedUnsupported: 0 });
+		expect(result).toEqual({
+			applied: 2,
+			skippedLocked: 1,
+			skippedUnsupported: 0
+		});
 		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
 			width: 160,
 			height: 160
@@ -402,7 +467,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 
 		expect(
 			editor.commitPixelSelectionContent('promote', [
-				{ id: paint.id, width: 20, height: 1, data: new Uint8Array(20).fill(1, 0, 10) }
+				{
+					id: paint.id,
+					width: 20,
+					height: 1,
+					data: new Uint8Array(20).fill(1, 0, 10)
+				}
 			])
 		).toBe(true);
 		expect(editor.selectedLayers[0].paint?.spans).toEqual([{ x: 0, y: 0, width: 10 }]);
@@ -419,7 +489,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 			targetLayerIDs: [paint.id]
 		};
 		editor.commitPixelSelectionContent('delete', [
-			{ id: paint.id, width: 20, height: 1, data: new Uint8Array(20).fill(1, 0, 10) }
+			{
+				id: paint.id,
+				width: 20,
+				height: 1,
+				data: new Uint8Array(20).fill(1, 0, 10)
+			}
 		]);
 		expect(editor.selectedLayers[0].paint?.spans).toEqual([{ x: 10, y: 0, width: 10 }]);
 	});
@@ -469,7 +544,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 
 		expect(
 			editor.beginFloatingPixelSelection('cut', [
-				{ id: 'paint', width: 20, height: 1, data: new Uint8Array(20).fill(1, 0, 10) }
+				{
+					id: 'paint',
+					width: 20,
+					height: 1,
+					data: new Uint8Array(20).fill(1, 0, 10)
+				}
 			])
 		).toBe(true);
 		expect(editor.floatingPixelSelection?.mode).toBe('cut');
@@ -580,7 +660,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		const paint: ImageEditorLayer = {
 			...layer('paint', 20),
 			type: 'paint',
-			transform: { ...layer('paint', 20).transform, y: 10, width: 20, height: 10 },
+			transform: {
+				...layer('paint', 20).transform,
+				y: 10,
+				width: 20,
+				height: 10
+			},
 			shape: undefined,
 			paint: {
 				kind: 'fill',
@@ -606,7 +691,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		};
 		expect(
 			editor.beginFloatingPixelSelection('promote', [
-				{ id: 'paint', width: 20, height: 10, data: new Uint8Array(200).fill(1) }
+				{
+					id: 'paint',
+					width: 20,
+					height: 10,
+					data: new Uint8Array(200).fill(1)
+				}
 			])
 		).toBe(true);
 		const floatingID = editor.floatingPixelSelection?.layerIDs[0] ?? '';
@@ -687,7 +777,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());
 
-		editor.addImage({ id: 'media', width: 1600, height: 900, name: 'Wide image' });
+		editor.addImage({
+			id: 'media',
+			width: 1600,
+			height: 900,
+			name: 'Wide image'
+		});
 
 		const image = editor.selectedLayers[0];
 		expect(image.image?.fit).toBe('stretch');
@@ -717,7 +812,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 	it('applies and resets an image crop as one undoable transform', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());
-		editor.addImage({ id: 'media', width: 800, height: 400, name: 'Wide image' });
+		editor.addImage({
+			id: 'media',
+			width: 800,
+			height: 400,
+			name: 'Wide image'
+		});
 		const image = editor.selectedLayers[0];
 		const original = structuredClone(image.transform);
 
@@ -732,12 +832,22 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.selectedLayers[0].transform.width).toBeCloseTo(original.width / 2);
 
 		editor.undo();
-		expect(editor.selectedLayers[0].image?.crop).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+		expect(editor.selectedLayers[0].image?.crop).toEqual({
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1
+		});
 		expect(editor.selectedLayers[0].transform).toEqual(original);
 
 		editor.redo();
 		editor.resetImageCrop(image.id);
-		expect(editor.selectedLayers[0].image?.crop).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+		expect(editor.selectedLayers[0].image?.crop).toEqual({
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1
+		});
 		expect(editor.selectedLayers[0].transform).toMatchObject({
 			rotation: original.rotation,
 			flip_x: original.flip_x,
@@ -752,7 +862,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 	it('commits crop source placement and orientation as one history entry', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());
-		editor.addImage({ id: 'media', width: 800, height: 400, name: 'Wide image' });
+		editor.addImage({
+			id: 'media',
+			width: 800,
+			height: 400,
+			name: 'Wide image'
+		});
 		const image = editor.selectedLayers[0];
 		const original = structuredClone(image);
 
@@ -882,7 +997,10 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		const layers = editor.activePage?.layers ?? [];
 		expect(layers).toHaveLength(4);
 		expect(layers.find((candidate) => candidate.id === 'front')?.transform).toEqual(original);
-		expect(editor.selectedLayers[0].transform).toMatchObject({ x: 360, y: 240 });
+		expect(editor.selectedLayers[0].transform).toMatchObject({
+			x: 360,
+			y: 240
+		});
 
 		editor.undo();
 		expect(editor.activePage?.layers).toHaveLength(3);

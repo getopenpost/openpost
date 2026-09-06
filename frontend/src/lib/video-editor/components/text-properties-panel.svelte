@@ -5,6 +5,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
+	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import type { TextSpan, TextStylePresetId, TimelineItem } from '../project/types';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
@@ -46,20 +47,6 @@
 		height: editorSession.project?.metadata.height ?? 1080
 	});
 
-	const fontOptions = [
-		'Inter',
-		'Inter Tight',
-		'Anton',
-		'Bebas Neue',
-		'Orbitron',
-		'Playfair Display',
-		'Space Grotesk',
-		'Geist'
-	] as const;
-	const fontSelectOptions: AppSelectOption[] = fontOptions.map((font) => ({
-		value: font,
-		label: font
-	}));
 	const weightOptions = [
 		{ value: 400, label: m.video_editor_text_weight_regular() },
 		{ value: 500, label: m.video_editor_text_weight_medium() },
@@ -237,12 +224,15 @@
 						<div class="mt-2 grid grid-cols-2 gap-1.5">
 							<label class="field-label col-span-2">
 								{m.video_editor_text_font()}
-								<AppSelect
+								<EditorFontPicker
 									value={span.fontFamily ?? activeItem.fontFamily ?? 'Inter'}
-									options={fontSelectOptions}
-									ariaLabel={m.video_editor_text_font()}
-									class="field-select"
-									onValueChange={(fontFamily) => commitSpan(index, { fontFamily })}
+									onChange={({ family, assetID, weight, style }) =>
+										commitSpan(index, {
+											fontFamily: family,
+											fontAssetId: assetID,
+											...(weight === undefined ? {} : { fontWeight: weight }),
+											...(style === undefined ? {} : { fontStyle: style })
+										})}
 								/>
 							</label>
 							<label class="field-label">
@@ -331,12 +321,15 @@
 		<div class="grid grid-cols-2 gap-1.5">
 			<label class="field-label col-span-2">
 				{m.video_editor_text_font()}
-				<AppSelect
+				<EditorFontPicker
 					value={activeItem.fontFamily ?? 'Inter'}
-					options={fontSelectOptions}
-					ariaLabel={m.video_editor_text_font()}
-					class="field-select"
-					onValueChange={(fontFamily) => commitItem({ fontFamily })}
+					onChange={({ family, assetID, weight, style }) =>
+						commitItem({
+							fontFamily: family,
+							fontAssetId: assetID,
+							...(weight === undefined ? {} : { fontWeight: weight }),
+							...(style === undefined ? {} : { fontStyle: style })
+						})}
 				/>
 			</label>
 			<Button

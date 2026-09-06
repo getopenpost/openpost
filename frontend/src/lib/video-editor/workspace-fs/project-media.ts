@@ -68,20 +68,30 @@ async function writeLinks(
 	await writeJsonAtomic(root, projectMediaLinksPath(projectId), links);
 }
 
-function collectProjectTimelineMediaIds(
-	project: Pick<Project, 'timeline'> | null | undefined
+export function collectProjectTimelineMediaIds(
+	project: Pick<Project, 'fontAssets' | 'timeline'> | null | undefined
 ): string[] {
-	if (!project?.timeline) return [];
+	if (!project) return [];
 	const mediaIds = new Set<string>();
+	for (const asset of project.fontAssets ?? []) mediaIds.add(asset.id);
+	if (!project.timeline) return [...mediaIds];
 	for (const item of project.timeline.items) {
 		if (item.mediaId && PROJECT_MEDIA_ITEM_TYPES.has(item.type)) {
 			mediaIds.add(item.mediaId);
+		}
+		if (item.fontAssetId) mediaIds.add(item.fontAssetId);
+		for (const span of item.textSpans ?? []) {
+			if (span.fontAssetId) mediaIds.add(span.fontAssetId);
 		}
 	}
 	for (const composition of project.timeline.compositions ?? []) {
 		for (const item of composition.items) {
 			if (item.mediaId && PROJECT_MEDIA_ITEM_TYPES.has(item.type)) {
 				mediaIds.add(item.mediaId);
+			}
+			if (item.fontAssetId) mediaIds.add(item.fontAssetId);
+			for (const span of item.textSpans ?? []) {
+				if (span.fontAssetId) mediaIds.add(span.fontAssetId);
 			}
 		}
 	}

@@ -342,7 +342,9 @@ export class CanvasStackCompositor {
 		const gpu = globalThis.navigator?.gpu;
 		if (!gpu) return;
 		try {
-			const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+			const adapter = await gpu.requestAdapter({
+				powerPreference: 'high-performance'
+			});
 			if (!adapter || this.disposed) return;
 			const device = await adapter.requestDevice();
 			if (this.disposed) {
@@ -412,8 +414,8 @@ export class CanvasStackCompositor {
 		this.lastFailure ??= reason;
 	}
 
-	private gpuEffects(item: TimelineItem): GpuRenderEffect[] {
-		return (item.effects ?? []).flatMap((effect) =>
+	private gpuEffects(effects: TimelineItem['effects']): GpuRenderEffect[] {
+		return (effects ?? []).flatMap((effect) =>
 			effect.type === 'gpu' && effect.enabled
 				? [
 						{
@@ -478,7 +480,7 @@ export class CanvasStackCompositor {
 		item: TimelineItem,
 		time: number
 	): CanvasImageSource {
-		const effects = this.gpuEffects(item);
+		const effects = this.gpuEffects(item.effects);
 		if (effects.length === 0) return source.source;
 		if (!this.sharedGpu) {
 			this.recordExactRenderFailure('WebGL2 is unavailable for enabled GPU effects');
@@ -498,6 +500,38 @@ export class CanvasStackCompositor {
 			return source.source;
 		}
 		return this.sharedGpu.canvas;
+	}
+
+	/** Apply sequence-owned effects to the fully composited frame. */
+	applyOutputEffects(effects: TimelineItem['effects'], time: number): void {
+		if (effects?.some((effect) => effect.enabled && effect.type !== 'gpu')) {
+			this.recordExactRenderFailure('Sequence output supports GPU effects only');
+			return;
+		}
+		const gpuEffects = this.gpuEffects(effects);
+		if (gpuEffects.length === 0) return;
+		if (!this.sharedGpu) {
+			this.recordExactRenderFailure('WebGL2 is unavailable for enabled sequence effects');
+			return;
+		}
+		const rendered = this.sharedGpu.compositor.render(
+			this.canvas,
+			this.width,
+			this.height,
+			gpuEffects,
+			{ time }
+		);
+		if (!rendered) {
+			this.recordExactRenderFailure(
+				this.sharedGpu.compositor.failureReason() ?? 'An enabled sequence effect could not render'
+			);
+			return;
+		}
+		this.context.globalAlpha = 1;
+		this.context.globalCompositeOperation = 'copy';
+		this.context.filter = 'none';
+		this.context.drawImage(this.sharedGpu.canvas, 0, 0, this.width, this.height);
+		this.context.globalCompositeOperation = 'source-over';
 	}
 
 	private drawLayer(

@@ -14,6 +14,7 @@ import {
 } from './local-media-url';
 import { m } from '$lib/paraglide/messages';
 import type { StockMediaProvenance } from '$lib/stock-media';
+import { IMAGE_COLOR_GRADE_VERSION } from '$lib/editor-color-grade/model';
 import type {
 	ImageEditorDocument,
 	ImageEditorDocumentResponse,
@@ -74,14 +75,20 @@ export async function openImageEditorDatabase(): Promise<IDBDatabase> {
 		request.onupgradeneeded = () => {
 			const db = request.result;
 			if (!db.objectStoreNames.contains(IMAGE_EDITOR_RECOVERY_STORE)) {
-				db.createObjectStore(IMAGE_EDITOR_RECOVERY_STORE, { keyPath: 'design_id' });
+				db.createObjectStore(IMAGE_EDITOR_RECOVERY_STORE, {
+					keyPath: 'design_id'
+				});
 			}
 			if (!db.objectStoreNames.contains(GUEST_DESIGN_STORE)) {
-				const designs = db.createObjectStore(GUEST_DESIGN_STORE, { keyPath: 'id' });
+				const designs = db.createObjectStore(GUEST_DESIGN_STORE, {
+					keyPath: 'id'
+				});
 				designs.createIndex('updated_at', 'updated_at');
 			}
 			if (!db.objectStoreNames.contains(GUEST_MEDIA_STORE)) {
-				const media = db.createObjectStore(GUEST_MEDIA_STORE, { keyPath: 'id' });
+				const media = db.createObjectStore(GUEST_MEDIA_STORE, {
+					keyPath: 'id'
+				});
 				media.createIndex('design_id', 'design_id');
 			}
 		};
@@ -195,7 +202,8 @@ export async function createGuestImageEditorDesignFromImage(
 				source_height: dimensions.height,
 				fit: 'stretch',
 				crop: { x: 0, y: 0, width: 1, height: 1 },
-				adjustments: defaultImageAdjustments()
+				adjustments: defaultImageAdjustments(),
+				color_grade_version: IMAGE_COLOR_GRADE_VERSION
 			}
 		};
 		document.pages[0].layers.push(imageLayer);
@@ -210,7 +218,10 @@ export async function loadGuestImageEditorDesign(id: string): Promise<ImageEdito
 	const record = await getGuestDesign(id);
 	if (!record) throw new Error(m.image_editor_public_design_missing());
 	const missingLocalMediaIDs = await warmGuestImageEditorMedia(record.document);
-	return { ...guestDesignResponse(record), missing_local_media_ids: missingLocalMediaIDs };
+	return {
+		...guestDesignResponse(record),
+		missing_local_media_ids: missingLocalMediaIDs
+	};
 }
 
 export async function saveGuestImageEditorDesign(
@@ -333,9 +344,12 @@ export async function getGuestImageEditorMediaBlob(mediaID: string): Promise<Blo
 	return blob;
 }
 
-export async function getGuestImageEditorMediaForMigration(
-	mediaID: string
-): Promise<{ blob: Blob; name: string; mimeType: string; provenance?: StockMediaProvenance }> {
+export async function getGuestImageEditorMediaForMigration(mediaID: string): Promise<{
+	blob: Blob;
+	name: string;
+	mimeType: string;
+	provenance?: StockMediaProvenance;
+}> {
 	const record = await getGuestMediaRecord(mediaID);
 	if (!record) throw new Error(m.image_editor_public_image_missing());
 	return {

@@ -1,13 +1,21 @@
 import { getAuthenticatedMediaURL } from '$lib/media-url';
 import type {
 	ImageEditorDocument,
+	ImageEditorImageAdjustments,
 	ImageEditorLayer,
 	ImageEditorPage,
 	ImageEditorTool
 } from './types';
-import { isEmptyImageEditorPaintLayer, imageEditorPageBackground } from './document';
+import {
+	defaultImageAdjustments,
+	isEmptyImageEditorPaintLayer,
+	imageEditorPageBackground
+} from './document';
 import { createTextCurvePath, shadowColor, shadowOffset, textCurveStartOffset } from './effects';
 import { createImageEditorCanvasGradient, gradientColorAt } from './gradient';
+import { ImageGradeRenderer, type ImageGradeBackend } from '$lib/editor-color-grade/image-grade';
+import { IMAGE_COLOR_GRADE_VERSION } from '$lib/editor-color-grade/model';
+import { createGpuCompositor } from '$lib/video-editor/effects/gpu/compositor';
 import {
 	boundsIntersect,
 	colorsWithinTolerance,
@@ -25,9 +33,18 @@ type FabricObject = InstanceType<FabricModule['FabricObject']> & {
 	__imageEditorObjectURL?: string;
 	__imageEditorSourceWidth?: number;
 	__imageEditorSourceHeight?: number;
+	__imageEditorGradeApplied?: boolean;
 	snapAngle?: number;
 	snapThreshold?: number;
 	__corner?: string;
+};
+type FabricImageObject = InstanceType<FabricModule['FabricImage']> & {
+	__imageEditorGradeApplied?: boolean;
+	__imageEditorGradeSource?: TexImageSource;
+	__imageEditorGradeCanvas?: HTMLCanvasElement;
+	__imageEditorGradeBackend?: ImageGradeBackend;
+	__imageEditorRenderWidth?: number;
+	__imageEditorRenderHeight?: number;
 };
 
 interface FabricObjectCollection extends FabricObject {
@@ -116,6 +133,7 @@ interface FabricAdapterOptions {
 	onTextEditingChange?(editing: boolean): void;
 	onImageDimensions?(id: string, width: number, height: number): void;
 	onMissingMedia?(mediaID: string, layerID?: string): void;
+	onRenderError?(layerID: string): void;
 }
 
 const SNAP_SCREEN_PX = 10;
@@ -144,6 +162,11 @@ interface ImageEditorAlphaHitMask {
 	width: number;
 	height: number;
 	alpha: Uint8Array;
+}
+
+interface ImageGradeRenderSize {
+	width: number;
+	height: number;
 }
 
 const MAXIMUM_ALPHA_HIT_MASK_PIXELS = 1_048_576;
@@ -370,6 +393,10 @@ export class OpenPostFabricAdapter {
 	private backgroundSnapshot = '';
 	private syncing = false;
 	private renderSequence = 0;
+	private colorGradeComparisonPage = false;
+	private colorGradeComparisonLayerIDs = new Set<string>();
+	private gradeRenderer: ImageGradeRenderer | null = null;
+	private applyingPageGrade = false;
 	private document: ImageEditorDocument;
 	private page: ImageEditorPage;
 	private readOnly: boolean;
@@ -389,6 +416,7 @@ export class OpenPostFabricAdapter {
 	private onTextEditingChange: NonNullable<FabricAdapterOptions['onTextEditingChange']>;
 	private onImageDimensions: NonNullable<FabricAdapterOptions['onImageDimensions']>;
 	private onMissingMedia: NonNullable<FabricAdapterOptions['onMissingMedia']>;
+	private onRenderError: NonNullable<FabricAdapterOptions['onRenderError']>;
 	private altDuplicatePending = false;
 	private altOriginGhost: FabricObject | null = null;
 
@@ -409,10 +437,12 @@ export class OpenPostFabricAdapter {
 		this.onTextEditingChange = options.onTextEditingChange ?? (() => undefined);
 		this.onImageDimensions = options.onImageDimensions ?? (() => undefined);
 		this.onMissingMedia = options.onMissingMedia ?? (() => undefined);
+		this.onRenderError = options.onRenderError ?? (() => undefined);
 	}
 
 	async mount(): Promise<void> {
 		this.fabric = await import('fabric');
+		this.gradeRenderer = new ImageGradeRenderer(createGpuCompositor);
 		this.canvas = this.staticMode
 			? new this.fabric.StaticCanvas(this.element, {
 					width: Math.max(1, Math.round(this.document.width_px * this.renderScale)),
@@ -431,6 +461,7 @@ export class OpenPostFabricAdapter {
 					stopContextMenu: true,
 					enableRetinaScaling: false
 				});
+		this.canvas.on('after:render', this.applyPageColorGrade);
 		if (!this.staticMode) this.bindEvents();
 		await this.render(this.document, this.page);
 	}
@@ -442,6 +473,7 @@ export class OpenPostFabricAdapter {
 		const sequence = ++this.renderSequence;
 		this.syncing = true;
 		this.interactiveCanvas()?.discardActiveObject();
+		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
 		this.canvas.clear();
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
@@ -557,6 +589,23 @@ export class OpenPostFabricAdapter {
 		} finally {
 			if (sequence === this.renderSequence) this.syncing = false;
 		}
+	}
+
+	async setColorGradeComparisonBefore(options: {
+		page: boolean;
+		layerIDs: readonly string[];
+	}): Promise<void> {
+		if (this.staticMode) return;
+		const nextLayerIDs = new Set(options.layerIDs);
+		if (
+			options.page === this.colorGradeComparisonPage &&
+			nextLayerIDs.size === this.colorGradeComparisonLayerIDs.size &&
+			[...nextLayerIDs].every((id) => this.colorGradeComparisonLayerIDs.has(id))
+		)
+			return;
+		this.colorGradeComparisonPage = options.page;
+		this.colorGradeComparisonLayerIDs = nextLayerIDs;
+		await this.render(this.document, this.page);
 	}
 
 	accept(document: ImageEditorDocument, page: ImageEditorPage): void {
@@ -1007,6 +1056,7 @@ export class OpenPostFabricAdapter {
 
 	dispose(): void {
 		this.renderSequence++;
+		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
 		this.decorationsByLayerID.clear();
@@ -1014,7 +1064,10 @@ export class OpenPostFabricAdapter {
 		this.backgroundObject = null;
 		this.backgroundSnapshot = '';
 		this.clearAltOriginGhost();
+		this.canvas?.off('after:render', this.applyPageColorGrade);
 		this.canvas?.dispose();
+		this.gradeRenderer?.dispose();
+		this.gradeRenderer = null;
 		this.canvas = null;
 		this.fabric = null;
 	}
@@ -1578,7 +1631,7 @@ export class OpenPostFabricAdapter {
 			}
 			const objectURL = URL.createObjectURL(layerBlob);
 			this.objectURLs.add(objectURL);
-			let image: InstanceType<FabricModule['FabricImage']>;
+			let image: FabricImageObject;
 			try {
 				image = await this.fabric.FabricImage.fromURL(objectURL);
 			} catch {
@@ -1588,10 +1641,36 @@ export class OpenPostFabricAdapter {
 			}
 			const sourceWidth = Math.max(1, image.width);
 			const sourceHeight = Math.max(1, image.height);
+			if (layer.image.color_grade_version === IMAGE_COLOR_GRADE_VERSION) {
+				const gradeSource = image.getElement();
+				const renderSize = this.gradeRenderSize(sourceWidth, sourceHeight);
+				const graded = this.renderLayerGrade(
+					gradeSource,
+					renderSize.width,
+					renderSize.height,
+					this.layerGradeBefore(layer.id) ? defaultImageAdjustments() : layer.image.adjustments
+				);
+				if (graded) {
+					image = new this.fabric.FabricImage(graded.canvas);
+					image.__imageEditorGradeCanvas = graded.canvas;
+					image.__imageEditorGradeBackend = graded.backend;
+					image.__imageEditorRenderWidth = renderSize.width;
+					image.__imageEditorRenderHeight = renderSize.height;
+				} else {
+					this.onRenderError(layer.id);
+					if (this.staticMode) throw new Error(`Color grading failed for layer ${layer.id}.`);
+				}
+				image.__imageEditorGradeApplied = true;
+				image.__imageEditorGradeSource = gradeSource;
+			}
 			if (layer.image.intrinsic_pending) {
 				queueMicrotask(() => this.onImageDimensions(layer.id, sourceWidth, sourceHeight));
 			}
-			const geometry = computeImageGeometry(layer, sourceWidth, sourceHeight);
+			const geometry = computeImageGeometry(
+				layer,
+				image.__imageEditorRenderWidth ?? sourceWidth,
+				image.__imageEditorRenderHeight ?? sourceHeight
+			);
 			image.set({
 				...options,
 				...geometry
@@ -1635,7 +1714,8 @@ export class OpenPostFabricAdapter {
 		return (
 			previous.image?.media_id !== next.image?.media_id ||
 			previous.image?.fit !== next.image?.fit ||
-			JSON.stringify(previous.image?.crop) !== JSON.stringify(next.image?.crop)
+			JSON.stringify(previous.image?.crop) !== JSON.stringify(next.image?.crop) ||
+			previous.image?.color_grade_version !== next.image?.color_grade_version
 		);
 	}
 
@@ -1667,12 +1747,33 @@ export class OpenPostFabricAdapter {
 		};
 
 		if (layer.type === 'image' && layer.image) {
+			// SAFETY: image layers are rebuilt as FabricImage objects whenever their layer type changes.
+			const image = object as FabricImageObject;
+			if (
+				layer.image.color_grade_version === IMAGE_COLOR_GRADE_VERSION &&
+				image.__imageEditorGradeSource
+			) {
+				const graded = this.renderLayerGrade(
+					image.__imageEditorGradeSource,
+					image.__imageEditorRenderWidth ?? layer.image.source_width,
+					image.__imageEditorRenderHeight ?? layer.image.source_height,
+					this.layerGradeBefore(layer.id) ? defaultImageAdjustments() : layer.image.adjustments,
+					image.__imageEditorGradeCanvas
+				);
+				if (graded) {
+					image.setElement(graded.canvas);
+					image.__imageEditorGradeBackend = graded.backend;
+				} else {
+					this.onRenderError(layer.id);
+					if (this.staticMode) throw new Error(`Color grading failed for layer ${layer.id}.`);
+				}
+				image.__imageEditorGradeApplied = true;
+			}
 			object.set({
 				...common
 			});
 			this.applyImageGeometry(object, layer);
-			// SAFETY: image layers are rebuilt as FabricImage objects whenever their layer type changes.
-			this.applyImageFilters(object as InstanceType<FabricModule['FabricImage']>, layer);
+			this.applyImageFilters(image, layer);
 		} else if (layer.type === 'text' && layer.text) {
 			if (!isEditableFabricText(object)) return;
 			const textObject = object;
@@ -2230,21 +2331,24 @@ export class OpenPostFabricAdapter {
 		};
 	}
 
-	private applyImageFilters(
-		image: InstanceType<FabricModule['FabricImage']>,
-		layer: ImageEditorLayer
-	): void {
+	private applyImageFilters(image: FabricImageObject, layer: ImageEditorLayer): void {
 		if (!this.fabric || !layer.image) return;
+		if (this.layerGradeBefore(layer.id)) {
+			image.filters = [];
+			image.applyFilters();
+			return;
+		}
 		const adjustment = layer.image.adjustments;
 		const filters: InstanceType<FabricModule['filters']['BaseFilter']>[] = [];
-		if (adjustment.brightness || adjustment.exposure) {
+		const gradeApplied = image.__imageEditorGradeApplied === true;
+		if (!gradeApplied && (adjustment.brightness || adjustment.exposure)) {
 			filters.push(
 				new this.fabric.filters.Brightness({
 					brightness: clamp(adjustment.brightness + adjustment.exposure * 0.6, -1, 1)
 				})
 			);
 		}
-		if (adjustment.contrast) {
+		if (!gradeApplied && adjustment.contrast) {
 			filters.push(
 				new this.fabric.filters.Contrast({
 					contrast: clamp(adjustment.contrast, -1, 1)
@@ -2255,20 +2359,20 @@ export class OpenPostFabricAdapter {
 		const hue = adjustment.hue ?? 0;
 		const temperature = adjustment.temperature ?? 0;
 		const tintAdjustment = adjustment.tint ?? 0;
-		if (vibrance) {
+		if (!gradeApplied && vibrance) {
 			filters.push(new this.fabric.filters.Vibrance({ vibrance: clamp(vibrance, -1, 1) }));
 		}
-		if (adjustment.saturation) {
+		if (!gradeApplied && adjustment.saturation) {
 			filters.push(
 				new this.fabric.filters.Saturation({
 					saturation: clamp(adjustment.saturation, -1, 1)
 				})
 			);
 		}
-		if (hue) {
+		if (!gradeApplied && hue) {
 			filters.push(new this.fabric.filters.HueRotation({ rotation: clamp(hue, -1, 1) }));
 		}
-		if (temperature || tintAdjustment) {
+		if (!gradeApplied && (temperature || tintAdjustment)) {
 			const warm = clamp(temperature * 0.18, -0.18, 0.18);
 			const tint = clamp(tintAdjustment * 0.14, -0.14, 0.14);
 			filters.push(
@@ -2298,7 +2402,7 @@ export class OpenPostFabricAdapter {
 				})
 			);
 		}
-		if (adjustment.highlights || adjustment.shadows) {
+		if (!gradeApplied && (adjustment.highlights || adjustment.shadows)) {
 			const shadowLift = clamp(adjustment.shadows * 0.3, -0.3, 0.3);
 			const highlightShift = clamp(adjustment.highlights * 0.25, -0.25, 0.25);
 			filters.push(
@@ -2320,16 +2424,84 @@ export class OpenPostFabricAdapter {
 
 	private applyImageGeometry(object: FabricObject, layer: ImageEditorLayer): void {
 		if (!layer.image) return;
+		// SAFETY: This branch only receives objects created for image layers.
+		const image = object as FabricImageObject;
 		const sourceWidth = Math.max(
 			1,
-			object.__imageEditorSourceWidth ?? layer.image.source_width ?? object.width ?? 1
+			image.__imageEditorRenderWidth ??
+				object.__imageEditorSourceWidth ??
+				layer.image.source_width ??
+				object.width ??
+				1
 		);
 		const sourceHeight = Math.max(
 			1,
-			object.__imageEditorSourceHeight ?? layer.image.source_height ?? object.height ?? 1
+			image.__imageEditorRenderHeight ??
+				object.__imageEditorSourceHeight ??
+				layer.image.source_height ??
+				object.height ??
+				1
 		);
 		object.set(computeImageGeometry(layer, sourceWidth, sourceHeight));
 	}
+
+	private gradeRenderSize(sourceWidth: number, sourceHeight: number): ImageGradeRenderSize {
+		return { width: sourceWidth, height: sourceHeight };
+	}
+
+	private layerGradeBefore(layerID: string): boolean {
+		return this.colorGradeComparisonLayerIDs.has(layerID);
+	}
+
+	private renderLayerGrade(
+		source: TexImageSource,
+		width: number,
+		height: number,
+		adjustments: ImageEditorImageAdjustments,
+		target?: HTMLCanvasElement
+	): { canvas: HTMLCanvasElement; backend: ImageGradeBackend } | null {
+		const rendered = this.gradeRenderer?.render(source, width, height, adjustments);
+		if (!rendered) return null;
+		const canvas = target ?? document.createElement('canvas');
+		canvas.width = width;
+		canvas.height = height;
+		const context = canvas.getContext('2d');
+		if (!context) return null;
+		context.clearRect(0, 0, width, height);
+		context.drawImage(rendered.canvas, 0, 0, width, height);
+		return { canvas, backend: rendered.backend };
+	}
+
+	private applyPageColorGrade = (): void => {
+		if (
+			this.applyingPageGrade ||
+			this.colorGradeComparisonPage ||
+			this.page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION ||
+			!this.page.color_grade ||
+			!Object.values(this.page.color_grade).some((value) => Math.abs(value) > 0.0001)
+		)
+			return;
+		const rendered = this.gradeRenderer?.render(
+			this.element,
+			this.element.width,
+			this.element.height,
+			this.page.color_grade
+		);
+		if (!rendered) {
+			this.onRenderError(this.page.id);
+			if (this.staticMode) throw new Error(`Color grading failed for page ${this.page.id}.`);
+			return;
+		}
+		const context = this.element.getContext('2d');
+		if (!context) return;
+		this.applyingPageGrade = true;
+		try {
+			context.clearRect(0, 0, this.element.width, this.element.height);
+			context.drawImage(rendered.canvas, 0, 0, this.element.width, this.element.height);
+		} finally {
+			this.applyingPageGrade = false;
+		}
+	};
 
 	private restoreSelection(ids: string[]): void {
 		const canvas = this.interactiveCanvas();

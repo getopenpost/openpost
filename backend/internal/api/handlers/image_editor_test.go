@@ -130,6 +130,26 @@ func TestImageEditorRevisionEndpointsHonorDisabledFlag(t *testing.T) {
 	assertDisabled(err)
 }
 
+func TestImageEditorPageColorGradeRequiresVersionAndBoundedValues(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Color grade validation"
+	create.Body.PresetKey = "instagram-square"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+
+	document := created.Body.Document
+	document.Pages[0].ColorGrade = &ImageEditorColorGrade{Contrast: 0.25}
+	require.ErrorContains(t, validateImageEditorPayload(document), "require version 1")
+
+	document.Pages[0].ColorGradeVersion = 1
+	require.NoError(t, validateImageEditorPayload(document))
+	document.Pages[0].ColorGrade.Contrast = 1.1
+	require.ErrorContains(t, validateImageEditorPayload(document), "must be between -1 and 1")
+}
+
 func newImageEditorHandlerTest(t *testing.T) (*ImageEditorHandler, context.Context) {
 	t.Helper()
 	db := createHandlerTestDB(t,
@@ -239,11 +259,12 @@ func TestImageEditorDesignSaveUsesOptimisticConcurrencyAndTracksMedia(t *testing
 			Height: 1080,
 		},
 		Image: &ImageEditorImageValue{
-			MediaID:      "media-1",
-			SourceWidth:  1080,
-			SourceHeight: 1080,
-			Fit:          "cover",
-			Crop:         ImageEditorCrop{Width: 1, Height: 1},
+			MediaID:           "media-1",
+			SourceWidth:       1080,
+			SourceHeight:      1080,
+			Fit:               "cover",
+			Crop:              ImageEditorCrop{Width: 1, Height: 1},
+			ColorGradeVersion: 1,
 			Adjustments: ImageEditorImageAdjustments{
 				Tint:     0.15,
 				Vibrance: 0.25,
@@ -354,6 +375,7 @@ func TestImageEditorDesignSaveUsesOptimisticConcurrencyAndTracksMedia(t *testing
 	require.NoError(t, err)
 	require.Equal(t, payload.ExportDefaults, reloaded.Body.Document.ExportDefaults)
 	require.Equal(t, payload.Pages[0].Background, reloaded.Body.Document.Pages[0].Background)
+	require.Equal(t, 1, reloaded.Body.Document.Pages[0].Layers[0].Image.ColorGradeVersion)
 
 	duplicated, err := handler.duplicateDesign(ctx, &DuplicateImageEditorDesignInput{PathID: created.Body.ID})
 	require.NoError(t, err)
@@ -610,6 +632,11 @@ func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.
 		Horizontal: []float64{100},
 		Vertical:   []float64{200},
 	}
+	targetUpdate.Body.Document.Pages[0].ColorGradeVersion = 1
+	targetUpdate.Body.Document.Pages[0].ColorGrade = &ImageEditorColorGrade{
+		Contrast: 0.14,
+		Vibrance: 0.12,
+	}
 	targetUpdate.Body.Document.Pages[0].Background = &ImageEditorPageBackground{
 		Type:    "image",
 		Opacity: 1,
@@ -622,6 +649,7 @@ func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.
 	target, err := handler.updateDesign(ctx, targetUpdate)
 	require.NoError(t, err)
 	require.Equal(t, targetUpdate.Body.Document.Pages[0].Guides, target.Body.Document.Pages[0].Guides)
+	require.Equal(t, targetUpdate.Body.Document.Pages[0].ColorGrade, target.Body.Document.Pages[0].ColorGrade)
 
 	checkpointInput := &CreateImageEditorCheckpointInput{PathID: created.Body.ID}
 	checkpointInput.Body.Name = "Approved target"
@@ -666,6 +694,8 @@ func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.
 	require.Equal(t, "Target version", preview.Body.Document.Title)
 	require.Equal(t, "preview-target", preview.Body.CoverPreviewMediaID)
 	require.Equal(t, []float64{100}, preview.Body.Document.Pages[0].Guides.Horizontal)
+	require.Equal(t, 1, preview.Body.Document.Pages[0].ColorGradeVersion)
+	require.InDelta(t, 0.14, preview.Body.Document.Pages[0].ColorGrade.Contrast, 0.0001)
 
 	restore := &RestoreImageEditorRevisionInput{
 		PathID:     created.Body.ID,
@@ -785,8 +815,10 @@ func TestImageEditorLegacyPageAndRevisionSnapshotsRemainReadable(t *testing.T) {
 	background := ImageEditorPageBackground{Type: "solid", Color: "#123456", Opacity: 1}
 	encoded, err := json.Marshal(background)
 	require.NoError(t, err)
-	decodedBackground, guides, err := decodeImageEditorPageState(string(encoded), "#ffffff")
+	decodedBackground, guides, colorGradeVersion, colorGrade, err := decodeImageEditorPageState(string(encoded), "#ffffff")
 	require.NoError(t, err)
 	require.Equal(t, "#123456", decodedBackground.Color)
 	require.Nil(t, guides)
+	require.Zero(t, colorGradeVersion)
+	require.Nil(t, colorGrade)
 }

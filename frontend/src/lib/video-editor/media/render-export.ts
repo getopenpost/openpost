@@ -53,6 +53,7 @@ import { visualClipFadeOpacityAtFrame } from './clip-fades';
 import {
 	collectAdjustmentLayers,
 	effectsForItemAtFrame,
+	sequenceColorGradeEffectsAtFrame,
 	type AdjustmentLayerScope
 } from '../effects/adjustment-layers';
 import { subtitleSidecarSrt, subtitleWebVtt } from '../transcript/subtitle-export';
@@ -170,7 +171,9 @@ async function createArtifactTarget(mimeType: string, extension: string): Promis
 		let fileName = '';
 		try {
 			const root = await globalThis.navigator.storage.getDirectory();
-			directory = await root.getDirectoryHandle(EXPORT_SCRATCH_DIRECTORY, { create: true });
+			directory = await root.getDirectoryHandle(EXPORT_SCRATCH_DIRECTORY, {
+				create: true
+			});
 			await pruneStaleExportScratch(directory);
 			fileName = `${crypto.randomUUID()}.${extension}`;
 			const handle = await directory.getFileHandle(fileName, { create: true });
@@ -699,6 +702,10 @@ export class TimelineFrameRenderer {
 				participant.masks
 			);
 		}
+		this.stackCompositor.applyOutputEffects(
+			sequenceColorGradeEffectsAtFrame(this.adjustmentLayers, frame),
+			frame / this.fps
+		);
 
 		this.stackCompositor.assertExactRender();
 		return this.canvas;
@@ -821,7 +828,10 @@ export async function renderMultiTrackVideoArtifact(
 			});
 	if (!codec) throw new Error(`This browser cannot encode video for ${format.toUpperCase()}.`);
 	const artifactTarget = await createArtifactTarget(outputFormat.mimeType, format);
-	const output = new Output({ format: outputFormat, target: artifactTarget.target });
+	const output = new Output({
+		format: outputFormat,
+		target: artifactTarget.target
+	});
 	const videoSource = new VideoSampleSource({
 		codec,
 		bitrate,

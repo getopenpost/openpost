@@ -109,6 +109,8 @@ function samePageProperties(current: ImageEditorPage, target: ImageEditorPage): 
 			name: current.name,
 			background_color: current.background_color,
 			background: current.background,
+			color_grade_version: current.color_grade_version,
+			color_grade: current.color_grade,
 			preview_media_id: current.preview_media_id,
 			latest_export_media_id: current.latest_export_media_id
 		},
@@ -116,6 +118,8 @@ function samePageProperties(current: ImageEditorPage, target: ImageEditorPage): 
 			name: target.name,
 			background_color: target.background_color,
 			background: target.background,
+			color_grade_version: target.color_grade_version,
+			color_grade: target.color_grade,
 			preview_media_id: target.preview_media_id,
 			latest_export_media_id: target.latest_export_media_id
 		}

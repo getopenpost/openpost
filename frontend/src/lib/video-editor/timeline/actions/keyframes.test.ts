@@ -24,6 +24,7 @@ import {
 	removeKeyframe,
 	removeKeyframes,
 	setAnimatedProperties,
+	setAnimatedGpuEffectParamsOnItems,
 	setAnimatedProperty,
 	setPositionAtFrame,
 	setPositionSpatialTangents,
@@ -158,7 +159,10 @@ describe('setKeyframe', () => {
 		setKeyframe('a', 'volume', 12, 0.4);
 		removeKeyframe('a', 'volume', 12);
 		commandHistory.undo();
-		expect(trackOf(getItem('a'), 'volume')).toMatchObject({ frames: [12], values: [0.4] });
+		expect(trackOf(getItem('a'), 'volume')).toMatchObject({
+			frames: [12],
+			values: [0.4]
+		});
 	});
 });
 
@@ -198,8 +202,16 @@ describe('batch keyframe editing', () => {
 	it('moves a selection atomically and carries easing with each key', () => {
 		expect(
 			updateKeyframes('a', [
-				{ ref: { property: 'opacity', frame: 10, id: 'a' }, frame: 15, value: 0.1 },
-				{ ref: { property: 'opacity', frame: 20, id: 'b' }, frame: 25, value: 0.6 }
+				{
+					ref: { property: 'opacity', frame: 10, id: 'a' },
+					frame: 15,
+					value: 0.1
+				},
+				{
+					ref: { property: 'opacity', frame: 20, id: 'b' },
+					frame: 25,
+					value: 0.6
+				}
 			])
 		).toBe(true);
 		expect(trackOf(getItem('a'), 'opacity')).toMatchObject({
@@ -216,7 +228,11 @@ describe('batch keyframe editing', () => {
 	it('lets a moved key replace an unselected collision like FreeCut', () => {
 		expect(
 			updateKeyframes('a', [
-				{ ref: { property: 'opacity', frame: 10, id: 'a' }, frame: 20, value: 0.25 }
+				{
+					ref: { property: 'opacity', frame: 10, id: 'a' },
+					frame: 20,
+					value: 0.25
+				}
 			])
 		).toBe(true);
 		expect(trackOf(getItem('a'), 'opacity')).toMatchObject({
@@ -363,7 +379,10 @@ describe('setAnimatedProperty', () => {
 
 	it('starts a lane when auto-key is on', () => {
 		expect(setAnimatedProperty('animated', 'opacity', 15, 0.5, true)).toBe(true);
-		expect(getItem('animated').keyframes?.opacity).toMatchObject({ frames: [5], values: [0.5] });
+		expect(getItem('animated').keyframes?.opacity).toMatchObject({
+			frames: [5],
+			values: [0.5]
+		});
 	});
 
 	it('updates an effect base param until auto-key starts its lane', () => {
@@ -387,7 +406,9 @@ describe('setAnimatedProperty', () => {
 		const property = buildEffectKeyframeProperty('gpu-contrast', 'contrast', 'amount');
 
 		expect(setAnimatedProperty('animated', property, 15, 1.5, false)).toBe(true);
-		expect(getItem('animated').effects?.[0]).toMatchObject({ params: { amount: 1.5 } });
+		expect(getItem('animated').effects?.[0]).toMatchObject({
+			params: { amount: 1.5 }
+		});
 		expect(getItem('animated').keyframes?.[property]).toBeUndefined();
 
 		expect(setAnimatedProperty('animated', property, 20, 2.25, true)).toBe(true);
@@ -426,5 +447,95 @@ describe('setAnimatedProperty', () => {
 		cancelAnimatedPropertyEdit(before);
 		expect(getItem('animated').transform?.x).toBe(0);
 		expect(commandHistory.undoStack).toHaveLength(0);
+	});
+});
+
+describe('setAnimatedGpuEffectParamsOnItems', () => {
+	beforeEach(() => {
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+		transitionsStore.clear();
+		timelineStore._setItems([
+			{
+				id: 'graded',
+				trackId: 't',
+				from: 10,
+				durationInFrames: 30,
+				label: '',
+				type: 'video',
+				effects: [
+					{
+						id: 'graded-wheels',
+						type: 'gpu',
+						effectId: 'gpu-color-wheels',
+						enabled: true,
+						params: { lift: 0.1, gain: 1.4 }
+					}
+				]
+			},
+			{
+				id: 'fresh',
+				trackId: 't',
+				from: 10,
+				durationInFrames: 30,
+				label: '',
+				type: 'image'
+			}
+		]);
+	});
+
+	it('preserves each clip grade and creates missing grades as one undoable edit', () => {
+		expect(
+			setAnimatedGpuEffectParamsOnItems(
+				['graded', 'fresh'],
+				'gpu-color-wheels',
+				15,
+				{ lift: 0.25 },
+				() => false
+			)
+		).toBe(true);
+
+		const graded = getItem('graded').effects?.[0];
+		expect(graded?.type === 'gpu' ? graded.params : null).toMatchObject({
+			lift: 0.25,
+			gain: 1.4
+		});
+		const fresh = getItem('fresh').effects?.find(
+			(effect) => effect.type === 'gpu' && effect.effectId === 'gpu-color-wheels'
+		);
+		expect(fresh?.type === 'gpu' ? fresh.params.lift : null).toBe(0.25);
+		expect(commandHistory.undoStack).toHaveLength(1);
+
+		commandHistory.undo();
+		expect(getItem('graded').effects?.[0]).toMatchObject({
+			params: { lift: 0.1, gain: 1.4 }
+		});
+		expect(getItem('fresh').effects).toBeUndefined();
+	});
+
+	it('keys current resolved grades for existing and first-use effects', () => {
+		expect(
+			setAnimatedGpuEffectParamsOnItems(
+				['graded', 'fresh'],
+				'gpu-color-wheels',
+				20,
+				{ lift: -0.2 },
+				() => true
+			)
+		).toBe(true);
+
+		const graded = getItem('graded');
+		expect(
+			graded.keyframes?.[buildEffectKeyframeProperty('gpu-color-wheels', 'graded-wheels', 'lift')]
+		).toMatchObject({ frames: [10], values: [-0.2] });
+		const fresh = getItem('fresh');
+		const freshEffect = fresh.effects?.find(
+			(effect) => effect.type === 'gpu' && effect.effectId === 'gpu-color-wheels'
+		);
+		if (!freshEffect || freshEffect.type !== 'gpu') throw new Error('missing first-use grade');
+		expect(
+			fresh.keyframes?.[buildEffectKeyframeProperty('gpu-color-wheels', freshEffect.id, 'lift')]
+		).toMatchObject({ frames: [10], values: [-0.2] });
+		expect(commandHistory.undoStack).toHaveLength(1);
 	});
 });

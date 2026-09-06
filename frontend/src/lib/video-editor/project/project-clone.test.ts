@@ -24,6 +24,9 @@ describe('cloneProjectDocument', () => {
 			label: 'launch.mp4',
 			type: 'video',
 			mediaId: 'old-media',
+			fontFamily: 'Launch Sans',
+			fontAssetId: 'old-font',
+			textSpans: [{ text: 'Launch', fontAssetId: 'old-span-font' }],
 			originId: 'lineage',
 			linkedGroupId: 'pair',
 			effects: [
@@ -73,6 +76,15 @@ describe('cloneProjectDocument', () => {
 				],
 				sourceDurationInFrames: 60,
 				createdAt: 1
+			}
+		];
+		project.fontAssets = [
+			{
+				id: 'old-font',
+				sourceAssetId: 'brand-font',
+				family: 'Launch Sans',
+				weight: 400,
+				style: 'normal'
 			}
 		];
 		const follower: TimelineItem = {
@@ -131,7 +143,11 @@ describe('cloneProjectDocument', () => {
 			name: 'Launch backup',
 			now: 500,
 			createId: ids(),
-			mediaIdMap: new Map([['old-media', 'new-media']])
+			mediaIdMap: new Map([
+				['old-media', 'new-media'],
+				['old-font', 'new-font'],
+				['old-span-font', 'new-span-font']
+			])
 		});
 		const [clonedSource, clonedFollower] = clone.timeline!.items;
 		if (!clonedSource || !clonedFollower) throw new Error('Expected cloned items.');
@@ -143,6 +159,17 @@ describe('cloneProjectDocument', () => {
 		});
 		expect(clonedSource.id).not.toBe(source.id);
 		expect(clonedSource.mediaId).toBe('new-media');
+		expect(clonedSource.fontAssetId).toBe('new-font');
+		expect(clonedSource.textSpans?.[0]?.fontAssetId).toBe('new-span-font');
+		expect(clone.fontAssets).toEqual([
+			{
+				id: 'new-font',
+				sourceAssetId: 'brand-font',
+				family: 'Launch Sans',
+				weight: 400,
+				style: 'normal'
+			}
+		]);
 		expect(clonedSource.linkedGroupId).toBe(clonedFollower.linkedGroupId);
 		expect(clonedSource.originId).toBe(clonedFollower.originId);
 		expect(clonedSource.effects?.[0]?.id).not.toBe('effect');

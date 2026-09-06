@@ -42,12 +42,18 @@ import type {
 	ImageEditorBrandKit,
 	ImageEditorBrandTextStyle,
 	ImageEditorLayer,
+	ImageEditorImageAdjustments,
 	ImageEditorPage,
 	ImageEditorPageBackground,
 	ImageEditorSelectionMode,
 	ImageEditorSaveState,
 	ImageEditorTool
 } from './types';
+import {
+	IMAGE_COLOR_GRADE_VERSION,
+	defaultEditorColorGradeAdjustments,
+	type EditorColorGradeAdjustments
+} from '$lib/editor-color-grade/model';
 
 const IMAGE_EDITOR_CONTEXT = Symbol('openpost-image-editor-editor');
 
@@ -78,6 +84,20 @@ interface ImageEditorHistoryContext {
 	panY: number;
 }
 
+interface ImageAdjustmentGesture {
+	beforeDocument: ImageEditorDocument;
+	beforeContext: ImageEditorHistoryContext;
+	layerIDs: string[];
+	key: keyof ImageEditorImageAdjustments;
+}
+
+interface PageColorGradeGesture {
+	beforeDocument: ImageEditorDocument;
+	beforeContext: ImageEditorHistoryContext;
+	pageID: string;
+	key: keyof EditorColorGradeAdjustments;
+}
+
 export interface ImageEditorPartialApplicationResult {
 	applied: number;
 	skippedLocked: number;
@@ -95,7 +115,10 @@ type ImageEditorSize = Pick<ImageEditorLayer['transform'], 'width' | 'height'>;
 export function imageEditorMixedValue<T>(values: readonly T[]): ImageEditorMixedValue<T> {
 	if (values.length === 0) return { value: undefined, mixed: false };
 	const first = values[0];
-	return { value: first, mixed: values.some((value) => !Object.is(value, first)) };
+	return {
+		value: first,
+		mixed: values.some((value) => !Object.is(value, first))
+	};
 }
 
 export class ImageEditorController {
@@ -144,6 +167,9 @@ export class ImageEditorController {
 	rightPanelVisible = $state(true);
 	layersPanelOpen = $state(false);
 	pagesExpanded = $state(true);
+	colorComparisonBefore = $state(false);
+	colorComparisonPage = $state(false);
+	colorComparisonLayerIDs = $state.raw<string[]>([]);
 	brandKit = $state.raw<ImageEditorBrandKit | null>(null);
 	recentColors = $state.raw<string[]>([]);
 	mediaLibraryRevision = $state(0);
@@ -155,6 +181,8 @@ export class ImageEditorController {
 	private selectionAnchorID = '';
 	private viewportWidth = 0;
 	private viewportHeight = 0;
+	private imageAdjustmentGesture: ImageAdjustmentGesture | null = null;
+	private pageColorGradeGesture: PageColorGradeGesture | null = null;
 
 	get activePage(): ImageEditorPage | null {
 		return this.document?.pages.find((page) => page.id === this.activePageID) ?? null;
@@ -281,6 +309,8 @@ export class ImageEditorController {
 		coalesceKey?: string
 	): void {
 		if (!this.document || !this.canEdit) return;
+		if (this.imageAdjustmentGesture) this.commitImageAdjustmentGesture();
+		if (this.pageColorGradeGesture) this.commitPageColorGradeGesture();
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
 		this.history.updateCurrentContext(this.historyContext());
 		const next = this.history.execute(this.document, {
@@ -299,6 +329,123 @@ export class ImageEditorController {
 		this.document = next;
 		this.historyRevision++;
 		this.emitChange();
+	}
+
+	beginImageAdjustmentGesture(
+		layerIDs: readonly string[],
+		key: keyof ImageEditorImageAdjustments
+	): void {
+		if (!this.document || !this.canEdit || this.imageAdjustmentGesture) return;
+		if (this.pageColorGradeGesture) this.commitPageColorGradeGesture();
+		this.imageAdjustmentGesture = {
+			beforeDocument: cloneImageEditorDocument(this.document),
+			beforeContext: this.historyContext(),
+			layerIDs: [...new Set(layerIDs)],
+			key
+		};
+	}
+
+	previewImageAdjustment(
+		layerIDs: readonly string[],
+		key: keyof ImageEditorImageAdjustments,
+		value: number
+	): void {
+		if (!this.document || !this.canEdit) return;
+		this.beginImageAdjustmentGesture(layerIDs, key);
+		const targetIDs = new Set(this.imageAdjustmentGesture?.layerIDs ?? layerIDs);
+		const next = cloneImageEditorDocument(this.document);
+		for (const page of next.pages) {
+			for (const layer of page.layers) {
+				if (!targetIDs.has(layer.id) || layer.locked || !layer.image) continue;
+				layer.image.color_grade_version = IMAGE_COLOR_GRADE_VERSION;
+				layer.image.adjustments = { ...layer.image.adjustments, [key]: value };
+			}
+		}
+		this.document = next;
+		this.historyRevision++;
+	}
+
+	commitImageAdjustmentGesture(): void {
+		const gesture = this.imageAdjustmentGesture;
+		if (!gesture || !this.document) return;
+		this.imageAdjustmentGesture = null;
+		this.history.checkpoint(
+			'Change image color',
+			gesture.beforeDocument,
+			this.document,
+			`image-${gesture.key}:${gesture.layerIDs.join(',')}`,
+			gesture.beforeContext,
+			this.historyContext()
+		);
+		this.historyRevision++;
+		this.emitChange();
+	}
+
+	cancelImageAdjustmentGesture(): void {
+		const gesture = this.imageAdjustmentGesture;
+		if (!gesture) return;
+		this.imageAdjustmentGesture = null;
+		this.document = cloneImageEditorDocument(gesture.beforeDocument);
+		this.restoreHistoryContext(gesture.beforeContext);
+		this.historyRevision++;
+	}
+
+	beginPageColorGradeGesture(pageID: string, key: keyof EditorColorGradeAdjustments): void {
+		if (!this.document || !this.canEdit || this.pageColorGradeGesture) return;
+		if (this.imageAdjustmentGesture) this.commitImageAdjustmentGesture();
+		this.pageColorGradeGesture = {
+			beforeDocument: cloneImageEditorDocument(this.document),
+			beforeContext: this.historyContext(),
+			pageID,
+			key
+		};
+	}
+
+	previewPageColorGrade(
+		pageID: string,
+		key: keyof EditorColorGradeAdjustments,
+		value: number
+	): void {
+		if (!this.document || !this.canEdit) return;
+		this.beginPageColorGradeGesture(pageID, key);
+		const gesture = this.pageColorGradeGesture;
+		if (!gesture) return;
+		const next = cloneImageEditorDocument(this.document);
+		const page = next.pages.find((candidate) => candidate.id === gesture.pageID);
+		if (!page) return;
+		page.color_grade_version = IMAGE_COLOR_GRADE_VERSION;
+		page.color_grade = {
+			...defaultEditorColorGradeAdjustments(),
+			...page.color_grade,
+			[gesture.key]: value
+		};
+		this.document = next;
+		this.historyRevision++;
+	}
+
+	commitPageColorGradeGesture(): void {
+		const gesture = this.pageColorGradeGesture;
+		if (!gesture || !this.document) return;
+		this.pageColorGradeGesture = null;
+		this.history.checkpoint(
+			'Change page color',
+			gesture.beforeDocument,
+			this.document,
+			`page-color-${gesture.key}:${gesture.pageID}`,
+			gesture.beforeContext,
+			this.historyContext()
+		);
+		this.historyRevision++;
+		this.emitChange();
+	}
+
+	cancelPageColorGradeGesture(): void {
+		const gesture = this.pageColorGradeGesture;
+		if (!gesture) return;
+		this.pageColorGradeGesture = null;
+		this.document = cloneImageEditorDocument(gesture.beforeDocument);
+		this.restoreHistoryContext(gesture.beforeContext);
+		this.historyRevision++;
 	}
 
 	undo(): void {
@@ -394,7 +541,12 @@ export class ImageEditorController {
 
 	beginFloatingPixelSelection(
 		mode: 'promote' | 'cut',
-		projections: Array<{ id: string; width: number; height: number; data: Uint8Array }>
+		projections: Array<{
+			id: string;
+			width: number;
+			height: number;
+			data: Uint8Array;
+		}>
 	): boolean {
 		if (!this.document || !this.pixelSelection || projections.length === 0) return false;
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
@@ -427,7 +579,12 @@ export class ImageEditorController {
 	}
 
 	extractPixelSelectionLayers(
-		projections: Array<{ id: string; width: number; height: number; data: Uint8Array }>
+		projections: Array<{
+			id: string;
+			width: number;
+			height: number;
+			data: Uint8Array;
+		}>
 	): ImageEditorLayer[] {
 		if (!this.document || !this.pixelSelection || projections.length === 0) return [];
 		const document = cloneImageEditorDocument(this.document);
@@ -616,7 +773,12 @@ export class ImageEditorController {
 
 	commitPixelSelectionContent(
 		mode: 'promote' | 'cut' | 'delete',
-		projections: Array<{ id: string; width: number; height: number; data: Uint8Array }>
+		projections: Array<{
+			id: string;
+			width: number;
+			height: number;
+			data: Uint8Array;
+		}>
 	): boolean {
 		if (!this.document || !this.pixelSelection || projections.length === 0) return false;
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
@@ -642,7 +804,12 @@ export class ImageEditorController {
 	private applyPixelSelectionContent(
 		document: ImageEditorDocument,
 		mode: 'promote' | 'cut' | 'delete',
-		projections: Array<{ id: string; width: number; height: number; data: Uint8Array }>
+		projections: Array<{
+			id: string;
+			width: number;
+			height: number;
+			data: Uint8Array;
+		}>
 	): string[] {
 		const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 		if (!page) return [];
@@ -1169,7 +1336,8 @@ export class ImageEditorController {
 				intrinsic_pending: !hasIntrinsicSize,
 				fit: 'stretch',
 				crop: { x: 0, y: 0, width: 1, height: 1 },
-				adjustments: defaultImageAdjustments()
+				adjustments: defaultImageAdjustments(),
+				color_grade_version: IMAGE_COLOR_GRADE_VERSION
 			},
 			effects: defaultLayerEffects()
 		};
@@ -1316,7 +1484,9 @@ export class ImageEditorController {
 				const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 				if (!page) return;
 				for (const layer of page.layers.filter((candidate) => ids.has(candidate.id))) {
-					let updates: Partial<ImageEditorLayer['transform']> = { [key]: value };
+					let updates: Partial<ImageEditorLayer['transform']> = {
+						[key]: value
+					};
 					if (key === 'width' || key === 'height') {
 						const nextValue = Math.max(1, Number(value));
 						const ratio = layer.transform.width / Math.max(1, layer.transform.height);

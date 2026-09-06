@@ -506,6 +506,8 @@ export interface AnimationPreset {
 /** Styling for text items and caption rendering. */
 export interface TextStyleFields {
 	fontFamily?: string;
+	/** Project-owned media asset used to restore a custom font independently of the brand kit. */
+	fontAssetId?: string;
 	fontSize?: number;
 	fontWeight?: number;
 	fontStyle?: 'normal' | 'italic';
@@ -535,6 +537,8 @@ export interface TextSpan {
 	text: string;
 	fontSize?: number;
 	fontFamily?: string;
+	/** Project-owned media asset used to restore this span's custom font. */
+	fontAssetId?: string;
 	fontWeight?: number;
 	fontStyle?: 'normal' | 'italic';
 	underline?: boolean;
@@ -670,6 +674,8 @@ export interface TimelineItem
 	durationInFrames: number;
 	label: string;
 	type: TimelineItemKind;
+	/** Dedicated sequence-wide adjustment layer used by the Color workspace. */
+	sequenceColorGrade?: boolean;
 	mediaId?: string;
 	originId?: string;
 	linkedGroupId?: string;
@@ -929,6 +935,15 @@ export interface ProjectResolution {
 	backgroundColor?: string;
 }
 
+/** Immutable source descriptor for one font file collected into the project. */
+export interface ProjectFontAsset {
+	id: string;
+	sourceAssetId?: string;
+	family: string;
+	weight: number;
+	style: 'normal' | 'italic';
+}
+
 export interface Project {
 	id: string;
 	name: string;
@@ -947,6 +962,8 @@ export interface Project {
 	timeline?: ProjectTimeline;
 	/** Saved animation recipes that travel with this project document. */
 	animationPresets?: AnimationPreset[];
+	/** Reusable project-owned fonts, including their source file descriptors. */
+	fontAssets?: ProjectFontAsset[];
 	/**
 	 * Root folder handle for the project's media files. Non-serializable —
 	 * stripped on save and re-attached from the handles registry on load.

@@ -10,14 +10,22 @@
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import ColorPicker from '$lib/components/color-picker.svelte';
-	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
+	import ImageEditorFontPicker from '$lib/components/editor-font-picker.svelte';
+	import ImageColorWorkspace from './image-color-workspace.svelte';
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		EDITOR_COLOR_GRADE_PRESETS,
+		editorColorGradePresetLabel
+	} from '$lib/editor-color-grade/presets';
 	import type { ImageEditorImageAdjustments, ImageEditorTextCurveType } from '../types';
 
-	let { onOpenMedia = () => undefined }: { onOpenMedia?: () => void } = $props();
+	let {
+		onOpenMedia = () => undefined,
+		colorWorkspace = false
+	}: { onOpenMedia?: () => void; colorWorkspace?: boolean } = $props();
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
@@ -198,34 +206,6 @@
 		{ label: m.image_editor_detail(), controls: detailControls }
 	];
 
-	const quickLooks: Array<{
-		key: 'original' | 'crisp' | 'warm' | 'cool' | 'mono';
-		label: string;
-		adjustments: Partial<ImageEditorImageAdjustments>;
-	}> = [
-		{ key: 'original', label: m.image_editor_look_original(), adjustments: {} },
-		{
-			key: 'crisp',
-			label: m.image_editor_look_crisp(),
-			adjustments: { contrast: 0.14, vibrance: 0.12, highlights: -0.08, shadows: 0.08 }
-		},
-		{
-			key: 'warm',
-			label: m.image_editor_look_warm(),
-			adjustments: { temperature: 0.18, tint: 0.04, vibrance: 0.08 }
-		},
-		{
-			key: 'cool',
-			label: m.image_editor_look_cool(),
-			adjustments: { temperature: -0.16, tint: -0.03, contrast: 0.05 }
-		},
-		{
-			key: 'mono',
-			label: m.image_editor_look_mono(),
-			adjustments: { saturation: -1, contrast: 0.12, shadows: 0.08 }
-		}
-	];
-
 	function setAdjustment(key: keyof ImageEditorImageAdjustments, value: number): void {
 		if (!layer?.image) return;
 		editor.updateLayer(
@@ -263,13 +243,15 @@
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
 	<div class="border-b px-3 py-2">
 		<h2 class="text-sm font-medium text-foreground">
-			{m.image_editor_properties()}
+			{colorWorkspace ? m.image_editor_color() : m.image_editor_properties()}
 		</h2>
 	</div>
 	<div
 		class="image-editor-properties-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3"
 	>
-		{#if !layer}
+		{#if colorWorkspace}
+			<ImageColorWorkspace />
+		{:else if !layer}
 			<PageBackgroundEditor {onOpenMedia} />
 		{:else}
 			<div class="space-y-5">
@@ -1237,14 +1219,14 @@
 						<div class="space-y-2">
 							<span class="text-xs font-medium">{m.image_editor_quick_looks()}</span>
 							<div class="grid grid-cols-3 gap-1">
-								{#each quickLooks as look (look.key)}
+								{#each EDITOR_COLOR_GRADE_PRESETS as look (look.id)}
 									<Button
 										variant={lookIsActive(look.adjustments) ? 'secondary' : 'outline'}
 										size="xs"
 										aria-pressed={lookIsActive(look.adjustments)}
 										onclick={() => applyLook(look.adjustments)}
 									>
-										{look.label}
+										{editorColorGradePresetLabel(look.id)}
 									</Button>
 								{/each}
 							</div>

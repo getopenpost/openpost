@@ -56,7 +56,8 @@
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import {
 		collectAdjustmentLayers,
-		effectsForItemAtFrame
+		effectsForItemAtFrame,
+		sequenceColorGradeEffectsAtFrame
 	} from '$lib/video-editor/effects/adjustment-layers';
 	import { isNonNormalBlend } from '$lib/video-editor/effects/gpu/blend-modes';
 	import {
@@ -240,6 +241,7 @@
 	);
 	const needsStackedComposition = $derived(
 		activeTransition !== null ||
+			adjustmentLayers.some(({ layer }) => layer.sequenceColorGrade === true) ||
 			colorPreviewStore.comparisonMode !== 'after' ||
 			colorPreviewStore.activePicker !== null ||
 			colorPreviewStore.frameCaptureItemId !== null ||
@@ -519,12 +521,35 @@
 		item: TimelineItem,
 		layers = adjustmentLayers,
 		orders = trackOrderById,
-		frame = displayFrame
+		frame = displayFrame,
+		excludedColorGradeItemIds: ReadonlySet<string> = new Set()
 	) {
 		return colorPreviewStore.applyEffectDraft(
 			item.id,
-			effectsForItemAtFrame(item, orders.get(item.trackId) ?? 0, layers, frame)
+			effectsForItemAtFrame(
+				item,
+				orders.get(item.trackId) ?? 0,
+				layers,
+				frame,
+				excludedColorGradeItemIds
+			)
 		);
+	}
+
+	function sequenceOutputEffects(frame: number, excludedColorGradeItemIds = new Set<string>()) {
+		return adjustmentLayers
+			.filter(({ layer }) => layer.sequenceColorGrade === true)
+			.toSorted((left, right) => left.trackOrder - right.trackOrder)
+			.flatMap(({ layer }) => {
+				const effects = colorPreviewStore.applyEffectDraft(
+					layer.id,
+					sequenceColorGradeEffectsAtFrame([{ layer, trackOrder: 0 }], frame)
+				);
+				return excludedColorGradeItemIds.has(layer.id)
+					? withoutColorGradeEffects(effects)
+					: effects;
+			})
+			.filter((effect) => effect.enabled);
 	}
 
 	const registerPreviewSource: RegisterPreviewSource = (itemId, provider) => {
@@ -563,6 +588,7 @@
 		const renderStartedAt = performance.now();
 		stack.beginFrame(inputs.width, inputs.height, canvasBackground);
 		const comparisonMode = colorPreviewStore.comparisonMode;
+		const comparisonItemIds = new Set(colorPreviewStore.comparisonItemIds);
 		if (comparisonMode === 'split' && compare) {
 			compare.beginFrame(inputs.width, inputs.height, canvasBackground);
 		}
@@ -594,8 +620,13 @@
 				inputs.width / canvasWidth,
 				inputs.height / canvasHeight
 			);
-			const afterEffects = effectiveEffects(item, inputs.layers, inputs.orders, frame);
-			resolved.effects = beforeColor ? withoutColorGradeEffects(afterEffects) : afterEffects;
+			resolved.effects = effectiveEffects(
+				item,
+				inputs.layers,
+				inputs.orders,
+				frame,
+				beforeColor ? comparisonItemIds : new Set()
+			);
 			return resolved;
 		};
 		const activeMasks = inputs.items
@@ -675,6 +706,16 @@
 				}
 			}
 		}
+		stack.applyOutputEffects(
+			sequenceOutputEffects(frame, comparisonMode === 'before' ? comparisonItemIds : new Set()),
+			frame / editorSession.fps
+		);
+		if (comparisonMode === 'split' && compare) {
+			compare.applyOutputEffects(
+				sequenceOutputEffects(frame, comparisonItemIds),
+				frame / editorSession.fps
+			);
+		}
 		publishStackScope(stackCanvas);
 		const gpu = stack.diagnostics();
 		previewDiagnostics.setGpuStatus(gpu.webgl2Ready, gpu.webgpuTransitionsReady);
@@ -682,9 +723,11 @@
 	}
 
 	function publishStackScope(canvas: HTMLCanvasElement | null): void {
-		if (!canvas || !selectedItemId) return;
+		const sampleItemId =
+			colorPreviewStore.frameCaptureItemId ?? colorPreviewStore.scopeSampleItemId;
+		if (!canvas || !sampleItemId) return;
 		const now = performance.now();
-		const captureRequested = colorPreviewStore.frameCaptureItemId === selectedItemId;
+		const captureRequested = colorPreviewStore.frameCaptureItemId === sampleItemId;
 		if (!captureRequested && now - lastStackScopeAt < (isPlaying ? 66 : 200)) return;
 		lastStackScopeAt = now;
 		const sample = new OffscreenCanvas(256, 144);
@@ -695,10 +738,10 @@
 		try {
 			context.drawImage(canvas, 0, 0, 256, 144);
 			const image = captureRequested ? context.getImageData(0, 0, 256, 144) : null;
-			scopeSamples.publishCanvas(selectedItemId, sample, image);
-			if (image) colorPreviewStore.resolveFrameCapture(selectedItemId, image);
+			scopeSamples.publishCanvas(sampleItemId, sample, image);
+			if (image) colorPreviewStore.resolveFrameCapture(sampleItemId, image);
 		} catch {
-			scopeSamples.clear(selectedItemId);
+			scopeSamples.clear(sampleItemId);
 		}
 	}
 

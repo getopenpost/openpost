@@ -10,7 +10,7 @@ import { createLogger } from './workspace-fs/logger';
 import { getMediaForProject } from './workspace-fs/project-media';
 import { updateProject } from './workspace-fs/projects';
 import { getProject } from './workspace-fs/projects';
-import type { AnimationPreset, Project } from './project/types';
+import type { AnimationPreset, Project, ProjectFontAsset } from './project/types';
 import { cloneAnimationPreset, normalizeAnimationPresets } from './project/animation-presets';
 import { timelineStore } from './timeline/stores/timeline-store.svelte';
 import { commandHistory } from './timeline/commands/command-store.svelte';
@@ -23,6 +23,7 @@ import { mediaRecovery } from './media/media-recovery.svelte';
 import { PeriodicAutosaveController } from './settings/periodic-autosave';
 import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
 import { unsupportedProjectSchemaVersion } from './project/project-editability';
+import { loadProjectFontAssets } from './typography/project-font-assets';
 import { m } from '$lib/paraglide/messages';
 import {
 	CloudVideoProjectConflictError,
@@ -45,6 +46,8 @@ class EditorSession {
 	saving = $state(false);
 	saveError = $state('');
 	saveConflict = $state(false);
+	projectDirty = $state(false);
+	missingFontAssetIds = $state<string[]>([]);
 
 	clock = new Clock({ fps: 30, canSeek: () => !timelineStore.seekLocked });
 	private transport = $state<ReactiveTransportState>({
@@ -60,7 +63,7 @@ class EditorSession {
 	private saveRequested = false;
 	private saveLoop: Promise<void> | null = null;
 	private readonly periodicAutosave = new PeriodicAutosaveController(
-		() => timelineStore.isDirty,
+		() => timelineStore.isDirty || this.projectDirty,
 		() => this.saveNow(),
 		(error) => {
 			this.saveError = error instanceof Error ? error.message : String(error);
@@ -124,7 +127,9 @@ class EditorSession {
 		this.loadError = '';
 		this.saveError = '';
 		this.saveConflict = false;
+		this.projectDirty = false;
 		this.saveRequested = false;
+		this.missingFontAssetIds = [];
 		try {
 			sceneBrowser.reset();
 			mediaPool.clear();
@@ -159,6 +164,10 @@ class EditorSession {
 					? await this.cloudRepository.listMedia(projectId)
 					: await getMediaForProject(projectId);
 			mediaPool.loadAll(media);
+			this.missingFontAssetIds = await loadProjectFontAssets(project, media);
+			if (this.missingFontAssetIds.length > 0) {
+				logger.warn(`Could not restore ${this.missingFontAssetIds.length} project font asset(s)`);
+			}
 			await mediaRecovery.scan(media, timelineStore.items);
 			this.configurePeriodicAutosave();
 		} catch (error) {
@@ -225,7 +234,7 @@ class EditorSession {
 	}
 
 	async flushAutosave(): Promise<void> {
-		if (!this.saveRequested && !timelineStore.isDirty) return;
+		if (!this.saveRequested && !timelineStore.isDirty && !this.projectDirty) return;
 		await this.saveNow();
 	}
 
@@ -242,6 +251,7 @@ class EditorSession {
 			cloneAnimationPreset(preset)
 		].toSorted((left, right) => right.createdAt - left.createdAt);
 		this.project = { ...this.project, animationPresets: next };
+		this.projectDirty = true;
 		this.scheduleAutosave();
 	}
 
@@ -250,12 +260,27 @@ class EditorSession {
 		const next = (this.project.animationPresets ?? []).filter((preset) => preset.id !== presetId);
 		if (next.length === (this.project.animationPresets ?? []).length) return;
 		this.project = { ...this.project, animationPresets: next };
+		this.projectDirty = true;
+		this.scheduleAutosave();
+	}
+
+	registerProjectFontAsset(asset: ProjectFontAsset): void {
+		if (!this.projectState) return;
+		const current = this.projectState.fontAssets ?? [];
+		const previous = current.find((entry) => entry.id === asset.id);
+		if (previous && JSON.stringify(previous) === JSON.stringify(asset)) return;
+		this.projectState = {
+			...this.projectState,
+			fontAssets: [...current.filter((entry) => entry.id !== asset.id), { ...asset }]
+		};
+		this.projectDirty = true;
 		this.scheduleAutosave();
 	}
 
 	renameProject(name: string): void {
 		if (!this.projectState || this.projectState.name === name) return;
 		this.projectState = { ...this.projectState, name };
+		this.projectDirty = true;
 		this.scheduleAutosave();
 	}
 
@@ -297,7 +322,8 @@ class EditorSession {
 						) / project.metadata.fps,
 					timeline,
 					metadata: project.metadata,
-					animationPresets: project.animationPresets
+					animationPresets: project.animationPresets,
+					fontAssets: project.fontAssets
 				};
 				if (this.cloudProject && this.cloudRepository) {
 					const nextProject = {
@@ -315,6 +341,7 @@ class EditorSession {
 				this.saveConflict = false;
 				if (!this.saveRequested) {
 					timelineStore._clearDirty();
+					this.projectDirty = false;
 				}
 			} catch (error) {
 				this.saveError = error instanceof Error ? error.message : String(error);

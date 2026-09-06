@@ -75,6 +75,33 @@ describe('OpenPost Image Editor revision summaries', () => {
 		);
 	});
 
+	it('reports a page output grade as a page change', () => {
+		const current = blankImageEditorDocument({
+			key: 'instagram-square',
+			name: 'Square',
+			width_px: 1080,
+			height_px: 1080,
+			default_format: 'png',
+			profiles: []
+		});
+		const target = structuredClone(current);
+		target.pages[0]!.color_grade_version = 1;
+		target.pages[0]!.color_grade = {
+			brightness: 0,
+			contrast: 0.25,
+			saturation: 0,
+			temperature: 0,
+			tint: 0,
+			vibrance: 0,
+			hue: 0,
+			exposure: 0,
+			highlights: 0,
+			shadows: 0
+		};
+
+		expect(summarizeImageEditorRevision(current, target).pagesChanged).toBe(1);
+	});
+
 	it('keeps a cover-only revision restorable', () => {
 		const current = blankImageEditorDocument({
 			key: 'instagram-square',

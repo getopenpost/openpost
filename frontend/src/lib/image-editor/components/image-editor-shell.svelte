@@ -13,6 +13,9 @@
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
+	import EditorMenubar from '$lib/components/editor-menubar.svelte';
+	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
+	import EditorWorkspaceTabs from '$lib/components/editor-workspace-tabs.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -310,6 +313,7 @@
 	let backgroundError = $state('');
 	let backgroundOptimizeDialogOpen = $state(false);
 	let mobileSheet = $state<'assets' | 'layers' | 'properties' | null>(null);
+	let activeEditorWorkspace = $state<'edit' | 'color'>('edit');
 	let focusedCanvas = $state(false);
 	let copiedLayers = $state.raw<ImageEditorLayer[]>([]);
 	let pixelSelectionActions = $state.raw<PixelSelectionActions | null>(null);
@@ -2687,10 +2691,7 @@
 		>
 			<ThemeIcon role="arrow-left" />
 		</Button>
-		<Menubar.Root
-			class="ml-1 hidden h-8 gap-0 border-0 bg-transparent p-0 lg:flex"
-			aria-label={m.image_editor_menus()}
-		>
+		<EditorMenubar class="ml-1" ariaLabel={m.image_editor_menus()}>
 			<Menubar.Menu value="file">
 				<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
 				<Menubar.Content class="min-w-48">
@@ -2812,12 +2813,38 @@
 					{/each}
 				</Menubar.Content>
 			</Menubar.Menu>
-		</Menubar.Root>
+		</EditorMenubar>
+		<EditorWorkspaceTabs
+			value={activeEditorWorkspace}
+			options={[
+				{
+					id: 'edit',
+					label: m.image_editor_edit(),
+					emblem: { kind: 'theme', role: 'edit' }
+				},
+				{
+					id: 'color',
+					label: m.image_editor_color(),
+					emblem: { kind: 'theme', role: 'appearance' }
+				}
+			]}
+			ariaLabel={m.editor_workspaces()}
+			idPrefix="image-editor-workspace-tab"
+			panelId="image-editor-workspace-panel"
+			onvaluechange={(workspace) => {
+				activeEditorWorkspace = workspace === 'color' ? 'color' : 'edit';
+				if (activeEditorWorkspace === 'color') {
+					editor.rightPanelVisible = true;
+					if (window.innerWidth < 1024) mobileSheet = 'properties';
+				}
+			}}
+		/>
 		<SaveIndicator
 			saving={editor.saveState === 'saving'}
 			saved={editor.saveState === 'saved'}
 			savingLabel={m.common_saving()}
 			savedLabel={guestMode ? m.image_editor_public_saved_device() : m.image_editor_saved()}
+			class="max-[359px]:hidden"
 			testId="image-editor-save-indicator"
 		/>
 		{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
@@ -2829,23 +2856,19 @@
 				<span class="truncate">{editor.saveMessage}</span>
 			</div>
 		{/if}
-		<Input
+		<EditorTitleInput
 			value={editor.document?.title ?? ''}
 			class="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 font-medium hover:border-input focus:border-input max-[359px]:hidden sm:max-w-56 sm:flex-none md:h-11 lg:ml-auto lg:h-8 lg:max-w-72"
-			aria-label={m.image_editor_design_title()}
+			ariaLabel={m.image_editor_design_title()}
 			disabled={!editor.canEdit}
-			oninput={(event) =>
-				editor.mutate(
-					'Rename design',
-					(document) => (document.title = event.currentTarget.value),
-					'document-title'
-				)}
+			onchange={(value) =>
+				editor.mutate('Rename design', (document) => (document.title = value), 'document-title')}
 		/>
 		<div class="flex items-center gap-1">
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				class="size-11 md:size-11 lg:size-8"
+				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
 				onclick={undoEditor}
 				disabled={!editor.canUndo}
 				aria-label={editor.undoLabel
@@ -2855,7 +2878,7 @@
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				class="size-11 md:size-11 lg:size-8"
+				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
 				onclick={redoEditor}
 				disabled={!editor.canRedo}
 				aria-label={editor.redoLabel
@@ -2877,6 +2900,22 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
+					<div class="w-64 p-1 min-[360px]:hidden">
+						<EditorTitleInput
+							value={editor.document?.title ?? ''}
+							class="h-11 w-full"
+							ariaLabel={m.image_editor_design_title()}
+							disabled={!editor.canEdit}
+							onkeydown={(event) => event.stopPropagation()}
+							onchange={(value) =>
+								editor.mutate(
+									'Rename design',
+									(document) => (document.title = value),
+									'document-title'
+								)}
+						/>
+					</div>
+					<DropdownMenu.Separator class="min-[360px]:hidden" />
 					{#each imageEditorCommandsForCategory('edit').filter((command) => command.id === 'undo' || command.id === 'redo') as command (command.id)}
 						<DropdownMenu.Item
 							onclick={() => executeEditorCommand(command.id)}
@@ -3103,9 +3142,13 @@
 	{/if}
 
 	<div
+		id="image-editor-workspace-panel"
+		role="tabpanel"
+		aria-labelledby={`image-editor-workspace-tab-${activeEditorWorkspace}`}
 		class="image-editor-workspace grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]"
 		data-focused={focusedCanvas}
 		data-inspector={editor.rightPanelVisible}
+		data-workspace={activeEditorWorkspace}
 		style:--image-editor-assets-width={`${assetPanelWidth}px`}
 		style:--image-editor-inspector-width={`${inspectorPanelWidth}px`}
 	>
@@ -3399,7 +3442,7 @@
 				{/if}
 			{/each}
 		</nav>
-		{#if !focusedCanvas}
+		{#if !focusedCanvas && activeEditorWorkspace === 'edit'}
 			<aside class="relative hidden min-h-0 min-w-0 border-r bg-background lg:block">
 				<div class="size-full min-h-0 overflow-hidden"><AssetPanel {guestMode} /></div>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -3538,7 +3581,10 @@
 					}}
 				></div>
 				<div class="min-h-0 min-w-0 overflow-hidden">
-					<PropertiesPanel onOpenMedia={openBackgroundMediaPicker} />
+					<PropertiesPanel
+						onOpenMedia={openBackgroundMediaPicker}
+						colorWorkspace={activeEditorWorkspace === 'color'}
+					/>
 				</div>
 			</aside>
 		{/if}
@@ -3875,7 +3921,10 @@
 			{:else if mobileSheet === 'layers'}
 				<LayerTree />
 			{:else if mobileSheet === 'properties'}
-				<PropertiesPanel onOpenMedia={openBackgroundMediaPicker} />
+				<PropertiesPanel
+					onOpenMedia={openBackgroundMediaPicker}
+					colorWorkspace={activeEditorWorkspace === 'color'}
+				/>
 			{/if}
 		</div>
 	</Sheet.Content>
@@ -4634,6 +4683,10 @@
 
 		.image-editor-workspace[data-inspector='false'] {
 			grid-template-columns: 44px var(--image-editor-assets-width) minmax(0, 1fr);
+		}
+
+		.image-editor-workspace[data-workspace='color'] {
+			grid-template-columns: 44px minmax(0, 1fr) var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-focused='true'] {

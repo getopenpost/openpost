@@ -109,6 +109,7 @@ export function setTextItemLayout(itemId: string, layout: TextLayoutMode): boole
 			label: buildTextItemLabelFromText(single.text),
 			fontSize: single.fontSize,
 			fontFamily: single.fontFamily,
+			fontAssetId: single.fontAssetId,
 			fontWeight: single.fontWeight,
 			fontStyle: single.fontStyle,
 			underline: single.underline,

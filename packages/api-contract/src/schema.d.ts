@@ -8704,6 +8704,28 @@ export interface components {
             line_height: number;
             name: string;
         };
+        ImageEditorColorGrade: {
+            /** Format: double */
+            brightness: number;
+            /** Format: double */
+            contrast: number;
+            /** Format: double */
+            exposure: number;
+            /** Format: double */
+            highlights: number;
+            /** Format: double */
+            hue: number;
+            /** Format: double */
+            saturation: number;
+            /** Format: double */
+            shadows: number;
+            /** Format: double */
+            temperature: number;
+            /** Format: double */
+            tint: number;
+            /** Format: double */
+            vibrance: number;
+        };
         ImageEditorCrop: {
             /** Format: double */
             height: number;
@@ -8823,6 +8845,11 @@ export interface components {
         };
         ImageEditorImageValue: {
             adjustments: components["schemas"]["ImageEditorImageAdjustments"];
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            color_grade_version?: 1;
             crop: components["schemas"]["ImageEditorCrop"];
             /** @enum {string} */
             fit: "cover" | "contain" | "stretch";
@@ -8888,6 +8915,12 @@ export interface components {
         ImageEditorPagePayload: {
             background?: components["schemas"]["ImageEditorPageBackground"];
             background_color: string;
+            color_grade?: components["schemas"]["ImageEditorColorGrade"];
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            color_grade_version?: 1;
             guides?: components["schemas"]["ImageEditorPageGuides"];
             id: string;
             latest_export_media_id?: string;

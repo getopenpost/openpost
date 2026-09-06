@@ -133,7 +133,7 @@ describe('createBlankProject', () => {
 		];
 
 		const result = migrateProjectDocument(stored);
-		expect(result.appliedMigrations).toEqual([2, 3, 4, 5, 6]);
+		expect(result.appliedMigrations).toEqual([2, 3, 4, 5, 6, 7]);
 		expect(result.project.timeline?.tracks.map((track) => [track.id, track.order])).toEqual([
 			['earlier', 0],
 			['later', 1]

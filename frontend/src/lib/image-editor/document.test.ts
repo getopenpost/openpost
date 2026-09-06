@@ -49,6 +49,29 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(validateImageEditorDocument(document)).toContain('Page 1 has invalid guides.');
 	});
 
+	it('validates versioned page output grades', () => {
+		const document = blankImageEditorDocument(preset);
+		document.pages[0].color_grade = {
+			brightness: 0.1,
+			contrast: 0,
+			saturation: 0,
+			temperature: 0,
+			tint: 0,
+			vibrance: 0,
+			hue: 0,
+			exposure: 0,
+			highlights: 0,
+			shadows: 0
+		};
+		expect(validateImageEditorDocument(document)).toContain('Page 1 has an invalid color grade.');
+
+		document.pages[0].color_grade_version = 1;
+		expect(validateImageEditorDocument(document)).toEqual([]);
+
+		document.pages[0].color_grade.contrast = 1.1;
+		expect(validateImageEditorDocument(document)).toContain('Page 1 has an invalid color grade.');
+	});
+
 	it('supports transparent, gradient, and image page backgrounds', () => {
 		const document = blankImageEditorDocument(preset);
 		document.pages[0].background = { type: 'transparent', opacity: 0 };
@@ -117,7 +140,10 @@ describe('OpenPost Image Editor document contracts', () => {
 
 	it('opens newer documents read-only without rewriting them', () => {
 		const document = blankImageEditorDocument(preset);
-		const result = migrateImageEditorDocument({ ...document, schema_version: 99 });
+		const result = migrateImageEditorDocument({
+			...document,
+			schema_version: 99
+		});
 		expect(result.readOnly).toBe(true);
 		expect(result.document?.schema_version).toBe(99);
 		expect(result.error).toContain('newer OpenPost version');

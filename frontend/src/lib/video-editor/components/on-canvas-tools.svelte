@@ -10,6 +10,7 @@
 		TimelineItemCornerPin
 	} from '$lib/video-editor/project/types';
 	import { loadedTextFontFamily } from '$lib/video-editor/typography/text-style';
+	import { editorFontAssetFamily } from '$lib/editor-font-identity';
 	import {
 		buildMotionPathPoints,
 		calculateAnchorDrag,
@@ -750,7 +751,9 @@
 			...item.textSpans.map((span) => {
 				const line = document.createElement('div');
 				line.textContent = span.text;
-				line.style.fontFamily = `"${loadedTextFontFamily(span.fontFamily ?? item.fontFamily ?? 'Inter')}", sans-serif`;
+				const displayFamily = span.fontFamily ?? item.fontFamily ?? 'Inter';
+				const assetID = span.fontAssetId ?? (span.fontFamily ? undefined : item.fontAssetId);
+				line.style.fontFamily = `"${assetID ? editorFontAssetFamily(displayFamily, assetID) : loadedTextFontFamily(displayFamily)}", sans-serif`;
 				line.style.fontSize = `${((span.fontSize ?? item.fontSize ?? Math.max(18, height / 15)) / canvasWidth) * 100}cqw`;
 				line.style.fontWeight = String(span.fontWeight ?? item.fontWeight ?? 600);
 				line.style.fontStyle = span.fontStyle ?? item.fontStyle ?? 'normal';
@@ -1285,7 +1288,7 @@
 			bind:this={textEditor}
 			class="pointer-events-auto absolute z-10 flex overflow-hidden border border-[oklch(0.78_0.16_45)] bg-black/10 whitespace-pre-wrap text-white caret-[oklch(0.78_0.16_45)] shadow-[0_0_0_1px_black] focus:outline-none"
 			style={boxStyle}
-			style:font-family={`"${loadedTextFontFamily(item.fontFamily ?? 'Inter')}", sans-serif`}
+			style:font-family={`"${item.fontAssetId ? editorFontAssetFamily(item.fontFamily ?? 'Inter', item.fontAssetId) : loadedTextFontFamily(item.fontFamily ?? 'Inter')}", sans-serif`}
 			style:font-size={`${((item.fontSize ?? Math.max(18, height / 15)) / canvasWidth) * 100}cqw`}
 			style:font-weight={item.fontWeight ?? 600}
 			style:font-style={item.fontStyle ?? 'normal'}

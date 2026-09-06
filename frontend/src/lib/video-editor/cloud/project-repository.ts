@@ -383,11 +383,13 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			for (const item of data.media ?? []) {
 				const asset = readyByMediaId.get(item.id);
 				if (!asset) continue;
-				const mediaKind = item.mime_type.startsWith('audio/')
-					? 'audio'
-					: item.mime_type.startsWith('image/')
-						? 'image'
-						: 'video';
+				const mediaKind = item.mime_type.startsWith('font/')
+					? 'font'
+					: item.mime_type.startsWith('audio/')
+						? 'audio'
+						: item.mime_type.startsWith('image/')
+							? 'image'
+							: 'video';
 				media.push({
 					id: asset.stable_media_id,
 					storageType: 'cloud',

@@ -1,8 +1,10 @@
 /** Adjustment-layer scope and effect ordering shared by preview and export. */
 
 import type { ItemEffect } from './types';
+import { resolveAnimatedEffectsAt } from './effect-keyframes';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
+import { withoutColorGradeEffects } from './color-grade';
 
 export interface AdjustmentLayerScope {
 	layer: TimelineItem;
@@ -23,7 +25,8 @@ export function collectAdjustmentLayers(
 			.map((track) => track.id)
 	);
 	return items.flatMap((item) =>
-		item.type === 'adjustment' && visibleTracks.has(item.trackId)
+		item.type === 'adjustment' &&
+		(item.sequenceColorGrade === true || visibleTracks.has(item.trackId))
 			? [{ layer: item, trackOrder: orderByTrack.get(item.trackId) ?? 0 }]
 			: []
 	);
@@ -37,16 +40,40 @@ export function effectsForItemAtFrame(
 	item: TimelineItem,
 	itemTrackOrder: number,
 	adjustmentLayers: readonly AdjustmentLayerScope[],
-	frame: number
+	frame: number,
+	excludedColorGradeItemIds: ReadonlySet<string> = new Set()
 ): ItemEffect[] {
 	const adjustmentEffects = adjustmentLayers
 		.filter(
 			({ layer, trackOrder }) =>
 				itemTrackOrder > trackOrder &&
+				layer.sequenceColorGrade !== true &&
 				frame >= layer.from &&
 				frame < layer.from + layer.durationInFrames
 		)
 		.toSorted((left, right) => left.trackOrder - right.trackOrder)
-		.flatMap(({ layer }) => (layer.effects ?? []).filter((effect) => effect.enabled));
-	return [...adjustmentEffects, ...(item.effects ?? []).filter((effect) => effect.enabled)];
+		.flatMap(({ layer }) => {
+			const effects = (layer.effects ?? []).filter((effect) => effect.enabled);
+			return excludedColorGradeItemIds.has(layer.id) ? withoutColorGradeEffects(effects) : effects;
+		});
+	const itemEffects = (item.effects ?? []).filter((effect) => effect.enabled);
+	return [
+		...adjustmentEffects,
+		...(excludedColorGradeItemIds.has(item.id)
+			? withoutColorGradeEffects(itemEffects)
+			: itemEffects)
+	];
+}
+
+/** Resolve sequence-owned effects once, after the frame has been composited. */
+export function sequenceColorGradeEffectsAtFrame(
+	adjustmentLayers: readonly AdjustmentLayerScope[],
+	frame: number
+): ItemEffect[] {
+	return adjustmentLayers
+		.filter(({ layer }) => layer.sequenceColorGrade === true)
+		.toSorted((left, right) => left.trackOrder - right.trackOrder)
+		.flatMap(({ layer }) =>
+			(resolveAnimatedEffectsAt(layer, frame) ?? []).filter((effect) => effect.enabled)
+		);
 }

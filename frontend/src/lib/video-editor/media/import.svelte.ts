@@ -262,6 +262,45 @@ export async function importCopiedFile(
 	return importFile(handle, { ...options, storageMode: 'copy' });
 }
 
+/** Collect a validated custom font without routing it through the audio/video probe. */
+export async function importCollectedFont(
+	file: File,
+	options: {
+		projectId: string;
+		attribution?: MediaAttribution;
+	}
+): Promise<MediaMetadata> {
+	const root = requireWorkspaceRoot();
+	const id = crypto.randomUUID();
+	const fileName = sanitizeWorkspaceFileName(file.name);
+	const metadata: MediaMetadata = {
+		id,
+		storageType: 'workspace',
+		fileName,
+		fileSize: file.size,
+		mimeType: file.type || 'application/octet-stream',
+		duration: 0,
+		width: 0,
+		height: 0,
+		fps: 0,
+		codec: 'font',
+		bitrate: 0,
+		attribution: options.attribution,
+		tags: ['font']
+	};
+	try {
+		await writeBlob(root, mediaSourceByFileName(id, fileName), file);
+		await createMedia(metadata);
+		await writeJsonAtomic(root, mediaMetadataPath(id), metadata);
+		await associateMediaWithProject(options.projectId, id);
+		mediaPool.upsert(metadata, 'ready');
+		return metadata;
+	} catch (error) {
+		await rollbackNewGeneratedMedia(options.projectId, id);
+		throw error;
+	}
+}
+
 const MAX_REMOTE_LOTTIE_BYTES = 20 * 1024 * 1024;
 
 /** Download one public LottieFiles animation into the local workspace. */

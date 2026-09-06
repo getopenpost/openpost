@@ -8066,6 +8066,84 @@
 				],
 				"type": "object"
 			},
+			"ImageEditorColorGrade": {
+				"additionalProperties": false,
+				"properties": {
+					"brightness": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"contrast": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"exposure": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"highlights": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"hue": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"saturation": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"shadows": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"temperature": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"tint": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					},
+					"vibrance": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": -1,
+						"type": "number"
+					}
+				},
+				"required": [
+					"brightness",
+					"contrast",
+					"saturation",
+					"temperature",
+					"tint",
+					"vibrance",
+					"hue",
+					"exposure",
+					"highlights",
+					"shadows"
+				],
+				"type": "object"
+			},
 			"ImageEditorCrop": {
 				"additionalProperties": false,
 				"properties": {
@@ -8424,6 +8502,11 @@
 					"adjustments": {
 						"$ref": "#/components/schemas/ImageEditorImageAdjustments"
 					},
+					"color_grade_version": {
+						"enum": [1],
+						"format": "int64",
+						"type": "integer"
+					},
 					"crop": {
 						"$ref": "#/components/schemas/ImageEditorCrop"
 					},
@@ -8613,6 +8696,14 @@
 					},
 					"background_color": {
 						"type": "string"
+					},
+					"color_grade": {
+						"$ref": "#/components/schemas/ImageEditorColorGrade"
+					},
+					"color_grade_version": {
+						"enum": [1],
+						"format": "int64",
+						"type": "integer"
 					},
 					"guides": {
 						"$ref": "#/components/schemas/ImageEditorPageGuides"

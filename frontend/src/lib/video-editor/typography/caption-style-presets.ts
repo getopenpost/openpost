@@ -210,6 +210,7 @@ export function resolveCaptionStylePatch(
 ): CaptionStylePatch {
 	return {
 		...preset.style,
+		fontAssetId: undefined,
 		fontSize: Math.max(8, Math.round(canvasHeight * preset.layout.fontSizeRatio)),
 		transform: {
 			...baseTransform,

@@ -3,6 +3,7 @@ import type { ItemEffect } from './types';
 import {
 	autoBalanceFromFrame,
 	blackPointFromPick,
+	hasEnabledColorGrade,
 	replaceColorGradeInStack,
 	snapshotColorGrade,
 	whiteBalanceFromPick,
@@ -15,11 +16,22 @@ function grade(id: string, effectId = 'gpu-color-wheels'): ItemEffect {
 }
 
 describe('color grade stacks', () => {
+	it('offers comparison only when at least one grade is enabled', () => {
+		expect(hasEnabledColorGrade([grade('enabled')])).toBe(true);
+		expect(hasEnabledColorGrade([{ ...grade('disabled'), enabled: false }])).toBe(false);
+	});
+
 	it('replaces color effects in place and preserves non-grade effects', () => {
 		const current: ItemEffect[] = [
 			{ id: 'css', type: 'blur', amount: 2, enabled: true },
 			grade('old-wheels'),
-			{ id: 'blur', type: 'gpu', effectId: 'gpu-gaussian-blur', params: {}, enabled: true },
+			{
+				id: 'blur',
+				type: 'gpu',
+				effectId: 'gpu-gaussian-blur',
+				params: {},
+				enabled: true
+			},
 			grade('old-curves', 'gpu-curves')
 		];
 		let id = 0;
@@ -27,7 +39,11 @@ describe('color grade stacks', () => {
 			current,
 			[
 				{ effectId: 'gpu-color-wheels', params: { gain: 1.4 }, enabled: true },
-				{ effectId: 'gpu-curves', params: { masterShadowY: 0.1 }, enabled: false }
+				{
+					effectId: 'gpu-curves',
+					params: { masterShadowY: 0.1 },
+					enabled: false
+				}
 			],
 			() => `new-${++id}`
 		);
@@ -35,7 +51,11 @@ describe('color grade stacks', () => {
 		expect(next.map((effect) => effect.id)).toEqual(['css', 'new-1', 'new-2', 'blur']);
 		expect(snapshotColorGrade(next)).toEqual([
 			{ effectId: 'gpu-color-wheels', params: { gain: 1.4 }, enabled: true },
-			{ effectId: 'gpu-curves', params: { masterShadowY: 0.1 }, enabled: false }
+			{
+				effectId: 'gpu-curves',
+				params: { masterShadowY: 0.1 },
+				enabled: false
+			}
 		]);
 		expect(withoutColorGradeEffects(next).map((effect) => effect.id)).toEqual(['css', 'blur']);
 	});

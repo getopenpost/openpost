@@ -2,6 +2,7 @@
 
 import type { TextSpan, TimelineItem } from '../project/types';
 import { getTextItemSpans } from './text-item-spans';
+import { editorFontAssetFamily } from '$lib/editor-font-identity';
 
 export const TEXT_DEFAULTS = {
 	fontSize: 60,
@@ -52,6 +53,7 @@ export type TextStyleInput = Pick<
 	| 'spanLayout'
 	| 'fontSize'
 	| 'fontFamily'
+	| 'fontAssetId'
 	| 'fontWeight'
 	| 'fontStyle'
 	| 'underline'
@@ -123,7 +125,11 @@ export function resolveSpanStyles(item: TextStyleInput): ResolvedSpanStyle[] {
 
 	return getTextItemSpans(item).map((span: TextSpan) => {
 		const fontSize = span.fontSize ?? itemFontSize;
-		const fontFamily = span.fontFamily ?? itemFontFamily;
+		const displayFontFamily = span.fontFamily ?? itemFontFamily;
+		const fontAssetId = span.fontAssetId ?? (span.fontFamily ? undefined : item.fontAssetId);
+		const fontFamily = fontAssetId
+			? editorFontAssetFamily(displayFontFamily, fontAssetId)
+			: displayFontFamily;
 		const fontStyle = span.fontStyle ?? itemFontStyle;
 		const fontWeight = span.fontWeight ?? itemFontWeight;
 		return {

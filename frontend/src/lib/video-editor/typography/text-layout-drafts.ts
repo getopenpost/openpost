@@ -16,6 +16,7 @@ type SingleDraftSource = Pick<
 	| 'textSpans'
 	| 'fontSize'
 	| 'fontFamily'
+	| 'fontAssetId'
 	| 'fontWeight'
 	| 'fontStyle'
 	| 'underline'
@@ -59,6 +60,7 @@ export function buildEditableBaseSpans(item: SingleDraftSource): TextSpan[] {
 			text: item.text ?? '',
 			fontSize: item.fontSize,
 			fontFamily: item.fontFamily,
+			fontAssetId: item.fontAssetId,
 			fontWeight: item.fontWeight,
 			fontStyle: item.fontStyle,
 			underline: item.underline,
@@ -75,6 +77,7 @@ export function buildTextSingleLayoutDraft(item: SingleDraftSource): TextSingleL
 			text: primarySpan.text ?? '',
 			fontSize: primarySpan.fontSize ?? item.fontSize,
 			fontFamily: primarySpan.fontFamily ?? item.fontFamily,
+			fontAssetId: primarySpan.fontAssetId ?? item.fontAssetId,
 			fontWeight: primarySpan.fontWeight ?? item.fontWeight,
 			fontStyle: primarySpan.fontStyle ?? item.fontStyle,
 			underline: primarySpan.underline ?? item.underline,
@@ -87,6 +90,7 @@ export function buildTextSingleLayoutDraft(item: SingleDraftSource): TextSingleL
 		text: item.text ?? '',
 		fontSize: item.fontSize,
 		fontFamily: item.fontFamily,
+		fontAssetId: item.fontAssetId,
 		fontWeight: item.fontWeight,
 		fontStyle: item.fontStyle,
 		underline: item.underline,

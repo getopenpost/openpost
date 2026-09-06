@@ -83,6 +83,51 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 	return media;
 }
 
+/** Upload a custom font as a project-owned asset without media probing. */
+export async function importCloudProjectFontFile<TDocument extends object>(options: {
+	projectId: string;
+	repository: CloudVideoProjectRepository<TDocument>;
+	file: File;
+}): Promise<MediaMetadata> {
+	const stableMediaId = crypto.randomUUID();
+	const contentHash = await hashBlob(options.file);
+	const projectAssetId = await options.repository.reserveAsset(options.projectId, {
+		stableMediaId,
+		fileName: options.file.name,
+		mimeType: options.file.type || 'application/octet-stream',
+		size: options.file.size,
+		sha256: contentHash
+	});
+	const uploaded = await uploadMediaFile({
+		workspaceId: options.repository.workspaceId,
+		file: options.file,
+		source: 'video_editor_source',
+		assetKind: 'project_asset',
+		retentionClass: 'temporary',
+		projectAssetId,
+		clientSHA256: contentHash,
+		prepareVideo: false
+	});
+	const media: MediaMetadata = {
+		id: stableMediaId,
+		storageType: 'cloud',
+		remoteUrl: uploaded.url,
+		contentHash,
+		fileName: options.file.name,
+		fileSize: options.file.size,
+		mimeType: options.file.type || 'application/octet-stream',
+		duration: 0,
+		width: 0,
+		height: 0,
+		fps: 0,
+		codec: 'font',
+		bitrate: 0,
+		tags: ['font']
+	};
+	mediaPool.upsert(media, 'ready');
+	return media;
+}
+
 export async function importCloudProjectAssetsFromPicker<TDocument extends object>(
 	options: CloudProjectAssetImportOptions<TDocument>
 ): Promise<string[]> {

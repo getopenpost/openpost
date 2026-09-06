@@ -41,6 +41,10 @@ export function hasColorGrade(effects: readonly ItemEffect[] | undefined): boole
 	return effects?.some(isColorGradeEffect) ?? false;
 }
 
+export function hasEnabledColorGrade(effects: readonly ItemEffect[] | undefined): boolean {
+	return effects?.some((effect) => isColorGradeEffect(effect) && effect.enabled) ?? false;
+}
+
 /** Remove color-category GPU effects without touching blur, keying, stylize, or CSS effects. */
 export function withoutColorGradeEffects(effects: readonly ItemEffect[] | undefined): ItemEffect[] {
 	return (effects ?? []).filter((effect) => !isColorGradeEffect(effect));

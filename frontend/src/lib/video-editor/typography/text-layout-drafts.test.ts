@@ -36,4 +36,17 @@ describe('text layout drafts', () => {
 			twoSpans: [{ text: 'Title' }, { text: 'Subtitle' }]
 		});
 	});
+
+	it('preserves the project font asset while switching between single and span layouts', () => {
+		const item = textItem({
+			fontFamily: 'Launch Sans',
+			fontAssetId: 'font-launch',
+			fontWeight: 700
+		});
+		const single = buildTextSingleLayoutDraft(item);
+		const spans = buildSpanLayout(buildEditableBaseSpans(item), item, 2);
+
+		expect(single.fontAssetId).toBe('font-launch');
+		expect(spans[0]?.fontAssetId).toBe('font-launch');
+	});
 });

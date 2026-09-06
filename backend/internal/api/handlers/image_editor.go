@@ -33,6 +33,7 @@ const (
 	imageEditorSchemaVersion       = 1
 	imageEditorSnapshotVersion     = 1
 	imageEditorPageStorageVersion  = 1
+	imageEditorColorGradeVersion   = 1
 	imageEditorMaxPages            = 35
 	imageEditorMaxLayersPerPage    = 500
 	imageEditorMaxDocumentBytes    = 10 << 20
@@ -129,13 +130,14 @@ type ImageEditorCrop struct {
 }
 
 type ImageEditorImageValue struct {
-	MediaID          string                      `json:"media_id"`
-	SourceWidth      int                         `json:"source_width"`
-	SourceHeight     int                         `json:"source_height"`
-	IntrinsicPending bool                        `json:"intrinsic_pending,omitempty"`
-	Fit              string                      `json:"fit" enum:"cover,contain,stretch"`
-	Crop             ImageEditorCrop             `json:"crop"`
-	Adjustments      ImageEditorImageAdjustments `json:"adjustments"`
+	MediaID           string                      `json:"media_id"`
+	SourceWidth       int                         `json:"source_width"`
+	SourceHeight      int                         `json:"source_height"`
+	IntrinsicPending  bool                        `json:"intrinsic_pending,omitempty"`
+	Fit               string                      `json:"fit" enum:"cover,contain,stretch"`
+	Crop              ImageEditorCrop             `json:"crop"`
+	Adjustments       ImageEditorImageAdjustments `json:"adjustments"`
+	ColorGradeVersion int                         `json:"color_grade_version,omitempty" enum:"1"`
 }
 
 type ImageEditorShapeValue struct {
@@ -253,12 +255,27 @@ type ImageEditorPageBackground struct {
 	Image    *ImageEditorPageBackgroundImage `json:"image,omitempty"`
 }
 
+type ImageEditorColorGrade struct {
+	Brightness  float64 `json:"brightness" minimum:"-1" maximum:"1"`
+	Contrast    float64 `json:"contrast" minimum:"-1" maximum:"1"`
+	Saturation  float64 `json:"saturation" minimum:"-1" maximum:"1"`
+	Temperature float64 `json:"temperature" minimum:"-1" maximum:"1"`
+	Tint        float64 `json:"tint" minimum:"-1" maximum:"1"`
+	Vibrance    float64 `json:"vibrance" minimum:"-1" maximum:"1"`
+	Hue         float64 `json:"hue" minimum:"-1" maximum:"1"`
+	Exposure    float64 `json:"exposure" minimum:"-1" maximum:"1"`
+	Highlights  float64 `json:"highlights" minimum:"-1" maximum:"1"`
+	Shadows     float64 `json:"shadows" minimum:"-1" maximum:"1"`
+}
+
 type ImageEditorPagePayload struct {
 	ID                  string                     `json:"id"`
 	Name                string                     `json:"name"`
 	BackgroundColor     string                     `json:"background_color"`
 	Background          *ImageEditorPageBackground `json:"background,omitempty"`
 	Guides              *ImageEditorPageGuides     `json:"guides,omitempty"`
+	ColorGradeVersion   int                        `json:"color_grade_version,omitempty" enum:"1"`
+	ColorGrade          *ImageEditorColorGrade     `json:"color_grade,omitempty"`
 	Layers              []ImageEditorLayer         `json:"layers"`
 	PreviewMediaID      string                     `json:"preview_media_id,omitempty"`
 	LatestExportMediaID string                     `json:"latest_export_media_id,omitempty"`
@@ -270,9 +287,11 @@ type ImageEditorPageGuides struct {
 }
 
 type imageEditorStoredPageState struct {
-	StorageVersion int                        `json:"storage_version"`
-	Background     *ImageEditorPageBackground `json:"background"`
-	Guides         *ImageEditorPageGuides     `json:"guides,omitempty"`
+	StorageVersion    int                        `json:"storage_version"`
+	Background        *ImageEditorPageBackground `json:"background"`
+	Guides            *ImageEditorPageGuides     `json:"guides,omitempty"`
+	ColorGradeVersion int                        `json:"color_grade_version,omitempty"`
+	ColorGrade        *ImageEditorColorGrade     `json:"color_grade,omitempty"`
 }
 
 func (page ImageEditorPagePayload) BackgroundMediaID() string {
@@ -1917,13 +1936,17 @@ func imageEditorDocumentPayload(
 		}
 		background := defaultImageEditorPageBackground(page.BackgroundColor)
 		var guides *ImageEditorPageGuides
+		var colorGradeVersion int
+		var colorGrade *ImageEditorColorGrade
 		if encoded := strings.TrimSpace(page.BackgroundJSON); encoded != "" && encoded != "{}" {
-			storedBackground, storedGuides, err := decodeImageEditorPageState(encoded, page.BackgroundColor)
+			storedBackground, storedGuides, storedColorGradeVersion, storedColorGrade, err := decodeImageEditorPageState(encoded, page.BackgroundColor)
 			if err != nil {
 				return payload, errors.New("OpenPost Image Editor design contains an invalid page background")
 			}
 			background = storedBackground
 			guides = storedGuides
+			colorGradeVersion = storedColorGradeVersion
+			colorGrade = storedColorGrade
 		}
 		payload.Pages = append(payload.Pages, ImageEditorPagePayload{
 			ID:                  page.ID,
@@ -1931,6 +1954,8 @@ func imageEditorDocumentPayload(
 			BackgroundColor:     page.BackgroundColor,
 			Background:          background,
 			Guides:              guides,
+			ColorGradeVersion:   colorGradeVersion,
+			ColorGrade:          colorGrade,
 			Layers:              layers,
 			PreviewMediaID:      page.PreviewMediaID,
 			LatestExportMediaID: page.LatestExportMediaID,
@@ -2053,6 +2078,9 @@ func validateImageEditorPayload(payload ImageEditorDocumentPayload) error {
 		if err := validateImageEditorPageBackground(page); err != nil {
 			return err
 		}
+		if err := validateImageEditorPageColorGrade(page); err != nil {
+			return err
+		}
 		if page.Guides != nil {
 			if len(page.Guides.Horizontal) > 100 || len(page.Guides.Vertical) > 100 {
 				return fmt.Errorf("image editor pages cannot contain more than 100 guides per axis")
@@ -2098,6 +2126,36 @@ func validateImageEditorPayload(payload ImageEditorDocumentPayload) error {
 				}
 				seen[current] = true
 			}
+		}
+	}
+	return nil
+}
+
+func validateImageEditorPageColorGrade(page ImageEditorPagePayload) error {
+	if page.ColorGradeVersion != 0 && page.ColorGradeVersion != imageEditorColorGradeVersion {
+		return fmt.Errorf("unsupported image editor page color grade version")
+	}
+	if page.ColorGrade == nil {
+		return nil
+	}
+	if page.ColorGradeVersion != imageEditorColorGradeVersion {
+		return fmt.Errorf("image editor page color grades require version %d", imageEditorColorGradeVersion)
+	}
+	grade := page.ColorGrade
+	for _, value := range []float64{
+		grade.Brightness,
+		grade.Contrast,
+		grade.Saturation,
+		grade.Temperature,
+		grade.Tint,
+		grade.Vibrance,
+		grade.Hue,
+		grade.Exposure,
+		grade.Highlights,
+		grade.Shadows,
+	} {
+		if !finiteImageEditorNumber(value) || value < -1 || value > 1 {
+			return fmt.Errorf("image editor page color grade values must be between -1 and 1")
 		}
 	}
 	return nil
@@ -2276,6 +2334,9 @@ func validateImageEditorLayer(layer ImageEditorLayer) error {
 			return fmt.Errorf("image crop must stay within normalized image bounds")
 		}
 		adjustments := layer.Image.Adjustments
+		if layer.Image.ColorGradeVersion != 0 && layer.Image.ColorGradeVersion != imageEditorColorGradeVersion {
+			return fmt.Errorf("unsupported image editor layer color grade version")
+		}
 		for _, value := range []float64{
 			adjustments.Brightness,
 			adjustments.Contrast,
@@ -2483,9 +2544,11 @@ func insertImageEditorPages(ctx context.Context, tx bun.Tx, documentID string, p
 		}
 		background := normalizeImageEditorPageBackground(page.Background, page.BackgroundColor)
 		backgroundJSON, err := json.Marshal(imageEditorStoredPageState{
-			StorageVersion: imageEditorPageStorageVersion,
-			Background:     background,
-			Guides:         page.Guides,
+			StorageVersion:    imageEditorPageStorageVersion,
+			Background:        background,
+			Guides:            page.Guides,
+			ColorGradeVersion: page.ColorGradeVersion,
+			ColorGrade:        page.ColorGrade,
 		})
 		if err != nil {
 			return err
@@ -2514,28 +2577,28 @@ func insertImageEditorPages(ctx context.Context, tx bun.Tx, documentID string, p
 func decodeImageEditorPageState(
 	encoded string,
 	fallbackColor string,
-) (*ImageEditorPageBackground, *ImageEditorPageGuides, error) {
+) (*ImageEditorPageBackground, *ImageEditorPageGuides, int, *ImageEditorColorGrade, error) {
 	var versionProbe struct {
 		StorageVersion int `json:"storage_version"`
 	}
 	if err := json.Unmarshal([]byte(encoded), &versionProbe); err != nil {
-		return nil, nil, err
+		return nil, nil, 0, nil, err
 	}
 	if versionProbe.StorageVersion == 0 {
 		var legacy ImageEditorPageBackground
 		if err := json.Unmarshal([]byte(encoded), &legacy); err != nil {
-			return nil, nil, err
+			return nil, nil, 0, nil, err
 		}
-		return normalizeImageEditorPageBackground(&legacy, fallbackColor), nil, nil
+		return normalizeImageEditorPageBackground(&legacy, fallbackColor), nil, 0, nil, nil
 	}
 	if versionProbe.StorageVersion != imageEditorPageStorageVersion {
-		return nil, nil, fmt.Errorf("unsupported image editor page storage version %d", versionProbe.StorageVersion)
+		return nil, nil, 0, nil, fmt.Errorf("unsupported image editor page storage version %d", versionProbe.StorageVersion)
 	}
 	var state imageEditorStoredPageState
 	if err := json.Unmarshal([]byte(encoded), &state); err != nil {
-		return nil, nil, err
+		return nil, nil, 0, nil, err
 	}
-	return normalizeImageEditorPageBackground(state.Background, fallbackColor), state.Guides, nil
+	return normalizeImageEditorPageBackground(state.Background, fallbackColor), state.Guides, state.ColorGradeVersion, state.ColorGrade, nil
 }
 
 func replaceImageEditorMediaReferences(ctx context.Context, tx bun.Tx, document *models.DesignDocument, pages []ImageEditorPagePayload) error {

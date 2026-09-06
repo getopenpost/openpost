@@ -47,6 +47,20 @@ function buildIndex(items: TimelineItem[]): ItemsIndex {
 	return { itemsByTrackId, itemById, maxItemEndFrame };
 }
 
+function synchronizeSequenceColorGradeRanges(items: TimelineItem[]): void {
+	const durationInFrames = Math.max(
+		1,
+		...items
+			.filter((item) => item.sequenceColorGrade !== true)
+			.map((item) => item.from + item.durationInFrames)
+	);
+	for (const item of items) {
+		if (item.sequenceColorGrade !== true) continue;
+		item.from = 0;
+		item.durationInFrames = durationInFrames;
+	}
+}
+
 interface TimelineMarkerRecord {
 	id: string;
 	frame: number;
@@ -96,6 +110,7 @@ const state = $state<TimelineState>({
 let index = $state.raw<ItemsIndex>(buildIndex(state.items));
 
 function reindex(): void {
+	synchronizeSequenceColorGradeRanges(state.items);
 	index = buildIndex(state.items);
 	state.isDirty = true;
 }

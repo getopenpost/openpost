@@ -56,6 +56,8 @@ Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, s
 - AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.
 - Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.
+- Image layers without `color_grade_version` retain legacy Fabric adjustments. Version 1 routes layer and page-output grading through the shared editor color pipeline and the Fabric preview/export adapter. Never migrate legacy layers implicitly.
+- A Video Editor sequence grade is one `sequenceColorGrade` adjustment item on its dedicated locked track. The timeline store keeps it over the full sequence range, and preview/export apply it once after compositing. Never treat it as an item-scoped adjustment layer.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.
 
 ## Execution

@@ -12,6 +12,10 @@
  * canvas compositor can adopt the same shaders later.
  */
 
+import type {
+	EditorColorCompositor,
+	EditorColorRenderEffect
+} from '$lib/editor-color-grade/rendering';
 import { BLEND_MODE_INDEX, type BlendMode } from './blend-modes';
 import { BLEND_MODES_GLSL, EFFECT_COMMON_GLSL, FULLSCREEN_VERTEX_GLSL } from './shader-source';
 import { getGpuEffect } from './registry';
@@ -20,8 +24,7 @@ import { gpuResourcePool } from './gpu-resource-pool';
 import { COLOR_BATCH_FRAGMENT_SOURCE, packColorBatch, planEffectPasses } from './color-batch';
 
 /** One resolved effect instance handed to `render`. */
-export interface GpuRenderEffect {
-	effectId: string;
+export interface GpuRenderEffect extends EditorColorRenderEffect {
 	params: GpuParamValues;
 }
 
@@ -146,7 +149,7 @@ function linkProgram(
 	return program;
 }
 
-export class GpuCompositor {
+export class GpuCompositor implements EditorColorCompositor {
 	private readonly gl: WebGL2RenderingContext;
 	private readonly canvas: HTMLCanvasElement | OffscreenCanvas;
 	private readonly vertexShader: WebGLShader;

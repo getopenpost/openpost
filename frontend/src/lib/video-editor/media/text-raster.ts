@@ -78,6 +78,7 @@ function subtitleLayoutKey(styled: TimelineItem, width: number, height: number):
 		width,
 		height,
 		styled.fontFamily,
+		styled.fontAssetId,
 		styled.fontSize,
 		styled.fontWeight,
 		styled.fontStyle,

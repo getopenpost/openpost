@@ -36,6 +36,22 @@ beforeEach(() => {
 });
 
 describe('project media deletion', () => {
+	it('does not delete text items when only their font asset is removed', () => {
+		const title: TimelineItem = {
+			...item('title'),
+			type: 'text',
+			fontFamily: 'Launch Sans',
+			fontAssetId: 'font-asset',
+			textSpans: [{ text: 'Launch', fontAssetId: 'font-asset' }]
+		};
+		const plan = planMediaDeletion({ ...createEmptyTimeline(), tracks: [track], items: [title] }, [
+			'font-asset'
+		]);
+
+		expect(plan.totalReferenceCount).toBe(0);
+		expect(plan.sequences).toEqual([]);
+	});
+
 	it('plans direct and generated-caption references across root and nested sequences', () => {
 		const source = item('source', 'camera');
 		const caption: TimelineItem = {

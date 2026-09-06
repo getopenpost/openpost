@@ -1148,11 +1148,23 @@
       "source_refs": ["frontend/src/lib/video/stream-target.ts"]
     },
     {
+      "id": "local-install-invitation",
+      "technology": "localStorage",
+      "owner": "OpenPost installation prompt",
+      "identifier_kind": "exact",
+      "identifier": "openpost:install-invitation-seen",
+      "purpose": "Remembers that the desktop installation invitation was shown so it is not repeated.",
+      "scope": "Application origin and browser profile.",
+      "duration": "Until site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/components/pwa-manager.svelte"]
+    },
+    {
       "id": "cache-pages",
       "technology": "Cache Storage",
       "owner": "OpenPost application service worker",
       "identifier_kind": "exact",
-      "identifier": "openpost-pages-1",
+      "identifier": "openpost-pages-2",
       "purpose": "Provides a short offline fallback for recently visited application pages.",
       "scope": "Application origin service worker; at most 32 entries.",
       "duration": "Up to seven days, subject to entry-count eviction, service-worker replacement, browser pressure, or site-data clearing.",

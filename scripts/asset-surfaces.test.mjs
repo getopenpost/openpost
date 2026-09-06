@@ -89,9 +89,10 @@ test("staged outputs reject content that differs from the canonical asset", asyn
   try {
     await mkdir(path.join(target, "brand"));
     await writeFile(path.join(target, "brand/icon.svg"), "changed");
-    assert.deepEqual(await validateAssetTarget("frontend", target), [
-      "frontend target content differs for brand/icon.svg",
-    ]);
+    assert.deepEqual(
+      await validateAssetTarget("frontend", target, { frontend: ["brand/icon.svg"] }),
+      ["frontend target content differs for brand/icon.svg"],
+    );
   } finally {
     await rm(target, { recursive: true, force: true });
   }

@@ -75,7 +75,6 @@
     "shared-assets": {
       "description": "Canonical assets copied into one or more shipped web surfaces",
       "prefixes": [
-        "assets/ai-logos/",
         "assets/brand/",
         "assets/customer-logos/",
         "assets/logos/",

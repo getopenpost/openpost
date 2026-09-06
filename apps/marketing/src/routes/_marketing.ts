@@ -205,6 +205,7 @@ export const managedPaymentExpectation = purchaseTerms.card_required
 	? `${dueToday} is due today. A card is required at checkout.`
 	: `${dueToday} is due today. No card is required at checkout.`;
 export const managedAccessSummary = `Start with a ${purchaseTerms.trial_days}-day free trial. ${managedCardRequirement}, and you can cancel before the first charge.`;
+export const managedTrialNote = `${purchaseTerms.trial_days} days free. ${dueToday} today. ${purchaseTerms.card_required ? 'Card required.' : 'No card required.'}`;
 
 export const publicProviderCertification = {
 	currentClaimCount: publicClaimManifest.claims.length,
@@ -1030,6 +1031,25 @@ export const platforms = platformImplementations.map((platform) => {
 				? `${certifiedOutputProfiles.length} exact provider-format certification claim${certifiedOutputProfiles.length === 1 ? ' is' : 's are'} current.`
 				: 'No Hosted service provider-format certification claim is current.'
 	};
+});
+
+const landingPlatformSlugs = [
+	'instagram',
+	'linkedin',
+	'x',
+	'bluesky',
+	'tiktok',
+	'youtube',
+	'threads',
+	'facebook',
+	'mastodon',
+	'discord'
+] as const;
+
+export const landingPlatforms = landingPlatformSlugs.map((slug) => {
+	const platform = platforms.find((candidate) => candidate.slug === slug);
+	if (!platform) throw new Error(`missing landing platform ${slug}`);
+	return { slug, name: platform.name };
 });
 
 export const tools = [

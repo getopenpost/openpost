@@ -6,22 +6,16 @@
 	import { Button } from '$lib/components/ui/button';
 	import PublicationStory from './_components/PublicationStory.svelte';
 	import PostizSocialLogo from './_components/PostizSocialLogo.svelte';
-	import { demoVideoUrl, faqs, managedSignupUrl } from './_marketing';
+	import {
+		demoVideoUrl,
+		faqs,
+		landingPlatforms,
+		managedSignupUrl,
+		managedTrialNote
+	} from './_marketing';
 	import ScrollReveal from './_components/ScrollReveal.svelte';
 
 	const shortFaqs = faqs.slice(0, 4);
-	const networks = [
-		{ id: 'instagram', name: 'Instagram' },
-		{ id: 'linkedin', name: 'LinkedIn' },
-		{ id: 'x', name: 'X' },
-		{ id: 'bluesky', name: 'Bluesky' },
-		{ id: 'tiktok', name: 'TikTok' },
-		{ id: 'youtube', name: 'YouTube' },
-		{ id: 'threads', name: 'Threads' },
-		{ id: 'facebook', name: 'Facebook' },
-		{ id: 'mastodon', name: 'Mastodon' },
-		{ id: 'discord', name: 'Discord' }
-	] as const;
 </script>
 
 <section class="landing-hero" aria-labelledby="hero-title">
@@ -40,16 +34,16 @@
 					><span><Play size={13} fill="currentColor" /></span> See it in action</a
 				>
 			</div>
-			<div class="trial-note">14 days free. $0 today. Card required.</div>
+			<div class="trial-note">{managedTrialNote}</div>
 		</div>
 		<PublicationStory />
 		<div class="platform-strip">
 			<p>Make yourself at home.<br /><strong>Your channels are here.</strong></p>
 			<div class="platform-marks" aria-label="Explore supported platforms">
-				{#each networks as network (network.id)}<a
-						href={`/platforms/${network.id}`}
-						aria-label={`${network.name} publishing guide`}
-						class="focus-ring"><PostizSocialLogo platform={network.id} /></a
+				{#each landingPlatforms as platform (platform.slug)}<a
+						href={`/platforms/${platform.slug}`}
+						aria-label={`${platform.name} publishing guide`}
+						class="focus-ring"><PostizSocialLogo platform={platform.slug} /></a
 					>{/each}
 			</div>
 			<a href="/platforms" class="platform-details focus-ring"

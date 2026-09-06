@@ -30,6 +30,7 @@
       "project": [
         "src/**/*.{js,ts,svelte}!",
         "!src/**/*.{test,spec}.{js,ts,svelte}!",
+        "!src/**/*.fixture.svelte!",
         "!src/**/*{test-harness,test-boundary,participant-harness}.svelte!",
         "!src/**/*{test-utils,test-fixtures}.ts!",
       ],

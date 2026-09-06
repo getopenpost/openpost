@@ -4,23 +4,29 @@
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import Image from '@lucide/svelte/icons/image';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import { getPlatform } from '../_marketing';
 	import PostizSocialLogo from './PostizSocialLogo.svelte';
 
 	let destination = $state<'linkedin' | 'bluesky' | 'instagram'>('linkedin');
+	const platformName = (slug: string) => {
+		const platform = getPlatform(slug);
+		if (!platform) throw new Error(`missing publication story platform ${slug}`);
+		return platform.name;
+	};
 	const destinations = [
 		{
 			id: 'linkedin',
-			name: 'LinkedIn',
+			name: platformName('linkedin'),
 			text: 'We built a quieter way to plan your day. Today, we’re opening early access to Fieldnotes. Here’s what we learned along the way.'
 		},
 		{
 			id: 'bluesky',
-			name: 'Bluesky',
+			name: platformName('bluesky'),
 			text: 'A small thing we’ve been working on: Fieldnotes. Less organizing your to-dos. More doing the things you care about. Early access is open.'
 		},
 		{
 			id: 'instagram',
-			name: 'Instagram',
+			name: platformName('instagram'),
 			text: 'Room for your next good idea. Meet Fieldnotes, our new space for a calmer working day. Early access is open. Link in bio.'
 		}
 	] as const;
@@ -254,8 +260,8 @@
 		isolation: isolate;
 		overflow: hidden;
 		aspect-ratio: 1.8;
-		background: #d7edb6;
-		color: #213b2c;
+		background: var(--marketing-launch-art);
+		color: var(--marketing-launch-art-ink);
 		padding: 18px;
 		border-radius: 5px;
 	}
@@ -291,25 +297,25 @@
 		height: 100%;
 		width: 55%;
 		border-radius: 70% 70% 0 0;
-		background: #396747;
-		border: 1px solid #d7edb6;
+		background: var(--marketing-launch-fold-1);
+		border: 1px solid var(--marketing-launch-art);
 		transform-origin: 50% 100%;
 	}
 	.paper-sculpture i:nth-child(2) {
 		transform: rotate(18deg);
-		background: #588254;
+		background: var(--marketing-launch-fold-2);
 	}
 	.paper-sculpture i:nth-child(3) {
 		transform: rotate(36deg);
-		background: #80a66c;
+		background: var(--marketing-launch-fold-3);
 	}
 	.paper-sculpture i:nth-child(4) {
 		transform: rotate(54deg);
-		background: #aacb86;
+		background: var(--marketing-launch-fold-4);
 	}
 	.paper-sculpture i:nth-child(5) {
 		transform: rotate(72deg);
-		background: #eaf4ce;
+		background: var(--marketing-launch-fold-5);
 	}
 	.publication-bottom {
 		display: flex;

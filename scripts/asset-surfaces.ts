@@ -25,8 +25,6 @@ export const assetSurfaceManifest = {
   ],
   docs: ["brand/icon.svg", "brand/logo-docs.svg", "screenshots/main-dark.png"],
   marketing: [
-    "ai-logos/chatgpt.png",
-    "ai-logos/claude.png",
     "brand/fonts/Geist-Regular.ttf",
     "brand/fonts/Geist-SemiBold.ttf",
     "brand/fonts/Manrope-SemiBold.ttf",
@@ -43,7 +41,6 @@ export const assetSurfaceManifest = {
     "postiz-socials/TikTok.svg",
     "postiz-socials/X.svg",
     "postiz-socials/Youtube.svg",
-    "screenshots/accounts-dark.png",
     "screenshots/image-editor-dark.webp",
     "screenshots/main-dark.png",
     "screenshots/media-dark.png",

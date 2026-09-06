@@ -131,6 +131,13 @@
 	--marketing-mint-ink: oklch(0.28 0.04 145);
 	--marketing-blue: oklch(0.92 0.035 235);
 	--marketing-blue-ink: oklch(0.3 0.05 245);
+	--marketing-launch-art: #d7edb6;
+	--marketing-launch-art-ink: #213b2c;
+	--marketing-launch-fold-1: #396747;
+	--marketing-launch-fold-2: #588254;
+	--marketing-launch-fold-3: #80a66c;
+	--marketing-launch-fold-4: #aacb86;
+	--marketing-launch-fold-5: #eaf4ce;
 	--marketing-section: oklch(0.965 0.006 80);
 	scrollbar-color: var(--border) var(--background);
 	caret-color: var(--foreground);
@@ -143,5 +150,12 @@
 	--marketing-mint-ink: oklch(0.91 0.05 130);
 	--marketing-blue: oklch(0.28 0.035 245);
 	--marketing-blue-ink: oklch(0.91 0.035 235);
+	--marketing-launch-art: #1f3427;
+	--marketing-launch-art-ink: #e4f2d2;
+	--marketing-launch-fold-1: #89a86e;
+	--marketing-launch-fold-2: #75935f;
+	--marketing-launch-fold-3: #638050;
+	--marketing-launch-fold-4: #506b43;
+	--marketing-launch-fold-5: #dcebbe;
 	--marketing-section: oklch(0.18 0.008 55);
 }

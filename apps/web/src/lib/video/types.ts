@@ -14,6 +14,8 @@ export interface VideoPreparationProgress {
 	stage: VideoPreparationStage;
 	fraction: number;
 	message: string;
+	/** True when the current phase has not exposed a measured fraction yet. */
+	indeterminate?: boolean;
 }
 
 export interface VideoMetadata {

@@ -38,7 +38,7 @@ export async function prepareVideoForUpload(
 	signal?: AbortSignal
 ): Promise<PreparedVideo> {
 	assertNotAborted(signal);
-	onProgress({ stage: 'inspecting', fraction: 0.02, message: 'Checking video' });
+	onProgress({ stage: 'inspecting', fraction: 0, message: 'Checking video', indeterminate: true });
 	const metadata = await probeVideo(file, signal);
 	const effective = effectiveVideoConstraints(constraints);
 
@@ -73,7 +73,7 @@ export async function prepareVideoForUpload(
 			(fraction) => {
 				onProgress({
 					stage: 'remuxing',
-					fraction: 0.08 + fraction * 0.92,
+					fraction,
 					message: 'Preparing MP4'
 				});
 			},
@@ -100,7 +100,7 @@ export async function prepareVideoForUpload(
 		(fraction) => {
 			onProgress({
 				stage: 'compressing',
-				fraction: 0.08 + fraction * 0.92,
+				fraction,
 				message: file.size > effective.maxBytes ? 'Compressing video' : 'Converting video'
 			});
 		},

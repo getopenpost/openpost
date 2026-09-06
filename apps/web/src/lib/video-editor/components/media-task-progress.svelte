@@ -1,16 +1,19 @@
 <script lang="ts">
+	import ProgressMeter from '$lib/components/progress-meter.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaTasks, type MediaTask } from '$lib/video-editor/media/media-tasks.svelte';
 
 	let expanded = $state(false);
 	const tasks = $derived(mediaTasks.list);
 	const averageProgress = $derived.by(() => {
-		const determinate = tasks.filter((task) => task.progress !== null);
-		if (determinate.length === 0) return null;
-		return determinate.reduce((sum, task) => sum + (task.progress ?? 0), 0) / determinate.length;
+		if (tasks.length === 0 || tasks.some((task) => task.progress === null)) return null;
+		return tasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) / tasks.length;
 	});
+	const phaseAnnouncement = $derived(
+		tasks.map((task) => `${task.label}: ${stageLabel(task)}`).join('. ')
+	);
 
 	function formatBytes(bytes: number): string {
 		if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
@@ -148,11 +151,13 @@
 	<section
 		class="shrink-0 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-2"
 		aria-label={m.video_editor_background_tasks()}
-		aria-live="polite"
 	>
+		<span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+			{phaseAnnouncement}
+		</span>
 		<div class="flex items-center gap-2 text-[10px]">
-			<ThemeIcon
-				role="loading"
+			<ProtectedIcon
+				icon="loading"
 				class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
 			/>
 			<button
@@ -179,22 +184,13 @@
 					: `${Math.round(averageProgress * 100)}%`}
 			</span>
 		</div>
-		<div
-			class="mt-1 h-1 overflow-hidden rounded-full bg-[var(--video-editor-control)]"
-			role="progressbar"
-			aria-label={m.video_editor_background_task_progress()}
-			aria-valuemin={averageProgress === null ? undefined : 0}
-			aria-valuemax={averageProgress === null ? undefined : 100}
-			aria-valuenow={averageProgress === null ? undefined : Math.round(averageProgress * 100)}
-		>
-			<div
-				class="h-full rounded-full bg-[var(--video-editor-focus)] transition-[width] duration-300 {averageProgress ===
-				null
-					? 'w-1/3 animate-pulse motion-reduce:animate-none'
-					: ''}"
-				style:width={averageProgress === null ? undefined : `${averageProgress * 100}%`}
-			></div>
-		</div>
+		<ProgressMeter
+			class="mt-1.5 h-1 bg-[var(--video-editor-border)]"
+			fillClass="bg-[var(--video-editor-focus)]"
+			fraction={averageProgress}
+			label={m.video_editor_background_task_progress()}
+			phase={tasks.map((task) => `${task.id}:${task.stage}`).join('|')}
+		/>
 		{#if expanded}
 			<ul class="mt-2 space-y-1" aria-label={m.video_editor_background_task_details()}>
 				{#each tasks as task (task.id)}

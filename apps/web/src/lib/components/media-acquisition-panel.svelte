@@ -19,6 +19,7 @@
 	import type { StockMediaProvenance } from '$lib/stock-media';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import ProgressMeter from '$lib/components/progress-meter.svelte';
 
 	type AcquisitionMode = 'device' | 'camera' | 'stock';
 	type QueueStatus = 'ready' | 'uploading' | 'success' | 'error';
@@ -30,6 +31,7 @@
 		previewURL: string;
 		status: QueueStatus;
 		progress: number;
+		progressIndeterminate: boolean;
 		stage: VideoPreparationStage | 'ready';
 		error: string;
 		source: 'upload' | 'camera' | 'stock_import';
@@ -147,6 +149,7 @@
 						file.type.startsWith('image/') || isVideoFile(file) ? URL.createObjectURL(file) : '',
 					status: validationError ? ('error' as const) : ('ready' as const),
 					progress: 0,
+					progressIndeterminate: false,
 					stage: 'ready' as const,
 					error: validationError,
 					source,
@@ -229,6 +232,7 @@
 		updateItem(item.id, {
 			status: 'uploading',
 			progress: 0,
+			progressIndeterminate: false,
 			stage: 'uploading',
 			error: ''
 		});
@@ -238,7 +242,12 @@
 			if (!item.preparedFile && isVideoFile(item.file)) {
 				const edited = await requestVideoEdit(item.file);
 				if (!edited) {
-					updateItem(item.id, { status: 'ready', progress: 0, stage: 'ready' });
+					updateItem(item.id, {
+						status: 'ready',
+						progress: 0,
+						progressIndeterminate: false,
+						stage: 'ready'
+					});
 					return null;
 				}
 				uploadFile = edited;
@@ -264,7 +273,12 @@
 			return result;
 		} catch (cause) {
 			if (cause instanceof DOMException && cause.name === 'AbortError') {
-				updateItem(item.id, { status: 'ready', progress: 0, stage: 'ready' });
+				updateItem(item.id, {
+					status: 'ready',
+					progress: 0,
+					progressIndeterminate: false,
+					stage: 'ready'
+				});
 				return null;
 			}
 			updateItem(item.id, {
@@ -332,6 +346,7 @@
 	function updateProgress(id: string, progress: VideoPreparationProgress): void {
 		updateItem(id, {
 			progress: Math.max(0, Math.min(1, progress.fraction)),
+			progressIndeterminate: progress.indeterminate ?? false,
 			stage: progress.stage
 		});
 	}
@@ -347,7 +362,13 @@
 	}
 
 	function retryItem(id: string): void {
-		updateItem(id, { status: 'ready', progress: 0, stage: 'ready', error: '' });
+		updateItem(id, {
+			status: 'ready',
+			progress: 0,
+			progressIndeterminate: false,
+			stage: 'ready',
+			error: ''
+		});
 		void uploadReady();
 	}
 
@@ -516,21 +537,27 @@
 										{item.error}
 									</p>
 								{:else}
-									<p class="mt-1 text-xs text-muted-foreground">
+									<p
+										class="mt-1 text-xs text-muted-foreground"
+										role="status"
+										aria-live="polite"
+										aria-atomic="true"
+									>
 										{item.status === 'success'
 											? m.media_upload_complete()
 											: uploadStage(item.stage)}
-										{#if item.status === 'uploading'}
-											· {Math.round(item.progress * 100)}%{/if}
+										{#if item.status === 'uploading' && !item.progressIndeterminate}
+											<span aria-hidden="true"> · {Math.round(item.progress * 100)}%</span>
+										{/if}
 									</p>
 								{/if}
 								{#if item.status === 'uploading'}
-									<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-										<div
-											class="h-full rounded-full bg-primary transition-[width]"
-											style:width={`${Math.round(item.progress * 100)}%`}
-										></div>
-									</div>
+									<ProgressMeter
+										class="mt-2"
+										fraction={item.progressIndeterminate ? null : item.progress}
+										label={`${item.file.name}: ${uploadStage(item.stage)}`}
+										phase={item.stage}
+									/>
 								{/if}
 							</div>
 							<div class="flex items-center">

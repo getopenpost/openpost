@@ -347,7 +347,12 @@ async function uploadViaDirectSession(
 		)
 	);
 
-	onProgress?.({ stage: 'finalizing', fraction: 0.96, message: 'Finalizing upload' });
+	onProgress?.({
+		stage: 'finalizing',
+		fraction: 0,
+		message: 'Finalizing upload',
+		indeterminate: true
+	});
 	const completeResp = await withUploadRetry(() =>
 		fetch(apiURL(session.complete_url), {
 			method: 'POST',
@@ -590,7 +595,8 @@ async function waitForVideoProcessing(
 		onProgress?.({
 			stage: 'processing',
 			fraction: Math.max(0, Math.min(1, (current.processing_progress ?? 0) / 100)),
-			message: 'Checking video compatibility'
+			message: 'Checking video compatibility',
+			indeterminate: current.processing_progress == null
 		});
 		await abortableDelay(650, signal);
 		const params = new URLSearchParams({

@@ -8544,5 +8544,6 @@
 	"pwa_install_description": "Ábrelo desde tu escritorio en su propia ventana.",
 	"pwa_install_action": "Instalar aplicación",
 	"pwa_install_failed": "No se pudo iniciar la instalación. Inténtalo desde el menú del navegador.",
-	"pwa_manual_install": "Usa la opción Instalar aplicación del navegador. En Safari, elige Archivo > Añadir al Dock."
+	"pwa_manual_install": "Usa la opción Instalar aplicación del navegador. En Safari, elige Archivo > Añadir al Dock.",
+	"interaction_copy_failed": "No se pudo copiar. Selecciona el texto y cópialo manualmente."
 }

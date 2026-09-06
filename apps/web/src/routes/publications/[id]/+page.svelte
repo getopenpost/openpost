@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AsyncActionButton from '$lib/components/async-action-button.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
@@ -332,15 +333,16 @@
 </svelte:head>
 
 {#snippet copyAsDraftButton()}
-	<Button variant="outline" onclick={copyAsDraft} disabled={copying}>
-		{#if copying}
-			<ProtectedIcon icon="loading" class="mr-1.5 size-4 animate-spin" />
-			{m.publication_copying()}
-		{:else}
-			<ThemeIcon role="copy" class="mr-1.5 size-4" />
-			{m.publication_copy_as_draft()}
-		{/if}
-	</Button>
+	<AsyncActionButton
+		variant="outline"
+		onclick={copyAsDraft}
+		state={copying ? 'pending' : copyError ? 'error' : 'idle'}
+		label={m.publication_copy_as_draft()}
+		pendingLabel={m.publication_copying()}
+		errorLabel={m.common_retry()}
+		icon="copy"
+		announce={false}
+	/>
 {/snippet}
 
 {#if !hasLoaded}

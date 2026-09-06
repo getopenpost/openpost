@@ -17,6 +17,7 @@
 	import { showToast } from '$lib/toast';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
+	import AsyncActionButton from '$lib/components/async-action-button.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -642,15 +643,22 @@
 		<p class="mt-2 font-mono text-xs break-all" aria-label={m.settings_token_secret_label()}>
 			{createdAPIToken}
 		</p>
-		<Button
+		<AsyncActionButton
 			type="button"
 			variant="outline"
 			class="mt-3 gap-2 border-amber-700/30 bg-white/80 text-amber-950 hover:bg-white"
-			onclick={() => void copyCreatedAPIToken()}
-		>
-			<ThemeIcon role="copy" class="size-4" />
-			{m.common_copy()}
-		</Button>
+			state={apiTokenCopyState === 'copied'
+				? 'success'
+				: apiTokenCopyState === 'failed'
+					? 'error'
+					: 'idle'}
+			label={m.common_copy()}
+			successLabel={m.common_copied()}
+			errorLabel={m.common_retry()}
+			icon="copy"
+			announce={false}
+			onclick={copyCreatedAPIToken}
+		/>
 		<p class="sr-only" aria-live="polite">
 			{apiTokenCopyState === 'copied'
 				? m.settings_token_copy_success()

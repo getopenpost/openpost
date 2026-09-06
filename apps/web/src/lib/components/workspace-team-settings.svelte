@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button';
+	import CopyButton from '$lib/components/copy-button.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -597,24 +598,6 @@
 		mutationSequence += 1;
 	});
 
-	async function copyInviteURL() {
-		const inviteURL = createdInviteURL;
-		const targetWorkspaceID = workspaceID;
-		const targetUserID = currentUserID;
-		const sequence = mutationSequence;
-		if (!inviteURL || !targetWorkspaceID || !targetUserID) return;
-		await navigator.clipboard.writeText(inviteURL);
-		if (
-			sequence !== mutationSequence ||
-			workspaceID !== targetWorkspaceID ||
-			currentUserID !== targetUserID ||
-			createdInviteURL !== inviteURL
-		) {
-			return;
-		}
-		showToast(m.settings_invite_copied());
-	}
-
 	function requestDestructiveAction(action: DestructiveActionTarget) {
 		destructiveAction = { ...action, workspaceID };
 		destructiveOpen = true;
@@ -858,10 +841,13 @@
 					<p class="min-w-0 flex-1 rounded-md bg-background px-3 py-2 font-mono text-xs break-all">
 						{createdInviteURL}
 					</p>
-					<Button type="button" variant="outline" size="sm" onclick={copyInviteURL}>
-						<ThemeIcon role="copy" class="size-4" />
-						{m.common_copy()}
-					</Button>
+					<CopyButton
+						variant="outline"
+						size="sm"
+						value={createdInviteURL}
+						scopeKey={`${currentUserID}:${workspaceID}`}
+						errorMessage={m.interaction_copy_failed()}
+					/>
 				</div>
 			</InlineNotice>
 		</div>

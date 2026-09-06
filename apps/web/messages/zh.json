@@ -8544,5 +8544,6 @@
 	"pwa_install_description": "从桌面在独立窗口中打开。",
 	"pwa_install_action": "安装应用",
 	"pwa_install_failed": "无法开始安装。请从浏览器菜单重试。",
-	"pwa_manual_install": "使用浏览器的安装应用选项。在 Safari 中，选择“文件”>“添加到程序坞”。"
+	"pwa_manual_install": "使用浏览器的安装应用选项。在 Safari 中，选择“文件”>“添加到程序坞”。",
+	"interaction_copy_failed": "无法复制。请选择文本并手动复制。"
 }

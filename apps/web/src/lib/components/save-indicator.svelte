@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import { ProtectedIcon } from '$lib/themes/icons';
+	import ActionLabel, { type ActionFace } from './action-label.svelte';
 
 	interface Props {
 		saving: boolean;
@@ -12,6 +12,10 @@
 	}
 
 	let { saving, saved, savingLabel, savedLabel, class: className, testId }: Props = $props();
+	const faces: ActionFace[] = $derived([
+		{ id: 'saving', label: savingLabel, status: 'loading' },
+		{ id: 'saved', label: savedLabel, status: 'success' }
+	]);
 </script>
 
 <span
@@ -26,11 +30,6 @@
 	data-testid={testId}
 	data-state={saving ? 'saving' : saved ? 'saved' : 'idle'}
 >
-	{#if saving}
-		<ProtectedIcon icon="loading" class="size-3.5 shrink-0 animate-spin" />
-		<span class="whitespace-nowrap max-sm:sr-only">{savingLabel}</span>
-	{:else}
-		<ProtectedIcon icon="success" class="size-3.5 shrink-0 text-primary" />
-		<span class="whitespace-nowrap max-sm:sr-only">{savedLabel}</span>
-	{/if}
+	<span class="sr-only">{saving ? savingLabel : saved ? savedLabel : ''}</span>
+	<ActionLabel {faces} active={saving ? 'saving' : 'saved'} compact />
 </span>

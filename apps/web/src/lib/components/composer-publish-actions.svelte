@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import AsyncActionButton from './async-action-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
@@ -47,22 +48,19 @@
 	class={cn('flex min-w-0 items-center justify-end gap-1.5 md:gap-2', className)}
 	data-testid="composer-action-controls"
 >
-	<Button
+	<AsyncActionButton
 		type="button"
 		size="sm"
 		class="h-11 min-w-0 flex-1 gap-1.5 px-3 md:h-8 md:flex-none"
-		disabled={busy || quickScheduleBusy || !canQuickSchedule}
+		disabled={!canQuickSchedule}
+		state={busy || quickScheduleBusy ? 'pending' : 'idle'}
 		onclick={onQuickSchedule}
+		label={quickScheduleLabel}
+		icon="calendar"
 		title={quickScheduleLabel}
+		announce={false}
 		data-testid="composer-primary-delivery-action"
-	>
-		{#if busy || quickScheduleBusy}
-			<ProtectedIcon icon="loading" class="size-3.5 shrink-0 animate-spin" />
-		{:else}
-			<ThemeIcon role="calendar" class="size-3.5 shrink-0" />
-		{/if}
-		<span class="truncate">{quickScheduleLabel}</span>
-	</Button>
+	/>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}

@@ -8544,5 +8544,6 @@
 	"pwa_install_description": "デスクトップから専用ウィンドウで開けます。",
 	"pwa_install_action": "アプリをインストール",
 	"pwa_install_failed": "インストールを開始できませんでした。ブラウザのメニューからもう一度お試しください。",
-	"pwa_manual_install": "ブラウザのアプリをインストール機能を使ってください。Safariでは「ファイル」>「Dockに追加」を選びます。"
+	"pwa_manual_install": "ブラウザのアプリをインストール機能を使ってください。Safariでは「ファイル」>「Dockに追加」を選びます。",
+	"interaction_copy_failed": "コピーできませんでした。テキストを選択して手動でコピーしてください。"
 }

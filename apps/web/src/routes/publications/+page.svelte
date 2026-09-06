@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CopyButton from '$lib/components/copy-button.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes';
@@ -69,7 +70,6 @@
 	};
 
 	let accounts = $state.raw<SocialAccount[]>([]);
-	let copiedReportPostID = $state('');
 	let retryingDestination = $state('');
 	let successMessage = $state('');
 	let hasLoaded = $state(false);
@@ -522,18 +522,6 @@
 		return lines.join('\n');
 	}
 
-	async function copyDeliveryReport(post: ActivityItem) {
-		try {
-			await navigator.clipboard.writeText(buildDeliveryReport(post));
-			copiedReportPostID = post.id;
-			setTimeout(() => {
-				if (copiedReportPostID === post.id) copiedReportPostID = '';
-			}, 2500);
-		} catch {
-			error = m.activity_report_copy_failed();
-		}
-	}
-
 	function destinationActionLabel(destination: ActivityDestination) {
 		switch (deliveryRecoveryAction(destination.delivery, destination.status)) {
 			case 'retry':
@@ -777,20 +765,16 @@
 											<p class="text-xs text-muted-foreground">{destinationSummary(post)}</p>
 										</div>
 										<div class="flex items-center gap-1">
-											<Button
+											<CopyButton
 												variant="ghost"
 												size="sm"
 												class="h-8 text-xs"
-												onclick={() => copyDeliveryReport(post)}
-											>
-												{#if copiedReportPostID === post.id}
-													<ProtectedIcon icon="success" class="mr-1.5 size-3.5 text-emerald-600" />
-													{m.activity_report_copied()}
-												{:else}
-													<ThemeIcon role="copy" class="mr-1.5 size-3.5" />
-													{m.activity_copy_report()}
-												{/if}
-											</Button>
+												value={buildDeliveryReport(post)}
+												scopeKey={`${workspaceCtx.currentWorkspace?.id}:${post.id}`}
+												label={m.activity_copy_report()}
+												successLabel={m.activity_report_copied()}
+												errorMessage={m.activity_report_copy_failed()}
+											/>
 											<Button
 												variant="ghost"
 												size="sm"

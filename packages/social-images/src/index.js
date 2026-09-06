@@ -113,7 +113,7 @@ const staticMarketingEntries = [
     key: `guide-${guide.slug}`,
     title: `${guide.question} - OpenPost`,
     socialTitle: guide.question,
-    description: guide.answer,
+    description: guide.socialDescription,
     label: "Social media guide",
     kind: "document",
     agentRepresentation: "static",

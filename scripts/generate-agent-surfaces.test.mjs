@@ -1483,7 +1483,10 @@ test(
         ),
         `${route.canonical} must advertise its explicit Markdown artifact`,
       );
-      assert.match(markdown, new RegExp(`^Title: ${route.title.replaceAll("$", "\\$")}$`, "m"));
+      assert.ok(
+        markdown.split("\n").includes(`Title: ${route.title}`),
+        `${route.canonical} must keep its canonical title in Markdown metadata`,
+      );
       assert.ok(markdown.includes(`\nDescription: ${route.description}\n`));
       assert.match(
         markdown,

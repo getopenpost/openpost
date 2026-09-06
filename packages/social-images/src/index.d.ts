@@ -99,6 +99,7 @@ export function resolveDocsSocial(input: {
 export interface MarketingGuide {
   slug: string;
   question: string;
+  socialDescription: string;
   answer: string;
   sections: { title: string; text: string; items?: string[] }[];
   sources: { label: string; href: string }[];

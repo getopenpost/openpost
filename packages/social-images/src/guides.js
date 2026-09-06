@@ -3,6 +3,8 @@ export const marketingGuides = [
   {
     slug: "best-social-media-tools-for-solo-founders",
     question: "What are the best social media tools for solo founders?",
+    socialDescription:
+      "Compare Buffer, OpenPost, and Postiz against your publishing workflow, account needs, plan limits, and self-hosting costs.",
     answer:
       "Start with the work you need to finish. Buffer is worth comparing for scheduling and adapting drafts. OpenPost is worth evaluating when you want drafts, media editing, destination-specific versions, and automation together. Postiz is another option to compare if self-hosting matters. Test your actual accounts before choosing.",
     sections: [
@@ -39,6 +41,8 @@ export const marketingGuides = [
   {
     slug: "turn-product-updates-into-social-media-posts",
     question: "How do I turn product updates into social media posts?",
+    socialDescription:
+      "Turn one verified product update into destination-specific social posts, with separate text, media, and calls to action.",
     answer:
       "Start with a concrete change, explain who it helps, and show the result. Keep one source draft, then adapt its length, opening, media, and call to action for each destination. OpenPost keeps those versions in one Publication; AI can help draft them, but you review the facts and final copy.",
     sections: [
@@ -73,6 +77,8 @@ export const marketingGuides = [
   {
     slug: "schedule-social-media-posts-on-multiple-platforms",
     question: "How do I schedule social media posts on multiple platforms?",
+    socialDescription:
+      "Schedule one source idea across several platforms while checking account permissions, media rules, timezones, and partial failures.",
     answer:
       "Use a scheduler that supports your exact accounts and formats. Connect the accounts, prepare a version for each destination, confirm the timezone, and schedule a small test. OpenPost models these as one Publication with separate Renditions, so text, media, and timing can differ without losing the shared source idea.",
     sections: [
@@ -110,6 +116,8 @@ export const marketingGuides = [
   {
     slug: "self-hosted-social-media-schedulers",
     question: "What social media schedulers can I self-host?",
+    socialDescription:
+      "Compare OpenPost and Postiz self-hosting, including deployment, backups, provider access, maintenance, and media storage.",
     answer:
       "OpenPost and Postiz both offer self-hosting. OpenPost's default setup uses one container with SQLite and local media; PostgreSQL is also supported. Compare deployment requirements, provider configuration, backup procedures, and the formats you need. Self-hosting gives you control of the service, while social networks still control API access and publishing rules.",
     sections: [
@@ -152,6 +160,8 @@ export const marketingGuides = [
   {
     slug: "social-media-tools-with-api-and-mcp",
     question: "Which social media tools have an API and MCP server?",
+    socialDescription:
+      "Compare social publishing through APIs, CLIs, and MCP servers, including authentication, workspace access, review, and failure handling.",
     answer:
       "OpenPost and Postiz document API, CLI, and MCP access. OpenPost uses the same posts, workspace permissions, and account boundaries across its app and automation interfaces. Choose based on the operations you need, authentication, supported destinations, and how you inspect failures, rather than the presence of an MCP badge.",
     sections: [

@@ -36,5 +36,5 @@ Grow is an optional feature per connected Bluesky account. It starts off for a n
 
 - No server-side OAuth app is required.
 - OpenPost publishes images through `app.bsky.embed.images` and videos through `app.bsky.embed.video`.
-- Bluesky video support is limited to one video attachment per post in OpenPost, and video uploads go through Bluesky's video service rather than the account's own PDS.
+- Bluesky video support is limited to one video attachment per post in OpenPost. Video uploads go through Bluesky's video service rather than the account's own PDS.
 - A self-hosted PDS must answer over HTTPS on port 443 at the host root. OpenPost rejects PDS endpoints with credentials, paths, queries, fragments, or custom ports.

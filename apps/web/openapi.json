@@ -16894,6 +16894,14 @@
 						"description": "Wait until stored engagement has stopped changing",
 						"type": "boolean"
 					},
+					"stages": {
+						"description": "Ordered repost times measured from the original publish time",
+						"items": {
+							"$ref": "#/components/schemas/Stage"
+						},
+						"maxItems": 20,
+						"type": ["array", "null"]
+					},
 					"threshold_mode": {
 						"description": "Require all configured thresholds or any one",
 						"enum": ["all", "any"],
@@ -17796,6 +17804,24 @@
 					}
 				},
 				"required": ["id", "kind", "label"],
+				"type": "object"
+			},
+			"Stage": {
+				"additionalProperties": false,
+				"properties": {
+					"delay_seconds": {
+						"description": "Wait from the original publish time before this repost",
+						"format": "int64",
+						"maximum": 2592000,
+						"minimum": 0,
+						"type": "integer"
+					},
+					"unrepost_previous": {
+						"description": "Remove the preceding repost before creating this one",
+						"type": "boolean"
+					}
+				},
+				"required": ["delay_seconds", "unrepost_previous"],
 				"type": "object"
 			},
 			"StartCLIAuthInputBody": {

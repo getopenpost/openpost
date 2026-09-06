@@ -28,6 +28,7 @@
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
+	import RepostStageEditor from '$lib/components/repost-stage-editor.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { showToast } from '$lib/toast';
@@ -75,17 +76,6 @@
 	const targetAccounts = $derived(accounts.filter((account) => account.supports_repost));
 	const activeGrants = $derived(settings?.grants ?? []);
 
-	const delayOptions = [
-		{ value: 0, label: m.repost_delay_immediately() },
-		{ value: 900, label: m.repost_delay_minutes({ count: 15 }) },
-		{ value: 3600, label: m.repost_delay_hours({ count: 1 }) },
-		{ value: 10800, label: m.repost_delay_hours({ count: 3 }) },
-		{ value: 21600, label: m.repost_delay_hours({ count: 6 }) },
-		{ value: 43200, label: m.repost_delay_hours({ count: 12 }) },
-		{ value: 86400, label: m.repost_delay_days({ count: 1 }) },
-		{ value: 172800, label: m.repost_delay_days({ count: 2 }) },
-		{ value: 604800, label: m.repost_delay_days({ count: 7 }) }
-	];
 	const windowOptions = [
 		{ value: 3600, label: m.repost_delay_hours({ count: 1 }) },
 		{ value: 21600, label: m.repost_delay_hours({ count: 6 }) },
@@ -255,22 +245,18 @@
 		}
 	}
 
-	function setDelay(policy: RepostPolicy, value: string) {
-		const delay = Number(value);
-		policy.rule.delay_seconds = delay;
-		if (policy.rule.evaluation_window_seconds < delay) {
-			policy.rule.evaluation_window_seconds =
-				windowOptions.find((option) => option.value >= delay)?.value ?? 2592000;
-		}
-	}
-
 	function validatePolicies(): string {
 		for (const policy of policies) {
 			if (!policy.name.trim()) return m.repost_rule_name_required();
 			if ((policy.target_account_ids ?? []).length === 0) {
 				return m.repost_target_required({ name: policy.name });
 			}
-			if (policy.rule.evaluation_window_seconds < policy.rule.delay_seconds) {
+			const lastDelay = policy.rule.stages?.at(-1)?.delay_seconds ?? policy.rule.delay_seconds;
+			const legacyMaximumBoundary =
+				!policy.rule.stages?.length &&
+				lastDelay === 2592000 &&
+				policy.rule.evaluation_window_seconds === 2592000;
+			if (policy.rule.evaluation_window_seconds <= lastDelay && !legacyMaximumBoundary) {
 				return m.repost_window_after_delay({ name: policy.name });
 			}
 		}
@@ -324,7 +310,10 @@
 			enabled: policy.enabled,
 			source_account_ids: [...(policy.source_account_ids ?? [])],
 			target_account_ids: [...(policy.target_account_ids ?? [])],
-			rule: { ...policy.rule }
+			rule: {
+				...policy.rule,
+				stages: policy.rule.stages?.map((stage) => ({ ...stage }))
+			}
 		};
 	}
 
@@ -338,7 +327,8 @@
 			min_reposts: 0,
 			min_views: 0,
 			require_plateau: false,
-			plateau_checks: 2
+			plateau_checks: 2,
+			stages: [{ delay_seconds: 86400, unrepost_previous: false }]
 		};
 	}
 
@@ -539,29 +529,12 @@
 							</fieldset>
 						</div>
 
-						<div class="grid gap-4 border-t pt-5 sm:grid-cols-2">
-							<div class="space-y-2">
-								<Label for={`repost-delay-${policy.id}`}>{m.repost_delay()}</Label>
-								<Select.Root
-									type="single"
-									value={String(policy.rule.delay_seconds)}
-									onValueChange={(value) => setDelay(policy, value)}
-									disabled={!settings.can_manage}
-								>
-									<Select.Trigger
-										id={`repost-delay-${policy.id}`}
-										class="w-full"
-										aria-label={m.repost_delay()}
-									>
-										{delayLabel(policy.rule.delay_seconds, delayOptions)}
-									</Select.Trigger>
-									<Select.Content>
-										{#each delayOptions as option (option.value)}
-											<Select.Item value={String(option.value)}>{option.label}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
+						<div class="grid gap-4 border-t pt-5 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.6fr)]">
+							<RepostStageEditor
+								bind:rule={policy.rule}
+								idPrefix={`repost-${policy.id}`}
+								disabled={!settings.can_manage}
+							/>
 							<div class="space-y-2">
 								<Label for={`repost-window-${policy.id}`}>{m.repost_evaluation_window()}</Label>
 								<Select.Root
@@ -581,7 +554,8 @@
 										{#each windowOptions as option (option.value)}
 											<Select.Item
 												value={String(option.value)}
-												disabled={option.value < policy.rule.delay_seconds}
+												disabled={option.value <=
+													(policy.rule.stages?.at(-1)?.delay_seconds ?? policy.rule.delay_seconds)}
 												>{option.label}</Select.Item
 											>
 										{/each}

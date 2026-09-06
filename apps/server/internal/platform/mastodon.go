@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -355,13 +356,35 @@ func (m *MastodonAdapter) Repost(ctx context.Context, accessToken, _ string, req
 		return RepostResult{}, fmt.Errorf("reposting on mastodon: %w", err)
 	}
 	var result struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
+		Reblog *struct {
+			ID string `json:"id"`
+		} `json:"reblog"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return RepostResult{}, fmt.Errorf("decoding mastodon repost: %w", err)
 	}
-	return RepostResult{ExternalID: result.ID, ExternalURL: result.URL}, nil
+	if result.Reblog != nil && strings.TrimSpace(result.Reblog.ID) != "" {
+		statusID = result.Reblog.ID
+	}
+	return RepostResult{ExternalID: statusID, ExternalURL: req.ExternalURL}, nil
+}
+
+func (m *MastodonAdapter) Unrepost(ctx context.Context, accessToken, _ string, req UnrepostRequest) error {
+	statusID := strings.TrimSpace(req.RepostExternalID)
+	if statusID == "" {
+		return fmt.Errorf("mastodon unrepost requires the target-local source status id")
+	}
+	_, err := DoRequest(ctx, http.MethodPost, m.instanceURL+"/api/v1/statuses/"+url.PathEscape(statusID)+"/unreblog", nil, map[string]string{
+		headerAuthorization: bearerPrefix + accessToken,
+	})
+	if err == nil {
+		return nil
+	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotFound || httpErr.StatusCode == http.StatusGone) {
+		return nil
+	}
+	return fmt.Errorf("unreposting on mastodon: %w", err)
 }
 
 func buildMastodonStatusForm(req *PublishRequest) (url.Values, error) {

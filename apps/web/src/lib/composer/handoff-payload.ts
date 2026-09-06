@@ -202,6 +202,7 @@ function repostRule(
 	const plateauChecks = numberValue(fields.get('plateau_checks'));
 	const requirePlateau = booleanValue(fields.get('require_plateau'));
 	const thresholdMode = stringValue(fields.get('threshold_mode'));
+	const stages = repostStages(fields.get('stages'));
 	if (
 		delaySeconds === undefined ||
 		evaluationWindowSeconds === undefined ||
@@ -211,11 +212,12 @@ function repostRule(
 		minViews === undefined ||
 		plateauChecks === undefined ||
 		requirePlateau === undefined ||
-		(thresholdMode !== 'all' && thresholdMode !== 'any')
+		(thresholdMode !== 'all' && thresholdMode !== 'any') ||
+		(fields.has('stages') && !stages)
 	) {
 		return undefined;
 	}
-	return {
+	const rule: components['schemas']['Rule'] = {
 		delay_seconds: delaySeconds,
 		evaluation_window_seconds: evaluationWindowSeconds,
 		min_comments: minComments,
@@ -226,6 +228,23 @@ function repostRule(
 		require_plateau: requirePlateau,
 		threshold_mode: thresholdMode
 	};
+	if (stages) rule.stages = stages;
+	return rule;
+}
+
+function repostStages(
+	value: HandoffJSONValue | undefined
+): components['schemas']['Stage'][] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const stages: components['schemas']['Stage'][] = [];
+	for (const entry of value) {
+		const fields = valueFields(entry);
+		const delaySeconds = numberValue(fields.get('delay_seconds'));
+		const unrepostPrevious = booleanValue(fields.get('unrepost_previous'));
+		if (delaySeconds === undefined || unrepostPrevious === undefined) return undefined;
+		stages.push({ delay_seconds: delaySeconds, unrepost_previous: unrepostPrevious });
+	}
+	return stages;
 }
 
 function repostOverride(value: HandoffJSONValue | undefined): components['schemas']['Override'] {

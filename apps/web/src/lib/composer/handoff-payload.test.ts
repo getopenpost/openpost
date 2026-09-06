@@ -43,4 +43,29 @@ describe('composer handoff payloads', () => {
 		});
 		expect(parsed?.settings_by_account).toEqual({ 'account-1': { nested: '' } });
 	});
+
+	it('preserves custom repost stages across an editor handoff', () => {
+		const repostOverride = {
+			mode: 'custom',
+			target_account_ids: ['account-1'],
+			rule: {
+				delay_seconds: 0,
+				evaluation_window_seconds: 3600,
+				threshold_mode: 'all',
+				min_likes: 0,
+				min_comments: 0,
+				min_reposts: 0,
+				min_views: 0,
+				require_plateau: false,
+				plateau_checks: 2,
+				stages: [
+					{ delay_seconds: 0, unrepost_previous: false },
+					{ delay_seconds: 900, unrepost_previous: true }
+				]
+			}
+		};
+		expect(
+			parseComposerHandoffPayload({ ...payload, repost_override: repostOverride })?.repost_override
+		).toEqual(repostOverride);
+	});
 });

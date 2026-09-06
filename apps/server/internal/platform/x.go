@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -743,6 +744,23 @@ func (x *XAdapter) Repost(ctx context.Context, accessToken, targetAccountID stri
 		return RepostResult{}, fmt.Errorf("reposting on X: %w", err)
 	}
 	return RepostResult{ExternalID: req.ExternalID, ExternalURL: req.ExternalURL}, nil
+}
+
+func (x *XAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID string, req UnrepostRequest) error {
+	sourceID := strings.TrimSpace(req.SourceExternalID)
+	if strings.TrimSpace(targetAccountID) == "" || sourceID == "" {
+		return fmt.Errorf("x unrepost requires a target account and source post id")
+	}
+	_, err := x.doSignedRequest(ctx, accessToken, http.MethodDelete,
+		x.apiURL("/2/users/"+url.PathEscape(targetAccountID)+"/retweets/"+url.PathEscape(sourceID)), nil, nil)
+	if err == nil {
+		return nil
+	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotFound || httpErr.StatusCode == http.StatusGone) {
+		return nil
+	}
+	return fmt.Errorf("unreposting on X: %w", err)
 }
 
 func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {

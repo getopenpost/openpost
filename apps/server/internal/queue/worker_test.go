@@ -13,6 +13,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/crypto"
+	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
@@ -146,6 +147,29 @@ func TestWorkerFailsUnknownJobTypes(t *testing.T) {
 	require.Len(t, recorder.Exceptions, 1)
 	require.Equal(t, "unknown_job", recorder.Exceptions[0].Properties["job_type"])
 	require.NotContains(t, recorder.Exceptions[0].Properties, "payload")
+}
+
+func TestWorkerRequeuesCurrentJobForRepostContinuation(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job := &models.Job{
+		ID: "repost-continuation", Type: jobregistry.TypeRepostExecute, Payload: `{}`,
+		Status: jobStatusProcessing, RunAt: now.Add(-time.Minute), MaxAttempts: 1,
+		LockedAt: now, LockedBy: "worker-repost",
+	}
+	_, err := db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-repost", time.Second, nil, nil, stubStorage{})
+	worker.finishFailedJob(t.Context(), job, &repostservice.ExecutionContinuationError{RetryAfter: time.Minute})
+
+	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusPending, job.Status)
+	require.Zero(t, job.Attempts)
+	require.Empty(t, job.LockedBy)
+	require.True(t, job.RunAt.After(now.Add(59*time.Second)))
 }
 
 func TestWorkerQuiesceFinishesCurrentJobWithoutClaimingAnother(t *testing.T) {

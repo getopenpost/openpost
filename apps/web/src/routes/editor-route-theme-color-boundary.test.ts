@@ -361,7 +361,6 @@ describe('editor route theme color boundary', () => {
 		for (const name of [
 			'ai-caption-controls',
 			'animated-image-playback-section',
-			'asset-library-panel',
 			'audio-ducking-panel',
 			'audio-effects-panel',
 			'audio-eq-panel',

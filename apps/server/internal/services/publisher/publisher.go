@@ -1981,39 +1981,6 @@ func providerPublishFingerprint(
 	return providerwrite.Fingerprint("provider-publish-v2", payload)
 }
 
-//nolint:unparam // token is part of the upload seam signature; tests pass a static token while production media uploads flow through uploadRenditionMediaToPlatform.
-func (s *Service) uploadMediaToPlatform(ctx context.Context, account *models.SocialAccount, provider platform.Publisher, token string, media models.MediaAttachment, content string) (string, error) {
-	if requiresPublicMedia(account.Platform, "") {
-		return s.getPublicMediaURL(media), nil
-	}
-
-	if s.storage == nil {
-		return "", fmt.Errorf("media storage is not configured")
-	}
-	data, err := s.storage.Open(ctx, filepath.Base(media.FilePath))
-	if err != nil {
-		return "", fmt.Errorf("opening media file %s: %w", media.FilePath, err)
-	}
-	defer data.Close()
-
-	if uploader, ok := provider.(platform.MetadataMediaUploader); ok {
-		return uploader.UploadMediaWithMetadata(ctx, token, account.AccountID, platform.UploadMediaRequest{
-			MimeType:    media.MimeType,
-			Filename:    firstNonEmptyPublisherString(media.OriginalFilename, filepath.Base(media.FilePath)),
-			Size:        media.Size,
-			Title:       firstContentLine(content),
-			Description: strings.TrimSpace(content),
-			Reader:      data,
-		})
-	}
-
-	uploader, ok := provider.(platform.MediaUploader)
-	if !ok {
-		return "", fmt.Errorf("provider does not support media uploads")
-	}
-	return uploader.UploadMedia(ctx, token, account.AccountID, media.MimeType, data)
-}
-
 func (s *Service) uploadRenditionMediaToPlatform(ctx context.Context, account *models.SocialAccount, provider platform.Publisher, token string, rendition *models.Rendition, media models.MediaAttachment) (string, error) {
 	settings := map[string]interface{}{}
 	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)

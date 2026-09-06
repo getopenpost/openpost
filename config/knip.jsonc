@@ -20,30 +20,46 @@
       "sveltekit": false,
     },
     "apps/web": {
-      "entry": ["src/routes/**/+*.{js,ts,svelte}", "src/hooks.{js,ts}"],
-      "project": ["src/**/*.{js,ts,svelte}"],
+      // The PWA manifest and icon sources produce shipped assets during the build.
+      "entry": [
+        "src/routes/**/+*.{js,ts,svelte}!",
+        "src/hooks.{js,ts}!",
+        "src/lib/pwa/manifest.ts!",
+        "src/lib/themes/icons/packs/{lucide,heroicons-outline,heroicons-solid,phosphor,tabler}.ts!",
+      ],
+      "project": [
+        "src/**/*.{js,ts,svelte}!",
+        "!src/**/*.{test,spec}.{js,ts,svelte}!",
+        "!src/**/*{test-harness,test-boundary,participant-harness}.svelte!",
+        "!src/**/*{test-utils,test-fixtures}.ts!",
+      ],
       // The graph is explicit above. Loading Vite here invokes SvelteKit from
       // the monorepo root and adds config-only warnings to the CI signal.
       "vite": false,
     },
     "apps/marketing": {
-      "entry": ["src/routes/**/+*.{js,ts,svelte}", "functions/**/*.{js,jsx,ts,tsx}"],
+      "entry": ["src/routes/**/+*.{js,ts,svelte}!", "functions/**/*.{js,jsx,ts,tsx}!"],
       "project": [
-        "src/**/*.{js,ts,svelte}",
-        "functions/**/*.{js,jsx,ts,tsx}",
+        "src/**/*.{js,ts,svelte}!",
+        "!src/**/*.{test,spec}.{js,ts,svelte}!",
+        "functions/**/*.{js,jsx,ts,tsx}!",
         "scripts/**/*.{js,mjs,ts}",
       ],
       // See the frontend workspace note: route roots are explicit and the
       // Vite plugin is not needed for file-level reachability.
       "vite": false,
     },
+    "apps/mobile": {
+      "entry": ["src/app/**/*.{ts,tsx}!"],
+      "project": ["src/**/*.{ts,tsx}!", "!src/**/*.{test,spec}.{ts,tsx}!"],
+    },
     "apps/docs": {
-      "entry": [".vitepress/**/*.{js,mjs,ts}", "scripts/**/*.{js,mjs,ts}"],
-      "project": [".vitepress/**/*.{js,mjs,ts}", "scripts/**/*.{js,mjs,ts}"],
+      "entry": [".vitepress/**/*.{js,mjs,ts}!", "scripts/**/*.{js,mjs,ts}!"],
+      "project": [".vitepress/**/*.{js,mjs,ts}!", "scripts/**/*.{js,mjs,ts}!"],
     },
     "packages/*": {
-      "entry": ["src/index.{js,mjs,ts}"],
-      "project": ["src/**/*.{js,mjs,ts}"],
+      "entry": ["src/index.{js,mjs,ts}!"],
+      "project": ["src/**/*.{js,mjs,ts}!", "!src/**/*.{test,spec}.{js,mjs,ts}!"],
     },
   },
 }

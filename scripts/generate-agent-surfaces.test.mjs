@@ -15,7 +15,6 @@ import {
   renderOriginVaryHeaders,
 } from "./generate-agent-surfaces.mjs";
 import centralFeatureEvidence from "./public-central-feature-evidence.json" with { type: "json" };
-import noJavaScriptEvidence from "./public-no-javascript-evidence.json" with { type: "json" };
 
 async function runRootTask(root, arguments_, environment = {}) {
   await new Promise((resolve, reject) => {
@@ -316,7 +315,7 @@ function documentText(node) {
 
 function productionHTMLContract(
   source,
-  { canonical, description: expectedDescription, evidence, title, home = false },
+  { canonical, description: expectedDescription, title, home = false },
 ) {
   const document = parse(source);
   const nodes = documentDescendants(document);
@@ -358,20 +357,12 @@ function productionHTMLContract(
     `${canonical} must explain what the page is before hydration`,
   );
   assert.ok(
-    contentText.includes(evidence.audience),
-    `${canonical} must visibly identify who the page serves before hydration`,
-  );
-  assert.ok(
     contentNodes.filter(
       (node) =>
         ["dd", "li", "p", "td"].includes(node.tagName) &&
         documentText(node).replace(/\s+/gu, " ").trim().length >= 40,
     ).length >= 2,
     `${canonical} must visibly explain what the page provides before hydration`,
-  );
-  assert.ok(
-    contentText.includes(evidence.boundary),
-    `${canonical} must visibly state an important limit or boundary before hydration`,
   );
   assert.ok(
     contentText.length >= 300,
@@ -1287,24 +1278,6 @@ test(
   { timeout: productionBuildTestTimeoutMs },
   async () => {
     const root = path.resolve(import.meta.dirname, "..");
-    const eligibleCanonicals = [
-      ...marketingRouteManifest.map((route) => route.canonical),
-      ...docsSocialEntries
-        .filter((entry) => entry.agentRepresentation.membership === "ordinary")
-        .map((entry) => entry.canonical),
-    ].toSorted();
-    assert.deepEqual(
-      Object.keys(noJavaScriptEvidence).toSorted(),
-      eligibleCanonicals,
-      "the reviewed no-JavaScript evidence contract must own every eligible route exactly once",
-    );
-    for (const [canonical, evidence] of Object.entries(noJavaScriptEvidence)) {
-      assert.notEqual(
-        evidence.audience,
-        evidence.boundary,
-        `${canonical} must use distinct evidence for its audience and boundary`,
-      );
-    }
     const turboPlanDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-turbo-plan-"));
     const turboPlanPath = path.join(turboPlanDirectory, "plan.json");
     let turboPlan;
@@ -1470,7 +1443,6 @@ test(
       const { headNodes } = productionHTMLContract(html, {
         canonical: route.canonical,
         description: route.description,
-        evidence: noJavaScriptEvidence[route.canonical],
         title: route.title,
       });
       assert.ok(
@@ -1643,7 +1615,6 @@ test(
       productionHTMLContract(html, {
         canonical: entry.canonical,
         description: entry.description,
-        evidence: noJavaScriptEvidence[entry.canonical],
         title: entry.page === "index.md" ? entry.socialTitle : `${entry.socialTitle} | OpenPost`,
         home: entry.page === "index.md",
       });

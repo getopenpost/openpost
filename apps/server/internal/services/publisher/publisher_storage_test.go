@@ -113,19 +113,19 @@ func (f *fakePublisherAdapter) Publish(_ context.Context, _, _ string, req *plat
 	return result, req.Checkpoint(result)
 }
 
-func TestUploadMediaToPlatformReadsFromBlobStorage(t *testing.T) {
+func TestUploadRenditionMediaToPlatformReadsFromBlobStorage(t *testing.T) {
 	storage := &fakePublisherStorage{body: "stored-media"}
 	adapter := &fakePublisherAdapter{}
 	service := NewService(nil, nil)
 	service.SetStorage(storage)
 
-	got, err := service.uploadMediaToPlatform(
+	got, err := service.uploadRenditionMediaToPlatform(
 		context.Background(),
 		&models.SocialAccount{Platform: "x", AccountID: "acct-1"},
 		adapter,
 		"token",
+		&models.Rendition{Body: "Launch\nDescription", Profile: models.ContentProfileShortText, SettingsJSON: "{}"},
 		models.MediaAttachment{FilePath: "media/example.png", MimeType: "image/png"},
-		"Launch\nDescription",
 	)
 
 	require.NoError(t, err)

@@ -49,8 +49,5 @@ export const assetSurfaceManifest = {
     "screenshots/media-dark.png",
     "screenshots/settings-dark.png",
     "screenshots/video-editor-dark.webp",
-    "testimonial-portraits/jordan-ellis.webp",
-    "testimonial-portraits/maya-ribeiro.webp",
-    "testimonial-portraits/priya-nair.webp",
   ],
 } as const satisfies Record<AssetSurface, readonly string[]>;

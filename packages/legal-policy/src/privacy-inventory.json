@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-09-01",
+  "reviewed_on": "2026-09-06",
   "next_review_on": "2026-12-01",
   "summary_notice": "This plain-language summary is a guide, not a replacement for the Privacy Policy. If it differs from the full policy, the full policy controls.",
   "summary_points": [
@@ -412,6 +412,42 @@
       "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
     },
     {
+      "id": "local-video-project-import-ids",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor cloud import",
+      "identifier_kind": "exact",
+      "identifier": "openpost:video-project-local-imports:v1",
+      "purpose": "Keeps one generated cloud project ID for each Workspace and Local-only project pair so a resumed import updates the same Cloud Video Project instead of creating a duplicate.",
+      "scope": "Application origin and current browser profile; keys contain Workspace and Local-only project IDs, and values are generated cloud project IDs.",
+      "duration": "Until site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/cloud/import-local-project.ts"]
+    },
+    {
+      "id": "local-video-project-offline-cache",
+      "technology": "Cache Storage",
+      "owner": "OpenPost Video Editor cloud sync",
+      "identifier_kind": "exact",
+      "identifier": "openpost-cloud-video-projects-v1",
+      "purpose": "Keeps a validated Cloud Video Project document and its required source media available when the user chooses offline access.",
+      "scope": "Application origin and current browser profile; entries are separated by Workspace, project, and media ID.",
+      "duration": "Until the user removes the offline copy, signs out, or clears site data.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/cloud/offline-project-cache.ts"]
+    },
+    {
+      "id": "local-video-project-outbox-store",
+      "technology": "IndexedDB",
+      "owner": "OpenPost Video Editor cloud sync",
+      "identifier_kind": "exact",
+      "identifier": "state",
+      "purpose": "Stores the mutation-outbox-v1 record inside the openpost-video-project-sync database while authored Cloud Video Project changes are waiting for the managed service.",
+      "scope": "Application origin and current browser profile; the record includes Workspace and project identifiers.",
+      "duration": "Accepted mutations are removed from the record. The database is removed on sign-out or when site data is cleared.",
+      "necessity": "strictly_necessary",
+      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+    },
+    {
       "id": "cookie-session",
       "technology": "cookie",
       "owner": "OpenPost authentication service",
@@ -717,6 +753,18 @@
       "purpose": "Keeps the user's selected Color scope, such as RGB Parade, waveform, vectorscope, or histogram.",
       "scope": "Application origin and current browser profile.",
       "duration": "Until the scope is replaced or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/components/color-scopes.svelte"]
+    },
+    {
+      "id": "local-video-color-scope-layout",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "timeline:scopes:layout",
+      "purpose": "Keeps the Color scopes in the single-scope or grid layout the user last selected.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the layout is replaced or site data is cleared.",
       "necessity": "functional",
       "source_refs": ["frontend/src/lib/video-editor/components/color-scopes.svelte"]
     },

@@ -1,5 +1,38 @@
 import { expect, test } from "@playwright/test";
 
+test("starter previews fit the complete canvas on narrow phones", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  await page.goto("/image-editor");
+  const gallery = page.getByRole("region", { name: "Starter templates" });
+  await expect(gallery.locator("canvas").first()).toBeVisible();
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      await expect
+        .poll(() =>
+          gallery.locator("canvas").evaluateAll((canvases) =>
+            canvases.every((canvas) => {
+              const frame = canvas.parentElement!.getBoundingClientRect();
+              const bitmap = canvas.getBoundingClientRect();
+              return bitmap.width <= frame.width + 1 && bitmap.height <= frame.height + 1;
+            }),
+          ),
+        )
+        .toBe(true);
+      await gallery.screenshot({
+        path: testInfo.outputPath(`templates-${width}-${colorScheme}.png`),
+      });
+    }
+  }
+  const starter = gallery.getByRole("button", { name: "Quick announcement" });
+  await starter.focus();
+  await expect(starter).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+});
+
 // A public visitor can create a design, keep working across a reload, and
 // export it without an account and without any server write. If local
 // persistence breaks, edits silently vanish; if the public boundary leaks,

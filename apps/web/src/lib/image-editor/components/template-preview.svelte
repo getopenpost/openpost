@@ -93,6 +93,13 @@
 </div>
 
 <style>
+	/* Fabric owns bitmap resolution and writes inline CSS dimensions. The gallery
+	   owns display size so the entire bitmap fits, including after a sync. */
+	.template-preview-frame canvas {
+		width: 100% !important;
+		height: 100% !important;
+	}
+
 	.template-preview-frame {
 		--image-editor-checker-light: color-mix(
 			in oklch,

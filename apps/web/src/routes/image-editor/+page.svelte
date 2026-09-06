@@ -511,19 +511,19 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 					{#each templates as template (template.id)}
 						<button
 							type="button"
-							class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+							class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
 							onclick={() => startTemplate(template)}
 							disabled={Boolean(creating)}
 						>
-							<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
+							<div class="aspect-square overflow-hidden border-b">
 								<TemplatePreview
 									document={template.document}
 									label={templateName(template)}
 									compact
 								/>
 							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium">
+							<div class="flex min-h-16 items-center gap-2 p-3">
+								<span class="min-w-0 flex-1 text-sm leading-snug font-medium">
 									{templateName(template)}
 								</span>
 								{#if creating === template.id}<ProtectedIcon

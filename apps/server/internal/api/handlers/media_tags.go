@@ -1138,21 +1138,21 @@ func builtinImageEditorTemplates() []ImageEditorTemplateResponse {
 		id, name, category, preset, headline, subline, background, accent, layout string
 		pageCount                                                                 int
 	}{
-		{"builtin-quick-announcement", "Quick announcement", "Announcement", "instagram-square", "A clear update", "Say what changed and why it matters.", "#161616", "#f97316", "signal", 1},
-		{"builtin-bold-announcement", "Bold announcement", "Announcement", "instagram-square", "BIG NEWS", "One short line with the useful detail.", "#f97316", "#171717", "bold", 1},
-		{"builtin-photo-caption", "Photo caption", "Photo", "instagram-portrait", "A moment worth sharing", "Add a short caption or location.", "#f5f5f4", "#292524", "photo", 1},
-		{"builtin-quote-card", "Quote card", "Quote", "instagram-square", "Put the useful line first.", "Name or source", "#ece7df", "#c45120", "quote", 1},
-		{"builtin-quiet-quote", "Quiet quote", "Quote", "instagram-portrait", "A thoughtful line can carry the whole post.", "Name or source", "#f7f3ed", "#9a3412", "quiet-quote", 1},
-		{"builtin-how-to-carousel", "How-to carousel", "Carousel", "instagram-portrait", "How to get it done", "A focused five-page walkthrough.", "#fff8f1", "#ea580c", "steps", 5},
-		{"builtin-carousel-opener", "Carousel opener", "Carousel", "instagram-portrait", "The idea in one sentence", "Swipe for the useful details.", "#1c1917", "#f97316", "split", 5},
-		{"builtin-carousel-step", "Numbered steps", "Education", "instagram-portrait", "A practical process", "Four clear steps from start to finish.", "#f5f5f4", "#c2410c", "numbered", 4},
-		{"builtin-story-prompt", "Story prompt", "Story", "story-reel-slide", "What are you working on?", "Invite a short answer from your audience.", "#431407", "#fb923c", "prompt", 1},
-		{"builtin-story-photo", "Story photo", "Photo", "story-reel-slide", "Behind the scenes", "Add context in one line.", "#292524", "#f97316", "story-photo", 1},
-		{"builtin-linkedin-insight", "LinkedIn insight", "Professional", "linkedin-square", "One practical insight", "Explain the idea in one short paragraph.", "#f6f5f2", "#c2410c", "editorial", 1},
-		{"builtin-linkedin-launch", "LinkedIn launch", "Professional", "linkedin-landscape", "We just launched", "What changed, who it helps, and where to learn more.", "#172554", "#fb923c", "launch", 1},
-		{"builtin-x-update", "X product update", "Announcement", "x-landscape", "Product update", "One clear change. One clear outcome.", "#fafaf9", "#f97316", "update", 1},
-		{"builtin-youtube-focus", "YouTube headline", "Thumbnail", "youtube-thumbnail", "THE MAIN IDEA", "Use one strong subject and a short promise.", "#18181b", "#f97316", "thumbnail", 1},
-		{"builtin-youtube-list", "YouTube list", "Thumbnail", "youtube-thumbnail", "3 THINGS TO FIX", "Make the list concrete and easy to scan.", "#0f172a", "#fb923c", "thumbnail-list", 1},
+		{"builtin-quick-announcement", "Quick announcement", "Announcement", "instagram-square", "Made it.\nShipped it.", "Your next chapter starts here.", "#192a24", "#dbf36b", "signal", 1},
+		{"builtin-bold-announcement", "Bold announcement", "Announcement", "instagram-square", "NEXT\nIS NOW.", "A new idea. Ready for the world.", "#ff7043", "#242124", "bold", 1},
+		{"builtin-photo-caption", "Photo caption", "Photo", "instagram-portrait", "The everyday, noticed.", "A place. A moment. A little context.", "#faf1df", "#274d46", "photo", 1},
+		{"builtin-quote-card", "Quote card", "Quote", "instagram-square", "Make room\nfor the work\nthat matters.", "Your name · A thought to keep", "#26253a", "#d8c9f1", "quote", 1},
+		{"builtin-quiet-quote", "Quiet quote", "Quote", "instagram-portrait", "Small steps.\nTaken often.\nThat is how\nthings change.", "Your name / Your perspective", "#f6efe2", "#aa472d", "quiet-quote", 1},
+		{"builtin-how-to-carousel", "How-to carousel", "Carousel", "instagram-portrait", "From idea\nto done.", "A five-page guide to making progress.", "#f5efdf", "#c04b30", "steps", 5},
+		{"builtin-carousel-opener", "Carousel opener", "Carousel", "instagram-portrait", "What I wish\nI knew\nat the start.", "Five notes for the next time you begin.", "#25243a", "#d5c9f3", "split", 5},
+		{"builtin-carousel-step", "Numbered steps", "Education", "instagram-portrait", "Find your\nnext step.", "A practical process, one action at a time.", "#edf1e8", "#20544a", "numbered", 4},
+		{"builtin-story-prompt", "Story prompt", "Story", "story-reel-slide", "What are\nyou making\nnext?", "One idea. Tell me about it.", "#24233b", "#d5c9f3", "prompt", 1},
+		{"builtin-story-photo", "Story photo", "Photo", "story-reel-slide", "A day in the making.", "The part you do not usually see.", "#f0e6d5", "#9c4c33", "story-photo", 1},
+		{"builtin-linkedin-insight", "LinkedIn insight", "Professional", "linkedin-square", "Better work\nstarts with\nbetter\nquestions.", "One lesson from the work. One idea to take with you.", "#f3eddf", "#a9c2b4", "editorial", 1},
+		{"builtin-linkedin-launch", "LinkedIn launch", "Professional", "linkedin-landscape", "Meet your\nnext chapter.", "Built with care. Ready to share.", "#202e49", "#b9d9ef", "launch", 1},
+		{"builtin-x-update", "X product update", "Announcement", "x-landscape", "Less friction.\nMore flow.", "A small update that makes a real difference.", "#f4f1e8", "#b14932", "update", 1},
+		{"builtin-youtube-focus", "YouTube headline", "Thumbnail", "youtube-thumbnail", "START\nMAKING.", "", "#252726", "#d8ed70", "thumbnail", 1},
+		{"builtin-youtube-list", "YouTube list", "Thumbnail", "youtube-thumbnail", "THINGS\nI LEARNED", "", "#23253e", "#e9b3a2", "thumbnail-list", 1},
 	}
 	result := make([]ImageEditorTemplateResponse, 0, len(specs))
 	for _, spec := range specs {
@@ -1197,112 +1197,96 @@ func builtinImageEditorTemplates() []ImageEditorTemplateResponse {
 }
 
 func builtinImageEditorTemplatePage(seed, layout, headline, subline, background, accent string, width, height, pageIndex, pageCount int) ImageEditorPagePayload {
-	w := float64(width)
-	h := float64(height)
+	w, h := float64(width), float64(height)
 	foreground := imageEditorTemplateForeground(background)
 	muted := imageEditorTemplateMutedForeground(background)
 	layers := []ImageEditorLayer{}
-
-	switch layout {
-	case "bold":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/block", "Headline block", "rounded_rectangle", w*0.06, h*0.07, w*0.88, h*0.58, accent, w*0.035),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.1, h*0.15, w*0.8, h*0.38, w*0.13, foreground, 900, "center"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.12, h*0.73, w*0.76, h*0.12, w*0.03, foreground, 600, "center"),
-		)
-	case "photo":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/photo", "Replace with your photo", "rectangle", 0, 0, w, h*0.72, "#d6d3d1", 0),
-			builtinImageEditorTextStyled(seed+"/photo-label", "REPLACE WITH YOUR PHOTO", w*0.12, h*0.32, w*0.76, h*0.08, w*0.026, "#57534e", 700, "center"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.08, h*0.77, w*0.84, h*0.1, w*0.052, foreground, 750, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.08, h*0.89, w*0.78, h*0.06, w*0.024, muted, 500, "left"),
-		)
-	case "quote":
-		layers = append(layers,
-			builtinImageEditorTextStyled(seed+"/mark", "“", w*0.08, h*0.08, w*0.24, h*0.2, w*0.2, accent, 800, "left"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.12, h*0.28, w*0.76, h*0.34, w*0.068, foreground, 650, "center"),
-			builtinImageEditorShape(seed+"/rule", "Quote rule", "rounded_rectangle", w*0.4, h*0.7, w*0.2, mathMax(8, h*0.008), accent, 999),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.2, h*0.76, w*0.6, h*0.08, w*0.025, muted, 600, "center"),
-		)
-	case "quiet-quote":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/rule", "Quote rule", "rounded_rectangle", w*0.1, h*0.2, mathMax(10, w*0.012), h*0.54, accent, 999),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.17, h*0.22, w*0.7, h*0.36, w*0.06, foreground, 550, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.17, h*0.68, w*0.55, h*0.08, w*0.025, muted, 650, "left"),
-		)
-	case "steps", "numbered":
-		number := pageIndex + 1
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/number", fmt.Sprintf("Step %d", number), "ellipse", w*0.08, h*0.1, w*0.2, w*0.2, accent, 999),
-			builtinImageEditorTextStyled(seed+"/number-text", fmt.Sprintf("%02d", number), w*0.08, h*0.14, w*0.2, w*0.1, w*0.065, imageEditorTemplateForeground(accent), 800, "center"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.09, h*0.38, w*0.82, h*0.25, w*0.075, foreground, 750, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.09, h*0.68, w*0.76, h*0.13, w*0.029, muted, 450, "left"),
-			builtinImageEditorTextStyled(seed+"/page", fmt.Sprintf("%d / %d", number, pageCount), w*0.7, h*0.9, w*0.2, h*0.04, w*0.018, muted, 600, "right"),
-		)
-	case "split":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/split", "Color field", "rectangle", w*0.58, 0, w*0.42, h, accent, 0),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.08, h*0.22, w*0.68, h*0.32, w*0.077, foreground, 780, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.08, h*0.63, w*0.45, h*0.1, w*0.027, muted, 500, "left"),
-			builtinImageEditorTextStyled(seed+"/page", fmt.Sprintf("%02d", pageIndex+1), w*0.68, h*0.76, w*0.22, h*0.1, w*0.08, imageEditorTemplateForeground(accent), 800, "center"),
-		)
-	case "prompt":
-		layers = append(layers,
-			builtinImageEditorTextStyled(seed+"/label", "YOUR TURN", w*0.1, h*0.12, w*0.8, h*0.05, w*0.022, accent, 800, "center"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.1, h*0.3, w*0.8, h*0.3, w*0.074, foreground, 700, "center"),
-			builtinImageEditorShape(seed+"/answer", "Answer field", "rounded_rectangle", w*0.12, h*0.72, w*0.76, h*0.12, "#fff7ed", w*0.06),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.18, h*0.755, w*0.64, h*0.05, w*0.021, "#7c2d12", 550, "center"),
-		)
-	case "story-photo":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/photo", "Replace with your photo", "rectangle", 0, 0, w, h, "#57534e", 0),
-			builtinImageEditorTextStyled(seed+"/photo-label", "REPLACE WITH YOUR PHOTO", w*0.12, h*0.36, w*0.76, h*0.08, w*0.025, "#d6d3d1", 700, "center"),
-			builtinImageEditorShape(seed+"/caption", "Caption field", "rounded_rectangle", w*0.07, h*0.7, w*0.86, h*0.2, "#1c1917", w*0.035),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.12, h*0.74, w*0.76, h*0.08, w*0.05, "#fafaf9", 750, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.12, h*0.84, w*0.7, h*0.04, w*0.021, "#d6d3d1", 500, "left"),
-		)
-	case "editorial":
-		layers = append(layers,
-			builtinImageEditorTextStyled(seed+"/label", "INSIGHT", w*0.09, h*0.12, w*0.4, h*0.05, w*0.022, accent, 800, "left"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.09, h*0.26, w*0.75, h*0.22, w*0.07, foreground, 700, "left"),
-			builtinImageEditorShape(seed+"/rule", "Editorial rule", "rectangle", w*0.09, h*0.56, w*0.82, mathMax(4, h*0.004), "#d6d3d1", 0),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.09, h*0.64, w*0.76, h*0.16, w*0.029, muted, 450, "left"),
-		)
-	case "launch":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/badge", "Launch badge", "rounded_rectangle", w*0.07, h*0.12, w*0.2, h*0.1, accent, h*0.05),
-			builtinImageEditorTextStyled(seed+"/badge-text", "NEW", w*0.07, h*0.145, w*0.2, h*0.05, w*0.024, imageEditorTemplateForeground(accent), 850, "center"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.07, h*0.34, w*0.55, h*0.28, w*0.085, foreground, 800, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.66, h*0.34, w*0.27, h*0.24, w*0.027, muted, 500, "left"),
-		)
-	case "update":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/mark", "Update mark", "ellipse", w*0.07, h*0.12, w*0.07, w*0.07, accent, 999),
-			builtinImageEditorTextStyled(seed+"/label", "OPENPOST / UPDATE", w*0.17, h*0.13, w*0.5, h*0.05, w*0.02, muted, 700, "left"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.07, h*0.35, w*0.55, h*0.22, w*0.08, foreground, 800, "left"),
-			builtinImageEditorTextStyled(seed+"/subline", subline, w*0.66, h*0.36, w*0.27, h*0.18, w*0.03, muted, 500, "left"),
-		)
-	case "thumbnail":
-		layers = append(layers,
-			builtinImageEditorShape(seed+"/subject", "Replace with your subject", "ellipse", w*0.04, h*0.1, w*0.4, h*0.8, "#44403c", w*0.2),
-			builtinImageEditorTextStyled(seed+"/subject-label", "YOUR SUBJECT", w*0.08, h*0.47, w*0.32, h*0.06, w*0.025, "#d6d3d1", 700, "center"),
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.48, h*0.2, w*0.47, h*0.42, w*0.095, foreground, 900, "left"),
-			builtinImageEditorShape(seed+"/rule", "Headline underline", "rounded_rectangle", w*0.5, h*0.7, w*0.32, h*0.035, accent, 999),
-		)
-	case "thumbnail-list":
-		layers = append(layers,
-			builtinImageEditorTextStyled(seed+"/headline", headline, w*0.06, h*0.12, w*0.58, h*0.24, w*0.078, foreground, 900, "left"),
-			builtinImageEditorTextStyled(seed+"/list", "01  START HERE\n02  FIX THIS\n03  SHIP IT", w*0.08, h*0.46, w*0.52, h*0.34, w*0.04, "#e7e5e4", 700, "left"),
-			builtinImageEditorShape(seed+"/subject", "Replace with your subject", "rounded_rectangle", w*0.67, h*0.1, w*0.28, h*0.8, accent, w*0.04),
-		)
-	default:
-		layers = append(layers,
-			builtinImageEditorAccent(seed, width, height, accent),
-			builtinImageEditorText(seed+"/headline", headline, w*0.09, h*0.36, w*0.82, h*0.28, w*0.075, foreground),
-			builtinImageEditorText(seed+"/subline", subline, w*0.09, h*0.68, w*0.72, h*0.12, w*0.026, muted),
-		)
+	// Coordinates are fractions of the output canvas; type scales with width.
+	shape := func(key, kind string, x, y, sw, sh float64, color string) {
+		layers = append(layers, builtinImageEditorShape(seed+"/"+key, key, kind, w*x, h*y, w*sw, h*sh, color, 0))
 	}
-
+	text := func(key, value string, x, y, tw, th, size float64, color string, weight int) {
+		layers = append(layers, builtinImageEditorTextStyled(seed+"/"+key, value, w*x, h*y, w*tw, h*th, w*size, color, weight, "left"))
+	}
+	footer := func() {
+		shape("Footer rule", "rectangle", .08, .87, .84, .002, muted)
+		text("Signature", "YOUR NAME / YOUR BRAND", .08, .9, .65, .05, .019, muted, 500)
+		if pageCount > 1 {
+			text("Page", fmt.Sprintf("%02d / %02d", pageIndex+1, pageCount), .79, .9, .15, .05, .019, muted, 500)
+		}
+	}
+	switch layout {
+	case "signal":
+		shape("Signal field", "rectangle", .68, 0, .32, 1, accent)
+		shape("Signal disc", "ellipse", .74, .08, .18, .18, background)
+		text("Headline", headline, .08, .17, .56, .5, .09, foreground, 750)
+		text("Detail", subline, .08, .68, .48, .14, .033, foreground, 450)
+		text("Signature", "YOUR BRAND", .08, .91, .5, .04, .023, muted, 600)
+	case "bold":
+		text("Headline", headline, .07, .09, .87, .62, .18, foreground, 850)
+		shape("Detail field", "rectangle", 0, .76, 1, .24, accent)
+		text("Detail", subline, .08, .81, .65, .13, .034, imageEditorTemplateForeground(accent), 550)
+		text("Arrow", "→", .8, .78, .14, .15, .12, imageEditorTemplateForeground(accent), 500)
+	case "photo", "story-photo":
+		shape("Photo mat", "rectangle", .06, .045, .88, .61, accent)
+		shape("Photo inset", "rectangle", .1, .075, .8, .55, background)
+		text("Photo prompt", "A photo\nworth keeping.", .17, .24, .66, .25, .072, foreground, 550)
+		text("Replace photo", "ADD YOUR PHOTO HERE", .17, .55, .65, .05, .022, muted, 500)
+		text("Headline", headline, .08, .7, .84, .12, .059, foreground, 700)
+		text("Detail", subline, .08, .85, .8, .08, .026, muted, 450)
+	case "quote":
+		shape("Quote panel", "rectangle", .06, .06, .88, .88, accent)
+		text("Headline", headline, .13, .19, .74, .49, .096, imageEditorTemplateForeground(accent), 600)
+		text("Attribution", subline, .13, .8, .74, .06, .027, imageEditorTemplateForeground(accent), 500)
+	case "quiet-quote":
+		text("Quotation", "“", .08, .07, .3, .18, .23, accent, 500)
+		text("Headline", headline, .1, .29, .79, .4, .083, foreground, 450)
+		text("Attribution", subline, .1, .78, .75, .08, .026, muted, 500)
+		shape("Closing rule", "rectangle", .1, .9, .8, .002, accent)
+	case "steps":
+		text("Number", fmt.Sprintf("%02d", pageIndex+1), .06, .035, .87, .31, .29, accent, 750)
+		text("Headline", headline, .08, .4, .82, .27, .078, foreground, 700)
+		text("Detail", subline, .08, .7, .79, .12, .032, muted, 450)
+		footer()
+	case "numbered":
+		shape("Number rail", "rectangle", 0, 0, .24, 1, accent)
+		text("Number", fmt.Sprintf("%02d", pageIndex+1), .035, .065, .19, .18, .13, imageEditorTemplateForeground(accent), 700)
+		text("Headline", headline, .31, .18, .61, .38, .075, foreground, 700)
+		shape("Divider", "rectangle", .31, .64, .61, .003, muted)
+		text("Detail", subline, .31, .7, .59, .18, .031, muted, 450)
+	case "split":
+		shape("Lower field", "rectangle", 0, .6, 1, .4, accent)
+		text("Headline", headline, .08, .12, .84, .4, .096, foreground, 750)
+		text("Detail", subline, .08, .66, .66, .17, .04, imageEditorTemplateForeground(accent), 500)
+		text("Page", fmt.Sprintf("%02d / %02d", pageIndex+1, pageCount), .08, .91, .6, .04, .024, imageEditorTemplateForeground(accent), 500)
+	case "prompt":
+		text("Question mark", "?", .58, .05, .34, .3, .34, accent, 700)
+		text("Headline", headline, .08, .34, .84, .31, .097, foreground, 700)
+		shape("Answer line", "rectangle", .08, .73, .84, .003, foreground)
+		text("Detail", subline, .08, .77, .8, .12, .034, muted, 450)
+	case "editorial":
+		shape("Editorial field", "rectangle", .71, 0, .29, 1, accent)
+		text("Headline", headline, .08, .1, .58, .48, .086, foreground, 650)
+		text("Detail", subline, .08, .65, .55, .2, .035, muted, 450)
+		text("Signature", "NOTES FROM YOUR DESK", .08, .93, .6, .04, .02, muted, 500)
+	case "launch":
+		shape("Launch field", "rectangle", .7, 0, .3, 1, accent)
+		text("Headline", headline, .07, .13, .6, .56, .079, foreground, 750)
+		text("Detail", subline, .07, .76, .57, .16, .026, muted, 450)
+		text("Arrow", "↗", .75, .3, .22, .38, .19, imageEditorTemplateForeground(accent), 500)
+	case "update":
+		shape("Update field", "rectangle", 0, 0, .025, 1, accent)
+		text("Headline", headline, .08, .12, .84, .48, .09, foreground, 700)
+		shape("Rule", "rectangle", .08, .69, .84, .004, accent)
+		text("Detail", subline, .08, .77, .84, .15, .031, muted, 450)
+	case "thumbnail":
+		text("Headline", headline, .055, .11, .61, .77, .14, foreground, 850)
+		shape("Focus disc", "ellipse", .72, .22, .23, .41, accent)
+		text("Play", "→", .76, .23, .18, .37, .15, imageEditorTemplateForeground(accent), 700)
+	case "thumbnail-list":
+		text("Count", "3", .045, .02, .35, .94, .42, accent, 850)
+		text("Headline", headline, .42, .13, .53, .67, .115, foreground, 800)
+	}
 	return ImageEditorPagePayload{
 		ID:              uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed)).String(),
 		Name:            fmt.Sprintf("Page %d", pageIndex+1),
@@ -1330,21 +1314,6 @@ func builtinImageEditorTextStyled(seed, text string, x, y, width, height, fontSi
 	layer.Text.FontWeight = fontWeight
 	layer.Text.Align = align
 	return layer
-}
-
-func builtinImageEditorAccent(seed string, width, height int, color string) ImageEditorLayer {
-	return ImageEditorLayer{
-		ID:      uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed+"/accent")).String(),
-		Type:    "shape",
-		Name:    "Accent",
-		Visible: true,
-		Opacity: 1,
-		Transform: ImageEditorTransform{
-			X: float64(width) * 0.09, Y: float64(height) * 0.18,
-			Width: float64(width) * 0.18, Height: mathMax(12, float64(height)*0.012),
-		},
-		Shape: &ImageEditorShapeValue{Kind: "rounded_rectangle", Fill: color, Stroke: color, Radius: 999},
-	}
 }
 
 func builtinImageEditorText(seed, text string, x, y, width, height, fontSize float64, color string) ImageEditorLayer {
@@ -1375,11 +1344,4 @@ func imageEditorTemplateMutedForeground(background string) string {
 		return "#d6d3d1"
 	}
 	return "#57534e"
-}
-
-func mathMax(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
 }

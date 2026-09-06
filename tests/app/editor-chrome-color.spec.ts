@@ -1,8 +1,8 @@
 import { mkdir, rm } from "node:fs/promises";
 import { Buffer } from "node:buffer";
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import { assignBuiltInTheme, authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const screenshotDirectory = "/tmp/openpost-150-editor-chrome";
 const themes = [
@@ -13,19 +13,6 @@ const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
 );
-
-async function assignTheme(
-  request: APIRequestContext,
-  token: string,
-  workspaceID: string,
-  themeID: string,
-): Promise<void> {
-  const response = await request.put(`/api/v1/theme-assignments/${workspaceID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { reference: { kind: "built_in", id: themeID, version: 1 } },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
-}
 
 async function createVideoProject(page: Page, name = "Shared editor chrome"): Promise<string> {
   await page.addInitScript(() => {
@@ -223,7 +210,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
   const imageURL = await createImageDesign(page);
 
   for (const theme of themes) {
-    await assignTheme(request, token, workspace.id, theme.id);
+    await assignBuiltInTheme(request, token, workspace.id, theme.id);
     for (const width of [1440, 390, 320] as const) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
       await page.emulateMedia({

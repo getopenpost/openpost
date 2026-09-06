@@ -47,6 +47,44 @@ export async function createWorkspace(request: APIRequestContext, token: string,
   return workspace.json();
 }
 
+export async function assignBuiltInTheme(
+  request: APIRequestContext,
+  token: string,
+  workspaceID: string,
+  themeID: string,
+): Promise<void> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const available = await request.get("/api/v1/themes/available", {
+    headers,
+    params: { workspace_id: workspaceID, limit: 100 },
+  });
+  if (!available.ok()) {
+    throw new Error(
+      `available themes failed with ${available.status()}: ${await available.text()}`,
+    );
+  }
+
+  const catalog = (await available.json()) as {
+    items: Array<{ reference: { kind: string; id: string; version: number } }>;
+  };
+  const reference = catalog.items.find(
+    (item) => item.reference.kind === "built_in" && item.reference.id === themeID,
+  )?.reference;
+  if (!reference) {
+    throw new Error(`built-in theme ${JSON.stringify(themeID)} is not available`);
+  }
+
+  const assignment = await request.put(`/api/v1/theme-assignments/${workspaceID}`, {
+    headers,
+    data: { reference },
+  });
+  if (!assignment.ok()) {
+    throw new Error(
+      `theme assignment failed with ${assignment.status()}: ${await assignment.text()}`,
+    );
+  }
+}
+
 export async function createPublication(
   request: APIRequestContext,
   token: string,

@@ -1,6 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import { assignBuiltInTheme, authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const SCREENSHOT_DIRECTORY = "/tmp/openpost-editor-theme-matrix";
 const captureScreenshots = process.env.OPENPOST_EDITOR_THEME_SCREENSHOTS === "1";
@@ -105,19 +105,6 @@ async function createImageDesign(page: Page): Promise<string> {
     timeout: 20_000,
   });
   return page.url();
-}
-
-async function assignTheme(
-  request: APIRequestContext,
-  token: string,
-  workspaceID: string,
-  themeID: string,
-): Promise<void> {
-  const response = await request.put(`/api/v1/theme-assignments/${workspaceID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { reference: { kind: "built_in", id: themeID, version: 1 } },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function expectEditorBoundary(
@@ -295,7 +282,7 @@ test("both editors honor every built-in theme while preserving protected output 
   const imageURL = await createImageDesign(page);
 
   for (const theme of themeSchemes) {
-    await assignTheme(request, token, workspace.id, theme.id);
+    await assignBuiltInTheme(request, token, workspace.id, theme.id);
     for (const width of [1440, 390] as const) {
       await openEditor(page, videoURL, "video", theme, width);
       if (width === 1440 && (theme.id === "workshop" || theme.id === "supabase")) {

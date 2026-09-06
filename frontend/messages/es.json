@@ -2270,7 +2270,7 @@
 	"compose_video_description": "Video description",
 	"compose_video_description_hint": "Used by accounts that support a separate video description.",
 	"compose_target_accounts": "Target accounts",
-	"compose_all_channels": "All channels",
+	"compose_all_channels": "Todos",
 	"compose_destination_format": "Destination format",
 	"compose_destination_format_body": "Choose a format only when this platform supports more than one clear use for the current media.",
 	"compose_choose_format": "Choose a format",

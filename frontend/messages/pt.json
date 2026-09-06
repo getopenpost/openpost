@@ -2270,7 +2270,7 @@
 	"compose_video_description": "Descrição do vídeo",
 	"compose_video_description_hint": "Usado pelas contas que aceitam uma descrição de vídeo separada.",
 	"compose_target_accounts": "Contas de destino",
-	"compose_all_channels": "Todos os canais",
+	"compose_all_channels": "Todos",
 	"compose_destination_format": "Formato do destino",
 	"compose_destination_format_body": "Escolhe um formato apenas quando esta plataforma permite mais de uma utilização clara para os media atuais.",
 	"compose_choose_format": "Escolher um formato",

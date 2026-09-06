@@ -3437,20 +3437,6 @@
 		return ['instagram', 'facebook', 'tiktok'].includes(getPlatformKey(account.platform));
 	}
 
-	function destinationFormatLabel(account: SocialAccount): string {
-		if (
-			resolvedCapabilities[account.id]?.format_selection_required &&
-			!requestedOutputProfiles[account.id]
-		) {
-			return m.compose_choose_format();
-		}
-		const current =
-			requestedOutputProfiles[account.id] || resolvedCapabilities[account.id]?.output_profile || '';
-		return (
-			destinationFormatOptions(account).find((option) => option.value === current)?.label || current
-		);
-	}
-
 	function selectDestinationFormat(account: SocialAccount, outputProfile: string) {
 		requestedOutputProfiles = { ...requestedOutputProfiles, [account.id]: outputProfile };
 		formatLockedByAccount = { ...formatLockedByAccount, [account.id]: true };
@@ -5803,12 +5789,8 @@
 										avatarUrl={account.account_avatar_url}
 										size="sm"
 										compactOnMobile
+										showPlatform={false}
 									/>
-									{#if destinationFormatLabel(account)}
-										<span class="hidden text-xs text-muted-foreground sm:inline"
-											>· {destinationFormatLabel(account)}</span
-										>
-									{/if}
 									{#if issueCount > 0}
 										<span
 											class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"

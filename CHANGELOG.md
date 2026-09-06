@@ -38,6 +38,11 @@ All notable changes to this project are documented in this file.
 - Schedule several native repost stages from one workspace rule or publication override, with an option to remove the preceding repost before the next stage.
 - Desktop users can install OpenPost from the profile menu. Supported browsers offer a dismissible, one-time installation invitation; other desktop browsers show manual installation instructions.
 
+### Improved
+
+- Redesigned all 15 Image Editor starter templates with distinct palettes, stronger typography, and editable layouts for announcements, quotes, carousels, and thumbnails.
+- Fixed cropped template previews on phones and kept template names readable without truncation.
+
 ## [4.20.0] - 2026-09-06
 
 ### Fixed

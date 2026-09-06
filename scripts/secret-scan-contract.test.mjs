@@ -69,6 +69,7 @@ case "\${1:-}" in
     ;;
   dir)
     target="\${@: -1}"
+	sleep 0.1
     test "$(cat "$target/tracked.txt")" = "working tree content"
     test ! -e "$target/.ignored/secret.txt"
     test ! -e "$target/deleted.txt"

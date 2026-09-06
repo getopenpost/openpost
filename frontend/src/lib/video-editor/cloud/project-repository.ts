@@ -7,9 +7,22 @@ import {
 	type VideoProjectMutationOperation
 } from '@openpost/video-project';
 import type { components } from '@openpost/api-contract';
+import {
+	mediaListQueryOptions,
+	mediaQueryKeys,
+	videoProjectAssetsQueryOptions,
+	videoProjectConflictsQueryOptions,
+	videoProjectDetailQueryOptions,
+	videoProjectListQueryOptions,
+	videoProjectQueryKeys,
+	videoProjectRevisionsQueryOptions
+} from '@openpost/query-catalog';
 import { z } from 'zod';
 import { browser } from '$app/environment';
 import { client } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
+import { mediaQueryAPI } from '$lib/query/media';
+import { videoProjectQueryAPI } from '$lib/query/video-projects';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
 import {
 	cacheCloudProjectDocument,
@@ -186,21 +199,45 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 
 	constructor(readonly workspaceId: string) {}
 
-	async list(includeTrash = false): Promise<CloudVideoProject<TDocument>[]> {
-		const { data, error } = await client.GET('/video-projects', {
-			params: {
-				query: { workspace_id: this.workspaceId, include_trash: includeTrash }
-			}
+	private invalidateLists(): Promise<void> {
+		return queryClient.invalidateQueries({
+			queryKey: videoProjectQueryKeys.lists(this.workspaceId),
+			refetchType: 'none'
 		});
-		if (error || !data) throw new Error('Could not load Cloud Video Projects');
+	}
+
+	private async invalidateProjectState(id: string): Promise<void> {
+		await Promise.all([
+			this.invalidateLists(),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.detail(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.revisions(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.conflicts(this.workspaceId, id),
+				refetchType: 'none'
+			})
+		]);
+	}
+
+	async list(includeTrash = false): Promise<CloudVideoProject<TDocument>[]> {
+		const data = await queryClient.query(
+			videoProjectListQueryOptions(videoProjectQueryAPI, this.workspaceId, includeTrash)
+		);
 		return data.map((project) => cloudProject<TDocument>(project));
 	}
 
 	async get(id: string): Promise<CloudVideoProject<TDocument>> {
-		const { data, error } = await client.GET('/video-projects/{id}', {
-			params: { path: { id }, query: { workspace_id: this.workspaceId } }
-		});
-		if (error || !data) {
+		let data;
+		try {
+			data = await queryClient.query(
+				videoProjectDetailQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
+			);
+		} catch {
 			const offline = await readOfflineCloudProject<TDocument>(this.workspaceId, id);
 			if (offline) return offline.project;
 			throw new Error('Could not load Cloud Video Project');
@@ -230,6 +267,8 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			}
 		});
 		if (error || !data) throw new Error('Could not create Cloud Video Project');
+		queryClient.setQueryData(videoProjectQueryKeys.detail(this.workspaceId, data.id), data);
+		await this.invalidateLists();
 		return cloudProject<TDocument>(data);
 	}
 
@@ -262,10 +301,9 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 	}
 
 	async listRevisions(id: string): Promise<CloudVideoProjectRevision<TDocument>[]> {
-		const { data, error } = await client.GET('/video-projects/{id}/revisions', {
-			params: { path: { id }, query: { workspace_id: this.workspaceId } }
-		});
-		if (error || !data) throw new Error('Could not load Cloud Video Project history');
+		const data = await queryClient.query(
+			videoProjectRevisionsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
+		);
 		return data.map((revision) => ({
 			revision: revision.revision,
 			parentRevision: revision.parent_revision,
@@ -282,10 +320,9 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 	}
 
 	async listConflicts(id: string): Promise<CloudVideoProjectConflict<TDocument>[]> {
-		const { data, error } = await client.GET('/video-projects/{id}/conflicts', {
-			params: { path: { id }, query: { workspace_id: this.workspaceId } }
-		});
-		if (error || !data) throw new Error('Could not load Cloud Video Project conflicts');
+		const data = await queryClient.query(
+			videoProjectConflictsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
+		);
 		return data.map((conflict) => ({
 			id: conflict.id,
 			name: conflict.name,
@@ -301,6 +338,10 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			body: { workspace_id: this.workspaceId, name }
 		});
 		if (error) throw new Error('Could not create Cloud Video Project checkpoint');
+		await queryClient.invalidateQueries({
+			queryKey: videoProjectQueryKeys.revisions(this.workspaceId, id),
+			refetchType: 'none'
+		});
 	}
 
 	async deleteCheckpoint(id: string, checkpointId: string): Promise<void> {
@@ -311,6 +352,10 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			}
 		});
 		if (error) throw new Error('Could not delete Cloud Video Project checkpoint');
+		await queryClient.invalidateQueries({
+			queryKey: videoProjectQueryKeys.revisions(this.workspaceId, id),
+			refetchType: 'none'
+		});
 	}
 
 	async restoreRevision(id: string, revision: number): Promise<CloudVideoProject<TDocument>> {
@@ -323,6 +368,18 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			}
 		});
 		if (error || !data) throw new Error('Could not restore Cloud Video Project revision');
+		queryClient.setQueryData(videoProjectQueryKeys.detail(this.workspaceId, id), data);
+		await Promise.all([
+			this.invalidateLists(),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.revisions(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.conflicts(this.workspaceId, id),
+				refetchType: 'none'
+			})
+		]);
 		return cloudProject<TDocument>(data);
 	}
 
@@ -343,14 +400,28 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			}
 		);
 		if (error || !data) throw new Error('Could not resolve Cloud Video Project conflict');
+		queryClient.setQueryData(videoProjectQueryKeys.detail(this.workspaceId, id), data);
+		await Promise.all([
+			this.invalidateLists(),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.revisions(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.conflicts(this.workspaceId, id),
+				refetchType: 'none'
+			})
+		]);
 		return cloudProject<TDocument>(data);
 	}
 
 	async listMedia(id: string): Promise<MediaMetadata[]> {
-		const { data: assetData, error: assetError } = await client.GET('/video-projects/{id}/assets', {
-			params: { path: { id }, query: { workspace_id: this.workspaceId } }
-		});
-		if (assetError || !assetData) {
+		let assetData;
+		try {
+			assetData = await queryClient.query(
+				videoProjectAssetsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
+			);
+		} catch {
 			const offline = await readOfflineCloudProject<TDocument>(this.workspaceId, id);
 			if (offline) return offline.media;
 			throw new Error('Could not load Cloud Video Project assets');
@@ -364,18 +435,17 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 
 		const media: MediaMetadata[] = [];
 		for (let offset = 0; ; offset += 200) {
-			const { data, error } = await client.GET('/media', {
-				params: {
-					query: {
-						workspace_id: this.workspaceId,
-						asset_kind: 'project_asset',
+			let data;
+			try {
+				data = await queryClient.query(
+					mediaListQueryOptions(mediaQueryAPI, this.workspaceId, {
+						assetKind: 'project_asset',
 						lifecycle: 'all',
 						limit: 200,
 						offset
-					}
-				}
-			});
-			if (error || !data) {
+					})
+				);
+			} catch {
 				const offline = await readOfflineCloudProject<TDocument>(this.workspaceId, id);
 				if (offline) return offline.media;
 				throw new Error('Could not load Cloud Video Project media');
@@ -437,6 +507,16 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			}
 		});
 		if (error || !data) throw new Error('Could not reserve Cloud Video Project asset');
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.assets(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: mediaQueryKeys.lists(this.workspaceId),
+				refetchType: 'none'
+			})
+		]);
 		return data.id;
 	}
 
@@ -447,6 +527,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 				body: entry.batch
 			});
 			if (error || !data) throw new Error('Cloud Video Project save is waiting for a connection');
+			await this.invalidateProjectState(entry.projectId);
 			return data.outcome === 'conflict'
 				? {
 						outcome: 'conflict' as const,
@@ -463,6 +544,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			body: { workspace_id: this.workspaceId }
 		});
 		if (error) throw new Error('Could not move Cloud Video Project to Trash');
+		await this.invalidateProjectState(id);
 	}
 
 	async restore(id: string): Promise<void> {
@@ -471,5 +553,6 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			body: { workspace_id: this.workspaceId }
 		});
 		if (error) throw new Error('Could not restore Cloud Video Project');
+		await this.invalidateProjectState(id);
 	}
 }

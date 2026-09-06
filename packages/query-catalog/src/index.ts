@@ -34,3 +34,4 @@ export * from "./scheduling";
 export * from "./themes";
 export * from "./workspace-settings";
 export * from "./voice-profiles";
+export * from "./video-projects";

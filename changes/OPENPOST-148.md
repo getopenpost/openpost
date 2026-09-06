@@ -7,3 +7,4 @@
 ### Changed
 
 - Project Asset uploads use workspace storage limits and checksum reuse without appearing in the normal Media Library. Sync state reports pending work, active upload, saved state, or a storage problem instead of claiming success early.
+- Cloud Video Project lists, history, conflicts, assets, and mobile captures now share cache-safe reads and refresh affected data after each change.

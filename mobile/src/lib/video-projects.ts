@@ -7,8 +7,11 @@ import {
   createCapturedVideoProjectDocument,
   type ProjectAssetPreparation,
 } from "@openpost/video-project";
+import { videoProjectListQueryOptions, videoProjectQueryKeys } from "@openpost/query-catalog";
 
 import { api, errorMessage } from "./api/client";
+import { mobileQueryAPI } from "./query-api";
+import { queryClient } from "./query-client";
 import { videoProjectUploadAvailability } from "./video-project-upload-policy";
 import { getAllowCellularVideoUploads } from "./video-project-upload-preferences";
 
@@ -63,12 +66,7 @@ async function writeQueue(queue: PendingCapture[]): Promise<void> {
 }
 
 export async function listMobileVideoProjects(workspaceId: string): Promise<MobileVideoProject[]> {
-  const { data, error, response } = await api().GET("/video-projects", {
-    params: { query: { workspace_id: workspaceId } },
-  });
-  if (error || !data)
-    throw new Error(await errorMessage(response, "Could not load Video Projects"));
-  return data;
+  return queryClient.fetchQuery(videoProjectListQueryOptions(mobileQueryAPI, workspaceId));
 }
 
 export async function queueVideoCapture(
@@ -147,6 +145,12 @@ export async function syncPendingVideoCaptures(
     await writeQueue(remaining);
     await FileSystem.deleteAsync(capture.uri, { idempotent: true });
     synced += 1;
+  }
+  if (synced > 0) {
+    await queryClient.invalidateQueries({
+      queryKey: videoProjectQueryKeys.lists(workspaceId),
+      refetchType: "none",
+    });
   }
   return synced;
 }

@@ -2,6 +2,7 @@ import {
   createOpenPostQueryError,
   type OpenPostQueryAPI,
   type QueryPageResult,
+  type VideoProjectQueryAPI,
 } from "@openpost/query-catalog";
 
 import { api, captureApiRequestIdentity, settleApiUnauthorized, type Api } from "./api/client";
@@ -15,7 +16,8 @@ type MobileQueryAPI = Pick<
   | "listCalendarPublications"
   | "listSocialSets"
   | "listWorkspaces"
->;
+> &
+  Pick<VideoProjectQueryAPI, "listVideoProjects">;
 
 type QueryTransportResponse<T> = {
   data?: T | null;
@@ -113,6 +115,18 @@ export function createMobileQueryAPI(getTransport: () => QueryTransport): Mobile
           getTransport().GET("/social-sets", {
             signal: requestSignal,
             params: { query: { workspace_id: workspaceId } },
+          }),
+      });
+      return data;
+    },
+    async listVideoProjects(workspaceId, includeTrash, signal) {
+      const { data } = await queryGET({
+        signal,
+        fallback: "Could not load Video Projects",
+        request: (requestSignal) =>
+          getTransport().GET("/video-projects", {
+            signal: requestSignal,
+            params: { query: { workspace_id: workspaceId, include_trash: includeTrash } },
           }),
       });
       return data;

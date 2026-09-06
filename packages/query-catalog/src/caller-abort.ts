@@ -28,5 +28,15 @@ export function runWithCallerAbort<Result>(
 }
 
 function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError");
+  return signal.reason instanceof Error ? signal.reason : createAbortError();
+}
+// React Native's AbortSignal exposes aborted/events but not throwIfAborted.
+export function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
+export function createAbortError(message = "Aborted"): Error {
+  const error = new Error(message);
+  error.name = "AbortError";
+  return error;
 }

@@ -1,3 +1,4 @@
+import { throwIfAborted } from "@openpost/query-catalog";
 import { createOpenPostQueryError, type AppBootstrap } from "@openpost/query-catalog";
 
 type BootstrapUser = NonNullable<AppBootstrap["user"]>;
@@ -41,7 +42,7 @@ export function createAppBootstrapReader(
     }
 
     const result = await transport.getBootstrap(preferredWorkspaceId, signal);
-    signal.throwIfAborted();
+    throwIfAborted(signal);
     if (result.data) {
       capabilities.set(serverBaseUrl, "supported");
       return result.data;
@@ -63,7 +64,7 @@ async function readLegacyBootstrap(
   signal: AbortSignal,
 ): Promise<AppBootstrap> {
   const currentUser = await transport.getCurrentUser(signal);
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   if (!currentUser.data) {
     if (currentUser.response?.status === 401) return anonymousBootstrap();
     throw createOpenPostQueryError(
@@ -74,7 +75,7 @@ async function readLegacyBootstrap(
   }
 
   const workspaceResult = await transport.listWorkspaces(signal);
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   if (!workspaceResult.data) {
     if (workspaceResult.response?.status === 401) return anonymousBootstrap();
     throw createOpenPostQueryError(
@@ -93,7 +94,7 @@ async function readLegacyBootstrap(
 
   if (selectedWorkspaceId) {
     const settings = await transport.getWorkspaceSettings(selectedWorkspaceId, signal);
-    signal.throwIfAborted();
+    throwIfAborted(signal);
     if (settings.data) {
       selectedWorkspaceSettings = settings.data;
     } else if (settings.response?.status === 401) {

@@ -25,7 +25,7 @@ export function createServerChoice(dependencies: ServerChoiceDependencies): Serv
 }
 
 export function serverChoiceErrorMessage(cause: unknown): string {
-  if (cause instanceof DOMException && cause.name === "AbortError") {
+  if (cause instanceof Error && cause.name === "AbortError") {
     return "The selected server changed. Try again.";
   }
   return "Could not save this server. Try again.";

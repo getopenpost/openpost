@@ -1,3 +1,4 @@
+import { createAbortError } from "@openpost/query-catalog";
 import * as SecureStore from "expo-secure-store";
 
 const SERVER_KEY = "openpost.server.baseUrl";
@@ -489,6 +490,6 @@ function subscribe(listeners: Set<() => void>, listener: () => void): () => void
   return () => listeners.delete(listener);
 }
 
-function sessionChanged(): DOMException {
-  return new DOMException("The selected identity changed", "AbortError");
+function sessionChanged(): Error {
+  return createAbortError("The selected identity changed");
 }

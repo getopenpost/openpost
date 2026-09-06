@@ -1,3 +1,4 @@
+import { throwIfAborted } from "./caller-abort";
 import type { components } from "@openpost/api-contract";
 import type { QueryFunctionContext } from "@tanstack/query-core";
 import { capturePublicationListCacheContext, seedPublicationDetail } from "./cache";
@@ -107,7 +108,7 @@ export function schedulingPublicationsQueryOptions(
     queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
       const listContext = capturePublicationListCacheContext(client, workspaceId);
       const publications = await api.listPublications(workspaceId, normalized, signal);
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       for (const publication of publications) {
         seedPublicationDetail(client, publication, workspaceId, listContext);
       }

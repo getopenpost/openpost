@@ -69,7 +69,7 @@ export default function LoginScreen() {
       await clearServer();
       router.replace("/onboarding/server");
     } catch (cause) {
-      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      if (cause instanceof Error && cause.name === "AbortError") return;
       setError("Could not change the server. Try again.");
     }
   }

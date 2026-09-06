@@ -1,8 +1,27 @@
 import { QueryClient, QueryObserver } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
-import { runWithCallerAbort } from "./caller-abort";
+import { runWithCallerAbort, throwIfAborted } from "./caller-abort";
 
 describe("caller-local query cancellation", () => {
+  it("supports native signals without modern abort methods or DOMException", async () => {
+    const controller = new AbortController();
+    Object.defineProperty(controller.signal, "throwIfAborted", { value: undefined });
+    Object.defineProperty(controller.signal, "reason", { value: undefined });
+    vi.stubGlobal("DOMException", undefined);
+    try {
+      expect(() => throwIfAborted(controller.signal)).not.toThrow();
+      controller.abort();
+      expect(() => throwIfAborted(controller.signal)).toThrow(
+        expect.objectContaining({ name: "AbortError" }),
+      );
+      await expect(
+        runWithCallerAbort(controller.signal, async () => "unexpected"),
+      ).rejects.toMatchObject({ name: "AbortError" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects only the aborted caller while a shared observer receives the result", async () => {
     const queryClient = new QueryClient();
     const request = deferred<string>();

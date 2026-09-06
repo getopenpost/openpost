@@ -31,8 +31,8 @@ export async function waitForPairingResult({
   return null;
 }
 
-export function isAbortError(cause: unknown): cause is DOMException {
-  return cause instanceof DOMException && cause.name === "AbortError";
+export function isAbortError(cause: unknown): cause is Error {
+  return cause instanceof Error && cause.name === "AbortError";
 }
 
 function sleep(milliseconds: number): Promise<void> {

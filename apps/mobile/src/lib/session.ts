@@ -1,3 +1,4 @@
+import { throwIfAborted, createAbortError } from "@openpost/query-catalog";
 import {
   appBootstrapQueryOptions,
   confirmedBootstrapWorkspaceId,
@@ -67,7 +68,7 @@ export async function synchronizeSession(
   const bootstrap = await runWithCallerAbort(signal, () =>
     synchronizer.queryClient.fetchQuery(options),
   );
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   if (!synchronizer.identityIsCurrent(identity)) throw sessionChanged();
 
   if (!bootstrap.authenticated) {
@@ -82,7 +83,7 @@ export async function synchronizeSession(
     throw sessionChanged();
   }
 
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   const committedIdentity = synchronizer.captureIdentity();
   if (
     committedIdentity.serverBaseUrl !== identity.serverBaseUrl ||
@@ -98,8 +99,8 @@ export async function synchronizeSession(
   return currentSessionState(synchronizer);
 }
 
-function sessionChanged(): DOMException {
-  return new DOMException("The signed-in session changed", "AbortError");
+function sessionChanged(): Error {
+  return createAbortError("The signed-in session changed");
 }
 
 function currentSessionState(loaders: {

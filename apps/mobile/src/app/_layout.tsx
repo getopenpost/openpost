@@ -1,3 +1,4 @@
+import { throwIfAborted } from "@openpost/query-catalog";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BottomSheetProvider } from "@swmansion/react-native-bottom-sheet";
@@ -77,7 +78,7 @@ function useSessionReady() {
     ]);
     void hydration.current
       .then(() => {
-        controller.signal.throwIfAborted();
+        throwIfAborted(controller.signal);
         setHydrated(true);
         return synchronizeSession(
           {

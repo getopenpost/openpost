@@ -1,3 +1,4 @@
+import { throwIfAborted } from "./caller-abort";
 import type { QueryFunctionContext } from "@tanstack/query-core";
 import type {
   Job,
@@ -51,7 +52,7 @@ export function publicationDetailQueryOptions(
         publicationId,
       );
       const publication = await api.getPublication(workspaceId, publicationId, signal);
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       return reconcilePublicationDetailResponse(client, workspaceId, publication, requestContext);
     },
   };
@@ -80,7 +81,7 @@ export function activityPublicationsQueryOptions(
         normalizedPage,
         signal,
       );
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       for (const publication of result.items) {
         seedPublicationDetail(client, publication, workspaceId, listContext);
       }
@@ -119,7 +120,7 @@ export function activityPublicationsInfiniteQueryOptions(
         { limit: page.limit, cursor: pageParam },
         signal,
       );
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       for (const publication of result.items) {
         seedPublicationDetail(client, publication, workspaceId, listContext);
       }
@@ -148,7 +149,7 @@ export function calendarPublicationsQueryOptions(
     queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
       const listContext = capturePublicationListCacheContext(client, workspaceId);
       const publications = await api.listCalendarPublications(workspaceId, range, signal);
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       for (const publication of publications) {
         seedPublicationDetail(client, publication, workspaceId, listContext);
       }

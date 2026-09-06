@@ -1,3 +1,4 @@
+import { throwIfAborted } from "./caller-abort";
 import type { components } from "@openpost/api-contract";
 import type { QueryFunctionContext } from "@tanstack/query-core";
 import { capturePublicationListCacheContext, seedPublicationDetail } from "./cache";
@@ -177,7 +178,7 @@ export function inboxPublicationsQueryOptions(
     }: QueryFunctionContext<typeof queryKey, string>) => {
       const listContext = capturePublicationListCacheContext(client, workspaceId);
       const result = await api.listPublications(workspaceId, normalized, pageParam, signal);
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       for (const publication of result.items) {
         seedPublicationDetail(client, publication, workspaceId, listContext);
       }

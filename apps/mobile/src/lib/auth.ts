@@ -1,3 +1,4 @@
+import { throwIfAborted, createAbortError } from "@openpost/query-catalog";
 import {
   api,
   apiActorIdentityIsCurrent,
@@ -25,13 +26,13 @@ export async function login(
   password: string,
   signal?: AbortSignal,
 ): Promise<LoginResult> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   const identity = captureApiRequestIdentity();
   const { data, error, response } = await api().POST("/auth/login", {
     body: { email, password },
     signal,
   });
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   requireCurrentIdentity(identity);
   if (error || !data) throw new Error(await errorMessage(response, "Sign in failed"));
   if (data.requires_mfa) {
@@ -54,13 +55,13 @@ export async function verifyTotp(
   code: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   const identity = captureApiRequestIdentity();
   const { data, error, response } = await api().POST("/auth/login/totp", {
     body: { mfa_token: mfaToken, code },
     signal,
   });
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   requireCurrentIdentity(identity);
   if (error || !data) throw new Error(await errorMessage(response, "Invalid code"));
   if (!data.token) throw new Error("Verification did not return a session");
@@ -85,7 +86,7 @@ export async function startPairing(
   clientName = "OpenPost Mobile",
   signal?: AbortSignal,
 ): Promise<PairingState> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   const identity = captureApiRequestIdentity();
   const { data, error, response } = await api().POST("/cli/auth/start", {
     body: {
@@ -95,7 +96,7 @@ export async function startPairing(
     },
     signal,
   });
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   requireCurrentIdentity(identity);
   if (error || !data) throw new Error(await errorMessage(response, "Could not start pairing"));
   return {
@@ -106,13 +107,13 @@ export async function startPairing(
 }
 
 export async function pollPairing(deviceCode: string, signal?: AbortSignal): Promise<PairPoll> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   const identity = captureApiRequestIdentity();
   const { data, error, response } = await api().POST("/cli/auth/poll", {
     body: { device_code: deviceCode },
     signal,
   });
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   requireCurrentIdentity(identity);
   if (error || !data) throw new Error(await errorMessage(response, "Pairing check failed"));
   switch (data.status) {
@@ -153,6 +154,6 @@ function requireCommittedIdentity(committed: boolean): void {
   if (!committed) throw sessionChanged();
 }
 
-function sessionChanged(): DOMException {
-  return new DOMException("The sign-in session changed", "AbortError");
+function sessionChanged(): Error {
+  return createAbortError("The sign-in session changed");
 }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import { createRequire } from "node:module";
 import {
   appBootstrapQueryOptions,
   openPostBootstrapQueryKeys,
@@ -74,6 +75,24 @@ const {
 } = await import("./api/client");
 
 describe("authenticated session bootstrap", () => {
+  test("starts with a native abort signal without throwIfAborted", async () => {
+    const queryClient = new QueryClient();
+    const state = synchronizer(queryClient, { bootstrap: bootstrap() });
+    // Load the same AbortController dependency as React Native's setUpXHR.
+    const nativeRequire = createRequire(import.meta.resolve("react-native/package.json"));
+    const NativeAbortController = nativeRequire("abort-controller").AbortController;
+    const controller = new NativeAbortController();
+    try {
+      await expect(
+        synchronizeSession(state.dependencies, controller.signal),
+      ).resolves.toMatchObject({
+        signedIn: true,
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
   afterEach(() => {
     pendingTokenWrite?.release.resolve();
     pendingServerWrite?.release.resolve();

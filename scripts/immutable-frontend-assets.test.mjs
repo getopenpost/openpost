@@ -85,8 +85,8 @@ test("thin frontend copies omit immutable assets before build tools copy public 
 
 test("frontend asset materialization targets only generated surface trees", () => {
   assert.deepEqual(frontendAssetOutputDirectories("web", "/work/openpost"), [
-    "/work/openpost/frontend/.svelte-kit/output/client",
-    "/work/openpost/frontend/build",
+    "/work/openpost/apps/web/.svelte-kit/output/client",
+    "/work/openpost/apps/web/build",
   ]);
   assert.throws(() => frontendAssetOutputDirectories("android", "/work/openpost"));
 });

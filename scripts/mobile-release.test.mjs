@@ -5,17 +5,12 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  createMobileReleaseManifest,
   nextMobileIdentity,
   prepareMobileReleaseFiles,
   readMobileIdentity,
   requireCurrentMobileIdentity,
   requireMonotonicMobileIdentity,
-  validateMobileReleaseManifest,
 } from "./mobile-release.mjs";
-
-const revision = "0123456789abcdef0123456789abcdef01234567";
-const apkSHA256 = `sha256:${"a".repeat(64)}`;
 
 test("reads one intentional mobile identity from Expo and package metadata", () => {
   assert.deepEqual(
@@ -102,41 +97,4 @@ test("release preparation updates Expo and package identities together", async (
     expo: { version: "0.2.2", android: { versionCode: 4 } },
   });
   assert.equal(JSON.parse(await readFile(packagePath, "utf8")).version, "0.2.2");
-});
-
-test("binds Android identity, source revision, and APK digest", () => {
-  const identity = { version_name: "0.2.0", version_code: 2 };
-  const manifest = createMobileReleaseManifest({ identity, revision, apkSHA256 });
-  assert.deepEqual(manifest, {
-    schema_version: 1,
-    version_name: "0.2.0",
-    version_code: 2,
-    revision,
-    apk_sha256: apkSHA256,
-  });
-  assert.throws(
-    () =>
-      validateMobileReleaseManifest(manifest, {
-        expectedIdentity: identity,
-        expectedRevision: revision,
-        expectedAPKDigest: `sha256:${"b".repeat(64)}`,
-      }),
-    /digest does not match/,
-  );
-});
-
-test("rejects extra evidence fields and abbreviated revisions", () => {
-  const identity = { version_name: "0.2.0", version_code: 2 };
-  assert.throws(
-    () =>
-      validateMobileReleaseManifest({
-        ...createMobileReleaseManifest({ identity, revision, apkSHA256 }),
-        channel: "stable",
-      }),
-    /contain exactly/,
-  );
-  assert.throws(
-    () => createMobileReleaseManifest({ identity, revision: "012345", apkSHA256 }),
-    /full lowercase Git SHA/,
-  );
 });

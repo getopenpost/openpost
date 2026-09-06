@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -13,10 +15,10 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { load } from "js-yaml";
 
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const release = readFileSync(".github/workflows/release.yml", "utf8");
-const releaseScript = readFileSync("scripts/release.mjs", "utf8");
 const workflows = readdirSync(".github/workflows", { withFileTypes: true })
   .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/u.test(entry.name))
   .map((entry) => ({
@@ -24,30 +26,10 @@ const workflows = readdirSync(".github/workflows", { withFileTypes: true })
     source: readFileSync(`.github/workflows/${entry.name}`, "utf8"),
   }));
 
-function workflowJob(workflow, jobName) {
-  const escapedName = jobName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const start = new RegExp(`^  ${escapedName}:\\s*$`, "mu").exec(workflow);
-  assert.ok(start, `workflow job ${jobName} must exist`);
-  const remainder = workflow.slice(start.index + start[0].length);
-  const next = /^  [a-zA-Z0-9_-]+:\s*$/mu.exec(remainder);
-  return workflow.slice(
-    start.index,
-    next ? start.index + start[0].length + next.index : workflow.length,
-  );
-}
-
 function workflowStepScript(workflow, jobName, stepName) {
-  const job = workflowJob(workflow, jobName);
-  const marker = `      - name: ${stepName}\n        run: |\n`;
-  const start = job.indexOf(marker);
-  assert.notEqual(start, -1, `workflow step ${stepName} must exist`);
-  const remainder = job.slice(start + marker.length);
-  const end = remainder.search(/^      - /mu);
-  const indentedScript = end < 0 ? remainder : remainder.slice(0, end);
-  return indentedScript
-    .split("\n")
-    .map((line) => line.slice(10))
-    .join("\n");
+  const step = load(workflow).jobs[jobName].steps.find((step) => step.name === stepName);
+  assert.ok(step?.run, `workflow step ${stepName} must have a command`);
+  return step.run;
 }
 
 function writeMobileIdentity(directory, version, versionCode) {
@@ -61,20 +43,14 @@ function writeMobileIdentity(directory, version, versionCode) {
   );
 }
 
-test("only the candidate image job can write packages", () => {
-  const image = workflowJob(ci, "image");
-  assert.match(image, /permissions:\n\s+contents: read\n\s+packages: write/u);
-  assert.equal(ci.match(/packages:\s*write/g)?.length, 1);
-});
-
-test("mobile identity advances during release preparation, not every main build", () => {
-  assert.match(workflowJob(ci, "android"), /mobile-release\.mjs check-current/u);
-  const releaseCandidate = workflowJob(release, "verify-candidate");
-  assert.match(releaseCandidate, /mobile-release\.mjs check \\/u);
-  assert.match(releaseCandidate, /git tag --list 'v\*' --sort=-v:refname/u);
-  assert.match(releaseCandidate, /\[\[ "\$tag" != "\$GITHUB_REF_NAME" \]\]/u);
-  assert.doesNotMatch(releaseCandidate, /GITHUB_SHA\^/u);
-  assert.match(releaseScript, /prepareMobileReleaseFiles/u);
+test("only the image CI job can write packages", () => {
+  const jobs = load(ci).jobs;
+  assert.deepEqual(
+    Object.entries(jobs)
+      .filter(([, job]) => job.permissions?.packages === "write")
+      .map(([id]) => id),
+    ["image"],
+  );
 });
 
 for (const legacyLayout of [false, true]) {
@@ -167,16 +143,128 @@ test("external workflow actions are pinned to immutable commits", () => {
   assert.ok(externalActions > 0);
 });
 
-test("full release checks invoke only supported test scopes", () => {
-  const releaseTestScopes = [
-    ...releaseScript.matchAll(/run\(\["bun", "run", "test", "--", "([^"]+)"\]/gu),
-  ].map((match) => match[1]);
+for (const [job, step, prefixes] of [
+  ["build-binaries", "Build binary", ["server"]],
+  ["build-cli", "Build CLI binaries", ["cli", "mcp"]],
+]) {
+  test(`${job} places every binary where the upload command expects it`, () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-output-"));
+    try {
+      mkdirSync(path.join(directory, "apps/server"), { recursive: true });
+      mkdirSync(path.join(directory, "apps/cli"), { recursive: true });
+      mkdirSync(path.join(directory, "bin"));
+      const go = path.join(directory, "bin/go");
+      writeFileSync(
+        go,
+        '#!/bin/sh\nwhile [ "$#" -gt 0 ]; do\n  if [ "$1" = "-o" ]; then shift; printf binary > "$1"; exit; fi\n  shift\ndone\nexit 1\n',
+      );
+      chmodSync(go, 0o755);
+      for (const matrix of load(release).jobs[job].strategy.matrix.include) {
+        const command = workflowStepScript(release, job, step).replace(
+          /\$\{\{ matrix\.(\w+) \}\}/gu,
+          (_, key) => matrix[key],
+        );
+        const result = spawnSync("bash", ["-e", "-o", "pipefail", "-c", command], {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${directory}/bin:${process.env.PATH}`,
+            GITHUB_REF_NAME: "v4.0.0",
+            GITHUB_SHA: "a".repeat(40),
+          },
+        });
+        assert.equal(result.status, 0, result.stderr);
+        for (const prefix of prefixes) {
+          const name = `openpost-${prefix}-${matrix.os}-${matrix.arch}${matrix.ext}`;
+          assert.ok(
+            existsSync(path.join(directory, name)),
+            `upload cannot find ${name} in the repository root`,
+          );
+        }
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+}
 
-  assert.ok(releaseTestScopes.length > 0);
-  for (const scope of releaseTestScopes) {
-    const result = spawnSync("bun", ["scripts/tasks.mjs", "test", scope, "--plan"], {
-      encoding: "utf8",
-    });
-    assert.equal(result.status, 0, `unsupported release test scope ${scope}: ${result.stderr}`);
+test("image promotion requires the downloaded digest and matching OCI identity", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-image-"));
+  const revision = "a".repeat(40);
+  const digest = `sha256:${"b".repeat(64)}`;
+  try {
+    mkdirSync(path.join(directory, "bin"));
+    mkdirSync(path.join(directory, "tested-image"));
+    // Stand in for remote Actions and registry I/O while executing the workflow's shell.
+    for (const [name, command] of Object.entries({
+      gh: "#!/bin/sh\nexit 0\n",
+      docker: `#!/bin/sh
+case "$1" in
+  login) cat >/dev/null ;;
+  pull) printf '%s' "$2" > pulled-image ;;
+  inspect)
+    case "$3" in
+      *image.version*) printf '%s' "$TEST_IMAGE_VERSION" ;;
+      *image.revision*) printf '%s' "$TEST_IMAGE_REVISION" ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+`,
+    })) {
+      const file = path.join(directory, "bin", name);
+      writeFileSync(file, command);
+      chmodSync(file, 0o755);
+    }
+    for (const [imageDigest, imageVersion, imageRevision, succeeds] of [
+      [digest, "v4.0.0", revision, true],
+      [digest, "v3.9.0", revision, false],
+      [digest, "v4.0.0", "c".repeat(40), false],
+      ["latest", "v4.0.0", revision, false],
+    ]) {
+      writeFileSync(path.join(directory, "tested-image/image-digest.txt"), `${imageDigest}\n`);
+      const output = path.join(directory, "output");
+      writeFileSync(output, "");
+      const result = spawnSync(
+        "bash",
+        [
+          "-e",
+          "-o",
+          "pipefail",
+          "-c",
+          workflowStepScript(release, "verify-candidate", "Verify the tested image"),
+        ],
+        {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${directory}/bin:${process.env.PATH}`,
+            GH_TOKEN: "test",
+            GITHUB_ACTOR: "test",
+            GITHUB_REPOSITORY: "getopenpost/openpost",
+            CI_RUN_ID: "1",
+            IMAGE_ARTIFACT: "test",
+            REGISTRY: "ghcr.io",
+            IMAGE_NAME: "getopenpost/openpost",
+            GITHUB_REF_NAME: "v4.0.0",
+            GITHUB_SHA: revision,
+            GITHUB_OUTPUT: output,
+            TEST_IMAGE_VERSION: imageVersion,
+            TEST_IMAGE_REVISION: imageRevision,
+          },
+        },
+      );
+      assert.equal(result.status === 0, succeeds, result.stderr);
+      assert.equal(readFileSync(output, "utf8"), succeeds ? `digest=${digest}\n` : "");
+      if (succeeds)
+        assert.equal(
+          readFileSync(path.join(directory, "pulled-image"), "utf8"),
+          `ghcr.io/getopenpost/openpost@${digest}`,
+        );
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });

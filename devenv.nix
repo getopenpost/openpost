@@ -120,9 +120,8 @@
 
     docker-build.exec = ''
       cd "${config.git.root}"
-      image_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("docker-build requires exactly one supported platform") end' deploy/docker/image-policy.json)"
       bun run build -- frontend
-      docker build --platform "$image_platform" --build-context frontend_artifact=apps/server/cmd/openpost/public -t openpost:latest -f deploy/docker/Dockerfile .
+      docker build --platform linux/amd64 --build-context frontend_artifact=apps/server/cmd/openpost/public -t openpost:latest -f deploy/docker/Dockerfile .
     '';
 
     docker-run.exec = ''

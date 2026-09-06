@@ -29,6 +29,8 @@ Root task scopes remain `frontend`, `backend`, `cli`, `marketing`, and `docs`. G
 | Generated contracts                           | The source Huma route, CLI command, message catalog, or manifest                                     | `scripts/check-contracts.mjs`, generated OpenAPI/TypeScript/CLI-doc boundaries; change the source, never the generated output alone                                             | `bun run check -- contracts`, `bun run check -- frontend`                                             |
 | Project verification                          | `devenv.nix`, `devenv.yaml`, root `package.json`, and `turbo.json`                                   | The root task dispatcher and the closest existing test file before broad gates                                                                                                  | scoped root `check`, `lint`, `test`, or `build`, then `bun run verify` in proportion to risk          |
 
+For release workflow changes, run `bun run check -- workflows` and `bun run check -- release-version`. Knip production patterns in `config/knip.jsonc` must end in `!`; keep build-generated asset inputs explicit and test fixtures outside the production graph.
+
 For agent instructions or workflow tooling, read `AGENTS.md`, `.agents/skills/agent-workflow/SKILL.md`, and `scripts/agent-doctor.mjs`; verify with `bun run check -- agents`. The default checker validates repository-owned files and the local label table without network access. See `docs/agents/triage-labels.md` for the explicit live GitHub label check. Global skills are supplied by the agent environment.
 
 Run repository gates from the root with `bun run <gate> -- <scope>`. Omit the scope for the complete repository gate.

@@ -825,8 +825,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "operations/container-image.md",
-    "title": "Container Image Support and Assurance",
-    "description": "The published OpenPost container image supports linux/amd64 only.",
+    "title": "Container image",
+    "description": "OpenPost publishes a linux/amd64 container.",
     "route": "/operations/container-image",
     "agentRepresentation": {
       "membership": "ordinary"

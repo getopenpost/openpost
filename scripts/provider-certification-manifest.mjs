@@ -49,21 +49,6 @@ export async function readPublicClaimManifest(manifestPath = publicClaimManifest
   return validatePublicClaimManifest(manifest, options);
 }
 
-export async function readPublicClaimManifestBinding(
-  manifestPath = publicClaimManifestPath,
-  options,
-) {
-  const contents = await readFile(manifestPath);
-  const manifest = validatePublicClaimManifest(JSON.parse(contents.toString("utf8")), options);
-  assertNoUnprojectedPublicClaims(manifest);
-  await assertPublicClaimSurfaces(manifest);
-  return {
-    schema_version: manifest.schema_version,
-    manifest_sha256: `sha256:${createHash("sha256").update(contents).digest("hex")}`,
-    claim_count: manifest.claims.length,
-  };
-}
-
 export function validatePublicClaimManifest(manifest, options = {}) {
   assertExactKeys(manifest, ["claims", "schema_version"], "manifest");
   if (manifest.schema_version !== 1) {

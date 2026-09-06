@@ -14,10 +14,6 @@ const cliTargets = [
 ];
 
 export const expectedReleaseAssets = Object.freeze([
-  "release-manifest.json",
-  "openpost-image-evidence.json",
-  "openpost-image.spdx.json",
-  "openpost-image-trivy.json",
   ...serverTargets.map(
     ([os, architecture, extension]) => `openpost-server-${os}-${architecture}${extension}`,
   ),
@@ -26,7 +22,6 @@ export const expectedReleaseAssets = Object.freeze([
     `openpost-mcp-${os}-${architecture}${extension}`,
   ]),
   "openpost-app-android.apk",
-  "openpost-app-android-release.json",
 ]);
 
 function normalizeNotes(value) {

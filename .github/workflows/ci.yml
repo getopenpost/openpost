@@ -696,12 +696,6 @@ jobs:
           cp apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
           sha256sum openpost-app-android-unsigned.apk > openpost-app-android-unsigned.sha256
-          bun scripts/mobile-release.mjs create \
-            --config apps/mobile/app.json \
-            --package apps/mobile/package.json \
-            --revision "$GITHUB_SHA" \
-            --apk openpost-app-android-unsigned.apk \
-            --output openpost-app-android-candidate.json
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
             --ks apps/mobile/android/app/debug.keystore \
             --ks-key-alias androiddebugkey \
@@ -717,7 +711,6 @@ jobs:
           path: |
             openpost-app-android-unsigned.apk
             openpost-app-android-unsigned.sha256
-            openpost-app-android-candidate.json
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -760,36 +753,22 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Derive the exact candidate release manifest
-        id: manifest
+      - name: Set image version
+        id: version
         shell: bash
         run: |
+          version="sha-${GITHUB_SHA}"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            # The newest tag is the one being built, so version resolution must
-            # range from the previous release tag; there are no commits after it.
-            latest_tag="$(git describe --match 'v*' --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
-            [[ -n "$latest_tag" ]] || {
-              echo "No previous release tag found before ${GITHUB_REF_NAME}." >&2
-              exit 1
-            }
-          else
-            latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
-            [[ -n "$latest_tag" ]]
+            version="$GITHUB_REF_NAME"
+            bun scripts/release-notes.mjs "$version" >/dev/null
           fi
-          bun run check -- provider-certification
-          bun scripts/release-manifest.mjs create --changelog CHANGELOG.md --latest-tag "$latest_tag" --revision "$GITHUB_SHA" --output release-manifest.json
-          version="$(jq -er .version release-manifest.json)"
-          revision="$(jq -er .revision release-manifest.json)"
-          [[ "$revision" == "$GITHUB_SHA" ]]
-          manifest_sha256="$(openssl dgst -sha256 -r release-manifest.json | awk '{print $1}')"
-          { echo "version=$version"; echo "sha256=$manifest_sha256"; echo "base64=$(base64 -w0 release-manifest.json)"; } >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build the candidate once
         shell: bash
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
-          platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("candidate build requires exactly one supported platform") end' deploy/docker/image-policy.json)"
-          docker buildx build --load --platform "$platform" --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.manifest.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --build-arg RELEASE_MANIFEST_B64="${{ steps.manifest.outputs.base64 }}" --build-arg RELEASE_MANIFEST_SHA256="${{ steps.manifest.outputs.sha256 }}" --cache-from type=gha,scope=openpost-production --cache-to type=gha,mode=max,scope=openpost-production .
-          scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.manifest.outputs.version }}" release-manifest.json
+          docker buildx build --load --platform linux/amd64 --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.version.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --cache-from type=gha,scope=openpost-production --cache-to type=gha,mode=max,scope=openpost-production .
+          scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.version.outputs.version }}"
       - name: Generate the final-image SPDX SBOM
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -811,16 +790,11 @@ jobs:
           ignore-unfixed: false
           exit-code: 0
           version: v0.70.0
-      - name: Validate image assurance evidence
-        run: |
-          jq -e '(.spdxVersion | startswith("SPDX-")) and (.packages | type == "array") and (.packages | length > 0)' openpost-image.spdx.json >/dev/null
-          jq -e '(.SchemaVersion // 0) >= 2 and (.Results | type == "array") and (.Results | length > 0)' openpost-image-trivy.json >/dev/null
-      - name: Retain final-image diagnostic evidence
+      - name: Retain image scan reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-diagnostics-${{ github.sha }}-${{ github.run_attempt }}
           path: |
-            release-manifest.json
             openpost-image.spdx.json
             openpost-image-trivy.json
           if-no-files-found: error
@@ -846,18 +820,14 @@ jobs:
           repository="${image%:sha-*}"
           digest_ref="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" | awk -v prefix="${repository}@" 'index($0, prefix) == 1 { print; exit }')"
           digest="${digest_ref#*@}"
-          [[ "$digest" == sha256:* ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
-          bun scripts/image-evidence.mjs create --repository "$repository" --tag "sha-${GITHUB_SHA}" --revision "$GITHUB_SHA" --digest "$digest" --release-manifest release-manifest.json --sbom openpost-image.spdx.json --vulnerability-report openpost-image-trivy.json --output openpost-image-evidence.json
-      - name: Upload exact candidate evidence
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
+          printf '%s\n' "$digest" > image-digest.txt
+      - name: Retain tested image digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'push'
         with:
-          name: release-manifest-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            release-manifest.json
-            openpost-image-evidence.json
-            openpost-image.spdx.json
-            openpost-image-trivy.json
+          name: image-digest-${{ github.sha }}-${{ github.run_attempt }}
+          path: image-digest.txt
           if-no-files-found: error
           retention-days: 14
 

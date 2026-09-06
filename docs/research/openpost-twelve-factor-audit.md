@@ -245,7 +245,7 @@ Practical test:
 
 Verified repository evidence:
 
-- `bun.lock`, Go module sums, `devenv.lock`, and `deploy/docker/image-policy.json`
+- `bun.lock`, Go module sums, `devenv.lock`, and `deploy/docker/Dockerfile`
   declare application and environment dependencies.
 - GitHub Actions are pinned to commit SHAs. Docker base images are pinned by
   digest.

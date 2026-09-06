@@ -1,20 +1,13 @@
 #!/usr/bin/env bun
 
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
-import { resolveRunArtifact } from "./ci-artifacts.mjs";
 import { prepareMobileReleaseFiles } from "./mobile-release.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
-import {
-  releasePreparationHasChanges,
-  requireConventionalCommitMessage,
-  selectWorkflowRun,
-} from "./release-lifecycle.mjs";
-import { readReleaseManifest } from "./release-manifest.mjs";
+import { requireConventionalCommitMessage, selectWorkflowRun } from "./release-lifecycle.mjs";
 import {
   changedReleasePaths,
   maintainedReleasePaths,
@@ -180,14 +173,13 @@ async function checkFull() {
 
   const revision = git(["rev-parse", "HEAD"]);
   const image = `openpost-release-check:${fingerprint.slice(0, 12)}`;
-  const imagePlatform = await publishedImagePlatform();
   try {
     run(
       [
         "docker",
         "build",
         "--platform",
-        imagePlatform,
+        "linux/amd64",
         "--build-context",
         "frontend_artifact=apps/server/cmd/openpost/public",
         "--file",
@@ -214,16 +206,6 @@ async function checkFull() {
     JSON.stringify({ fingerprint, revision, passed_at: new Date().toISOString() }, null, 2) + "\n",
   );
   console.log(`release check-full: complete (${fingerprint.slice(0, 12)})`);
-}
-
-async function publishedImagePlatform() {
-  const policy = JSON.parse(
-    await readFile(path.join(root, "deploy/docker", "image-policy.json"), "utf8"),
-  );
-  if (!Array.isArray(policy.supported_platforms) || policy.supported_platforms.length !== 1) {
-    throw new Error("image policy must declare exactly one published platform");
-  }
-  return policy.supported_platforms[0];
 }
 
 async function prepare(commitMessage) {
@@ -298,7 +280,7 @@ async function prepare(commitMessage) {
     throw error;
   }
   run(["git", "add", "--all"]);
-  if (releasePreparationHasChanges(git(["diff", "--cached", "--name-only"]))) {
+  if (git(["diff", "--cached", "--name-only"]).trim()) {
     run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
     run(["git", "push", "origin", "main"]);
   } else {
@@ -326,8 +308,8 @@ async function promote(requestedTag) {
   }
   if (!tag) throw new Error("pass the prepared version tag to release -- promote");
 
-  const ciRun = await waitForCI(revision);
-  await verifyCandidateManifest(ciRun, tag, revision);
+  runCapture(["bun", "scripts/release-notes.mjs", tag]);
+  await waitForCI(revision);
 
   const remoteTag = runOptional([
     "git",
@@ -460,33 +442,6 @@ async function verifyProduction(version, revision) {
     await Bun.sleep(5_000);
   }
   throw new Error(`production did not report ${version} at revision ${revision}`);
-}
-
-async function verifyCandidateManifest(ciRun, version, revision) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-release-candidate-"));
-  try {
-    const repository = runCapture([
-      "gh",
-      "repo",
-      "view",
-      "--json",
-      "nameWithOwner",
-      "--jq",
-      ".nameWithOwner",
-    ]).trim();
-    const artifact = resolveRunArtifact({
-      repository,
-      runId: ciRun.id,
-      prefix: `release-manifest-${revision}-`,
-    });
-    run(["gh", "run", "download", ciRun.id, "--name", artifact, "--dir", directory]);
-    await readReleaseManifest(path.join(directory, "release-manifest.json"), {
-      expectedVersion: version,
-      expectedRevision: revision,
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
 }
 
 async function verifyProductionReady() {

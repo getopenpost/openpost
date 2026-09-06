@@ -22,7 +22,6 @@ jobs:
       packages: read
     outputs:
       ci_run_id: ${{ steps.candidate.outputs.run_id }}
-      candidate_artifact: ${{ steps.artifacts.outputs.candidate }}
       frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
       android_artifact: ${{ steps.artifacts.outputs.android }}
       digest: ${{ steps.image.outputs.digest }}
@@ -90,10 +89,10 @@ jobs:
           CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
         shell: bash
         run: |
-          candidate="$(bun scripts/ci-artifacts.mjs resolve \
+          image="$(bun scripts/ci-artifacts.mjs resolve \
             --repository "$GITHUB_REPOSITORY" \
             --run-id "$CI_RUN_ID" \
-            --prefix "release-manifest-${GITHUB_SHA}-")"
+            --prefix "image-digest-${GITHUB_SHA}-")"
           frontend="$(bun scripts/ci-artifacts.mjs resolve \
             --repository "$GITHUB_REPOSITORY" \
             --run-id "$CI_RUN_ID" \
@@ -103,57 +102,26 @@ jobs:
             --run-id "$CI_RUN_ID" \
             --prefix "android-unsigned-${GITHUB_SHA}-")"
           {
-            echo "candidate=$candidate"
+            echo "image=$image"
             echo "frontend=$frontend"
             echo "android=$android"
           } >> "$GITHUB_OUTPUT"
-      - name: Download the candidate release manifest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
-          CANDIDATE_ARTIFACT: ${{ steps.artifacts.outputs.candidate }}
-        run: |
-          gh run download "$CI_RUN_ID" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "$CANDIDATE_ARTIFACT" \
-            --dir candidate-release
-          bun scripts/release-manifest.mjs verify \
-            --manifest candidate-release/release-manifest.json \
-            --version "$GITHUB_REF_NAME" \
-            --revision "$GITHUB_SHA"
-          expected_repository="${REGISTRY}/${IMAGE_NAME,,}"
-          expected_tag="sha-${GITHUB_SHA}"
-          bun scripts/image-evidence.mjs verify \
-            --evidence candidate-release/openpost-image-evidence.json \
-            --repository "$expected_repository" \
-            --tag "$expected_tag" \
-            --revision "$GITHUB_SHA" \
-            --release-manifest candidate-release/release-manifest.json \
-            --sbom candidate-release/openpost-image.spdx.json \
-            --vulnerability-report candidate-release/openpost-image-trivy.json \
-            >/dev/null
-          jq -e '(.spdxVersion | startswith("SPDX-")) and (.packages | type == "array") and (.packages | length > 0)' candidate-release/openpost-image.spdx.json >/dev/null
-          jq -e '(.SchemaVersion // 0) >= 2 and (.Results | type == "array") and (.Results | length > 0)' candidate-release/openpost-image-trivy.json >/dev/null
-      - name: Verify the immutable candidate digest and manifest
+      - name: Verify the tested image
         id: image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
+          IMAGE_ARTIFACT: ${{ steps.artifacts.outputs.image }}
         shell: bash
         run: |
+          gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$IMAGE_ARTIFACT" --dir tested-image
+          digest="$(cat tested-image/image-digest.txt)"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          repository="${REGISTRY}/${IMAGE_NAME,,}"
-          digest="$(bun scripts/image-evidence.mjs verify \
-            --evidence candidate-release/openpost-image-evidence.json \
-            --repository "$repository" \
-            --tag "sha-${GITHUB_SHA}" \
-            --revision "$GITHUB_SHA" \
-            --release-manifest candidate-release/release-manifest.json \
-            --sbom candidate-release/openpost-image.spdx.json \
-            --vulnerability-report candidate-release/openpost-image-trivy.json)"
-          image="${repository}@${digest}"
+          image="${REGISTRY}/${IMAGE_NAME,,}@${digest}"
           docker pull "$image"
-          scripts/verify-image-release-manifest.sh \
-            "$image" candidate-release/release-manifest.json
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")" == "$GITHUB_REF_NAME" ]]
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" == "$GITHUB_SHA" ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   prepare-draft:
@@ -168,33 +136,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Download exact candidate image evidence
+      - name: Create or verify the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
-          CANDIDATE_ARTIFACT: ${{ needs.verify-candidate.outputs.candidate_artifact }}
-        run: |
-          gh run download "$CI_RUN_ID" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "$CANDIDATE_ARTIFACT" \
-            --dir candidate-release
-      - name: Create or verify the draft and upload candidate evidence
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CANDIDATE_DIGEST: ${{ needs.verify-candidate.outputs.digest }}
         shell: bash
         run: |
           set -euo pipefail
-          repository="${REGISTRY}/${IMAGE_NAME,,}"
-          verified_digest="$(bun scripts/image-evidence.mjs verify \
-            --evidence candidate-release/openpost-image-evidence.json \
-            --repository "$repository" \
-            --tag "sha-${GITHUB_SHA}" \
-            --revision "$GITHUB_SHA" \
-            --release-manifest candidate-release/release-manifest.json \
-            --sbom candidate-release/openpost-image.spdx.json \
-            --vulnerability-report candidate-release/openpost-image-trivy.json)"
-          [[ "$verified_digest" == "$CANDIDATE_DIGEST" ]]
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
           fetch_release() {
             release_id="$(gh release view "$GITHUB_REF_NAME" \
@@ -215,24 +162,10 @@ jobs:
             fi
             fetch_release
           fi
-          bun scripts/release-lifecycle.mjs verify \
+          bun scripts/release-assets.mjs verify \
             --release-json draft-release.json \
             --tag "$GITHUB_REF_NAME" \
-            --notes-file release-notes.md \
-            --phase draft
-          gh release upload "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber \
-            candidate-release/release-manifest.json \
-            candidate-release/openpost-image-evidence.json \
-            candidate-release/openpost-image.spdx.json \
-            candidate-release/openpost-image-trivy.json
-          fetch_release
-          bun scripts/release-lifecycle.mjs verify \
-            --release-json draft-release.json \
-            --tag "$GITHUB_REF_NAME" \
-            --notes-file release-notes.md \
-            --phase draft
+            --notes-file release-notes.md
 
   build-binaries:
     name: Build server (${{ matrix.os }}-${{ matrix.arch }})
@@ -264,9 +197,9 @@ jobs:
         run: |
           cd apps/server
           if [[ "${{ matrix.os }}" == windows ]]; then
-            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
           else
-            CGO_ENABLED=1 go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+            CGO_ENABLED=1 go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
           fi
       - name: Upload server binary to the draft release
         env:
@@ -300,8 +233,8 @@ jobs:
         shell: bash
         run: |
           cd apps/cli
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost-mcp
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../../openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../../openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost-mcp
       - name: Upload CLI and MCP binaries to the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -332,13 +265,6 @@ jobs:
           gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ANDROID_ARTIFACT" --dir candidate-android
           cd candidate-android
           sha256sum --check openpost-app-android-unsigned.sha256
-          cd ..
-          bun scripts/mobile-release.mjs verify \
-            --config apps/mobile/app.json \
-            --package apps/mobile/package.json \
-            --revision "$GITHUB_SHA" \
-            --apk candidate-android/openpost-app-android-unsigned.apk \
-            --manifest candidate-android/openpost-app-android-candidate.json
       - name: Check signing secret
         id: signing
         env:
@@ -368,12 +294,6 @@ jobs:
             --out openpost-app-android.apk \
             candidate-android/openpost-app-android-unsigned.apk
           "$apksigner" verify --verbose --print-certs openpost-app-android.apk
-          bun scripts/mobile-release.mjs create \
-            --config apps/mobile/app.json \
-            --package apps/mobile/package.json \
-            --revision "$GITHUB_SHA" \
-            --apk openpost-app-android.apk \
-            --output openpost-app-android-release.json
       - name: Refuse to publish an unsigned Android application
         if: steps.signing.outputs.has_keystore != 'true'
         run: |
@@ -385,8 +305,7 @@ jobs:
         shell: bash
         run: |
           bash scripts/release-asset-upload.sh \
-            openpost-app-android.apk \
-            openpost-app-android-release.json
+            openpost-app-android.apk
 
   promote-image:
     name: Promote tested image
@@ -412,11 +331,11 @@ jobs:
           release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
           [[ "$release_id" =~ ^[0-9]+$ ]]
           gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > draft-release.json
-          bun scripts/release-lifecycle.mjs verify \
+          bun scripts/release-assets.mjs verify \
             --release-json draft-release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            --phase complete-draft
+            --complete
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -576,25 +495,22 @@ jobs:
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}"
           }
           fetch_release
-          bun scripts/release-lifecycle.mjs verify \
+          bun scripts/release-assets.mjs verify \
             --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            --phase complete-draft
-          cp release.json release-before.json
+            --complete
           gh release edit "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false \
             --latest \
             --verify-tag
           fetch_release
-          bun scripts/release-lifecycle.mjs transition \
-            --before-json release-before.json \
-            --after-json release.json \
+          bun scripts/release-assets.mjs verify \
+            --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            --from complete-draft \
-            --to published
+            --complete --published
 
   announce-discord:
     name: Announce release in Discord

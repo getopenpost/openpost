@@ -72,5 +72,6 @@ Keep deployable projects in `apps/`, shared runtime code in `packages/`, browser
 ## Delivery
 
 - Commit directly to `main` with Conventional Commits, one concern per commit. Stage only files owned by the current work.
+- Release assets are user downloads. Keep scan reports in Actions; use Git SHAs, image digests, OCI labels, and native signatures instead of custom release manifests. Validate workflows with `bun run check -- workflows`.
 - Push only when asked. A push is not a deployment.
 - Before any tag push, release, deploy, destructive live action, or other production mutation, state the exact revision, action, and effect, then wait for explicit authorization.

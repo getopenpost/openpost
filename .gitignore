@@ -66,8 +66,6 @@ playwright-report/
 blob-report/
 coverage/
 *.tsbuildinfo
-/release-manifest.json
-/openpost-image-evidence.json
 /openpost-image.spdx.json
 /openpost-image-trivy.json
 

@@ -7,13 +7,13 @@ test("selects the newest successful artifact attempt after partial reruns", () =
   assert.equal(
     selectAttemptArtifact(
       [
-        { name: "release-manifest-revision-1", expired: false },
+        { name: "image-digest-revision-1", expired: false },
         { name: "frontend-public-revision-3", expired: false },
-        { name: "release-manifest-revision-2", expired: true },
+        { name: "image-digest-revision-2", expired: true },
       ],
-      "release-manifest-revision-",
+      "image-digest-revision-",
     ),
-    "release-manifest-revision-1",
+    "image-digest-revision-1",
   );
   assert.equal(
     selectAttemptArtifact(
@@ -32,10 +32,10 @@ test("rejects missing, malformed, expired, or ambiguous latest artifacts", () =>
     () =>
       selectAttemptArtifact(
         [
-          { name: "release-manifest-revision-0", expired: false },
-          { name: "release-manifest-revision-1", expired: true },
+          { name: "image-digest-revision-0", expired: false },
+          { name: "image-digest-revision-1", expired: true },
         ],
-        "release-manifest-revision-",
+        "image-digest-revision-",
       ),
     /no current artifact/u,
   );
@@ -43,10 +43,10 @@ test("rejects missing, malformed, expired, or ambiguous latest artifacts", () =>
     () =>
       selectAttemptArtifact(
         [
-          { name: "release-manifest-revision-3", expired: false },
-          { name: "release-manifest-revision-3", expired: false },
+          { name: "image-digest-revision-3", expired: false },
+          { name: "image-digest-revision-3", expired: false },
         ],
-        "release-manifest-revision-",
+        "image-digest-revision-",
       ),
     /not uniquely identified/u,
   );

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${1:?usage: smoke-production-image.sh IMAGE [EXPECTED_COMMIT [EXPECTED_VERSION [RELEASE_MANIFEST]]]}"
+image="${1:?usage: smoke-production-image.sh IMAGE [EXPECTED_COMMIT [EXPECTED_VERSION]]}"
 expected_commit="${2:-}"
 expected_version="${3:-}"
-release_manifest="${4:-}"
 container="openpost-smoke-${RANDOM}-$$"
 port="${OPENPOST_SMOKE_PORT:-18080}"
 database_volume="openpost-smoke-db-${RANDOM}-$$"
@@ -16,8 +15,7 @@ smoke_environment=(
   --env "OPENPOST_ENCRYPTION_KEY=${smoke_encryption_key}"
 )
 
-expected_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("smoke requires exactly one supported platform") end' deploy/docker/image-policy.json)"
-expected_architecture="${expected_platform#linux/}"
+expected_architecture=amd64
 
 cleanup() {
   docker rm -f "$container" >/dev/null 2>&1 || true
@@ -101,8 +99,4 @@ if [[ -n "$expected_version" ]]; then
     printf 'expected running version %s, got %s\n' "$expected_version" "$running_version" >&2
     exit 1
   }
-fi
-
-if [[ -n "$release_manifest" ]]; then
-  scripts/verify-image-release-manifest.sh "$image" "$release_manifest"
 fi

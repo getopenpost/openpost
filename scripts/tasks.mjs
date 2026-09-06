@@ -48,9 +48,8 @@ const checks = {
     bunTest("scripts/asset-surfaces.test.mjs"),
     bun("scripts/asset-surfaces.mjs"),
   ]),
-  "image-policy": stage("image policy", [
-    bunTest("scripts/check-image-policy.test.mjs", "scripts/image-evidence.test.mjs"),
-    bun("scripts/check-image-policy.mjs"),
+  workflows: stage("GitHub Actions workflows", [
+    go("run", "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"),
   ]),
   "mcp-registry": stage("MCP registry", [
     bunTest("scripts/check-mcp-registry.test.mjs"),
@@ -69,7 +68,6 @@ const checks = {
       "scripts/next-release-version.test.mjs",
       "scripts/n8n-package-release.test.mjs",
       "scripts/mobile-release.test.mjs",
-      "scripts/release-manifest.test.mjs",
       "scripts/release-assets.test.mjs",
       "scripts/release-lifecycle.test.mjs",
       "scripts/ci-artifacts.test.mjs",
@@ -180,15 +178,7 @@ const checks = {
 };
 
 const policyGroups = [
-  [
-    "build-graph",
-    "assets",
-    "image-policy",
-    "mcp-registry",
-    "docs",
-    "release-version",
-    "secret-scan",
-  ],
+  ["build-graph", "assets", "workflows", "mcp-registry", "docs", "release-version", "secret-scan"],
   ["app-routes", "public-routes", "legal-policy", "provider-certification", "provider-facts"],
   [
     "plan-catalog",
@@ -339,10 +329,7 @@ function lintPlan(requestedScope) {
   const docs = checks.docs;
   const byScope = { frontend, backend, cli, marketing, docs };
   if (requestedScope) return plan("lint", requestedScope, [[byScope[requestedScope]]]);
-  return plan("lint", undefined, [
-    [frontend, backend, marketing],
-    [cli, stage("workflow lint", [commandStep("actionlint", "-color")])],
-  ]);
+  return plan("lint", undefined, [[frontend, backend, marketing], [cli]]);
 }
 
 function checkPlan(requestedScope, requestedOptions) {

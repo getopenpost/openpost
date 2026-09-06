@@ -44,7 +44,7 @@ func TestPWAControlFilesRevalidate(t *testing.T) {
 			e := echo.New()
 			registerSpaRoutes(e, webFS)
 			response := httptest.NewRecorder()
-			e.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/"+asset, nil))
+			e.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/"+asset, nil))
 			require.Equal(t, http.StatusOK, response.Code)
 			require.Equal(t, "no-cache", response.Header().Get("Cache-Control"))
 		})

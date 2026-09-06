@@ -62,6 +62,7 @@ var builtInRevisionOverrides = map[string]string{
 	"supabase":     "builtin-v2",
 	"todoist":      "builtin-v2",
 	"vercel":       "builtin-v2",
+	"workshop":     "builtin-v2",
 }
 
 func builtInRevision(id string) string {

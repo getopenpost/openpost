@@ -32,11 +32,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   workshop: {
     id: "workshop",
     displayName: "Workshop",
-    revision: "builtin-v1",
+    revision: "builtin-v2",
     supportedSchemes: ["light", "dark"],
     manifests: {
       light: {
-        id: "workshop-light-builtin-v1",
+        id: "workshop-light-builtin-v2",
         familyId: "workshop",
         displayName: "Workshop",
         scheme: "light",
@@ -277,7 +277,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#c44c00ff", "#00845dff", "#2274afff", "#b27f02ff", "#894d97ff"],
+          celebration: ["#0280f7ff", "#8d5bedff", "#df3798ff", "#00987cff", "#c67d00ff"],
         },
         iconography: {
           packId: "lucide",
@@ -308,7 +308,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
       },
       dark: {
-        id: "workshop-dark-builtin-v1",
+        id: "workshop-dark-builtin-v2",
         familyId: "workshop",
         displayName: "Workshop",
         scheme: "dark",
@@ -549,7 +549,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
         assetSlots: {},
         decoration: {
-          celebration: ["#e37035ff", "#42b389ff", "#519fddff", "#cf9a35ff", "#b576c3ff"],
+          celebration: ["#5ca9ffff", "#ae89ffff", "#f872b7ff", "#2dc5a6ff", "#efa831ff"],
         },
         iconography: {
           packId: "lucide",

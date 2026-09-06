@@ -1177,7 +1177,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			{/if}
 
 			<section aria-labelledby="analytics-content-heading">
-				<div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+				<div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 					<div class="min-w-0">
 						<h2 id="analytics-content-heading" class="text-base font-semibold">
 							{m.analytics_content_title()}
@@ -1188,30 +1188,26 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								: m.analytics_content_description()}
 						</p>
 					</div>
-					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
+					<div class="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
 						<div
-							class="grid min-h-11 min-w-0 grid-cols-3 items-stretch rounded-md border border-border p-1"
+							class="flex min-w-0 items-center rounded-md border border-border p-0.5"
 							role="group"
 							aria-label={m.analytics_source_filter_label()}
 						>
 							{#each ['all', 'openpost', 'external'] as source (source)}
-								<button
-									type="button"
-									class={[
-										'min-h-11 min-w-0 rounded-sm px-1.5 text-xs leading-4 font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-2.5 sm:text-sm',
-										sourceFilter === source
-											? 'bg-secondary text-secondary-foreground'
-											: 'text-muted-foreground hover:text-foreground'
-									]}
+								<Button
+									size="sm"
+									variant={sourceFilter === source ? 'secondary' : 'ghost'}
+									class="min-w-0 flex-1 border-transparent sm:flex-none"
 									aria-pressed={sourceFilter === source}
 									onclick={() => (sourceFilter = source as ContentSource)}
 								>
 									{source === 'all'
 										? m.analytics_source_all()
 										: source === 'openpost'
-											? m.analytics_source_published_with_openpost()
-											: m.analytics_source_published_elsewhere()}
-								</button>
+											? m.analytics_source_openpost()
+											: m.analytics_source_external()}
+								</Button>
 							{/each}
 						</div>
 						<Select.Root
@@ -1291,7 +1287,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												<span class="block truncate text-xs">{renditionName(item)}</span>
 												<span
 													class="block truncate text-xs text-muted-foreground"
-													data-testid={`analytics-source-${id}`}>{sourceLabel(item.source)}</span
+													title={sourceLabel(item.source)}
+													data-testid={`analytics-source-${id}`}
+													>{item.source === 'external'
+														? m.analytics_source_external()
+														: m.analytics_source_openpost()}</span
 												>
 											</span>
 										</div>
@@ -1319,10 +1319,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											<span class="analytics-row-label">{m.analytics_table_published()}: </span>
 											{formatDate(item.published_at)}
 										</div>
-										<div class="analytics-actions flex min-h-11 w-full items-center gap-1">
+										<div class="analytics-actions flex w-full flex-wrap items-center gap-1">
 											<Button
+												variant="ghost"
 												size="sm"
-												class="min-h-11 flex-1 md:flex-none"
 												disabled={Boolean(repurposingReferenceKey)}
 												onclick={() => repurposeContent(item)}
 												data-testid={`analytics-repurpose-${id}`}
@@ -1332,21 +1332,20 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													: m.analytics_repurpose()}
 											</Button>
 											<Button
-												variant="outline"
-												size="sm"
-												class="min-h-11 flex-1 justify-between md:flex-none"
+												variant="ghost"
+												size="icon-sm"
+												aria-label={expanded
+													? m.analytics_hide_details()
+													: m.analytics_show_details()}
+												title={expanded ? m.analytics_hide_details() : m.analytics_show_details()}
 												aria-expanded={expanded}
 												aria-controls={`analytics-content-${id.replace(':', '-')}`}
 												onclick={() => (expandedContentID = expanded ? '' : id)}
 												data-testid={`analytics-details-${id}`}
 											>
-												<span class="sm:hidden">{m.analytics_evidence_details()}</span>
-												<span class="hidden sm:inline">
-													{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
-												</span>
 												<ThemeIcon
 													role="chevron-down"
-													class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+													class={`size-4 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}
 												/>
 											</Button>
 										</div>
@@ -1470,9 +1469,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 <style>
 	@container (min-width: 58rem) {
 		.analytics-content-grid {
-			grid-template-columns:
-				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
-				11rem;
+			grid-template-columns: minmax(0, 2fr) minmax(7rem, 1fr) 5.5rem 4rem 7rem 9rem;
 			align-items: center;
 		}
 
@@ -1506,22 +1503,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		}
 
 		.analytics-actions {
-			align-items: stretch;
-			flex-direction: column;
-			justify-self: stretch;
-		}
-	}
-
-	@container (min-width: 68rem) {
-		.analytics-content-grid {
-			grid-template-columns:
-				minmax(0, 2fr) minmax(9rem, 1fr) 6rem 6rem 7.5rem
-				14rem;
-		}
-
-		.analytics-actions {
-			align-items: center;
-			flex-direction: row;
+			justify-content: flex-end;
 		}
 	}
 </style>

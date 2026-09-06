@@ -2216,10 +2216,10 @@
 							class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 						>
 							{m.accounts_developer_shortcut()}
-							<span
-								class="text-muted-foreground transition-transform group-open:rotate-180"
-								aria-hidden="true">⌄</span
-							>
+							<ThemeIcon
+								role="chevron-down"
+								class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+							/>
 						</summary>
 						<div class="space-y-3 border-t px-3 py-3">
 							<p class="text-xs leading-5 text-muted-foreground">

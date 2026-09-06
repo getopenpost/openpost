@@ -1,5 +1,5 @@
 import type { ThemeManifest } from '../contracts.js';
-import { colors, scheme, theme } from './shared.js';
+import { colors, scheme, themeV2 } from './shared.js';
 
 export const workshopLight = scheme({
 	colors: colors({
@@ -35,11 +35,11 @@ export const workshopLight = scheme({
 		sidebarInk: 'oklch(0.2 0.01 50)',
 		sidebarActive: 'oklch(0.93 0.04 45)',
 		sidebarActiveInk: 'oklch(0.25 0.06 45)',
-		chart1: 'oklch(0.57 0.17 45)',
-		chart2: 'oklch(0.54 0.12 165)',
-		chart3: 'oklch(0.54 0.12 245)',
-		chart4: 'oklch(0.63 0.13 80)',
-		chart5: 'oklch(0.52 0.13 320)'
+		chart1: 'oklch(0.61 0.2 255)',
+		chart2: 'oklch(0.6 0.21 295)',
+		chart3: 'oklch(0.62 0.22 350)',
+		chart4: 'oklch(0.6 0.13 175)',
+		chart5: 'oklch(0.65 0.16 75)'
 	})
 });
 export const workshopDark = scheme(
@@ -80,17 +80,17 @@ export const workshopDark = scheme(
 			sidebarInk: 'oklch(0.92 0.005 85)',
 			sidebarActive: 'oklch(0.32 0.065 45)',
 			sidebarActiveInk: 'oklch(0.94 0.015 75)',
-			chart1: 'oklch(0.67 0.16 45)',
-			chart2: 'oklch(0.69 0.12 165)',
-			chart3: 'oklch(0.68 0.12 245)',
-			chart4: 'oklch(0.72 0.13 80)',
-			chart5: 'oklch(0.66 0.13 320)'
+			chart1: 'oklch(0.73 0.16 255)',
+			chart2: 'oklch(0.72 0.18 295)',
+			chart3: 'oklch(0.73 0.18 350)',
+			chart4: 'oklch(0.74 0.13 175)',
+			chart5: 'oklch(0.78 0.15 75)'
 		})
 	},
 	'dark'
 );
 
-export const workshopTheme: ThemeManifest = theme(
+export const workshopTheme: ThemeManifest = themeV2(
 	'workshop',
 	'Workshop',
 	'Warm technical minimalism with one clear orange signal.',

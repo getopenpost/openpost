@@ -2,7 +2,7 @@
   {
     "schemaVersion": 1,
     "id": "workshop",
-    "revision": "builtin-v1",
+    "revision": "builtin-v2",
     "name": "Workshop",
     "description": "Warm technical minimalism with one clear orange signal.",
     "iconPack": "lucide",
@@ -82,11 +82,11 @@
           "chromeInk": "oklch(0.2 0.01 50)",
           "browserSurface": "oklch(0.985 0.002 80)",
           "browserChrome": "oklch(1 0 0)",
-          "chart1": "oklch(0.57 0.17 45)",
-          "chart2": "oklch(0.54 0.12 165)",
-          "chart3": "oklch(0.54 0.12 245)",
-          "chart4": "oklch(0.63 0.13 80)",
-          "chart5": "oklch(0.52 0.13 320)"
+          "chart1": "oklch(0.61 0.2 255)",
+          "chart2": "oklch(0.6 0.21 295)",
+          "chart3": "oklch(0.62 0.22 350)",
+          "chart4": "oklch(0.6 0.13 175)",
+          "chart5": "oklch(0.65 0.16 75)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.965 0.004 80)",
@@ -339,11 +339,11 @@
           "chromeInk": "oklch(0.92 0.005 85)",
           "browserSurface": "oklch(0.145 0.008 55)",
           "browserChrome": "oklch(0.2 0.01 50)",
-          "chart1": "oklch(0.67 0.16 45)",
-          "chart2": "oklch(0.69 0.12 165)",
-          "chart3": "oklch(0.68 0.12 245)",
-          "chart4": "oklch(0.72 0.13 80)",
-          "chart5": "oklch(0.66 0.13 320)"
+          "chart1": "oklch(0.73 0.16 255)",
+          "chart2": "oklch(0.72 0.18 295)",
+          "chart3": "oklch(0.73 0.18 350)",
+          "chart4": "oklch(0.74 0.13 175)",
+          "chart5": "oklch(0.78 0.15 75)"
         },
         "protectedEditor": {
           "editorCanvas": "oklch(0.12 0.006 55)",

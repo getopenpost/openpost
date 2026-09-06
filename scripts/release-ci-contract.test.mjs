@@ -76,45 +76,64 @@ test("mobile identity advances during release preparation, not every main build"
   assert.match(releaseScript, /prepareMobileReleaseFiles/u);
 });
 
-test("a second tag on one commit compares against the existing release tag", (t) => {
+test("a second tag on one commit compares against the existing release tag", () => {
   const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-tags-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  mkdirSync(path.join(directory, "mobile"));
-  mkdirSync(path.join(directory, "scripts"));
-  copyFileSync("scripts/mobile-release.mjs", path.join(directory, "scripts", "mobile-release.mjs"));
-  const git = (...args) => execFileSync("git", args, { cwd: directory, stdio: "ignore" });
-  git("init");
-  git("config", "user.email", "release-test@openpost.local");
-  git("config", "user.name", "OpenPost Release Test");
-  writeMobileIdentity(directory, "0.2.0", 2);
-  git("add", ".");
-  git("commit", "-m", "old release");
-  git("tag", "v4.14.0");
-  writeMobileIdentity(directory, "0.2.1", 3);
-  git("add", ".");
-  git("commit", "-m", "current release");
-  git("tag", "v4.15.0");
-  git("tag", "v4.15.1");
+  try {
+    mkdirSync(path.join(directory, "mobile"));
+    mkdirSync(path.join(directory, "scripts"));
+    copyFileSync(
+      "scripts/mobile-release.mjs",
+      path.join(directory, "scripts", "mobile-release.mjs"),
+    );
+    const git = (...args) => {
+      const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    git("init");
+    git("config", "user.email", "release-test@openpost.local");
+    git("config", "user.name", "OpenPost Release Test");
+    writeMobileIdentity(directory, "0.2.0", 2);
+    git("add", ".");
+    git("commit", "-m", "old release");
+    git("tag", "v4.14.0");
+    writeMobileIdentity(directory, "0.2.1", 3);
+    git("add", ".");
+    git("commit", "-m", "current release");
+    git("tag", "v4.15.0");
+    git("tag", "v4.15.1");
+    assert.deepEqual(readdirSync(path.join(directory, ".git", "refs", "tags")).sort(), [
+      "v4.14.0",
+      "v4.15.0",
+      "v4.15.1",
+    ]);
 
-  const result = spawnSync(
-    "bash",
-    [
-      "--noprofile",
-      "--norc",
-      "-e",
-      "-o",
-      "pipefail",
-      "-c",
-      workflowStepScript(release, "verify-candidate", "Require a new Android release identity"),
-    ],
-    {
-      cwd: directory,
-      encoding: "utf8",
-      env: { ...process.env, GITHUB_REF_NAME: "v4.15.1" },
-    },
-  );
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /version code 3 must be greater than released code 3/u);
+    const result = spawnSync(
+      "bash",
+      [
+        "--noprofile",
+        "--norc",
+        "-e",
+        "-o",
+        "pipefail",
+        "-c",
+        workflowStepScript(release, "verify-candidate", "Require a new Android release identity"),
+      ],
+      {
+        cwd: directory,
+        encoding: "utf8",
+        env: { ...process.env, GITHUB_REF_NAME: "v4.15.1" },
+      },
+    );
+    assert.notEqual(result.status, 0);
+    assert.equal(
+      JSON.parse(readFileSync(path.join(directory, "previous-release-app.json"), "utf8")).expo
+        .android.versionCode,
+      3,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("external workflow actions are pinned to immutable commits", () => {
@@ -135,4 +154,18 @@ test("external workflow actions are pinned to immutable commits", () => {
   }
 
   assert.ok(externalActions > 0);
+});
+
+test("full release checks invoke only supported test scopes", () => {
+  const releaseTestScopes = [
+    ...releaseScript.matchAll(/run\(\["bun", "run", "test", "--", "([^"]+)"\]/gu),
+  ].map((match) => match[1]);
+
+  assert.ok(releaseTestScopes.length > 0);
+  for (const scope of releaseTestScopes) {
+    const result = spawnSync("bun", ["scripts/tasks.mjs", "test", scope, "--plan"], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, `unsupported release test scope ${scope}: ${result.stderr}`);
+  }
 });

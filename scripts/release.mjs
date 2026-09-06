@@ -177,7 +177,6 @@ async function checkFull() {
   run(["scripts/security-check.sh"]);
   run(["bun", "run", "test", "--", "e2e"]);
   run(["bun", "run", "test", "--", "e2e-app"]);
-  run(["bun", "run", "test", "--", "e2e-docs"]);
 
   const revision = git(["rev-parse", "HEAD"]);
   const image = `openpost-release-check:${fingerprint.slice(0, 12)}`;

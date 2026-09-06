@@ -55,6 +55,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { resolveTransitionTargetFromSelection } from '$lib/video-editor/timeline/transition-drop';
 	import type { Project, TransitionDirection } from '$lib/video-editor/project/types';
 	import { CloudVideoProjectRepository } from '$lib/video-editor/cloud/project-repository';
+	import { createCloudRecordingImportRuntime } from '$lib/video-editor/cloud/cloud-recording';
 	import { importCloudProjectAssetsFromPicker } from '$lib/video-editor/cloud/import-project-assets';
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
 	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
@@ -2830,6 +2831,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <RecordingDialog
 	open={recordingOpen}
 	{projectId}
+	importRuntime={cloudStorage && workspaceCtx.currentWorkspace
+		? createCloudRecordingImportRuntime(
+				new CloudVideoProjectRepository<Project>(workspaceCtx.currentWorkspace.id)
+			)
+		: undefined}
 	onopenchange={(v) => (recordingOpen = v)}
 	oninserted={handleRecordingInserted}
 />

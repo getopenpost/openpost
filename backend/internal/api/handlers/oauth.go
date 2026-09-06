@@ -22,10 +22,12 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	account_saver "github.com/openpost/backend/internal/services/account_saver"
+	"github.com/openpost/backend/internal/services/accountavatar"
 	"github.com/openpost/backend/internal/services/accountfeatures"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mastodonapps"
+	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/oauthstate"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/tokenmanager"
@@ -58,11 +60,17 @@ type OAuthHandler struct {
 	connectorRegistry            *connectors.Registry
 	connectorStore               *connectors.Store
 	tokenSource                  AccessTokenSource
+	accountAvatars               accountAvatarCache
 	// frontendURL is the absolute base URL the SPA is served from
 	// (e.g. "https://openpost.example.com"). OAuth callback redirects go
 	// here so they work behind reverse proxies and subpath mounts.
 	frontendURL string
 	telemetry   telemetry.Recorder
+}
+
+type accountAvatarCache interface {
+	CacheLinkedIn(context.Context, string, string) (string, error)
+	Delete(context.Context, string) error
 }
 
 func mastodonInstanceURL(adapter platform.Adapter) string {
@@ -2165,26 +2173,7 @@ func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
 		if err != nil {
 			return nil, huma.Error502BadGateway("the provider access token could not be loaded")
 		}
-
-		profile, err := refreshProviderAccountMetadata(ctx, adapter, accessToken, account)
-		if err != nil {
-			if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
-				return nil, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
-			}
-			return nil, huma.Error502BadGateway("the provider profile could not be refreshed")
-		}
-		if profile == nil || strings.TrimSpace(profile.ID) == "" {
-			return nil, huma.Error502BadGateway("the provider returned an invalid account profile")
-		}
-		if strings.TrimSpace(profile.ID) != strings.TrimSpace(account.AccountID) {
-			return nil, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
-		}
-
-		if err := h.updateAccountProfileMetadata(ctx, account, profile); err != nil {
-			return nil, err
-		}
-
-		updated, err := h.fetchUpdatedAccount(ctx, account.ID)
+		updated, err := h.refreshAccountProfile(ctx, account, adapter, accessToken)
 		if err != nil {
 			return nil, err
 		}
@@ -2192,6 +2181,52 @@ func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
 		resp = h.enrichResponseMessaging(ctx, updated, middleware.GetUserID(ctx), resp)
 		return &RefreshAccountMetadataOutput{Body: resp}, nil
 	})
+}
+
+func (h *OAuthHandler) refreshAccountProfile(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, accessToken string) (models.SocialAccount, error) {
+	profile, err := refreshProviderAccountMetadata(ctx, adapter, accessToken, account)
+	if err != nil {
+		if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
+			return models.SocialAccount{}, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
+		}
+		return models.SocialAccount{}, huma.Error502BadGateway("the provider profile could not be refreshed")
+	}
+	if profile == nil || strings.TrimSpace(profile.ID) == "" {
+		return models.SocialAccount{}, huma.Error502BadGateway("the provider returned an invalid account profile")
+	}
+	if strings.TrimSpace(profile.ID) != strings.TrimSpace(account.AccountID) {
+		return models.SocialAccount{}, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
+	}
+	cachedAvatarURL := ""
+	if account.Platform == "linkedin" && h.accountAvatars != nil && strings.TrimSpace(profile.AvatarURL) != "" {
+		cachedAvatarURL, err = h.accountAvatars.CacheLinkedIn(ctx, account.ID, profile.AvatarURL)
+		if err != nil {
+			log.Printf("failed to cache LinkedIn avatar for account %s: %v", account.ID, err)
+			return models.SocialAccount{}, huma.Error502BadGateway("the provider profile photo could not be saved")
+		}
+		cachedProfile := *profile
+		cachedProfile.AvatarURL = cachedAvatarURL
+		profile = &cachedProfile
+	}
+
+	if err := h.updateAccountProfileMetadata(ctx, account, profile); err != nil {
+		if cachedAvatarURL != "" {
+			_ = h.accountAvatars.Delete(ctx, cachedAvatarURL)
+		}
+		return models.SocialAccount{}, err
+	}
+	if cachedAvatarURL != "" && account.AccountAvatarURL != cachedAvatarURL {
+		_ = h.accountAvatars.Delete(ctx, account.AccountAvatarURL)
+	}
+	return h.fetchUpdatedAccount(ctx, account.ID)
+}
+
+func (h *OAuthHandler) SetAccountAvatarStorage(storage mediastore.BlobStorage) {
+	if storage == nil {
+		h.accountAvatars = nil
+		return
+	}
+	h.accountAvatars = accountavatar.New(storage)
 }
 
 func (h *OAuthHandler) updateAccountProfileMetadata(ctx context.Context, account models.SocialAccount, profile *platform.UserProfile) error {

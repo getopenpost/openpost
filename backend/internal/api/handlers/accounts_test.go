@@ -47,6 +47,38 @@ func TestRefreshAccountMetadataUpdatesTheExactStoredAccount(t *testing.T) {
 	require.Equal(t, `{"connection_type":"oauth"}`, account.CapabilityState)
 }
 
+func TestRefreshAccountMetadataCachesLinkedInAvatarOnOpenPost(t *testing.T) {
+	t.Parallel()
+
+	adapter := &accountMetadataAdapter{profile: &platform.UserProfile{
+		ID:        "provider-account-1",
+		Username:  "current-name",
+		AvatarURL: "https://media.licdn.com/current-avatar.jpg?signature=provider",
+	}}
+	srv := newAccountMetadataTestServer(t, adapter)
+	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("platform = ?", "linkedin").
+		Where("id = ?", "acc-1").
+		Exec(t.Context())
+	require.NoError(t, err)
+	srv.handler.providers = map[string]platform.Adapter{"linkedin": adapter}
+	cache := &accountAvatarCacheStub{url: "/avatars/avatar_account_acc-1_current.jpg"}
+	srv.handler.accountAvatars = cache
+
+	resp := srv.request(t)
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	require.Equal(t, "acc-1", cache.accountID)
+	require.Equal(t, "https://media.licdn.com/current-avatar.jpg?signature=provider", cache.providerURL)
+
+	var out AccountResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, cache.url, out.AccountAvatarURL)
+
+	var account models.SocialAccount
+	require.NoError(t, srv.db.NewSelect().Model(&account).Where("id = ?", "acc-1").Scan(t.Context()))
+	require.Equal(t, cache.url, account.AccountAvatarURL)
+}
+
 func TestRefreshAccountMetadataPreservesStoredValuesWhenProviderOmitsThem(t *testing.T) {
 	t.Parallel()
 
@@ -165,6 +197,22 @@ func TestRefreshAccountMetadataRejectsConnectorAccountsBeforeProviderAccess(t *t
 
 type accountMetadataTokenSource struct {
 	err error
+}
+
+type accountAvatarCacheStub struct {
+	url         string
+	accountID   string
+	providerURL string
+}
+
+func (cache *accountAvatarCacheStub) CacheLinkedIn(_ context.Context, accountID, providerURL string) (string, error) {
+	cache.accountID = accountID
+	cache.providerURL = providerURL
+	return cache.url, nil
+}
+
+func (cache *accountAvatarCacheStub) Delete(context.Context, string) error {
+	return nil
 }
 
 func (source accountMetadataTokenSource) GetValidAccessToken(context.Context, string) (string, error) {

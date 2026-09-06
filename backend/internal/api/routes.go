@@ -394,6 +394,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.SetProviderRegistrars(deps.ProviderRegistrars...)
 	oauthHandler.SetTelemetry(deps.Telemetry)
 	oauthHandler.SetTokenSource(deps.TokenSource)
+	oauthHandler.SetAccountAvatarStorage(deps.MediaStorage)
 	oauthHandler.ListProviders(api)
 	oauthHandler.ConnectConnector(api)
 	oauthHandler.ListMastodonServers(api)

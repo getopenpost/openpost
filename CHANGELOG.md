@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Fixed Android startup failing with “undefined is not a function.” Startup, sign-in, and shared queries now support React Native's cancellation APIs, including runtimes without `AbortSignal.throwIfAborted` or `DOMException`.
 - Documentation edit links point to the current source directory, and the default theme initializes once.
 - Release builds now place server, CLI, and MCP binaries where the upload step expects them.
 - Bluesky mentions now resolve complete multi-segment handles instead of a single captured domain segment.

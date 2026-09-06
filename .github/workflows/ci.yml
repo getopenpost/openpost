@@ -85,7 +85,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', 'apps/mobile/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bash scripts/ci-timing-summary.sh start policy
       - name: Install the pinned secret scanner
@@ -100,6 +100,9 @@ jobs:
           chmod +x "$RUNNER_TEMP/gitleaks"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
+      - name: Install the standalone mobile app for reachability analysis
+        working-directory: apps/mobile
+        run: bun install --frozen-lockfile
       - name: Check formatting, generated contracts, and repository policy
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

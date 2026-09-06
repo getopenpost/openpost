@@ -6,3 +6,7 @@
 - Add and remove tags with short transitions, composition-safe entry, and a second Backspace before deletion.
 - Show upload and AI phases with measured progress when available and motion for unknown progress.
 - Keep password and scheduling errors next to their fields, with keyboard focus on the first invalid password field.
+
+### Fixed
+
+- Keep thread text clear of the remove button at narrow widths and expose the button on keyboard focus.

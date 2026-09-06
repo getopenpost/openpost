@@ -68,6 +68,18 @@ test("thread authoring reorder supports keyboard preview, drop, cancel, and undo
     for (const colorScheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      const text = page.locator("#post-textarea-1");
+      const textBounds = await text.boundingBox();
+      const removeBounds = await composer
+        .getByRole("button", { name: "Remove post", exact: true })
+        .nth(1)
+        .boundingBox();
+      const padding = await text.evaluate((element) =>
+        parseFloat(getComputedStyle(element).paddingRight),
+      );
+      expect(textBounds).not.toBeNull();
+      expect(removeBounds).not.toBeNull();
+      expect(textBounds!.x + textBounds!.width - padding).toBeLessThanOrEqual(removeBounds!.x);
       await page.screenshot({
         path: testInfo.outputPath(`authoring-${width}-${colorScheme}.png`),
         fullPage: true,

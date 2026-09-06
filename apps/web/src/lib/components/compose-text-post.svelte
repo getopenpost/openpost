@@ -6016,7 +6016,9 @@
 															? m.compose_describe_video()
 															: m.compose_ai_idea_placeholder()
 														: m.compose_add_to_thread()}
-												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg md:leading-8"
+												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 {isThread
+													? 'pr-12'
+													: 'pr-3 md:pr-4'} text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:text-lg md:leading-8"
 												style="min-height: {i === 0 ? '120px' : '56px'};"
 												disabled={isSubmitting ||
 													buildingPost ||
@@ -6480,7 +6482,7 @@
 										{#if isThread}
 											<button
 												type="button"
-												class="absolute top-1 right-0 z-20 flex size-10 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100"
+												class="absolute top-1 right-0 z-20 flex size-11 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive focus-visible:opacity-100 md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100 [@media(pointer:coarse)]:size-11"
 												onclick={() => removePost(i)}
 												title={m.compose_remove_post()}
 												aria-label={m.compose_remove_post()}

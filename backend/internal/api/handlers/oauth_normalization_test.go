@@ -181,6 +181,25 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 	require.Equal(t, "canonical.bsky.social", account.AccountUsername)
 	require.Equal(t, pds.URL, account.InstanceURL)
 	require.Empty(t, account.AccountAvatarURL)
+
+	var grant models.OAuthGrant
+	require.NoError(t, handler.db.NewSelect().Model(&grant).Where("id = ?", account.OAuthGrantID).Scan(t.Context()))
+	require.Equal(t, pds.URL, grant.ProviderProjectID)
+	require.Equal(t, pds.URL, grant.InstanceURL)
+	require.JSONEq(t, `{"exchange":"create_session","pds_url":"`+pds.URL+`","protocol":"atproto","source":"account_connection"}`, grant.AuthorizationEvidence)
+}
+
+func TestOAuthProviderMapReturnsSnapshot(t *testing.T) {
+	adapter := platform.NewBlueskyAdapter("")
+	handler := NewOAuthHandler(nil, nil, map[string]platform.Adapter{"bluesky": adapter}, nil, false, "")
+	snapshot := handler.ProviderMap()
+
+	handler.registerProvider("bluesky:https://pds.example", platform.NewBlueskyAdapter("https://pds.example"))
+	delete(snapshot, "bluesky")
+
+	_, originalStillRegistered := handler.provider("bluesky")
+	require.True(t, originalStillRegistered)
+	require.NotContains(t, snapshot, "bluesky:https://pds.example")
 }
 
 // A hostile PDS must not be able to claim a DID the handle does not resolve to.

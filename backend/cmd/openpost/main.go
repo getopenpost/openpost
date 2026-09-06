@@ -1137,7 +1137,7 @@ func blueskyPDSRegistryEntries(ctx context.Context, db *bun.DB, providers map[st
 			Provider:    capabilities.ProviderBluesky,
 			Name:        instanceURL,
 			InstanceURL: instanceURL,
-			Adapter:     platform.NewBlueskyAdapter(instanceURL),
+			Adapter:     platform.NewResolvedBlueskyAdapter(instanceURL),
 		})
 	}
 	return entries, nil

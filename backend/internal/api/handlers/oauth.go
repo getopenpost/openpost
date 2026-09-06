@@ -61,6 +61,7 @@ type OAuthHandler struct {
 	connectorStore               *connectors.Store
 	tokenSource                  AccessTokenSource
 	blueskyPDS                   func(context.Context, string) (string, string, error)
+	blueskyAdapter               func(string) *platform.BlueskyAdapter
 	// frontendURL is the absolute base URL the SPA is served from
 	// (e.g. "https://openpost.example.com"). OAuth callback redirects go
 	// here so they work behind reverse proxies and subpath mounts.
@@ -101,6 +102,7 @@ func NewOAuthHandler(
 		oauthStates:                  oauthstate.NewStore(db),
 		frontendURL:                  strings.TrimRight(frontendURL, "/"),
 		blueskyPDS:                   platform.ResolveBlueskyPDS,
+		blueskyAdapter:               platform.NewResolvedBlueskyAdapter,
 	}
 }
 
@@ -125,16 +127,20 @@ func (h *OAuthHandler) blueskyLoginAdapter(ctx context.Context, adapter platform
 	if pdsURL == "" {
 		return configured, resolvedDID, nil
 	}
-	return platform.NewBlueskyAdapter(pdsURL), resolvedDID, nil
+	adapterFactory := h.blueskyAdapter
+	if adapterFactory == nil {
+		adapterFactory = platform.NewResolvedBlueskyAdapter
+	}
+	return adapterFactory(pdsURL), resolvedDID, nil
 }
 
 // setBlueskyPDSResolver keeps DID resolution off the network in tests.
 func (h *OAuthHandler) setBlueskyPDSResolver(resolve func(context.Context, string) (string, string, error)) {
 	h.blueskyPDS = resolve
+	h.blueskyAdapter = platform.NewBlueskyAdapter
 }
 
-// provider guards the reads that race registerProvider. ProviderMap hands the
-// same map to accountfeatures, so callers outside this handler stay unguarded.
+// provider guards reads that can race dynamic PDS registration.
 func (h *OAuthHandler) provider(key string) (platform.Adapter, bool) {
 	h.providersMu.RLock()
 	defer h.providersMu.RUnlock()
@@ -217,7 +223,7 @@ func (h *OAuthHandler) SetTokenSource(source AccessTokenSource) {
 }
 
 func (h *OAuthHandler) ProviderMap() map[string]platform.Adapter {
-	return h.providers
+	return h.providerSnapshot()
 }
 
 type MastodonServerInfo struct {
@@ -1523,7 +1529,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 		Summary:     "Connect Bluesky account using app password",
 		Tags:        []string{tagAccounts},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403},
+		Errors:      []int{400, 403, 502},
 	}, func(ctx context.Context, input *BlueskyLoginInput) (*BlueskyLoginOutput, error) {
 		userID := middleware.GetUserID(ctx)
 		intent, err := h.connectionIntent(ctx, input.Body.Intent)
@@ -1605,7 +1611,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			AccountAvatarURL: profile.AvatarURL,
 			InstanceURL:      pdsURL,
 			Token:            tokenResp,
-			Grant:            authorizationGrantInput(adapter, accountID),
+			Grant:            authorizationGrantInput(loginAdapter, accountID),
 		})
 		if err != nil {
 			log.Printf("[BlueskyLogin] Failed to save account: %v", err)

@@ -297,7 +297,7 @@ func TestSaveAccountRejectsSocialAccountQuota(t *testing.T) {
 
 // TestSaveAccount_DatabaseError tests handling of database failures.
 
-func TestSaveAccountKeepsBlueskyDIDsOnDifferentPDSesApart(t *testing.T) {
+func TestSaveAccountMovesBlueskyDIDBetweenPDSes(t *testing.T) {
 	db := createTestDB(t)
 	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
 	seedWorkspaceMember(t, db, "workspace-bluesky", "user-bluesky")
@@ -313,22 +313,71 @@ func TestSaveAccountKeepsBlueskyDIDsOnDifferentPDSesApart(t *testing.T) {
 			InstanceURL:     instanceURL,
 			Token:           &platform.TokenResult{AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 3600},
 			Grant: AuthorizationGrantInput{
-				ProviderProjectID: platform.BlueskyDefaultPDSURL,
+				ProviderProjectID: instanceURL,
 				ProviderSubject:   "did:plc:selfhostedexample000000",
 				ExecutionMode:     "app_password",
+				Evidence:          map[string]string{"pds_url": instanceURL},
 			},
 		})
 		require.NoError(t, err)
 		return account
 	}
 
-	hosted := save(platform.BlueskyDefaultPDSURL)
-	selfHosted := save("https://pds.example")
-	require.NotEqual(t, hosted.ID, selfHosted.ID)
-	require.Equal(t, hosted.ID, save(platform.BlueskyDefaultPDSURL).ID)
+	first := save("https://old-pds.example/")
+	moved := save("https://new-pds.example/")
+	require.Equal(t, first.ID, moved.ID)
+	require.Equal(t, first.OAuthGrantID, moved.OAuthGrantID)
+	require.Equal(t, "https://new-pds.example", moved.InstanceURL)
 
 	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
 		Where("workspace_id = ? AND platform = ?", "workspace-bluesky", "bluesky").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.Equal(t, 1, count)
+
+	var grant models.OAuthGrant
+	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", moved.OAuthGrantID).Scan(t.Context()))
+	require.Equal(t, "https://new-pds.example", grant.InstanceURL)
+	require.Equal(t, "https://new-pds.example", grant.ProviderProjectID)
+	require.JSONEq(t, `{"pds_url":"https://new-pds.example","source":"account_connection"}`, grant.AuthorizationEvidence)
+}
+
+func TestSaveAccountBackfillsLegacyBlueskyInstanceWithoutChangingIdentity(t *testing.T) {
+	db := createTestDB(t)
+	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
+	seedWorkspaceMember(t, db, "workspace-bluesky", "user-bluesky")
+	now := time.Now().UTC()
+	const did = "did:plc:legacybluesky0000000000"
+	grant := &models.OAuthGrant{
+		ID: "legacy-grant", WorkspaceID: "workspace-bluesky", Provider: "bluesky",
+		ProviderProjectID: platform.BlueskyDefaultPDSURL, ProviderSubject: did,
+		AccessTokenEnc: []byte("legacy"), TokenVersion: 1, ExecutionMode: "app_password",
+		AuthorizationEvidence: `{}`, ValidationStatus: "valid", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(grant).Exec(t.Context())
+	require.NoError(t, err)
+	legacy := &models.SocialAccount{
+		ID: "legacy-account", WorkspaceID: "workspace-bluesky", Platform: "bluesky", AccountID: did,
+		AccountUsername: "legacy.bsky.social", Slug: "bluesky-legacy", OAuthGrantID: grant.ID,
+		AccessTokenEnc: []byte{}, IsActive: true, CreatedAt: now,
+	}
+	_, err = db.NewInsert().Model(legacy).Exec(t.Context())
+	require.NoError(t, err)
+
+	account, err := saver.SaveAccountFromInput(t.Context(), SaveAccountInput{
+		Actor: accountSaverActor("user-bluesky"), UserID: "user-bluesky", PlatformName: "bluesky",
+		WorkspaceID: "workspace-bluesky", AccountID: did, AccountUsername: "legacy.bsky.social",
+		InstanceURL: platform.BlueskyDefaultPDSURL + "/",
+		Token:       &platform.TokenResult{AccessToken: "new-access", RefreshToken: "new-refresh", ExpiresIn: 3600},
+		Grant: AuthorizationGrantInput{
+			ProviderProjectID: platform.BlueskyDefaultPDSURL, ProviderSubject: did,
+			ExecutionMode: "app_password", Evidence: map[string]string{"pds_url": platform.BlueskyDefaultPDSURL},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, legacy.ID, account.ID)
+	require.Equal(t, grant.ID, account.OAuthGrantID)
+	require.Equal(t, platform.BlueskyDefaultPDSURL, account.InstanceURL)
+
+	require.NoError(t, db.NewSelect().Model(grant).Where("id = ?", grant.ID).Scan(t.Context()))
+	require.Equal(t, platform.BlueskyDefaultPDSURL, grant.InstanceURL)
 }

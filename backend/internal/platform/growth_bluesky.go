@@ -335,7 +335,7 @@ func (b *BlueskyAdapter) FollowGrowthCandidate(ctx context.Context, accessToken,
 			"createdAt": time.Now().UTC().Format(time.RFC3339),
 		},
 	}
-	respBody, err := DoJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
+	respBody, err := b.doJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -359,7 +359,7 @@ func (b *BlueskyAdapter) FollowGrowthCandidate(ctx context.Context, accessToken,
 
 func (b *BlueskyAdapter) fetchBlueskyFollows(ctx context.Context, accessToken, actor string) ([]blueskyGrowthProfile, error) {
 	endpoint := b.pdsURL + "/xrpc/app.bsky.graph.getFollows?actor=" + url.QueryEscape(actor) + "&limit=" + fmt.Sprint(blueskyGrowthFollowsLimit) + "&sort=top"
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
+	respBody, err := b.doRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -374,7 +374,7 @@ func (b *BlueskyAdapter) fetchBlueskyFollows(ctx context.Context, accessToken, a
 
 func (b *BlueskyAdapter) fetchBlueskySuggestions(ctx context.Context, accessToken string) ([]blueskyGrowthProfile, error) {
 	endpoint := b.pdsURL + "/xrpc/app.bsky.actor.getSuggestions?limit=" + fmt.Sprint(blueskyGrowthSuggestionsLimit)
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
+	respBody, err := b.doRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -399,7 +399,7 @@ func (b *BlueskyAdapter) fetchBlueskyProfiles(ctx context.Context, accessToken s
 		params.Add("actors", did)
 	}
 	endpoint := b.pdsURL + "/xrpc/app.bsky.actor.getProfiles?" + params.Encode()
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
+	respBody, err := b.doRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {

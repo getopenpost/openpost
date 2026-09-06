@@ -118,11 +118,15 @@ func (s *AccountSaver) SaveAccountsFromInputs(ctx context.Context, inputs []Save
 	if len(inputs) == 0 {
 		return nil, fmt.Errorf("at least one account is required")
 	}
-	first := inputs[0]
+	normalizedInputs := append([]SaveAccountInput(nil), inputs...)
+	for index := range normalizedInputs {
+		normalizedInputs[index] = normalizeSaveAccountInput(normalizedInputs[index])
+	}
+	first := normalizedInputs[0]
 	if err := s.validateSaveAccountInput(ctx, first); err != nil {
 		return nil, err
 	}
-	for _, input := range inputs {
+	for _, input := range normalizedInputs {
 		if input.UserID != first.UserID || input.WorkspaceID != first.WorkspaceID {
 			return nil, fmt.Errorf("selected accounts must belong to the same user and workspace")
 		}
@@ -131,7 +135,6 @@ func (s *AccountSaver) SaveAccountsFromInputs(ctx context.Context, inputs []Save
 		}
 	}
 
-	normalizedInputs := append([]SaveAccountInput(nil), inputs...)
 	existingAccounts := make([]*models.SocialAccount, len(normalizedInputs))
 	seenIdentities := make(map[string]struct{}, len(normalizedInputs))
 	var quotaAmount int64
@@ -290,6 +293,25 @@ func (s *AccountSaver) SaveAccountsFromInputs(ctx context.Context, inputs []Save
 	return accounts, nil
 }
 
+func normalizeSaveAccountInput(input SaveAccountInput) SaveAccountInput {
+	if input.PlatformName != "bluesky" {
+		return input
+	}
+	input.InstanceURL = platform.CanonicalBlueskyPDSURL(input.InstanceURL)
+	if strings.HasPrefix(input.Grant.ProviderProjectID, "http://") || strings.HasPrefix(input.Grant.ProviderProjectID, "https://") {
+		input.Grant.ProviderProjectID = platform.CanonicalBlueskyPDSURL(input.Grant.ProviderProjectID)
+	}
+	if pdsURL, ok := input.Grant.Evidence["pds_url"]; ok {
+		evidence := make(map[string]string, len(input.Grant.Evidence))
+		for key, value := range input.Grant.Evidence {
+			evidence[key] = value
+		}
+		evidence["pds_url"] = platform.CanonicalBlueskyPDSURL(pdsURL)
+		input.Grant.Evidence = evidence
+	}
+	return input
+}
+
 func (s *AccountSaver) prepareGrants(
 	ctx context.Context,
 	inputs []SaveAccountInput,
@@ -358,12 +380,18 @@ func (s *AccountSaver) prepareGrants(
 		if reuseID != "" {
 			if _, claimed := claimedExisting[reuseID]; !claimed {
 				var existingGrant models.OAuthGrant
-				err := s.db.NewSelect().Model(&existingGrant).
+				query := s.db.NewSelect().Model(&existingGrant).
 					Where("id = ? AND workspace_id = ? AND provider = ?", reuseID, input.WorkspaceID, input.PlatformName).
-					Where("provider_project_id = ? AND provider_subject = ?", metadata.ProviderProjectID, metadata.ProviderSubject).
-					Where("instance_url = ? AND execution_mode = ?", input.InstanceURL, metadata.ExecutionMode).
+					Where("provider_subject = ?", metadata.ProviderSubject).
+					Where("execution_mode = ?", metadata.ExecutionMode).
 					Where("revoked_at IS NULL").
-					Scan(ctx)
+					Limit(1)
+				if input.PlatformName != "bluesky" {
+					query = query.
+						Where("provider_project_id = ?", metadata.ProviderProjectID).
+						Where("instance_url = ?", input.InstanceURL)
+				}
+				err := query.Scan(ctx)
 				if err == nil {
 					grant.ID = existingGrant.ID
 					grant.TokenVersion = existingGrant.TokenVersion
@@ -531,7 +559,7 @@ func (s *AccountSaver) findExistingAccount(ctx context.Context, input SaveAccoun
 		Where("account_id = ?", input.AccountID).
 		Order("is_active DESC", "created_at DESC").
 		Limit(1)
-	if input.PlatformName == "mastodon" || input.PlatformName == "bluesky" {
+	if input.PlatformName == "mastodon" {
 		query = query.Where("instance_url = ?", input.InstanceURL)
 	}
 	var account models.SocialAccount
@@ -546,7 +574,7 @@ func (s *AccountSaver) findExistingAccount(ctx context.Context, input SaveAccoun
 
 func accountIdentityKey(input SaveAccountInput) string {
 	key := input.PlatformName + "\x00" + input.AccountID
-	if input.PlatformName == "mastodon" || input.PlatformName == "bluesky" {
+	if input.PlatformName == "mastodon" {
 		key += "\x00" + input.InstanceURL
 	}
 	return key

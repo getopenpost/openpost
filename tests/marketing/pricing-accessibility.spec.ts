@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { dismissTelemetryConsent } from "./helpers.js";
 
 test("pricing exposes readable amounts for both billing periods", async ({ page }) => {
   await page.goto("/pricing");
+  await dismissTelemetryConsent(page);
   for (const billing of ["Monthly", "Yearly"]) {
     await page.getByRole("button", { name: new RegExp(`^${billing}`) }).click();
     await page.locator(".billing-toggle").evaluate(async (toggle) => {

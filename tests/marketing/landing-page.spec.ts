@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { dismissTelemetryConsent } from "./helpers.js";
 
 test("landing preview switches destination copy without leaving the launch", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+  await dismissTelemetryConsent(page);
   const preview = page.getByRole("group", { name: "Preview a destination" });
   await expect(preview.getByRole("button", { name: "LinkedIn", exact: true })).toHaveAttribute(
     "aria-pressed",

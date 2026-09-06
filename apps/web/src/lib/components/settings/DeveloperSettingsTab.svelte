@@ -70,6 +70,8 @@
 	);
 	let createdAPIToken = $state('');
 	let apiTokenCopyState = $state<'idle' | 'copied' | 'failed'>('idle');
+	let apiTokenCopyResetTimer: ReturnType<typeof setTimeout> | undefined;
+	const apiTokenCopySuccessLifetime = 2000;
 	let loadedAPITokensUserID = $state('');
 	let attemptedAPITokensUserID = '';
 	let apiTokensRequestUserID = '';
@@ -101,6 +103,11 @@
 
 	function notify(message: string, tone: 'success' | 'error' = 'success') {
 		showToast(message, tone);
+	}
+
+	function resetAPITokenCopyFeedback(): void {
+		clearTimeout(apiTokenCopyResetTimer);
+		apiTokenCopyState = 'idle';
 	}
 
 	function requestTokenRevocation(tokenID: string) {
@@ -245,7 +252,7 @@
 		apiTokenBusy = true;
 		apiTokenError = '';
 		createdAPIToken = '';
-		apiTokenCopyState = 'idle';
+		resetAPITokenCopyFeedback();
 		const name = apiTokenName.trim();
 		if (!name) {
 			apiTokenError = m.settings_token_name_required();
@@ -316,6 +323,10 @@
 			await navigator.clipboard.writeText(token);
 			if (!isCurrentRequest()) return;
 			apiTokenCopyState = 'copied';
+			clearTimeout(apiTokenCopyResetTimer);
+			apiTokenCopyResetTimer = setTimeout(() => {
+				if (isCurrentRequest()) apiTokenCopyState = 'idle';
+			}, apiTokenCopySuccessLifetime);
 			notify(m.settings_token_copy_success());
 		} catch {
 			if (!isCurrentRequest()) return;
@@ -379,7 +390,7 @@
 		apiTokenBusy = false;
 		apiTokenError = '';
 		createdAPIToken = '';
-		apiTokenCopyState = 'idle';
+		resetAPITokenCopyFeedback();
 		revokeDialogOpen = false;
 		pendingTokenID = '';
 		apiTokenName = 'OpenPost MCP';
@@ -448,7 +459,7 @@
 			apiTokenBusy = false;
 			apiTokenError = '';
 			createdAPIToken = '';
-			apiTokenCopyState = 'idle';
+			resetAPITokenCopyFeedback();
 		}
 		if (!authState.isAuthenticated || !userID) {
 			apiTokensRequestSequence += 1;
@@ -476,6 +487,7 @@
 	});
 
 	onDestroy(() => {
+		clearTimeout(apiTokenCopyResetTimer);
 		apiTokensRequestSequence += 1;
 		mcpActivityRequestSequence += 1;
 		tokenMutationSequence += 1;

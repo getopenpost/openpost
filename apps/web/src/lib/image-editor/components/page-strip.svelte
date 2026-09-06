@@ -53,6 +53,23 @@
 		return /^Page \d+$/.test(name) ? m.image_editor_default_page_name({ number: index + 1 }) : name;
 	}
 
+	function commitPageMove(pageID: string, target: number, announcement: 'moved' | 'dropped'): void {
+		const source = pages.findIndex((page) => page.id === pageID);
+		if (source < 0 || target < 0 || target >= pages.length || source === target) return;
+		const name = displayPageName(pages[source].name, source);
+		editor.reorderPage(pageID, target);
+		reorderAnnouncement =
+			announcement === 'dropped'
+				? m.interaction_reorder_dropped({ name, position: target + 1 })
+				: m.interaction_reorder_moved({ name, position: target + 1, total: pages.length });
+		focusPage(pageID);
+	}
+
+	function moveActivePage(delta: -1 | 1): void {
+		const source = pages.findIndex((page) => page.id === editor.activePageID);
+		commitPageMove(editor.activePageID, source + delta, 'moved');
+	}
+
 	function reorderPageFromKeyboard(event: KeyboardEvent, pageID: string, index: number): void {
 		if (!editor.canEdit) return;
 		if (event.key === 'Tab') {
@@ -98,7 +115,7 @@
 		const target = index + delta;
 		if (target < 0 || target >= pages.length) return;
 		if (!keyboardDraggingID) {
-			editor.reorderPage(pageID, target);
+			commitPageMove(pageID, target, 'moved');
 			return;
 		}
 		const next = [...(previewOrder ?? [])];
@@ -136,7 +153,7 @@
 			);
 			return;
 		}
-		if (draggingID) editor.reorderPage(draggingID, index);
+		if (draggingID) commitPageMove(draggingID, index, 'dropped');
 		draggingID = '';
 	}
 </script>
@@ -171,11 +188,7 @@
 				title={m.interaction_reorder_previous()}
 				disabled={!editor.canEdit ||
 					pages.findIndex((page) => page.id === editor.activePageID) <= 0}
-				onclick={() =>
-					editor.reorderPage(
-						editor.activePageID,
-						pages.findIndex((page) => page.id === editor.activePageID) - 1
-					)}><ThemeIcon role="arrow-left" /></Button
+				onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
 			>
 			<Button
 				variant="ghost"
@@ -185,11 +198,7 @@
 				title={m.interaction_reorder_next()}
 				disabled={!editor.canEdit ||
 					pages.findIndex((page) => page.id === editor.activePageID) >= pages.length - 1}
-				onclick={() =>
-					editor.reorderPage(
-						editor.activePageID,
-						pages.findIndex((page) => page.id === editor.activePageID) + 1
-					)}><ThemeIcon role="arrow-right" /></Button
+				onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
 			>
 
 			<Button

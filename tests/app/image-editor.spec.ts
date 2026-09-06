@@ -64,7 +64,10 @@ test("public image editor creates, restores, and exports a local design", async 
 
   const title = page.getByRole("textbox", { name: "Design title" });
   await title.fill("Local launch design");
-  await expect(page.getByRole("banner").getByText("Saved on this device")).toBeVisible();
+  const saveIndicator = page.getByTestId("image-editor-save-indicator");
+  await expect(saveIndicator).toBeVisible();
+  await expect(saveIndicator).toHaveAttribute("data-state", "saved");
+  await expect(saveIndicator).toContainText("Saved on this device");
 
   await page.reload();
   await expect(title).toHaveValue("Local launch design");

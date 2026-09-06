@@ -826,11 +826,14 @@ func (b *BlueskyAdapter) resolveBlueskyComposerReferences(ctx context.Context, a
 		req.Settings["quote_cid"] = cid
 	}
 	mentions := map[string]string{}
-	for _, match := range blueskyMentionPattern.FindAllStringSubmatch(req.Content, -1) {
-		if len(match) < 2 {
+	for _, match := range blueskyMentionPattern.FindAllString(req.Content, -1) {
+		handle := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(match), "@"))
+		if handle == "" {
 			continue
 		}
-		handle := strings.ToLower(strings.TrimSpace(match[1]))
+		if _, exists := mentions[handle]; exists {
+			continue
+		}
 		did, err := b.resolveBlueskyHandle(ctx, accessToken, handle)
 		if err != nil {
 			return err

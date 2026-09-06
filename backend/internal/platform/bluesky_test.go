@@ -349,6 +349,37 @@ func TestResolvedBlueskyAdapterRevalidatesPDSBeforeSendingCredentials(t *testing
 	require.Zero(t, expiresIn)
 }
 
+func TestResolveBlueskyComposerReferencesUsesCompleteHandlesAndByteFacets(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+
+	resolvedHandles := []string{}
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		handle := req.URL.Query().Get("handle")
+		resolvedHandles = append(resolvedHandles, handle)
+		return jsonResponse(req, `{"did":"did:plc:`+strings.ReplaceAll(handle, ".", "-")+`"}`), nil
+	})}
+
+	adapter := NewBlueskyAdapter("")
+	request := &PublishRequest{
+		Content:  "👅💦 @mercurykitsune.bsky.social and @anielde.bsky.social",
+		Settings: map[string]interface{}{},
+	}
+	require.NoError(t, adapter.resolveBlueskyComposerReferences(t.Context(), "token", request))
+	require.Equal(t, []string{"mercurykitsune.bsky.social", "anielde.bsky.social"}, resolvedHandles)
+
+	encoded, ok := request.Settings["mention_dids"].(string)
+	require.True(t, ok)
+	var mentions map[string]string
+	require.NoError(t, json.Unmarshal([]byte(encoded), &mentions))
+	require.Contains(t, mentions, "mercurykitsune.bsky.social")
+	require.Contains(t, mentions, "anielde.bsky.social")
+
+	facets := buildBlueskyFacets(request.Content, request.Settings)
+	requireFacet(t, facets, 9, 36, "app.bsky.richtext.facet#mention", "did", mentions["mercurykitsune.bsky.social"])
+	requireFacet(t, facets, 41, 61, "app.bsky.richtext.facet#mention", "did", mentions["anielde.bsky.social"])
+}
+
 // The adapter reached through a bluesky:<pds> key must build content identities
 // on the same base the account stores, or discovery cannot match its renditions.
 func TestBlueskyProviderKeyAdapterSharesAccountContentIdentity(t *testing.T) {

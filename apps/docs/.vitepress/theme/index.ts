@@ -14,7 +14,6 @@ export default {
   extends: DefaultTheme,
   Layout,
   async enhanceApp(ctx) {
-    await DefaultTheme.enhanceApp?.(ctx);
     if (typeof window !== "undefined") {
       configureTelemetry({
         enabled: Boolean(

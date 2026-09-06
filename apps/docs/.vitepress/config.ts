@@ -318,7 +318,7 @@ export default defineConfig({
       provider: "local",
     },
     editLink: {
-      pattern: "https://github.com/getopenpost/openpost/edit/main/docs-site/:path",
+      pattern: "https://github.com/getopenpost/openpost/edit/main/apps/docs/:path",
       text: "Edit this page on GitHub",
     },
     footer: {

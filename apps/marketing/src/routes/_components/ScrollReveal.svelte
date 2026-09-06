@@ -33,7 +33,7 @@
 
 <style>
 	:global(div[data-reveal-ready='true']) {
-		opacity: 0;
+		opacity: 1;
 		transform: translateY(1.1rem);
 		filter: blur(5px);
 		clip-path: inset(0 0 8% 0 round 0.75rem);

@@ -188,13 +188,7 @@
 	.pricing-hero {
 		padding-block: clamp(4.5rem, 9vw, 8rem) clamp(3rem, 6vw, 5rem);
 		border-bottom: 1px solid var(--border);
-		background:
-			radial-gradient(
-				circle at 50% 0,
-				color-mix(in oklch, var(--primary) 14%, transparent),
-				transparent 28rem
-			),
-			var(--background);
+		background: var(--background);
 	}
 
 	.pricing-hero h1 {

@@ -148,13 +148,7 @@
 
 <style>
 	.faq-hero {
-		background:
-			radial-gradient(
-				circle at 72% 20%,
-				color-mix(in oklch, var(--primary) 10%, transparent),
-				transparent 22rem
-			),
-			var(--background);
+		background: var(--background);
 	}
 
 	.faq-index {

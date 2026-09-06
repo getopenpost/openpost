@@ -19,7 +19,9 @@
 	const primaryNavItems = marketingNavigation.primary;
 	const resourceGroups: readonly ResourceGroup[] = marketingNavigation.resourceGroups;
 	const navigationResourceItems = resourceGroups.flatMap((group) => group.items);
-	const mobileNavItems = marketingNavigation.mobile;
+	const mobileNavItems = marketingNavigation.mobile.filter(
+		(item) => !primaryNavItems.some((primary) => primary.href === item.href)
+	);
 
 	function isActive(href: string): boolean {
 		if (href.startsWith('http')) return false;

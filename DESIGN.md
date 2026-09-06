@@ -18,7 +18,6 @@ colors:
   danger-dark: "oklch(0.6 0.2 25)"
   success-ink: "oklch(0.42 0.12 160)"
   success-ink-dark: "oklch(0.75 0.13 155)"
-  docs-cta-shadow: "oklch(0.5 0.15 45 / 0.18)"
 typography:
   wordmark:
     fontFamily: "Manrope Variable, Manrope, Geist Variable, Geist, system-ui, sans-serif"
@@ -130,11 +129,24 @@ The values below define Workshop. Warm neutrals carry most of that family; orang
 - **Hairline Warmth** (`border`, `border-dark`): Dividers, control boundaries, and low-contrast structure.
 - **Failure Red** (`danger`, `danger-dark`): Destructive actions and genuine error state only.
 - **Success Green** (`success-ink`, `success-ink-dark`): Confirmed success text and icons.
-- **Docs CTA Shadow** (`docs-cta-shadow`): A translucent orange lift reserved for the documentation home action.
 
 **The One Signal Rule.** In Workshop, orange marks the next action or current selection. It is not a background decoration and should remain visually scarce. Every theme assigns the same semantic jobs to its own action, focus, and selection roles.
 
 **The Complete Scheme Rule.** A supported scheme is incomplete until its contrast, borders, hover state, focus state, reduced-motion behavior, and browser surfaces work together. A single-scheme family is valid, but its unsupported scheme must fall back to complete Workshop rather than improvise an inversion.
+
+## Public surfaces
+
+Marketing keeps Workshop’s warm canvas, ink, shared controls, and protected identity. Orange stays concentrated in the mark and action accents. Broad page backgrounds and headings use neutral tones.
+
+The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
+
+The landing page uses Geist with a 40–78px desktop hero, a 34–53px mobile hero, 32–48px section headings, and 16–18px introductory copy. Product illustrations use smaller type to preserve their internal scale. Georgia appears only in the fictional Fieldnotes avatar, never in OpenPost navigation or product copy. Main illustrated surfaces use 14–16px corners; their small internal controls use 5–10px corners.
+
+Compose sections around one idea: an interactive publication example, an adaptation diagram, real editor views, and an illustrative schedule. Label fictional product examples clearly. Keep trial terms next to signup actions and use real product media or explicit recording slots instead of invented customer proof.
+
+Motion reinforces the publication flow and responds to interaction. Entrances run once, content starts visible, and reduced-motion mode removes movement. Destination previews retain keyboard controls and announce the selected rendition. Essential copy, signup links, and FAQ answers remain available without JavaScript.
+
+Documentation preserves VitePress reading conventions and Workshop neutrals. Its home heading uses plain ink, its primary action uses contrasting neutral ink, and its hero has no gradient glow or tinted CTA shadow. Orange remains a restrained link and selection accent.
 
 ## Theme contract
 
@@ -208,7 +220,6 @@ Workshop is flat by default. Its surfaces separate through warm tonal changes, h
 
 - **Focal action:** a small, low-blur shadow that keeps a floating or circular primary action legible over content.
 - **Temporary layer:** a restrained menu or dialog shadow paired with a clear border.
-- **Documentation CTA:** a soft orange-tinted lift used only on the primary docs action.
 
 **The Legible Depth Rule.** A resting surface proves its hierarchy through a coherent combination of tone, border, spacing, or elevation. Themes must not stack unrelated depth cues or let decoration obscure focus and state.
 

@@ -10,13 +10,7 @@
 	}
 
 	body {
-		background:
-			radial-gradient(
-				circle at 50% -12rem,
-				color-mix(in oklch, var(--primary) 8%, transparent),
-				transparent 32rem
-			),
-			var(--background);
+		background: var(--background);
 		color: var(--foreground);
 		font-feature-settings: 'ss01', 'cv02', 'cv03', 'cv04';
 	}
@@ -41,7 +35,7 @@
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--primary);
+		color: var(--muted-foreground);
 	}
 
 	.section-label::before,
@@ -126,4 +120,28 @@
 	html {
 		scroll-behavior: auto;
 	}
+}
+
+/* Public surfaces keep Workshop chrome and give authored examples their own palette. */
+:root {
+	--marketing-soft-ink: oklch(0.52 0.025 145);
+	--marketing-lilac: oklch(0.91 0.04 300);
+	--marketing-lilac-ink: oklch(0.3 0.055 300);
+	--marketing-mint: oklch(0.92 0.06 130);
+	--marketing-mint-ink: oklch(0.28 0.04 145);
+	--marketing-blue: oklch(0.92 0.035 235);
+	--marketing-blue-ink: oklch(0.3 0.05 245);
+	--marketing-section: oklch(0.965 0.006 80);
+	scrollbar-color: var(--border) var(--background);
+	caret-color: var(--foreground);
+}
+.dark {
+	--marketing-soft-ink: oklch(0.72 0.035 145);
+	--marketing-lilac: oklch(0.29 0.04 300);
+	--marketing-lilac-ink: oklch(0.9 0.035 300);
+	--marketing-mint: oklch(0.29 0.035 145);
+	--marketing-mint-ink: oklch(0.91 0.05 130);
+	--marketing-blue: oklch(0.28 0.035 245);
+	--marketing-blue-ink: oklch(0.91 0.035 235);
+	--marketing-section: oklch(0.18 0.008 55);
 }

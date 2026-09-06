@@ -236,13 +236,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 
 <style>
 	.features-hero {
-		background:
-			radial-gradient(
-				circle at 72% 24%,
-				color-mix(in oklch, var(--primary) 12%, transparent),
-				transparent 24rem
-			),
-			var(--background);
+		background: var(--background);
 	}
 
 	.feature-index {

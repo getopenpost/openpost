@@ -25,26 +25,17 @@
   --vp-c-border: var(--op-border);
   --vp-c-divider: var(--op-border);
 
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(
-    120deg,
-    oklch(0.55 0.155 45),
-    oklch(0.6 0.14 45),
-    oklch(0.7 0.11 55)
-  );
-  --vp-home-hero-image-background-image: linear-gradient(
-    -45deg,
-    var(--op-orange-glow),
-    oklch(0.82 0.06 60 / 0.14)
-  );
-  --vp-home-hero-image-filter: blur(44px);
+  --vp-home-hero-name-color: var(--op-text);
+  --vp-home-hero-name-background: none;
+  --vp-home-hero-image-background-image: none;
+  --vp-home-hero-image-filter: none;
 
-  --vp-button-brand-border: var(--op-orange);
+  --vp-button-brand-border: var(--op-text);
   --vp-button-brand-text: oklch(0.98 0.005 85);
-  --vp-button-brand-bg: var(--op-orange);
-  --vp-button-brand-hover-border: var(--op-orange-dark);
+  --vp-button-brand-bg: var(--op-text);
+  --vp-button-brand-hover-border: var(--vp-c-text-2);
   --vp-button-brand-hover-text: oklch(0.98 0.005 85);
-  --vp-button-brand-hover-bg: var(--op-orange-dark);
+  --vp-button-brand-hover-bg: var(--vp-c-text-2);
   --vp-button-alt-border: var(--op-border);
   --vp-button-alt-text: var(--op-text);
   --vp-button-alt-bg: var(--op-surface);
@@ -79,12 +70,12 @@
   --vp-c-border: var(--op-border);
   --vp-c-divider: var(--op-border);
 
-  --vp-button-brand-border: var(--op-orange);
+  --vp-button-brand-border: var(--op-text);
   --vp-button-brand-text: oklch(0.1 0.01 50);
-  --vp-button-brand-bg: var(--op-orange);
-  --vp-button-brand-hover-border: var(--op-orange-dark);
+  --vp-button-brand-bg: var(--op-text);
+  --vp-button-brand-hover-border: var(--vp-c-text-2);
   --vp-button-brand-hover-text: oklch(0.1 0.01 50);
-  --vp-button-brand-hover-bg: var(--op-orange-dark);
+  --vp-button-brand-hover-bg: var(--vp-c-text-2);
   --vp-button-alt-border: var(--op-border);
   --vp-button-alt-text: var(--op-text);
   --vp-button-alt-bg: var(--op-surface);
@@ -106,9 +97,7 @@
   color: var(--vp-button-brand-text);
   border-color: var(--vp-button-brand-border);
   background-color: var(--vp-button-brand-bg);
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.08),
-    0 10px 30px oklch(0.5 0.15 45 / 0.18);
+  box-shadow: none;
 }
 
 .VPButton.brand:hover {

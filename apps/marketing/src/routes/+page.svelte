@@ -1,340 +1,1006 @@
-<!--
-THESIS: OpenPost gives solo founders one content team for turning company work into destination-specific publishing without reopening every network.
-OWN-WORLD: A dark launch stage gives way to a warm working page, with focused orange controls, framed product surfaces, and precise editorial pacing.
-STORY: Understand the promise, inspect the result views, watch the real demo, see the product, choose a plan, and start.
-FIRST VIEWPORT: One centered promise, one clear action, edge-held network marks, and three overlapping result screens with no carousel chrome.
-FORM: A focused product demonstration paced between dark studio stages, light working surfaces, and real product screenshots.
--->
 <script lang="ts">
-	import { ArrowRight } from '@lucide/svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
+	import Play from '@lucide/svelte/icons/play';
+	import Check from '@lucide/svelte/icons/check';
 	import { Button } from '$lib/components/ui/button';
-	import DestinationComposerDemo from './_components/DestinationComposerDemo.svelte';
-	import EditorToolsShowcase from './_components/EditorToolsShowcase.svelte';
-	import FloatingNetworkField from './_components/FloatingNetworkField.svelte';
-	import HeroResultsCarousel from './_components/HeroResultsCarousel.svelte';
-	import LandingVideoDemo from './_components/LandingVideoDemo.svelte';
-	import PricingShowcase from './_components/PricingShowcase.svelte';
-	import ProductFeatureGrid from './_components/ProductFeatureGrid.svelte';
+	import PublicationStory from './_components/PublicationStory.svelte';
+	import PostizSocialLogo from './_components/PostizSocialLogo.svelte';
+	import { demoVideoUrl, faqs, managedSignupUrl } from './_marketing';
 	import ScrollReveal from './_components/ScrollReveal.svelte';
-	import UtilityToolsGrid from './_components/UtilityToolsGrid.svelte';
-	import { faqs, managedSignupUrl, type MarketingToolSlug } from './_marketing';
 
 	const shortFaqs = faqs.slice(0, 4);
-	const landingToolSlugs = [
-		'post-preview-generator',
-		'multi-platform-character-counter',
-		'best-time-to-post-calculator',
-		'utm-link-builder'
-	] as const satisfies readonly MarketingToolSlug[];
+	const networks = [
+		{ id: 'instagram', name: 'Instagram' },
+		{ id: 'linkedin', name: 'LinkedIn' },
+		{ id: 'x', name: 'X' },
+		{ id: 'bluesky', name: 'Bluesky' },
+		{ id: 'tiktok', name: 'TikTok' },
+		{ id: 'youtube', name: 'YouTube' },
+		{ id: 'threads', name: 'Threads' },
+		{ id: 'facebook', name: 'Facebook' },
+		{ id: 'mastodon', name: 'Mastodon' },
+		{ id: 'discord', name: 'Discord' }
+	] as const;
 </script>
 
-<section class="hero overflow-hidden">
-	<div class="marketing-shell relative pt-16 pb-16 text-center sm:pt-24 sm:pb-20 lg:pt-28">
-		<h1 class="hero-title hero-enter hero-enter-1 mx-auto">
-			Your socials, <span>on steroids.</span>
-		</h1>
-		<p class="hero-copy hero-enter hero-enter-2 mx-auto mt-6 max-w-3xl">
-			Write once. Adjust for each channel. Publish on schedule.
+<section class="landing-hero" aria-labelledby="hero-title">
+	<div class="marketing-shell">
+		<div class="hero-intro">
+			<h1 id="hero-title">You build the business.<br /><span>We’ll help you share it.</span></h1>
+			<p>
+				Your ideas, your voice, every channel.<br class="desktop-break" /> Meet the content workspace
+				that keeps up with you.
+			</p>
+			<div class="hero-actions">
+				<Button href={managedSignupUrl} size="lg" class="landing-cta"
+					>Start your free trial <ArrowRight data-icon="inline-end" /></Button
+				>
+				<a href={demoVideoUrl} class="watch-link focus-ring" target="_blank" rel="noreferrer"
+					><span><Play size={13} fill="currentColor" /></span> See it in action</a
+				>
+			</div>
+			<div class="trial-note">14 days free. $0 today. Card required.</div>
+		</div>
+		<PublicationStory />
+		<div class="platform-strip">
+			<p>Make yourself at home.<br /><strong>Your channels are here.</strong></p>
+			<div class="platform-marks" aria-label="Explore supported platforms">
+				{#each networks as network (network.id)}<a
+						href={`/platforms/${network.id}`}
+						aria-label={`${network.name} publishing guide`}
+						class="focus-ring"><PostizSocialLogo platform={network.id} /></a
+					>{/each}
+			</div>
+			<a href="/platforms" class="platform-details focus-ring"
+				>See platform support <ArrowUpRight size={15} /></a
+			>
+		</div>
+	</div>
+</section>
+
+<section id="product" class="intro-section marketing-shell" aria-labelledby="intro-title">
+	<h2 id="intro-title">There’s a lot in your head.<br /><span>Let’s get it out there.</span></h2>
+	<p>
+		The launch you’ve been working on. A lesson from this week. That idea in your notes. OpenPost
+		brings writing, media, and publishing into one place, so sharing your work becomes part of your
+		day.
+	</p>
+</section>
+
+<section class="workflow-section marketing-shell" aria-labelledby="workflow-title">
+	<div class="workflow-copy">
+		<h2 id="workflow-title">One good idea.<br />More ways to tell it.</h2>
+		<p>
+			A quick update on Bluesky. The full story on LinkedIn. Something visual for Instagram. Keep
+			the idea together and give each version its own words, media, and timing.
 		</p>
-		<p
-			class="hero-enter hero-enter-2 mx-auto mt-3 max-w-2xl text-sm font-semibold text-foreground/70"
+		<a class="focus-ring text-link" href="/features"
+			>Meet your new workspace <ArrowUpRight size={18} /></a
 		>
-			For solo founders who want one workspace for social publishing.
-		</p>
-		<div class="hero-enter hero-enter-3 mt-8 flex justify-center">
-			<Button href={managedSignupUrl} size="lg" class="hero-cta">
-				Start 14-day trial
-				<ArrowRight data-icon="inline-end" />
-			</Button>
-		</div>
-		<p class="hero-enter hero-enter-3 mt-3 text-sm font-medium text-foreground/75">
-			$0 today. Card required.
-		</p>
-
-		<FloatingNetworkField />
-
-		<div class="hero-enter hero-enter-4 relative z-10 mx-auto mt-10 max-w-5xl sm:mt-12">
-			<HeroResultsCarousel />
+		<div class="workflow-note">
+			<Check size={17} /><span>You review every version before it goes live.</span>
 		</div>
 	</div>
-</section>
-
-<LandingVideoDemo />
-
-<section
-	id="product"
-	class="section-pad marketing-rule scroll-mt-24 border-y bg-muted/18"
-	aria-labelledby="product-title"
->
-	<div class="marketing-shell">
-		<ScrollReveal class="max-w-3xl">
-			<h2 id="product-title" class="marketing-heading">
-				One publication, shaped for each destination.
-			</h2>
-			<p class="marketing-copy mt-5">
-				Write the idea once. Edit the copy, media, and settings for each account before you schedule
-				it.
-			</p>
-			<p class="marketing-copy mt-3">
-				Provider formats, permissions, and limits still vary by network.
-			</p>
-		</ScrollReveal>
-
-		<ScrollReveal class="mt-12" delay={80}>
-			<DestinationComposerDemo />
-		</ScrollReveal>
-
-		<ScrollReveal class="mt-20" delay={80}>
-			<ProductFeatureGrid />
-		</ScrollReveal>
-	</div>
-</section>
-
-<section class="section-pad marketing-rule border-t" aria-labelledby="tools-title">
-	<div class="marketing-shell">
-		<ScrollReveal class="max-w-3xl">
-			<h2 id="tools-title" class="marketing-heading">Free tools that do real work.</h2>
-			<p class="marketing-copy mt-5">
-				Edit the media, preview the post, check the copy, plan the week, or build a campaign link.
-				No account needed.
-			</p>
-		</ScrollReveal>
-
-		<ScrollReveal class="mt-12" delay={60}>
-			<EditorToolsShowcase />
-		</ScrollReveal>
-
-		<ScrollReveal class="mt-5" delay={100}>
-			<UtilityToolsGrid slugs={landingToolSlugs} />
-		</ScrollReveal>
-
-		<div class="mt-7 text-center">
-			<Button href="/tools" variant="outline">
-				See all free tools
-				<ArrowRight data-icon="inline-end" />
-			</Button>
-		</div>
-	</div>
-</section>
-
-<section class="section-pad marketing-rule border-t bg-muted/18" aria-labelledby="pricing-title">
-	<div class="marketing-shell">
-		<ScrollReveal class="mx-auto max-w-3xl text-center">
-			<h2 id="pricing-title" class="marketing-heading mx-auto">Start with the limits you need.</h2>
-		</ScrollReveal>
-
-		<div class="mt-12"><PricingShowcase compact /></div>
-		<div class="mt-7 text-center">
-			<Button href="/pricing" variant="outline">See all plans</Button>
-		</div>
-	</div>
-</section>
-
-<section class="section-pad marketing-rule border-t bg-muted/18" aria-labelledby="faq-title">
-	<div class="marketing-shell grid gap-12 lg:grid-cols-[0.65fr_1.35fr]">
-		<ScrollReveal>
-			<h2 id="faq-title" class="marketing-heading">Before you start.</h2>
-		</ScrollReveal>
-		<div class="marketing-rule border-t">
-			{#each shortFaqs as item, index (item.question)}
-				<ScrollReveal delay={index * 45}>
-					<details class="group marketing-rule border-b py-5">
-						<summary
-							class="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-md font-medium"
-						>
-							{item.question}
-							<span
-								class="text-xl text-muted-foreground transition-transform group-open:rotate-45"
-								aria-hidden="true">+</span
-							>
-						</summary>
-						<p class="max-w-2xl pr-10 pb-2 text-sm leading-6 text-muted-foreground">
-							{item.answer}
-						</p>
-					</details>
-				</ScrollReveal>
-			{/each}
-			<div class="pt-6 text-right">
-				<Button href="/faq" variant="outline">
-					Read every question
-					<ArrowRight data-icon="inline-end" />
-				</Button>
+	<div class="rendition-visual" aria-label="Example: a launch adapted into three formats">
+		<div class="source-idea">We’re opening early access.<span>One source idea</span></div>
+		<svg class="branch-lines" viewBox="0 0 300 49" preserveAspectRatio="none" aria-hidden="true"
+			><path d="M150 0V24M50 49V24H250V49M150 24V49" /></svg
+		>
+		<div class="rendition-formats">
+			<div>
+				<PostizSocialLogo platform="bluesky" /><strong>The update</strong>
+				<p>We made a little space for your next good idea.</p>
+				<span>Short & direct</span>
+			</div>
+			<div>
+				<PostizSocialLogo platform="linkedin" /><strong>The story</strong>
+				<p>Why we built Fieldnotes, and what we learned.</p>
+				<span>Room for context</span>
+			</div>
+			<div>
+				<PostizSocialLogo platform="instagram" /><strong>The visual</strong>
+				<div class="mini-art">Make<br />some<br /><em>room.</em></div>
+				<span>Made to be seen</span>
 			</div>
 		</div>
 	</div>
 </section>
 
-<section
-	class="closing-section overflow-hidden text-center text-white"
-	aria-labelledby="closing-title"
->
-	<div class="closing-cells" aria-hidden="true"></div>
-	<ScrollReveal class="marketing-shell relative py-24 sm:py-32">
-		<h2
-			id="closing-title"
-			class="mx-auto max-w-4xl text-4xl leading-[0.98] font-semibold tracking-[-0.045em] text-balance sm:text-6xl"
-		>
-			Ready to publish?
-		</h2>
-		<p class="mx-auto mt-6 max-w-xl leading-7 text-white/62">
-			Your first 14 days are free. $0 today, card required.
+<section class="studio-section" aria-labelledby="studio-title">
+	<div class="marketing-shell">
+		<div class="section-heading">
+			<h2 id="studio-title">The content team.<br />Without the team.</h2>
+			<p>Write the post. Make the image. Cut the video.<br />You’ve already got the tools.</p>
+		</div>
+		<div class="studio-grid">
+			<a href="/tools/social-media-image-editor" class="studio-item image-studio focus-ring">
+				<div class="studio-copy">
+					<h3>Make it look like you.</h3>
+					<p>Images, carousels, and thumbnails.<br />Your brand, down to the last detail.</p>
+					<span>Open the Image Editor <ArrowUpRight size={17} /></span>
+				</div>
+				<div class="studio-screen">
+					<img
+						src="/assets/screenshots/image-editor-dark.webp"
+						alt="OpenPost still editor with editable layers and color controls"
+						width="1440"
+						height="900"
+						loading="lazy"
+					/>
+				</div>
+			</a>
+			<a href="/tools/social-media-video-editor" class="studio-item video-studio focus-ring">
+				<div class="studio-copy">
+					<h3>A good cut goes a long way.</h3>
+					<p>Record, trim, caption, and export.<br />All in your browser.</p>
+					<span>Open the Video Editor <ArrowUpRight size={17} /></span>
+				</div>
+				<div class="studio-screen">
+					<img
+						src="/assets/screenshots/video-editor-dark.webp"
+						alt="OpenPost Video Editor showing a video preview and multitrack timeline"
+						width="1440"
+						height="900"
+						loading="lazy"
+					/>
+				</div>
+			</a>
+		</div>
+		<div class="tools-note">
+			<span>Try the editors for free. No account needed.</span><a
+				href="/tools"
+				class="focus-ring text-link">Explore all free tools <ArrowRight size={16} /></a
+			>
+		</div>
+	</div>
+</section>
+
+<section class="schedule-section marketing-shell" aria-labelledby="schedule-title">
+	<div class="weekly-plan" aria-label="Illustrative content calendar">
+		<div class="plan-heading">
+			<strong>A little planning. A clear week.</strong><span>September 14–18</span>
+		</div>
+		<div class="plan-days">
+			<div>
+				<span>Monday</span><b>14</b>
+				<article class="plan-lilac">
+					<PostizSocialLogo platform="linkedin" /><strong>What we learned</strong><span
+						>9:00 am</span
+					>
+				</article>
+			</div>
+			<div>
+				<span>Tuesday</span><b>15</b>
+				<article class="plan-blue">
+					<PostizSocialLogo platform="bluesky" /><strong>A small update</strong><span>12:30 pm</span
+					>
+				</article>
+			</div>
+			<div>
+				<span>Wednesday</span><b>16</b>
+				<article class="plan-mint">
+					<PostizSocialLogo platform="instagram" /><strong>The launch</strong><span>10:00 am</span>
+				</article>
+			</div>
+		</div>
+		<div class="plan-footer">
+			<Check size={15} /> Scheduled and ready. <span>Example calendar</span>
+		</div>
+	</div>
+	<div class="schedule-copy">
+		<h2 id="schedule-title">Show up.<br />Even on your busy days.</h2>
+		<p>
+			Give your posts a place in the calendar, then get on with your day. Drafts, scheduled posts,
+			and publishing outcomes stay together, so you always know what’s happening.
 		</p>
-		<div class="mt-8 flex flex-wrap justify-center gap-3">
-			<Button href={managedSignupUrl} size="lg">
-				Start 14-day trial
-				<ArrowRight data-icon="inline-end" />
-			</Button>
-			<Button href="/pricing" variant="secondary" size="lg">See pricing</Button>
+		<a href="/features" class="focus-ring text-link"
+			>See how scheduling works <ArrowUpRight size={18} /></a
+		>
+	</div>
+</section>
+
+<section class="tour-section marketing-shell" aria-labelledby="tour-title">
+	<ScrollReveal>
+		<div class="tour-inner">
+			<div>
+				<h2 id="tour-title">Less explaining.<br />More showing.</h2>
+				<p>Watch a draft become a scheduled publication.</p>
+				<a class="focus-ring text-link" href={demoVideoUrl} target="_blank" rel="noreferrer"
+					>Watch the product tour <ArrowUpRight size={18} /></a
+				>
+			</div>
+			<a
+				href={demoVideoUrl}
+				target="_blank"
+				rel="noreferrer"
+				class="tour-play focus-ring"
+				aria-label="Watch the OpenPost product tour"><Play size={32} fill="currentColor" /></a
+			>
 		</div>
 	</ScrollReveal>
 </section>
 
+<section class="faq-section marketing-shell" aria-labelledby="faq-title">
+	<div>
+		<h2 id="faq-title">A few things<br />you might be wondering.</h2>
+		<a href="/faq" class="focus-ring text-link">All your questions <ArrowUpRight size={18} /></a>
+	</div>
+	<div class="faq-list">
+		{#each shortFaqs as item (item.question)}<details>
+				<summary>{item.question}<span aria-hidden="true">+</span></summary>
+				<p>{item.answer}</p>
+			</details>{/each}
+	</div>
+</section>
+
+<section class="landing-close" aria-labelledby="closing-title">
+	<div class="marketing-shell">
+		<span class="closing-brand"
+			><img src="/assets/brand/logo.svg" alt="" width="32" height="32" /> OpenPost</span
+		>
+		<h2 id="closing-title">Your next post<br />starts with you.</h2>
+		<p>We’ll take care of the moving parts.</p>
+		<Button href={managedSignupUrl} size="lg" class="landing-cta"
+			>Start your free trial <ArrowRight data-icon="inline-end" /></Button
+		>
+		<div class="trial-note">14 days free. $0 today. Card required.</div>
+		<a href="/pricing" class="closing-pricing focus-ring"
+			>Find the right plan for you <ArrowUpRight size={15} /></a
+		>
+	</div>
+</section>
+
 <style>
-	.hero {
-		position: relative;
-		background:
-			radial-gradient(
-				circle at 50% 42%,
-				color-mix(in oklch, var(--primary) 16%, transparent),
-				transparent 31rem
-			),
-			linear-gradient(
-				to bottom,
-				color-mix(in oklch, var(--card) 72%, var(--background)),
-				var(--background)
-			);
+	.landing-hero {
+		padding-top: 76px;
+		background: var(--background);
 	}
-
-	.hero::before {
-		position: absolute;
-		inset: 0;
-		background-image: radial-gradient(
-			color-mix(in oklch, var(--foreground) 14%, transparent) 0.6px,
-			transparent 0.6px
-		);
-		background-size: 1.7rem 1.7rem;
-		mask-image: linear-gradient(to bottom, black, transparent 74%);
-		opacity: 0.22;
-		content: '';
-		pointer-events: none;
+	.hero-intro {
+		text-align: center;
 	}
-
-	.hero-title {
-		max-width: 64rem;
-		font-family: 'Manrope Variable', Manrope, sans-serif;
-		font-size: clamp(3.1rem, 7vw, 6rem);
-		font-weight: 760;
-		line-height: 0.94;
+	h1 {
+		font-size: clamp(40px, 5.7vw, 78px);
+		font-weight: 550;
 		letter-spacing: -0.04em;
-		text-wrap: balance;
+		line-height: 1.06;
 	}
-
-	.hero-title span {
-		color: oklch(0.72 0.16 48);
+	h1 span {
+		color: var(--marketing-soft-ink);
 	}
-
-	.hero-copy {
-		font-size: clamp(1.05rem, 1.7vw, 1.35rem);
-		font-weight: 520;
-		line-height: 1.55;
-		letter-spacing: -0.018em;
+	.hero-intro > p {
+		margin-top: 25px;
+		font-size: 18px;
+		line-height: 1.65;
 		color: var(--muted-foreground);
 	}
-
-	.hero-enter {
-		animation: hero-enter 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+	.hero-actions {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 24px;
+		margin-top: 27px;
 	}
-
-	.hero-enter-1 {
-		animation-delay: 40ms;
+	:global(.landing-cta) {
+		height: 48px;
+		padding-inline: 24px;
+		border-radius: 9px;
+		font-size: 14px;
 	}
-	.hero-enter-2 {
-		animation-delay: 100ms;
+	.watch-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		min-height: 44px;
+		font-size: 13px;
+		font-weight: 500;
+		border-radius: 6px;
 	}
-	.hero-enter-3 {
-		animation-delay: 180ms;
+	.watch-link > span {
+		display: grid;
+		place-items: center;
+		width: 29px;
+		height: 29px;
+		border: 1px solid var(--border);
+		border-radius: 50%;
+		transition: transform 200ms ease;
 	}
-	.hero-enter-4 {
-		animation-delay: 250ms;
+	.watch-link:hover > span {
+		transform: scale(1.1);
 	}
-	:global(.hero-cta) {
-		border-color: oklch(0.74 0.16 48) !important;
-		background: oklch(0.65 0.18 45) !important;
-		color: oklch(0.13 0.01 52) !important;
-		font-weight: 750 !important;
-		box-shadow: 0 0.45rem 1.3rem oklch(0.4 0.13 43 / 0.24) !important;
-		transition:
-			transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			background 140ms ease !important;
+	.trial-note {
+		margin-top: 14px;
+		font-size: 11px;
+		color: var(--muted-foreground);
 	}
-
-	:global(.hero-cta:hover) {
-		background: oklch(0.69 0.18 45) !important;
-		box-shadow: 0 0.55rem 1.5rem oklch(0.4 0.13 43 / 0.28) !important;
+	.hero-intro {
+		margin-bottom: 24px;
 	}
-
-	:global(.hero-cta:active) {
-		transform: translateY(1px) !important;
-		box-shadow: 0 0.25rem 0.75rem oklch(0.4 0.13 43 / 0.2) !important;
+	.platform-strip {
+		display: flex;
+		align-items: center;
+		gap: 32px;
+		padding-block: 52px;
+		margin-top: 20px;
+		border-bottom: 1px solid var(--border);
 	}
-
-	:global(.dark) .hero {
-		background:
-			radial-gradient(circle at 50% 43%, oklch(0.5 0.15 45 / 0.2), transparent 31rem),
-			oklch(0.115 0.008 52);
+	.platform-strip > p {
+		flex-shrink: 0;
+		font-size: 12px;
+		line-height: 1.65;
+		color: var(--muted-foreground);
 	}
-
-	:global(.dark) .hero::before {
-		background-image: radial-gradient(rgb(255 255 255 / 0.13) 0.6px, transparent 0.6px);
+	.platform-strip strong {
+		color: var(--foreground);
+		font-weight: 500;
 	}
-
-	:global(.dark) .hero-copy {
-		color: rgb(255 255 255 / 0.72);
+	.platform-marks {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: 20px;
+		flex: 1;
 	}
-
-	:global(.dark) .hero-title {
-		color: white;
+	.platform-marks a {
+		display: grid;
+		place-items: center;
+		min-width: 32px;
+		min-height: 40px;
+		border-radius: 6px;
+		transition: transform 220ms ease;
 	}
-
-	.closing-section {
-		position: relative;
-		background: oklch(0.13 0.012 50);
+	.platform-marks a:hover {
+		transform: translateY(-4px);
 	}
-
-	.closing-cells {
-		position: absolute;
-		inset: 0;
-		opacity: 0.25;
-		background-image:
-			linear-gradient(oklch(0.68 0.16 44 / 0.32) 1px, transparent 1px),
-			linear-gradient(90deg, oklch(0.68 0.16 44 / 0.32) 1px, transparent 1px);
-		background-size: 2.4rem 2.4rem;
-		mask-image: radial-gradient(circle at center, black, transparent 68%);
+	.platform-marks :global(img) {
+		width: 29px;
+		height: 29px;
 	}
-
-	@keyframes hero-enter {
-		from {
-			opacity: 0;
-			transform: translateY(1rem);
-			filter: blur(5px);
+	.platform-details {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 11px;
+		min-height: 44px;
+		border-radius: 5px;
+	}
+	h2 {
+		font-size: clamp(32px, 3.5vw, 48px);
+		font-weight: 550;
+		line-height: 1.1;
+		letter-spacing: -0.035em;
+		text-wrap: balance;
+	}
+	.intro-section {
+		display: grid;
+		grid-template-columns: 1.15fr 1fr;
+		gap: 10%;
+		align-items: center;
+		padding-block: 100px;
+	}
+	.intro-section h2 span {
+		color: var(--marketing-soft-ink);
+	}
+	.intro-section > p,
+	.workflow-copy > p,
+	.schedule-copy > p {
+		font-size: 16px;
+		color: var(--muted-foreground);
+		line-height: 1.8;
+		max-width: 47ch;
+	}
+	.workflow-section {
+		display: grid;
+		grid-template-columns: 0.85fr 1.15fr;
+		gap: 8%;
+		align-items: center;
+		padding-bottom: 110px;
+	}
+	.workflow-copy > p,
+	.schedule-copy > p {
+		margin-top: 24px;
+	}
+	.text-link {
+		color: inherit;
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		min-height: 44px;
+		margin-top: 22px;
+		border-radius: 5px;
+		font-size: 13px;
+		font-weight: 550;
+		text-decoration: underline;
+		text-decoration-color: var(--border);
+		text-underline-offset: 6px;
+	}
+	.text-link:hover {
+		text-decoration-color: currentColor;
+	}
+	.workflow-note {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 22px;
+		color: var(--muted-foreground);
+		font-size: 12px;
+	}
+	.rendition-visual {
+		background: var(--muted);
+		border-radius: 16px;
+		padding: 42px 24px 28px;
+	}
+	.source-idea {
+		background: var(--card);
+		padding: 18px;
+		max-width: 260px;
+		margin-inline: auto;
+		border-radius: 10px;
+		text-align: center;
+		font-size: 15px;
+		font-weight: 550;
+	}
+	.source-idea span {
+		display: block;
+		font-size: 10px;
+		color: var(--muted-foreground);
+		margin-top: 6px;
+		font-weight: 400;
+	}
+	.branch-lines {
+		display: block;
+		height: 49px;
+		width: 100%;
+		overflow: visible;
+	}
+	.branch-lines path {
+		fill: none;
+		stroke: var(--marketing-soft-ink);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+	.rendition-formats {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 12px;
+		align-items: start;
+	}
+	.rendition-formats > div {
+		padding: 16px;
+		min-width: 0;
+		border-radius: 9px;
+		background: var(--marketing-blue);
+		color: var(--marketing-blue-ink);
+	}
+	.rendition-formats > div:nth-child(2) {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+		margin-top: 13px;
+	}
+	.rendition-formats > div:nth-child(3) {
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+	}
+	.rendition-formats :global(img) {
+		width: 23px;
+		height: 23px;
+		margin-bottom: 20px;
+	}
+	.rendition-formats strong {
+		display: block;
+		font-size: 12px;
+	}
+	.rendition-formats p {
+		font-size: 12px;
+		line-height: 1.65;
+		margin-top: 12px;
+	}
+	.rendition-formats span {
+		display: block;
+		margin-top: 22px;
+		font-size: 9px;
+	}
+	.mini-art {
+		font-size: 27px;
+		letter-spacing: -0.03em;
+		line-height: 1;
+		margin-top: 15px;
+		font-weight: 550;
+	}
+	.mini-art em {
+		font-family: Georgia, serif;
+		font-weight: 400;
+	}
+	.studio-section {
+		padding-block: 85px 60px;
+		background: var(--marketing-section);
+	}
+	.section-heading {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 30px;
+		margin-bottom: 40px;
+	}
+	.section-heading > p {
+		font-size: 15px;
+		line-height: 1.75;
+		color: var(--muted-foreground);
+	}
+	.studio-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 24px;
+	}
+	.studio-item {
+		display: block;
+		overflow: hidden;
+		border-radius: 16px;
+	}
+	.image-studio {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+	}
+	.video-studio {
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+	}
+	.studio-copy {
+		padding: 34px;
+	}
+	.studio-copy h3 {
+		font-size: 25px;
+		line-height: 1.2;
+		letter-spacing: -0.03em;
+		font-weight: 550;
+	}
+	.studio-copy p {
+		font-size: 14px;
+		line-height: 1.7;
+		margin-top: 12px;
+	}
+	.studio-copy span {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 22px;
+		font-size: 12px;
+		font-weight: 550;
+	}
+	.studio-screen {
+		margin-left: 34px;
+		margin-right: -65px;
+		transform: translateY(12px) rotate(-2deg);
+		transform-origin: bottom right;
+		transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	.studio-screen img {
+		width: 100%;
+		display: block;
+		border-radius: 9px 0 0 0;
+	}
+	.studio-item:hover .studio-screen {
+		transform: translateY(1px) rotate(0);
+	}
+	.tools-note {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		padding-top: 20px;
+		font-size: 12px;
+		color: var(--muted-foreground);
+	}
+	.tools-note .text-link {
+		margin-top: 0;
+		color: var(--foreground);
+	}
+	.schedule-section {
+		display: grid;
+		grid-template-columns: 1.1fr 0.9fr;
+		gap: 8%;
+		align-items: center;
+		padding-block: 110px;
+	}
+	.weekly-plan {
+		padding: 26px;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+	}
+	.plan-heading {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+		padding-bottom: 24px;
+	}
+	.plan-heading strong {
+		font-size: 15px;
+		font-weight: 550;
+	}
+	.plan-heading > span {
+		font-size: 11px;
+		color: var(--muted-foreground);
+	}
+	.plan-days {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		border-top: 1px solid var(--border);
+	}
+	.plan-days > div {
+		min-width: 0;
+		padding: 16px 9px 28px;
+		border-right: 1px solid var(--border);
+	}
+	.plan-days > div:first-child {
+		padding-left: 0;
+	}
+	.plan-days > div:last-child {
+		padding-right: 0;
+		border-right: 0;
+	}
+	.plan-days > div > span {
+		display: block;
+		font-size: 10px;
+		color: var(--muted-foreground);
+	}
+	.plan-days b {
+		display: block;
+		font-size: 20px;
+		font-weight: 500;
+		margin-top: 7px;
+	}
+	.plan-days article {
+		border-radius: 7px;
+		padding: 12px 9px;
+		margin-top: 20px;
+	}
+	.plan-days :global(img) {
+		width: 20px;
+		height: 20px;
+		margin-bottom: 16px;
+	}
+	.plan-days article strong {
+		display: block;
+		font-size: 10px;
+		font-weight: 550;
+	}
+	.plan-days article span {
+		display: block;
+		font-size: 9px;
+		margin-top: 7px;
+	}
+	.plan-lilac {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+	}
+	.plan-blue {
+		background: var(--marketing-blue);
+		color: var(--marketing-blue-ink);
+		transform: translateY(25px);
+	}
+	.plan-mint {
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+	}
+	.plan-footer {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding-top: 15px;
+		border-top: 1px solid var(--border);
+		font-size: 10px;
+		color: var(--muted-foreground);
+	}
+	.plan-footer span {
+		margin-left: auto;
+		font-size: 9px;
+	}
+	.tour-inner {
+		display: flex;
+		justify-content: space-between;
+		gap: 30px;
+		align-items: center;
+		background: var(--marketing-blue);
+		color: var(--marketing-blue-ink);
+		border-radius: 16px;
+		padding: 56px 64px;
+	}
+	.tour-inner h2 {
+		font-size: 40px;
+	}
+	.tour-inner p {
+		margin-top: 20px;
+		font-size: 15px;
+	}
+	.tour-play {
+		display: grid;
+		place-items: center;
+		width: 100px;
+		height: 100px;
+		flex-shrink: 0;
+		border-radius: 50%;
+		background: var(--marketing-blue-ink);
+		color: var(--marketing-blue);
+		transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	.tour-play:hover {
+		transform: scale(1.07);
+	}
+	.faq-section {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10%;
+		padding-block: 110px;
+	}
+	.faq-section h2 {
+		font-size: 36px;
+	}
+	.faq-list details {
+		border-bottom: 1px solid var(--border);
+	}
+	.faq-list summary {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 20px;
+		padding-block: 22px;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		list-style: none;
+	}
+	.faq-list summary::-webkit-details-marker {
+		display: none;
+	}
+	.faq-list summary:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 3px;
+	}
+	.faq-list summary > span {
+		font-size: 23px;
+		font-weight: 400;
+		transition: transform 180ms ease;
+	}
+	.faq-list details[open] summary > span {
+		transform: rotate(45deg);
+	}
+	.faq-list details p {
+		padding-bottom: 24px;
+		font-size: 14px;
+		line-height: 1.75;
+		color: var(--muted-foreground);
+	}
+	.landing-close {
+		padding-block: 75px 70px;
+		text-align: center;
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+	}
+	.closing-brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		font-size: 16px;
+		font-weight: 550;
+	}
+	.landing-close h2 {
+		font-size: clamp(44px, 6vw, 76px);
+		margin-top: 26px;
+	}
+	.landing-close p {
+		margin-top: 22px;
+		margin-bottom: 28px;
+		font-size: 17px;
+	}
+	.landing-close .trial-note {
+		color: inherit;
+	}
+	.closing-pricing {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-height: 44px;
+		margin-top: 14px;
+		font-size: 12px;
+	}
+	@media (min-width: 1400px) {
+		.marketing-shell {
+			max-width: 1160px;
 		}
-		to {
-			opacity: 1;
-			transform: none;
-			filter: none;
+	}
+	@media (max-width: 1000px) {
+		.platform-strip {
+			flex-wrap: wrap;
+			gap: 16px;
+		}
+		.platform-details {
+			margin-inline: auto;
+		}
+		.platform-marks {
+			gap: 13px;
+		}
+		.rendition-visual {
+			padding: 28px 15px;
+		}
+		.rendition-formats {
+			gap: 7px;
+		}
+		.rendition-formats > div {
+			padding: 12px;
 		}
 	}
-
-	@media (max-width: 47.99rem) {
-		.hero-title {
-			font-size: clamp(3rem, 15vw, 4.6rem);
+	@media (max-width: 760px) {
+		.landing-hero {
+			padding-top: 48px;
+		}
+		h1 {
+			font-size: clamp(34px, 7.5vw, 53px);
+		}
+		.hero-intro > p {
+			font-size: 16px;
+		}
+		.intro-section,
+		.workflow-section,
+		.schedule-section,
+		.faq-section {
+			grid-template-columns: 1fr;
+			gap: 32px;
+			padding-block: 60px;
+		}
+		.intro-section {
+			padding-bottom: 15px;
+		}
+		.workflow-copy > p,
+		.schedule-copy > p,
+		.intro-section > p {
+			max-width: none;
+		}
+		.section-heading {
+			display: block;
+		}
+		.section-heading > p {
+			margin-top: 20px;
+		}
+		.studio-grid {
+			grid-template-columns: 1fr;
+		}
+		.studio-section {
+			padding-block: 55px 35px;
+		}
+		.tools-note {
+			align-items: start;
+			flex-direction: column;
+			gap: 6px;
+		}
+		.schedule-copy {
+			grid-row: 1;
+		}
+		.tour-inner {
+			padding: 32px;
+		}
+		.tour-inner h2 {
+			font-size: 30px;
+		}
+		.tour-play {
+			width: 70px;
+			height: 70px;
+		}
+		.platform-strip {
+			justify-content: center;
+			padding-block: 35px;
+			margin-top: 10px;
+		}
+		.platform-strip > p {
+			text-align: center;
+			width: 100%;
+		}
+		.platform-marks {
+			flex-basis: 100%;
+			gap: 12px;
+		}
+		.platform-marks a {
+			min-width: 44px;
+			min-height: 44px;
+		}
+		.platform-marks :global(img) {
+			width: 26px;
+			height: 26px;
+		}
+		.faq-section h2 {
+			font-size: 32px;
 		}
 	}
-
+	@media (max-width: 400px) {
+		.hero-actions {
+			flex-direction: column;
+			gap: 8px;
+		}
+		.hero-intro > p {
+			font-size: 14px;
+		}
+		.desktop-break {
+			display: none;
+		}
+		h1 {
+			font-size: 34px;
+		}
+		.trial-note {
+			font-size: 10px;
+		}
+		.hero-intro {
+			margin-bottom: 20px;
+		}
+		.rendition-visual {
+			padding-inline: 10px;
+		}
+		.rendition-formats > div {
+			padding: 10px 8px;
+		}
+		.rendition-formats p {
+			font-size: 11px;
+		}
+		.rendition-formats strong {
+			font-size: 11px;
+		}
+		.rendition-formats span {
+			font-size: 8px;
+		}
+		.mini-art {
+			font-size: 24px;
+		}
+		.weekly-plan {
+			padding: 16px;
+		}
+		.plan-heading strong {
+			font-size: 13px;
+		}
+		.plan-days article strong {
+			font-size: 9px;
+		}
+		.plan-footer {
+			font-size: 9px;
+		}
+		.plan-footer span {
+			font-size: 8px;
+		}
+		.tour-inner {
+			padding: 26px;
+			gap: 16px;
+		}
+		.tour-play {
+			width: 52px;
+			height: 52px;
+		}
+		.tour-play :global(svg) {
+			width: 22px;
+		}
+		.tour-inner h2 {
+			font-size: 27px;
+		}
+		.tour-inner p {
+			font-size: 13px;
+		}
+		.studio-copy {
+			padding: 26px;
+		}
+		.studio-screen {
+			margin-left: 26px;
+		}
+	}
+	@media (pointer: coarse) {
+		.platform-marks a {
+			min-width: 44px;
+			min-height: 44px;
+		}
+	}
 	@media (prefers-reduced-motion: reduce) {
-		.hero-enter {
-			animation: none;
+		.watch-link > span,
+		.platform-marks a,
+		.studio-screen,
+		.tour-play,
+		.faq-list summary > span {
+			transition: none;
 		}
 	}
 </style>

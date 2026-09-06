@@ -270,13 +270,13 @@ test("activity clears cross-workspace data and preserves a valid view on refresh
   await expect(page.locator("main").getByText("Previous workspace post")).toHaveCount(0);
   await expect(page.locator("main").getByText("Current workspace post")).toBeVisible();
 
-  // A failed background refresh keeps the cached view instead of an error
-  // screen: the error surfaces only when there is no data to show.
+  // A failed background refresh keeps the cached view and surfaces a retryable
+  // warning instead of replacing the page with an error screen.
   const refreshRequestsBefore = manualRefreshRequests;
   failNextPublicationsRequests = 2;
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect.poll(() => manualRefreshRequests - refreshRequestsBefore).toBeGreaterThanOrEqual(2);
-  await expect(page.getByText("Failed to load posts")).toHaveCount(0);
+  await expect(page.getByText("Failed to load posts")).toBeVisible();
   await expect(page.locator("main").getByText("Current workspace post")).toBeVisible();
 });
 

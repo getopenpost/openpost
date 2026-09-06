@@ -26,9 +26,16 @@ async function installLocalWorkspacePicker(page: Page): Promise<void> {
   });
 }
 
-async function createProject(page: Page, name: string): Promise<void> {
+async function createProject(
+  page: Page,
+  name: string,
+  options: { selectLocalProjects?: boolean } = {},
+): Promise<void> {
   await installLocalWorkspacePicker(page);
   await page.goto("/video-editor");
+  if (options.selectLocalProjects) {
+    await page.getByRole("button", { name: "Local only" }).click();
+  }
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
@@ -73,7 +80,7 @@ test("Video Editor sends a rendered export into a new composer", async ({ page, 
   const auth = await registerUser(request, `video-editor-send-${unique}@example.com`);
   await createWorkspace(request, auth.token, "Video Editor send E2E");
   await authenticatePage(page, auth.token);
-  await createProject(page, "Composer send proof");
+  await createProject(page, "Composer send proof", { selectLocalProjects: true });
   await addTextItem(page);
 
   await openHeaderMoreMenu(page);

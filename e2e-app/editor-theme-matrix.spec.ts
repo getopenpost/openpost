@@ -84,6 +84,7 @@ async function installLocalWorkspacePicker(page: Page): Promise<void> {
 async function createVideoProject(page: Page): Promise<string> {
   await installLocalWorkspacePicker(page);
   await page.goto("/video-editor");
+  await page.getByRole("button", { name: "Local only" }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Theme matrix");

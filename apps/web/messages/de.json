@@ -8545,5 +8545,10 @@
 	"pwa_install_action": "App installieren",
 	"pwa_install_failed": "Die Installation konnte nicht gestartet werden. Versuche es über das Browsermenü.",
 	"pwa_manual_install": "Verwende die Option App installieren im Browser. Wähle in Safari Ablage > Zum Dock hinzufügen.",
-	"interaction_copy_failed": "Kopieren fehlgeschlagen. Wähle den Text aus und kopiere ihn manuell."
+	"interaction_copy_failed": "Kopieren fehlgeschlagen. Wähle den Text aus und kopiere ihn manuell.",
+	"interaction_tag_added": "{tag} hinzugefügt",
+	"interaction_tag_duplicate": "{tag} wurde bereits hinzugefügt",
+	"interaction_tag_armed": "Drücke erneut die Rücktaste, um {tag} zu entfernen",
+	"interaction_tag_removed": "{tag} entfernt",
+	"interaction_field_required": "Dieses Feld ist erforderlich."
 }

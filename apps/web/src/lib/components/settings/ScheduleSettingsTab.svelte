@@ -4,6 +4,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import FieldFeedback from '$lib/components/field-feedback.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
@@ -149,8 +150,10 @@
 
 	let intervalInput = $state(String(workspaceCtx.settings.slot_interval_minutes));
 	let intervalError = $state('');
+	let intervalTouched = $state(false);
 
 	function handleIntervalChange(value: string) {
+		intervalTouched = true;
 		intervalInput = value;
 		const parsed = parseDurationInput(value);
 		if (parsed !== null && parsed >= 1 && parsed <= 180) {
@@ -795,12 +798,12 @@
 					oninput={(e) => handleIntervalChange((e.target as HTMLInputElement).value)}
 					placeholder={m.settings_interval_placeholder()}
 					class="h-9 {intervalError ? 'border-destructive' : ''}"
+					onblur={() => (intervalTouched = true)}
 					aria-invalid={Boolean(intervalError)}
-					aria-describedby={intervalError ? 'interval-error' : undefined}
+					aria-describedby="interval-error"
 				/>
-				{#if intervalError}
-					<p id="interval-error" class="text-xs text-destructive">{intervalError}</p>
-				{:else}
+				<FieldFeedback id="interval-error" error={intervalError} touched={intervalTouched} />
+				{#if !intervalError}
 					<p class="text-xs text-muted-foreground">
 						{m.settings_current_interval({
 							minutes: workspaceCtx.settings.slot_interval_minutes

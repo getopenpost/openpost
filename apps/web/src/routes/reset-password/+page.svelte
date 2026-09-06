@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import FieldFeedback from '$lib/components/field-feedback.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { client } from '$lib/api/client';
 	import { m } from '$lib/paraglide/messages';
@@ -16,6 +17,26 @@
 	let error = $state('');
 	let loading = $state(false);
 	let complete = $state(false);
+	let newPasswordTouched = $state(false);
+	let confirmPasswordTouched = $state(false);
+	const newPasswordError = $derived(
+		newPasswordTouched
+			? newPassword.length === 0
+				? m.interaction_field_required()
+				: newPassword.length < 12
+					? m.auth_register_password_short()
+					: ''
+			: ''
+	);
+	const confirmPasswordError = $derived(
+		confirmPasswordTouched
+			? confirmPassword.length === 0
+				? m.interaction_field_required()
+				: newPassword !== confirmPassword
+					? m.auth_register_password_mismatch()
+					: ''
+			: ''
+	);
 
 	onMount(() => {
 		const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -27,6 +48,8 @@
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
 		error = '';
+		newPasswordTouched = true;
+		confirmPasswordTouched = true;
 		if (!token) {
 			error = m.auth_reset_invalid_link();
 			return;
@@ -97,6 +120,14 @@
 					autocomplete="new-password"
 					placeholder={m.auth_password_min_placeholder()}
 					required
+					onblur={() => (newPasswordTouched = true)}
+					aria-invalid={Boolean(newPasswordError)}
+					aria-describedby="new-password-feedback"
+				/>
+				<FieldFeedback
+					id="new-password-feedback"
+					error={newPasswordError}
+					touched={newPasswordTouched}
 				/>
 			</div>
 			<div class="space-y-2">
@@ -108,6 +139,14 @@
 					minlength={12}
 					autocomplete="new-password"
 					required
+					onblur={() => (confirmPasswordTouched = true)}
+					aria-invalid={Boolean(confirmPasswordError)}
+					aria-describedby="confirm-password-feedback"
+				/>
+				<FieldFeedback
+					id="confirm-password-feedback"
+					error={confirmPasswordError}
+					touched={confirmPasswordTouched}
 				/>
 			</div>
 			<Button type="submit" class="w-full gap-2" disabled={loading || !token}>

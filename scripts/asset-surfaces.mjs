@@ -11,17 +11,17 @@ export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.met
 export const assetSourceDirectory = path.join(repositoryRoot, "assets");
 
 export const assetTargetDirectories = Object.freeze({
-  frontend: path.join(repositoryRoot, "frontend", "static", "assets"),
-  docs: path.join(repositoryRoot, "docs-site", "public", "assets"),
-  marketing: path.join(repositoryRoot, "marketing-site", "static", "assets"),
+  frontend: path.join(repositoryRoot, "apps/web", "static", "assets"),
+  docs: path.join(repositoryRoot, "apps/docs", "public", "assets"),
+  marketing: path.join(repositoryRoot, "apps/marketing", "static", "assets"),
 });
 
 const surfaceSourceDirectories = Object.freeze({
-  frontend: [path.join(repositoryRoot, "frontend", "src")],
-  docs: [path.join(repositoryRoot, "docs-site")],
+  frontend: [path.join(repositoryRoot, "apps/web", "src")],
+  docs: [path.join(repositoryRoot, "apps/docs")],
   marketing: [
-    path.join(repositoryRoot, "marketing-site", "src"),
-    path.join(repositoryRoot, "marketing-site", "functions"),
+    path.join(repositoryRoot, "apps/marketing", "src"),
+    path.join(repositoryRoot, "apps/marketing", "functions"),
   ],
 });
 
@@ -97,10 +97,10 @@ function valuesMatching(source, pattern) {
 
 async function dynamicMarketingReferences(root = repositoryRoot) {
   const postizSource = await readFile(
-    path.join(root, "marketing-site/src/routes/_components/postiz-social-logos.ts"),
+    path.join(root, "apps/marketing/src/routes/_components/postiz-social-logos.ts"),
     "utf8",
   );
-  const functionSource = await readFile(path.join(root, "marketing-site/functions/og.tsx"), "utf8");
+  const functionSource = await readFile(path.join(root, "apps/marketing/functions/og.tsx"), "utf8");
   const references = new Set(
     valuesMatching(postizSource, /:\s*["']([^"']+\.svg)["']/gu).map(
       (file) => `postiz-socials/${file}`,

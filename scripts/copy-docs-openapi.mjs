@@ -3,10 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const source = path.join(root, "frontend", "openapi.json");
+const source = path.join(root, "apps/web", "openapi.json");
 const targets = [
-  path.join(root, "docs-site", ".generated", "openapi.json"),
-  path.join(root, "docs-site", "public", "openapi.json"),
+  path.join(root, "apps/docs", ".generated", "openapi.json"),
+  path.join(root, "apps/docs", "public", "openapi.json"),
 ];
 
 for (const target of targets) {

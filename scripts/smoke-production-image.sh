@@ -16,7 +16,7 @@ smoke_environment=(
   --env "OPENPOST_ENCRYPTION_KEY=${smoke_encryption_key}"
 )
 
-expected_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("smoke requires exactly one supported platform") end' docker/image-policy.json)"
+expected_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("smoke requires exactly one supported platform") end' deploy/docker/image-policy.json)"
 expected_architecture="${expected_platform#linux/}"
 
 cleanup() {

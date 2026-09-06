@@ -1,7 +1,7 @@
 # FreeCut Feature-Parity Audit - OpenPost Video Editor
 
-Exhaustive capability inventory of `references/freecut/src/features/` (MIT) diffed against
-`frontend/src/lib/video-editor/` and the wired UI in `src/routes/video-editor/[id]/+page.svelte`.
+Exhaustive capability inventory of `docs/references/freecut/src/features/` (MIT) diffed against
+`apps/web/src/lib/video-editor/` and the wired UI in `src/routes/video-editor/[id]/+page.svelte`.
 Owner bar is **total parity**. Engine/action code without wired UI counts as **PARTIAL**.
 
 Legend: **PRESENT** (shipped, wired UI) · **PARTIAL** (engine or reduced version; UI or breadth missing)

@@ -5,10 +5,10 @@ import { spawnSync } from "node:child_process";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
-const source = path.join(root, "frontend", "openapi.json");
+const source = path.join(root, "apps/web", "openapi.json");
 
 const openapi = spawnSync("go", ["run", "./cmd/openpost-openapi"], {
-  cwd: path.join(root, "backend"),
+  cwd: path.join(root, "apps/server"),
   encoding: "utf8",
   maxBuffer: 20 * 1024 * 1024,
 });
@@ -22,7 +22,7 @@ await mkdir(path.dirname(source), { recursive: true });
 await writeFile(source, formatJSON(JSON.parse(openapi.stdout)) + "\n");
 const formatter = spawnSync(
   "bunx",
-  ["oxfmt", "--config", "frontend/.oxfmtrc.json", "--write", "frontend/openapi.json"],
+  ["oxfmt", "--config", "apps/web/.oxfmtrc.json", "--write", "apps/web/openapi.json"],
   {
     cwd: root,
     stdio: "inherit",
@@ -34,8 +34,8 @@ if (formatter.status !== 0) {
 console.log(`Generated OpenAPI spec -> ${path.relative(root, source)}`);
 
 const targets = [
-  path.join(root, "docs-site", ".generated", "openapi.json"),
-  path.join(root, "docs-site", "public", "openapi.json"),
+  path.join(root, "apps/docs", ".generated", "openapi.json"),
+  path.join(root, "apps/docs", "public", "openapi.json"),
 ];
 
 for (const target of targets) {
@@ -44,15 +44,15 @@ for (const target of targets) {
   console.log(`Synced OpenAPI spec -> ${path.relative(root, target)}`);
 }
 
-const cliDocs = path.join(root, "docs-site", "reference", "cli.md");
+const cliDocs = path.join(root, "apps/docs", "reference", "cli.md");
 const result = spawnSync("go", ["run", "./cmd/openpost-docs", cliDocs], {
-  cwd: path.join(root, "cli"),
+  cwd: path.join(root, "apps/cli"),
   stdio: "inherit",
 });
 if (result.status !== 0) {
   throw new Error(`Failed to generate CLI reference docs with exit code ${result.status}`);
 }
-const cliFormatter = spawnSync("bunx", ["oxfmt", "--write", "docs-site/reference/cli.md"], {
+const cliFormatter = spawnSync("bunx", ["oxfmt", "--write", "apps/docs/reference/cli.md"], {
   cwd: root,
   stdio: "inherit",
 });

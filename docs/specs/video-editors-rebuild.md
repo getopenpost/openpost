@@ -21,7 +21,7 @@ Cloud projects synchronize portable authored state, required original Project As
 
 ## Architecture
 
-`backend/internal/services/videoprojects/` owns authorization, immutable revisions, mutation application, conflict branches, checkpoints, Project Asset references, Trash retention, and completeness. Web and mobile consume the portable contract in `packages/video-project/`. The editor keeps storage mechanics behind its repository boundary, so timeline and route components work with project concepts rather than choosing cloud or filesystem persistence directly.
+`apps/server/internal/services/videoprojects/` owns authorization, immutable revisions, mutation application, conflict branches, checkpoints, Project Asset references, Trash retention, and completeness. Web and mobile consume the portable contract in `packages/video-project/`. The editor keeps storage mechanics behind its repository boundary, so timeline and route components work with project concepts rather than choosing cloud or filesystem persistence directly.
 
 Cloud saves use versioned, idempotent mutation batches with stable targets. A stale batch rebases when its targets are disjoint from newer work. An overlapping change creates an explicit conflict branch instead of silently replacing another device's edit. Originals use the configured `BlobStorage`; lightweight project state loads before optional originals, and `Keep available offline` pins the required originals on that device.
 
@@ -41,7 +41,7 @@ Protected roles resolve with the active light or dark scheme. They preserve cont
 | Export pipeline (settings resolution, packet-remux fast path, canvas render orchestrator/engine, render queue)                                                                               | FreeCut `features/export`                                 | Verbatim engine core; reduced item-type renderer surface                                                        |
 | Preview composition rendering                                                                                                                                                                | FreeCut `runtime/composition-runtime`                     | Rewrite in Svelte (largest rewrite surface): `<video>` pool + transform wrappers + text/subtitle canvas overlay |
 
-Dependencies in `frontend/package.json`: `mediabunny@^1.51.0`, `@mediabunny/prores@1.51.0`, `@huggingface/transformers@4.1.0`, `onnxruntime-web@1.26.0-dev.20260410-5e55544225`, and `fflate`.
+Dependencies in `apps/web/package.json`: `mediabunny@^1.51.0`, `@mediabunny/prores@1.51.0`, `@huggingface/transformers@4.1.0`, `onnxruntime-web@1.26.0-dev.20260410-5e55544225`, and `fflate`.
 
 ### Current parity scope
 
@@ -66,11 +66,11 @@ After any export completes (Video Editor exports folder, Quick Cut output, finis
 
 ## Deletions (Phase 0)
 
-Frontend: `frontend/src/lib/video-editor/`, `frontend/src/routes/video-editor/`, old i18n `video_editor_*` keys except stock-media + composer/media keys re-homed (stock API fns move to new `$lib/stock-media.ts`), `packages/video-project/` trimmed to extract `StockMediaProvenance` (then package deleted; consumers repointed), old e2e specs (`e2e-app/video-editor*.spec.ts`), scripts (`fetch-video-editor-models.mjs`, `generate-video-editor-audio.mjs`, benchmark scripts), static dirs (`frontend/static/video-editor-audio/`, `video-editor-models/`), CI excludes, knip/build-graph/asset-surface manifest entries, `@openpost/video-project` wiring.
+Frontend: `apps/web/src/lib/video-editor/`, `apps/web/src/routes/video-editor/`, old i18n `video_editor_*` keys except stock-media + composer/media keys re-homed (stock API fns move to new `$lib/stock-media.ts`), `packages/video-project/` trimmed to extract `StockMediaProvenance` (then package deleted; consumers repointed), old e2e specs (`tests/app/video-editor*.spec.ts`), scripts (`fetch-video-editor-models.mjs`, `generate-video-editor-audio.mjs`, benchmark scripts), static dirs (`apps/web/static/video-editor-audio/`, `video-editor-models/`), CI excludes, knip/build-graph/asset-surface manifest entries, `@openpost/video-project` wiring.
 
 Backend: `handlers/video_editor.go`(+test), `internal/videoproject/`, routes registration, `tagVideoEditor` retag for stock_media, models (`VideoProject*`, `VideoReturnToken`, `MediaAttachment.VideoProjectID`), `handlers/media.go` video_project plumbing, `services/medialifecycle` revision joins, revision-backfill helpers, config `OPENPOST_VIDEO_MODEL_BASE_URL`. New migration drops `video_projects`, `video_project_assets`, `video_project_revisions`, `video_return_tokens` (+ indexes, backfill columns). Migrations 053/054/068 remain immutable history.
 
-Contracts: regenerate `frontend/openapi.json`, `packages/api-contract/src/schema.d.ts`, docs-site copy after route removal.
+Contracts: regenerate `apps/web/openapi.json`, `packages/api-contract/src/schema.d.ts`, docs-site copy after route removal.
 
 Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; durable domain terms retained in Hindsight.
 

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
-const outputPath = path.join(root, "docs-site", ".generated", "openpost-nix-module.md");
+const outputPath = path.join(root, "apps/docs", ".generated", "openpost-nix-module.md");
 
 const moduleRawUrl =
   "https://raw.githubusercontent.com/rodrgds/nix-config/refs/heads/main/modules/services/openpost/default.nix";

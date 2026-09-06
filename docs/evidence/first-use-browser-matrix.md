@@ -4,7 +4,7 @@ The first-use release cohort uses the real OpenPost application, HTTP authorizat
 
 ## Primary journey
 
-`e2e-app/first-use-cohort.spec.ts` covers one continuous browser session at 390 px:
+`tests/app/first-use-cohort.spec.ts` covers one continuous browser session at 390 px:
 
 1. Registration with the selected Founder annual plan and exact terms.
 2. Email-verification return with the purchase choice intact.
@@ -14,20 +14,20 @@ The first-use release cohort uses the real OpenPost application, HTTP authorizat
 6. Meaningful composition, a visible validation failure, safe retry, and Publication submission.
 7. Workspace Activation, retired setup guidance, View publication, and a clean Create another composer.
 
-The test also checks horizontal overflow and unexpected page or console errors. `e2e-app/composer-scheduling.spec.ts` covers the schedule path, a changed-destination failure, retry, Activation feedback, and both post-Activation actions.
+The test also checks horizontal overflow and unexpected page or console errors. `tests/app/composer-scheduling.spec.ts` covers the schedule path, a changed-destination failure, retry, Activation feedback, and both post-Activation actions.
 
 ## Recovery and role coverage
 
-| Contract                                                            | Browser evidence                                                                                                                                           |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Welcome, checkout, OAuth, and composer refresh or re-authentication | `auth-onboarding.spec.ts`, `billing-settings.spec.ts`, `oauth-composer-handoff.spec.ts`, `first-composition.spec.ts`                                       |
-| Checkout cancellation and plan mismatch                             | `billing-settings.spec.ts`, `auth-onboarding.spec.ts`                                                                                                      |
-| OAuth cancellation, provider error, and connection failure          | `oauth-composer-handoff.spec.ts`, `accounts-providers.spec.ts`                                                                                             |
-| Scheduling failure and retry                                        | `composer-scheduling.spec.ts`                                                                                                                              |
-| Owner and authorized setup guidance                                 | `setup-guide.spec.ts`                                                                                                                                      |
-| Viewer and invited existing user                                    | `billing-settings.spec.ts`                                                                                                                                 |
-| Managed identity awaiting approval                                  | `oidc-sso.spec.ts`                                                                                                                                         |
-| Self-hosted deployment without Hosted service billing               | `setup-guide.spec.ts` with the default self-hosted test server; the authorization matrix is enforced in `backend/internal/api/handlers/workspaces_test.go` |
+| Contract                                                            | Browser evidence                                                                                                                                               |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Welcome, checkout, OAuth, and composer refresh or re-authentication | `auth-onboarding.spec.ts`, `billing-settings.spec.ts`, `oauth-composer-handoff.spec.ts`, `first-composition.spec.ts`                                           |
+| Checkout cancellation and plan mismatch                             | `billing-settings.spec.ts`, `auth-onboarding.spec.ts`                                                                                                          |
+| OAuth cancellation, provider error, and connection failure          | `oauth-composer-handoff.spec.ts`, `accounts-providers.spec.ts`                                                                                                 |
+| Scheduling failure and retry                                        | `composer-scheduling.spec.ts`                                                                                                                                  |
+| Owner and authorized setup guidance                                 | `setup-guide.spec.ts`                                                                                                                                          |
+| Viewer and invited existing user                                    | `billing-settings.spec.ts`                                                                                                                                     |
+| Managed identity awaiting approval                                  | `oidc-sso.spec.ts`                                                                                                                                             |
+| Self-hosted deployment without Hosted service billing               | `setup-guide.spec.ts` with the default self-hosted test server; the authorization matrix is enforced in `apps/server/internal/api/handlers/workspaces_test.go` |
 
 ## Presentation coverage
 

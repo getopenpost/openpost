@@ -7,7 +7,7 @@ import { docsRouteFromPage } from "../../packages/social-images/src/docs-route.j
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../..");
-const docsRoot = path.join(root, "docs-site");
+const docsRoot = path.join(root, "apps/docs");
 const output = path.join(root, "packages/social-images/src/docs-catalog.js");
 
 async function markdownFiles(directory) {

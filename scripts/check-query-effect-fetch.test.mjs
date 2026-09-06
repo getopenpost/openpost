@@ -20,11 +20,11 @@ function withFixture(files, run) {
 }
 
 function scan(repoRoot) {
-  return findEffectFetchViolations(repoRoot, { roots: ["frontend/src"] });
+  return findEffectFetchViolations(repoRoot, { roots: ["apps/web/src"] });
 }
 
 test("flags transport reads inside $effect", () => {
-  const file = "frontend/src/routes/example/+page.svelte";
+  const file = "apps/web/src/routes/example/+page.svelte";
   withFixture(
     {
       [file]: `<script lang="ts">
@@ -44,7 +44,7 @@ test("flags transport reads inside $effect", () => {
 });
 
 test("flags imperative Query reads inside $effect", () => {
-  const file = "frontend/src/routes/example/+page.svelte";
+  const file = "apps/web/src/routes/example/+page.svelte";
   withFixture(
     {
       [file]: `<script lang="ts">
@@ -63,7 +63,7 @@ test("flags imperative Query reads inside $effect", () => {
 });
 
 test("allows event-driven reads and Query observer refetch in effects", () => {
-  const file = "frontend/src/routes/example/+page.svelte";
+  const file = "apps/web/src/routes/example/+page.svelte";
   withFixture(
     {
       [file]: `<script lang="ts">
@@ -89,7 +89,7 @@ test("allows event-driven reads and Query observer refetch in effects", () => {
 });
 
 test("skips query adapters", () => {
-  const file = "frontend/src/lib/query/example.ts";
+  const file = "apps/web/src/lib/query/example.ts";
   withFixture(
     {
       [file]: `export function example() {

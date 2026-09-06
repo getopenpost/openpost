@@ -258,8 +258,8 @@ Each slice is independently testable and committed before the next dependent sli
 
 ## Reference evidence
 
-- TryPost checkout `references/trypost/` at `6496588bbc34e0554175255a2912b5839c3b3b9a` for Pinterest, Telegram, and shared Discord bot behavior.
-- Postiz checkout `references/postiz/` at `7d08f5b6fcac604ffb42420f82ee506407371fc7` for provider workflows and failure cases.
+- TryPost checkout `docs/references/trypost/` at `6496588bbc34e0554175255a2912b5839c3b3b9a` for Pinterest, Telegram, and shared Discord bot behavior.
+- Postiz checkout `docs/references/postiz/` at `7d08f5b6fcac604ffb42420f82ee506407371fc7` for provider workflows and failure cases.
 - Official Pinterest access-tier, organic-content, analytics, and API v5 contracts.
 - Official Telegram Bot API webhook, channel-post, reaction, media-group, and chat-member contracts.
 - Official Discord OAuth2, permission, guild, channel, message, reaction, and thread contracts.

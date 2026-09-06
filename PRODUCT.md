@@ -48,9 +48,9 @@ Workshop is the default OpenPost theme and complete fallback. It uses Workshop O
 
 ## Evidence on Hand
 
-- Product capabilities, provider maturity, deployment options, current limits, and public links are maintained in `README.md` and `docs-site/`.
-- The public product narrative, pricing, comparisons, and current feature claims are maintained in `marketing-site/src/routes/_marketing.ts`.
-- The implemented application surfaces and shared UI primitives live in `frontend/src/routes/` and `frontend/src/lib/components/`.
+- Product capabilities, provider maturity, deployment options, current limits, and public links are maintained in `README.md` and `apps/docs/`.
+- The public product narrative, pricing, comparisons, and current feature claims are maintained in `apps/marketing/src/routes/_marketing.ts`.
+- The implemented application surfaces and shared UI primitives live in `apps/web/src/routes/` and `apps/web/src/lib/components/`.
 - Brand assets live in `assets/brand/`; representative product screenshots live in `assets/screenshots/`.
 - A public product demonstration is linked from the README, marketing site, app, and docs.
 - No testimonials, customer logos, benchmarks, or market-leadership claims are approved for invention.

@@ -976,13 +976,13 @@ export const productionProjections = {
   marketing: {
     surface: "marketing",
     originHeadersRequired: true,
-    outputDirectory: path.join(repositoryRoot, "marketing-site/dist"),
+    outputDirectory: path.join(repositoryRoot, "apps/marketing/dist"),
     pages: marketingRouteManifest
       .filter((route) => ["static", "platform", "tool"].includes(route.agentRepresentation))
       .map((route) => ({
         sourcePath: path.join(
           repositoryRoot,
-          "marketing-site/dist",
+          "apps/marketing/dist",
           marketingHTMLArtifact(route.path),
         ),
         outputPath: marketingMarkdownArtifact(route.path),
@@ -1004,7 +1004,7 @@ export const productionProjections = {
       canonical: route.canonical,
       sourcePath: path.join(
         repositoryRoot,
-        "marketing-site/dist",
+        "apps/marketing/dist",
         marketingHTMLArtifact(route.path),
       ),
     })),
@@ -1105,16 +1105,16 @@ export const productionProjections = {
   documentation: {
     surface: "documentation",
     originHeadersRequired: true,
-    sourceRoot: path.join(repositoryRoot, "docs-site"),
+    sourceRoot: path.join(repositoryRoot, "apps/docs"),
     corpus: { title: "OpenPost Documentation Full Corpus" },
-    outputDirectory: path.join(repositoryRoot, "docs-site/.vitepress/dist"),
+    outputDirectory: path.join(repositoryRoot, "apps/docs/.vitepress/dist"),
     pages: docsSocialEntries
       .filter((entry) => entry.agentRepresentation.membership === "ordinary")
       .map((entry) => ({
-        sourcePath: path.join(repositoryRoot, "docs-site", entry.page),
+        sourcePath: path.join(repositoryRoot, "apps/docs", entry.page),
         discoveryHTMLPath: path.join(
           repositoryRoot,
-          "docs-site/.vitepress/dist",
+          "apps/docs/.vitepress/dist",
           documentationHTMLArtifact(entry.page),
         ),
         outputPath: entry.page,
@@ -1139,7 +1139,7 @@ export const productionProjections = {
       canonical: entry.canonical,
       sourcePath: path.join(
         repositoryRoot,
-        "docs-site/.vitepress/dist",
+        "apps/docs/.vitepress/dist",
         documentationHTMLArtifact(entry.page),
       ),
     })),

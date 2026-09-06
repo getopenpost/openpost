@@ -83,7 +83,7 @@ export async function validateMarketingRouteManifest({
   manifest = marketingRouteManifest,
 } = {}) {
   const problems = [];
-  const routesDirectory = path.join(root, "marketing-site/src/routes");
+  const routesDirectory = path.join(root, "apps/marketing/src/routes");
   const pageComponents = await listPageComponents(routesDirectory);
   const patterns = pageComponents.map((page) => marketingPagePattern(routesDirectory, page));
   const manifestPaths = manifest.map((entry) => entry.path);

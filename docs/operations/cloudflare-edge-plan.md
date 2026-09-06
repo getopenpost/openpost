@@ -7,7 +7,7 @@ files and never reads Cloudflare credentials or changes a zone.
 
 ## Repository contract
 
-`cloudflare/edge-plan.json` records two owned zones. The canonical `openpo.st`
+`deploy/cloudflare/edge-plan.json` records two owned zones. The canonical `openpo.st`
 zone owns Markdown negotiation, transforms, response headers, and cache
 variation for `openpo.st` and `docs.openpo.st`. The legacy `openpost.social`
 zone owns only reviewed redirects to the matching marketing, documentation,
@@ -171,6 +171,23 @@ operator change stops rollback instead of overwriting that work. If a phase did
 not exist before apply, rollback restores an empty phase entry point. Inspect
 again and retain the before, after, rollback, command output, and
 exact repository revision in the private operator record.
+
+## Repository layout migration
+
+Before pushing the revision that moves applications under `apps/`, update the
+Cloudflare Pages build settings with explicit deployment authorization. Both
+projects must build from the repository root:
+
+| Pages project        | Build command                | Output directory            |
+| -------------------- | ---------------------------- | --------------------------- |
+| `openpost-marketing` | `bun run build -- marketing` | `apps/marketing/dist`       |
+| `openpost-docs`      | `bun run build -- docs`      | `apps/docs/.vitepress/dist` |
+
+Replace any path filters that still mention `marketing-site/`, `docs-site/`, or
+`frontend/` with their `apps/marketing/`, `apps/docs/`, or `apps/web/` equivalents.
+Keep shared package, asset, and build-script triggers. These settings live outside
+Git; moving repository files does not update them. After publishing, run the
+revision and live-content proof below.
 
 ## Explicit surface deployment proof
 

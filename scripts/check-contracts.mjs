@@ -13,9 +13,9 @@ const env = {
 // Only compare generated files that are committed. The docs copies are ignored
 // build artifacts, so they are expected to be absent in a clean checkout.
 const generatedPaths = [
-  "frontend/openapi.json",
+  "apps/web/openapi.json",
   "packages/api-contract/src/schema.d.ts",
-  "docs-site/reference/cli.md",
+  "apps/docs/reference/cli.md",
   "packages/n8n-nodes-openpost/generated/selectedContract.ts",
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/actions/generated/requestMappers.ts",
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/descriptions/generated/descriptions.ts",

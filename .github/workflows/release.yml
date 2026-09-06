@@ -43,10 +43,14 @@ jobs:
             fi
           done < <(git tag --list 'v*' --sort=-v:refname)
           [[ -n "$previous_tag" ]]
-          git show "$previous_tag:mobile/app.json" > previous-release-app.json
+          mobile_config_path="apps/mobile/app.json"
+          if ! git cat-file -e "$previous_tag:$mobile_config_path" 2>/dev/null; then
+            mobile_config_path="mobile/app.json"
+          fi
+          git show "$previous_tag:$mobile_config_path" > previous-release-app.json
           bun scripts/mobile-release.mjs check \
-            --config mobile/app.json \
-            --package mobile/package.json \
+            --config apps/mobile/app.json \
+            --package apps/mobile/package.json \
             --previous-config previous-release-app.json
       - name: Require successful CI for the tagged SHA
         id: candidate
@@ -247,18 +251,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - name: Download frontend built by candidate CI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
           FRONTEND_ARTIFACT: ${{ needs.verify-candidate.outputs.frontend_artifact }}
-        run: gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$FRONTEND_ARTIFACT" --dir backend/cmd/openpost/public
+        run: gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$FRONTEND_ARTIFACT" --dir apps/server/cmd/openpost/public
       - name: Build binary
         shell: bash
         run: |
-          cd backend
+          cd apps/server
           if [[ "${{ matrix.os }}" == windows ]]; then
             CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
           else
@@ -290,12 +294,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
       - name: Build CLI binaries
         shell: bash
         run: |
-          cd cli
+          cd apps/cli
           CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
           CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost-mcp
       - name: Upload CLI and MCP binaries to the draft release
@@ -330,8 +334,8 @@ jobs:
           sha256sum --check openpost-app-android-unsigned.sha256
           cd ..
           bun scripts/mobile-release.mjs verify \
-            --config mobile/app.json \
-            --package mobile/package.json \
+            --config apps/mobile/app.json \
+            --package apps/mobile/package.json \
             --revision "$GITHUB_SHA" \
             --apk candidate-android/openpost-app-android-unsigned.apk \
             --manifest candidate-android/openpost-app-android-candidate.json
@@ -365,8 +369,8 @@ jobs:
             candidate-android/openpost-app-android-unsigned.apk
           "$apksigner" verify --verbose --print-certs openpost-app-android.apk
           bun scripts/mobile-release.mjs create \
-            --config mobile/app.json \
-            --package mobile/package.json \
+            --config apps/mobile/app.json \
+            --package apps/mobile/package.json \
             --revision "$GITHUB_SHA" \
             --apk openpost-app-android.apk \
             --output openpost-app-android-release.json

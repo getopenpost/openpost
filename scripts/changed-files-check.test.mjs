@@ -206,9 +206,9 @@ describe("changed-files-check", () => {
     const sourceResult = run("bash", [script], source, { env: formatterEnv(source) });
 
     const svelte = fixture();
-    mkdirSync(join(svelte, "frontend"));
-    writeFileSync(join(svelte, "frontend", ".oxfmtrc.json"), '{\n  "svelte": {}\n}\n');
-    writeFileSync(join(svelte, "frontend", "broken.svelte"), "{#if true}<div>{/each}\n");
+    mkdirSync(join(svelte, "apps/web"), { recursive: true });
+    writeFileSync(join(svelte, "apps/web", ".oxfmtrc.json"), '{\n  "svelte": {}\n}\n');
+    writeFileSync(join(svelte, "apps/web", "broken.svelte"), "{#if true}<div>{/each}\n");
     const svelteResult = run("bash", [script], svelte, { env: formatterEnv(svelte) });
 
     expect(sourceResult.status).not.toBe(0);

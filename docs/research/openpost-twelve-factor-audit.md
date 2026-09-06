@@ -68,7 +68,7 @@ The most important findings are:
    administrative database event. Production currently has one OpenPost unit
    and one PostgreSQL unit, with no CPU or memory limits.
 6. Dependency declarations are extensive, but toolchains are not fully aligned.
-   `backend/go.mod` and `cli/go.mod` name Go 1.26.6, while the container builder
+   `apps/server/go.mod` and `apps/cli/go.mod` name Go 1.26.6, while the container builder
    uses Go 1.27.0. The root and CI pin Bun 1.3.11, while the mobile package names
    Bun 1.3.13. The image also runs an unversioned `apk upgrade` and installs
    unversioned runtime packages, so a rebuild of the same commit can resolve
@@ -181,7 +181,7 @@ Verified evidence:
   `origin/main` pointed to the same commit.
 - The server, embedded web app, CLI/MCP binaries, mobile app, marketing site,
   documentation site, and n8n package are tracked in one Git repository.
-- `docker/Dockerfile` writes source revision and version into OCI labels and the
+- `deploy/docker/Dockerfile` writes source revision and version into OCI labels and the
   running binary.
 - `.github/workflows/release.yml` ties a release tag to a successful CI run for
   the exact tagged SHA, then checks the live revision.
@@ -245,7 +245,7 @@ Practical test:
 
 Verified repository evidence:
 
-- `bun.lock`, Go module sums, `devenv.lock`, and `docker/image-policy.json`
+- `bun.lock`, Go module sums, `devenv.lock`, and `deploy/docker/image-policy.json`
   declare application and environment dependencies.
 - GitHub Actions are pinned to commit SHAs. Docker base images are pinned by
   digest.
@@ -257,11 +257,11 @@ Verified repository evidence:
 
 Gaps:
 
-- `backend/go.mod` and `cli/go.mod` declare Go 1.26.6, while
-  `docker/Dockerfile:7` builds with Go 1.27.0.
-- Root `package.json` and CI use Bun 1.3.11, while `mobile/package.json` declares
+- `apps/server/go.mod` and `apps/cli/go.mod` declare Go 1.26.6, while
+  `deploy/docker/Dockerfile:7` builds with Go 1.27.0.
+- Root `package.json` and CI use Bun 1.3.11, while `apps/mobile/package.json` declares
   Bun 1.3.13.
-- `docker/Dockerfile` runs `apk upgrade` and installs unversioned Alpine packages.
+- `deploy/docker/Dockerfile` runs `apk upgrade` and installs unversioned Alpine packages.
   Base-image digest pinning does not make those repository resolutions immutable.
 - The Home module runs PostgreSQL from the mutable
   `docker.io/postgres:17-alpine` tag. An upstream tag move can change the
@@ -323,15 +323,15 @@ Practical test:
 
 Verified repository and deployment evidence:
 
-- `backend/internal/config/config.go` loads deploy config from environment
+- `apps/server/internal/config/config.go` loads deploy config from environment
   variables. `getEnvValue` also supports a `*_FILE` companion for every normal
   key, with direct environment values taking precedence.
 - Cloud-mode validation requires its data plane, account, billing, AI routing,
   CORS, and telemetry contracts before startup completes.
-- `backend/internal/config/managed.go` distinguishes bootstrap/database/network/
+- `apps/server/internal/config/managed.go` distinguishes bootstrap/database/network/
   storage config from database-backed administrator settings. Secret settings
   are marked write-only and are encrypted by the instance settings service.
-- `backend/internal/services/instancesettings/service.go` applies stored values
+- `apps/server/internal/services/instancesettings/service.go` applies stored values
   after environment config. Its tests explicitly prove that a database override
   wins until an administrator unsets it, at which point the environment value is
   restored.
@@ -475,11 +475,11 @@ Practical test:
 
 Verified repository evidence:
 
-- `backend/internal/database/database.go` selects SQLite or PostgreSQL through a
+- `apps/server/internal/database/database.go` selects SQLite or PostgreSQL through a
   driver and DSN contract.
-- `backend/internal/services/mediastore/` implements a `BlobStorage` boundary
+- `apps/server/internal/services/mediastore/` implements a `BlobStorage` boundary
   with local and S3-compatible adapters.
-- `backend/internal/config/config.go` selects service handles through config and
+- `apps/server/internal/config/config.go` selects service handles through config and
   requires PostgreSQL plus S3 in cloud mode.
 - External email, AI, telemetry, OAuth/provider, connector, and feedback
   resources are constructed from config rather than hard-coded deployment hosts.
@@ -739,8 +739,8 @@ Practical test:
 
 Verified repository evidence:
 
-- `backend/cmd/openpost/main.go` starts Echo on `OPENPOST_PORT`.
-- `docker/Dockerfile` exposes 8080 and runs the self-contained Go binary.
+- `apps/server/cmd/openpost/main.go` starts Echo on `OPENPOST_PORT`.
+- `deploy/docker/Dockerfile` exposes 8080 and runs the self-contained Go binary.
 - `docker-compose.yml` maps a host port to the application's configured port.
 - TLS and public routing are documented as deployment responsibilities.
 - The Home module publishes the container only on host loopback port 8090 and
@@ -1138,12 +1138,12 @@ These findings are not additional Twelve-Factor criteria. They surfaced while
 following identity, one-off state, contract, and release boundaries, and they
 should not wait for a broad architecture program.
 
-| Priority | Finding and exact evidence                                                                                                                                                                                                                                                                     | Risk                                                                                                                                                                                                                | Focused action and proof                                                                                                                                                                                                                                                             |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| P0       | `backend/internal/platform/threads.go:19-24,77-141` stores callback-specific `user_id` in shared `ThreadsAdapter.lastUserID`; the later read is also outside the mutex. `backend/internal/api/handlers/oauth.go:1188-1200` prefers that token `Extra.user_id` over the fetched `profile.ID`.   | Two interleaved Threads callbacks can make one exchange return the other user's ID, then persist cross-bound identity metadata. The mutex prevents only some memory races; it does not make request state isolated. | Remove `lastUserID`. Carry the token subject as request-local data through the exchange, compare it with `profile.ID`, and reject a mismatch. A deterministic two-callback barrier test must fail on the old adapter, pass on the new one, and run cleanly under Go's race detector. |
-| P0       | OAuth-state consume is SELECT then DELETE in `backend/internal/services/oauthstate/store.go:60-90`; X request-token consume has the same shape in `backend/internal/api/handlers/x_request_store.go:37-64`. Neither path makes returning the payload conditional on winning one atomic delete. | Two simultaneous callbacks can both observe and accept a supposedly one-time credential before either deletion is authoritative.                                                                                    | Implement a single atomic consume, preferably `DELETE ... RETURNING` behind the database boundary for both SQLite and PostgreSQL, or an equivalent transaction that proves exactly one winner. Concurrent tests must show one success and one invalid/already-consumed result.       |
-| P1       | `frontend/openapi.json` has 248 paths while `mobile/src/lib/api/schema.d.ts` has 234. `scripts/check-contracts.mjs` regenerates frontend, docs, and automation contracts but omits the mobile schema.                                                                                          | Mobile can compile against a stale API contract while the repository contract gate is green.                                                                                                                        | Add `mobile/src/lib/api/schema.d.ts` and `mobile`'s `generate:api` command to the generated-contract gate. Regenerate it now, and make any future API drift fail `check:contracts`.                                                                                                  |
-| P1       | `mobile/app.json` still declares app version `0.1.0` and Android `versionCode: 1`, independent of the server's `v4.13.1` release identity.                                                                                                                                                     | Android artifacts are hard to order and cannot be upgraded through channels that require a monotonically increasing version code.                                                                                   | Define mobile release identity separately from server SemVer, but make it intentional and monotonic. Record version name, version code, source SHA, and artifact digest in the Android candidate evidence, and reject reuse of a released version code.                              |
+| Priority | Finding and exact evidence                                                                                                                                                                                                                                                                             | Risk                                                                                                                                                                                                                | Focused action and proof                                                                                                                                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P0       | `apps/server/internal/platform/threads.go:19-24,77-141` stores callback-specific `user_id` in shared `ThreadsAdapter.lastUserID`; the later read is also outside the mutex. `apps/server/internal/api/handlers/oauth.go:1188-1200` prefers that token `Extra.user_id` over the fetched `profile.ID`.   | Two interleaved Threads callbacks can make one exchange return the other user's ID, then persist cross-bound identity metadata. The mutex prevents only some memory races; it does not make request state isolated. | Remove `lastUserID`. Carry the token subject as request-local data through the exchange, compare it with `profile.ID`, and reject a mismatch. A deterministic two-callback barrier test must fail on the old adapter, pass on the new one, and run cleanly under Go's race detector. |
+| P0       | OAuth-state consume is SELECT then DELETE in `apps/server/internal/services/oauthstate/store.go:60-90`; X request-token consume has the same shape in `apps/server/internal/api/handlers/x_request_store.go:37-64`. Neither path makes returning the payload conditional on winning one atomic delete. | Two simultaneous callbacks can both observe and accept a supposedly one-time credential before either deletion is authoritative.                                                                                    | Implement a single atomic consume, preferably `DELETE ... RETURNING` behind the database boundary for both SQLite and PostgreSQL, or an equivalent transaction that proves exactly one winner. Concurrent tests must show one success and one invalid/already-consumed result.       |
+| P1       | `apps/web/openapi.json` has 248 paths while `apps/mobile/src/lib/api/schema.d.ts` has 234. `scripts/check-contracts.mjs` regenerates frontend, docs, and automation contracts but omits the mobile schema.                                                                                             | Mobile can compile against a stale API contract while the repository contract gate is green.                                                                                                                        | Add `apps/mobile/src/lib/api/schema.d.ts` and `mobile`'s `generate:api` command to the generated-contract gate. Regenerate it now, and make any future API drift fail `check:contracts`.                                                                                             |
+| P1       | `apps/mobile/app.json` still declares app version `0.1.0` and Android `versionCode: 1`, independent of the server's `v4.13.1` release identity.                                                                                                                                                        | Android artifacts are hard to order and cannot be upgraded through channels that require a monotonically increasing version code.                                                                                   | Define mobile release identity separately from server SemVer, but make it intentional and monotonic. Record version name, version code, source SHA, and artifact digest in the Android candidate evidence, and reject reuse of a released version code.                              |
 
 ## What twelve-factor does not prove
 

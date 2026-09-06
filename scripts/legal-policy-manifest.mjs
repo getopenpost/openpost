@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = path.join(root, "packages/legal-policy/src/manifest.json");
-const generatedGoPath = path.join(root, "backend/internal/legalpolicy/manifest_generated.go");
+const generatedGoPath = path.join(root, "apps/server/internal/legalpolicy/manifest_generated.go");
 const policyNames = ["terms", "privacy", "refunds"];
 const documentKeys = ["effective_date", "requires_acceptance", "url", "version"];
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/u;

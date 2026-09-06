@@ -1,12 +1,14 @@
+import { fileURLToPath } from "node:url";
+import { readCanonicalChangelog } from "../apps/marketing/src/lib/changelog.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { renderChangelogAtomFeed } from "../marketing-site/src/lib/changelog-feed.ts";
-import { publicContentSignal, renderPublicRobots } from "../marketing-site/src/lib/robots.ts";
-import { platforms } from "../marketing-site/src/routes/_marketing.ts";
-import { structuredDataForMarketingPage } from "../marketing-site/src/routes/_structured-data.ts";
+import { renderChangelogAtomFeed } from "../apps/marketing/src/lib/changelog-feed.ts";
+import { publicContentSignal, renderPublicRobots } from "../apps/marketing/src/lib/robots.ts";
+import { platforms } from "../apps/marketing/src/routes/_marketing.ts";
+import { structuredDataForMarketingPage } from "../apps/marketing/src/routes/_structured-data.ts";
 import { resolveMarketingSocial } from "../packages/social-images/src/index.js";
 
 test("public crawler policy explicitly permits search, AI input, and model training", async () => {
@@ -24,8 +26,8 @@ test("public crawler policy explicitly permits search, AI input, and model train
 
   const root = path.resolve(import.meta.dirname, "..");
   for (const [surface, relativeRobots, relativeHeaders] of [
-    ["marketing", "marketing-site/src/lib/robots.ts", "marketing-site/static/_headers"],
-    ["documentation", "docs-site/public/robots.txt", "docs-site/public/_headers"],
+    ["marketing", "apps/marketing/src/lib/robots.ts", "apps/marketing/static/_headers"],
+    ["documentation", "apps/docs/public/robots.txt", "apps/docs/public/_headers"],
   ]) {
     const [robotsSource, headers] = await Promise.all([
       readFile(path.join(root, relativeRobots), "utf8"),
@@ -131,4 +133,10 @@ test("changelog feed contains only dated stable releases and escaped content", (
   assert.match(feed, /<id>https:\/\/openpo\.st\/changelog<\/id>/u);
   assert.match(feed, /<link href="https:\/\/openpo\.st\/changelog\.xml" rel="self"/u);
   assert.match(feed, /<id>https:\/\/openpo\.st\/changelog#v4\.1\.0<\/id>/u);
+});
+
+test("marketing reads the canonical changelog from the grouped app directory", async () => {
+  const canonical = await readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8");
+  const appRoot = fileURLToPath(new URL("../apps/marketing/", import.meta.url));
+  assert.equal(await readCanonicalChangelog(appRoot), canonical);
 });

@@ -31,12 +31,16 @@ function readGitPaths(args, root) {
 }
 
 export function readReleaseSurfaceManifest(root = repositoryRoot) {
-  return JSON.parse(readFileSync(path.join(root, "release-surfaces.json"), "utf8"));
+  return JSON.parse(readFileSync(path.join(root, "config/release-surfaces.json"), "utf8"));
 }
 
 export function readReleaseSurfaceManifestAtRevision(revision, root = repositoryRoot) {
+  // Release comparisons still need the manifest stored by older tags.
+  const currentPath = "config/release-surfaces.json";
+  const paths = readGitPaths(["ls-tree", "--name-only", revision, currentPath], root);
+  const manifestPath = paths.includes(currentPath) ? currentPath : "release-surfaces.json";
   return JSON.parse(
-    execFileSync("git", ["show", `${revision}:release-surfaces.json`], {
+    execFileSync("git", ["show", `${revision}:${manifestPath}`], {
       cwd: root,
       encoding: "utf8",
     }),

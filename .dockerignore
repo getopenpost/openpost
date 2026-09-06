@@ -19,23 +19,23 @@ devenv.yaml
 # Documentation
 docs/
 *.md
-!docs-site/**/*.md
+!apps/docs/**/*.md
 LICENSE
 
 # Frontend build artifacts (supplied through a separate named BuildKit context)
 node_modules/
 **/node_modules/
-frontend/.svelte-kit/
-frontend/build/
-frontend/android/.gradle/
-frontend/android/app/build/
-frontend/android/app/src/main/assets/public/
+apps/web/.svelte-kit/
+apps/web/build/
+apps/web/android/.gradle/
+apps/web/android/app/build/
+apps/web/android/app/src/main/assets/public/
 
 # Backend runtime and build artifacts (rebuilt or supplied separately)
-backend/openpost
-backend/cmd/openpost/public/
-backend/coverage.out
-backend/media/
+apps/server/openpost
+apps/server/cmd/openpost/public/
+apps/server/coverage.out
+apps/server/media/
 
 # Database files
 *.db
@@ -64,4 +64,4 @@ Dockerfile
 **/*.spec.*
 
 # Vitest examples (already removed but in case)
-frontend/src/lib/vitest-examples/
+apps/web/src/lib/vitest-examples/

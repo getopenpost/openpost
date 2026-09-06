@@ -22,7 +22,7 @@ const SOURCE_COMMIT = "aa0fc3af4dd1c669cc35039a7d8efcca7d4eb98a";
 const IMAGE_EXTENSIONS = new Set([".gif", ".jpeg", ".jpg", ".png"]);
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
-const outputRoot = join(repositoryRoot, "backend/internal/memes/catalog");
+const outputRoot = join(repositoryRoot, "apps/server/internal/memes/catalog");
 const sourceRoot = resolve(process.argv[2] ?? process.env.OPENPOST_MEMEGEN_SOURCE_DIR ?? "");
 
 if (!sourceRoot || !existsSync(join(sourceRoot, ".git"))) {

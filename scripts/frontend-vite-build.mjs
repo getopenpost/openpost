@@ -53,7 +53,7 @@ export async function validateCompiledWorkerRunes(workerDirectory) {
 
 export async function runFrontendViteBuild() {
   const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const staticDirectory = path.join(repositoryRoot, "frontend/static");
+  const staticDirectory = path.join(repositoryRoot, "apps/web/static");
   await validateImmutableFrontendAssets(staticDirectory);
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "openpost-frontend-public-"));
   let exitStatus;
@@ -63,7 +63,7 @@ export async function runFrontendViteBuild() {
       sourceDirectory: staticDirectory,
       outputDirectory: publicDirectory,
     });
-    const requireFromFrontend = createRequire(path.join(repositoryRoot, "frontend/package.json"));
+    const requireFromFrontend = createRequire(path.join(repositoryRoot, "apps/web/package.json"));
     const vitePackage = requireFromFrontend.resolve("vite/package.json");
     const environment = {
       ...process.env,
@@ -75,7 +75,7 @@ export async function runFrontendViteBuild() {
       process.execPath,
       [path.join(path.dirname(vitePackage), "bin/vite.js"), "build"],
       {
-        cwd: path.join(repositoryRoot, "frontend"),
+        cwd: path.join(repositoryRoot, "apps/web"),
         env: environment,
         stdio: "inherit",
       },
@@ -90,7 +90,7 @@ export async function runFrontendViteBuild() {
   }
   if (exitStatus !== 0) process.exit(exitStatus);
   await validateCompiledWorkerRunes(
-    path.join(repositoryRoot, "frontend/build/_app/immutable/workers"),
+    path.join(repositoryRoot, "apps/web/build/_app/immutable/workers"),
   );
 }
 

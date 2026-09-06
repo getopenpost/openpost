@@ -35,16 +35,16 @@
   scripts = {
     clean.exec = ''
       cd "${config.git.root}"
-      rm -rf backend/openpost frontend/.svelte-kit
-      rm -f backend/*.db
+      rm -rf apps/server/openpost apps/web/.svelte-kit
+      rm -f apps/server/*.db
     '';
 
     install.exec = ''
       cd "${config.git.root}"
       bun install --frozen-lockfile
       bun run browser:install
-      (cd backend && go mod download)
-      (cd cli && go mod download)
+      (cd apps/server && go mod download)
+      (cd apps/cli && go mod download)
     '';
 
     cache-status.exec = ''
@@ -61,8 +61,8 @@
       echo "Turbo task cache: $turbo_cache_dir"
       du -sh "$turbo_cache_dir" 2>/dev/null || true
 
-      echo "Embedded frontend: ${config.git.root}/backend/cmd/openpost/public"
-      du -sh "${config.git.root}/backend/cmd/openpost/public" 2>/dev/null || true
+      echo "Embedded frontend: ${config.git.root}/apps/server/cmd/openpost/public"
+      du -sh "${config.git.root}/apps/server/cmd/openpost/public" 2>/dev/null || true
     '';
 
     cache-prune.exec = ''
@@ -111,18 +111,18 @@
     setup.exec = ''
       cd "${config.git.root}"
       install
-      if (umask 077; set -o noclobber; cat backend/.env.example > backend/.env) 2>/dev/null; then
-        echo "Created backend/.env; edit it with local credentials as needed"
+      if (umask 077; set -o noclobber; cat apps/server/.env.example > apps/server/.env) 2>/dev/null; then
+        echo "Created apps/server/.env; edit it with local credentials as needed"
       else
-        echo "backend/.env already exists; left unchanged"
+        echo "apps/server/.env already exists; left unchanged"
       fi
     '';
 
     docker-build.exec = ''
       cd "${config.git.root}"
-      image_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("docker-build requires exactly one supported platform") end' docker/image-policy.json)"
+      image_platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("docker-build requires exactly one supported platform") end' deploy/docker/image-policy.json)"
       bun run build -- frontend
-      docker build --platform "$image_platform" --build-context frontend_artifact=backend/cmd/openpost/public -t openpost:latest -f docker/Dockerfile .
+      docker build --platform "$image_platform" --build-context frontend_artifact=apps/server/cmd/openpost/public -t openpost:latest -f deploy/docker/Dockerfile .
     '';
 
     docker-run.exec = ''
@@ -163,7 +163,7 @@
     echo ""
     echo "  Environment utilities:"
     echo "    install      - Install locked Bun and Go dependencies"
-    echo "    setup        - Frozen install and create backend/.env if missing"
+    echo "    setup        - Frozen install and create apps/server/.env if missing"
     echo "    cache-status - Report project cache and embedded frontend sizes"
     echo "    cache-prune  - Enforce bounded Turbo and persistent Go build caches"
     echo "    docker-cache-status - Report Docker image, volume, and build-cache sizes"

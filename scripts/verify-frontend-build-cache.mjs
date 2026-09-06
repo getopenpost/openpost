@@ -18,13 +18,13 @@ const lockDirectory = path.join(repositoryRoot, ".frontend-build-cache-proof.loc
 const generatedPaths = [
   defaultSourceDirectory,
   defaultDestinationDirectory,
-  path.join(repositoryRoot, "frontend/.svelte-kit"),
-  path.join(repositoryRoot, "frontend/project.inlang/.gitignore"),
-  path.join(repositoryRoot, "frontend/project.inlang/.meta.json"),
-  path.join(repositoryRoot, "frontend/project.inlang/README.md"),
-  path.join(repositoryRoot, "frontend/project.inlang/cache"),
-  path.join(repositoryRoot, "frontend/src/lib/paraglide"),
-  path.join(repositoryRoot, "frontend/static/assets"),
+  path.join(repositoryRoot, "apps/web/.svelte-kit"),
+  path.join(repositoryRoot, "apps/web/project.inlang/.gitignore"),
+  path.join(repositoryRoot, "apps/web/project.inlang/.meta.json"),
+  path.join(repositoryRoot, "apps/web/project.inlang/README.md"),
+  path.join(repositoryRoot, "apps/web/project.inlang/cache"),
+  path.join(repositoryRoot, "apps/web/src/lib/paraglide"),
+  path.join(repositoryRoot, "apps/web/static/assets"),
 ];
 const preserved = [];
 

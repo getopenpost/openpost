@@ -315,7 +315,7 @@ function validManifest() {
 function validPublicClaimSurfaces(projection) {
   return {
     marketingCatalog: [
-      'import publicClaimManifest from "../../../provider-certification/public-claims.json";',
+      'import publicClaimManifest from "../../../../config/provider-certification/public-claims.json";',
       "const publicProviderClaims = publicClaimManifest.claims",
       "managedCertificationState",
     ].join("\n"),

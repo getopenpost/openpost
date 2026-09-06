@@ -1,0 +1,24 @@
+{
+	"$schema": "../../node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"singleQuote": true,
+	"trailingComma": "none",
+	"printWidth": 100,
+	"sortPackageJson": false,
+	"sortTailwindcss": {
+		"stylesheet": "./src/routes/layout.css"
+	},
+	"svelte": {},
+	"ignorePatterns": [
+		".agents/",
+		"package-lock.json",
+		"bun.lock",
+		"yarn.lock",
+		"bun.lockb",
+		"/static/",
+		"/android/",
+		"src/lib/api/types.d.ts",
+		".devenv/",
+		"project.inlang/"
+	]
+}

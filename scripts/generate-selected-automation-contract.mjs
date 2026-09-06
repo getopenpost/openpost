@@ -271,7 +271,7 @@ const operationLabels = {
   getEvents: "Get Events",
 };
 
-export async function loadOpenApi(openApiPath = path.join(root, "frontend/openapi.json")) {
+export async function loadOpenApi(openApiPath = path.join(root, "apps/web/openapi.json")) {
   return JSON.parse(await readFile(openApiPath, "utf8"));
 }
 

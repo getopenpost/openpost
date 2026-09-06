@@ -21,8 +21,8 @@
       "deletion_trigger": "A completed account-deletion request removes the user row and personal profile data after required ownership, billing, and administrator blockers are resolved.",
       "exceptions": "Content in a shared organization can remain after ownership is transferred. Minimal records can be retained when required for law, security, fraud prevention, or legal claims.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -35,9 +35,9 @@
       "deletion_trigger": "Workspace or organization deletion removes owned records. Account deletion removes the user's memberships and personal organizations, or transfers shared ownership when another owner must retain the organization.",
       "exceptions": "A shared organization and its content remain for its other members. Invitation records can remain for operational history until their parent workspace or organization is deleted.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/workspaces.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/workspaces.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -50,9 +50,9 @@
       "deletion_trigger": "Project or workspace deletion removes owned cloud project records and Project Assets. Signing out removes local synced copies and pending credentials from that device but does not delete shared workspace data.",
       "exceptions": "Authorized workspace collaborators can retain access while the project belongs to their workspace. Storage and legal recovery copies follow the service retention terms.",
       "evidence": [
-        "backend/internal/models/video_projects.go",
-        "backend/internal/services/videoprojects/service.go",
-        "backend/internal/database/migrations/131_cloud_video_projects.sql"
+        "apps/server/internal/models/video_projects.go",
+        "apps/server/internal/services/videoprojects/service.go",
+        "apps/server/internal/database/migrations/131_cloud_video_projects.sql"
       ]
     },
     {
@@ -65,11 +65,11 @@
       "deletion_trigger": "Credential removal, recovery-code replacement, identity unlinking, password replacement where applicable, related session or provider deletion, or completed account deletion.",
       "exceptions": "OpenPost never stores a readable password. Provider-side identity records remain subject to the selected identity provider's policy.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/auth.go",
-        "backend/internal/api/handlers/oidc.go",
-        "backend/internal/services/identity/assurance.go",
-        "backend/internal/services/mfarecovery/service.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/auth.go",
+        "apps/server/internal/api/handlers/oidc.go",
+        "apps/server/internal/services/identity/assurance.go",
+        "apps/server/internal/services/mfarecovery/service.go"
       ]
     },
     {
@@ -82,11 +82,11 @@
       "deletion_trigger": "Provider, domain, policy, organization, or account deletion removes related records according to their stored relationship. Expiry prevents an unused impersonation grant from being accepted even if its row remains.",
       "exceptions": "When an actor or subject account is deleted, an organization identity audit event can remain with that user reference cleared. These application records are not a complete host command log.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/services/identity/admin.go",
-        "backend/internal/api/handlers/instance_admin.go",
-        "backend/internal/database/migrations/051_oidc_sso.sql",
-        "backend/internal/database/migrations/052_user_impersonation_grants.sql"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/services/identity/admin.go",
+        "apps/server/internal/api/handlers/instance_admin.go",
+        "apps/server/internal/database/migrations/051_oidc_sso.sql",
+        "apps/server/internal/database/migrations/052_user_impersonation_grants.sql"
       ]
     },
     {
@@ -99,12 +99,12 @@
       "deletion_trigger": "An administrator can delete a database-backed provider application or replace and clear supported instance settings. Dynamic Mastodon registrations and expired provider-safety evidence remain until verified operator maintenance or database retirement.",
       "exceptions": "Environment-managed configuration is controlled outside the application database. Provider-safety evidence stores app and instance fingerprints, an approval-source URL, normalized scope sets and results, and external-reference hashes rather than plaintext client secrets, instance URLs, granted tokens, or provider response bodies.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/services/providerapps/service.go",
-        "backend/internal/services/instancesettings/service.go",
-        "backend/internal/services/mastodonapps/service.go",
-        "backend/internal/services/providerreadiness/repository.go",
-        "backend/internal/database/migrations/077_provider_readiness_certification.sql"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/services/providerapps/service.go",
+        "apps/server/internal/services/instancesettings/service.go",
+        "apps/server/internal/services/mastodonapps/service.go",
+        "apps/server/internal/services/providerreadiness/repository.go",
+        "apps/server/internal/database/migrations/077_provider_readiness_certification.sql"
       ]
     },
     {
@@ -117,9 +117,9 @@
       "deletion_trigger": "Expiry ends authorization. Logout, password-reset session revocation, manual session revocation, or account deletion ends or removes session access.",
       "exceptions": "The browser cookie follows the separate browser-storage inventory. Security records can remain in size-bounded operational logs after a session row expires.",
       "evidence": [
-        "backend/internal/services/auth/auth.go",
-        "backend/internal/services/sessions/service.go",
-        "backend/internal/models/models.go"
+        "apps/server/internal/services/auth/auth.go",
+        "apps/server/internal/services/sessions/service.go",
+        "apps/server/internal/models/models.go"
       ]
     },
     {
@@ -132,13 +132,13 @@
       "deletion_trigger": "Use or expiry ends authorization. Replacement, explicit cancellation where supported, cleanup during a later related operation, or account/workspace deletion can remove the stored row.",
       "exceptions": "Use and expiry do not always physically remove a row immediately, but they prevent the one-time record from being accepted again.",
       "evidence": [
-        "backend/internal/services/emailverification/service.go",
-        "backend/internal/services/emailchange/service.go",
-        "backend/internal/api/handlers/passwords.go",
-        "backend/internal/services/identity/service.go",
-        "backend/internal/services/cli_auth/service.go",
-        "backend/internal/api/handlers/oauth.go",
-        "backend/internal/api/handlers/image_editor.go"
+        "apps/server/internal/services/emailverification/service.go",
+        "apps/server/internal/services/emailchange/service.go",
+        "apps/server/internal/api/handlers/passwords.go",
+        "apps/server/internal/services/identity/service.go",
+        "apps/server/internal/services/cli_auth/service.go",
+        "apps/server/internal/api/handlers/oauth.go",
+        "apps/server/internal/api/handlers/image_editor.go"
       ]
     },
     {
@@ -151,9 +151,9 @@
       "deletion_trigger": "Disconnecting one destination disables it while retaining a shared provider grant. Revoking the grant clears its managed credentials and disables every destination that uses it. Workspace or account deletion removes the stored connection rows.",
       "exceptions": "The social network controls its own records, published content, logs, and revocation behavior. Disconnecting OpenPost does not delete provider-side content.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/services/tokenmanager/manager.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/services/tokenmanager/manager.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -166,10 +166,10 @@
       "deletion_trigger": "Manual revocation, expiry for authorization, OAuth-code consumption, or account/workspace deletion for stored records.",
       "exceptions": "Tool-call records contain operation metadata and safe error text, not social access tokens or full provider responses.",
       "evidence": [
-        "backend/internal/services/apitokens/service.go",
-        "backend/internal/services/cli_auth/service.go",
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/services/apitokens/service.go",
+        "apps/server/internal/services/cli_auth/service.go",
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -182,10 +182,10 @@
       "deletion_trigger": "Item deletion where offered, workspace deletion, or completed deletion of the owning personal account and workspace.",
       "exceptions": "Content already sent to a social network remains under that network's controls. Shared-workspace content can remain after the user leaves or transfers ownership.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/publications.go",
-        "backend/internal/services/reposts/runtime.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/publications.go",
+        "apps/server/internal/services/reposts/runtime.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -198,10 +198,10 @@
       "deletion_trigger": "Publication, workspace, social-account, or account deletion removes related rows and jobs where the stored references can be identified. Pending schedule replacement removes only the matching pending primary publication job.",
       "exceptions": "Authorization records retain hashes instead of plaintext publication payloads. A completed job without a removable parent reference can remain until operator maintenance or database retirement.",
       "evidence": [
-        "backend/internal/models/models.go",
-        "backend/internal/queue/worker.go",
-        "backend/internal/api/handlers/publication_history.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/queue/worker.go",
+        "apps/server/internal/api/handlers/publication_history.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -214,8 +214,8 @@
       "deletion_trigger": "Design, template, brand item, workspace, or account deletion. Later saves remove excess Image Editor autosaves.",
       "exceptions": "Browser-only designs are covered by the browser-storage inventory. Disk-backed Video Editor projects remain outside managed-service retention; their browser-held handles, preferences, caches, and scratch data are inventoried below. Referenced Media follows the managed Media lifecycle.",
       "evidence": [
-        "backend/internal/api/handlers/image_editor.go",
-        "backend/internal/models/models.go"
+        "apps/server/internal/api/handlers/image_editor.go",
+        "apps/server/internal/models/models.go"
       ]
     },
     {
@@ -228,9 +228,9 @@
       "deletion_trigger": "Manual trash, temporary-media publication, the daily inactivity sweep, permanent purge after the trash window, workspace deletion, or completed account deletion.",
       "exceptions": "Editable, retryable, organized, favorited, brand, template, and active-publication references block automatic trash or purge. Recovery copies can retain deleted objects for the separate recovery-copy period.",
       "evidence": [
-        "backend/internal/services/medialifecycle/service.go",
-        "backend/internal/api/handlers/media.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/services/medialifecycle/service.go",
+        "apps/server/internal/api/handlers/media.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -243,14 +243,14 @@
       "deletion_trigger": "Social-account or workspace deletion removes discovered content, snapshots, observations, and discovery state owned by that account or workspace. Completed deletion of the owning personal workspace removes its scoped records. Reservation settlement removes the in-flight row; bounded startup pruning removes eligible provider-cost events and unresolved reservations.",
       "exceptions": "Because startup pruning is bounded, eligible rows can remain until a later start or operator run. Analytics tables do not retain raw provider responses, remote media bytes, access tokens, bot tokens, or webhook secrets. Provider-side content and analytics remain controlled by each social network.",
       "evidence": [
-        "backend/internal/services/analytics/service.go",
-        "backend/internal/services/analytics/account_content.go",
-        "backend/internal/services/analytics/discovery.go",
-        "backend/internal/services/usage/provider_costs.go",
-        "backend/cmd/openpost/main.go",
-        "backend/internal/config/config.go",
-        "backend/internal/models/models.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/services/analytics/service.go",
+        "apps/server/internal/services/analytics/account_content.go",
+        "apps/server/internal/services/analytics/discovery.go",
+        "apps/server/internal/services/usage/provider_costs.go",
+        "apps/server/cmd/openpost/main.go",
+        "apps/server/internal/config/config.go",
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -263,10 +263,10 @@
       "deletion_trigger": "Notification deletion removes selected notifications. Social-account, workspace, or completed account deletion removes related communication records. Provider synchronization can mark an engagement item deleted without removing its stored row.",
       "exceptions": "Disabling inbox collection stops future reads but does not by itself delete records already stored. Page requests read stored data and do not call provider APIs. Provider copies of comments and messages remain under the provider's controls.",
       "evidence": [
-        "backend/internal/services/engagement/service.go",
-        "backend/internal/services/messaging/service.go",
-        "backend/internal/services/notifications/service.go",
-        "backend/internal/models/models.go"
+        "apps/server/internal/services/engagement/service.go",
+        "apps/server/internal/services/messaging/service.go",
+        "apps/server/internal/services/notifications/service.go",
+        "apps/server/internal/models/models.go"
       ]
     },
     {
@@ -279,9 +279,9 @@
       "deletion_trigger": "Related account or workspace deletion removes identifiable queued jobs where supported. The operator can remove delivery history after support, security, and legal needs end.",
       "exceptions": "Email already delivered to the recipient's mailbox is controlled by the recipient and their email provider. Required account and security messages are distinct from optional activity email.",
       "evidence": [
-        "backend/internal/services/passwordmail/smtp.go",
-        "backend/internal/services/notifications/service.go",
-        "backend/internal/api/handlers/account_lifecycle.go",
+        "apps/server/internal/services/passwordmail/smtp.go",
+        "apps/server/internal/services/notifications/service.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -295,10 +295,10 @@
       "deletion_trigger": "Organization deletion where foreign-key ownership applies, account deletion for a personal organization, or a verified operator deletion request where law, fraud prevention, dispute, tax, and reconciliation needs allow it.",
       "exceptions": "Paddle is Merchant of Record and keeps its own transaction, tax, fraud, and customer records under its policies. OpenPost does not receive or store full payment-card details.",
       "evidence": [
-        "backend/internal/services/billing/service.go",
-        "backend/internal/database/migrations/060_whop_billing.sql",
-        "backend/internal/database/migrations/065_paddle_billing.sql",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/services/billing/service.go",
+        "apps/server/internal/database/migrations/060_whop_billing.sql",
+        "apps/server/internal/database/migrations/065_paddle_billing.sql",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -311,9 +311,9 @@
       "deletion_trigger": "Account deletion removes jobs that contain the user reference when detectable. The operator can delete retained delivery history after support, security, and legal needs end.",
       "exceptions": "The configured feedback recipient receives a separate copy and controls that copy under its own policy. Sensitive-looking values and private paths are sanitized before queueing.",
       "evidence": [
-        "backend/internal/services/feedback/feedback.go",
-        "backend/internal/api/handlers/feedback.go",
-        "backend/internal/api/handlers/account_lifecycle.go"
+        "apps/server/internal/services/feedback/feedback.go",
+        "apps/server/internal/api/handlers/feedback.go",
+        "apps/server/internal/api/handlers/account_lifecycle.go"
       ]
     },
     {
@@ -326,8 +326,8 @@
       "deletion_trigger": "Replacement by the same query, operator database maintenance, media deletion for attached provenance, or workspace/account deletion where the related media is removed.",
       "exceptions": "The cache stores a query hash rather than the plaintext query. Stock providers keep their own request and selection records under their policies.",
       "evidence": [
-        "backend/internal/api/handlers/stock_media.go",
-        "backend/internal/models/models.go"
+        "apps/server/internal/api/handlers/stock_media.go",
+        "apps/server/internal/models/models.go"
       ]
     },
     {
@@ -340,9 +340,9 @@
       "deletion_trigger": "OpenPost does not persist the request thumbnail or prompt after the provider request completes. The saved alternative text is replaced manually or removed with its media item.",
       "exceptions": "The original image is not sent for captioning. Provider-side request metadata follows the provider disclosures in the managed-service trust register.",
       "evidence": [
-        "backend/internal/ai/ai.go",
-        "backend/internal/ai/openrouter.go",
-        "backend/internal/api/handlers/media_caption.go"
+        "apps/server/internal/ai/ai.go",
+        "apps/server/internal/ai/openrouter.go",
+        "apps/server/internal/api/handlers/media_caption.go"
       ]
     },
     {
@@ -356,8 +356,8 @@
       "exceptions": "No optional browser telemetry is sent before a choice or after full opt-out. Do Not Track or Global Privacy Control forces full browser opt-out. Persistent analytics is limited to visitors who allow first-party analytics cookies; cookieless mode remains personless and cannot provide reliable multi-day identity, country, or server-side IP bot enrichment. Backend service telemetry is separately disclosed and is not controlled by the browser choice. Autocapture, session replay, heatmaps, surveys, console capture, network timing and bodies, advertising profiles, and cross-site tracking are disabled.",
       "evidence": [
         "packages/telemetry/src/index.ts",
-        "backend/internal/telemetry/telemetry.go",
-        "docs-site/configuration/telemetry.md"
+        "apps/server/internal/telemetry/telemetry.go",
+        "apps/docs/configuration/telemetry.md"
       ]
     },
     {
@@ -369,7 +369,7 @@
       "duration": "Managed host journals are size-bounded to 50 MiB of persistent storage and 10 MiB of runtime storage rather than retained for a fixed number of days.",
       "deletion_trigger": "System journal rotation removes older entries as the configured size bounds are reached. The operator can remove logs when incident, reliability, legal, or security needs end.",
       "exceptions": "The host does not provide a complete command-level audit trail. Account deletion does not selectively remove entries already written to shared operational logs.",
-      "evidence": ["docs-site/operations/logs.md", "packages/legal-policy/src/managed-service.json"]
+      "evidence": ["apps/docs/operations/logs.md", "packages/legal-policy/src/managed-service.json"]
     },
     {
       "id": "recovery-copies",
@@ -381,7 +381,7 @@
       "deletion_trigger": "Daily age-based pruning for routine copies; purpose review and operator deletion for exceptional snapshots.",
       "exceptions": "Deletion from the live service can remain in a routine recovery copy through this window. OpenPost does not add a separate application-level encryption layer to each backup artifact.",
       "evidence": [
-        "docs-site/operations/backups.md",
+        "apps/docs/operations/backups.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     }
@@ -397,7 +397,7 @@
       "scope": "Application origin and browser profile; the mutation-outbox-v1 record includes Workspace and project identifiers.",
       "duration": "Each entry is removed after the server accepts it, or when site data is cleared.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/cloud/project-repository.ts"]
     },
     {
       "id": "local-video-project-device-id",
@@ -409,7 +409,7 @@
       "scope": "Application origin and browser profile.",
       "duration": "Until site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/cloud/project-repository.ts"]
     },
     {
       "id": "local-video-project-import-ids",
@@ -421,7 +421,7 @@
       "scope": "Application origin and current browser profile; keys contain Workspace and Local-only project IDs, and values are generated cloud project IDs.",
       "duration": "Until site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/cloud/import-local-project.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/cloud/import-local-project.ts"]
     },
     {
       "id": "local-video-project-offline-cache",
@@ -433,7 +433,7 @@
       "scope": "Application origin and current browser profile; entries are separated by Workspace, project, and media ID.",
       "duration": "Until the user removes the offline copy, signs out, or clears site data.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/cloud/offline-project-cache.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/cloud/offline-project-cache.ts"]
     },
     {
       "id": "local-video-project-outbox-store",
@@ -445,7 +445,7 @@
       "scope": "Application origin and current browser profile; the record includes Workspace and project identifiers.",
       "duration": "Accepted mutations are removed from the record. The database is removed on sign-out or when site data is cleared.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video-editor/cloud/project-repository.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/cloud/project-repository.ts"]
     },
     {
       "id": "cookie-session",
@@ -458,8 +458,8 @@
       "duration": "Seven days unless logout, revocation, password reset, or account deletion ends it sooner.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "backend/internal/api/handlers/auth.go",
-        "backend/internal/services/auth/auth.go"
+        "apps/server/internal/api/handlers/auth.go",
+        "apps/server/internal/services/auth/auth.go"
       ]
     },
     {
@@ -473,8 +473,8 @@
       "duration": "Expires after ten minutes and is cleared after a successfully completed callback; browser site-data clearing can remove it sooner.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "backend/internal/api/handlers/oidc.go",
-        "backend/internal/services/identity/service.go"
+        "apps/server/internal/api/handlers/oidc.go",
+        "apps/server/internal/services/identity/service.go"
       ]
     },
     {
@@ -488,9 +488,9 @@
       "duration": "400 days or until the user changes the language or clears site data.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/project.inlang/settings.json",
-        "frontend/vite.config.ts",
-        "marketing-site/vite.config.ts"
+        "apps/web/project.inlang/settings.json",
+        "apps/web/vite.config.ts",
+        "apps/marketing/vite.config.ts"
       ]
     },
     {
@@ -504,8 +504,8 @@
       "duration": "Seven days after the last sidebar change or until site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/lib/components/ui/sidebar/constants.ts",
-        "frontend/src/lib/components/ui/sidebar/sidebar-provider.svelte"
+        "apps/web/src/lib/components/ui/sidebar/constants.ts",
+        "apps/web/src/lib/components/ui/sidebar/sidebar-provider.svelte"
       ]
     },
     {
@@ -543,9 +543,9 @@
       "duration": "Until the preference is changed or site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/routes/+layout.svelte",
-        "marketing-site/src/routes/+layout.svelte",
-        "marketing-site/src/app.html"
+        "apps/web/src/routes/+layout.svelte",
+        "apps/marketing/src/routes/+layout.svelte",
+        "apps/marketing/src/app.html"
       ]
     },
     {
@@ -559,8 +559,8 @@
       "duration": "Until the theme changes, the library removes the key, or site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/routes/+layout.svelte",
-        "marketing-site/src/routes/+layout.svelte"
+        "apps/web/src/routes/+layout.svelte",
+        "apps/marketing/src/routes/+layout.svelte"
       ]
     },
     {
@@ -573,7 +573,7 @@
       "scope": "Documentation origin and current browser profile.",
       "duration": "Until the preference changes or documentation site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["docs-site/.vitepress/config.ts", "docs-site/.vitepress/theme/index.ts"]
+      "source_refs": ["apps/docs/.vitepress/config.ts", "apps/docs/.vitepress/theme/index.ts"]
     },
     {
       "id": "local-current-workspace",
@@ -585,7 +585,7 @@
       "scope": "Application origin for the current browser profile.",
       "duration": "Until another workspace is selected, the account loses access, logout/account cleanup removes it, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/stores/workspace.svelte.ts"]
+      "source_refs": ["apps/web/src/lib/stores/workspace.svelte.ts"]
     },
     {
       "id": "local-interface-sounds",
@@ -597,7 +597,7 @@
       "scope": "Application and marketing origins separately.",
       "duration": "Until the preference changes or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/stores/sound-preferences.svelte.ts"]
+      "source_refs": ["apps/web/src/lib/stores/sound-preferences.svelte.ts"]
     },
     {
       "id": "local-oauth-workspace",
@@ -610,9 +610,9 @@
       "duration": "Removed after a successful Mastodon exchange or account-data cleanup; otherwise retained until replaced or site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/lib/account-management-route.ts",
-        "frontend/src/routes/accounts/mastodon/callback/+page.svelte",
-        "frontend/src/lib/components/account-data-card.svelte"
+        "apps/web/src/lib/account-management-route.ts",
+        "apps/web/src/routes/accounts/mastodon/callback/+page.svelte",
+        "apps/web/src/lib/components/account-data-card.svelte"
       ]
     },
     {
@@ -626,8 +626,8 @@
       "duration": "Removed after a successful exchange, when another Mastodon connection mode replaces it, or when account/site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/lib/account-management-route.ts",
-        "frontend/src/routes/accounts/mastodon/callback/+page.svelte"
+        "apps/web/src/lib/account-management-route.ts",
+        "apps/web/src/routes/accounts/mastodon/callback/+page.svelte"
       ]
     },
     {
@@ -641,8 +641,8 @@
       "duration": "Removed after a successful exchange, when another Mastodon connection mode replaces it, or when account/site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/lib/account-management-route.ts",
-        "frontend/src/routes/accounts/mastodon/callback/+page.svelte"
+        "apps/web/src/lib/account-management-route.ts",
+        "apps/web/src/routes/accounts/mastodon/callback/+page.svelte"
       ]
     },
     {
@@ -655,7 +655,7 @@
       "scope": "Application origin; one suffix per workspace ID.",
       "duration": "Until site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/routes/accounts/callback/+page.svelte"]
+      "source_refs": ["apps/web/src/routes/accounts/callback/+page.svelte"]
     },
     {
       "id": "local-image-tools",
@@ -667,7 +667,7 @@
       "scope": "Application origin and public Image Editor on that origin.",
       "duration": "Until preferences are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/components/image-editor-shell.svelte"]
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
       "id": "local-image-first-edit",
@@ -679,7 +679,7 @@
       "scope": "Application origin and public Image Editor on that origin.",
       "duration": "Until site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/components/image-editor-shell.svelte"]
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
       "id": "local-image-colors",
@@ -692,8 +692,8 @@
       "duration": "Until colors are replaced or site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/lib/image-editor/editor.svelte.ts",
-        "frontend/src/lib/image-editor/components/image-editor-shell.svelte"
+        "apps/web/src/lib/image-editor/editor.svelte.ts",
+        "apps/web/src/lib/image-editor/components/image-editor-shell.svelte"
       ]
     },
     {
@@ -706,7 +706,7 @@
       "scope": "Application origin and public Image Editor on that origin.",
       "duration": "Until layout values are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/components/image-editor-shell.svelte"]
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
       "id": "local-image-view",
@@ -718,7 +718,7 @@
       "scope": "Application origin and public Image Editor on that origin.",
       "duration": "Until view values are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/components/image-editor-shell.svelte"]
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
       "id": "local-video-playback",
@@ -730,7 +730,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the settings are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/preview/playback-settings.svelte.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/preview/playback-settings.svelte.ts"]
     },
     {
       "id": "local-video-color-keyframe-view",
@@ -742,7 +742,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the view is replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/components/color-keyframe-panel.svelte"]
+      "source_refs": ["apps/web/src/lib/video-editor/components/color-keyframe-panel.svelte"]
     },
     {
       "id": "local-video-color-scope-view",
@@ -754,7 +754,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the scope is replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/components/color-scopes.svelte"]
+      "source_refs": ["apps/web/src/lib/video-editor/components/color-scopes.svelte"]
     },
     {
       "id": "local-video-color-scope-layout",
@@ -766,7 +766,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the layout is replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/components/color-scopes.svelte"]
+      "source_refs": ["apps/web/src/lib/video-editor/components/color-scopes.svelte"]
     },
     {
       "id": "local-video-grade-presets",
@@ -778,7 +778,7 @@
       "scope": "Application origin and current browser profile; at most 64 presets.",
       "duration": "Until a preset is removed or replaced, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/effects/color-grade-presets.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/effects/color-grade-presets.ts"]
     },
     {
       "id": "local-video-effect-presets",
@@ -790,7 +790,7 @@
       "scope": "Application origin and current browser profile; the stored catalogue and each preset are size-bounded.",
       "duration": "Until a preset is removed or replaced, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/effects/effect-presets.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/effects/effect-presets.ts"]
     },
     {
       "id": "local-video-diagnostics",
@@ -802,7 +802,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the choices are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/preview/diagnostics.svelte.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/preview/diagnostics.svelte.ts"]
     },
     {
       "id": "local-video-voiceover",
@@ -814,7 +814,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until the preferences are replaced or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/recorder/voiceover-recorder.svelte.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/recorder/voiceover-recorder.svelte.ts"]
     },
     {
       "id": "local-video-easing-presets",
@@ -826,7 +826,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "Until a preset is removed or replaced, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/timeline/custom-easing-presets.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/timeline/custom-easing-presets.ts"]
     },
     {
       "id": "local-posthog-analytics",
@@ -851,8 +851,8 @@
       "duration": "Entries older than 15 seconds are treated as expired; the budget allows three retries and ends after a successful application load, when the tab session ends, or when site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/hooks.client.ts",
-        "marketing-site/src/lib/stale-module-recovery.ts"
+        "apps/web/src/hooks.client.ts",
+        "apps/marketing/src/lib/stale-module-recovery.ts"
       ]
     },
     {
@@ -865,7 +865,7 @@
       "scope": "Application origin and current browser tab session.",
       "duration": "Removed after the returned grant is stored or when the start request fails; otherwise removed when the tab session ends or site data is cleared.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/auth/reauth.ts"]
+      "source_refs": ["apps/web/src/lib/auth/reauth.ts"]
     },
     {
       "id": "session-reauth-grants",
@@ -877,7 +877,7 @@
       "scope": "Application origin and current browser tab session.",
       "duration": "Each grant is accepted for at most five minutes and is removed when consumed; storage also ends with the tab session or site-data clearing.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/auth/reauth.ts"]
+      "source_refs": ["apps/web/src/lib/auth/reauth.ts"]
     },
     {
       "id": "session-editor-handoff",
@@ -889,7 +889,7 @@
       "scope": "Application origin and current browser tab session; one random-token suffix per handoff.",
       "duration": "It becomes unusable at its stored expiry and is removed on a later read. Explicit clearing, the end of the tab session, or site-data clearing can remove it sooner.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/editor-handoff.ts"]
+      "source_refs": ["apps/web/src/lib/editor-handoff.ts"]
     },
     {
       "id": "session-image-export-resume",
@@ -901,7 +901,7 @@
       "scope": "Application origin and current tab; suffix contains design ID, export mode, and format.",
       "duration": "Removed after the export is cleared or when the tab session ends or site data is cleared.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/image-editor/components/image-editor-shell.svelte"]
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
       "id": "session-marketing-motion",
@@ -913,7 +913,7 @@
       "scope": "Marketing origin and current browser tab session.",
       "duration": "Until the tab session ends or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["marketing-site/src/routes/_components/HeroResultsCarousel.svelte"]
+      "source_refs": ["apps/marketing/src/routes/_components/HeroResultsCarousel.svelte"]
     },
     {
       "id": "idb-image-editor",
@@ -925,7 +925,7 @@
       "scope": "Application origin; browser profile. The original database name is retained for compatibility.",
       "duration": "Authenticated recovery becomes unusable after seven days and is removed on a later load; a newer recovery or explicit clear can remove it sooner. Guest designs remain until the user deletes them, the browser evicts data, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "idb-image-documents-store",
@@ -937,7 +937,7 @@
       "scope": "Application origin; openpost-studio database.",
       "duration": "A recovery becomes unusable after seven days and is removed on a later load. A newer recovery, explicit clear, browser eviction, or site-data clearing can remove it sooner.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "idb-image-guest-designs-store",
@@ -949,7 +949,7 @@
       "scope": "Application origin; openpost-studio database.",
       "duration": "Until the user deletes the design, the browser evicts data, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "idb-image-guest-media-store",
@@ -961,7 +961,7 @@
       "scope": "Application origin; openpost-studio database.",
       "duration": "Until the linked guest design or media is deleted, the browser evicts data, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "idb-video-editor-handles",
@@ -973,7 +973,7 @@
       "scope": "Application origin and browser profile; access remains subject to browser file-permission checks.",
       "duration": "Until the user removes the related workspace, media, or project, the browser evicts the database, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/workspace-fs/handles-db.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/handles-db.ts"]
     },
     {
       "id": "idb-video-editor-handles-store",
@@ -985,7 +985,7 @@
       "scope": "Application origin; openpost-video-handles-db database and the browser profile that granted file access.",
       "duration": "Until the related record is removed, the browser evicts the database, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/workspace-fs/handles-db.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/handles-db.ts"]
     },
     {
       "id": "idb-workbox-expiration",
@@ -997,7 +997,7 @@
       "scope": "Application origin service worker.",
       "duration": "Metadata follows the related runtime-cache entry and is removed when Workbox expires or deletes that cache metadata, or when site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     },
     {
       "id": "idb-workbox-cache-entries-store",
@@ -1009,7 +1009,7 @@
       "scope": "Application origin; workbox-expiration database.",
       "duration": "Metadata follows the related runtime-cache entry and is removed during Workbox expiry or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     },
     {
       "id": "opfs-image-media",
@@ -1021,7 +1021,7 @@
       "scope": "Application origin and browser profile.",
       "duration": "A media file is removed with its guest design; otherwise it remains until browser eviction or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "opfs-image-media-files",
@@ -1033,7 +1033,7 @@
       "scope": "Application origin and browser profile; one generated filename per guest-media record.",
       "duration": "A file is removed with its guest design or media; otherwise it remains until browser eviction or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/image-editor/local-persistence.ts"]
+      "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
       "id": "opfs-video-streams",
@@ -1045,7 +1045,7 @@
       "scope": "Application origin and browser profile.",
       "duration": "Removed when the export is discarded; files older than 24 hours are removed opportunistically when another streamed output starts; site-data clearing also removes them.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video/stream-target.ts"]
+      "source_refs": ["apps/web/src/lib/video/stream-target.ts"]
     },
     {
       "id": "opfs-video-editor-cache",
@@ -1057,7 +1057,7 @@
       "scope": "Application origin and browser profile; entries are grouped by derived-media kind and local media identifier.",
       "duration": "Until the browser evicts the cache, site data is cleared, or a later cache version replaces it. The source media remains in the user-selected workspace and does not enter this cache.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/media/opfs-cache.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/media/opfs-cache.ts"]
     },
     {
       "id": "opfs-video-moss-model-root",
@@ -1069,7 +1069,7 @@
       "scope": "Application origin and current browser profile.",
       "duration": "The selected MOSS model remains until the user clears that local model, the browser evicts it, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
     },
     {
       "id": "opfs-video-moss-model",
@@ -1081,7 +1081,7 @@
       "scope": "Application origin and current browser profile; 16 model files with an expected total size of about 763 MB.",
       "duration": "Until the user clears the MOSS local model, the browser evicts it, or site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
     },
     {
       "id": "opfs-video-interpolation-scratch",
@@ -1094,7 +1094,7 @@
       "duration": "The job removes its file after import, cancellation, or failure when possible. Browser eviction or site-data clearing also removes it.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/lib/video-editor/media/processing/interpolation/frame-interpolation-service.svelte.ts"
+        "apps/web/src/lib/video-editor/media/processing/interpolation/frame-interpolation-service.svelte.ts"
       ]
     },
     {
@@ -1108,7 +1108,7 @@
       "duration": "The job removes its file after import, cancellation, or failure when possible. Browser eviction or site-data clearing also removes it.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/lib/video-editor/media/processing/upscale/upscale-service.svelte.ts"
+        "apps/web/src/lib/video-editor/media/processing/upscale/upscale-service.svelte.ts"
       ]
     },
     {
@@ -1121,7 +1121,7 @@
       "scope": "Application origin and current browser profile; one randomly named file per OPFS-backed export.",
       "duration": "Aborted outputs are removed when possible. Completed files older than 24 hours are pruned when another export starts; browser eviction or site-data clearing can remove them sooner.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video-editor/media/render-export.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/media/render-export.ts"]
     },
     {
       "id": "opfs-video-recorder-scratch",
@@ -1133,7 +1133,7 @@
       "scope": "Application origin and current browser profile; generated names are tied to a recorder session when recovery is enabled.",
       "duration": "Imported, discarded, and rejected captures are removed when possible. Recoverable sessions remain until the user recovers or discards them, the browser evicts them, or site data is cleared.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video-editor/recorder/recorder-scratch.ts"]
+      "source_refs": ["apps/web/src/lib/video-editor/recorder/recorder-scratch.ts"]
     },
     {
       "id": "opfs-video-stream-files",
@@ -1145,7 +1145,7 @@
       "scope": "Application origin and browser profile; one generated file per streamed export.",
       "duration": "Removed when discarded; files older than 24 hours are removed when another streamed output starts; site-data clearing also removes them.",
       "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/video/stream-target.ts"]
+      "source_refs": ["apps/web/src/lib/video/stream-target.ts"]
     },
     {
       "id": "local-install-invitation",
@@ -1157,7 +1157,7 @@
       "scope": "Application origin and browser profile.",
       "duration": "Until site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/lib/components/pwa-manager.svelte"]
+      "source_refs": ["apps/web/src/lib/components/pwa-manager.svelte"]
     },
     {
       "id": "cache-pages",
@@ -1169,7 +1169,7 @@
       "scope": "Application origin service worker; at most 32 entries.",
       "duration": "Up to seven days, subject to entry-count eviction, service-worker replacement, browser pressure, or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     },
     {
       "id": "cache-app-assets",
@@ -1181,7 +1181,7 @@
       "scope": "Application origin service worker; at most 400 entries.",
       "duration": "Up to 30 days, subject to entry-count eviction, service-worker replacement, browser pressure, or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     },
     {
       "id": "cache-image-models",
@@ -1193,7 +1193,7 @@
       "scope": "Application origin service worker; at most 32 entries.",
       "duration": "Up to 365 days, subject to versioned-cache replacement, entry-count eviction, browser pressure, or site-data clearing.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     },
     {
       "id": "cache-video-transformers-models",
@@ -1206,8 +1206,8 @@
       "duration": "A model remains until the user clears that local model, the browser evicts it, its version changes, or site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/lib/video-editor/agent/storage.ts",
-        "frontend/src/lib/video-editor/local-ai/model-cache.ts"
+        "apps/web/src/lib/video-editor/agent/storage.ts",
+        "apps/web/src/lib/video-editor/local-ai/model-cache.ts"
       ]
     },
     {
@@ -1221,8 +1221,8 @@
       "duration": "A model remains until the user clears that local model, the browser evicts it, the cache version changes, or site data is cleared.",
       "necessity": "functional",
       "source_refs": [
-        "frontend/src/lib/video-editor/local-ai/model-cache.ts",
-        "frontend/src/lib/video-editor/transcript/engine/onnx-model-cache.ts"
+        "apps/web/src/lib/video-editor/local-ai/model-cache.ts",
+        "apps/web/src/lib/video-editor/transcript/engine/onnx-model-cache.ts"
       ]
     },
     {
@@ -1235,7 +1235,7 @@
       "scope": "Application origin service worker; suffix is the service-worker registration scope.",
       "duration": "Entries are replaced by a new service-worker build and outdated Workbox precaches are deleted during activation; browser pressure or site-data clearing can remove them earlier.",
       "necessity": "functional",
-      "source_refs": ["frontend/vite.config.ts"]
+      "source_refs": ["apps/web/vite.config.ts"]
     }
   ]
 }

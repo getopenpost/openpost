@@ -3,12 +3,12 @@ import { resolve } from "node:path";
 import {
   adaptResolvedThemeResponse,
   type ApiResolvedThemeResponse,
-} from "../mobile/src/theme/api-adapter";
+} from "../apps/mobile/src/theme/api-adapter";
 import type {
   NativeThemeFamily,
   NativeThemeManifest,
   NativeThemeScheme,
-} from "../mobile/src/theme/contract";
+} from "../apps/mobile/src/theme/contract";
 
 interface CanonicalBuiltinTheme {
   schemaVersion: number;
@@ -23,8 +23,8 @@ interface CanonicalBuiltinTheme {
 }
 
 const projectRoot = resolve(import.meta.dir, "..");
-const sourcePath = resolve(projectRoot, "backend/internal/services/themes/builtins.v1.json");
-const outputPath = resolve(projectRoot, "mobile/src/theme/builtins.generated.ts");
+const sourcePath = resolve(projectRoot, "apps/server/internal/services/themes/builtins.v1.json");
+const outputPath = resolve(projectRoot, "apps/mobile/src/theme/builtins.generated.ts");
 const canonical = (await Bun.file(sourcePath).json()) as CanonicalBuiltinTheme[];
 
 const families: Record<string, NativeThemeFamily> = {};
@@ -65,7 +65,7 @@ for (const family of canonical) {
   };
 }
 
-const unformatted = `// Generated from backend/internal/services/themes/builtins.v1.json. Do not edit by hand.\nimport type { NativeThemeFamily } from "./contract";\n\nexport const GENERATED_BUILTIN_THEME_IDS = ${JSON.stringify(
+const unformatted = `// Generated from apps/server/internal/services/themes/builtins.v1.json. Do not edit by hand.\nimport type { NativeThemeFamily } from "./contract";\n\nexport const GENERATED_BUILTIN_THEME_IDS = ${JSON.stringify(
   canonical.map((family) => family.id),
 )} as const;\n\nexport const GENERATED_BUILTIN_THEME_FAMILIES = ${JSON.stringify(
   families,

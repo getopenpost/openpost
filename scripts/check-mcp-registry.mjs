@@ -9,10 +9,10 @@ const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
   if (manifest?.name !== "io.github.rodrgds/openpost") {
-    throw new Error("server.json must retain the published OpenPost MCP name");
+    throw new Error("config/mcp/server.json must retain the published OpenPost MCP name");
   }
   if (!stableVersionPattern.test(String(manifest.version ?? ""))) {
-    throw new Error("server.json version must be a stable semantic version");
+    throw new Error("config/mcp/server.json version must be a stable semantic version");
   }
   const remotes = Array.isArray(manifest.remotes) ? manifest.remotes : [];
   if (
@@ -20,7 +20,7 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
     remotes[0]?.type !== "streamable-http" ||
     remotes[0]?.url !== "https://app.openpo.st/mcp"
   ) {
-    throw new Error("server.json must describe the canonical managed MCP endpoint");
+    throw new Error("config/mcp/server.json must describe the canonical managed MCP endpoint");
   }
 
   const escapedName = manifest.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -32,7 +32,7 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
   }
   if (listingMatch[1] !== manifest.version) {
     throw new Error(
-      `server.json version ${manifest.version} does not match the launch listing ${listingMatch[1]}`,
+      `config/mcp/server.json version ${manifest.version} does not match the launch listing ${listingMatch[1]}`,
     );
   }
   if (!docs.includes("## Registry listing version and compatibility")) {
@@ -42,9 +42,9 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
 }
 
 export function checkMCPRegistryOwnership(root = repositoryRoot) {
-  const manifest = JSON.parse(readFileSync(path.join(root, "server.json"), "utf8"));
+  const manifest = JSON.parse(readFileSync(path.join(root, "config/mcp/server.json"), "utf8"));
   const listings = readFileSync(path.join(root, "docs/launch-kit/listings.md"), "utf8");
-  const docs = readFileSync(path.join(root, "docs-site/development/mcp.md"), "utf8");
+  const docs = readFileSync(path.join(root, "apps/docs/development/mcp.md"), "utf8");
   return validateMCPRegistryOwnership({ manifest, listings, docs });
 }
 

@@ -516,8 +516,8 @@ export async function buildPublicProofChecks({
   const marketingDeployment = deploymentForRevision(marketingDeployments, revision);
   const documentationDeployment = deploymentForRevision(documentationDeployments, revision);
   const samples = publicSurfaceSamples();
-  const marketingDirectory = path.join(rootDirectory, "marketing-site/dist");
-  const documentationDirectory = path.join(rootDirectory, "docs-site/.vitepress/dist");
+  const marketingDirectory = path.join(rootDirectory, "apps/marketing/dist");
+  const documentationDirectory = path.join(rootDirectory, "apps/docs/.vitepress/dist");
   const checks = [];
   const knownMarkdownURLs = new Set();
 

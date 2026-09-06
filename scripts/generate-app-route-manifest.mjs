@@ -4,8 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..");
-export const defaultRoutesDirectory = path.join(repositoryRoot, "frontend/src/routes");
-export const defaultManifestPath = path.join(repositoryRoot, "frontend/build/app-routes.json");
+export const defaultRoutesDirectory = path.join(repositoryRoot, "apps/web/src/routes");
+export const defaultManifestPath = path.join(repositoryRoot, "apps/web/build/app-routes.json");
 
 const pageFilePattern = /^\+page(?:\.[^.]+)?\.(?:js|ts|svelte)$/;
 

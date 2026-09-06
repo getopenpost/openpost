@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { referencedMessageKeys } from "./i18n-source-usage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const messagesDirectory = path.join(root, "frontend", "messages");
+const messagesDirectory = path.join(root, "apps/web", "messages");
 const settings = JSON.parse(
-  await readFile(path.join(root, "frontend", "project.inlang", "settings.json"), "utf8"),
+  await readFile(path.join(root, "apps/web", "project.inlang", "settings.json"), "utf8"),
 );
 const locales = settings.locales;
 const catalogs = new Map();
@@ -31,7 +31,7 @@ async function sourceFiles(directory) {
   for (const entry of entries) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (entryPath === path.join(root, "frontend", "src", "lib", "paraglide")) continue;
+      if (entryPath === path.join(root, "apps/web", "src", "lib", "paraglide")) continue;
       files.push(...(await sourceFiles(entryPath)));
     } else if (/\.(?:js|svelte|ts)$/.test(entry.name)) {
       files.push(entryPath);
@@ -63,7 +63,7 @@ function translationArtifact(message) {
 }
 
 const missingSourceMessages = new Map();
-for (const sourcePath of await sourceFiles(path.join(root, "frontend", "src"))) {
+for (const sourcePath of await sourceFiles(path.join(root, "apps/web", "src"))) {
   const source = await readFile(sourcePath, "utf8");
   for (const key of referencedMessageKeys(source)) {
     if (referenceKeys.has(key)) continue;

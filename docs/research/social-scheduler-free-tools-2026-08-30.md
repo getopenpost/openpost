@@ -22,7 +22,7 @@ Stop there. OpenPost already has eight useful tools. A long list of near-identic
 
 ## The current OpenPost set
 
-OpenPost already lists a video editor, image editor, multi-platform character counter, post preview, thread splitter, Fediverse handle checker, LinkedIn formatter, and timezone posting planner in [`_marketing.ts`](../../marketing-site/src/routes/_marketing.ts).
+OpenPost already lists a video editor, image editor, multi-platform character counter, post preview, thread splitter, Fediverse handle checker, LinkedIn formatter, and timezone posting planner in [`_marketing.ts`](../../apps/marketing/src/routes/_marketing.ts).
 
 That set already covers most of the common competitor ideas:
 

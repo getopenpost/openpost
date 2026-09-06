@@ -107,7 +107,7 @@ test("a higher package version permits publishable changes", () => {
 test("unrelated changes do not require a package version increase", () => {
   assert.deepEqual(
     assessPackageVersionChange({
-      changedFiles: ["backend/internal/jobs/worker.go"],
+      changedFiles: ["apps/server/internal/jobs/worker.go"],
       currentVersion: "0.1.0",
       previousVersion: "0.1.0",
     }),

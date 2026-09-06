@@ -11,12 +11,15 @@ import {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..");
-export const defaultSourceDirectory = path.join(repositoryRoot, "frontend/build");
-export const defaultDestinationDirectory = path.join(repositoryRoot, "backend/cmd/openpost/public");
-export const defaultAssetSourceDirectory = path.join(repositoryRoot, "frontend/static");
+export const defaultSourceDirectory = path.join(repositoryRoot, "apps/web/build");
+export const defaultDestinationDirectory = path.join(
+  repositoryRoot,
+  "apps/server/cmd/openpost/public",
+);
+export const defaultAssetSourceDirectory = path.join(repositoryRoot, "apps/web/static");
 export const defaultClientOutputDirectory = path.join(
   repositoryRoot,
-  "frontend/.svelte-kit/output/client",
+  "apps/web/.svelte-kit/output/client",
 );
 
 const transactionSchemaVersion = 1;

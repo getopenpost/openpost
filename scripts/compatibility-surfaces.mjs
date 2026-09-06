@@ -39,8 +39,8 @@ const allowedMethods = new Set(["DELETE", "GET", "PATCH", "POST", "PUT"]);
 export function readCompatibilityInputs(root = repositoryRoot) {
   const readJSON = (file) => JSON.parse(readFileSync(path.join(root, file), "utf8"));
   return {
-    registry: readJSON("compatibility-surfaces.json"),
-    openapi: readJSON("frontend/openapi.json"),
+    registry: readJSON("config/compatibility-surfaces.json"),
+    openapi: readJSON("apps/web/openapi.json"),
   };
 }
 

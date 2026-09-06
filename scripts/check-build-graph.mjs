@@ -23,15 +23,15 @@ function requireIncludes(value, expected, label) {
 const [rootPackage, frontendPackage, docsPackage, marketingPackage, rootTurbo, tasksSource] =
   await Promise.all([
     readJSON("package.json"),
-    readJSON("frontend/package.json"),
-    readJSON("docs-site/package.json"),
-    readJSON("marketing-site/package.json"),
+    readJSON("apps/web/package.json"),
+    readJSON("apps/docs/package.json"),
+    readJSON("apps/marketing/package.json"),
     readJSON("turbo.json"),
     readFile(path.join(root, "scripts/tasks.mjs"), "utf8"),
   ]);
 
 for (const [label, packageJSON] of [
-  ["frontend", frontendPackage],
+  ["apps/web", frontendPackage],
   ["docs", docsPackage],
   ["marketing", marketingPackage],
 ]) {
@@ -40,7 +40,7 @@ for (const [label, packageJSON] of [
     `${label} must expose the canonical build task used by Turbo`,
   );
   requireCondition(
-    !packageJSON.scripts.build.includes("backend/cmd/openpost/public"),
+    !packageJSON.scripts.build.includes("apps/server/cmd/openpost/public"),
     `${label} build must not write directly into the backend embed tree`,
   );
 }
@@ -61,9 +61,9 @@ requireCondition(
 );
 
 const packageTurboPaths = [
-  ["frontend/turbo.json", ["build/**", "!build/image-editor-models/**"]],
-  ["docs-site/turbo.json", [".vitepress/dist/**"]],
-  ["marketing-site/turbo.json", ["dist/**", ".wrangler/functions/**"]],
+  ["apps/web/turbo.json", ["build/**", "!build/image-editor-models/**"]],
+  ["apps/docs/turbo.json", [".vitepress/dist/**"]],
+  ["apps/marketing/turbo.json", ["dist/**", ".wrangler/functions/**"]],
 ];
 for (const [relativePath, expectedOutputs] of packageTurboPaths) {
   const config = await readJSON(relativePath);
@@ -72,12 +72,12 @@ for (const [relativePath, expectedOutputs] of packageTurboPaths) {
     `${relativePath} must own exactly ${expectedOutputs.join(", ")}`,
   );
   requireCondition(
-    !config.tasks.build.outputs.some((output) => output.includes("backend/")),
+    !config.tasks.build.outputs.some((output) => output.includes("apps/server/")),
     `${relativePath} must not cache a sibling backend path`,
   );
 }
 
-const frontendTurbo = await readJSON("frontend/turbo.json");
+const frontendTurbo = await readJSON("apps/web/turbo.json");
 for (const task of ["check", "test"]) {
   requireCondition(
     frontendTurbo.tasks[task].inputs.includes("$TURBO_ROOT$/scripts/posthog-source-maps.ts"),
@@ -104,8 +104,8 @@ for (const input of [
 }
 
 for (const [label, turboConfig] of [
-  ["docs", await readJSON("docs-site/turbo.json")],
-  ["marketing", await readJSON("marketing-site/turbo.json")],
+  ["docs", await readJSON("apps/docs/turbo.json")],
+  ["marketing", await readJSON("apps/marketing/turbo.json")],
 ]) {
   for (const input of [
     "$TURBO_ROOT$/assets/**",
@@ -127,9 +127,9 @@ for (const [label, turboConfig] of [
   }
 }
 
-const docsTurbo = await readJSON("docs-site/turbo.json");
+const docsTurbo = await readJSON("apps/docs/turbo.json");
 for (const input of [
-  "$TURBO_ROOT$/frontend/openapi.json",
+  "$TURBO_ROOT$/apps/web/openapi.json",
   "$TURBO_ROOT$/scripts/copy-docs-openapi.mjs",
 ]) {
   requireCondition(
@@ -138,13 +138,13 @@ for (const input of [
   );
 }
 
-const marketingTurbo = await readJSON("marketing-site/turbo.json");
+const marketingTurbo = await readJSON("apps/marketing/turbo.json");
 for (const transitionalInput of [
   "$TURBO_ROOT$/CHANGELOG.md",
-  "$TURBO_ROOT$/frontend/messages/**",
-  "$TURBO_ROOT$/frontend/project.inlang/settings.json",
-  "$TURBO_ROOT$/frontend/src/lib/**",
-  "$TURBO_ROOT$/provider-certification/public-claims.json",
+  "$TURBO_ROOT$/apps/web/messages/**",
+  "$TURBO_ROOT$/apps/web/project.inlang/settings.json",
+  "$TURBO_ROOT$/apps/web/src/lib/**",
+  "$TURBO_ROOT$/config/provider-certification/public-claims.json",
 ]) {
   requireCondition(
     marketingTurbo.tasks.build.inputs.includes(transitionalInput),
@@ -153,11 +153,10 @@ for (const transitionalInput of [
 }
 for (const checkInput of [
   "$TURBO_ROOT$/CHANGELOG.md",
-  "$TURBO_ROOT$/frontend/messages/**",
-  "$TURBO_ROOT$/frontend/project.inlang/settings.json",
-  "$TURBO_ROOT$/frontend/src/lib/**",
-  "$TURBO_ROOT$/provider-certification/public-claims.json",
-  "$TURBO_ROOT$/scripts/marketing-claims.mjs",
+  "$TURBO_ROOT$/apps/web/messages/**",
+  "$TURBO_ROOT$/apps/web/project.inlang/settings.json",
+  "$TURBO_ROOT$/apps/web/src/lib/**",
+  "$TURBO_ROOT$/config/provider-certification/public-claims.json",
 ]) {
   requireCondition(
     marketingTurbo.tasks.check.inputs.includes(checkInput),
@@ -168,13 +167,13 @@ for (const checkInput of [
 const [adapterConfig, assetSync, dockerfile, devenv, frontendDevenv, ci, appPlaywright] =
   await Promise.all(
     [
-      "frontend/svelte.config.js",
+      "apps/web/svelte.config.js",
       "scripts/sync-assets.mjs",
-      "docker/Dockerfile",
+      "deploy/docker/Dockerfile",
       "devenv.nix",
-      "frontend/devenv.nix",
+      "apps/web/devenv.nix",
       ".github/workflows/ci.yml",
-      "e2e-app/playwright.config.ts",
+      "tests/app/playwright.config.ts",
     ].map((relativePath) => readFile(path.join(root, relativePath), "utf8")),
   );
 requireIncludes(adapterConfig, "pages: 'build'", "frontend adapter");
@@ -195,7 +194,7 @@ requireIncludes(
 );
 requireIncludes(
   dockerfile,
-  "COPY --from=frontend-builder / ./backend/cmd/openpost/public",
+  "COPY --from=frontend-builder / ./apps/server/cmd/openpost/public",
   "production image frontend artifact copy",
 );
 requireCondition(
@@ -204,7 +203,7 @@ requireCondition(
 );
 requireIncludes(
   frontendPackage.scripts.build,
-  "node ../scripts/frontend-vite-build.mjs",
+  "node ../../scripts/frontend-vite-build.mjs",
   "frontend build memory contract",
 );
 requireCondition(
@@ -238,7 +237,7 @@ for (const taskID of ["@openpost/web#build", "@openpost/docs#build", "@openpost/
   const task = tasks.get(taskID);
   requireCondition(task?.command, `${taskID} is missing from the root build contract`);
   requireCondition(
-    !task.outputs.some((output) => output.includes("backend/cmd/openpost/public")),
+    !task.outputs.some((output) => output.includes("apps/server/cmd/openpost/public")),
     `${taskID} still claims the backend embed tree as a cached output`,
   );
 }

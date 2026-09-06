@@ -2,15 +2,15 @@ import { readdirSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const sourceRoots = ["frontend", "marketing-site"];
+const sourceRoots = ["apps/web", "apps/marketing"];
 const nativeControlPattern = /<(input|select|textarea)\b/gu;
 const primitiveImplementations = new Set([
-  "frontend/src/lib/components/ui/input/input.svelte",
-  "frontend/src/lib/components/ui/textarea/textarea.svelte",
+  "apps/web/src/lib/components/ui/input/input.svelte",
+  "apps/web/src/lib/components/ui/textarea/textarea.svelte",
   // The shadcn-svelte calendar keeps a transparent native select behind its
   // styled month and year captions for mobile-picker and form semantics.
-  "frontend/src/lib/components/ui/calendar/calendar-month-select.svelte",
-  "frontend/src/lib/components/ui/calendar/calendar-year-select.svelte",
+  "apps/web/src/lib/components/ui/calendar/calendar-month-select.svelte",
+  "apps/web/src/lib/components/ui/calendar/calendar-year-select.svelte",
 ]);
 
 function svelteFiles(directory) {

@@ -1,0 +1,129 @@
+@import '../../../web/src/routes/layout.css';
+
+@source './**/*.{svelte,ts}';
+@source '../../../web/src/lib/components';
+@source '../../../../packages/social-preview/src';
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+	}
+
+	body {
+		background:
+			radial-gradient(
+				circle at 50% -12rem,
+				color-mix(in oklch, var(--primary) 8%, transparent),
+				transparent 32rem
+			),
+			var(--background);
+		color: var(--foreground);
+		font-feature-settings: 'ss01', 'cv02', 'cv03', 'cv04';
+	}
+
+	::selection {
+		background: color-mix(in oklch, var(--primary) 42%, transparent);
+		color: var(--foreground);
+	}
+}
+
+@layer utilities {
+	.section-pad {
+		padding-block: clamp(5rem, 9vw, 9rem);
+	}
+
+	.section-label,
+	.eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--primary);
+	}
+
+	.section-label::before,
+	.eyebrow::before {
+		width: 0.42rem;
+		height: 0.42rem;
+		border-radius: 0.12rem;
+		background: currentColor;
+		content: '';
+	}
+
+	.text-pretty {
+		text-wrap: pretty;
+	}
+
+	.marketing-shell {
+		width: min(100% - 2rem, 78rem);
+		margin-inline: auto;
+	}
+
+	.marketing-copy {
+		max-width: 68ch;
+		font-size: clamp(1rem, 1.3vw, 1.125rem);
+		line-height: 1.75;
+		color: var(--muted-foreground);
+	}
+
+	.marketing-title {
+		max-width: 14ch;
+		font-size: clamp(3rem, 7.5vw, 6.75rem);
+		font-weight: 660;
+		line-height: 0.92;
+		letter-spacing: -0.055em;
+		text-wrap: balance;
+	}
+
+	.marketing-heading {
+		max-width: 18ch;
+		font-size: clamp(2.2rem, 4.2vw, 4rem);
+		font-weight: 630;
+		line-height: 1;
+		letter-spacing: -0.038em;
+		text-wrap: balance;
+	}
+
+	.marketing-frame {
+		border: 1px solid var(--border);
+		background: color-mix(in oklch, var(--card) 92%, var(--background));
+		border-radius: 1.25rem;
+		box-shadow: 0 1.5rem 5rem color-mix(in oklch, var(--foreground) 7%, transparent);
+	}
+
+	.marketing-rule {
+		border-color: color-mix(in oklch, var(--border) 76%, transparent);
+	}
+
+	.reading-shell {
+		width: min(100% - 2rem, 72ch);
+		margin-inline: auto;
+	}
+
+	.focus-ring {
+		outline: none;
+	}
+
+	.focus-ring:focus-visible {
+		box-shadow:
+			0 0 0 2px var(--background),
+			0 0 0 4px var(--ring);
+	}
+}
+
+@media (min-width: 40rem) {
+	@layer utilities {
+		.marketing-shell {
+			width: min(100% - 3rem, 78rem);
+		}
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+}

@@ -20,7 +20,7 @@ Error headings receive focus when the boundary opens or changes state. Notices a
 
 ## Browser evidence
 
-`e2e-app/not-found.spec.ts` exercises a real SvelteKit error boundary, including direct and client navigation, reload, simulated browser offline and online events, clean console output, focus, overflow, and action visibility. It covers these presentations:
+`tests/app/not-found.spec.ts` exercises a real SvelteKit error boundary, including direct and client navigation, reload, simulated browser offline and online events, clean console output, focus, overflow, and action visibility. It covers these presentations:
 
 | Presentation                    | Evidence                                           |
 | ------------------------------- | -------------------------------------------------- |
@@ -28,9 +28,9 @@ Error headings receive focus when the boundary opens or changes state. Notices a
 | 390 px, English, dark theme     | Client navigation and responsive actions           |
 | 320 px, Portuguese, light theme | Localized client navigation and responsive actions |
 
-`frontend/src/lib/components/app-error-state.svelte.test.ts` runs the shared production error primitive in Chromium at 320 px for a light-theme 500 response and at 390 px for a dark-theme Portuguese 403 response. These cases verify focus, action accuracy, touch-target height, and horizontal fit without adding test-only routes.
+`apps/web/src/lib/components/app-error-state.svelte.test.ts` runs the shared production error primitive in Chromium at 320 px for a light-theme 500 response and at 390 px for a dark-theme Portuguese 403 response. These cases verify focus, action accuracy, touch-target height, and horizontal fit without adding test-only routes.
 
-`e2e-app/notifications.spec.ts` forces a destructive API failure, proves that saved notifications remain visible, keeps the confirmation open with explicit failure feedback, and retries the same operation successfully. `e2e-app/load-recovery.spec.ts` separately proves in-place initial-load recovery for Settings, Accounts, onboarding, invitation refresh, and calendar context.
+`tests/app/notifications.spec.ts` forces a destructive API failure, proves that saved notifications remain visible, keeps the confirmation open with explicit failure feedback, and retries the same operation successfully. `tests/app/load-recovery.spec.ts` separately proves in-place initial-load recovery for Settings, Accounts, onboarding, invitation refresh, and calendar context.
 
 Component tests cover the states that a production route should not manufacture only for testing: forbidden and server-error presentation, offline precedence, connection notices, content-shaped loading, empty states, toasts, and destructive completion semantics.
 

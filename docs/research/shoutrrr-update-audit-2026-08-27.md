@@ -15,7 +15,7 @@ Outgoing DM attachments are the most meaningful feature gap, but they are a larg
 
 ## Scope and method
 
-The exact window is 2026-07-28 00:00 UTC through 2026-08-27 23:59 UTC, inclusive. I checked Shoutrrr's Git history, releases, merged and open pull requests, and source in `references/shoutrrr`. I then traced each relevant change through the current OpenPost source and docs.
+The exact window is 2026-07-28 00:00 UTC through 2026-08-27 23:59 UTC, inclusive. I checked Shoutrrr's Git history, releases, merged and open pull requests, and source in `docs/references/shoutrrr`. I then traced each relevant change through the current OpenPost source and docs.
 
 Shoutrrr released [`v1.4.0`](https://github.com/coollabsio/shoutrrr/releases/tag/v1.4.0) and [`v1.4.1`](https://github.com/coollabsio/shoutrrr/releases/tag/v1.4.1) on August 5, [`v1.4.2`](https://github.com/coollabsio/shoutrrr/releases/tag/v1.4.2) and [`v1.4.3`](https://github.com/coollabsio/shoutrrr/releases/tag/v1.4.3) on August 9, and [`v1.4.4`](https://github.com/coollabsio/shoutrrr/releases/tag/v1.4.4) on August 24. `v1.4.0` also shipped several changes merged shortly before July 28. They are included because users first received them inside the audit window.
 
@@ -27,7 +27,7 @@ Shoutrrr released [`v1.4.0`](https://github.com/coollabsio/shoutrrr/releases/tag
 
 Shoutrrr's [PR #173](https://github.com/coollabsio/shoutrrr/pull/173), merged August 24, stopped 429, 5xx, and timeout responses during token refresh from marking healthy accounts as needing attention. It also increased the per-account refresh lock from 60 to 120 seconds.
 
-OpenPost already serializes refreshes with a database lease in `backend/internal/services/tokenmanager/manager.go`. The missing part is error classification. `refreshGrant` sends every `RefreshToken` error to `releaseRefreshLease`, and that function always sets the grant to `refresh_failed` and tells every linked account to reconnect. The refresh job can retry, but the UI can show a false reconnect state while those retries are pending.
+OpenPost already serializes refreshes with a database lease in `apps/server/internal/services/tokenmanager/manager.go`. The missing part is error classification. `refreshGrant` sends every `RefreshToken` error to `releaseRefreshLease`, and that function always sets the grant to `refresh_failed` and tells every linked account to reconnect. The refresh job can retry, but the UI can show a false reconnect state while those retries are pending.
 
 Change the token manager so 429, 5xx, and transport timeouts release the lease without invalidating the grant or accounts. Preserve the transient failure for diagnostics and let the durable job retry. Mark reconnect-required only for permanent OAuth errors such as `invalid_grant` or a confirmed authentication failure. Reuse `platform.HTTPError`, `RetryAfter`, and the existing publisher failure taxonomy.
 
@@ -37,7 +37,7 @@ Risk: a broad retry rule could delay a real reconnect. Keep the classification n
 
 Shoutrrr's [PR #170](https://github.com/coollabsio/shoutrrr/pull/170), merged August 24, added client and server validation for X's 1:3 through 3:1 video aspect-ratio range. It also made terminal X processing failures non-retryable and surfaced the provider's processing error.
 
-OpenPost's `MediaConstraint` in `backend/internal/capabilities/capabilities.go` supports exact aspect ratios, but X's `xVideo` constraint has none. Exact-ratio validation is also currently a warning, while this provider rule must block scheduling and publishing.
+OpenPost's `MediaConstraint` in `apps/server/internal/capabilities/capabilities.go` supports exact aspect ratios, but X's `xVideo` constraint has none. Exact-ratio validation is also currently a warning, while this provider rule must block scheduling and publishing.
 
 Add a min/max aspect-ratio range to the shared media constraint or a precise X predicate, enforce it in server preflight and the composer, and classify terminal X processing failures as validation errors. Cover feed video and thread-segment video.
 
@@ -47,7 +47,7 @@ Risk: do not encode the continuous range as a list of exact ratios. That would r
 
 Shoutrrr's [PR #139](https://github.com/coollabsio/shoutrrr/pull/139), merged August 4, clones an existing post into a fresh draft while resetting publish state.
 
-OpenPost already supports `saveDraft({ saveAsCopy: true })` in `frontend/src/lib/components/compose-text-post.svelte` for conflict recovery. Expose the same outcome from published and scheduled publication actions. Preserve canonical segments, rendition overrides, destinations, provider settings, and shared Media-library references, but reset IDs, schedule, statuses, provider receipts, errors, metrics, and authorization records.
+OpenPost already supports `saveDraft({ saveAsCopy: true })` in `apps/web/src/lib/components/compose-text-post.svelte` for conflict recovery. Expose the same outcome from published and scheduled publication actions. Preserve canonical segments, rendition overrides, destinations, provider settings, and shared Media-library references, but reset IDs, schedule, statuses, provider receipts, errors, metrics, and authorization records.
 
 This is useful for repurposing a strong post and for repeating campaigns without editing the original. It is smaller than the other feature gaps.
 
@@ -57,7 +57,7 @@ This is useful for repurposing a strong post and for repeating campaigns without
 
 Shoutrrr's open [PR #152](https://github.com/coollabsio/shoutrrr/pull/152) proposes a separate OAuth app and connection route for LinkedIn Pages. It responds to [issue #150](https://github.com/coollabsio/shoutrrr/issues/150), where Page connection returned without showing the picker. Shoutrrr says its Community Management app could not share the personal OpenID configuration.
 
-OpenPost already supports personal profiles and Organization Pages in `backend/internal/platform/linkedin.go`, but both use `LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET`. The operator docs claim Organization support, while `launch-kit/provider-verification-log.md` still records LinkedIn as not checked. LinkedIn's [Community Management migration notice](https://www.linkedin.com/developers/news/featured-updates/community-management-migration) also required affected integrations to create a new developer app, but that does not prove every current OpenPost configuration needs two apps.
+OpenPost already supports personal profiles and Organization Pages in `apps/server/internal/platform/linkedin.go`, but both use `LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET`. The operator docs claim Organization support, while `launch-kit/provider-verification-log.md` still records LinkedIn as not checked. LinkedIn's [Community Management migration notice](https://www.linkedin.com/developers/news/featured-updates/community-management-migration) also required affected integrations to create a new developer app, but that does not prove every current OpenPost configuration needs two apps.
 
 Run the live provider certification flow with the actual approved Hosted credentials. If the Organization picker or callback reproduces the failure, add separate Pages credentials and an explicit Pages connection route. If it passes, do not copy Shoutrrr's split.
 

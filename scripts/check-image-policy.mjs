@@ -52,14 +52,14 @@ const requiredEvidenceFiles = [
 export function imagePolicyInputs(root = repositoryRoot) {
   const read = (file) => readFileSync(path.join(root, file), "utf8");
   return {
-    policy: JSON.parse(read("docker/image-policy.json")),
-    dockerfile: read("docker/Dockerfile"),
-    backendGoMod: read("backend/go.mod"),
-    cliGoMod: read("cli/go.mod"),
+    policy: JSON.parse(read("deploy/docker/image-policy.json")),
+    dockerfile: read("deploy/docker/Dockerfile"),
+    backendGoMod: read("apps/server/go.mod"),
+    cliGoMod: read("apps/cli/go.mod"),
     devenv: read("devenv.nix"),
-    backendDevenv: read("backend/devenv.nix"),
+    backendDevenv: read("apps/server/devenv.nix"),
     rootPackage: JSON.parse(read("package.json")),
-    mobilePackage: JSON.parse(read("mobile/package.json")),
+    mobilePackage: JSON.parse(read("apps/mobile/package.json")),
     compose: read("docker-compose.yml"),
     ci: read(".github/workflows/ci.yml"),
     cacheContract: read(".github/workflows/cache-contract.yml"),
@@ -69,10 +69,10 @@ export function imagePolicyInputs(root = repositoryRoot) {
     smoke: read("scripts/smoke-production-image.sh"),
     docs: [
       read("README.md"),
-      read("docs-site/installation/docker-compose.md"),
-      read("docs-site/installation/docker-run.md"),
-      read("docs-site/operations/container-image.md"),
-      read("docs-site/operations/health-checks.md"),
+      read("apps/docs/installation/docker-compose.md"),
+      read("apps/docs/installation/docker-run.md"),
+      read("apps/docs/operations/container-image.md"),
+      read("apps/docs/operations/health-checks.md"),
     ].join("\n"),
   };
 }
@@ -178,12 +178,12 @@ export function validateImagePolicy(inputs, now = new Date()) {
   }
   if (
     !inputs.dockerfile.includes("FROM frontend_artifact AS frontend-builder") ||
-    !inputs.dockerfile.includes("COPY --from=frontend-builder / ./backend/cmd/openpost/public")
+    !inputs.dockerfile.includes("COPY --from=frontend-builder / ./apps/server/cmd/openpost/public")
   ) {
     problems.push("Dockerfile must embed the caller-supplied canonical frontend artifact");
   }
   if (
-    !inputs.ci.includes("--build-context frontend_artifact=backend/cmd/openpost/public") ||
+    !inputs.ci.includes("--build-context frontend_artifact=apps/server/cmd/openpost/public") ||
     inputs.dockerfile.includes("bun run --filter @openpost/web build")
   ) {
     problems.push("candidate image must consume the CI-built frontend without rebuilding it");

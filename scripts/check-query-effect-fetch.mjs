@@ -5,12 +5,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "svelte/compiler";
 import ts from "typescript";
 
-const sourceRoots = ["frontend/src", "mobile/src"];
+const sourceRoots = ["apps/web/src", "apps/mobile/src"];
 const sourceExtensions = new Set([".svelte", ".ts", ".tsx"]);
-const webQueryAdapterPrefix = "frontend/src/lib/query/";
+const webQueryAdapterPrefix = "apps/web/src/lib/query/";
 const mobileQueryAdapters = new Set([
-  "mobile/src/lib/app-bootstrap.ts",
-  "mobile/src/lib/query-api.ts",
+  "apps/mobile/src/lib/app-bootstrap.ts",
+  "apps/mobile/src/lib/query-api.ts",
 ]);
 
 const effectHookNames = new Set(["$effect", "useEffect", "useLayoutEffect", "useFocusEffect"]);
@@ -24,7 +24,7 @@ const imperativeQueryMethods = new Set(["query", "fetchQuery", "prefetchQuery"])
 // the render path must never grow new effect-driven reads silently.
 const effectReadAllowlist = [
   {
-    file: "frontend/src/lib/video-editor/components/preview-layer.svelte",
+    file: "apps/web/src/lib/video-editor/components/preview-layer.svelte",
     kind: "transport.fetch",
     reason:
       "local-first canvas asset load: lottie animation bytes for the preview frame, with disposal guard; not server state",

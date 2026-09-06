@@ -10,8 +10,8 @@ Do not adopt `@lando/vitepress-theme-default-plus` as OpenPost's base docs theme
 
 OpenPost has 93 tracked documentation pages but only two use frontmatter. Its content is organized as stable task and reference documentation, not a dated article stream. The existing theme extension also owns behavior that must survive any migration:
 
-- OpenPost social and canonical metadata in `docs-site/.vitepress/config.ts`;
-- PostHog page views and error capture in `docs-site/.vitepress/theme/index.ts`;
+- OpenPost social and canonical metadata in `apps/docs/.vitepress/config.ts`;
+- PostHog page views and error capture in `apps/docs/.vitepress/theme/index.ts`;
 - lazy registration of `vitepress-openapi` only on the API reference route;
 - custom brand CSS and generated `index.md` and `llms.txt` output.
 

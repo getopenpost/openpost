@@ -30,11 +30,11 @@ test("the frontend package cache restores output and invalidates on root assets"
     await rm(cacheDirectory, { recursive: true, force: true });
     await rm(runCountPath, { force: true });
   });
-  await mkdir(path.join(directory, "frontend"), { recursive: true });
+  await mkdir(path.join(directory, "apps/web"), { recursive: true });
   await mkdir(path.join(directory, "assets"), { recursive: true });
   const rootTurbo = JSON.parse(await readFile(path.join(root, "turbo.json"), "utf8"));
   const frontendTurbo = JSON.parse(
-    await readFile(path.join(root, "frontend", "turbo.json"), "utf8"),
+    await readFile(path.join(root, "apps/web", "turbo.json"), "utf8"),
   );
   await Promise.all([
     writeFile(
@@ -43,7 +43,7 @@ test("the frontend package cache restores output and invalidates on root assets"
         name: "build-graph-fixture",
         private: true,
         packageManager: "npm@10.9.0",
-        workspaces: ["frontend"],
+        workspaces: ["apps/web"],
       })}\n`,
     ),
     writeFile(
@@ -53,16 +53,16 @@ test("the frontend package cache restores output and invalidates on root assets"
         lockfileVersion: 3,
         requires: true,
         packages: {
-          "": { name: "build-graph-fixture", workspaces: ["frontend"] },
-          frontend: { name: "@fixture/web", version: "1.0.0" },
+          "": { name: "build-graph-fixture", workspaces: ["apps/web"] },
+          "apps/web": { name: "@fixture/web", version: "1.0.0" },
         },
       })}\n`,
     ),
     writeFile(path.join(directory, ".gitignore"), ".turbo/\n"),
     writeFile(path.join(directory, "turbo.json"), `${JSON.stringify(rootTurbo)}\n`),
-    writeFile(path.join(directory, "frontend", "turbo.json"), `${JSON.stringify(frontendTurbo)}\n`),
+    writeFile(path.join(directory, "apps/web", "turbo.json"), `${JSON.stringify(frontendTurbo)}\n`),
     writeFile(
-      path.join(directory, "frontend", "package.json"),
+      path.join(directory, "apps/web", "package.json"),
       `${JSON.stringify({
         name: "@fixture/web",
         version: "1.0.0",
@@ -71,10 +71,10 @@ test("the frontend package cache restores output and invalidates on root assets"
       })}\n`,
     ),
     writeFile(
-      path.join(directory, "frontend", "build.mjs"),
+      path.join(directory, "apps/web", "build.mjs"),
       [
         'import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";',
-        'const input = await readFile(new URL("../assets/cache-input.txt", import.meta.url));',
+        'const input = await readFile(new URL("../../assets/cache-input.txt", import.meta.url));',
         'await mkdir(new URL("./build", import.meta.url), { recursive: true });',
         'await writeFile(new URL("./build/artifact.txt", import.meta.url), input);',
         `await appendFile(${JSON.stringify(runCountPath)}, "run\\n");`,
@@ -96,14 +96,14 @@ test("the frontend package cache restores output and invalidates on root assets"
   ];
   runTurbo(directory, [...common, "--force"]);
   assert.equal(
-    await readFile(path.join(directory, "frontend", "build", "artifact.txt"), "utf8"),
+    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
     "alpha\n",
   );
-  await rm(path.join(directory, "frontend", "build"), { recursive: true });
+  await rm(path.join(directory, "apps/web", "build"), { recursive: true });
 
   runTurbo(directory, common);
   assert.equal(
-    await readFile(path.join(directory, "frontend", "build", "artifact.txt"), "utf8"),
+    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
     "alpha\n",
   );
   assert.equal(await readFile(runCountPath, "utf8"), "run\n");
@@ -111,14 +111,14 @@ test("the frontend package cache restores output and invalidates on root assets"
   await writeFile(path.join(directory, "assets", "cache-input.txt"), "beta\n");
   runTurbo(directory, common);
   assert.equal(
-    await readFile(path.join(directory, "frontend", "build", "artifact.txt"), "utf8"),
+    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
     "beta\n",
   );
   assert.equal(await readFile(runCountPath, "utf8"), "run\nrun\n");
 });
 
 test("the frontend cache stores compiled output without immutable editor assets", async () => {
-  const turboJSON = JSON.parse(await readFile(path.join(root, "frontend", "turbo.json"), "utf8"));
+  const turboJSON = JSON.parse(await readFile(path.join(root, "apps/web", "turbo.json"), "utf8"));
   for (const directory of ["image-editor-models"]) {
     assert.ok(turboJSON.tasks.build.outputs.includes(`!build/${directory}/**`));
     assert.ok(turboJSON.tasks.build.inputs.includes(`!static/${directory}/**`));

@@ -16,7 +16,7 @@ provider-parity, or product gap that OpenPost should address?
 ## Method
 
 - Reviewed all 51 TryPost commits in the window from the shallow reference
-  checkout at `references/trypost/`.
+  checkout at `docs/references/trypost/`.
 - Grouped related follow-up commits into 25 substantive change clusters.
 - Read the source diffs, not only commit messages or release notes.
 - Compared each candidate with current OpenPost code and recent OpenPost history.
@@ -57,8 +57,8 @@ Pages are available only through Business Portfolio `owned_pages` or
 `client_pages` edges.
 
 OpenPost requests `business_management`, but
-`backend/internal/platform/facebook.go` and
-`backend/internal/platform/instagram.go` still discover accounts from
+`apps/server/internal/platform/facebook.go` and
+`apps/server/internal/platform/instagram.go` still discover accounts from
 `/me/accounts` only. Both request `limit=100`, read one response, and do not
 follow a paging cursor. Requesting the broader permission without traversing
 the corresponding edges leaves valid Pages undiscoverable.
@@ -85,13 +85,13 @@ This is the clearest user-visible parity gap in the audit.
 - [Meta Graph API error handling](https://developers.facebook.com/docs/graph-api/guides/error-handling/)
 - [Meta Graph API rate limiting](https://developers.facebook.com/docs/graph-api/overview/rate-limiting/)
 
-OpenPost's `backend/internal/platform/errors.go` safely retains HTTP status, one
+OpenPost's `apps/server/internal/platform/errors.go` safely retains HTTP status, one
 provider code, and `Retry-After`. That is a strong privacy boundary, but it is
 not enough for Meta:
 
 - Meta often returns auth, permission, rate-limit, and transient failures as
   HTTP 400.
-- `backend/internal/services/publisher/failures.go` classifies a generic HTTP
+- `apps/server/internal/services/publisher/failures.go` classifies a generic HTTP
   400 as content validation. A Meta token rejection can therefore tell the
   user to edit content instead of reconnecting.
 - Meta Business Use Case rate limits can also arrive as HTTP 400, so treating
@@ -126,7 +126,7 @@ TryPost verifies active destinations for posts due within the next hour and
 notifies the user before publish time when a confirmed connection failure
 needs intervention.
 
-OpenPost refreshes tokens through `backend/internal/services/tokenmanager/`
+OpenPost refreshes tokens through `apps/server/internal/services/tokenmanager/`
 and handles failures during publishing, but it has no equivalent preflight
 flow for scheduled renditions. A destination can therefore remain apparently
 healthy until the durable publish job reaches it.
@@ -156,7 +156,7 @@ OpenPost already has the right generic machinery:
 - TikTok checkpoints its `publish_id` and implements `ReconcilePublish`.
 
 TikTok is therefore already covered. Instagram is not. In
-`backend/internal/platform/instagram.go`, the adapter creates one or more media
+`apps/server/internal/platform/instagram.go`, the adapter creates one or more media
 containers, polls them, and publishes them without checkpointing the container
 IDs. A worker failure after container creation cannot resume that remote work.
 The generic write fence prevents a blind duplicate, but the likely result is
@@ -180,7 +180,7 @@ Do not add a parallel Instagram-only job state model.
 TryPost reproduced database failures from legacy filenames containing invalid
 bytes and normalized every media-ingest path.
 
-OpenPost's `backend/internal/api/handlers/media.go` stores multipart
+OpenPost's `apps/server/internal/api/handlers/media.go` stores multipart
 `FileHeader.Filename` in both buffered and streaming upload paths. Go's
 multipart parser can preserve an invalid filename byte, so this string is not
 guaranteed to be valid UTF-8 before database persistence or JSON output.
@@ -221,7 +221,7 @@ to the self-hosted core path unless an operator enables it.
 | [#263 concurrent upload collision](https://github.com/trypostit/trypost/commit/676afb15ba5f9dfcf85484ac54e8fc2ef5fa9256)                                | Covered by server-created upload-session UUIDs, idempotency, centralized deduplication, cancellation reconciliation, and no identity derived only from user, filename, and size. |
 | [#220 OpenRouter routing](https://github.com/trypostit/trypost/commit/eb52b6b699df81ec261e62f7f3864c1a0257c312)                                         | OpenPost AI calls use the shared provider-neutral boundary and shared model/config selection rather than a per-feature provider path.                                            |
 | [#272 LinkedIn Page post URLs](https://github.com/trypostit/trypost/commit/29e90c52afbe74068b0ae9fca7c5816d88a83a02)                                    | OpenPost stores external IDs and resolves provider content URLs through the adapter contract instead of relying on a truncated organization URL.                                 |
-| [#277 backend signup and checkout events](https://github.com/trypostit/trypost/commit/de54ea24f958e7b71a02de94f3ad77fae4b07d06)                         | `backend/internal/telemetry/telemetry.go` already defines server-side signup, billing-checkout-created, and checkout-completed events.                                           |
+| [#277 backend signup and checkout events](https://github.com/trypostit/trypost/commit/de54ea24f958e7b71a02de94f3ad77fae4b07d06)                         | `apps/server/internal/telemetry/telemetry.go` already defines server-side signup, billing-checkout-created, and checkout-completed events.                                       |
 | TikTok half of [#281](https://github.com/trypostit/trypost/commit/4546425532db33896180e629d3dcff435722338c)                                             | TikTok checkpoints `publish_id`, marks the write reconcile-only, and implements pending publish reconciliation.                                                                  |
 | [#282 Asset Library API and MCP](https://github.com/trypostit/trypost/commit/eb2b345163a72124e501dc01155516107f44796a)                                  | OpenPost exposes workspace media through HTTP and MCP, supports URL ingestion, and accepts publication `media_ids`. Its surface is broader than the specific TryPost addition.   |
 | [#297 nullable MCP `last_used_at`](https://github.com/trypostit/trypost/commit/097f30c765390524c6bdaee83246476cb6be87e8)                                | `APITokenResponse.LastUsedAt` is already nullable and produced through `optionalTime`; the settings UI handles absent values.                                                    |

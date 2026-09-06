@@ -101,10 +101,6 @@ const checks = {
     bun("scripts/legal-policy-manifest.mjs", "check"),
     bun("scripts/check-browser-storage-inventory.mjs"),
   ]),
-  "marketing-claims": stage("marketing claims", [
-    bunTest("scripts/marketing-claims.test.mjs"),
-    bun("scripts/marketing-claims.mjs"),
-  ]),
   "provider-certification": stage("provider certification", [
     bunTest("scripts/provider-certification-manifest.test.mjs"),
     bun("scripts/provider-certification-manifest.mjs", "check"),
@@ -125,7 +121,7 @@ const checks = {
     bun("scripts/social-images/catalog.mjs", "--check"),
     bunTest("packages/social-images/src/index.test.mjs"),
     commandStep("bunx", "tsc", "--noEmit", "-p", "tsconfig.functions.json", {
-      cwd: "marketing-site",
+      cwd: "apps/marketing",
     }),
     commandStep(
       "bunx",
@@ -138,12 +134,21 @@ const checks = {
       ".wrangler/functions",
       "--project-directory",
       ".",
-      { cwd: "marketing-site" },
+      { cwd: "apps/marketing" },
     ),
   ]),
   reachability: stage("production reachability", [
     commandStep("scripts/check-go-deadcode.sh"),
-    commandStep("bunx", "knip", "--production", "--include", "files", "--no-config-hints"),
+    commandStep(
+      "bunx",
+      "knip",
+      "--config",
+      "config/knip.jsonc",
+      "--production",
+      "--include",
+      "files",
+      "--no-config-hints",
+    ),
   ]),
   "secret-scan": stage("secret scan", [commandStep("bash", "scripts/scan-secrets.sh")]),
   compatibility: stage("compatibility surfaces", [
@@ -184,14 +189,7 @@ const policyGroups = [
     "release-version",
     "secret-scan",
   ],
-  [
-    "app-routes",
-    "public-routes",
-    "legal-policy",
-    "marketing-claims",
-    "provider-certification",
-    "provider-facts",
-  ],
+  ["app-routes", "public-routes", "legal-policy", "provider-certification", "provider-facts"],
   [
     "plan-catalog",
     "changelog",
@@ -271,7 +269,7 @@ function devPlan(requestedScope) {
   const stages = {
     frontend: stage("frontend development server", [bunRun("--filter", "@openpost/web", "dev")]),
     backend: stage("backend development server", [
-      go("run", "-tags", "dev", "./cmd/openpost", { cwd: "backend" }),
+      go("run", "-tags", "dev", "./cmd/openpost", { cwd: "apps/server" }),
     ]),
     marketing: stage("marketing development server", [bunRun("--filter", "@openpost/site", "dev")]),
     docs: stage("documentation development server", [bunRun("--filter", "@openpost/docs", "dev")]),
@@ -307,11 +305,11 @@ function formatPlan(requestedCommand, requestedScope) {
       },
     ]);
   const stages = {
-    frontend: oxfmt("frontend format", ".", "frontend"),
-    backend: gofmt("backend format", "backend"),
-    cli: gofmt("CLI format", "cli"),
-    marketing: oxfmt("marketing format", ".", "marketing-site"),
-    docs: oxfmt("documentation format", "docs-site"),
+    frontend: oxfmt("frontend format", ".", "apps/web"),
+    backend: gofmt("backend format", "apps/server"),
+    cli: gofmt("CLI format", "apps/cli"),
+    marketing: oxfmt("marketing format", ".", "apps/marketing"),
+    docs: oxfmt("documentation format", "apps/docs"),
   };
   if (requestedScope) return plan(requestedCommand, requestedScope, [[stages[requestedScope]]]);
   return plan(requestedCommand, undefined, [
@@ -328,13 +326,15 @@ function lintPlan(requestedScope) {
   ]);
   const backend = stage("backend lint", [
     commandStep("golangci-lint", "run", "--build-tags", "dev", "./...", {
-      cwd: "backend",
+      cwd: "apps/server",
       prepareEmbed: true,
     }),
   ]);
-  const cli = stage("CLI lint", [commandStep("golangci-lint", "run", "./...", { cwd: "cli" })]);
+  const cli = stage("CLI lint", [
+    commandStep("golangci-lint", "run", "./...", { cwd: "apps/cli" }),
+  ]);
   const marketing = stage("marketing lint", [
-    commandStep("bunx", "oxlint", "--config", "frontend/.oxlintrc.json", "marketing-site"),
+    commandStep("bunx", "oxlint", "--config", "apps/web/.oxlintrc.json", "apps/marketing"),
   ]);
   const docs = checks.docs;
   const byScope = { frontend, backend, cli, marketing, docs };
@@ -367,9 +367,9 @@ function checkPlan(requestedScope, requestedOptions) {
     commandStep("bunx", "turbo", "run", "check", "--filter", "@openpost/site"),
   ]);
   const backend = stage("backend types", [
-    go("test", "-tags", "dev", "-run", "^$", "./...", { cwd: "backend" }),
+    go("test", "-tags", "dev", "-run", "^$", "./...", { cwd: "apps/server" }),
   ]);
-  const cli = stage("CLI types", [go("test", "-run", "^$", "./...", { cwd: "cli" })]);
+  const cli = stage("CLI types", [go("test", "-run", "^$", "./...", { cwd: "apps/cli" })]);
   const policy = stage("repository policy", [commandStep("bunx", "turbo", "run", "_policy")]);
 
   if (requestedScope === "frontend") {
@@ -405,8 +405,8 @@ function testPlan(requestedScope, requestedOptions) {
     backendArguments.push(`-coverprofile=${process.env.OPENPOST_GO_COVERAGE_FILE}`);
   }
   backendArguments.push("./...");
-  const backend = stage("backend tests", [go(...backendArguments, { cwd: "backend" })]);
-  const cli = stage("CLI tests", [go("test", "./...", { cwd: "cli" })]);
+  const backend = stage("backend tests", [go(...backendArguments, { cwd: "apps/server" })]);
+  const cli = stage("CLI tests", [go("test", "./...", { cwd: "apps/cli" })]);
   const frontend = stage("frontend tests", [
     commandStep(
       "bunx",
@@ -434,7 +434,6 @@ function testPlan(requestedScope, requestedOptions) {
     bunTest(
       "scripts/check-marketing-route-manifest.test.mjs",
       "scripts/marketing-agent-readiness.test.mjs",
-      "scripts/marketing-claims.test.mjs",
       "scripts/legal-policy-manifest.test.mjs",
     ),
   ]);
@@ -447,10 +446,10 @@ function testPlan(requestedScope, requestedOptions) {
   ]);
   const browser = {
     e2e: stage("browser tests", [
-      commandStep("bunx", "playwright", "test", "--config", "e2e/playwright.config.ts"),
+      commandStep("bunx", "playwright", "test", "--config", "tests/marketing/playwright.config.ts"),
     ]),
     "e2e-app": stage("application browser tests", [
-      commandStep("bunx", "playwright", "test", "--config", "e2e-app/playwright.config.ts"),
+      commandStep("bunx", "playwright", "test", "--config", "tests/app/playwright.config.ts"),
     ]),
   };
 
@@ -490,7 +489,7 @@ function buildPlan(requestedScope) {
     bunRun("--filter", "@openpost/web", "package"),
   ]);
   const backend = stage("backend build", [{ type: "backend-build", display: "go build backend" }]);
-  const cli = stage("CLI build", [go("build", "./...", { cwd: "cli" })]);
+  const cli = stage("CLI build", [go("build", "./...", { cwd: "apps/cli" })]);
   const marketing = stage("marketing build", [
     commandStep("bunx", "turbo", "run", "build", "--filter", "@openpost/site"),
   ]);
@@ -589,7 +588,7 @@ async function runStep(step, signal, cacheDirectory) {
   if (step.type === "gofmt") return runGofmt(step, signal);
   if (step.type === "backend-build") return runBackendBuild(signal);
   if (step.prepareEmbed) {
-    const directory = path.join(root, "backend/cmd/openpost/public");
+    const directory = path.join(root, "apps/server/cmd/openpost/public");
     await mkdir(directory, { recursive: true });
     await Bun.write(path.join(directory, ".gitkeep"), "");
   }
@@ -627,7 +626,7 @@ async function runBackendBuild(signal) {
       "openpost",
       "./cmd/openpost",
     ],
-    { cwd: "backend" },
+    { cwd: "apps/server" },
     signal,
   );
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { marketingSocialEntries } from "../packages/social-images/src/index.js";
-import { platforms } from "../marketing-site/src/routes/_marketing.ts";
+import { platforms } from "../apps/marketing/src/routes/_marketing.ts";
 import { publishedProviderAssetSlugs } from "./asset-surfaces.ts";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -111,9 +111,9 @@ async function maintainedCopyFiles(root) {
   const roots = [
     ".github/copilot-instructions.md",
     "README.md",
-    "docs-site",
+    "apps/docs",
     "docs/launch-kit",
-    "marketing-site/src",
+    "apps/marketing/src",
     "packages/social-images/src/index.js",
   ];
   const files = [];
@@ -143,7 +143,7 @@ async function maintainedCopyFiles(root) {
 
 export async function validateProviderCatalogFacts(root = repositoryRoot) {
   const backendSource = await readFile(
-    path.join(root, "backend/internal/api/handlers/oauth.go"),
+    path.join(root, "apps/server/internal/api/handlers/oauth.go"),
     "utf8",
   );
   const canonical = backendProviderCatalog(backendSource);
@@ -168,7 +168,7 @@ export async function validateProviderCatalogFacts(root = repositoryRoot) {
     ...sameSetProblems("provider asset catalogue", [...publishedProviderAssetSlugs], canonical),
   );
 
-  const documentationPages = (await readdir(path.join(root, "docs-site/providers")))
+  const documentationPages = (await readdir(path.join(root, "apps/docs/providers")))
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -3))
     .filter((slug) => !nonProviderDocumentationPages.has(slug));
@@ -190,7 +190,7 @@ async function main() {
     process.exit(1);
   }
   const source = await readFile(
-    path.join(repositoryRoot, "backend/internal/api/handlers/oauth.go"),
+    path.join(repositoryRoot, "apps/server/internal/api/handlers/oauth.go"),
     "utf8",
   );
   console.log(

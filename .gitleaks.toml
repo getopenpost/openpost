@@ -9,7 +9,7 @@ description = "Video EQ field-map keys are identifiers, not credentials"
 targetRules = ["generic-api-key"]
 condition = "AND"
 regexTarget = "line"
-paths = ['''(?:^|/)frontend/src/lib/video-editor/components/audio-eq-panel\.svelte$''']
+paths = ['''(?:^|/)(?:frontend|apps/web)/src/lib/video-editor/components/audio-eq-panel\.svelte$''']
 regexes = ['''(?:frequencyKey|slopeKey):\s*'band[0-9]+(?:FrequencyHz|SlopeDbPerOct)'\s*,''']
 
 [[allowlists]]
@@ -17,7 +17,7 @@ description = "Discord guild credential prefix and the following safe error-code
 targetRules = ["discord-client-secret"]
 condition = "AND"
 regexTarget = "match"
-paths = ['''(?:^|/)backend/internal/platform/discord_bot\.go$''']
+paths = ['''(?:^|/)(?:backend|apps/server)/internal/platform/discord_bot\.go$''']
 regexes = ['''discord-guild:"\s+discordChannelPermissionLostCode''']
 
 [[allowlists]]
@@ -25,5 +25,5 @@ description = "Localized Discord bot label and description keys are UI copy iden
 targetRules = ["discord-client-secret"]
 condition = "AND"
 regexTarget = "match"
-paths = ['''(?:^|/)frontend/messages/[^/]+\.json$''']
+paths = ['''(?:^|/)(?:frontend|apps/web)/messages/[^/]+\.json$''']
 regexes = ['''(?:Discord(?: bot)?|Discord-Bot)",\s+"accounts_discord_bot_description''']

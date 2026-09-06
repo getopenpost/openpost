@@ -30,7 +30,7 @@ Load only the branch the task needs:
 | n8n package release                                                     | `docs/agents/n8n-package-release.md`                                                                |
 | Video Editor, Quick Cut, or Recorder                                    | `docs/specs/video-editors-rebuild.md` and the relevant rows in `docs/specs/freecut-parity-audit.md` |
 
-For reference implementations, read `references/README.md` before inspecting a checkout. Use `postiz` or `shoutrrr` for publishing and durable automation, `miniPaint` for the Image Editor, and the named video references for recording or editing. Keep reference checkouts shallow and Git-ignored. Audit source and license before porting code; OpenPost's architecture, security, accessibility, provider rules, and product language remain authoritative.
+For reference implementations, read `docs/references/README.md` before inspecting a checkout. Use `postiz` or `shoutrrr` for publishing and durable automation, `miniPaint` for the Image Editor, and the named video references for recording or editing. Keep reference checkouts shallow and Git-ignored. Audit source and license before porting code; OpenPost's architecture, security, accessibility, provider rules, and product language remain authoritative.
 
 ## Authorities
 
@@ -38,23 +38,23 @@ For reference implementations, read `references/README.md` before inspecting a c
 - **Hindsight bank `rodrigo`** owns durable product terms, decisions, constraints, and history. Before substantial work, recall `project:openpost`, then verify the result against current code, Vikunja, or the live system. Retain only verified durable facts tagged `project:openpost` and `source:<agent>`.
 - **This repository** owns code, tests, generated contracts, build and security rules, and public technical documentation. Keep project state out of repo-local memory files and mutable task boards.
 
-Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, social artwork in `assets/social/`, and browser configurations with their test suites. Keep `PRODUCT.md` and `DESIGN.md` at the root for design-tool discovery. Local review reports and screenshots are ignored; commit maintained acceptance inputs with their owning tests or design sources.
+Keep deployable projects in `apps/`, shared runtime code in `packages/`, browser suites in `tests/`, deployment files in `deploy/`, and repository manifests in `config/`. Public Go module names and root task scopes do not change when source folders move. Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, social artwork in `assets/social/`, and browser configurations with their test suites. Keep `PRODUCT.md` and `DESIGN.md` at the root for design-tool discovery. Local review reports and screenshots are ignored; commit maintained acceptance inputs with their owning tests or design sources.
 
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.
 - Publications are the canonical authored-content inventory. Page reads use stored state; provider calls occur only in explicit sync or durable job flows.
-- Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `backend/internal/platform/`.
+- Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `apps/server/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
-- PWA registration uses an absolute root URL through `SvelteKitPWA` and `pwa-manager.svelte`. Updates wait for open windows to close. Cache only public app resources; exclude API, authorization, query-bearing navigations, and original media. Test service workers against the production build with `e2e-app/pwa.spec.ts`, not Vite dev.
+- PWA registration uses an absolute root URL through `SvelteKitPWA` and `pwa-manager.svelte`. Updates wait for open windows to close. Cache only public app resources; exclude API, authorization, query-bearing navigations, and original media. Test service workers against the production build with `tests/app/pwa.spec.ts`, not Vite dev.
 - Authored color fields use `$lib/components/color-picker.svelte`. Keep canvas sampling, grading tools, CSS color expressions, and provider color categories in their specialized owners.
 - `@openpost/query-catalog` owns cache-safe remote reads across web and mobile. Mutations reconcile through its affected keys; each route owns one cold loading boundary and keeps cached state visible while refreshing.
-- Mobile server, token, and Workspace persistence is one transaction boundary owned by `mobile/src/lib/identity-store.ts`. Keep all three behind its queue and crash marker; a committed server change clears the server-scoped session.
+- Mobile server, token, and Workspace persistence is one transaction boundary owned by `apps/mobile/src/lib/identity-store.ts`. Keep all three behind its queue and crash marker; a committed server change clears the server-scoped session.
 - API, CLI, MCP, and product surfaces share terms, authorization, and workspace boundaries. For a contract change, edit its source and regenerate every consumer.
 - Put Huma request size limits on `huma.Operation.MaxBodyBytes`. Do not read and replace an HTTP request body before Huma, because Huma's body-read deadline can then cancel a long-running handler after the body is already buffered.
-- External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `backend/internal/services/externalapps/`; keep durable signed delivery in `backend/internal/services/externalwebhooks/`.
-- AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
+- External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `apps/server/internal/services/externalapps/`; keep durable signed delivery in `apps/server/internal/services/externalwebhooks/`.
+- AI features use maintained SDKs behind `apps/server/internal/ai/` and the shared model and configuration choices.
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.
 - Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.
 - Image layers without `color_grade_version` retain legacy Fabric adjustments. Version 1 routes layer and page-output grading through the shared editor color pipeline and the Fabric preview/export adapter. Never migrate legacy layers implicitly.

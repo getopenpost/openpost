@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "surfaces": {
+    "application": {
+      "description": "Server, web and native applications, CLI, shared runtime packages, and application browser coverage",
+      "prefixes": [
+        "apps/server/",
+        "apps/cli/",
+        "tests/app/",
+        "docs/examples/",
+        "apps/web/",
+        "apps/mobile/",
+        "packages/"
+      ]
+    },
+    "marketing": {
+      "description": "Public marketing site, public social assets, and marketing browser coverage",
+      "prefixes": [
+        "tests/marketing/",
+        "apps/marketing/",
+        "packages/changelog/",
+        "packages/legal-policy/",
+        "packages/social-images/",
+        "packages/social-preview/",
+        "assets/social/"
+      ]
+    },
+    "documentation": {
+      "description": "Product, operator, contributor, policy, and generated documentation",
+      "prefixes": ["apps/docs/", "docs/", "licenses/", "packages/social-images/"],
+      "paths": [
+        "AGENTS.md",
+        "CHANGELOG.md",
+        ".github/CODE_OF_CONDUCT.md",
+        ".github/CONTRIBUTING.md",
+        "DESIGN.md",
+        "PRODUCT.md",
+        "README.md",
+        ".github/SECURITY.md",
+        "licenses/README.md"
+      ]
+    },
+    "delivery": {
+      "description": "Build, test, image, deployment, release, certification, and repository environment contracts",
+      "prefixes": [".github/", "changes/", "config/", "deploy/", "scripts/"],
+      "paths": [
+        ".dockerignore",
+        ".env.example",
+        ".envrc",
+        ".gitleaks.toml",
+        ".oxfmtrc.json",
+        "bun.lock",
+        "bunfig.toml",
+        "deploy/cloudflare/edge-plan.json",
+        "config/compatibility-surfaces.json",
+        "devenv.lock",
+        "devenv.nix",
+        "devenv.yaml",
+        "docker-compose.yml",
+        "config/knip.jsonc",
+        "package.json",
+        "config/release-surfaces.json",
+        "turbo.json"
+      ]
+    },
+    "launch": {
+      "description": "Reviewable launch campaign templates and distribution evidence",
+      "prefixes": ["docs/launch-kit/"]
+    },
+    "agent-tools": {
+      "description": "Repository-owned agent instructions, published CLI skill, and design sources",
+      "prefixes": [".agents/", "assets/design/"],
+      "paths": [".github/copilot-instructions.md", "config/mcp/server.json"]
+    },
+    "shared-assets": {
+      "description": "Canonical assets copied into one or more shipped web surfaces",
+      "prefixes": [
+        "assets/ai-logos/",
+        "assets/brand/",
+        "assets/customer-logos/",
+        "assets/logos/",
+        "assets/postiz-socials/",
+        "assets/screenshots/",
+        "assets/star-history/",
+        "assets/testimonial-portraits/"
+      ]
+    },
+    "repository": {
+      "description": "Repository behavior and licensing with no standalone runtime owner",
+      "paths": [".gitattributes", ".gitignore", ".rgignore", "LICENSE"]
+    }
+  },
+  "exemptions": []
+}

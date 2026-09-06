@@ -16,7 +16,7 @@
         "turbo": "^2.6.3",
       },
     },
-    "docs-site": {
+    "apps/docs": {
       "name": "@openpost/docs",
       "devDependencies": {
         "@openpost/social-images": "workspace:*",
@@ -27,7 +27,46 @@
         "vitepress-openapi": "^0.1.20",
       },
     },
-    "frontend": {
+    "apps/marketing": {
+      "name": "@openpost/site",
+      "dependencies": {
+        "@cloudflare/pages-plugin-vercel-og": "^0.1.2",
+        "@fontsource-variable/geist": "^5.2.8",
+        "@fontsource-variable/manrope": "^5.2.8",
+        "@lucide/svelte": "^0.577.0",
+        "@openpost/changelog": "workspace:*",
+        "@openpost/legal-policy": "workspace:*",
+        "@openpost/plan-catalog": "workspace:*",
+        "@openpost/social-images": "workspace:*",
+        "@openpost/social-preview": "workspace:*",
+        "@openpost/telemetry": "workspace:*",
+        "clsx": "^2.1.1",
+        "mode-watcher": "^1.1.0",
+        "react": "^19.2.8",
+        "tailwind-merge": "^3.5.0",
+        "tailwind-variants": "^3.2.2",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^5.20260801.1",
+        "@inlang/paraglide-js": "^2.10.0",
+        "@posthog/rollup-plugin": "1.4.7",
+        "@sveltejs/adapter-static": "^3.0.10",
+        "@sveltejs/kit": "^2.70.2",
+        "@sveltejs/vite-plugin-svelte": "^7.3.0",
+        "@tailwindcss/forms": "^0.5.11",
+        "@tailwindcss/typography": "^0.5.19",
+        "@tailwindcss/vite": "^4.1.18",
+        "@types/react": "^19.2.18",
+        "svelte": "^5.51.0",
+        "svelte-check": "^4.4.2",
+        "tailwindcss": "^4.1.18",
+        "tw-animate-css": "^1.4.0",
+        "typescript": "^5.9.3",
+        "vite": "^8.2.1",
+        "wrangler": "^4.118.0",
+      },
+    },
+    "apps/web": {
       "name": "@openpost/web",
       "dependencies": {
         "@asamuzakjp/css-color": "3.2.0",
@@ -131,45 +170,6 @@
         "vite-plugin-pwa": "^1.1.0",
         "vitest": "^4.1.10",
         "vitest-browser-svelte": "^2.2.1",
-      },
-    },
-    "marketing-site": {
-      "name": "@openpost/site",
-      "dependencies": {
-        "@cloudflare/pages-plugin-vercel-og": "^0.1.2",
-        "@fontsource-variable/geist": "^5.2.8",
-        "@fontsource-variable/manrope": "^5.2.8",
-        "@lucide/svelte": "^0.577.0",
-        "@openpost/changelog": "workspace:*",
-        "@openpost/legal-policy": "workspace:*",
-        "@openpost/plan-catalog": "workspace:*",
-        "@openpost/social-images": "workspace:*",
-        "@openpost/social-preview": "workspace:*",
-        "@openpost/telemetry": "workspace:*",
-        "clsx": "^2.1.1",
-        "mode-watcher": "^1.1.0",
-        "react": "^19.2.8",
-        "tailwind-merge": "^3.5.0",
-        "tailwind-variants": "^3.2.2",
-      },
-      "devDependencies": {
-        "@cloudflare/workers-types": "^5.20260801.1",
-        "@inlang/paraglide-js": "^2.10.0",
-        "@posthog/rollup-plugin": "1.4.7",
-        "@sveltejs/adapter-static": "^3.0.10",
-        "@sveltejs/kit": "^2.70.2",
-        "@sveltejs/vite-plugin-svelte": "^7.3.0",
-        "@tailwindcss/forms": "^0.5.11",
-        "@tailwindcss/typography": "^0.5.19",
-        "@tailwindcss/vite": "^4.1.18",
-        "@types/react": "^19.2.18",
-        "svelte": "^5.51.0",
-        "svelte-check": "^4.4.2",
-        "tailwindcss": "^4.1.18",
-        "tw-animate-css": "^1.4.0",
-        "typescript": "^5.9.3",
-        "vite": "^8.2.1",
-        "wrangler": "^4.118.0",
       },
     },
     "packages/api-contract": {
@@ -929,7 +929,7 @@
 
     "@openpost/changelog": ["@openpost/changelog@workspace:packages/changelog"],
 
-    "@openpost/docs": ["@openpost/docs@workspace:docs-site"],
+    "@openpost/docs": ["@openpost/docs@workspace:apps/docs"],
 
     "@openpost/legal-policy": ["@openpost/legal-policy@workspace:packages/legal-policy"],
 
@@ -937,7 +937,7 @@
 
     "@openpost/query-catalog": ["@openpost/query-catalog@workspace:packages/query-catalog"],
 
-    "@openpost/site": ["@openpost/site@workspace:marketing-site"],
+    "@openpost/site": ["@openpost/site@workspace:apps/marketing"],
 
     "@openpost/social-images": ["@openpost/social-images@workspace:packages/social-images"],
 
@@ -947,7 +947,7 @@
 
     "@openpost/video-project": ["@openpost/video-project@workspace:packages/video-project"],
 
-    "@openpost/web": ["@openpost/web@workspace:frontend"],
+    "@openpost/web": ["@openpost/web@workspace:apps/web"],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
 
@@ -3342,6 +3342,8 @@
     "@openpost/docs/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "@openpost/plan-catalog/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@openpost/query-catalog/@openpost/api-contract": ["@openpost/api-contract@file:packages/api-contract", { "devDependencies": { "typescript": "5.9.3" } }],
 
     "@openpost/query-catalog/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

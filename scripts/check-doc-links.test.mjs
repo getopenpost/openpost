@@ -39,18 +39,18 @@ test("collects nested VitePress nav and sidebar links once", () => {
 
 test("finds pages that are outside the configured documentation graph", () => {
   const pages = [
-    "docs-site/index.md",
-    "docs-site/guide/index.md",
-    "docs-site/guide/setup.md",
-    "docs-site/guide/details.md",
-    "docs-site/orphan.md",
+    "apps/docs/index.md",
+    "apps/docs/guide/index.md",
+    "apps/docs/guide/setup.md",
+    "apps/docs/guide/details.md",
+    "apps/docs/orphan.md",
   ];
   const contents = new Map([
-    ["docs-site/index.md", "[Guide](/guide/)"],
-    ["docs-site/guide/index.md", "[Setup](./setup)"],
-    ["docs-site/guide/setup.md", "[Details](./details.md)"],
-    ["docs-site/guide/details.md", "Done"],
-    ["docs-site/orphan.md", "Not linked"],
+    ["apps/docs/index.md", "[Guide](/guide/)"],
+    ["apps/docs/guide/index.md", "[Setup](./setup)"],
+    ["apps/docs/guide/setup.md", "[Details](./details.md)"],
+    ["apps/docs/guide/details.md", "Done"],
+    ["apps/docs/orphan.md", "Not linked"],
   ]);
 
   assert.deepEqual(
@@ -60,6 +60,6 @@ test("finds pages that are outside the configured documentation graph", () => {
       ["/guide/"],
       (file) => contents.get(file) ?? "",
     ),
-    ["docs-site/orphan.md"],
+    ["apps/docs/orphan.md"],
   );
 });

@@ -80,7 +80,7 @@ Evidence: `FetchPostTargetReplies`, `PostTargetReply`, `EngagementController`, `
 
 It is not a universal inbox. It centres on replies to posts Shoutrrr knows about. Discord webhooks are write-only and provider actions differ.
 
-OpenPost is closer than the UI suggests. `backend/internal/api/handlers/comments.go` and adapters already expose listing/actions. The shipped frontend has no engagement route, normalized inbox, unread model or ingestion loop.
+OpenPost is closer than the UI suggests. `apps/server/internal/api/handlers/comments.go` and adapters already expose listing/actions. The shipped frontend has no engagement route, normalized inbox, unread model or ingestion loop.
 
 Ship replies on OpenPost-published content first. Do not start with DMs, arbitrary mentions or social listening.
 

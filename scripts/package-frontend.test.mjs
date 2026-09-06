@@ -120,7 +120,7 @@ async function assertNoTransactionDebris(destination) {
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "openpost-package-frontend-"));
   const source = path.join(root, "frontend-build");
-  const destination = path.join(root, "backend", "public");
+  const destination = path.join(root, "apps/server", "public");
   await mkdir(path.join(source, "assets"), { recursive: true });
   await writeImmutableAssetFixture(source);
   await Promise.all([

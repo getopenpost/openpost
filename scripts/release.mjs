@@ -189,9 +189,9 @@ async function checkFull() {
         "--platform",
         imagePlatform,
         "--build-context",
-        "frontend_artifact=backend/cmd/openpost/public",
+        "frontend_artifact=apps/server/cmd/openpost/public",
         "--file",
-        "docker/Dockerfile",
+        "deploy/docker/Dockerfile",
         "--tag",
         image,
         "--build-arg",
@@ -217,7 +217,9 @@ async function checkFull() {
 }
 
 async function publishedImagePlatform() {
-  const policy = JSON.parse(await readFile(path.join(root, "docker", "image-policy.json"), "utf8"));
+  const policy = JSON.parse(
+    await readFile(path.join(root, "deploy/docker", "image-policy.json"), "utf8"),
+  );
   if (!Array.isArray(policy.supported_platforms) || policy.supported_platforms.length !== 1) {
     throw new Error("image policy must declare exactly one published platform");
   }
@@ -260,8 +262,8 @@ async function prepare(commitMessage) {
   }
 
   const changelogPath = path.join(root, "CHANGELOG.md");
-  const mobileConfigPath = path.join(root, "mobile", "app.json");
-  const mobilePackagePath = path.join(root, "mobile", "package.json");
+  const mobileConfigPath = path.join(root, "apps/mobile", "app.json");
+  const mobilePackagePath = path.join(root, "apps/mobile", "package.json");
   const [originalChangelog, originalMobileConfig, originalMobilePackage] = await Promise.all([
     readFile(changelogPath),
     readFile(mobileConfigPath),
@@ -271,7 +273,16 @@ async function prepare(commitMessage) {
     const mobileIdentity = await prepareMobileReleaseFiles({
       configPath: mobileConfigPath,
       packagePath: mobilePackagePath,
-      previousConfig: JSON.parse(git(["show", `${latestTag}:mobile/app.json`])),
+      previousConfig: JSON.parse(
+        git([
+          "show",
+          `${latestTag}:${
+            git(["ls-tree", "--name-only", latestTag, "apps/mobile/app.json"]).trim()
+              ? "apps/mobile/app.json"
+              : "mobile/app.json"
+          }`,
+        ]),
+      ),
     });
     console.log(
       `release prepare: mobile ${mobileIdentity.version_name} (${mobileIdentity.version_code})`,

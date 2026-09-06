@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
-import { featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
+import { featureGroups, platforms } from "../apps/marketing/src/routes/_marketing.ts";
 import {
   discoveryDocument,
   generateAgentSurface,
@@ -107,7 +107,7 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
 
 test("documentation discovery headers leave room for the canonical page catalogue", async () => {
   const root = path.resolve(import.meta.dirname, "..");
-  const base = await readFile(path.join(root, "docs-site/public/_headers"), "utf8");
+  const base = await readFile(path.join(root, "apps/docs/public/_headers"), "utf8");
   const pages = Array.from({ length: 97 }, (_, index) => ({
     canonical: `https://docs.openpo.st/page-${index}`,
   }));
@@ -1339,7 +1339,7 @@ test(
     for (const [surface, taskID, output] of publicBuilds) {
       const task = plannedTasks.get(taskID);
       assert.ok(
-        Object.keys(task.inputs).includes("../scripts/generate-agent-surfaces.mjs"),
+        Object.keys(task.inputs).includes("../../scripts/generate-agent-surfaces.mjs"),
         `${surface} cache key must include the shared generator`,
       );
       assert.ok(
@@ -1357,7 +1357,7 @@ test(
     for (const [surface, headersPath, canonicalPaths, plainTextPaths] of [
       [
         "marketing",
-        path.join(root, "marketing-site/dist/_headers"),
+        path.join(root, "apps/marketing/dist/_headers"),
         marketingRouteManifest
           .filter((route) => ["static", "platform", "tool"].includes(route.agentRepresentation))
           .map((route) => new URL(route.canonical).pathname),
@@ -1365,7 +1365,7 @@ test(
       ],
       [
         "documentation",
-        path.join(root, "docs-site/.vitepress/dist/_headers"),
+        path.join(root, "apps/docs/.vitepress/dist/_headers"),
         docsSocialEntries.map((entry) => new URL(entry.canonical).pathname),
         ["/llms.txt", "/llms-full.txt"],
       ],
@@ -1402,12 +1402,12 @@ test(
 
     for (const production of [
       {
-        directory: path.join(root, "marketing-site/dist"),
+        directory: path.join(root, "apps/marketing/dist"),
         canonical: "https://openpo.st/",
         discoveryTarget: "https://openpo.st/index.md",
       },
       {
-        directory: path.join(root, "docs-site/.vitepress/dist"),
+        directory: path.join(root, "apps/docs/.vitepress/dist"),
         canonical: "https://docs.openpo.st",
         discoveryTarget: "https://docs.openpo.st/index.md",
       },
@@ -1427,7 +1427,7 @@ test(
       assert.match(discovery, new RegExp(production.discoveryTarget.replaceAll(".", "\\.")));
     }
 
-    const marketingDirectory = path.join(root, "marketing-site/dist");
+    const marketingDirectory = path.join(root, "apps/marketing/dist");
     const expectedMarketingMarkdown = marketingRouteManifest.map((route) =>
       route.path === "/" ? "index.md" : `${route.path.slice(1)}.md`,
     );
@@ -1608,7 +1608,7 @@ test(
     }
     assert.equal((pricing.match(/^\| Limit \|/gmu) ?? []).length, 1);
 
-    const docsDirectory = path.join(root, "docs-site/.vitepress/dist");
+    const docsDirectory = path.join(root, "apps/docs/.vitepress/dist");
     const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
     const docsCorpus = await readFile(path.join(docsDirectory, "llms-full.txt"), "utf8");
     const ordinaryDocs = docsSocialEntries.filter(

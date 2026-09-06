@@ -106,6 +106,6 @@ test("marketing discovery build publishes a verifiable complete CLI skill", asyn
   assert.equal(generatedCard.remotes[0].url, "https://app.openpo.st/mcp");
   assert.deepEqual(
     await readFile(path.join(outputDirectory, "openapi.json")),
-    await readFile(path.resolve(import.meta.dirname, "../frontend/openapi.json")),
+    await readFile(path.resolve(import.meta.dirname, "../apps/web/openapi.json")),
   );
 });

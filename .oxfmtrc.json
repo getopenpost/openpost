@@ -6,11 +6,11 @@
     ".commandcode/",
     ".impeccable/",
     "**/.svelte-kit/",
-    "backend/internal/memes/catalog/",
+    "apps/server/internal/memes/catalog/",
     "docs/launch-kit/",
     "packages/api-contract/src/schema.d.ts",
-    "provider-certification/",
-    "references/",
+    "config/provider-certification/",
+    "docs/references/",
     "assets/social/"
   ]
 }

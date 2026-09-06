@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const inventoryPath = join(repositoryRoot, "packages/legal-policy/src/privacy-inventory.json");
 const sourceRoots = [
-  "frontend/src",
-  "marketing-site/src",
-  "marketing-site/functions",
-  "docs-site/.vitepress",
-  "backend/internal",
+  "apps/web/src",
+  "apps/marketing/src",
+  "apps/marketing/functions",
+  "apps/docs/.vitepress",
+  "apps/server/internal",
 ];
-const sourceFiles = ["frontend/vite.config.ts", "marketing-site/vite.config.ts"];
+const sourceFiles = ["apps/web/vite.config.ts", "apps/marketing/vite.config.ts"];
 const sourceExtensions = new Set([".go", ".html", ".js", ".mjs", ".svelte", ".ts"]);
 
 function isSourceFile(path) {

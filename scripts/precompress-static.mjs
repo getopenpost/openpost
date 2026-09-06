@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const brotli = promisify(brotliCompress);
 const gzipFile = promisify(gzip);
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-export const defaultPublicDirectory = resolve(scriptDirectory, "../frontend/build");
+export const defaultPublicDirectory = resolve(scriptDirectory, "../apps/web/build");
 const compressibleExtensions = new Set([".css", ".js", ".json", ".svg", ".webmanifest"]);
 const minimumBytes = 1024;
 

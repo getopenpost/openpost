@@ -8,10 +8,10 @@ import { load as parseYaml } from "js-yaml";
 import { create as createTar } from "tar";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const skillDirectory = path.join(repositoryRoot, "skills/openpost-cli");
+const skillDirectory = path.join(repositoryRoot, ".agents/skills/openpost-cli");
 const mcpServerCardBase = JSON.parse(
   readFileSync(
-    path.join(repositoryRoot, "backend/internal/api/handlers/mcp_server_card_base.json"),
+    path.join(repositoryRoot, "apps/server/internal/api/handlers/mcp_server_card_base.json"),
     "utf8",
   ),
 );
@@ -93,10 +93,13 @@ async function writeAgentSkill(outputDirectory) {
   const archivePath = path.join(agentSkillsDirectory, "openpost-cli.tar.gz");
   const skillSource = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
   const frontmatter = /^---\n([\s\S]*?)\n---(?:\n|$)/u.exec(skillSource);
-  if (!frontmatter) throw new Error("skills/openpost-cli/SKILL.md must contain YAML frontmatter");
+  if (!frontmatter)
+    throw new Error(".agents/skills/openpost-cli/SKILL.md must contain YAML frontmatter");
   const skill = parseYaml(frontmatter[1]);
   if (skill?.name !== "openpost-cli" || typeof skill.description !== "string") {
-    throw new Error("skills/openpost-cli/SKILL.md must declare its canonical name and description");
+    throw new Error(
+      ".agents/skills/openpost-cli/SKILL.md must declare its canonical name and description",
+    );
   }
   await mkdir(agentSkillsDirectory, { recursive: true });
   await createTar(
@@ -139,7 +142,7 @@ export async function generateMarketingDiscoveryArtifacts({ outputDirectory, ver
   await mkdir(mcpDirectory, { recursive: true });
   await Promise.all([
     copyFile(
-      path.join(repositoryRoot, "frontend/openapi.json"),
+      path.join(repositoryRoot, "apps/web/openapi.json"),
       path.join(outputDirectory, "openapi.json"),
     ),
     writeFile(path.join(wellKnownDirectory, "ard.json"), jsonDocument(renderARDManifest()), "utf8"),

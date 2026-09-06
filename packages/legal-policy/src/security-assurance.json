@@ -22,10 +22,10 @@
       "self_hosted_operator": "Chooses identity providers and administrator accounts, protects recovery access, reviews members and sessions, and removes access promptly.",
       "customer_or_provider": "Users protect their sign-in methods and devices. A selected identity provider controls its own authentication and account-recovery process.",
       "evidence": [
-        "backend/internal/services/auth/auth.go",
-        "backend/internal/services/sessions/service.go",
-        "backend/internal/services/identity/service.go",
-        "backend/internal/api/middleware/auth.go"
+        "apps/server/internal/services/auth/auth.go",
+        "apps/server/internal/services/sessions/service.go",
+        "apps/server/internal/services/identity/service.go",
+        "apps/server/internal/api/middleware/auth.go"
       ]
     },
     {
@@ -36,9 +36,9 @@
       "self_hosted_operator": "Generates, stores, rotates, backs up, and restricts the encryption key, JWT secret, social app credentials, and email or storage credentials.",
       "customer_or_provider": "Users revoke connections or access tokens they no longer need. Social and identity providers protect and can revoke their provider-side credentials.",
       "evidence": [
-        "backend/internal/services/crypto/encrypt.go",
-        "backend/internal/services/apitokens/service.go",
-        "backend/internal/config/config.go",
+        "apps/server/internal/services/crypto/encrypt.go",
+        "apps/server/internal/services/apitokens/service.go",
+        "apps/server/internal/config/config.go",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -50,9 +50,9 @@
       "self_hosted_operator": "Places OpenPost behind correctly configured TLS, restricts database and media access, patches the host and reverse proxy, and chooses where data is stored.",
       "customer_or_provider": "Hosting, network, storage, and social providers secure the infrastructure and endpoints they control under their own terms.",
       "evidence": [
-        "backend/internal/api/handlers/auth.go",
-        "backend/internal/config/config.go",
-        "docs-site/configuration/production-checklist.md",
+        "apps/server/internal/api/handlers/auth.go",
+        "apps/server/internal/config/config.go",
+        "apps/docs/configuration/production-checklist.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -64,7 +64,7 @@
       "self_hosted_operator": "Defines who can reach the host, database, media, logs, and backups; applies least privilege; reviews keys; and records access at the level its risk requires.",
       "customer_or_provider": "Customers choose workspace members and roles. Infrastructure providers control their own privileged-access programs.",
       "evidence": [
-        "backend/internal/api/middleware/auth.go",
+        "apps/server/internal/api/middleware/auth.go",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -76,9 +76,9 @@
       "self_hosted_operator": "Chooses backup location and retention, protects required secrets with the backup, tests restoration, and fulfills deletion obligations for its installation.",
       "customer_or_provider": "Customers resolve shared ownership and active billing blockers before account deletion and control provider-side content separately.",
       "evidence": [
-        "backend/internal/api/handlers/account_lifecycle.go",
-        "backend/internal/services/medialifecycle/service.go",
-        "docs-site/operations/backups.md",
+        "apps/server/internal/api/handlers/account_lifecycle.go",
+        "apps/server/internal/services/medialifecycle/service.go",
+        "apps/docs/operations/backups.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -105,10 +105,10 @@
       "self_hosted_operator": "Chooses log access, retention, alerts, and monitoring and must avoid collecting secrets or more customer content than its operating need requires.",
       "customer_or_provider": "Infrastructure and social providers keep separate logs under their own controls; customers review their account and provider activity where available.",
       "evidence": [
-        "backend/internal/api/routes.go",
-        "backend/internal/services/analytics/service.go",
-        "backend/internal/api/handlers/communications.go",
-        "docs-site/operations/logs.md",
+        "apps/server/internal/api/routes.go",
+        "apps/server/internal/services/analytics/service.go",
+        "apps/server/internal/api/handlers/communications.go",
+        "apps/docs/operations/logs.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -121,8 +121,8 @@
       "customer_or_provider": "Report suspected OpenPost flaws privately, rotate exposed credentials, follow incident instructions, and contact the relevant provider when the event is provider-side.",
       "evidence": [
         ".github/SECURITY.md",
-        "backend/internal/models/models.go",
-        "backend/internal/services/identity/admin.go",
+        "apps/server/internal/models/models.go",
+        "apps/server/internal/services/identity/admin.go",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -134,8 +134,8 @@
       "self_hosted_operator": "Chooses and configures its hosting, email, storage, AI, analytics, social apps, and optional services and publishes disclosures required for its users.",
       "customer_or_provider": "Customers choose social, identity, stock-media, and AI-triggering actions. Each selected provider controls its service, API, logs, and provider-side data.",
       "evidence": [
-        "backend/internal/platform/adapter.go",
-        "backend/internal/ai/openrouter.go",
+        "apps/server/internal/platform/adapter.go",
+        "apps/server/internal/ai/openrouter.go",
         "packages/legal-policy/src/managed-service.json"
       ]
     }

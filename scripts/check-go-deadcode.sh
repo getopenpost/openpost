@@ -8,7 +8,7 @@ run_deadcode() {
   go run "golang.org/x/tools/cmd/deadcode@${deadcode_version}" -test ./...
 }
 
-for module in backend cli; do
+for module in apps/server apps/cli; do
   output="$(cd "${repository_root}/${module}" && run_deadcode)"
   if [[ -n "${output//[[:space:]]/}" ]]; then
     printf 'Unreachable Go declarations in %s:\n%s\n' "${module}" "${output}" >&2

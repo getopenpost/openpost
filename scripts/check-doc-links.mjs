@@ -9,7 +9,7 @@ const excludedPrefixes = [
   ".agents/",
   ".hermes/",
   "docs/research/",
-  "frontend/static/image-editor-models/",
+  "apps/web/static/image-editor-models/",
 ];
 
 export function configuredNavigationTargets(config) {
@@ -45,11 +45,11 @@ export function localDocumentationCandidates(root, sourceFile, rawTarget) {
 
   const sourcePath = path.join(root, sourceFile);
   const bases =
-    localTarget.startsWith("/") && sourceFile.startsWith("docs-site/")
+    localTarget.startsWith("/") && sourceFile.startsWith("apps/docs/")
       ? [
-          path.join(root, "docs-site", localTarget),
-          path.join(root, "docs-site/public", localTarget),
-          ...(localTarget === "/openapi.json" ? [path.join(root, "frontend/openapi.json")] : []),
+          path.join(root, "apps/docs", localTarget),
+          path.join(root, "apps/docs/public", localTarget),
+          ...(localTarget === "/openapi.json" ? [path.join(root, "apps/web/openapi.json")] : []),
         ]
       : [path.resolve(path.dirname(sourcePath), localTarget)];
   return bases.flatMap((base) => [
@@ -95,9 +95,9 @@ export function unreachableDocumentationPages(
     if (file && !pending.includes(file)) pending.push(file);
   };
 
-  queue(pages.has("docs-site/index.md") ? "docs-site/index.md" : undefined);
+  queue(pages.has("apps/docs/index.md") ? "apps/docs/index.md" : undefined);
   for (const target of navigationTargets) {
-    queue(resolvePage("docs-site/.vitepress/config.ts", target));
+    queue(resolvePage("apps/docs/.vitepress/config.ts", target));
   }
 
   const reachable = new Set();
@@ -139,7 +139,7 @@ async function main() {
     }
   }
 
-  const configFile = "docs-site/.vitepress/config.ts";
+  const configFile = "apps/docs/.vitepress/config.ts";
   const docsConfig = (await import(pathToFileURL(path.join(repositoryRoot, configFile)).href))
     .default;
   const navigationTargets = configuredNavigationTargets(docsConfig);
@@ -150,7 +150,7 @@ async function main() {
   }
 
   const documentationPages = files.filter(
-    (file) => file.startsWith("docs-site/") && !file.startsWith("docs-site/.generated/"),
+    (file) => file.startsWith("apps/docs/") && !file.startsWith("apps/docs/.generated/"),
   );
   const unreachablePages = unreachableDocumentationPages(
     repositoryRoot,

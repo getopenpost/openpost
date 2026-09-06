@@ -2,9 +2,9 @@
   "name": "openpost",
   "private": true,
   "workspaces": [
-    "frontend",
-    "docs-site",
-    "marketing-site",
+    "apps/web",
+    "apps/docs",
+    "apps/marketing",
     "packages/*"
   ],
   "type": "module",
@@ -12,7 +12,7 @@
     "_policy": "bun scripts/tasks.mjs check policy --policy-only",
     "browser:install": "playwright install chromium",
     "build": "bun scripts/tasks.mjs build",
-    "capture:product-screenshots": "OPENPOST_UPDATE_PRODUCT_SCREENSHOTS=1 OPENPOST_APP_E2E_PORT=${OPENPOST_APP_E2E_PORT:-19181} playwright test --config e2e-app/playwright.config.ts e2e-app/product-screenshots.spec.ts --workers=1 && bun scripts/optimize-readme-images.mjs && bun scripts/sync-assets.mjs",
+    "capture:product-screenshots": "OPENPOST_UPDATE_PRODUCT_SCREENSHOTS=1 OPENPOST_APP_E2E_PORT=${OPENPOST_APP_E2E_PORT:-19181} playwright test --config tests/app/playwright.config.ts tests/app/product-screenshots.spec.ts --workers=1 && bun scripts/optimize-readme-images.mjs && bun scripts/sync-assets.mjs",
     "check": "bun scripts/tasks.mjs check",
     "check:changed": "bash scripts/changed-files-check.sh",
     "check:frontend:i18n": "bun run --filter @openpost/web generate:i18n",

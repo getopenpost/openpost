@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 0
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -77,10 +77,10 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
+          go-version-file: apps/server/go.mod
           cache-dependency-path: |
-            backend/go.sum
-            cli/go.sum
+            apps/server/go.sum
+            apps/cli/go.sum
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -118,14 +118,14 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
+          go-version-file: apps/server/go.mod
           cache-dependency-path: |
-            backend/go.sum
-            cli/go.sum
+            apps/server/go.sum
+            apps/cli/go.sum
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -152,17 +152,17 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
+          go-version-file: apps/server/go.mod
           cache-dependency-path: |
-            backend/go.sum
-            cli/go.sum
+            apps/server/go.sum
+            apps/cli/go.sum
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
@@ -191,12 +191,12 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -206,7 +206,7 @@ jobs:
         run: bun run test -- backend
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          files: backend/coverage.out
+          files: apps/server/coverage.out
           fail_ci_if_error: false
 
   hosted-data-plane:
@@ -234,12 +234,12 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
       - name: Start the pinned S3-compatible service
         run: |
@@ -258,7 +258,7 @@ jobs:
           docker logs openpost-minio
           exit 1
       - name: Exercise hosted database migrations, queue claims, and object storage
-        working-directory: backend
+        working-directory: apps/server
         env:
           OPENPOST_TEST_POSTGRES_URL: postgres://openpost:openpost-ci-password@127.0.0.1:5432/openpost?sslmode=disable
           OPENPOST_TEST_S3_ENDPOINT: http://127.0.0.1:9000
@@ -300,15 +300,15 @@ jobs:
           done
       - if: always()
         run: |
-          docker logs openpost-minio > backend/minio.log 2>&1 || true
+          docker logs openpost-minio > apps/server/minio.log 2>&1 || true
           bash scripts/ci-timing-summary.sh finish hosted-data-plane
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hosted-data-plane-${{ github.sha }}-${{ github.run_attempt }}
           path: |
-            backend/hosted-data-plane.json
-            backend/minio.log
+            apps/server/hosted-data-plane.json
+            apps/server/minio.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -347,7 +347,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-public-${{ github.sha }}-${{ github.run_attempt }}
-          path: backend/cmd/openpost/public
+          path: apps/server/cmd/openpost/public
           if-no-files-found: error
           retention-days: 14
       - if: always()
@@ -363,7 +363,7 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -394,7 +394,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: marketing-static-${{ github.sha }}-${{ github.run_attempt }}
-          path: marketing-site/dist
+          path: apps/marketing/dist
           if-no-files-found: error
           retention-days: 14
 
@@ -408,7 +408,7 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -418,10 +418,10 @@ jobs:
           node-version: "24.19.0"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
+          go-version-file: apps/server/go.mod
           cache-dependency-path: |
-            backend/go.sum
-            cli/go.sum
+            apps/server/go.sum
+            apps/cli/go.sum
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
@@ -445,7 +445,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docs-static-${{ github.sha }}-${{ github.run_attempt }}
-          path: docs-site/.vitepress/dist
+          path: apps/docs/.vitepress/dist
           if-no-files-found: error
           retention-days: 14
 
@@ -459,7 +459,7 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -474,11 +474,11 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ steps.frontend-artifact.outputs.name }}
-          path: backend/cmd/openpost/public
+          path: apps/server/cmd/openpost/public
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install --yes ffmpeg
@@ -497,7 +497,7 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -512,7 +512,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ steps.marketing-artifact.outputs.name }}
-          path: marketing-site/dist
+          path: apps/marketing/dist
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - env:
@@ -543,7 +543,7 @@ jobs:
           fetch-depth: 0
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -582,17 +582,17 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: backend/go.mod
+          go-version-file: apps/server/go.mod
           cache-dependency-path: |
-            backend/go.sum
-            cli/go.sum
+            apps/server/go.sum
+            apps/cli/go.sum
       - run: bun install --frozen-lockfile
       - run: scripts/security-check.sh
 
@@ -606,12 +606,12 @@ jobs:
         with:
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -653,13 +653,13 @@ jobs:
             ~/.bun/install/cache
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: android-${{ runner.os }}-${{ hashFiles('mobile/bun.lock', 'mobile/app.json', 'mobile/plugins/**', 'packages/api-contract/**', 'packages/query-catalog/**') }}
+          key: android-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'packages/api-contract/**', 'packages/query-catalog/**') }}
           restore-keys: android-${{ runner.os }}-
       - name: Install the standalone mobile app
-        working-directory: mobile
+        working-directory: apps/mobile
         run: bun install --frozen-lockfile
       - name: Verify the standalone mobile install
-        working-directory: mobile
+        working-directory: apps/mobile
         # Bun occasionally leaves registry and file: dependencies unlinked
         # after a cached install; tsc then fails with dozens of cascading
         # errors. Show the tree and repair loudly instead of debugging
@@ -673,33 +673,37 @@ jobs:
           test -f node_modules/@tanstack/query-core/package.json
           test -f node_modules/@openpost/api-contract/package.json
       - name: Check the standalone mobile app
-        working-directory: mobile
+        working-directory: apps/mobile
         run: bun run check
       - name: Check the current Android release identity
-        working-directory: mobile
+        working-directory: apps/mobile
         run: |
           latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
           [[ -n "$latest_tag" ]]
-          git show "$latest_tag:mobile/app.json" > previous-release-app.json
-          bun ../scripts/mobile-release.mjs check-current \
+          mobile_config_path="apps/mobile/app.json"
+          if ! git cat-file -e "$latest_tag:$mobile_config_path" 2>/dev/null; then
+            mobile_config_path="mobile/app.json"
+          fi
+          git show "$latest_tag:$mobile_config_path" > previous-release-app.json
+          bun ../../scripts/mobile-release.mjs check-current \
             --config app.json \
             --package package.json \
             --previous-config previous-release-app.json
       - name: Build the native Expo Android candidate
-        working-directory: mobile
+        working-directory: apps/mobile
         run: bun run build:android:candidate
       - run: |
-          cp mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
           sha256sum openpost-app-android-unsigned.apk > openpost-app-android-unsigned.sha256
           bun scripts/mobile-release.mjs create \
-            --config mobile/app.json \
-            --package mobile/package.json \
+            --config apps/mobile/app.json \
+            --package apps/mobile/package.json \
             --revision "$GITHUB_SHA" \
             --apk openpost-app-android-unsigned.apk \
             --output openpost-app-android-candidate.json
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
-            --ks mobile/android/app/debug.keystore \
+            --ks apps/mobile/android/app/debug.keystore \
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
@@ -739,12 +743,12 @@ jobs:
           fetch-depth: 0
           sparse-checkout: |
             /*
-            !/frontend/static/image-editor-models/
+            !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: frontend-public-${{ github.sha }}-${{ github.run_attempt }}
-          path: backend/cmd/openpost/public
+          path: apps/server/cmd/openpost/public
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -783,8 +787,8 @@ jobs:
         shell: bash
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
-          platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("candidate build requires exactly one supported platform") end' docker/image-policy.json)"
-          docker buildx build --load --platform "$platform" --build-context frontend_artifact=backend/cmd/openpost/public --file docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.manifest.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --build-arg RELEASE_MANIFEST_B64="${{ steps.manifest.outputs.base64 }}" --build-arg RELEASE_MANIFEST_SHA256="${{ steps.manifest.outputs.sha256 }}" --cache-from type=gha,scope=openpost-production --cache-to type=gha,mode=max,scope=openpost-production .
+          platform="$(jq -er '.supported_platforms | if length == 1 then .[0] else error("candidate build requires exactly one supported platform") end' deploy/docker/image-policy.json)"
+          docker buildx build --load --platform "$platform" --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.manifest.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --build-arg RELEASE_MANIFEST_B64="${{ steps.manifest.outputs.base64 }}" --build-arg RELEASE_MANIFEST_SHA256="${{ steps.manifest.outputs.sha256 }}" --cache-from type=gha,scope=openpost-production --cache-to type=gha,mode=max,scope=openpost-production .
           scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.manifest.outputs.version }}" release-manifest.json
       - name: Generate the final-image SPDX SBOM
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

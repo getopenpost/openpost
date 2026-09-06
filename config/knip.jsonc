@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{js,mjs,ts}",
+        "tests/marketing/**/*.{js,ts}",
+        "tests/app/**/*.{js,ts}",
+        "e2e-docs/**/*.{js,ts}",
+        "playwright*.config.ts",
+      ],
+      "project": [
+        "scripts/**/*.{js,mjs,ts}",
+        "tests/marketing/**/*.{js,ts}",
+        "tests/app/**/*.{js,ts}",
+        "e2e-docs/**/*.{js,ts}",
+        "playwright*.config.ts",
+      ],
+      "svelte": false,
+      "sveltekit": false,
+    },
+    "apps/web": {
+      "entry": ["src/routes/**/+*.{js,ts,svelte}", "src/hooks.{js,ts}"],
+      "project": ["src/**/*.{js,ts,svelte}"],
+      // The graph is explicit above. Loading Vite here invokes SvelteKit from
+      // the monorepo root and adds config-only warnings to the CI signal.
+      "vite": false,
+    },
+    "apps/marketing": {
+      "entry": ["src/routes/**/+*.{js,ts,svelte}", "functions/**/*.{js,jsx,ts,tsx}"],
+      "project": [
+        "src/**/*.{js,ts,svelte}",
+        "functions/**/*.{js,jsx,ts,tsx}",
+        "scripts/**/*.{js,mjs,ts}",
+      ],
+      // See the frontend workspace note: route roots are explicit and the
+      // Vite plugin is not needed for file-level reachability.
+      "vite": false,
+    },
+    "apps/docs": {
+      "entry": [".vitepress/**/*.{js,mjs,ts}", "scripts/**/*.{js,mjs,ts}"],
+      "project": [".vitepress/**/*.{js,mjs,ts}", "scripts/**/*.{js,mjs,ts}"],
+    },
+    "packages/*": {
+      "entry": ["src/index.{js,mjs,ts}"],
+      "project": ["src/**/*.{js,mjs,ts}"],
+    },
+  },
+}

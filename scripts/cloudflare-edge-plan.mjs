@@ -9,7 +9,9 @@ import { docsPageCatalog } from "../packages/social-images/src/docs-catalog.js";
 import { marketingRouteManifest } from "../packages/social-images/src/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const blueprint = JSON.parse(await readFile(path.join(root, "cloudflare/edge-plan.json"), "utf8"));
+const blueprint = JSON.parse(
+  await readFile(path.join(root, "deploy/cloudflare/edge-plan.json"), "utf8"),
+);
 const serverFields = new Set(["id", "last_updated", "version"]);
 
 function compareText(left, right) {

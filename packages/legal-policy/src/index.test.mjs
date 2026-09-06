@@ -144,7 +144,7 @@ test("analytics disclosures match the rendered privacy page and stay consent-gat
   );
 
   const policy = readFileSync(
-    `${repositoryRoot}marketing-site/src/routes/privacy/+page.svelte`,
+    `${repositoryRoot}apps/marketing/src/routes/privacy/+page.svelte`,
     "utf8",
   );
   assert.match(
@@ -207,7 +207,7 @@ test("security assurance states its boundary and the security page claims nothin
   }
 
   const securityPage = readFileSync(
-    `${repositoryRoot}marketing-site/src/routes/security/+page.svelte`,
+    `${repositoryRoot}apps/marketing/src/routes/security/+page.svelte`,
     "utf8",
   );
   assert.doesNotMatch(

@@ -6,7 +6,10 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const publicClaimManifestPath = path.join(root, "provider-certification/public-claims.json");
+export const publicClaimManifestPath = path.join(
+  root,
+  "config/provider-certification/public-claims.json",
+);
 const publicProjectionStart = "<!-- provider-certification:begin -->";
 const publicProjectionEnd = "<!-- provider-certification:end -->";
 
@@ -127,7 +130,7 @@ export function renderPublicClaimProjection(manifest, options = {}) {
 export function validatePublicClaimSurfaceSources(manifest, sources) {
   const marketingCatalog = sources.marketingCatalog ?? "";
   if (
-    !/import\s+publicClaimManifest\s+from\s+["']\.\.\/\.\.\/\.\.\/provider-certification\/public-claims\.json["'];/u.test(
+    !/import\s+publicClaimManifest\s+from\s+["']\.\.\/\.\.\/\.\.\/\.\.\/config\/provider-certification\/public-claims\.json["'];/u.test(
       marketingCatalog,
     ) ||
     !marketingCatalog.includes("const publicProviderClaims = publicClaimManifest.claims") ||
@@ -185,13 +188,13 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
 export async function assertPublicClaimSurfaces(manifest, repositoryRoot = root) {
   const read = (relativePath) => readFile(path.join(repositoryRoot, relativePath), "utf8");
   validatePublicClaimSurfaceSources(manifest, {
-    marketingCatalog: await read("marketing-site/src/routes/_marketing.ts"),
-    marketingIndex: await read("marketing-site/src/routes/platforms/+page.svelte"),
-    marketingDetail: await read("marketing-site/src/routes/platforms/[slug]/+page.svelte"),
-    marketingLanding: await read("marketing-site/src/routes/+page.svelte"),
-    providerIndex: await read("docs-site/providers/index.md"),
-    launchMatrix: await read("docs-site/operations/provider-launch-matrix.md"),
-    certificationReadme: await read("provider-certification/README.md"),
+    marketingCatalog: await read("apps/marketing/src/routes/_marketing.ts"),
+    marketingIndex: await read("apps/marketing/src/routes/platforms/+page.svelte"),
+    marketingDetail: await read("apps/marketing/src/routes/platforms/[slug]/+page.svelte"),
+    marketingLanding: await read("apps/marketing/src/routes/+page.svelte"),
+    providerIndex: await read("apps/docs/providers/index.md"),
+    launchMatrix: await read("apps/docs/operations/provider-launch-matrix.md"),
+    certificationReadme: await read("config/provider-certification/README.md"),
     readme: await read("README.md"),
   });
 }

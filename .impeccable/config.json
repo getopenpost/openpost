@@ -1,9 +1,0 @@
-{
-  "hook": {
-    "enabled": true,
-    "limits": {
-      "maxFindings": 5,
-      "maxChars": 8000
-    }
-  }
-}

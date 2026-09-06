@@ -1,6 +1,6 @@
 # Organization ownership browser evidence
 
-The production browser test `e2e-app/organization-ownership.spec.ts` covers the
+The production browser test `tests/app/organization-ownership.spec.ts` covers the
 Organization ownership journey at 1280 × 900 and 320 × 760. It removes all
 Workspace results while retaining an owned Organization, then verifies that the
 Ownership tab remains reachable, identifies the current Owner, selects a real

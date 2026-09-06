@@ -143,14 +143,14 @@ for file in "${files[@]}"; do
   esac
 
   case "$file" in
-    frontend/*)
+    apps/web/*)
       case "$file" in
         *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
-          frontend_format+=("${file#frontend/}")
+          frontend_format+=("${file#apps/web/}")
           ;;
       esac
       ;;
-    marketing-site/*)
+    apps/marketing/*)
       case "$file" in
         *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
           marketing_format+=("$file")
@@ -181,11 +181,11 @@ if [ "${#root_format[@]}" -gt 0 ]; then
   jobs+=("$!")
 fi
 if [ "${#frontend_format[@]}" -gt 0 ]; then
-  (cd frontend && bunx oxfmt --check "${frontend_format[@]}") &
+  (cd apps/web && bunx oxfmt --check "${frontend_format[@]}") &
   jobs+=("$!")
 fi
 if [ "${#marketing_format[@]}" -gt 0 ]; then
-  (cd marketing-site && bunx oxfmt --check "${marketing_format[@]#marketing-site/}") &
+  (cd apps/marketing && bunx oxfmt --check "${marketing_format[@]#apps/marketing/}") &
   jobs+=("$!")
 fi
 

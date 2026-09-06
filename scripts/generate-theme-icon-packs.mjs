@@ -11,9 +11,9 @@ import { format } from "oxfmt";
 import sharp from "sharp";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packsDirectory = resolve(root, "frontend/src/lib/themes/icons/packs");
-const mobilePacksDirectory = resolve(root, "mobile/src/theme/icon-packs");
-const mobileAssetsDirectory = resolve(root, "mobile/assets/theme-icons");
+const packsDirectory = resolve(root, "apps/web/src/lib/themes/icons/packs");
+const mobilePacksDirectory = resolve(root, "apps/mobile/src/theme/icon-packs");
+const mobileAssetsDirectory = resolve(root, "apps/mobile/assets/theme-icons");
 const packIDs = ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"];
 const nativeTabRoles = ["drafts", "calendar", "queue"];
 const nativeCollections = {
@@ -25,7 +25,9 @@ const nativeCollections = {
 };
 const check = process.argv.includes("--check");
 
-const { BUILTIN_ICON_ROLE_MAPS } = await import(resolve(root, "mobile/src/theme/icon-packs.ts"));
+const { BUILTIN_ICON_ROLE_MAPS } = await import(
+  resolve(root, "apps/mobile/src/theme/icon-packs.ts")
+);
 
 for (const id of packIDs) {
   const source = await import(`${packsDirectory}/${id}.ts`);
@@ -54,7 +56,7 @@ for (const id of packIDs) {
 }
 const nativeTabSourcesDestination = resolve(
   root,
-  "mobile/src/theme/native-tab-icon-sources.generated.ts",
+  "apps/mobile/src/theme/native-tab-icon-sources.generated.ts",
 );
 await assertOrWrite(
   nativeTabSourcesDestination,

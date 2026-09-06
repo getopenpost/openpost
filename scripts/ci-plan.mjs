@@ -27,14 +27,14 @@ export function planCI(files, manifest, { full = false } = {}) {
 
   return {
     application: full || delivery || touched.has("application") || touched.has("shared-assets"),
-    backend: matches(["backend/"], ["go.work", "go.work.sum"]),
+    backend: matches(["apps/server/"], ["go.work", "go.work.sum"]),
     frontend: matches(
-      ["frontend/", "packages/", ...sharedAssets],
+      ["apps/web/", "packages/", ...sharedAssets],
       ["package.json", "bun.lock", "bunfig.toml", "turbo.json"],
     ),
     marketing: full || delivery || touched.has("marketing") || touched.has("shared-assets"),
     documentation: full || delivery || touched.has("documentation") || touched.has("shared-assets"),
-    cli: matches(["cli/"], ["go.work", "go.work.sum"]),
+    cli: matches(["apps/cli/"], ["go.work", "go.work.sum"]),
     n8n: matches(
       ["packages/n8n-nodes-openpost/"],
       [
@@ -47,16 +47,23 @@ export function planCI(files, manifest, { full = false } = {}) {
       ],
     ),
     security: matches(
-      ["backend/", "cli/", "frontend/", "mobile/", "packages/"],
+      ["apps/server/", "apps/cli/", "apps/web/", "apps/mobile/", "packages/"],
       ["bun.lock", "package.json", "go.work", "go.work.sum"],
     ),
     image: matches(
-      ["backend/", "frontend/", "packages/", ...sharedAssets, "docker/", "provider-certification/"],
+      [
+        "apps/server/",
+        "apps/web/",
+        "packages/",
+        ...sharedAssets,
+        "deploy/docker/",
+        "config/provider-certification/",
+      ],
       [".dockerignore", "bun.lock", "bunfig.toml", "package.json", "turbo.json"],
     ),
     android: matches(
-      ["mobile/", "packages/api-contract/", "packages/query-catalog/"],
-      ["frontend/openapi.json"],
+      ["apps/mobile/", "packages/api-contract/", "packages/query-catalog/"],
+      ["apps/web/openapi.json"],
     ),
     cache_contract: files.some(
       (file) =>
@@ -71,8 +78,8 @@ export function planCI(files, manifest, { full = false } = {}) {
           "bunfig.toml",
           "package.json",
           "turbo.json",
-          "frontend/package.json",
-          "frontend/turbo.json",
+          "apps/web/package.json",
+          "apps/web/turbo.json",
         ].includes(file),
     ),
   };

@@ -198,15 +198,15 @@ export async function materializeImmutableFrontendAssets({ sourceDirectory, outp
 export function frontendAssetOutputDirectories(surface, root = repositoryRoot) {
   if (surface === "web") {
     return [
-      path.join(root, "frontend/.svelte-kit/output/client"),
-      path.join(root, "frontend/build"),
+      path.join(root, "apps/web/.svelte-kit/output/client"),
+      path.join(root, "apps/web/build"),
     ];
   }
   throw new Error(`Unsupported immutable frontend asset surface: ${surface}`);
 }
 
 export async function materializeFrontendSurfaceAssets(surface, root = repositoryRoot) {
-  const sourceDirectory = path.join(root, "frontend/static");
+  const sourceDirectory = path.join(root, "apps/web/static");
   for (const outputDirectory of frontendAssetOutputDirectories(surface, root)) {
     await materializeImmutableFrontendAssets({ sourceDirectory, outputDirectory });
   }

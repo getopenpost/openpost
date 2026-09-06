@@ -5,15 +5,15 @@ node_modules/
 
 # Build and cache
 .turbo/
-frontend/.svelte-kit/
-frontend/build/
-frontend/.vite/
-backend/cmd/openpost/public/
-docs-site/.vitepress/dist/
-docs-site/.vitepress/cache/
-marketing-site/dist/
-marketing-site/.svelte-kit/
-marketing-site/.vite/
+apps/web/.svelte-kit/
+apps/web/build/
+apps/web/.vite/
+apps/server/cmd/openpost/public/
+apps/docs/.vitepress/dist/
+apps/docs/.vitepress/cache/
+apps/marketing/dist/
+apps/marketing/.svelte-kit/
+apps/marketing/.vite/
 
 # Test output
 test-results/
@@ -27,7 +27,7 @@ go.sum
 bun.lock
 
 # External references
-references/
+docs/references/
 
 # Agent state
 .codex/

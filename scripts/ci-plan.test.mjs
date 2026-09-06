@@ -22,7 +22,7 @@ test("changed files route to their CI paths", () => {
     },
     {
       name: "documentation-only changes",
-      files: ["docs-site/guide.md"],
+      files: ["apps/docs/guide.md"],
       on: ["documentation"],
       off: ["backend", "frontend", "marketing", "image", "android"],
     },
@@ -40,19 +40,19 @@ test("changed files route to their CI paths", () => {
     },
     {
       name: "frontend changes",
-      files: ["frontend/src/routes/+page.svelte"],
+      files: ["apps/web/src/routes/+page.svelte"],
       on: ["application", "frontend", "image"],
       off: ["android", "backend"],
     },
     {
       name: "standalone mobile changes",
-      files: ["mobile/src/app/(tabs)/drafts.tsx"],
+      files: ["apps/mobile/src/app/(tabs)/drafts.tsx"],
       on: ["android"],
       off: ["frontend", "image"],
     },
     {
       name: "mobile API contract changes",
-      files: ["frontend/openapi.json"],
+      files: ["apps/web/openapi.json"],
       on: ["android"],
       off: [],
     },

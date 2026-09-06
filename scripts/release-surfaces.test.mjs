@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import {
   classifyReleasePath,
   maintainedReleasePaths,
   readReleaseSurfaceManifest,
+  readReleaseSurfaceManifestAtRevision,
   releaseSurfacePlan,
   trackedReleasePaths,
   validateReleaseSurfaceManifest,
@@ -16,7 +21,7 @@ test("every tracked path has explicit release ownership", () => {
 });
 
 test("untracked maintained paths participate in the ownership gate", () => {
-  assert.ok(maintainedReleasePaths().includes("release-surfaces.json"));
+  assert.ok(maintainedReleasePaths().includes("config/release-surfaces.json"));
 });
 
 test("root build, Compose, registry, skills, launch, and scripts are classified", () => {
@@ -24,11 +29,11 @@ test("root build, Compose, registry, skills, launch, and scripts are classified"
   const expected = new Map([
     ["package.json", "delivery"],
     ["docker-compose.yml", "delivery"],
-    ["server.json", "agent-tools"],
-    ["skills/openpost/SKILL.md", "agent-tools"],
+    ["config/mcp/server.json", "agent-tools"],
+    [".agents/skills/openpost-cli/SKILL.md", "agent-tools"],
     ["docs/launch-kit/README.md", "launch"],
     ["scripts/release.mjs", "delivery"],
-    ["tools/oxlint/anti-slop/index.ts", "delivery"],
+    ["scripts/oxlint/anti-slop/index.ts", "delivery"],
   ]);
   for (const [file, surface] of expected) {
     assert.ok(classifyReleasePath(file, manifest).surfaces.includes(surface));
@@ -71,4 +76,45 @@ test("removed paths retain their previous release surface", () => {
       exemption: undefined,
     },
   ]);
+});
+
+test("release comparisons can read manifests before and after the repository move", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "openpost-release-history-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  try {
+    git("init", "--quiet");
+    const manifest = { schema_version: 1, surfaces: { application: { prefixes: ["backend/"] } } };
+    writeFileSync(path.join(root, "release-surfaces.json"), JSON.stringify(manifest));
+    git("add", ".");
+    git(
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "--quiet",
+      "-m",
+      "Original layout",
+    );
+    const original = git("rev-parse", "HEAD");
+    mkdirSync(path.join(root, "config"));
+    git("mv", "release-surfaces.json", "config/release-surfaces.json");
+    const moved = { schema_version: 1, surfaces: { application: { prefixes: ["apps/server/"] } } };
+    writeFileSync(path.join(root, "config/release-surfaces.json"), JSON.stringify(moved));
+    git("add", ".");
+    git(
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "--quiet",
+      "-m",
+      "Grouped layout",
+    );
+    assert.deepEqual(readReleaseSurfaceManifestAtRevision(original, root), manifest);
+    assert.deepEqual(readReleaseSurfaceManifestAtRevision("HEAD", root), moved);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

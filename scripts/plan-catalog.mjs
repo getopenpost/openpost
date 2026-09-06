@@ -3,7 +3,7 @@ import process from "node:process";
 
 const sourcePath = new URL("../packages/plan-catalog/src/catalog.json", import.meta.url);
 const outputPath = new URL(
-  "../backend/internal/services/billing/catalog_generated.go",
+  "../apps/server/internal/services/billing/catalog_generated.go",
   import.meta.url,
 );
 

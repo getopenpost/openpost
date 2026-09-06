@@ -76,4 +76,4 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 - Commit directly to `main` with Conventional Commits, one concern per commit. Stage only files owned by the current work.
 - Release assets are user downloads. Keep scan reports in Actions; use Git SHAs, image digests, OCI labels, and native signatures instead of custom release manifests. Validate workflows with `bun run check -- workflows`.
 - Push only when asked. A push is not a deployment.
-- Before any tag push, release, deploy, destructive live action, or other production mutation, state the exact revision, action, and effect, then wait for explicit authorization.
+- A request to release authorizes the required commits, pushes, tags, artifact publication, and deployment. State the revision and effect, run the required checks, and finish without another approval prompt. Ask separately for destructive live actions outside that release workflow.

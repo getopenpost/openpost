@@ -31,7 +31,7 @@ test("meaningful composition starts once across focus, empty drafts, refresh, an
 
   await authenticatePage(page, auth.token);
   await page.goto("/");
-  const editor = page.getByLabel("Post text");
+  const editor = page.getByRole("textbox", { name: "Post text" });
   await editor.focus();
   await editor.fill("   ");
   await page.waitForTimeout(300);
@@ -42,7 +42,9 @@ test("meaningful composition starts once across focus, empty drafts, refresh, an
   await secondComposer.goto("/");
   await Promise.all([
     editor.fill("A meaningful first composition"),
-    secondComposer.getByLabel("Post text").fill("A concurrent first composition"),
+    secondComposer
+      .getByRole("textbox", { name: "Post text" })
+      .fill("A concurrent first composition"),
   ]);
   await expect.poll(() => claims.length).toBe(2);
   expect(claims.map((claim) => claim.claimed).sort()).toEqual([false, true]);
@@ -50,7 +52,7 @@ test("meaningful composition starts once across focus, empty drafts, refresh, an
   await secondComposer.close();
 
   await page.reload();
-  await page.getByLabel("Post text").fill("A meaningful edit after refresh");
+  await page.getByRole("textbox", { name: "Post text" }).fill("A meaningful edit after refresh");
   await expect.poll(() => claims.length).toBe(3);
   expect(claims[2]).toEqual({ signal: "text", claimed: false });
 

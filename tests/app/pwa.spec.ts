@@ -89,7 +89,8 @@ test("a cached image editor restores and exports a design offline", async ({ pag
   await page.getByRole("button", { name: /Instagram square/ }).click();
   const title = page.getByRole("textbox", { name: "Design title" });
   await title.fill("Offline desktop design");
-  await expect(page.getByRole("banner").getByText("Saved on this device")).toBeVisible();
+  const saveIndicator = page.getByTestId("image-editor-save-indicator");
+  await expect(saveIndicator).toHaveAttribute("data-state", "saved");
   // The first visit used client routing. Exercise a controlled document request too.
   await page.reload();
   await expect(title).toHaveValue("Offline desktop design");

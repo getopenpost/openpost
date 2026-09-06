@@ -171,7 +171,7 @@ test("dirty composer workspace switches can stay, save to the origin, or discard
 
   await page.goto("/");
   const composer = page.getByTestId("text-thread-composer-shell");
-  const textarea = composer.getByLabel("Post text");
+  const textarea = composer.getByRole("textbox", { name: "Post text" });
   await expect(textarea).toBeVisible();
   const workspaceButton = page
     .getByRole("button", { name: new RegExp(`${first.name}|${second.name}`) })

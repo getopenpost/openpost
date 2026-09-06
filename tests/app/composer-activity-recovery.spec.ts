@@ -386,7 +386,9 @@ test("composer sends workspace-local wall time as the exact scheduled instant", 
 
   await page.goto("/");
   await expect(page.getByTestId("composer-account-control")).toBeVisible();
-  await page.getByLabel("Post text").fill("Schedule in the workspace timezone.");
+  await page
+    .getByRole("textbox", { name: "Post text" })
+    .fill("Schedule in the workspace timezone.");
   await clickComposerDeliveryAction(page, "Schedule");
   const dialog = page.getByTestId("schedule-dialog-shell");
   await expect(dialog).toContainText("America/New_York");
@@ -514,7 +516,7 @@ test.skip("an in-flight autosave cannot attach an old-workspace draft after swit
   });
 
   await page.goto("/");
-  await page.getByLabel("Post text").fill("Move this unsaved content safely.");
+  await page.getByRole("textbox", { name: "Post text" }).fill("Move this unsaved content safely.");
   await firstSaveStarted;
 
   const workspaceButton = page.getByRole("button", { name: new RegExp(first.name) }).first();
@@ -530,7 +532,9 @@ test.skip("an in-flight autosave cannot attach an old-workspace draft after swit
   await firstSaveFinished;
   await expect(page).not.toHaveURL(/draft-workspace-a/);
 
-  await page.getByLabel("Post text").fill("Move this unsaved content safely to workspace B.");
+  await page
+    .getByRole("textbox", { name: "Post text" })
+    .fill("Move this unsaved content safely to workspace B.");
   await expect(page).toHaveURL(/\/publications\/draft-workspace-b$/, {
     timeout: 10_000,
   });

@@ -70,6 +70,24 @@ export interface CapturedVideoProjectInput {
   createdAt?: number;
 }
 
+export interface CapturedVideoProjectAssetInput {
+  id: string;
+  kind: "screen" | "camera" | "microphone";
+  fileName: string;
+  durationSeconds: number;
+  startOffsetSeconds: number;
+  width: number;
+  height: number;
+  preparation: ProjectAssetPreparation;
+}
+
+export interface CapturedVideoProjectAssetsInput {
+  id: string;
+  name: string;
+  assets: CapturedVideoProjectAssetInput[];
+  createdAt?: number;
+}
+
 const CAPTURE_PROJECT_FPS = 30;
 const CAPTURE_PROJECT_SCHEMA_VERSION = 6;
 
@@ -179,6 +197,118 @@ export function createCapturedVideoProjectDocument(input: CapturedVideoProjectIn
           volume: input.preparation.muted ? 0 : (input.preparation.gain ?? 1),
         },
       ],
+      transitions: [],
+    },
+    animationPresets: [],
+  };
+}
+
+export function createCapturedVideoProjectDocumentFromAssets(
+  input: CapturedVideoProjectAssetsInput,
+) {
+  const createdAt = input.createdAt ?? Date.now();
+  const visual = input.assets.find((asset) => asset.kind !== "microphone");
+  const canvasWidth = visual?.width && visual.width > 0 ? visual.width : 1920;
+  const canvasHeight = visual?.height && visual.height > 0 ? visual.height : 1080;
+  const linkedGroupId = input.assets.length > 1 ? `recording-${input.id}` : undefined;
+  const duration = input.assets.reduce(
+    (maximum, asset) =>
+      Math.max(maximum, Math.max(0, asset.startOffsetSeconds) + Math.max(0, asset.durationSeconds)),
+    0,
+  );
+
+  return {
+    id: input.id,
+    name: input.name,
+    description: "",
+    createdAt,
+    updatedAt: createdAt,
+    duration,
+    schemaVersion: CAPTURE_PROJECT_SCHEMA_VERSION,
+    schemaFamily: "openpost" as const,
+    thumbnailId: visual?.id ?? input.assets[0]?.id ?? "",
+    metadata: {
+      width: canvasWidth,
+      height: canvasHeight,
+      fps: CAPTURE_PROJECT_FPS,
+      backgroundColor: "#000000",
+    },
+    timeline: {
+      tracks: input.assets.map((asset, index) => {
+        const kind = asset.kind === "microphone" ? ("audio" as const) : ("video" as const);
+        return {
+          id: `track-${asset.kind}-${asset.id}`,
+          name: `${asset.kind === "microphone" ? "Mic" : asset.kind === "camera" ? "Camera" : "Screen"} ${index + 1}`,
+          kind,
+          height: kind === "video" ? 96 : 72,
+          locked: false,
+          syncLock: true,
+          visible: true,
+          muted: false,
+          solo: false,
+          volume: 1,
+          order: index,
+        };
+      }),
+      items: input.assets.map((asset) => {
+        const sourceDuration = Math.max(
+          1,
+          Math.round(Math.max(0, asset.durationSeconds) * CAPTURE_PROJECT_FPS),
+        );
+        const requestedStart = asset.preparation.source_range?.start_seconds ?? 0;
+        const requestedEnd = asset.preparation.source_range?.end_seconds ?? asset.durationSeconds;
+        const sourceStart = Math.max(
+          0,
+          Math.min(sourceDuration - 1, Math.round(requestedStart * CAPTURE_PROJECT_FPS)),
+        );
+        const sourceEnd = Math.max(
+          sourceStart + 1,
+          Math.min(sourceDuration, Math.round(requestedEnd * CAPTURE_PROJECT_FPS)),
+        );
+        const audio = asset.kind === "microphone";
+        const base = {
+          id: `clip-${asset.id}`,
+          trackId: `track-${asset.kind}-${asset.id}`,
+          from: Math.max(0, Math.round(asset.startOffsetSeconds * CAPTURE_PROJECT_FPS)),
+          durationInFrames: sourceEnd - sourceStart,
+          label: asset.fileName,
+          type: audio ? ("audio" as const) : ("video" as const),
+          mediaId: asset.id,
+          linkedGroupId,
+          sourceStart,
+          sourceEnd,
+          sourceDuration,
+          sourceFps: CAPTURE_PROJECT_FPS,
+          volume: asset.preparation.muted ? 0 : (asset.preparation.gain ?? 1),
+        };
+        if (audio) return base;
+        const crop = asset.preparation.crop ?? {
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+        };
+        const sourceWidth = asset.width > 0 ? asset.width : canvasWidth;
+        const sourceHeight = asset.height > 0 ? asset.height : canvasHeight;
+        const croppedWidth = Math.max(1, Math.round(sourceWidth * crop.width));
+        const croppedHeight = Math.max(1, Math.round(sourceHeight * crop.height));
+        return {
+          ...base,
+          transform: {
+            x: 0,
+            y: 0,
+            width: croppedWidth,
+            height: croppedHeight,
+            rotation: asset.preparation.rotation ?? 0,
+          },
+          crop: {
+            top: normalizedCropEdge(crop.y),
+            right: normalizedCropEdge(1 - crop.x - crop.width),
+            bottom: normalizedCropEdge(1 - crop.y - crop.height),
+            left: normalizedCropEdge(crop.x),
+          },
+        };
+      }),
       transitions: [],
     },
     animationPresets: [],

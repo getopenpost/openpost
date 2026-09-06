@@ -7,8 +7,8 @@ Status: approved by owner in session (all open questions answered). This spec is
 Replace the retired Video Editor with two local-first editing surfaces and a rebuilt recorder, while keeping signed-in authored projects portable through Cloud Video Projects:
 
 1. **Video Editor** (`/video-editor`) — multi-track timeline editor ported from FreeCut (MIT). Signed-in projects belong to the current OpenPost Workspace by default. Users can still create Local-only projects in a chosen folder. Transcription, transcript/text-based cutting, subtitles, silence removal, export.
-2. **Quick Cut** (`/quick-cut`) — fast lossless trimmer inspired by LosslessCut (**GPL-2.0: behavioral reference only, zero code ported**). No transcoding for eligible cuts; stream copy via mediabunny.
-3. **Recorder** — screen / webcam / combined / audio capture, one shared module, entry points both standalone (`/record`) and inside the Video Editor. Recordings land in the workspace and import like any media.
+2. **Quick Cut** (`/quick-cut`) — fast lossless trimmer inspired by LosslessCut (**GPL-2.0: behavioral reference only, zero code ported**). No transcoding for eligible cuts; stream copy via mediabunny. Signed-in source projects save to the current Workspace by default, with an explicit Local-only mode.
+3. **Recorder** — screen / webcam / combined / audio capture, one shared module, entry points both standalone (`/record`) and inside the Video Editor. Signed-in recordings become required Project Assets in a Cloud Video Project by default. Local-only capture still downloads ordinary files.
 
 Cloud projects synchronize portable authored state, required original Project Assets, revision history, named checkpoints, and conflicts. Device view state, filesystem handles, derived caches, downloaded models, and unsaved exports remain local. Local-only projects never sync unless the user starts an explicit import. Final exports cross into Workspace Media only through an explicit save or composer handoff.
 
@@ -54,11 +54,11 @@ Dependencies in `frontend/package.json`: `mediabunny@^1.51.0`, `@mediabunny/pror
 
 ## Quick Cut (lossless)
 
-mediabunny-based (no ffmpeg.wasm): open file(s) → keyframe map via `EncodedPacketSink` → set segments (start/end, keyboard-driven, loop playback modes) → export via `Conversion` stream-copy trim; fall back to transcode only when an exact cut requires it (keyframe-cut toggle like LosslessCut's, implemented ourselves); merge segments; save into the workspace or hand off to Send-to-OpenPost. Multi-file project files (.llc-style JSON) stored in workspace. UX reference: LosslessCut segment list/colors/playback modes/streams picker; code reference: none (GPL).
+mediabunny-based (no ffmpeg.wasm): open file(s) → keyframe map via `EncodedPacketSink` → set segments (start/end, keyboard-driven, loop playback modes) → export via `Conversion` stream-copy trim; fall back to transcode only when an exact cut requires it (keyframe-cut toggle like LosslessCut's, implemented ourselves); merge segments; save to a Cloud Video Project or hand off to Send-to-OpenPost. Cloud Quick Cut documents use stable source and segment targets, upload originals as Project Assets, and fetch them only when the project is opened. Explicit Local-only projects keep their multi-file project JSON in the chosen workspace folder. UX reference: LosslessCut segment list/colors/playback modes/streams picker; code reference: none (GPL).
 
 ## Recorder
 
-New `frontend/src/lib/recorder/` module: `getDisplayMedia` (screen, with system-audio option), `getUserMedia` (webcam, mic), combined screen+webcam+mic compositing via canvas + WebAudio mix into one MediaRecorder stream. Writes webm/mp4 chunks through a crash-safe writer worker into the workspace (`recordings/`), then imports as linked media. Entries: `/record` page and a Record action inside the Video Editor that drops the result onto the timeline. Replaces all old recorder code (deleted with the old editor).
+The recorder uses `getDisplayMedia` for screen capture and `getUserMedia` for webcam and microphone capture. Separate sources share a monotonic timebase and write WebM or MP4 chunks through a crash-safe worker. The standalone `/record` page turns a signed-in capture into one Cloud Video Project with aligned video and audio tracks, while Local-only mode downloads ordinary files. The Video Editor Record action uploads each capture as a Project Asset before inserting its linked timeline item. Recoverable scratch artifacts remain on the device until the cloud save or local download succeeds.
 
 ## Send to OpenPost
 

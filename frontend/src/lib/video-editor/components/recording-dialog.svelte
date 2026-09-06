@@ -16,7 +16,10 @@
 		type RecorderSelection,
 		type ScreenCaptureTruth
 	} from '$lib/video-editor/recorder/recorder.svelte';
-	import { insertRecordingArtifacts } from '$lib/video-editor/recorder/insert-recording';
+	import {
+		insertRecordingArtifacts,
+		type RecordingImportRuntime
+	} from '$lib/video-editor/recorder/insert-recording';
 	import {
 		recorderPreferences as defaultPreferences,
 		type RecorderPreferencesStore
@@ -29,6 +32,7 @@
 		projectId,
 		recorder = defaultRecorder,
 		preferences = defaultPreferences,
+		importRuntime,
 		onopenchange = () => {},
 		oninserted = () => {}
 	}: {
@@ -36,6 +40,7 @@
 		projectId: string;
 		recorder?: ScreenCaptureRecorder;
 		preferences?: RecorderPreferencesStore;
+		importRuntime?: RecordingImportRuntime;
 		onopenchange?: (v: boolean) => void;
 		oninserted?: (itemId: string) => void;
 	} = $props();
@@ -341,7 +346,7 @@
 			recoveryUrls = [...recoveryUrls, ...capturedUrls];
 			try {
 				const anchor = timelineStore.currentFrame;
-				const result = await insertRecordingArtifacts(projectId, artifacts, anchor);
+				const result = await insertRecordingArtifacts(projectId, artifacts, anchor, importRuntime);
 				editorSession.scheduleAutosave();
 				result.itemIds.forEach((id) => oninserted(id));
 				showToast(m.video_editor_recording_inserted(), 'success');
@@ -379,7 +384,7 @@
 			}
 			const anchor = timelineStore.currentFrame;
 			for (const artifacts of grouped.values()) {
-				const result = await insertRecordingArtifacts(projectId, artifacts, anchor);
+				const result = await insertRecordingArtifacts(projectId, artifacts, anchor, importRuntime);
 				result.itemIds.forEach((id) => oninserted(id));
 				artifacts.forEach((artifact) => insertedScratchIds.add(artifact.scratchId));
 				await recorder.discardArtifacts(artifacts);

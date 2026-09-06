@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createCapturedVideoProjectDocumentFromAssets,
   createCapturedVideoProjectDocument,
   overlappingTargets,
   portableVideoProjectDocument,
@@ -62,6 +63,71 @@ describe("portable Video Project contract", () => {
       }),
     ]);
     expect(document.thumbnailId).toBe("capture-1");
+  });
+
+  it("creates aligned editor tracks from a multi-source recorder capture", () => {
+    const document = createCapturedVideoProjectDocumentFromAssets({
+      id: "recording-project",
+      name: "Product demo",
+      createdAt: 100,
+      assets: [
+        {
+          id: "screen-asset",
+          kind: "screen",
+          fileName: "screen.webm",
+          durationSeconds: 8,
+          startOffsetSeconds: 0,
+          width: 1920,
+          height: 1080,
+          preparation: {},
+        },
+        {
+          id: "mic-asset",
+          kind: "microphone",
+          fileName: "mic.webm",
+          durationSeconds: 7.5,
+          startOffsetSeconds: 0.25,
+          width: 0,
+          height: 0,
+          preparation: {},
+        },
+      ],
+    });
+
+    expect(document.metadata).toMatchObject({
+      width: 1920,
+      height: 1080,
+      fps: 30,
+    });
+    expect(document.timeline.tracks).toEqual([
+      expect.objectContaining({
+        id: "track-screen-screen-asset",
+        kind: "video",
+        order: 0,
+      }),
+      expect.objectContaining({
+        id: "track-microphone-mic-asset",
+        kind: "audio",
+        order: 1,
+      }),
+    ]);
+    expect(document.timeline.items).toEqual([
+      expect.objectContaining({
+        id: "clip-screen-asset",
+        mediaId: "screen-asset",
+        trackId: "track-screen-screen-asset",
+        from: 0,
+        type: "video",
+      }),
+      expect.objectContaining({
+        id: "clip-mic-asset",
+        mediaId: "mic-asset",
+        trackId: "track-microphone-mic-asset",
+        from: 8,
+        type: "audio",
+      }),
+    ]);
+    expect(document.duration).toBe(8);
   });
 
   it("removes filesystem handles and device view state at every depth", () => {

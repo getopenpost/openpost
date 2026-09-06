@@ -27,6 +27,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	import { permanentlyDeleteProject } from '$lib/video-editor/project/project-trash';
 	import type { Project } from '$lib/video-editor/project/types';
 	import {
+		cloudVideoProjectFamily,
 		CloudVideoProjectRepository,
 		type CloudVideoProject
 	} from '$lib/video-editor/cloud/project-repository';
@@ -97,8 +98,12 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		try {
 			const projects = await repository.list(true);
 			if (generation !== cloudLoadGeneration) return;
-			cloudProjects = projects.filter((project) => !project.trashedAt);
-			cloudTrashedProjects = projects.filter((project) => project.trashedAt);
+			cloudProjects = projects.filter(
+				(project) => !project.trashedAt && cloudVideoProjectFamily(project) !== 'quick-cut'
+			);
+			cloudTrashedProjects = projects.filter(
+				(project) => project.trashedAt && cloudVideoProjectFamily(project) !== 'quick-cut'
+			);
 			cloudLoading = false;
 			void loadCloudOfflineProjectIds(generation, cloudWorkspaceId, cloudProjects);
 		} catch {

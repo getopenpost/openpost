@@ -14,7 +14,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import Logo from '$lib/components/Logo.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { dismissToast, showToast } from '$lib/toast';
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import SegmentList from '$lib/quick-cut/components/SegmentList.svelte';
 	import TimelineBar from '$lib/quick-cut/components/TimelineBar.svelte';
 	import ExportPanel from '$lib/quick-cut/components/ExportPanel.svelte';
@@ -84,6 +84,18 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	} from '$lib/quick-cut/frame-capture';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { quickCutShortcutAction } from '$lib/quick-cut/shortcuts';
+	import {
+		listQuickCutCloudProjects,
+		loadQuickCutCloudProject,
+		quickCutCloudRepository,
+		syncQuickCutCloudProject,
+		type QuickCutCloudDocument,
+		type QuickCutCloudSession
+	} from '$lib/quick-cut/cloud-project';
+	import {
+		CloudVideoProjectConflictError,
+		type CloudVideoProject
+	} from '$lib/video-editor/cloud/project-repository';
 
 	let sources = $state<QuickCutSource[]>([]);
 	let sourceUrls = $state<Map<string, string>>(new Map());
@@ -103,6 +115,16 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let exportProgress = $state<QuickCutExportProgress | null>(null);
 	let abortController = $state<AbortController | null>(null);
 	let project = $state<QuickCutProject | null>(null);
+	let storageMode = $state<'cloud' | 'local'>('cloud');
+	let storageModeChosen = $state(false);
+	let cloudSession = $state.raw<QuickCutCloudSession | null>(null);
+	let cloudProjects = $state.raw<Array<CloudVideoProject<QuickCutCloudDocument>>>([]);
+	let cloudLoading = $state(false);
+	let cloudOpeningId = $state<string | null>(null);
+	let cloudError = $state('');
+	let cloudConflictId = $state<string | null>(null);
+	let cloudConflictWorking = $state(false);
+	let cloudLoadGeneration = 0;
 	let workspaceName = $state<string | null>(null);
 	let videoSrc = $state<string>('');
 	let previewRun = $state<{
@@ -120,6 +142,10 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let segmentValidationToastId: string | number | null = null;
 	let pendingSourceRemoval = $state<QuickCutSource | null>(null);
 	let capturingFrame = $state(false);
+	const cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const cloudRepository = $derived(
+		cloudWorkspaceId ? quickCutCloudRepository(cloudWorkspaceId) : null
+	);
 
 	const activeSource = $derived(sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null);
 	const canCaptureFrame = $derived(
@@ -170,6 +196,94 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	$effect(() => {
 		updateWorkspaceName();
 	});
+
+	$effect(() => {
+		const repository = cloudRepository;
+		if (!repository) {
+			cloudLoadGeneration += 1;
+			cloudProjects = [];
+			if (!storageModeChosen) storageMode = 'local';
+			return;
+		}
+		if (!storageModeChosen) storageMode = 'cloud';
+		untrack(() => void loadCloudProjectList(repository));
+	});
+
+	async function loadCloudProjectList(repository = cloudRepository): Promise<void> {
+		if (!repository) return;
+		const generation = ++cloudLoadGeneration;
+		cloudLoading = true;
+		cloudError = '';
+		try {
+			const projects = await listQuickCutCloudProjects(repository);
+			if (generation === cloudLoadGeneration) cloudProjects = projects;
+		} catch (error) {
+			if (generation === cloudLoadGeneration) {
+				cloudError =
+					error instanceof Error ? error.message : m.video_editor_cloud_projects_load_failed();
+			}
+		} finally {
+			if (generation === cloudLoadGeneration) cloudLoading = false;
+		}
+	}
+
+	function chooseStorage(mode: 'cloud' | 'local'): void {
+		storageModeChosen = true;
+		storageMode = mode;
+		if (project) syncProject();
+	}
+
+	async function openCloudProject(
+		cloudProject: CloudVideoProject<QuickCutCloudDocument>
+	): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository || cloudOpeningId) return;
+		cloudOpeningId = cloudProject.id;
+		try {
+			const opened = await loadQuickCutCloudProject(repository, cloudProject.id);
+			stopPreview();
+			clearSourceUrls();
+			project = opened.project;
+			sources = opened.sources;
+			segments = opened.project.segments;
+			cutMode = opened.project.cutMode;
+			merge = opened.project.merge;
+			removeMarkedRanges = opened.project.removeMarkedRanges;
+			activeSourceId = opened.sources[0]?.id ?? null;
+			selectedId = opened.project.segments[0]?.id ?? null;
+			cloudSession = opened.session;
+			storageMode = 'cloud';
+			storageModeChosen = true;
+			for (const source of opened.sources) {
+				if (!source.file) continue;
+				const next = new Map(sourceUrls);
+				next.set(source.id, URL.createObjectURL(source.file));
+				sourceUrls = next;
+			}
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			cloudOpeningId = null;
+		}
+	}
+
+	async function resolveCloudConflict(resolution: 'keep_current' | 'use_conflict'): Promise<void> {
+		const repository = cloudRepository;
+		const conflictId = cloudConflictId;
+		const projectId = cloudSession?.project.id;
+		if (!repository || !conflictId || !projectId || cloudConflictWorking) return;
+		cloudConflictWorking = true;
+		try {
+			const resolved = await repository.resolveConflict(projectId, conflictId, resolution);
+			cloudConflictId = null;
+			cloudSession = null;
+			await openCloudProject(resolved);
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : m.video_editor_restore_failed(), 'error');
+		} finally {
+			cloudConflictWorking = false;
+		}
+	}
 
 	$effect(() => {
 		if (activeSource) {
@@ -253,16 +367,17 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				const { handle: _h, file: _f, ...m } = s;
 				return m;
 			});
-			project = createNewProject(metas);
-			project.segments = segments;
+			const created = createNewProject(metas);
+			created.segments = segments;
+			project = created;
 		} else {
 			project.sources = sources.map((s) => {
 				const { handle: _h, file: _f, ...m } = s;
 				return m;
 			});
 		}
-		soundPreferences.play('success');
 		syncProject();
+		soundPreferences.play('success');
 	}
 
 	function switchActiveSource(id: string, preservePreview = false): void {
@@ -309,7 +424,24 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				},
 				async (plan) => {
 					await saveQueue;
-					if (!getWorkspaceRoot() || !project) return;
+					if (!project) return;
+					const repository = cloudRepository;
+					if (storageMode === 'cloud' && repository) {
+						if (plan.project) {
+							cloudSession = await syncQuickCutCloudProject(
+								repository,
+								cloudSession,
+								plan.project,
+								plan.sources
+							);
+						} else if (cloudSession) {
+							await repository.trash(cloudSession.project.id);
+							cloudSession = null;
+							await loadCloudProjectList(repository);
+						}
+						return;
+					}
+					if (!getWorkspaceRoot()) return;
 					if (plan.project) await saveProjectToWorkspace(plan.project);
 					else await deleteProjectFromWorkspace(project.id);
 				}
@@ -774,12 +906,27 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			const { handle: _h, file: _f, ...m } = s;
 			return m;
 		});
-		if (!getWorkspaceRoot()) return;
+		project.updatedAt = Date.now();
+		const repository = cloudRepository;
+		const saveToCloud = storageMode === 'cloud' && repository !== null;
+		if (!saveToCloud && !getWorkspaceRoot()) return;
 		const revision = ++saveRevision;
 		saveState = 'saving';
 		const toSave = snapshotProject(project);
+		const sourcesToSave = [...sources];
 		saveQueue = saveQueue
-			.then(() => saveProjectToWorkspace(toSave))
+			.then(async () => {
+				if (saveToCloud) {
+					cloudSession = await syncQuickCutCloudProject(
+						repository,
+						cloudSession,
+						toSave,
+						sourcesToSave
+					);
+					return;
+				}
+				await saveProjectToWorkspace(toSave);
+			})
 			.then(() => {
 				if (revision !== saveRevision) return;
 				saveState = 'saved';
@@ -790,6 +937,9 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			.catch((error: Error) => {
 				if (revision !== saveRevision) return;
 				saveState = 'error';
+				if (error instanceof CloudVideoProjectConflictError) {
+					cloudConflictId = error.conflictId;
+				}
 				showToast(error.message || m.quick_cut_save_failed(), 'error');
 			});
 	}
@@ -1087,7 +1237,30 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			<span class="text-sm font-semibold">{m.quick_cut_title()}</span>
 		</a>
 		<div class="flex items-center gap-2">
-			{#if workspaceName}
+			{#if project}
+				<span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground" role="status">
+					{#if storageMode === 'cloud'}
+						{#if saveState === 'saving'}
+							{m.video_editor_saving()}
+						{:else if saveState === 'error'}
+							{m.compose_needs_attention()}
+						{:else if cloudSession}
+							{m.video_editor_saved_cloud()}
+						{:else}
+							{m.video_editor_saving()}
+						{/if}
+					{:else}
+						{m.video_editor_local_only()}
+						{#if saveState === 'saving'}
+							· {m.common_loading()}
+						{:else if saveState === 'saved'}
+							· {m.quick_cut_saved()}
+						{:else if saveState === 'error'}
+							· {m.quick_cut_save_failed()}
+						{/if}
+					{/if}
+				</span>
+			{:else if workspaceName}
 				<span class="hidden rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground sm:block"
 					>{workspaceName}</span
 				>
@@ -1105,6 +1278,30 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
 					{m.quick_cut_empty_body()}
 				</p>
+				{#if cloudWorkspaceId}
+					<div
+						class="mx-auto mt-5 flex w-fit rounded-lg border bg-muted/40 p-1"
+						role="group"
+						aria-label={m.video_editor_storage()}
+					>
+						<Button
+							variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
+							size="sm"
+							aria-pressed={storageMode === 'cloud'}
+							onclick={() => chooseStorage('cloud')}
+						>
+							{m.video_editor_saved_cloud()}
+						</Button>
+						<Button
+							variant={storageMode === 'local' ? 'secondary' : 'ghost'}
+							size="sm"
+							aria-pressed={storageMode === 'local'}
+							onclick={() => chooseStorage('local')}
+						>
+							{m.video_editor_local_only()}
+						</Button>
+					</div>
+				{/if}
 				<div class="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
 					<Button class="min-h-11 w-full sm:w-auto" onclick={openFiles}
 						>{m.quick_cut_open_multiple()}</Button
@@ -1113,9 +1310,85 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						>{m.quick_cut_import_project()}</Button
 					>
 				</div>
-				<p class="mt-4 text-xs text-muted-foreground">{m.quick_cut_workspace_hint()}</p>
+				{#if storageMode === 'local'}
+					<p class="mt-4 text-xs text-muted-foreground">{m.quick_cut_workspace_hint()}</p>
+				{:else}
+					<p class="mt-4 text-xs text-muted-foreground">
+						{m.video_editor_cloud_projects_description()}
+					</p>
+				{/if}
+				{#if storageMode === 'cloud' && cloudWorkspaceId}
+					<div class="mt-6 border-t pt-5 text-left">
+						<div class="flex items-center justify-between gap-3">
+							<h2 class="text-sm font-semibold">{m.video_editor_cloud_projects()}</h2>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={cloudLoading}
+								onclick={() => void loadCloudProjectList()}
+							>
+								{m.common_retry()}
+							</Button>
+						</div>
+						{#if cloudError}
+							<p class="mt-3 text-sm text-destructive" role="alert">{cloudError}</p>
+						{:else if cloudLoading}
+							<p class="mt-3 text-sm text-muted-foreground" role="status">
+								{m.video_editor_cloud_projects_loading()}
+							</p>
+						{:else if cloudProjects.length > 0}
+							<ul class="mt-3 grid gap-2 sm:grid-cols-2" role="list">
+								{#each cloudProjects as cloudProject (cloudProject.id)}
+									<li class="flex items-center justify-between gap-3 rounded-lg border p-3">
+										<span class="min-w-0 truncate text-sm" title={cloudProject.name}>
+											{cloudProject.name}
+										</span>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={cloudOpeningId !== null}
+											onclick={() => void openCloudProject(cloudProject)}
+										>
+											{m.video_editor_project_open()}
+										</Button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		{:else}
+			{#if cloudConflictId}
+				<section
+					class="rounded-xl border border-destructive/40 bg-destructive/5 p-4"
+					aria-labelledby="quick-cut-cloud-conflict-title"
+				>
+					<h2 id="quick-cut-cloud-conflict-title" class="text-sm font-semibold">
+						{m.video_editor_conflict_title()}
+					</h2>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{m.video_editor_conflict_preserved()}
+					</p>
+					<div class="mt-3 flex flex-wrap gap-2">
+						<Button
+							size="sm"
+							disabled={cloudConflictWorking}
+							onclick={() => void resolveCloudConflict('use_conflict')}
+						>
+							{m.video_editor_restore()}
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={cloudConflictWorking}
+							onclick={() => void resolveCloudConflict('keep_current')}
+						>
+							{m.video_editor_conflict_reload()}
+						</Button>
+					</div>
+				</section>
+			{/if}
 			<SourceBar
 				{sources}
 				{activeSourceId}

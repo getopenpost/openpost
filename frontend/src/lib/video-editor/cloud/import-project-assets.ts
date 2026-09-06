@@ -4,7 +4,7 @@ import { hashBlob } from '../project-bundle/bundle-utils';
 import { fileWithInferredMediaType, prepareMediaImportFile } from '../media/media-file-types';
 import { probeMediaFile } from '../media/probe-client';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
 
 export interface CloudProjectAssetImportOptions<TDocument extends object> {
 	projectId: string;
@@ -13,6 +13,74 @@ export interface CloudProjectAssetImportOptions<TDocument extends object> {
 		fileName: string;
 		codec: string;
 	}) => Promise<'import' | 'cancel'>;
+}
+
+export interface CloudProjectAssetFileOptions<
+	TDocument extends object
+> extends CloudProjectAssetImportOptions<TDocument> {
+	file: File;
+	tags?: string[];
+	capture?: RecordingCaptureMetadata;
+}
+
+export async function importCloudProjectAssetFile<TDocument extends object>(
+	options: CloudProjectAssetFileOptions<TDocument>
+): Promise<MediaMetadata | null> {
+	const source = fileWithInferredMediaType(options.file);
+	const file = await prepareMediaImportFile(source);
+	const probe = await probeMediaFile(file);
+	if (probe.audioCodecSupported === false) {
+		const decision = await options.onUnsupportedAudio?.({
+			fileName: file.name,
+			codec: probe.audioCodec ?? 'unknown'
+		});
+		if (decision !== 'import') return null;
+	}
+	const stableMediaId = crypto.randomUUID();
+	const contentHash = await hashBlob(file);
+	const projectAssetId = await options.repository.reserveAsset(options.projectId, {
+		stableMediaId,
+		fileName: file.name,
+		mimeType: file.type || 'application/octet-stream',
+		size: file.size,
+		sha256: contentHash
+	});
+	const uploaded = await uploadMediaFile({
+		workspaceId: options.repository.workspaceId,
+		file,
+		source: 'video_editor_source',
+		assetKind: 'project_asset',
+		retentionClass: 'temporary',
+		projectAssetId,
+		clientSHA256: contentHash,
+		prepareVideo: false
+	});
+	const media: MediaMetadata = {
+		id: stableMediaId,
+		storageType: 'cloud',
+		remoteUrl: uploaded.url,
+		contentHash,
+		fileName: file.name,
+		fileSize: file.size,
+		mimeType: file.type || 'application/octet-stream',
+		duration: probe.durationSeconds,
+		width: probe.width,
+		height: probe.height,
+		fps: probe.fps,
+		frameRateMetrics: probe.frameRateMetrics,
+		codec: probe.videoCodec ?? '',
+		videoCodecSupported: probe.videoCodecSupported,
+		bitrate: probe.bitrate ?? 0,
+		audioCodec: probe.audioCodec,
+		audioCodecSupported: probe.audioCodecSupported,
+		keyframeTimestamps: probe.keyframeTimestamps,
+		gopInterval: probe.gopInterval,
+		animationFrameCount: probe.animationFrameCount,
+		tags: [...new Set([probe.kind, ...(options.tags ?? [])])],
+		capture: options.capture
+	};
+	mediaPool.upsert(media, 'ready');
+	return media;
 }
 
 export async function importCloudProjectAssetsFromPicker<TDocument extends object>(
@@ -34,60 +102,11 @@ export async function importCloudProjectAssetsFromPicker<TDocument extends objec
 	});
 	const imported: string[] = [];
 	for (const handle of handles) {
-		const source = fileWithInferredMediaType(await handle.getFile());
-		const file = await prepareMediaImportFile(source);
-		const probe = await probeMediaFile(file);
-		if (probe.audioCodecSupported === false) {
-			const decision = await options.onUnsupportedAudio?.({
-				fileName: file.name,
-				codec: probe.audioCodec ?? 'unknown'
-			});
-			if (decision !== 'import') continue;
-		}
-		const stableMediaId = crypto.randomUUID();
-		const contentHash = await hashBlob(file);
-		const projectAssetId = await options.repository.reserveAsset(options.projectId, {
-			stableMediaId,
-			fileName: file.name,
-			mimeType: file.type || 'application/octet-stream',
-			size: file.size,
-			sha256: contentHash
+		const media = await importCloudProjectAssetFile({
+			...options,
+			file: await handle.getFile()
 		});
-		const uploaded = await uploadMediaFile({
-			workspaceId: options.repository.workspaceId,
-			file,
-			source: 'video_editor_source',
-			assetKind: 'project_asset',
-			retentionClass: 'temporary',
-			projectAssetId,
-			clientSHA256: contentHash,
-			prepareVideo: false
-		});
-		const media: MediaMetadata = {
-			id: stableMediaId,
-			storageType: 'cloud',
-			remoteUrl: uploaded.url,
-			contentHash,
-			fileName: file.name,
-			fileSize: file.size,
-			mimeType: file.type || 'application/octet-stream',
-			duration: probe.durationSeconds,
-			width: probe.width,
-			height: probe.height,
-			fps: probe.fps,
-			frameRateMetrics: probe.frameRateMetrics,
-			codec: probe.videoCodec ?? '',
-			videoCodecSupported: probe.videoCodecSupported,
-			bitrate: probe.bitrate ?? 0,
-			audioCodec: probe.audioCodec,
-			audioCodecSupported: probe.audioCodecSupported,
-			keyframeTimestamps: probe.keyframeTimestamps,
-			gopInterval: probe.gopInterval,
-			animationFrameCount: probe.animationFrameCount,
-			tags: [probe.kind]
-		};
-		mediaPool.upsert(media, 'ready');
-		imported.push(stableMediaId);
+		if (media) imported.push(media.id);
 	}
 	return imported;
 }

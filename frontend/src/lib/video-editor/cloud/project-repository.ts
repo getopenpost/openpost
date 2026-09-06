@@ -43,6 +43,7 @@ const pendingVideoProjectMutationSchema = z.object({
 	attempts: z.number()
 });
 const cloudDocumentSchema = z.looseObject({});
+const cloudDocumentFamilySchema = z.looseObject({ schemaFamily: z.string().optional() });
 type CloudVideoProjectDocument = components['schemas']['VideoProjectResponse']['document'];
 
 export function purgeCloudVideoProjectDeviceData(): void {
@@ -62,6 +63,11 @@ export interface CloudVideoProject<TDocument extends object> {
 	attentionReason: string;
 	trashedAt: string;
 	updatedAt: string;
+}
+
+export function cloudVideoProjectFamily(project: CloudVideoProject<object>): string {
+	const result = cloudDocumentFamilySchema.safeParse(project.document);
+	return result.success ? (result.data.schemaFamily ?? '') : '';
 }
 
 export interface CloudVideoProjectRevision<TDocument extends object> {

@@ -14,6 +14,11 @@
 		type RecorderKind
 	} from '$lib/video-editor/recorder/recorder.svelte';
 	import { recorderPreferences } from '$lib/video-editor/recorder/recorder-preferences.svelte';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import {
+		recorderCloudRepository,
+		saveRecorderArtifactsToCloud
+	} from '$lib/video-editor/cloud/cloud-recording';
 
 	const recorder = new ScreenCaptureRecorder();
 	const savedPreferences = untrack(() => recorderPreferences.value);
@@ -37,6 +42,14 @@
 	let lastDownloads = $state<
 		Array<{ url: string; name: string; kind: RecorderKind; size: number; scratchId?: string }>
 	>([]);
+	let lastCloudProject = $state<{ id: string; name: string } | null>(null);
+	let storageMode = $state<'cloud' | 'local'>('cloud');
+	let storageModeChosen = $state(false);
+	let savingRecovery = $state(false);
+	const cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const cloudRepository = $derived(
+		cloudWorkspaceId ? recorderCloudRepository(cloudWorkspaceId) : null
+	);
 	const hasRecoverableDownloads = $derived(
 		lastDownloads.some((download) => download.scratchId !== undefined)
 	);
@@ -47,6 +60,15 @@
 		const secs = Math.floor(recorder.elapsedMs / 1000);
 		return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 	});
+
+	$effect(() => {
+		if (!storageModeChosen) storageMode = cloudWorkspaceId ? 'cloud' : 'local';
+	});
+
+	function chooseStorage(mode: 'cloud' | 'local'): void {
+		storageModeChosen = true;
+		storageMode = mode;
+	}
 
 	function localizedRecorderError(): string {
 		switch (recorder.error) {
@@ -190,14 +212,34 @@
 				const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 				const name = `recording-${a.kind}-${stamp}.${ext}`;
 				const url = URL.createObjectURL(a.blob);
-				// Auto-download each artifact
-				const anchor = document.createElement('a');
-				anchor.href = url;
-				anchor.download = name;
-				anchor.click();
-				return { url, name, kind: a.kind, size: a.blob.size };
+				return { url, name, kind: a.kind, size: a.blob.size, scratchId: a.scratchId };
 			});
 			lastDownloads = [...lastDownloads, ...downloads];
+			const repository = cloudRepository;
+			if (storageMode === 'cloud' && repository) {
+				const saved = await saveRecorderArtifactsToCloud(repository, artifacts);
+				lastCloudProject = { id: saved.projectId, name: saved.name };
+				for (const download of downloads) URL.revokeObjectURL(download.url);
+				const savedScratchIds = new Set(artifacts.map((artifact) => artifact.scratchId));
+				lastDownloads = lastDownloads.filter(
+					(download) => !download.scratchId || !savedScratchIds.has(download.scratchId)
+				);
+				await recorder.discardArtifacts(artifacts);
+				showToast(m.video_editor_saved_cloud(), 'success');
+				return;
+			}
+			for (const download of downloads) {
+				const anchor = document.createElement('a');
+				anchor.href = download.url;
+				anchor.download = download.name;
+				anchor.click();
+			}
+			const localScratchIds = new Set(artifacts.map((artifact) => artifact.scratchId));
+			lastDownloads = lastDownloads.map((download) =>
+				download.scratchId && localScratchIds.has(download.scratchId)
+					? { ...download, scratchId: undefined }
+					: download
+			);
 			await recorder.discardArtifacts(artifacts);
 			showToast(m.record_saved(), 'success');
 		} catch {
@@ -216,6 +258,35 @@
 			if (download.scratchId) URL.revokeObjectURL(download.url);
 		}
 		lastDownloads = lastDownloads.filter((download) => !download.scratchId);
+	}
+
+	async function handleSaveRecoveryToCloud(): Promise<void> {
+		const repository = cloudRepository;
+		const artifacts = recorder.lastArtifacts;
+		if (!repository || artifacts.length === 0 || savingRecovery) return;
+		savingRecovery = true;
+		try {
+			const saved = await saveRecorderArtifactsToCloud(repository, artifacts);
+			lastCloudProject = { id: saved.projectId, name: saved.name };
+			const savedScratchIds = new Set(artifacts.map((artifact) => artifact.scratchId));
+			for (const download of lastDownloads) {
+				if (download.scratchId && savedScratchIds.has(download.scratchId)) {
+					URL.revokeObjectURL(download.url);
+				}
+			}
+			lastDownloads = lastDownloads.filter(
+				(download) => !download.scratchId || !savedScratchIds.has(download.scratchId)
+			);
+			await recorder.discardArtifacts(artifacts);
+			showToast(m.video_editor_saved_cloud(), 'success');
+		} catch (error) {
+			showToast(
+				error instanceof Error ? error.message : m.video_editor_recording_failed(),
+				'error'
+			);
+		} finally {
+			savingRecovery = false;
+		}
 	}
 
 	const isRequesting = $derived(recorder.status === 'requesting');
@@ -260,6 +331,24 @@
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
 		</a>
+		{#if cloudWorkspaceId && !captureBusy}
+			<div
+				class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
+			>
+				<Button
+					size="sm"
+					variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
+					aria-pressed={storageMode === 'cloud'}
+					onclick={() => chooseStorage('cloud')}>{m.video_editor_saved_cloud()}</Button
+				>
+				<Button
+					size="sm"
+					variant={storageMode === 'local' ? 'secondary' : 'ghost'}
+					aria-pressed={storageMode === 'local'}
+					onclick={() => chooseStorage('local')}>{m.video_editor_local_only()}</Button
+				>
+			</div>
+		{/if}
 	</header>
 
 	<main class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
@@ -293,6 +382,17 @@
 				{#if recorder.status === 'recording'}
 					<span class="font-mono text-lg tabular-nums" aria-live="polite">● {elapsed}</span>
 				{/if}
+			{:else if lastCloudProject}
+				<div class="p-4 text-center text-sm" role="status">
+					<p class="font-medium">{m.video_editor_saved_cloud()}</p>
+					<p class="mt-1 text-[var(--video-editor-muted)]">{lastCloudProject.name}</p>
+					<a
+						href={`/video-editor/${lastCloudProject.id}?storage=cloud`}
+						class="mt-3 inline-flex min-h-11 items-center rounded border px-3 py-1.5 text-xs underline"
+					>
+						{m.editors_open_video()}
+					</a>
+				</div>
 			{:else if lastDownloads.length > 0}
 				<div class="p-4 text-center text-sm">
 					{#if hasRecoverableDownloads}
@@ -317,6 +417,15 @@
 						{/each}
 					</div>
 					{#if hasRecoverableDownloads}
+						{#if storageMode === 'cloud' && cloudRepository}
+							<Button
+								class="mt-3 min-h-11"
+								disabled={savingRecovery}
+								onclick={handleSaveRecoveryToCloud}
+							>
+								{savingRecovery ? m.common_loading() : m.video_editor_save_cloud()}
+							</Button>
+						{/if}
 						<Button variant="ghost" class="mt-3 min-h-11" onclick={handleDiscardRecovery}>
 							{m.video_editor_discard_recording()}
 						</Button>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import PwaManager from '$lib/components/pwa-manager.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/auth';
@@ -475,6 +476,7 @@
 <QueryClientProvider client={queryClient}>
 	<ThemeAppShell />
 	{#if !isPreviewRoute}
+		<PwaManager />
 		<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
 	<Toaster position="bottom-center" richColors closeButton />
 	<TelemetryConsent

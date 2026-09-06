@@ -48,6 +48,7 @@
 		"@types/d3-scale": "^4.0.9",
 		"@types/d3-shape": "^3.1.8",
 		"@types/node": "^24",
+		"@vite-pwa/sveltekit": "^1.1.0",
 		"@vitest/browser-playwright": "^4.1.10",
 		"@webgpu/types": "^0.1.72",
 		"eslint": "^9.39.2",

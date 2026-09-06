@@ -16,7 +16,13 @@ export const publishedProviderAssetSlugs = [
 ] as const;
 
 export const assetSurfaceManifest = {
-  frontend: ["brand/icon.svg"],
+  frontend: [
+    "brand/icon.svg",
+    "brand/pwa-192.png",
+    "brand/pwa-512.png",
+    "brand/pwa-maskable-512.png",
+    "brand/apple-touch-icon.png",
+  ],
   docs: ["brand/icon.svg", "brand/logo-docs.svg", "screenshots/main-dark.png"],
   marketing: [
     "ai-logos/chatgpt.png",

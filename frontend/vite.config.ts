@@ -2,7 +2,8 @@ import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { VitePWA } from 'vite-plugin-pwa';
+import { appManifest } from './src/lib/pwa/manifest.ts';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
@@ -52,33 +53,52 @@ export default defineConfig({
 		tailwindcss(),
 		...appFrameworkPlugins,
 		...(!usesPrecompiledParaglide ? [paraglidePlugin] : []),
-		VitePWA({
-			registerType: 'autoUpdate',
-			injectRegister: 'auto',
+		SvelteKitPWA({
+			base: '/',
+			scope: '/',
+			registerType: 'prompt',
+			injectRegister: false,
+			includeManifestIcons: false,
 			// F-007: SW must not cache dev builds. `devOptions.enabled` defaults
 			// to false but we set it explicitly so a future plugin default change
 			// cannot reintroduce the first-load race where a stale SW serves old
 			// hashes while Vite is still compiling generated SvelteKit nodes.
 			devOptions: { enabled: false },
 			workbox: {
-				globPatterns: [],
+				importScripts: ['/pwa-cache-cleanup.js'],
+				// Cache the small offline page and install assets, not every editor and AI bundle.
+				globPatterns: ['client/offline.html', 'client/assets/brand/*.{png,svg}'],
+				// These are static files, not SvelteKit routes. Preserve their extensions.
+				modifyURLPrefix: { 'client/': '' },
+				manifestTransforms: [],
+				globIgnores: ['prerendered/**'],
 				navigateFallback: null,
+				clientsClaim: true,
 				runtimeCaching: [
 					{
-						urlPattern: ({ request }) => request.mode === 'navigate',
+						// Auth callbacks, token-bearing URLs and API documents must never enter Cache Storage.
+						urlPattern: ({ request, url, sameOrigin }) =>
+							sameOrigin &&
+							request.mode === 'navigate' &&
+							!url.search &&
+							/^\/(?:$|media\/?$|(?:image-editor|video-editor|quick-cut|record|publications|calendar|settings|analytics|communications|growth|editors)(?:\/|$))/.test(
+								url.pathname
+							),
 						handler: 'NetworkFirst',
 						options: {
-							cacheName: 'openpost-pages-1',
+							cacheName: 'openpost-pages-2',
+							precacheFallback: { fallbackURL: '/offline.html' },
 							networkTimeoutSeconds: 3,
 							expiration: {
 								maxEntries: 32,
 								maxAgeSeconds: 7 * 24 * 60 * 60
 							},
-							cacheableResponse: { statuses: [0, 200] }
+							cacheableResponse: { statuses: [200], headers: { 'Content-Type': 'text/html' } }
 						}
 					},
 					{
-						urlPattern: ({ url }) => url.pathname.startsWith('/_app/immutable/'),
+						urlPattern: ({ url, sameOrigin }) =>
+							sameOrigin && url.pathname.startsWith('/_app/immutable/'),
 						handler: 'CacheFirst',
 						options: {
 							cacheName: 'openpost-app-assets-1',
@@ -86,11 +106,12 @@ export default defineConfig({
 								maxEntries: 400,
 								maxAgeSeconds: 30 * 24 * 60 * 60
 							},
-							cacheableResponse: { statuses: [0, 200] }
+							cacheableResponse: { statuses: [200] }
 						}
 					},
 					{
-						urlPattern: ({ url }) => url.pathname.startsWith('/image-editor-models/'),
+						urlPattern: ({ url, sameOrigin }) =>
+							sameOrigin && /^\/image-editor-models\/[a-f0-9]{64}$/.test(url.pathname),
 						handler: 'CacheFirst',
 						options: {
 							cacheName: 'openpost-image-editor-models-1.7.0',
@@ -98,28 +119,12 @@ export default defineConfig({
 								maxEntries: 32,
 								maxAgeSeconds: 365 * 24 * 60 * 60
 							},
-							cacheableResponse: { statuses: [0, 200] }
+							cacheableResponse: { statuses: [200] }
 						}
 					}
 				]
 			},
-			manifest: {
-				name: 'OpenPost',
-				short_name: 'OpenPost',
-				description: 'Schedule and publish content across multiple social platforms.',
-				theme_color: '#b74c05',
-				background_color: '#faf9f7',
-				display: 'standalone',
-				start_url: '/',
-				icons: [
-					{
-						src: '/assets/brand/icon.svg',
-						sizes: 'any',
-						type: 'image/svg+xml',
-						purpose: 'any maskable'
-					}
-				]
-			}
+			manifest: appManifest
 		}),
 		...sourceMaps.plugins
 	],

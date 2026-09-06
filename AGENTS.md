@@ -47,6 +47,7 @@ Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, s
 - Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `backend/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
+- PWA registration uses an absolute root URL through `SvelteKitPWA` and `pwa-manager.svelte`. Updates wait for open windows to close. Cache only public app resources; exclude API, authorization, query-bearing navigations, and original media. Test service workers against the production build with `e2e-app/pwa.spec.ts`, not Vite dev.
 - Authored color fields use `$lib/components/color-picker.svelte`. Keep canvas sampling, grading tools, CSS color expressions, and provider color categories in their specialized owners.
 - `@openpost/query-catalog` owns cache-safe remote reads across web and mobile. Mutations reconcile through its affected keys; each route owns one cold loading boundary and keeps cached state visible while refreshing.
 - Mobile server, token, and Workspace persistence is one transaction boundary owned by `mobile/src/lib/identity-store.ts`. Keep all three behind its queue and crash marker; a committed server change clears the server-scoped session.

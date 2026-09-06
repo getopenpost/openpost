@@ -37,6 +37,20 @@ func withAppRoutes(webFS fstest.MapFS, routes ...string) fstest.MapFS {
 	return webFS
 }
 
+func TestPWAControlFilesRevalidate(t *testing.T) {
+	for _, asset := range []string{"sw.js", "pwa-cache-cleanup.js", "manifest.webmanifest"} {
+		t.Run(asset, func(t *testing.T) {
+			webFS := fstest.MapFS{asset: {Data: []byte("control file")}}
+			e := echo.New()
+			registerSpaRoutes(e, webFS)
+			response := httptest.NewRecorder()
+			e.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/"+asset, nil))
+			require.Equal(t, http.StatusOK, response.Code)
+			require.Equal(t, "no-cache", response.Header().Get("Cache-Control"))
+		})
+	}
+}
+
 func TestSpaStaticAssetsPreferPrecompressedImmutableResponses(t *testing.T) {
 	modTime := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
 	webFS := fstest.MapFS{

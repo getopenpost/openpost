@@ -25,30 +25,10 @@ export function initializeClientErrors(installErrorCapture: ErrorCaptureInstalle
  *    returns a temporary 500 / transform error and the import rejects with the
  *    same message plus a URL suffix, or with "Importing a module script failed".
  *
- * Both cases are transient and recover after the module is available. We
- * handle them in two ways:
- *
- * 1. **Proactive** - reload when a new service-worker controller takes over
- *    (fresh deployment).
- * 2. **Reactive** - intercept chunk-load errors/rejections and reload with
- *    exponential back-off and a session-storage guard (covers both stale chunks
- *    and the dev race). The broad substring check is intentional: Chrome and
- *    Firefox append the failing URL to the message, so an exact equality check
- *    misses the real error.
+ * Recover transient chunk failures with bounded retries. Service-worker updates
+ * wait for open windows to close, so an update cannot interrupt an edit or export.
  */
 function detectStaleChunks() {
-	// --- proactive: reload when a new service-worker controller takes over ---
-	if ('serviceWorker' in navigator) {
-		let hadController = navigator.serviceWorker.controller !== null;
-		navigator.serviceWorker.addEventListener('controllerchange', () => {
-			if (!hadController) {
-				hadController = true;
-				return;
-			}
-			window.location.reload();
-		});
-	}
-
 	// --- reactive: catch stale-chunk / dev-race errors and reload ---
 	const isChunkLoadError = (error: unknown): boolean => {
 		// SAFETY: narrowing unknown error to extract message for chunk-load detection; checked via typeof and existence before access
@@ -91,6 +71,7 @@ function detectStaleChunks() {
 	}
 
 	const reloadWithBackoff = () => {
+		if (!navigator.onLine) return;
 		const state = getRetryState();
 		const nextCount = state.count + 1;
 		if (nextCount > MAX_RETRIES) return;
@@ -107,10 +88,20 @@ function detectStaleChunks() {
 		const delayMs = nextCount === 1 ? 300 : nextCount === 2 ? 800 : 1500;
 		window.setTimeout(() => {
 			const doReload = () => window.location.reload();
-			void caches
-				?.keys()
-				?.then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
-				?.then(doReload, doReload);
+			if (!('caches' in window)) {
+				doReload();
+				return;
+			}
+			void window.caches
+				.keys()
+				.then((keys) =>
+					Promise.all(
+						keys
+							.filter((key) => key.startsWith('openpost-pages-'))
+							.map((key) => window.caches.delete(key))
+					)
+				)
+				.then(doReload, doReload);
 		}, delayMs);
 	};
 

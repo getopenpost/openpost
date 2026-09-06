@@ -8533,5 +8533,10 @@
 	"settings_external_app_register": "アプリケーションを登録",
 	"settings_external_app_rotate": "シークレットを更新",
 	"settings_external_app_revoke_title": "アプリケーションを無効にしますか？",
-	"settings_external_app_revoke_body": "このアプリケーションに発行されたすべてのインストールと認証情報が無効になります。"
+	"settings_external_app_revoke_body": "このアプリケーションに発行されたすべてのインストールと認証情報が無効になります。",
+	"pwa_install_title": "OpenPostをインストールしますか？",
+	"pwa_install_description": "デスクトップから専用ウィンドウで開けます。",
+	"pwa_install_action": "アプリをインストール",
+	"pwa_install_failed": "インストールを開始できませんでした。ブラウザのメニューからもう一度お試しください。",
+	"pwa_manual_install": "ブラウザのアプリをインストール機能を使ってください。Safariでは「ファイル」>「Dockに追加」を選びます。"
 }

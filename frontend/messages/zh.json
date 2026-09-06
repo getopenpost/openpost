@@ -8533,5 +8533,10 @@
 	"settings_external_app_register": "注册应用",
 	"settings_external_app_rotate": "轮换密钥",
 	"settings_external_app_revoke_title": "要撤销应用吗？",
-	"settings_external_app_revoke_body": "这会撤销为此应用签发的所有安装和凭据。"
+	"settings_external_app_revoke_body": "这会撤销为此应用签发的所有安装和凭据。",
+	"pwa_install_title": "安装 OpenPost？",
+	"pwa_install_description": "从桌面在独立窗口中打开。",
+	"pwa_install_action": "安装应用",
+	"pwa_install_failed": "无法开始安装。请从浏览器菜单重试。",
+	"pwa_manual_install": "使用浏览器的安装应用选项。在 Safari 中，选择“文件”>“添加到程序坞”。"
 }

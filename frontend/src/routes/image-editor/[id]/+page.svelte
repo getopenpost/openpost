@@ -72,7 +72,9 @@
 			if (!guestMode) hydrateCachedDesign(designID, workspaceCtx.currentWorkspace?.id ?? '');
 			loading = !design;
 			refreshing = Boolean(design);
-			const configPromise = queryImageEditorConfig();
+			// Local documents remain editable offline without a server configuration request.
+			const configPromise =
+				guestMode && !navigator.onLine ? Promise.resolve(null) : queryImageEditorConfig();
 			if (!guestMode) await workspaceCtx.initialize();
 			const requestedWorkspaceID = workspaceCtx.currentWorkspace?.id ?? '';
 			if (!guestMode && !requestedWorkspaceID) throw new Error(m.image_editor_open_failed());
@@ -89,8 +91,10 @@
 				guestMode ? Promise.resolve(null) : queryImageEditorBrandKit(requestedWorkspaceID)
 			]);
 			if (request !== loadRequest) return;
-			if (!config.enabled) throw new Error(m.image_editor_not_enabled());
-			applyImageEditorConfig(config);
+			if (config) {
+				if (!config.enabled) throw new Error(m.image_editor_not_enabled());
+				applyImageEditorConfig(config);
+			}
 			const brand = guestMode
 				? null
 				: response.workspace_id === requestedWorkspaceID

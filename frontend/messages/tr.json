@@ -8533,5 +8533,10 @@
 	"settings_external_app_register": "Uygulamayı kaydet",
 	"settings_external_app_rotate": "Sırrı yenile",
 	"settings_external_app_revoke_title": "Uygulama iptal edilsin mi?",
-	"settings_external_app_revoke_body": "Bu işlem uygulama için verilen tüm kurulumları ve kimlik bilgilerini iptal eder."
+	"settings_external_app_revoke_body": "Bu işlem uygulama için verilen tüm kurulumları ve kimlik bilgilerini iptal eder.",
+	"pwa_install_title": "OpenPost yüklensin mi?",
+	"pwa_install_description": "Masaüstünüzden ayrı bir pencerede açın.",
+	"pwa_install_action": "Uygulamayı yükle",
+	"pwa_install_failed": "Yükleme başlatılamadı. Tarayıcı menüsünden tekrar deneyin.",
+	"pwa_manual_install": "Tarayıcınızın Uygulamayı yükle seçeneğini kullanın. Safari’de Dosya > Dock’a Ekle’yi seçin."
 }

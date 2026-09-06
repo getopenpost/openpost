@@ -8533,5 +8533,10 @@
 	"settings_external_app_register": "Enregistrer l'application",
 	"settings_external_app_rotate": "Renouveler le secret",
 	"settings_external_app_revoke_title": "Révoquer l'application ?",
-	"settings_external_app_revoke_body": "Cela révoque chaque installation et chaque identifiant émis pour cette application."
+	"settings_external_app_revoke_body": "Cela révoque chaque installation et chaque identifiant émis pour cette application.",
+	"pwa_install_title": "Installer OpenPost ?",
+	"pwa_install_description": "Ouvrez-le depuis votre bureau dans sa propre fenêtre.",
+	"pwa_install_action": "Installer l’application",
+	"pwa_install_failed": "Impossible de lancer l’installation. Réessayez depuis le menu du navigateur.",
+	"pwa_manual_install": "Utilisez l’option Installer l’application du navigateur. Dans Safari, choisissez Fichier > Ajouter au Dock."
 }

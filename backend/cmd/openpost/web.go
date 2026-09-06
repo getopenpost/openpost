@@ -551,6 +551,8 @@ func serveStaticAsset(c echo.Context, webFS fs.FS, relPath string, originalInfo 
 	}
 	if isImmutableAsset(relPath) {
 		responseHeaders.Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else if relPath == "sw.js" || relPath == "pwa-cache-cleanup.js" || relPath == "manifest.webmanifest" {
+		responseHeaders.Set("Cache-Control", "no-cache")
 	}
 
 	info := originalInfo

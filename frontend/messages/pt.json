@@ -8533,5 +8533,10 @@
 	"settings_external_app_register": "Registar aplicação",
 	"settings_external_app_rotate": "Renovar segredo",
 	"settings_external_app_revoke_title": "Revogar aplicação?",
-	"settings_external_app_revoke_body": "Isto revoga todas as instalações e credenciais emitidas para esta aplicação."
+	"settings_external_app_revoke_body": "Isto revoga todas as instalações e credenciais emitidas para esta aplicação.",
+	"pwa_install_title": "Instalar o OpenPost?",
+	"pwa_install_description": "Abra-o no seu computador numa janela própria.",
+	"pwa_install_action": "Instalar aplicação",
+	"pwa_install_failed": "Não foi possível iniciar a instalação. Tente novamente no menu do navegador.",
+	"pwa_manual_install": "Use a opção Instalar aplicação do navegador. No Safari, escolha Ficheiro > Adicionar à Dock."
 }

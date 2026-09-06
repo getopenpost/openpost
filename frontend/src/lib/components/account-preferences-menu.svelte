@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { canInstallApp, installApp, showInstallApp } from '$lib/pwa/install';
+	import { showToast } from '$lib/toast';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { get } from 'svelte/store';
@@ -276,6 +278,22 @@
 			{/each}
 		</DropdownMenu.SubContent>
 	</DropdownMenu.Sub>
+{/if}
+{#if $showInstallApp}
+	<DropdownMenu.Item
+		class={[menuItemClass, 'gap-3']}
+		onclick={() => {
+			onNavigate?.();
+			if (!$canInstallApp) {
+				showToast(m.pwa_manual_install(), 'info');
+				return;
+			}
+			void installApp().catch(() => showToast(m.pwa_install_failed(), 'error'));
+		}}
+	>
+		<ThemeIcon role="download" class="size-4 text-muted-foreground" />
+		{m.pwa_install_action()}
+	</DropdownMenu.Item>
 {/if}
 <DropdownMenu.CheckboxItem
 	class={menuItemClass}

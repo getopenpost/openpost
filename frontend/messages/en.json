@@ -8533,5 +8533,10 @@
 	"theme_builtin_cloud_garden_description": "White and mint layers with restrained botanical depth.",
 	"theme_builtin_study_hall_description": "Cool structured surfaces with indigo study signals.",
 	"theme_builtin_corkboard_description": "Tactile paper surfaces, moss ink, and pinned amber actions.",
-	"theme_builtin_midnight_description": "A dark precision instrument with a chartreuse focal signal."
+	"theme_builtin_midnight_description": "A dark precision instrument with a chartreuse focal signal.",
+	"pwa_install_title": "Install OpenPost?",
+	"pwa_install_description": "Open it from your desktop in its own window.",
+	"pwa_install_action": "Install app",
+	"pwa_install_failed": "Installation could not start. Try again from your browser menu.",
+	"pwa_manual_install": "Use your browser's Install app option. In Safari, choose File > Add to Dock."
 }

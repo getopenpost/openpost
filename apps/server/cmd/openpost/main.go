@@ -68,6 +68,7 @@ import (
 	"github.com/openpost/backend/internal/services/postgeneration"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/proxyauth"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
@@ -293,6 +294,12 @@ func main() {
 	installTelemetryErrorHandler(e, telemetryRecorder)
 
 	authService := auth.NewService(cfg.JWTSecret)
+	if cfg.ProxyAuthSecret != "" {
+		e.Use(proxyauth.NewMiddleware(db, authService, proxyauth.Config{
+			SharedSecret:  cfg.ProxyAuthSecret,
+			WorkspaceName: cfg.ProxyAuthWorkspaceName,
+		}))
+	}
 	googleIssuer := ""
 	if cfg.GoogleAuthClientID != "" {
 		googleIssuer = "https://accounts.google.com"

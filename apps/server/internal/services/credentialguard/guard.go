@@ -9,7 +9,20 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
+
+const firstUserBootstrapLockID = int64(0x4f50454e504f5354)
+
+// LockFirstUserBootstrap serializes the one-time administrator decision across
+// PostgreSQL processes. SQLite serializes the write transaction itself.
+func LockFirstUserBootstrap(ctx context.Context, tx bun.Tx) error {
+	if tx.Dialect().Name() != dialect.PG {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(?)", firstUserBootstrapLockID)
+	return err
+}
 
 // LockUserMutation obtains a row-level write lock and returns the credential
 // fields needed to evaluate fallback sign-in methods. Every mutation that can

@@ -20,6 +20,7 @@ import (
 	"github.com/openpost/backend/internal/publicprofiles"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/billing"
+	"github.com/openpost/backend/internal/services/credentialguard"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/emailverification"
 	"github.com/openpost/backend/internal/services/identity"
@@ -31,7 +32,6 @@ import (
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/openpost/backend/internal/usernames"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 )
 
 const (
@@ -579,12 +579,8 @@ func (h *AuthHandler) registerUserWithPolicy(ctx context.Context, email, usernam
 }
 
 func (h *AuthHandler) insertRegistrationUser(ctx context.Context, tx bun.Tx, user *models.User) error {
-	// PostgreSQL does not lock an empty users table for COUNT. A transaction-
-	// scoped advisory lock serializes only the one-time administrator bootstrap.
-	if h.db.Dialect().Name() == dialect.PG {
-		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(?)", int64(0x4f50454e504f5354)); err != nil {
-			return err
-		}
+	if err := credentialguard.LockFirstUserBootstrap(ctx, tx); err != nil {
+		return err
 	}
 	userCount, err := tx.NewSelect().Model((*models.User)(nil)).Count(ctx)
 	if err != nil {

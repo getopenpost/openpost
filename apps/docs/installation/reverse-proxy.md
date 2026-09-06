@@ -25,6 +25,36 @@ openpost.example.com {
 }
 ```
 
+## Trusted proxy sign-in
+
+Self-hosted platforms can let their authenticated user enter OpenPost without a
+second sign-in. Set `OPENPOST_PROXY_AUTH_SECRET` to a random value of at least 32
+characters, then have the trusted proxy add these headers:
+
+- `X-OpenPost-Proxy-User`: a stable user ID or email address
+- `X-OpenPost-Proxy-Secret`: the exact shared secret
+
+OpenPost creates the user's personal workspace on first access and uses its
+normal authorization rules after that. This mode is limited to
+`OPENPOST_EDITION=selfhost`.
+
+Treat the OpenPost process as a private upstream. The proxy must remove any
+client-supplied copies of both headers before adding its own, and clients must
+not be able to reach the OpenPost port directly. Prefer
+`OPENPOST_PROXY_AUTH_SECRET_FILE` so the secret does not appear in environment
+inspection output.
+
+```nginx
+location / {
+  proxy_pass http://127.0.0.1:8081;
+  proxy_set_header X-OpenPost-Proxy-User $trusted_user;
+  proxy_set_header X-OpenPost-Proxy-Secret $openpost_proxy_secret;
+}
+```
+
+If your proxy cannot guarantee those boundaries, keep OpenPost's built-in
+sign-in instead.
+
 ## Nginx example
 
 ```nginx

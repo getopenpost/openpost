@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -41,6 +42,8 @@ type Config struct {
 	EncryptionKeyID          string
 	EncryptionPreviousKeys   map[string]string
 	MediaSigningKey          string
+	ProxyAuthSecret          string
+	ProxyAuthWorkspaceName   string
 	DisableRegistrations     bool
 	OAuthDCR                 bool
 	PublicProfilesEnabled    bool
@@ -223,6 +226,8 @@ func Load() *Config {
 		JWTSecret:               getEnvWithFallbacks("OPENPOST_JWT_SECRET", "", "JWT_SECRET"),
 		EncryptionKey:           getEnvWithFallbacks("OPENPOST_ENCRYPTION_KEY", "", "ENCRYPTION_KEY"),
 		EncryptionKeyID:         strings.TrimSpace(encryptionKeyID),
+		ProxyAuthSecret:         getEnvDefault("OPENPOST_PROXY_AUTH_SECRET", ""),
+		ProxyAuthWorkspaceName:  strings.TrimSpace(getEnvDefault("OPENPOST_PROXY_AUTH_WORKSPACE_NAME", "My Workspace")),
 		DisableRegistrations:    getEnvBoolWithAliases(false, "OPENPOST_DISABLE_REGISTRATIONS"),
 		OAuthDCR:                getEnvBoolWithAliases(false, "OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED"),
 		PublicProfilesEnabled:   getEnvBoolWithAliases(true, "OPENPOST_PUBLIC_PROFILES_ENABLED"),
@@ -657,6 +662,9 @@ func (c *Config) ValidateRuntime() error {
 	if err := c.validateAnalyticsSources(); err != nil {
 		return err
 	}
+	if err := c.validateProxyAuthentication(); err != nil {
+		return err
+	}
 	if c.XAccountHistoryReadRequestsPerDay < 0 {
 		return fmt.Errorf("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 	}
@@ -687,6 +695,19 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("OPENPOST_EDITION=cloud requires: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func (c *Config) validateProxyAuthentication() error {
+	if c.ProxyAuthSecret == "" {
+		return nil
+	}
+	if len(c.ProxyAuthSecret) < minSecretLength {
+		return fmt.Errorf("OPENPOST_PROXY_AUTH_SECRET must be at least %d characters", minSecretLength)
+	}
+	if c.Edition == EditionCloud {
+		return errors.New("OPENPOST_PROXY_AUTH_SECRET is only supported with OPENPOST_EDITION=selfhost")
 	}
 	return nil
 }

@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/credentialguard"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 )
 
 const (
@@ -239,10 +239,8 @@ func (s *Service) create(ctx context.Context, userID string, replace bool) (*Pen
 
 func (s *Service) complete(ctx context.Context, challenge models.EmailVerificationChallenge, now time.Time) error {
 	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if s.db.Dialect().Name() == dialect.PG {
-			if _, err := tx.ExecContext(txCtx, "SELECT pg_advisory_xact_lock(?)", int64(0x4f50454e504f5354)); err != nil {
-				return err
-			}
+		if err := credentialguard.LockFirstUserBootstrap(txCtx, tx); err != nil {
+			return err
 		}
 		var user models.User
 		if err := tx.NewSelect().Model(&user).Where("id = ?", challenge.UserID).Scan(txCtx); err != nil {

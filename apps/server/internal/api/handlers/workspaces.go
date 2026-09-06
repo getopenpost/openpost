@@ -11,7 +11,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auditprojection"
 	authservice "github.com/openpost/backend/internal/services/auth"
@@ -22,9 +21,9 @@ import (
 	"github.com/openpost/backend/internal/services/organizationdeletion"
 	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/setupprojection"
-	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/openpost/backend/internal/services/workspacedeletion"
+	"github.com/openpost/backend/internal/services/workspaceprovisioning"
 	"github.com/openpost/backend/internal/services/workspaceteam"
 	"github.com/uptrace/bun"
 )
@@ -499,39 +498,17 @@ var errOrganizationChangedDuringWorkspaceCreation = errors.New("organization cha
 
 func (h *WorkspaceHandler) insertWorkspaceBoundary(ctx context.Context, organization *models.Organization, organizationMember *models.OrganizationMember, workspace *models.Workspace, member *models.WorkspaceMember, userID string) error {
 	return h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if organization != nil {
-			if _, err := tx.NewInsert().Model(organization).Exec(txCtx); err != nil {
-				return err
-			}
-		}
-		if organizationMember != nil {
-			if _, err := tx.NewInsert().Model(organizationMember).Exec(txCtx); err != nil {
-				return err
-			}
-		}
 		if organization == nil {
 			if err := lockOrganizationForWorkspaceCreation(txCtx, tx, workspace.OrganizationID, userID); err != nil {
 				return err
 			}
 		}
-		if _, err := tx.NewInsert().Model(workspace).Exec(txCtx); err != nil {
-			return err
-		}
-		if _, err := tx.NewInsert().Model(member).Exec(txCtx); err != nil {
-			return err
-		}
-		if _, err := voiceprofiles.SeedDefault(txCtx, tx, voiceprofiles.DefaultSeed{
-			WorkspaceID: workspace.ID,
-			CreatedByID: userID,
-			Name:        workspace.Name,
-			Now:         workspace.CreatedAt,
-		}); err != nil {
-			return err
-		}
-		if _, _, err := jobregistry.EnqueueMediaCleanup(txCtx, tx, workspace.ID, time.Time{}); err != nil {
-			return err
-		}
-		return nil
+		return workspaceprovisioning.Create(txCtx, tx, workspaceprovisioning.Boundary{
+			Organization:       organization,
+			OrganizationMember: organizationMember,
+			Workspace:          workspace,
+			WorkspaceMember:    member,
+		})
 	})
 }
 

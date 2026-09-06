@@ -24,6 +24,8 @@ var configTestEnvKeys = []string{
 	"OPENPOST_APP_URL",
 	"OPENPOST_FRONTEND_URL",
 	"OPENPOST_PUBLIC_URL",
+	"OPENPOST_PROXY_AUTH_SECRET",
+	"OPENPOST_PROXY_AUTH_WORKSPACE_NAME",
 	"OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED",
 	"OPENPOST_EDITION",
 	"OPENPOST_APP_E2E_HOSTED_SIGNUP",
@@ -176,6 +178,27 @@ func TestLoadControlsOAuthDynamicClientRegistration(t *testing.T) {
 	t.Setenv("OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED", "true")
 
 	require.True(t, Load().OAuthDCR)
+}
+
+func TestLoadAndValidateProxyAuthentication(t *testing.T) {
+	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "proxy-auth-secret-with-at-least-thirty-two-characters")
+	t.Setenv("OPENPOST_PROXY_AUTH_WORKSPACE_NAME", "OpenPost")
+
+	cfg := Load()
+
+	require.Equal(t, "proxy-auth-secret-with-at-least-thirty-two-characters", cfg.ProxyAuthSecret)
+	require.Equal(t, "OpenPost", cfg.ProxyAuthWorkspaceName)
+	require.NoError(t, cfg.ValidateRuntime())
+
+	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "too-short")
+	err := Load().ValidateRuntime()
+	require.ErrorContains(t, err, "OPENPOST_PROXY_AUTH_SECRET must be at least 32 characters")
+	require.NotContains(t, err.Error(), "too-short")
+
+	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "proxy-auth-secret-with-at-least-thirty-two-characters")
+	t.Setenv("OPENPOST_EDITION", EditionCloud)
+	err = Load().ValidateRuntime()
+	require.ErrorContains(t, err, "OPENPOST_EDITION=selfhost")
 }
 
 func TestLoadPreservesExplicitAbsoluteMediaURL(t *testing.T) {

@@ -40,6 +40,8 @@ For reference implementations, read `docs/references/README.md` before inspectin
 
 Keep deployable projects in `apps/`, shared runtime code in `packages/`, browser suites in `tests/`, deployment files in `deploy/`, and repository manifests in `config/`. Public Go module names and root task scopes do not change when source folders move. Keep community policies in `.github/`, launch templates in `docs/launch-kit/`, social artwork in `assets/social/`, and browser configurations with their test suites. Keep `PRODUCT.md` and `DESIGN.md` at the root for design-tool discovery. Local review reports and screenshots are ignored; commit maintained acceptance inputs with their owning tests or design sources.
 
+Keep third-party deployment packaging under `deploy/<platform>/`. If a platform requires its manifest at the repository root, use a dedicated wrapper repository instead of adding another root file here.
+
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.

@@ -26,7 +26,6 @@ import (
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/usernames"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 	"golang.org/x/oauth2"
 )
 
@@ -994,10 +993,8 @@ func (s *Service) insertJITUser(
 	user *models.User,
 	linkedIdentity *models.UserIdentity,
 ) error {
-	if s.db.Dialect().Name() == dialect.PG {
-		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(?)", int64(0x4f50454e504f5354)); err != nil {
-			return err
-		}
+	if err := credentialguard.LockFirstUserBootstrap(ctx, tx); err != nil {
+		return err
 	}
 	userCount, err := tx.NewSelect().Model((*models.User)(nil)).Count(ctx)
 	if err != nil {

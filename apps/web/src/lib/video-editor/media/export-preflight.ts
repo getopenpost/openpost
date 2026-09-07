@@ -18,11 +18,15 @@ export type ExportPreflightCheckId =
 	| 'video-codec-checking'
 	| 'video-codec-supported'
 	| 'video-codec-unavailable'
+	| 'video-codec-fallback'
 	| 'image-encode-unavailable'
 	| 'image-encode-checking'
 	| 'subtitle-burn-fallback'
 	| 'smart-copy'
 	| 'worker-render'
+	| 'worker-unavailable-fallback'
+	| 'worker-animated-image-fallback'
+	| 'worker-audio-context-fallback'
 	| 'main-thread-render'
 	| 'long-render'
 	| 'output-too-large';
@@ -35,6 +39,8 @@ export interface ExportPreflightCheck {
 	seconds?: number;
 	minutes?: number;
 	sizeBytes?: number;
+	fromCodec?: string;
+	toCodec?: string;
 }
 
 export interface ExportPreflightSettings {
@@ -72,6 +78,9 @@ export interface ExportPreflightInput {
 	media?: readonly MediaMetadata[];
 	hasRenderableBackground?: boolean;
 	workerAvailable?: boolean;
+	offlineAudioContextAvailable?: boolean;
+	/** Set when the dialog auto-switched codecs so the switch is announced, never silent. */
+	codecFallback?: { from: VideoCodec; to: VideoCodec };
 }
 
 export interface ExportPreflightRange {
@@ -166,6 +175,20 @@ function hasAudibleContent(
 		const track = byId.get(item.trackId);
 		return Boolean(track && !track.muted && (track.volume ?? 1) > 0 && (item.volume ?? 1) > 0);
 	});
+}
+
+function hasAnimatedImageContent(
+	items: readonly TimelineItem[],
+	media: readonly MediaMetadata[] | undefined
+): boolean {
+	if (!media || media.length === 0) return false;
+	const animatedIds = new Set(
+		media.filter((entry) => (entry.animationFrameCount ?? 0) > 1).map((entry) => entry.id)
+	);
+	if (animatedIds.size === 0) return false;
+	return items.some(
+		(item) => item.type === 'image' && item.mediaId !== undefined && animatedIds.has(item.mediaId)
+	);
 }
 
 function needsSourceMedia(item: TimelineItem): boolean {
@@ -300,20 +323,32 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 		}
 	}
 
-	const predictedRenderPath = smartCopyEligible
-		? 'smart-copy'
-		: input.workerAvailable === false
-			? 'main-thread'
-			: 'worker';
-	checks.push({
-		id:
-			predictedRenderPath === 'smart-copy'
-				? 'smart-copy'
-				: predictedRenderPath === 'worker'
-					? 'worker-render'
-					: 'main-thread-render',
-		severity: predictedRenderPath === 'smart-copy' ? 'info' : 'ok'
-	});
+	if (input.codecFallback && !audioFormat && !imageSequence && !smartCopyEligible) {
+		checks.push({
+			id: 'video-codec-fallback',
+			severity: 'warning',
+			fromCodec: input.codecFallback.from.toUpperCase(),
+			toCodec: input.codecFallback.to.toUpperCase()
+		});
+	}
+
+	let predictedRenderPath: 'smart-copy' | 'worker' | 'main-thread';
+	if (smartCopyEligible) {
+		predictedRenderPath = 'smart-copy';
+		checks.push({ id: 'smart-copy', severity: 'info' });
+	} else if (input.workerAvailable === false) {
+		predictedRenderPath = 'main-thread';
+		checks.push({ id: 'worker-unavailable-fallback', severity: 'info' });
+	} else if (!audioFormat && !imageSequence && hasAnimatedImageContent(input.items, input.media)) {
+		predictedRenderPath = 'main-thread';
+		checks.push({ id: 'worker-animated-image-fallback', severity: 'warning' });
+	} else if (audible && input.offlineAudioContextAvailable === false) {
+		predictedRenderPath = 'main-thread';
+		checks.push({ id: 'worker-audio-context-fallback', severity: 'info' });
+	} else {
+		predictedRenderPath = 'worker';
+		checks.push({ id: 'worker-render', severity: 'ok' });
+	}
 	const estimatedFileSizeBytes = smartCopyEligible
 		? Math.ceil(
 				((smartCopyAssessment.plan.media.bitrate || VIDEO_BITRATES.standard) *

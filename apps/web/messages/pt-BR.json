@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "O documento do projeto salvo é inválido.",
 	"video_editor_trim_start": "Aparar início do clipe",
 	"video_editor_trim_end": "Aparar fim do clipe",
-	"video_editor_trim_keyboard": "Arraste para aparar. Mantenha Shift pressionado enquanto arrasta para fechar o espaço, ou Option ou Alt para mover o corte compartilhado. Use as teclas de seta esquerda e direita para um quadro, ou Shift+seta para dez quadros.",
+	"video_editor_trim_keyboard": "Arraste para aparar. Mantenha Shift pressionado enquanto arrasta para fechar o espaço, ou Option ou Alt (mesmo no meio do arraste) para mover o corte compartilhado. Use as setas esquerda e direita para um quadro; Shift+seta move os clipes visuais 1 px (10 px com Command ou Control) ou dez quadros no áudio.",
 	"video_editor_overlay_text": "Texto",
 	"video_editor_overlay_item": "Sobreposição",
 	"video_editor_overlay_type": "Sobreposição de {type}",

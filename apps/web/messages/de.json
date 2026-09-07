@@ -5111,7 +5111,7 @@
 	"video_editor_project_invalid": "Das gespeicherte Projektdokument ist ungültig.",
 	"video_editor_trim_start": "Clipanfang trimmen",
 	"video_editor_trim_end": "Clip-Ende trimmen",
-	"video_editor_trim_keyboard": "Ziehen zum Trimmen. Umschalt beim Ziehen halten für Ripple, Option oder Alt für Roll am gemeinsamen Schnitt. Pfeil links/rechts für einen Frame, Umschalt+Pfeil für zehn Frames.",
+	"video_editor_trim_keyboard": "Zum Trimmen ziehen. Umschalt beim Ziehen halten für Ripple, Option oder Alt (auch noch während des Ziehens) für Roll am gemeinsamen Schnitt. Pfeil links/rechts für einen Frame; Umschalt+Pfeil verschiebt visuelle Clips um 1 px (10 px mit Command oder Strg), bei Audio um zehn Frames.",
 	"video_editor_overlay_text": "Text",
 	"video_editor_overlay_item": "Overlay",
 	"video_editor_overlay_type": "{type} Overlay",

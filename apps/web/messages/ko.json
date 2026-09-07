@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "저장된 프로젝트 문서가 잘못되었습니다.",
 	"video_editor_trim_start": "클립 시작 잘라내기",
 	"video_editor_trim_end": "클립 끝 잘라내기",
-	"video_editor_trim_keyboard": "드래그해 잘라내세요. 드래그 중 Shift는 리플, Option 또는 Alt는 공유 편집점을 굴립니다. 왼쪽·오른쪽 화살표로 한 프레임, Shift+화살표로 10프레임씩 움직입니다.",
+	"video_editor_trim_keyboard": "드래그해 잘라내세요. 드래그 중 Shift는 리플, Option 또는 Alt(드래그 중간에도 가능)는 공유 편집점을 굴립니다. 왼쪽·오른쪽 화살표로 한 프레임, Shift+화살표로 영상 클립은 1px(Command/Control과 함께면 10px), 오디오는 10프레임씩 움직입니다.",
 	"video_editor_overlay_text": "텍스트",
 	"video_editor_overlay_item": "오버레이",
 	"video_editor_overlay_type": "{type} 오버레이",

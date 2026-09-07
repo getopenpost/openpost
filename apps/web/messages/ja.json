@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "保存済みプロジェクトのドキュメントが不正です。",
 	"video_editor_trim_start": "クリップの先頭をトリム",
 	"video_editor_trim_end": "クリップの末尾をトリム",
-	"video_editor_trim_keyboard": "ドラッグでトリム。Shift ドラッグでリップル、Option または Alt で共有編集点をロールします。← → キーで1フレーム、Shift+矢印で10フレーム動かせます。",
+	"video_editor_trim_keyboard": "ドラッグでトリム。Shift ドラッグでリップル、Option または Alt(ドラッグ途中でも可)で共有編集点をロールします。← → キーで1フレーム、Shift+矢印で映像クリップを1px(Command/Ctrl併用で10px)、音声は10フレーム動かせます。",
 	"video_editor_overlay_text": "テキスト",
 	"video_editor_overlay_item": "オーバーレイ",
 	"video_editor_overlay_type": "{type} オーバーレイ",

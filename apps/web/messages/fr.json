@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "Le document de projet enregistré est invalide.",
 	"video_editor_trim_start": "Rogner le début du clip",
 	"video_editor_trim_end": "Rogner la fin du clip",
-	"video_editor_trim_keyboard": "Faites glisser pour rogner. Maintenez Maj pendant le glissement pour une ondulation, ou Option ou Alt pour rouler la coupe partagée. Utilisez les flèches Gauche et Droite pour une image, ou Maj+flèche pour dix images.",
+	"video_editor_trim_keyboard": "Faites glisser pour rogner. Maintenez Maj pendant le glissement pour une ondulation, ou Option ou Alt (même en cours de glissement) pour rouler la coupe partagée. Flèches Gauche et Droite pour une image ; Maj+flèche déplace les clips visuels de 1 px (10 px avec Commande ou Contrôle), ou de dix images pour l'audio.",
 	"video_editor_overlay_text": "Texte",
 	"video_editor_overlay_item": "Incrustation",
 	"video_editor_overlay_type": "Incrustation {type}",

@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "已保存的项目文档无效。",
 	"video_editor_trim_start": "修剪剪辑头部",
 	"video_editor_trim_end": "修剪剪辑尾部",
-	"video_editor_trim_keyboard": "拖动可修剪。拖动时按住 Shift 进行涟漪修剪，Option 或 Alt 则移动共享剪切点。左右方向键每次移动一帧，Shift+方向键每次移动十帧。",
+	"video_editor_trim_keyboard": "拖动可修剪。拖动时按住 Shift 进行涟漪修剪,Option 或 Alt(拖动中途亦可)则移动共享剪切点。左右方向键每次移动一帧;Shift+方向键可将视频片段移动 1 像素(配合 Command 或 Control 为 10 像素),音频则移动十帧。",
 	"video_editor_overlay_text": "文本",
 	"video_editor_overlay_item": "叠加层",
 	"video_editor_overlay_type": "{type}叠加层",

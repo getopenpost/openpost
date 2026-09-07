@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "El documento de proyecto guardado no es válido.",
 	"video_editor_trim_start": "Inicio del clip de recorte",
 	"video_editor_trim_end": "Recortar el clip end",
-	"video_editor_trim_keyboard": "Arrastre para recortar. Mantenga pulsada la tecla Shift mientras arrastra a ondulación, o Opción o Alt para enrollar el corte compartido. Use Flecha izquierda y derecha para un marco, o Shift+Arrow para diez marcos.",
+	"video_editor_trim_keyboard": "Arrastre para recortar. Mantenga pulsada Shift mientras arrastra para ondulación, u Opción o Alt (incluso a mitad del arrastre) para enrollar el corte compartido. Use Flecha izquierda y derecha para un fotograma; Shift+Flecha desplaza los clips visuales 1 px (10 px con Command o Control), o diez fotogramas en audio.",
 	"video_editor_overlay_text": "Texto",
 	"video_editor_overlay_item": "Superposición",
 	"video_editor_overlay_type": "{type} superposición",

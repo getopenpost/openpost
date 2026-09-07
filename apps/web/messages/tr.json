@@ -5116,7 +5116,7 @@
 	"video_editor_project_invalid": "Kayıtlı proje belgesi geçersiz.",
 	"video_editor_trim_start": "Klip başlangıcını kırp",
 	"video_editor_trim_end": "Klip bitişini kırp",
-	"video_editor_trim_keyboard": "Kırpmak için sürükleyin. Dalgalı kesim için sürüklerken Shift, paylaşılan kesimi kaydırmak için Option veya Alt tuşunu basılı tutun. Tek kare için Sol ve Sağ Ok, on kare için Shift+Ok kullanın.",
+	"video_editor_trim_keyboard": "Kırpmak için sürükleyin. Dalgalı kesim için sürüklerken Shift, paylaşılan kesimi kaydırmak için Option veya Alt tuşunu basılı tutun (sürükleme ortasında da olur). Tek kare için Sol ve Sağ Ok; Shift+Ok görsel klipleri 1 px (Command veya Control ile 10 px), sesi ise on kare kaydırır.",
 	"video_editor_overlay_text": "Metin",
 	"video_editor_overlay_item": "Kaplama",
 	"video_editor_overlay_type": "{type} kaplaması",

@@ -340,3 +340,35 @@ when no safe cleanup exists (`timeline/track-removal.ts`, `timeline/actions/trac
 ## Prioritized gap list
 
 No applicable FreeCut feature remains partial or missing. Final release readiness still requires the broad automated and responsive browser acceptance gates documented below.
+
+## Qualitative depth pass (2026-09, `parity/batch1`)
+
+The capability audit above checks presence, not depth. A file-by-file teardown against FreeCut
+found ~40 qualitative gaps (simplified controls, missing params, weaker interactions); all were
+closed in `parity/batch1` (17 lanes, full gate green: svelte-check 0/0, frontend tests pass,
+i18n 8652 keys x 10 locales, ui-consistency pass). Headline changes:
+
+- Color dock: sidebar primaries/balance sliders with keyframe toggles, bespoke qualifier
+  (hue-band strip), gradient-map (stop editor + preview), and power-window (canvas gizmo) panes,
+  throttled scope capture (66/220 ms) with watchdog, playhead auto-select, FreeCut-style grade
+  apply, curves half-gap insert density.
+- Preview: bezier mask editor tool, text-only scrub overlay, scrub-proxy scheduler with prewarm,
+  capture-frame resolver, transition hold prearm, reverse decode-window planner, perf snapshot
+  counters + Alt+Shift+P overlay.
+- Keyframes/motion: expression preset catalog + guide, wider `prop()` domain, spring preview
+  physics, timing-strip scale-retime, group filters, segment easing, vector auto-key, promotion
+  fidelity, modulator text gates, full generator clamp table, graph axis indicator.
+- Timeline: rate-stretch edge drag, canvas-pixel nudge, mid-drag Alt/Shift morph, slip/slide guards,
+  transition-midpoint snap, bento custom presets, per-tab selection memory, program in/out wiring.
+- Text/transcript: text-motion bands + Applied jump-list + offset, virtualized cue list (600-cue
+  proof), pen/edit modes + corner/bezier convert, cue B/I/U + timing parity.
+- Media/export/shell: transcription model picker + size estimates, keyword/semantic search mode,
+  export presets, proxy bulk card, honest slow-path preflight, template silhouettes, scene density
+  toggle + match highlight, health chip, unified Add menu, collapsible/expandable sidebars +
+  preview theater mode, logo-only editor headers.
+
+Intentional divergences (documented in code, not gaps): Alt+move stays slip (no duplicate-drag);
+user effect/grade presets stay browser-local (superset of FreeCut workspace sharing); word-level
+timing drag out of scope (neither side has it); mask combine modes deferred (intersect-only on both
+sides); shape rendering stays Canvas2D (FreeCut WebGPU SDF pipeline documented as known divergence);
+`captionSearchMode` defaults to keyword (matches FreeCut).

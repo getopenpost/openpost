@@ -105,7 +105,7 @@ That's the shape of it; the [docs](https://docs.openpo.st) cover the rest, inclu
 
 ## Supported platforms
 
-LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord (via webhook). Support varies by platform — not every one does DMs, comments, analytics, or Grow, and some need app review or public media URLs. OpenPost tells you what's missing before you publish.
+LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord (via webhook). Support varies by platform: not every one does DMs, comments, analytics, or Grow, and some need app review or public media URLs. OpenPost tells you what's missing before you publish.
 
 <!-- provider-certification:begin -->
 

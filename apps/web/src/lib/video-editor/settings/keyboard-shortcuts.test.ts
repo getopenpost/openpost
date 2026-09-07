@@ -4,6 +4,8 @@ import {
 	browserShortcutConflict,
 	createShortcutImportReview,
 	createShortcutPreset,
+	DEFAULT_EDITOR_SHORTCUTS,
+	EDITOR_SHORTCUT_DEFINITIONS,
 	EDITOR_SHORTCUT_GROUPS,
 	editorDeleteModeForEvent,
 	eventMatchesShortcut,
@@ -13,6 +15,7 @@ import {
 	normalizeShortcutBinding,
 	parseShortcutPreset,
 	resolveEditorShortcuts,
+	sanitizeShortcutOverrides,
 	shortcutBindingFromEvent
 } from './keyboard-shortcuts';
 
@@ -84,5 +87,40 @@ describe('keyboard shortcuts', () => {
 			ids: ['PLAY_PAUSE', 'COPY']
 		});
 		expect(current).toEqual({ PLAY_PAUSE: 'shift+space', SAVE: 'alt+s' });
+	});
+
+	it('ships remappable layout-dock commands without colliding with existing bindings', () => {
+		const ids = [
+			'TOGGLE_LEFT_SIDEBAR',
+			'TOGGLE_RIGHT_SIDEBAR',
+			'EXPAND_LEFT_SIDEBAR',
+			'EXPAND_RIGHT_SIDEBAR',
+			'TOGGLE_THEATER_MODE'
+		] as const;
+		for (const id of ids) {
+			expect(EDITOR_SHORTCUT_DEFINITIONS.some((definition) => definition.id === id)).toBe(true);
+			expect(DEFAULT_EDITOR_SHORTCUTS[id].length).toBeGreaterThan(0);
+		}
+		const bindings = resolveEditorShortcuts();
+		const defaults = ids.map((id) => normalizeShortcutBinding(bindings[id]));
+		expect(new Set(defaults).size).toBe(ids.length);
+		for (const id of ids) {
+			expect(findShortcutConflicts(bindings, bindings[id], id)).toEqual([]);
+		}
+		expect(
+			eventMatchesShortcut({ code: 'KeyB', key: 'b', ctrlKey: true }, bindings.TOGGLE_LEFT_SIDEBAR)
+		).toBe(true);
+	});
+
+	it('accepts custom layout-dock bindings through presets and overrides', () => {
+		const bindings = resolveEditorShortcuts({ TOGGLE_THEATER_MODE: 'alt+t' });
+		expect(bindings.TOGGLE_THEATER_MODE).toBe('alt+t');
+		expect(
+			eventMatchesShortcut({ code: 'KeyT', key: 't', altKey: true }, bindings.TOGGLE_THEATER_MODE)
+		).toBe(true);
+		const preset = createShortcutPreset({ EXPAND_LEFT_SIDEBAR: 'alt+left' });
+		expect(preset.overrides.EXPAND_LEFT_SIDEBAR).toBe('alt+left');
+		expect(resolveEditorShortcuts(preset.overrides).EXPAND_LEFT_SIDEBAR).toBe('alt+left');
+		expect(sanitizeShortcutOverrides({ TOGGLE_RIGHT_SIDEBAR: '' }).TOGGLE_RIGHT_SIDEBAR).toBe('');
 	});
 });

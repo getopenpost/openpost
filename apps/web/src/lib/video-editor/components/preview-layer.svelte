@@ -31,7 +31,11 @@
 	} from '$lib/video-editor/effects/gpu/compositor';
 	import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import { isNonNormalBlend } from '$lib/video-editor/effects/gpu/blend-modes';
-	import { scopeSamples } from '$lib/video-editor/effects/scope-samples.svelte';
+	import {
+		resolveScopeSampleSize,
+		scopeCaptureDue,
+		scopeSamples
+	} from '$lib/video-editor/effects/scope-samples.svelte';
 	import { selectCuesAtFrame } from '$lib/video-editor/media/render-plan';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import {
@@ -1175,13 +1179,15 @@
 
 	function publishScopeSample(source: CanvasImageSource): void {
 		const now = performance.now();
-		if (now - lastScopeAt < (editorSession.isPlaying ? 66 : 200)) return;
+		const playing = editorSession.isPlaying;
+		if (!scopeCaptureDue(lastScopeAt, now, playing)) return;
 		lastScopeAt = now;
-		const canvas = new OffscreenCanvas(256, 144);
+		const { width, height } = resolveScopeSampleSize(playing);
+		const canvas = new OffscreenCanvas(width, height);
 		const context = canvas.getContext('2d');
 		if (!context) return;
 		try {
-			context.drawImage(source, 0, 0, 256, 144);
+			context.drawImage(source, 0, 0, width, height);
 			scopeSamples.publishCanvas(item.id, canvas);
 		} catch {
 			scopeSamples.clear(item.id);

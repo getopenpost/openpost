@@ -5,6 +5,10 @@
 	import { drawCpuScope, type ColorScope } from '$lib/video-editor/effects/scope-cpu-renderer';
 	import { ScopeRenderer } from '$lib/video-editor/effects/gpu-scopes';
 	import { scopeSamples, type ScopeSample } from '$lib/video-editor/effects/scope-samples.svelte';
+	import {
+		SCOPE_CAPTURE_INTERVAL_PAUSED_MS,
+		SCOPE_SETUP_TIMEOUT_MS
+	} from '$lib/video-editor/effects/scope-samples.svelte';
 	import ColorScopeOverlay from './color-scope-overlay.svelte';
 	import {
 		EDITOR_COLOR_SCOPE_OPTIONS,
@@ -52,6 +56,16 @@
 	let viewMode = $state<ScopeViewMode>('rgb');
 	let layout = $state<ScopeLayout>('single');
 	let scopeStorageReady = $state(false);
+	let cpuRenderRevision = $state(0);
+	let lastCpuRenderAt = 0;
+	let cpuRenderTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function clearCpuRenderTimer(): void {
+		if (cpuRenderTimer !== null) {
+			clearTimeout(cpuRenderTimer);
+			cpuRenderTimer = null;
+		}
+	}
 	const active = $derived(scopeSamples.current?.itemId === itemId ? scopeSamples.current : null);
 	const showViewModes = $derived(gpuReady && (scope === 'histogram' || scope === 'waveform'));
 	function isColorScope(value: string | null): value is ColorScope {
@@ -70,6 +84,12 @@
 		if (!itemId) return;
 		let disposed = false;
 		let created: ScopeRenderer | null = null;
+		let setupTimedOut = false;
+		const setupTimer = setTimeout(() => {
+			if (created || disposed) return;
+			setupTimedOut = true;
+			gpuFailure = 'WebGPU scope setup timed out; using CPU scopes';
+		}, SCOPE_SETUP_TIMEOUT_MS);
 		void ScopeRenderer.create((message) => {
 			const lostRenderer = renderer;
 			if (disposed || !created || lostRenderer !== created) return;
@@ -78,6 +98,11 @@
 			renderer = null;
 			gpuReady = false;
 		}).then((nextRenderer) => {
+			clearTimeout(setupTimer);
+			if (setupTimedOut) {
+				nextRenderer?.destroy();
+				return;
+			}
 			created = nextRenderer;
 			if (disposed) {
 				nextRenderer?.destroy();
@@ -93,6 +118,8 @@
 		});
 		return () => {
 			disposed = true;
+			clearTimeout(setupTimer);
+			clearCpuRenderTimer();
 			created?.destroy();
 			renderer = null;
 		};
@@ -125,20 +152,40 @@
 
 	$effect(() => {
 		void canvasRevision;
+		void cpuRenderRevision;
 		if (!active) {
 			clearCpuCanvas(cpuCanvas);
 			for (const canvas of gridCanvases) clearCpuCanvas(canvas);
+			clearCpuRenderTimer();
 			return;
 		}
 		const sample = active;
 		const selectedScope = scope;
 		const selectedViewMode = viewMode;
 		const selectedLayout = layout;
+		const cpuPath = !gpuReady || !renderer;
+		if (cpuPath) {
+			// CPU draws stay at FreeCut's 220ms cadence even when samples arrive
+			// faster (scrub storms); the pending render fires for the latest sample.
+			const wait = SCOPE_CAPTURE_INTERVAL_PAUSED_MS - (performance.now() - lastCpuRenderAt);
+			if (wait > 0) {
+				clearCpuRenderTimer();
+				cpuRenderTimer = setTimeout(() => {
+					cpuRenderTimer = null;
+					cpuRenderRevision++;
+				}, wait);
+				return () => clearCpuRenderTimer();
+			}
+		}
 		const frame = requestAnimationFrame(() => {
 			if (selectedLayout === 'grid') renderScopeGrid(sample);
 			else renderSample(sample, selectedScope, selectedViewMode);
+			if (cpuPath) lastCpuRenderAt = performance.now();
 		});
-		return () => cancelAnimationFrame(frame);
+		return () => {
+			cancelAnimationFrame(frame);
+			clearCpuRenderTimer();
+		};
 	});
 
 	function renderSample(

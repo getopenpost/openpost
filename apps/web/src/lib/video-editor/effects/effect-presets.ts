@@ -1,5 +1,13 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof -- This module validates untyped localStorage JSON at its I/O boundary. */
-/** Built-in and browser-wide user effect stacks. Built-ins are ported from FreeCut (MIT). */
+/** Built-in and browser-wide user effect stacks. Built-ins are ported from FreeCut (MIT).
+ *
+ * Storage scope (intentional): user presets persist in browser-wide localStorage,
+ * so they are shared across every project and workspace on this device. FreeCut
+ * persists its equivalent to the workspace folder (`app/effect-presets.json`),
+ * which shares across projects but not across workspaces; browser-wide storage
+ * is a superset of that sharing for a single-device editor and keeps preset
+ * reads synchronous (no async workspace-file migration for existing presets).
+ */
 
 import { getGpuEffect } from './gpu/registry';
 import { defaultGpuParams, normalizeGpuParam, type GpuParamValues } from './gpu/types';

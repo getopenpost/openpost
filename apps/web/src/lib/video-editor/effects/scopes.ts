@@ -10,6 +10,24 @@ const KR = 0.2126;
 const KB = 0.0722;
 const KG = 1 - KR - KB;
 
+/**
+ * Scope range handling, ported from FreeCut (MIT) `normalizeRange` in
+ * `color-scopes-view.tsx`. Browser compositing is effectively sRGB/Rec.709
+ * full-range, so `full` is the default (matching FreeCut's SCOPE_RANGE_MODE);
+ * `legal` remaps studio-swing 16-235 into 0-1 for sources flagged that way.
+ */
+export type ScopeRangeMode = 'full' | 'legal';
+
+const LEGAL_MIN = 16 / 255;
+const LEGAL_MAX = 235 / 255;
+
+export function normalizeScopeValue(value: number, rangeMode: ScopeRangeMode): number {
+	if (rangeMode === 'legal') {
+		return Math.max(0, Math.min(1, (value - LEGAL_MIN) / (LEGAL_MAX - LEGAL_MIN)));
+	}
+	return Math.max(0, Math.min(1, value));
+}
+
 export interface ScopePoint {
 	x: number;
 	y: number;

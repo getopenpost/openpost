@@ -1,4 +1,10 @@
-/** Browser-wide named color grades. Project clips keep independent copies when a preset is applied. */
+/** Browser-wide named color grades. Project clips keep independent copies when a preset is applied.
+ *
+ * Storage scope (intentional): same browser-wide localStorage policy as user
+ * effect presets in `./effect-presets.ts` — shared across every project and
+ * workspace on this device. Kept consistent with effect presets deliberately;
+ * see that module for the FreeCut workspace-file comparison.
+ */
 
 import { getGpuEffect } from './gpu/registry';
 import type { GradeEffectSnapshot } from './color-grade';

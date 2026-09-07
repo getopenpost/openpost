@@ -71,7 +71,11 @@
 	} from '$lib/video-editor/preview/source-provider';
 	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { withoutColorGradeEffects } from '$lib/video-editor/effects/color-grade';
-	import { scopeSamples } from '$lib/video-editor/effects/scope-samples.svelte';
+	import {
+		resolveScopeSampleSize,
+		scopeCaptureDue,
+		scopeSamples
+	} from '$lib/video-editor/effects/scope-samples.svelte';
 	import { toast } from 'svelte-sonner';
 	import {
 		hasLinkedAudioCompanion,
@@ -728,16 +732,17 @@
 		if (!canvas || !sampleItemId) return;
 		const now = performance.now();
 		const captureRequested = colorPreviewStore.frameCaptureItemId === sampleItemId;
-		if (!captureRequested && now - lastStackScopeAt < (isPlaying ? 66 : 200)) return;
+		if (!captureRequested && !scopeCaptureDue(lastStackScopeAt, now, isPlaying)) return;
 		lastStackScopeAt = now;
-		const sample = new OffscreenCanvas(256, 144);
+		const { width, height } = resolveScopeSampleSize(isPlaying);
+		const sample = new OffscreenCanvas(width, height);
 		const context = sample.getContext('2d', {
 			willReadFrequently: captureRequested
 		});
 		if (!context) return;
 		try {
-			context.drawImage(canvas, 0, 0, 256, 144);
-			const image = captureRequested ? context.getImageData(0, 0, 256, 144) : null;
+			context.drawImage(canvas, 0, 0, width, height);
+			const image = captureRequested ? context.getImageData(0, 0, width, height) : null;
 			scopeSamples.publishCanvas(sampleItemId, sample, image);
 			if (image) colorPreviewStore.resolveFrameCapture(sampleItemId, image);
 		} catch {

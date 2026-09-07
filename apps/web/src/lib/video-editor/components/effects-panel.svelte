@@ -41,7 +41,9 @@
 	import ColorScopes from './color-scopes.svelte';
 	import ColorWorkspace from './color-workspace.svelte';
 	import GpuCurvesEditor from './gpu-curves-editor.svelte';
+	import GpuGradientMapPanel from './gpu-gradient-map-panel.svelte';
 	import GpuParamControl from './gpu-param-control.svelte';
+	import GpuQualifierPanel from './gpu-qualifier-panel.svelte';
 	import EffectPicker, { type EffectPickerOption } from './effect-picker.svelte';
 	import type { GpuParamValue } from '$lib/video-editor/effects/gpu/types';
 	import {
@@ -820,6 +822,26 @@
 										gpuEffect={resolvedEffect}
 										ondraft={(params) => draftCurveParams(resolvedEffect, params)}
 										oncommit={(params) => commitCurveParams(effect, params)}
+									/>
+								{:else if effect.effectId === 'gpu-secondary-qualifier' && gpuDefinition}
+									<GpuQualifierPanel
+										effectLabel={effectLabel(effect)}
+										definition={gpuDefinition}
+										values={resolvedEffect.params}
+										disabled={!effect.enabled}
+										oncommit={(paramName, value) => commitGpuParam(effect, paramName, value)}
+										ondraft={(params) => draftCurveParams(resolvedEffect, params)}
+										keyframe={(paramName) => effectKeyframeControl(effect, paramName)}
+									/>
+								{:else if effect.effectId === 'gpu-gradient-map' && gpuDefinition}
+									<GpuGradientMapPanel
+										effectLabel={effectLabel(effect)}
+										definition={gpuDefinition}
+										values={resolvedEffect.params}
+										disabled={!effect.enabled}
+										oncommit={(paramName, value) => commitGpuParam(effect, paramName, value)}
+										ondraft={(params) => draftCurveParams(resolvedEffect, params)}
+										keyframe={(paramName) => effectKeyframeControl(effect, paramName)}
 									/>
 								{:else}
 									<div class="mt-1 flex flex-col gap-1">

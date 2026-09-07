@@ -170,6 +170,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	} from '$lib/video-editor/timeline/color-playhead-selection';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+	import type { ExpandedSidebar } from '$lib/video-editor/settings/editor-settings.svelte';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import {
 		canExtractEmbeddedSubtitles,
@@ -562,6 +563,127 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const effectiveColorDockHeight = $derived(
 		Math.max(colorDockMinimum, Math.min(colorDockHeight, colorDockMaximum))
 	);
+	// Layout dock: sidebar collapse, column expand, and preview theater mode.
+	// Collapse/expand semantics port FreeCut's MIT-licensed editor layout
+	// (Copyright (c) 2025 FreeCut): persisted left/right open flags, persisted
+	// full-column expansion, and clamped widths that survive reload. Adapted to
+	// Svelte runes and OpenPost theming; theater mode is OpenPost-specific.
+	// Collapsing never touches the stored widths or the selected left panel, so
+	// toggling back restores the exact previous layout. The preview player stays
+	// mounted in every mode; rails only hide it with CSS when a sidebar expands.
+	const LAYOUT_RAIL_WIDTH = '2.75rem';
+	let leftSidebarCollapsed = $state(editorSettings.leftSidebarCollapsed);
+	let rightSidebarCollapsed = $state(editorSettings.rightSidebarCollapsed);
+	let expandedSidebar = $state<ExpandedSidebar>(editorSettings.expandedSidebar);
+	let theaterMode = $state(editorSettings.theaterMode);
+	const layoutDockActive = $derived(activeWorkspace === 'edit');
+	const layoutTheaterActive = $derived(theaterMode && layoutDockActive);
+	const layoutExpanded = $derived<ExpandedSidebar>(layoutDockActive ? expandedSidebar : 'none');
+	const leftSidebarRail = $derived(
+		layoutDockActive && (leftSidebarCollapsed || layoutTheaterActive || layoutExpanded === 'right')
+	);
+	const rightSidebarRail = $derived(
+		layoutDockActive && (rightSidebarCollapsed || layoutTheaterActive || layoutExpanded === 'left')
+	);
+	const programRail = $derived(layoutExpanded !== 'none');
+	const layoutDockWide = $derived(
+		layoutDockActive && (leftSidebarRail || rightSidebarRail || programRail || layoutTheaterActive)
+	);
+	const editGridColumns = $derived.by(() => {
+		if (!layoutDockActive) return '';
+		if (layoutExpanded === 'left') return `minmax(0,1fr) ${LAYOUT_RAIL_WIDTH} ${LAYOUT_RAIL_WIDTH}`;
+		if (layoutExpanded === 'right')
+			return `${LAYOUT_RAIL_WIDTH} ${LAYOUT_RAIL_WIDTH} minmax(0,1fr)`;
+		const left = leftSidebarRail ? LAYOUT_RAIL_WIDTH : 'var(--asset-browser-width)';
+		const right = rightSidebarRail ? LAYOUT_RAIL_WIDTH : 'var(--inspector-panel-width)';
+		return `${left} minmax(0,1fr) ${right}`;
+	});
+
+	function focusLayoutControl(selector: string): void {
+		requestAnimationFrame(() => {
+			document.querySelector<HTMLElement>(selector)?.focus();
+		});
+	}
+
+	function toggleLeftSidebar(): void {
+		if (layoutExpanded === 'left') setExpandedSidebar('none', false);
+		const next = !leftSidebarCollapsed;
+		leftSidebarCollapsed = next;
+		editorSettings.set('leftSidebarCollapsed', next);
+		emitEditorSound(next ? 'toggleOff' : 'toggleOn', editorSession.clock.isPlaying);
+		focusLayoutControl(
+			next
+				? '[data-layout-toggle="expand-left"]'
+				: `[data-left-panel-tab="${leftPanel}"][data-tab-orientation="vertical"]`
+		);
+	}
+
+	function toggleRightSidebar(): void {
+		if (layoutExpanded === 'right') setExpandedSidebar('none', false);
+		const next = !rightSidebarCollapsed;
+		rightSidebarCollapsed = next;
+		editorSettings.set('rightSidebarCollapsed', next);
+		emitEditorSound(next ? 'toggleOff' : 'toggleOn', editorSession.clock.isPlaying);
+		focusLayoutControl(
+			next ? '[data-layout-toggle="expand-right"]' : '[data-layout-toggle="collapse-right"]'
+		);
+	}
+
+	function expandLeftSidebar(): void {
+		if (layoutExpanded === 'right') {
+			setExpandedSidebar('none');
+			return;
+		}
+		if (layoutTheaterActive) {
+			setTheaterMode(false);
+			return;
+		}
+		if (leftSidebarCollapsed) toggleLeftSidebar();
+	}
+
+	function expandRightSidebar(): void {
+		if (layoutExpanded === 'left') {
+			setExpandedSidebar('none');
+			return;
+		}
+		if (layoutTheaterActive) {
+			setTheaterMode(false);
+			return;
+		}
+		if (rightSidebarCollapsed) toggleRightSidebar();
+	}
+
+	function setExpandedSidebar(next: ExpandedSidebar, restoreFocus = true): void {
+		const previous = expandedSidebar;
+		if (next !== 'none' && layoutTheaterActive) {
+			theaterMode = false;
+			editorSettings.set('theaterMode', false);
+		}
+		expandedSidebar = next;
+		editorSettings.set('expandedSidebar', next);
+		emitEditorSound(next === 'none' ? 'toggleOff' : 'toggleOn', editorSession.clock.isPlaying);
+		if (!restoreFocus) return;
+		if (next === 'none' && previous !== 'none') {
+			focusLayoutControl(`[data-layout-toggle="expand-column-${previous}"]`);
+		} else if (next !== 'none') {
+			focusLayoutControl('[data-layout-toggle="restore-columns"]');
+		}
+	}
+
+	function toggleExpandSidebar(side: 'left' | 'right'): void {
+		setExpandedSidebar(expandedSidebar === side ? 'none' : side);
+	}
+
+	function setTheaterMode(next: boolean): void {
+		if (next && expandedSidebar !== 'none') {
+			expandedSidebar = 'none';
+			editorSettings.set('expandedSidebar', 'none');
+		}
+		theaterMode = next;
+		editorSettings.set('theaterMode', next);
+		emitEditorSound(next ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
+		focusLayoutControl('[data-layout-toggle="theater"]');
+	}
 	let textVoiceRequest = $state<TextVoiceRequest | null>(null);
 	const activeWorkspace = $derived.by(() => editorWorkspace.current);
 	const activeMotionComposition = $derived(
@@ -1848,6 +1970,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	function onKeydown(event: KeyboardEvent): void {
 		if (event.repeat || event.defaultPrevented) return;
+		// Escape leaves theater mode first and restores the persisted sidebar
+		// layout. Text entry keeps its own Escape behavior, and open dialogs win.
+		if (
+			event.key === 'Escape' &&
+			layoutTheaterActive &&
+			!settingsOpen &&
+			!historyOpen &&
+			!recordingOpen
+		) {
+			const target = event.target;
+			const inTextEntry =
+				target instanceof HTMLElement &&
+				Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+			if (!inTextEntry) {
+				event.preventDefault();
+				event.stopPropagation();
+				setTheaterMode(false);
+				return;
+			}
+		}
 		const bindings = keyboardShortcuts.bindings;
 		const matches = (...ids: EditorShortcutId[]) =>
 			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
@@ -1947,6 +2089,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			const enabled = !previewDiagnostics.performanceOverlay;
 			previewDiagnostics.setPerformanceOverlay(enabled);
 			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
+		} else if (matches('TOGGLE_LEFT_SIDEBAR')) {
+			event.preventDefault();
+			toggleLeftSidebar();
+		} else if (matches('TOGGLE_RIGHT_SIDEBAR')) {
+			event.preventDefault();
+			toggleRightSidebar();
+		} else if (matches('EXPAND_LEFT_SIDEBAR')) {
+			event.preventDefault();
+			toggleExpandSidebar('left');
+		} else if (matches('EXPAND_RIGHT_SIDEBAR')) {
+			event.preventDefault();
+			toggleExpandSidebar('right');
+		} else if (matches('TOGGLE_THEATER_MODE')) {
+			event.preventDefault();
+			setTheaterMode(!theaterMode);
 		} else if (
 			matches('DELETE_SELECTED', 'DELETE_SELECTED_ALT', 'RIPPLE_DELETE', 'RIPPLE_DELETE_ALT')
 		) {
@@ -2457,12 +2614,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				{/if}
 
 				<div
-					class="flex min-h-0 flex-1 flex-col {activeWorkspace === 'edit'
-						? 'lg:grid lg:grid-cols-[var(--asset-browser-width)_minmax(0,1fr)_var(--inspector-panel-width)] lg:grid-rows-[minmax(0,1fr)_var(--timeline-height)]'
+					class="flex min-h-0 w-full min-w-0 flex-1 flex-col {activeWorkspace === 'edit'
+						? 'lg:grid lg:grid-rows-[minmax(0,1fr)_var(--timeline-height)]'
 						: ''}"
 					style:--asset-browser-width={`${effectiveAssetBrowserWidth}px`}
 					style:--inspector-panel-width={`${effectiveInspectorPanelWidth}px`}
 					style:--timeline-height={`${effectiveTimelineHeight}px`}
+					style:grid-template-columns={editGridColumns}
 				>
 					<div
 						class="flex min-h-0 flex-1 {activeWorkspace === 'motion' || activeWorkspace === 'edit'
@@ -2474,8 +2632,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-assets-panel"
-								class="relative h-[min(44%,22rem)] min-h-24 w-full flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 lg:w-auto lg:border-r lg:border-b-0 {mobileEditPane ===
-								'assets'
+								class="relative h-[min(44%,22rem)] min-h-24 w-full min-w-0 flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
+									? 'lg:w-11 lg:overflow-hidden'
+									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
 									? 'flex'
 									: 'hidden'}"
 								aria-label={m.video_editor_assets()}
@@ -2556,6 +2715,25 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												{/each}
 											</div>
 										</div>
+										{#if leftSidebarRail}
+											<div
+												class="flex shrink-0 flex-col items-center gap-1 border-t border-[var(--video-editor-border)] py-2"
+											>
+												<Button
+													size="icon-sm"
+													variant="ghost"
+													class="shrink-0 text-[var(--video-editor-muted)]"
+													aria-label={m.video_editor_expand_assets_panel()}
+													title={`${m.video_editor_expand_assets_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_LEFT_SIDEBAR)})`}
+													aria-expanded={!leftSidebarCollapsed}
+													aria-controls="video-editor-assets-panel"
+													data-layout-toggle="expand-left"
+													onclick={expandLeftSidebar}
+												>
+													<ThemeIcon role="chevron-right" />
+												</Button>
+											</div>
+										{/if}
 										<div
 											class="flex shrink-0 flex-col items-center border-t border-[var(--video-editor-border)] py-2"
 										>
@@ -2588,7 +2766,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											</DropdownMenu.Root>
 										</div>
 									</nav>
-									<div class="flex min-w-0 flex-1 flex-col">
+									<div class="flex min-w-0 flex-1 flex-col {leftSidebarRail ? 'lg:hidden' : ''}">
 										<div
 											class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-2"
 										>
@@ -2597,6 +2775,31 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											>
 												{leftPanelHeading}
 											</h2>
+											<div class="hidden shrink-0 items-center gap-1 lg:flex">
+												<Button
+													size="icon-xs"
+													variant="ghost"
+													aria-label={m.video_editor_expand_assets_column()}
+													title={`${m.video_editor_expand_assets_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_LEFT_SIDEBAR)})`}
+													aria-pressed={layoutExpanded === 'left'}
+													data-layout-toggle="expand-column-left"
+													onclick={() => toggleExpandSidebar('left')}
+												>
+													<ThemeIcon role="layout" />
+												</Button>
+												<Button
+													size="icon-xs"
+													variant="ghost"
+													aria-label={m.video_editor_collapse_assets_panel()}
+													title={`${m.video_editor_collapse_assets_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_LEFT_SIDEBAR)})`}
+													aria-expanded={!leftSidebarCollapsed}
+													aria-controls="video-editor-assets-panel"
+													data-layout-toggle="collapse-left"
+													onclick={toggleLeftSidebar}
+												>
+													<ThemeIcon role="chevron-left" />
+												</Button>
+											</div>
 											<div class="lg:hidden">
 												<DropdownMenu.Root>
 													<DropdownMenu.Trigger>
@@ -2737,16 +2940,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<MediaTaskProgress />
 									</div>
 								</div>
-								<PanelResizeHandle
-									edge="right"
-									value={effectiveAssetBrowserWidth}
-									minimum={300}
-									maximum={assetBrowserMaximum}
-									defaultValue={336}
-									label={m.video_editor_assets()}
-									onresize={(value) => (assetBrowserWidth = value)}
-									oncommit={(value) => persistPanelSize('assetBrowserWidth', value)}
-								/>
+								{#if !leftSidebarRail}
+									<PanelResizeHandle
+										edge="right"
+										value={effectiveAssetBrowserWidth}
+										minimum={300}
+										maximum={assetBrowserMaximum}
+										defaultValue={336}
+										label={m.video_editor_assets()}
+										onresize={(value) => (assetBrowserWidth = value)}
+										oncommit={(value) => persistPanelSize('assetBrowserWidth', value)}
+									/>
+								{/if}
 							</aside>
 						{/if}
 
@@ -2754,11 +2959,32 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
 								? 'lg:col-start-2 lg:row-start-1'
-								: ''}"
+								: ''} {programRail ? 'lg:overflow-hidden' : ''}"
 						>
+							{#if programRail}
+								<div
+									class="hidden w-full flex-col items-center gap-2 border-x border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] py-2 lg:flex"
+									aria-label={m.video_editor_program_monitor()}
+								>
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										class="shrink-0 text-[var(--video-editor-muted)]"
+										aria-label={m.video_editor_restore_panel_layout()}
+										title={m.video_editor_restore_panel_layout()}
+										data-layout-toggle="restore-columns"
+										onclick={() => setExpandedSidebar('none')}
+									>
+										<ThemeIcon
+											role={layoutExpanded === 'left' ? 'chevron-right' : 'chevron-left'}
+										/>
+									</Button>
+								</div>
+							{/if}
 							<div
-								class="min-h-0 min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
-								'color'
+								class="min-h-0 min-w-0 flex-1 bg-[var(--video-editor-canvas)] {programRail
+									? 'lg:hidden'
+									: ''} {activeWorkspace === 'color'
 									? 'flex flex-col lg:flex-row'
 									: showSourceMonitor
 										? 'flex flex-col xl:flex-row'
@@ -2820,7 +3046,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											ondeselect={resetTimelineSelection}
 											onedit={() => editorSession.scheduleAutosave()}
 										/>
-										<TransportBar {projectId} onvoiceoverinserted={handleVoiceoverInserted} />
+										<TransportBar
+											{projectId}
+											onvoiceoverinserted={handleVoiceoverInserted}
+											theaterActive={layoutTheaterActive}
+											ontoggletheater={() => setTheaterMode(!theaterMode)}
+										/>
 									{/if}
 								</section>
 								{#if activeWorkspace === 'color'}
@@ -2858,28 +3089,78 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-tools-panel"
-								class="relative h-[min(44%,22rem)] min-h-0 w-full flex-none flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto lg:w-auto lg:border-t-0 lg:border-l {mobileEditPane ===
-								'tools'
+								class="relative h-[min(44%,22rem)] min-h-0 w-full min-w-0 flex-none flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto {rightSidebarRail
+									? 'lg:w-11 lg:overflow-hidden'
+									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
 									? 'flex'
 									: 'hidden'}"
 								aria-label={m.video_editor_tools()}
 							>
-								<PanelResizeHandle
-									edge="left"
-									value={effectiveInspectorPanelWidth}
-									minimum={280}
-									maximum={inspectorPanelMaximum}
-									defaultValue={320}
-									label={m.video_editor_tools()}
-									onresize={(value) => (inspectorPanelWidth = value)}
-									oncommit={(value) => persistPanelSize('inspectorPanelWidth', value)}
-								/>
+								{#if !rightSidebarRail}
+									<PanelResizeHandle
+										edge="left"
+										value={effectiveInspectorPanelWidth}
+										minimum={280}
+										maximum={inspectorPanelMaximum}
+										defaultValue={320}
+										label={m.video_editor_tools()}
+										onresize={(value) => (inspectorPanelWidth = value)}
+										oncommit={(value) => persistPanelSize('inspectorPanelWidth', value)}
+									/>
+								{/if}
+								{#if rightSidebarRail}
+									<div
+										class="hidden w-full shrink-0 flex-col items-center gap-2 py-2 lg:flex"
+										aria-label={m.video_editor_tools()}
+									>
+										<Button
+											size="icon-sm"
+											variant="ghost"
+											class="shrink-0 text-[var(--video-editor-muted)]"
+											aria-label={m.video_editor_expand_tools_panel()}
+											title={`${m.video_editor_expand_tools_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_RIGHT_SIDEBAR)})`}
+											aria-expanded={!rightSidebarCollapsed}
+											aria-controls="video-editor-tools-panel"
+											data-layout-toggle="expand-right"
+											onclick={expandRightSidebar}
+										>
+											<ThemeIcon role="chevron-left" />
+										</Button>
+									</div>
+								{/if}
 								<div
-									class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-3"
+									class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-3 {rightSidebarRail
+										? 'lg:hidden'
+										: ''}"
 								>
 									<h2 class="min-w-0 truncate text-sm font-medium text-[var(--video-editor-text)]">
 										{editInspectorHeading}
 									</h2>
+									<div class="hidden shrink-0 items-center gap-1 lg:flex">
+										<Button
+											size="icon-xs"
+											variant="ghost"
+											aria-label={m.video_editor_expand_tools_column()}
+											title={`${m.video_editor_expand_tools_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_RIGHT_SIDEBAR)})`}
+											aria-pressed={layoutExpanded === 'right'}
+											data-layout-toggle="expand-column-right"
+											onclick={() => toggleExpandSidebar('right')}
+										>
+											<ThemeIcon role="layout" />
+										</Button>
+										<Button
+											size="icon-xs"
+											variant="ghost"
+											aria-label={m.video_editor_collapse_tools_panel()}
+											title={`${m.video_editor_collapse_tools_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_RIGHT_SIDEBAR)})`}
+											aria-expanded={!rightSidebarCollapsed}
+											aria-controls="video-editor-tools-panel"
+											data-layout-toggle="collapse-right"
+											onclick={toggleRightSidebar}
+										>
+											<ThemeIcon role="chevron-right" />
+										</Button>
+									</div>
 									{#if selectedItemId || selectedTransition}
 										<DropdownMenu.Root>
 											<DropdownMenu.Trigger>
@@ -2930,11 +3211,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										</DropdownMenu.Root>
 									{/if}
 								</div>
-								{#if editInspectorTabs.length > 0}
-									<EditInspectorTabs tabs={editInspectorTabs} bind:value={editInspectorTab} />
-								{/if}
+								<div class="contents {rightSidebarRail ? 'lg:hidden' : ''}">
+									{#if editInspectorTabs.length > 0}
+										<EditInspectorTabs tabs={editInspectorTabs} bind:value={editInspectorTab} />
+									{/if}
+								</div>
 
-								<div class="min-h-0 flex-1 overflow-y-auto p-2">
+								<div
+									class="min-h-0 flex-1 overflow-y-auto p-2 {rightSidebarRail ? 'lg:hidden' : ''}"
+								>
 									{#if selectedTransition}
 										<TransitionPropertiesPanel
 											transitionId={selectedTransition.id}
@@ -3146,7 +3431,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<footer
 							class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
-								? 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
+								? layoutDockWide
+									? 'lg:col-span-3 lg:col-start-1 lg:row-start-2 lg:h-auto'
+									: 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
 								: 'lg:h-[var(--timeline-height)]'}"
 						>
 							<PanelResizeHandle

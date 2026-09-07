@@ -1,5 +1,8 @@
 export type PreviewRenderPath = 'direct' | 'composited';
 
+/** Which surface produced the presented preview frame. */
+export type PreviewRenderSource = 'player' | 'overlay' | 'transition';
+
 export interface PreviewFrameSampleState {
 	lastFrame: number | null;
 	lastAtMs: number | null;
@@ -25,6 +28,11 @@ export interface PreviewDiagnosticSnapshot {
 	samples: number;
 	skippedFrames: number;
 	renderPath: PreviewRenderPath;
+	renderSource: PreviewRenderSource;
+	transitionSessionActive: boolean;
+	transitionSessionCount: number;
+	transitionLastPrepareMs: number;
+	reverseWindowSkips: number;
 	renderTimeMs: number | null;
 	renderWidth: number;
 	renderHeight: number;
@@ -109,6 +117,16 @@ export function buildPreviewDiagnosticReport(snapshot: PreviewDiagnosticSnapshot
 			},
 			renderer: {
 				path: snapshot.renderPath,
+				source: snapshot.renderSource,
+				transition: {
+					active: snapshot.transitionSessionActive,
+					sessions: snapshot.transitionSessionCount,
+					lastPrepareMs:
+						snapshot.transitionLastPrepareMs === 0
+							? 0
+							: Number(snapshot.transitionLastPrepareMs.toFixed(2))
+				},
+				reverseWindowSkips: snapshot.reverseWindowSkips,
 				renderTimeMs:
 					snapshot.renderTimeMs === null ? null : Number(snapshot.renderTimeMs.toFixed(2)),
 				width: snapshot.renderWidth,

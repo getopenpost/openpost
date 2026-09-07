@@ -724,6 +724,8 @@
 		publishStackScope(stackCanvas);
 		const gpu = stack.diagnostics();
 		previewDiagnostics.setGpuStatus(gpu.webgl2Ready, gpu.webgpuTransitionsReady);
+		previewDiagnostics.recordTransitionSession(activeTransition !== null);
+		previewDiagnostics.setRenderSource(activeTransition !== null ? 'transition' : 'player');
 		previewDiagnostics.recordRender(performance.now() - renderStartedAt, stack.failureReason());
 	}
 
@@ -834,7 +836,11 @@
 			webgl2Ready: gpu.webgl2Ready,
 			webgpuTransitionsReady: gpu.webgpuTransitionsReady
 		});
-		if (!needsStackedComposition) previewDiagnostics.recordRender(null, null);
+		if (!needsStackedComposition) {
+			previewDiagnostics.recordTransitionSession(activeTransition !== null);
+			previewDiagnostics.setRenderSource(activeTransition !== null ? 'transition' : 'player');
+			previewDiagnostics.recordRender(null, null);
+		}
 	});
 
 	$effect(() => {

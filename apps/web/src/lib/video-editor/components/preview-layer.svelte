@@ -12,6 +12,16 @@
 	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
 	import { effectsToCssFilter } from '$lib/video-editor/effects/filter';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
+	import {
+		clearTransitionHold,
+		findTransitionHold,
+		synchronizePausedTransitionMedia
+	} from '$lib/video-editor/preview/transition-prearm';
+	import {
+		resolveReversePlaybackWindowPlan,
+		shouldQueueReversePlaybackWindow
+	} from '$lib/video-editor/preview/reverse-window';
+	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import { frameToSourceSeconds } from '$lib/video-editor/media/render-plan';
 	import {
 		audioClipFadeGainAtFrame,
@@ -693,6 +703,12 @@
 					audio.currentTime = target;
 				})
 			: null;
+		// Prepared reverse decode window for this lane; null outside fast reverse.
+		let reversePrepared: {
+			lowFrame: number;
+			highFrame: number;
+			refillFrame: number;
+		} | null = null;
 		const sync = () => {
 			const frame = untrack(() => visualFrame);
 			const speed = item.speed ?? 1;
@@ -705,9 +721,59 @@
 			const transportRate = editorSession.playbackRate;
 			const combinedRate = getShuttleMediaPlaybackRate(speed, Math.abs(transportRate));
 			const driftThreshold = 0.08 / Math.max(0.1, combinedRate);
-			if (seekDriftExceeded(video.currentTime, sourceTime, driftThreshold)) {
-				videoScheduler.request(sourceTime);
-				scheduleSeekFallback(originalSourceTime);
+			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.isPlaying;
+			// Paused transition hold: keep the participant's decoded frame instead
+			// of cold-seeking on every scrub tick (see transition-prearm.ts).
+			const transitionHold = !editorSession.isPlaying
+				? findTransitionHold({
+						itemId: item.id,
+						frame,
+						transitions: transitionsStore.list,
+						itemById: timelineStore.itemById
+					})
+				: null;
+			let holdVideo = false;
+			if (transitionHold) {
+				synchronizePausedTransitionMedia(video, sourceTime);
+				holdVideo = true;
+			} else {
+				clearTransitionHold(video);
+			}
+			// Fast reverse: only request frames the clock can plausibly present;
+			// intermediate authored frames stay on the held decode (reverse-window.ts).
+			let skipReverseSeek = false;
+			if (shuttleReverse && Math.abs(transportRate) > 1 && !item.isReversed) {
+				const plan = resolveReversePlaybackWindowPlan({
+					targetFrame: frame,
+					fps: editorSession.fps,
+					playbackRate: transportRate
+				});
+				if (
+					shouldQueueReversePlaybackWindow({
+						targetFrame: frame,
+						preparedLowFrame: reversePrepared?.lowFrame ?? null,
+						preparedHighFrame: reversePrepared?.highFrame ?? null,
+						refillFrame: reversePrepared?.refillFrame ?? null,
+						requestInFlight: false
+					})
+				) {
+					reversePrepared = {
+						lowFrame: plan.lowFrame,
+						highFrame: plan.highFrame,
+						refillFrame: plan.refillFrame
+					};
+				} else {
+					skipReverseSeek = true;
+					previewDiagnostics.recordReverseWindowSkip();
+				}
+			} else {
+				reversePrepared = null;
+			}
+			if (!holdVideo && !skipReverseSeek) {
+				if (seekDriftExceeded(video.currentTime, sourceTime, driftThreshold)) {
+					videoScheduler.request(sourceTime);
+					scheduleSeekFallback(originalSourceTime);
+				}
 			}
 			video.playbackRate = combinedRate;
 			if (audio) {
@@ -715,7 +781,6 @@
 					audioScheduler?.request(sourceTime);
 				audio.playbackRate = combinedRate;
 			}
-			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.isPlaying;
 			if (
 				editorSession.isPlaying &&
 				!shuttleReverse &&

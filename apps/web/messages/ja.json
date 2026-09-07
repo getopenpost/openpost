@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "混合イージング",
 	"video_editor_keyframe_graph_snap_frame": "フレーム{frame}にスナップ",
 	"video_editor_keyframe_graph_snap_value": "{value}にスナップ",
+	"video_editor_keyframe_graph_axis_lock_value": "値軸にロック",
+	"video_editor_keyframe_graph_axis_lock_frame": "時間軸にロック",
 	"video_editor_keyframe_graph_easing_hold_blip": "ホールド",
 	"video_editor_keyframe_graph_snap_guide": "スナップ済み",
 	"video_editor_keyframe_graph_snap_off": "スナップオフ",

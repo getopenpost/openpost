@@ -81,8 +81,23 @@ const VISUAL_ITEM_TYPES = new Set<TimelineItem['type']>([
 	'composition'
 ]);
 
+/**
+ * Whether a preset animates the clip box. On text clips a box-scale reflows the
+ * type instead of scaling it, so box-scaling presets and modulators stay gated
+ * out for text (ported from FreeCut's `motionPresetScalesBox` (MIT)).
+ */
+export function motionPresetScalesBox(preset: { properties: readonly string[] }): boolean {
+	return preset.properties.includes('width') || preset.properties.includes('height');
+}
+
+/** Text-like item kinds whose layout reflows when the box is scaled. */
+export function isTextLikeItem(item: TimelineItem): boolean {
+	return item.type === 'text' || item.type === 'subtitle';
+}
+
 export function canApplyMotionPreset(item: TimelineItem, preset: MotionPreset): boolean {
-	return VISUAL_ITEM_TYPES.has(item.type);
+	if (!VISUAL_ITEM_TYPES.has(item.type)) return false;
+	return !(isTextLikeItem(item) && motionPresetScalesBox(preset));
 }
 
 export function applyMotionPreset(options: ApplyMotionPresetOptions): ApplyMotionPresetResult {

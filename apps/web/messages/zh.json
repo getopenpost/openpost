@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "混合缓动",
 	"video_editor_keyframe_graph_snap_frame": "吸附到帧 {frame}",
 	"video_editor_keyframe_graph_snap_value": "吸附到 {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "已锁定到数值轴",
+	"video_editor_keyframe_graph_axis_lock_frame": "已锁定到时间轴",
 	"video_editor_keyframe_graph_easing_hold_blip": "保持",
 	"video_editor_keyframe_graph_snap_guide": "已吸附",
 	"video_editor_keyframe_graph_snap_off": "吸附已关闭",

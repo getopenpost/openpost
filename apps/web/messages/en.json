@@ -5986,6 +5986,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "Mixed easing",
 	"video_editor_keyframe_graph_snap_frame": "Snap to frame {frame}",
 	"video_editor_keyframe_graph_snap_value": "Snap to {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "Locked to value axis",
+	"video_editor_keyframe_graph_axis_lock_frame": "Locked to time axis",
 	"video_editor_keyframe_graph_easing_hold_blip": "Hold",
 	"video_editor_keyframe_graph_snap_guide": "Snapped",
 	"video_editor_keyframe_graph_snap_off": "Snap off",

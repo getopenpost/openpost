@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "Interpolation mixte",
 	"video_editor_keyframe_graph_snap_frame": "Magnétisme à l'image {frame}",
 	"video_editor_keyframe_graph_snap_value": "Magnétisme à {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "Verrouillé sur l’axe des valeurs",
+	"video_editor_keyframe_graph_axis_lock_frame": "Verrouillé sur l’axe temporel",
 	"video_editor_keyframe_graph_easing_hold_blip": "Maintien",
 	"video_editor_keyframe_graph_snap_guide": "Magnétisé",
 	"video_editor_keyframe_graph_snap_off": "Magnétisme désactivé",

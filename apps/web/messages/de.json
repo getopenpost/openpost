@@ -5940,6 +5940,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "Gemischtes Easing",
 	"video_editor_keyframe_graph_snap_frame": "Einrasten bei Frame {frame}",
 	"video_editor_keyframe_graph_snap_value": "Einrasten bei {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "Auf Wertachse fixiert",
+	"video_editor_keyframe_graph_axis_lock_frame": "Auf Zeitachse fixiert",
 	"video_editor_keyframe_graph_easing_hold_blip": "Halten",
 	"video_editor_keyframe_graph_snap_guide": "Eingerastet",
 	"video_editor_keyframe_graph_snap_off": "Einrasten aus",

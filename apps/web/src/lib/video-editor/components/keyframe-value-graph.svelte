@@ -90,6 +90,12 @@
 	const selectedIds = $derived(keyframeSelectionStore.forItem(item.id));
 	let previewValues = $state<Record<string, { frame: number; value: number }> | null>(null);
 	let previewBezierConfigs = $state<Record<string, BezierControlPoints> | null>(null);
+	// Axis locked by Shift during a keyframe drag (FreeCut `setConstraintAxis` parity:
+	// the lock applies silently in math; this only drives the visual indicator).
+	let lockedAxis = $state<'frame' | 'value' | null>(null);
+	$effect(() => {
+		if (drag === null) lockedAxis = null;
+	});
 	let snapGuides = $state<{ frame: number | null; value: number | null }>({
 		frame: null,
 		value: null
@@ -499,8 +505,15 @@
 			valueDelta *= 0.5;
 		}
 		if (event.shiftKey && !colorProperty) {
-			if (Math.abs(deltaX) >= Math.abs(deltaY)) valueDelta = 0;
-			else frameDelta = 0;
+			if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+				valueDelta = 0;
+				lockedAxis = 'frame';
+			} else {
+				frameDelta = 0;
+				lockedAxis = 'value';
+			}
+		} else {
+			lockedAxis = null;
 		}
 		let anchorFrame = Math.round(anchor.frame + frameDelta);
 		let anchorValue = anchor.value + valueDelta;
@@ -776,6 +789,9 @@
 
 	function onWheel(event: WheelEvent): void {
 		event.preventDefault();
+		// FreeCut parity (`use-graph-wheel`): the wheel never interrupts a keyframe,
+		// marquee, or bezier-handle drag in flight.
+		if (drag !== null) return;
 		const point = localPoint(event);
 		const focusFrame =
 			viewport.startFrame +
@@ -796,11 +812,13 @@
 			});
 			return;
 		}
+		// Plain wheel pans the value axis. Scrolling down reveals lower values,
+		// matching FreeCut's `use-graph-wheel` direction.
 		const deltaValue = (event.deltaY / dimensions.height) * dimensions.valueRange;
 		viewport = clampViewport({
 			...viewport,
-			minValue: viewport.minValue + deltaValue,
-			maxValue: viewport.maxValue + deltaValue
+			minValue: viewport.minValue - deltaValue,
+			maxValue: viewport.maxValue - deltaValue
 		});
 	}
 
@@ -1248,6 +1266,21 @@
 								font-family="monospace"
 							>
 								{m.video_editor_keyframe_graph_snap_frame({ frame: snapGuides.frame })}
+							</text>
+						{/if}
+						{#if lockedAxis !== null && !colorProperty}
+							<text
+								x={dimensions.left + dimensions.width - 4}
+								y={dimensions.top + 10}
+								text-anchor="end"
+								fill="oklch(0.72 0.12 250)"
+								font-size="8"
+								font-family="monospace"
+								data-constraint-axis={lockedAxis}
+							>
+								{lockedAxis === 'frame'
+									? m.video_editor_keyframe_graph_axis_lock_frame()
+									: m.video_editor_keyframe_graph_axis_lock_value()}
 							</text>
 						{/if}
 						{#if snapGuides.value !== null && !colorProperty}

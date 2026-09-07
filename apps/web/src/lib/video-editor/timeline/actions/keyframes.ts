@@ -49,6 +49,7 @@ import {
 	vectorPropertyKeyframesPatch,
 	vectorKeyframesPatch
 } from '../vector-keyframes';
+import { autoKeyframeStore } from '../stores/auto-keyframe-store.svelte';
 import { isTrackEffectivelyLocked } from '../utils/track-groups';
 import {
 	buildEffectKeyframeProperty,
@@ -187,7 +188,19 @@ export function setAnimatedProperty(
 		const track = item.keyframes?.[property];
 		const vector = vectorProxyForItem(item, property);
 		const hasVector = vector ? Boolean(activeVectorKeyframes(item, vector.property)) : false;
-		if (vector && (hasVector || track || autoKeyEnabled)) {
+		// FreeCut parity (`getVectorAutoKeyframeOperation` + VECTOR_AUTO_KEY_ALIASES):
+		// auto-key on either scalar axis starts the coupled lane, so enabling auto-key
+		// on `y` and editing `x` promotes the position lane instead of writing a base value.
+		// SAFETY: VECTOR_COMPONENTS pairs are scalar track names, all members of KeyframeProperty.
+		const siblingAliasEnabled = vector
+			? autoKeyframeStore.isEnabled(
+					itemId,
+					(vector.axis === 'x'
+						? VECTOR_COMPONENTS[vector.property][1]
+						: VECTOR_COMPONENTS[vector.property][0]) as KeyframeProperty
+				)
+			: false;
+		if (vector && (hasVector || track || autoKeyEnabled || siblingAliasEnabled)) {
 			if (!frameIsInsideItem) return false;
 			if (!canWriteKeyframe(item, relativeFrame)) return false;
 			const promoted = promoteVectorKeyframes(item, vector.property, relativeFrame);

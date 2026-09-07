@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "Easing mixto",
 	"video_editor_keyframe_graph_snap_frame": "Ajustar al fotograma {frame}",
 	"video_editor_keyframe_graph_snap_value": "Ajustar a {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "Fijado al eje de valor",
+	"video_editor_keyframe_graph_axis_lock_frame": "Fijado al eje de tiempo",
 	"video_editor_keyframe_graph_easing_hold_blip": "Mantener",
 	"video_editor_keyframe_graph_snap_guide": "Ajustado",
 	"video_editor_keyframe_graph_snap_off": "Ajuste desactivado",

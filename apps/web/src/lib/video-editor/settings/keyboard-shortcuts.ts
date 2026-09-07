@@ -36,6 +36,13 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	LINK_AUDIO_VIDEO: 'mod+alt+l',
 	UNLINK_AUDIO_VIDEO: 'alt+shift+l',
 	TOGGLE_LINKED_SELECTION: 'shift+l',
+	// Canvas-pixel nudge, ported from FreeCut's Shift+Arrow visual nudge (1 px,
+	// 10 px with Mod). COLLISION RESOLUTION: on the timeline these bindings move
+	// selected *visual* items on the canvas and never nudge frames; timeline-only
+	// kinds (audio/adjustment/controller) keep the frame path (Shift = x10 frames)
+	// and bare arrows always stay on the frame path. COMPOSITION_NUDGE_*_FAST
+	// reuses Shift+Arrow inside the composition surface only, where the timeline
+	// panel never has focus, so the keystrokes do not collide in practice.
 	NUDGE_LEFT: 'shift+left',
 	NUDGE_RIGHT: 'shift+right',
 	NUDGE_UP: 'shift+up',

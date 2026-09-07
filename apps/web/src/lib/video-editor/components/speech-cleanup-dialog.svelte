@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -13,7 +14,6 @@
 	import { sourceSecondsToTimelineFrame } from '$lib/video-editor/timeline/utils/media-item-frames';
 	import {
 		collectTranscriptSourceWords,
-		DEFAULT_FILLER_REMOVAL_SETTINGS,
 		detectFillerRanges,
 		detectTranscriptSilenceRanges,
 		FILLER_REMOVAL_PRESETS,
@@ -21,6 +21,10 @@
 		type FillerRemovalPresetId,
 		type FillerRemovalSettings
 	} from '$lib/video-editor/transcript/speech-cleanup';
+	import {
+		loadSpeechCleanupSettings,
+		saveSpeechCleanupSettings
+	} from '$lib/video-editor/transcript/speech-cleanup-settings';
 	import {
 		applyFillerRangeRemoval,
 		applySilenceRangeRemoval
@@ -58,23 +62,31 @@
 		) => ReturnType<typeof scoreFillerRangesWithAudioConfidence>;
 	} = $props();
 
+	const storedCleanupSettings = loadSpeechCleanupSettings();
+
 	let mode = $state<CleanupMode>('fillers');
-	let silenceMode = $state<SilenceMode>('signal');
-	let fillerPreset = $state<FillerRemovalPresetId>('balanced');
-	let fillerSettings = $state<FillerRemovalSettings>({ ...DEFAULT_FILLER_REMOVAL_SETTINGS });
-	let fillerWordsDraft = $state(DEFAULT_FILLER_REMOVAL_SETTINGS.fillerWords.join(', '));
-	let fillerPhrasesDraft = $state(DEFAULT_FILLER_REMOVAL_SETTINGS.fillerPhrases.join(', '));
-	let minSilenceMs = $state(500);
-	let paddingStartMs = $state(100);
-	let paddingEndMs = $state(100);
-	let autoThresholds = $state(true);
-	let silenceThresholdDb = $state(-45);
-	let audioThresholdDb = $state(-35);
+	let silenceMode = $state<SilenceMode>(storedCleanupSettings.silenceMode);
+	let fillerPreset = $state<FillerRemovalPresetId>(storedCleanupSettings.fillerPreset);
+	let fillerSettings = $state<FillerRemovalSettings>({
+		...storedCleanupSettings.fillerSettings,
+		fillerWords: [...storedCleanupSettings.fillerSettings.fillerWords],
+		fillerPhrases: [...storedCleanupSettings.fillerSettings.fillerPhrases]
+	});
+	let fillerWordsDraft = $state(storedCleanupSettings.fillerSettings.fillerWords.join(', '));
+	let fillerPhrasesDraft = $state(storedCleanupSettings.fillerSettings.fillerPhrases.join(', '));
+	let minSilenceMs = $state(storedCleanupSettings.minSilenceMs);
+	let paddingStartMs = $state(storedCleanupSettings.paddingStartMs);
+	let paddingEndMs = $state(storedCleanupSettings.paddingEndMs);
+	let autoThresholds = $state(storedCleanupSettings.autoThresholds);
+	let silenceThresholdDb = $state(storedCleanupSettings.silenceThresholdDb);
+	let audioThresholdDb = $state(storedCleanupSettings.audioThresholdDb);
 	let reviewRanges = $state<ReviewRange[]>([]);
 	let selectedIds = $state<Set<string>>(new Set());
 	let analyzing = $state(false);
 	let progress = $state(0);
 	let analysisError = $state('');
+	let analyzedCount = $state(0);
+	let failedCount = $state(0);
 	let reviewSignature = $state('');
 	let opened = false;
 	let abortController: AbortController | null = null;
@@ -150,6 +162,7 @@
 		};
 		fillerWordsDraft = fillerSettings.fillerWords.join(', ');
 		fillerPhrasesDraft = fillerSettings.fillerPhrases.join(', ');
+		persistCleanupSettings();
 		void analyzeFillers();
 	}
 
@@ -184,6 +197,20 @@
 		);
 	}
 
+	function persistCleanupSettings(): void {
+		saveSpeechCleanupSettings({
+			fillerPreset,
+			fillerSettings: currentFillerSettings(),
+			silenceMode,
+			minSilenceMs,
+			paddingStartMs,
+			paddingEndMs,
+			autoThresholds,
+			silenceThresholdDb,
+			audioThresholdDb
+		});
+	}
+
 	async function analyzeFillers(): Promise<void> {
 		abortController?.abort();
 		const controller = new AbortController();
@@ -192,6 +219,8 @@
 		progress = 0;
 		analysisError = '';
 		const words = collectTranscriptSourceWords(timelineStore.items, itemIds, timelineStore.fps);
+		analyzedCount = itemIds.length;
+		failedCount = 0;
 		if (words.length === 0) {
 			selectAll([]);
 			reviewSignature = cleanupSettingsSignature();
@@ -288,6 +317,8 @@
 					}))
 				)
 			);
+			analyzedCount = itemIds.length;
+			failedCount = 0;
 			reviewSignature = cleanupSettingsSignature();
 			return;
 		}
@@ -325,6 +356,8 @@
 				)
 			);
 			reviewSignature = analysisSignature;
+			analyzedCount = result.analyzedMediaIds.length;
+			failedCount = result.failedMediaIds.length;
 			if (result.failedMediaIds.length > 0)
 				analysisError = m.video_editor_cleanup_partial_failure({
 					count: result.failedMediaIds.length
@@ -342,6 +375,9 @@
 
 	async function analyze(): Promise<void> {
 		cancelAnalysis();
+		analyzedCount = 0;
+		failedCount = 0;
+		persistCleanupSettings();
 		if (mode === 'fillers') await analyzeFillers();
 		else await analyzeSilence();
 	}
@@ -361,6 +397,7 @@
 	function switchSilenceMode(next: SilenceMode): void {
 		if (silenceMode === next) return;
 		silenceMode = next;
+		persistCleanupSettings();
 		void analyzeSilence();
 	}
 
@@ -545,25 +582,35 @@
 								</label>
 								<div></div>
 								<label class="text-[11px] text-[var(--video-editor-muted)]">
-									{m.video_editor_cleanup_silence_level()}
-									<Input
+									<span class="flex items-center justify-between">
+										{m.video_editor_cleanup_silence_level()}
+										<output>{silenceThresholdDb} dB</output>
+									</span>
+									<Slider
 										bind:value={silenceThresholdDb}
 										disabled={autoThresholds}
-										type="number"
-										min="-80"
-										max="-20"
-										class="mt-1 h-8 text-xs"
+										min={-80}
+										max={-20}
+										step={1}
+										ariaLabel={m.video_editor_cleanup_silence_level()}
+										onValueCommit={() => persistCleanupSettings()}
+										class="mt-2"
 									/>
 								</label>
 								<label class="text-[11px] text-[var(--video-editor-muted)]">
-									{m.video_editor_cleanup_speech_level()}
-									<Input
+									<span class="flex items-center justify-between">
+										{m.video_editor_cleanup_speech_level()}
+										<output>{audioThresholdDb} dB</output>
+									</span>
+									<Slider
 										bind:value={audioThresholdDb}
 										disabled={autoThresholds}
-										type="number"
-										min="-77"
-										max="-6"
-										class="mt-1 h-8 text-xs"
+										min={-77}
+										max={-6}
+										step={1}
+										ariaLabel={m.video_editor_cleanup_speech_level()}
+										onValueCommit={() => persistCleanupSettings()}
+										class="mt-2"
 									/>
 								</label>
 							</div>
@@ -624,6 +671,15 @@
 					role="alert"
 				>
 					{analysisError}
+				</p>
+			{/if}
+
+			{#if !analyzing && (analyzedCount > 0 || failedCount > 0)}
+				<p class="mt-3 text-[11px] text-[var(--video-editor-muted)]" role="status">
+					{m.video_editor_cleanup_media_status({
+						analyzed: analyzedCount,
+						failed: failedCount
+					})}
 				</p>
 			{/if}
 

@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "Press Space to pick up. Use arrow keys to move. Press Space to drop or Escape to cancel.",
 	"interaction_reorder_undo": "Undo reorder",
 	"interaction_reorder_previous": "Move page left",
-	"interaction_reorder_next": "Move page right"
+	"interaction_reorder_next": "Move page right",
+	"video_editor_cleanup_media_status": "Analyzed {analyzed} source(s) · {failed} failed.",
+	"video_editor_scene_search_mode": "Search mode",
+	"video_editor_scene_search_mode_keyword": "Keyword",
+	"video_editor_scene_search_mode_keyword_description": "Fast, exact matching on captions and labels.",
+	"video_editor_scene_search_mode_semantic": "Semantic",
+	"video_editor_scene_search_mode_semantic_description": "Meaning-based matching using downloaded AI models.",
+	"video_editor_settings_caption_search_mode": "Scene search mode",
+	"video_editor_settings_caption_search_mode_description": "Keyword matching is instant and exact. Semantic matching understands meaning but downloads AI models.",
+	"video_editor_transcribe_model_size": "About {size} to download."
 }

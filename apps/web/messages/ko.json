@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "스페이스 키로 이동을 시작하고 화살표 키로 이동하세요. 스페이스 키로 완료하거나 Escape 키로 취소하세요.",
 	"interaction_reorder_undo": "순서 변경 취소",
 	"interaction_reorder_previous": "페이지를 왼쪽으로 이동",
-	"interaction_reorder_next": "페이지를 오른쪽으로 이동"
+	"interaction_reorder_next": "페이지를 오른쪽으로 이동",
+	"video_editor_cleanup_media_status": "소스 {analyzed}개 분석 · {failed}개 실패.",
+	"video_editor_scene_search_mode": "검색 모드",
+	"video_editor_scene_search_mode_keyword": "키워드",
+	"video_editor_scene_search_mode_keyword_description": "자막과 라벨의 빠르고 정확한 일치.",
+	"video_editor_scene_search_mode_semantic": "시맨틱",
+	"video_editor_scene_search_mode_semantic_description": "다운로드한 AI 모델을 이용한 의미 기반 일치.",
+	"video_editor_settings_caption_search_mode": "장면 검색 모드",
+	"video_editor_settings_caption_search_mode_description": "키워드 검색은 빠르고 정확합니다. 시맨틱 검색은 의미를 이해하지만 AI 모델을 다운로드합니다.",
+	"video_editor_transcribe_model_size": "약 {size} 다운로드."
 }

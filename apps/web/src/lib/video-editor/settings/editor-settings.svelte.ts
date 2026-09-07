@@ -21,6 +21,8 @@ interface JsonRecord {
 
 export type MediaLibraryViewMode = 'grid' | 'list';
 
+export type CaptionSearchMode = 'keyword' | 'semantic';
+
 export interface EditorSettingsValue {
 	maxUndoHistory: number;
 	autoSaveIntervalMinutes: number;
@@ -42,6 +44,7 @@ export interface EditorSettingsValue {
 	defaultTranscriptionModel: TranscriptionModel;
 	defaultTranscriptionLanguage: string;
 	defaultTranscriptionQuantization: TranscriptionQuantization;
+	captionSearchMode: CaptionSearchMode;
 	defaultCaptionStylePresetId: CaptionStylePresetId;
 }
 
@@ -66,6 +69,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	defaultTranscriptionModel: DEFAULT_TRANSCRIPTION_MODEL,
 	defaultTranscriptionLanguage: '',
 	defaultTranscriptionQuantization: 'hybrid',
+	captionSearchMode: 'keyword',
 	defaultCaptionStylePresetId: DEFAULT_CAPTION_STYLE_PRESET_ID
 };
 
@@ -107,6 +111,10 @@ function isTranscriptionLanguage(value: JsonValue | undefined): value is string 
 		typeof value === 'string' &&
 		TRANSCRIPTION_LANGUAGE_OPTIONS.some((option) => option.value === value)
 	);
+}
+
+function isCaptionSearchMode(value: JsonValue | undefined): value is CaptionSearchMode {
+	return value === 'keyword' || value === 'semantic';
 }
 
 function isCaptionStylePresetId(value: JsonValue | undefined): value is CaptionStylePresetId {
@@ -195,6 +203,9 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 		)
 			? record.defaultTranscriptionQuantization
 			: DEFAULT_EDITOR_SETTINGS.defaultTranscriptionQuantization,
+		captionSearchMode: isCaptionSearchMode(record.captionSearchMode)
+			? record.captionSearchMode
+			: DEFAULT_EDITOR_SETTINGS.captionSearchMode,
 		defaultCaptionStylePresetId: normalizeCaptionStylePresetId(record.defaultCaptionStylePresetId)
 	};
 }
@@ -294,6 +305,9 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		},
 		get defaultTranscriptionQuantization(): TranscriptionQuantization {
 			return state.defaultTranscriptionQuantization;
+		},
+		get captionSearchMode(): CaptionSearchMode {
+			return state.captionSearchMode;
 		},
 		get defaultCaptionStylePresetId(): CaptionStylePresetId {
 			return state.defaultCaptionStylePresetId;

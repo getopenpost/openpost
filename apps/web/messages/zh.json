@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "按空格键选取，用方向键移动。按空格键放置或按Escape键取消。",
 	"interaction_reorder_undo": "撤销排序",
 	"interaction_reorder_previous": "向左移动页面",
-	"interaction_reorder_next": "向右移动页面"
+	"interaction_reorder_next": "向右移动页面",
+	"video_editor_cleanup_media_status": "已分析 {analyzed} 个来源 · {failed} 个失败。",
+	"video_editor_scene_search_mode": "搜索模式",
+	"video_editor_scene_search_mode_keyword": "关键词",
+	"video_editor_scene_search_mode_keyword_description": "对字幕和标签进行快速精确匹配。",
+	"video_editor_scene_search_mode_semantic": "语义",
+	"video_editor_scene_search_mode_semantic_description": "使用下载的 AI 模型进行基于语义的匹配。",
+	"video_editor_settings_caption_search_mode": "场景搜索模式",
+	"video_editor_settings_caption_search_mode_description": "关键词搜索即时且精确。语义搜索理解含义，但会下载 AI 模型。",
+	"video_editor_transcribe_model_size": "约需下载 {size}。"
 }

@@ -14,6 +14,11 @@
 		transcriptionModelUiLabel,
 		transcriptionQuantizationUiLabel
 	} from '$lib/video-editor/transcript/engine/model-i18n';
+	import {
+		estimateParakeetRuntimeBytes,
+		estimateTranscriptionModelBytes,
+		formatModelBytes
+	} from '$lib/video-editor/transcript/engine/runtime-estimates';
 	import type {
 		ResolvedTranscriptionEngine,
 		TranscribeProgress,
@@ -58,6 +63,12 @@
 		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 	}
+
+	const modelDownloadSize = $derived(
+		model === 'parakeet-tdt-v3'
+			? formatModelBytes(estimateParakeetRuntimeBytes('webgpu'))
+			: formatModelBytes(estimateTranscriptionModelBytes(model, quantization))
+	);
 
 	function stageLabel(value: TranscribeProgress): string {
 		if (value.stage === 'downloading') return m.video_editor_transcribe_downloading();
@@ -136,6 +147,7 @@
 	</div>
 	<p class="col-span-2 text-[9px] leading-tight text-muted-foreground">
 		{transcriptionModelUiDescription(model)}
+		{m.video_editor_transcribe_model_size({ size: modelDownloadSize })}
 	</p>
 	{#if fallback}
 		<p

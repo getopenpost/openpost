@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "Leertaste zum Aufnehmen. Pfeiltasten zum Verschieben. Leertaste zum Ablegen oder Escape zum Abbrechen.",
 	"interaction_reorder_undo": "Verschieben rückgängig machen",
 	"interaction_reorder_previous": "Seite nach links verschieben",
-	"interaction_reorder_next": "Seite nach rechts verschieben"
+	"interaction_reorder_next": "Seite nach rechts verschieben",
+	"video_editor_cleanup_media_status": "{analyzed} Quelle(n) analysiert · {failed} fehlgeschlagen.",
+	"video_editor_scene_search_mode": "Suchmodus",
+	"video_editor_scene_search_mode_keyword": "Stichwort",
+	"video_editor_scene_search_mode_keyword_description": "Schneller, exakter Abgleich von Untertiteln und Labels.",
+	"video_editor_scene_search_mode_semantic": "Semantisch",
+	"video_editor_scene_search_mode_semantic_description": "Bedeutungsbasierter Abgleich mit heruntergeladenen KI-Modellen.",
+	"video_editor_settings_caption_search_mode": "Szenen-Suchmodus",
+	"video_editor_settings_caption_search_mode_description": "Die Stichwortsuche ist sofort und exakt. Die semantische Suche versteht Bedeutung, lädt aber KI-Modelle herunter.",
+	"video_editor_transcribe_model_size": "Etwa {size} Download."
 }

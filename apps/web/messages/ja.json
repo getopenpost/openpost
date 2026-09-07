@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "スペースキーで移動を開始し、矢印キーで移動します。スペースキーで確定、Escapeキーでキャンセルします。",
 	"interaction_reorder_undo": "並べ替えを元に戻す",
 	"interaction_reorder_previous": "ページを左に移動",
-	"interaction_reorder_next": "ページを右に移動"
+	"interaction_reorder_next": "ページを右に移動",
+	"video_editor_cleanup_media_status": "{analyzed}件のソースを分析 · {failed}件失敗。",
+	"video_editor_scene_search_mode": "検索モード",
+	"video_editor_scene_search_mode_keyword": "キーワード",
+	"video_editor_scene_search_mode_keyword_description": "字幕やラベルの高速で正確な一致。",
+	"video_editor_scene_search_mode_semantic": "セマンティック",
+	"video_editor_scene_search_mode_semantic_description": "ダウンロードしたAIモデルによる意味ベースの一致。",
+	"video_editor_settings_caption_search_mode": "シーン検索モード",
+	"video_editor_settings_caption_search_mode_description": "キーワード検索は高速で正確です。セマンティック検索は意味を理解しますが、AIモデルをダウンロードします。",
+	"video_editor_transcribe_model_size": "ダウンロード約{size}。"
 }

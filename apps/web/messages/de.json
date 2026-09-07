@@ -8643,5 +8643,12 @@
 	"video_editor_text_motion_applied": "Angewendet",
 	"video_editor_text_motion_seek_band": "Zu {name} springen",
 	"video_editor_path_pen_mode": "Stift",
-	"video_editor_path_edit_mode": "Bearbeiten"
+	"video_editor_path_edit_mode": "Bearbeiten",
+	"video_editor_project_preset_custom_size": "Eigene Größe",
+	"video_editor_project_preset_custom_hint": "Breite, Höhe und Bildrate eingeben",
+	"video_editor_projects_empty_templates": "Mit einer Vorlage starten",
+	"video_editor_media_add_menu": "Weitere Optionen zum Hinzufügen von Medien",
+	"video_editor_media_add_files": "Dateien",
+	"video_editor_media_health_chip": "{missing} fehlend · {proxies} Proxys ausstehend · {codecs} nicht unterstützt",
+	"video_editor_media_health_scanning": "Medienintegrität wird geprüft…"
 }

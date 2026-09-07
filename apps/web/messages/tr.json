@@ -8643,5 +8643,12 @@
 	"video_editor_text_motion_applied": "Uygulanan",
 	"video_editor_text_motion_seek_band": "{name} öğesine git",
 	"video_editor_path_pen_mode": "Kalem",
-	"video_editor_path_edit_mode": "Düzenle"
+	"video_editor_path_edit_mode": "Düzenle",
+	"video_editor_project_preset_custom_size": "Özel boyut",
+	"video_editor_project_preset_custom_hint": "Genişlik, yükseklik ve kare hızını girin",
+	"video_editor_projects_empty_templates": "Şablondan başla",
+	"video_editor_media_add_menu": "Medya eklemenin diğer yolları",
+	"video_editor_media_add_files": "Dosyalar",
+	"video_editor_media_health_chip": "{missing} eksik · {proxies} proxy bekliyor · {codecs} desteklenmiyor",
+	"video_editor_media_health_scanning": "Medya durumu denetleniyor…"
 }

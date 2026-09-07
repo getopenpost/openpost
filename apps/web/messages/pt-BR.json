@@ -8643,5 +8643,12 @@
 	"video_editor_text_motion_applied": "Aplicados",
 	"video_editor_text_motion_seek_band": "Ir para {name}",
 	"video_editor_path_pen_mode": "Caneta",
-	"video_editor_path_edit_mode": "Editar"
+	"video_editor_path_edit_mode": "Editar",
+	"video_editor_project_preset_custom_size": "Tamanho personalizado",
+	"video_editor_project_preset_custom_hint": "Informe largura, altura e taxa de quadros",
+	"video_editor_projects_empty_templates": "Começar de um modelo",
+	"video_editor_media_add_menu": "Mais formas de adicionar mídia",
+	"video_editor_media_add_files": "Arquivos",
+	"video_editor_media_health_chip": "{missing} ausentes · {proxies} proxies pendentes · {codecs} sem suporte",
+	"video_editor_media_health_scanning": "Verificando a integridade da mídia…"
 }

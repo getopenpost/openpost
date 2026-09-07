@@ -8643,5 +8643,12 @@
 	"video_editor_text_motion_applied": "適用中",
 	"video_editor_text_motion_seek_band": "{name}に移動",
 	"video_editor_path_pen_mode": "ペン",
-	"video_editor_path_edit_mode": "編集"
+	"video_editor_path_edit_mode": "編集",
+	"video_editor_project_preset_custom_size": "カスタムサイズ",
+	"video_editor_project_preset_custom_hint": "幅、高さ、フレームレートを入力",
+	"video_editor_projects_empty_templates": "テンプレートから開始",
+	"video_editor_media_add_menu": "メディアを追加するその他の方法",
+	"video_editor_media_add_files": "ファイル",
+	"video_editor_media_health_chip": "{missing} 件不足 · {proxies} 件のプロキシ待ち · {codecs} 件が未対応",
+	"video_editor_media_health_scanning": "メディアの状態を確認中…"
 }

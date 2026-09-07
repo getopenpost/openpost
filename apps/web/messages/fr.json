@@ -8643,5 +8643,12 @@
 	"video_editor_text_motion_applied": "Appliqués",
 	"video_editor_text_motion_seek_band": "Aller à {name}",
 	"video_editor_path_pen_mode": "Plume",
-	"video_editor_path_edit_mode": "Modifier"
+	"video_editor_path_edit_mode": "Modifier",
+	"video_editor_project_preset_custom_size": "Taille personnalisée",
+	"video_editor_project_preset_custom_hint": "Saisissez la largeur, la hauteur et la fréquence d'images",
+	"video_editor_projects_empty_templates": "Partir d'un modèle",
+	"video_editor_media_add_menu": "Plus de façons d'ajouter des médias",
+	"video_editor_media_add_files": "Fichiers",
+	"video_editor_media_health_chip": "{missing} manquants · {proxies} proxys en attente · {codecs} non pris en charge",
+	"video_editor_media_health_scanning": "Vérification de l'état des médias…"
 }

@@ -26,6 +26,11 @@
 		updateTextMotionLive,
 		type TextMotionEffectUpdate
 	} from '$lib/video-editor/timeline/actions/text-motion';
+	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
+	import {
+		getMaxOffsetFrames,
+		getTextMotionTimelineBands
+	} from '$lib/video-editor/timeline/text-motion-timeline';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 
 	let {
@@ -49,6 +54,8 @@
 	);
 	const selectedTextIds = $derived(selectedTextItems.map((item) => item.id));
 	const firstSpec = $derived(selectedTextItems[0]?.textMotion);
+	const firstTextItem = $derived(selectedTextItems[0]);
+	const appliedBands = $derived(firstTextItem ? getTextMotionTimelineBands(firstTextItem) : []);
 	let editSnapshot = $state<TimelineSnapshot | null>(null);
 	let editSlot = $state<TextMotionSlot | null>(null);
 
@@ -91,6 +98,16 @@
 
 	function activeEffect(slot: TextMotionSlot): TextMotionEffect | undefined {
 		return firstSpec?.[slot];
+	}
+	function maxOffsetFor(slot: TextMotionSlot): number {
+		if (!firstTextItem || slot === 'loop') return 0;
+		const bands = getTextMotionTimelineBands(firstTextItem);
+		const band = bands.find((candidate) => candidate.slot === slot);
+		return band ? getMaxOffsetFrames(band, bands) : 0;
+	}
+	function seekToBand(slot: TextMotionSlot): void {
+		const band = appliedBands.find((candidate) => candidate.slot === slot);
+		if (band) setCurrentFrame(band.fromFrame);
 	}
 	function togglePreset(slot: TextMotionSlot, preset: TextMotionPreset): void {
 		if (activeEffect(slot)?.presetId === preset.id)
@@ -173,6 +190,22 @@
 								onValueCommit={(value) => commitEdit(slot, { durationFrames: value })}
 							/></label
 						>
+						{#if slot !== 'loop'}
+							<label
+								><span
+									>{m.video_editor_text_motion_offset()}
+									<output>{effect.offsetFrames ?? 0}f</output></span
+								><Slider
+									min={0}
+									max={Math.max(0, maxOffsetFor(slot))}
+									step={1}
+									value={effect.offsetFrames ?? 0}
+									ariaLabel={m.video_editor_text_motion_offset()}
+									onValueChange={(value) => liveEdit(slot, { offsetFrames: value })}
+									onValueCommit={(value) => commitEdit(slot, { offsetFrames: value })}
+								/></label
+							>
+						{/if}
 						<label
 							><span
 								>{m.video_editor_text_motion_stagger()}
@@ -225,6 +258,29 @@
 				{/if}
 			</div>
 		{/each}
+		{#if appliedBands.length > 0}
+			<div class="applied-row" data-testid="text-motion-applied">
+				<h3>{m.video_editor_text_motion_applied()}</h3>
+				<ul>
+					{#each appliedBands as band (band.slot)}
+						<li>
+							<button
+								type="button"
+								aria-label={m.video_editor_text_motion_seek_band({
+									name: slotLabels[band.slot]
+								})}
+								title={m.video_editor_text_motion_seek_band({
+									name: slotLabels[band.slot]
+								})}
+								onclick={() => seekToBand(band.slot)}
+								>{slotLabels[band.slot]} · {presetLabels[band.presetId]} · {band.durationFrames}f{#if band.offsetFrames}
+									· +{band.offsetFrames}f{/if}</button
+							>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 	</section>
 {/if}
 
@@ -266,6 +322,31 @@
 	}
 	.slot-row {
 		margin-top: 0.75rem;
+	}
+	.applied-row {
+		margin-top: 0.75rem;
+	}
+	.applied-row ul {
+		margin: 0.35rem 0 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 0.25rem;
+	}
+	.applied-row li button {
+		width: 100%;
+		border: 1px solid var(--video-editor-border);
+		border-radius: 0.35rem;
+		padding: 0.3rem 0.45rem;
+		background: var(--video-editor-control);
+		color: var(--video-editor-text);
+		font-size: 0.625rem;
+		text-align: left;
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+	}
+	.applied-row li button:hover {
+		border-color: var(--video-editor-focus-border);
 	}
 	h3 {
 		margin-bottom: 0.35rem;

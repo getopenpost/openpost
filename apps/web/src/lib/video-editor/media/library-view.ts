@@ -89,6 +89,21 @@ export function groupMediaByKind(media: readonly MediaMetadata[]): MediaLibraryG
 	});
 }
 
+export interface MediaHealthCounts {
+	missing: number;
+	proxyPending: number;
+	unsupportedCodec: number;
+}
+
+/** Items whose audio track the browser cannot decode (AC-3, DTS, …). */
+export function countUnsupportedCodecMedia(media: readonly MediaMetadata[]): number {
+	return media.filter((item) => item.audioCodecSupported === false).length;
+}
+
+export function hasMediaHealthIssues(counts: MediaHealthCounts): boolean {
+	return counts.missing > 0 || counts.proxyPending > 0 || counts.unsupportedCodec > 0;
+}
+
 export function formatMediaDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
 	const total = Math.floor(seconds);

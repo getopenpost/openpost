@@ -39,10 +39,12 @@
 	import { requireWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 	import { mediaThumbnailPath } from '$lib/video-editor/workspace-fs/paths';
 	import {
+		countUnsupportedCodecMedia,
 		filterAndSortMedia,
 		formatMediaBytes,
 		formatMediaListSummary,
 		groupMediaByKind,
+		hasMediaHealthIssues,
 		mediaLibraryGridTemplate,
 		type MediaLibraryFilter,
 		type MediaLibraryKind,
@@ -104,6 +106,8 @@
 		onsourceopen = () => undefined,
 		onextractsubtitles = () => undefined,
 		onimport,
+		onrecord = undefined,
+		onstock = undefined,
 		onUnsupportedAudio,
 		deleteProjectMedia = deleteMediaFromProject,
 		generateMediaProxy = getAutomaticProxy,
@@ -116,6 +120,8 @@
 		onsourceopen?: (mediaId: string) => void;
 		onextractsubtitles?: (media: MediaMetadata) => void;
 		onimport?: () => void;
+		onrecord?: () => void;
+		onstock?: () => void;
 		onUnsupportedAudio?: (request: UnsupportedAudioImportRequest) => Promise<'import' | 'cancel'>;
 		deleteProjectMedia?: typeof deleteMediaFromProject;
 		generateMediaProxy?: typeof getAutomaticProxy;
@@ -181,6 +187,17 @@
 		sequenceStore.compositions.filter((sequence) => selectedSequenceIds.has(sequence.id))
 	);
 	const selectedAssetCount = $derived(selectedMedia.length + selectedSequences.length);
+	const healthCounts = $derived({
+		missing: mediaRecovery.sourceIssues.filter((issue) => issue.kind === 'missing').length,
+		proxyPending: mediaTasks.list.filter(
+			(task) => task.kind === 'proxy' && task.status !== 'cancelling'
+		).length,
+		unsupportedCodec: countUnsupportedCodecMedia(mediaPool.mediaList)
+	});
+	const healthIssueTotal = $derived(
+		healthCounts.missing + healthCounts.proxyPending + healthCounts.unsupportedCodec
+	);
+	const showHealthChip = $derived(hasMediaHealthIssues(healthCounts));
 
 	$effect(() => {
 		const availableIds = new Set(visibleMedia.map((media) => media.id));
@@ -1061,29 +1078,103 @@
 					class="h-8 w-full rounded-md border border-field-border bg-field pr-2 pl-7 text-xs text-field-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
 				/>
 			</label>
-			<Button
-				type="button"
-				variant="outline"
-				size="icon-xs"
-				aria-label={m.video_editor_media_import_url()}
-				title={m.video_editor_media_import_url()}
-				onclick={() => (urlImportOpen = true)}
-			>
-				<ThemeIcon role="link" class="size-3.5" />
-			</Button>
 			{#if onimport}
+				<div class="flex shrink-0">
+					<Button
+						type="button"
+						variant="outline"
+						size="icon-xs"
+						class="rounded-r-none border-r-0"
+						aria-label={m.video_editor_import_media()}
+						title={m.video_editor_import_media()}
+						onclick={onimport}
+					>
+						<ThemeIcon role="upload" class="size-3.5" />
+					</Button>
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									type="button"
+									variant="outline"
+									size="icon-xs"
+									class="rounded-l-none px-1"
+									aria-label={m.video_editor_media_add_menu()}
+									title={m.video_editor_media_add_menu()}
+								>
+									<ThemeIcon role="chevron-down" class="size-3.5" />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content class="video-editor-theme w-48" align="end">
+							<DropdownMenu.Item onclick={onimport}>
+								<ThemeIcon role="upload" class="size-4" />
+								{m.video_editor_media_add_files()}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={() => (urlImportOpen = true)}>
+								<ThemeIcon role="link" class="size-4" />
+								{m.video_editor_media_import_url()}
+							</DropdownMenu.Item>
+							{#if onrecord}
+								<DropdownMenu.Item onclick={onrecord}>
+									<ProtectedIcon icon="editor-record" class="size-4" />
+									{m.video_editor_record()}
+								</DropdownMenu.Item>
+							{/if}
+							{#if onstock}
+								<DropdownMenu.Item onclick={onstock}>
+									<ThemeIcon role="image-add" class="size-4" />
+									{m.video_editor_stock_assets()}
+								</DropdownMenu.Item>
+							{/if}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				</div>
+			{:else}
 				<Button
 					type="button"
 					variant="outline"
 					size="icon-xs"
-					aria-label={m.video_editor_import_media()}
-					title={m.video_editor_import_media()}
-					onclick={onimport}
+					aria-label={m.video_editor_media_import_url()}
+					title={m.video_editor_media_import_url()}
+					onclick={() => (urlImportOpen = true)}
 				>
-					<ThemeIcon role="upload" class="size-3.5" />
+					<ThemeIcon role="link" class="size-3.5" />
 				</Button>
 			{/if}
 		</div>
+		{#if mediaRecovery.scanning}
+			<div
+				class="flex items-center gap-1.5 rounded-md border border-border bg-muted px-1.5 py-1 text-[10px] text-muted-foreground"
+				role="status"
+				aria-live="polite"
+			>
+				<ProtectedIcon
+					icon="loading"
+					class="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+				/>
+				<span class="min-w-0 flex-1 truncate">{m.video_editor_media_health_scanning()}</span>
+			</div>
+		{:else if showHealthChip}
+			<button
+				type="button"
+				class="flex w-full items-center gap-1.5 rounded-md border border-warning/25 bg-warning/10 px-1.5 py-1 text-left text-[10px] text-warning-foreground hover:bg-warning/15 focus-visible:outline-2 focus-visible:outline-ring"
+				title={m.video_editor_media_recovery_warning({ count: healthIssueTotal })}
+				aria-label={m.video_editor_media_recovery_warning({ count: healthIssueTotal })}
+				onclick={() => mediaRecovery.show()}
+			>
+				<ProtectedIcon icon="warning" class="size-3.5 shrink-0" />
+				<span class="min-w-0 flex-1 truncate tabular-nums">
+					{m.video_editor_media_health_chip({
+						missing: healthCounts.missing,
+						proxies: healthCounts.proxyPending,
+						codecs: healthCounts.unsupportedCodec
+					})}
+				</span>
+				<ThemeIcon role="chevron-right" class="size-3.5 shrink-0" />
+			</button>
+		{/if}
 		<div class="grid grid-cols-2 gap-1.5">
 			<div class="min-w-0">
 				<Select.Root type="single" value={filter} onValueChange={changeFilter}>

@@ -23,6 +23,8 @@
 	import { timelinePreviewScrub } from '$lib/video-editor/preview/timeline-preview-scrub';
 	import { adaptivePreviewQuality } from '$lib/video-editor/preview/adaptive-preview-quality.svelte';
 	import { toast } from 'svelte-sonner';
+	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
+	import { formatShortcutBinding } from '$lib/video-editor/settings/keyboard-shortcuts';
 	import TimelineVoiceoverControl from './timeline-voiceover-control.svelte';
 	import {
 		setCurrentFrame,
@@ -32,8 +34,15 @@
 
 	let {
 		projectId,
-		onvoiceoverinserted = () => {}
-	}: { projectId: string; onvoiceoverinserted?: (itemId: string) => void } = $props();
+		onvoiceoverinserted = () => {},
+		theaterActive = false,
+		ontoggletheater = () => {}
+	}: {
+		projectId: string;
+		onvoiceoverinserted?: (itemId: string) => void;
+		theaterActive?: boolean;
+		ontoggletheater?: () => void;
+	} = $props();
 
 	const playing = $derived(editorSession.isPlaying);
 	const fps = $derived(editorSession.fps);
@@ -397,6 +406,19 @@
 			onclick={() => void toggleFullscreen()}
 		>
 			{#if fullscreen}<ThemeIcon role="layout" />{:else}<ThemeIcon role="layout" />{/if}
+		</Button>
+		<Button
+			size="icon-xs"
+			variant={theaterActive ? 'secondary' : 'ghost'}
+			aria-label={theaterActive
+				? m.video_editor_exit_theater_mode()
+				: m.video_editor_enter_theater_mode()}
+			title={`${theaterActive ? m.video_editor_exit_theater_mode() : m.video_editor_enter_theater_mode()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_THEATER_MODE)})`}
+			aria-pressed={theaterActive}
+			data-layout-toggle="theater"
+			onclick={ontoggletheater}
+		>
+			{#if theaterActive}<ThemeIcon role="eye-off" />{:else}<ThemeIcon role="eye" />{/if}
 		</Button>
 	</div>
 </div>

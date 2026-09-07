@@ -6,8 +6,8 @@
 	import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
 	import {
 		CURVE_CHANNELS,
-		CURVE_MAX_POINTS,
 		CURVE_POINT_MIN_GAP,
+		curvePointInsertIndex,
 		curvePointsParamKey,
 		evaluateMonotoneCurve,
 		isIdentityCurve,
@@ -163,20 +163,7 @@
 	}
 
 	function insertIndex(points: readonly CurvePoint[], position: CurvePoint): number | null {
-		if (points.length >= CURVE_MAX_POINTS) return null;
-		const nextIndex = points.findIndex((point) => position.x < point.x);
-		const index = nextIndex < 0 ? points.length - 1 : nextIndex;
-		const previous = points[index - 1];
-		const next = points[index];
-		if (
-			!previous ||
-			!next ||
-			position.x - previous.x < CURVE_POINT_MIN_GAP ||
-			next.x - position.x < CURVE_POINT_MIN_GAP
-		) {
-			return null;
-		}
-		return index;
+		return curvePointInsertIndex(points, position);
 	}
 
 	function beginNewPoint(event: PointerEvent): void {

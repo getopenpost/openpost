@@ -4,8 +4,9 @@
  * Ported from FreeCut (MIT) — infrastructure/gpu-effects/effects/distort.ts —
  * WGSL fragment bodies translated to GLSL ES 3.00 with the mechanical rules in
  * ../shader-source.ts; math and structure verbatim. FreeCut's vec4 settings
- * blocks and select/color params are flattened to individual float uniforms
- * resolved in `uniformValues` (selects resolve to their defaults).
+ * blocks are flattened to individual float uniforms, while select and color
+ * params (shape, distortion shape, glow/shadow/highlight colors) stay live in
+ * the schema and are resolved per render in `uniformValues` via `readString`.
  */
 
 import type { GpuShaderDefinition } from '../types';

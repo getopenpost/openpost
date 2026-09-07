@@ -26,8 +26,8 @@ import {
 import { getGpuEffect } from '$lib/video-editor/effects/gpu/registry';
 import type { EffectTemplate } from '$lib/video-editor/timeline/effect-drop';
 import {
+	applyColorGradePresetToStack,
 	isColorGradeEffect,
-	replaceColorGradeInStack,
 	type GradeEffectSnapshot
 } from '$lib/video-editor/effects/color-grade';
 import { removeEffectKeyframes } from '$lib/video-editor/effects/effect-keyframes';
@@ -321,7 +321,7 @@ export function replaceColorGradeEffects(
 			return [
 				{
 					id: itemId,
-					patch: { effects: replaceColorGradeInStack(item.effects, grade) }
+					patch: { effects: applyColorGradePresetToStack(item.effects, grade) }
 				}
 			];
 		});

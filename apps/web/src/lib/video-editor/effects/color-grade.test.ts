@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemEffect } from './types';
 import {
+	applyColorGradePresetToStack,
 	autoBalanceFromFrame,
 	blackPointFromPick,
 	hasEnabledColorGrade,
@@ -58,6 +59,51 @@ describe('color grade stacks', () => {
 			}
 		]);
 		expect(withoutColorGradeEffects(next).map((effect) => effect.id)).toEqual(['css', 'blur']);
+	});
+
+	it('applies a saved grade preset FreeCut-style: strips grade, appends fresh enabled entries', () => {
+		const current: ItemEffect[] = [
+			{ id: 'css', type: 'blur', amount: 2, enabled: true },
+			grade('old-wheels'),
+			{
+				id: 'blur',
+				type: 'gpu',
+				effectId: 'gpu-gaussian-blur',
+				params: {},
+				enabled: true
+			},
+			grade('old-curves', 'gpu-curves')
+		];
+		let id = 0;
+		const next = applyColorGradePresetToStack(
+			current,
+			[
+				{ effectId: 'gpu-color-wheels', params: { gain: 1.4 }, enabled: false },
+				{ effectId: 'gpu-gaussian-blur', params: {}, enabled: true },
+				{ effectId: 'gpu-no-such-effect', params: {}, enabled: true }
+			],
+			() => `preset-${++id}`
+		);
+
+		// Non-grade effects keep their order; old grade entries are gone; the
+		// preset grade is appended with fresh ids and forced enabled.
+		expect(next.map((effect) => effect.id)).toEqual(['css', 'blur', 'preset-1']);
+		const applied = next[2];
+		expect(applied?.type).toBe('gpu');
+		if (applied?.type !== 'gpu') throw new Error('expected applied gpu effect');
+		expect(applied.effectId).toBe('gpu-color-wheels');
+		expect(applied.params).toEqual({ gain: 1.4 });
+		expect(applied.enabled).toBe(true);
+	});
+
+	it('leaves the stack untouched when the preset carries no grade entries', () => {
+		const current: ItemEffect[] = [grade('old-wheels')];
+		const next = applyColorGradePresetToStack(
+			current,
+			[{ effectId: 'gpu-gaussian-blur', params: {}, enabled: true }],
+			() => 'unused'
+		);
+		expect(next).toEqual([]);
 	});
 });
 

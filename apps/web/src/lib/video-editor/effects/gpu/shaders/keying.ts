@@ -3,8 +3,8 @@
  *
  * Ported from FreeCut (MIT) — infrastructure/gpu-effects/effects/keying.ts —
  * WGSL fragment body translated to GLSL ES 3.00 with the mechanical rules in
- * ../shader-source.ts; math verbatim. FreeCut's keyColor select is resolved
- * to the green-screen default (the numeric param model carries no strings).
+ * ../shader-source.ts; math and schema verbatim, including the green/blue
+ * keyColor select, which `uniformValues` resolves to the key uniforms below.
  */
 
 import type { GpuShaderDefinition } from '../types';

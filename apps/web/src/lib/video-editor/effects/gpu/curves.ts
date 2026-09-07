@@ -169,6 +169,31 @@ export function sanitizeCurveChannelPoints(points: readonly CurvePoint[]): Curve
 	return [start, ...interior, end];
 }
 
+/**
+ * Click-to-add insertion index for a curve channel, ported from FreeCut (MIT)
+ * `getInsertIndexForCurvePoint` in features/effects/components/panels/gpu-curves-panel.tsx.
+ *
+ * Insertion uses half the drag minimum gap (`CURVE_POINT_MIN_GAP / 2`) so clicks
+ * land between close neighbors that dragging would refuse to cross; endpoint
+ * lanes stay pinned at x = 0 and x = 1, so inserts clamp to interior slots.
+ */
+export function curvePointInsertIndex(
+	points: readonly CurvePoint[],
+	position: CurvePoint
+): number | null {
+	if (points.length >= CURVE_MAX_POINTS) return null;
+	const nextIndex = points.findIndex((point) => position.x < point.x);
+	const index = nextIndex < 0 ? points.length - 1 : nextIndex;
+	const previous = points[index - 1];
+	const next = points[index];
+	if (!previous || !next) return null;
+	const insertGap = CURVE_POINT_MIN_GAP / 2;
+	if (position.x - previous.x < insertGap || next.x - position.x < insertGap) {
+		return null;
+	}
+	return index;
+}
+
 export function readCurveChannelPoints(
 	params: GpuParamValues,
 	channel: CurveChannel

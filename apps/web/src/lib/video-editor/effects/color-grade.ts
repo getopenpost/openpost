@@ -50,6 +50,35 @@ export function withoutColorGradeEffects(effects: readonly ItemEffect[] | undefi
 	return (effects ?? []).filter((effect) => !isColorGradeEffect(effect));
 }
 
+/**
+ * Apply a saved grade preset to an effect stack, ported from FreeCut (MIT)
+ * `applyGradePresetToEffectStack` in features/effects/utils/grade-presets.ts.
+ *
+ * Existing grade-category effects are stripped, non-grade effects keep their order,
+ * and the preset's grade entries are appended with fresh ids and forced enabled so
+ * applying a grade is always visible. Entries that fail the grade-category gate
+ * (`category === 'color'` in the GPU registry) are dropped.
+ */
+export function applyColorGradePresetToStack(
+	currentEffects: readonly ItemEffect[] | undefined,
+	presetGrade: readonly GradeEffectSnapshot[],
+	createId: () => string = () => crypto.randomUUID()
+): ItemEffect[] {
+	const preserved = (currentEffects ?? []).filter((effect) => !isColorGradeEffect(effect));
+	const applied: ItemEffect[] = [];
+	for (const entry of presetGrade) {
+		if (getGpuEffect(entry.effectId)?.category !== 'color') continue;
+		applied.push({
+			id: createId(),
+			type: 'gpu',
+			effectId: entry.effectId,
+			params: { ...entry.params },
+			enabled: true
+		});
+	}
+	return [...preserved, ...applied];
+}
+
 export function snapshotColorGrade(
 	effects: readonly ItemEffect[] | undefined
 ): GradeEffectSnapshot[] {

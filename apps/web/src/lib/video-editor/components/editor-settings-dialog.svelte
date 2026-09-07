@@ -30,6 +30,7 @@
 		type MaintenanceBatchResult,
 		type MaintenanceProgress
 	} from '$lib/video-editor/settings/storage-maintenance';
+	import { proxyCacheBytes } from '$lib/video-editor/media/proxy-client';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		TRANSCRIPTION_LANGUAGE_OPTIONS,
@@ -68,6 +69,17 @@
 	const media = $derived(mediaPool.mediaList);
 	const missingProxyCount = $derived(recommendedProxyMedia(media).length);
 	const proxyCount = $derived(projectProxyCount(media));
+	let proxyBytes = $state(0);
+
+	function formatBytes(bytes: number): string {
+		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+		if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+		return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+	}
+
+	$effect(() => {
+		if (open && section === 'storage') proxyBytes = proxyCacheBytes();
+	});
 	const sections: Array<{
 		id: Section;
 		label: () => string;
@@ -171,6 +183,7 @@
 		} finally {
 			working = null;
 			progress = null;
+			proxyBytes = proxyCacheBytes();
 		}
 	}
 
@@ -685,6 +698,9 @@
 									<p class="text-sm font-medium">{m.video_editor_settings_delete_proxies()}</p>
 									<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 										{m.video_editor_settings_delete_proxies_description({ count: proxyCount })}
+									</p>
+									<p class="mt-0.5 text-xs text-[var(--video-editor-muted)] tabular-nums">
+										{m.video_editor_settings_proxy_cache_size({ size: formatBytes(proxyBytes) })}
 									</p>
 								</div>
 								<Button

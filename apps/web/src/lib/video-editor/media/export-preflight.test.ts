@@ -156,6 +156,92 @@ describe('assessExportPreflight', () => {
 		);
 	});
 
+	it('announces slow render paths before export instead of surprising the user', () => {
+		const noWorker = assessExportPreflight({
+			settings: baseSettings,
+			fps: 30,
+			items: [video],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-video': 'ready' },
+			media: [],
+			workerAvailable: false
+		});
+		expect(noWorker.canExport).toBe(true);
+		expect(noWorker.predictedRenderPath).toBe('main-thread');
+		expect(noWorker.checks).toContainEqual(
+			expect.objectContaining({ id: 'worker-unavailable-fallback', severity: 'info' })
+		);
+
+		const animatedImage = assessExportPreflight({
+			settings: baseSettings,
+			fps: 30,
+			items: [{ ...video, type: 'image', mediaId: 'media-gif' }],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-gif': 'ready' },
+			media: [
+				{
+					id: 'media-gif',
+					storageType: 'workspace',
+					fileName: 'sticker.gif',
+					fileSize: 500_000,
+					mimeType: 'image/gif',
+					duration: 2,
+					width: 480,
+					height: 270,
+					fps: 15,
+					animationFrameCount: 24
+				}
+			],
+			workerAvailable: true
+		});
+		expect(animatedImage.canExport).toBe(true);
+		expect(animatedImage.predictedRenderPath).toBe('main-thread');
+		expect(animatedImage.checks).toContainEqual(
+			expect.objectContaining({ id: 'worker-animated-image-fallback', severity: 'warning' })
+		);
+
+		const noAudioContext = assessExportPreflight({
+			settings: baseSettings,
+			fps: 30,
+			items: [video],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-video': 'ready' },
+			media: [],
+			workerAvailable: true,
+			offlineAudioContextAvailable: false
+		});
+		expect(noAudioContext.canExport).toBe(true);
+		expect(noAudioContext.predictedRenderPath).toBe('main-thread');
+		expect(noAudioContext.checks).toContainEqual(
+			expect.objectContaining({ id: 'worker-audio-context-fallback', severity: 'info' })
+		);
+	});
+
+	it('warns when the codec was auto-switched instead of switching silently', () => {
+		const result = assessExportPreflight({
+			settings: baseSettings,
+			fps: 30,
+			items: [video],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-video': 'ready' },
+			media: [],
+			codecFallback: { from: 'hevc', to: 'avc' }
+		});
+		expect(result.canExport).toBe(true);
+		expect(result.checks).toContainEqual(
+			expect.objectContaining({
+				id: 'video-codec-fallback',
+				severity: 'warning',
+				fromCodec: 'HEVC',
+				toCodec: 'AVC'
+			})
+		);
+	});
+
 	it('warns for long renders and blocks files that exceed the in-memory output limit', () => {
 		const result = assessExportPreflight({
 			settings: { ...baseSettings, quality: 'high' },

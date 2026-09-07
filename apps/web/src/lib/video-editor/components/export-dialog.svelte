@@ -36,6 +36,12 @@
 		type RenderQueueRange
 	} from '../export/render-queue-job';
 	import { renderQueueStore } from '../export/render-queue-store';
+	import {
+		applyExportPreset,
+		EXPORT_PRESETS,
+		matchExportPreset,
+		type ExportPresetId
+	} from '../export/export-presets';
 	import RenderQueuePanel from './render-queue-panel.svelte';
 	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
 	import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -117,6 +123,7 @@
 	let quality = $state<NonNullable<RenderExportOptions['quality']>>('standard');
 	let codec = $state<VideoCodec>('vp9');
 	let codecSupport = $state<Partial<Record<VideoCodec, boolean>>>({});
+	let codecFallback = $state<{ from: VideoCodec; to: VideoCodec } | null>(null);
 	let resolution = $state('source');
 	let useRange = $state(false);
 	let subtitleMode = $state<NonNullable<RenderExportOptions['subtitleMode']>>('burn');
@@ -132,6 +139,9 @@
 	const isSequenceFormat = $derived(isSequenceExportFormat(format));
 	let webpSupported = $state<boolean | undefined>(undefined);
 	const videoFormat = $derived(isVideoExportFormat(format) ? format : null);
+	const activePreset = $derived(
+		videoFormat ? matchExportPreset({ format: videoFormat, codec, quality, resolution }) : null
+	);
 	const selectedSequence = $derived(
 		exportableSequences.find(({ id }) => id === selectedSequenceId) ?? exportableSequences[0]
 	);
@@ -253,7 +263,9 @@
 			mediaStatuses,
 			media: mediaPool.mediaList,
 			hasRenderableBackground: selectedSequence?.hasRenderableBackground,
-			workerAvailable: typeof Worker !== 'undefined'
+			workerAvailable: typeof Worker !== 'undefined',
+			offlineAudioContextAvailable: 'OfflineAudioContext' in globalThis,
+			codecFallback: videoFormat ? (codecFallback ?? undefined) : undefined
 		})
 	);
 	const canOpenQueueMenu = $derived(
@@ -296,7 +308,10 @@
 			codecSupport = Object.fromEntries(results);
 			if (codecSupport[codec] === false) {
 				const fallback = results.find(([, supported]) => supported)?.[0];
-				if (fallback) codec = fallback;
+				if (fallback) {
+					codecFallback = { from: codec, to: fallback };
+					codec = fallback;
+				}
 			}
 		});
 	});
@@ -321,6 +336,17 @@
 				return m.video_editor_preflight_codec_checking();
 			case 'video-codec-unavailable':
 				return m.video_editor_preflight_codec_unavailable({ codec: codec.toUpperCase() });
+			case 'video-codec-fallback':
+				return m.video_editor_preflight_codec_fallback({
+					from: check.fromCodec ?? '',
+					to: check.toCodec ?? ''
+				});
+			case 'worker-unavailable-fallback':
+				return m.video_editor_preflight_worker_unavailable();
+			case 'worker-animated-image-fallback':
+				return m.video_editor_preflight_animated_image_fallback();
+			case 'worker-audio-context-fallback':
+				return m.video_editor_preflight_audio_context_fallback();
 			case 'image-encode-checking':
 				return m.video_editor_preflight_image_encode_checking();
 			case 'image-encode-unavailable':
@@ -341,6 +367,7 @@
 	}
 
 	function setFormat(value: string): void {
+		codecFallback = null;
 		switch (value) {
 			case 'mp4':
 			case 'mov':
@@ -360,6 +387,29 @@
 		if (value === 'draft' || value === 'standard' || value === 'high') quality = value;
 	}
 
+	function applyPreset(id: ExportPresetId): void {
+		if (rendering) return;
+		const preset = applyExportPreset(id);
+		codecFallback = null;
+		format = preset.format;
+		codec = preset.codec;
+		quality = preset.quality;
+		resolution = preset.resolution;
+	}
+
+	function presetLabel(id: ExportPresetId): string {
+		switch (id) {
+			case 'master':
+				return m.video_editor_export_preset_master();
+			case 'web':
+				return m.video_editor_export_preset_web();
+			case 'social':
+				return m.video_editor_export_preset_social();
+			case 'draft':
+				return m.video_editor_export_preset_draft();
+		}
+	}
+
 	function setSubtitleMode(value: string): void {
 		if (value === 'none' || value === 'burn' || value === 'sidecar' || value === 'embedded') {
 			subtitleMode = value;
@@ -368,7 +418,10 @@
 
 	function setCodec(value: string): void {
 		const next = codecs.find((candidate) => candidate === value);
-		if (next) codec = next;
+		if (next) {
+			codecFallback = null;
+			codec = next;
+		}
 	}
 
 	function openExportDialog(): void {
@@ -382,6 +435,7 @@
 		selectedSequenceId = sequenceStore.activeSequenceId;
 		resolution = 'source';
 		useRange = false;
+		codecFallback = null;
 		open = true;
 	}
 
@@ -447,7 +501,9 @@
 				mediaStatuses,
 				media: mediaPool.mediaList,
 				hasRenderableBackground: selected.hasRenderableBackground,
-				workerAvailable: typeof Worker !== 'undefined'
+				workerAvailable: typeof Worker !== 'undefined',
+				offlineAudioContextAvailable: 'OfflineAudioContext' in globalThis,
+				codecFallback: videoFormat ? (codecFallback ?? undefined) : undefined
 			})
 		);
 		const blocked = segmentPreflights.find((result) => !result.canExport);
@@ -698,6 +754,28 @@
 							)
 						})}</span
 					>
+				</div>
+			</div>
+		{/if}
+		{#if videoFormat}
+			<div class="mt-4">
+				<p class="text-xs text-muted-foreground">{m.video_editor_export_preset_label()}</p>
+				<div
+					class="mt-1 flex flex-wrap gap-2"
+					role="group"
+					aria-label={m.video_editor_export_preset_label()}
+				>
+					{#each EXPORT_PRESETS as preset (preset.id)}
+						<Button
+							size="sm"
+							variant={activePreset === preset.id ? 'default' : 'outline'}
+							disabled={rendering}
+							onclick={() => applyPreset(preset.id)}
+							aria-pressed={activePreset === preset.id}
+						>
+							{presetLabel(preset.id)}
+						</Button>
+					{/each}
 				</div>
 			</div>
 		{/if}

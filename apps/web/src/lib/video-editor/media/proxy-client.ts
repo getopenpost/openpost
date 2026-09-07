@@ -252,6 +252,11 @@ async function encodeProxy(
 	}
 }
 
+/** Total bytes currently held by session proxy blobs. Proxies are session memory only (never persisted), so there is no cache version to migrate. */
+export function proxyCacheBytes(): number {
+	return cache.sizeBytes;
+}
+
 /** Drop one session proxy and prevent an older in-flight encode from restoring it. */
 export function clearProxyCache(mediaId: string): boolean {
 	const existed = cachedProxy(mediaId) !== null;

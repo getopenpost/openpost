@@ -83,23 +83,25 @@
 	}
 
 	/** Convert preview-box coords back to shader UV. */
-	function toUv(point: { x: number; y: number }): { x: number; y: number } {
+	function toUv(point: { x: number; y: number }) {
 		return { x: point.x / 100, y: point.y / 56.25 };
 	}
 
-	function sizeFromCorner(uv: { x: number; y: number }): Record<string, GpuParamValue> {
+	function sizeFromCorner(uv: { x: number; y: number }) {
 		const centerX = readNumber(values, 'centerX', 0.5);
 		const centerY = readNumber(values, 'centerY', 0.5);
 		return {
 			sizeX: Math.min(1.5, Math.max(0.02, Math.abs(uv.x - centerX) * 2)),
 			sizeY: Math.min(1.5, Math.max(0.02, Math.abs(uv.y - centerY) * 2))
-		};
+		} satisfies Record<string, GpuParamValue>;
 	}
 
 	type DragKind = 'center' | 'size';
 	let drag = $state<{ kind: DragKind; pointerId: number } | null>(null);
 
 	function svgPoint(event: PointerEvent): { x: number; y: number } | null {
+		// SAFETY: pointer handlers are attached to elements inside this SVG overlay, so
+		// currentTarget is either the root SVG or a graphics element owning one.
 		const svg =
 			event.currentTarget instanceof SVGSVGElement
 				? event.currentTarget
@@ -119,6 +121,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		drag = { kind, pointerId: event.pointerId };
+		// SAFETY: Svelte attaches this handler to an Element, so currentTarget is an Element.
 		(event.currentTarget as Element)?.setPointerCapture?.(event.pointerId);
 	}
 

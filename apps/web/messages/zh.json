@@ -8624,5 +8624,12 @@
 	"video_editor_diagnostics_source_transition": "转场",
 	"video_editor_diagnostics_transition": "转场",
 	"video_editor_diagnostics_reverse_skips": "反向跳过",
-	"video_editor_shortcuts_command_performance_overlay": "切换性能叠加层"
+	"video_editor_shortcuts_command_performance_overlay": "切换性能叠加层",
+	"video_editor_project_preset_custom_size": "自定义尺寸",
+	"video_editor_project_preset_custom_hint": "输入宽度、高度和帧率",
+	"video_editor_projects_empty_templates": "从模板开始",
+	"video_editor_media_add_menu": "添加媒体的更多方式",
+	"video_editor_media_add_files": "文件",
+	"video_editor_media_health_chip": "{missing} 个缺失 · {proxies} 个代理待处理 · {codecs} 个不受支持",
+	"video_editor_media_health_scanning": "正在检查媒体状态…"
 }

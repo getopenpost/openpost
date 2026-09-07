@@ -12,8 +12,14 @@ export type ProjectPresetId =
 	| 'x-landscape'
 	| 'linkedin-landscape';
 
+// Ported from FreeCut (MIT): ProjectTemplate platform/namePrefix metadata.
+// `name` stays in Paraglide messages (see projectPresetName in
+// project-browser.svelte); `platform` is the uppercase eyebrow and
+// `namePrefix` seeds collision-free default project names.
 export interface ProjectPreset extends ProjectCreationSettings {
 	id: ProjectPresetId;
+	platform: string;
+	namePrefix: string;
 }
 
 export const DEFAULT_PROJECT_CREATION_SETTINGS: ProjectCreationSettings = {
@@ -23,12 +29,52 @@ export const DEFAULT_PROJECT_CREATION_SETTINGS: ProjectCreationSettings = {
 };
 
 export const PROJECT_PRESETS: readonly ProjectPreset[] = [
-	{ id: 'youtube-1080p', ...DEFAULT_PROJECT_CREATION_SETTINGS },
-	{ id: 'vertical-9-16', width: 1080, height: 1920, fps: 30 },
-	{ id: 'instagram-square', width: 1080, height: 1080, fps: 30 },
-	{ id: 'instagram-portrait', width: 1080, height: 1350, fps: 30 },
-	{ id: 'x-landscape', width: 1200, height: 675, fps: 30 },
-	{ id: 'linkedin-landscape', width: 1200, height: 627, fps: 30 }
+	{
+		id: 'youtube-1080p',
+		platform: 'YouTube',
+		namePrefix: 'YouTube',
+		...DEFAULT_PROJECT_CREATION_SETTINGS
+	},
+	{
+		id: 'vertical-9-16',
+		platform: 'Vertical',
+		namePrefix: 'Vertical',
+		width: 1080,
+		height: 1920,
+		fps: 30
+	},
+	{
+		id: 'instagram-square',
+		platform: 'Instagram',
+		namePrefix: 'Instagram Square',
+		width: 1080,
+		height: 1080,
+		fps: 30
+	},
+	{
+		id: 'instagram-portrait',
+		platform: 'Instagram',
+		namePrefix: 'Instagram Portrait',
+		width: 1080,
+		height: 1350,
+		fps: 30
+	},
+	{
+		id: 'x-landscape',
+		platform: 'Twitter/X',
+		namePrefix: 'Twitter/X',
+		width: 1200,
+		height: 675,
+		fps: 30
+	},
+	{
+		id: 'linkedin-landscape',
+		platform: 'LinkedIn',
+		namePrefix: 'LinkedIn',
+		width: 1200,
+		height: 627,
+		fps: 30
+	}
 ] as const;
 
 export const PROJECT_FPS_OPTIONS = [24, 25, 30, 50, 60] as const;

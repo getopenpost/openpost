@@ -462,13 +462,13 @@
 
 				<fieldset class="min-w-0">
 					<legend class="mb-1.5 text-xs font-medium">{m.video_editor_project_canvas()}</legend>
-					<div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+					<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
 						{#each PROJECT_PRESETS as preset (preset.id)}
 							{@const name = projectPresetName(preset.id)}
 							{@const ratio = formatProjectAspectRatio(preset.width, preset.height)}
 							<button
 								type="button"
-								class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+								class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
 								class:border-[var(--video-editor-focus)]={selectedProjectPreset === preset.id}
 								class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === preset.id}
 								class:border-[var(--video-editor-border)]={selectedProjectPreset !== preset.id}
@@ -483,23 +483,33 @@
 								})}
 								onclick={() => (selectedProjectPreset = preset.id)}
 							>
-								<span class="flex size-8 shrink-0 items-center justify-center" aria-hidden="true">
+								<span
+									class="relative flex h-24 items-center justify-center overflow-hidden rounded bg-[var(--video-editor-control)]"
+									style:container-type="size"
+									aria-hidden="true"
+								>
 									<span
-										class="max-h-7 max-w-8 rounded-sm border border-current bg-current/10"
-										style={`aspect-ratio: ${preset.width} / ${preset.height}; ${preset.width >= preset.height ? 'width: 2rem' : 'height: 1.75rem'}`}
+										class="rounded-sm border-2 border-dashed"
+										class:border-[var(--video-editor-focus)]={selectedProjectPreset === preset.id}
+										class:border-[var(--video-editor-muted)]={selectedProjectPreset !== preset.id}
+										style={`aspect-ratio: ${preset.width} / ${preset.height}; width: min(100cqw, ${(preset.width / preset.height) * 100}cqh); height: min(100cqh, ${(preset.height / preset.width) * 100}cqw);`}
 									></span>
 								</span>
-								<span class="min-w-0">
-									<span class="block truncate text-xs font-medium">{name}</span>
-									<span class="block text-xs text-[var(--video-editor-muted)]"
-										>{preset.width}×{preset.height}</span
+								<span class="min-w-0 flex-1">
+									<span
+										class="block truncate text-[10px] font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
+										>{preset.platform}</span
+									>
+									<span class="mt-0.5 block truncate text-xs font-medium">{name}</span>
+									<span class="mt-0.5 block text-[11px] text-[var(--video-editor-muted)]"
+										>{preset.width}×{preset.height} • {ratio}</span
 									>
 								</span>
 							</button>
 						{/each}
 						<button
 							type="button"
-							class="flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+							class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
 							class:border-[var(--video-editor-focus)]={selectedProjectPreset === 'custom'}
 							class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === 'custom'}
 							class:border-[var(--video-editor-border)]={selectedProjectPreset !== 'custom'}
@@ -507,10 +517,30 @@
 							aria-pressed={selectedProjectPreset === 'custom'}
 							onclick={() => (selectedProjectPreset = 'custom')}
 						>
-							<span class="flex size-8 shrink-0 items-center justify-center" aria-hidden="true">
-								<ThemeIcon role="add" class="size-4" />
+							<span
+								class="relative flex h-24 items-center justify-center overflow-hidden rounded bg-[var(--video-editor-control)]"
+								aria-hidden="true"
+							>
+								<span
+									class="rounded-sm border-2 border-dashed"
+									class:border-[var(--video-editor-focus)]={selectedProjectPreset === 'custom'}
+									class:border-[var(--video-editor-muted)]={selectedProjectPreset !== 'custom'}
+									style="aspect-ratio: 4 / 3; height: 80%; max-width: 80%;"
+								></span>
+								<ThemeIcon role="add" class="absolute size-5 opacity-70" />
 							</span>
-							<span class="text-xs font-medium">{m.video_editor_project_preset_custom()}</span>
+							<span class="min-w-0 flex-1">
+								<span
+									class="block truncate text-[10px] font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
+									>{m.video_editor_project_preset_custom()}</span
+								>
+								<span class="mt-0.5 block truncate text-xs font-medium"
+									>{m.video_editor_project_preset_custom_size()}</span
+								>
+								<span class="mt-0.5 block text-[11px] text-[var(--video-editor-muted)]"
+									>{m.video_editor_project_preset_custom_hint()}</span
+								>
+							</span>
 						</button>
 					</div>
 				</fieldset>
@@ -692,9 +722,15 @@
 	{#if loading}
 		<PageLoading label={m.editors_loading()} />
 	{:else if projects.length === 0}
-		<p class="mt-10 text-center text-sm text-[var(--video-editor-muted)]">
-			{m.video_editor_projects_empty()}
-		</p>
+		<div class="mt-10 flex flex-col items-center gap-3 text-center">
+			<p class="text-sm text-[var(--video-editor-muted)]">
+				{m.video_editor_projects_empty()}
+			</p>
+			<Button size="sm" onclick={() => (showNewProject = true)}>
+				<ThemeIcon role="add" class="size-4" />
+				{m.video_editor_projects_empty_templates()}
+			</Button>
+		</div>
 	{:else if visibleProjects.length === 0}
 		<p class="mt-10 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_projects_no_match()}

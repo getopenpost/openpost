@@ -8624,5 +8624,12 @@
 	"video_editor_diagnostics_source_transition": "Geçiş",
 	"video_editor_diagnostics_transition": "Geçiş",
 	"video_editor_diagnostics_reverse_skips": "Ters atlamalar",
-	"video_editor_shortcuts_command_performance_overlay": "Performans katmanını aç/kapat"
+	"video_editor_shortcuts_command_performance_overlay": "Performans katmanını aç/kapat",
+	"video_editor_project_preset_custom_size": "Özel boyut",
+	"video_editor_project_preset_custom_hint": "Genişlik, yükseklik ve kare hızını girin",
+	"video_editor_projects_empty_templates": "Şablondan başla",
+	"video_editor_media_add_menu": "Medya eklemenin diğer yolları",
+	"video_editor_media_add_files": "Dosyalar",
+	"video_editor_media_health_chip": "{missing} eksik · {proxies} proxy bekliyor · {codecs} desteklenmiyor",
+	"video_editor_media_health_scanning": "Medya durumu denetleniyor…"
 }

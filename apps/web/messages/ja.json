@@ -8624,5 +8624,12 @@
 	"video_editor_diagnostics_source_transition": "トランジション",
 	"video_editor_diagnostics_transition": "トランジション",
 	"video_editor_diagnostics_reverse_skips": "逆方向スキップ",
-	"video_editor_shortcuts_command_performance_overlay": "パフォーマンスオーバーレイの切り替え"
+	"video_editor_shortcuts_command_performance_overlay": "パフォーマンスオーバーレイの切り替え",
+	"video_editor_project_preset_custom_size": "カスタムサイズ",
+	"video_editor_project_preset_custom_hint": "幅、高さ、フレームレートを入力",
+	"video_editor_projects_empty_templates": "テンプレートから開始",
+	"video_editor_media_add_menu": "メディアを追加するその他の方法",
+	"video_editor_media_add_files": "ファイル",
+	"video_editor_media_health_chip": "{missing} 件不足 · {proxies} 件のプロキシ待ち · {codecs} 件が未対応",
+	"video_editor_media_health_scanning": "メディアの状態を確認中…"
 }

@@ -8624,5 +8624,12 @@
 	"video_editor_diagnostics_source_transition": "Transition",
 	"video_editor_diagnostics_transition": "Transition",
 	"video_editor_diagnostics_reverse_skips": "Reverse skips",
-	"video_editor_shortcuts_command_performance_overlay": "Toggle performance overlay"
+	"video_editor_shortcuts_command_performance_overlay": "Toggle performance overlay",
+	"video_editor_project_preset_custom_size": "Custom size",
+	"video_editor_project_preset_custom_hint": "Enter width, height and frame rate",
+	"video_editor_projects_empty_templates": "Start from a template",
+	"video_editor_media_add_menu": "More ways to add media",
+	"video_editor_media_add_files": "Files",
+	"video_editor_media_health_chip": "{missing} missing · {proxies} proxies pending · {codecs} unsupported",
+	"video_editor_media_health_scanning": "Checking media health…"
 }

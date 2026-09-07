@@ -19,6 +19,8 @@
 		zoomPreview
 	} from '$lib/video-editor/preview/playback-settings';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
+	import { resolvePreviewCaptureFrame } from '$lib/video-editor/preview/capture-frame';
+	import { timelinePreviewScrub } from '$lib/video-editor/preview/timeline-preview-scrub';
 	import { adaptivePreviewQuality } from '$lib/video-editor/preview/adaptive-preview-quality.svelte';
 	import { toast } from 'svelte-sonner';
 	import TimelineVoiceoverControl from './timeline-voiceover-control.svelte';
@@ -90,7 +92,11 @@
 		savingFrame = true;
 		try {
 			const project = editorSession.project;
-			const frame = timelineStore.currentFrame;
+			const frame = resolvePreviewCaptureFrame({
+				currentFrame: timelineStore.currentFrame,
+				previewFrame: $timelinePreviewScrub.frame,
+				isPlaying: editorSession.isPlaying
+			});
 			const fileName = buildFrameFileName(frame, fps, totalFrames);
 			const blob = await renderTimelineFrame(
 				{

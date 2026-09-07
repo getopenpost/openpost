@@ -152,6 +152,21 @@
 		if (result === 'committed') onedit();
 	}
 
+	const canEnterPenMode = $derived(
+		!topologyLocked && (storedVertices.length === 0 || item.pathClosed === false)
+	);
+
+	/** Pen places points (drawing); Edit drags existing geometry. Pen re-entry stays
+		limited to open paths so a closed shape is never silently reopened. */
+	function setPathToolMode(mode: 'pen' | 'edit'): void {
+		if (mode === 'pen') {
+			if (!canEnterPenMode || drawing) return;
+			drawing = true;
+		} else if (drawing) {
+			drawing = false;
+		}
+	}
+
 	function selectVertices(indices: readonly number[], primary: number | null): void {
 		selectedIndices = [...new Set(indices)].filter(
 			(index) => Number.isInteger(index) && index >= 0
@@ -381,6 +396,8 @@
 	}
 
 	function convertSelectedVertices(mode: 'corner' | 'curve'): void {
+		// Explicit knot commands mapping onto tangentMode: corner zeroes both handles,
+		// curve rebuilds smooth handles via pathVertexToBezier (see shapes/path-edit.ts).
 		if (selectedIndices.length === 0) return;
 		if (mode === 'corner' && !canConvertSelectedToCorner) return;
 		if (mode === 'curve' && !canConvertSelectedToCurve) return;
@@ -664,6 +681,19 @@
 		<div
 			class="flex flex-wrap justify-center gap-1 rounded bg-black/85 p-1 text-[10px] text-white shadow-lg"
 		>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white aria-pressed:bg-[oklch(0.66_0.14_45_/_0.35)]"
+				aria-pressed={drawing}
+				disabled={!drawing && !canEnterPenMode}
+				onclick={() => setPathToolMode('pen')}>{m.video_editor_path_pen_mode()}</button
+			>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white aria-pressed:bg-[oklch(0.66_0.14_45_/_0.35)]"
+				aria-pressed={!drawing}
+				onclick={() => setPathToolMode('edit')}>{m.video_editor_path_edit_mode()}</button
+			>
 			{#if drawing}
 				{#if !mustClose}
 					<button
@@ -691,6 +721,20 @@
 					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
 					disabled={selectedIndex === null || topologyLocked}
 					onclick={removeSelected}>{m.video_editor_path_delete_point()}</button
+				>
+				<button
+					type="button"
+					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
+					disabled={!canConvertSelectedToCurve}
+					onclick={() => convertSelectedVertices('curve')}
+					>{m.video_editor_path_convert_curve()}</button
+				>
+				<button
+					type="button"
+					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
+					disabled={!canConvertSelectedToCorner}
+					onclick={() => convertSelectedVertices('corner')}
+					>{m.video_editor_path_convert_corner()}</button
 				>
 				<button
 					type="button"

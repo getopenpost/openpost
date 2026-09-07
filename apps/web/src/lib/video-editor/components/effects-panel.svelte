@@ -43,6 +43,8 @@
 	import GpuCurvesEditor from './gpu-curves-editor.svelte';
 	import GpuGradientMapPanel from './gpu-gradient-map-panel.svelte';
 	import GpuParamControl from './gpu-param-control.svelte';
+	import { executeAtomic } from '$lib/video-editor/timeline/commands/command-store.svelte';
+	import GpuPowerWindowPanel from './gpu-power-window-panel.svelte';
 	import GpuQualifierPanel from './gpu-qualifier-panel.svelte';
 	import EffectPicker, { type EffectPickerOption } from './effect-picker.svelte';
 	import type { GpuParamValue } from '$lib/video-editor/effects/gpu/types';
@@ -348,6 +350,30 @@
 					)
 				: setGpuEffectParam(itemId, effect.id, paramName, value);
 		if (updated) onedit();
+	}
+
+	function commitGpuParams(effect: GpuEffect, updates: Record<string, GpuParamValue>): void {
+		if (!itemId || !item) return;
+		const apply = (): boolean => {
+			let changed = false;
+			for (const [paramName, value] of Object.entries(updates)) {
+				const property = getGpuEffectKeyframeProperty(effect, paramName);
+				const encoded = property ? effectKeyframeValue(effect, paramName, value) : null;
+				const updated =
+					property && encoded !== null && effectRelativeFrame() !== null
+						? setAnimatedProperty(
+								itemId,
+								property,
+								timelineStore.currentFrame,
+								encoded,
+								autoKeyframeStore.isEnabled(itemId, property)
+							)
+						: setGpuEffectParam(itemId, effect.id, paramName, value);
+				changed = updated || changed;
+			}
+			return changed;
+		};
+		if (executeAtomic('SET_GPU_EFFECT_PARAMS', apply)) onedit();
 	}
 
 	function draftCurveParams(effect: GpuEffect, params: Record<string, GpuParamValue> | null): void {
@@ -877,6 +903,17 @@
 										values={resolvedEffect.params}
 										disabled={!effect.enabled}
 										oncommit={(paramName, value) => commitGpuParam(effect, paramName, value)}
+										ondraft={(params) => draftCurveParams(resolvedEffect, params)}
+										keyframe={(paramName) => effectKeyframeControl(effect, paramName)}
+									/>
+								{:else if effect.effectId === 'gpu-power-window' && gpuDefinition}
+									<GpuPowerWindowPanel
+										effectLabel={effectLabel(effect)}
+										definition={gpuDefinition}
+										values={resolvedEffect.params}
+										disabled={!effect.enabled}
+										oncommit={(paramName, value) => commitGpuParam(effect, paramName, value)}
+										oncommitmany={(updates) => commitGpuParams(effect, updates)}
 										ondraft={(params) => draftCurveParams(resolvedEffect, params)}
 										keyframe={(paramName) => effectKeyframeControl(effect, paramName)}
 									/>

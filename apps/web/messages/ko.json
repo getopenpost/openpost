@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "다운로드한 AI 모델을 이용한 의미 기반 일치.",
 	"video_editor_settings_caption_search_mode": "장면 검색 모드",
 	"video_editor_settings_caption_search_mode_description": "키워드 검색은 빠르고 정확합니다. 시맨틱 검색은 의미를 이해하지만 AI 모델을 다운로드합니다.",
-	"video_editor_transcribe_model_size": "약 {size} 다운로드."
+	"video_editor_transcribe_model_size": "약 {size} 다운로드.",
+	"video_editor_canvas_tool_mask": "마스크 편집",
+	"video_editor_mask_mode_draw": "그리기",
+	"video_editor_mask_mode_edit": "편집",
+	"video_editor_mask_convert_smooth": "부드럽게",
+	"video_editor_mask_convert_corner": "모서리",
+	"video_editor_mask_delete_points": "삭제",
+	"video_editor_power_window": "파워 윈도우",
+	"video_editor_power_window_gizmo": "파워 윈도우 미리보기",
+	"video_editor_power_window_gizmo_hint": "점을 끌어 윈도우를 이동하세요. 크기는 너비 및 높이 슬라이더를 따릅니다.",
+	"video_editor_power_window_center": "윈도우 중심",
+	"video_editor_power_window_ellipse": "타원",
+	"video_editor_power_window_rectangle": "사각형",
+	"video_editor_power_window_matte": "매트",
+	"video_editor_power_window_correction": "보정"
 }

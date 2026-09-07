@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "Bedeutungsbasierter Abgleich mit heruntergeladenen KI-Modellen.",
 	"video_editor_settings_caption_search_mode": "Szenen-Suchmodus",
 	"video_editor_settings_caption_search_mode_description": "Die Stichwortsuche ist sofort und exakt. Die semantische Suche versteht Bedeutung, lädt aber KI-Modelle herunter.",
-	"video_editor_transcribe_model_size": "Etwa {size} Download."
+	"video_editor_transcribe_model_size": "Etwa {size} Download.",
+	"video_editor_canvas_tool_mask": "Maske bearbeiten",
+	"video_editor_mask_mode_draw": "Zeichnen",
+	"video_editor_mask_mode_edit": "Bearbeiten",
+	"video_editor_mask_convert_smooth": "Glätten",
+	"video_editor_mask_convert_corner": "Ecke",
+	"video_editor_mask_delete_points": "Löschen",
+	"video_editor_power_window": "Power Window",
+	"video_editor_power_window_gizmo": "Power-Window-Vorschau",
+	"video_editor_power_window_gizmo_hint": "Ziehe den Punkt, um das Fenster zu verschieben. Die Größe folgt den Reglern für Breite und Höhe.",
+	"video_editor_power_window_center": "Fenstermitte",
+	"video_editor_power_window_ellipse": "Ellipse",
+	"video_editor_power_window_rectangle": "Rechteck",
+	"video_editor_power_window_matte": "Matte",
+	"video_editor_power_window_correction": "Korrektur"
 }

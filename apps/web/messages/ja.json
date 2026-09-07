@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "ダウンロードしたAIモデルによる意味ベースの一致。",
 	"video_editor_settings_caption_search_mode": "シーン検索モード",
 	"video_editor_settings_caption_search_mode_description": "キーワード検索は高速で正確です。セマンティック検索は意味を理解しますが、AIモデルをダウンロードします。",
-	"video_editor_transcribe_model_size": "ダウンロード約{size}。"
+	"video_editor_transcribe_model_size": "ダウンロード約{size}。",
+	"video_editor_canvas_tool_mask": "マスクを編集",
+	"video_editor_mask_mode_draw": "描画",
+	"video_editor_mask_mode_edit": "編集",
+	"video_editor_mask_convert_smooth": "スムーズ",
+	"video_editor_mask_convert_corner": "コーナー",
+	"video_editor_mask_delete_points": "削除",
+	"video_editor_power_window": "パワーウィンドウ",
+	"video_editor_power_window_gizmo": "パワーウィンドウのプレビュー",
+	"video_editor_power_window_gizmo_hint": "ドットをドラッグしてウィンドウを移動します。サイズは幅・高さスライダーに従います。",
+	"video_editor_power_window_center": "ウィンドウの中心",
+	"video_editor_power_window_ellipse": "楕円",
+	"video_editor_power_window_rectangle": "長方形",
+	"video_editor_power_window_matte": "マット",
+	"video_editor_power_window_correction": "補正"
 }

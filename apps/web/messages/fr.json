@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "Correspondance par le sens grâce à des modèles IA téléchargés.",
 	"video_editor_settings_caption_search_mode": "Mode de recherche de scènes",
 	"video_editor_settings_caption_search_mode_description": "La recherche par mots-clés est instantanée et exacte. La recherche sémantique comprend le sens mais télécharge des modèles IA.",
-	"video_editor_transcribe_model_size": "Environ {size} à télécharger."
+	"video_editor_transcribe_model_size": "Environ {size} à télécharger.",
+	"video_editor_canvas_tool_mask": "Modifier le masque",
+	"video_editor_mask_mode_draw": "Dessiner",
+	"video_editor_mask_mode_edit": "Modifier",
+	"video_editor_mask_convert_smooth": "Lisser",
+	"video_editor_mask_convert_corner": "Angle",
+	"video_editor_mask_delete_points": "Supprimer",
+	"video_editor_power_window": "Fenêtre de correction",
+	"video_editor_power_window_gizmo": "aperçu de la fenêtre",
+	"video_editor_power_window_gizmo_hint": "Faites glisser le point pour déplacer la fenêtre. La taille suit les curseurs de largeur et de hauteur.",
+	"video_editor_power_window_center": "Centre de la fenêtre",
+	"video_editor_power_window_ellipse": "Ellipse",
+	"video_editor_power_window_rectangle": "Rectangle",
+	"video_editor_power_window_matte": "Cache",
+	"video_editor_power_window_correction": "Correction"
 }

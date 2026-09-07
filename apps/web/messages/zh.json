@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "使用下载的 AI 模型进行基于语义的匹配。",
 	"video_editor_settings_caption_search_mode": "场景搜索模式",
 	"video_editor_settings_caption_search_mode_description": "关键词搜索即时且精确。语义搜索理解含义，但会下载 AI 模型。",
-	"video_editor_transcribe_model_size": "约需下载 {size}。"
+	"video_editor_transcribe_model_size": "约需下载 {size}。",
+	"video_editor_canvas_tool_mask": "编辑遮罩",
+	"video_editor_mask_mode_draw": "绘制",
+	"video_editor_mask_mode_edit": "编辑",
+	"video_editor_mask_convert_smooth": "平滑",
+	"video_editor_mask_convert_corner": "尖角",
+	"video_editor_mask_delete_points": "删除",
+	"video_editor_power_window": "能量窗口",
+	"video_editor_power_window_gizmo": "能量窗口预览",
+	"video_editor_power_window_gizmo_hint": "拖动圆点移动窗口。尺寸跟随宽度和高度滑块。",
+	"video_editor_power_window_center": "窗口中心",
+	"video_editor_power_window_ellipse": "椭圆",
+	"video_editor_power_window_rectangle": "矩形",
+	"video_editor_power_window_matte": "蒙版",
+	"video_editor_power_window_correction": "校正"
 }

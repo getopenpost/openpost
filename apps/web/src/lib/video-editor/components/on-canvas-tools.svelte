@@ -40,9 +40,18 @@
 	} from '$lib/video-editor/preview/canvas-snapping';
 	import type { AnimatedItemMotionContext } from '$lib/video-editor/timeline/animated-properties';
 	import PathEditorOverlay from './path-editor-overlay.svelte';
+	import MaskEditorOverlay from './mask-editor-overlay.svelte';
 	import CornerPinOverlay from './corner-pin-overlay.svelte';
 
-	type CanvasTool = 'transform' | 'crop' | 'anchor' | 'text' | 'motion' | 'path' | 'corner-pin';
+	type CanvasTool =
+		| 'transform'
+		| 'crop'
+		| 'anchor'
+		| 'text'
+		| 'motion'
+		| 'path'
+		| 'mask'
+		| 'corner-pin';
 	type TransformOperation = 'move' | 'resize' | 'rotate';
 	const TRANSFORM_HANDLES: TransformHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
@@ -119,6 +128,7 @@
 	const canCrop = $derived(['video', 'image', 'lottie'].includes(item.type));
 	const canEditText = $derived(item.type === 'text');
 	const canEditPath = $derived(item.type === 'shape' && item.shapeType === 'path');
+	const isMaskItem = $derived(item.isMask === true && canEditPath);
 	const canCornerPin = $derived(
 		['video', 'image', 'text', 'shape', 'subtitle', 'composition'].includes(item.type)
 	);
@@ -173,7 +183,7 @@
 		if (item.id === previousItemId) return;
 		previousItemId = item.id;
 		cancelDrafts();
-		activeTool = canEditPath ? 'path' : 'transform';
+		activeTool = isMaskItem ? 'mask' : canEditPath ? 'path' : 'transform';
 	});
 
 	$effect(() => {
@@ -181,6 +191,8 @@
 		if (activeTool === 'text' && !canEditText) activeTool = 'transform';
 		if (activeTool === 'motion' && !hasMotion) activeTool = 'transform';
 		if (activeTool === 'path' && !canEditPath) activeTool = 'transform';
+		if (activeTool === 'mask' && !isMaskItem) activeTool = 'transform';
+		if (activeTool === 'path' && isMaskItem) activeTool = 'mask';
 		if (activeTool === 'corner-pin' && !canCornerPin) activeTool = 'transform';
 	});
 
@@ -195,6 +207,7 @@
 		spatialDraft = null;
 		if (activeTool === 'motion') activeTool = 'transform';
 		if (activeTool === 'path') activeTool = 'transform';
+		if (activeTool === 'mask') activeTool = 'transform';
 	});
 
 	$effect(() => {
@@ -991,7 +1004,14 @@
 				onclick={() => setTool('motion')}>{m.video_editor_canvas_tool_motion()}</button
 			>
 		{/if}
-		{#if canEditPath && !isPlaying}
+		{#if isMaskItem && !isPlaying}
+			<button
+				type="button"
+				class:active={activeTool === 'mask'}
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
+				onclick={() => setTool('mask')}>{m.video_editor_canvas_tool_mask()}</button
+			>
+		{:else if canEditPath && !isPlaying}
 			<button
 				type="button"
 				class:active={activeTool === 'path'}
@@ -1150,6 +1170,16 @@
 				vector-effect="non-scaling-stroke"
 			></circle>
 		</svg>
+	{:else if activeTool === 'mask' && isMaskItem && !isPlaying}
+		<MaskEditorOverlay
+			{item}
+			{canvasWidth}
+			{canvasHeight}
+			{currentFrame}
+			{boxStyle}
+			{screenScale}
+			{onedit}
+		/>
 	{:else if activeTool === 'path' && canEditPath && !isPlaying}
 		<PathEditorOverlay
 			{item}

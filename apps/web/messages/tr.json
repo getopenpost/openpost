@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "İndirilen yapay zeka modelleriyle anlama dayalı eşleşme.",
 	"video_editor_settings_caption_search_mode": "Sahne arama modu",
 	"video_editor_settings_caption_search_mode_description": "Anahtar kelime araması anında ve kesindir. Anlamsal arama anlamı anlar ancak yapay zeka modelleri indirir.",
-	"video_editor_transcribe_model_size": "Yaklaşık {size} indirilir."
+	"video_editor_transcribe_model_size": "Yaklaşık {size} indirilir.",
+	"video_editor_canvas_tool_mask": "Maskeyi düzenle",
+	"video_editor_mask_mode_draw": "Çiz",
+	"video_editor_mask_mode_edit": "Düzenle",
+	"video_editor_mask_convert_smooth": "Yumuşat",
+	"video_editor_mask_convert_corner": "Köşe",
+	"video_editor_mask_delete_points": "Sil",
+	"video_editor_power_window": "Güç penceresi",
+	"video_editor_power_window_gizmo": "güç penceresi önizlemesi",
+	"video_editor_power_window_gizmo_hint": "Pencereyi taşımak için noktayı sürükleyin. Boyut, Genişlik ve Yükseklik kaydırıcılarını izler.",
+	"video_editor_power_window_center": "Pencere merkezi",
+	"video_editor_power_window_ellipse": "Elips",
+	"video_editor_power_window_rectangle": "Dikdörtgen",
+	"video_editor_power_window_matte": "Mat",
+	"video_editor_power_window_correction": "Düzeltme"
 }

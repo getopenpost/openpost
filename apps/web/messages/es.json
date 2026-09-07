@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "Coincidencia por significado con modelos de IA descargados.",
 	"video_editor_settings_caption_search_mode": "Modo de búsqueda de escenas",
 	"video_editor_settings_caption_search_mode_description": "La búsqueda por palabras clave es instantánea y exacta. La búsqueda semántica entiende el significado, pero descarga modelos de IA.",
-	"video_editor_transcribe_model_size": "Unos {size} de descarga."
+	"video_editor_transcribe_model_size": "Unos {size} de descarga.",
+	"video_editor_canvas_tool_mask": "Editar máscara",
+	"video_editor_mask_mode_draw": "Dibujar",
+	"video_editor_mask_mode_edit": "Editar",
+	"video_editor_mask_convert_smooth": "Suavizar",
+	"video_editor_mask_convert_corner": "Esquina",
+	"video_editor_mask_delete_points": "Eliminar",
+	"video_editor_power_window": "Ventana de potencia",
+	"video_editor_power_window_gizmo": "vista previa de la ventana",
+	"video_editor_power_window_gizmo_hint": "Arrastra el punto para mover la ventana. El tamaño sigue los controles de anchura y altura.",
+	"video_editor_power_window_center": "Centro de la ventana",
+	"video_editor_power_window_ellipse": "Elipse",
+	"video_editor_power_window_rectangle": "Rectángulo",
+	"video_editor_power_window_matte": "Mate",
+	"video_editor_power_window_correction": "Corrección"
 }

@@ -8589,5 +8589,19 @@
 	"video_editor_scene_search_mode_semantic_description": "Meaning-based matching using downloaded AI models.",
 	"video_editor_settings_caption_search_mode": "Scene search mode",
 	"video_editor_settings_caption_search_mode_description": "Keyword matching is instant and exact. Semantic matching understands meaning but downloads AI models.",
-	"video_editor_transcribe_model_size": "About {size} to download."
+	"video_editor_transcribe_model_size": "About {size} to download.",
+	"video_editor_canvas_tool_mask": "Edit mask",
+	"video_editor_mask_mode_draw": "Draw",
+	"video_editor_mask_mode_edit": "Edit",
+	"video_editor_mask_convert_smooth": "Smooth",
+	"video_editor_mask_convert_corner": "Corner",
+	"video_editor_mask_delete_points": "Delete",
+	"video_editor_power_window": "Power window",
+	"video_editor_power_window_gizmo": "power window preview",
+	"video_editor_power_window_gizmo_hint": "Drag the dot to move the window. Size follows the Width and Height sliders.",
+	"video_editor_power_window_center": "Window center",
+	"video_editor_power_window_ellipse": "Ellipse",
+	"video_editor_power_window_rectangle": "Rectangle",
+	"video_editor_power_window_matte": "Matte",
+	"video_editor_power_window_correction": "Correction"
 }

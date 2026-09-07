@@ -15,8 +15,14 @@ describe('KeyboardShortcutEditor', () => {
 		await expect.element(screen.getByRole('group', { name: 'Shortcut keyboard' })).toBeVisible();
 		await screen.getByRole('button', { name: /B:.*Split at playhead, alternate/ }).click();
 		await expect.element(screen.getByRole('group', { name: 'Split at playhead' })).toBeVisible();
-		await expect.element(screen.getByText('Primary', { exact: true })).toBeVisible();
-		await expect.element(screen.getByText('Alternate', { exact: true })).toBeVisible();
+		// The B key is shared with the layout-dock sidebar toggles, so the keyboard
+		// filter lists every command on that key. Scope the badge assertions to
+		// the split group to keep them unambiguous.
+		await expect.element(screen.getByRole('group', { name: 'Toggle assets panel' })).toBeVisible();
+		await expect.element(screen.getByRole('group', { name: 'Toggle tools panel' })).toBeVisible();
+		const splitGroup = screen.getByRole('group', { name: 'Split at playhead' });
+		await expect.element(splitGroup.getByText('Primary', { exact: true })).toBeVisible();
+		await expect.element(splitGroup.getByText('Alternate', { exact: true })).toBeVisible();
 		await expect
 			.element(screen.getByRole('group', { name: 'Save project' }))
 			.not.toBeInTheDocument();

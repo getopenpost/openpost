@@ -3,22 +3,28 @@
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
-	import * as Select from '$lib/components/ui/select';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
 	import {
 		duplicateKeyframes,
 		insertKeyframes,
 		removeKeyframes,
 		setKeyframe,
+		setKeyframeEasing,
+		setKeyframeEasings,
 		updateKeyframes
 	} from '$lib/video-editor/timeline/actions/keyframes';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions-store.svelte';
 	import {
 		buildDopesheetRetimePreview,
+		buildDopesheetSegmentSpans,
 		buildKeyframePastePlan,
+		groupDopesheetProperties,
 		shiftRangeSelection,
-		type BlockedFrameRange
+		type BlockedFrameRange,
+		type DopesheetPropertyGroup,
+		type DopesheetSegmentSpan
 	} from '$lib/video-editor/timeline/keyframe-dopesheet';
+	import { buildScaleRetimePreview } from '$lib/video-editor/timeline/keyframe-scale-retime';
 	import {
 		editorKeyframes,
 		editorPropertyLabel,
@@ -38,6 +44,9 @@
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import KeyframeContextMenuContent from './keyframe-context-menu-content.svelte';
+	import KeyframeTimingStrip from './keyframe-timing-strip.svelte';
+	import KeyframeSegmentEasingPopover from './keyframe-segment-easing-popover.svelte';
+	import type { SegmentEasingUpdate } from './keyframe-easing-editor.svelte';
 
 	let {
 		item,
@@ -73,10 +82,11 @@
 	const DRAG_THRESHOLD = 3;
 	const SNAP_THRESHOLD = 8;
 	let root = $state<HTMLDivElement | null>(null);
-	let filter = $state<'keyframed' | 'all'>('keyframed');
+	let showKeyframedOnly = $state(true);
 	let initializedFilter = false;
 	let searchQuery = $state('');
-	let groupFilter = $state<PropertyGroup | 'all'>('all');
+	let hiddenGroups = $state<Set<DopesheetPropertyGroup>>(new Set());
+	let segmentMenu = $state<{ property: KeyframeProperty; fromFrame: number } | null>(null);
 	let lockedProperties = $state<Set<KeyframeProperty>>(new Set());
 	let anchors = $state<Partial<Record<KeyframeProperty, string>>>({});
 	let previewFrames = $state<Map<string, number> | null>(null);
@@ -85,7 +95,7 @@
 
 	$effect(() => {
 		if (initializedFilter) return;
-		filter = initialFilter;
+		showKeyframedOnly = initialFilter === 'keyframed';
 		initializedFilter = true;
 	});
 
@@ -117,15 +127,30 @@
 			allKeyframes.some((keyframe) => keyframe.property === property)
 		)
 	);
-	type PropertyGroup = 'transform' | 'crop' | 'typography' | 'path' | 'audio' | 'other';
-	const rows = $derived.by(() => {
-		const base = filter === 'keyframed' ? keyframedProperties : availableProperties;
+	const visibleProperties = $derived.by(() => {
+		const base = showKeyframedOnly ? keyframedProperties : availableProperties;
 		const query = searchQuery.trim().toLowerCase();
 		return base.filter(
-			(property) =>
-				(groupFilter === 'all' || propertyGroup(property) === groupFilter) &&
-				(!query || propertyLabel(property).toLowerCase().includes(query))
+			(property) => !query || propertyLabel(property).toLowerCase().includes(query)
 		);
+	});
+	const groupedRows = $derived(groupDopesheetProperties(visibleProperties, hiddenGroups));
+	const segmentSpans = $derived(buildDopesheetSegmentSpans(allKeyframes));
+	const spansByProperty = $derived.by(() => {
+		const grouped = new Map<KeyframeProperty, DopesheetSegmentSpan[]>();
+		for (const span of segmentSpans) {
+			const lane = grouped.get(span.property) ?? [];
+			lane.push(span);
+			grouped.set(span.property, lane);
+		}
+		return grouped;
+	});
+	const scaleSelection = $derived.by(() => {
+		const frames = selectedKeyframes.map((keyframe) => keyframe.frame);
+		if (frames.length < 2) return null;
+		const minFrame = Math.min(...frames);
+		const maxFrame = Math.max(...frames);
+		return minFrame === maxFrame ? null : { minFrame, maxFrame };
 	});
 	const selectedKeyframes = $derived(
 		allKeyframes.filter((keyframe) => selectedIds.has(keyframeIdentity(keyframe)))
@@ -170,57 +195,42 @@
 		return effectPropertyLabel(item, property) ?? editorPropertyLabel(item, property);
 	}
 
-	function propertyGroup(property: KeyframeProperty): PropertyGroup {
-		if (property.startsWith('pathVertex:')) return 'path';
-		if (property.startsWith('crop')) return 'crop';
-		if (property === 'volume') return 'audio';
-		if (
-			[
-				'textStyleScale',
-				'fontSize',
-				'fontWeight',
-				'lineHeight',
-				'letterSpacing',
-				'paddingX',
-				'paddingY',
-				'borderRadius',
-				'textShadowOffsetX',
-				'textShadowOffsetY',
-				'textShadowBlur',
-				'strokeWidth'
-			].includes(property)
-		)
-			return 'typography';
-		if (
-			[
-				'x',
-				'y',
-				'width',
-				'height',
-				'anchorX',
-				'anchorY',
-				'rotation',
-				'opacity',
-				'cornerRadius'
-			].includes(property)
-		)
-			return 'transform';
-		return 'other';
+	function groupLabel(group: DopesheetPropertyGroup): string {
+		switch (group) {
+			case 'transform':
+				return m.video_editor_keyframe_sheet_group_transform();
+			case 'crop':
+				return m.video_editor_keyframe_sheet_group_crop();
+			case 'typography':
+				return m.video_editor_keyframe_sheet_group_typography();
+			case 'path':
+				return m.video_editor_keyframe_sheet_group_path();
+			case 'audio':
+				return m.video_editor_keyframe_sheet_group_audio();
+			case 'other':
+				return m.video_editor_keyframe_sheet_group_other();
+		}
 	}
 
-	function setGroupFilter(value: string): void {
-		switch (value) {
-			case 'transform':
-			case 'crop':
-			case 'typography':
-			case 'path':
-			case 'audio':
-			case 'other':
-				groupFilter = value;
-				break;
-			default:
-				groupFilter = 'all';
+	function toggleGroupVisibility(group: DopesheetPropertyGroup): void {
+		const next = new Set(hiddenGroups);
+		if (next.has(group)) next.delete(group);
+		else next.add(group);
+		hiddenGroups = next;
+	}
+
+	function groupLocked(properties: readonly KeyframeProperty[]): boolean {
+		return properties.length > 0 && properties.every((property) => lockedProperties.has(property));
+	}
+
+	function toggleGroupLock(properties: readonly KeyframeProperty[]): void {
+		const next = new Set(lockedProperties);
+		if (groupLocked(properties)) {
+			for (const property of properties) next.delete(property);
+		} else {
+			for (const property of properties) next.add(property);
 		}
+		lockedProperties = next;
 	}
 
 	function setSelection(ids: Iterable<string>, primary?: EditorKeyframe | null): void {
@@ -231,7 +241,7 @@
 	function selectAllVisible(): void {
 		setSelection(
 			allKeyframes
-				.filter((keyframe) => rows.includes(keyframe.property))
+				.filter((keyframe) => visibleProperties.includes(keyframe.property))
 				.map((keyframe) => keyframeIdentity(keyframe))
 		);
 	}
@@ -445,6 +455,97 @@
 		onedit();
 	}
 
+	function previewScale(preview: { anchorFrame: number; requestedScale: number }): void {
+		const result = buildScaleRetimePreview({
+			keyframes: allKeyframes,
+			selectionIds: selectedIds,
+			lockedProperties,
+			anchorFrame: preview.anchorFrame,
+			requestedScale: preview.requestedScale,
+			totalFrames: item.durationInFrames,
+			blockedRanges
+		});
+		previewFrames = new Map(result.frames);
+		status = m.video_editor_keyframe_sheet_status_scaled({
+			count: selectedIds.size,
+			scale: result.appliedScale.toFixed(2)
+		});
+	}
+
+	function commitScale(end: {
+		anchorFrame: number;
+		requestedScale: number;
+		duplicate: boolean;
+	}): void {
+		const result = buildScaleRetimePreview({
+			keyframes: allKeyframes,
+			selectionIds: selectedIds,
+			lockedProperties,
+			anchorFrame: end.anchorFrame,
+			requestedScale: end.requestedScale,
+			totalFrames: item.durationInFrames,
+			blockedRanges
+		});
+		previewFrames = null;
+		if (result.frames.size === 0) return;
+		const edits = allKeyframes.flatMap((keyframe) => {
+			const frame = result.frames.get(keyframeIdentity(keyframe));
+			return frame === undefined ? [] : [{ ref: keyframe, frame, value: keyframe.value }];
+		});
+		const changed = end.duplicate
+			? duplicateKeyframes(item.id, edits)
+			: updateKeyframes(item.id, edits);
+		if (!changed) return;
+		status = m.video_editor_keyframe_sheet_status_scaled({
+			count: selectedIds.size,
+			scale: result.appliedScale.toFixed(2)
+		});
+		onedit();
+	}
+
+	function cancelScale(): void {
+		previewFrames = null;
+	}
+
+	function toggleSegmentMenu(property: KeyframeProperty, fromFrame: number): void {
+		if (segmentMenu?.property === property && segmentMenu.fromFrame === fromFrame) {
+			segmentMenu = null;
+		} else {
+			segmentMenu = { property, fromFrame };
+		}
+	}
+
+	function closeSegmentMenu(): void {
+		segmentMenu = null;
+	}
+
+	function applySegmentEasing(updates: SegmentEasingUpdate[]): void {
+		const changed =
+			updates.length > 1
+				? setKeyframeEasings(item.id, updates)
+				: updates[0]
+					? setKeyframeEasing(
+							item.id,
+							updates[0].property,
+							updates[0].frame,
+							updates[0].easing,
+							updates[0].easingConfig
+						)
+					: false;
+		if (changed) onedit();
+	}
+
+	function onSegmentKeyDown(
+		property: KeyframeProperty,
+		fromFrame: number,
+		event: KeyboardEvent
+	): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		event.stopPropagation();
+		toggleSegmentMenu(property, fromFrame);
+	}
+
 	function nearestSnap(value: number, targets: readonly number[], threshold: number): number {
 		let result = value;
 		let distance = threshold;
@@ -655,21 +756,14 @@
 					<span class="mr-1 font-medium tracking-wide text-[oklch(0.72_0.02_55)] uppercase">
 						{m.video_editor_keyframe_sheet_title()}
 					</span>
-					<div class="flex rounded border border-[oklch(0.28_0.012_55)] p-0.5">
-						<button
-							type="button"
-							class="rounded px-1.5 py-0.5 data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.18)] data-[active=true]:text-[oklch(0.82_0.12_55)]"
-							data-active={filter === 'keyframed'}
-							onclick={() => (filter = 'keyframed')}
-							>{m.video_editor_keyframe_sheet_filter_animated()}</button
-						>
-						<button
-							type="button"
-							class="rounded px-1.5 py-0.5 data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.18)] data-[active=true]:text-[oklch(0.82_0.12_55)]"
-							data-active={filter === 'all'}
-							onclick={() => (filter = 'all')}>{m.video_editor_keyframe_sheet_filter_all()}</button
-						>
-					</div>
+					<button
+						type="button"
+						class="rounded border border-[oklch(0.28_0.012_55)] px-1.5 py-0.5 data-[active=true]:bg-[oklch(0.66_0.14_45_/_0.18)] data-[active=true]:text-[oklch(0.82_0.12_55)]"
+						data-active={showKeyframedOnly}
+						aria-pressed={showKeyframedOnly}
+						onclick={() => (showKeyframedOnly = !showKeyframedOnly)}
+						>{m.video_editor_keyframe_sheet_keyframed_only()}</button
+					>
 					<Input
 						type="search"
 						class="h-6 w-32 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
@@ -677,41 +771,7 @@
 						placeholder={m.video_editor_keyframe_sheet_search()}
 						aria-label={m.video_editor_keyframe_sheet_search()}
 					/>
-					<Select.Root type="single" value={groupFilter} onValueChange={setGroupFilter}>
-						<Select.Trigger
-							aria-label={m.video_editor_keyframe_sheet_group()}
-							class="h-6 justify-between rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 text-xs shadow-none"
-						>
-							<span class="truncate"
-								>{groupFilter === 'all'
-									? m.video_editor_keyframe_sheet_group_all()
-									: groupFilter === 'transform'
-										? m.video_editor_keyframe_sheet_group_transform()
-										: groupFilter === 'crop'
-											? m.video_editor_keyframe_sheet_group_crop()
-											: groupFilter === 'typography'
-												? m.video_editor_keyframe_sheet_group_typography()
-												: groupFilter === 'path'
-													? m.video_editor_keyframe_sheet_group_path()
-													: groupFilter === 'audio'
-														? m.video_editor_keyframe_sheet_group_audio()
-														: m.video_editor_keyframe_sheet_group_other()}</span
-							>
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="all">{m.video_editor_keyframe_sheet_group_all()}</Select.Item>
-							<Select.Item value="transform"
-								>{m.video_editor_keyframe_sheet_group_transform()}</Select.Item
-							>
-							<Select.Item value="crop">{m.video_editor_keyframe_sheet_group_crop()}</Select.Item>
-							<Select.Item value="typography"
-								>{m.video_editor_keyframe_sheet_group_typography()}</Select.Item
-							>
-							<Select.Item value="path">{m.video_editor_keyframe_sheet_group_path()}</Select.Item>
-							<Select.Item value="audio">{m.video_editor_keyframe_sheet_group_audio()}</Select.Item>
-							<Select.Item value="other">{m.video_editor_keyframe_sheet_group_other()}</Select.Item>
-						</Select.Content>
-					</Select.Root>
+
 					<button
 						type="button"
 						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
@@ -758,7 +818,18 @@
 						{m.video_editor_keyframe_sheet_selected({ count: selectedIds.size })}
 					</span>
 				</div>
-
+				{#if scaleSelection}
+					<KeyframeTimingStrip
+						minFrame={scaleSelection.minFrame}
+						maxFrame={scaleSelection.maxFrame}
+						itemFrom={item.from}
+						{pixelsPerFrame}
+						{timelineX}
+						onscalechange={previewScale}
+						onscaleend={commitScale}
+						onscalecancel={cancelScale}
+					/>
+				{/if}
 				{#if presentation === 'side'}
 					<div
 						class="grid h-[22px] shrink-0 border-b border-white/10 bg-[oklch(0.155_0.008_55)] text-[8px] tracking-wider text-white/35 uppercase"
@@ -790,92 +861,186 @@
 							data-keyframe-side-playhead
 						></div>
 					{/if}
-					{#each rows as property (property)}
+					{#each groupedRows as { group, properties, hidden } (group)}
 						<div
-							role="group"
-							aria-label={m.video_editor_keyframe_sheet_row({ property: propertyLabel(property) })}
-							class="relative border-b border-[oklch(0.22_0.01_50)] last:border-b-0"
-							style="height:{ROW_HEIGHT}px"
+							class="flex h-[22px] shrink-0 items-center gap-1 border-b border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.008_55)] px-1.5"
+							data-dopesheet-group={group}
+							data-group-hidden={hidden}
 						>
-							<div
-								class="sticky left-0 z-20 flex h-full items-center gap-1 border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5"
-								style="width:{propertyColumnWidth}px"
-								data-marquee-ignore
+							<button
+								type="button"
+								class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)]"
+								aria-label={hidden
+									? m.video_editor_keyframe_sheet_group_show({ group: groupLabel(group) })
+									: m.video_editor_keyframe_sheet_group_hide({ group: groupLabel(group) })}
+								aria-pressed={!hidden}
+								onpointerdown={(event) => event.stopPropagation()}
+								onclick={() => toggleGroupVisibility(group)}
+								>{#if hidden}<ThemeIcon role="eye-off" class="size-3" />{:else}<ThemeIcon
+										role="eye"
+										class="size-3"
+									/>{/if}</button
 							>
-								<button
-									type="button"
-									class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)]"
-									aria-label={lockedProperties.has(property)
-										? m.video_editor_keyframe_sheet_unlock({ property: propertyLabel(property) })
-										: m.video_editor_keyframe_sheet_lock({ property: propertyLabel(property) })}
-									onpointerdown={(event) => event.stopPropagation()}
-									onclick={() => toggleLock(property)}
-								>
-									{#if lockedProperties.has(property)}
-										<ThemeIcon role="lock" class="size-3" />
-									{:else}
-										<ThemeIcon role="lock" class="size-3" />
-									{/if}
-								</button>
-								<button
-									type="button"
-									class="min-w-0 flex-1 truncate text-left text-[9px] text-[oklch(0.66_0.015_55)] uppercase hover:text-[oklch(0.85_0.02_55)]"
-									onpointerdown={(event) => event.stopPropagation()}
-									onclick={() => onactiveproperty(property)}>{propertyLabel(property)}</button
-								>
-								<button
-									type="button"
-									class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)] disabled:opacity-35"
-									aria-label={m.video_editor_keyframe_sheet_add({
+							<button
+								type="button"
+								class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)]"
+								aria-label={groupLocked(properties)
+									? m.video_editor_keyframe_sheet_group_unlock({ group: groupLabel(group) })
+									: m.video_editor_keyframe_sheet_group_lock({ group: groupLabel(group) })}
+								aria-pressed={groupLocked(properties)}
+								onpointerdown={(event) => event.stopPropagation()}
+								onclick={() => toggleGroupLock(properties)}
+								><ThemeIcon role="lock" class="size-3" /></button
+							>
+							<span
+								class="text-[9px] font-medium tracking-wide text-[oklch(0.66_0.015_55)] uppercase"
+								>{groupLabel(group)}</span
+							>
+							<span class="font-mono text-[9px] text-[oklch(0.58_0.014_55)]"
+								>{properties.length}</span
+							>
+						</div>
+						{#if !hidden}
+							{#each properties as property (property)}
+								<div
+									role="group"
+									aria-label={m.video_editor_keyframe_sheet_row({
 										property: propertyLabel(property)
 									})}
-									disabled={lockedProperties.has(property)}
-									onpointerdown={(event) => event.stopPropagation()}
-									onclick={() => addAtCurrentFrame(property)}
-									><ThemeIcon role="add" class="size-3" /></button
+									class="relative border-b border-[oklch(0.22_0.01_50)] last:border-b-0"
+									style="height:{ROW_HEIGHT}px"
 								>
-							</div>
-							{#each blockedRanges as blocked, index (`${blocked.start}:${blocked.end}:${index}`)}
-								<div
-									class="pointer-events-none absolute top-0 h-full bg-[repeating-linear-gradient(135deg,oklch(0.66_0.14_45_/_0.18)_0_3px,transparent_3px_6px)]"
-									style="left:{timelineX(item.from + blocked.start)}px;width:{Math.max(
-										1,
-										(blocked.end - blocked.start) * pixelsPerFrame
-									)}px"
-									data-dopesheet-transition-blocked
-								></div>
-							{/each}
-							{#each allKeyframes.filter((keyframe) => keyframe.property === property) as keyframe (keyframeIdentity(keyframe))}
-								{@const id = keyframeIdentity(keyframe)}
-								{@const previewFrame = previewFrames?.get(id)}
-								{@const displayFrame =
-									drag?.kind === 'keyframe' && drag.duplicate
-										? keyframe.frame
-										: (previewFrame ?? keyframe.frame)}
-								<button
-									type="button"
-									class="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-[oklch(0.12_0.01_55)] bg-[oklch(0.72_0.02_55)] shadow-sm disabled:cursor-not-allowed disabled:opacity-45 data-[selected=true]:bg-[oklch(0.76_0.14_45)] data-[selected=true]:shadow-[0_0_0_2px_oklch(0.66_0.14_45_/_0.3)]"
-									style="left:{timelineX(item.from + displayFrame)}px"
-									aria-label={m.video_editor_keyframe_sheet_point({
-										property: propertyLabel(property),
-										frame: keyframe.frame
-									})}
-									aria-pressed={selectedIds.has(id)}
-									data-selected={selectedIds.has(id)}
-									data-dopesheet-keyframe-id={id}
-									disabled={lockedProperties.has(property)}
-									onpointerdown={(event) => startKeyframeDrag(keyframe, event)}
-									onkeydown={(event) => onPointKeyDown(keyframe, event)}
-								></button>
-								{#if drag?.kind === 'keyframe' && drag.duplicate && previewFrame !== undefined}
 									<div
-										class="pointer-events-none absolute top-1/2 z-20 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-dashed border-[oklch(0.88_0.14_65)] bg-[oklch(0.66_0.14_45_/_0.45)]"
-										style="left:{timelineX(item.from + previewFrame)}px"
-										data-dopesheet-duplicate-preview
-									></div>
-								{/if}
+										class="sticky left-0 z-20 flex h-full items-center gap-1 border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5"
+										style="width:{propertyColumnWidth}px"
+										data-marquee-ignore
+									>
+										<button
+											type="button"
+											class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)]"
+											aria-label={lockedProperties.has(property)
+												? m.video_editor_keyframe_sheet_unlock({
+														property: propertyLabel(property)
+													})
+												: m.video_editor_keyframe_sheet_lock({ property: propertyLabel(property) })}
+											onpointerdown={(event) => event.stopPropagation()}
+											onclick={() => toggleLock(property)}
+										>
+											{#if lockedProperties.has(property)}
+												<ThemeIcon role="lock" class="size-3" />
+											{:else}
+												<ThemeIcon role="lock" class="size-3" />
+											{/if}
+										</button>
+										<button
+											type="button"
+											class="min-w-0 flex-1 truncate text-left text-[9px] text-[oklch(0.66_0.015_55)] uppercase hover:text-[oklch(0.85_0.02_55)]"
+											onpointerdown={(event) => event.stopPropagation()}
+											onclick={() => onactiveproperty(property)}>{propertyLabel(property)}</button
+										>
+										<button
+											type="button"
+											class="rounded p-0.5 text-[oklch(0.62_0.015_55)] hover:bg-[oklch(0.25_0.012_55)] hover:text-[oklch(0.82_0.02_55)] disabled:opacity-35"
+											aria-label={m.video_editor_keyframe_sheet_add({
+												property: propertyLabel(property)
+											})}
+											disabled={lockedProperties.has(property)}
+											onpointerdown={(event) => event.stopPropagation()}
+											onclick={() => addAtCurrentFrame(property)}
+											><ThemeIcon role="add" class="size-3" /></button
+										>
+									</div>
+									{#each blockedRanges as blocked, index (`${blocked.start}:${blocked.end}:${index}`)}
+										<div
+											class="pointer-events-none absolute top-0 h-full bg-[repeating-linear-gradient(135deg,oklch(0.66_0.14_45_/_0.18)_0_3px,transparent_3px_6px)]"
+											style="left:{timelineX(item.from + blocked.start)}px;width:{Math.max(
+												1,
+												(blocked.end - blocked.start) * pixelsPerFrame
+											)}px"
+											data-dopesheet-transition-blocked
+										></div>
+									{/each}
+									{#each allKeyframes.filter((keyframe) => keyframe.property === property) as keyframe (keyframeIdentity(keyframe))}
+										{@const id = keyframeIdentity(keyframe)}
+										{@const previewFrame = previewFrames?.get(id)}
+										{@const displayFrame =
+											drag?.kind === 'keyframe' && drag.duplicate
+												? keyframe.frame
+												: (previewFrame ?? keyframe.frame)}
+										<button
+											type="button"
+											class="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-[oklch(0.12_0.01_55)] bg-[oklch(0.72_0.02_55)] shadow-sm disabled:cursor-not-allowed disabled:opacity-45 data-[selected=true]:bg-[oklch(0.76_0.14_45)] data-[selected=true]:shadow-[0_0_0_2px_oklch(0.66_0.14_45_/_0.3)]"
+											style="left:{timelineX(item.from + displayFrame)}px"
+											aria-label={m.video_editor_keyframe_sheet_point({
+												property: propertyLabel(property),
+												frame: keyframe.frame
+											})}
+											aria-pressed={selectedIds.has(id)}
+											data-selected={selectedIds.has(id)}
+											data-dopesheet-keyframe-id={id}
+											disabled={lockedProperties.has(property)}
+											onpointerdown={(event) => startKeyframeDrag(keyframe, event)}
+											onkeydown={(event) => onPointKeyDown(keyframe, event)}
+										></button>
+										{#if drag?.kind === 'keyframe' && drag.duplicate && previewFrame !== undefined}
+											<div
+												class="pointer-events-none absolute top-1/2 z-20 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-dashed border-[oklch(0.88_0.14_65)] bg-[oklch(0.66_0.14_45_/_0.45)]"
+												style="left:{timelineX(item.from + previewFrame)}px"
+												data-dopesheet-duplicate-preview
+											></div>
+										{/if}
+									{/each}
+									{#each spansByProperty.get(property) ?? [] as span (span.fromId)}
+										{@const segLeft = timelineX(item.from + span.fromFrame)}
+										{@const segWidth = (span.toFrame - span.fromFrame) * pixelsPerFrame}
+										{#if segWidth >= 14}
+											<button
+												type="button"
+												class="absolute top-1/2 z-[5] h-2.5 -translate-y-1/2 rounded-full bg-[oklch(0.72_0.02_55_/_0.22)] hover:bg-[oklch(0.66_0.14_45_/_0.55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] data-[open=true]:bg-[oklch(0.66_0.14_45_/_0.55)]"
+												style="left:{segLeft + 7}px;width:{Math.max(4, segWidth - 14)}px"
+												aria-label={m.video_editor_keyframe_sheet_segment_easing({
+													property: propertyLabel(property),
+													from: span.fromFrame,
+													to: span.toFrame,
+													easing: span.easing
+												})}
+												aria-expanded={segmentMenu?.property === property &&
+													segmentMenu.fromFrame === span.fromFrame}
+												data-open={segmentMenu?.property === property &&
+													segmentMenu.fromFrame === span.fromFrame}
+												data-segment-easing={span.fromFrame}
+												onpointerdown={(event) => {
+													event.stopPropagation();
+													toggleSegmentMenu(property, span.fromFrame);
+												}}
+												onkeydown={(event) => onSegmentKeyDown(property, span.fromFrame, event)}
+											></button>
+										{/if}
+									{/each}
+									{#if segmentMenu?.property === property}
+										{@const menuSpan = (spansByProperty.get(property) ?? []).find(
+											(span) => span.fromFrame === segmentMenu.fromFrame
+										)}
+										{@const menuKeyframe = allKeyframes.find(
+											(keyframe) =>
+												keyframe.property === property && keyframe.frame === segmentMenu.fromFrame
+										)}
+										{#if menuSpan && menuKeyframe}
+											<KeyframeSegmentEasingPopover
+												keyframe={menuKeyframe}
+												endFrame={menuSpan.toFrame}
+												{property}
+												selectedFrames={[menuSpan.fromFrame]}
+												leftPx={timelineX(item.from + menuSpan.fromFrame)}
+												maxLeftPx={timelineWidth}
+												onchange={applySegmentEasing}
+												onclose={closeSegmentMenu}
+											/>
+										{/if}
+									{/if}
+								</div>
 							{/each}
-						</div>
+						{/if}
 					{/each}
 				</div>
 				{#if marquee}
@@ -892,7 +1057,8 @@
 	<KeyframeContextMenuContent
 		selectedCount={selectedIds.size}
 		clipboardAvailable={keyframeSelectionStore.clipboard !== null}
-		keyframeCount={allKeyframes.filter((keyframe) => rows.includes(keyframe.property)).length}
+		keyframeCount={allKeyframes.filter((keyframe) => visibleProperties.includes(keyframe.property))
+			.length}
 		oncopy={() => copySelection()}
 		oncut={() => copySelection(true)}
 		onpaste={pasteClipboard}

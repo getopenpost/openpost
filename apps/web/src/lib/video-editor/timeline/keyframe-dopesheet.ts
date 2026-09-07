@@ -1,6 +1,11 @@
 /** Framework-free FreeCut dope-sheet selection, retime, and paste planning. */
 
-import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
+import type {
+	EasingConfig,
+	EasingType,
+	KeyframeProperty,
+	TimelineItem
+} from '$lib/video-editor/project/types';
 import type {
 	KeyframeClipboard,
 	KeyframeClipboardEntry
@@ -178,6 +183,130 @@ function clipboardEntryToInsert(entry: KeyframeClipboardEntry, frame: number): K
 			}
 		})
 	};
+}
+
+export type DopesheetPropertyGroup =
+	| 'transform'
+	| 'crop'
+	| 'typography'
+	| 'path'
+	| 'audio'
+	| 'other';
+
+export const DOPESHEET_GROUP_ORDER: readonly DopesheetPropertyGroup[] = [
+	'transform',
+	'crop',
+	'typography',
+	'path',
+	'audio',
+	'other'
+];
+
+const TYPOGRAPHY_PROPERTIES: ReadonlySet<string> = new Set([
+	'textStyleScale',
+	'fontSize',
+	'fontWeight',
+	'lineHeight',
+	'letterSpacing',
+	'paddingX',
+	'paddingY',
+	'borderRadius',
+	'textShadowOffsetX',
+	'textShadowOffsetY',
+	'textShadowBlur',
+	'strokeWidth'
+]);
+
+const TRANSFORM_PROPERTIES: ReadonlySet<string> = new Set([
+	'x',
+	'y',
+	'width',
+	'height',
+	'anchorX',
+	'anchorY',
+	'rotation',
+	'opacity',
+	'cornerRadius'
+]);
+
+/** Group a keyframe property the same way the dope-sheet headers do. */
+export function dopesheetPropertyGroup(property: KeyframeProperty): DopesheetPropertyGroup {
+	if (property.startsWith('pathVertex:')) return 'path';
+	if (property.startsWith('crop')) return 'crop';
+	if (property === 'volume') return 'audio';
+	if (TYPOGRAPHY_PROPERTIES.has(property)) return 'typography';
+	if (TRANSFORM_PROPERTIES.has(property)) return 'transform';
+	return 'other';
+}
+
+export interface DopesheetPropertyGroupRow {
+	group: DopesheetPropertyGroup;
+	properties: KeyframeProperty[];
+	hidden: boolean;
+}
+
+/**
+ * Bucket properties into group-header order. Hidden groups stay listed with
+ * `hidden: true` so their header can bring them back.
+ */
+export function groupDopesheetProperties(
+	properties: readonly KeyframeProperty[],
+	hiddenGroups: ReadonlySet<DopesheetPropertyGroup>
+): DopesheetPropertyGroupRow[] {
+	const buckets = new Map<DopesheetPropertyGroup, KeyframeProperty[]>();
+	for (const property of properties) {
+		const group = dopesheetPropertyGroup(property);
+		const bucket = buckets.get(group) ?? [];
+		bucket.push(property);
+		buckets.set(group, bucket);
+	}
+	return DOPESHEET_GROUP_ORDER.flatMap((group) => {
+		const bucket = buckets.get(group);
+		return bucket ? [{ group, properties: bucket, hidden: hiddenGroups.has(group) }] : [];
+	});
+}
+
+export interface DopesheetSegmentSpan {
+	fromId: string;
+	property: KeyframeProperty;
+	fromFrame: number;
+	toFrame: number;
+	easing: EasingType;
+	easingConfig?: EasingConfig;
+}
+
+/**
+ * Build one clickable span per consecutive keyframe pair, grouped per property
+ * lane. The span carries the outgoing easing of its left keyframe, mirroring
+ * FreeCut `segment-spans` (ported math, Svelte UI here).
+ */
+export function buildDopesheetSegmentSpans(
+	keyframes: readonly EditorKeyframe[]
+): DopesheetSegmentSpan[] {
+	const byProperty = new Map<KeyframeProperty, EditorKeyframe[]>();
+	for (const keyframe of keyframes) {
+		const lane = byProperty.get(keyframe.property) ?? [];
+		lane.push(keyframe);
+		byProperty.set(keyframe.property, lane);
+	}
+	const spans: DopesheetSegmentSpan[] = [];
+	for (const lane of byProperty.values()) {
+		const sorted = [...lane].toSorted((left, right) => left.frame - right.frame);
+		for (let index = 0; index < sorted.length - 1; index++) {
+			const from = sorted[index];
+			const to = sorted[index + 1];
+			if (!from || !to || to.frame <= from.frame) continue;
+			spans.push({
+				fromId: keyframeIdentity(from),
+				property: from.property,
+				fromFrame: from.frame,
+				toFrame: to.frame,
+				easing: from.easing,
+				...(from.easingConfig && { easingConfig: from.easingConfig })
+			});
+		}
+	}
+	return spans;
 }
 
 function clampAwayFromBlockedRanges(

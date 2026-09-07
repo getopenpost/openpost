@@ -13,8 +13,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { page } from '$app/state';
 	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
-	import * as Menubar from '$lib/components/ui/menubar';
-	import EditorMenubar from '$lib/components/editor-menubar.svelte';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -2210,120 +2208,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
 				<Logo class="h-5 w-auto" />
-				<span class="hidden text-sm font-semibold lg:inline">{m.video_editor_title()}</span>
 			</a>
-			<EditorMenubar class="ml-1" ariaLabel={m.video_editor_menus()}>
-				<Menubar.Menu value="file">
-					<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-44">
-						<Menubar.Item onclick={saveProject}>
-							{m.common_save()}<Menubar.Shortcut
-								>{formatShortcutBinding(keyboardShortcuts.bindings.SAVE)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-						{#if cloudStorage}
-							<Menubar.Item onclick={() => (historyOpen = true)}>
-								{m.video_editor_history()}
-							</Menubar.Item>
-						{/if}
-						<Menubar.Item
-							disabled={exporting || timelineStore.items.length === 0}
-							onclick={() => void handleExport()}
-						>
-							{m.video_editor_export_title()}<Menubar.Shortcut
-								>{formatShortcutBinding(keyboardShortcuts.bindings.EXPORT)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-					</Menubar.Content>
-				</Menubar.Menu>
-				<Menubar.Menu value="edit">
-					<Menubar.Trigger>{m.image_editor_edit()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-44">
-						<Menubar.Item disabled={!commandHistory.canUndo} onclick={undoProject}>
-							{m.video_editor_undo()}<Menubar.Shortcut
-								>{formatShortcutBinding(keyboardShortcuts.bindings.UNDO)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-						<Menubar.Item disabled={!commandHistory.canRedo} onclick={redoProject}>
-							{m.video_editor_redo()}<Menubar.Shortcut
-								>{formatShortcutBinding(keyboardShortcuts.bindings.REDO)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-					</Menubar.Content>
-				</Menubar.Menu>
-				<Menubar.Menu value="clip">
-					<Menubar.Trigger>{m.video_editor_clip()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-48">
-						<Menubar.Item disabled={!selectedItemId} onclick={handleSplit}>
-							{m.video_editor_split()}<Menubar.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD
-								)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-						<Menubar.Item disabled={!selectedItemId} onclick={() => handleDelete(false)}>
-							{m.video_editor_delete_leave_gap()}<Menubar.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.DELETE_SELECTED
-								)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-						<Menubar.Item disabled={!selectedItemId} onclick={() => handleDelete(true)}>
-							{m.video_editor_delete_clip()}<Menubar.Shortcut
-								>{formatShortcutBinding(keyboardShortcuts.bindings.RIPPLE_DELETE)}</Menubar.Shortcut
-							>
-						</Menubar.Item>
-					</Menubar.Content>
-				</Menubar.Menu>
-				<Menubar.Menu value="sequence">
-					<Menubar.Trigger>{m.video_editor_sequences()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-44">
-						<Menubar.Item onclick={createEditorSequence}>
-							{m.video_editor_new_sequence()}
-						</Menubar.Item>
-						<Menubar.Item
-							disabled={!sequenceStore.activeSequence}
-							onclick={duplicateActiveSequence}
-						>
-							{m.video_editor_sequence_duplicate()}
-						</Menubar.Item>
-					</Menubar.Content>
-				</Menubar.Menu>
-				<Menubar.Menu value="view">
-					<Menubar.Trigger>{m.image_editor_view()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-44">
-						<Menubar.Item onclick={() => changeEditorWorkspace('edit')}
-							>{m.video_editor_workspace_edit()}<Menubar.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.WORKSPACE_EDIT
-								)}</Menubar.Shortcut
-							></Menubar.Item
-						>
-						<Menubar.Item onclick={() => changeEditorWorkspace('color')}
-							>{m.video_editor_workspace_color()}<Menubar.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.WORKSPACE_COLOR
-								)}</Menubar.Shortcut
-							></Menubar.Item
-						>
-						<Menubar.Item onclick={() => changeEditorWorkspace('motion')}
-							>{m.video_editor_workspace_motion()}<Menubar.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.WORKSPACE_MOTION
-								)}</Menubar.Shortcut
-							></Menubar.Item
-						>
-					</Menubar.Content>
-				</Menubar.Menu>
-				<Menubar.Menu value="help">
-					<Menubar.Trigger>{m.image_editor_help()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-44">
-						<Menubar.Item onclick={() => (settingsOpen = true)}>
-							{m.video_editor_settings_title()}
-						</Menubar.Item>
-					</Menubar.Content>
-				</Menubar.Menu>
-			</EditorMenubar>
 			<EditorTitleInput
 				value={editorSession.project?.name ?? ''}
 				ariaLabel={m.video_editor_project_name()}

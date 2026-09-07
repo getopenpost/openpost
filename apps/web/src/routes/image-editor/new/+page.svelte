@@ -21,6 +21,7 @@
 	import { imageEditorQueryKeys, type ImageEditorConfig } from '@openpost/query-catalog';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -370,7 +371,7 @@
 			size="icon-sm"
 			onclick={goBack}
 			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
-			><ThemeIcon role="arrow-left" /></Button
+			><Logo class="size-5" showText={false} decorative /></Button
 		>
 		<h1 class="ml-2 text-sm font-semibold">{m.image_editor_new_design()}</h1>
 	</header>

@@ -8,6 +8,7 @@ import {
 	type TrimHandle
 } from './utils/trim-utils';
 import {
+	clampSpeed,
 	getClampedRateStretchSpeed,
 	getRateStretchDurationLimits,
 	getSourceProperties,
@@ -67,6 +68,95 @@ export interface RippleTrimGesturePlan {
 export interface TimelineMove {
 	id: string;
 	from: number;
+}
+
+/**
+ * Item kinds that never move on the canvas. Mirrors the preview player's
+ * visual-nudge filter (audio/adjustment/controller are timeline-only).
+ * Ported from FreeCut (MIT) `nudgeSelectedVisualItems`, which skips audio.
+ */
+const NON_CANVAS_ITEM_TYPES = new Set(['audio', 'adjustment', 'controller']);
+
+/**
+ * Canvas-space nudge patch for Shift+Arrow parity with FreeCut: Shift+Arrow
+ * moves selected visuals by 1 canvas pixel (Mod+Shift+Arrow by 10) instead of
+ * nudging timeline frames. Returns null for timeline-only item kinds.
+ */
+export function canvasNudgePatch(
+	item: TimelineItem,
+	deltaX: number,
+	deltaY: number
+): Partial<TimelineItem> | null {
+	if (NON_CANVAS_ITEM_TYPES.has(item.type)) return null;
+	const transform = item.transform ?? {};
+	return {
+		transform: {
+			...transform,
+			x: Math.round((transform.x ?? 0) + deltaX),
+			y: Math.round((transform.y ?? 0) + deltaY)
+		}
+	};
+}
+
+export interface CanvasNudgeUpdate {
+	id: string;
+	patch: Partial<TimelineItem>;
+}
+
+/**
+ * Canvas-pixel nudge targets for Shift+Arrow parity with FreeCut: Shift+Arrow
+ * moves selected visuals by 1 canvas pixel, Mod+Shift+Arrow by 10. Every
+ * selected visual item moves; when the focused item is outside the selection
+ * only it moves. Timeline-only kinds (audio/adjustment/controller) never match
+ * — callers keep the frame-nudge path for those. INTENTIONAL DIVERGENCE from
+ * FreeCut, which skips audio only: adjustment/controller stacks have no canvas
+ * position in OpenPost, so nudging them would silently do nothing.
+ */
+export function planCanvasNudge(
+	items: readonly TimelineItem[],
+	selectedItemIds: readonly string[],
+	focusItemId: string,
+	deltaX: number,
+	deltaY: number
+): CanvasNudgeUpdate[] {
+	const candidateIds = selectedItemIds.includes(focusItemId) ? selectedItemIds : [focusItemId];
+	const byId = new Map(items.map((item) => [item.id, item]));
+	const updates: CanvasNudgeUpdate[] = [];
+	for (const id of candidateIds) {
+		const item = byId.get(id);
+		if (!item) continue;
+		const patch = canvasNudgePatch(item, deltaX, deltaY);
+		if (patch) updates.push({ id, patch });
+	}
+	return updates;
+}
+
+/**
+ * Rate-stretchable item kinds, ported from FreeCut (MIT) `isRateStretchableItem`:
+ * video/audio/composition stretch against source bounds; looping GIF images
+ * change speed only (duration fixed). Stills and other kinds return null.
+ */
+export function isRateStretchableType(item: TimelineItem): boolean {
+	if (item.type === 'video' || item.type === 'audio' || item.type === 'composition') {
+		return true;
+	}
+	return item.type === 'image' && (item.label?.toLowerCase().endsWith('.gif') ?? false);
+}
+
+/**
+ * Looping-media stretch cap, ported from FreeCut (MIT) `LOOPING_MEDIA_MAX_DURATION`
+ * (10 minutes at 30fps). Guards future GIF-duration extension; the looping path
+ * below keeps duration fixed and only changes speed.
+ */
+export const LOOPING_RATE_STRETCH_MAX_DURATION_FRAMES = 30 * 60 * 10;
+
+/**
+ * Speed-from-pixels for looping media, ported from FreeCut (MIT)
+ * `getLoopingMediaStretchPreviewSpeed`: left = faster, right = slower.
+ */
+export function loopingStretchSpeed(initialSpeed: number, deltaTimelineFrames: number): number {
+	const speedDelta = -(deltaTimelineFrames / 30) * 0.1;
+	return Math.round(clampSpeed(initialSpeed + speedDelta) * 100) / 100;
 }
 
 type LinkedPatchPlan =
@@ -560,7 +650,22 @@ export function planRateStretchGesture(
 	snapThresholdFrames: number,
 	transitions: TimelineTransition[] = []
 ): RateStretchGesturePlan | null {
-	if (item.type !== 'video' && item.type !== 'audio') return null;
+	if (!isRateStretchableType(item)) return null;
+	if (item.type === 'image') {
+		const initialSpeed = item.speed ?? 1;
+		const speed = loopingStretchSpeed(initialSpeed, deltaTimelineFrames);
+		const items = withAnchor(item, allItems);
+		const participants = synchronizedParticipants(item, items);
+		const patch: Partial<TimelineItem> = speed === initialSpeed ? {} : { speed };
+		return appendLinkedPatches(
+			{ patch, moves: [], snapTarget: null },
+			speed === initialSpeed
+				? []
+				: participants
+						.filter((participant) => participant.id !== item.id)
+						.map((participant) => ({ id: participant.id, patch: { speed } }))
+		);
+	}
 	const sourceStart = item.sourceStart ?? 0;
 	const sourceFrames =
 		item.sourceEnd !== undefined

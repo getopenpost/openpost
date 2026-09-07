@@ -185,6 +185,7 @@
 		type CustomEasingPreset
 	} from '$lib/video-editor/timeline/custom-easing-presets';
 	import {
+		planCanvasNudge,
 		planLinkedMoveGesture,
 		planLinkedSlipGesture,
 		planRateStretchGesture,
@@ -771,6 +772,9 @@
 		ripple: boolean;
 		rippleMoveIds: string[];
 		breakingTransitionIds: string[];
+		baseExcludedIds: string[];
+		baseBreakingTransitionIds: string[];
+		altHeld: boolean;
 		stretchHandle: 'start' | 'end';
 		slideLeft: TimelineItem | null;
 		slideRight: TimelineItem | null;
@@ -3311,12 +3315,9 @@
 		// Duplicate via clipboard copy/paste. Revisit only with a dedicated UX decision.
 		const kind = requestedKind === 'move' && event.altKey ? 'slip' : requestedKind;
 		if (kind === 'track-push' && trackPushGapBefore(item, timelineStore.items) <= 0) return;
-		if (
-			(kind === 'slip' || kind === 'slide' || isRateStretchKind(kind)) &&
-			item.type !== 'video' &&
-			item.type !== 'audio'
-		)
+		if ((kind === 'slip' || kind === 'slide') && item.type !== 'video' && item.type !== 'audio')
 			return;
+		if (isRateStretchKind(kind) && !isRateStretchableType(item)) return;
 		const rollingNeighbor =
 			(kind === 'trim-start' || kind === 'trim-end') && event.altKey && !event.shiftKey
 				? findRollingNeighbor(item, kind)
@@ -3390,6 +3391,9 @@
 			ripple,
 			rippleMoveIds: [],
 			breakingTransitionIds,
+			baseExcludedIds: [...excludedIds],
+			baseBreakingTransitionIds: [...breakingTransitionIds],
+			altHeld: event.altKey,
 			stretchHandle: rateStretchHandle(kind),
 			slideLeft: slideNeighbors?.left ? $state.snapshot(slideNeighbors.left) : null,
 			slideRight: slideNeighbors?.right ? $state.snapshot(slideNeighbors.right) : null,
@@ -3742,11 +3746,12 @@
 		if (
 			!drag ||
 			(drag.kind !== 'trim-start' && drag.kind !== 'trim-end') ||
-			drag.rollingNeighbor ||
 			drag.breakingTransitionIds.length > 0 ||
 			drag.ripple === enabled
 		)
 			return;
+		// FreeCut precedence: Shift (ripple) wins over Alt (rolling) while held.
+		if (enabled) setRollingMode(false);
 		if (!enabled && drag.rippleMoveIds.length > 0) {
 			const originalById = new Map(drag.editItems.map((item) => [item.id, item]));
 			previewMoveItems(
@@ -3758,13 +3763,105 @@
 			drag.rippleMoveIds = [];
 		}
 		drag.ripple = enabled;
-		if (!enabled) clearSyncLockPreview();
+		if (!enabled) {
+			clearSyncLockPreview();
+			// Releasing Shift while Alt is still held morphs back to a rolling edit,
+			// mirroring FreeCut's per-frame Alt && !Shift rolling check.
+			if (drag.altHeld) setRollingMode(true);
+		}
+		applyPointerFrame(drag.latestClientX);
+	}
+
+	/**
+	 * Rolling neighbor resolved from the drag's frozen snapshot instead of the live
+	 * range indexes, which already carry the current mode's preview offsets.
+	 */
+	function findRollingNeighborInItems(
+		items: readonly TimelineItem[],
+		item: TimelineItem,
+		kind: TimelineDragKind
+	): TimelineItem | null {
+		if (kind === 'trim-end') {
+			const end = item.from + item.durationInFrames;
+			return (
+				items.find(
+					(candidate) =>
+						candidate.id !== item.id && candidate.trackId === item.trackId && candidate.from === end
+				) ?? null
+			);
+		}
+		if (kind === 'trim-start') {
+			return (
+				items.find(
+					(candidate) =>
+						candidate.id !== item.id &&
+						candidate.trackId === item.trackId &&
+						candidate.from + candidate.durationInFrames === item.from
+				) ?? null
+			);
+		}
+		return null;
+	}
+
+	/**
+	 * Mid-drag Alt morph between plain trim and rolling edit, ported from FreeCut's
+	 * per-frame Alt && !Shift rolling check in use-timeline-trim. All edit branches
+	 * publish absolute patches derived from the frozen drag snapshots, so switching
+	 * modes only needs the rolling neighbor restored (via a zero-delta rolling plan
+	 * that reproduces the exact patch key set) plus the suspended
+	 * plain-trim transition breaks and snap exclusions swapped back.
+	 */
+	function setRollingMode(enabled: boolean): void {
+		if (!drag || (drag.kind !== 'trim-start' && drag.kind !== 'trim-end')) return;
+		if (enabled) {
+			if (drag.rollingNeighbor || drag.ripple) return;
+			const neighbor = findRollingNeighborInItems(
+				drag.beforeSnapshot.items,
+				drag.original,
+				drag.kind
+			);
+			if (!neighbor) return;
+			drag.rollingNeighbor = $state.snapshot(neighbor);
+			drag.breakingTransitionIds = [];
+			breakingTransitionPreviewIds = [];
+			drag.snapTargets = snapTargetsFor([...drag.baseExcludedIds, neighbor.id]);
+		} else {
+			if (!drag.rollingNeighbor) return;
+			const left = drag.kind === 'trim-end' ? drag.original : drag.rollingNeighbor;
+			const right = drag.kind === 'trim-start' ? drag.original : drag.rollingNeighbor;
+			const reset = planRollingTrimGesture(
+				left,
+				right,
+				0,
+				drag.editItems,
+				fps,
+				drag.snapTargets,
+				snapThreshold(),
+				drag.beforeSnapshot.transitions
+			);
+			if (reset) {
+				previewUpdateItems([
+					{ id: left.id, patch: reset.leftPatch },
+					{ id: right.id, patch: reset.rightPatch },
+					...(reset.linkedPatches ?? [])
+				]);
+			}
+			drag.rollingNeighbor = null;
+			drag.breakingTransitionIds = [...drag.baseBreakingTransitionIds];
+			breakingTransitionPreviewIds = [...drag.breakingTransitionIds];
+			drag.snapTargets = snapTargetsFor(drag.baseExcludedIds);
+		}
 		applyPointerFrame(drag.latestClientX);
 	}
 
 	function onDragKeyDown(event: KeyboardEvent): void {
 		if (event.key === 'Shift') {
 			setRippleMode(true);
+			return;
+		}
+		if (event.key === 'Alt') {
+			if (drag) drag.altHeld = true;
+			setRollingMode(true);
 			return;
 		}
 		if (event.key === 'Escape') {
@@ -3775,6 +3872,59 @@
 
 	function onDragKeyUp(event: KeyboardEvent): void {
 		if (event.key === 'Shift') setRippleMode(false);
+		if (event.key === 'Alt') {
+			if (drag) drag.altHeld = false;
+			setRollingMode(false);
+		}
+	}
+
+	/**
+	 * Canvas-pixel nudge for Shift+Arrow / Mod+Shift+Arrow, ported from FreeCut's
+	 * Shift+Arrow visual-nudge hotkeys (1 px, 10 px with Mod). COLLISION
+	 * RESOLUTION with the timeline frame nudge below: Shift+Arrow moves selected
+	 * *visual* items on the canvas and never touches timeline frames; timeline-only
+	 * kinds (audio/adjustment/controller) keep the frame path (Shift = x10). Plain
+	 * arrows without Shift always stay on the frame path. This matches the
+	 * NUDGE_* shortcut labels ("Nudge selection ... by N px").
+	 * Returns true when a canvas nudge was committed.
+	 */
+	function nudgeSelectionOnCanvas(event: KeyboardEvent, item: TimelineItem): boolean {
+		if (drag || !event.shiftKey) return false;
+		const unit =
+			event.key === 'ArrowLeft'
+				? [-1, 0]
+				: event.key === 'ArrowRight'
+					? [1, 0]
+					: event.key === 'ArrowUp'
+						? [0, -1]
+						: event.key === 'ArrowDown'
+							? [0, 1]
+							: null;
+		if (!unit) return false;
+		const step = event.metaKey || event.ctrlKey ? 10 : 1;
+		const updates = planCanvasNudge(
+			timelineStore.items,
+			selectedItemIds,
+			item.id,
+			unit[0] * step,
+			unit[1] * step
+		).filter(
+			(update) =>
+				!isTrackEffectivelyLocked(
+					timelineStore.itemById.get(update.id)?.trackId ?? '',
+					timelineStore.tracks
+				)
+		);
+		if (updates.length === 0) return false;
+		event.preventDefault();
+		event.stopPropagation();
+		const before = captureSnapshot();
+		timelineStore._updateItems(updates);
+		if (!snapshotsEqual(before, captureSnapshot())) {
+			commandHistory.addUndoEntry({ type: 'NUDGE_ITEMS' }, before);
+			onedit();
+		}
+		return true;
 	}
 
 	function applyKeyboardEdit(
@@ -3782,6 +3932,7 @@
 		item: TimelineItem,
 		kind: TimelineDragKind
 	): void {
+		if (nudgeSelectionOnCanvas(event, item)) return;
 		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 		if (isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return;
 		if (kind === 'track-push' && trackPushGapBefore(item, timelineStore.items) <= 0) return;
@@ -5841,7 +5992,11 @@
 														? pushAvailability === 'ready'
 															? 'cursor-col-resize'
 															: 'cursor-not-allowed'
-														: 'cursor-grab active:cursor-grabbing'}"
+														: activeEditTool === 'rate-stretch'
+															? 'cursor-ew-resize'
+															: activeEditTool === 'slip' || activeEditTool === 'slide'
+																? 'cursor-move'
+																: 'cursor-grab active:cursor-grabbing'}"
 												aria-label={activeEditTool === 'track-push'
 													? `${item.label}. ${m.video_editor_track_push_handle()}`
 													: timelineItemAriaLabel(item, syncOffsetFrames)}
@@ -5992,12 +6147,16 @@
 													: 'bg-white/15 hover:bg-white/40'}"
 												aria-label={activeEditTool === 'track-push'
 													? m.video_editor_track_push_handle()
-													: m.video_editor_trim_start()}
+													: activeEditTool === 'rate-stretch'
+														? m.video_editor_rate_stretch()
+														: m.video_editor_trim_start()}
 												aria-disabled={activeEditTool === 'track-push' &&
 													pushAvailability !== 'ready'}
 												title={activeEditTool === 'track-push'
 													? trackPushTitle(item)
-													: m.video_editor_trim_keyboard()}
+													: activeEditTool === 'rate-stretch'
+														? m.video_editor_rate_stretch()
+														: m.video_editor_trim_keyboard()}
 												onkeydown={(event) =>
 													applyKeyboardEdit(
 														event,
@@ -6022,8 +6181,12 @@
 											<button
 												type="button"
 												class="absolute inset-y-0 right-0 z-20 w-2 cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
-												aria-label={m.video_editor_trim_end()}
-												title={m.video_editor_trim_keyboard()}
+												aria-label={activeEditTool === 'rate-stretch'
+													? m.video_editor_rate_stretch()
+													: m.video_editor_trim_end()}
+												title={activeEditTool === 'rate-stretch'
+													? m.video_editor_rate_stretch()
+													: m.video_editor_trim_keyboard()}
 												onkeydown={(event) =>
 													applyKeyboardEdit(
 														event,

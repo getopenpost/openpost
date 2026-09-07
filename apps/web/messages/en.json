@@ -5157,7 +5157,7 @@
 	"video_editor_project_invalid": "The saved project document is invalid.",
 	"video_editor_trim_start": "Trim clip start",
 	"video_editor_trim_end": "Trim clip end",
-	"video_editor_trim_keyboard": "Drag to trim. Hold Shift while dragging to ripple, or Option or Alt to roll the shared cut. Use Left and Right Arrow for one frame, or Shift+Arrow for ten frames.",
+	"video_editor_trim_keyboard": "Drag to trim. Hold Shift while dragging to ripple, or Option or Alt (even mid-drag) to roll the shared cut. Use Left and Right Arrow for one frame; Shift+Arrow nudges visual clips by 1 px (10 px with Command or Control), or by ten frames for audio.",
 	"video_editor_overlay_text": "Text",
 	"video_editor_overlay_item": "Overlay",
 	"video_editor_overlay_type": "{type} overlay",

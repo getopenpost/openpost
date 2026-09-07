@@ -20,6 +20,7 @@
 		clusterPaletteEntries,
 		flattenLibraryPalettes
 	} from '$lib/video-editor/media/scene-search/library-palette';
+	import { splitTextBySpans } from '$lib/video-editor/media/scene-search/match-highlight';
 	import type { MediaScene } from '$lib/video-editor/media/scene-search/types';
 	import SceneThumbnail from './scene-thumbnail.svelte';
 
@@ -353,9 +354,22 @@
 								</button>
 							</div>
 							<div class="min-w-0 flex-1 space-y-1 p-1.5">
-								<p class="line-clamp-2 text-[11px] leading-snug">
-									{scene.text || m.video_editor_scene_label({ number: scene.index + 1 })}
-								</p>
+								{#if sceneBrowser.viewMode === 'list' && scene.text && ranked.matchSpans.length > 0}
+									<p class="line-clamp-3 text-[11px] leading-snug">
+										{#each splitTextBySpans(scene.text, ranked.matchSpans) as segment, segmentIndex (segmentIndex)}
+											{#if segment.mark}
+												<mark
+													class="-mx-0.5 rounded-sm bg-[var(--video-editor-selection)] px-0.5 text-[var(--video-editor-text)]"
+													>{segment.text}</mark
+												>
+											{:else}{segment.text}{/if}
+										{/each}
+									</p>
+								{:else}
+									<p class="line-clamp-2 text-[11px] leading-snug">
+										{scene.text || m.video_editor_scene_label({ number: scene.index + 1 })}
+									</p>
+								{/if}
 								<p
 									class="truncate text-[9px] text-[var(--video-editor-muted)]"
 									title={ranked.mediaFileName}

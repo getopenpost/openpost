@@ -36,16 +36,64 @@ function scaleValueAroundAnchor(
 	};
 }
 
+/**
+ * Intensity-scaling bounds per property, ported from FreeCut's PROPERTY_MIN/MAX
+ * in features/keyframes/utils/motion-generator.ts (MIT) and mapped onto our
+ * property names. Entries beyond our current MotionPresetProperty union stay as
+ * future-proofing for width/height-based presets.
+ */
+const GENERATOR_PROPERTY_MIN = {
+	x: -Infinity,
+	y: -Infinity,
+	scaleX: 0.01,
+	scaleY: 0.01,
+	rotation: -Infinity,
+	opacity: 0,
+	width: 1,
+	height: 1,
+	cornerRadius: 0,
+	cropLeft: 0,
+	cropRight: 0,
+	cropTop: 0,
+	cropBottom: 0,
+	cropSoftness: 0,
+	fontSize: 1,
+	lineHeight: 0,
+	textPadding: 0,
+	backgroundRadius: 0,
+	textShadowBlur: 0,
+	strokeWidth: 0
+};
+
+const GENERATOR_PROPERTY_MAX = {
+	x: Infinity,
+	y: Infinity,
+	scaleX: Infinity,
+	scaleY: Infinity,
+	rotation: Infinity,
+	opacity: 1,
+	width: Infinity,
+	height: Infinity,
+	cornerRadius: Infinity,
+	cropLeft: Infinity,
+	cropRight: Infinity,
+	cropTop: Infinity,
+	cropBottom: Infinity,
+	cropSoftness: Infinity,
+	fontSize: Infinity,
+	lineHeight: Infinity,
+	textPadding: Infinity,
+	backgroundRadius: Infinity,
+	textShadowBlur: Infinity,
+	strokeWidth: Infinity
+};
+
 function propertyMinimum(property: MotionPresetKeyframePayload['property']): number {
-	return property === 'scaleX' || property === 'scaleY'
-		? 0.01
-		: property === 'opacity'
-			? 0
-			: -Infinity;
+	return GENERATOR_PROPERTY_MIN[property];
 }
 
 function propertyMaximum(property: MotionPresetKeyframePayload['property']): number {
-	return property === 'opacity' ? 1 : Infinity;
+	return GENERATOR_PROPERTY_MAX[property];
 }
 
 function retimeFrame(

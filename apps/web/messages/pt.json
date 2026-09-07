@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "Interpolação mista",
 	"video_editor_keyframe_graph_snap_frame": "Ajustar ao quadro {frame}",
 	"video_editor_keyframe_graph_snap_value": "Ajustar a {value}",
+	"video_editor_keyframe_graph_axis_lock_value": "Bloqueado no eixo de valor",
+	"video_editor_keyframe_graph_axis_lock_frame": "Bloqueado no eixo do tempo",
 	"video_editor_keyframe_graph_easing_hold_blip": "Manter",
 	"video_editor_keyframe_graph_snap_guide": "Ajustado",
 	"video_editor_keyframe_graph_snap_off": "Ajuste desativado",

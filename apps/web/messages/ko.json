@@ -5945,6 +5945,8 @@
 	"video_editor_keyframe_graph_segment_mixed": "혼합 이징",
 	"video_editor_keyframe_graph_snap_frame": "프레임 {frame}에 스냅",
 	"video_editor_keyframe_graph_snap_value": "{value}에 스냅",
+	"video_editor_keyframe_graph_axis_lock_value": "값 축에 잠금",
+	"video_editor_keyframe_graph_axis_lock_frame": "시간 축에 잠금",
 	"video_editor_keyframe_graph_easing_hold_blip": "홀드",
 	"video_editor_keyframe_graph_snap_guide": "스냅됨",
 	"video_editor_keyframe_graph_snap_off": "스냅 꺼짐",

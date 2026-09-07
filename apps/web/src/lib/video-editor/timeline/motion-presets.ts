@@ -57,6 +57,8 @@ export interface MotionThumbnail {
 		| 'micro-shake';
 	angle?: number;
 	direction?: 1 | -1;
+	/** Animated glyphs loop while the panel hovers them (ported from FreeCut (MIT)). */
+	loop?: boolean;
 }
 
 export interface MotionPresetKeyframePayload {

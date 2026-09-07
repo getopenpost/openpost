@@ -28,8 +28,10 @@
 	} from '$lib/video-editor/timeline/motion-presets';
 	import {
 		MOTION_MODULATORS,
+		motionModulatorScalesBox,
 		type MotionModulator
 	} from '$lib/video-editor/timeline/motion-modulators';
+	import { isTextLikeItem } from '$lib/video-editor/timeline/actions/motion-presets';
 	import {
 		createMotionModifier,
 		getMotionModifierSettings,
@@ -232,6 +234,9 @@
 					)
 			)
 		) {
+			return m.video_editor_motion_incompatible();
+		}
+		if (motionModulatorScalesBox(modulator) && selectedItems.some((item) => isTextLikeItem(item))) {
 			return m.video_editor_motion_incompatible();
 		}
 		return null;
@@ -703,6 +708,7 @@
 										name: labels[preset.id]
 									})}
 									data-kind={preset.thumbnail.kind}
+									data-loop={preset.thumbnail.loop ?? true}
 									data-category={preset.category}
 									data-angle={preset.thumbnail.angle ?? 0}
 									data-direction={preset.thumbnail.direction ?? 1}
@@ -763,6 +769,7 @@
 								? m.video_editor_motion_live_click_remove()
 								: m.video_editor_motion_live_click_apply())}
 						data-kind={modulator.thumbnail.kind}
+						data-loop={modulator.thumbnail.loop ?? true}
 						onclick={() => toggleModulator(modulator)}
 					>
 						<span class="thumbnail" aria-hidden="true">

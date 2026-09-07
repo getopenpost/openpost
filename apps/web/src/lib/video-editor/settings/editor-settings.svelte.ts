@@ -23,6 +23,11 @@ export type MediaLibraryViewMode = 'grid' | 'list';
 
 export type CaptionSearchMode = 'keyword' | 'semantic';
 
+// Persisted layout-dock flags port FreeCut's MIT-licensed editor layout
+// (Copyright (c) 2025 FreeCut): per-device sidebar open state and full-column
+// expansion. Theater mode is OpenPost-specific.
+export type ExpandedSidebar = 'none' | 'left' | 'right';
+
 export interface EditorSettingsValue {
 	maxUndoHistory: number;
 	autoSaveIntervalMinutes: number;
@@ -46,6 +51,10 @@ export interface EditorSettingsValue {
 	defaultTranscriptionQuantization: TranscriptionQuantization;
 	captionSearchMode: CaptionSearchMode;
 	defaultCaptionStylePresetId: CaptionStylePresetId;
+	leftSidebarCollapsed: boolean;
+	rightSidebarCollapsed: boolean;
+	expandedSidebar: ExpandedSidebar;
+	theaterMode: boolean;
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
@@ -70,7 +79,11 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	defaultTranscriptionLanguage: '',
 	defaultTranscriptionQuantization: 'hybrid',
 	captionSearchMode: 'keyword',
-	defaultCaptionStylePresetId: DEFAULT_CAPTION_STYLE_PRESET_ID
+	defaultCaptionStylePresetId: DEFAULT_CAPTION_STYLE_PRESET_ID,
+	leftSidebarCollapsed: false,
+	rightSidebarCollapsed: false,
+	expandedSidebar: 'none',
+	theaterMode: false
 };
 
 interface SettingsStorage {
@@ -115,6 +128,14 @@ function isTranscriptionLanguage(value: JsonValue | undefined): value is string 
 
 function isCaptionSearchMode(value: JsonValue | undefined): value is CaptionSearchMode {
 	return value === 'keyword' || value === 'semantic';
+}
+
+function normalizeExpandedSidebar(value: JsonValue | undefined): ExpandedSidebar {
+	return value === 'left' || value === 'right' ? value : 'none';
+}
+
+function normalizeLayoutFlag(value: JsonValue | undefined, fallback: boolean): boolean {
+	return typeof value === 'boolean' ? value : fallback;
 }
 
 function isCaptionStylePresetId(value: JsonValue | undefined): value is CaptionStylePresetId {
@@ -206,7 +227,17 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 		captionSearchMode: isCaptionSearchMode(record.captionSearchMode)
 			? record.captionSearchMode
 			: DEFAULT_EDITOR_SETTINGS.captionSearchMode,
-		defaultCaptionStylePresetId: normalizeCaptionStylePresetId(record.defaultCaptionStylePresetId)
+		defaultCaptionStylePresetId: normalizeCaptionStylePresetId(record.defaultCaptionStylePresetId),
+		leftSidebarCollapsed: normalizeLayoutFlag(
+			record.leftSidebarCollapsed,
+			DEFAULT_EDITOR_SETTINGS.leftSidebarCollapsed
+		),
+		rightSidebarCollapsed: normalizeLayoutFlag(
+			record.rightSidebarCollapsed,
+			DEFAULT_EDITOR_SETTINGS.rightSidebarCollapsed
+		),
+		expandedSidebar: normalizeExpandedSidebar(record.expandedSidebar),
+		theaterMode: normalizeLayoutFlag(record.theaterMode, DEFAULT_EDITOR_SETTINGS.theaterMode)
 	};
 }
 
@@ -311,6 +342,18 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		},
 		get defaultCaptionStylePresetId(): CaptionStylePresetId {
 			return state.defaultCaptionStylePresetId;
+		},
+		get leftSidebarCollapsed(): boolean {
+			return state.leftSidebarCollapsed;
+		},
+		get rightSidebarCollapsed(): boolean {
+			return state.rightSidebarCollapsed;
+		},
+		get expandedSidebar(): ExpandedSidebar {
+			return state.expandedSidebar;
+		},
+		get theaterMode(): boolean {
+			return state.theaterMode;
 		},
 		set,
 		reset(): void {

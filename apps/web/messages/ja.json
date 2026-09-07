@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "有効",
 	"video_editor_expression_pick_reference": "ピックウィップをドラッグしてプロパティ参照を挿入",
 	"video_editor_expression_guide": "構文",
+	"video_editor_expression_presets": "プリセット",
+	"video_editor_expression_insert_preset": "プリセット {preset} を挿入しました。",
 	"video_editor_expression_cancel": "キャンセル",
 	"video_editor_expression_apply": "適用",
 	"video_editor_expression_delete": "削除",

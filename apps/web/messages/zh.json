@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "已启用",
 	"video_editor_expression_pick_reference": "将拾取器拖到属性上以插入属性引用",
 	"video_editor_expression_guide": "语法",
+	"video_editor_expression_presets": "预设",
+	"video_editor_expression_insert_preset": "已插入预设 {preset}。",
 	"video_editor_expression_cancel": "取消",
 	"video_editor_expression_apply": "应用",
 	"video_editor_expression_delete": "删除",

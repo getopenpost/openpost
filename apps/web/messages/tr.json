@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "Etkin",
 	"video_editor_expression_pick_reference": "Özellik başvurusu eklemek için bağlama kamışını sürükleyin",
 	"video_editor_expression_guide": "Sözdizimi",
+	"video_editor_expression_presets": "Hazır ayarlar",
+	"video_editor_expression_insert_preset": "{preset} hazır ayarı eklendi.",
 	"video_editor_expression_cancel": "İptal",
 	"video_editor_expression_apply": "Uygula",
 	"video_editor_expression_delete": "Sil",

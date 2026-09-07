@@ -1,6 +1,7 @@
 import type {
 	DirectLinkableProperty,
 	ScalarLinkableProperty,
+	ShapeLinkableProperty,
 	TimelineItem,
 	Vector2
 } from '../project/types';
@@ -35,8 +36,32 @@ const SCALAR_PROPERTIES: readonly ScalarLinkableProperty[] = [
 	'anchorY',
 	'rotation',
 	'opacity',
-	'cornerRadius'
+	'cornerRadius',
+	'trimPathStart',
+	'trimPathEnd',
+	'trimPathOffset',
+	'taperStartWidth',
+	'taperEndWidth',
+	'taperStartLength',
+	'taperEndLength'
 ];
+
+/** Shape stroke props live on the item itself, not on its transform. */
+const SHAPE_LINKABLE_DEFAULTS = {
+	trimPathStart: 0,
+	trimPathEnd: 100,
+	trimPathOffset: 0,
+	taperStartWidth: 100,
+	taperEndWidth: 100,
+	taperStartLength: 0,
+	taperEndLength: 0
+} satisfies Record<ShapeLinkableProperty, number>;
+
+function isShapeLinkableProperty(
+	property: DirectLinkableProperty
+): property is ShapeLinkableProperty {
+	return property in SHAPE_LINKABLE_DEFAULTS;
+}
 
 export function doDirectLinkTargetsConflict(
 	left: DirectLinkableProperty,
@@ -224,6 +249,14 @@ function propertyValue(
 	property: DirectLinkableProperty,
 	baseItem: TimelineItem
 ): ExpressionValue {
+	// Shape stroke props resolve from the (keyframe-resolved) item fields with the
+	// same render defaults as shapes/stroke-path.ts.
+	if (isShapeLinkableProperty(property)) {
+		// SAFETY: shape stroke fields are optional numbers on TimelineItem; a missing
+		// field means the render default, which SHAPE_LINKABLE_DEFAULTS mirrors.
+		const raw = item[property] as number | undefined;
+		return raw ?? SHAPE_LINKABLE_DEFAULTS[property];
+	}
 	const transform = item.transform ?? {};
 	if (property === 'position') return { x: transform.x ?? 0, y: transform.y ?? 0 };
 	if (property === 'scale') {
@@ -291,6 +324,8 @@ function applyPropertyValue(
 	if (Object(value) === value) return item;
 	// SAFETY: the object branch above excludes the Vector2 member.
 	const scalar = value as number;
+	// Shape stroke props live on the item itself, mirroring animated-properties.ts.
+	if (isShapeLinkableProperty(property)) return { ...item, [property]: scalar };
 	return { ...item, transform: { ...item.transform, [property]: scalar } };
 }
 

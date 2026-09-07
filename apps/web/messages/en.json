@@ -6763,6 +6763,8 @@
 	"video_editor_expression_enabled": "Enabled",
 	"video_editor_expression_pick_reference": "Drag pick whip to insert a property reference",
 	"video_editor_expression_guide": "Syntax",
+	"video_editor_expression_presets": "Presets",
+	"video_editor_expression_insert_preset": "Inserted preset {preset}.",
 	"video_editor_expression_cancel": "Cancel",
 	"video_editor_expression_apply": "Apply",
 	"video_editor_expression_delete": "Delete",

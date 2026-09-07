@@ -6717,6 +6717,8 @@
 	"video_editor_expression_enabled": "Aktiviert",
 	"video_editor_expression_pick_reference": "Ziehe den Auswahlpfeil, um eine Eigenschaftsreferenz einzufügen",
 	"video_editor_expression_guide": "Syntax",
+	"video_editor_expression_presets": "Voreinstellungen",
+	"video_editor_expression_insert_preset": "Voreinstellung {preset} eingefügt.",
 	"video_editor_expression_cancel": "Abbrechen",
 	"video_editor_expression_apply": "Anwenden",
 	"video_editor_expression_delete": "Löschen",

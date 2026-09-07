@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "Activado",
 	"video_editor_expression_pick_reference": "Arrastre el látigo de selección para insertar una referencia de propiedad",
 	"video_editor_expression_guide": "Sintaxis",
+	"video_editor_expression_presets": "Preajustes",
+	"video_editor_expression_insert_preset": "Preajuste {preset} insertado.",
 	"video_editor_expression_cancel": "Cancelar",
 	"video_editor_expression_apply": "Aplicar",
 	"video_editor_expression_delete": "Eliminar",

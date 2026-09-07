@@ -46,6 +46,13 @@ const LINKABLE_PROPERTIES = new Set<DirectLinkableProperty>([
 	'rotation',
 	'opacity',
 	'cornerRadius',
+	'trimPathStart',
+	'trimPathEnd',
+	'trimPathOffset',
+	'taperStartWidth',
+	'taperEndWidth',
+	'taperStartLength',
+	'taperEndLength',
 	'position',
 	'scale',
 	'anchor'

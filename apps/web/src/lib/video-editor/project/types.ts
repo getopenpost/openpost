@@ -390,6 +390,14 @@ export interface KeyframeTrack {
 /** Per-property keyframe tracks stored on a timeline item. */
 export type ItemKeyframes = Partial<Record<KeyframeProperty, KeyframeTrack>>;
 
+export type ShapeLinkableProperty =
+	| 'trimPathStart'
+	| 'trimPathEnd'
+	| 'trimPathOffset'
+	| 'taperStartWidth'
+	| 'taperEndWidth'
+	| 'taperStartLength'
+	| 'taperEndLength';
 export type ScalarLinkableProperty =
 	| 'x'
 	| 'y'
@@ -399,7 +407,8 @@ export type ScalarLinkableProperty =
 	| 'anchorY'
 	| 'rotation'
 	| 'opacity'
-	| 'cornerRadius';
+	| 'cornerRadius'
+	| ShapeLinkableProperty;
 export type VectorKeyframeProperty = 'position' | 'scale' | 'anchor';
 export type DirectLinkableProperty = ScalarLinkableProperty | VectorKeyframeProperty;
 

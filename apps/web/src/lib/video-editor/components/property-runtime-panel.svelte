@@ -37,6 +37,11 @@
 		isExpressionValueCompatible,
 		type ExpressionValue
 	} from '$lib/video-editor/timeline/property-expression';
+	import {
+		EXPRESSION_GUIDE_ITEMS,
+		EXPRESSION_GUIDE_SECTIONS,
+		getExpressionPresets
+	} from '$lib/video-editor/timeline/expression-catalog';
 	import { evaluateItemPropertyExpression } from '$lib/video-editor/timeline/property-runtime';
 
 	let {
@@ -125,6 +130,7 @@
 			runtimeContext
 		)
 	);
+	const targetPresets = $derived(getExpressionPresets(targetProperty));
 	const draftError = $derived(
 		draftPreview.error ??
 			(isExpressionValueCompatible(targetProperty, draftPreview.value)
@@ -306,19 +312,25 @@
 			: null;
 	}
 
-	function insertReference(endpoint: Endpoint): void {
-		const reference = `prop("${endpoint.itemId}", "${endpoint.property}")`;
+	function insertSnippet(snippet: string, statusMessage: string): void {
 		const cursorStart = expressionInput?.selectionStart ?? expressionSource.length;
 		const cursorEnd = expressionInput?.selectionEnd ?? cursorStart;
 		const replaceDefault = expressionSource.trim() === 'value' && cursorStart === cursorEnd;
 		const start = replaceDefault ? 0 : cursorStart;
 		const end = replaceDefault ? expressionSource.length : cursorEnd;
-		expressionSource = `${expressionSource.slice(0, start)}${reference}${expressionSource.slice(end)}`;
+		expressionSource = `${expressionSource.slice(0, start)}${snippet}${expressionSource.slice(end)}`;
 		requestAnimationFrame(() => {
 			expressionInput?.focus();
-			expressionInput?.setSelectionRange(start + reference.length, start + reference.length);
+			expressionInput?.setSelectionRange(start + snippet.length, start + snippet.length);
 		});
-		status = m.video_editor_expression_reference_inserted({ source: itemLabel(endpoint.itemId) });
+		status = statusMessage;
+	}
+
+	function insertReference(endpoint: Endpoint): void {
+		insertSnippet(
+			`prop("${endpoint.itemId}", "${endpoint.property}")`,
+			m.video_editor_expression_reference_inserted({ source: itemLabel(endpoint.itemId) })
+		);
 	}
 
 	function cancelPick(event: KeyboardEvent): void {
@@ -483,8 +495,39 @@
 				</div>
 				{#if showGuide}
 					<div class="guide">
-						<code>value · frame · time · prop("layer-id", "x")</code><code>+ − * / · [x, y]</code
-						><code>abs · sin · cos · min · max · clamp · lerp</code>
+						<strong>{m.video_editor_expression_presets()}</strong>
+						{#each ['Adjust', 'Motion', 'Timing'] as group}
+							{@const groupPresets = targetPresets.filter((preset) => preset.group === group)}
+							{#if groupPresets.length > 0}
+								<div class="preset-group">
+									<span>{group}</span>
+									<div>
+										{#each groupPresets as preset}
+											<button
+												type="button"
+												title={preset.description}
+												onclick={() =>
+													insertSnippet(
+														preset.source,
+														m.video_editor_expression_insert_preset({ preset: preset.label })
+													)}>{preset.label}</button
+											>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/each}
+						{#each EXPRESSION_GUIDE_SECTIONS as section}
+							<div class="guide-section">
+								<span>{section.label}</span>
+								{#each EXPRESSION_GUIDE_ITEMS[section.id] as entry}
+									<div title={entry.description}>
+										<strong>{entry.title}</strong>
+										<code>{entry.syntax}</code>
+									</div>
+								{/each}
+							</div>
+						{/each}
 					</div>
 				{/if}
 			</div>
@@ -707,12 +750,43 @@
 	}
 	.guide {
 		display: grid;
-		gap: 0.2rem;
+		gap: 0.35rem;
 		margin-top: 0.4rem;
 		border-radius: 0.3rem;
 		padding: 0.35rem;
 		background: var(--video-editor-control);
 		color: var(--video-editor-muted);
+	}
+	.guide > strong {
+		color: var(--video-editor-text);
+		font-size: 0.625rem;
+	}
+	.preset-group > span,
+	.guide-section > span {
+		display: block;
+		margin-bottom: 0.2rem;
+		font-size: 0.5625rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.preset-group > div {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.2rem;
+	}
+	.guide-section > div {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.4rem;
+		padding: 0.1rem 0;
+	}
+	.guide-section strong {
+		font-weight: 500;
+	}
+	.guide-section code {
+		font-family: ui-monospace, monospace;
+		text-align: right;
 	}
 	.pick-targets {
 		position: fixed;

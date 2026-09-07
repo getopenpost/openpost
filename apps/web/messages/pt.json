@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "Ativa",
 	"video_editor_expression_pick_reference": "Arrastar ligação para inserir uma referência de propriedade",
 	"video_editor_expression_guide": "Sintaxe",
+	"video_editor_expression_presets": "Predefinições",
+	"video_editor_expression_insert_preset": "Predefinição {preset} inserida.",
 	"video_editor_expression_cancel": "Cancelar",
 	"video_editor_expression_apply": "Aplicar",
 	"video_editor_expression_delete": "Eliminar",

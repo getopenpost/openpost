@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "켬",
 	"video_editor_expression_pick_reference": "속성 참조를 삽입하려면 픽 위프를 드래그하세요",
 	"video_editor_expression_guide": "구문",
+	"video_editor_expression_presets": "프리셋",
+	"video_editor_expression_insert_preset": "프리셋 {preset} 삽입됨.",
 	"video_editor_expression_cancel": "취소",
 	"video_editor_expression_apply": "적용",
 	"video_editor_expression_delete": "삭제",

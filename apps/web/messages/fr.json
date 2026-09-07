@@ -6722,6 +6722,8 @@
 	"video_editor_expression_enabled": "Activée",
 	"video_editor_expression_pick_reference": "Faites glisser le fouet de liaison pour insérer une référence de propriété",
 	"video_editor_expression_guide": "Syntaxe",
+	"video_editor_expression_presets": "Préréglages",
+	"video_editor_expression_insert_preset": "Préréglage {preset} inséré.",
 	"video_editor_expression_cancel": "Annuler",
 	"video_editor_expression_apply": "Appliquer",
 	"video_editor_expression_delete": "Supprimer",

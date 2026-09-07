@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "トランジション",
 	"video_editor_diagnostics_transition": "トランジション",
 	"video_editor_diagnostics_reverse_skips": "逆方向スキップ",
-	"video_editor_shortcuts_command_performance_overlay": "パフォーマンスオーバーレイの切り替え"
+	"video_editor_shortcuts_command_performance_overlay": "パフォーマンスオーバーレイの切り替え",
+	"video_editor_text_motion_offset": "オフセット",
+	"video_editor_text_motion_applied": "適用中",
+	"video_editor_text_motion_seek_band": "{name}に移動",
+	"video_editor_path_pen_mode": "ペン",
+	"video_editor_path_edit_mode": "編集"
 }

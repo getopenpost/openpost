@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "转场",
 	"video_editor_diagnostics_transition": "转场",
 	"video_editor_diagnostics_reverse_skips": "反向跳过",
-	"video_editor_shortcuts_command_performance_overlay": "切换性能叠加层"
+	"video_editor_shortcuts_command_performance_overlay": "切换性能叠加层",
+	"video_editor_text_motion_offset": "偏移",
+	"video_editor_text_motion_applied": "已应用",
+	"video_editor_text_motion_seek_band": "跳转到{name}",
+	"video_editor_path_pen_mode": "钢笔",
+	"video_editor_path_edit_mode": "编辑"
 }

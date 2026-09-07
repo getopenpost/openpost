@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Übergang",
 	"video_editor_diagnostics_transition": "Übergang",
 	"video_editor_diagnostics_reverse_skips": "Rückwärts-Skips",
-	"video_editor_shortcuts_command_performance_overlay": "Leistungs-Overlay umschalten"
+	"video_editor_shortcuts_command_performance_overlay": "Leistungs-Overlay umschalten",
+	"video_editor_text_motion_offset": "Versatz",
+	"video_editor_text_motion_applied": "Angewendet",
+	"video_editor_text_motion_seek_band": "Zu {name} springen",
+	"video_editor_path_pen_mode": "Stift",
+	"video_editor_path_edit_mode": "Bearbeiten"
 }

@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Transition",
 	"video_editor_diagnostics_transition": "Transition",
 	"video_editor_diagnostics_reverse_skips": "Reverse skips",
-	"video_editor_shortcuts_command_performance_overlay": "Toggle performance overlay"
+	"video_editor_shortcuts_command_performance_overlay": "Toggle performance overlay",
+	"video_editor_text_motion_offset": "Offset",
+	"video_editor_text_motion_applied": "Applied",
+	"video_editor_text_motion_seek_band": "Seek to {name}",
+	"video_editor_path_pen_mode": "Pen",
+	"video_editor_path_edit_mode": "Edit"
 }

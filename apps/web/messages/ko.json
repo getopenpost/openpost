@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "전환",
 	"video_editor_diagnostics_transition": "전환",
 	"video_editor_diagnostics_reverse_skips": "역방향 스킵",
-	"video_editor_shortcuts_command_performance_overlay": "성능 오버레이 전환"
+	"video_editor_shortcuts_command_performance_overlay": "성능 오버레이 전환",
+	"video_editor_text_motion_offset": "오프셋",
+	"video_editor_text_motion_applied": "적용됨",
+	"video_editor_text_motion_seek_band": "{name}(으)로 이동",
+	"video_editor_path_pen_mode": "펜",
+	"video_editor_path_edit_mode": "편집"
 }

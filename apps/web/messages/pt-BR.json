@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Transição",
 	"video_editor_diagnostics_transition": "Transição",
 	"video_editor_diagnostics_reverse_skips": "Saltos reversos",
-	"video_editor_shortcuts_command_performance_overlay": "Alternar sobreposição de desempenho"
+	"video_editor_shortcuts_command_performance_overlay": "Alternar sobreposição de desempenho",
+	"video_editor_text_motion_offset": "Deslocamento",
+	"video_editor_text_motion_applied": "Aplicados",
+	"video_editor_text_motion_seek_band": "Ir para {name}",
+	"video_editor_path_pen_mode": "Caneta",
+	"video_editor_path_edit_mode": "Editar"
 }

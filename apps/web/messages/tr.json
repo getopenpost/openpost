@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Geçiş",
 	"video_editor_diagnostics_transition": "Geçiş",
 	"video_editor_diagnostics_reverse_skips": "Ters atlamalar",
-	"video_editor_shortcuts_command_performance_overlay": "Performans katmanını aç/kapat"
+	"video_editor_shortcuts_command_performance_overlay": "Performans katmanını aç/kapat",
+	"video_editor_text_motion_offset": "Ofset",
+	"video_editor_text_motion_applied": "Uygulanan",
+	"video_editor_text_motion_seek_band": "{name} öğesine git",
+	"video_editor_path_pen_mode": "Kalem",
+	"video_editor_path_edit_mode": "Düzenle"
 }

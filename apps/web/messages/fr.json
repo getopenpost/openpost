@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Transition",
 	"video_editor_diagnostics_transition": "Transition",
 	"video_editor_diagnostics_reverse_skips": "Sauts arrière",
-	"video_editor_shortcuts_command_performance_overlay": "Basculer la superposition de performances"
+	"video_editor_shortcuts_command_performance_overlay": "Basculer la superposition de performances",
+	"video_editor_text_motion_offset": "Décalage",
+	"video_editor_text_motion_applied": "Appliqués",
+	"video_editor_text_motion_seek_band": "Aller à {name}",
+	"video_editor_path_pen_mode": "Plume",
+	"video_editor_path_edit_mode": "Modifier"
 }

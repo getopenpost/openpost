@@ -8624,5 +8624,10 @@
 	"video_editor_diagnostics_source_transition": "Transición",
 	"video_editor_diagnostics_transition": "Transición",
 	"video_editor_diagnostics_reverse_skips": "Saltos inversos",
-	"video_editor_shortcuts_command_performance_overlay": "Alternar superposición de rendimiento"
+	"video_editor_shortcuts_command_performance_overlay": "Alternar superposición de rendimiento",
+	"video_editor_text_motion_offset": "Desplazamiento",
+	"video_editor_text_motion_applied": "Aplicados",
+	"video_editor_text_motion_seek_band": "Ir a {name}",
+	"video_editor_path_pen_mode": "Pluma",
+	"video_editor_path_edit_mode": "Editar"
 }

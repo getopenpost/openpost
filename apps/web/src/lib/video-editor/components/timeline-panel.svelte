@@ -3305,6 +3305,10 @@
 		else selectedItemId = id;
 		const item = timelineStore.itemById.get(id);
 		if (!item || isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return;
+		// INTENTIONAL DIVERGENCE from FreeCut: Alt+move slips the clip in place instead of
+		// duplicate-dragging a copy (FreeCut's use-timeline-drag Alt=copy). The simpler slip
+		// matches our tool model (explicit slip/slide tools) and avoids a hidden copy gesture.
+		// Duplicate via clipboard copy/paste. Revisit only with a dedicated UX decision.
 		const kind = requestedKind === 'move' && event.altKey ? 'slip' : requestedKind;
 		if (kind === 'track-push' && trackPushGapBefore(item, timelineStore.items) <= 0) return;
 		if (

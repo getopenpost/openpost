@@ -34,6 +34,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		splitAtScenes,
 		removeMarker,
 		setCurrentFrame,
+		setInPoint,
+		setOutPoint,
 		toggleMarkerAtPlayhead,
 		setItemSpeed,
 		setItemsReversed
@@ -144,6 +146,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import RecordingDialog from '$lib/video-editor/components/recording-dialog.svelte';
 	import SequenceTabs from '$lib/video-editor/components/sequence-tabs.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
+	import {
+		restoreTabSelection,
+		stashTabSelection,
+		tabSelectionKey
+	} from '$lib/video-editor/sequences/tab-selection';
 	import {
 		createCompositeComposition,
 		createCompoundClip,
@@ -413,6 +420,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let selectedItemId = $state<string | null>(null);
 	let selectedItemIds = $state<string[]>([]);
 	let selectedTransitionId = $state<string | null>(null);
+	// Per-tab selection memory (FreeCut SequenceViewState parity): playhead, zoom,
+	// and scroll already round-trip through the sequence store; selection lives here,
+	// so stash it on tab switch and restore the incoming tab's working selection.
+	const tabSelectionMemory = new Map<string, string[]>();
+	let lastTabSelectionKey = tabSelectionKey(sequenceStore.activeSequenceId);
+
+	function handleTabSwitchSelection(): void {
+		stashTabSelection(tabSelectionMemory, lastTabSelectionKey, selectedItemIds);
+		lastTabSelectionKey = tabSelectionKey(sequenceStore.activeSequenceId);
+		selectedTransitionId = null;
+		const validIds = new Set(timelineStore.items.map((item) => item.id));
+		const restored = restoreTabSelection(tabSelectionMemory, lastTabSelectionKey, validIds);
+		selectedItemIds = restored;
+		selectedItemId = restored[0] ?? null;
+	}
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
 	$effect(() => {
@@ -1964,6 +1986,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				timelineStore._setSelectedMarkerId(marker.id);
 				setCurrentFrame(marker.frame);
 			}
+		} else if (!sourceHoverStore.isActive && matches('MARK_IN', 'MARK_OUT', 'CLEAR_IN_OUT')) {
+			// Program-timeline in/out range. The source monitor owns these bindings while
+			// hovered (it stops propagation after claiming them), so only act here otherwise.
+			event.preventDefault();
+			if (matches('MARK_IN')) setInPoint(timelineStore.currentFrame);
+			else if (matches('MARK_OUT')) setOutPoint(timelineStore.currentFrame);
+			else {
+				setInPoint(null);
+				setOutPoint(null);
+			}
+			editorSession.scheduleAutosave();
 		}
 	}
 
@@ -3123,7 +3156,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							/>
 							{#if activeWorkspace === 'edit'}
 								<SequenceTabs
-									onswitch={resetTimelineSelection}
+									onswitch={handleTabSwitchSelection}
 									onedit={() => editorSession.scheduleAutosave()}
 								/>
 							{/if}

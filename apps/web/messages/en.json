@@ -8603,5 +8603,12 @@
 	"video_editor_power_window_ellipse": "Ellipse",
 	"video_editor_power_window_rectangle": "Rectangle",
 	"video_editor_power_window_matte": "Matte",
-	"video_editor_power_window_correction": "Correction"
+	"video_editor_power_window_correction": "Correction",
+	"video_editor_diagnostics_session": "Session",
+	"video_editor_diagnostics_render_source": "Render source",
+	"video_editor_diagnostics_source_player": "Player",
+	"video_editor_diagnostics_source_transition": "Transition",
+	"video_editor_diagnostics_transition": "Transition",
+	"video_editor_diagnostics_reverse_skips": "Reverse skips",
+	"video_editor_shortcuts_command_performance_overlay": "Toggle performance overlay"
 }

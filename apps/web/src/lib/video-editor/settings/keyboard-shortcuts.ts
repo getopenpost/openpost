@@ -75,6 +75,7 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	EXPORT: 'mod+shift+e',
 	OPEN_SETTINGS: 'mod+comma',
 	OPEN_SCENE_BROWSER: 'mod+shift+f',
+	TOGGLE_PERFORMANCE_OVERLAY: 'alt+shift+p',
 	TOGGLE_SNAP: 's',
 	TOGGLE_CANVAS_SNAP: 'shift+s',
 	WORKSPACE_EDIT: 'alt+1',
@@ -208,6 +209,7 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'EXPORT', section: 'project' },
 	{ id: 'OPEN_SETTINGS', section: 'project' },
 	{ id: 'OPEN_SCENE_BROWSER', section: 'project' },
+	{ id: 'TOGGLE_PERFORMANCE_OVERLAY', section: 'project' },
 	{ id: 'WORKSPACE_EDIT', section: 'project' },
 	{ id: 'WORKSPACE_COLOR', section: 'project' },
 	{ id: 'WORKSPACE_MOTION', section: 'project' }

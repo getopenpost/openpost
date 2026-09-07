@@ -8603,5 +8603,12 @@
 	"video_editor_power_window_ellipse": "Elipse",
 	"video_editor_power_window_rectangle": "Rectángulo",
 	"video_editor_power_window_matte": "Mate",
-	"video_editor_power_window_correction": "Corrección"
+	"video_editor_power_window_correction": "Corrección",
+	"video_editor_diagnostics_session": "Sesión",
+	"video_editor_diagnostics_render_source": "Fuente de renderizado",
+	"video_editor_diagnostics_source_player": "Reproductor",
+	"video_editor_diagnostics_source_transition": "Transición",
+	"video_editor_diagnostics_transition": "Transición",
+	"video_editor_diagnostics_reverse_skips": "Saltos inversos",
+	"video_editor_shortcuts_command_performance_overlay": "Alternar superposición de rendimiento"
 }

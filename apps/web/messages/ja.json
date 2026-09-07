@@ -8603,5 +8603,12 @@
 	"video_editor_power_window_ellipse": "楕円",
 	"video_editor_power_window_rectangle": "長方形",
 	"video_editor_power_window_matte": "マット",
-	"video_editor_power_window_correction": "補正"
+	"video_editor_power_window_correction": "補正",
+	"video_editor_diagnostics_session": "セッション",
+	"video_editor_diagnostics_render_source": "レンダーソース",
+	"video_editor_diagnostics_source_player": "プレーヤー",
+	"video_editor_diagnostics_source_transition": "トランジション",
+	"video_editor_diagnostics_transition": "トランジション",
+	"video_editor_diagnostics_reverse_skips": "逆方向スキップ",
+	"video_editor_shortcuts_command_performance_overlay": "パフォーマンスオーバーレイの切り替え"
 }

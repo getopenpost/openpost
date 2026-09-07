@@ -8603,5 +8603,12 @@
 	"video_editor_power_window_ellipse": "타원",
 	"video_editor_power_window_rectangle": "사각형",
 	"video_editor_power_window_matte": "매트",
-	"video_editor_power_window_correction": "보정"
+	"video_editor_power_window_correction": "보정",
+	"video_editor_diagnostics_session": "세션",
+	"video_editor_diagnostics_render_source": "렌더 소스",
+	"video_editor_diagnostics_source_player": "플레이어",
+	"video_editor_diagnostics_source_transition": "전환",
+	"video_editor_diagnostics_transition": "전환",
+	"video_editor_diagnostics_reverse_skips": "역방향 스킵",
+	"video_editor_shortcuts_command_performance_overlay": "성능 오버레이 전환"
 }

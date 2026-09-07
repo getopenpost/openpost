@@ -170,6 +170,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	} from '$lib/video-editor/timeline/color-playhead-selection';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import {
 		canExtractEmbeddedSubtitles,
 		type EmbeddedSubtitleInsertResult
@@ -1940,6 +1941,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			event.preventDefault();
 			const enabled = !editorSettings.canvasSnapEnabled;
 			editorSettings.set('canvasSnapEnabled', enabled);
+			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
+		} else if (matches('TOGGLE_PERFORMANCE_OVERLAY')) {
+			event.preventDefault();
+			const enabled = !previewDiagnostics.performanceOverlay;
+			previewDiagnostics.setPerformanceOverlay(enabled);
 			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
 		} else if (
 			matches('DELETE_SELECTED', 'DELETE_SELECTED_ALT', 'RIPPLE_DELETE', 'RIPPLE_DELETE_ALT')

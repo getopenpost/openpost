@@ -8603,5 +8603,12 @@
 	"video_editor_power_window_ellipse": "椭圆",
 	"video_editor_power_window_rectangle": "矩形",
 	"video_editor_power_window_matte": "蒙版",
-	"video_editor_power_window_correction": "校正"
+	"video_editor_power_window_correction": "校正",
+	"video_editor_diagnostics_session": "会话",
+	"video_editor_diagnostics_render_source": "渲染来源",
+	"video_editor_diagnostics_source_player": "播放器",
+	"video_editor_diagnostics_source_transition": "转场",
+	"video_editor_diagnostics_transition": "转场",
+	"video_editor_diagnostics_reverse_skips": "反向跳过",
+	"video_editor_shortcuts_command_performance_overlay": "切换性能叠加层"
 }

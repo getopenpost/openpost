@@ -152,6 +152,40 @@
 
 		<section
 			class="border-b border-[var(--video-editor-border)] px-4 py-3"
+			aria-labelledby="diagnostics-session"
+		>
+			<h3 id="diagnostics-session" class="text-xs font-medium">
+				{m.video_editor_diagnostics_session()}
+			</h3>
+			<dl class="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 text-xs">
+				<dt class="text-[var(--video-editor-muted)]">
+					{m.video_editor_diagnostics_render_source()}
+				</dt>
+				<dd class="font-mono tabular-nums">
+					{snapshot.renderSource === 'transition'
+						? m.video_editor_diagnostics_source_transition()
+						: m.video_editor_diagnostics_source_player()}
+				</dd>
+				<dt class="text-[var(--video-editor-muted)]">
+					{m.video_editor_diagnostics_transition()}
+				</dt>
+				<dd class="font-mono tabular-nums">
+					{#if snapshot.transitionSessionActive}
+						{m.video_editor_status_enabled()}
+					{:else}
+						{m.video_editor_status_disabled()}
+					{/if}
+					#{snapshot.transitionSessionCount}
+				</dd>
+				<dt class="text-[var(--video-editor-muted)]">
+					{m.video_editor_diagnostics_reverse_skips()}
+				</dt>
+				<dd class="font-mono tabular-nums">{snapshot.reverseWindowSkips}</dd>
+			</dl>
+		</section>
+
+		<section
+			class="border-b border-[var(--video-editor-border)] px-4 py-3"
 			aria-labelledby="diagnostics-overlays"
 		>
 			<h3 id="diagnostics-overlays" class="text-xs font-medium">

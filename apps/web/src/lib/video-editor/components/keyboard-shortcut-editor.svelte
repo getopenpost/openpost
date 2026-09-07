@@ -197,6 +197,7 @@
 		EXPORT: m.video_editor_shortcuts_command_export,
 		OPEN_SETTINGS: m.video_editor_shortcuts_command_settings,
 		OPEN_SCENE_BROWSER: m.video_editor_shortcuts_command_open_scene_browser,
+		TOGGLE_PERFORMANCE_OVERLAY: m.video_editor_shortcuts_command_performance_overlay,
 		TOGGLE_SNAP: m.video_editor_shortcuts_command_snap,
 		TOGGLE_CANVAS_SNAP: m.video_editor_shortcuts_command_canvas_snap,
 		WORKSPACE_EDIT: m.video_editor_shortcuts_command_workspace_edit,

@@ -5,7 +5,8 @@ import {
 	previewHealth,
 	recordPreviewFrameSample,
 	type PreviewDiagnosticSnapshot,
-	type PreviewRenderPath
+	type PreviewRenderPath,
+	type PreviewRenderSource
 } from './diagnostics';
 
 const STORAGE_KEY = 'openpost-video-editor-diagnostics';
@@ -47,6 +48,11 @@ interface PreviewRuntimeState {
 	targetFps: number;
 	playbackRate: number;
 	renderPath: PreviewRenderPath;
+	renderSource: PreviewRenderSource;
+	transitionSessionActive: boolean;
+	transitionSessionCount: number;
+	transitionLastPrepareMs: number;
+	reverseWindowSkips: number;
 	renderTimeMs: number | null;
 	renderWidth: number;
 	renderHeight: number;
@@ -65,6 +71,11 @@ const runtime: PreviewRuntimeState = $state({
 	targetFps: 30,
 	playbackRate: 1,
 	renderPath: 'direct',
+	renderSource: 'player',
+	transitionSessionActive: false,
+	transitionSessionCount: 0,
+	transitionLastPrepareMs: 0,
+	reverseWindowSkips: 0,
 	renderTimeMs: null,
 	renderWidth: 0,
 	renderHeight: 0,
@@ -140,6 +151,22 @@ export const previewDiagnostics = {
 		runtime.renderTimeMs = renderTimeMs;
 		runtime.lastFallback = fallback;
 	},
+	setRenderSource(source: PreviewRenderSource): void {
+		runtime.renderSource = source;
+	},
+	/**
+	 * Mirror a transition session into diagnostics. The session count
+	 * advances on the inactive→active edge so scrubbing inside one window
+	 * counts once, matching FreeCut's transitionSessionCount.
+	 */
+	recordTransitionSession(active: boolean, prepareMs = 0): void {
+		if (active && !runtime.transitionSessionActive) runtime.transitionSessionCount += 1;
+		runtime.transitionSessionActive = active;
+		if (prepareMs > 0) runtime.transitionLastPrepareMs = prepareMs;
+	},
+	recordReverseWindowSkip(): void {
+		reverseWindowSkips += 1;
+	},
 	setGpuStatus(webgl2Ready: boolean, webgpuTransitionsReady: boolean): void {
 		runtime.webgl2Ready = webgl2Ready;
 		runtime.webgpuTransitionsReady = webgpuTransitionsReady;
@@ -162,6 +189,11 @@ export const previewDiagnostics = {
 		frameSamples = emptyPreviewFrameSampleState();
 		runtime.renderTimeMs = null;
 		runtime.lastFallback = null;
+		runtime.renderSource = 'player';
+		runtime.transitionSessionActive = false;
+		runtime.transitionSessionCount = 0;
+		runtime.transitionLastPrepareMs = 0;
+		reverseWindowSkips = 0;
 	},
 	report(): string {
 		return buildPreviewDiagnosticReport(snapshot());

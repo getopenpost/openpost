@@ -39,6 +39,10 @@
 		getSelectedTranscriptWordSlice
 	} from '$lib/video-editor/transcript/transcript-edit-model';
 	import {
+		buildCueListLayout,
+		queryCueListWindow
+	} from '$lib/video-editor/transcript/cue-list-window';
+	import {
 		createBrowserPointerGestureSessionHost,
 		type PointerGestureSessionHost
 	} from '$lib/video-editor/timeline/pointer-gesture-session';
@@ -56,8 +60,25 @@
 
 	const subtitleItems = $derived(timelineStore.items.filter((item) => item.type === 'subtitle'));
 
+	interface CueListEntry {
+		item: TimelineItem;
+		cue: SubtitleCue;
+	}
+	/** Flat cue order across subtitle items; the windowed list renders a slice of this. */
+	const cueEntries = $derived<CueListEntry[]>(
+		subtitleItems.flatMap((item) => (item.cues ?? []).map((cue) => ({ item, cue })))
+	);
+	const cueLayout = $derived(
+		buildCueListLayout(cueEntries.map((entry) => `${entry.item.id}:${entry.cue.id}`))
+	);
+	const cueWindow = $derived(queryCueListWindow(cueLayout, cueScrollTop, cueViewportHeight));
+	const visibleCueEntries = $derived(cueEntries.slice(cueWindow.startIndex, cueWindow.endIndex));
+
 	/** In-flight inline edits keyed by cue id; committed to the store on blur. */
 	let draftTexts = $state<Record<string, string>>({});
+	let cueScrollEl: HTMLDivElement | null = $state(null);
+	let cueScrollTop = $state(0);
+	let cueViewportHeight = $state(384);
 	let editVideoMode = $state(false);
 	let transcriptScope = $state<'selection' | 'project'>('selection');
 	let selectionAnchorIndex = $state(-1);
@@ -150,6 +171,7 @@
 	});
 	onMount(() => {
 		pointerGestures = createBrowserPointerGestureSessionHost();
+		if (cueScrollEl) cueViewportHeight = cueScrollEl.clientHeight || cueViewportHeight;
 		unregisterTranscriptCopy = registerTranscriptCopyHandler({
 			isActive: () => editVideoMode && selectedSourceWords.length > 0,
 			copy: handleCopyWords
@@ -249,6 +271,8 @@
 		startFrame: number,
 		endFrame: number
 	): void {
+		// correctedCueTimingPatch keeps cues finite with a 1-frame floor, which covers
+		// FreeCut's 10ms minimum-duration guard at every supported frame rate.
 		const corrected = correctedCueTimingPatch(cue, startFrame, endFrame);
 		if (corrected.startFrame === cue.startFrame && corrected.endFrame === cue.endFrame) return;
 		replaceCue(item, { ...cue, ...corrected }, 'EDIT_CUE_TIMING');
@@ -260,6 +284,9 @@
 		wordId: string,
 		patch: Partial<SubtitleWord>
 	): void {
+		// Word-level timing drag on the timeline is intentionally out of scope:
+		// neither surface offers it, so word bounds only move through these inputs
+		// and the cue-timing correction above.
 		if (patch.text !== undefined && patch.text.trim() === '') {
 			deleteWord(item, cue, wordId);
 			return;
@@ -493,6 +520,22 @@
 		return item?.label ? `${item.label}, ${timecode}` : timecode;
 	}
 
+	function cueKeyForToken(tokenKey: string): string | null {
+		const entry = cueEntries.find(
+			(candidate) =>
+				tokenKey === `${candidate.item.id}:${candidate.cue.id}` ||
+				tokenKey.startsWith(`${candidate.item.id}:${candidate.cue.id}:`)
+		);
+		return entry ? `${entry.item.id}:${entry.cue.id}` : null;
+	}
+
+	function scrollCueListToKey(cueKey: string): void {
+		const index = cueEntries.findIndex((entry) => `${entry.item.id}:${entry.cue.id}` === cueKey);
+		if (index < 0 || !cueScrollEl) return;
+		const top = cueLayout.offsets[index] ?? 0;
+		cueScrollEl.scrollTop = Math.max(0, top - cueScrollEl.clientHeight / 2);
+	}
+
 	function focusSearchMatch(index: number): void {
 		const count = searchResult.spans.length;
 		if (count === 0) return;
@@ -502,6 +545,8 @@
 		const token = searchTokens[tokenIndex];
 		if (!token) return;
 		setCurrentFrame(token.frame);
+		const cueKey = cueKeyForToken(token.key);
+		if (cueKey) scrollCueListToKey(cueKey);
 		requestAnimationFrame(() => {
 			document
 				.querySelector<HTMLElement>(`[data-transcript-search-index="${tokenIndex}"]`)
@@ -826,9 +871,24 @@
 			{m.video_editor_transcript_empty()}
 		</p>
 	{:else}
-		{#each subtitleItems as item (item.id)}
-			<ul class="flex flex-col gap-0.5" aria-label={item.label}>
-				{#each item.cues ?? [] as cue (cue.id)}
+		<!-- Windowed cue list: only the visible slice mounts, with spacers standing in
+			for the rows above and below. Keeps long episodes (600+ cues) responsive. -->
+		<div
+			bind:this={cueScrollEl}
+			class="cue-list-scroll mx-1 overflow-y-auto pr-0.5"
+			style="max-height: 24rem;"
+			onscroll={(event) => {
+				cueScrollTop = event.currentTarget.scrollTop;
+				cueViewportHeight = event.currentTarget.clientHeight || cueViewportHeight;
+			}}
+		>
+			{#if cueWindow.beforeSize > 0}
+				<div aria-hidden="true" style="height: {cueWindow.beforeSize}px;"></div>
+			{/if}
+			<ul class="flex flex-col gap-0.5" aria-label={m.video_editor_transcript()}>
+				{#each visibleCueEntries as entry (entry.item.id + ':' + entry.cue.id)}
+					{@const item = entry.item}
+					{@const cue = entry.cue}
 					{@const cueSearchIndex = searchIndexByKey.get(`${item.id}:${cue.id}`)}
 					<li
 						class="rounded bg-card p-1 {cueSearchIndex !== undefined &&
@@ -983,6 +1043,9 @@
 					</li>
 				{/each}
 			</ul>
-		{/each}
+			{#if cueWindow.afterSize > 0}
+				<div aria-hidden="true" style="height: {cueWindow.afterSize}px;"></div>
+			{/if}
+		</div>
 	{/if}
 </div>

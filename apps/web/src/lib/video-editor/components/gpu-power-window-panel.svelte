@@ -19,6 +19,7 @@
 	import { readNumber } from '$lib/video-editor/effects/gpu/types';
 	import { powerWindowBoundaryPoints } from '$lib/video-editor/preview/power-window-outline';
 	import GpuParamControl from './gpu-param-control.svelte';
+	import AppSelect from '$lib/components/app-select.svelte';
 
 	const WINDOW_KEYS = ['centerX', 'centerY', 'sizeX', 'sizeY', 'rotation', 'feather'] as const;
 	const MATTE_KEYS = ['showMask', 'invertMask'] as const;
@@ -230,16 +231,17 @@
 	{@const label = gpuParamLabel(shapeParam)}
 	<label class="mt-1 flex items-center justify-between gap-2 text-xs">
 		<span class="text-[var(--video-editor-muted)]">{label}</span>
-		<select
-			class="h-7 rounded border border-[var(--video-editor-border)] bg-transparent px-1 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+		<AppSelect
 			value={shapeValue}
+			options={[
+				{ value: 'ellipse', label: m.video_editor_power_window_ellipse() },
+				{ value: 'rectangle', label: m.video_editor_power_window_rectangle() }
+			]}
+			ariaLabel={label}
 			{disabled}
-			aria-label={label}
-			onchange={(event) => oncommit('shape', event.currentTarget.value)}
-		>
-			<option value="ellipse">{m.video_editor_power_window_ellipse()}</option>
-			<option value="rectangle">{m.video_editor_power_window_rectangle()}</option>
-		</select>
+			class="h-7 text-xs"
+			onValueChange={(value) => oncommit('shape', value)}
+		/>
 	</label>
 {/if}
 {#each WINDOW_KEYS as name (name)}

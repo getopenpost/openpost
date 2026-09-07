@@ -69,7 +69,6 @@
 		type LottieRenderSpec
 	} from '$lib/video-editor/lottie/render-spec';
 	import { replaceTextSpanCopy } from '$lib/video-editor/typography/text-item-spans';
-	import { filmstripCache } from '$lib/video-editor/media/filmstrip-client';
 	import {
 		animatedImageCache,
 		type AnimatedImageFrames
@@ -78,11 +77,12 @@
 		animatedFrameIndexForItem,
 		isAnimatedImageMedia
 	} from '$lib/video-editor/media/animated-image-plan';
+	import { PROXY_SEEK_STALL_MS } from '$lib/video-editor/preview/scrub-proxy-fallback';
 	import {
-		cloneFilmstripFallback,
-		nearestFilmstripFallback,
-		PROXY_SEEK_STALL_MS
-	} from '$lib/video-editor/preview/scrub-proxy-fallback';
+		invalidateScrubFallbacks,
+		requestScrubFallback,
+		warmScrubProxyFallback
+	} from '$lib/video-editor/preview/scrub-proxy-scheduler';
 	import { clonePrewarmedPreviewFrame } from '$lib/video-editor/preview/decoder-prewarm-client';
 	import {
 		decodedPreviewAudio,
@@ -476,9 +476,7 @@
 			: null;
 		if (prewarmed) return prewarmed;
 		if (!usesSeparateProxyAudio) return null;
-		const filmstrip = filmstripCache.cachedFilmstrip(item.mediaId);
-		const frame = filmstrip ? nearestFilmstripFallback(filmstrip.frames, timestampSeconds) : null;
-		return frame ? cloneFilmstripFallback(frame) : null;
+		return requestScrubFallback(item.mediaId, timestampSeconds);
 	}
 
 	function presentSeekFallback(
@@ -510,6 +508,8 @@
 
 	function scheduleSeekFallback(timestampSeconds: number): void {
 		if (editorSession.isPlaying || !item.mediaId) return;
+		warmScrubProxyFallback();
+		invalidateScrubFallbacks(item.mediaId);
 		const generation = ++proxyFallbackGeneration;
 		if (proxyFallbackTimer !== null) clearTimeout(proxyFallbackTimer);
 		proxyFallbackTimer = setTimeout(() => {

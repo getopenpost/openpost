@@ -120,6 +120,8 @@
 	let showPresetSave = $state(false);
 	let collapsedEffects = $state<Set<string>>(new Set());
 	let presetStatus = $state('');
+	let lutStatus = $state('');
+	let lutStatusEffectId = $state<string | null>(null);
 
 	$effect(() => {
 		if (gpuOnly && !pendingKind.startsWith('gpu:')) pendingKind = 'gpu:gpu-brightness';
@@ -254,7 +256,10 @@
 
 	function cloneTemplate(template: EffectTemplate): EffectTemplate {
 		return template.kind === 'gpu'
-			? { ...template, params: template.params ? { ...template.params } : undefined }
+			? {
+					...template,
+					params: template.params ? { ...template.params } : undefined
+				}
 			: { ...template };
 	}
 
@@ -398,8 +403,9 @@
 
 	async function importLut(effect: GpuEffect): Promise<void> {
 		if (!itemId) return;
+		lutStatusEffectId = effect.id;
 		if (!window.showOpenFilePicker) {
-			presetStatus = m.video_editor_effects_lut_picker_unsupported();
+			lutStatus = m.video_editor_effects_lut_picker_unsupported();
 			return;
 		}
 		try {
@@ -412,6 +418,8 @@
 			const { parseCubeLut, packCubeLutForStorage } =
 				await import('$lib/video-editor/effects/gpu/lut');
 			const parsed = parseCubeLut(await file.text());
+			// packCubeLutForStorage resamples to MAX_EMBEDDED_LUT_SIZE (33^3);
+			// larger .cube files keep full fidelity only outside the project.
 			const stored = packCubeLutForStorage(parsed);
 			const name = parsed.title ?? file.name.replace(/\.cube$/i, '');
 			if (
@@ -421,14 +429,31 @@
 					lutData: stored.data
 				})
 			) {
-				presetStatus = m.video_editor_effects_lut_import_failed();
+				lutStatus = m.video_editor_effects_lut_import_failed();
 				return;
 			}
-			presetStatus = m.video_editor_effects_lut_imported({ name });
+			lutStatus = m.video_editor_effects_lut_imported({ name });
 			onedit();
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'AbortError') return;
-			presetStatus = m.video_editor_effects_lut_import_failed();
+			lutStatus = m.video_editor_effects_lut_import_failed();
+		}
+	}
+
+	function resetLut(effect: GpuEffect): void {
+		if (!itemId) return;
+		// Mirror FreeCut's triple-param reset: clear the stored file payload so
+		// the effect falls back to its identity (intensity-only) behavior.
+		if (
+			setGpuEffectData(itemId, effect.id, {
+				lutName: '',
+				lutSize: 0,
+				lutData: ''
+			})
+		) {
+			lutStatusEffectId = effect.id;
+			lutStatus = m.video_editor_effects_lut_reset_done();
+			onedit();
 		}
 	}
 
@@ -624,7 +649,9 @@
 			{presetStatus}
 		</p>{/if}
 	{#if !itemId || effects.length === 0}
-		<p class="px-1 text-xs text-[var(--video-editor-muted)]">{m.video_editor_effects_none()}</p>
+		<p class="px-1 text-xs text-[var(--video-editor-muted)]">
+			{m.video_editor_effects_none()}
+		</p>
 	{:else}
 		<ul class="min-h-0 flex-1 overflow-y-auto">
 			{#each effects as effect, index (effect.id)}
@@ -795,8 +822,12 @@
 										disabled={!effect.enabled || selectedEffectItemIds.length !== 1}
 										aria-pressed={isSpatialEditing(effect.id)}
 										aria-label={isSpatialEditing(effect.id)
-											? m.video_editor_spatial_stop_editing({ effect: effectLabel(effect) })
-											: m.video_editor_spatial_edit_center({ effect: effectLabel(effect) })}
+											? m.video_editor_spatial_stop_editing({
+													effect: effectLabel(effect)
+												})
+											: m.video_editor_spatial_edit_center({
+													effect: effectLabel(effect)
+												})}
 										onclick={() => toggleSpatialEditing(effect)}
 									>
 										<ProtectedIcon icon="editor-focus" class="size-3.5" />
@@ -809,11 +840,27 @@
 									<button
 										type="button"
 										class="mt-1 w-full rounded border border-[var(--video-editor-border)] px-2 py-1 text-xs hover:bg-[var(--video-editor-control-hover)]"
+										title={m.video_editor_effects_lut_size_note()}
 										onclick={() => importLut(effect)}
-										>{typeof effect.params.lutName === 'string'
+										>{typeof effect.params.lutName === 'string' && effect.params.lutName.length > 0
 											? effect.params.lutName
 											: m.video_editor_effects_choose_lut()}</button
 									>
+									<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]">
+										{m.video_editor_effects_lut_size_note()}
+									</p>
+									{#if typeof effect.params.lutName === 'string' && effect.params.lutName.length > 0}
+										<button
+											type="button"
+											class="mt-1 w-full rounded border border-[var(--video-editor-border)] px-2 py-1 text-xs hover:bg-[var(--video-editor-control-hover)]"
+											onclick={() => resetLut(effect)}>{m.video_editor_effects_lut_reset()}</button
+										>
+									{/if}
+									{#if lutStatusEffectId === effect.id && lutStatus}
+										<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]" role="status">
+											{lutStatus}
+										</p>
+									{/if}
 								{/if}
 								{#if effect.effectId === 'gpu-curves'}
 									<GpuCurvesEditor

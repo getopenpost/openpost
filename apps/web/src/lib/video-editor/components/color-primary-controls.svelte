@@ -11,12 +11,20 @@
 	import { getGpuEffect, getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import { gpuEffectLabel, gpuParamLabel } from '$lib/video-editor/effects/gpu/i18n';
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
-	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
+	import {
+		effectKeyframeValue,
+		getGpuEffectKeyframeProperty,
+		resolveAnimatedEffectsAt
+	} from '$lib/video-editor/effects/effect-keyframes';
 	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import type { ColorPickerKind } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
-	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
+	import {
+		removeKeyframe,
+		setAnimatedGpuEffectParamsOnItems,
+		setKeyframe
+	} from '$lib/video-editor/timeline/actions/keyframes';
 	import ColorEffectHeader from './color-effect-header.svelte';
 	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
 	import {
@@ -26,6 +34,22 @@
 	} from '$lib/editor-color-grade/controls';
 
 	const EFFECT_ID = 'gpu-color-wheels';
+	// Sidebar-style slider rows ported from FreeCut (MIT)
+	// `gpu-wheels-panel.tsx` PRIMARY_PARAMS / TONAL_PARAMS: exact numeric control
+	// with per-parameter keyframes for params the dock wheels only expose as
+	// chips (or not at all: exposure, blackPoint, whitePoint).
+	const PRIMARY_SLIDER_PARAMS = [
+		'exposure',
+		'contrast',
+		'pivot',
+		'lift',
+		'gamma',
+		'gain',
+		'offset',
+		'blackPoint',
+		'whitePoint'
+	] as const;
+	const BALANCE_SLIDER_PARAMS = ['temperature', 'tint', 'saturation'] as const;
 	const MAX_DOCK_WHEEL_SIZE = 200;
 	const MIN_DOCK_WHEEL_SIZE = 48;
 	const DOCK_WHEEL_GRID_GAP_PX = 28;
@@ -80,6 +104,8 @@
 		forceAutoKey?: boolean;
 	} = $props();
 
+	let showPrimaries = $state(false);
+	let showBalance = $state(false);
 	let wheelDrafts = $state<Record<string, { hue: number; amount: number }>>({});
 	let parameterDrafts = $state<Record<string, number>>({});
 	let pointerWheel = $state<string | null>(null);
@@ -343,6 +369,67 @@
 		commitParameter(name, Number(defaults[name] ?? 0));
 	}
 
+	function sliderDecimals(name: string): number {
+		const step = Number(schema(name)?.step ?? 1);
+		if (step >= 1) return 0;
+		if (step >= 0.01) return 2;
+		return 3;
+	}
+
+	function sliderRelativeFrame(): number | null {
+		if (
+			!item ||
+			timelineStore.currentFrame < item.from ||
+			timelineStore.currentFrame >= item.from + item.durationInFrames
+		) {
+			return null;
+		}
+		return timelineStore.currentFrame - item.from;
+	}
+
+	function sliderKeyframe(name: string): {
+		autoEnabled: boolean;
+		hasTrack: boolean;
+		atCurrentFrame: boolean;
+		canKeyframe: boolean;
+	} | null {
+		// Keyframe lanes are keyed by stored effect id, so the auto/diamond
+		// controls only exist once the wheels instance exists. Slider commits
+		// below still create the instance (and honor auto-key) when missing.
+		if (!itemId || !item || !wheelEffect) return null;
+		const property = getGpuEffectKeyframeProperty(wheelEffect, name);
+		if (!property) return null;
+		const relativeFrame = sliderRelativeFrame();
+		const track = item.keyframes?.[property];
+		return {
+			autoEnabled: forceAutoKey || autoKeyframeStore.isEnabled(itemId, property),
+			hasTrack: Boolean(track?.frames.length),
+			atCurrentFrame: relativeFrame !== null && Boolean(track?.frames.includes(relativeFrame)),
+			canKeyframe: relativeFrame !== null
+		};
+	}
+
+	function toggleSliderAutoKey(name: string): void {
+		if (!itemId || !wheelEffect) return;
+		const property = getGpuEffectKeyframeProperty(wheelEffect, name);
+		if (!property) return;
+		autoKeyframeStore.toggle(itemId, property);
+	}
+
+	function toggleSliderKeyframe(name: string): void {
+		if (!itemId || !item || !wheelEffect) return;
+		const property = getGpuEffectKeyframeProperty(wheelEffect, name);
+		const relativeFrame = sliderRelativeFrame();
+		if (!property || relativeFrame === null) return;
+		const track = item.keyframes?.[property];
+		if (track?.frames.includes(relativeFrame)) {
+			if (removeKeyframe(itemId, property, relativeFrame)) onedit();
+			return;
+		}
+		const encoded = effectKeyframeValue(wheelEffect, name, parameterValue(name));
+		if (encoded !== null && setKeyframe(itemId, property, relativeFrame, encoded)) onedit();
+	}
+
 	function normalizeLevel(name: string, value: number): number {
 		const param = schema(name);
 		if (!param) return value;
@@ -442,6 +529,98 @@
 </script>
 
 <section class="flex h-full min-h-0 flex-col" aria-label={gpuEffectLabel(definition)}>
+	{#snippet sliderRow(name: string)}
+		{@const param = schema(name)}
+		{@const keyframe = sliderKeyframe(name)}
+		{@const keyframeLabel = `${gpuEffectLabel(definition)}: ${label(name)}`}
+		{#if param}
+			<label class="flex items-center gap-1.5 text-xs">
+				<span
+					class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+					title={gpuParamLabel(param)}
+				>
+					{gpuParamLabel(param)}
+				</span>
+				<Slider
+					disabled={!controlsEnabled}
+					class="min-w-0 flex-1"
+					min={Number(param.min)}
+					max={Number(param.max)}
+					step={Number(param.step)}
+					value={parameterValue(name)}
+					ariaLabel={`${gpuEffectLabel(definition)}: ${gpuParamLabel(param)}`}
+					onValueChange={(next) => updateParameter(name, next)}
+					onValueCommit={(next) => commitParameter(name, next)}
+					onValueCancel={() => cancelParameter(name)}
+					onKeydown={(event) => event.stopPropagation()}
+				/>
+				<output class="w-12 shrink-0 text-right text-[var(--video-editor-muted)] tabular-nums">
+					{parameterValue(name).toFixed(sliderDecimals(name))}
+				</output>
+				{#if keyframe}
+					<button
+						type="button"
+						disabled={!controlsEnabled}
+						class={`flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-semibold hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${keyframe.autoEnabled ? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]' : ''}`}
+						aria-pressed={keyframe.autoEnabled}
+						aria-label={keyframe.autoEnabled
+							? m.video_editor_effects_auto_key_disable({
+									parameter: keyframeLabel
+								})
+							: m.video_editor_effects_auto_key_enable({
+									parameter: keyframeLabel
+								})}
+						title={keyframe.autoEnabled
+							? m.video_editor_effects_auto_key_disable({
+									parameter: keyframeLabel
+								})
+							: m.video_editor_effects_auto_key_enable({
+									parameter: keyframeLabel
+								})}
+						onclick={() => toggleSliderAutoKey(name)}>A</button
+					>
+					<button
+						type="button"
+						disabled={!controlsEnabled || !keyframe.canKeyframe}
+						class={`flex size-5 shrink-0 items-center justify-center rounded hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35 ${keyframe.hasTrack ? 'text-[var(--video-editor-primary)]' : ''}`}
+						aria-label={keyframe.atCurrentFrame
+							? m.video_editor_effects_keyframe_remove({
+									parameter: keyframeLabel
+								})
+							: m.video_editor_effects_keyframe_add({
+									parameter: keyframeLabel
+								})}
+						title={keyframe.atCurrentFrame
+							? m.video_editor_effects_keyframe_remove({
+									parameter: keyframeLabel
+								})
+							: m.video_editor_effects_keyframe_add({
+									parameter: keyframeLabel
+								})}
+						onclick={() => toggleSliderKeyframe(name)}
+					>
+						<span
+							class="block size-2 rotate-45 border {keyframe.atCurrentFrame ? 'bg-current' : ''}"
+							aria-hidden="true"
+						></span>
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="parameter-reset"
+					disabled={!controlsEnabled ||
+						(!parameterIsMixed(name) &&
+							Object.is(parameterValue(name), Number(defaults[name] ?? 0)))}
+					title={`Reset ${gpuParamLabel(param)}`}
+					aria-label={`Reset ${gpuParamLabel(param)}`}
+					onclick={() => resetParameter(name)}
+				>
+					<ThemeIcon role="undo" class="size-2.5" />
+				</button>
+			</label>
+		{/if}
+	{/snippet}
+
 	<ColorEffectHeader
 		{itemId}
 		{itemIds}
@@ -723,6 +902,41 @@
 				</div>
 			{/if}
 		{/each}
+	</div>
+
+	<div class="shrink-0 border-t border-[var(--video-editor-border)]">
+		<button
+			type="button"
+			class="flex h-7 w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			aria-expanded={showPrimaries}
+			onclick={() => (showPrimaries = !showPrimaries)}
+		>
+			{m.video_editor_color_primaries()}
+			<span aria-hidden="true">{showPrimaries ? '−' : '+'}</span>
+		</button>
+		{#if showPrimaries}
+			<div class="flex flex-col gap-1 px-2 pb-2">
+				{#each PRIMARY_SLIDER_PARAMS as name (name)}
+					{@render sliderRow(name)}
+				{/each}
+			</div>
+		{/if}
+		<button
+			type="button"
+			class="flex h-7 w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			aria-expanded={showBalance}
+			onclick={() => (showBalance = !showBalance)}
+		>
+			{m.video_editor_color_balance_heading()}
+			<span aria-hidden="true">{showBalance ? '−' : '+'}</span>
+		</button>
+		{#if showBalance}
+			<div class="flex flex-col gap-1 px-2 pb-2">
+				{#each BALANCE_SLIDER_PARAMS as name (name)}
+					{@render sliderRow(name)}
+				{/each}
+			</div>
+		{/if}
 	</div>
 </section>
 

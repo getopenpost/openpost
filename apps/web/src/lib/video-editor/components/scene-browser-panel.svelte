@@ -10,6 +10,7 @@
 	import { nearestColorFamily } from '$lib/video-editor/media/scene-search/color-boost';
 	import { isSceneAnalyzableMedia } from '$lib/video-editor/media/scene-search/scene-analysis-client';
 	import { sceneBrowser } from '$lib/video-editor/media/scene-search/scene-browser.svelte';
+	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
 	import { insertSceneAtPlayhead } from '$lib/video-editor/media/scene-search/scene-insert';
 	import {
 		clearSceneDragData,
@@ -41,6 +42,9 @@
 
 	$effect(() => {
 		const query = sceneBrowser.query;
+		// Keyword mode is a deterministic ranking path: skip embedding work entirely
+		// so matching costs nothing and results never depend on model downloads.
+		if (editorSettings.captionSearchMode !== 'semantic') return;
 		if (queryTimer) clearTimeout(queryTimer);
 		queryTimer = setTimeout(() => void sceneBrowser.prepareSemanticQuery(query), 180);
 		return () => {
@@ -134,6 +138,32 @@
 			/>
 		</label>
 		<div class="flex gap-1">
+			<div
+				class="flex h-7 shrink-0 items-center rounded-md border border-[var(--video-editor-border)] p-0.5"
+				role="group"
+				aria-label={m.video_editor_scene_search_mode()}
+			>
+				<button
+					type="button"
+					class="h-full rounded px-1.5 text-[10px] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class:bg-[var(--video-editor-selection)]={editorSettings.captionSearchMode === 'keyword'}
+					aria-pressed={editorSettings.captionSearchMode === 'keyword'}
+					title={m.video_editor_scene_search_mode_keyword_description()}
+					onclick={() => editorSettings.set('captionSearchMode', 'keyword')}
+				>
+					{m.video_editor_scene_search_mode_keyword()}
+				</button>
+				<button
+					type="button"
+					class="h-full rounded px-1.5 text-[10px] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class:bg-[var(--video-editor-selection)]={editorSettings.captionSearchMode === 'semantic'}
+					aria-pressed={editorSettings.captionSearchMode === 'semantic'}
+					title={m.video_editor_scene_search_mode_semantic_description()}
+					onclick={() => editorSettings.set('captionSearchMode', 'semantic')}
+				>
+					{m.video_editor_scene_search_mode_semantic()}
+				</button>
+			</div>
 			<Select.Root
 				type="single"
 				value={sceneBrowser.scope ?? ''}

@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "Seçmek için Boşluk, taşımak için ok tuşlarını kullanın. Bırakmak için Boşluk, iptal için Escape tuşuna basın.",
 	"interaction_reorder_undo": "Sıralamayı geri al",
 	"interaction_reorder_previous": "Sayfayı sola taşı",
-	"interaction_reorder_next": "Sayfayı sağa taşı"
+	"interaction_reorder_next": "Sayfayı sağa taşı",
+	"video_editor_cleanup_media_status": "{analyzed} kaynak analiz edildi · {failed} başarısız.",
+	"video_editor_scene_search_mode": "Arama modu",
+	"video_editor_scene_search_mode_keyword": "Anahtar kelime",
+	"video_editor_scene_search_mode_keyword_description": "Altyazı ve etiketlerde hızlı, tam eşleşme.",
+	"video_editor_scene_search_mode_semantic": "Anlamsal",
+	"video_editor_scene_search_mode_semantic_description": "İndirilen yapay zeka modelleriyle anlama dayalı eşleşme.",
+	"video_editor_settings_caption_search_mode": "Sahne arama modu",
+	"video_editor_settings_caption_search_mode_description": "Anahtar kelime araması anında ve kesindir. Anlamsal arama anlamı anlar ancak yapay zeka modelleri indirir.",
+	"video_editor_transcribe_model_size": "Yaklaşık {size} indirilir."
 }

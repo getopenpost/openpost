@@ -8558,5 +8558,14 @@
 	"interaction_reorder_hint": "Prime Espaço para mover. Usa as setas. Prime Espaço para terminar ou Escape para cancelar.",
 	"interaction_reorder_undo": "Anular reordenação",
 	"interaction_reorder_previous": "Mover página para a esquerda",
-	"interaction_reorder_next": "Mover página para a direita"
+	"interaction_reorder_next": "Mover página para a direita",
+	"video_editor_cleanup_media_status": "{analyzed} fonte(s) analisada(s) · {failed} com falha.",
+	"video_editor_scene_search_mode": "Modo de pesquisa",
+	"video_editor_scene_search_mode_keyword": "Palavra-chave",
+	"video_editor_scene_search_mode_keyword_description": "Correspondência rápida e exata em legendas e etiquetas.",
+	"video_editor_scene_search_mode_semantic": "Semântica",
+	"video_editor_scene_search_mode_semantic_description": "Correspondência por significado com modelos de IA descarregados.",
+	"video_editor_settings_caption_search_mode": "Modo de pesquisa de cenas",
+	"video_editor_settings_caption_search_mode_description": "A pesquisa por palavra-chave é instantânea e exata. A pesquisa semântica entende o significado, mas descarrega modelos de IA.",
+	"video_editor_transcribe_model_size": "Cerca de {size} para descarregar."
 }

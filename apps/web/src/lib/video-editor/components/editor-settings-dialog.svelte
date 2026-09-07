@@ -500,6 +500,32 @@
 									class="mt-1 h-9 w-full"
 								/>
 							</div>
+							<div class="text-xs text-[var(--video-editor-muted)] sm:col-span-2">
+								<label for="editor-caption-search-mode"
+									>{m.video_editor_settings_caption_search_mode()}</label
+								>
+								<AppSelect
+									id="editor-caption-search-mode"
+									value={editorSettings.captionSearchMode}
+									ariaLabel={m.video_editor_settings_caption_search_mode()}
+									options={[
+										{
+											value: 'keyword',
+											label: m.video_editor_scene_search_mode_keyword()
+										},
+										{
+											value: 'semantic',
+											label: m.video_editor_scene_search_mode_semantic()
+										}
+									]}
+									onValueChange={(value) =>
+										editorSettings.set('captionSearchMode', value as 'keyword' | 'semantic')}
+									class="mt-1 h-9 w-full"
+								/>
+								<p class="mt-1 text-[11px] leading-snug">
+									{m.video_editor_settings_caption_search_mode_description()}
+								</p>
+							</div>
 						</div>
 						<div class="rounded-lg border border-border p-4">
 							<label for="editor-default-caption-style" class="text-sm font-medium">

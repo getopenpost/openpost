@@ -13,6 +13,7 @@ import { embeddingsProvider } from './ai/embeddings-provider';
 import { clipProvider } from './ai/clip-provider';
 import type { PaletteEntry } from './dominant-colors';
 import { mediaTaskId, mediaTasks } from '../media-tasks.svelte';
+import { editorSettings } from '../../settings/editor-settings.svelte';
 
 export type SceneBrowserViewMode = 'grid' | 'list';
 export type SceneBrowserSortMode = 'relevance' | 'time' | 'name';
@@ -362,6 +363,7 @@ export const sceneBrowser = {
 			.flatMap((analysis) => analysis.scenes)
 			.map(toRankable);
 		const query = state.query.trim();
+		const searchMode = editorSettings.captionSearchMode;
 		let ranked: ScoredScene[];
 		const colorQuery = parseColorQuery(query);
 		if (state.referencePalette) {
@@ -377,7 +379,7 @@ export const sceneBrowser = {
 				source.filter((scene) => scene.palette).map((scene) => [scene.id, scene.palette!])
 			);
 			ranked = semanticRank(new Float32Array(), source, new Map(), { query, palettes });
-		} else if (query && state.queryEmbedding) {
+		} else if (query && searchMode === 'semantic' && state.queryEmbedding) {
 			const textEmbeddings = new Map<string, Float32Array>();
 			const imageEmbeddings = new Map<string, Float32Array>();
 			const palettes = new Map<string, NonNullable<RankableScene['palette']>>();

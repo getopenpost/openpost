@@ -72,6 +72,44 @@ describe('timeline snapping', () => {
 		expect(targets.some((target) => target.itemId === 'hidden-item')).toBe(false);
 	});
 
+	it('excludes items on tracks hidden through a parent group', () => {
+		const groupTrack: TimelineTrack = {
+			id: 'group',
+			name: 'Group',
+			kind: 'video',
+			height: 64,
+			locked: false,
+			visible: false,
+			muted: false,
+			solo: false,
+			order: 0,
+			isGroup: true
+		};
+		const childTrack: TimelineTrack = {
+			id: 'child',
+			name: 'Child',
+			kind: 'video',
+			height: 64,
+			locked: false,
+			visible: true,
+			muted: false,
+			solo: false,
+			order: 1,
+			parentTrackId: 'group'
+		};
+		const targets = buildSnapTargets({
+			items: [item('grouped', 'child', 50, 10)],
+			tracks: [groupTrack, childTrack],
+			transitions: [],
+			markers: [],
+			currentFrame: 0,
+			durationInFrames: 300,
+			fps: 30,
+			zoomLevel: 1
+		});
+		expect(targets.some((target) => target.itemId === 'grouped')).toBe(false);
+	});
+
 	it('builds deduplicated navigation points from visible edit edges and markers', () => {
 		const left = item('left', 'visible', 0, 100);
 		const right = item('right', 'visible', 100, 50);

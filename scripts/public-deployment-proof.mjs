@@ -470,7 +470,12 @@ export async function proveHTTPContract({ checks, fetchImpl = fetch }) {
   return results;
 }
 
-function markdownOutputForRoute(route) {
+export function markdownOutputForRoute(route, surface) {
+  if (surface === "documentation") {
+    const page = docsPageCatalog.find((page) => page.route === route);
+    if (!page) throw new Error(`unknown documentation route: ${route}`);
+    return page.page.replace(/\.mdx$/u, ".md");
+  }
   if (route === "/") return "index.md";
   if (route.endsWith("/")) return `${route.slice(1)}index.md`;
   return `${route.slice(1)}.md`;
@@ -548,7 +553,7 @@ export async function buildPublicProofChecks({
 
   for (const surface of surfaces) {
     for (const { route, canonical } of surface.routes) {
-      const relativePath = markdownOutputForRoute(route);
+      const relativePath = markdownOutputForRoute(route, surface.key);
       const canonicalURL = `${surface.origin}/${relativePath}`;
       const expectedBody = await localArtifact(surface.directory, relativePath);
       const provenance = assertCanonicalProvenance(expectedBody, canonical, relativePath);
@@ -593,7 +598,7 @@ export async function buildPublicProofChecks({
 
   for (const surface of surfaces) {
     for (const sample of surface.samples) {
-      const markdownPath = markdownOutputForRoute(sample.route);
+      const markdownPath = markdownOutputForRoute(sample.route, surface.key);
       checks.push({
         kind: "artifact",
         name: `${surface.key} ${sample.category} HTML discovery`,

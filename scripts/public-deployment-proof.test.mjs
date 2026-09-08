@@ -6,6 +6,7 @@ import {
   assertLocalRevision,
   deploymentForRevision,
   linksFromMarkdown,
+  markdownOutputForRoute,
   proveHTTPContract,
   publicSurfaceSamples,
   validateAICrawlSnapshot,
@@ -370,3 +371,10 @@ function response(status, contentType, body, headers = {}) {
     headers: { "content-type": contentType, ...headers },
   });
 }
+
+test("resolves section Markdown from each surface source", () => {
+  assert.equal(markdownOutputForRoute("/self-hosting", "marketing"), "self-hosting.md");
+  assert.equal(markdownOutputForRoute("/self-hosting", "documentation"), "self-hosting/index.md");
+  assert.equal(markdownOutputForRoute("/api-reference", "documentation"), "api-reference/index.md");
+  assert.equal(markdownOutputForRoute("/mcp/cursor", "documentation"), "mcp/cursor.md");
+});

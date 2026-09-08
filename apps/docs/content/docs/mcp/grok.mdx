@@ -1,0 +1,34 @@
+---
+title: Connect Grok
+description: Add OpenPost as a custom Grok connector.
+icon: grok
+---
+
+Grok can connect to OpenPost through a custom remote connector. Use a Grok account with access to custom connectors and an OpenPost account.
+
+## Add the connector
+
+1. Open [Grok Connectors](https://grok.com/connectors).
+2. Choose **New Connector → Custom** and name it `OpenPost`.
+3. Enter `https://app.openpo.st/mcp` as the server URL.
+4. Complete the supported sign-in flow. For OAuth, sign in to OpenPost and choose read-only or full access. If configuring a bearer header instead, use an OpenPost developer token with the matching MCP scope.
+
+## Check the connection
+
+Enable OpenPost in your conversation and ask, “List my OpenPost workspaces.” Name a workspace, then request a schedule review without making changes.
+
+## Grok Build CLI
+
+Grok Build is a separate client. Add its connection with:
+
+```sh
+grok mcp add --transport http openpost https://app.openpo.st/mcp
+```
+
+Complete OAuth when prompted. A Grok web connector does not configure the CLI automatically.
+
+## If it does not connect
+
+Grok's cloud connector needs public HTTPS. A self-hosted LAN address or `localhost` is not reachable from Grok web. Check access to custom connectors and reconnect if authorization expires.
+
+See [Grok connectors](https://docs.x.ai/grok/connectors) and [Grok Build MCP](https://docs.x.ai/build/features/mcp-servers).

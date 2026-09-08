@@ -294,6 +294,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/antigravity.mdx",
+    "title": "Connect Antigravity",
+    "description": "Use the OpenPost local bridge from Antigravity.",
+    "route": "/mcp/antigravity",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/chatgpt.mdx",
     "title": "Connect ChatGPT",
     "description": "Add OpenPost as a custom MCP app in ChatGPT.",
@@ -310,10 +326,58 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/claude-code.mdx",
+    "title": "Connect Claude Code",
+    "description": "Use OpenPost from Claude Code in your terminal.",
+    "route": "/mcp/claude-code",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/claude-desktop.mdx",
+    "title": "Connect Claude Desktop",
+    "description": "Connect through Claude account settings or a local OpenPost bridge.",
+    "route": "/mcp/claude-desktop",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/claude.mdx",
-    "title": "Connect Claude",
-    "description": "Add OpenPost to Claude, Claude Desktop, or Claude Code.",
+    "title": "Connect Claude web",
+    "description": "Connect OpenPost to Claude through a custom connector.",
     "route": "/mcp/claude",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/codex.mdx",
+    "title": "Connect Codex",
+    "description": "Add OpenPost to Codex with remote MCP and browser sign-in.",
+    "route": "/mcp/codex",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -330,6 +394,86 @@ export const docsPageCatalog = Object.freeze([
     "title": "Connect Cursor",
     "description": "Add OpenPost to Cursor using remote MCP and OAuth.",
     "route": "/mcp/cursor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/devin.mdx",
+    "title": "Connect Devin",
+    "description": "Give Devin access to your OpenPost workspace through MCP.",
+    "route": "/mcp/devin",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/gemini-cli.mdx",
+    "title": "Connect Gemini CLI",
+    "description": "Review and prepare OpenPost publications from Gemini CLI.",
+    "route": "/mcp/gemini-cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/github-copilot.mdx",
+    "title": "Connect GitHub Copilot",
+    "description": "Use OpenPost from Copilot agent chat in VS Code.",
+    "route": "/mcp/github-copilot",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/grok.mdx",
+    "title": "Connect Grok",
+    "description": "Add OpenPost as a custom Grok connector.",
+    "route": "/mcp/grok",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/hermes.mdx",
+    "title": "Connect Hermes Agent",
+    "description": "Add OpenPost to Hermes Agent as an OAuth MCP server.",
+    "route": "/mcp/hermes",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -359,10 +503,74 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/openclaw.mdx",
+    "title": "Connect OpenClaw",
+    "description": "Connect an OpenClaw agent to your OpenPost workspace.",
+    "route": "/mcp/openclaw",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/opencode.mdx",
+    "title": "Connect OpenCode",
+    "description": "Add OpenPost to OpenCode using remote MCP and OAuth.",
+    "route": "/mcp/opencode",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/perplexity.mdx",
+    "title": "Connect Perplexity",
+    "description": "Use OpenPost through a custom remote Perplexity connector.",
+    "route": "/mcp/perplexity",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/tools.mdx",
     "title": "Tools and permissions",
     "description": "Understand OpenPost MCP tools, scopes, and safe request patterns.",
     "route": "/mcp/tools",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/vs-code.mdx",
+    "title": "Connect VS Code",
+    "description": "Use OpenPost tools in VS Code agent chat.",
+    "route": "/mcp/vs-code",
     "agentRepresentation": {
       "membership": "ordinary"
     },

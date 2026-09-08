@@ -1,0 +1,37 @@
+---
+title: Connect Hermes Agent
+description: Add OpenPost to Hermes Agent as an OAuth MCP server.
+icon: hermes
+---
+
+Configure the Hermes installation that runs your agent. A desktop app, CLI, or messaging gateway must read the same configuration and credentials.
+
+## Configure and sign in
+
+Merge this into `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  openpost:
+    url: "https://app.openpo.st/mcp"
+    auth: oauth
+```
+
+Then authenticate and test:
+
+```sh
+hermes mcp login openpost
+hermes mcp test openpost
+```
+
+Complete the browser consent. Choose read-only access for inspection or full access for changes. Restart the agent session or use `/reload-mcp` to refresh its tools.
+
+## Check the connection
+
+Ask, “List my OpenPost workspaces,” then name one and request its scheduled publications. If Hermes does not see the tools, run the connection test again and check whether the server is enabled.
+
+## Remote gateways
+
+Authenticate as the operating-system user running the gateway. Otherwise the agent may not find your saved credentials. On SSH or a headless host, follow Hermes' [remote OAuth guide](https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh) to complete the browser callback.
+
+See [Hermes MCP configuration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp).

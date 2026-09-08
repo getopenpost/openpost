@@ -1,0 +1,34 @@
+---
+title: Connect Antigravity
+description: Use the OpenPost local bridge from Antigravity.
+icon: antigravity
+---
+
+Use OpenPost's local MCP bridge with Antigravity. This works with Hosted or a self-hosted instance that your computer can reach, and avoids differences in remote authentication between Antigravity surfaces.
+
+## Install and authenticate
+
+Follow [the local bridge setup](/mcp#self-hosted-connections) to install `openpost-mcp` and sign in with the `local` profile. Use your Hosted or self-hosted origin during login.
+
+## Add the MCP configuration
+
+Open Antigravity's MCP configuration through **Settings → Customizations → Open MCP Config**, or **MCP Servers → Manage → View raw config** in the IDE. Merge:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+Use the full path from `command -v openpost-mcp` if Antigravity cannot find the command. Save and refresh the MCP servers or restart the app.
+
+## Check the connection
+
+Ask, “List my OpenPost workspaces,” then name one and request its schedule without making changes. If authentication fails, sign in again with the same profile. The bridge must run as the user who saved those credentials.
+
+See Google's [Antigravity setup guide](https://codelabs.developers.google.com/getting-started-google-antigravity) for the MCP configuration controls.

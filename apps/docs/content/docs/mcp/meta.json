@@ -2,5 +2,27 @@
   "title": "AI assistants",
   "icon": "Bot",
   "root": true,
-  "pages": ["index", "cursor", "chatgpt", "claude", "tools"]
+  "pages": [
+    "index",
+    "---Chat assistants---",
+    "chatgpt",
+    "claude",
+    "claude-desktop",
+    "grok",
+    "perplexity",
+    "---Editors and agents---",
+    "cursor",
+    "codex",
+    "claude-code",
+    "devin",
+    "gemini-cli",
+    "github-copilot",
+    "vs-code",
+    "antigravity",
+    "opencode",
+    "openclaw",
+    "hermes",
+    "---Reference---",
+    "tools"
+  ]
 }

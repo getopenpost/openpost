@@ -495,3 +495,47 @@ a {
 .analytics-choices[open] summary svg {
   transform: rotate(90deg);
 }
+
+.docs-client-icon {
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.dark .docs-client-monochrome {
+  filter: invert(1);
+}
+.mcp-clients {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-block: 1.5rem;
+}
+.mcp-clients a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+  color: var(--color-fd-foreground);
+  text-decoration: none;
+}
+.mcp-clients a:hover {
+  background: var(--color-fd-accent);
+}
+.mcp-clients img {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+@media (max-width: 480px) {
+  .mcp-clients {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  #nd-page :is(h2, h3, h4, h5, h6)[id] {
+    scroll-margin-top: calc(var(--fd-banner-height) + 60px);
+  }
+}

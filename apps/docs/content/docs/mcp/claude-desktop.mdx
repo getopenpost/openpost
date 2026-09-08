@@ -1,0 +1,36 @@
+---
+title: Connect Claude Desktop
+description: Connect through Claude account settings or a local OpenPost bridge.
+icon: claude
+---
+
+Claude Desktop supports a remote account connector and local tools. Choose the remote connector for Hosted; use the local bridge when your OpenPost instance is reachable only from your computer.
+
+## Remote connector
+
+Open **Settings → Connectors** and add `https://app.openpo.st/mcp` as a custom connector named `OpenPost`. Complete browser sign-in and enable it in the conversation. The [Claude web guide](/mcp/claude) covers permissions and organization setup.
+
+Remote connectors run from Claude's cloud even when you use the desktop app. They cannot reach your computer's `localhost`.
+
+## Local bridge
+
+First [install and sign in to the OpenPost bridge](/mcp#self-hosted-connections). In Claude Desktop, open **Settings → Developer → Edit Config** and merge:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+Use the absolute path from `command -v openpost-mcp` if the app cannot find the executable. Fully restart Claude Desktop after saving.
+
+## Check the connection
+
+Ask, “List my OpenPost workspaces.” If the local bridge fails, confirm that you authenticated the same profile as the same operating-system user running Claude Desktop.
+
+See the [local MCP setup guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers) for desktop configuration details.

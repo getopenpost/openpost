@@ -1,33 +1,31 @@
 ---
-title: Connect Claude
-description: Add OpenPost to Claude, Claude Desktop, or Claude Code.
-icon: Bot
+title: Connect Claude web
+description: Connect OpenPost to Claude through a custom connector.
+icon: claude
 ---
 
-## Claude web and Claude Desktop
+Use Claude's custom connector to review your schedule and prepare publications from a conversation. Your Claude account or organization must allow custom connectors.
 
-Claude's remote connector flow uses the same Streamable HTTP endpoint:
+## Add the connector
+
+1. Open Claude's **Customize → Connectors**, or **Settings → Connectors** in interfaces that use that label.
+2. Choose **Add custom connector**, name it `OpenPost`, and enter:
 
 ```text
 https://app.openpo.st/mcp
 ```
 
-Open **Settings → Connectors → Add custom connector**, enter `OpenPost` and the URL, then click **Add** and **Connect**. Sign in to OpenPost, choose a workspace, and review the requested scope. Use `mcp:read` for reports and schedule review. Use `mcp:full` only when Claude needs to create, edit, schedule, or publish. Enable the connector from Claude's **Search and tools** menu before asking it to use OpenPost.
+3. Add the connector and complete OpenPost's browser sign-in. Leave optional client credentials empty; OpenPost supports dynamic registration.
+4. Choose read-only access for reviews, or full access to create and publish. Enable OpenPost in the conversation's connector controls.
 
-Test with “List my connected accounts” and “Review this week's schedule without changing it.” For any write request, ask Claude to stop before the final action so you can check the workspace, account, destination, copy, and timing. Disconnect or remove the connector in **Settings → Connectors** to revoke its client connection.
+## Check the connection
 
-Claude Desktop does not use a remote server placed directly in `claude_desktop_config.json`; add remote servers through **Settings → Connectors**. A local self-hosted server can instead use Claude Desktop's local extension flow, or the OpenPost stdio bridge.
+Ask, “List my OpenPost workspaces,” then name one and ask for its scheduled publications. For a first write, request an unpublished draft and inspect it in OpenPost.
 
-## Claude Code
+## If it does not connect
 
-Add the remote HTTP server from a shell:
+An organization owner may need to add or allow the connector first. Claude reaches remote servers from its cloud, so self-hosted OpenPost needs a public HTTPS URL. Reconnect from the connector settings if authorization expires.
 
-```sh
-claude mcp add --transport http openpost https://app.openpo.st/mcp
-```
+Using another Claude client? See [Claude Desktop](/mcp/claude-desktop) or [Claude Code](/mcp/claude-code).
 
-Start Claude Code, run `/mcp`, select `openpost`, and follow the browser OAuth flow. Claude stores and refreshes the OAuth credentials. Run `/mcp` again to inspect connection status or clear authentication. If your client needs a manual token, configure an Authorization header through Claude Code's MCP options and keep the token in your secret environment, never in a checked-in config.
-
-Cloud Claude cannot reach a private hostname or `localhost`. Use public HTTPS for the hosted MCP endpoint, or use the local bridge with a local Claude client.
-
-For current client controls and plan availability, see [Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp).
+See [Claude custom connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).

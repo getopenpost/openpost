@@ -1,0 +1,26 @@
+---
+title: Connect Perplexity
+description: Use OpenPost through a custom remote Perplexity connector.
+icon: perplexity
+---
+
+Use a Perplexity account with custom remote connectors enabled. An organization administrator may control which connectors you can add.
+
+## Add the remote connector
+
+1. Open **Account Settings → Connectors**.
+2. Add a **Custom connector** and choose **Remote**.
+3. Name it `OpenPost` and enter `https://app.openpo.st/mcp`.
+4. Select OAuth and complete the OpenPost sign-in. Choose read-only access for reviews or full access for changes.
+
+If your connector configuration uses a bearer header instead, create an OpenPost developer token with `mcp:read` or `mcp:full` and enter it in the connector's authentication settings, not in a conversation.
+
+## Check the connection
+
+Enable the connector for your conversation or Computer workflow. Ask, “List my OpenPost workspaces,” then request the schedule for a named workspace without changing anything.
+
+## If it does not connect
+
+Check that your account exposes custom remote connectors and that the connector is enabled for this conversation. Reconnect after an expired authorization. Self-hosted OpenPost must have a publicly reachable HTTPS URL; Perplexity's cloud cannot reach your laptop's `localhost`.
+
+See [Perplexity's remote connector announcement](https://www.perplexity.ai/changelog/what-we-shipped---march-13-2026).

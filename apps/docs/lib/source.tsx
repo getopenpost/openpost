@@ -15,12 +15,51 @@ const providerIcons: Record<string, string> = {
   discord: "/assets/logos/discord.svg",
 };
 
+const clientIcons = new Set([
+  "antigravity",
+  "chatgpt",
+  "claude",
+  "codex",
+  "cursor",
+  "devin",
+  "gemini",
+  "github-copilot",
+  "grok",
+  "hermes",
+  "openclaw",
+  "opencode",
+  "perplexity",
+  "vscode",
+]);
+const monochromeClients = new Set([
+  "chatgpt",
+  "cursor",
+  "devin",
+  "github-copilot",
+  "grok",
+  "opencode",
+]);
+
 const docs = defineDocs({ dir: "content/docs" });
 export const source = loader({
   baseUrl: "/",
   source: docs.toFumadocsSource(),
   plugins: [openapiPlugin()],
   icon(name) {
+    if (name && clientIcons.has(name))
+      return (
+        <img
+          src={`/clients/${name}.${name === "hermes" ? "png" : "svg"}`}
+          alt=""
+          width={16}
+          height={16}
+          className={
+            monochromeClients.has(name)
+              ? "docs-client-icon docs-client-monochrome"
+              : "docs-client-icon"
+          }
+        />
+      );
     if (name && providerIcons[name])
       return (
         <img

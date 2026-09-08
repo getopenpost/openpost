@@ -1,0 +1,31 @@
+---
+title: Connect Claude Code
+description: Use OpenPost from Claude Code in your terminal.
+icon: claude
+---
+
+Add OpenPost as a remote server in an installed Claude Code. User scope makes it available across your projects.
+
+## Add the server
+
+```sh
+claude mcp add --transport http --scope user openpost https://app.openpo.st/mcp
+```
+
+Start Claude Code and run `/mcp`. Select `openpost` and follow the browser sign-in. Choose `mcp:read` for reviews or `mcp:full` for creating, editing, scheduling, and publishing.
+
+## Check the connection
+
+Run `/mcp` to inspect the connection. Ask, “List my OpenPost workspaces,” then name a workspace and ask Claude to review its schedule without making changes.
+
+## Self-hosted OpenPost
+
+Replace the hosted origin with your server's HTTPS origin and keep `/mcp`. If you prefer the [local bridge](/mcp#self-hosted-connections), install and authenticate it first, then add it instead:
+
+```sh
+claude mcp add --scope user openpost -- openpost-mcp --profile local
+```
+
+Use one connection for `openpost`, not both. If authentication expires, use `/mcp` to reconnect. If the bridge is not found, configure its absolute executable path.
+
+See [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).

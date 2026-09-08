@@ -61,3 +61,37 @@ test("search filters keep guide and API results separate", async ({ page }) => {
   await page.getByRole("button", { name: /Close/i }).click();
   await expect(page.getByRole("textbox")).not.toBeVisible();
 });
+
+test("AI client picker opens every guide and renders its logo", async ({ page }) => {
+  await page.goto("/mcp");
+  const picker = page.locator(".mcp-clients");
+  await expect(picker.getByRole("link")).toHaveCount(16);
+  const clients = await picker
+    .getByRole("link")
+    .evaluateAll((links) =>
+      links.map((link) => ({ href: link.getAttribute("href")!, name: link.textContent!.trim() })),
+    );
+  for (const client of clients) {
+    await page.goto("/mcp");
+    const link = picker.getByRole("link", { name: client.name, exact: true });
+    await expect
+      .poll(() => link.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`${client.href}$`));
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Connect");
+    await expect(page.locator("#nd-page")).toContainText("OpenPost");
+  }
+});
+
+test("mobile anchor links leave the heading below sticky navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/mcp");
+  await page.locator("#choose-a-setup").getByRole("link", { name: "Choose a setup" }).click();
+  await expect(page).toHaveURL(/#choose-a-setup$/);
+  await expect
+    .poll(() =>
+      page.locator("#choose-a-setup").evaluate((heading) => heading.getBoundingClientRect().top),
+    )
+    .toBeGreaterThanOrEqual(144);
+});

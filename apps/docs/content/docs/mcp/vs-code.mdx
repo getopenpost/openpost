@@ -1,0 +1,36 @@
+---
+title: Connect VS Code
+description: Use OpenPost tools in VS Code agent chat.
+icon: vscode
+---
+
+Use an installed VS Code with Copilot agent chat available. The editor manages the MCP connection and browser sign-in.
+
+## Add the server
+
+Open the Command Palette and run **MCP: Add Server**. Choose **HTTP**, enter `https://app.openpo.st/mcp`, and name the server `openpost`. Choose user configuration to use it across projects, or workspace configuration for this project.
+
+A workspace `.vscode/mcp.json` looks like this:
+
+```json
+{
+  "servers": {
+    "openpost": {
+      "type": "http",
+      "url": "https://app.openpo.st/mcp"
+    }
+  }
+}
+```
+
+The top-level key is `servers`, not `mcpServers`.
+
+## Authorize and test
+
+Start the server from its configuration and complete the OpenPost sign-in. Select read-only access for a first connection. In agent chat, enable the OpenPost tools and ask, “List my OpenPost workspaces.”
+
+## If tools are missing
+
+Use **MCP: List Servers** to inspect the server status and output. Check that the current chat has the tools enabled. A new login can resolve an expired authorization.
+
+See [VS Code MCP setup](https://code.visualstudio.com/docs/agent-customization/mcp-servers).

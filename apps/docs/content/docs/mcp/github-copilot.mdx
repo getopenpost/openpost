@@ -1,0 +1,24 @@
+---
+title: Connect GitHub Copilot
+description: Use OpenPost from Copilot agent chat in VS Code.
+icon: github-copilot
+---
+
+Copilot in VS Code uses the editor's MCP connection. Add OpenPost once, then select its tools in agent chat.
+
+## Set up Copilot in your editor
+
+1. Open VS Code and sign in to GitHub Copilot.
+2. Follow [Connect VS Code](/mcp/vs-code) to add `https://app.openpo.st/mcp` and authorize OpenPost.
+3. Open Copilot Chat in agent mode and enable the OpenPost tools.
+4. Ask, “List my OpenPost workspaces,” then specify the workspace you want to use.
+
+## Try a useful task
+
+Ask, “Review this week's schedule and suggest gaps without changing any posts.” With full access, try, “Prepare a draft about this release for my connected LinkedIn account. Leave it unpublished.” Review the result in OpenPost before scheduling it.
+
+## Other Copilot surfaces
+
+This setup applies to Copilot in VS Code. GitHub's hosted coding agent has its own MCP configuration and authentication rules. An editor connection does not automatically configure a GitHub-hosted agent.
+
+For missing tools, check the server status in VS Code and enable its tools for the current chat. See [VS Code MCP setup](https://code.visualstudio.com/docs/agent-customization/mcp-servers) for the editor controls.

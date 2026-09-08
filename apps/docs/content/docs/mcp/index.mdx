@@ -14,12 +14,104 @@ Choose **read-only access** to review accounts and scheduled posts. Choose **ful
 
 ## Choose a setup
 
-| Client           | Setup                                                                   |
-| ---------------- | ----------------------------------------------------------------------- |
-| Cursor           | [Connect Cursor](/mcp/cursor)                                           |
-| ChatGPT          | [Connect ChatGPT](/mcp/chatgpt)                                         |
-| Claude           | [Connect Claude and Claude Code](/mcp/claude)                           |
-| Other MCP client | Use the endpoint and token rules in [Tools and permissions](/mcp/tools) |
+<div className="mcp-clients not-prose">
+  <a href="/mcp/chatgpt">
+    <img
+      src="/clients/chatgpt.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
+    <span>ChatGPT</span>
+  </a>
+  <a href="/mcp/claude">
+    <img src="/clients/claude.svg" alt="" width={24} height={24} />
+    <span>Claude web</span>
+  </a>
+  <a href="/mcp/claude-desktop">
+    <img src="/clients/claude.svg" alt="" width={24} height={24} />
+    <span>Claude Desktop</span>
+  </a>
+  <a href="/mcp/claude-code">
+    <img src="/clients/claude.svg" alt="" width={24} height={24} />
+    <span>Claude Code</span>
+  </a>
+  <a href="/mcp/cursor">
+    <img
+      src="/clients/cursor.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
+    <span>Cursor</span>
+  </a>
+  <a href="/mcp/codex">
+    <img src="/clients/codex.svg" alt="" width={24} height={24} />
+    <span>Codex</span>
+  </a>
+  <a href="/mcp/grok">
+    <img src="/clients/grok.svg" alt="" width={24} height={24} className="docs-client-monochrome" />
+    <span>Grok</span>
+  </a>
+  <a href="/mcp/devin">
+    <img
+      src="/clients/devin.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
+    <span>Devin</span>
+  </a>
+  <a href="/mcp/perplexity">
+    <img src="/clients/perplexity.svg" alt="" width={24} height={24} />
+    <span>Perplexity</span>
+  </a>
+  <a href="/mcp/gemini-cli">
+    <img src="/clients/gemini.svg" alt="" width={24} height={24} />
+    <span>Gemini CLI</span>
+  </a>
+  <a href="/mcp/github-copilot">
+    <img
+      src="/clients/github-copilot.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
+    <span>GitHub Copilot</span>
+  </a>
+  <a href="/mcp/vs-code">
+    <img src="/clients/vscode.svg" alt="" width={24} height={24} />
+    <span>VS Code</span>
+  </a>
+  <a href="/mcp/antigravity">
+    <img src="/clients/antigravity.svg" alt="" width={24} height={24} />
+    <span>Antigravity</span>
+  </a>
+  <a href="/mcp/opencode">
+    <img
+      src="/clients/opencode.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
+    <span>OpenCode</span>
+  </a>
+  <a href="/mcp/openclaw">
+    <img src="/clients/openclaw.svg" alt="" width={24} height={24} />
+    <span>OpenClaw</span>
+  </a>
+  <a href="/mcp/hermes">
+    <img src="/clients/hermes.png" alt="" width={24} height={24} />
+    <span>Hermes Agent</span>
+  </a>
+</div>
+
+Each guide covers setup, a first request, and connection fixes. For another client, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools).
 
 OAuth is the preferred setup for remote clients. OpenPost asks you to sign in and choose `mcp:read` or `mcp:full`, with an optional workspace binding. If the client does not support OAuth, create a developer token in **Settings → Personal → Developer** and pass it as a bearer header. Never paste that token into a prompt.
 

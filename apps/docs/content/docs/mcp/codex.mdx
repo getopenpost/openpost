@@ -1,0 +1,34 @@
+---
+title: Connect Codex
+description: Add OpenPost to Codex with remote MCP and browser sign-in.
+icon: codex
+---
+
+Use Codex to review your publishing schedule or prepare drafts alongside your project work. Install Codex and sign in before adding OpenPost.
+
+## Add OpenPost
+
+Add this entry to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.openpost]
+url = "https://app.openpo.st/mcp"
+```
+
+Then authenticate:
+
+```sh
+codex mcp login openpost
+```
+
+Complete the browser sign-in. Choose `mcp:read` to inspect your workspace, or `mcp:full` to let Codex change publications. Start a new session after changing the configuration.
+
+## Check the connection
+
+Run `codex mcp list`, then ask Codex, “List my OpenPost workspaces.” Name your workspace and ask for this week's schedule without changing anything.
+
+## If it does not connect
+
+Run the login command again if authorization expired. Check that the configured URL ends in `/mcp`. For a private self-hosted server, use the [local bridge](/mcp#self-hosted-connections) with `command = "openpost-mcp"` and `args = ["--profile", "local"]` instead of `url`.
+
+See [Codex MCP configuration](https://developers.openai.com/codex/mcp) for client settings.

@@ -1,0 +1,41 @@
+---
+title: Connect OpenCode
+description: Add OpenPost to OpenCode using remote MCP and OAuth.
+icon: opencode
+---
+
+Configure OpenPost as a remote server and let OpenCode handle the browser authorization.
+
+## Configure the server
+
+In OpenCode v2, merge this into your OpenCode configuration:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "openpost": {
+        "type": "remote",
+        "url": "https://app.openpo.st/mcp"
+      }
+    }
+  }
+}
+```
+
+Earlier OpenCode configurations place `openpost` directly under `mcp`, without the `servers` wrapper. Follow the schema for your installed version if it rejects this shape.
+
+## Authorize and test
+
+```sh
+opencode mcp auth openpost
+opencode mcp list
+```
+
+Complete OpenPost's consent with read-only access for reviews or full access for changes. Start a session and ask, “List my OpenPost workspaces,” then request the schedule for a named workspace.
+
+## If it does not connect
+
+Use `opencode mcp debug openpost` to investigate authentication. Re-run `opencode mcp auth openpost` if your login expired. Check that the URL ends in `/mcp` and is reachable from the machine running OpenCode.
+
+See [OpenCode MCP configuration](https://dev.opencode.ai/docs/mcp-servers/) for the current schema.

@@ -1,0 +1,28 @@
+---
+title: Connect Devin
+description: Give Devin access to your OpenPost workspace through MCP.
+icon: devin
+---
+
+Add OpenPost as a custom server in Devin's MCP marketplace. You need permission to configure integrations for your Devin organization.
+
+## Add OpenPost
+
+1. Open **Settings → MCP Marketplace → Add Your Own**.
+2. Name the server `OpenPost` and select **HTTP** transport.
+3. Enter `https://app.openpo.st/mcp`.
+4. Select **OAuth**, save, and start a Devin session. Complete OpenPost's sign-in when prompted.
+
+Choose read-only access to inspect publications and accounts. Choose full access when Devin needs to prepare, schedule, or publish content.
+
+## Check the connection
+
+Ask, “List my OpenPost workspaces,” then name a workspace and request its scheduled publications. Try a draft before a publishing request: “Prepare a draft about this release. Leave it unpublished.”
+
+## If it does not connect
+
+Cloud Devin must reach your server over public HTTPS. It cannot reach `localhost` on your laptop. Check the server's HTTP transport, connection status, and authorization in the MCP settings.
+
+Devin's own MCP server exposes Devin to other clients. It is a different integration; the URL you enter here must be OpenPost's endpoint.
+
+See [Devin's MCP marketplace guide](https://docs.devin.ai/work-with-devin/mcp).

@@ -1,0 +1,33 @@
+---
+title: Connect OpenClaw
+description: Connect an OpenClaw agent to your OpenPost workspace.
+icon: openclaw
+---
+
+Register OpenPost on the machine running OpenClaw. The current CLI uses `mcp set` to save a server definition.
+
+## Add and authorize
+
+```sh
+openclaw mcp set openpost \
+  '{"url":"https://app.openpo.st/mcp","transport":"streamable-http","auth":"oauth"}'
+openclaw mcp login openpost
+```
+
+Complete the sign-in instructions printed by OpenClaw. Choose read-only access to inspect publications, or full access to let the agent change them.
+
+## Check the connection
+
+```sh
+openclaw mcp doctor --probe
+```
+
+Restart your active agent or gateway to refresh its tool list. Ask, “List my OpenPost workspaces,” then name one and ask for this week's schedule without changing anything.
+
+## If it does not connect
+
+If `mcp set` is unavailable, check your installed OpenClaw version against the current CLI guide. Run `openclaw mcp login openpost` again for an expired authorization. For a remote gateway, finish login on the host that stores the gateway's configuration.
+
+A self-hosted URL must be reachable from the OpenClaw host. A gateway running elsewhere cannot use `localhost` to reach your laptop.
+
+See [OpenClaw MCP commands](https://docs.openclaw.ai/cli/mcp).

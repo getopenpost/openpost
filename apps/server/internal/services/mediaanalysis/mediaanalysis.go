@@ -1,6 +1,7 @@
 package mediaanalysis
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -113,6 +114,14 @@ func (a FFmpegAnalyzer) Analyze(ctx context.Context, input Input) (Result, error
 	if err != nil {
 		return failedVideoResult(err), err
 	}
+	video, _, _ := primaryStreams(probe.Streams)
+	if video != nil && parsePositiveFloat(video.Duration) <= 0 && parsePositiveFloat(probe.Format.Duration) <= 0 {
+		duration, durationErr := a.recordingDuration(ctx, input.Filename, parseFrameRate(video.AvgFrameRate))
+		if durationErr != nil {
+			return failedVideoResult(durationErr), durationErr
+		}
+		video.Duration = strconv.FormatFloat(duration, 'f', -1, 64)
+	}
 	result, durationSeconds, err := resultFromProbe(probe)
 	if err != nil {
 		return failedVideoResult(err), err
@@ -122,6 +131,67 @@ func (a FFmpegAnalyzer) Analyze(ctx context.Context, input Input) (Result, error
 		result.PosterContent = poster
 	}
 	return result, nil
+}
+
+// Streaming WebM recordings omit duration metadata. Read packet timestamps without
+// decoding frames or retaining a recording-sized packet list in memory.
+func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename string, frameRate float64) (float64, error) {
+	ffprobe := a.FFprobePath
+	if ffprobe == "" {
+		ffprobe = "ffprobe"
+	}
+	timeout := a.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	cmd := exec.CommandContext(probeCtx, ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time,duration_time", "-of", "csv=p=0", filename)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return 0, err
+	}
+	if err := cmd.Start(); err != nil {
+		return 0, err
+	}
+	var first, end float64
+	found := false
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		fields := strings.Split(scanner.Text(), ",")
+		if len(fields) < 2 {
+			continue
+		}
+		start, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil {
+			continue
+		}
+		duration := parsePositiveFloat(fields[1])
+		if duration <= 0 && frameRate > 0 {
+			duration = 1 / frameRate
+		}
+		if !found || start < first {
+			first = start
+		}
+		if !found || start+duration > end {
+			end = start + duration
+		}
+		found = true
+	}
+	if scanner.Err() != nil {
+		cancel()
+	}
+	waitErr := cmd.Wait()
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	if waitErr != nil {
+		return 0, waitErr
+	}
+	if !found || end <= first {
+		return 0, errors.New("video duration is unavailable")
+	}
+	return end - first, nil
 }
 
 func (a FFmpegAnalyzer) probe(ctx context.Context, filename string) (probeOutput, error) {
@@ -160,7 +230,10 @@ func resultFromProbe(probe probeOutput) (Result, float64, error) {
 	if videoStream == nil {
 		return Result{}, 0, errors.New("no video stream found")
 	}
-	durationSeconds := parsePositiveFloat(firstNonEmpty(videoStream.Duration, probe.Format.Duration))
+	durationSeconds := parsePositiveFloat(videoStream.Duration)
+	if durationSeconds <= 0 {
+		durationSeconds = parsePositiveFloat(probe.Format.Duration)
+	}
 	if durationSeconds <= 0 {
 		return Result{}, 0, errors.New("video duration is unavailable")
 	}

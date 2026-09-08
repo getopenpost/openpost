@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "Arquivos",
 	"video_editor_media_health_chip": "{missing} ausentes · {proxies} proxies pendentes · {codecs} sem suporte",
 	"video_editor_media_health_scanning": "Verificando a integridade da mídia…",
-	"theme_library_load_more": "Carregar mais"
+	"theme_library_load_more": "Carregar mais",
+	"accounts_telegram_title": "Conectar Telegram",
+	"accounts_telegram_description": "Conecte um canal ou grupo que você administra.",
+	"accounts_telegram_add_bot": "Adicione este bot como administrador com permissão para publicar:",
+	"accounts_telegram_command": "Comando de conexão",
+	"accounts_telegram_send_command": "Envie este comando no chat selecionado. Ele funciona uma vez e não deve ser compartilhado em outro lugar.",
+	"accounts_telegram_expires": "Válido até",
+	"accounts_telegram_reload": "Recarregar contas",
+	"accounts_telegram_chat_id": "ID do chat do Telegram",
+	"accounts_telegram_generate": "Obter comando de conexão",
+	"accounts_telegram_chat_id_help": "Abra seu canal ou grupo no Telegram Web A. Copie o número após # no endereço, incluindo o sinal de menos, até o primeiro sublinhado."
 }

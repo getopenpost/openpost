@@ -18,6 +18,7 @@
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import TelegramConnectionDialog from '$lib/components/telegram-connection-dialog.svelte';
 	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -175,6 +176,7 @@
 	let blueskyLoading = $state(false);
 	let blueskyError = $state('');
 	let discordModalOpen = $state(false);
+	let telegramModalOpen = $state(false);
 	let discordWebhookUrl = $state('');
 	let discordLoading = $state(false);
 	let discordError = $state('');
@@ -774,6 +776,7 @@
 			blueskyLoading = false;
 			blueskyError = '';
 			discordModalOpen = false;
+			telegramModalOpen = false;
 			discordLoading = false;
 			discordError = '';
 			mastodonModalOpen = false;
@@ -1364,6 +1367,9 @@
 				break;
 			case 'discord':
 				connectDiscord();
+				break;
+			case 'telegram':
+				telegramModalOpen = true;
 				break;
 			case 'linkedin':
 				connectLinkedIn();
@@ -2021,6 +2027,16 @@
 		</form>
 	</Dialog.Content>
 </Dialog.Root>
+
+{#if telegramModalOpen && selectedWorkspaceId}
+	{#key selectedWorkspaceId}
+		<TelegramConnectionDialog
+			workspaceID={selectedWorkspaceId}
+			onClose={() => (telegramModalOpen = false)}
+			onRefresh={() => loadAccounts()}
+		/>
+	{/key}
+{/if}
 
 <Dialog.Root bind:open={discordModalOpen}>
 	<Dialog.Content class="sm:max-w-lg">

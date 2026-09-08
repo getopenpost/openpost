@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "Ficheiros",
 	"video_editor_media_health_chip": "{missing} em falta · {proxies} proxies pendentes · {codecs} não suportados",
 	"video_editor_media_health_scanning": "A verificar a integridade dos ficheiros…",
-	"theme_library_load_more": "Carregar mais"
+	"theme_library_load_more": "Carregar mais",
+	"accounts_telegram_title": "Ligar o Telegram",
+	"accounts_telegram_description": "Liga um canal ou grupo que administras.",
+	"accounts_telegram_add_bot": "Adiciona este bot como administrador com permissão para publicar:",
+	"accounts_telegram_command": "Comando de ligação",
+	"accounts_telegram_send_command": "Envia este comando no chat selecionado. Só funciona uma vez e não deve ser partilhado noutro local.",
+	"accounts_telegram_expires": "Válido até",
+	"accounts_telegram_reload": "Recarregar contas",
+	"accounts_telegram_chat_id": "ID do chat do Telegram",
+	"accounts_telegram_generate": "Obter comando de ligação",
+	"accounts_telegram_chat_id_help": "Abre o teu canal ou grupo no Telegram Web A. Copia o número após # no endereço, incluindo o sinal de menos, até ao primeiro sublinhado."
 }

@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "文件",
 	"video_editor_media_health_chip": "{missing} 个缺失 · {proxies} 个代理待处理 · {codecs} 个不受支持",
 	"video_editor_media_health_scanning": "正在检查媒体状态…",
-	"theme_library_load_more": "加载更多"
+	"theme_library_load_more": "加载更多",
+	"accounts_telegram_title": "连接 Telegram",
+	"accounts_telegram_description": "连接你管理的频道或群组。",
+	"accounts_telegram_add_bot": "将此机器人添加为具有发布权限的管理员：",
+	"accounts_telegram_command": "连接命令",
+	"accounts_telegram_send_command": "在所选聊天中发送此命令。命令仅可使用一次，请勿在其他地方分享。",
+	"accounts_telegram_expires": "有效期至",
+	"accounts_telegram_reload": "重新加载账号",
+	"accounts_telegram_chat_id": "Telegram 聊天 ID",
+	"accounts_telegram_generate": "获取连接命令",
+	"accounts_telegram_chat_id_help": "在 Telegram Web A 中打开你的频道或群组。复制地址中 # 后的数字，包括负号，不要包含下划线及其后的内容。"
 }

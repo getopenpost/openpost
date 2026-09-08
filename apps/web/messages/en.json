@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "Files",
 	"video_editor_media_health_chip": "{missing} missing · {proxies} proxies pending · {codecs} unsupported",
 	"video_editor_media_health_scanning": "Checking media health…",
-	"theme_library_load_more": "Load more"
+	"theme_library_load_more": "Load more",
+	"accounts_telegram_title": "Connect Telegram",
+	"accounts_telegram_description": "Connect a channel or group you administer.",
+	"accounts_telegram_add_bot": "Add this bot as an administrator with permission to post:",
+	"accounts_telegram_command": "Connection command",
+	"accounts_telegram_send_command": "Send this command in the selected chat. It works once and must not be shared elsewhere.",
+	"accounts_telegram_expires": "Valid until",
+	"accounts_telegram_reload": "Reload accounts",
+	"accounts_telegram_chat_id": "Telegram chat ID",
+	"accounts_telegram_generate": "Get connection command",
+	"accounts_telegram_chat_id_help": "Open your channel or group in Telegram Web A. Copy the number after # in the address, including the minus sign, and stop before any underscore."
 }

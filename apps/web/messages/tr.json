@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "Dosyalar",
 	"video_editor_media_health_chip": "{missing} eksik · {proxies} proxy bekliyor · {codecs} desteklenmiyor",
 	"video_editor_media_health_scanning": "Medya durumu denetleniyor…",
-	"theme_library_load_more": "Daha fazla yükle"
+	"theme_library_load_more": "Daha fazla yükle",
+	"accounts_telegram_title": "Telegram bağla",
+	"accounts_telegram_description": "Yönettiğiniz bir kanalı veya grubu bağlayın.",
+	"accounts_telegram_add_bot": "Bu botu gönderi paylaşma izni olan bir yönetici olarak ekleyin:",
+	"accounts_telegram_command": "Bağlantı komutu",
+	"accounts_telegram_send_command": "Bu komutu seçilen sohbette gönderin. Yalnızca bir kez çalışır ve başka yerde paylaşılmamalıdır.",
+	"accounts_telegram_expires": "Geçerlilik süresi",
+	"accounts_telegram_reload": "Hesapları yeniden yükle",
+	"accounts_telegram_chat_id": "Telegram sohbet kimliği",
+	"accounts_telegram_generate": "Bağlantı komutu al",
+	"accounts_telegram_chat_id_help": "Kanalınızı veya grubunuzu Telegram Web A’da açın. Adresteki # işaretinden sonraki sayıyı eksi işaretiyle birlikte kopyalayın. Alt çizgiden sonrasını almayın."
 }

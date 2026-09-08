@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "ファイル",
 	"video_editor_media_health_chip": "{missing} 件不足 · {proxies} 件のプロキシ待ち · {codecs} 件が未対応",
 	"video_editor_media_health_scanning": "メディアの状態を確認中…",
-	"theme_library_load_more": "さらに読み込む"
+	"theme_library_load_more": "さらに読み込む",
+	"accounts_telegram_title": "Telegramを接続",
+	"accounts_telegram_description": "管理しているチャンネルまたはグループを接続します。",
+	"accounts_telegram_add_bot": "投稿権限を持つ管理者としてこのボットを追加してください：",
+	"accounts_telegram_command": "接続コマンド",
+	"accounts_telegram_send_command": "選択したチャットでこのコマンドを送信してください。一度だけ使用でき、他の場所で共有しないでください。",
+	"accounts_telegram_expires": "有効期限",
+	"accounts_telegram_reload": "アカウントを再読み込み",
+	"accounts_telegram_chat_id": "TelegramチャットID",
+	"accounts_telegram_generate": "接続コマンドを取得",
+	"accounts_telegram_chat_id_help": "Telegram Web Aでチャンネルまたはグループを開きます。アドレスの#の後にある数字をマイナス記号も含めてコピーしてください。アンダースコア以降は含めません。"
 }

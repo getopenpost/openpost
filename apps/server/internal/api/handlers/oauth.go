@@ -438,7 +438,6 @@ var providerCatalog = []ProviderInfo{
 		DisplayName:     "Telegram",
 		AuthMode:        "bot",
 		ConnectionModes: []string{"bot"},
-		Status:          providerStatusPlanned,
 		Description:     "Telegram bot connections stay gated until bot certification is complete.",
 	},
 	{

@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "Dateien",
 	"video_editor_media_health_chip": "{missing} fehlend · {proxies} Proxys ausstehend · {codecs} nicht unterstützt",
 	"video_editor_media_health_scanning": "Medienintegrität wird geprüft…",
-	"theme_library_load_more": "Mehr laden"
+	"theme_library_load_more": "Mehr laden",
+	"accounts_telegram_title": "Telegram verbinden",
+	"accounts_telegram_description": "Verbinde einen Kanal oder eine Gruppe, die du verwaltest.",
+	"accounts_telegram_add_bot": "Füge diesen Bot als Administrator mit Veröffentlichungsrechten hinzu:",
+	"accounts_telegram_command": "Verbindungsbefehl",
+	"accounts_telegram_send_command": "Sende diesen Befehl im ausgewählten Chat. Er funktioniert nur einmal und darf nicht anderswo geteilt werden.",
+	"accounts_telegram_expires": "Gültig bis",
+	"accounts_telegram_reload": "Konten neu laden",
+	"accounts_telegram_chat_id": "Telegram-Chat-ID",
+	"accounts_telegram_generate": "Verbindungsbefehl abrufen",
+	"accounts_telegram_chat_id_help": "Öffne deinen Kanal oder deine Gruppe in Telegram Web A. Kopiere die Zahl nach # in der Adresse einschließlich Minuszeichen bis vor einen eventuellen Unterstrich."
 }

@@ -102,7 +102,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.True(t, out[2].Configured)
 	require.Contains(t, out[2].Capabilities, "Board targeting")
 	require.Equal(t, "telegram", out[3].Platform)
-	require.Equal(t, providerStatusPlanned, out[3].Status)
+	require.NotEqual(t, providerStatusPlanned, out[3].Status)
 	require.False(t, out[3].Configured)
 	require.Equal(t, "x", out[4].Platform)
 	require.Equal(t, providerStatusAvailable, out[4].Status)
@@ -126,4 +126,36 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[11].Description)
 	require.Contains(t, out[11].Capabilities, "Short videos")
 	require.Contains(t, out[11].Capabilities, "Photo posts")
+}
+
+func TestTelegramConnectionAvailabilityFollowsReadiness(t *testing.T) {
+	for _, approved := range []bool{false, true} {
+		t.Run(map[bool]string{false: "review missing", true: "review current"}[approved], func(t *testing.T) {
+			e := echo.New()
+			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			handler := &OAuthHandler{auth: testAuthenticator{}}
+			handler.readiness = oauthConnectionReadiness(t,
+				&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled, approved: approved},
+				platform.AppConfig{Provider: "telegram", ConnectionMode: "bot", BotToken: "test-token", BotUsername: "test_bot", WebhookSecret: "test-secret"},
+			)
+			handler.ListProviders(api)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/accounts/providers", nil)
+			req.Header.Set("Authorization", "Bearer web-token")
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusOK, rec.Code)
+			var providers []ProviderInfo
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &providers))
+			for _, provider := range providers {
+				if provider.Platform != "telegram" {
+					continue
+				}
+				require.Equal(t, approved, provider.Configured)
+				require.Equal(t, approved, provider.Readiness.Connectable)
+				require.NotEqual(t, providerStatusPlanned, provider.Status)
+				return
+			}
+			t.Fatal("Telegram missing from account providers")
+		})
+	}
 }

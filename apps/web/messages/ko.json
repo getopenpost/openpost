@@ -8652,5 +8652,15 @@
 	"video_editor_media_add_files": "파일",
 	"video_editor_media_health_chip": "{missing}개 누락 · {proxies}개 프록시 대기 중 · {codecs}개 지원되지 않음",
 	"video_editor_media_health_scanning": "미디어 상태 확인 중…",
-	"theme_library_load_more": "더 불러오기"
+	"theme_library_load_more": "더 불러오기",
+	"accounts_telegram_title": "Telegram 연결",
+	"accounts_telegram_description": "관리하는 채널이나 그룹을 연결하세요.",
+	"accounts_telegram_add_bot": "게시 권한이 있는 관리자로 이 봇을 추가하세요:",
+	"accounts_telegram_command": "연결 명령어",
+	"accounts_telegram_send_command": "선택한 채팅에서 이 명령어를 보내세요. 한 번만 사용할 수 있으며 다른 곳에 공유하면 안 됩니다.",
+	"accounts_telegram_expires": "유효 기한",
+	"accounts_telegram_reload": "계정 새로고침",
+	"accounts_telegram_chat_id": "Telegram 채팅 ID",
+	"accounts_telegram_generate": "연결 명령어 받기",
+	"accounts_telegram_chat_id_help": "Telegram Web A에서 채널이나 그룹을 여세요. 주소의 # 뒤 숫자를 마이너스 부호와 함께 복사하세요. 밑줄 이후는 제외하세요."
 }

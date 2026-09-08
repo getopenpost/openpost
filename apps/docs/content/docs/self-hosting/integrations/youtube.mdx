@@ -1,0 +1,22 @@
+---
+title: YouTube
+description: Configure Google OAuth and YouTube video uploads.
+---
+
+In Google Cloud, create an OAuth client for a web application, enable YouTube Data API v3, and add this authorized redirect URI:
+
+```text
+https://your-domain.example/api/v1/accounts/youtube/callback
+```
+
+Store the client in `OPENPOST_PROVIDER_APPS` (prefer the `_FILE` form in production):
+
+```json
+[{"provider":"youtube","client_id":"your-client-id","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/youtube/callback"}]
+```
+
+Restart OpenPost and connect from **Settings → Workspace → Social accounts → YouTube**. The user selects a channel during OAuth. OpenPost uploads one video with resumable upload handling. YouTube privacy, title, description, category, playlist, thumbnail, and scheduling options are set on the publication or its YouTube rendition. Uploads default to private.
+
+The app requests profile, email, YouTube read, upload, and YouTube scopes. Google verification or project testing restrictions can affect who can connect and whether uploads stay private. Test with the exact channel and privacy setting you need.
+
+If no channel appears, the Google identity has no available YouTube channel. For upload errors, verify API v3 is enabled, the OAuth consent screen allows the account, and the callback matches exactly. Reconnect after changing scopes.

@@ -1,0 +1,28 @@
+---
+title: Email delivery
+description: Configure authentication and notification email for self-hosted instances.
+---
+
+Self-hosted mode does not require email by default. Configure a transport when you need verification codes, password resets, workspace invitations, or notifications.
+
+### SMTP
+
+```dotenv
+OPENPOST_EMAIL_PROVIDER=smtp
+OPENPOST_SMTP_HOST=smtp.example.com
+OPENPOST_SMTP_PORT=587
+OPENPOST_SMTP_USERNAME=mailer
+OPENPOST_SMTP_PASSWORD=replace-me
+OPENPOST_EMAIL_FROM=OpenPost <no-reply@example.com>
+OPENPOST_SMTP_TLS_MODE=starttls
+```
+
+Use port 465 with `OPENPOST_SMTP_TLS_MODE=tls` when your provider uses implicit TLS. Plaintext SMTP is rejected for non-loopback hosts.
+
+### Resend or Cloudflare Email
+
+Set `OPENPOST_EMAIL_PROVIDER=resend` with `OPENPOST_RESEND_API_KEY` or set `OPENPOST_EMAIL_PROVIDER=cloudflare` with `OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID` and `OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN`. Set `OPENPOST_EMAIL_FROM` to a verified sender.
+
+Set `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true` only when the chosen transport is ready. Delivery callbacks, when supported, use `POST /api/v1/email/delivery/webhook` and `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`.
+
+Restart after changing email configuration. Send a test invitation or password-reset email, then check the provider delivery log and OpenPost's delivery status.

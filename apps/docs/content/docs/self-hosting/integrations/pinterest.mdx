@@ -1,0 +1,24 @@
+---
+title: Pinterest
+description: Configure Pinterest for controlled development and certification.
+---
+
+Pinterest support remains gated. Do not expose it to users until your app has Pinterest Standard API access and current live certification for each operation you intend to enable.
+
+Create a Pinterest app with the required products, then register:
+
+```text
+https://your-domain.example/api/v1/accounts/pinterest/callback
+```
+
+Configure it through `OPENPOST_PROVIDER_APPS` or the instance provider-app settings:
+
+```json
+[{"provider":"pinterest","client_id":"your-client-id","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/pinterest/callback"}]
+```
+
+Pinterest operations need board targeting. The adapter has controlled paths for image and video Pins, board sections, discovery, and analytics, but a configured credential or passing fixture is not production approval. Keep runtime controls disabled while certification is incomplete.
+
+For a controlled test, use a development Pinterest account, connect through the Accounts screen, verify the selected board belongs to that account, and test one image Pin. Record the exact app, account, operation, and result. Never turn on all operations because one operation passed.
+
+If OAuth fails, check Standard access, redirect URI, and requested scopes. If a Pin fails, check board ownership, media format, and current Pinterest API restrictions.

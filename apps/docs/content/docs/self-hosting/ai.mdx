@@ -1,0 +1,16 @@
+---
+title: AI providers
+description: Configure OpenRouter for post generation and media captions.
+---
+
+OpenPost's self-hosted AI features use OpenRouter. Set the provider key and model values in the server environment or instance configuration, then restart OpenPost.
+
+```dotenv
+OPENPOST_CONTENT_AI_PROVIDER=azure/eu
+OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-5.6-luna
+OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
+```
+
+`OPENPOST_CONTENT_AI_PROVIDER` selects the exact OpenRouter provider for post and meme generation. `OPENPOST_TEXT_GENERATION_MODEL` builds publication copy from an idea. `OPENPOST_IMAGE_CAPTION_MODEL` generates automatic alt text. Set `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` only when the selected model and provider support zero data retention.
+
+The API key is managed through the AI provider configuration boundary. Do not put it in a publication, prompt, log, or client-side code. If generation fails, check the provider slug, model ID, account balance, and whether the model supports the requested operation.

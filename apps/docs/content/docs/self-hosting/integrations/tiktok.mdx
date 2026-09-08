@@ -1,0 +1,22 @@
+---
+title: TikTok
+description: Configure TikTok Login Kit and Content Posting API access.
+---
+
+Create a TikTok developer app, add Login Kit and Content Posting API, and request the scopes needed by your publishing mode. Register:
+
+```text
+https://your-domain.example/api/v1/accounts/tiktok/callback
+```
+
+Add the app to the provider registry:
+
+```json
+[{"provider":"tiktok","client_id":"your-client-key","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/tiktok/callback"}]
+```
+
+Restart OpenPost and connect from **Settings → Workspace → Social accounts → TikTok**. Direct Post sends one video for publishing. Upload sends a video to the user's TikTok inbox when that product is enabled. Photo posts need TikTok's photo-post access. OpenPost's Direct Post media URLs must be public HTTPS URLs under a verified domain or URL prefix, so configure `OPENPOST_MEDIA_URL` before testing.
+
+The account needs the scopes required by the selected actions, including `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`, and the relevant `video.publish` or `video.upload` access. TikTok review and account eligibility are separate from a successful OAuth connection.
+
+If TikTok cannot fetch media, test the URL from outside your network and verify the domain in TikTok's developer console. If OAuth fails, compare the callback and app status, then reconnect after changing scopes.

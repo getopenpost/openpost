@@ -1,0 +1,24 @@
+---
+title: LinkedIn
+description: Configure LinkedIn OAuth for member profiles and Organization Pages.
+---
+
+Create a LinkedIn developer app and enable the products that match the account types you will connect. Add the exact callback below under the app's OAuth redirect URLs:
+
+```text
+https://your-domain.example/api/v1/accounts/linkedin/callback
+```
+
+Set the legacy variables in `.env`:
+
+```dotenv
+LINKEDIN_CLIENT_ID=your-client-id
+LINKEDIN_CLIENT_SECRET=your-client-secret
+OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=false
+```
+
+Restart OpenPost, then connect from **Settings → Workspace → Social accounts → LinkedIn**. OpenPost offers the member profile returned by LinkedIn OpenID Connect. Organization Pages require `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` and an app approved for `rw_organization_admin`, `w_organization_social`, and `r_organization_social`. The member must have an approved `ADMINISTRATOR` role on each Page.
+
+LinkedIn thread children become comments on the first post. If your app lacks reply permissions, set `OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES=true`. Analytics needs Community Management API access and the relevant member analytics scopes.
+
+If the provider rejects the callback, compare the URL character for character and confirm the public URL seen by the browser matches `OPENPOST_APP_URL`. If Organization Pages are missing, check the approved products and the member's Page role. Reconnect after changing scopes.

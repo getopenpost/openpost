@@ -1,0 +1,25 @@
+---
+title: X
+description: Configure an X OAuth 1.0a application.
+---
+
+Create an X developer project and app. Enable OAuth 1.0a user authentication and set the callback to:
+
+```text
+https://your-domain.example/api/v1/accounts/x/callback
+```
+
+Add the client values to `.env`:
+
+```dotenv
+X_CLIENT_ID=your-client-id
+X_CLIENT_SECRET=your-client-secret
+```
+
+`TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, and `TWITTER_REDIRECT_URI` remain supported aliases, but use the `X_` names for new installs. Restart OpenPost and connect from **Settings → Workspace → Social accounts → X**.
+
+Use an app type that supports user context and the permissions needed by the actions you want. X analytics and Inbox features use the same OAuth 1.0a connection and remain subject to X API access and limits. OpenPost reads the connected account's subscription tier when available, and falls back to standard posting limits when it cannot.
+
+For local testing, register `http://localhost:8080/api/v1/accounts/x/callback` and use `OPENPOST_APP_URL=http://localhost:8080`. For a public instance, use HTTPS and never mix local and public callback URLs in the same test.
+
+If connection fails, check OAuth 1.0a is enabled, the callback matches exactly, and the app has user authentication enabled. If a connection succeeds but a post fails, inspect the X response and account tier. Reconnect after changing app permissions.

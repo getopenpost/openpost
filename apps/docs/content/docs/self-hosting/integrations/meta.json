@@ -1,0 +1,14 @@
+{
+  "title": "Integrations",
+  "pages": [
+    "index",
+    "linkedin",
+    "x",
+    "youtube",
+    "tiktok",
+    "pinterest",
+    "bluesky-mastodon",
+    "discord-telegram"
+  ],
+  "icon": "Plug"
+}

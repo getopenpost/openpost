@@ -1,0 +1,30 @@
+---
+title: Provider integrations
+description: Configure provider apps for a self-hosted OpenPost instance.
+---
+
+Self-hosting makes you responsible for provider applications, approval, callback URLs, and secrets. Configure one provider, restart OpenPost, connect one real account, and publish a small test post before adding more.
+
+## How configuration works
+
+Set legacy variables for X, LinkedIn, Threads, and Mastodon, or use the structured `OPENPOST_PROVIDER_APPS` JSON registry. The registry also supports Facebook, Instagram, TikTok, YouTube, Pinterest, Telegram, and Discord bot mode. Prefer `OPENPOST_PROVIDER_APPS_FILE` or your deployment secret store so client secrets never enter shell history or Compose files.
+
+Open **Settings → Instance → Configuration → Provider apps** when your instance administrator manages encrypted database rows. Environment values take precedence over matching database rows. Restart after changing provider configuration.
+
+Every OAuth callback uses this shape:
+
+```text
+https://your-domain.example/api/v1/accounts/<provider>/callback
+```
+
+Set `OPENPOST_APP_URL` to the public origin. The callback registered with the provider must match the configured URL exactly. `OPENPOST_MEDIA_URL` must be public HTTPS for providers that fetch media themselves.
+
+## Guides
+
+- [LinkedIn](/self-hosting/integrations/linkedin)
+- [X](/self-hosting/integrations/x)
+- [YouTube](/self-hosting/integrations/youtube)
+- [TikTok](/self-hosting/integrations/tiktok)
+- [Pinterest](/self-hosting/integrations/pinterest)
+- [Bluesky and Mastodon](/self-hosting/integrations/bluesky-mastodon)
+- [Discord and Telegram](/self-hosting/integrations/discord-telegram)

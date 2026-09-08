@@ -47,9 +47,6 @@
 <div class="space-y-4">
 	<div>
 		<h3 class="font-semibold">{m.theme_library_builtins({}, { locale })}</h3>
-		<p class="mt-1 text-sm text-muted-foreground">
-			{m.theme_library_builtins_description({}, { locale })}
-		</p>
 	</div>
 	<div
 		class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"

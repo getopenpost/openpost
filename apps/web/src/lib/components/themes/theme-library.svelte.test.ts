@@ -78,6 +78,7 @@ describe('ThemeLibrary', () => {
 			onToggleLock
 		});
 
+		await screen.getByText('Organization default', { exact: true }).first().click();
 		await expect.element(screen.getByText(/clear workspace overrides/i)).toBeVisible();
 		await screen.getByRole('switch', { name: 'Lock workspace theme selection' }).click();
 

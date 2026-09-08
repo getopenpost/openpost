@@ -15,9 +15,6 @@
 		selectedReference: ThemeReference;
 		canManage?: boolean;
 		busy?: boolean;
-		canCreate?: boolean;
-		onNew: () => void;
-		onStartWithWorkshop: () => void;
 		onPreview: (reference: ThemeReference) => void;
 		onApply: (reference: ThemeReference) => void;
 		canApply: (reference: ThemeReference) => boolean;
@@ -31,9 +28,6 @@
 		selectedReference,
 		canManage = false,
 		busy = false,
-		canCreate = false,
-		onNew,
-		onStartWithWorkshop,
 		onPreview,
 		onApply,
 		canApply,
@@ -46,30 +40,15 @@
 	<div class="flex flex-wrap items-end justify-between gap-3">
 		<div>
 			<h3 class="font-semibold">{m.theme_library_organization_themes()}</h3>
-			<p class="mt-1 text-sm text-muted-foreground">
-				{m.theme_library_organization_themes_description()}
-			</p>
 		</div>
-		{#if canManage}
-			<Button size="sm" intent="ordinary" onclick={onNew} disabled={!canCreate || busy}
-				>{m.theme_library_new_theme()}</Button
-			>
-		{/if}
 	</div>
 
 	{#if items.length === 0}
-		<div
-			class="flex min-h-32 items-center justify-between gap-4 rounded-[var(--theme-radius-lg,var(--radius))] border border-dashed border-border p-4"
-		>
+		<div class="py-2">
 			<div>
 				<p class="text-sm font-medium">{m.theme_library_empty_title()}</p>
 				<p class="mt-1 text-sm text-muted-foreground">{m.theme_library_empty_description()}</p>
 			</div>
-			{#if canManage}
-				<Button intent="primary" onclick={onStartWithWorkshop} disabled={!canCreate || busy}
-					>{m.theme_library_start_workshop()}</Button
-				>
-			{/if}
 		</div>
 	{:else}
 		<div class="divide-y divide-border border-y border-border">

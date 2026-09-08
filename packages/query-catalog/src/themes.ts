@@ -74,11 +74,15 @@ export const themeQueryKeys = {
   lists: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "themes", "list"),
   list: (workspaceId: string, cursor = "") =>
     openPostWorkspaceKey(workspaceId, "themes", "list", { cursor }),
+  infiniteList: (workspaceId: string) =>
+    openPostWorkspaceKey(workspaceId, "themes", "list", "pages"),
   detail: (workspaceId: string, themeId: string) =>
     openPostWorkspaceKey(workspaceId, "themes", "detail", themeId),
   available: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "themes", "available"),
   availableDetail: (workspaceId: string, themeId: string, revision?: number) =>
-    openPostWorkspaceKey(workspaceId, "themes", "available", themeId, { revision: revision ?? 0 }),
+    openPostWorkspaceKey(workspaceId, "themes", "available", themeId, {
+      revision: revision ?? 0,
+    }),
   resolved: (workspaceId: string, scheme: string) =>
     openPostWorkspaceKey(workspaceId, "themes", "resolved", { scheme }),
   resolvedScope: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "themes", "resolved"),
@@ -113,6 +117,23 @@ export function organizationThemesQueryOptions(
     enabled: Boolean(workspaceId) && Boolean(organizationId),
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
       api.listOrganizationThemes(workspaceId, organizationId, cursor, signal),
+  };
+}
+
+export function organizationThemesInfiniteQueryOptions(
+  api: Pick<ThemeQueryAPI, "listOrganizationThemes">,
+  workspaceId: string,
+  organizationId: string,
+) {
+  const queryKey = themeQueryKeys.infiniteList(workspaceId);
+  return {
+    ...openPostQueryPolicy(queryStaleTime),
+    queryKey,
+    enabled: Boolean(workspaceId && organizationId),
+    initialPageParam: "",
+    queryFn: ({ signal, pageParam }: QueryFunctionContext<typeof queryKey, string>) =>
+      api.listOrganizationThemes(workspaceId, organizationId, pageParam, signal),
+    getNextPageParam: (page: ThemeSummaryPage) => page.next_cursor || undefined,
   };
 }
 

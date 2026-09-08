@@ -4,6 +4,7 @@ import {
 	builtInThemesQueryOptions,
 	organizationThemeQueryOptions,
 	organizationThemesQueryOptions,
+	organizationThemesInfiniteQueryOptions,
 	resolvedThemeQueryOptions,
 	themeAssetsQueryOptions,
 	themeRevisionsQueryOptions,
@@ -230,4 +231,11 @@ export function themeRevisionsOptions(
 }
 export function themeAssetsOptions(workspaceID: string, organizationID: string, cursor = '') {
 	return themeAssetsQueryOptions(themeQueryAPI, workspaceID, organizationID, cursor);
+}
+
+export function themeOrganizationThemesInfiniteOptions(
+	workspaceID: string,
+	organizationID: string
+) {
+	return organizationThemesInfiniteQueryOptions(themeQueryAPI, workspaceID, organizationID);
 }

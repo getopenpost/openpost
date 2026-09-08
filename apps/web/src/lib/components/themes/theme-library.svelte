@@ -15,11 +15,7 @@
 	} from '$lib/themes';
 	import ThemePreview from './theme-preview.svelte';
 	import { themeCodePointLength } from './theme-editor-model';
-	import {
-		parseThemeExternalErrorMessage,
-		themeBuiltInDescription,
-		themeSchemeLabel
-	} from './theme-editor-presenter';
+	import { parseThemeExternalErrorMessage, themeSchemeLabel } from './theme-editor-presenter';
 	import ThemeLibraryBuiltins from './theme-library-builtins.svelte';
 	import ThemeLibraryCreateDialog from './theme-library-create-dialog.svelte';
 	import ThemeLibraryOrganizationList from './theme-library-organization-list.svelte';
@@ -43,6 +39,9 @@
 	interface Props {
 		builtInThemes?: ThemeLibraryItem[];
 		organizationThemes?: ThemeLibraryItem[];
+		organizationThemesLoading?: boolean;
+		onLoadMoreOrganizationThemes?: () => void;
+		loadingMoreOrganizationThemes?: boolean;
 		selectedReference?: ThemeReference;
 		workspaceReference?: ThemeReference;
 		organizationDefaultReference?: ThemeReference;
@@ -65,6 +64,9 @@
 	let {
 		builtInThemes = localBuiltInThemes,
 		organizationThemes = [],
+		organizationThemesLoading = false,
+		onLoadMoreOrganizationThemes,
+		loadingMoreOrganizationThemes = false,
 		selectedReference = WORKSHOP_REFERENCE,
 		workspaceReference,
 		organizationDefaultReference = WORKSHOP_REFERENCE,
@@ -307,6 +309,9 @@
 
 	function canApply(reference: ThemeReference) {
 		return (
+			allItems.some(
+				(item) => sameThemeReference(item.reference, reference) && item.state !== 'draft'
+			) &&
 			assignmentVisibleFor(reference) &&
 			canManageWorkspace &&
 			!workspaceSelectionLocked &&
@@ -350,9 +355,6 @@
 				<h2 id="theme-library-heading" class="text-lg font-semibold tracking-tight">
 					{m.theme_library_heading()}
 				</h2>
-				<p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-					{m.theme_library_description()}
-				</p>
 			</div>
 			{#if canManageOrganization}
 				<Button
@@ -384,52 +386,44 @@
 			</div>
 		{/if}
 
-		<div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.65fr)]">
-			<div class="min-w-0 space-y-3">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<div class="flex flex-wrap items-center gap-2">
-							<h3 class="font-semibold">{selectedItem.manifest.name}</h3>
-							<span
-								class="rounded-[var(--theme-radius-pill,999px)] bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-								>{selectedItem.source === 'builtin'
-									? m.theme_library_builtin()
-									: selectedItem.hasDraftChanges
-										? m.theme_library_draft_changes()
-										: selectedItem.state === 'draft'
-											? m.theme_library_draft()
-											: m.theme_library_published()}</span
-							>
+		<div class="min-w-0 space-y-4">
+			{#if testingScheme}
+				<div class="min-w-0 space-y-3">
+					<div class="flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<div class="flex flex-wrap items-center gap-2">
+								<h3 class="font-semibold">{selectedItem.manifest.name}</h3>
+								<span
+									class="rounded-[var(--theme-radius-pill,999px)] bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+									>{selectedItem.source === 'builtin'
+										? m.theme_library_builtin()
+										: selectedItem.hasDraftChanges
+											? m.theme_library_draft_changes()
+											: selectedItem.state === 'draft'
+												? m.theme_library_draft()
+												: m.theme_library_published()}</span
+								>
+							</div>
 						</div>
-						<p class="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-							{selectedItem.reference.kind === 'built_in'
-								? themeBuiltInDescription(selectedItem.manifest.id, activeLocale)
-								: selectedItem.manifest.description}
-						</p>
 					</div>
-					<span class="text-xs text-muted-foreground">
-						{m.theme_editor_revision({ revision: selectedItem.manifest.revision })}
-					</span>
+					<ThemePreview
+						theme={selectedPreview}
+						scene="dashboard"
+						viewport="desktop"
+						label={m.theme_library_dashboard_preview({ name: selectedPreview.name })}
+						locale={activeLocale}
+					/>
+					{#if selectedPreview.fallbackReason}
+						<p
+							class="rounded-[var(--theme-radius-md,var(--radius))] border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-foreground"
+							role="status"
+						>
+							{selectedFallbackMessage}
+						</p>
+					{/if}
 				</div>
-				<ThemePreview
-					theme={selectedPreview}
-					scene="dashboard"
-					viewport="desktop"
-					label={m.theme_library_dashboard_preview({ name: selectedPreview.name })}
-					locale={activeLocale}
-				/>
-				{#if selectedPreview.fallbackReason}
-					<p
-						class="rounded-[var(--theme-radius-md,var(--radius))] border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-foreground"
-						role="status"
-					>
-						{selectedFallbackMessage}
-					</p>
-				{/if}
-			</div>
-			<div
-				class="flex flex-col divide-y divide-border rounded-[var(--theme-radius-lg,var(--radius))] border border-border bg-card px-4"
-			>
+			{/if}
+			<div class="flex flex-wrap items-center justify-between gap-x-6 border-y border-border">
 				<div class="py-4">
 					<p class="text-xs font-medium text-muted-foreground">
 						{m.theme_library_this_workspace()}
@@ -448,65 +442,6 @@
 						>
 							{m.theme_library_active()}
 						</span>
-					</div>
-				</div>
-
-				<div class="py-4">
-					<div class="flex items-start justify-between gap-4">
-						<div>
-							<p class="text-sm font-medium">{m.theme_library_organization_default()}</p>
-							<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-								{m.theme_library_new_workspaces_default({ name: defaultName })}
-							</p>
-						</div>
-						{#if canManageOrganization && selectedCanAssign && !sameThemeReference(previewReference, organizationDefaultReference)}
-							<Button
-								size="sm"
-								intent="ordinary"
-								onclick={() =>
-									void runAction(
-										() => onSetDefault?.(previewReference),
-										m.theme_library_default_change_failed()
-									)}
-								disabled={libraryBusy}
-							>
-								{m.theme_library_make_default()}
-							</Button>
-						{/if}
-					</div>
-				</div>
-
-				<div class="py-4">
-					<div class="flex items-center justify-between gap-4">
-						<div>
-							<p class="text-sm font-medium">{m.theme_library_lock_workspace()}</p>
-							<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-								{m.theme_library_lock_description()}
-							</p>
-						</div>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={workspaceSelectionLocked}
-							aria-label={m.theme_library_lock_label()}
-							disabled={!canManageOrganization || libraryBusy}
-							class="group relative h-11 w-14 shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
-							onclick={() => {
-								if (workspaceSelectionLocked) {
-									void runAction(() => onToggleLock?.(false), m.theme_library_unlock_failed());
-									return;
-								}
-								lockDialogOpen = true;
-							}}
-						>
-							<span
-								class="absolute top-2 left-1 h-7 w-12 rounded-full border border-border bg-muted transition-colors group-aria-checked:bg-[var(--action-primary)]"
-							>
-								<span
-									class="absolute top-1/2 left-1 size-5 -translate-y-1/2 rounded-full bg-background shadow-sm transition-transform group-aria-checked:translate-x-5"
-								></span>
-							</span>
-						</button>
 					</div>
 				</div>
 
@@ -568,6 +503,36 @@
 			</div>
 		</div>
 
+		{#if !organizationThemesLoading && organizationThemes.length > 0}
+			<ThemeLibraryOrganizationList
+				items={organizationThemes}
+				{organizationDefaultReference}
+				{selectedReference}
+				canManage={canManageOrganization}
+				busy={libraryBusy}
+				onPreview={(reference) => {
+					const item = organizationThemes.find((candidate) =>
+						sameThemeReference(candidate.reference, reference)
+					);
+					if (item) void testItem(item);
+				}}
+				onApply={applyReference}
+				{canApply}
+				onEdit={(themeID) => void runAction(() => onEdit?.(themeID), m.theme_library_open_failed())}
+				onDeleteRequest={(item) => {
+					deleteCandidate = item;
+					deleteDialogOpen = true;
+				}}
+			/>
+			{#if onLoadMoreOrganizationThemes}
+				<Button
+					intent="ordinary"
+					disabled={loadingMoreOrganizationThemes}
+					onclick={onLoadMoreOrganizationThemes}>{m.theme_library_load_more()}</Button
+				>
+			{/if}
+		{/if}
+
 		<ThemeLibraryBuiltins
 			items={effectiveBuiltInThemes}
 			{selectedReference}
@@ -586,30 +551,71 @@
 			{canApply}
 		/>
 
-		<ThemeLibraryOrganizationList
-			items={organizationThemes}
-			{organizationDefaultReference}
-			{selectedReference}
-			canManage={canManageOrganization}
-			busy={libraryBusy}
-			canCreate={Boolean(onCreate)}
-			onNew={() => openCreateDialog(workshopReference)}
-			onStartWithWorkshop={() =>
-				openCreateDialog(workshopReference, m.theme_library_workshop_copy())}
-			onPreview={(reference) => {
-				const item = organizationThemes.find((candidate) =>
-					sameThemeReference(candidate.reference, reference)
-				);
-				if (item) void testItem(item);
-			}}
-			onApply={applyReference}
-			{canApply}
-			onEdit={(themeID) => void runAction(() => onEdit?.(themeID), m.theme_library_open_failed())}
-			onDeleteRequest={(item) => {
-				deleteCandidate = item;
-				deleteDialogOpen = true;
-			}}
-		/>
+		<details class="border-t border-border pt-4">
+			<summary
+				class="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
+				>{m.theme_library_organization_default()}</summary
+			>
+
+			<div class="py-4">
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium">{m.theme_library_organization_default()}</p>
+						<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+							{m.theme_library_new_workspaces_default({ name: defaultName })}
+						</p>
+					</div>
+					{#if canManageOrganization && selectedCanAssign && !sameThemeReference(previewReference, organizationDefaultReference)}
+						<Button
+							size="sm"
+							intent="ordinary"
+							onclick={() =>
+								void runAction(
+									() => onSetDefault?.(previewReference),
+									m.theme_library_default_change_failed()
+								)}
+							disabled={libraryBusy}
+						>
+							{m.theme_library_make_default()}
+						</Button>
+					{/if}
+				</div>
+			</div>
+
+			<div class="py-4">
+				<div class="flex items-center justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium">{m.theme_library_lock_workspace()}</p>
+						<p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+							{m.theme_library_lock_description()}
+						</p>
+					</div>
+					<button
+						type="button"
+						role="switch"
+						aria-checked={workspaceSelectionLocked}
+						aria-label={m.theme_library_lock_label()}
+						disabled={!canManageOrganization || libraryBusy}
+						class="group relative h-11 w-14 shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+						onclick={() => {
+							if (workspaceSelectionLocked) {
+								void runAction(() => onToggleLock?.(false), m.theme_library_unlock_failed());
+								return;
+							}
+							lockDialogOpen = true;
+						}}
+					>
+						<span
+							class="absolute top-2 left-1 h-7 w-12 rounded-full border border-border bg-muted transition-colors group-aria-checked:bg-[var(--action-primary)]"
+						>
+							<span
+								class="absolute top-1/2 left-1 size-5 -translate-y-1/2 rounded-full bg-background shadow-sm transition-transform group-aria-checked:translate-x-5"
+							></span>
+						</span>
+					</button>
+				</div>
+			</div>
+		</details>
 	</section>
 
 	<ThemeLibraryCreateDialog

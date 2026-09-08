@@ -59,6 +59,7 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 - External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `apps/server/internal/services/externalapps/`; keep durable signed delivery in `apps/server/internal/services/externalwebhooks/`.
 - AI features use maintained SDKs behind `apps/server/internal/ai/` and the shared model and configuration choices.
 - Keep marketing illustration colors in paired public light/dark tokens; do not change authenticated organization themes to style public campaigns.
+- Theme management reads unpublished drafts from the organization catalog; workspace assignments use published themes. Apply server-confirmed settings immediately and keep background refreshes outside the mutation busy state.
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.
 - Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.
 - Image layers without `color_grade_version` retain legacy Fabric adjustments. Version 1 routes layer and page-output grading through the shared editor color pipeline and the Fabric preview/export adapter. Never migrate legacy layers implicitly.

@@ -61,6 +61,15 @@ export function fumadocsNavigationTargets(root) {
   return [...new Set(targets)].sort();
 }
 
+function fumadocsNavigationTargetExists(root, target) {
+  if (target === "/") return existsSync(path.join(root, "apps/docs/content/docs/index.mdx"));
+  const relative = target.replace(/^\//u, "");
+  const directory = path.join(root, "apps/docs/content/docs", relative);
+  return (
+    existsSync(directory) || localDocumentationTargetExists(root, "apps/docs/meta.json", target)
+  );
+}
+
 export function localDocumentationCandidates(root, sourceFile, rawTarget) {
   const target = rawTarget.replace(/^<|>$/g, "");
   if (/^(?:https?:|mailto:|tel:|data:|#)/i.test(target)) return [];
@@ -187,7 +196,10 @@ async function main() {
     ? configuredNavigationTargets(docsConfig)
     : fumadocsNavigationTargets(repositoryRoot);
   for (const target of navigationTargets) {
-    if (!localDocumentationTargetExists(repositoryRoot, configFile, target)) {
+    const exists = hasLegacyConfig
+      ? localDocumentationTargetExists(repositoryRoot, configFile, target)
+      : fumadocsNavigationTargetExists(repositoryRoot, target);
+    if (!exists) {
       failures.push(`${configFile} -> ${target}`);
     }
   }

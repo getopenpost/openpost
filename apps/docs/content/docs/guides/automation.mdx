@@ -1,25 +1,78 @@
 ---
 title: Automation
-description: Use the CLI, MCP, or n8n to prepare and schedule OpenPost work.
+description: Use the CLI, MCP, or the OpenPost n8n node.
 ---
 
-OpenPost has one workspace-aware API behind the web app, CLI, MCP, and external automation. Give each automation its own token and the smallest workspace scope it needs.
+OpenPost's CLI, MCP server, and n8n node use the same workspace permissions as the web app. Create a separate, revocable token for each automation. A workspace-bound token is the safest default.
 
 ## CLI
 
-Install a release binary from the [OpenPost releases](https://github.com/getopenpost/openpost/releases), then authenticate it against your server:
+Install the matching release binary from [GitHub Releases](https://github.com/getopenpost/openpost/releases). The CLI talks to a running OpenPost instance.
+
+Log in with a browser flow:
 
 ```sh
-openpost auth login --server https://app.openpo.st
-openpost post create --text "Hello from OpenPost" --account ACCOUNT_ID
+openpost auth login https://app.openpo.st
 ```
 
-Run `openpost --help` for the installed command set. Use API-token login for CI and revoke that token from **Settings** when the job ends.
+For a headless shell, print the verification URL and code:
+
+```sh
+openpost auth login https://app.openpo.st --device
+```
+
+For CI, pass an existing token through stdin:
+
+```sh
+printf '%s\n' "$OPENPOST_TOKEN" | openpost auth login https://app.openpo.st --with-token
+```
+
+Choose a workspace and inspect connected accounts:
+
+```sh
+openpost workspace list
+openpost workspace use personal
+openpost account list
+```
+
+Connect new social accounts in the web app at `https://app.openpo.st/settings?tab=accounts`. The CLI deliberately has no provider credential flow.
+
+Create a draft, then schedule a post:
+
+```sh
+openpost post create --content "Launch note" --accounts x
+openpost post create --content "Launch note" --accounts x --schedule "tomorrow 2pm"
+```
+
+Use `--schedule next-slot` to use the next available workspace slot. Use `openpost post list --status scheduled` to inspect scheduled work. Use `publication create` for format-first video and link publications.
 
 ## MCP
 
-Connect your MCP client to the OpenPost MCP endpoint and approve only the workspace access you need. Start with read-only inspection, then let the assistant prepare a draft for human review before scheduling it.
+Remote MCP clients connect to:
+
+```text
+https://app.openpo.st/mcp
+```
+
+Replace the host with your own OpenPost origin. OAuth-aware clients can authorize in the browser. For manual setup, create an `mcp:read` token for inspection or `mcp:full` when the client must create, schedule, or publish. Limit it to one workspace.
+
+Desktop clients can use the local stdio proxy:
+
+```sh
+openpost auth login https://app.openpo.st
+openpost-mcp
+```
+
+The proxy uses the active CLI profile. It does not need provider credentials or a local database.
+
+Start with read-only inspection. Review the draft, account versions, media, and time in OpenPost before approving a write action.
 
 ## n8n
 
-Use an HTTP Request node with the OpenPost API base URL and an `Authorization: Bearer $OPENPOST_TOKEN` header. Store the token in n8n credentials, send JSON, and check the response before continuing to the next node. Use the generated [API reference](/api-reference) for operation names and request bodies.
+Install `@getopenpost/n8n-nodes-openpost` from **Settings → Community nodes** in n8n. The package requires Node.js 22.22 or newer in the n8n runtime.
+
+Create an OpenPost credential in n8n with **Base URL** `https://app.openpo.st`, without `/api` or `/api/v1`, and an OpenPost API token. Use a workspace-bound `api:write` token for workflows that write.
+
+The node includes workspace, account, media, schedule, and publication actions. Create, Schedule, and Publish Now are separate actions. Use n8n's Schedule Trigger or Webhook node to start a workflow. Import the package's `list-workspaces` example first to verify the credential, then replace its workspace ID with yours.
+
+If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name or `host.docker.internal` when the services share a machine.

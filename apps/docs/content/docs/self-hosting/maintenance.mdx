@@ -3,9 +3,11 @@ title: Maintenance
 description: Back up, upgrade, monitor, and recover a self-hosted instance.
 ---
 
-Back up the database, media directory or bucket, and JWT and encryption secrets as one restore set. Test a restore before relying on it. A database backup without media cannot restore complete publications.
+Back up `data/db`, `data/media`, and the JWT and encryption secrets as one restore set. Test a restore before relying on it. A database backup without media cannot restore complete publications.
 
-Upgrade by pulling the chosen image and restarting the service:
+## Upgrade
+
+Pull the selected image, restart the service, and inspect the logs:
 
 ```sh
 docker compose pull
@@ -13,6 +15,17 @@ docker compose up -d
 docker compose logs --tail=100 -f openpost
 ```
 
-The `all` container role applies migrations on startup. Keep one migration runner for a shared database and check logs before starting additional workers.
+The combined `all` role applies pending migrations on startup. For a multi-container deployment, run the migration command once before starting the long-lived web and worker roles:
 
-For a failed post, inspect the publication and retry the affected rendition after fixing its cause. For a failed startup, check logs, database connectivity, writable media storage, free disk space, and secret values. Keep the instance behind HTTPS and monitor the health endpoint.
+```sh
+docker compose run --rm openpost ./openpost migrate
+```
+
+## Check health
+
+```sh
+curl https://your-openpost-host.example/api/v1/health
+curl https://your-openpost-host.example/api/v1/ready
+```
+
+For a failed post, inspect the affected rendition, fix its provider or media issue, and retry it. For a failed startup, check logs, database connectivity, writable media storage, free disk space, and secret values.

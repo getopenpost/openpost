@@ -3,9 +3,31 @@ title: Self-host OpenPost
 description: Run OpenPost on your own server with Docker Compose.
 ---
 
-The default deployment is one OpenPost container with SQLite and local media. You pay for the server and provider services you use. Choose self-hosting when you want to control the host, storage, network, or provider app configuration.
+The default deployment is one OpenPost container with SQLite, local media, and database-backed jobs. The published image currently supports `linux/amd64`; other host architectures need amd64 emulation.
 
 ## Install with Docker Compose
+
+Create the data directories first:
+
+```sh
+mkdir -p openpost/data/db openpost/data/media
+cd openpost
+```
+
+Create `.env` with fresh secrets:
+
+```sh
+cat > .env <<EOF
+OPENPOST_APP_URL=http://localhost:8080
+OPENPOST_PUBLIC_URL=http://localhost:8080
+OPENPOST_MEDIA_URL=http://localhost:8080/media
+OPENPOST_JWT_SECRET=$(openssl rand -base64 32)
+OPENPOST_ENCRYPTION_KEY=$(openssl rand -base64 32)
+EOF
+chmod 600 .env
+```
+
+For a public deployment, replace all three URLs with the real HTTPS origin before connecting providers. Keep both generated secrets stable across restarts and restores.
 
 Create `docker-compose.yml`:
 
@@ -14,24 +36,30 @@ services:
   openpost:
     image: ghcr.io/getopenpost/openpost:latest
     platform: linux/amd64
+    container_name: openpost
     restart: unless-stopped
     env_file: .env
-    ports: ["8080:8080"]
-    volumes: [openpost_data:/data]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
     environment:
       OPENPOST_PORT: 8080
       OPENPOST_DATABASE_PATH: /data/db/openpost.db
       OPENPOST_MEDIA_PATH: /data/media
-volumes:
-  openpost_data:
 ```
 
-Create `.env` from the repository's `.env.example`. Set unique `OPENPOST_JWT_SECRET`, `OPENPOST_ENCRYPTION_KEY`, `OPENPOST_APP_URL`, `OPENPOST_PUBLIC_URL`, and `OPENPOST_MEDIA_URL`. Generate the secrets with `openssl rand -base64 32`.
+Start it and check readiness:
 
-Start it with `docker compose up -d`, then open `http://localhost:8080`. Put a production instance behind HTTPS before connecting OAuth providers.
+```sh
+docker compose up -d
+curl http://localhost:8080/api/v1/ready
+```
 
-## First run
+Open `http://localhost:8080` and create the first account. That account becomes the instance administrator. Create a workspace, connect an account, and follow the [quickstart](/guides/quickstart).
 
-The first account on a new instance becomes administrator. Create a workspace, connect an account, and follow the [quickstart](/guides/quickstart).
+After setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` in `.env` and restart if the instance should stop accepting new self-service registrations.
 
-For Postgres, S3-compatible media, reverse proxies, and provider app keys, see [configuration](/self-hosting/configuration). For backups and upgrades, see [maintenance](/self-hosting/maintenance).
+## Production requirements
+
+Put the instance behind HTTPS and route the public origin to port 8080. OAuth callback URLs must match the public origin exactly. Back up `data/db`, `data/media`, and both secret values together. Configure provider apps in [configuration](/self-hosting/configuration).

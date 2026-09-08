@@ -4,6 +4,64 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.23.0] - 2026-09-08
+
+### Fixed
+
+- Fixed Video Editor cloud saves failing on reactive project state, screen recordings rejected for missing WebM duration metadata, and anonymous camera or microphone choices crashing the recorder.
+- Browser Stop sharing now imports the finished recording. Failed imports remain recoverable, and a late upload cannot insert clips into a different project.
+- Kept canvas text entry local until commit, preserved spaces while typing, corrected zoom and volume icons, and made project metadata and recording setup fit narrow screens.
+- Kept cloud exports and render queues in browser storage, separate from local workspace folders. Cloud save status now names OpenPost.
+- Preserved public Svelte error codes in telemetry while continuing to redact URL parameters.
+- Rejected malformed saved speech-cleanup timings while preserving valid settings.
+- Theme creation opens the new draft in the editor. Unpublished drafts remain available to edit, and failed creation keeps the entered name for retry.
+- Publishing again and restoring revisions use the current server revision. Consecutive organization default and lock changes preserve the saved choice.
+- Applying a theme finishes when the server saves it. Background refreshes no longer disable Appearance controls, and failed reads offer a retry.
+- Kept failed page imports as failures during stale-file recovery, preventing a secondary `universal` crash on the public site and app.
+- Restored the anchored horizontal slide from Ideate to Build with AI while keeping async feedback steady.
+- Allow signed-in users to create Image Editor designs when built-in templates have no workspace, while keeping private templates scoped to their workspace.
+- Check star history every six hours and skip chart generation and commits unless the star count exceeds the last chart update. The first successful chart update records the baseline.
+- Video Editor: applying a saved color grade now replaces the grade portion of the clip's effect stack FreeCut-style (non-grade effects preserved, applied entries always enabled), and curve click-to-add matches FreeCut point density.
+
+### Changed
+
+- Simplified Appearance with shorter copy, one creation entry, and organization defaults and locking in an expandable section. The large preview appears only while testing a theme.
+
+### Improved
+
+- Analytics totals animate when measurements change. Refresh, copy, and save labels morph without moving their controls or changing screen reader announcements.
+- Added a hand-drawn accent to the landing headline and keyboard-accessible screenshot zoom, with reduced-motion support and direct image links when JavaScript is off.
+- Added a selectable product preview with fresh 2x screenshots, layered editor and publishing details, and a tools-and-resources grid. Removed repeated full screenshots, embedded usage videos, and fictional workflows.
+- Restored two linked community testimonials.
+- Shortened the README and added editor feature sections, screenshots, and matching feature icons. Image and video editor headers now use those same icons.
+- Product images now refresh automatically during release preparation. Documentation uses neutral colors with blue links.
+- Scope capture now uses FreeCut's cadence: 256x144 samples at ~15fps while playing, 384x216 samples every 220ms while paused.
+- Scope dock renders CPU scopes at most every 220ms (scrub storms coalesce to the latest sample) and falls back to CPU scopes if WebGPU setup wedges past one second instead of leaving the dock blank.
+- CPU scope path documents the full/legal range contract (`normalizeScopeValue`, default full-range BT.709 matching FreeCut); the IRE 0-100 grid was already at parity.
+- User effect presets and grade presets stay browser-wide in localStorage (shared across every project/workspace on the device). This is documented as intentional in both preset modules rather than migrating to FreeCut's workspace-file pattern.
+- Vector auto-key now checks the sibling axis: enabling auto-key on `y` and editing `x` starts the coupled position lane, matching FreeCut.
+- Value-graph drags show a time/value axis-lock indicator while Shift is held, and the mouse wheel no longer fights an in-flight drag. Plain-wheel value panning now follows FreeCut's scroll direction.
+- Motion thumbnails carry loop metadata, and box-scale gating helpers exist for presets and modulators (breath-pulse stays available on text: it drives transform scale, which cannot reflow type).
+- The expression dock now offers FreeCut's per-property preset catalog (~50 Adjust/Motion/Timing presets) with a full syntax guide, inserted at the cursor into the expression draft.
+- `prop()` and direct links accept shape stroke props (trim start/end/offset, taper widths/lengths) with the same render defaults as the shape pipeline; results apply to the item fields, not the transform.
+- Spring easing preview timing is ported from FreeCut's settling math (mass 0.3 / friction 18 → ~153ms) with the mirror ping-pong return leg for future timed previews; the graph preview itself stays duration-independent.
+- Mask shapes now open a dedicated Mask canvas tool: Pen/Draw-new mode switch, direction-preserving smooth conversion, corner conversion, and point deletion, all with atomic undo and topology/keyframe guards.
+- Power window has a bespoke pane (shape, window, matte, correction groups) with a UV-space gizmo preview; center/size drags preview live and commit atomically.
+- Paused transition hold: while paused inside a transition window, participant lanes keep their transition-relative decoded frame (0.001s settle epsilon, ramp-owned dataset flags) instead of cold-seeking on every scrub tick, matching FreeCut's paused-lane prearm behavior.
+- Fast reverse (>1x) uses FreeCut's 20-sample decode-window plan (stride = rate*fps/60, 60% refill rule): the clock skips intermediate authored frames and the lane holds its last decode, with skips counted in diagnostics.
+- Diagnostics gain render-source, transition session (count on rising edge), and reverse-skip counters in the panel, the copyable report, and a new Alt+Shift+P performance-overlay toggle.
+- Scrub seeks share one deduped filmstrip decode per media + timestamp (generation counter + inflight map), prewarm filmstrips when a seek fallback starts, and drop superseded clones instead of flashing stale frames, matching FreeCut's schedule/warm/dispose behavior.
+- New text-only scrub overlay: while paused with a preview frame, visible text/subtitle items paint through the shared canvas raster (one paint per animation frame, pointer-events-none) instead of forcing full media seeks.
+- Save-frame now resolves its source frame with FreeCut's ±2-frame rule: paused scrub captures use the preview frame instead of the committed playhead.
+- Rate-stretch edge drag with snap and duration caps, canvas-pixel nudge (Shift+Arrow 1 px, Command/Control 10 px), mid-drag Alt/Shift trim morph, slip/slide guards, transition-midpoint snap targets.
+- Alt+move stays slip by design (simpler UX); FreeCut-style Alt duplicate-drag intentionally not ported.
+
+### Added
+
+- Video Editor export dialog: one-click presets (Master / Archive, Web 1080p, Social, Draft preview) that set container, codec, quality, and resolution atomically; manual dropdowns remain as overrides.
+- Video Editor export preflight now announces slow render paths before export: main-thread fallback when background rendering is unavailable, animated-image fallback, and audio-mix fallback, plus a warning when the codec was auto-switched.
+- Video Editor storage settings now show the live session proxy-cache size next to the proxy controls.
+
 ## [4.22.0] - 2026-09-06
 
 ### Changed

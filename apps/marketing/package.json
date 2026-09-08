@@ -19,8 +19,10 @@
 		"@openpost/social-images": "workspace:*",
 		"@openpost/social-preview": "workspace:*",
 		"@openpost/telemetry": "workspace:*",
+		"medium-zoom": "^1.1.0",
 		"mode-watcher": "^1.1.0",
-		"react": "^19.2.8"
+		"react": "^19.2.8",
+		"rough-notation": "^0.5.1"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260801.1",

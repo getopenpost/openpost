@@ -70,7 +70,11 @@ for (const [themeID, scheme] of [
               source: "all",
               content_total: content.length,
               summary: {
-                followers: { value: 100, measured: 5 },
+                followers: {
+                  value:
+                    new URL(route.request().url()).searchParams.get("days") === "7" ? 200 : 100,
+                  measured: 5,
+                },
                 engagement: { value: 30, measured: 5 },
                 views: { value: 6000, measured: 5 },
                 impressions: { value: 0, measured: 0 },
@@ -104,17 +108,58 @@ for (const [themeID, scheme] of [
                 source: "builtin",
                 requestedScheme: scheme,
                 scheme,
+                // SAFETY: Each test case pairs a built-in family with a scheme it declares.
                 manifest: family.schemes[scheme as keyof typeof family.schemes],
                 fonts: [],
                 assets: [],
               },
             }),
           );
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+        await page.emulateMedia({
+          colorScheme: scheme,
+          reducedMotion: width === 320 ? "reduce" : "no-preference",
+        });
         await page.goto(`/analytics?workspace=${workspace.id}`);
         const section = page.locator('section[aria-labelledby="analytics-content-heading"]');
         const row = page.getByTestId("analytics-content-row").first();
         await expect(row).toBeVisible();
+        await expect(page.getByRole("img", { name: "100", exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "7 days", exact: true }).click();
+        await expect(page.getByRole("img", { name: "200", exact: true })).toBeVisible();
+        let finishRefresh!: () => void;
+        const refreshFinished = new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        });
+        await page.route("**/api/v1/analytics/refresh", async (route) => {
+          await refreshFinished;
+          await route.fulfill({ json: { queued: 5 } });
+        });
+        const refresh = page.getByTestId("analytics-refresh");
+        await page.evaluate(() => document.fonts.ready);
+        const refreshWidth = (await refresh.boundingBox())!.width;
+        await refresh.focus();
+        await refresh.press("Enter");
+        await expect(refresh).toHaveAttribute("aria-busy", "true");
+        await expect(refresh).toBeFocused();
+        expect((await refresh.boundingBox())!.width).toBe(refreshWidth);
+        await expect
+          .poll(() =>
+            refresh.evaluate((button) =>
+              button
+                .getAnimations({ subtree: true })
+                .every(
+                  (animation) =>
+                    animation.effect?.getTiming().iterations === Infinity ||
+                    animation.playState !== "running",
+                ),
+            ),
+          )
+          .toBe(true);
+        await page.screenshot({ path: testInfo.outputPath("summary-refreshing.png") });
+        finishRefresh();
+        await expect(refresh).toHaveAttribute("aria-busy", "false");
+        await expect(refresh).toBeFocused();
+        expect((await refresh.boundingBox())!.width).toBe(refreshWidth);
         await expect(page.locator("html")).toHaveAttribute("data-theme-id", themeID);
         await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
         await page.getByRole("img", { name: "Daily views" }).scrollIntoViewIfNeeded();

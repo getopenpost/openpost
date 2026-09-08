@@ -6,6 +6,8 @@ FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
+	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
+	import AsyncActionButton from '$lib/components/async-action-button.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		accountFeaturesQueryOptions,
@@ -691,16 +693,17 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</button>
 			{/each}
 		</div>
-		<Button
+		<AsyncActionButton
 			variant="outline"
 			size="sm"
 			onclick={refreshAnalytics}
-			disabled={refreshing || !overview || accounts.length === 0 || analyticsAllDisabled}
+			disabled={!overview || accounts.length === 0 || analyticsAllDisabled}
+			state={refreshing ? 'pending' : 'idle'}
+			label={m.analytics_refresh()}
+			pendingLabel={m.analytics_refreshing()}
+			icon="refresh"
 			data-testid="analytics-refresh"
-		>
-			<ThemeIcon role="refresh" class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
-			{refreshing ? m.analytics_refreshing() : m.analytics_refresh()}
-		</Button>
+		/>
 	</div>
 {/snippet}
 
@@ -837,7 +840,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								{/if}
 							</div>
 							<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
-								{metricValue(item.metric)}
+								<AnalyticsNumber value={item.metric.measured > 0 ? item.metric.value : null} />
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
 								{coverageLabel(item.metric.measured, item.denominator, item.unit)}
@@ -850,7 +853,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							<span>{m.analytics_published()}</span>
 						</div>
 						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
-							{formatNumber(displayedSummary?.published ?? 0)}
+							<AnalyticsNumber value={displayedSummary?.published ?? 0} />
 						</p>
 						<p class="mt-1 text-xs text-muted-foreground">
 							{m.analytics_range_days({ days: rangeDays })}

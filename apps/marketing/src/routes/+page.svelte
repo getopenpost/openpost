@@ -14,6 +14,8 @@
 		managedTrialNote
 	} from './_marketing';
 	import ScrollReveal from './_components/ScrollReveal.svelte';
+	import HeroAccent from './_components/HeroAccent.svelte';
+	import ProductScreenshot from './_components/ProductScreenshot.svelte';
 
 	const shortFaqs = faqs.slice(0, 4);
 </script>
@@ -21,7 +23,9 @@
 <section class="landing-hero" aria-labelledby="hero-title">
 	<div class="marketing-shell">
 		<div class="hero-intro">
-			<h1 id="hero-title">You build the business.<br /><span>We’ll help you share it.</span></h1>
+			<h1 id="hero-title">
+				You build the business.<br /><span>We’ll help you <HeroAccent>share it.</HeroAccent></span>
+			</h1>
 			<p>
 				Your ideas, your voice, every channel.<br class="desktop-break" /> Meet the content workspace
 				that keeps up with you.
@@ -108,38 +112,34 @@
 			<p>Write the post. Make the image. Cut the video.<br />You’ve already got the tools.</p>
 		</div>
 		<div class="studio-grid">
-			<a href="/tools/social-media-image-editor" class="studio-item image-studio focus-ring">
-				<div class="studio-copy">
+			<article class="studio-item image-studio">
+				<a href="/tools/social-media-image-editor" class="studio-copy focus-ring">
 					<h3>Make it look like you.</h3>
 					<p>Images, carousels, and thumbnails.<br />Your brand, down to the last detail.</p>
 					<span>Open the Image Editor <ArrowUpRight size={17} /></span>
-				</div>
+				</a>
 				<div class="studio-screen">
-					<img
+					<ProductScreenshot
+						label="Image Editor"
 						src="/assets/screenshots/image-editor-dark.webp"
 						alt="OpenPost still editor with editable layers and color controls"
-						width="1440"
-						height="900"
-						loading="lazy"
 					/>
 				</div>
-			</a>
-			<a href="/tools/social-media-video-editor" class="studio-item video-studio focus-ring">
-				<div class="studio-copy">
+			</article>
+			<article class="studio-item video-studio">
+				<a href="/tools/social-media-video-editor" class="studio-copy focus-ring">
 					<h3>A good cut goes a long way.</h3>
 					<p>Record, trim, caption, and export.<br />All in your browser.</p>
 					<span>Open the Video Editor <ArrowUpRight size={17} /></span>
-				</div>
+				</a>
 				<div class="studio-screen">
-					<img
+					<ProductScreenshot
+						label="Video Editor"
 						src="/assets/screenshots/video-editor-dark.webp"
 						alt="OpenPost Video Editor showing a video preview and multitrack timeline"
-						width="1440"
-						height="900"
-						loading="lazy"
 					/>
 				</div>
-			</a>
+			</article>
 		</div>
 		<div class="tools-note">
 			<span>Try the editors for free. No account needed.</span><a
@@ -541,6 +541,7 @@
 		color: var(--marketing-mint-ink);
 	}
 	.studio-copy {
+		display: block;
 		padding: 34px;
 	}
 	.studio-copy h3 {
@@ -563,19 +564,7 @@
 		font-weight: 550;
 	}
 	.studio-screen {
-		margin-left: 34px;
-		margin-right: -65px;
-		transform: translateY(12px) rotate(-2deg);
-		transform-origin: bottom right;
-		transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
-	}
-	.studio-screen img {
-		width: 100%;
-		display: block;
-		border-radius: 9px 0 0 0;
-	}
-	.studio-item:hover .studio-screen {
-		transform: translateY(1px) rotate(0);
+		margin: 0 24px 8px;
 	}
 	.tools-note {
 		display: flex;

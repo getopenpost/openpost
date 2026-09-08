@@ -11,6 +11,14 @@
 
 <script lang="ts">
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import { TextMorph } from 'torph/svelte';
+	import { onMount } from 'svelte';
+	import { getLocaleTag } from '$lib/i18n';
+
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	let {
 		faces,
@@ -21,33 +29,50 @@
 		active: string;
 		compact?: boolean;
 	} = $props();
+	const current = $derived(faces.find((face) => face.id === active));
 </script>
 
 <!-- All faces occupy one cell so translated state changes cannot move the action. -->
 <span class="action-label" aria-hidden="true">
 	{#each faces as face (face.id)}
-		<span class="action-face" class:active={face.id === active}>
-			{#if face.status || face.icon}
-				<span class="size-3.5 shrink-0">
-					{#if face.id === active}
-						{#if face.status}
-							<ProtectedIcon
-								icon={face.status}
-								class={`size-3.5 ${face.status === 'loading' ? 'animate-spin motion-reduce:animate-none' : ''}`}
-							/>
-						{:else if face.icon}
-							<ThemeIcon role={face.icon} class="size-3.5" />
-						{/if}
-					{/if}
-				</span>
-			{/if}
+		<span class="action-face sizing-face">
+			{#if face.status || face.icon}<span class="size-3.5 shrink-0"></span>{/if}
 			<span class={compact ? 'max-sm:sr-only' : undefined}>{face.label}</span>
 		</span>
 	{/each}
+	{#if current}
+		{@const face = current}
+		<span class="action-face">
+			{#if face.status || face.icon}
+				<span class="size-3.5 shrink-0">
+					{#if face.status}
+						<ProtectedIcon
+							icon={face.status}
+							class={`size-3.5 ${face.status === 'loading' ? 'animate-spin motion-reduce:animate-none' : ''}`}
+						/>
+					{:else if face.icon}
+						<ThemeIcon role={face.icon} class="size-3.5" />
+					{/if}
+				</span>
+			{/if}
+			<span class={compact ? 'max-sm:sr-only' : undefined}>
+				{#if mounted}
+					<TextMorph
+						text={face.label}
+						as="span"
+						duration={200}
+						scale={false}
+						locale={getLocaleTag()}
+					/>
+				{:else}{face.label}{/if}
+			</span>
+		</span>
+	{/if}
 </span>
 
 <style>
 	.action-label {
+		position: relative;
 		display: inline-grid;
 		place-items: center;
 		grid-template-columns: minmax(0, 1fr);
@@ -63,30 +88,19 @@
 		justify-content: center;
 		gap: 0.375rem;
 		white-space: nowrap;
-		opacity: 0;
-		transform: translateY(4px) scale(0.97);
-		filter: blur(2px);
 		pointer-events: none;
-		transition:
-			opacity var(--theme-duration-normal, 160ms) ease-out,
-			transform var(--theme-duration-slow, 240ms) cubic-bezier(0.16, 1, 0.3, 1),
-			filter var(--theme-duration-normal, 160ms) ease-out;
 	}
 	.action-face > span:last-child {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.action-face.active {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-		filter: blur(0);
+	.sizing-face {
+		visibility: hidden;
 	}
-	@media (prefers-reduced-motion: reduce) {
-		.action-face {
-			transition: none;
-			transform: none;
-			filter: none;
-		}
+	/* Only the reserved faces size the control, never Torph's transient width. */
+	.action-face:not(.sizing-face) {
+		position: absolute;
+		inset: 0;
 	}
 </style>

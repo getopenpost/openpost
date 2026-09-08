@@ -19,7 +19,7 @@ for (const scheme of ["light", "dark"] as const) {
           .getByRole("columnheader")
           .filter({ has: page.getByRole("heading", { name: "Solo", exact: true }) });
         await expect(solo.locator(".animated-price")).toMatchAriaSnapshot(
-          billing === "Monthly" ? "- text: $29" : "- text: $24.17",
+          billing === "Monthly" ? "- text: $29" : "- text: $290",
         );
         const results = await new AxeBuilder({ page })
           .include("main")

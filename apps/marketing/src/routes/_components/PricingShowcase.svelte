@@ -20,8 +20,8 @@
 	const plans = planCatalog.plans;
 	const dollars = (value: number) =>
 		`$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-	const monthlyPrice = (plan: (typeof plans)[number]) =>
-		billingPeriod === 'annual' ? plan.annual_price_usd / 12 : plan.monthly_price_usd;
+	const planPrice = (plan: (typeof plans)[number]) =>
+		billingPeriod === 'annual' ? plan.annual_price_usd : plan.monthly_price_usd;
 	const renewalPrice = (plan: (typeof plans)[number]) =>
 		billingPeriod === 'annual'
 			? `${dollars(plan.annual_price_usd)} per year`
@@ -92,7 +92,7 @@
 	<div class="pricing-toolbar">
 		<p>
 			<strong>{purchaseTerms.trial_days}-day free trial.</strong>
-			{managedCardRequirement}. $0 due today.
+			{managedCardRequirement}.
 		</p>
 		<div class="billing-toggle" aria-label="Billing period">
 			<Button
@@ -121,10 +121,7 @@
 		<caption class="sr-only">Compare Hosted plans</caption>
 		<thead>
 			<tr>
-				<th scope="col" class="matrix-intro"
-					><span>Every feature.<br />Room to work.</span>
-					<p>One subscription for your organization.</p></th
-				>
+				<th scope="col" class="matrix-intro"><span>Compare plans</span></th>
 				{#each plans as plan (plan.id)}
 					<th
 						scope="col"
@@ -135,22 +132,15 @@
 						<h3>{plan.name}</h3>
 						<p class="best-for">Best for {plan.best_for}.</p>
 						<p class="price-line">
-							<AnimatedPrice value={monthlyPrice(plan)} /><span>/month</span>
-						</p>
-						<p class="billing-note">
-							{billingPeriod === 'annual'
-								? `Billed ${dollars(plan.annual_price_usd)} yearly`
-								: 'Billed monthly'}
+							<AnimatedPrice value={planPrice(plan)} /><span
+								>/{billingPeriod === 'annual' ? 'year' : 'month'}</span
+							>
 						</p>
 						<Button
 							href={`${appUrl}/register?plan=${plan.id}&billing_period=${billingPeriod}`}
 							variant={plan.featured ? 'default' : 'outline'}
-							class="plan-button w-full"
-							aria-describedby={`plan-${plan.id}-purchase-note`}>Start {plan.name}</Button
+							class="plan-button w-full">Start {plan.name}</Button
 						>
-						<p id={`plan-${plan.id}-purchase-note`} class="purchase-note">
-							Then {renewalPrice(plan)} until canceled.
-						</p>
 					</th>
 				{/each}
 			</tr>
@@ -180,21 +170,23 @@
 			>
 		</p>
 	{:else}
-		<div class="capacity-note">
-			<p>
-				Each workspace has its own accounts, people, and usage allowances. One social account is one
-				connected profile or page. Use a workspace for each brand or client.
-			</p>
-			<p>
-				A scheduled publication counts once, including its threads and destinations. Monthly
-				allowances use calendar months in UTC, including on annual plans.
-			</p>
-			<p>
-				AI writing and alt text have no separate usage charge. Provider access and safety limits
-				still apply, including a monthly X publishing budget shown in Plan &amp; usage. Limits pause
-				the affected action, with no automatic overage bill.
-			</p>
-		</div>
+		<details class="purchase-details">
+			<summary class="focus-ring">How usage is counted</summary>
+			<div>
+				<p>
+					Each workspace has separate limits. One social account is one connected profile or page.
+				</p>
+				<p>
+					A publication counts once, including all threads and destinations. Monthly allowances
+					reset by calendar month in UTC, including on yearly plans.
+				</p>
+				<p>
+					AI writing and alt text have no separate charge. Provider limits, including the monthly X
+					budget, appear in Plan &amp; usage. Reaching a limit pauses that action without an overage
+					bill.
+				</p>
+			</div>
+		</details>
 		<details class="purchase-details">
 			<summary class="focus-ring">Trial and billing details</summary>
 			<div>
@@ -222,7 +214,7 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 1.5rem;
-		padding-bottom: 2rem;
+		padding-bottom: 1.5rem;
 	}
 	.pricing-toolbar p {
 		color: var(--muted-foreground);
@@ -268,7 +260,7 @@
 		top: 4rem;
 		z-index: 10;
 		width: 22%;
-		padding-block: 1.75rem;
+		padding-block: 1.25rem;
 		background: var(--background);
 		vertical-align: top;
 	}
@@ -282,13 +274,6 @@
 		font-weight: 600;
 		line-height: 1.2;
 		letter-spacing: -0.025em;
-	}
-	.matrix-intro p {
-		margin-top: 1rem;
-		max-width: 23ch;
-		font-weight: 400;
-		color: var(--muted-foreground);
-		line-height: 1.6;
 	}
 	.pricing-matrix .featured {
 		background: color-mix(in oklch, var(--muted) 50%, var(--background));
@@ -315,7 +300,7 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 		gap: 0.15rem;
-		margin-top: 1.5rem;
+		margin-top: 1rem;
 		font-size: clamp(2rem, 3.3vw, 3.25rem);
 		font-weight: 650;
 		letter-spacing: -0.035em;
@@ -327,21 +312,9 @@
 		font-weight: 400;
 		letter-spacing: normal;
 	}
-	.billing-note {
-		margin-block: 0.5rem 1.5rem;
-		color: var(--muted-foreground);
-		font-size: 0.75rem;
-		font-weight: 400;
-	}
 	:global(.plan-button) {
 		min-height: 2.75rem;
-	}
-	.purchase-note {
-		margin-top: 0.75rem;
-		color: var(--muted-foreground);
-		font-size: 0.75rem;
-		font-weight: 400;
-		line-height: 1.5;
+		margin-top: 1rem;
 	}
 	.pricing-matrix tbody th {
 		font-weight: 450;
@@ -444,9 +417,6 @@
 
 		.matrix-intro > span {
 			font-size: 1.15rem;
-		}
-		.matrix-intro p {
-			font-size: 0.75rem;
 		}
 		.pricing-matrix th,
 		.pricing-matrix td {

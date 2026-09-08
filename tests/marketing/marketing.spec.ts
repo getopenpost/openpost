@@ -85,6 +85,9 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   ];
   await page.goto("/pricing");
   await dismissTelemetryConsent(page);
+  await expect(page.getByRole("link", { name: "Start Solo", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
   const selfHosted = page.getByRole("region", { name: "Self-hosted deployment" });
   await expect(selfHosted).toContainText("no software fee");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
@@ -118,9 +121,9 @@ test("pricing makes every plan selectable for monthly and annual billing", async
         "href",
         `https://app.openpo.st/register?plan=${plan.id}&billing_period=${billing}`,
       );
-      await expect(header).toContainText(
-        `Then ${billing === "monthly" ? plan.monthly + " per month" : plan.annual + " per year"} until canceled.`,
-      );
+      const price = header.locator(".price-line");
+      await expect(price).toContainText(billing === "monthly" ? plan.monthly : plan.annual);
+      await expect(price).toContainText(billing === "monthly" ? "/month" : "/year");
     }
   }
   await expect(table.getByRole("heading", { name: "Starter", exact: true })).toHaveCount(0);

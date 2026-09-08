@@ -6,14 +6,12 @@
 </script>
 
 <section class="pricing-hero marketing-shell">
-	<h1>One person. A team.<br />Or a whole client list.</h1>
-	<p>Three plans. Every feature included. Choose who you publish with.</p>
+	<h1>Simple pricing. Every feature.</h1>
 </section>
 
 <section id="plans" class="plans-section marketing-shell" aria-labelledby="plans-title">
-	<div id="limits" class="plans-heading scroll-mt-20">
-		<h2 id="plans-title">Pricing plans</h2>
-		<p>Compare every plan side by side. Switch billing to see annual pricing.</p>
+	<div id="limits" class="scroll-mt-20">
+		<h2 id="plans-title" class="sr-only">Pricing plans</h2>
 	</div>
 	<PricingShowcase />
 </section>
@@ -49,39 +47,19 @@
 
 <style>
 	.pricing-hero {
-		padding-block: clamp(3.5rem, 7vw, 6rem) clamp(2.5rem, 5vw, 4rem);
+		padding-block: clamp(2rem, 4vw, 3rem) 1.5rem;
 	}
 	.pricing-hero h1 {
-		max-width: 20ch;
-		font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+		max-width: 26ch;
+		font-size: clamp(2rem, 4vw, 3.5rem);
 		font-weight: 650;
 		line-height: 1.04;
-		letter-spacing: -0.035em;
+		letter-spacing: -0.025em;
 		text-wrap: balance;
-	}
-	.pricing-hero p {
-		max-width: 48ch;
-		margin-top: 1.5rem;
-		color: var(--muted-foreground);
-		font-size: 1.1rem;
-		line-height: 1.7;
 	}
 	.plans-section {
 		padding-bottom: clamp(3rem, 6vw, 5rem);
 		scroll-margin-top: 5rem;
-	}
-	.plans-heading {
-		margin-bottom: 2rem;
-	}
-	.plans-heading h2 {
-		font-size: 1.5rem;
-		font-weight: 600;
-		letter-spacing: -0.025em;
-	}
-	.plans-heading p {
-		margin-top: 0.5rem;
-		color: var(--muted-foreground);
-		line-height: 1.6;
 	}
 	.purchase-faq {
 		padding-block: clamp(3rem, 6vw, 5rem);

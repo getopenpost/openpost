@@ -1,4 +1,6 @@
 {
-  "title": "API",
-  "pages": ["index"]
+  "title": "API reference",
+  "pages": ["index", "publications", "accounts", "media", "posting-schedules", "jobs", "..."],
+  "root": true,
+  "icon": "Code2"
 }

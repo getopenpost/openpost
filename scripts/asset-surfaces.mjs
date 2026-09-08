@@ -31,6 +31,7 @@ const sourceExtensions = new Set([
   ".js",
   ".json",
   ".md",
+  ".mdx",
   ".mjs",
   ".svelte",
   ".ts",
@@ -39,6 +40,9 @@ const sourceExtensions = new Set([
 
 const excludedSourceDirectories = new Set([
   ".svelte-kit",
+  ".next",
+  ".source",
+  "out",
   ".wrangler",
   "build",
   "dist",

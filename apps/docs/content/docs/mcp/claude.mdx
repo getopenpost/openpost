@@ -1,6 +1,7 @@
 ---
 title: Connect Claude
 description: Add OpenPost to Claude, Claude Desktop, or Claude Code.
+icon: Bot
 ---
 
 ## Claude web and Claude Desktop
@@ -28,3 +29,5 @@ claude mcp add --transport http openpost https://app.openpo.st/mcp
 Start Claude Code, run `/mcp`, select `openpost`, and follow the browser OAuth flow. Claude stores and refreshes the OAuth credentials. Run `/mcp` again to inspect connection status or clear authentication. If your client needs a manual token, configure an Authorization header through Claude Code's MCP options and keep the token in your secret environment, never in a checked-in config.
 
 Cloud Claude cannot reach a private hostname or `localhost`. Use public HTTPS for the hosted MCP endpoint, or use the local bridge with a local Claude client.
+
+For current client controls and plan availability, see [Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp).

@@ -10,29 +10,29 @@ Developer docs are separate from user-facing docs and self-hosting docs. They ca
 
 ## Start here
 
-- [Development Setup](/development/setup) gets the repo, frontend, backend, and docs running locally.
-- [Architecture](/development/architecture) explains the main boundaries.
-- [Contributing](/development/contributing) covers contribution workflow.
-- [Testing](/development/testing) covers local and CI checks.
-- [Releases and Versioning](/development/releases) covers SemVer, production releases, and failure handling.
+- [Development Setup](setup.md) gets the repo, frontend, backend, and docs running locally.
+- [Architecture](architecture.md) explains the main boundaries.
+- [Contributing](contributing.md) covers contribution workflow.
+- [Testing](testing.md) covers local and CI checks.
+- [Releases and Versioning](releases.md) covers SemVer, production releases, and failure handling.
 
 ## Backend and API
 
-- [Backend](/development/backend) covers Go backend conventions.
-- [API Reference](/development/api-reference) renders the generated OpenAPI spec.
-- [API Tokens](/development/api-tokens) documents one-time secrets, expiry, scopes, workspace boundaries, and revocation.
-- [External Applications](/development/external-applications) documents delegated OAuth, workspace and account consent, rotating credentials, and signed webhooks.
-- [Background Jobs](/development/background-jobs) covers durable job behavior.
-- [Platform Adapters](/development/platform-adapters) covers provider integration rules.
-- [Billing and Usage](/development/billing-and-usage) covers entitlements, usage counters, and hosted billing primitives.
+- [Backend](backend.md) covers Go backend conventions.
+- [API Reference](api-reference.md) renders the generated OpenAPI spec.
+- [API Tokens](api-tokens.md) documents one-time secrets, expiry, scopes, workspace boundaries, and revocation.
+- [External Applications](external-applications.md) documents delegated OAuth, workspace and account consent, rotating credentials, and signed webhooks.
+- [Background Jobs](background-jobs.md) covers durable job behavior.
+- [Platform Adapters](platform-adapters.md) covers provider integration rules.
+- [Billing and Usage](billing-and-usage.md) covers entitlements, usage counters, and hosted billing primitives.
 
 ## Frontend, MCP, and launch work
 
-- [Frontend](/development/frontend) covers SvelteKit app conventions.
-- [MCP and ChatGPT App](/development/mcp) covers tool-server and Apps SDK integration notes.
-- [Production Architecture](/development/production-readiness) records shared hosted and self-hosted architecture, provider verification, and release checks.
+- [Frontend](frontend.md) covers SvelteKit app conventions.
+- [MCP and ChatGPT App](mcp.md) covers tool-server and Apps SDK integration notes.
+- [Production Architecture](production-readiness.md) records shared hosted and self-hosted architecture, provider verification, and release checks.
 
 ## Adjacent docs
 
-- If you are using OpenPost through the web app, CLI, or MCP client, start with [User Docs](/guides/).
-- If you are deploying or operating an instance, start with [Self-Hosting Docs](/self-hosting/).
+- If you are using OpenPost through the web app, CLI, or MCP client, start with [User Docs](https://docs.openpo.st/guides/quickstart).
+- If you are deploying or operating an instance, start with [Self-Hosting Docs](https://docs.openpo.st/self-hosting/).

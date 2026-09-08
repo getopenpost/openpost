@@ -1,6 +1,7 @@
 ---
 title: AI assistants
 description: Connect ChatGPT, Claude, Cursor, or another MCP client to OpenPost.
+icon: Bot
 ---
 
 OpenPost exposes a remote [Model Context Protocol](https://modelcontextprotocol.io/) server at:
@@ -15,10 +16,10 @@ An MCP client can inspect your workspaces, connected accounts, publications, sch
 
 | Client | Setup |
 | --- | --- |
-| Cursor | [Connect Cursor](./cursor) |
-| ChatGPT | [Connect ChatGPT](./chatgpt) |
-| Claude | [Connect Claude and Claude Code](./claude) |
-| Other MCP client | Use the endpoint and token rules in [Tools and permissions](./tools) |
+| Cursor | [Connect Cursor](/mcp/cursor) |
+| ChatGPT | [Connect ChatGPT](/mcp/chatgpt) |
+| Claude | [Connect Claude and Claude Code](/mcp/claude) |
+| Other MCP client | Use the endpoint and token rules in [Tools and permissions](/mcp/tools) |
 
 OAuth is the preferred setup for remote clients. OpenPost asks you to sign in and choose `mcp:read` or `mcp:full`, with an optional workspace binding. If the client does not support OAuth, create a developer token in **Settings → Personal → Developer** and pass it as a bearer header. Never paste that token into a prompt.
 

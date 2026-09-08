@@ -56,6 +56,9 @@ const checks = {
     bun("scripts/check-mcp-registry.mjs"),
   ]),
   docs: stage("documentation policy", [
+    bunRun("--filter", "@openpost/docs", "prepare"),
+    bunRun("--filter", "@openpost/docs", "check"),
+    bunTest("apps/docs/lib/api-document.test.ts"),
     bunTest(
       "scripts/check-doc-links.test.mjs",
       "scripts/check-doc-telemetry.test.mjs",

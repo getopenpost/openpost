@@ -46,6 +46,7 @@ const totalCountPatterns = [
 const nonProviderDocumentationPages = new Set([
   "index",
   "launch-matrix",
+  "provider-launch-matrix",
   "overview",
   "platform-limits",
   "roadmap",

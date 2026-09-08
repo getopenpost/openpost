@@ -52,7 +52,7 @@
       "evidence": [
         "apps/server/internal/api/handlers/auth.go",
         "apps/server/internal/config/config.go",
-        "apps/docs/configuration/production-checklist.md",
+        "docs/reference/configuration/production-checklist.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -78,7 +78,7 @@
       "evidence": [
         "apps/server/internal/api/handlers/account_lifecycle.go",
         "apps/server/internal/services/medialifecycle/service.go",
-        "apps/docs/operations/backups.md",
+        "docs/reference/operations/backups.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },
@@ -108,7 +108,7 @@
         "apps/server/internal/api/routes.go",
         "apps/server/internal/services/analytics/service.go",
         "apps/server/internal/api/handlers/communications.go",
-        "apps/docs/operations/logs.md",
+        "docs/reference/operations/logs.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     },

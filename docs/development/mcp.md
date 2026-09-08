@@ -1,6 +1,6 @@
 # MCP And ChatGPT App
 
-This page is for MCP implementation and protocol details. For setup-oriented user docs, see [Agent-Assisted Publishing With MCP](/guides/automation).
+This page is for MCP implementation and protocol details. For setup-oriented user docs, see [Agent-Assisted Publishing With MCP](https://docs.openpo.st/guides/automation).
 
 OpenPost exposes an authenticated MCP foundation at:
 

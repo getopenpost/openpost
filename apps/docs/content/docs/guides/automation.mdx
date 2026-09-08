@@ -1,6 +1,7 @@
 ---
 title: Automation
 description: Use the CLI, MCP, or the OpenPost n8n node.
+icon: Workflow
 ---
 
 OpenPost's CLI, MCP server, and n8n node use the same workspace permissions as the web app. Create a separate, revocable token for each automation. A workspace-bound token is the safest default.
@@ -46,26 +47,11 @@ openpost post create --content "Launch note" --accounts x --schedule "tomorrow 2
 
 Use `--schedule next-slot` to use the next available workspace slot. Use `openpost post list --status scheduled` to inspect scheduled work. Use `publication create` for format-first video and link publications.
 
-## MCP
+## AI assistants
 
-Remote MCP clients connect to:
+Connect OpenPost to [Cursor](/mcp/cursor), [ChatGPT](/mcp/chatgpt), or [Claude](/mcp/claude) through MCP. Each guide covers sign-in, workspace access, a first test, and connection troubleshooting.
 
-```text
-https://app.openpo.st/mcp
-```
-
-Replace the host with your own OpenPost origin. OAuth-aware clients can authorize in the browser. For manual setup, create an `mcp:read` token for inspection or `mcp:full` when the client must create, schedule, or publish. Limit it to one workspace.
-
-Desktop clients can use the local stdio proxy:
-
-```sh
-openpost auth login https://app.openpo.st
-openpost-mcp
-```
-
-The proxy uses the active CLI profile. It does not need provider credentials or a local database.
-
-Start with read-only inspection. Review the draft, account versions, media, and time in OpenPost before approving a write action.
+Use `mcp:read` for inspection and reports, or `mcp:full` when the assistant needs to create, edit, schedule, or publish. The [MCP overview](/mcp) explains remote OAuth, developer tokens, and the local bridge.
 
 ## n8n
 

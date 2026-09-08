@@ -21,7 +21,7 @@ Use an `Authorization: Bearer <token>` header. REST scopes are operation allowli
 
 `api:write` includes `api:read` and permits the publication create, edit, rendition, schedule, publish-now, and retry operations; the complete media upload-session flow (create, a returned instance-hosted content URL when applicable, and complete), metadata update, favorite, trash, restore, batch delete, and analysis-retry operations; social-set changes; and posting-schedule changes. It does not grant the older direct or batch upload routes, account administration, billing, identity, token-management, or arbitrary MCP access.
 
-The generated [API Reference](/development/api-reference) is the source for paths and request bodies. A `403` from a valid token means its scope or workspace boundary does not permit that operation.
+The generated [API Reference](api-reference.md) is the source for paths and request bodies. A `403` from a valid token means its scope or workspace boundary does not permit that operation.
 
 ## MCP and CLI scopes
 
@@ -39,7 +39,7 @@ If an organization requires SSO, its token policy can deny app tokens or require
 
 Migration 084 changes older organization-wide token policies to workspace-scoped mode. It does not auto-bind existing unbound credentials; those tokens can no longer access required-SSO resources. Revoke them and issue one assured token per required workspace, or choose the deny policy.
 
-The browser CLI approval page lets the user choose a workspace or all workspaces. The backend verifies current membership before saving a bound approval. CLI and MCP approval endpoints require a signed-in browser session, so an existing bearer token cannot authorize a new credential. See the [automation guide](/guides/automation) for the CLI device flow.
+The browser CLI approval page lets the user choose a workspace or all workspaces. The backend verifies current membership before saving a bound approval. CLI and MCP approval endpoints require a signed-in browser session, so an existing bearer token cannot authorize a new credential. See the [automation guide](https://docs.openpo.st/guides/automation) for the CLI device flow.
 
 ## Rotation and revocation
 

@@ -1,0 +1,39 @@
+---
+title: Facebook, Instagram, and Threads
+description: Configure the Meta apps used by OpenPost's three Meta integrations.
+icon: facebook
+---
+
+Create an app in the [Meta for Developers dashboard](https://developers.facebook.com/apps/). Keep one app for each integration unless Meta's dashboard requires a separate product or review path. Register the OpenPost callback for the provider you are enabling:
+
+```text
+https://your-domain.example/api/v1/accounts/facebook/callback
+https://your-domain.example/api/v1/accounts/instagram/callback
+https://your-domain.example/api/v1/accounts/threads/callback
+```
+
+Set `OPENPOST_APP_URL` to `https://your-domain.example` and put the app ID and secret in the provider registry. This example contains all three entries. Remove entries you are not configuring.
+
+```json
+[
+  {"provider":"facebook","client_id":"meta-app-id","client_secret":"meta-app-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/facebook/callback"},
+  {"provider":"instagram","client_id":"meta-app-id","client_secret":"meta-app-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/instagram/callback"},
+  {"provider":"threads","client_id":"threads-app-id","client_secret":"threads-app-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/threads/callback"}
+]
+```
+
+## Facebook Pages
+
+Add the **Facebook Login** product. Request `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_manage_engagement`, `pages_manage_posts`, and `pages_messaging`. After review where Meta requires it, restart OpenPost and connect from **Settings → Workspace → Social accounts → Facebook**. The user chooses a manageable Page. Pages in a Business Portfolio may require `business_management` and full control.
+
+## Instagram professional accounts
+
+Add Facebook Login and connect an Instagram Business or Creator account to a Facebook Page. Request `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, and `pages_read_engagement`. Set `OPENPOST_MEDIA_URL` to a public HTTPS URL because Meta fetches image and Reel media from it. Connect through the Instagram entry in Accounts and choose the returned professional account.
+
+## Threads
+
+Add the Threads API product in the [Threads API documentation](https://developers.facebook.com/docs/threads/). Request `threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_manage_insights`, and `threads_location_tagging`. Set `OPENPOST_MEDIA_URL` to public HTTPS media before testing. Connect through Accounts and test a text post first, then media.
+
+## Troubleshooting
+
+For all three, compare the callback URL exactly, confirm the app is in the correct mode, and reconnect after changing scopes. A successful login does not prove publish permission. If media fails, fetch the media URL from outside your network and check its MIME type. If a Page or professional account is missing, check the Meta user's Page role, account link, and approved products.

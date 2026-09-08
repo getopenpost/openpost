@@ -69,4 +69,4 @@ Users can disconnect the whole application or remove one workspace in **Settings
 
 MCP remains a protected-resource adapter with its existing `mcp:read` and `mcp:full` scopes and Client ID Metadata Document support. Manual `api:*`, `mcp:*`, and `cli:full` tokens remain compatible. External application access uses `external:delegated` internally and cannot be created from the manual token form.
 
-The generated [API Reference](/development/api-reference) is authoritative for request and response bodies.
+The generated [API Reference](api-reference.md) is authoritative for request and response bodies.

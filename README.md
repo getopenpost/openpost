@@ -40,7 +40,7 @@
 <p align="center">
   <a href="https://app.openpo.st/register?plan=founder&amp;billing_period=monthly"><strong>Start a 14-day trial</strong></a>
   ·
-  <a href="https://docs.openpo.st/guide/quickstart"><strong>Self-host</strong></a>
+  <a href="https://docs.openpo.st/self-hosting"><strong>Self-host</strong></a>
   ·
   <a href="https://docs.openpo.st"><strong>Docs</strong></a>
   ·
@@ -86,7 +86,7 @@ Open `http://localhost:8080`, create the first account, connect a social account
 
 [Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
 
-**Automate.** [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
+**Automate.** [CLI guide](https://docs.openpo.st/guides/automation) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/api-reference)
 
 ## What you can do
 
@@ -113,7 +113,7 @@ The browser editors are free to try without an account. Exports have no watermar
 
 ![Video Editor with a screen recording and multitrack timeline](assets/screenshots/video-editor-dark.webp)
 
-[Quick Cut for simple trims](https://docs.openpo.st/usage/quick-cut) · [Explore all features](https://openpo.st/features) · [Usage guides](https://docs.openpo.st/usage/) · [Developer docs](https://docs.openpo.st/development/api-reference)
+[Quick Cut for simple trims](https://docs.openpo.st/guides/quick-cut) · [Explore all features](https://openpo.st/features) · [Usage guides](https://docs.openpo.st/guides/quickstart) · [API reference](https://docs.openpo.st/api-reference)
 
 ## Supported platforms
 
@@ -129,7 +129,7 @@ A social app can appear in OpenPost before it is ready for real accounts.
 
 Pinterest, Discord bots, and Telegram bots are not public posting options yet.
 
-[Provider readiness](https://docs.openpo.st/operations/provider-launch-matrix) · [Platform rules](https://docs.openpo.st/providers/)
+[Connect accounts](https://docs.openpo.st/guides/accounts) · [Self-hosted integrations](https://docs.openpo.st/self-hosting/integrations)
 
 ## Contribute
 
@@ -141,7 +141,7 @@ devenv shell -- setup
 bun run verify
 ```
 
-Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development setup](https://docs.openpo.st/development/setup) before opening a PR.
+Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development setup](https://github.com/getopenpost/openpost/blob/main/docs/development/setup.md) before opening a PR.
 
 ## License and security
 

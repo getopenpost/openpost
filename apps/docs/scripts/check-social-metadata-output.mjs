@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const docsRoot = path.resolve(scriptDir, "..");
-const dist = path.join(docsRoot, ".vitepress/dist");
+const dist = path.join(docsRoot, "out");
 const problems = [];
 
 async function walkHtml(directory) {
@@ -12,7 +12,11 @@ async function walkHtml(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const target = path.join(directory, entry.name);
     if (entry.isDirectory()) files.push(...(await walkHtml(target)));
-    else if (entry.isFile() && entry.name.endsWith(".html") && entry.name !== "404.html")
+    else if (
+      entry.isFile() &&
+      entry.name.endsWith(".html") &&
+      !["404.html", "_not-found.html"].includes(entry.name)
+    )
       files.push(target);
   }
   return files;

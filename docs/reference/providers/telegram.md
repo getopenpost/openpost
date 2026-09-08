@@ -8,7 +8,7 @@ This page is for operators reviewing Telegram bot mode's certification boundary.
 
 Telegram bot mode is **not publicly available in OpenPost**. The repository contains controlled connection, publishing, observation, and analytics paths, but a configured bot or passing fixture test is not a Hosted service availability claim.
 
-Do not advertise or enable public Telegram bot operations unless the exact bot, destination, operation, policy mode, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](/operations/provider-launch-matrix).
+Do not advertise or enable public Telegram bot operations unless the exact bot, destination, operation, policy mode, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](../operations/provider-launch-matrix.md).
 
 ## Required readiness
 
@@ -26,4 +26,4 @@ Implemented publishing limits include 4,096 characters for a text message, 1,024
 
 Keep every Telegram readiness control disabled for normal production traffic until current live certification exists. Reject webhook requests without the configured secret header, and never log raw update payloads or bot credentials.
 
-Use the [provider application configuration guide](/configuration/provider-applications) for the private operator contract and the [launch matrix](/operations/provider-launch-matrix) for the evidence required before any public claim changes.
+Use the [provider application configuration guide](../configuration/provider-applications.md) for the private operator contract and the [launch matrix](../operations/provider-launch-matrix.md) for the evidence required before any public claim changes.

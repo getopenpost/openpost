@@ -44,4 +44,4 @@ The built frontend is embedded into the Go binary for single-binary deployment.
 
 ## Client surfaces
 
-The web app, CLI, MCP server, and direct HTTP clients share the same backend authorization, validation, quotas, and audit records. They intentionally differ in interaction design. See [Product Surface Parity](/reference/surface-parity) for the supported workflow matrix.
+The web app, CLI, MCP server, and direct HTTP clients share the same backend authorization, validation, quotas, and audit records. They intentionally differ in interaction design. See [Product Surface Parity](../reference/surface-parity.md) for the supported workflow matrix.

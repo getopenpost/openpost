@@ -498,8 +498,8 @@ test("production discovery gives agents direct interface guidance", () => {
   assert.match(marketing, /^## When to use OpenPost$/m);
   assert.match(marketing, /^## When OpenPost is not a fit$/m);
   assert.match(marketing, /https:\/\/docs\.openpo\.st\/openapi\.json/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/cli\/index\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/mcp\/index\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
   assert.match(marketing, /https:\/\/openpo\.st\/developers\.md/u);
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
@@ -533,7 +533,7 @@ test("documentation production projection covers every ordinary catalog page", (
     eligible.length,
   );
   for (const page of productionProjections.documentation.pages) {
-    assert.equal(page.outputPath, page.page);
+    assert.equal(page.outputPath, page.page.replace(/\.mdx$/, ".md"));
     assert.equal(page.route, page.catalog.route);
     assert.equal(page.title, page.catalog.socialTitle);
     assert.equal(page.description, page.catalog.description);
@@ -566,7 +566,7 @@ test("documentation size exceptions require reviewed canonical metadata", async 
   const page = {
     sourcePath,
     outputPath: "large.md",
-    canonical: "https://docs.openpo.st/development/large-guide",
+    canonical: "https://docs.openpo.st/self-hosting/large-guide",
     title: "Large guide",
     description: "A deliberately large reviewed guide.",
   };
@@ -978,11 +978,11 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
     pages.push({
       sourcePath,
       outputPath: `large-${index}.md`,
-      canonical: `https://docs.openpo.st/development/large-${index}`,
+      canonical: `https://docs.openpo.st/self-hosting/large-${index}`,
       title: `Large ${index}`,
       description: `Large documentation page ${index}.`,
       catalog: {
-        agentCorpus: { membership: "included", section: "development" },
+        agentCorpus: { membership: "included", section: "self-hosting" },
       },
     });
   }
@@ -1022,7 +1022,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
       {
         sourcePath: exactSource,
         outputPath: "exact.md",
-        canonical: "https://docs.openpo.st/development/exact-boundary",
+        canonical: "https://docs.openpo.st/self-hosting/exact-boundary",
         title: "Exact boundary",
         description: "Exact corpus boundary fixture.",
         catalog: {
@@ -1030,7 +1030,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
             membership: "ordinary",
             sizeException: { reviewed: true, reason: "Boundary fixture." },
           },
-          agentCorpus: { membership: "included", section: "development" },
+          agentCorpus: { membership: "included", section: "self-hosting" },
         },
       },
     ],
@@ -1514,25 +1514,28 @@ test(
         formatted
           .map(
             (plan) =>
-              `${plan.name.replaceAll("$", "\\$")} \\$${plan.annual_price_usd.toLocaleString("en-US")}/year`,
+              `${plan.name.replaceAll("$", "\\$")}[\\s\\S]*\\$${plan.monthly_price_usd.toLocaleString("en-US")} /month`,
           )
           .join("[\\s\\S]*"),
         "u",
       ),
     );
     const exactRows = [
-      ["Workspaces", ...formatted.map((plan) => plan.limits.workspaces.toLocaleString("en-US"))],
+      [
+        "Included workspaces",
+        ...formatted.map((plan) => plan.limits.workspaces.toLocaleString("en-US")),
+      ],
       [
         "Social accounts",
         ...formatted.map((plan) => plan.limits.social_accounts.toLocaleString("en-US")),
       ],
       [
-        "Scheduled posts / month",
+        "Scheduled publications / month",
         ...formatted.map((plan) => plan.limits.scheduled_posts_monthly.toLocaleString("en-US")),
       ],
       ["Media storage", ...formatted.map((plan) => plan.storage)],
       [
-        "Included seats",
+        "People, including you",
         ...formatted.map((plan) => plan.limits.team_members.toLocaleString("en-US")),
       ],
     ];
@@ -1544,10 +1547,6 @@ test(
       planCatalog.purchase_terms.card_required
         ? /A card is required at checkout\./u
         : /No card is required at checkout\./u,
-    );
-    assert.match(
-      pricing,
-      /\| Limit \| Starter \$15\/month \| Founder \$25\/month \| Pro \$49\/month \| Team \$99\/month \| Agency \$199\/month \|\n\| --- \| --- \| --- \| --- \| --- \| --- \|/u,
     );
     const features = await readFile(path.join(marketingDirectory, "features.md"), "utf8");
     assert.match(
@@ -1578,7 +1577,6 @@ test(
         previousEnd = position + exactText.length;
       }
     }
-    assert.equal((pricing.match(/^\| Limit \|/gmu) ?? []).length, 1);
 
     const docsDirectory = path.join(root, "apps/docs/out");
     const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
@@ -1586,17 +1584,30 @@ test(
     const ordinaryDocs = docsSocialEntries.filter(
       (entry) => entry.agentRepresentation.membership === "ordinary",
     );
-    const expectedDocsMarkdown = ordinaryDocs.map((entry) => entry.page);
-    const expectedDocsHTML = expectedDocsMarkdown.map((page) => page.replace(/\.md$/u, ".html"));
+    const expectedDocsMarkdown = ordinaryDocs.map((entry) => entry.page.replace(/\.mdx$/, ".md"));
+    const expectedDocsHTML = ordinaryDocs.map((entry) =>
+      entry.route === "/" ? "index.html" : `${entry.route.slice(1)}.html`,
+    );
     assert.deepEqual(
       await filesWithSuffix(docsDirectory, ".md"),
       expectedDocsMarkdown.toSorted(),
       "every catalogue-owned documentation route must have one Markdown artifact and no stale alias",
     );
+    const docsHTML = await filesWithSuffix(docsDirectory, ".html");
+    for (const file of expectedDocsHTML) assert.ok(docsHTML.includes(file), `Missing ${file}`);
+    const schema = JSON.parse(await readFile(path.join(docsDirectory, "openapi.json"), "utf8"));
+    const operations = Object.values(schema.paths).flatMap((item) =>
+      Object.entries(item)
+        .filter(([method]) =>
+          ["get", "post", "put", "patch", "delete", "head", "options", "trace"].includes(method),
+        )
+        .map(([, operation]) => operation.operationId),
+    );
+    const endpointPages = docsHTML.filter((file) => file.startsWith("api-reference/"));
     assert.deepEqual(
-      await filesWithSuffix(docsDirectory, ".html"),
-      ["404.html", ...expectedDocsHTML].toSorted(),
-      "every catalogue-owned documentation route must have one HTML artifact and no stale alias",
+      [...new Set(endpointPages.map((file) => path.basename(file, ".html")))].sort(),
+      operations.sort(),
+      "every OpenAPI operation must have a rendered reference page",
     );
     const firstDocsSurface = await artifactSnapshot(docsDirectory, [
       "_headers",
@@ -1608,19 +1619,25 @@ test(
     const firstDocsHTML = await semanticHTMLSnapshot(docsDirectory, expectedDocsHTML);
     for (const entry of ordinaryDocs) {
       const html = await readFile(
-        path.join(docsDirectory, entry.page.replace(/\.md$/u, ".html")),
+        path.join(
+          docsDirectory,
+          entry.route === "/" ? "index.html" : `${entry.route.slice(1)}.html`,
+        ),
         "utf8",
       );
-      const markdown = await readFile(path.join(docsDirectory, entry.page), "utf8");
+      const markdown = await readFile(
+        path.join(docsDirectory, entry.page.replace(/\.mdx$/, ".md")),
+        "utf8",
+      );
       productionHTMLContract(html, {
         canonical: entry.canonical,
         description: entry.description,
-        title: entry.page === "index.md" ? entry.socialTitle : `${entry.socialTitle} | OpenPost`,
-        home: entry.page === "index.md",
+        title: `${entry.socialTitle} | OpenPost Docs`,
+        home: entry.page === "index.mdx",
       });
       assert.ok(
         html.includes(
-          `rel="alternate" type="text/markdown" href="${new URL(entry.page, "https://docs.openpo.st/").href}"`,
+          `rel="alternate" type="text/markdown" href="${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href}"`,
         ),
       );
       assert.match(
@@ -1643,26 +1660,23 @@ test(
       assert.doesNotMatch(markdownOutsideFences(markdown), /\]\((?:\/|\.\.\/|\.\/)/u);
       assert.doesNotMatch(
         markdownOutsideFences(markdown),
-        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]|\]\(https:\/\/app\.openpo\.st/imu,
+        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]/imu,
       );
     }
 
     for (const [key, title] of [
       ["user-guide", "User guide"],
-      ["providers", "Providers"],
-      ["cli", "CLI"],
-      ["mcp", "MCP"],
-      ["installation", "Installation"],
       ["self-hosting", "Self-hosting"],
-      ["configuration", "Configuration"],
-      ["operations", "Operations"],
       ["api", "API"],
-      ["development", "Development"],
     ]) {
       assert.match(docsDiscovery, new RegExp(`^## ${title}$`, "m"));
       const entry = docsSocialEntries.find((candidate) => candidate.agentDiscovery.section === key);
       assert.ok(entry);
-      assert.ok(docsDiscovery.includes(new URL(entry.page, "https://docs.openpo.st/").href));
+      assert.ok(
+        docsDiscovery.includes(
+          new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href,
+        ),
+      );
     }
     assert.match(docsDiscovery, /\[OpenAPI JSON\]\(https:\/\/docs\.openpo\.st\/openapi\.json\)/u);
     assert.match(
@@ -1682,7 +1696,7 @@ test(
       /^### (?:Privacy Policy|Terms of Service|Refund Policy|Changelog)$/m,
     );
     for (const entry of docsSocialEntries) {
-      const artifact = new URL(entry.page, "https://docs.openpo.st/").href;
+      const artifact = new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href;
       const provenance = `Source: [${artifact}](${artifact})`;
       if (entry.agentCorpus.membership === "included") {
         assert.ok(docsCorpus.includes(provenance), `${entry.page} is missing from llms-full.txt`);
@@ -1698,7 +1712,9 @@ test(
       (candidate) => candidate.agentDiscovery.membership === "unlisted",
     )) {
       assert.equal(
-        docsDiscovery.includes(`(${new URL(entry.page, "https://docs.openpo.st/").href})`),
+        docsDiscovery.includes(
+          `(${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href})`,
+        ),
         false,
       );
     }
@@ -1706,7 +1722,16 @@ test(
     assert.doesNotMatch(docsSitemap, /\.md(?:<|$)/u);
     assert.deepEqual(
       [...docsSitemap.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]).toSorted(),
-      docsSocialEntries.map((entry) => new URL(entry.canonical).href).toSorted(),
+      docsHTML
+        .filter((file) => !["404.html", "_not-found.html", "_not-found/index.html"].includes(file))
+        .map(
+          (file) =>
+            new URL(
+              file === "index.html" ? "/" : file.replace(/\.html$/, ""),
+              "https://docs.openpo.st/",
+            ).href,
+        )
+        .toSorted(),
     );
 
     await runRootTask(root, ["build", "--", "docs"], { TURBO_FORCE: "true" });

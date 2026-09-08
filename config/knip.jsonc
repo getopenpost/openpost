@@ -55,8 +55,19 @@
       "project": ["src/**/*.{ts,tsx}!", "!src/**/*.{test,spec}.{ts,tsx}!"],
     },
     "apps/docs": {
-      "entry": [".vitepress/**/*.{js,mjs,ts}!", "scripts/**/*.{js,mjs,ts}!"],
-      "project": [".vitepress/**/*.{js,mjs,ts}!", "scripts/**/*.{js,mjs,ts}!"],
+      "entry": [
+        "app/**/{page,layout,route,sitemap}.{ts,tsx}!",
+        "*.{mjs,ts}!",
+        "scripts/**/*.{js,mjs,ts}!",
+      ],
+      "project": [
+        "app/**/*.{ts,tsx}!",
+        "components/**/*.tsx!",
+        "lib/**/*.{ts,tsx}!",
+        "scripts/**/*.{js,mjs,ts}!",
+        "*.{mjs,ts}!",
+        "!**/*.test.ts!",
+      ],
     },
     "packages/*": {
       "entry": ["src/index.{js,mjs,ts}!"],

@@ -11,28 +11,28 @@
 			title: 'Your media library',
 			icon: Images,
 			text: 'Keep templates, brand assets, and fonts ready to reuse. Find files with tags, collections, and favorites. Draft alt text with AI.',
-			href: 'https://docs.openpo.st/usage/media-library',
+			href: 'https://docs.openpo.st/guides/media',
 			link: 'Organize your media'
 		},
 		{
 			title: 'Grow your network',
 			icon: Sprout,
 			text: 'Find people to follow on Bluesky and Mastodon. Review recommendations and mutual connections, then choose who to follow.',
-			href: 'https://docs.openpo.st/usage/grow',
+			href: 'https://docs.openpo.st/guides/results',
 			link: 'Explore Grow'
 		},
 		{
 			title: 'Auto repost',
 			icon: Repeat,
 			text: 'Give a post another turn. Set delays and engagement rules, with overrides for individual posts.',
-			href: 'https://docs.openpo.st/usage/auto-reposts',
+			href: 'https://docs.openpo.st/guides/scheduling',
 			link: 'Set repost rules'
 		},
 		{
 			title: 'Inbox and DMs',
 			icon: Inbox,
 			text: 'Follow conversations and reply to comments and messages from supported connected accounts.',
-			href: 'https://docs.openpo.st/usage/communications',
+			href: 'https://docs.openpo.st/guides/results',
 			link: 'See inbox support'
 		},
 		{
@@ -46,7 +46,7 @@
 			title: 'Teams and security',
 			icon: ShieldCheck,
 			text: 'Separate workspaces and member roles. Sign in with passkeys or two-factor authentication and manage active sessions.',
-			href: 'https://docs.openpo.st/usage/account-security',
+			href: 'https://docs.openpo.st/guides/workspaces',
 			link: 'Explore account security'
 		}
 	];
@@ -65,7 +65,7 @@
 				Pick a time or use your next free posting slot. Plan the week in your calendar, stagger
 				channels, and get a reminder when the queue runs low.
 			</p>
-			<a class="focus-ring" href="https://docs.openpo.st/usage/scheduling"
+			<a class="focus-ring" href="https://docs.openpo.st/guides/scheduling"
 				>Plan your publishing <ArrowUpRight size={17} /></a
 			>
 		</div>
@@ -88,7 +88,7 @@
 					Explore ideas and compare directions. Use Social Sets to choose an account group, build
 					drafts for each channel, and review every version.
 				</p>
-				<a class="focus-ring" href="https://docs.openpo.st/usage/composing-posts#build-with-ai"
+				<a class="focus-ring" href="https://docs.openpo.st/guides/publishing#build-with-ai"
 					>Explore AI writing <ArrowUpRight size={17} /></a
 				>
 			</div>
@@ -123,7 +123,7 @@
 					Pick a template, write the captions, and swap in your images. Save the result to Media or
 					attach it to your post.
 				</p>
-				<a class="focus-ring" href="https://docs.openpo.st/usage/media-library#add-media-to-a-post"
+				<a class="focus-ring" href="https://docs.openpo.st/guides/media#add-media-to-a-post"
 					>Make a meme <ArrowUpRight size={17} /></a
 				>
 			</div>
@@ -146,7 +146,7 @@
 				Follow views, reach, engagement, and audience changes. Compare posts using the metrics your
 				connected platforms provide, then repurpose a post into a fresh draft.
 			</p>
-			<a class="focus-ring" href="https://docs.openpo.st/usage/analytics"
+			<a class="focus-ring" href="https://docs.openpo.st/guides/results"
 				>Explore analytics <ArrowUpRight size={17} /></a
 			>
 		</div>

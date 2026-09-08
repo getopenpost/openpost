@@ -2,11 +2,11 @@
 
 This page is for contributors preparing a change to OpenPost.
 
-Start with the [development setup](/development/setup), then run the smallest relevant root gates while working and `bun run verify` before a pull request.
+Start with the [development setup](setup.md), then run the smallest relevant root gates while working and `bun run verify` before a pull request.
 
 ## Project rules
 
-- Use [Conventional Commits](https://www.conventionalcommits.org/). Release versions follow the commit impact described in [Releases and Versioning](/development/releases).
+- Use [Conventional Commits](https://www.conventionalcommits.org/). Release versions follow the commit impact described in [Releases and Versioning](releases.md).
 - Keep provider API behavior in `apps/server/internal/platform/` and preserve the shared adapter contract.
 - Regenerate OpenAPI, TypeScript, CLI, and translation artifacts from their sources instead of editing generated files.
 - Preserve the static SvelteKit build embedded in the Go binary.
@@ -20,4 +20,4 @@ Repository-specific architecture and agent guidance live in [`AGENTS.md`](https:
 
 Marketing pages and maintained documentation are the canonical sources for public content. Their production builds invoke `scripts/generate-agent-surfaces.mjs` to add one explicit Markdown representation per eligible route, the host's `llms.txt`, and the documentation-only `llms-full.txt`. Generated public artifacts stay in ignored build output. Edit the owning page or catalogue instead of a generated file.
 
-The marketing route manifest and generated documentation catalogue own route identity and policy. See [production readiness](/development/production-readiness#agent-readable-public-content) for the complete artifact contract, CI behavior, and root verification commands.
+The marketing route manifest and generated documentation catalogue own route identity and policy. See [production readiness](production-readiness.md#agent-readable-public-content) for the complete artifact contract, CI behavior, and root verification commands.

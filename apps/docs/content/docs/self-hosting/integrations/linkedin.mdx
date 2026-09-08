@@ -1,9 +1,10 @@
 ---
 title: LinkedIn
 description: Configure LinkedIn OAuth for member profiles and Organization Pages.
+icon: linkedin
 ---
 
-Create a LinkedIn developer app and enable the products that match the account types you will connect. Add the exact callback below under the app's OAuth redirect URLs:
+Create a [LinkedIn developer app](https://www.linkedin.com/developers/) and request **Sign In with LinkedIn using OpenID Connect** for member profiles. Add **Share on LinkedIn** when members should publish. Add the Community Management products only when you need Organization Pages, comments, or analytics. Enter the exact callback below under the app's OAuth redirect URLs:
 
 ```text
 https://your-domain.example/api/v1/accounts/linkedin/callback

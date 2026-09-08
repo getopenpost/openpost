@@ -33,7 +33,8 @@
         "POSTHOG_UI_HOST",
         "OPENPOST_RELEASE_VERSION",
         "GITHUB_SHA",
-        "GITHUB_RUN_ID"
+        "GITHUB_RUN_ID",
+        "CF_PAGES_COMMIT_SHA"
       ]
     }
   }

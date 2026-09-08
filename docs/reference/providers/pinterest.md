@@ -8,7 +8,7 @@ This page is for operators reviewing Pinterest's certification boundary.
 
 Pinterest is **not publicly available in OpenPost**. The repository contains adapter and contract paths for controlled development and certification, but an implementation, configured credential, or mocked test is not a Hosted service availability claim.
 
-Do not advertise or enable public Pinterest connection, publishing, discovery, or analytics operations unless the exact app, account, scopes, output profile, policy mode, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](/operations/provider-launch-matrix).
+Do not advertise or enable public Pinterest connection, publishing, discovery, or analytics operations unless the exact app, account, scopes, output profile, policy mode, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](../operations/provider-launch-matrix.md).
 
 ## Required readiness
 
@@ -32,4 +32,4 @@ Pinterest content requires a board. A board section is optional and must belong 
 
 Keep Pinterest readiness controls disabled for normal production traffic until current live certification exists. Store OAuth credentials through the encrypted provider-app boundary, never in workspace data, logs, jobs, or documentation.
 
-Use the [provider application configuration guide](/configuration/provider-applications) for the private operator contract and the [launch matrix](/operations/provider-launch-matrix) for the evidence required before any public claim changes.
+Use the [provider application configuration guide](../configuration/provider-applications.md) for the private operator contract and the [launch matrix](../operations/provider-launch-matrix.md) for the evidence required before any public claim changes.

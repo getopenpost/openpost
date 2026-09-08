@@ -27,7 +27,7 @@ The table below is an implementation and setup inventory. It is not a Hosted ser
 
 Start with one network. Check that its callback works before you add another. A configured app may still need approval, a valid account grant, current local and live proof, an allowed policy mode, and an enabled runtime control.
 
-Working code and app keys do not prove that a real account can publish each post type. Use the [Provider Readiness and Launch Gate](/operations/provider-launch-matrix) to inspect the mechanically enforced evidence model.
+Working code and app keys do not prove that a real account can publish each post type. Use the [Provider Readiness and Launch Gate](../operations/provider-launch-matrix.md) to inspect the mechanically enforced evidence model.
 
 <!-- provider-certification:begin -->
 
@@ -42,7 +42,7 @@ Mastodon often needs this setup because each server can need its own app. People
 
 OpenPost loads the effective registry at startup. Restart OpenPost after you change a provider app.
 
-If connection or publishing fails, use [Provider Troubleshooting](/providers/troubleshooting) to collect diagnostics and map common OAuth, permission, media URL, and publishing errors to the right fix.
+If connection or publishing fails, use [Provider Troubleshooting](troubleshooting.md) to collect diagnostics and map common OAuth, permission, media URL, and publishing errors to the right fix.
 
 ## Support matrix
 
@@ -108,12 +108,12 @@ A platform can offer a feature while OpenPost still marks its implementation mis
 - **Instagram:** Use provider key `instagram`. OpenPost connects a selected Business or Creator account linked to a Facebook Page. It supports one image, carousels, Stories, Reels, and comment replies. Account access and live tests still apply.
 - **TikTok:** Use provider key `tiktok`. OpenPost supports direct and inbox video uploads plus photo posts through public HTTPS media links. App review and live tests still apply.
 - **YouTube:** Use provider key `youtube`. OpenPost connects a selected channel, uploads one video with privacy, title, description, thumbnail, and playlist settings, and supports comment replies and moderation. Test a live channel before you rely on it.
-- **Pinterest:** The adapter remains publicly unavailable until Standard access and current live certification exist. See the [Pinterest boundary](/providers/pinterest).
-- **Telegram:** Bot mode remains publicly unavailable until current live certification exists for each operation. See the [Telegram bot boundary](/providers/telegram).
+- **Pinterest:** The adapter remains publicly unavailable until Standard access and current live certification exist. See the [Pinterest boundary](pinterest.md).
+- **Telegram:** Bot mode remains publicly unavailable until current live certification exists for each operation. See the [Telegram bot boundary](telegram.md).
 - **Discord:** Connect an incoming webhook URL directly. OpenPost streams attachments and uses a safe 10 MiB file limit because Discord's actual limit can vary by server and account. Discord bot mode is separate and remains publicly unavailable without current live certification.
 
 Social network API rules, access, request limits, and app review can change. Check that network's docs if a feature stops working.
 
-See [Analytics](/usage/analytics) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage. See [Accounts](/usage/accounts), [Engagement, Inbox, and Notifications](/usage/communications), and [Grow](/usage/grow) for the per-account optional feature model.
+See [Analytics](https://docs.openpo.st/guides/quickstart) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage. See [Accounts](https://docs.openpo.st/guides/quickstart), [Engagement, Inbox, and Notifications](https://docs.openpo.st/guides/quickstart), and [Grow](https://docs.openpo.st/guides/quickstart) for the per-account optional feature model.
 
-Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](/usage/auto-reposts) for rule and account-access details.
+Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](https://docs.openpo.st/guides/quickstart) for rule and account-access details.

@@ -163,7 +163,7 @@ test("self-hosting path states the complete operator boundary without JavaScript
   );
   await expect(page.getByRole("link", { name: "Review the production checklist" })).toHaveAttribute(
     "href",
-    "https://docs.openpo.st/configuration/production-checklist",
+    "https://docs.openpo.st/self-hosting/configuration",
   );
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(

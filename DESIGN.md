@@ -96,7 +96,7 @@ components:
 
 OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Workshop is the default theme and complete fallback. Its identity comes from precise composition, warm-tinted neutrals, a restrained orange signal, and the Converge mark, not from decorative dashboard effects.
 
-The authenticated app stays compact and predictable. Marketing pages use the same materials with more breathing room and stronger type contrast. Documentation keeps VitePress reading conventions while sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
+The authenticated app stays compact and predictable. Marketing pages use the same materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
 
 **Key Characteristics:**
 
@@ -146,7 +146,7 @@ Feature marks live in `assets/brand/features/`. Their charcoal rim, colored inse
 
 Motion responds to a visitor's choices. Essential copy, signup links, screenshots, the product-tour link, and FAQ answers remain available without JavaScript. Respect reduced motion and keep preview controls accessible by keyboard.
 
-Documentation preserves VitePress reading conventions and Workshop neutrals. Its home heading uses plain ink, its primary action uses contrasting neutral ink, and its hero has no gradient glow or tinted CTA shadow. Orange remains a restrained link and selection accent.
+Documentation uses a quiet reading layout with a compact icon sidebar, persistent section navigation, and an optional table of contents. Guides lead with an action and keep body text to a readable measure. The homepage points straight to a first publication. Endpoint pages stay in the API section with generated examples and schemas. Workshop neutrals support both schemes; orange marks links, focus, and current navigation.
 
 ## Theme contract
 

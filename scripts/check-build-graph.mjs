@@ -49,8 +49,9 @@ requireIncludes(rootPackage.scripts?.build, "scripts/tasks.mjs build", "root bui
 requireIncludes(tasksSource, "scripts/sync-docs-external.mjs", "root build registry");
 requireIncludes(tasksSource, '"turbo", "run", "build"', "root build registry");
 requireIncludes(tasksSource, '"@openpost/web", "package"', "root build registry");
-requireIncludes(docsPackage.scripts?.build, "copy-docs-openapi.mjs", "docs package build");
-requireIncludes(docsPackage.scripts?.dev, "copy-docs-openapi.mjs", "docs package dev server");
+requireIncludes(docsPackage.scripts?.prepare, "copy-docs-openapi.mjs", "docs package preparation");
+requireIncludes(docsPackage.scripts?.build, "bun run prepare", "docs package build");
+requireIncludes(docsPackage.scripts?.dev, "bun run prepare", "docs package dev server");
 requireCondition(
   rootPackage.scripts?.["sync:assets"] === undefined,
   "all-surface asset sync must stay internal to the canonical build registry",

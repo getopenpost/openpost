@@ -1,4 +1,16 @@
 {
   "title": "Self-hosting",
-  "pages": ["index", "configuration", "maintenance"]
+  "pages": [
+    "---Get started---",
+    "index",
+    "configuration",
+    "---Connect services---",
+    "integrations",
+    "ai",
+    "email",
+    "---Maintain---",
+    "maintenance"
+  ],
+  "root": true,
+  "icon": "Server"
 }

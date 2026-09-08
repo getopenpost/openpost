@@ -8,11 +8,13 @@ const sourceRoots = [
   "apps/web/src",
   "apps/marketing/src",
   "apps/marketing/functions",
-  "apps/docs/src",
+  "apps/docs/app",
+  "apps/docs/components",
+  "apps/docs/lib",
   "apps/server/internal",
 ];
 const sourceFiles = ["apps/web/vite.config.ts", "apps/marketing/vite.config.ts"];
-const sourceExtensions = new Set([".go", ".html", ".js", ".mjs", ".svelte", ".ts"]);
+const sourceExtensions = new Set([".go", ".html", ".js", ".mjs", ".svelte", ".ts", ".tsx"]);
 
 function isSourceFile(path) {
   const name = path.split("/").at(-1) ?? "";

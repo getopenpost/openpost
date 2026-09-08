@@ -1,11 +1,13 @@
 ---
 title: AI providers
 description: Configure OpenRouter for post generation and media captions.
+icon: Sparkles
 ---
 
 OpenPost's self-hosted AI features use OpenRouter. Set the provider key and model values in the server environment or instance configuration, then restart OpenPost.
 
 ```dotenv
+OPENROUTER_API_KEY=your-openrouter-key
 OPENPOST_CONTENT_AI_PROVIDER=azure/eu
 OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-5.6-luna
 OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
@@ -13,4 +15,12 @@ OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
 
 `OPENPOST_CONTENT_AI_PROVIDER` selects the exact OpenRouter provider for post and meme generation. `OPENPOST_TEXT_GENERATION_MODEL` builds publication copy from an idea. `OPENPOST_IMAGE_CAPTION_MODEL` generates automatic alt text. Set `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` only when the selected model and provider support zero data retention.
 
-The API key is managed through the AI provider configuration boundary. Do not put it in a publication, prompt, log, or client-side code. If generation fails, check the provider slug, model ID, account balance, and whether the model supports the requested operation.
+Create a key in your [OpenRouter account](https://openrouter.ai/settings/keys). Store it server-side in `.env`, or set `OPENROUTER_API_KEY_FILE` to a readable secret file. Do not put it in a publication, prompt, log, or client-side code. If generation fails, check the provider slug, model ID, account balance, and whether the model supports the requested operation.
+
+## Check the setup
+
+1. Restart OpenPost with `docker compose up -d` after updating `.env`.
+2. Open a new publication and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
+3. Add an image with no existing alt text to the composer. OpenPost can generate a caption; review it before publishing. Existing alt text is kept.
+
+Post generation sends your idea and selected context to the configured model. Automatic alt text sends a small JPEG thumbnail and bounded post context, not the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.

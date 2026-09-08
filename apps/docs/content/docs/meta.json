@@ -1,4 +1,4 @@
 {
-  "pages": ["index", "guides", "self-hosting", "api-reference"],
+  "pages": ["index", "guides", "self-hosting", "mcp", "api-reference"],
   "defaultOpen": true
 }

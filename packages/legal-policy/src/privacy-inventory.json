@@ -357,7 +357,7 @@
       "evidence": [
         "packages/telemetry/src/index.ts",
         "apps/server/internal/telemetry/telemetry.go",
-        "apps/docs/configuration/telemetry.md"
+        "docs/reference/configuration/telemetry.md"
       ]
     },
     {
@@ -369,7 +369,10 @@
       "duration": "Managed host journals are size-bounded to 50 MiB of persistent storage and 10 MiB of runtime storage rather than retained for a fixed number of days.",
       "deletion_trigger": "System journal rotation removes older entries as the configured size bounds are reached. The operator can remove logs when incident, reliability, legal, or security needs end.",
       "exceptions": "The host does not provide a complete command-level audit trail. Account deletion does not selectively remove entries already written to shared operational logs.",
-      "evidence": ["apps/docs/operations/logs.md", "packages/legal-policy/src/managed-service.json"]
+      "evidence": [
+        "docs/reference/operations/logs.md",
+        "packages/legal-policy/src/managed-service.json"
+      ]
     },
     {
       "id": "recovery-copies",
@@ -381,7 +384,7 @@
       "deletion_trigger": "Daily age-based pruning for routine copies; purpose review and operator deletion for exceptional snapshots.",
       "exceptions": "Deletion from the live service can remain in a routine recovery copy through this window. OpenPost does not add a separate application-level encryption layer to each backup artifact.",
       "evidence": [
-        "apps/docs/operations/backups.md",
+        "docs/reference/operations/backups.md",
         "packages/legal-policy/src/managed-service.json"
       ]
     }
@@ -566,14 +569,14 @@
     {
       "id": "local-docs-color-mode",
       "technology": "localStorage",
-      "owner": "VitePress documentation theme",
+      "owner": "Fumadocs next-themes runtime",
       "identifier_kind": "exact",
-      "identifier": "vitepress-theme-appearance",
+      "identifier": "theme",
       "purpose": "Keeps the documentation site's light, dark, or system color-mode preference.",
       "scope": "Documentation origin and current browser profile.",
       "duration": "Until the preference changes or documentation site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["apps/docs/.vitepress/config.ts", "apps/docs/.vitepress/theme/index.ts"]
+      "source_refs": ["apps/docs/components/providers.tsx"]
     },
     {
       "id": "local-current-workspace",

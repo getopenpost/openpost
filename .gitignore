@@ -54,9 +54,10 @@ apps/docs/public/assets/screenshots/*
 !apps/docs/public/assets/screenshots/*.png
 apps/docs/public/openapi.json
 apps/docs/.generated/openapi.json
-apps/docs/.vitepress/dist/
-apps/docs/.vitepress/cache/
-apps/docs/.vitepress/.temp/
+apps/docs/.next/
+apps/docs/.source/
+apps/docs/out/
+apps/docs/content/docs/api-reference/*/
 
 # Logs
 *.log

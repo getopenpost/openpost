@@ -1,17 +1,18 @@
 ---
 title: Bluesky and Mastodon
 description: Configure the two providers that need no static OAuth app in the common case.
+icon: mastodon
 ---
 
 ## Bluesky
 
-No server-side provider app is required. A user creates an app password in **Bluesky → Settings**, then connects from **Settings → Workspace → Social accounts → Bluesky** with the handle and app password. Use the handle, not an email address. OpenPost resolves the account's PDS from its DID document.
+No server-side provider app is required. A user creates an app password in [Bluesky](https://bsky.app/) → Settings, then connects from **Settings → Workspace → Social accounts → Bluesky** with the handle and app password. Use the handle, not an email address. OpenPost resolves the account's PDS from its DID document.
 
 The PDS must be reachable over HTTPS on port 443 at its host root. OpenPost rejects credentials, paths, queries, fragments, and custom ports in a PDS endpoint. Analytics, Inbox, and Grow are optional per account and start disabled.
 
 ## Mastodon
 
-Users can enter a public HTTPS instance in the Accounts screen. OpenPost registers an app dynamically when that instance permits registration. No operator environment entry is needed for this path.
+Users can enter a public HTTPS instance in the Accounts screen. OpenPost registers an app dynamically when that instance permits registration. See the [Mastodon client API guide](https://docs.joinmastodon.org/client/intro/). No operator environment entry is needed for this path.
 
 To pin apps for known instances, set `MASTODON_SERVERS`:
 

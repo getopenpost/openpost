@@ -1,6 +1,7 @@
 ---
 title: Maintenance
 description: Back up, upgrade, monitor, and recover a self-hosted instance.
+icon: ArchiveRestore
 ---
 
 Back up `data/db`, `data/media`, and the JWT and encryption secrets as one restore set. Test a restore before relying on it. A database backup without media cannot restore complete publications.
@@ -15,11 +16,19 @@ docker compose up -d
 docker compose logs --tail=100 -f openpost
 ```
 
-The combined `all` role applies pending migrations on startup. For a multi-container deployment, run the migration command once before starting the long-lived web and worker roles:
+The container applies database migrations on startup. Back up before upgrading; restoring an older image may also require restoring its database backup.
+
+## Back up and restore
+
+From the directory containing `docker-compose.yml`, stop the service while copying SQLite and media:
 
 ```sh
-docker compose run --rm openpost ./openpost migrate
+docker compose stop
+tar -czf "openpost-backup-$(date +%Y%m%d-%H%M%S).tar.gz" data .env docker-compose.yml
+docker compose start
 ```
+
+Store the archive somewhere private and off the server. It contains credentials and your content. To restore on another server, extract it into an empty directory and run `docker compose up -d` there with the same image version used for the backup.
 
 ## Check health
 

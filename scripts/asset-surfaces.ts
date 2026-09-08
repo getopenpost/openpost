@@ -25,7 +25,17 @@ export const assetSurfaceManifest = {
     "brand/pwa-maskable-512.png",
     "brand/apple-touch-icon.png",
   ],
-  docs: ["brand/icon.svg", "brand/logo-docs.svg", "screenshots/main-dark.png"],
+  docs: [
+    "brand/icon.svg",
+    "logos/linkedin.svg",
+    "logos/x.svg",
+    "logos/youtube.svg",
+    "logos/tiktok.svg",
+    "logos/pinterest.svg",
+    "logos/facebook.svg",
+    "logos/mastodon.svg",
+    "logos/discord.svg",
+  ],
   marketing: [
     "brand/fonts/Geist-Regular.ttf",
     "brand/fonts/Geist-SemiBold.ttf",

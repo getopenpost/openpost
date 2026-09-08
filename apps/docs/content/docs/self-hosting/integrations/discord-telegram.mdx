@@ -1,11 +1,12 @@
 ---
 title: Discord and Telegram
 description: Configure supported Discord webhooks and gated Telegram bot mode.
+icon: discord
 ---
 
 ## Discord incoming webhooks
 
-In Discord, open the target channel's **Integrations → Webhooks**, create a webhook, and copy its URL. In OpenPost, open **Settings → Workspace → Social accounts → Discord**, paste the URL, and connect it. No provider app or environment variable is needed. OpenPost accepts HTTPS Discord webhook URLs, encrypts the saved URL, and supports text, up to 10 files, and scheduled delivery. Discord sets the actual file limit; OpenPost uses a safe 10 MiB limit.
+In [Discord](https://discord.com/), open the target channel's **Integrations → Webhooks**, create a webhook, and copy its URL. In OpenPost, open **Settings → Workspace → Social accounts → Discord**, paste the URL, and connect it. No provider app or environment variable is needed. OpenPost accepts HTTPS Discord webhook URLs, encrypts the saved URL, and supports text, up to 10 files, and scheduled delivery. Discord sets the actual file limit; OpenPost uses a safe 10 MiB limit.
 
 Discord webhooks cannot read a channel, provide Inbox, or support analytics. Treat the webhook URL like a password and delete it in Discord when it should stop working.
 
@@ -13,6 +14,6 @@ Discord webhooks cannot read a channel, provide Inbox, or support analytics. Tre
 
 Telegram bot mode is gated and should remain disabled until current live certification exists for each intended operation. A bot token, username, webhook secret, or passing fixture does not enable public use.
 
-For controlled development, configure a Telegram provider entry with `bot_token`, `bot_username`, and `webhook_secret` in `OPENPOST_PROVIDER_APPS` or encrypted instance provider-app settings. Keep the bot token and webhook secret out of URLs, logs, jobs, and workspace data. Test connection, destination permissions, publishing, and observation as separate operations.
+For controlled development, create a bot with [BotFather](https://t.me/BotFather), then configure a Telegram provider entry with `bot_token`, `bot_username`, and `webhook_secret` in `OPENPOST_PROVIDER_APPS` or encrypted instance provider-app settings. Keep the bot token and webhook secret out of URLs, logs, jobs, and workspace data. Test connection, destination permissions, publishing, and observation as separate operations.
 
 If Discord fails, create a new webhook and confirm its URL is from a Discord domain. If Telegram fails, check the bot identity, secret header, destination permissions, and the operation's current certification gate.

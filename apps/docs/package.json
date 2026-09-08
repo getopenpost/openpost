@@ -3,16 +3,33 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun ../../scripts/copy-docs-openapi.mjs && bun ../../scripts/sync-assets.mjs --surface docs && vitepress dev --host 0.0.0.0 --port 4174",
-    "build": "bun ../../scripts/check-public-telemetry-env.mjs && bun ../../scripts/copy-docs-openapi.mjs && bun ../../scripts/sync-assets.mjs --surface docs && vitepress build && bun ../../scripts/generate-agent-surfaces.mjs --surface documentation && bun scripts/check-social-metadata-output.mjs",
-    "preview": "vitepress preview"
+    "dev": "bun run prepare && next dev --hostname 0.0.0.0 --port 4174",
+    "prepare": "bun ../../scripts/copy-docs-openapi.mjs && bun ../../scripts/sync-assets.mjs --surface docs && bun scripts/generate-api.ts && fumadocs-mdx",
+    "build": "bun ../../scripts/check-public-telemetry-env.mjs && bun run prepare && next build && bun ../../scripts/generate-agent-surfaces.mjs --surface documentation && bun scripts/check-social-metadata-output.mjs",
+    "preview": "wrangler pages dev out --compatibility-date 2026-08-06 --port 4174",
+    "check": "tsc --noEmit"
   },
-  "devDependencies": {
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
     "@openpost/social-images": "workspace:*",
     "@openpost/telemetry": "workspace:*",
-    "@posthog/rollup-plugin": "1.4.7",
-    "typescript": "latest",
-    "vitepress": "latest",
-    "vitepress-openapi": "^0.1.20"
+    "@scalar/json-magic": "0.13.3",
+    "fumadocs-core": "^16.15.0",
+    "fumadocs-mdx": "15.4.0",
+    "fumadocs-openapi": "11.4.1",
+    "fumadocs-ui": "^16.15.0",
+    "lucide-react": "^0.577.0",
+    "next": "^16.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "shiki": "^4.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "latest"
   }
 }

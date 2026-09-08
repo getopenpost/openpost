@@ -1,6 +1,7 @@
 ---
 title: Connect Cursor
 description: Add OpenPost to Cursor using remote MCP and OAuth.
+icon: MousePointer2
 ---
 
 Cursor supports remote Streamable HTTP MCP servers. Add OpenPost to your personal Cursor configuration, then let Cursor complete OAuth in the browser.
@@ -43,3 +44,5 @@ Create a developer token with the smallest OpenPost MCP scope, export `OPENPOST_
 ## Test and fix the common failures
 
 Ask Cursor, “List my OpenPost workspaces,” then “Review this week's schedule without changing anything.” If the server is disconnected, reload the MCP configuration and sign in again. A private self-hosted URL is not reachable by Cursor Cloud Agents; use a public HTTPS hostname or the local `openpost-mcp` stdio bridge. Use `/mcp`, not `/api/v1/mcp`.
+
+For current client controls and plan availability, see [Cursor MCP documentation](https://cursor.com/docs/context/mcp).

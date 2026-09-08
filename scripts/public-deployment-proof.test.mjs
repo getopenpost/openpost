@@ -197,10 +197,9 @@ test("the live sample plan covers every required public category and machine bou
     samples.documentation.map(({ category, route }) => [category, route]),
     [
       ["root", "/"],
-      ["section", "/usage/"],
-      ["leaf", "/usage/composing-posts"],
-      ["special source", "/installation/nix-module"],
-      ["API reference", "/development/api-reference"],
+      ["guide", "/guides/quickstart"],
+      ["self-hosting", "/self-hosting"],
+      ["API reference", "/api-reference"],
     ],
   );
   assert.deepEqual(samples.native, [

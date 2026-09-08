@@ -1,15 +1,16 @@
 ---
 title: YouTube
 description: Configure Google OAuth and YouTube video uploads.
+icon: youtube
 ---
 
-In Google Cloud, create an OAuth client for a web application, enable YouTube Data API v3, and add this authorized redirect URI:
+In the [Google Cloud Console](https://console.cloud.google.com/), create a project, enable YouTube Data API v3, configure the OAuth consent screen, create an OAuth client for a web application, and add this authorized redirect URI:
 
 ```text
 https://your-domain.example/api/v1/accounts/youtube/callback
 ```
 
-Store the client in `OPENPOST_PROVIDER_APPS` (prefer the `_FILE` form in production):
+Store the client in `OPENPOST_PROVIDER_APPS`:
 
 ```json
 [{"provider":"youtube","client_id":"your-client-id","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/youtube/callback"}]

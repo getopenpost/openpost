@@ -13,7 +13,9 @@ Use a browser session for interactive work or a bearer API token for automation:
 Authorization: Bearer YOUR_TOKEN
 ```
 
-Create and revoke tokens in **Settings → Personal → Developer**. Give a token one workspace scope when possible. Treat it like a password and store it in your automation's secret store.
+Create and revoke tokens in **Settings → Personal → Developer**. Choose both its permissions, such as `api:read` or `api:write`, and whether it can access the current workspace or all your workspaces. Use only the access your integration needs.
+
+Copy the token when it is created. OpenPost shows it once. Set an expiry and store it in your automation's secret store. Revoke it from the same settings page when it is no longer needed.
 
 ## First request
 

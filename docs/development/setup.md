@@ -60,7 +60,7 @@ complete repository gate. Use `bun run test -- e2e` or `e2e-app`
 for browser suites. Focused repository policies use
 `bun run check -- <policy>`, such as `bun run check -- contracts`.
 The release subcommands are `plan`, `preflight`, `check`, `check-full`, `status`,
-`prepare`, `promote`, and `prod`; see [Releases and Versioning](/development/releases).
+`prepare`, `promote`, and `prod`; see [Releases and Versioning](releases.md).
 
 Use `cache-status` and `cache-prune` to inspect and enforce the 2 GiB Turbo
 task-cache cap and the daily 4 GiB default cap on the shared Go build cache.

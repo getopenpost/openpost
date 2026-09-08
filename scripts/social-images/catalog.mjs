@@ -110,6 +110,7 @@ const discoveryEntrypoints = new Map([
   ["guides/accounts.mdx", "user-guide"],
   ["self-hosting/index.mdx", "self-hosting"],
   ["api-reference/index.mdx", "api"],
+  ["mcp/index.mdx", "mcp"],
 ]);
 
 const corpusExclusions = new Map();
@@ -123,7 +124,7 @@ function corpusSection(page) {
   if (page.startsWith("api-reference/")) return "api";
   const topLevel = page.split("/", 1)[0];
   if (topLevel === "reference") return "api";
-  if (["self-hosting"].includes(topLevel)) {
+  if (["self-hosting", "mcp"].includes(topLevel)) {
     return topLevel;
   }
   throw new Error(`${page}: documentation page needs a corpus section`);
@@ -165,6 +166,7 @@ export async function generateSocialCatalog({ check = false } = {}) {
   const pages = [];
   for (const file of (await markdownFiles(docsRoot)).sort()) {
     const page = path.relative(docsRoot, file).split(path.sep).join("/");
+    if (page.startsWith("api-reference/") && page !== "api-reference/index.mdx") continue;
     const source = await readFile(file, "utf8");
     pages.push({
       page,

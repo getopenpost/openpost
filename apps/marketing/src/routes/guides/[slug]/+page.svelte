@@ -34,7 +34,7 @@
 						relying on OpenPost for a launch.
 					</p>
 					<a
-						href="https://docs.openpo.st/operations/provider-launch-matrix"
+						href="https://docs.openpo.st/self-hosting/maintenance"
 						class="focus-ring mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary"
 						>Read current provider readiness →</a
 					>

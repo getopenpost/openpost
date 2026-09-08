@@ -22,7 +22,7 @@
   "teams": {
     "title": "Separate brands and clients without separating the publishing system.",
     "outcome": "Keep accounts, media, schedules, automation, and member access inside an explicit workspace boundary, with plan usage enforced for its organization.",
-    "boundary": "Team roles are included on the Team and Agency Hosted service plans. Included seats and workspace counts vary by plan."
+    "boundary": "The pricing table lists included workspaces and people. Each workspace has its own usage allowances."
   },
   "automation": {
     "title": "Use the same workspace rules from HTTP, the CLI, or an AI tool.",

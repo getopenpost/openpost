@@ -182,10 +182,10 @@ function documentationHTMLArtifact(page) {
 }
 
 const documentationDiscoverySections = [
+  ["mcp", "AI assistants", "Connect an AI assistant to your OpenPost workspace."],
   ["user-guide", "User guide", "Create, schedule, publish, and review work in the OpenPost app."],
   ["self-hosting", "Self-hosting", "Run and maintain the complete OpenPost service."],
   ["api", "API", "Read the API guide and follow its authoritative OpenAPI JSON contract."],
-  ["development", "Development", "Understand, test, contribute to, and release OpenPost."],
 ];
 const documentationSectionTitles = new Map(
   documentationDiscoverySections.map(([key, title]) => [key, title]),
@@ -1131,12 +1131,11 @@ export const productionProjections = {
     })),
     discovery: {
       title: "OpenPost Documentation",
-      description:
-        "User, provider, self-hosting, CLI, MCP, operations, and developer documentation for OpenPost.",
+      description: "Guides to publishing, automation, self-hosting, and the OpenPost API.",
       whenToUse: [
         "Use the user guide for work in the OpenPost web or mobile app.",
         "Use the API reference and authoritative OpenAPI JSON contract for automation and agent access.",
-        "Use self-hosting and development references to run, test, and maintain an OpenPost instance.",
+        "Use the self-hosting guide to install, configure, back up, and upgrade an OpenPost instance.",
       ],
       whenNotToUse: [
         "Do not treat documentation as proof that a social provider or exact account can publish a format today; check current readiness and run the documented live test.",
@@ -1145,12 +1144,12 @@ export const productionProjections = {
       links: [
         ...docsSocialEntries
           .filter(
-            (entry) => entry.page === "index.md" && entry.agentDiscovery.membership === "primary",
+            (entry) => entry.page === "index.mdx" && entry.agentDiscovery.membership === "primary",
           )
           .map((entry) => ({
             title: "OpenPost documentation home",
             description: entry.description,
-            url: new URL(entry.page, `${docsSiteUrl}/`).href,
+            url: new URL(entry.page.replace(/\.mdx?$/u, ".md"), `${docsSiteUrl}/`).href,
             classification: entry.agentDiscovery.membership,
           })),
         {
@@ -1180,7 +1179,7 @@ export const productionProjections = {
             .map((entry) => ({
               title: entry.socialTitle,
               description: entry.description,
-              url: new URL(entry.page, `${docsSiteUrl}/`).href,
+              url: new URL(entry.page.replace(/\.mdx?$/u, ".md"), `${docsSiteUrl}/`).href,
             })),
           ...(key === "api"
             ? [
@@ -1204,7 +1203,15 @@ async function main() {
       "Usage: bun scripts/generate-agent-surfaces.mjs --surface marketing|documentation",
     );
   }
-  await generateAgentSurface(productionProjections[surface]);
+  const projection = productionProjections[surface];
+  if (surface === "documentation") {
+    const sitemap = await readFile(path.join(projection.outputDirectory, "sitemap.xml"), "utf8");
+    projection.knownCanonicalURLs = [
+      ...projection.knownCanonicalURLs,
+      ...[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]),
+    ];
+  }
+  await generateAgentSurface(projection);
   if (surface === "marketing") {
     await generateMarketingDiscoveryArtifacts({
       outputDirectory: productionProjections.marketing.outputDirectory,

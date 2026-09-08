@@ -104,7 +104,7 @@ export const marketingGuides = [
     sources: [
       {
         label: "OpenPost provider readiness",
-        href: "https://docs.openpo.st/operations/provider-launch-matrix",
+        href: "https://docs.openpo.st/self-hosting/maintenance",
       },
       {
         label: "Buffer scheduling documentation",
@@ -187,9 +187,9 @@ export const marketingGuides = [
     sources: [
       {
         label: "OpenPost API reference",
-        href: "https://docs.openpo.st/development/api-reference",
+        href: "https://docs.openpo.st/api-reference",
       },
-      { label: "OpenPost MCP guide", href: "https://docs.openpo.st/mcp/" },
+      { label: "OpenPost MCP guide", href: "https://docs.openpo.st/guides/automation" },
       {
         label: "Postiz introduction",
         href: "https://docs.postiz.com/general/introduction",

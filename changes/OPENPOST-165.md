@@ -1,4 +1,4 @@
-## Fixed
+### Fixed
 
 - Fixed Video Editor cloud saves failing on reactive project state, screen recordings rejected for missing WebM duration metadata, and anonymous camera or microphone choices crashing the recorder.
 - Browser Stop sharing now imports the finished recording. Failed imports remain recoverable, and a late upload cannot insert clips into a different project.

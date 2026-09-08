@@ -2,11 +2,15 @@ name: Star History
 
 on:
   schedule:
-    - cron: "17 4 1,15 * *"
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: star-history
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -15,8 +19,28 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Check for new stars
+        id: stars
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count="$(gh api repos/getopenpost/openpost --jq '.stargazers_count')"
+          [[ "$count" =~ ^[0-9]+$ ]] || exit 1
+          baseline=assets/star-history/.star-count
+          if [ -f "$baseline" ]; then
+            previous="$(cat "$baseline")"
+            [[ "$previous" =~ ^[0-9]+$ ]] || exit 1
+            if [ "$count" -le "$previous" ]; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
       - uses: narayann7/star-history-action@12543ab7352b91fb7c5eb0c4fbb39772baa0c168 # v1.0.6
         id: star-history
+        if: steps.stars.outputs.changed == 'true'
         with:
           repos: getopenpost/openpost
           font-family: Geist
@@ -28,7 +52,10 @@ jobs:
 
       - name: Commit generated charts
         if: steps.star-history.outputs.changed == 'true'
+        env:
+          STAR_COUNT: ${{ steps.stars.outputs.count }}
         run: |
+          echo "$STAR_COUNT" > assets/star-history/.star-count
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add assets/star-history README.md

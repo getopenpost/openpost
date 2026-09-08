@@ -103,10 +103,10 @@ describe('client error initialization', () => {
 		expect(capturedExceptions).not.toHaveBeenCalled();
 	});
 
-	it('handles Vite preload failures from the emitted payload', () => {
+	it('schedules recovery without converting a failed Vite import into a successful undefined result', () => {
 		const runtime = testRuntime();
 		vi.stubGlobal('window', runtime);
-		vi.stubGlobal('navigator', {});
+		vi.stubGlobal('navigator', { onLine: true });
 		vi.stubGlobal('sessionStorage', {
 			getItem: vi.fn(() => null),
 			setItem: vi.fn(),
@@ -119,6 +119,7 @@ describe('client error initialization', () => {
 		});
 		runtime.dispatchEvent(event);
 
-		expect(event.defaultPrevented).toBe(true);
+		expect(event.defaultPrevented).toBe(false);
+		expect(runtime.setTimeout).toHaveBeenCalledOnce();
 	});
 });

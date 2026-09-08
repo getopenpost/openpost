@@ -124,8 +124,8 @@ function detectStaleChunks() {
 		// SAFETY: Vite attaches the rejected import to its custom `payload` field.
 		const payload = (event as Event & { payload?: unknown }).payload;
 		if (isChunkLoadError(payload)) {
-			// SAFETY: preventDefault is safe on Event, narrowed from CustomEvent
-			(event as Event).preventDefault();
+			// Let the import reject. Canceling this event resolves it as undefined,
+			// which crashes SvelteKit before the scheduled reload can recover.
 			reloadWithBackoff();
 		}
 	});

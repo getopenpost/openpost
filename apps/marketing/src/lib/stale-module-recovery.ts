@@ -102,7 +102,9 @@ export function installStaleModuleRecovery(runtime: RecoveryRuntime = window): (
 		recover(event, parseUnhandledRejectionMessage(event));
 	};
 	const onPreloadError = (event: Event) => {
-		recover(event, parsePreloadErrorMessage(event));
+		// Canceling Vite's event turns the rejected import into undefined. SvelteKit
+		// needs the rejection to render its error boundary while recovery is pending.
+		if (isStaleModuleMessage(parsePreloadErrorMessage(event))) reload();
 	};
 
 	runtime.addEventListener('error', onError);

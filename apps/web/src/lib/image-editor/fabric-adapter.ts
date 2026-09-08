@@ -1,3 +1,4 @@
+import { hasEditorColorGrade } from '$lib/editor-color-grade/model';
 import { getAuthenticatedMediaURL } from '$lib/media-url';
 import type {
 	ImageEditorDocument,
@@ -134,6 +135,7 @@ interface FabricAdapterOptions {
 	onImageDimensions?(id: string, width: number, height: number): void;
 	onMissingMedia?(mediaID: string, layerID?: string): void;
 	onRenderError?(layerID: string): void;
+	onRender?(canvas: HTMLCanvasElement, pageID: string): void;
 }
 
 const SNAP_SCREEN_PX = 10;
@@ -417,11 +419,16 @@ export class OpenPostFabricAdapter {
 	private onImageDimensions: NonNullable<FabricAdapterOptions['onImageDimensions']>;
 	private onMissingMedia: NonNullable<FabricAdapterOptions['onMissingMedia']>;
 	private onRenderError: NonNullable<FabricAdapterOptions['onRenderError']>;
+	private onRender: FabricAdapterOptions['onRender'];
+	private publishRenderedFrame = (): void => {
+		this.onRender?.(this.element, this.page.id);
+	};
 	private altDuplicatePending = false;
 	private altOriginGhost: FabricObject | null = null;
 
 	constructor(options: FabricAdapterOptions) {
 		this.element = options.canvas;
+		this.onRender = options.onRender;
 		this.document = options.document;
 		this.page = options.page;
 		this.backgroundSnapshot = JSON.stringify(imageEditorPageBackground(options.page));
@@ -462,6 +469,7 @@ export class OpenPostFabricAdapter {
 					enableRetinaScaling: false
 				});
 		this.canvas.on('after:render', this.applyPageColorGrade);
+		this.canvas.on('after:render', this.publishRenderedFrame);
 		if (!this.staticMode) this.bindEvents();
 		await this.render(this.document, this.page);
 	}
@@ -1065,6 +1073,7 @@ export class OpenPostFabricAdapter {
 		this.backgroundSnapshot = '';
 		this.clearAltOriginGhost();
 		this.canvas?.off('after:render', this.applyPageColorGrade);
+		this.canvas?.off('after:render', this.publishRenderedFrame);
 		this.canvas?.dispose();
 		this.gradeRenderer?.dispose();
 		this.gradeRenderer = null;
@@ -2478,7 +2487,7 @@ export class OpenPostFabricAdapter {
 			this.colorGradeComparisonPage ||
 			this.page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION ||
 			!this.page.color_grade ||
-			!Object.values(this.page.color_grade).some((value) => Math.abs(value) > 0.0001)
+			!hasEditorColorGrade(this.page.color_grade)
 		)
 			return;
 		const rendered = this.gradeRenderer?.render(

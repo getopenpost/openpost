@@ -60,7 +60,7 @@
 		'highlights',
 		'shadows',
 		'blur'
-	] satisfies Array<keyof ImageEditorImageAdjustments>;
+	] satisfies Array<Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>>;
 	let missingFontAsset = $derived(
 		layer?.text?.font_asset_id &&
 			!brandFonts.some((font) => font.media_id === layer?.text?.font_asset_id)
@@ -183,7 +183,12 @@
 		});
 	}
 
-	type AdjustmentControl = readonly [string, keyof ImageEditorImageAdjustments, number, number];
+	type AdjustmentControl = readonly [
+		string,
+		Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
+		number,
+		number
+	];
 
 	const toneControls: AdjustmentControl[] = [
 		[m.image_editor_brightness(), 'brightness', -1, 1],
@@ -206,7 +211,10 @@
 		{ label: m.image_editor_detail(), controls: detailControls }
 	];
 
-	function setAdjustment(key: keyof ImageEditorImageAdjustments, value: number): void {
+	function setAdjustment(
+		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
+		value: number
+	): void {
 		if (!layer?.image) return;
 		editor.updateLayer(
 			layer.id,

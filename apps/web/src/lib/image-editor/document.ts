@@ -1,3 +1,4 @@
+import { validEditorColorTools } from '$lib/editor-color-grade/model';
 import {
 	IMAGE_EDITOR_LIMITS,
 	IMAGE_EDITOR_SCHEMA_VERSION,
@@ -272,14 +273,18 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 	for (const page of document.pages) {
 		if (!page.id || pageIDs.has(page.id)) errors.push('Every page must have a unique ID.');
 		pageIDs.add(page.id);
+		if (page.color_grade && !validEditorColorTools(page.color_grade))
+			errors.push(`${page.name} has invalid color tools.`);
 		if (
 			(page.color_grade_version !== undefined &&
 				page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION) ||
 			(page.color_grade !== undefined && page.color_grade_version !== IMAGE_COLOR_GRADE_VERSION) ||
 			(page.color_grade !== undefined &&
-				Object.values(page.color_grade).some(
-					(value) => !Number.isFinite(value) || value < -1 || value > 1
-				))
+				Object.values(
+					Object.fromEntries(
+						Object.entries(page.color_grade).filter(([key]) => key !== 'wheels' && key !== 'curves')
+					)
+				).some((value) => !Number.isFinite(value) || value < -1 || value > 1))
 		) {
 			errors.push(`${page.name} has an invalid color grade.`);
 		}
@@ -346,6 +351,8 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 			}
 			if (layer.image) {
 				const { crop, adjustments } = layer.image;
+				if (!validEditorColorTools(adjustments))
+					errors.push(`${layer.name} has invalid color tools.`);
 				if (
 					layer.image.color_grade_version !== undefined &&
 					layer.image.color_grade_version !== IMAGE_COLOR_GRADE_VERSION

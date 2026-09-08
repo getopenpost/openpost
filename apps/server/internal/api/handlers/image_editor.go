@@ -109,17 +109,19 @@ type ImageEditorTextValue struct {
 }
 
 type ImageEditorImageAdjustments struct {
-	Brightness  float64 `json:"brightness"`
-	Contrast    float64 `json:"contrast"`
-	Saturation  float64 `json:"saturation"`
-	Temperature float64 `json:"temperature"`
-	Tint        float64 `json:"tint"`
-	Vibrance    float64 `json:"vibrance"`
-	Hue         float64 `json:"hue"`
-	Exposure    float64 `json:"exposure"`
-	Highlights  float64 `json:"highlights"`
-	Shadows     float64 `json:"shadows"`
-	Blur        float64 `json:"blur"`
+	Wheels      *ImageEditorColorWheels `json:"wheels,omitempty"`
+	Curves      *ImageEditorColorCurves `json:"curves,omitempty"`
+	Brightness  float64                 `json:"brightness"`
+	Contrast    float64                 `json:"contrast"`
+	Saturation  float64                 `json:"saturation"`
+	Temperature float64                 `json:"temperature"`
+	Tint        float64                 `json:"tint"`
+	Vibrance    float64                 `json:"vibrance"`
+	Hue         float64                 `json:"hue"`
+	Exposure    float64                 `json:"exposure"`
+	Highlights  float64                 `json:"highlights"`
+	Shadows     float64                 `json:"shadows"`
+	Blur        float64                 `json:"blur"`
 }
 
 type ImageEditorCrop struct {
@@ -256,16 +258,18 @@ type ImageEditorPageBackground struct {
 }
 
 type ImageEditorColorGrade struct {
-	Brightness  float64 `json:"brightness" minimum:"-1" maximum:"1"`
-	Contrast    float64 `json:"contrast" minimum:"-1" maximum:"1"`
-	Saturation  float64 `json:"saturation" minimum:"-1" maximum:"1"`
-	Temperature float64 `json:"temperature" minimum:"-1" maximum:"1"`
-	Tint        float64 `json:"tint" minimum:"-1" maximum:"1"`
-	Vibrance    float64 `json:"vibrance" minimum:"-1" maximum:"1"`
-	Hue         float64 `json:"hue" minimum:"-1" maximum:"1"`
-	Exposure    float64 `json:"exposure" minimum:"-1" maximum:"1"`
-	Highlights  float64 `json:"highlights" minimum:"-1" maximum:"1"`
-	Shadows     float64 `json:"shadows" minimum:"-1" maximum:"1"`
+	Wheels      *ImageEditorColorWheels `json:"wheels,omitempty"`
+	Curves      *ImageEditorColorCurves `json:"curves,omitempty"`
+	Brightness  float64                 `json:"brightness" minimum:"-1" maximum:"1"`
+	Contrast    float64                 `json:"contrast" minimum:"-1" maximum:"1"`
+	Saturation  float64                 `json:"saturation" minimum:"-1" maximum:"1"`
+	Temperature float64                 `json:"temperature" minimum:"-1" maximum:"1"`
+	Tint        float64                 `json:"tint" minimum:"-1" maximum:"1"`
+	Vibrance    float64                 `json:"vibrance" minimum:"-1" maximum:"1"`
+	Hue         float64                 `json:"hue" minimum:"-1" maximum:"1"`
+	Exposure    float64                 `json:"exposure" minimum:"-1" maximum:"1"`
+	Highlights  float64                 `json:"highlights" minimum:"-1" maximum:"1"`
+	Shadows     float64                 `json:"shadows" minimum:"-1" maximum:"1"`
 }
 
 type ImageEditorPagePayload struct {
@@ -2142,6 +2146,9 @@ func validateImageEditorPageColorGrade(page ImageEditorPagePayload) error {
 		return fmt.Errorf("image editor page color grades require version %d", imageEditorColorGradeVersion)
 	}
 	grade := page.ColorGrade
+	if err := validateImageEditorColorTools(grade.Wheels, grade.Curves); err != nil {
+		return err
+	}
 	for _, value := range []float64{
 		grade.Brightness,
 		grade.Contrast,
@@ -2334,6 +2341,9 @@ func validateImageEditorLayer(layer ImageEditorLayer) error {
 			return fmt.Errorf("image crop must stay within normalized image bounds")
 		}
 		adjustments := layer.Image.Adjustments
+		if err := validateImageEditorColorTools(adjustments.Wheels, adjustments.Curves); err != nil {
+			return err
+		}
 		if layer.Image.ColorGradeVersion != 0 && layer.Image.ColorGradeVersion != imageEditorColorGradeVersion {
 			return fmt.Errorf("unsupported image editor layer color grade version")
 		}

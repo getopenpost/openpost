@@ -1,4 +1,14 @@
 <script lang="ts">
+	import EditorColorWheel from '$lib/components/editor-color-wheel.svelte';
+	import EditorColorCurves from '$lib/components/editor-color-curves.svelte';
+	import EditorColorScopes from '$lib/components/editor-color-scopes.svelte';
+	import { EDITOR_COLOR_WHEELS } from '$lib/editor-color-grade/controls';
+	import {
+		defaultEditorColorWheels,
+		hasEditorColorGrade,
+		type EditorColorWheels,
+		type EditorColorCurves as ColorCurveValues
+	} from '$lib/editor-color-grade/model';
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import EditorColorSlider from '$lib/components/editor-color-slider.svelte';
@@ -23,14 +33,21 @@
 	} from '$lib/editor-color-grade/controls';
 
 	type ColorScope = 'layer' | 'page';
-	type AdjustmentControl = readonly [string, keyof ImageEditorImageAdjustments, number, number];
+	type AdjustmentControl = readonly [
+		string,
+		Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
+		number,
+		number
+	];
 
 	const editor = useImageEditor();
 	let scope = $state<ColorScope>('page');
 	const imageAdjustmentKeys = [...EDITOR_COLOR_ADJUSTMENT_KEYS, 'blur'] satisfies Array<
-		keyof ImageEditorImageAdjustments
+		Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>
 	>;
-	function adjustmentLabel(key: keyof ImageEditorImageAdjustments): string {
+	function adjustmentLabel(
+		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>
+	): string {
 		if (key === 'brightness') return m.image_editor_brightness();
 		if (key === 'exposure') return m.image_editor_exposure();
 		if (key === 'contrast') return m.image_editor_contrast();
@@ -81,11 +98,60 @@
 	const targetCount = $derived(scope === 'page' ? (activePage ? 1 : 0) : targetLayers.length);
 	const hasGrade = $derived(
 		scope === 'page'
-			? Object.values(activePage?.color_grade ?? {}).some((value) => Math.abs(value) > 0.0001)
-			: targetLayers.some((layer) =>
-					imageAdjustmentKeys.some((key) => Math.abs(layer.image?.adjustments[key] ?? 0) > 0.0001)
-				)
+			? hasEditorColorGrade(activePage?.color_grade)
+			: targetLayers.some((layer) => hasEditorColorGrade(layer.image?.adjustments))
 	);
+	const grade = $derived(
+		scope === 'page' ? activePage?.color_grade : targetLayers[0]?.image?.adjustments
+	);
+	const wheelLabels = $derived({
+		lift: m.video_editor_gpu_param_lift(),
+		gamma: m.video_editor_gpu_param_gamma(),
+		gain: m.video_editor_gpu_param_gain(),
+		offset: m.video_editor_gpu_param_offset()
+	});
+	const wheels = $derived(grade?.wheels ?? defaultEditorColorWheels());
+	const curves = $derived({
+		enabled: editor.canEdit,
+		id: `${scope}:${scope === 'page' ? activePage?.id : targetLayerIDs.join(',')}`,
+		params: { ...grade?.curves }
+	});
+	function previewTools(
+		key: 'wheels' | 'curves',
+		updates: Partial<EditorColorWheels> | ColorCurveValues
+	) {
+		const value =
+			key === 'curves'
+				? Object.fromEntries(
+						Object.entries(updates).filter(([name]) =>
+							['masterPoints', 'redPoints', 'greenPoints', 'bluePoints'].includes(name)
+						)
+					)
+				: updates;
+		if (scope === 'page') {
+			if (!activePage) return;
+			if (key === 'wheels')
+				editor.previewPageColorGrade(activePage.id, 'wheels', { ...wheels, ...value });
+			else editor.previewPageColorGrade(activePage.id, 'curves', { ...grade?.curves, ...value });
+		} else editor.previewImageColorTools(targetLayerIDs, key, value);
+	}
+	function finishTools() {
+		if (scope === 'page') editor.commitPageColorGradeGesture();
+		else editor.commitImageAdjustmentGesture();
+	}
+	function cancelTools() {
+		if (scope === 'page') editor.cancelPageColorGradeGesture();
+		else editor.cancelImageAdjustmentGesture();
+	}
+	function wheelMixed(hue: keyof EditorColorWheels, amount: keyof EditorColorWheels) {
+		return (
+			scope === 'layer' &&
+			targetLayers.some((layer) => {
+				const other = layer.image?.adjustments.wheels ?? defaultEditorColorWheels();
+				return other[hue] !== wheels[hue] || other[amount] !== wheels[amount];
+			})
+		);
+	}
 
 	$effect(() => {
 		if (!editor.colorComparisonBefore) return;
@@ -103,7 +169,9 @@
 		setComparison('after');
 	});
 
-	function adjustmentValue(key: keyof ImageEditorImageAdjustments): number | null {
+	function adjustmentValue(
+		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>
+	): number | null {
 		if (scope === 'page') {
 			if (key === 'blur') return 0;
 			return activePage?.color_grade?.[key] ?? 0;
@@ -114,7 +182,10 @@
 		return mixed.mixed ? null : (mixed.value ?? 0);
 	}
 
-	function previewAdjustment(key: keyof ImageEditorImageAdjustments, value: number): void {
+	function previewAdjustment(
+		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
+		value: number
+	): void {
 		if (scope === 'page') {
 			if (key !== 'blur' && activePage) editor.previewPageColorGrade(activePage.id, key, value);
 			return;
@@ -122,7 +193,10 @@
 		editor.previewImageAdjustment(targetLayerIDs, key, value);
 	}
 
-	function commitAdjustment(key: keyof ImageEditorImageAdjustments, value: number): void {
+	function commitAdjustment(
+		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
+		value: number
+	): void {
 		previewAdjustment(key, value);
 		if (scope === 'page') editor.commitPageColorGradeGesture();
 		else editor.commitImageAdjustmentGesture();
@@ -153,6 +227,7 @@
 	}
 
 	function presetIsActive(adjustments: Partial<ImageEditorImageAdjustments>): boolean {
+		if (grade?.wheels || grade?.curves) return false;
 		const target = {
 			...(scope === 'page' ? defaultEditorColorGradeAdjustments() : defaultImageAdjustments()),
 			...adjustments
@@ -161,13 +236,18 @@
 			if (!activePage) return false;
 			return imageAdjustmentKeys
 				.filter((key) => key !== 'blur')
-				.every((key) => Math.abs((activePage.color_grade?.[key] ?? 0) - target[key]) < 0.001);
+				.every(
+					(key) => Math.abs((activePage.color_grade?.[key] ?? 0) - (target[key] ?? 0)) < 0.001
+				);
 		}
 		if (targetLayers.length === 0) return false;
-		return targetLayers.every((layer) =>
-			imageAdjustmentKeys.every(
-				(key) => Math.abs((layer.image?.adjustments[key] ?? 0) - target[key]) < 0.001
-			)
+		return targetLayers.every(
+			(layer) =>
+				!layer.image?.adjustments.wheels &&
+				!layer.image?.adjustments.curves &&
+				imageAdjustmentKeys.every(
+					(key) => Math.abs((layer.image?.adjustments[key] ?? 0) - (target[key] ?? 0)) < 0.001
+				)
 		);
 	}
 
@@ -232,6 +312,70 @@
 			{m.image_editor_command_requires_selection()}
 		</p>
 	{:else}
+		<section class="grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-4">
+			{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
+				<div class="min-w-0 space-y-2">
+					<div class="flex items-center justify-between text-xs">
+						<span>{wheelLabels[descriptor.level]}</span>
+						<Button
+							size="xs"
+							variant="ghost"
+							disabled={!editor.canEdit}
+							aria-label={`${m.image_editor_reset()} ${wheelLabels[descriptor.level]}`}
+							onclick={() => {
+								const defaults = defaultEditorColorWheels();
+								previewTools('wheels', {
+									[descriptor.hue]: defaults[descriptor.hue],
+									[descriptor.amount]: defaults[descriptor.amount],
+									[descriptor.level]: defaults[descriptor.level]
+								});
+								finishTools();
+							}}>{m.image_editor_reset()}</Button
+						>
+					</div>
+					<div class="relative mx-auto aspect-square w-full max-w-32">
+						<EditorColorWheel
+							label={wheelLabels[descriptor.level]}
+							value={{ hue: wheels[descriptor.hue], amount: wheels[descriptor.amount] }}
+							disabled={!editor.canEdit}
+							mixed={wheelMixed(descriptor.hue, descriptor.amount)}
+							onpreview={(value) =>
+								previewTools('wheels', {
+									[descriptor.hue]: value.hue,
+									[descriptor.amount]: value.amount
+								})}
+							oncommit={(value) => {
+								previewTools('wheels', {
+									[descriptor.hue]: value.hue,
+									[descriptor.amount]: value.amount
+								});
+								finishTools();
+							}}
+							oncancel={cancelTools}
+						/>
+					</div>
+					<EditorColorSlider
+						hideLabel
+						label={wheelLabels[descriptor.level]}
+						value={wheelMixed(descriptor.level, descriptor.level) ? null : wheels[descriptor.level]}
+						min={descriptor.ring.min}
+						max={descriptor.ring.max}
+						step={0.01}
+						defaultValue={defaultEditorColorWheels()[descriptor.level]}
+						decimals={2}
+						disabled={!editor.canEdit}
+						resetLabel={m.image_editor_reset()}
+						mixedLabel={m.image_editor_mixed_value()}
+						onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
+						oncommit={(value) => {
+							previewTools('wheels', { [descriptor.level]: value });
+							finishTools();
+						}}
+						oncancel={cancelTools}
+					/>
+				</div>
+			{/each}
+		</section>
 		<section class="space-y-2">
 			<h3 class="text-xs font-medium">{m.image_editor_quick_looks()}</h3>
 			<div class="grid grid-cols-3 gap-1">
@@ -248,6 +392,34 @@
 					</Button>
 				{/each}
 			</div>
+		</section>
+
+		<section
+			class="video-editor-theme h-60 min-w-0 overflow-hidden rounded-md border"
+			aria-label={m.video_editor_scopes()}
+		>
+			<EditorColorScopes
+				itemId={activePage?.id ?? null}
+				sample={editor.colorScopeSample}
+				embedded
+			/>
+		</section>
+
+		<section class="video-editor-theme min-w-0 border-t pt-4">
+			<fieldset disabled={!editor.canEdit}>
+				<EditorColorCurves
+					gpuEffect={curves}
+					ondraft={(params) => {
+						if (params) previewTools('curves', params);
+						else cancelTools();
+					}}
+					oncommit={(params) => {
+						previewTools('curves', params);
+						finishTools();
+					}}
+					compact
+				/>
+			</fieldset>
 		</section>
 
 		{#each adjustmentGroups.filter((group) => scope === 'layer' || group.pageSupported) as group (group.label)}

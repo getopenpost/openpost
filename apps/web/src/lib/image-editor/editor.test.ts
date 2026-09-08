@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultEditorColorWheels } from '$lib/editor-color-grade/model';
 import { defaultImageAdjustments } from './document';
 import { ImageEditorController } from './editor.svelte';
 import type { ImageEditorDocumentResponse, ImageEditorLayer } from './types';
@@ -120,6 +121,40 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.saveState).toBe('saved');
 	});
 
+	it('preserves other wheel values when grading multiple images and undoing the gesture', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.addImage({ id: 'one', width: 100, height: 100, name: 'One' });
+		const first = editor.selectedLayers[0]!.id;
+		editor.previewImageAdjustment([first], 'wheels', { ...defaultEditorColorWheels(), gain: 1.5 });
+		editor.commitImageAdjustmentGesture();
+		editor.addImage({ id: 'two', width: 100, height: 100, name: 'Two' });
+		const second = editor.selectedLayers[0]!.id;
+		editor.previewImageColorTools([first, second], 'wheels', { offsetHue: 120, offsetAmount: 0.4 });
+		editor.commitImageAdjustmentGesture();
+		expect(
+			editor
+				.activePage!.layers.filter((layer) => layer.image)
+				.map((layer) => layer.image!.adjustments.wheels?.gain)
+		).toEqual([1.5, 1]);
+		expect(
+			editor
+				.activePage!.layers.filter((layer) => layer.image)
+				.map((layer) => layer.image!.adjustments.wheels?.offsetAmount)
+		).toEqual([0.4, 0.4]);
+		editor.undo();
+		expect(
+			editor
+				.activePage!.layers.filter((layer) => layer.image)
+				.map((layer) => layer.image!.adjustments.wheels?.offsetAmount ?? 0)
+		).toEqual([0, 0]);
+		editor.redo();
+		expect(
+			editor
+				.activePage!.layers.filter((layer) => layer.image)
+				.map((layer) => layer.image!.adjustments.wheels?.gain)
+		).toEqual([1.5, 1]);
+	});
 	it('commits a multi-layer image adjustment gesture as one undo step', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

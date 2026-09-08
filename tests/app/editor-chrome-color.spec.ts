@@ -1,5 +1,5 @@
-import { mkdir, rm } from "node:fs/promises";
-import { Buffer } from "node:buffer";
+import { mkdir, readFile, rm } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
 import { assignBuiltInTheme, authenticatePage, createWorkspace, registerUser } from "./helpers";
@@ -9,9 +9,8 @@ const themes = [
   { id: "workshop", scheme: "light" },
   { id: "supabase", scheme: "dark" },
 ] as const;
-const tinyPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64",
+const colorPhoto = await readFile(
+  fileURLToPath(new URL("./fixtures/product-screenshots/lisbon-tram.png", import.meta.url)),
 );
 
 async function createVideoProject(page: Page, name = "Shared editor chrome"): Promise<string> {
@@ -132,7 +131,7 @@ async function createImageDesign(page: Page): Promise<string> {
   ).setFiles({
     name: "color-source.png",
     mimeType: "image/png",
-    buffer: tinyPng,
+    buffer: colorPhoto,
   });
   await expect(page.getByRole("textbox", { name: "Layer name" })).toHaveValue("color-source.png");
   const saveIndicator = page.getByTestId("image-editor-save-indicator");
@@ -331,15 +330,47 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         "color",
       );
       await expect(page.locator("[data-image-color-workspace]:visible")).toBeVisible();
-      await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(10);
+      await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(14);
       if (width === 1440) {
         const scope = page.getByRole("group", { name: "Color Layers" });
         await page.getByRole("tree", { name: "Layers" }).getByText("color-source.png").click();
         await scope.getByRole("button", { name: "Layer", exact: true }).click();
-        await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(11);
+        await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(15);
         await scope.getByRole("button", { name: "Pages" }).click();
         if (theme.id === "workshop") {
           const originalPixel = await designCanvasCenterPixel(page);
+          const offset = page.getByRole("slider", { name: "Offset color wheel" });
+          await offset.press("End");
+          await expect(offset).toHaveAttribute("aria-valuetext", "0 degrees, 100 percent");
+          await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
+          await page.getByRole("button", { name: /^Undo/ }).click();
+          await expect.poll(() => designCanvasCenterPixel(page)).toEqual(originalPixel);
+          const curve = page.getByRole("group", { name: "Master curve editor", exact: true });
+          const points = await curve.locator("[data-curve-point]").count();
+          const curveBounds = await curve.boundingBox();
+          await curve.click({
+            position: { x: curveBounds!.width / 2, y: curveBounds!.height / 4 },
+          });
+          await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
+          await page.getByRole("button", { name: /^Undo/ }).click();
+          await expect(curve.locator("[data-curve-point]")).toHaveCount(points);
+          await page.getByRole("button", { name: /^Redo/ }).click();
+          await offset.press("End");
+          const advancedPixel = await designCanvasCenterPixel(page);
+          await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+            "data-state",
+            "saved",
+            { timeout: 10_000 },
+          );
+          await page.reload();
+          await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+          await page.locator("#image-editor-workspace-tab-color").click();
+          await expect(offset).toHaveAttribute("aria-valuetext", "0 degrees, 100 percent");
+          await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
+          await expect.poll(() => designCanvasCenterPixel(page)).toEqual(advancedPixel);
+          await page.getByRole("button", { name: "Original", exact: true }).click();
+          await page.getByRole("button", { name: "Show all scopes" }).click();
+          await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
           await page.getByRole("button", { name: "Warm", exact: true }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           const gradedPixel = await designCanvasCenterPixel(page);
@@ -410,6 +441,14 @@ test.describe("touch editor headers", () => {
       await page.keyboard.press("Escape");
       await expect(page.getByRole("menu")).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
+      if (url === imageURL) {
+        const home = header
+          .getByRole("button")
+          .filter({ has: page.locator('img[src="/assets/brand/features/image-editor.svg"]') });
+        await expect(home).toHaveCount(1);
+        await home.click();
+        await expect(page).toHaveURL(/\/image-editor$/u);
+      }
     }
   });
 });

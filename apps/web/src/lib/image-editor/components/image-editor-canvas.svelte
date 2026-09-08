@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import {
+		SCOPE_CAPTURE_INTERVAL_PAUSED_MS,
+		SCOPE_SAMPLE_SIZE_PAUSED
+	} from '$lib/editor-color-grade/scopes';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
@@ -89,6 +93,35 @@
 	let viewport = $state<HTMLDivElement>();
 	let stageElement = $state<HTMLDivElement>();
 	let adapter = $state.raw<OpenPostFabricAdapter | null>(null);
+
+	let scopeTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastScopeAt = 0;
+	let pendingScope: { source: HTMLCanvasElement; itemId: string } | null = null;
+	function publishScope() {
+		scopeTimer = null;
+		const pending = pendingScope;
+		pendingScope = null;
+		if (!pending) return;
+		const { width, height } = SCOPE_SAMPLE_SIZE_PAUSED;
+		const sample = new OffscreenCanvas(width, height);
+		const context = sample.getContext('2d');
+		if (!context) return;
+		context.drawImage(pending.source, 0, 0, width, height);
+		lastScopeAt = performance.now();
+		editor.colorScopeSample = { source: sample, itemId: pending.itemId, image: null };
+	}
+	function scheduleScope(source: HTMLCanvasElement, itemId: string) {
+		pendingScope = { source, itemId };
+		if (scopeTimer !== null) return;
+		const delay = Math.max(0, SCOPE_CAPTURE_INTERVAL_PAUSED_MS - (performance.now() - lastScopeAt));
+		if (delay === 0) publishScope();
+		else scopeTimer = setTimeout(publishScope, delay);
+	}
+	onDestroy(() => {
+		if (scopeTimer !== null) clearTimeout(scopeTimer);
+		pendingScope = null;
+		editor.colorScopeSample = null;
+	});
 	let canvasOriginDocument = editor.document;
 	let ready = $state(false);
 	let canvasError = $state('');
@@ -212,6 +245,9 @@
 				},
 				onMissingMedia(mediaID, layerID) {
 					onMissingMedia?.(mediaID, layerID);
+				},
+				onRender(source, itemId) {
+					scheduleScope(source, itemId);
 				},
 				onRenderError() {
 					canvasError = m.image_editor_canvas_failed();

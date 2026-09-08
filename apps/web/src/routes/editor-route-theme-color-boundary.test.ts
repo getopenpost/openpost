@@ -27,7 +27,7 @@ const compositionTimeline = new URL(
 	'../lib/video-editor/components/composition-timeline.svelte',
 	import.meta.url
 );
-const colorScopes = new URL('../lib/video-editor/components/color-scopes.svelte', import.meta.url);
+const colorScopes = new URL('../lib/components/editor-color-scopes.svelte', import.meta.url);
 const colorMiniTimeline = new URL(
 	'../lib/video-editor/components/color-mini-timeline.svelte',
 	import.meta.url
@@ -44,10 +44,7 @@ const colorPrimaryControls = new URL(
 	'../lib/video-editor/components/color-primary-controls.svelte',
 	import.meta.url
 );
-const gpuCurves = new URL(
-	'../lib/video-editor/components/gpu-curves-editor.svelte',
-	import.meta.url
-);
+const gpuCurves = new URL('../lib/components/editor-color-curves.svelte', import.meta.url);
 const speedRamp = new URL(
 	'../lib/video-editor/components/speed-ramp-editor.svelte',
 	import.meta.url
@@ -139,7 +136,10 @@ describe('editor route theme color boundary', () => {
 			{ url: compositionTimeline, marker: 'composition-timeline' },
 			{ url: colorScopes, marker: 'scopes' },
 			{ url: audioEqCurve, marker: 'audio-eq-curve' },
-			{ url: colorPrimaryControls, marker: 'color-wheel' },
+			{
+				url: new URL('../lib/components/editor-color-wheel.svelte', import.meta.url),
+				marker: 'color-wheel'
+			},
 			{ url: gpuCurves, marker: 'curves' },
 			{ url: speedRamp, marker: 'speed-curve' },
 			{ url: recorderRoute, marker: 'capture-preview' },
@@ -194,7 +194,7 @@ describe('editor route theme color boundary', () => {
 			},
 			{
 				name: 'color scopes',
-				component: 'color-scopes',
+				component: '../../components/editor-color-scopes',
 				required: [
 					'bg-[var(--video-editor-panel)]',
 					'text-[var(--video-editor-muted)]',
@@ -212,7 +212,7 @@ describe('editor route theme color boundary', () => {
 			},
 			{
 				name: 'GPU curves',
-				component: 'gpu-curves-editor',
+				component: '../../components/editor-color-curves',
 				required: [
 					'bg-[var(--video-editor-panel)]',
 					'bg-[var(--video-editor-selection)]',

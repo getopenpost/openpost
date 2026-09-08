@@ -14,9 +14,20 @@ import {
 	editorColorGradeAdjustmentsToEffects,
 	ImageGradeRenderer
 } from './image-grade';
-import { defaultEditorColorGradeAdjustments } from './model';
+import { defaultEditorColorGradeAdjustments, defaultEditorColorWheels } from './model';
 
 const grade = {
+	wheels: {
+		...defaultEditorColorWheels(),
+		shadowsHue: 40,
+		shadowsAmount: 0.2,
+		midtonesHue: 180,
+		midtonesAmount: 0.15,
+		offset: 0.03,
+		gamma: 1.1,
+		gain: 0.9
+	},
+	curves: { masterPoints: '[[0,0],[0.5,0.6],[1,1]]' },
 	brightness: 0.08,
 	contrast: 0.12,
 	saturation: -0.18,
@@ -74,7 +85,8 @@ describe('shared still and video color rendering', () => {
 		expect(rendered?.backend).toBe('gpu');
 		if (!rendered) throw new Error('GPU color grade did not render.');
 		const gpuPixels = pixels(rendered.canvas);
-		const cpuPixels = new Uint8ClampedArray(input);
+		// Both paths start from the canvas after its alpha premultiplication round trip.
+		const cpuPixels = pixels(source);
 		applyImageGradePixels(cpuPixels, grade);
 		renderer.dispose();
 

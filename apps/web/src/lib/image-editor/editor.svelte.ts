@@ -52,7 +52,10 @@ import type {
 import {
 	IMAGE_COLOR_GRADE_VERSION,
 	defaultEditorColorGradeAdjustments,
-	type EditorColorGradeAdjustments
+	type EditorColorGrade,
+	type EditorColorWheels,
+	type EditorColorCurves,
+	defaultEditorColorWheels
 } from '$lib/editor-color-grade/model';
 
 const IMAGE_EDITOR_CONTEXT = Symbol('openpost-image-editor-editor');
@@ -95,7 +98,7 @@ interface PageColorGradeGesture {
 	beforeDocument: ImageEditorDocument;
 	beforeContext: ImageEditorHistoryContext;
 	pageID: string;
-	key: keyof EditorColorGradeAdjustments;
+	key: keyof EditorColorGrade;
 }
 
 export interface ImageEditorPartialApplicationResult {
@@ -167,6 +170,11 @@ export class ImageEditorController {
 	rightPanelVisible = $state(true);
 	layersPanelOpen = $state(false);
 	pagesExpanded = $state(true);
+	colorScopeSample = $state.raw<{
+		itemId: string;
+		source: HTMLCanvasElement | OffscreenCanvas;
+		image: ImageData | null;
+	} | null>(null);
 	colorComparisonBefore = $state(false);
 	colorComparisonPage = $state(false);
 	colorComparisonLayerIDs = $state.raw<string[]>([]);
@@ -345,10 +353,10 @@ export class ImageEditorController {
 		};
 	}
 
-	previewImageAdjustment(
+	previewImageAdjustment<K extends keyof ImageEditorImageAdjustments>(
 		layerIDs: readonly string[],
-		key: keyof ImageEditorImageAdjustments,
-		value: number
+		key: K,
+		value: ImageEditorImageAdjustments[K]
 	): void {
 		if (!this.document || !this.canEdit) return;
 		this.beginImageAdjustmentGesture(layerIDs, key);
@@ -361,6 +369,31 @@ export class ImageEditorController {
 				layer.image.adjustments = { ...layer.image.adjustments, [key]: value };
 			}
 		}
+		this.document = next;
+		this.historyRevision++;
+	}
+
+	previewImageColorTools(
+		layerIDs: readonly string[],
+		key: 'wheels' | 'curves',
+		updates: Partial<EditorColorWheels> | EditorColorCurves
+	): void {
+		if (!this.document || !this.canEdit) return;
+		this.beginImageAdjustmentGesture(layerIDs, key);
+		const ids = new Set(this.imageAdjustmentGesture?.layerIDs ?? layerIDs);
+		const next = cloneImageEditorDocument(this.document);
+		for (const page of next.pages)
+			for (const layer of page.layers) {
+				if (!ids.has(layer.id) || layer.locked || !layer.image) continue;
+				layer.image.color_grade_version = IMAGE_COLOR_GRADE_VERSION;
+				if (key === 'wheels')
+					layer.image.adjustments.wheels = {
+						...defaultEditorColorWheels(),
+						...layer.image.adjustments.wheels,
+						...updates
+					};
+				else layer.image.adjustments.curves = { ...layer.image.adjustments.curves, ...updates };
+			}
 		this.document = next;
 		this.historyRevision++;
 	}
@@ -390,7 +423,7 @@ export class ImageEditorController {
 		this.historyRevision++;
 	}
 
-	beginPageColorGradeGesture(pageID: string, key: keyof EditorColorGradeAdjustments): void {
+	beginPageColorGradeGesture(pageID: string, key: keyof EditorColorGrade): void {
 		if (!this.document || !this.canEdit || this.pageColorGradeGesture) return;
 		if (this.imageAdjustmentGesture) this.commitImageAdjustmentGesture();
 		this.pageColorGradeGesture = {
@@ -401,10 +434,10 @@ export class ImageEditorController {
 		};
 	}
 
-	previewPageColorGrade(
+	previewPageColorGrade<K extends keyof EditorColorGrade>(
 		pageID: string,
-		key: keyof EditorColorGradeAdjustments,
-		value: number
+		key: K,
+		value: EditorColorGrade[K]
 	): void {
 		if (!this.document || !this.canEdit) return;
 		this.beginPageColorGradeGesture(pageID, key);

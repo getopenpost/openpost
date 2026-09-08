@@ -71,3 +71,29 @@ describe('versioned still-image color grade', () => {
 		expect([...pixels]).toEqual([26, 26, 26, 17, 204, 204, 204, 23]);
 	});
 });
+
+it('grades tonal wheels and RGB curves without changing alpha', () => {
+	const wheels = {
+		shadowsHue: 0,
+		shadowsAmount: 0,
+		midtonesHue: 0,
+		midtonesAmount: 0,
+		highlightsHue: 0,
+		highlightsAmount: 0,
+		offsetHue: 0,
+		offsetAmount: 1,
+		lift: 0,
+		gamma: 1,
+		gain: 1,
+		offset: 0
+	};
+	const pixels = new Uint8ClampedArray([128, 128, 128, 77]);
+	applyImageGradePixels(pixels, { ...neutralGrade, ...{ wheels } });
+	expect([...pixels]).toEqual([128, 0, 0, 77]);
+	const curved = new Uint8ClampedArray([128, 64, 32, 77]);
+	applyImageGradePixels(curved, {
+		...neutralGrade,
+		...{ curves: { masterPoints: '[[0,0],[1,0.5]]' } }
+	});
+	expect([...curved]).toEqual([64, 32, 16, 77]);
+});

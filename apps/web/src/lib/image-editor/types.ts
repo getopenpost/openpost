@@ -1,4 +1,4 @@
-import type { EditorColorGradeAdjustments } from '$lib/editor-color-grade/model';
+import type { EditorColorGrade } from '$lib/editor-color-grade/model';
 import type { StockMediaProvenance } from '$lib/stock-media';
 
 export const IMAGE_EDITOR_SCHEMA_VERSION = 1 as const;
@@ -102,7 +102,7 @@ export interface ImageEditorTextValue {
 	curve?: ImageEditorTextCurve;
 }
 
-export interface ImageEditorImageAdjustments extends EditorColorGradeAdjustments {
+export interface ImageEditorImageAdjustments extends EditorColorGrade {
 	blur: number;
 }
 
@@ -256,7 +256,7 @@ export interface ImageEditorPage {
 	background?: ImageEditorPageBackground;
 	/** Versioned output grade applied after the complete page has been composited. */
 	color_grade_version?: 1;
-	color_grade?: EditorColorGradeAdjustments;
+	color_grade?: EditorColorGrade;
 	guides?: {
 		horizontal: number[];
 		vertical: number[];

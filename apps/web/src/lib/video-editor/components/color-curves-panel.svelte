@@ -9,7 +9,7 @@
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
 	import ColorEffectHeader from './color-effect-header.svelte';
-	import GpuCurvesEditor from './gpu-curves-editor.svelte';
+	import GpuCurvesEditor from '$lib/components/editor-color-curves.svelte';
 
 	const EFFECT_ID = 'gpu-curves';
 	const SYNTHETIC_EFFECT_ID = '__color-curves__';

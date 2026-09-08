@@ -2,8 +2,8 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
-	import type { GpuEffect } from '$lib/video-editor/effects/types';
-	import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
+	import type { EditorColorEffectParams as GpuParamValues } from '$lib/editor-color-grade/rendering';
+	type GpuEffect = { id: string; enabled: boolean; params: GpuParamValues };
 	import {
 		CURVE_CHANNELS,
 		CURVE_POINT_MIN_GAP,
@@ -17,7 +17,7 @@
 		serializeCurveChannelPoints,
 		type CurveChannel,
 		type CurvePoint
-	} from '$lib/video-editor/effects/gpu/curves';
+	} from '$lib/editor-color-grade/curves';
 
 	let {
 		gpuEffect,

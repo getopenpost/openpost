@@ -8704,11 +8704,18 @@ export interface components {
             line_height: number;
             name: string;
         };
+        ImageEditorColorCurves: {
+            bluePoints?: string;
+            greenPoints?: string;
+            masterPoints?: string;
+            redPoints?: string;
+        };
         ImageEditorColorGrade: {
             /** Format: double */
             brightness: number;
             /** Format: double */
             contrast: number;
+            curves?: components["schemas"]["ImageEditorColorCurves"];
             /** Format: double */
             exposure: number;
             /** Format: double */
@@ -8725,6 +8732,33 @@ export interface components {
             tint: number;
             /** Format: double */
             vibrance: number;
+            wheels?: components["schemas"]["ImageEditorColorWheels"];
+        };
+        ImageEditorColorWheels: {
+            /** Format: double */
+            gain: number;
+            /** Format: double */
+            gamma: number;
+            /** Format: double */
+            highlightsAmount: number;
+            /** Format: double */
+            highlightsHue: number;
+            /** Format: double */
+            lift: number;
+            /** Format: double */
+            midtonesAmount: number;
+            /** Format: double */
+            midtonesHue: number;
+            /** Format: double */
+            offset: number;
+            /** Format: double */
+            offsetAmount: number;
+            /** Format: double */
+            offsetHue: number;
+            /** Format: double */
+            shadowsAmount: number;
+            /** Format: double */
+            shadowsHue: number;
         };
         ImageEditorCrop: {
             /** Format: double */
@@ -8826,6 +8860,7 @@ export interface components {
             brightness: number;
             /** Format: double */
             contrast: number;
+            curves?: components["schemas"]["ImageEditorColorCurves"];
             /** Format: double */
             exposure: number;
             /** Format: double */
@@ -8842,6 +8877,7 @@ export interface components {
             tint: number;
             /** Format: double */
             vibrance: number;
+            wheels?: components["schemas"]["ImageEditorColorWheels"];
         };
         ImageEditorImageValue: {
             adjustments: components["schemas"]["ImageEditorImageAdjustments"];

@@ -822,3 +822,31 @@ func TestImageEditorLegacyPageAndRevisionSnapshotsRemainReadable(t *testing.T) {
 	require.Zero(t, colorGradeVersion)
 	require.Nil(t, colorGrade)
 }
+
+func TestImageEditorSavesWheelsAndCurves(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Color tools"
+	create.Body.PresetKey = "instagram-square"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+	update := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
+	update.Body.ExpectedRevision = created.Body.Revision
+	update.Body.Document = created.Body.Document
+	page := &update.Body.Document.Pages[0]
+	page.ColorGradeVersion = 1
+	require.NoError(t, json.Unmarshal([]byte(`{"wheels":{"offsetHue":120,"offsetAmount":0.5,"gamma":1,"gain":1},"curves":{"masterPoints":"[[0,0],[1,0.5]]"}}`), &page.ColorGrade))
+	saved, err := handler.updateDesign(ctx, update)
+	require.NoError(t, err)
+	reloaded, err := handler.getDesign(ctx, &GetImageEditorDesignInput{PathID: saved.Body.ID})
+	require.NoError(t, err)
+	grade := reloaded.Body.Document.Pages[0].ColorGrade
+	require.NotNil(t, grade)
+	require.NotNil(t, grade.Wheels)
+	require.Equal(t, 120.0, grade.Wheels.OffsetHue)
+	require.Equal(t, 0.5, grade.Wheels.OffsetAmount)
+	require.NotNil(t, grade.Curves)
+	require.Equal(t, "[[0,0],[1,0.5]]", grade.Curves.MasterPoints)
+}

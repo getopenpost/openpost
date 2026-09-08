@@ -8154,6 +8154,28 @@
 				],
 				"type": "object"
 			},
+			"ImageEditorColorCurves": {
+				"additionalProperties": false,
+				"properties": {
+					"bluePoints": {
+						"maxLength": 1024,
+						"type": "string"
+					},
+					"greenPoints": {
+						"maxLength": 1024,
+						"type": "string"
+					},
+					"masterPoints": {
+						"maxLength": 1024,
+						"type": "string"
+					},
+					"redPoints": {
+						"maxLength": 1024,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
 			"ImageEditorColorGrade": {
 				"additionalProperties": false,
 				"properties": {
@@ -8168,6 +8190,9 @@
 						"maximum": 1,
 						"minimum": -1,
 						"type": "number"
+					},
+					"curves": {
+						"$ref": "#/components/schemas/ImageEditorColorCurves"
 					},
 					"exposure": {
 						"format": "double",
@@ -8216,6 +8241,9 @@
 						"maximum": 1,
 						"minimum": -1,
 						"type": "number"
+					},
+					"wheels": {
+						"$ref": "#/components/schemas/ImageEditorColorWheels"
 					}
 				},
 				"required": [
@@ -8229,6 +8257,98 @@
 					"exposure",
 					"highlights",
 					"shadows"
+				],
+				"type": "object"
+			},
+			"ImageEditorColorWheels": {
+				"additionalProperties": false,
+				"properties": {
+					"gain": {
+						"format": "double",
+						"maximum": 16,
+						"minimum": 0,
+						"type": "number"
+					},
+					"gamma": {
+						"format": "double",
+						"maximum": 4,
+						"minimum": 0,
+						"type": "number"
+					},
+					"highlightsAmount": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": 0,
+						"type": "number"
+					},
+					"highlightsHue": {
+						"format": "double",
+						"maximum": 360,
+						"minimum": 0,
+						"type": "number"
+					},
+					"lift": {
+						"format": "double",
+						"maximum": 2,
+						"minimum": -2,
+						"type": "number"
+					},
+					"midtonesAmount": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": 0,
+						"type": "number"
+					},
+					"midtonesHue": {
+						"format": "double",
+						"maximum": 360,
+						"minimum": 0,
+						"type": "number"
+					},
+					"offset": {
+						"format": "double",
+						"maximum": 2,
+						"minimum": -2,
+						"type": "number"
+					},
+					"offsetAmount": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": 0,
+						"type": "number"
+					},
+					"offsetHue": {
+						"format": "double",
+						"maximum": 360,
+						"minimum": 0,
+						"type": "number"
+					},
+					"shadowsAmount": {
+						"format": "double",
+						"maximum": 1,
+						"minimum": 0,
+						"type": "number"
+					},
+					"shadowsHue": {
+						"format": "double",
+						"maximum": 360,
+						"minimum": 0,
+						"type": "number"
+					}
+				},
+				"required": [
+					"shadowsHue",
+					"shadowsAmount",
+					"midtonesHue",
+					"midtonesAmount",
+					"highlightsHue",
+					"highlightsAmount",
+					"offsetHue",
+					"offsetAmount",
+					"lift",
+					"gamma",
+					"gain",
+					"offset"
 				],
 				"type": "object"
 			},
@@ -8536,6 +8656,9 @@
 						"format": "double",
 						"type": "number"
 					},
+					"curves": {
+						"$ref": "#/components/schemas/ImageEditorColorCurves"
+					},
 					"exposure": {
 						"format": "double",
 						"type": "number"
@@ -8567,6 +8690,9 @@
 					"vibrance": {
 						"format": "double",
 						"type": "number"
+					},
+					"wheels": {
+						"$ref": "#/components/schemas/ImageEditorColorWheels"
 					}
 				},
 				"required": [

@@ -40,7 +40,7 @@
 	import { gpuEffectLabel } from '$lib/video-editor/effects/gpu/i18n';
 	import ColorScopes from './color-scopes.svelte';
 	import ColorWorkspace from './color-workspace.svelte';
-	import GpuCurvesEditor from './gpu-curves-editor.svelte';
+	import GpuCurvesEditor from '$lib/components/editor-color-curves.svelte';
 	import GpuGradientMapPanel from './gpu-gradient-map-panel.svelte';
 	import GpuParamControl from './gpu-param-control.svelte';
 	import { executeAtomic } from '$lib/video-editor/timeline/commands/command-store.svelte';

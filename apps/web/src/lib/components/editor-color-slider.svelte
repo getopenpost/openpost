@@ -6,6 +6,7 @@
 
 	let {
 		label,
+		hideLabel = false,
 		value,
 		min,
 		max,
@@ -22,6 +23,7 @@
 		oncancel
 	}: {
 		label: string;
+		hideLabel?: boolean;
 		value: number | null;
 		min: number;
 		max: number;
@@ -51,8 +53,11 @@
 </script>
 
 <div class="grid gap-1" data-editor-color-control>
-	<div class="flex min-w-0 items-center gap-2">
-		<span class="min-w-0 flex-1 truncate text-xs font-medium" title={label}>{label}</span>
+	<div class="flex min-w-0 items-center gap-2" class:justify-center={hideLabel}>
+		<span
+			class={hideLabel ? 'sr-only' : 'min-w-0 flex-1 truncate text-xs font-medium'}
+			title={label}>{label}</span
+		>
 		<EditorScrubbableNumberInput
 			ariaLabel={label}
 			value={displayValue}

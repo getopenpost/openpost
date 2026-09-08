@@ -1,5 +1,5 @@
 import { applyColorEffectsToPixels, renderColorEffectsWithCanvas2D } from './cpu-renderer';
-import type { EditorColorGradeAdjustments } from './model';
+import type { EditorColorGrade } from './model';
 import type {
 	EditorColorCompositor,
 	EditorColorCompositorFactory,
@@ -15,7 +15,7 @@ function rounded(value: number): number {
 
 /** Translate still-image controls into the canonical video color pipeline. */
 export function editorColorGradeAdjustmentsToEffects(
-	adjustments: EditorColorGradeAdjustments
+	adjustments: EditorColorGrade
 ): EditorColorRenderEffect[] {
 	const effects: EditorColorRenderEffect[] = [];
 	if (adjustments.brightness) {
@@ -77,6 +77,10 @@ export function editorColorGradeAdjustmentsToEffects(
 			}
 		});
 	}
+	if (adjustments.wheels)
+		effects.push({ effectId: 'gpu-color-wheels', params: { ...adjustments.wheels } });
+	if (adjustments.curves)
+		effects.push({ effectId: 'gpu-curves', params: { ...adjustments.curves } });
 	return effects;
 }
 
@@ -106,7 +110,7 @@ export class ImageGradeRenderer {
 		source: TexImageSource,
 		width: number,
 		height: number,
-		adjustments: EditorColorGradeAdjustments
+		adjustments: EditorColorGrade
 	): ImageGradeRenderResult | null {
 		const effects = editorColorGradeAdjustmentsToEffects(adjustments);
 		if (this.compositor) {
@@ -136,7 +140,7 @@ export function renderVersionedImageGrade(
 	source: TexImageSource,
 	width: number,
 	height: number,
-	adjustments: EditorColorGradeAdjustments,
+	adjustments: EditorColorGrade,
 	createCompositor?: EditorColorCompositorFactory
 ): HTMLCanvasElement | null {
 	const renderer = new ImageGradeRenderer(createCompositor);
@@ -147,7 +151,7 @@ export function renderVersionedImageGrade(
 
 export function applyImageGradePixels(
 	pixels: Uint8ClampedArray,
-	adjustments: EditorColorGradeAdjustments
+	adjustments: EditorColorGrade
 ): void {
 	applyColorEffectsToPixels(pixels, editorColorGradeAdjustmentsToEffects(adjustments));
 }

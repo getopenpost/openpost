@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import EditorColorWheel from '$lib/components/editor-color-wheel.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
@@ -108,7 +109,6 @@
 	let showBalance = $state(false);
 	let wheelDrafts = $state<Record<string, { hue: number; amount: number }>>({});
 	let parameterDrafts = $state<Record<string, number>>({});
-	let pointerWheel = $state<string | null>(null);
 	let wheelGrid: HTMLDivElement | null = $state(null);
 	let wheelSize = $state(80);
 
@@ -235,77 +235,6 @@
 			)
 		)
 			onedit();
-	}
-
-	function pointFromPointer(event: PointerEvent) {
-		const bounds = event.currentTarget.getBoundingClientRect();
-		const centerX = bounds.left + bounds.width / 2;
-		const centerY = bounds.top + bounds.height / 2;
-		const x = event.clientX - centerX;
-		const y = event.clientY - centerY;
-		const radius = Math.max(1, bounds.width / 2 - 5);
-		return {
-			hue: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360,
-			amount: Math.max(0, Math.min(1, Math.hypot(x, y) / radius))
-		};
-	}
-
-	function updateWheel(event: PointerEvent, descriptor: (typeof wheelDescriptors)[number]): void {
-		if (pointerWheel !== descriptor.hue) return;
-		const value = pointFromPointer(event);
-		wheelDrafts[descriptor.hue] = value;
-		preview({ [descriptor.hue]: value.hue, [descriptor.amount]: value.amount });
-	}
-
-	function startWheel(event: PointerEvent, descriptor: (typeof wheelDescriptors)[number]): void {
-		if (!controlsEnabled || event.button !== 0 || pointerWheel) return;
-		event.preventDefault();
-		pointerWheel = descriptor.hue;
-		event.currentTarget.setPointerCapture?.(event.pointerId);
-		updateWheel(event, descriptor);
-	}
-
-	function finishWheel(event: PointerEvent, descriptor: (typeof wheelDescriptors)[number]): void {
-		if (pointerWheel !== descriptor.hue) return;
-		updateWheel(event, descriptor);
-		const value = wheelValue(descriptor);
-		pointerWheel = null;
-		commit({ [descriptor.hue]: value.hue, [descriptor.amount]: value.amount });
-		delete wheelDrafts[descriptor.hue];
-		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
-		}
-	}
-
-	function cancelWheel(event: PointerEvent, descriptor: (typeof wheelDescriptors)[number]): void {
-		if (pointerWheel !== descriptor.hue) return;
-		pointerWheel = null;
-		delete wheelDrafts[descriptor.hue];
-		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
-		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
-		}
-	}
-
-	function changeWheelFromKeyboard(
-		event: KeyboardEvent,
-		descriptor: (typeof wheelDescriptors)[number]
-	): void {
-		if (!controlsEnabled) return;
-		const current = wheelValue(descriptor);
-		let hue = current.hue;
-		let amount = current.amount;
-		if (event.key === 'ArrowLeft') hue -= 1;
-		else if (event.key === 'ArrowRight') hue += 1;
-		else if (event.key === 'ArrowDown') amount -= 0.01;
-		else if (event.key === 'ArrowUp') amount += 0.01;
-		else if (event.key === 'Home') amount = 0;
-		else if (event.key === 'End') amount = 1;
-		else return;
-		event.preventDefault();
-		hue = ((hue % 360) + 360) % 360;
-		amount = Math.max(0, Math.min(1, amount));
-		commit({ [descriptor.hue]: hue, [descriptor.amount]: amount });
 	}
 
 	function resetWheel(descriptor: (typeof wheelDescriptors)[number]): void {
@@ -758,36 +687,26 @@
 					style:width={`${wheelSize}px`}
 					style:height={`${wheelSize}px`}
 				>
-					<button
-						type="button"
+					<EditorColorWheel
+						label={label(descriptor.level)}
+						{value}
 						disabled={!controlsEnabled}
-						class="color-wheel absolute inset-2 touch-none rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-45"
-						data-editor-protected="color-wheel"
-						style:--wheel-hue={`${value.hue}deg`}
-						style:--wheel-amount={value.amount}
-						style:--ring-fill={`${ringFill(descriptor) * 360}deg`}
-						style:--ring-from={`${descriptor.ring.fromDeg}deg`}
-						role="slider"
-						aria-label={`${label(descriptor.level)} color wheel`}
-						aria-valuemin="0"
-						aria-valuemax="100"
-						aria-valuenow={Math.round(value.amount * 100)}
-						aria-valuetext={wheelIsMixed(descriptor)
-							? m.image_editor_mixed_value()
-							: `${Math.round(value.hue)} degrees, ${Math.round(value.amount * 100)} percent`}
-						onpointerdown={(event) => startWheel(event, descriptor)}
-						onpointermove={(event) => updateWheel(event, descriptor)}
-						onpointerup={(event) => finishWheel(event, descriptor)}
-						onpointercancel={(event) => cancelWheel(event, descriptor)}
-						onkeydown={(event) => changeWheelFromKeyboard(event, descriptor)}
-					>
-						<span class="wheel-cross wheel-cross-x"></span>
-						<span class="wheel-cross wheel-cross-y"></span>
-						<span class="wheel-puck"></span>
-						{#if wheelIsMixed(descriptor)}
-							<span class="wheel-mixed">{m.image_editor_mixed_value()}</span>
-						{/if}
-					</button>
+						mixed={wheelIsMixed(descriptor)}
+						ringFill={ringFill(descriptor)}
+						ringFrom={descriptor.ring.fromDeg}
+						onpreview={(next) => {
+							wheelDrafts[descriptor.hue] = next;
+							preview({ [descriptor.hue]: next.hue, [descriptor.amount]: next.amount });
+						}}
+						oncommit={(next) => {
+							commit({ [descriptor.hue]: next.hue, [descriptor.amount]: next.amount });
+							delete wheelDrafts[descriptor.hue];
+						}}
+						oncancel={() => {
+							delete wheelDrafts[descriptor.hue];
+							if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+						}}
+					/>
 				</div>
 				{#if levelSchema}
 					<div
@@ -1050,76 +969,6 @@
 		}
 	}
 
-	.color-wheel {
-		background:
-			radial-gradient(
-				circle closest-side,
-				rgb(19 19 22 / 94%) 0%,
-				rgb(19 19 22 / 90%) 62%,
-				rgb(19 19 22 / 72%) 80%,
-				rgb(19 19 22 / 25%) 88%,
-				transparent 94%
-			),
-			conic-gradient(
-				from 90deg,
-				#ff3b30,
-				#ff9500,
-				#ffcc00,
-				#34c759,
-				#00c7be,
-				#007aff,
-				#5856d6,
-				#ff2d55,
-				#ff3b30
-			);
-		border: 1px solid rgb(255 255 255 / 18%);
-		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 7%);
-	}
-
-	.color-wheel::before {
-		position: absolute;
-		inset: -8px;
-		border-radius: 999px;
-		background: conic-gradient(from var(--ring-from), #e4e4e9 var(--ring-fill), #060607 0);
-		content: '';
-		mask: radial-gradient(transparent 66%, black 68% 76%, transparent 78%);
-		pointer-events: none;
-	}
-
-	.wheel-cross {
-		position: absolute;
-		background: rgb(255 255 255 / 14%);
-		pointer-events: none;
-	}
-
-	.wheel-cross-x {
-		top: 3%;
-		bottom: 3%;
-		left: 50%;
-		width: 1px;
-	}
-
-	.wheel-cross-y {
-		left: 3%;
-		right: 3%;
-		top: 50%;
-		height: 1px;
-	}
-
-	.wheel-puck {
-		position: absolute;
-		left: calc(50% + cos(var(--wheel-hue)) * var(--wheel-amount) * 39%);
-		top: calc(50% + sin(var(--wheel-hue)) * var(--wheel-amount) * 39%);
-		width: 10px;
-		height: 10px;
-		translate: -50% -50%;
-		border: 2px solid white;
-		border-radius: 999px;
-		background: #f8fafc;
-		box-shadow: 0 1px 4px rgb(0 0 0 / 80%);
-		pointer-events: none;
-	}
-
 	:global(.wheel-chip) {
 		height: 1.25rem;
 		width: 100%;
@@ -1183,7 +1032,7 @@
 			height: 2.75rem;
 		}
 
-		.color-wheel {
+		:global([data-editor-protected='color-wheel']) {
 			min-width: 4.5rem;
 			min-height: 4.5rem;
 		}

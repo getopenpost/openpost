@@ -1,3 +1,4 @@
+import { buildCurvesLut } from './curves';
 import type { EditorColorRenderEffect } from './rendering';
 
 const SUPPORTED_EFFECTS = new Set([
@@ -8,7 +9,8 @@ const SUPPORTED_EFFECTS = new Set([
 	'gpu-vibrance',
 	'gpu-hue-shift',
 	'gpu-temperature',
-	'gpu-color-wheels'
+	'gpu-color-wheels',
+	'gpu-curves'
 ]);
 
 function numberParam(effect: EditorColorRenderEffect, name: string, fallback: number): number {
@@ -50,6 +52,7 @@ export function applyColorEffectsToPixels(
 	effects: readonly EditorColorRenderEffect[]
 ): void {
 	for (const effect of effects) {
+		const curveLut = effect.effectId === 'gpu-curves' ? buildCurvesLut(effect.params) : null;
 		for (let index = 0; index < pixels.length; index += 4) {
 			let red = (pixels[index] ?? 0) / 255;
 			let green = (pixels[index + 1] ?? 0) / 255;
@@ -106,10 +109,37 @@ export function applyColorEffectsToPixels(
 					blue += -temperature * 0.1 + tint * 0.05;
 					break;
 				}
+				case 'gpu-curves': {
+					red = curveLut![quantize(red) * 4]! / 255;
+					green = curveLut![quantize(green) * 4 + 1]! / 255;
+					blue = curveLut![quantize(blue) * 4 + 2]! / 255;
+					break;
+				}
 				case 'gpu-color-wheels': {
 					const luma = luma601(red, green, blue);
 					const shadowMask = 1 - smoothstep(0, 0.5, luma);
 					const highlightMask = smoothstep(0.5, 1, luma);
+
+					const masks = {
+						shadows: shadowMask,
+						midtones: 1 - shadowMask - highlightMask,
+						highlights: highlightMask,
+						offset: 1
+					};
+					for (const [band, mask] of Object.entries(masks)) {
+						const amount = numberParam(effect, `${band}Amount`, 0);
+						if (amount < 0.001) continue;
+						const tint = hsvToRgb(numberParam(effect, `${band}Hue`, 0) / 360, 1, 1);
+						red *= 1 + (tint[0] - 1) * amount * mask;
+						green *= 1 + (tint[1] - 1) * amount * mask;
+						blue *= 1 + (tint[2] - 1) * amount * mask;
+					}
+					const lift = numberParam(effect, 'lift', 0) + numberParam(effect, 'offset', 0);
+					const gain = numberParam(effect, 'gain', 1);
+					const gamma = Math.max(0.05, numberParam(effect, 'gamma', 1));
+					red = Math.max(0, (red + lift) * gain) ** (1 / gamma);
+					green = Math.max(0, (green + lift) * gain) ** (1 / gamma);
+					blue = Math.max(0, (blue + lift) * gain) ** (1 / gamma);
 					const adjustment =
 						(numberParam(effect, 'shadows', 0) / 100) * shadowMask +
 						(numberParam(effect, 'highlights', 0) / 100) * highlightMask;

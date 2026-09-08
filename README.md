@@ -107,6 +107,14 @@ The browser editors are free to try without an account. Exports have no watermar
 
 **Hosted.** We run it for you. [Start a 14-day trial](https://app.openpo.st/register?plan=founder&billing_period=monthly)
 
+| Plan   | Best for      | Monthly | Yearly |
+| ------ | ------------- | ------: | -----: |
+| Solo   | Solo founders |     $29 |   $290 |
+| Team   | Small teams   |     $59 |   $590 |
+| Agency | Client work   |     $99 |   $990 |
+
+Every plan includes all features. Plans include 1, 3, or 10 workspaces, with 1, 5, or 10 people per workspace. No seat add-ons or automatic overage charges. [Compare plans and limits](https://openpo.st/pricing).
+
 **Self-host.** Run OpenPost with Docker on your server:
 
 ```bash

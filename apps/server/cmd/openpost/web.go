@@ -401,11 +401,9 @@ const managedEditionReviewFallback = `<main data-openpost-review-fallback style=
 		<p><a href="/register?plan=founder&amp;billing_period=monthly">Start 14-day trial</a> · <a href="/login">Sign in</a></p>
 		<h2>Hosted plans</h2>
 		<ul>
-			<li>Starter: $15/month</li>
-			<li>Founder: $25/month</li>
-			<li>Pro: $49/month</li>
-			<li>Team: $99/month</li>
-			<li>Agency: $199/month</li>
+			<li>Solo: $29/month</li>
+			<li>Team: $59/month</li>
+			<li>Agency: $99/month</li>
 		</ul>
 		<p>Every plan starts with a 14-day free trial. A card is required. Cancel before the first charge.</p>
 		<nav aria-label="OpenPost product and policies">

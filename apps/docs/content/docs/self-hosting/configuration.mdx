@@ -14,16 +14,16 @@ SQLite at `OPENPOST_DATABASE_PATH` and local files at `OPENPOST_MEDIA_PATH` are 
 
 Self-hosted operators create provider apps and enter their client IDs, secrets, callback URLs, and required permissions. Environment-defined provider apps are read-only in Settings and take precedence over database entries. Restart OpenPost after changing them.
 
-| Provider | Setup requirement |
-| --- | --- |
-| X | OAuth callback registered in the X developer app |
-| LinkedIn | LinkedIn app with the required products and permissions |
-| Threads, Facebook, Instagram | Meta app with the required product, account type, and permissions |
-| TikTok | App configured for the chosen posting product, review may be required |
-| YouTube | Google OAuth client with YouTube API enabled |
-| Mastodon | App per server, or automatic app setup on a public instance |
-| Bluesky | No provider app, use an account app password |
-| Discord | Incoming webhook URL |
+| Provider                     | Setup requirement                                                     |
+| ---------------------------- | --------------------------------------------------------------------- |
+| X                            | OAuth callback registered in the X developer app                      |
+| LinkedIn                     | LinkedIn app with the required products and permissions               |
+| Threads, Facebook, Instagram | Meta app with the required product, account type, and permissions     |
+| TikTok                       | App configured for the chosen posting product, review may be required |
+| YouTube                      | Google OAuth client with YouTube API enabled                          |
+| Mastodon                     | App per server, or automatic app setup on a public instance           |
+| Bluesky                      | No provider app, use an account app password                          |
+| Discord                      | Incoming webhook URL                                                  |
 
 Provider rules and app review can change. Start with one account and test one post before adding more providers.
 

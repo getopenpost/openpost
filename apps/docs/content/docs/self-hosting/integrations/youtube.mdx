@@ -13,7 +13,14 @@ https://your-domain.example/api/v1/accounts/youtube/callback
 Store the client in `OPENPOST_PROVIDER_APPS`:
 
 ```json
-[{"provider":"youtube","client_id":"your-client-id","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/youtube/callback"}]
+[
+  {
+    "provider": "youtube",
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret",
+    "redirect_uri": "https://your-domain.example/api/v1/accounts/youtube/callback"
+  }
+]
 ```
 
 Restart OpenPost and connect from **Settings → Workspace → Social accounts → YouTube**. The user selects a channel during OAuth. OpenPost uploads one video with resumable upload handling. YouTube privacy, title, description, category, playlist, thumbnail, and scheduling options are set on the publication or its YouTube rendition. Uploads default to private.

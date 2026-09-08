@@ -17,7 +17,14 @@ Users can enter a public HTTPS instance in the Accounts screen. OpenPost registe
 To pin apps for known instances, set `MASTODON_SERVERS`:
 
 ```json
-[{"name":"Main","client_id":"your-client-id","client_secret":"your-client-secret","instance_url":"https://mastodon.social"}]
+[
+  {
+    "name": "Main",
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret",
+    "instance_url": "https://mastodon.social"
+  }
+]
 ```
 
 Alternatively, use `OPENPOST_PROVIDER_APPS` or the encrypted provider-app settings. The default callback is `urn:ietf:wg:oauth:2.0:oob`; follow the instance's app registration flow. Restart after changing configuration.

@@ -13,7 +13,14 @@ https://your-domain.example/api/v1/accounts/tiktok/callback
 Add the app to the provider registry:
 
 ```json
-[{"provider":"tiktok","client_id":"your-client-key","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/tiktok/callback"}]
+[
+  {
+    "provider": "tiktok",
+    "client_id": "your-client-key",
+    "client_secret": "your-client-secret",
+    "redirect_uri": "https://your-domain.example/api/v1/accounts/tiktok/callback"
+  }
+]
 ```
 
 Restart OpenPost and connect from **Settings → Workspace → Social accounts → TikTok**. Direct Post sends one video for publishing. Upload sends a video to the user's TikTok inbox when that product is enabled. Photo posts need TikTok's photo-post access. OpenPost's Direct Post media URLs must be public HTTPS URLs under a verified domain or URL prefix, so configure `OPENPOST_MEDIA_URL` before testing.

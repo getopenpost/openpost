@@ -15,7 +15,14 @@ https://your-domain.example/api/v1/accounts/pinterest/callback
 Configure it through `OPENPOST_PROVIDER_APPS` or the instance provider-app settings:
 
 ```json
-[{"provider":"pinterest","client_id":"your-client-id","client_secret":"your-client-secret","redirect_uri":"https://your-domain.example/api/v1/accounts/pinterest/callback"}]
+[
+  {
+    "provider": "pinterest",
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret",
+    "redirect_uri": "https://your-domain.example/api/v1/accounts/pinterest/callback"
+  }
+]
 ```
 
 Pinterest operations need board targeting. The adapter has controlled paths for image and video Pins, board sections, discovery, and analytics, but a configured credential or passing fixture is not production approval. Keep runtime controls disabled while certification is incomplete.

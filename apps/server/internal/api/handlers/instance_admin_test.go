@@ -363,13 +363,13 @@ func TestInstanceAdminUserPlanOverride(t *testing.T) {
 	t.Parallel()
 
 	srv := newInstanceAdminTestServer(t, true, browserSessionTestAuthenticator())
-	assignResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": "pro"}, "web-token")
+	assignResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": "team"}, "web-token")
 	require.Equal(t, http.StatusOK, assignResp.Code, assignResp.Body.String())
 
 	var sub models.BillingSubscription
 	require.NoError(t, srv.db.NewSelect().Model(&sub).Where("organization_id = ?", "organization-1").Scan(t.Context()))
 	require.Equal(t, models.BillingProviderAdmin, sub.Provider)
-	require.Equal(t, "pro", sub.PlanID)
+	require.Equal(t, "team", sub.PlanID)
 	require.Equal(t, "active", sub.Status)
 	require.Empty(t, sub.WorkspaceID)
 
@@ -381,7 +381,7 @@ func TestInstanceAdminUserPlanOverride(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
-	require.Equal(t, int64(15), decision.Limit)
+	require.Equal(t, int64(10), decision.Limit)
 
 	removeResp := srv.put(t, "/api/v1/admin/users/user-2/plan", map[string]any{"plan_id": ""}, "web-token")
 	require.Equal(t, http.StatusOK, removeResp.Code, removeResp.Body.String())

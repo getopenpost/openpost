@@ -81,12 +81,8 @@ This integration replaces Whop billing. Before upgrading an existing cloud deplo
 - `OPENPOST_PADDLE_CLIENT_TOKEN`
 - `OPENPOST_PADDLE_WEBHOOK_SECRET`
 - `OPENPOST_PADDLE_CHECKOUT_RETURN_URL`
-- `OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID`
-- `OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID`
 - `OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID`
 - `OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID`
-- `OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID`
-- `OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID`
 - `OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID`
 - `OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID`
 - `OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID`
@@ -123,3 +119,13 @@ See Paddle's documentation for [`past_due` subscription recovery](https://develo
 Access is granted only for `active` and `trialing` subscriptions. A scheduled cancellation keeps access while Paddle still reports one of those states. `past_due`, paused, and canceled subscriptions do not grant paid-plan access. API handlers consume the local snapshot only.
 
 See the [canonical Hosted service pricing](https://openpo.st/pricing) for current plan names, prices, trial terms, and limits.
+
+## Hosted packages
+
+The catalog offers Solo, Team, and Agency at $29, $59, and $99 monthly, or $290, $590, and $990 annually. Each includes every current product feature. Solo keeps the internal plan ID `founder` and the `OPENPOST_PADDLE_FOUNDER_*` configuration names; its customer-facing name is Solo. Starter and Pro are no longer selectable.
+
+An organization pays one subscription. Solo includes one workspace, Team three, and Agency ten. Each workspace has 10 active social accounts, 500 scheduled publications per calendar month, 10 GB of stored media, and 10 GB of uploads per calendar month. People limits are also per workspace: one on Solo, five on Team, ten on Agency. Active members and outstanding invitations consume those places, including the owner. Allowances are not pooled across workspaces.
+
+A scheduled publication consumes one unit in its scheduled UTC month, including when it contains multiple destinations or thread entries. Canceling or rescheduling does not refund a consumed unit. Annual billing does not combine monthly allowances. The internal metric remains `scheduled_posts_monthly`. AI writing has no separate invoice or credit pack. There is no automated usage billing; the existing X publishing safety budget remains separate from subscription limits.
+
+When releasing this catalog, create six matching Paddle prices with the listed USD amounts, monthly or annual recurrence, a 14-day trial, and quantity fixed to one. Update the six configured price IDs before accepting purchases. Existing Paddle prices do not change when the JSON catalog changes. Remove the retired Starter and Pro configuration. Confirm each checkout's displayed and charged amount in Paddle sandbox before production rollout. This catalog version invalidates signed purchase choices from earlier versions; visitors must select a current plan again. No subscription migration runs automatically. Roll back the catalog and price configuration together if reverting this release.

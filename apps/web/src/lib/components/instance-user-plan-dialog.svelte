@@ -32,19 +32,9 @@
 
 	const planOptions = [
 		{
-			value: 'starter',
-			label: m.settings_plan_starter(),
-			description: m.settings_plan_starter_description()
-		},
-		{
 			value: 'founder',
 			label: m.settings_plan_founder(),
 			description: m.settings_plan_founder_description()
-		},
-		{
-			value: 'pro',
-			label: m.settings_plan_pro(),
-			description: m.settings_plan_pro_description()
 		},
 		{
 			value: 'team',

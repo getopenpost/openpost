@@ -1,6 +1,6 @@
 import rawCatalog from "./catalog.json";
 
-export const hostedPlanIDs = ["starter", "founder", "pro", "team", "agency"] as const;
+export const hostedPlanIDs = ["founder", "team", "agency"] as const;
 export const billingPeriods = ["monthly", "annual"] as const;
 
 export type HostedPlanID = (typeof hostedPlanIDs)[number];

@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Check from '@lucide/svelte/icons/check';
-	import { purchaseTerms } from '@openpost/plan-catalog';
+	import { planCatalog, purchaseTerms } from '@openpost/plan-catalog';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		appUrl,
 		billingSettingsUrl,
 		managedCardRequirement,
-		managedPaymentExpectation,
-		plans
+		managedPaymentExpectation
 	} from '../_marketing';
 	import AnimatedPrice from './AnimatedPrice.svelte';
 
@@ -16,114 +15,197 @@
 		compact?: boolean;
 		billingPeriod?: 'monthly' | 'annual';
 	}
-
 	let { compact = false, billingPeriod = $bindable('monthly') }: Props = $props();
-	const displayedPlans = $derived(compact ? plans.slice(0, 3) : plans);
-
-	function numericPrice(price: string) {
-		return Number(price.replace(/[^0-9.]/g, ''));
-	}
-
-	function monthlyPrice(plan: (typeof plans)[number]) {
-		return billingPeriod === 'monthly'
-			? numericPrice(plan.price)
-			: numericPrice(plan.annualPrice) / 12;
-	}
-
-	function renewalPrice(plan: (typeof plans)[number]) {
-		return billingPeriod === 'annual' ? `${plan.annualPrice} per year` : `${plan.price} per month`;
-	}
-
-	function externalHref(href: string) {
-		return { href } as const;
-	}
-
-	const billingAnnouncement = $derived(
+	let selectedPlan = $state(planCatalog.plans[0].id);
+	const plans = planCatalog.plans;
+	const dollars = (value: number) =>
+		`$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+	const monthlyPrice = (plan: (typeof plans)[number]) =>
+		billingPeriod === 'annual' ? plan.annual_price_usd / 12 : plan.monthly_price_usd;
+	const renewalPrice = (plan: (typeof plans)[number]) =>
 		billingPeriod === 'annual'
-			? 'Yearly billing selected. Monthly equivalents range from $12.50 to $165.83, with the yearly total shown on each plan.'
-			: 'Monthly billing selected. Prices range from $15 to $199 per month.'
+			? `${dollars(plan.annual_price_usd)} per year`
+			: `${dollars(plan.monthly_price_usd)} per month`;
+	const billingAnnouncement = $derived(
+		`${billingPeriod === 'annual' ? 'Yearly' : 'Monthly'} billing selected. ${plans.map((plan) => `${plan.name}: ${renewalPrice(plan)}`).join('. ')}.`
 	);
+	const groups = [
+		{
+			title: 'Your organization',
+			rows: [
+				{
+					label: 'Included workspaces',
+					value: (p: (typeof plans)[number]) => p.limits.workspaces.toLocaleString('en-US')
+				}
+			]
+		},
+		{
+			title: 'In every workspace',
+			rows: [
+				{
+					label: 'Social accounts',
+					value: (p: (typeof plans)[number]) => p.limits.social_accounts.toLocaleString('en-US')
+				},
+				{
+					label: 'People, including you',
+					value: (p: (typeof plans)[number]) => p.limits.team_members.toLocaleString('en-US')
+				},
+				{
+					label: 'Scheduled publications / month',
+					value: (p: (typeof plans)[number]) =>
+						p.limits.scheduled_posts_monthly.toLocaleString('en-US')
+				},
+				{
+					label: 'Media storage',
+					value: (p: (typeof plans)[number]) => `${p.limits.media_bytes_stored / 1_000_000_000} GB`
+				},
+				{
+					label: 'Media uploads / month',
+					value: (p: (typeof plans)[number]) =>
+						`${p.limits.media_bytes_uploaded_monthly / 1_000_000_000} GB`
+				}
+			]
+		},
+		{
+			title: 'Create & publish',
+			rows: [
+				{ label: 'Composer & channel-specific versions', value: () => 'Included' },
+				{ label: 'Calendar & scheduling', value: () => 'Included' },
+				{ label: 'Image Editor, Video Editor & Recorder', value: () => 'Included' },
+				{ label: 'AI writing & image alt text', value: () => 'Included' },
+				{ label: 'Media library & reusable templates', value: () => 'Included' }
+			]
+		},
+		{
+			title: 'Measure & connect',
+			rows: [
+				{ label: 'Analytics for supported accounts', value: () => 'Included' },
+				{ label: 'Comments, replies & supported inboxes', value: () => 'Included' },
+				{ label: 'HTTP API, CLI & MCP', value: () => 'Included' },
+				{ label: 'Additional usage charges', value: () => 'None' }
+			]
+		}
+	];
 </script>
 
-<div class:pricing-compact={compact} class="pricing-showcase">
+<div class="pricing-showcase" class:pricing-compact={compact}>
 	<div class="pricing-toolbar">
-		<p class="trial-copy">
+		<p>
 			<strong>{purchaseTerms.trial_days}-day free trial.</strong>
-			{managedCardRequirement}.
+			{managedCardRequirement}. $0 due today.
 		</p>
 		<div class="billing-toggle" aria-label="Billing period">
 			<Button
 				variant={billingPeriod === 'monthly' ? 'default' : 'ghost'}
-				size="sm"
 				aria-pressed={billingPeriod === 'monthly'}
 				onclick={() => (billingPeriod = 'monthly')}>Monthly</Button
 			>
 			<Button
 				variant={billingPeriod === 'annual' ? 'default' : 'ghost'}
-				size="sm"
 				aria-pressed={billingPeriod === 'annual'}
-				onclick={() => (billingPeriod = 'annual')}
+				onclick={() => (billingPeriod = 'annual')}>Yearly <span>2 months free</span></Button
 			>
-				Yearly <span>Save 17%</span>
-			</Button>
 		</div>
 	</div>
-	<p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
-		{billingAnnouncement}
-	</p>
-
-	<div class="pricing-grid">
-		{#each displayedPlans as plan (plan.id)}
-			<article class:featured={plan.featured} class="pricing-card" data-plan-id={plan.id}>
-				{#if plan.featured}<span class="popular-label">Most popular</span>{/if}
-				<div>
-					<h3>{plan.name}</h3>
-					<p class="plan-description">{plan.description}</p>
-				</div>
-				<p class="price-line">
-					<AnimatedPrice value={monthlyPrice(plan)} />
-					<span>/month</span>
-				</p>
-				<p class="billing-note">
-					{#if billingPeriod === 'annual'}
-						Billed {plan.annualPrice} yearly
-					{:else}
-						Billed monthly
-					{/if}
-				</p>
-				<ul>
-					{#each plan.limits.slice(0, compact ? 4 : 5) as limit (limit)}
-						<li><Check aria-hidden="true" /> <span>{limit}</span></li>
-					{/each}
-				</ul>
-				<Button
-					href={`${appUrl}/register?plan=${plan.id}&billing_period=${billingPeriod}`}
-					variant={plan.featured ? 'default' : 'outline'}
-					class="plan-button w-full"
-					aria-describedby={`plan-${plan.id}-purchase-note`}
-				>
-					Start {plan.name}
-				</Button>
-				<p id={`plan-${plan.id}-purchase-note`} class="purchase-note">
-					Then {renewalPrice(plan)} until canceled.
-				</p>
-			</article>
+	<p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{billingAnnouncement}</p>
+	<div class="mobile-plan-picker" aria-label="Plan to compare">
+		{#each plans as plan (plan.id)}
+			<Button
+				variant={selectedPlan === plan.id ? 'secondary' : 'ghost'}
+				aria-pressed={selectedPlan === plan.id}
+				onclick={() => (selectedPlan = plan.id)}>{plan.name}</Button
+			>
 		{/each}
 	</div>
-
-	{#if !compact}
+	<table class="pricing-matrix">
+		<caption class="sr-only">Compare Hosted plans</caption>
+		<thead>
+			<tr>
+				<th scope="col" class="matrix-intro"
+					><span>Every feature.<br />Room to work.</span>
+					<p>One subscription for your organization.</p></th
+				>
+				{#each plans as plan (plan.id)}
+					<th
+						scope="col"
+						data-plan-id={plan.id}
+						data-active={selectedPlan === plan.id}
+						class:featured={plan.featured}
+					>
+						<h3>{plan.name}</h3>
+						<p class="best-for">Best for {plan.best_for}.</p>
+						<p class="price-line">
+							<AnimatedPrice value={monthlyPrice(plan)} /><span>/month</span>
+						</p>
+						<p class="billing-note">
+							{billingPeriod === 'annual'
+								? `Billed ${dollars(plan.annual_price_usd)} yearly`
+								: 'Billed monthly'}
+						</p>
+						<Button
+							href={`${appUrl}/register?plan=${plan.id}&billing_period=${billingPeriod}`}
+							variant={plan.featured ? 'default' : 'outline'}
+							class="plan-button w-full"
+							aria-describedby={`plan-${plan.id}-purchase-note`}>Start {plan.name}</Button
+						>
+						<p id={`plan-${plan.id}-purchase-note`} class="purchase-note">
+							Then {renewalPrice(plan)} until canceled.
+						</p>
+					</th>
+				{/each}
+			</tr>
+		</thead>
+		{#each compact ? groups.slice(0, 2) : groups as group (group.title)}
+			<tbody>
+				<tr class="group-heading"><th colspan="4" scope="rowgroup">{group.title}</th></tr>
+				{#each group.rows as row (row.label)}
+					<tr>
+						<th scope="row">{row.label}</th>
+						{#each plans as plan (plan.id)}
+							<td data-active={selectedPlan === plan.id} class:featured={plan.featured}>
+								{#if row.value(plan) === 'Included'}<Check aria-hidden="true" /><span
+										class="sr-only">Included</span
+									>{:else}{row.value(plan)}{/if}
+							</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		{/each}
+	</table>
+	{#if compact}
+		<p class="capacity-note">
+			Every plan includes the full product. <a class="focus-ring" href="/pricing"
+				>Compare all features and billing details</a
+			>
+		</p>
+	{:else}
+		<div class="capacity-note">
+			<p>
+				Each workspace has its own accounts, people, and usage allowances. One social account is one
+				connected profile or page. Use a workspace for each brand or client.
+			</p>
+			<p>
+				A scheduled publication counts once, including its threads and destinations. Monthly
+				allowances use calendar months in UTC, including on annual plans.
+			</p>
+			<p>
+				AI writing and alt text have no separate usage charge. Provider access and safety limits
+				still apply, including a monthly X publishing budget shown in Plan &amp; usage. Limits pause
+				the affected action, with no automatic overage bill.
+			</p>
+		</div>
 		<details class="purchase-details">
 			<summary class="focus-ring">Trial and billing details</summary>
 			<div>
 				<p>
 					{managedPaymentExpectation} OpenPost shows the renewal date and price before you start. Cancel
-					or change your plan in
-					<a class="focus-ring" {...externalHref(billingSettingsUrl)}>Billing settings</a> before renewal.
+					or manage your plan in
+					<a class="focus-ring" href={billingSettingsUrl}>Billing settings</a> before renewal.
 				</p>
 				<p>
-					Paddle is the Merchant of Record and calculates tax at checkout.
-					<a class="focus-ring" href={resolve('/refunds')}>Refund policy</a>
-					<span aria-hidden="true">·</span>
+					Prices are in USD before tax. Paddle is the Merchant of Record and calculates tax at
+					checkout. <a class="focus-ring" href={resolve('/refunds')}>Refund policy</a> ·
 					<a class="focus-ring" href={resolve('/terms')}>Billing terms</a>
 				</p>
 			</div>
@@ -133,243 +215,261 @@
 
 <style>
 	.pricing-showcase {
-		display: grid;
-		gap: 2rem;
+		min-width: 0;
 	}
-
 	.pricing-toolbar {
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
+		align-items: center;
 		gap: 1.5rem;
-		padding-bottom: 1.5rem;
-		border-bottom: 1px solid var(--border);
+		padding-bottom: 2rem;
 	}
-
-	.trial-copy {
+	.pricing-toolbar p {
 		color: var(--muted-foreground);
-		font-size: 0.9rem;
+		font-size: 0.875rem;
+		line-height: 1.7;
 	}
-
-	.trial-copy strong {
+	.pricing-toolbar strong {
 		color: var(--foreground);
 	}
-
 	.billing-toggle {
-		display: inline-flex;
+		display: flex;
 		flex: none;
-		gap: 0.2rem;
+		gap: 0.25rem;
 		padding: 0.25rem;
 		border: 1px solid var(--border);
 		border-radius: 0.75rem;
-		background: color-mix(in oklch, var(--muted) 52%, var(--background));
 	}
-
 	.billing-toggle :global(button) {
-		min-width: 6rem;
+		min-height: 2.75rem;
 	}
-
 	.billing-toggle span {
-		margin-left: 0.2rem;
-		font-size: 0.68rem;
-		opacity: 0.72;
-	}
-
-	.purchase-details {
-		border: 1px solid var(--border);
-		border-radius: 0.75rem;
-		background: color-mix(in oklch, var(--muted) 38%, var(--background));
-	}
-
-	.purchase-details summary {
-		min-height: 2.75rem;
-		padding: 0.75rem 1rem;
-		border-radius: 0.75rem;
-		cursor: pointer;
-		font-size: 0.82rem;
-		font-weight: 650;
-	}
-
-	.purchase-details > div {
-		display: grid;
-		gap: 0.5rem;
-		padding: 0 1rem 1rem;
-		color: var(--muted-foreground);
-		font-size: 0.8rem;
-		line-height: 1.55;
-	}
-
-	.purchase-details a {
-		display: inline-flex;
-		min-height: 2.75rem;
-		align-items: center;
-		margin-inline: 0.25rem;
-		border-radius: 0.5rem;
-		color: var(--foreground);
-		font-weight: 620;
-	}
-
-	.pricing-grid {
-		display: grid;
-		gap: 1rem;
-	}
-
-	.pricing-card {
-		position: relative;
-		display: flex;
-		min-width: 0;
-		min-height: 27rem;
-		flex-direction: column;
-		padding: clamp(1.4rem, 2.5vw, 2rem);
-		border: 1px solid var(--border);
-		border-radius: 1rem;
-		background: color-mix(in oklch, var(--card) 95%, var(--background));
-		transition:
-			transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
-			border-color 180ms ease;
-	}
-
-	.pricing-card:hover {
-		transform: translateY(-0.25rem);
-		border-color: color-mix(in oklch, var(--foreground) 28%, var(--border));
-	}
-
-	.pricing-card.featured {
-		border-color: color-mix(in oklch, var(--primary) 76%, var(--border));
-	}
-
-	.popular-label {
-		position: absolute;
-		top: 0;
-		left: 50%;
-		padding: 0.4rem 1.1rem;
-		border-radius: 0 0 0.8rem 0.8rem;
-		background: var(--primary);
-		color: var(--primary-foreground);
-		font-size: 0.74rem;
-		font-weight: 700;
-		transform: translateX(-50%);
-	}
-
-	.pricing-card h3 {
-		font-size: 1.25rem;
-		font-weight: 700;
-	}
-
-	.plan-description {
-		min-height: 2.8rem;
-		margin-top: 0.65rem;
-		color: var(--muted-foreground);
-		font-size: 0.9rem;
-		line-height: 1.65;
-	}
-
-	.price-line {
-		display: flex;
-		align-items: baseline;
-		margin-top: 1.4rem;
-		font-size: clamp(2.6rem, 4vw, 3.5rem);
-		font-weight: 720;
-		letter-spacing: -0.04em;
-	}
-
-	.price-line > span:last-child {
-		margin-left: 0.25rem;
-		color: var(--muted-foreground);
-		font-size: 0.82rem;
-		font-weight: 450;
-		letter-spacing: normal;
-	}
-
-	.billing-note {
-		min-height: 1.25rem;
-		margin-top: 0.35rem;
-		color: var(--muted-foreground);
 		font-size: 0.72rem;
 	}
-
+	.mobile-plan-picker {
+		display: none;
+	}
+	.pricing-matrix {
+		width: 100%;
+		border-collapse: separate;
+		border-spacing: 0;
+		text-align: left;
+		table-layout: fixed;
+	}
+	.pricing-matrix th,
+	.pricing-matrix td {
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--border);
+		font-size: 0.875rem;
+		vertical-align: middle;
+	}
+	.pricing-matrix thead th {
+		position: sticky;
+		top: 4rem;
+		z-index: 10;
+		width: 22%;
+		padding-block: 1.75rem;
+		background: var(--background);
+		vertical-align: top;
+	}
+	.pricing-matrix thead .matrix-intro {
+		width: 34%;
+		vertical-align: bottom;
+	}
+	.matrix-intro > span {
+		display: block;
+		font-size: clamp(1.3rem, 2vw, 1.8rem);
+		font-weight: 600;
+		line-height: 1.2;
+		letter-spacing: -0.025em;
+	}
+	.matrix-intro p {
+		margin-top: 1rem;
+		max-width: 23ch;
+		font-weight: 400;
+		color: var(--muted-foreground);
+		line-height: 1.6;
+	}
+	.pricing-matrix .featured {
+		background: color-mix(in oklch, var(--muted) 50%, var(--background));
+	}
+	.pricing-matrix thead .featured {
+		border-top: 2px solid var(--primary);
+	}
+	.pricing-matrix h3 {
+		font-size: 1.5rem;
+		font-weight: 650;
+		letter-spacing: -0.025em;
+	}
+	.best-for {
+		min-height: 3.4em;
+		margin-top: 0.5rem;
+		color: var(--muted-foreground);
+		font-size: 0.875rem;
+		font-weight: 400;
+		line-height: 1.65;
+		text-wrap: pretty;
+	}
+	.price-line {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.15rem;
+		margin-top: 1.5rem;
+		font-size: clamp(2rem, 3.3vw, 3.25rem);
+		font-weight: 650;
+		letter-spacing: -0.035em;
+		line-height: 1.1;
+	}
+	.price-line > span {
+		color: var(--muted-foreground);
+		font-size: 0.75rem;
+		font-weight: 400;
+		letter-spacing: normal;
+	}
+	.billing-note {
+		margin-block: 0.5rem 1.5rem;
+		color: var(--muted-foreground);
+		font-size: 0.75rem;
+		font-weight: 400;
+	}
+	:global(.plan-button) {
+		min-height: 2.75rem;
+	}
 	.purchase-note {
 		margin-top: 0.75rem;
 		color: var(--muted-foreground);
-		font-size: 0.7rem;
-		line-height: 1.45;
-		text-align: center;
+		font-size: 0.75rem;
+		font-weight: 400;
+		line-height: 1.5;
 	}
-
-	.pricing-card ul {
+	.pricing-matrix tbody th {
+		font-weight: 450;
+	}
+	.pricing-matrix tbody td {
+		font-variant-numeric: tabular-nums;
+	}
+	.pricing-matrix td :global(svg) {
+		width: 1.15rem;
+		height: 1.15rem;
+		color: var(--foreground);
+	}
+	.pricing-matrix .group-heading th {
+		padding-top: 2.5rem;
+		padding-bottom: 0.75rem;
+		font-size: 1rem;
+		font-weight: 650;
+	}
+	.capacity-note {
 		display: grid;
-		gap: 0.85rem;
-		margin-block: 1.5rem;
-		padding: 0;
-		list-style: none;
-	}
-
-	:global(.plan-button) {
-		margin-top: auto;
-	}
-
-	.pricing-card li {
-		display: flex;
-		gap: 0.7rem;
-		align-items: flex-start;
+		gap: 0.6rem;
+		max-width: 85ch;
+		margin-top: 1.5rem;
 		color: var(--muted-foreground);
-		font-size: 0.88rem;
-		line-height: 1.45;
+		font-size: 0.8125rem;
+		line-height: 1.7;
 	}
-
-	.pricing-card li :global(svg) {
-		width: 1rem;
-		height: 1rem;
-		flex: none;
-		margin-top: 0.1rem;
-		color: var(--primary);
+	.capacity-note a,
+	.purchase-details a {
+		color: var(--foreground);
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
 	}
-
-	@media (min-width: 64rem) {
-		.pricing-grid {
-			grid-template-columns: repeat(6, minmax(0, 1fr));
-		}
-
-		.pricing-card {
-			grid-column: span 2;
-		}
-
-		.pricing-card:nth-child(4) {
-			grid-column: 2 / span 2;
-		}
-
-		.pricing-card:nth-child(5) {
-			grid-column: 4 / span 2;
-		}
-
-		.pricing-card.featured {
-			transform: translateY(-0.5rem);
-		}
-
-		.pricing-card.featured:hover {
-			transform: translateY(-0.75rem);
+	.purchase-details {
+		margin-top: 1.5rem;
+		border-block: 1px solid var(--border);
+		font-size: 0.875rem;
+	}
+	.purchase-details summary {
+		padding-block: 1rem;
+		min-height: 2.75rem;
+		cursor: pointer;
+		font-weight: 550;
+	}
+	.purchase-details > div {
+		display: grid;
+		gap: 0.75rem;
+		padding-bottom: 1.5rem;
+		color: var(--muted-foreground);
+		line-height: 1.7;
+	}
+	@media (max-width: 63.99rem) {
+		.pricing-matrix th,
+		.pricing-matrix td {
+			padding-inline: 0.875rem;
 		}
 	}
-
-	@media (max-width: 39.99rem) {
+	@media (max-width: 47.99rem) {
 		.pricing-toolbar {
 			align-items: stretch;
 			flex-direction: column;
+			gap: 1rem;
+			padding-bottom: 1rem;
 		}
-
-		.billing-toggle,
-		.billing-toggle :global(button) {
-			width: 100%;
-		}
-
 		.billing-toggle :global(button) {
 			flex: 1;
 		}
-	}
+		.mobile-plan-picker {
+			display: flex;
+			gap: 0.25rem;
+			margin-bottom: 1rem;
+		}
+		.mobile-plan-picker :global(button) {
+			flex: 1;
+			min-height: 2.75rem;
+		}
+		.pricing-matrix {
+			display: grid;
+			grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+		}
+		.pricing-matrix thead,
+		.pricing-matrix tbody,
+		.pricing-matrix tr {
+			display: contents;
+		}
+		.pricing-matrix [data-active='false'] {
+			display: none;
+		}
+		.pricing-matrix thead th {
+			position: static;
+			width: auto;
+			padding: 1.25rem 0.75rem;
+		}
+		.pricing-matrix thead .matrix-intro {
+			display: none;
+		}
+		.pricing-matrix thead th[data-active='true'] {
+			grid-column: 1 / -1;
+		}
 
-	@media (prefers-reduced-motion: reduce) {
-		.pricing-card {
-			transition: none;
+		.matrix-intro > span {
+			font-size: 1.15rem;
+		}
+		.matrix-intro p {
+			font-size: 0.75rem;
+		}
+		.pricing-matrix th,
+		.pricing-matrix td {
+			min-width: 0;
+			padding: 0.875rem 0.75rem;
+			font-size: 0.8125rem;
+			overflow-wrap: anywhere;
+		}
+		.pricing-matrix tbody th {
+			padding-left: 0;
+		}
+		.pricing-matrix .group-heading th {
+			grid-column: 1 / -1;
+		}
+		.pricing-matrix h3 {
+			font-size: 1.35rem;
+		}
+		.best-for {
+			font-size: 0.8125rem;
+			min-height: 0;
+		}
+		.price-line {
+			font-size: 2rem;
 		}
 	}
 </style>

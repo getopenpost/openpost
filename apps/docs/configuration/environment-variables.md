@@ -124,12 +124,8 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_PADDLE_CLIENT_TOKEN` | Required in cloud mode | empty | Browser-safe Paddle.js client token used for localized price previews and checkout. Backend-only. |
 | `OPENPOST_PADDLE_WEBHOOK_SECRET` | Required in cloud mode | empty | Paddle notification destination secret used to verify raw webhook requests. Backend-only. |
 | `OPENPOST_PADDLE_CHECKOUT_RETURN_URL` | No | `<OPENPOST_APP_URL>/checkout?status=success` | OpenPost success URL supplied to Paddle checkout. Backend-only. |
-| `OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Starter monthly price ID. |
-| `OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Starter annual price ID. |
-| `OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Founder monthly price ID. |
-| `OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Founder annual price ID. |
-| `OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Pro monthly price ID. |
-| `OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Pro annual price ID. |
+| `OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Solo monthly price ID. |
+| `OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Solo annual price ID. |
 | `OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Team monthly price ID. |
 | `OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Team annual price ID. |
 | `OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Agency monthly price ID. |

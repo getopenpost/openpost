@@ -1,3 +1,4 @@
+import { planCatalog } from '@openpost/plan-catalog';
 import type { components } from '$lib/api/types';
 
 export const timezones = [
@@ -129,63 +130,18 @@ export function buildProfileUpdateBody(input: {
 	return body;
 }
 
-export const billingPlans = [
-	{
-		id: 'starter',
-		monthlyPriceUSD: 15,
-		featured: false,
-		limits: [
-			{ kind: 'workspaces', count: 1 },
-			{ kind: 'social_accounts', count: 3 },
-			{ kind: 'scheduled_posts_monthly', count: 100 },
-			{ kind: 'media_gb', count: 1 }
-		]
-	},
-	{
-		id: 'founder',
-		monthlyPriceUSD: 25,
-		limits: [
-			{ kind: 'workspaces', count: 3 },
-			{ kind: 'social_accounts', count: 6 },
-			{ kind: 'scheduled_posts_monthly', count: 500 },
-			{ kind: 'media_gb', count: 5 }
-		],
-		featured: true
-	},
-	{
-		id: 'pro',
-		monthlyPriceUSD: 49,
-		featured: false,
-		limits: [
-			{ kind: 'workspaces', count: 10 },
-			{ kind: 'social_accounts', count: 15 },
-			{ kind: 'scheduled_posts_monthly', count: 2500 },
-			{ kind: 'media_gb', count: 25 }
-		]
-	},
-	{
-		id: 'team',
-		monthlyPriceUSD: 99,
-		featured: false,
-		limits: [
-			{ kind: 'workspaces', count: 10 },
-			{ kind: 'social_accounts', count: 25 },
-			{ kind: 'scheduled_posts_monthly', count: 5000 },
-			{ kind: 'included_seats', count: 3 }
-		]
-	},
-	{
-		id: 'agency',
-		monthlyPriceUSD: 199,
-		featured: false,
-		limits: [
-			{ kind: 'workspaces', count: 50 },
-			{ kind: 'social_accounts', count: 150 },
-			{ kind: 'scheduled_posts_monthly', count: 25000 },
-			{ kind: 'included_seats', count: 5 }
-		]
-	}
-] as const;
+export const billingPlans = planCatalog.plans.map((plan) => ({
+	id: plan.id,
+	monthlyPriceUSD: plan.monthly_price_usd,
+	workspaces: plan.limits.workspaces,
+	featured: plan.featured,
+	limits: [
+		{ kind: 'social_accounts', count: plan.limits.social_accounts },
+		{ kind: 'scheduled_posts_monthly', count: plan.limits.scheduled_posts_monthly },
+		{ kind: 'media_gb', count: plan.limits.media_bytes_stored / 1_000_000_000 },
+		{ kind: 'included_seats', count: plan.limits.team_members }
+	] as const
+}));
 
 export type SecurityStatus = components['schemas']['SecurityStatusOutputBody'];
 

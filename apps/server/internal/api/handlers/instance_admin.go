@@ -108,7 +108,7 @@ type instanceUserRow struct {
 type SetUserPlanInput struct {
 	UserID string `path:"user_id" doc:"Target user ID"`
 	Body   struct {
-		PlanID string `json:"plan_id" doc:"Plan ID to assign: starter, founder, pro, team, agency, or empty string to remove the override"`
+		PlanID string `json:"plan_id" doc:"Plan ID to assign: founder (Solo), team, agency, or empty string to remove the override"`
 	}
 }
 
@@ -478,7 +478,7 @@ func (h *InstanceAdminHandler) setUserPlan(ctx context.Context, input *SetUserPl
 
 	planConfig, ok := billing.GetPlanConfig(planID)
 	if !ok {
-		return nil, huma.Error400BadRequest(fmt.Sprintf("unknown plan %q; valid plans: starter, founder, pro, team, agency", planID))
+		return nil, huma.Error400BadRequest(fmt.Sprintf("unknown plan %q; valid plans: founder (Solo), team, agency", planID))
 	}
 
 	organizationID, err := h.resolvePersonalOrganizationID(ctx, userID)

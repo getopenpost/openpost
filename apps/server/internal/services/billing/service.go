@@ -90,11 +90,9 @@ type PlanConfig struct {
 	Limits          map[entitlements.LimitKey]int64
 }
 
-func DefaultPlanCatalog(starter, founder, pro, team, agency PaddlePriceIDs) map[string]PlanConfig {
+func DefaultPlanCatalog(founder, team, agency PaddlePriceIDs) map[string]PlanConfig {
 	priceIDs := map[string]PaddlePriceIDs{
-		"starter": starter,
 		"founder": founder,
-		"pro":     pro,
 		"team":    team,
 		"agency":  agency,
 	}

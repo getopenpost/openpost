@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-12",
+  "version": "2026-09-08",
   "purchase_terms": {
     "trial_days": 14,
     "card_required": true,
@@ -13,88 +13,54 @@
   },
   "plans": [
     {
-      "id": "starter",
-      "name": "Starter",
-      "description": "Start a repeatable content habit for one company.",
-      "best_for": "Your first content system",
-      "monthly_price_usd": 15,
-      "annual_price_usd": 150,
-      "featured": false,
-      "limits": {
-        "workspaces": 1,
-        "social_accounts": 3,
-        "scheduled_posts_monthly": 100,
-        "media_bytes_stored": 1000000000,
-        "media_bytes_uploaded_monthly": 1000000000,
-        "team_members": 1
-      }
-    },
-    {
       "id": "founder",
-      "name": "Founder",
-      "description": "Run your company’s content across more channels.",
-      "best_for": "Solo founders publishing consistently",
-      "monthly_price_usd": 25,
-      "annual_price_usd": 250,
+      "name": "Solo",
+      "description": "Publish your own work across your channels.",
+      "best_for": "solo founders and creators",
+      "monthly_price_usd": 29,
+      "annual_price_usd": 290,
       "featured": true,
       "limits": {
-        "workspaces": 3,
-        "social_accounts": 6,
+        "workspaces": 1,
+        "social_accounts": 10,
         "scheduled_posts_monthly": 500,
-        "media_bytes_stored": 5000000000,
-        "media_bytes_uploaded_monthly": 5000000000,
-        "team_members": 1
-      }
-    },
-    {
-      "id": "pro",
-      "name": "Pro",
-      "description": "A complete content operation for one founder.",
-      "best_for": "Founder-led companies with high output",
-      "monthly_price_usd": 49,
-      "annual_price_usd": 490,
-      "featured": false,
-      "limits": {
-        "workspaces": 10,
-        "social_accounts": 15,
-        "scheduled_posts_monthly": 2500,
-        "media_bytes_stored": 25000000000,
-        "media_bytes_uploaded_monthly": 25000000000,
+        "media_bytes_stored": 10000000000,
+        "media_bytes_uploaded_monthly": 10000000000,
         "team_members": 1
       }
     },
     {
       "id": "team",
       "name": "Team",
-      "description": "Shared planning and publishing for a small team.",
-      "best_for": "Growing marketing teams",
-      "monthly_price_usd": 99,
-      "annual_price_usd": 990,
+      "description": "Plan and publish together in shared workspaces.",
+      "best_for": "small teams publishing together",
+      "monthly_price_usd": 59,
+      "annual_price_usd": 590,
       "featured": false,
       "limits": {
-        "workspaces": 10,
-        "social_accounts": 25,
-        "scheduled_posts_monthly": 5000,
-        "media_bytes_stored": 50000000000,
-        "media_bytes_uploaded_monthly": 50000000000,
-        "team_members": 3
+        "workspaces": 3,
+        "social_accounts": 10,
+        "scheduled_posts_monthly": 500,
+        "media_bytes_stored": 10000000000,
+        "media_bytes_uploaded_monthly": 10000000000,
+        "team_members": 5
       }
     },
     {
       "id": "agency",
       "name": "Agency",
-      "description": "Many clients, workspaces, and campaigns.",
-      "best_for": "Agencies and multi-brand operators",
-      "monthly_price_usd": 199,
-      "annual_price_usd": 1990,
+      "description": "Keep each client’s content and accounts separate.",
+      "best_for": "agencies managing client accounts",
+      "monthly_price_usd": 99,
+      "annual_price_usd": 990,
       "featured": false,
       "limits": {
-        "workspaces": 50,
-        "social_accounts": 150,
-        "scheduled_posts_monthly": 25000,
-        "media_bytes_stored": 250000000000,
-        "media_bytes_uploaded_monthly": 250000000000,
-        "team_members": 5
+        "workspaces": 10,
+        "social_accounts": 10,
+        "scheduled_posts_monthly": 500,
+        "media_bytes_stored": 10000000000,
+        "media_bytes_uploaded_monthly": 10000000000,
+        "team_members": 10
       }
     }
   ]

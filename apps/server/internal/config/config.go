@@ -157,12 +157,8 @@ type Config struct {
 	PaddleClientToken           string
 	PaddleWebhookSecret         string
 	PaddleCheckoutReturnURL     string
-	PaddleStarterMonthlyPriceID string
-	PaddleStarterAnnualPriceID  string
 	PaddleFounderMonthlyPriceID string
 	PaddleFounderAnnualPriceID  string
-	PaddleProMonthlyPriceID     string
-	PaddleProAnnualPriceID      string
 	PaddleTeamMonthlyPriceID    string
 	PaddleTeamAnnualPriceID     string
 	PaddleAgencyMonthlyPriceID  string
@@ -353,12 +349,8 @@ func Load() *Config {
 		PaddleClientToken:           getEnvDefault("OPENPOST_PADDLE_CLIENT_TOKEN", ""),
 		PaddleWebhookSecret:         getEnvDefault("OPENPOST_PADDLE_WEBHOOK_SECRET", ""),
 		PaddleCheckoutReturnURL:     strings.TrimSpace(getEnvDefault("OPENPOST_PADDLE_CHECKOUT_RETURN_URL", "")),
-		PaddleStarterMonthlyPriceID: getEnvDefault("OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID", ""),
-		PaddleStarterAnnualPriceID:  getEnvDefault("OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID", ""),
 		PaddleFounderMonthlyPriceID: getEnvDefault("OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID", ""),
 		PaddleFounderAnnualPriceID:  getEnvDefault("OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID", ""),
-		PaddleProMonthlyPriceID:     getEnvDefault("OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID", ""),
-		PaddleProAnnualPriceID:      getEnvDefault("OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID", ""),
 		PaddleTeamMonthlyPriceID:    getEnvDefault("OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID", ""),
 		PaddleTeamAnnualPriceID:     getEnvDefault("OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID", ""),
 		PaddleAgencyMonthlyPriceID:  getEnvDefault("OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID", ""),
@@ -1006,12 +998,8 @@ func (c *Config) missingCloudBillingConfig() []string {
 		{c.PaddleEnvironment, "OPENPOST_PADDLE_ENVIRONMENT"},
 		{c.PaddleClientToken, "OPENPOST_PADDLE_CLIENT_TOKEN"},
 		{c.PaddleWebhookSecret, "OPENPOST_PADDLE_WEBHOOK_SECRET"},
-		{c.PaddleStarterMonthlyPriceID, "OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID"},
-		{c.PaddleStarterAnnualPriceID, "OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID"},
 		{c.PaddleFounderMonthlyPriceID, "OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID"},
 		{c.PaddleFounderAnnualPriceID, "OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID"},
-		{c.PaddleProMonthlyPriceID, "OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID"},
-		{c.PaddleProAnnualPriceID, "OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID"},
 		{c.PaddleTeamMonthlyPriceID, "OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID"},
 		{c.PaddleTeamAnnualPriceID, "OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID"},
 		{c.PaddleAgencyMonthlyPriceID, "OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID"},

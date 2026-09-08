@@ -54,7 +54,7 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 }
 
 var firstUsePropertyValues = map[string]map[string]struct{}{
-	"plan_id":             propertySet("starter", "founder", "pro", "team", "agency"),
+	"plan_id":             propertySet("founder", "team", "agency"),
 	"billing_period":      propertySet("monthly", "annual"),
 	"provider":            propertySet("paddle"),
 	"mutual_count_bucket": propertySet("0", "1", "2-3", "4-6", "7+"),

@@ -141,9 +141,7 @@ func paddleSignature(secret string, now time.Time, body []byte) string {
 
 func testCatalog() map[string]PlanConfig {
 	return DefaultPlanCatalog(
-		PaddlePriceIDs{Monthly: "pri_starter_month", Annual: "pri_starter_year"},
 		PaddlePriceIDs{Monthly: "pri_founder_month", Annual: "pri_founder_year"},
-		PaddlePriceIDs{Monthly: "pri_pro_month", Annual: "pri_pro_year"},
 		PaddlePriceIDs{Monthly: "pri_team_month", Annual: "pri_team_year"},
 		PaddlePriceIDs{Monthly: "pri_agency_month", Annual: "pri_agency_year"},
 	)

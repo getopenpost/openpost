@@ -193,7 +193,7 @@ func (h *BillingHandler) RegisterAPIRoutes(api huma.API) {
 
 type CreatePurchaseChoiceInput struct {
 	Body struct {
-		PlanID              string `json:"plan_id" doc:"Canonical hosted plan ID: starter, founder, pro, team, or agency"`
+		PlanID              string `json:"plan_id" doc:"Canonical hosted plan ID: founder (Solo), team, or agency"`
 		BillingPeriod       string `json:"billing_period" enum:"monthly,annual" doc:"Canonical billing period"`
 		PurchaseChoiceToken string `json:"purchase_choice_token,omitempty" doc:"Existing integrity-protected choice to validate against the supplied plan and period"`
 	}
@@ -593,7 +593,7 @@ type CreateBillingCheckoutInput struct {
 	Body struct {
 		WorkspaceID    string `json:"workspace_id,omitempty" doc:"Workspace ID"`
 		OrganizationID string `json:"organization_id,omitempty" doc:"Organization ID"`
-		PlanID         string `json:"plan_id" doc:"Plan ID: starter, founder, pro, team, or agency"`
+		PlanID         string `json:"plan_id" doc:"Plan ID: founder (Solo), team, or agency"`
 		BillingPeriod  string `json:"billing_period,omitempty" doc:"Billing period: monthly or annual" enum:"monthly,annual" default:"monthly"`
 		ReturnPath     string `json:"return_path,omitempty" maxLength:"2048" doc:"Validated same-origin route to resume once this exact checkout succeeds"`
 	}
@@ -786,7 +786,7 @@ func (h *BillingHandler) createPortalSession(ctx context.Context, input *CreateB
 type CreateOrganizationBillingCheckoutInput struct {
 	PathID string `path:"id" doc:"Organization ID"`
 	Body   struct {
-		PlanID        string `json:"plan_id" doc:"Plan ID: starter, founder, pro, team, or agency"`
+		PlanID        string `json:"plan_id" doc:"Plan ID: founder (Solo), team, or agency"`
 		BillingPeriod string `json:"billing_period,omitempty" doc:"Billing period: monthly or annual" enum:"monthly,annual" default:"monthly"`
 		ReturnPath    string `json:"return_path,omitempty" maxLength:"2048" doc:"Validated same-origin route to resume once this exact checkout succeeds"`
 	}

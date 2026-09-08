@@ -1,182 +1,30 @@
 <script lang="ts">
-	import Check from '@lucide/svelte/icons/check';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import { Button } from '$lib/components/ui/button';
 	import PricingShowcase from '../_components/PricingShowcase.svelte';
-	import { faqs, plans, selfHostedDeploymentSummary, supportMailUrl } from '../_marketing';
-
-	let billingPeriod = $state<'monthly' | 'annual'>('monthly');
+	import { faqs } from '../_marketing';
 	const pricingFaqs = faqs.filter((faq) => faq.category === 'billing');
-
-	const sharedFeatures = [
-		'One composer with account-specific versions',
-		'Calendar, scheduling, and publishing status',
-		'Reusable media library',
-		'Analytics and inbox for supported accounts',
-		'HTTP API, CLI, and MCP access',
-		'Encrypted social account keys'
-	] as const;
-
-	function comparisonPrice(plan: (typeof plans)[number]) {
-		return billingPeriod === 'annual' ? `${plan.annualPrice}/year` : `${plan.price}/month`;
-	}
-
-	function mailHref(href: string) {
-		return { href } as const;
-	}
-
-	const comparisonRows = [
-		{ label: 'Workspaces', value: (plan: (typeof plans)[number]) => plan.workspaces },
-		{ label: 'Social accounts', value: (plan: (typeof plans)[number]) => plan.accounts },
-		{ label: 'Scheduled posts / month', value: (plan: (typeof plans)[number]) => plan.posts },
-		{ label: 'Media storage', value: (plan: (typeof plans)[number]) => plan.storage },
-		{ label: 'Included seats', value: (plan: (typeof plans)[number]) => plan.seats },
-		{
-			label: 'Team roles',
-			value: (plan: (typeof plans)[number]) =>
-				plan.id === 'team' || plan.id === 'agency' ? 'Included' : 'Not included'
-		}
-	] as const;
 </script>
 
-<section class="pricing-hero">
-	<div class="marketing-shell text-center">
-		<h1>Choose your limits.</h1>
-		<p>
-			Every plan includes the full product. Pick the accounts, posts, storage, and seats you need.
-		</p>
-		<p class="text-sm font-medium text-muted-foreground">
-			For founders, teams, and agencies choosing a Hosted service plan.
-		</p>
-	</div>
+<section class="pricing-hero marketing-shell">
+	<h1>One person. A team.<br />Or a whole client list.</h1>
+	<p>Three plans. Every feature included. Choose who you publish with.</p>
 </section>
 
-<section id="plans" class="plans-section scroll-mt-20">
-	<div class="marketing-shell">
-		<PricingShowcase bind:billingPeriod />
+<section id="plans" class="plans-section marketing-shell" aria-labelledby="plans-title">
+	<div id="limits" class="plans-heading scroll-mt-20">
+		<h2 id="plans-title">Pricing plans</h2>
+		<p>Compare every plan side by side. Switch billing to see annual pricing.</p>
 	</div>
-</section>
-
-<section
-	class="self-hosted-section border-y"
-	aria-labelledby="self-hosted-title"
-	aria-label="Self-hosted deployment"
->
-	<div class="marketing-shell self-hosted-grid">
-		<div>
-			<p class="section-label">Deployment alternative</p>
-			<h2 id="self-hosted-title">Run OpenPost yourself.</h2>
-			<p>
-				Self-hosting has <strong>no software fee</strong>. You run a deployment you own, not a
-				hosted plan and not a free tier of one. Your infrastructure, your provider API costs.
-			</p>
-		</div>
-		<div class="self-hosted-action">
-			<p class="self-hosted-price">
-				{selfHostedDeploymentSummary.softwareFee} <span>software fee</span>
-			</p>
-			<p>You pay for your infrastructure and any provider API use.</p>
-			<a class="focus-ring" href="/self-hosting">
-				Review self-hosting <ArrowRight data-icon="inline-end" />
-			</a>
-		</div>
-	</div>
-</section>
-
-<section class="included-section" aria-labelledby="included-title">
-	<div class="marketing-shell included-grid">
-		<div>
-			<p class="section-label">Every plan</p>
-			<h2 id="included-title">The full workflow is included.</h2>
-		</div>
-		<ul>
-			{#each sharedFeatures as feature (feature)}
-				<li><Check aria-hidden="true" /> <span>{feature}</span></li>
-			{/each}
-		</ul>
-	</div>
-</section>
-
-<section id="limits" class="section-pad scroll-mt-20" aria-labelledby="limits-title">
-	<div class="marketing-shell">
-		<div class="limits-heading">
-			<p class="section-label">Exact limits</p>
-			<h2 id="limits-title">Compare every plan.</h2>
-			<p>Team includes three seats. Agency includes five.</p>
-			<p>
-				Annual prices: {plans.map((plan) => `${plan.name} ${plan.annualPrice}/year`).join(', ')}.
-			</p>
-		</div>
-
-		<div class="mobile-limits" data-agent-exclude>
-			{#each plans as plan (plan.id)}
-				<details data-plan-id={plan.id}>
-					<summary class="focus-ring">
-						<span><strong>{plan.name}</strong> <small>{comparisonPrice(plan)}</small></span>
-						<span aria-hidden="true">+</span>
-					</summary>
-					<dl>
-						{#each comparisonRows as row (row.label)}
-							<div>
-								<dt>{row.label}</dt>
-								<dd>{row.value(plan)}</dd>
-							</div>
-						{/each}
-					</dl>
-				</details>
-			{/each}
-		</div>
-
-		<div class="desktop-limits">
-			<table>
-				<thead>
-					<tr>
-						<th scope="col">Limit</th>
-						{#each plans as plan (plan.id)}
-							<th scope="col">
-								<span>{plan.name}</span>
-								<small>{comparisonPrice(plan)}</small>
-							</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each comparisonRows as row (row.label)}
-						<tr>
-							<th scope="row">{row.label}</th>
-							{#each plans as plan (plan.id)}<td>{row.value(plan)}</td>{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
+	<PricingShowcase />
 </section>
 
 <section class="purchase-faq border-t" aria-labelledby="purchase-faq-title">
-	<div class="marketing-shell purchase-faq-grid">
-		<div>
-			<p class="section-label">Purchase questions</p>
-			<h2 id="purchase-faq-title">Know what happens after you choose.</h2>
-			<p>
-				The full FAQ covers provider access, privacy, failures, and self-hosting. These answers are
-				the ones that change a purchase decision.
-			</p>
-			<div class="purchase-faq-actions">
-				<Button href="/faq" variant="outline">
-					Read the full FAQ
-					<ArrowRight data-icon="inline-end" />
-				</Button>
-				<a class="focus-ring" {...mailHref(supportMailUrl)}>Ask a billing question</a>
-			</div>
-		</div>
-		<div class="purchase-faq-list">
+	<div class="marketing-shell faq-grid">
+		<h2 id="purchase-faq-title">A few things to know.</h2>
+		<div class="faq-list">
 			{#each pricingFaqs as item (item.id)}
 				<details>
-					<summary class="focus-ring">
-						<span>{item.question}</span>
-						<span aria-hidden="true">+</span>
-					</summary>
+					<summary class="focus-ring">{item.question}<span aria-hidden="true">+</span></summary>
 					<p>{item.answer}</p>
 				</details>
 			{/each}
@@ -184,345 +32,131 @@
 	</div>
 </section>
 
+<section class="self-hosted-section border-t" aria-label="Self-hosted deployment">
+	<div class="marketing-shell self-hosted-grid">
+		<div>
+			<h2>Prefer to run it yourself?</h2>
+			<p>
+				Self-hosting has <strong>no software fee</strong>. You pay for your infrastructure and
+				provider API use.
+			</p>
+		</div>
+		<a class="focus-ring" href="/self-hosting"
+			>Review self-hosting <ArrowRight aria-hidden="true" /></a
+		>
+	</div>
+</section>
+
 <style>
 	.pricing-hero {
-		padding-block: clamp(4.5rem, 9vw, 8rem) clamp(3rem, 6vw, 5rem);
-		border-bottom: 1px solid var(--border);
-		background: var(--background);
+		padding-block: clamp(3.5rem, 7vw, 6rem) clamp(2.5rem, 5vw, 4rem);
 	}
-
 	.pricing-hero h1 {
-		margin-top: 1rem;
-		font-size: clamp(3rem, 7vw, 6rem);
-		font-weight: 740;
-		line-height: 0.95;
-		letter-spacing: -0.05em;
+		max-width: 20ch;
+		font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+		font-weight: 650;
+		line-height: 1.04;
+		letter-spacing: -0.035em;
 		text-wrap: balance;
 	}
-
-	.pricing-hero p:last-child {
-		max-width: 38rem;
-		margin: 1.5rem auto 0;
+	.pricing-hero p {
+		max-width: 48ch;
+		margin-top: 1.5rem;
 		color: var(--muted-foreground);
-		font-size: 1.05rem;
+		font-size: 1.1rem;
 		line-height: 1.7;
 	}
-
 	.plans-section {
-		padding-block: clamp(3.5rem, 7vw, 7rem);
+		padding-bottom: clamp(3rem, 6vw, 5rem);
+		scroll-margin-top: 5rem;
 	}
-
-	.self-hosted-section {
-		padding-block: clamp(3.5rem, 7vw, 6rem);
-		background: color-mix(in oklch, var(--muted) 24%, var(--background));
+	.plans-heading {
+		margin-bottom: 2rem;
 	}
-
-	.self-hosted-grid {
+	.plans-heading h2 {
+		font-size: 1.5rem;
+		font-weight: 600;
+		letter-spacing: -0.025em;
+	}
+	.plans-heading p {
+		margin-top: 0.5rem;
+		color: var(--muted-foreground);
+		line-height: 1.6;
+	}
+	.purchase-faq {
+		padding-block: clamp(3rem, 6vw, 5rem);
+	}
+	.faq-grid {
 		display: grid;
 		gap: 2rem;
 	}
-
+	.faq-grid h2,
 	.self-hosted-grid h2 {
-		margin-top: 1rem;
-		font-size: clamp(2.2rem, 4vw, 3.6rem);
-		font-weight: 700;
-		line-height: 1;
-		letter-spacing: -0.04em;
+		font-size: clamp(1.5rem, 2.5vw, 2rem);
+		font-weight: 600;
+		letter-spacing: -0.025em;
+		line-height: 1.2;
 	}
-
-	.self-hosted-grid > div:first-child > p:last-child,
-	.self-hosted-action > p {
-		margin-top: 1rem;
-		max-width: 42rem;
-		color: var(--muted-foreground);
-		line-height: 1.65;
-	}
-
-	.self-hosted-action {
-		padding: clamp(1.25rem, 4vw, 2rem);
-		border: 1px solid var(--border);
-		border-radius: 1rem;
-		background: var(--card);
-	}
-
-	.self-hosted-action .self-hosted-price {
-		margin-top: 0;
-		color: var(--foreground);
-		font-size: 2rem;
-		font-weight: 700;
-	}
-
-	.self-hosted-price span {
-		font-size: 0.9rem;
-		font-weight: 500;
-		color: var(--muted-foreground);
-	}
-
-	.self-hosted-action a {
-		display: inline-flex;
-		min-height: 2.75rem;
-		align-items: center;
-		gap: 0.45rem;
-		margin-top: 1.5rem;
-		border-radius: 0.5rem;
-		color: var(--primary);
-		font-weight: 650;
-	}
-
-	.included-section {
-		padding-block: clamp(4rem, 8vw, 7rem);
-		border-block: 1px solid var(--border);
-		background: color-mix(in oklch, var(--muted) 32%, var(--background));
-	}
-
-	.included-grid {
-		display: grid;
-		gap: 2.5rem;
-	}
-
-	.included-grid h2,
-	.limits-heading h2 {
-		margin-top: 1rem;
-		font-size: clamp(2.3rem, 4vw, 3.8rem);
-		font-weight: 700;
-		line-height: 1;
-		letter-spacing: -0.04em;
-		text-wrap: balance;
-	}
-
-	.included-grid ul {
-		display: grid;
-		gap: 1rem;
-		padding: 0;
-		list-style: none;
-	}
-
-	.included-grid li {
-		display: flex;
-		gap: 0.8rem;
-		align-items: flex-start;
-		color: var(--muted-foreground);
-		line-height: 1.55;
-	}
-
-	.included-grid li :global(svg) {
-		width: 1.1rem;
-		height: 1.1rem;
-		flex: none;
-		margin-top: 0.15rem;
-		color: var(--primary);
-	}
-
-	.limits-heading {
-		max-width: 44rem;
-	}
-
-	.limits-heading > p:last-child {
-		margin-top: 1.25rem;
-		color: var(--muted-foreground);
-	}
-
-	.mobile-limits {
-		display: grid;
-		gap: 0.75rem;
-		margin-top: 2.5rem;
-	}
-
-	.mobile-limits details {
-		border: 1px solid var(--border);
-		border-radius: 1rem;
-		background: var(--card);
-	}
-
-	.mobile-limits summary {
-		display: flex;
-		min-height: 4rem;
-		cursor: pointer;
-		list-style: none;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding-inline: 1rem;
-		border-radius: 1rem;
-	}
-
-	.mobile-limits summary small {
-		margin-left: 0.35rem;
-		color: var(--muted-foreground);
-		font-size: 0.78rem;
-	}
-
-	.mobile-limits dl {
-		display: grid;
-		gap: 0.8rem;
-		padding: 1rem;
+	.faq-list {
 		border-top: 1px solid var(--border);
 	}
-
-	.mobile-limits dl div {
+	.faq-list details {
+		border-bottom: 1px solid var(--border);
+	}
+	.faq-list summary {
 		display: flex;
-		align-items: baseline;
 		justify-content: space-between;
+		align-items: center;
 		gap: 1rem;
-		font-size: 0.85rem;
+		min-height: 3.75rem;
+		padding-block: 1rem;
+		cursor: pointer;
+		font-weight: 550;
+		list-style: none;
 	}
-
-	.mobile-limits dt,
-	.desktop-limits td {
+	.faq-list details[open] summary span {
+		transform: rotate(45deg);
+	}
+	.faq-list p {
+		max-width: 65ch;
+		padding-bottom: 1.5rem;
 		color: var(--muted-foreground);
-	}
-
-	.desktop-limits {
-		display: none;
-		margin-top: 2.5rem;
-		overflow: hidden;
-		border: 1px solid var(--border);
-		border-radius: 1rem;
-		background: var(--card);
-	}
-
-	.purchase-faq {
-		padding-block: clamp(4rem, 8vw, 7rem);
-		background: color-mix(in oklch, var(--muted) 28%, var(--background));
-	}
-
-	.purchase-faq-grid {
-		display: grid;
-		gap: 3rem;
-	}
-
-	.purchase-faq h2 {
-		max-width: 16ch;
-		margin-top: 1rem;
-		font-size: clamp(2.2rem, 4vw, 3.8rem);
-		font-weight: 680;
-		line-height: 1;
-		letter-spacing: -0.038em;
-		text-wrap: balance;
-	}
-
-	.purchase-faq-grid > div:first-child > p:last-of-type {
-		max-width: 52ch;
-		margin-top: 1.25rem;
-		color: var(--muted-foreground);
+		font-size: 0.875rem;
 		line-height: 1.7;
 	}
-
-	.purchase-faq-actions {
+	.self-hosted-section {
+		padding-block: 3rem;
+	}
+	.self-hosted-grid {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem 1.25rem;
-		margin-top: 1.5rem;
+		justify-content: space-between;
+		gap: 1.5rem 3rem;
 	}
-
-	.purchase-faq-actions > a {
+	.self-hosted-grid p {
+		max-width: 60ch;
+		margin-top: 1rem;
+		color: var(--muted-foreground);
+		line-height: 1.7;
+	}
+	.self-hosted-grid a {
 		display: inline-flex;
 		min-height: 2.75rem;
+		gap: 0.5rem;
 		align-items: center;
-		border-radius: 0.5rem;
-		color: var(--primary);
-		font-size: 0.82rem;
-		font-weight: 650;
+		font-weight: 550;
+		text-decoration: underline;
+		text-underline-offset: 0.25em;
 	}
-
-	.purchase-faq-list {
-		border-block: 1px solid var(--border);
+	.self-hosted-grid a :global(svg) {
+		width: 1rem;
+		height: 1rem;
 	}
-
-	.purchase-faq-list details + details {
-		border-top: 1px solid var(--border);
-	}
-
-	.purchase-faq-list summary {
-		display: flex;
-		min-height: 4rem;
-		cursor: pointer;
-		list-style: none;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		border-radius: 0.5rem;
-		font-weight: 620;
-	}
-
-	.purchase-faq-list details[open] summary span:last-child {
-		transform: rotate(45deg);
-	}
-
-	.purchase-faq-list p {
-		max-width: 65ch;
-		padding: 0 2rem 1.5rem 0;
-		color: var(--muted-foreground);
-		font-size: 0.88rem;
-		line-height: 1.65;
-	}
-
-	.desktop-limits table {
-		width: 100%;
-		border-collapse: collapse;
-		text-align: left;
-	}
-
-	.desktop-limits thead {
-		border-bottom: 1px solid var(--border);
-		background: color-mix(in oklch, var(--muted) 45%, transparent);
-	}
-
-	.desktop-limits tr + tr {
-		border-top: 1px solid var(--border);
-	}
-
-	.desktop-limits th,
-	.desktop-limits td {
-		padding: 1rem 1.15rem;
-		font-size: 0.82rem;
-	}
-
-	.desktop-limits th {
-		font-weight: 650;
-	}
-
-	.desktop-limits thead th span,
-	.desktop-limits thead th small {
-		display: block;
-	}
-
-	.desktop-limits thead th small {
-		margin-top: 0.3rem;
-		color: var(--muted-foreground);
-		font-size: 0.72rem;
-		font-weight: 500;
-	}
-
 	@media (min-width: 48rem) {
-		.self-hosted-grid {
-			grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
-			align-items: center;
-		}
-
-		.included-grid {
-			grid-template-columns: 0.8fr 1.2fr;
-			align-items: start;
-		}
-
-		.included-grid ul {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	@media (min-width: 64rem) {
-		.mobile-limits {
-			display: none;
-		}
-
-		.desktop-limits {
-			display: block;
-		}
-
-		.purchase-faq-grid {
-			grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1.28fr);
-			gap: clamp(3rem, 7vw, 7rem);
+		.faq-grid {
+			grid-template-columns: 1fr 1.6fr;
+			gap: 4rem;
 		}
 	}
 </style>

@@ -86,18 +86,14 @@
 	}
 
 	function billingPlanName(planID: string) {
-		if (planID === 'starter') return m.settings_plan_starter();
 		if (planID === 'founder') return m.settings_plan_founder();
-		if (planID === 'pro') return m.settings_plan_pro();
 		if (planID === 'team') return m.settings_plan_team();
 		if (planID === 'agency') return m.settings_plan_agency();
 		return planID;
 	}
 
 	function billingPlanDescription(planID: string) {
-		if (planID === 'starter') return m.settings_plan_starter_description();
 		if (planID === 'founder') return m.settings_plan_founder_description();
-		if (planID === 'pro') return m.settings_plan_pro_description();
 		if (planID === 'team') return m.settings_plan_team_description();
 		if (planID === 'agency') return m.settings_plan_agency_description();
 		return '';
@@ -317,6 +313,7 @@
 		billingPlanDefinitions.map((plan) => ({
 			...plan,
 			name: billingPlanName(plan.id),
+			workspaceLabel: billingPlanLimitLabel({ kind: 'workspaces', count: plan.workspaces }),
 			description: billingPlanDescription(plan.id),
 			limits: plan.limits.map(billingPlanLimitLabel)
 		}))
@@ -714,6 +711,8 @@
 						</div>
 					</div>
 				</div>
+				<p class="mb-3 text-sm">{plan.workspaceLabel}</p>
+				<p class="mb-1 text-sm font-medium">{m.settings_plan_limits_per_workspace()}</p>
 				<ul class="mb-4 space-y-1 text-sm text-muted-foreground">
 					{#each plan.limits as limit (limit)}
 						<li>{limit}</li>

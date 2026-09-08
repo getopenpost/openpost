@@ -29,7 +29,7 @@ test("failed-payment recovery stays account-wide, permission-aware, and clears f
     workspace_id: workspace.id,
     provider: "paddle",
     status: "past_due",
-    plan_id: "pro",
+    plan_id: "team",
     can_manage_billing: true,
     access_restricted: true,
     past_due_since: "2026-08-09T12:00:00Z",

@@ -70,29 +70,13 @@ const portugueseCopyDefinitions = {
 		label: 'URL de retorno do checkout',
 		description: 'URL do OpenPost mostrada quando o checkout da Paddle termina.'
 	},
-	OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID: {
-		label: 'ID do preço mensal Starter',
-		description: 'Preço Paddle usado nas subscrições mensais Starter.'
-	},
-	OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID: {
-		label: 'ID do preço anual Starter',
-		description: 'Preço Paddle usado nas subscrições anuais Starter.'
-	},
 	OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID: {
-		label: 'ID do preço mensal Founder',
-		description: 'Preço Paddle usado nas subscrições mensais Founder.'
+		label: 'ID do preço mensal Solo',
+		description: 'Preço Paddle usado nas subscrições mensais Solo.'
 	},
 	OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID: {
-		label: 'ID do preço anual Founder',
-		description: 'Preço Paddle usado nas subscrições anuais Founder.'
-	},
-	OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID: {
-		label: 'ID do preço mensal Pro',
-		description: 'Preço Paddle usado nas subscrições mensais Pro.'
-	},
-	OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID: {
-		label: 'ID do preço anual Pro',
-		description: 'Preço Paddle usado nas subscrições anuais Pro.'
+		label: 'ID do preço anual Solo',
+		description: 'Preço Paddle usado nas subscrições anuais Solo.'
 	},
 	OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID: {
 		label: 'ID do preço mensal Team',

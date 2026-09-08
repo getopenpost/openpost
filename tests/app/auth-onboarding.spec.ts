@@ -45,11 +45,11 @@ test("email signup confirms a six-digit code before onboarding", async ({ page }
         plan_id: "team",
         plan_name: "Team",
         billing_period: "annual",
-        list_price_usd: 990,
+        list_price_usd: 590,
         trial_days: 14,
         card_required: true,
         due_today_usd: 0,
-        catalog_version: "2026-08-12",
+        catalog_version: "2026-09-08",
         expires_at: "2026-08-13T10:00:00Z",
       },
     });
@@ -99,10 +99,10 @@ test("email signup confirms a six-digit code before onboarding", async ({ page }
 
   await page.goto("/register?plan=team&billing_period=annual");
   await expect(page.getByText("OpenPost Team")).toBeVisible();
-  await expect(page.getByText("$990/year", { exact: true })).toBeVisible();
+  await expect(page.getByText("$590/year", { exact: true })).toBeVisible();
   await expect(page.getByText("14-day free trial")).toBeVisible();
   await expect(page.getByText("$0 due today. A card is required at checkout.")).toBeVisible();
-  await expect(page.getByText("After the trial, $990/year until canceled.")).toBeVisible();
+  await expect(page.getByText("After the trial, $590/year until canceled.")).toBeVisible();
   await page.reload();
   expect(new URL(page.url()).searchParams.get("purchase_choice")).toBe(purchaseChoiceToken);
   await expect(page.getByText("OpenPost Team")).toBeVisible();
@@ -160,13 +160,13 @@ test("registration routes first-time users to explicit Workspace confirmation", 
       json: {
         token: "choice-founder-monthly",
         plan_id: "founder",
-        plan_name: "Founder",
+        plan_name: "Solo",
         billing_period: "monthly",
-        list_price_usd: 25,
+        list_price_usd: 29,
         trial_days: 14,
         card_required: true,
         due_today_usd: 0,
-        catalog_version: "2026-08-12",
+        catalog_version: "2026-09-08",
         expires_at: "2026-08-13T10:00:00Z",
       },
     }),

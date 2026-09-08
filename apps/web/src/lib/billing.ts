@@ -30,8 +30,8 @@ export const hostedPlans: readonly HostedPlan[] = planCatalog.plans.map((plan) =
 	bestFor: plan.best_for,
 	limits: [
 		`${plan.limits.social_accounts} social accounts`,
-		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled posts / month`,
-		`${plan.limits.media_bytes_stored / 1_000_000_000} GB media`,
+		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled publications / month`,
+		`${plan.limits.media_bytes_stored / 1_000_000_000} GB media per workspace`,
 		...(plan.limits.team_members > 1 ? [`${plan.limits.team_members} seats`] : [])
 	]
 }));

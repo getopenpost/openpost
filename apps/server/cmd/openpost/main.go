@@ -348,9 +348,7 @@ func main() {
 		ReturnURL:            cfg.PaddleCheckoutReturnURL,
 		PurchaseChoiceSecret: cfg.JWTSecret,
 		Plans: billing.DefaultPlanCatalog(
-			billing.PaddlePriceIDs{Monthly: cfg.PaddleStarterMonthlyPriceID, Annual: cfg.PaddleStarterAnnualPriceID},
 			billing.PaddlePriceIDs{Monthly: cfg.PaddleFounderMonthlyPriceID, Annual: cfg.PaddleFounderAnnualPriceID},
-			billing.PaddlePriceIDs{Monthly: cfg.PaddleProMonthlyPriceID, Annual: cfg.PaddleProAnnualPriceID},
 			billing.PaddlePriceIDs{Monthly: cfg.PaddleTeamMonthlyPriceID, Annual: cfg.PaddleTeamAnnualPriceID},
 			billing.PaddlePriceIDs{Monthly: cfg.PaddleAgencyMonthlyPriceID, Annual: cfg.PaddleAgencyAnnualPriceID},
 		),

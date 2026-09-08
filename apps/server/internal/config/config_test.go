@@ -145,12 +145,8 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PADDLE_CLIENT_TOKEN",
 	"OPENPOST_PADDLE_WEBHOOK_SECRET",
 	"OPENPOST_PADDLE_CHECKOUT_RETURN_URL",
-	"OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID",
-	"OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID",
 	"OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID",
 	"OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID",
-	"OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID",
-	"OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID",
 	"OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID",
 	"OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID",
 	"OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID",
@@ -421,12 +417,8 @@ func TestValidateRuntimeRejectsCloudMissingPaddlePrimitives(t *testing.T) {
 	cfg.PaddleEnvironment = ""
 	cfg.PaddleClientToken = ""
 	cfg.PaddleWebhookSecret = ""
-	cfg.PaddleStarterMonthlyPriceID = ""
-	cfg.PaddleStarterAnnualPriceID = ""
 	cfg.PaddleFounderMonthlyPriceID = ""
 	cfg.PaddleFounderAnnualPriceID = ""
-	cfg.PaddleProMonthlyPriceID = ""
-	cfg.PaddleProAnnualPriceID = ""
 	cfg.PaddleTeamMonthlyPriceID = ""
 	cfg.PaddleTeamAnnualPriceID = ""
 	cfg.PaddleAgencyMonthlyPriceID = ""
@@ -439,7 +431,7 @@ func TestValidateRuntimeRejectsCloudMissingPaddlePrimitives(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_PADDLE_ENVIRONMENT")
 	require.ErrorContains(t, err, "OPENPOST_PADDLE_CLIENT_TOKEN")
 	require.ErrorContains(t, err, "OPENPOST_PADDLE_WEBHOOK_SECRET")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID")
+	require.ErrorContains(t, err, "OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID")
 	require.ErrorContains(t, err, "OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID")
 }
 
@@ -525,12 +517,8 @@ func validCloudRuntimeConfig() *Config {
 		PaddleEnvironment:           "sandbox",
 		PaddleClientToken:           "test_client_token",
 		PaddleWebhookSecret:         "pdl_webhook_secret",
-		PaddleStarterMonthlyPriceID: "pri_starter_monthly",
-		PaddleStarterAnnualPriceID:  "pri_starter_annual",
 		PaddleFounderMonthlyPriceID: "pri_founder_monthly",
 		PaddleFounderAnnualPriceID:  "pri_founder_annual",
-		PaddleProMonthlyPriceID:     "pri_pro_monthly",
-		PaddleProAnnualPriceID:      "pri_pro_annual",
 		PaddleTeamMonthlyPriceID:    "pri_team_monthly",
 		PaddleTeamAnnualPriceID:     "pri_team_annual",
 		PaddleAgencyMonthlyPriceID:  "pri_agency_monthly",

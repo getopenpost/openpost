@@ -60,89 +60,73 @@ test("retired marketing pages and compatibility redirects stay removed", async (
 
 test("pricing makes every plan selectable for monthly and annual billing", async ({ page }) => {
   const planCases = [
-    { id: "starter", name: "Starter", monthly: "$15", annual: "$150" },
-    { id: "founder", name: "Founder", monthly: "$25", annual: "$250" },
-    { id: "pro", name: "Pro", monthly: "$49", annual: "$490" },
-    { id: "team", name: "Team", monthly: "$99", annual: "$990" },
-    { id: "agency", name: "Agency", monthly: "$199", annual: "$1,990" },
-  ] as const;
-
-  if ((page.viewportSize()?.width ?? 0) < 1024) {
-    await page.setViewportSize({ width: 390, height: 844 });
-  }
-
+    {
+      id: "founder",
+      name: "Solo",
+      monthly: "$29",
+      annual: "$290",
+      audience: "solo founders and creators",
+    },
+    {
+      id: "team",
+      name: "Team",
+      monthly: "$59",
+      annual: "$590",
+      audience: "small teams publishing together",
+    },
+    {
+      id: "agency",
+      name: "Agency",
+      monthly: "$99",
+      annual: "$990",
+      audience: "agencies managing client accounts",
+    },
+  ];
   await page.goto("/pricing");
-
-  const selfHosted = page.locator('section[aria-label="Self-hosted deployment"]');
+  const selfHosted = page.getByRole("region", { name: "Self-hosted deployment" });
   await expect(selfHosted).toContainText("no software fee");
-  await expect(selfHosted).toContainText("not a hosted plan and not a free tier of one");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
     "href",
     "/self-hosting",
   );
-
   await page.getByText("Trial and billing details").click();
-  await expect(page.getByText("Paddle is the Merchant of Record")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Refund policy" })).toHaveAttribute(
+  await expect(page.getByText("Paddle is the Merchant of Record", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Refund policy", exact: true })).toHaveAttribute(
     "href",
     "/refunds",
   );
-  await expect(page.getByRole("link", { name: "Billing settings" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Billing settings", exact: true })).toHaveAttribute(
     "href",
     "https://app.openpo.st/settings?tab=billing#billing",
   );
   await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
-
-  await expect(page.getByRole("article")).toHaveCount(5);
-  for (const plan of planCases) {
-    const card = page
-      .getByRole("article")
-      .filter({ has: page.getByRole("heading", { name: plan.name }) });
-    await expect(card.locator(".animated-price")).toMatchAriaSnapshot(`- text: ${plan.monthly}`);
-    await expect(card.getByRole("link", { name: `Start ${plan.name}` })).toHaveAttribute(
-      "href",
-      `https://app.openpo.st/register?plan=${plan.id}&billing_period=monthly`,
-    );
-    await expect(card).toContainText(`Then ${plan.monthly} per month until canceled.`);
-  }
-
-  const yearly = page.getByRole("button", { name: /^Yearly/ });
-  await yearly.focus();
-  await yearly.click();
-  await expect(yearly).toBeFocused();
-  await expect(page.locator('[role="status"][aria-live="polite"]')).toContainText(
-    "Yearly billing selected",
-  );
-  for (const plan of planCases) {
-    const card = page
-      .getByRole("article")
-      .filter({ has: page.getByRole("heading", { name: plan.name }) });
-    await expect(card).toContainText(`Billed ${plan.annual} yearly`);
-    await expect(card.getByRole("link", { name: `Start ${plan.name}` })).toHaveAttribute(
-      "href",
-      `https://app.openpo.st/register?plan=${plan.id}&billing_period=annual`,
-    );
-    await expect(card).toContainText(`Then ${plan.annual} per year until canceled.`);
-  }
-
-  if ((page.viewportSize()?.width ?? 0) >= 1024) {
-    const comparison = page.locator(".desktop-limits");
+  const table = page.getByRole("table", { name: "Compare Hosted plans" });
+  for (const billing of ["monthly", "annual"] as const) {
+    await page.getByRole("button", { name: billing === "monthly" ? "Monthly" : /^Yearly/ }).click();
     for (const plan of planCases) {
-      await expect(comparison.getByRole("columnheader", { name: plan.name })).toContainText(
-        `${plan.annual}/year`,
+      if ((page.viewportSize()?.width ?? 0) < 768)
+        await page.getByRole("button", { name: plan.name, exact: true }).click();
+      const header = table
+        .getByRole("columnheader")
+        .filter({ has: page.getByRole("heading", { name: plan.name, exact: true }) });
+      await expect(header).toContainText(`Best for ${plan.audience}.`);
+      await expect(
+        header.getByRole("link", { name: `Start ${plan.name}`, exact: true }),
+      ).toHaveAttribute(
+        "href",
+        `https://app.openpo.st/register?plan=${plan.id}&billing_period=${billing}`,
       );
-    }
-  } else {
-    const comparison = page.locator(".mobile-limits");
-    for (const plan of planCases) {
-      await expect(comparison.locator(`[data-plan-id="${plan.id}"]`)).toContainText(
-        `${plan.annual}/year`,
+      await expect(header).toContainText(
+        `Then ${billing === "monthly" ? plan.monthly + " per month" : plan.annual + " per year"} until canceled.`,
       );
     }
   }
-
+  await expect(table.getByRole("heading", { name: "Starter", exact: true })).toHaveCount(0);
+  await expect(table.getByRole("heading", { name: "Pro", exact: true })).toHaveCount(0);
+  await expect(
+    table.getByRole("rowheader", { name: "AI writing & image alt text", exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect(page.getByRole("article")).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

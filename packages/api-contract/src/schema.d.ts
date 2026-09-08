@@ -6960,7 +6960,7 @@ export interface components {
             billing_period: "monthly" | "annual";
             /** @description Organization ID */
             organization_id?: string;
-            /** @description Plan ID: starter, founder, pro, team, or agency */
+            /** @description Plan ID: founder (Solo), team, or agency */
             plan_id: string;
             /** @description Validated same-origin route to resume once this exact checkout succeeds */
             return_path?: string;
@@ -7230,7 +7230,7 @@ export interface components {
              * @enum {string}
              */
             billing_period: "monthly" | "annual";
-            /** @description Plan ID: starter, founder, pro, team, or agency */
+            /** @description Plan ID: founder (Solo), team, or agency */
             plan_id: string;
             /** @description Validated same-origin route to resume once this exact checkout succeeds */
             return_path?: string;
@@ -7396,7 +7396,7 @@ export interface components {
              * @enum {string}
              */
             billing_period: "monthly" | "annual";
-            /** @description Canonical hosted plan ID: starter, founder, pro, team, or agency */
+            /** @description Canonical hosted plan ID: founder (Solo), team, or agency */
             plan_id: string;
             /** @description Existing integrity-protected choice to validate against the supplied plan and period */
             purchase_choice_token?: string;
@@ -12674,7 +12674,7 @@ export interface components {
              * @example https://example.com/schemas/SetUserPlanInputBody.json
              */
             readonly $schema?: string;
-            /** @description Plan ID to assign: starter, founder, pro, team, agency, or empty string to remove the override */
+            /** @description Plan ID to assign: founder (Solo), team, agency, or empty string to remove the override */
             plan_id: string;
         };
         SetUserPlanOutputBody: {

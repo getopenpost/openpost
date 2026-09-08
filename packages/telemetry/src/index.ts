@@ -141,7 +141,7 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "docs code copied": ["language"],
 };
 const firstCompositionSignals = new Set(["text", "media", "content_mode"]);
-const planIDs = new Set(["starter", "founder", "pro", "team", "agency"]);
+const planIDs = new Set(["founder", "team", "agency"]);
 const billingPeriods = new Set(["monthly", "annual"]);
 const telemetryPreferenceVersion = "v1";
 const telemetryPreferenceMaxAgeSeconds = 365 * 24 * 60 * 60;

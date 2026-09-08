@@ -14,18 +14,18 @@ describe('hosted billing catalog', () => {
 	it('keeps the USD-first monthly and annual prices in the product catalog', () => {
 		expect(hostedPlans.map((plan) => [plan.id, plan.monthlyPriceUSD, plan.annualPriceUSD])).toEqual(
 			[
-				['starter', 15, 150],
-				['founder', 25, 250],
-				['pro', 49, 490],
-				['team', 99, 990],
-				['agency', 199, 1990]
+				['founder', 29, 290],
+				['team', 59, 590],
+				['agency', 99, 990]
 			]
 		);
 	});
 
-	it('rejects unknown plans instead of selecting Founder', () => {
+	it('rejects unknown plans instead of selecting Solo', () => {
 		expect(normalizeHostedPlanID('AGENCY')).toBe('agency');
 		expect(normalizeHostedPlanID('enterprise')).toBe('');
+		expect(normalizeHostedPlanID('starter')).toBe('');
+		expect(normalizeHostedPlanID('pro')).toBe('');
 		expect(hostedPlanByID('enterprise')).toBeUndefined();
 	});
 

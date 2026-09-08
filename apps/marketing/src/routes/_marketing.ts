@@ -234,7 +234,7 @@ export const plans = planCatalog.plans.map((plan) => ({
 	limits: [
 		formatLimit(plan.limits.workspaces, 'workspace'),
 		formatLimit(plan.limits.social_accounts, 'social account'),
-		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled posts/month`,
+		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled publications/month`,
 		`${plan.limits.media_bytes_stored / 1_000_000_000} GB media`,
 		plan.limits.team_members === 1
 			? '1 seat'
@@ -342,10 +342,10 @@ export const featureGroups = [
 		scope: [
 			'Workspace roles control who can view, edit, publish, manage members, or administer the workspace.',
 			'Invitations and membership changes stay tied to the invited email and active workspace.',
-			'Team includes three seats and Agency includes five. Each Hosted service plan sets its own workspace limit.'
+			'Team and Agency include multiple workspaces and shared access for teammates.'
 		],
 		limit:
-			'Team roles are included on the Team and Agency Hosted service plans. Included seats and workspace counts vary by plan.',
+			'The pricing table lists included workspaces and people. Each workspace has its own usage allowances.',
 		proof: {
 			kind: 'image',
 			src: '/assets/screenshots/settings-dark.png',
@@ -1128,6 +1128,22 @@ export const faqs = [
 		answer:
 			'Every Hosted service plan starts with 14 days free. A card is required. OpenPost shows the exact renewal price and date before you start, and you can cancel from billing settings before the first charge.',
 		learnMore: { label: 'See plans and limits', href: '/pricing' }
+	},
+	{
+		id: 'choose-plan',
+		category: 'billing',
+		question: 'Which plan should I choose?',
+		answer:
+			'Choose Solo if you publish on your own, Team if you work with other people, or Agency if you manage client accounts. Every workspace includes the same tools and usage allowances. Team and Agency add workspaces and more people in each workspace.',
+		learnMore: { label: 'Compare plans', href: '/pricing' }
+	},
+	{
+		id: 'extra-charges',
+		category: 'billing',
+		question: 'Will I pay extra for seats or AI?',
+		answer:
+			'The listed price includes your plan’s workspaces, people, and AI writing tools. There are no AI credit packs or automatic overage charges. Monthly usage becomes available again in the next calendar month. Free storage or disconnect accounts to make room. Upgrade when you need more workspaces or people; usage allowances in each workspace stay the same. Tax is calculated at checkout.',
+		learnMore: { label: 'Read billing terms', href: '/terms' }
 	},
 	{
 		id: 'change-plans',

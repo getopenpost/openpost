@@ -13,9 +13,7 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 
 	const productSite = 'https://openpo.st';
 	const planBestFor = {
-		starter: m.public_home_plan_starter_best_for,
 		founder: m.public_home_plan_founder_best_for,
-		pro: m.public_home_plan_pro_best_for,
 		team: m.public_home_plan_team_best_for,
 		agency: m.public_home_plan_agency_best_for
 	} satisfies Record<HostedPlanID, () => string>;
@@ -102,7 +100,8 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 				<div class="border-y py-6 lg:border-y-0 lg:border-l lg:py-2 lg:pl-10">
 					<p class="text-sm font-medium text-muted-foreground">{m.public_home_plans_from()}</p>
 					<p class="mt-2 text-5xl font-semibold tracking-[-0.035em]">
-						$15<span class="text-base font-normal tracking-normal text-muted-foreground"
+						${hostedPlans[0].monthlyPriceUSD}<span
+							class="text-base font-normal tracking-normal text-muted-foreground"
 							>/{m.public_home_month()}</span
 						>
 					</p>
@@ -164,12 +163,10 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 					</a>
 				</div>
 
-				<div
-					class="mt-7 grid overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-5"
-				>
+				<div class="mt-7 grid overflow-hidden rounded-xl border bg-border md:grid-cols-3">
 					{#each hostedPlans as plan (plan.id)}
 						<article
-							class="flex min-h-full flex-col bg-card p-5 not-last:border-b sm:odd:border-r lg:not-last:border-r lg:not-last:border-b-0"
+							class="flex min-h-full flex-col bg-card p-5 not-last:border-b md:not-last:border-r md:not-last:border-b-0"
 						>
 							<h3 class="text-sm font-semibold">{plan.name}</h3>
 							<p class="mt-3 text-2xl font-semibold tracking-tight tabular-nums">

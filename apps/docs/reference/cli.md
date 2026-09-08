@@ -395,7 +395,7 @@ openpost billing
 
 Create an OpenPost checkout URL for the active workspace
 
-Create an OpenPost checkout URL that opens Paddle's embedded payment form. Plan IDs are starter, founder, pro, team, or agency.
+Create an OpenPost checkout URL that opens Paddle's embedded payment form. Plan IDs are founder (Solo), team, or agency.
 
 **Usage**
 

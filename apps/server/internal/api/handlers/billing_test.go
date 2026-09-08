@@ -219,7 +219,6 @@ func TestPurchaseChoiceEndpointCreatesAndRevalidatesCanonicalChoice(t *testing.T
 	service := billing.NewService(nil, "", billing.PaddleConfig{
 		Plans: billing.DefaultPlanCatalog(
 			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
-			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
 		),
 		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})

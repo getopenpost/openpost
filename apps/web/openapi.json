@@ -4126,7 +4126,7 @@
 						"type": "string"
 					},
 					"plan_id": {
-						"description": "Plan ID: starter, founder, pro, team, or agency",
+						"description": "Plan ID: founder (Solo), team, or agency",
 						"type": "string"
 					},
 					"return_path": {
@@ -4681,7 +4681,7 @@
 						"type": "string"
 					},
 					"plan_id": {
-						"description": "Plan ID: starter, founder, pro, team, or agency",
+						"description": "Plan ID: founder (Solo), team, or agency",
 						"type": "string"
 					},
 					"return_path": {
@@ -4976,7 +4976,7 @@
 						"type": "string"
 					},
 					"plan_id": {
-						"description": "Canonical hosted plan ID: starter, founder, pro, team, or agency",
+						"description": "Canonical hosted plan ID: founder (Solo), team, or agency",
 						"type": "string"
 					},
 					"purchase_choice_token": {
@@ -17379,7 +17379,7 @@
 						"type": "string"
 					},
 					"plan_id": {
-						"description": "Plan ID to assign: starter, founder, pro, team, agency, or empty string to remove the override",
+						"description": "Plan ID to assign: founder (Solo), team, agency, or empty string to remove the override",
 						"type": "string"
 					}
 				},

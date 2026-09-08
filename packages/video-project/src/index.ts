@@ -344,7 +344,7 @@ const DEVICE_ONLY_KEYS = new Set([
 
 export function portableVideoProjectDocument<T extends object>(document: T): T {
   // SAFETY: stripDeviceState preserves the input object's shape while removing device-only keys recursively.
-  return stripDeviceState(structuredClone(document)) as T;
+  return stripDeviceState(document) as T;
 }
 
 const STABLE_TIMELINE_COLLECTIONS = new Set([

@@ -32,6 +32,25 @@ function mutation(id: string): PendingVideoProjectMutation {
 }
 
 describe("portable Video Project contract", () => {
+  it("saves reactive documents without retaining mutable state or device handles", () => {
+    const title = { id: "title", text: "Before" };
+    const document = new Proxy(
+      {
+        id: "project-1",
+        rootFolderHandle: { requestPermission() {} },
+        timeline: { items: [new Proxy(title, {})] },
+      },
+      {},
+    );
+    const portable = portableVideoProjectDocument(document);
+    title.text = "After";
+    expect(portable).toEqual({
+      id: "project-1",
+      timeline: { items: [{ id: "title", text: "Before" }] },
+    });
+    expect(structuredClone(portable)).toEqual(portable);
+  });
+
   it("creates a web-editable timeline clip from a prepared mobile capture", () => {
     const document = createCapturedVideoProjectDocument({
       id: "capture-1",

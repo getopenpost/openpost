@@ -1036,6 +1036,18 @@
       "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
+      "id": "opfs-cloud-video-exports",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor export history",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-exports",
+      "purpose": "Keeps completed Cloud Video Project exports available to download from this browser.",
+      "scope": "Application origin and browser profile; exports are grouped by Workspace and project.",
+      "duration": "Until the export is deleted, the browser evicts it, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/export-storage.ts"]
+    },
+    {
       "id": "opfs-video-streams",
       "technology": "OPFS",
       "owner": "OpenPost Video Editor export pipeline",

@@ -678,9 +678,9 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "documentation canonical redirect",
-      url: "https://docs.openpo.st/guides?openpost_proof=redirect",
+      url: "https://docs.openpo.st/mcp/cursor/?openpost_proof=redirect",
       status: 308,
-      location: "/guides?openpost_proof=redirect",
+      location: "/mcp/cursor?openpost_proof=redirect",
     },
   );
 

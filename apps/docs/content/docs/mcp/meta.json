@@ -1,0 +1,6 @@
+{
+  "title": "AI assistants",
+  "icon": "Bot",
+  "root": true,
+  "pages": ["index", "cursor", "chatgpt", "claude", "tools"]
+}

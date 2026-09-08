@@ -1,0 +1,45 @@
+---
+title: Connect Cursor
+description: Add OpenPost to Cursor using remote MCP and OAuth.
+---
+
+Cursor supports remote Streamable HTTP MCP servers. Add OpenPost to your personal Cursor configuration, then let Cursor complete OAuth in the browser.
+
+## Configure the server
+
+Create or edit `~/.cursor/mcp.json` for all projects, or `.cursor/mcp.json` for one project:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "url": "https://app.openpo.st/mcp"
+    }
+  }
+}
+```
+
+Restart the Agent window, open Cursor's MCP or Customize view, and connect `openpost`. Cursor discovers OpenPost's authorization metadata and opens the sign-in page. Choose an OpenPost workspace and grant `mcp:read` for review-only work, or `mcp:full` when the agent must create, schedule, or publish. The Cursor CLI can authenticate a configured server with `agent mcp login openpost` and inspect it with `agent mcp list-tools openpost`.
+
+## Token fallback
+
+If your Cursor surface does not offer OAuth, keep the token outside the file and use its environment interpolation:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "url": "https://app.openpo.st/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:OPENPOST_MCP_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Create a developer token with the smallest OpenPost MCP scope, export `OPENPOST_MCP_TOKEN`, and restart Cursor. Do not commit a real token to a project-level config.
+
+## Test and fix the common failures
+
+Ask Cursor, “List my OpenPost workspaces,” then “Review this week's schedule without changing anything.” If the server is disconnected, reload the MCP configuration and sign in again. A private self-hosted URL is not reachable by Cursor Cloud Agents; use a public HTTPS hostname or the local `openpost-mcp` stdio bridge. Use `/mcp`, not `/api/v1/mcp`.

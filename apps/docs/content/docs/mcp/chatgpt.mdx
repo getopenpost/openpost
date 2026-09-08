@@ -1,0 +1,22 @@
+---
+title: Connect ChatGPT
+description: Add OpenPost as a custom MCP app in ChatGPT.
+---
+
+ChatGPT connects to remote MCP servers as custom apps. This setup is available on web, and workspace administrators control whether custom apps and write actions are allowed. OpenAI currently describes full write-capable MCP support as rolling out for Business, Enterprise, and Edu plans; your workspace may show a different UI.
+
+## Add the OpenPost app
+
+1. Open ChatGPT on the web and enable Developer mode in **Settings → Apps → Advanced settings**, if your workspace allows it.
+2. Open **Settings → Apps → Create** or the workspace's **Apps → Create** page.
+3. Enter `https://app.openpo.st/mcp` as the MCP endpoint. Let ChatGPT discover the advertised metadata and choose OAuth when asked.
+4. Scan the tools, complete OpenPost sign-in, choose the workspace and `mcp:read` or `mcp:full` scope, then create the app.
+5. Open a new chat, select the OpenPost app from the tools menu, and test a read request before enabling write actions.
+
+For a first test, ask: “List my OpenPost workspaces,” then “Review this week's scheduled publications without changing anything.” A full-scope app can create or modify content, but ChatGPT may request confirmation for write actions. Read each confirmation and check the destination, account, text, and time.
+
+## Workspace and private-host limits
+
+ChatGPT needs a remote HTTPS server. It cannot connect directly to `localhost`, a private LAN address, or an on-premises host. Use a public HTTPS OpenPost URL, or OpenAI's supported Secure MCP Tunnel for a private server. The local `openpost-mcp` stdio bridge is suitable for desktop clients, but it is not a direct ChatGPT connection.
+
+If the app loses access, reconnect it from **Settings → Apps**. OAuth refresh depends on the server issuing refresh tokens. If an admin has already published the app, tool changes may require an admin to refresh and republish the app before ChatGPT sees them.

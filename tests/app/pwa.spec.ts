@@ -194,11 +194,14 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(install).toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
     await expect(install).not.toBeVisible();
+    await page.keyboard.press("Escape");
+    const profileMenu = page.getByTestId("profile-menu-trigger");
+    await expect(profileMenu).toHaveAttribute("aria-expanded", "false");
     await page.setViewportSize({ width: 600, height: 800 });
+    await expect(profileMenu).not.toBeVisible();
     await page.setViewportSize({ width: 1280, height: 800 });
-    if (!(await page.getByRole("menuitem", { name: "Log out", exact: true }).isVisible())) {
-      await page.getByTestId("profile-menu-trigger").click();
-    }
+    await expect(profileMenu).toBeVisible();
+    await profileMenu.click();
     await expect(page.getByRole("menuitem", { name: "Log out", exact: true })).toBeVisible();
     await expect(install).not.toBeVisible();
   });

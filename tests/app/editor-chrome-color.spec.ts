@@ -264,10 +264,10 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.getByRole("button", { name: "Show all scopes" })).toBeVisible();
         await page.getByRole("button", { name: "Show all scopes" }).click();
         await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
-        await page.getByRole("menubar").getByText("Clip", { exact: true }).click();
+        await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         await expect(page.getByRole("menuitem", { name: /Split/ })).toBeVisible();
         await page.keyboard.press("Escape");
-        await page.getByRole("menubar").getByText("Sequences", { exact: true }).click();
+        await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await page.keyboard.press("Escape");
       }

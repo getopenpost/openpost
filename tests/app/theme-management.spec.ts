@@ -60,12 +60,14 @@ test("create a theme, reopen its draft, publish, apply, and return to Appearance
   await expect(page.getByRole("button", { name: "Applied My theme", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop testing" })).toHaveCount(0);
   await page.getByRole("button", { name: "Publications", exact: true }).click();
+  await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await page.goBack();
   await expect(page.getByRole("button", { name: "Test Notebook", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Test Notebook", exact: true }).click();
   await page.getByRole("button", { name: "Apply Notebook", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme-id", "notebook");
   await page.getByRole("button", { name: "Publications", exact: true }).click();
+  await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await page.goBack();
   await expect(page.getByRole("button", { name: "Create theme", exact: true })).toBeEnabled();
 });
@@ -144,6 +146,7 @@ test("tests every built-in theme and restores the saved theme when leaving Appea
     await expect(page.locator("html")).toHaveAttribute("data-theme-id", theme.reference.id);
   }
   await page.getByRole("button", { name: "Publications", exact: true }).click();
+  await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await expect(page.locator("html")).toHaveAttribute("data-theme-id", "workshop");
   await page.goBack();
   await expect(page.getByRole("button", { name: "Create theme", exact: true })).toBeEnabled();

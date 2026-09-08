@@ -11,6 +11,27 @@
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
 		<meta name="theme-color" content="#faf9f7" />
+		<script>
+			// The client-only app cannot inject ModeWatcher's head script before first paint.
+			let preference;
+			try {
+				preference = localStorage.getItem('mode-watcher-mode');
+			} catch {}
+			const dark =
+				preference === 'dark' ||
+				(preference !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+			document.documentElement.classList.toggle('dark', dark);
+			document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+			document.querySelector('meta[name="theme-color"]').content = dark ? '#251f1c' : '#faf9f7';
+		</script>
+		<style>
+			/* Paint the canvas even while the app stylesheet is still downloading. */
+			@layer base {
+				html {
+					background: light-dark(oklch(0.985 0.002 80), oklch(0.145 0.008 55));
+				}
+			}
+		</style>
 
 		%sveltekit.head%
 	</head>

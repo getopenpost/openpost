@@ -477,7 +477,10 @@
 	<ThemeAppShell />
 	{#if !isPreviewRoute}
 		<PwaManager />
-		<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
+		<ModeWatcher
+			disableHeadScriptInjection
+			themeColors={{ light: '#faf9f7', dark: '#251f1c' }}
+		/>{/if}
 	<Toaster position="bottom-center" richColors closeButton />
 	<TelemetryConsent
 		title={m.telemetry_consent_title()}

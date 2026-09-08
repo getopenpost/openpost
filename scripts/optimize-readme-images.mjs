@@ -8,13 +8,22 @@ const screenshotDirectory = path.join(repositoryRoot, "assets", "screenshots");
 const webpQuality = 0.84;
 
 const images = [
-  { name: "readme-hero-dark", width: 1440 },
-  { name: "calendar-dark", width: 960 },
-  { name: "analytics-dark", width: 960 },
-  { name: "media-dark", width: 960 },
-  { name: "accounts-dark", width: 960 },
-  { name: "image-editor-dark", width: 1440 },
-  { name: "video-editor-dark", width: 1440 },
+  { name: "main-dark", width: 2880 },
+  ...[
+    "calendar-detail",
+    "analytics-detail",
+    "image-canvas-detail",
+    "image-controls-detail",
+    "video-preview-detail",
+    "video-timeline-detail",
+  ].map((name) => ({ name, width: 2880 })),
+  { name: "readme-hero-dark", width: 2880 },
+  { name: "calendar-dark", width: 2880 },
+  { name: "analytics-dark", width: 2880 },
+  { name: "media-dark", width: 2880 },
+  { name: "accounts-dark", width: 2880 },
+  { name: "image-editor-dark", width: 2880 },
+  { name: "video-editor-dark", width: 2880 },
 ];
 
 export async function optimizeReadmeImages() {

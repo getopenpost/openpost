@@ -22,6 +22,7 @@ test("repeat visits do not accumulate screenshot click listeners", async ({ page
     await expect(page.locator(".rough-annotation")).toHaveCount(1);
     expect(await listenerCount()).toBe(originalListeners);
   }
+  await page.getByRole("button", { name: "Video Editor", exact: true }).click();
   await page.getByRole("link", { name: "Enlarge Video Editor screenshot" }).press("Enter");
   await expect(page.getByRole("button", { name: "Close Video Editor screenshot" })).toBeFocused();
   await page.keyboard.press("Escape");
@@ -35,6 +36,7 @@ test("screenshot pointer clicks preserve new-tab links and remember an early Esc
 }) => {
   await page.goto("/");
   await dismissTelemetryConsent(page);
+  await page.getByRole("button", { name: "Image Editor", exact: true }).click();
   const trigger = page.getByRole("link", { name: "Enlarge Image Editor screenshot" });
   const newPage = context.waitForEvent("page");
   await trigger.locator("img").click({ modifiers: ["ControlOrMeta"] });
@@ -65,6 +67,7 @@ for (const width of [1440, 390, 320]) {
       await expect(page.locator(".rough-annotation")).toHaveCount(1);
       await page.screenshot({ path: testInfo.outputPath("hero.png") });
       for (const editor of ["Image Editor", "Video Editor"]) {
+        await page.getByRole("button", { name: editor, exact: true }).click();
         const trigger = page.getByRole("link", {
           name: `Enlarge ${editor} screenshot`,
         });
@@ -111,12 +114,11 @@ test("screenshots remain direct image links without JavaScript", async ({ browse
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto("/");
-  for (const editor of ["Image Editor", "Video Editor"]) {
+  for (const editor of ["Compose"]) {
     await expect(page.getByRole("link", { name: `Enlarge ${editor} screenshot` })).toHaveAttribute(
       "href",
       /\/assets\/screenshots\/.+\.webp$/,
     );
-    await expect(page.getByRole("link", { name: new RegExp(`Open the ${editor}`) })).toBeVisible();
   }
   await context.close();
 });

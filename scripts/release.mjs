@@ -243,6 +243,9 @@ async function prepare(commitMessage) {
     tag = runCapture(["bun", "scripts/next-release-version.mjs", latestTag]).trim();
   }
 
+  // Ship product images from this revision, including the landing page detail crops.
+  run(["bun", "run", "capture:product-screenshots"]);
+
   const changelogPath = path.join(root, "CHANGELOG.md");
   const mobileConfigPath = path.join(root, "apps/mobile", "app.json");
   const mobilePackagePath = path.join(root, "apps/mobile", "package.json");

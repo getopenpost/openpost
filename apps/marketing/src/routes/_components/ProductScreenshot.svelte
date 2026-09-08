@@ -9,7 +9,12 @@
 	import { onMount, tick } from 'svelte';
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 
-	let { src, alt, label }: { src: string; alt: string; label: string } = $props();
+	let {
+		src,
+		alt,
+		label,
+		priority = false
+	}: { src: string; alt: string; label: string; priority?: boolean } = $props();
 	let image: HTMLImageElement;
 	let link: HTMLAnchorElement;
 	let zoom: Zoom | undefined;
@@ -79,7 +84,15 @@
 		if (expanded && event.key === 'Tab') void close();
 	}}
 >
-	<img bind:this={image} {src} {alt} width="1440" height="900" loading="lazy" />
+	<img
+		bind:this={image}
+		{src}
+		{alt}
+		width="2880"
+		height="1920"
+		loading={priority ? 'eager' : 'lazy'}
+		fetchpriority={priority ? 'high' : 'auto'}
+	/>
 	<span class="zoom-hint"><ZoomIn size={16} aria-hidden="true" /> Enlarge screenshot</span>
 </a>
 {#if expanded}
@@ -101,14 +114,21 @@
 <style>
 	.screenshot-link {
 		display: block;
-		border-radius: 9px;
+		position: relative;
 	}
 	.screenshot-link img {
 		display: block;
 		width: 100%;
-		border-radius: 9px;
+		height: auto;
 	}
 	.zoom-hint {
+		position: absolute;
+		bottom: 12px;
+		right: 12px;
+		padding: 0 12px;
+		border-radius: 8px;
+		background: var(--background);
+		color: var(--foreground);
 		display: flex;
 		align-items: center;
 		gap: 6px;

@@ -5,12 +5,12 @@
 	let element: HTMLSpanElement;
 	onMount(() => {
 		const annotation = annotate(element, {
-			type: 'underline',
-			color: 'var(--primary)',
+			type: 'circle',
+			color: 'var(--marketing-soft-ink)',
 			strokeWidth: 2,
-			padding: 3,
+			padding: [5, 9],
 			iterations: 1,
-			multiline: true,
+			multiline: false,
 			animate: !matchMedia('(prefers-reduced-motion: reduce)').matches,
 			animationDuration: 550
 		});
@@ -26,3 +26,10 @@
 </script>
 
 <span bind:this={element}>{@render children()}</span>
+
+<style>
+	span {
+		display: inline-block;
+		white-space: nowrap;
+	}
+</style>

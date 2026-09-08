@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import ProductScreenshot from './ProductScreenshot.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import { demoVideoUrl } from '../_marketing';
@@ -9,7 +9,7 @@
 		{
 			name: 'Compose',
 			icon: '/assets/brand/features/compose.svg',
-			src: '/assets/screenshots/readme-hero-dark.webp',
+			src: '/assets/screenshots/main-dark.webp',
 			alt: 'OpenPost composer with a draft, six social destinations, and scheduling controls',
 			caption: 'Write once. Review each destination.'
 		},
@@ -44,17 +44,9 @@
 	];
 	let selected = $state(0);
 	let ready = $state(false);
-	let reducedMotion = $state(true);
 	const view = $derived(views[selected]);
 	onMount(() => {
 		ready = true;
-		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		const update = () => {
-			reducedMotion = media.matches;
-		};
-		update();
-		media.addEventListener('change', update);
-		return () => media.removeEventListener('change', update);
 	});
 </script>
 
@@ -74,13 +66,11 @@
 	{/if}
 	<div class="preview">
 		{#key selected}
-			<img
+			<ProductScreenshot
 				src={view.src}
 				alt={view.alt}
-				width="1440"
-				height="960"
-				fetchpriority={selected === 0 ? 'high' : 'auto'}
-				in:fade={{ duration: reducedMotion ? 0 : 180 }}
+				label={view.name}
+				priority={selected === 0}
 			/>
 		{/key}
 	</div>
@@ -123,19 +113,10 @@
 		background: var(--muted);
 		color: var(--foreground);
 	}
-	.view-picker button[aria-pressed='true'] {
-		box-shadow: inset 0 -2px var(--foreground);
-	}
 	.preview {
 		aspect-ratio: 3 / 2;
 		display: grid;
 		background: var(--muted);
-	}
-	.preview img {
-		grid-area: 1 / 1;
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
 	}
 	.tour-footer {
 		display: flex;

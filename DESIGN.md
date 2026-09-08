@@ -140,9 +140,9 @@ Marketing keeps Workshop’s warm canvas, ink, shared controls, and protected id
 
 The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
 
-The landing page leads with real product media, then gives the Image Editor and Video Editor enough space to inspect. Use concise feature lists, a visible product-tour preview, and zoomable calendar and analytics screenshots. Keep trial terms next to signup actions. Verified testimonials retain their source wording and attribution. Retained fictional workflow examples must be labeled as examples.
+The landing page opens with a zoomable product tour using raw 2x screenshots, without the README frame or shadow. Later sections layer focused crops of actual editing, calendar, and analytics controls instead of repeating full app windows. Use colored panels and a tools-and-resources grid with concise copy. Keep trial terms next to signup actions. Show only sourced testimonials, without fictional workflow examples or embedded usage videos.
 
-Feature marks live in `assets/brand/features/`. Their shared rounded geometry and divided base distinguish tools, while each tool has a fixed color and literal symbol. Use them at editor entry points and in public feature sections, with text or an accessible name. They are feature identifiers, not replacements for the protected Converge brand mark, status colors, or action icons. Keep SVGs as the source and distribute them through `scripts/asset-surfaces.ts`.
+Feature marks live in `assets/brand/features/`. Their charcoal rim, colored inset, white panels, literal upper symbols, and divided base distinguish tools, while each tool has a fixed color and literal symbol. Use them at editor entry points and in public feature sections, with text or an accessible name. They are feature identifiers, not replacements for the protected Converge brand mark, status colors, or action icons. Keep SVGs as the source and distribute them through `scripts/asset-surfaces.ts`.
 
 Motion responds to a visitor's choices. Essential copy, signup links, screenshots, the product-tour link, and FAQ answers remain available without JavaScript. Respect reduced motion and keep preview controls accessible by keyboard.
 
@@ -285,3 +285,5 @@ Authenticated routes use `PageContainer`, `PageHeader`, `SectionHeader`, and con
 - **Don't** wrap every group in another card or nest cards when spacing and a divider would express the hierarchy.
 - **Don't** use monospace, uppercase, badges, or a theme's focal color as decoration.
 - **Don't** create one-off loading, empty, success, error, or destructive patterns when a shared primitive exists.
+
+Documentation uses neutral white and charcoal reading surfaces with muted blue links. Orange stays in the product mark.

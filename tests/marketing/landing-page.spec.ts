@@ -19,13 +19,15 @@ test("landing product preview follows the visitor's selection", async ({ page })
       new RegExp(name === "Compose" ? "composer" : name, "i"),
     );
     await expect
-      .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+      .poll(() =>
+        image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth >= 2880),
+      )
       .toBe(true);
   }
   expect(errors).toEqual([]);
 });
 
-test("testimonials link to their source and examples remain identified", async ({ page }) => {
+test("testimonials link to their source without fictional examples", async ({ page }) => {
   await page.goto("/");
   await dismissTelemetryConsent(page);
   const stories = page.getByRole("region", { name: "First reactions." });
@@ -37,34 +39,25 @@ test("testimonials link to their source and examples remain identified", async (
     "href",
     "https://www.reddit.com/r/foss/comments/1wa2075/comment/p8fnhym/",
   );
-  await stories.locator("summary").press("Enter");
-  await expect(
-    stories.getByText("Fictional examples of how people might use OpenPost."),
-  ).toBeVisible();
-  await expect(stories.getByText("Jonas Keller", { exact: false })).toBeVisible();
-  await expect(stories.locator("details a")).toHaveCount(0);
+  await expect(stories.getByText("Example workflows")).toHaveCount(0);
+  await expect(stories.locator("figure")).toHaveCount(2);
 });
 
-test("editor demonstrations load on demand and can be played by keyboard", async ({ page }) => {
+test("landing details and resources load without repeating full screenshots", async ({ page }) => {
   await page.goto("/");
   await dismissTelemetryConsent(page);
   await expect(page.locator("main video")).toHaveCount(0);
-  for (const editor of ["Image Editor", "Video Editor"]) {
-    const summary = page.locator("summary").filter({ hasText: `Watch ${editor} in action` });
-    await summary.press("Enter");
-    const video = page.getByLabel(`${editor} demonstration`);
-    await expect(video).toBeVisible();
+  const details = page.getByRole("region", { name: "Make the media right here." });
+  for (const image of await details.locator("img").all()) {
+    await image.scrollIntoViewIfNeeded();
     await expect
-      .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
-      .toBeGreaterThan(0);
-    await video.focus();
-    await video.press("Space");
-    await expect
-      .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime))
-      .toBeGreaterThan(0.2);
-    expect(await video.evaluate((v: HTMLVideoElement) => v.error)).toBeNull();
-    await summary.press("Enter");
-    await expect(video).toHaveCount(0);
+      .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+      .toBe(true);
+  }
+  await expect(details.locator('img[src$="-dark.webp"]')).toHaveCount(0);
+  const resources = page.getByRole("region", { name: "A few useful starting points." });
+  for (const path of ["/tools", "/guides", "/developers", "/platforms"]) {
+    await expect(resources.locator(`a[href="${path}"]`)).toBeVisible();
   }
 });
 
@@ -83,15 +76,6 @@ test("landing keeps trial terms and its tour accessible without JavaScript", asy
   await expect(
     page.getByRole("link", { name: "Watch the product tour", exact: true }),
   ).toHaveAttribute("href", /youtube\.com\/watch/);
-  for (const editor of ["Image Editor", "Video Editor"]) {
-    await page
-      .locator("summary")
-      .filter({ hasText: `Watch ${editor} in action` })
-      .click();
-    const recording = page.getByRole("link", { name: `Open the ${editor} recording` });
-    await expect(recording).toBeVisible();
-    await expect(recording).toHaveAttribute("href", /\/assets\/demos\/.+\.mp4$/);
-  }
   await page.locator("summary").filter({ hasText: "How does the free trial work?" }).click();
   await expect(
     page.getByRole("region", { name: "A few questions." }).locator("details[open]"),
@@ -131,6 +115,7 @@ for (const width of [1440, 390, 320]) {
         for (const heading of [
           "studio-title",
           "schedule-title",
+          "resources-title",
           "stories-title",
           "closing-title",
         ]) {

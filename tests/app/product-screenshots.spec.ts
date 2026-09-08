@@ -828,6 +828,7 @@ async function installLocalVideoWorkspace(page: Page, sourceBase64: string): Pro
 
 async function createVideoEditorProject(page: Page, name: string): Promise<void> {
   await page.goto("/video-editor");
+  await page.getByRole("button", { name: "Local only", exact: true }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
@@ -847,8 +848,9 @@ test.describe("product screenshot capture", () => {
   );
 
   test.use({
+    actionTimeout: 15_000,
     viewport: captureViewport,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: 2,
     colorScheme: "dark",
     locale: "en-US",
     timezoneId: "Europe/Lisbon",
@@ -1264,6 +1266,7 @@ test.describe("product screenshot capture", () => {
         },
       });
     });
+    await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
     await page.route("**/api/v1/analytics**", async (route) => {
       await route.fulfill({
         contentType: "application/json",
@@ -1369,9 +1372,14 @@ test.describe("product screenshot capture", () => {
       }),
     ]);
 
+    await captureDetail(
+      page.getByRole("region", { name: "Monthly publishing calendar" }),
+      "calendar-detail.png",
+    );
+
     await page.goto(`/analytics?workspace=${workspace.id}`);
     await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
-    await expect(page.getByText("6.9K", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
     const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
     await expect(dailyViewsChart).toBeVisible();
     await expect
@@ -1387,6 +1395,8 @@ test.describe("product screenshot capture", () => {
       page.getByRole("heading", { name: "Measured insights" }),
       dailyViewsChart,
     ]);
+
+    await captureDetail(dailyViewsChart, "analytics-detail.png");
 
     await page.goto("/settings?tab=accounts");
     await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
@@ -1461,6 +1471,14 @@ test.describe("product screenshot capture", () => {
       brightnessSlider,
     ]);
 
+    await captureDetail(imageEditorStage, "image-canvas-detail.png");
+    await captureDetail(
+      imageProperties
+        .locator('[data-slot="collapsible-content"] > div')
+        .filter({ has: page.getByRole("heading", { name: "Tone", exact: true }) }),
+      "image-controls-detail.png",
+    );
+
     await installLocalVideoWorkspace(page, studySOSVideo.toString("base64"));
     await createVideoEditorProject(page, "Study SOS cut");
     await page.getByRole("button", { name: "Import media" }).click();
@@ -1510,6 +1528,12 @@ test.describe("product screenshot capture", () => {
       propertiesTab,
     ]);
 
+    await captureDetail(programMonitor, "video-preview-detail.png");
+    await captureDetail(
+      page.getByRole("region", { name: "Timeline", exact: true }),
+      "video-timeline-detail.png",
+    );
+
     await page.goto("/settings?tab=general");
     await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
     await expect(page.locator('[data-settings-tab="general"]')).toHaveAttribute(
@@ -1526,6 +1550,15 @@ test.describe("product screenshot capture", () => {
     expect(pageErrors).toEqual([]);
   });
 });
+
+async function captureDetail(element: Locator, filename: string) {
+  await element.screenshot({
+    path: join(screenshotDirectory, filename),
+    animations: "disabled",
+    caret: "hide",
+    scale: "device",
+  });
+}
 
 async function capture(page: Page, filename: string, landmarks: Locator[]) {
   await page.addStyleTag({
@@ -1564,7 +1597,7 @@ async function capture(page: Page, filename: string, landmarks: Locator[]) {
     animations: "disabled",
     caret: "hide",
     fullPage: false,
-    scale: "css",
+    scale: "device",
   });
 }
 
@@ -1597,6 +1630,6 @@ async function frameReadmeHero(page: Page) {
     caret: "hide",
     fullPage: false,
     omitBackground: true,
-    scale: "css",
+    scale: "device",
   });
 }

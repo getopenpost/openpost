@@ -43,6 +43,21 @@ describe('Image Editor query adapter', () => {
 		});
 	});
 
+	it.each([
+		{ built_in: false, workspace_id: 'workspace-b' },
+		{ built_in: true, workspace_id: 'workspace-b' },
+		{ built_in: false, workspace_id: '' }
+	])('rejects a template outside the selected workspace: %j', async (template) => {
+		get.mockResolvedValue({
+			data: { templates: [{ id: 'template-1', ...template }] },
+			error: null,
+			response: response()
+		});
+		await expect(api.listTemplates('workspace-a', new AbortController().signal)).rejects.toThrow(
+			'not in the selected workspace'
+		);
+	});
+
 	it('normalizes nullable catalog fields', async () => {
 		get.mockResolvedValue({
 			data: {

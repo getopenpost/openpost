@@ -170,6 +170,7 @@ export function createImageEditorQueryAPI(
 			});
 			return (data.templates ?? []).map((template) => {
 				const mapped = imageEditorTemplate(template);
+				if (mapped.built_in && !mapped.workspace_id) return mapped;
 				return requireImageEditorWorkspace(mapped, workspaceId);
 			});
 		},

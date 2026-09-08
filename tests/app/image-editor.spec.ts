@@ -1,4 +1,18 @@
 import { expect, test } from "@playwright/test";
+import { authenticatePage, registerUser, createWorkspace } from "./helpers";
+
+test("signed-in creators can use built-in templates in their workspace", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, "image-template@example.com");
+  const workspace = await createWorkspace(request, auth.token, "Image workspace");
+  await authenticatePage(page, auth.token);
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await expect(page.getByRole("spinbutton", { name: "Width" })).toBeVisible();
+  await page.getByRole("button", { name: "Create custom design" }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+});
 
 test("starter previews fit the complete canvas on narrow phones", async ({ page }, testInfo) => {
   test.setTimeout(60_000);

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { parseChangelog } from "../../packages/changelog/src/index.js";
+import { dismissTelemetryConsent } from "./helpers";
 
 test("marketing index links to the app and documentation @desktop", async ({ page }) => {
   await page.goto("/");
@@ -11,11 +12,11 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   ).toHaveAttribute("href", "https://app.openpo.st/register?plan=founder&billing_period=monthly");
   await expect(page.getByRole("link", { name: "User docs" }).first()).toHaveAttribute(
     "href",
-    "https://docs.openpo.st/usage/",
+    "https://docs.openpo.st/guides/quickstart",
   );
   await expect(page.getByRole("link", { name: "Developer docs" }).first()).toHaveAttribute(
     "href",
-    "https://docs.openpo.st/development/",
+    "https://github.com/getopenpost/openpost/blob/main/docs/development/index.md",
   );
 });
 test("free tools directory links every working tool @desktop", async ({ page }) => {
@@ -83,6 +84,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
     },
   ];
   await page.goto("/pricing");
+  await dismissTelemetryConsent(page);
   const selfHosted = page.getByRole("region", { name: "Self-hosted deployment" });
   await expect(selfHosted).toContainText("no software fee");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(

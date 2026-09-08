@@ -31,7 +31,8 @@ async function runRootTask(root, arguments_, environment = {}) {
 }
 
 let productionBuildPromise;
-const productionBuildTestTimeoutMs = 300_000;
+// This includes sequential cold marketing and documentation builds on CI.
+const productionBuildTestTimeoutMs = 600_000;
 
 function ensureProductionBuilds(root) {
   productionBuildPromise ??= (async () => {

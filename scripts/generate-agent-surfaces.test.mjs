@@ -197,15 +197,15 @@ function deterministicSemanticHTML(node) {
     const source = documentAttribute(node, "src") ?? "";
     const body = (node.childNodes ?? []).map((child) => child.value ?? "").join("");
     if (
-      /\/(?:_app\/immutable|assets\/app\.)/u.test(source) ||
-      /(?:__sveltekit_|__VP_HASH_MAP__|\/_app\/immutable\/)/u.test(body)
+      /\/(?:_app\/immutable|_next\/|assets\/app\.)/u.test(source) ||
+      /(?:__sveltekit_|__VP_HASH_MAP__|self\.__next_f|\/_app\/immutable\/)/u.test(body)
     )
       return undefined;
   }
   if (
     node.tagName === "link" &&
     ["modulepreload", "preload", "stylesheet"].includes(documentAttribute(node, "rel")) &&
-    /(?:\/_app\/immutable\/|\/assets\/(?:app|chunks\/theme|style)[.-]|\/assets\/[^/]+\.lean\.js$)/u.test(
+    /(?:\/_next\/|\/_app\/immutable\/|\/assets\/(?:app|chunks\/theme|style)[.-]|\/assets\/[^/]+\.lean\.js$)/u.test(
       documentAttribute(node, "href") ?? "",
     )
   )
@@ -274,6 +274,9 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="modulepreload" href="/assets/cli_posting.md.A.lean.js">
     <!--12qhfyh--><!--$s1--><!--[0--><p data-v-0394ad82>Runtime scoped</p>
     <pre class="shiki vp-code"><code><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">accounts</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: x,linkedin</span></code></pre>
+    <link rel="stylesheet" href="/_next/static/chunks/A.css">
+    <script src="/_next/static/chunks/A.js"></script>
+    <script>self.__next_f.push([1,"A"])</script>
     <script src="/assets/app.A.js"></script>
     <script>window.__VP_HASH_MAP__={"index.md":"A"}</script>`;
   const frameworkBuildB = `${maintained}<link rel="stylesheet" href="/_app/immutable/assets/0.B.css">
@@ -281,6 +284,9 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="modulepreload" href="/assets/cli_posting.md.B.lean.js">
     <!--1cjcgu2--><!--$s2--><!--[7--><p data-v-a3976bdc>Runtime scoped</p>
     <pre class="shiki vp-code"><code><span style="--shiki-light:#22863A;--shiki-dark:#85E89D">accounts: x,linkedin</span></code></pre>
+    <link rel="stylesheet" href="/_next/static/chunks/B.css">
+    <script src="/_next/static/chunks/B.js"></script>
+    <script>self.__next_f.push([1,"B"])</script>
     <script src="/assets/app.B.js"></script>
     <script>window.__VP_HASH_MAP__={"index.md":"B"}</script>`;
   assert.deepEqual(normalize(frameworkBuildB), normalize(frameworkBuildA));

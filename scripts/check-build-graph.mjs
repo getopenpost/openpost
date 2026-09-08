@@ -62,7 +62,7 @@ requireCondition(
 
 const packageTurboPaths = [
   ["apps/web/turbo.json", ["build/**", "!build/image-editor-models/**"]],
-  ["apps/docs/turbo.json", [".vitepress/dist/**"]],
+  ["apps/docs/turbo.json", ["out/**"]],
   ["apps/marketing/turbo.json", ["dist/**", ".wrangler/functions/**"]],
 ];
 for (const [relativePath, expectedOutputs] of packageTurboPaths) {

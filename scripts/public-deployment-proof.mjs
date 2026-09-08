@@ -23,10 +23,9 @@ const sampleRoutes = Object.freeze({
   ],
   documentation: [
     { category: "root", route: "/" },
-    { category: "section", route: "/usage/" },
-    { category: "leaf", route: "/usage/composing-posts" },
-    { category: "special source", route: "/installation/nix-module" },
-    { category: "API reference", route: "/development/api-reference" },
+    { category: "guide", route: "/guides/quickstart" },
+    { category: "self-hosting", route: "/self-hosting" },
+    { category: "API reference", route: "/api-reference" },
   ],
 });
 
@@ -517,7 +516,7 @@ export async function buildPublicProofChecks({
   const documentationDeployment = deploymentForRevision(documentationDeployments, revision);
   const samples = publicSurfaceSamples();
   const marketingDirectory = path.join(rootDirectory, "apps/marketing/dist");
-  const documentationDirectory = path.join(rootDirectory, "apps/docs/.vitepress/dist");
+  const documentationDirectory = path.join(rootDirectory, "apps/docs/out");
   const checks = [];
   const knownMarkdownURLs = new Set();
 
@@ -674,9 +673,9 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "documentation canonical redirect",
-      url: "https://docs.openpo.st/usage?openpost_proof=redirect",
+      url: "https://docs.openpo.st/guides?openpost_proof=redirect",
       status: 308,
-      location: "/usage/?openpost_proof=redirect",
+      location: "/guides?openpost_proof=redirect",
     },
   );
 

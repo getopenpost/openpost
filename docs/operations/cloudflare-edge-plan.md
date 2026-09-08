@@ -29,8 +29,8 @@ characters. The generated plan uses this Cloudflare execution order:
 
 1. `http_request_dynamic_redirect` canonicalizes known routes and preserves the
    query string. On the legacy zone it redirects each hostname to its matching
-   `openpo.st` hostname. Paths and queries stay intact, including the marketing
-   and documentation trailing-slash rules.
+   `openpo.st` hostname. Paths and queries stay intact, including canonical
+   route redirects.
 2. `http_request_transform` selects an explicit Markdown artifact only for a
    canonical `GET` or `HEAD` request with one case-folded `Accept` value equal
    to `text/markdown` after HTTP field-value parsing. Mixed, weighted, wildcard,
@@ -60,8 +60,8 @@ origin header required by the Cache Rule.
 
 The exact catalogue membership leaves `.md` URLs, assets, `llms.txt`,
 `llms-full.txt`, other machine resources, and unknown paths outside the rules.
-Marketing canonical paths omit a trailing slash. Documentation section indexes
-require one. Query strings pass through redirects and path-only rewrites.
+Marketing and documentation canonical paths omit a trailing slash. Query strings
+pass through redirects and path-only rewrites.
 
 ## Credentials
 
@@ -178,10 +178,10 @@ Before pushing the revision that moves applications under `apps/`, update the
 Cloudflare Pages build settings with explicit deployment authorization. Both
 projects must build from the repository root:
 
-| Pages project        | Build command                | Output directory            |
-| -------------------- | ---------------------------- | --------------------------- |
-| `openpost-marketing` | `bun run build -- marketing` | `apps/marketing/dist`       |
-| `openpost-docs`      | `bun run build -- docs`      | `apps/docs/.vitepress/dist` |
+| Pages project        | Build command                | Output directory      |
+| -------------------- | ---------------------------- | --------------------- |
+| `openpost-marketing` | `bun run build -- marketing` | `apps/marketing/dist` |
+| `openpost-docs`      | `bun run build -- docs`      | `apps/docs/out`       |
 
 Replace any path filters that still mention `marketing-site/`, `docs-site/`, or
 `frontend/` with their `apps/marketing/`, `apps/docs/`, or `apps/web/` equivalents.

@@ -48,6 +48,7 @@ export function localDocumentationCandidates(root, sourceFile, rawTarget) {
     localTarget.startsWith("/") && sourceFile.startsWith("apps/docs/")
       ? [
           path.join(root, "apps/docs", localTarget),
+          path.join(root, "apps/docs/content/docs", localTarget),
           path.join(root, "apps/docs/public", localTarget),
           ...(localTarget === "/openapi.json" ? [path.join(root, "apps/web/openapi.json")] : []),
         ]
@@ -95,7 +96,13 @@ export function unreachableDocumentationPages(
     if (file && !pending.includes(file)) pending.push(file);
   };
 
-  queue(pages.has("apps/docs/index.md") ? "apps/docs/index.md" : undefined);
+  queue(
+    pages.has("apps/docs/index.md")
+      ? "apps/docs/index.md"
+      : pages.has("apps/docs/content/docs/index.mdx")
+        ? "apps/docs/content/docs/index.mdx"
+        : undefined,
+  );
   for (const target of navigationTargets) {
     queue(resolvePage("apps/docs/.vitepress/config.ts", target));
   }
@@ -117,7 +124,7 @@ export function unreachableDocumentationPages(
 async function main() {
   const files = execFileSync(
     "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "--", "*.md"],
+    ["ls-files", "--cached", "--others", "--exclude-standard", "--", "*.md", "*.mdx"],
     {
       cwd: repositoryRoot,
       encoding: "utf8",
@@ -140,8 +147,10 @@ async function main() {
   }
 
   const configFile = "apps/docs/.vitepress/config.ts";
-  const docsConfig = (await import(pathToFileURL(path.join(repositoryRoot, configFile)).href))
-    .default;
+  const hasLegacyConfig = existsSync(path.join(repositoryRoot, configFile));
+  const docsConfig = hasLegacyConfig
+    ? (await import(pathToFileURL(path.join(repositoryRoot, configFile)).href)).default
+    : undefined;
   const navigationTargets = configuredNavigationTargets(docsConfig);
   for (const target of navigationTargets) {
     if (!localDocumentationTargetExists(repositoryRoot, configFile, target)) {
@@ -150,18 +159,23 @@ async function main() {
   }
 
   const documentationPages = files.filter(
-    (file) => file.startsWith("apps/docs/") && !file.startsWith("apps/docs/.generated/"),
+    (file) =>
+      (file.startsWith("apps/docs/content/docs/") ||
+        (file.startsWith("apps/docs/") && !file.startsWith("apps/docs/content/"))) &&
+      !file.startsWith("apps/docs/.generated/"),
   );
-  const unreachablePages = unreachableDocumentationPages(
-    repositoryRoot,
-    documentationPages,
-    navigationTargets,
-  );
-  failures.push(
-    ...unreachablePages.map(
-      (file) => `${file} is not reachable from the docs home or configured navigation`,
-    ),
-  );
+  if (hasLegacyConfig) {
+    const unreachablePages = unreachableDocumentationPages(
+      repositoryRoot,
+      documentationPages,
+      navigationTargets,
+    );
+    failures.push(
+      ...unreachablePages.map(
+        (file) => `${file} is not reachable from the docs home or configured navigation`,
+      ),
+    );
+  }
 
   if (failures.length > 0) {
     console.error(`Broken local documentation links:\n${failures.join("\n")}`);

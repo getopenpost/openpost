@@ -7,7 +7,7 @@ import { docsRouteFromPage } from "../../packages/social-images/src/docs-route.j
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../..");
-const docsRoot = path.join(root, "apps/docs");
+const docsRoot = path.join(root, "apps/docs", "content", "docs");
 const output = path.join(root, "packages/social-images/src/docs-catalog.js");
 
 async function markdownFiles(directory) {
@@ -16,7 +16,7 @@ async function markdownFiles(directory) {
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
     const target = path.join(directory, entry.name);
     if (entry.isDirectory()) files.push(...(await markdownFiles(target)));
-    else if (entry.isFile() && entry.name.endsWith(".md")) files.push(target);
+    else if (entry.isFile() && /\.mdx?$/u.test(entry.name)) files.push(target);
   }
   return files;
 }
@@ -27,9 +27,10 @@ function pageTitle(page, source) {
   if (typeof heroName === "string" && heroName.trim()) return heroName.trim();
   const heading = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
   if (heading) return heading.replaceAll("`", "");
-  if (page === "index.md") return "OpenPost";
+  if (page === "index.md" || page === "index.mdx") return "OpenPost";
   return path
-    .basename(page, ".md")
+    .basename(page)
+    .replace(/\.mdx?$/u, "")
     .split("-")
     .map((word) => (word === "api" ? "API" : `${word[0].toUpperCase()}${word.slice(1)}`))
     .join(" ");
@@ -103,44 +104,25 @@ function pageDescription(page, source) {
 }
 
 const discoveryEntrypoints = new Map([
-  ["usage/index.md", "user-guide"],
-  ["providers/index.md", "providers"],
-  ["cli/index.md", "cli"],
-  ["mcp/index.md", "mcp"],
-  ["installation/docker-compose.md", "installation"],
-  ["self-hosting/index.md", "self-hosting"],
-  ["configuration/index.md", "configuration"],
-  ["operations/health-checks.md", "operations"],
-  ["development/api-reference.md", "api"],
-  ["development/index.md", "development"],
+  ["index.mdx", "user-guide"],
+  ["guides/quickstart.mdx", "user-guide"],
+  ["guides/accounts.mdx", "user-guide"],
+  ["self-hosting/index.mdx", "self-hosting"],
+  ["api-reference/index.mdx", "api"],
 ]);
 
-const corpusExclusions = new Map([
-  ["development/third-party-notices.md", "Third-party legal notices stay outside the corpus."],
-  ["reference/cli.md", "The generated CLI reference is repetitive in a combined corpus."],
-]);
+const corpusExclusions = new Map();
 
 const reviewedRepresentationSizeExceptions = new Map();
 
 function corpusSection(page) {
-  if (page === "index.md" || page.startsWith("guide/") || page.startsWith("usage/")) {
+  if (page === "index.mdx" || page.startsWith("guides/")) {
     return "user-guide";
   }
-  if (page === "development/api-reference.md") return "api";
+  if (page.startsWith("api-reference/")) return "api";
   const topLevel = page.split("/", 1)[0];
   if (topLevel === "reference") return "api";
-  if (
-    [
-      "providers",
-      "cli",
-      "mcp",
-      "installation",
-      "self-hosting",
-      "configuration",
-      "operations",
-      "development",
-    ].includes(topLevel)
-  ) {
+  if (["self-hosting"].includes(topLevel)) {
     return topLevel;
   }
   throw new Error(`${page}: documentation page needs a corpus section`);

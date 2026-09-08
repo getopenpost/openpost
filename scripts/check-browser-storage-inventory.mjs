@@ -8,7 +8,7 @@ const sourceRoots = [
   "apps/web/src",
   "apps/marketing/src",
   "apps/marketing/functions",
-  "apps/docs/.vitepress",
+  "apps/docs/src",
   "apps/server/internal",
 ];
 const sourceFiles = ["apps/web/vite.config.ts", "apps/marketing/vite.config.ts"];
@@ -22,7 +22,6 @@ function isSourceFile(path) {
     !name.endsWith("_test.go") &&
     !/(?:^|\.)(?:spec|test)\.[^.]+$/u.test(name) &&
     !path.includes("/.generated/") &&
-    !path.includes("/.vitepress/cache/") &&
     !path.includes("/paraglide/")
   );
 }

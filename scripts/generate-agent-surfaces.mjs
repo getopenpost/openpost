@@ -8,6 +8,7 @@ import { parse, parseFragment } from "parse5";
 import {
   docsSiteUrl,
   docsSocialEntries,
+  docsRouteFromPage,
   marketingAgentMarkdownUrl,
   marketingRouteManifest,
   marketingSiteUrl,
@@ -176,7 +177,8 @@ function marketingMarkdownArtifact(routePath) {
 }
 
 function documentationHTMLArtifact(page) {
-  return page.replace(/\.md$/u, ".html");
+  const route = docsRouteFromPage(page);
+  return route === "/" ? "index.html" : `${route.replace(/^\//u, "")}.html`;
 }
 
 const documentationDiscoverySections = [
@@ -996,9 +998,8 @@ export const productionProjections = {
     knownArtifactURLs: [
       "https://docs.openpo.st/index.md",
       "https://docs.openpo.st/openapi.json",
-      "https://docs.openpo.st/cli/index.md",
-      "https://docs.openpo.st/mcp/index.md",
-      "https://docs.openpo.st/usage/agent-assisted-publishing.md",
+      "https://docs.openpo.st/guides/publishing.md",
+      "https://docs.openpo.st/guides/automation.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -1037,8 +1038,7 @@ export const productionProjections = {
           })),
         {
           title: "OpenPost documentation",
-          description:
-            "Read the user, provider, self-hosting, CLI, MCP, and developer documentation.",
+          description: "Read the user, self-hosting, and API documentation.",
           url: "https://docs.openpo.st/index.md",
           classification: "primary",
         },
@@ -1062,17 +1062,17 @@ export const productionProjections = {
             {
               title: "OpenPost CLI",
               description: "Use a terminal, script, CI job, cron job, or deploy process.",
-              url: "https://docs.openpo.st/cli/index.md",
+              url: "https://docs.openpo.st/guides/automation.md",
             },
             {
               title: "OpenPost MCP server",
               description: "Connect an AI assistant with explicit read and change scopes.",
-              url: "https://docs.openpo.st/mcp/index.md",
+              url: "https://docs.openpo.st/guides/automation.md",
             },
             {
               title: "Agent-assisted publishing",
               description: "Follow the human-reviewed workflow for agent-prepared publishing work.",
-              url: "https://docs.openpo.st/usage/agent-assisted-publishing.md",
+              url: "https://docs.openpo.st/guides/publishing.md",
             },
           ],
         },
@@ -1105,19 +1105,19 @@ export const productionProjections = {
   documentation: {
     surface: "documentation",
     originHeadersRequired: true,
-    sourceRoot: path.join(repositoryRoot, "apps/docs"),
+    sourceRoot: path.join(repositoryRoot, "apps/docs/content/docs"),
     corpus: { title: "OpenPost Documentation Full Corpus" },
-    outputDirectory: path.join(repositoryRoot, "apps/docs/.vitepress/dist"),
+    outputDirectory: path.join(repositoryRoot, "apps/docs/out"),
     pages: docsSocialEntries
       .filter((entry) => entry.agentRepresentation.membership === "ordinary")
       .map((entry) => ({
-        sourcePath: path.join(repositoryRoot, "apps/docs", entry.page),
+        sourcePath: path.join(repositoryRoot, "apps/docs/content/docs", entry.page),
         discoveryHTMLPath: path.join(
           repositoryRoot,
-          "apps/docs/.vitepress/dist",
+          "apps/docs/out",
           documentationHTMLArtifact(entry.page),
         ),
-        outputPath: entry.page,
+        outputPath: entry.page.replace(/\.mdx?$/u, ".md"),
         page: entry.page,
         route: entry.route,
         catalog: entry,
@@ -1137,11 +1137,7 @@ export const productionProjections = {
     ],
     fragmentSources: docsSocialEntries.map((entry) => ({
       canonical: entry.canonical,
-      sourcePath: path.join(
-        repositoryRoot,
-        "apps/docs/.vitepress/dist",
-        documentationHTMLArtifact(entry.page),
-      ),
+      sourcePath: path.join(repositoryRoot, "apps/docs/out", documentationHTMLArtifact(entry.page)),
     })),
     discovery: {
       title: "OpenPost Documentation",

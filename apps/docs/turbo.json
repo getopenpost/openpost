@@ -18,7 +18,7 @@
         "$TURBO_ROOT$/scripts/sync-assets.mjs",
         "$TURBO_ROOT$/scripts/posthog-source-maps.ts"
       ],
-      "outputs": [".vitepress/dist/**"],
+      "outputs": ["out/**"],
       "env": [
         "CF_PAGES",
         "CF_PAGES_BRANCH",

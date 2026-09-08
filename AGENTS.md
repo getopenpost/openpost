@@ -44,6 +44,8 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 
 Public documentation uses Fumadocs in `apps/docs/`, with authored MDX under `content/docs/` and a static export in `out/`. Keep customer guides, self-hosting, and the generated API reference separate. Engineering documentation belongs in `docs/development/`; operator reference details belong in `docs/reference/`. Generate API operation pages from `apps/web/openapi.json` on every docs build, never edit generated MDX.
 
+Verify docs reader interactions against the static export with `bunx playwright test --config tests/docs/playwright.config.ts` after `bun run build -- docs`. Use shared Fumadocs controls and SVG icons for page actions, search, and navigation.
+
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.

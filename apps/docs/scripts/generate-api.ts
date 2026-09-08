@@ -21,6 +21,12 @@ await generateFiles({
   beforeWrite(files) {
     const rootMeta = files.findIndex((file) => file.path === "meta.json");
     if (rootMeta !== -1) files.splice(rootMeta, 1);
+    for (const file of files) {
+      const title = { "mcp/meta.json": "MCP", "openpost-image-editor/meta.json": "Image editor" }[
+        file.path
+      ];
+      if (title) file.content = JSON.stringify({ ...JSON.parse(file.content), title }, null, 2);
+    }
   },
   frontmatter: (title, description) => ({ title, description, full: true }),
 });

@@ -5,3 +5,5 @@
 ### Fixed
 
 - Hid the mobile documentation tab scrollbar so it no longer crowds the active underline. Tabs still scroll horizontally.
+- Replaced the page-action text chevron with a matching interface icon.
+- Added AI page actions, section filters in search, clearer setup and troubleshooting guides, and mobile navigation that keeps the active section in view.

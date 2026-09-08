@@ -4,7 +4,15 @@ description: Run OpenPost on your own server with Docker Compose.
 icon: Server
 ---
 
-The default deployment is one OpenPost container with SQLite, local media, and database-backed jobs. The published image currently supports `linux/amd64`; other host architectures need amd64 emulation.
+This guide runs one OpenPost container with SQLite and local media storage. You do not need a separate database or queue service.
+
+## Before you start
+
+- Install Docker with Docker Compose and keep the database and media on persistent storage.
+- The published image supports `linux/amd64`. Other architectures need amd64 emulation.
+- For a public instance, prepare a domain and an HTTPS reverse proxy that forwards to port `8080`. Provider callbacks and media URLs must be reachable from outside your network.
+
+You can test locally first. Set the final public URLs before connecting social accounts.
 
 ## Install with Docker Compose
 
@@ -50,6 +58,8 @@ services:
       OPENPOST_MEDIA_PATH: /data/media
 ```
 
+The example uses `latest`. For production, replace it with a release tag from [GitHub Releases](https://github.com/getopenpost/openpost/releases) and record that tag with your backups. Read [upgrades and backups](/self-hosting/maintenance) before changing it.
+
 Start it and check readiness:
 
 ```sh
@@ -57,10 +67,16 @@ docker compose up -d
 curl http://localhost:8080/api/v1/ready
 ```
 
-Open `http://localhost:8080` and create the first account. That account becomes the instance administrator. Create a workspace, connect an account, and follow the [quickstart](/guides/quickstart).
+Open `http://localhost:8080` and create the first account. That account becomes the instance administrator. Create a workspace, then configure the [provider integrations](/self-hosting/integrations) you need. Once a provider is configured, connect your social account and follow the [first-post guide](/guides/quickstart).
 
 After setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` in `.env` and restart if the instance should stop accepting new self-service registrations.
 
 ## Production requirements
 
 Put the instance behind HTTPS and route the public origin to port 8080. OAuth callback URLs must match the public origin exactly. Back up `data/db`, `data/media`, and both secret values together. Configure provider apps in [configuration](/self-hosting/configuration).
+
+## Next steps
+
+- [Configure integrations](/self-hosting/integrations) for your social platforms.
+- [Set up AI](/self-hosting/ai) to generate content, or [email](/self-hosting/email) for mail delivery.
+- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.

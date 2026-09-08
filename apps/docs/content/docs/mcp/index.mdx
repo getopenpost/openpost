@@ -4,30 +4,56 @@ description: Connect ChatGPT, Claude, Cursor, or another MCP client to OpenPost.
 icon: Bot
 ---
 
-OpenPost exposes a remote [Model Context Protocol](https://modelcontextprotocol.io/) server at:
+Connect an AI assistant to review your schedule, prepare drafts, or publish through OpenPost. The connection uses [Model Context Protocol](https://modelcontextprotocol.io/) (MCP). For Hosted, use:
 
 ```text
 https://app.openpo.st/mcp
 ```
 
-An MCP client can inspect your workspaces, connected accounts, publications, schedule, media, and provider capabilities. With a full-scope connection it can also create, edit, schedule, publish, and manage other supported resources. Every private call runs as your OpenPost user and workspace.
+Choose **read-only access** to review accounts and scheduled posts. Choose **full access** when the assistant needs to create, edit, schedule, or publish. OpenPost applies your account permissions and workspace access to every request.
 
 ## Choose a setup
 
-| Client | Setup |
-| --- | --- |
-| Cursor | [Connect Cursor](/mcp/cursor) |
-| ChatGPT | [Connect ChatGPT](/mcp/chatgpt) |
-| Claude | [Connect Claude and Claude Code](/mcp/claude) |
+| Client           | Setup                                                                   |
+| ---------------- | ----------------------------------------------------------------------- |
+| Cursor           | [Connect Cursor](/mcp/cursor)                                           |
+| ChatGPT          | [Connect ChatGPT](/mcp/chatgpt)                                         |
+| Claude           | [Connect Claude and Claude Code](/mcp/claude)                           |
 | Other MCP client | Use the endpoint and token rules in [Tools and permissions](/mcp/tools) |
 
 OAuth is the preferred setup for remote clients. OpenPost asks you to sign in and choose `mcp:read` or `mcp:full`, with an optional workspace binding. If the client does not support OAuth, create a developer token in **Settings → Personal → Developer** and pass it as a bearer header. Never paste that token into a prompt.
 
-Hosted OpenPost is reachable over public HTTPS. A private self-hosted URL or `localhost` cannot be reached by a cloud client. Use the local stdio bridge instead:
+## Self-hosted connections
+
+For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` path. Use that URL in the client guide above.
+
+Cloud clients cannot reach a private LAN address or `localhost`. A desktop client can use the local bridge instead. First install both commands:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/getopenpost/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp
+```
+
+Sign in using a named profile:
 
 ```sh
 openpost --profile local auth login https://your-openpost-host.example
-openpost-mcp --profile local
 ```
 
-The bridge keeps the connection local while the CLI handles the server session.
+Configure your desktop MCP client to launch the bridge with the same profile:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+The client launches `openpost-mcp`; you do not need to keep a separate terminal running. If it cannot find the command, use the full path printed by `command -v openpost-mcp`.
+
+## Check the connection
+
+Ask, “List my OpenPost workspaces,” then name the workspace you want to use. Next ask, “Review this week's schedule without changing anything.” If either request fails, use the troubleshooting steps in your client guide.

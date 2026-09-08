@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -46,7 +47,10 @@ export function AnalyticsChoices() {
   ];
   return (
     <details className="analytics-choices">
-      <summary>Analytics choices</summary>
+      <summary>
+        <ChevronRight size={12} aria-hidden="true" />
+        Analytics choices
+      </summary>
       <p>Choose how OpenPost measures visits to its public pages.</p>
       <div role="group" aria-label="Analytics preference">
         {choices.map(({ value, label }) => (

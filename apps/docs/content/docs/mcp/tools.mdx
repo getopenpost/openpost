@@ -10,9 +10,9 @@ OpenPost advertises operations through a small MCP surface rather than one tool 
 
 Choose the narrowest scope that fits the job:
 
-| Scope | Can do |
-| --- | --- |
-| `mcp:read` | Search and inspect read operations, query data, and review the schedule |
+| Scope      | Can do                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `mcp:read` | Search and inspect read operations, query data, and review the schedule                                      |
 | `mcp:full` | Everything in `mcp:read`, plus execute write operations such as creating, editing, scheduling, or publishing |
 
 An omitted OAuth scope currently defaults to `mcp:full`; select `mcp:read` explicitly when you only need inspection. A developer token can use the same MCP scopes, or the existing `cli:full` scope. Token workspace access and MCP scope are separate: bind a token to one workspace when possible, then grant only the required scope.
@@ -28,7 +28,7 @@ Show the connected accounts that can publish to LinkedIn.
 Draft a launch post for the selected workspace, but do not schedule or publish it.
 ```
 
-For a write-capable connection, state the boundary in the request: “Create the draft, then stop for my review.” The client should ask before consequential actions. Verify the workspace, account, destination, timing, and final text before approving a schedule or publish call.
+For a write-capable connection, state the boundary in the request: “Create the draft, then stop for my review.” Client confirmation is separate from OpenPost permissions and differs between clients. Verify the workspace, account, destination, timing, and final text before asking the assistant to schedule or publish.
 
 ## Endpoint and troubleshooting
 

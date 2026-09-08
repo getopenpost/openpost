@@ -278,8 +278,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "index.mdx",
-    "title": "Make your next post happen.",
-    "description": "The guide to creating, publishing, and keeping up with your content in OpenPost.",
+    "title": "OpenPost documentation",
+    "description": "Connect your accounts, prepare a post, and publish it from one workspace.",
     "route": "/",
     "agentRepresentation": {
       "membership": "ordinary"

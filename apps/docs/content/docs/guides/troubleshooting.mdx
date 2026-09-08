@@ -4,20 +4,44 @@ description: Fix common connection, media, scheduling, and delivery problems.
 icon: CircleHelp
 ---
 
-Start with the failed publication or account message. It usually names the provider, missing permission, invalid media URL, or expired authorization.
+Open the affected publication or social account and read its error message first. Keep the provider name, account, and error text together while you work through the steps below.
 
 ## Account connection fails
 
-Check that the provider app is configured, the callback URL matches exactly, and the public OpenPost URL uses HTTPS. Reconnect after changing provider permissions. Bluesky uses an app password. Mastodon custom instances must be public HTTPS servers.
+1. Sign in to the provider directly and confirm you can access the profile, Page, or channel you want to connect.
+2. In OpenPost, reconnect the account and approve the requested permissions. Use the provider account that owns or manages the destination.
+3. For Bluesky, use an app password. For a custom Mastodon server, use its public HTTPS address.
+
+If you use Hosted, OpenPost manages the provider app. If you self-host, also check the [provider setup guide](/self-hosting/integrations): the callback URL must match your public origin exactly, and the app must have the required permissions or approval.
+
+See [Connect accounts](/guides/accounts) for connection types and reconnect behavior.
 
 ## Media is rejected
 
-Check the file type, size, attachment count, and whether the provider can fetch the media from your public media URL. Threads, Facebook, Instagram, and TikTok publishing may need publicly reachable HTTPS media.
+- Check the destination's file type, size, duration, and attachment limits in the composer.
+- Preview the media and confirm you attached the finished export, not an editor project.
+- If the error says the provider cannot fetch a URL, check that the media is reachable over public HTTPS. A URL that works only on your local network will fail for providers that download it themselves.
+
+OpenPost may accept an upload that a particular provider cannot publish. Adjust the version for that destination or [prepare a new export](/guides/media), then retry the failed destination.
 
 ## A scheduled post failed
 
-Open the publication, inspect the failed rendition, fix the provider or media issue, then retry that rendition. Other renditions keep their own status.
+Open **Publications**, select the post, and inspect the account that failed. Fix the reported permission, connection, or media problem, then retry that destination. You do not need to republish destinations that already succeeded.
+
+If the post is still **Scheduled**, check its date, time, and workspace timezone before retrying anything. See [Schedule and calendar](/guides/scheduling).
 
 ## Self-hosted instance is unhealthy
 
-Check the container or process logs, the health endpoint, free disk space, database path, and media path. Confirm the database, media, and encryption secrets are backed up together before restoring.
+From the directory containing your Compose file, check the service and recent logs:
+
+```sh
+docker compose ps
+docker compose logs --tail=100 openpost
+curl -i http://localhost:8080/api/v1/ready
+```
+
+If the container is not running, start with its error in the logs. If it is running but readiness fails, check free disk space and access to the configured database and media paths. See [configuration](/self-hosting/configuration) and [backup and recovery](/self-hosting/maintenance) before changing storage or restoring data.
+
+## Get help
+
+If the problem remains, [report an issue](https://github.com/getopenpost/openpost/issues) with the affected provider, whether you use Hosted or self-hosting, the steps that failed, and the error text. Remove tokens, passwords, and private media URLs before sharing logs or screenshots.

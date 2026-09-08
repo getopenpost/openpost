@@ -2,20 +2,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSearchContext } from "fumadocs-ui/contexts/search";
+import { useEffect, useRef } from "react";
+import { documentationSection, documentationSections } from "@/lib/sections";
 import { BookOpen, Code2, Server, Search, ArrowUpRight, Github, Bot } from "lucide-react";
 
 export function SectionNav() {
   const pathname = usePathname();
   const { setOpenSearch } = useSearchContext();
-  const section = pathname.startsWith("/api-reference")
-    ? "api"
-    : pathname.startsWith("/self-hosting")
-      ? "self-hosting"
-      : pathname.startsWith("/mcp")
-        ? "mcp"
-        : "guides";
+  const section = documentationSection(pathname);
+  const navigation = useRef<HTMLElement>(null);
+  const sectionIcons = { guides: BookOpen, "self-hosting": Server, mcp: Bot, api: Code2 };
+  useEffect(() => {
+    const nav = navigation.current;
+    const active = nav?.querySelector<HTMLElement>("[aria-current]");
+    if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return;
+    nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2 });
+  }, [section.id]);
   return (
     <header className="docs-header">
+      <a className="docs-skip-link" href="#nd-page">
+        Skip to content
+      </a>
       <div className="docs-topbar">
         <Link href="/" className="docs-brand">
           <img src="/assets/brand/icon.svg" width="28" height="28" alt="" />
@@ -37,23 +44,16 @@ export function SectionNav() {
           </a>
         </div>
       </div>
-      <nav className="docs-sections" aria-label="Documentation sections">
-        <Link href="/" aria-current={section === "guides" ? "page" : undefined}>
-          <BookOpen size={17} />
-          Guides
-        </Link>
-        <Link href="/self-hosting" aria-current={section === "self-hosting" ? "page" : undefined}>
-          <Server size={17} />
-          Self-hosting
-        </Link>
-        <Link href="/mcp" aria-current={section === "mcp" ? "page" : undefined}>
-          <Bot size={17} />
-          AI assistants
-        </Link>
-        <Link href="/api-reference" aria-current={section === "api" ? "page" : undefined}>
-          <Code2 size={17} />
-          API reference
-        </Link>
+      <nav ref={navigation} className="docs-sections" aria-label="Documentation sections">
+        {documentationSections.map(({ id, href, label }) => {
+          const Icon = sectionIcons[id];
+          return (
+            <Link key={id} href={href} aria-current={section.id === id ? "page" : undefined}>
+              <Icon size={17} aria-hidden="true" />
+              {label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );

@@ -5,7 +5,7 @@ import { source } from "@/lib/source";
 import { openapi } from "@/lib/openapi";
 import { operationDocument } from "@/lib/api-document";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
-import { MarkdownCopyButton } from "fumadocs-ui/layouts/docs/page";
+import { MarkdownCopyButton, ViewOptionsPopover } from "fumadocs-ui/layouts/docs/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -18,25 +18,27 @@ export default async function Page({ params }: Props) {
   const MDX = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage toc={page.data.toc} full={page.data.full} tabIndex={-1}>
       <div className="docs-page-heading">
         <DocsTitle>{page.data.title}</DocsTitle>
-        {!page.data._openapi && (
-          <div className="page-actions">
-            <MarkdownCopyButton markdownUrl={`/${page.path.replace(/\.mdx?$/, ".md")}`} />
-            <details className="page-menu">
-              <summary aria-label="More page actions">⌄</summary>
-              <div>
-                <a href={`/${page.path.replace(/\.mdx?$/, ".md")}`}>View Markdown</a>
-                <a
-                  href={`https://github.com/getopenpost/openpost/edit/main/apps/docs/content/docs/${page.path}`}
-                >
-                  Edit on GitHub
-                </a>
-              </div>
-            </details>
-          </div>
-        )}
+        <div className="page-actions">
+          {!page.data._openapi && (
+            <MarkdownCopyButton markdownUrl={`/${page.path.replace(/\.mdx?$/, ".md")}`}>
+              Copy page
+            </MarkdownCopyButton>
+          )}
+          <ViewOptionsPopover
+            aria-label="Open page options"
+            markdownUrl={page.data._openapi ? undefined : `/${page.path.replace(/\.mdx?$/, ".md")}`}
+            githubUrl={
+              page.data._openapi
+                ? undefined
+                : `https://github.com/getopenpost/openpost/edit/main/apps/docs/content/docs/${page.path}`
+            }
+          >
+            Ask AI
+          </ViewOptionsPopover>
+        </div>
       </div>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
@@ -57,6 +59,11 @@ export default async function Page({ params }: Props) {
           }}
         />
       </DocsBody>
+      <div className="docs-page-help">
+        <span>Need a hand?</span>
+        <a href="/guides/troubleshooting">Troubleshooting</a>
+        <a href="https://github.com/getopenpost/openpost/issues">Report an issue</a>
+      </div>
     </DocsPage>
   );
 }

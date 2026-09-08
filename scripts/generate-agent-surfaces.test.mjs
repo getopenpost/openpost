@@ -107,9 +107,9 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
 test("documentation discovery headers leave room for the canonical page catalogue", async () => {
   const root = path.resolve(import.meta.dirname, "..");
   const base = await readFile(path.join(root, "apps/docs/public/_headers"), "utf8");
-  const pages = Array.from({ length: 97 }, (_, index) => ({
-    canonical: `https://docs.openpo.st/page-${index}`,
-  }));
+  const pages = docsSocialEntries.filter(
+    ({ agentRepresentation }) => agentRepresentation.membership === "ordinary",
+  );
 
   assert.match(base, /^\/llms\*\.txt$/mu);
   assert.doesNotMatch(base, /^\/llms(?:-full)?\.txt$/mu);

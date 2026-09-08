@@ -3,6 +3,8 @@
   Vary: Accept
 /llms*.txt
   Content-Type: text/plain; charset=utf-8
+/api/search
+  Content-Type: application/json; charset=utf-8
 /robots.txt
   Content-Type: text/plain; charset=utf-8
   Content-Signal: search=yes, ai-input=yes, ai-train=yes

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
 	DEFAULT_FILLER_REMOVAL_SETTINGS,
 	FILLER_REMOVAL_PRESETS,
@@ -37,45 +38,40 @@ export const DEFAULT_SPEECH_CLEANUP_SETTINGS: SpeechCleanupPersistedSettings = {
 	audioThresholdDb: -35
 };
 
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-	return typeof value === 'number' && Number.isFinite(value)
-		? Math.min(max, Math.max(min, value))
-		: fallback;
+function boundedNumber(min: number, max: number, fallback: number) {
+	return z
+		.number()
+		.finite()
+		.transform((value) => Math.min(max, Math.max(min, value)))
+		.catch(fallback);
 }
 
-function normalizeFillerSettings(value: unknown): FillerRemovalSettings {
-	const record = (value ?? {}) as Partial<FillerRemovalSettings>;
-	const words = Array.isArray(record.fillerWords)
-		? record.fillerWords.filter((entry): entry is string => typeof entry === 'string')
-		: DEFAULT_FILLER_REMOVAL_SETTINGS.fillerWords;
-	const phrases = Array.isArray(record.fillerPhrases)
-		? record.fillerPhrases.filter((entry): entry is string => typeof entry === 'string')
-		: DEFAULT_FILLER_REMOVAL_SETTINGS.fillerPhrases;
-	return {
-		...DEFAULT_FILLER_REMOVAL_SETTINGS,
-		...(typeof record === 'object' ? record : {}),
-		fillerWords: [...words],
-		fillerPhrases: [...phrases]
-	};
+function storedWords(fallback: string[]) {
+	return z
+		.array(z.string().nullable().catch(null))
+		.transform((words) => words.filter((word) => word !== null))
+		.catch(() => [...fallback]);
 }
 
-export function normalizeSpeechCleanupSettings(value: unknown): SpeechCleanupPersistedSettings {
-	const record = (value ?? {}) as Partial<SpeechCleanupPersistedSettings>;
-	const preset = FILLER_REMOVAL_PRESETS.some((candidate) => candidate.id === record.fillerPreset)
-		? record.fillerPreset!
-		: DEFAULT_SPEECH_CLEANUP_SETTINGS.fillerPreset;
-	return {
-		fillerPreset: preset,
-		fillerSettings: normalizeFillerSettings(record.fillerSettings),
-		silenceMode: record.silenceMode === 'transcript' ? 'transcript' : 'signal',
-		minSilenceMs: clampNumber(record.minSilenceMs, 100, 10000, 500),
-		paddingStartMs: clampNumber(record.paddingStartMs, 0, 2000, 100),
-		paddingEndMs: clampNumber(record.paddingEndMs, 0, 2000, 100),
-		autoThresholds: typeof record.autoThresholds === 'boolean' ? record.autoThresholds : true,
-		silenceThresholdDb: clampNumber(record.silenceThresholdDb, -80, -20, -45),
-		audioThresholdDb: clampNumber(record.audioThresholdDb, -77, -6, -35)
-	};
-}
+const fillerSettingsSchema = z.object({
+	fillerWords: storedWords(DEFAULT_FILLER_REMOVAL_SETTINGS.fillerWords),
+	fillerPhrases: storedWords(DEFAULT_FILLER_REMOVAL_SETTINGS.fillerPhrases),
+	paddingMs: z.number().finite().catch(DEFAULT_FILLER_REMOVAL_SETTINGS.paddingMs),
+	maxSimpleFillerMs: z.number().finite().catch(DEFAULT_FILLER_REMOVAL_SETTINGS.maxSimpleFillerMs),
+	maxPhraseFillerMs: z.number().finite().catch(DEFAULT_FILLER_REMOVAL_SETTINGS.maxPhraseFillerMs)
+});
+
+const storedSettingsSchema = z.object({
+	fillerPreset: z.enum(FILLER_REMOVAL_PRESETS.map((preset) => preset.id)).catch('balanced'),
+	fillerSettings: fillerSettingsSchema.catch(() => fillerSettingsSchema.parse({})),
+	silenceMode: z.enum(['signal', 'transcript']).catch('signal'),
+	minSilenceMs: boundedNumber(100, 10000, 500),
+	paddingStartMs: boundedNumber(0, 2000, 100),
+	paddingEndMs: boundedNumber(0, 2000, 100),
+	autoThresholds: z.boolean().catch(true),
+	silenceThresholdDb: boundedNumber(-80, -20, -45),
+	audioThresholdDb: boundedNumber(-77, -6, -35)
+});
 
 interface SettingsStorage {
 	getItem(key: string): string | null;
@@ -95,10 +91,9 @@ export function loadSpeechCleanupSettings(
 ): SpeechCleanupPersistedSettings {
 	try {
 		const saved = storage?.getItem(STORAGE_KEY);
-		if (!saved) return normalizeSpeechCleanupSettings(undefined);
-		return normalizeSpeechCleanupSettings(JSON.parse(saved) as unknown);
+		return storedSettingsSchema.parse(saved ? JSON.parse(saved) : {});
 	} catch {
-		return normalizeSpeechCleanupSettings(undefined);
+		return storedSettingsSchema.parse({});
 	}
 }
 

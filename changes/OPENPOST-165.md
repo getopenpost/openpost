@@ -5,3 +5,4 @@
 - Kept canvas text entry local until commit, preserved spaces while typing, corrected zoom and volume icons, and made project metadata and recording setup fit narrow screens.
 - Kept cloud exports and render queues in browser storage, separate from local workspace folders. Cloud save status now names OpenPost.
 - Preserved public Svelte error codes in telemetry while continuing to redact URL parameters.
+- Rejected malformed saved speech-cleanup timings while preserving valid settings.

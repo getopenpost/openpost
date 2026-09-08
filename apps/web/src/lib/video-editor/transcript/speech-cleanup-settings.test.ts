@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_SPEECH_CLEANUP_SETTINGS,
 	loadSpeechCleanupSettings,
-	normalizeSpeechCleanupSettings,
 	saveSpeechCleanupSettings
 } from './speech-cleanup-settings';
 
@@ -35,13 +34,17 @@ describe('speech-cleanup-settings', () => {
 	});
 
 	it('clamps out-of-range values and rejects unknown presets', () => {
-		const normalized = normalizeSpeechCleanupSettings({
-			fillerPreset: 'nope',
-			minSilenceMs: 99_999,
-			paddingStartMs: -5,
-			silenceThresholdDb: 0,
-			autoThresholds: 'yes'
-		});
+		const normalized = loadSpeechCleanupSettings(
+			memoryStorage({
+				'openpost-video-editor-cleanup-settings-v1': JSON.stringify({
+					fillerPreset: 'nope',
+					minSilenceMs: 99_999,
+					paddingStartMs: -5,
+					silenceThresholdDb: 0,
+					autoThresholds: 'yes'
+				})
+			})
+		);
 		expect(normalized.fillerPreset).toBe('balanced');
 		expect(normalized.minSilenceMs).toBe(10000);
 		expect(normalized.paddingStartMs).toBe(0);
@@ -54,5 +57,25 @@ describe('speech-cleanup-settings', () => {
 			'openpost-video-editor-cleanup-settings-v1': '{broken'
 		});
 		expect(loadSpeechCleanupSettings(storage)).toEqual(DEFAULT_SPEECH_CLEANUP_SETTINGS);
+	});
+
+	it('rejects malformed filler durations while keeping valid stored choices', () => {
+		const storage = memoryStorage({
+			'openpost-video-editor-cleanup-settings-v1': JSON.stringify({
+				fillerPreset: 'aggressive',
+				fillerSettings: {
+					fillerWords: ['um', 42, 'er'],
+					paddingMs: 'wide',
+					maxSimpleFillerMs: null
+				},
+				autoThresholds: false
+			})
+		});
+		const settings = loadSpeechCleanupSettings(storage);
+		expect(settings.fillerPreset).toBe('aggressive');
+		expect(settings.autoThresholds).toBe(false);
+		expect(settings.fillerSettings.fillerWords).toEqual(['um', 'er']);
+		expect(settings.fillerSettings.paddingMs).toBe(35);
+		expect(settings.fillerSettings.maxSimpleFillerMs).toBe(1400);
 	});
 });

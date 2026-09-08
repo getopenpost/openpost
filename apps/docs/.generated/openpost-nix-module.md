@@ -230,9 +230,10 @@ let
       set -euo pipefail
       if ${pkgs.podman}/bin/podman container exists ${lib.escapeShellArg name}; then
         # Podman 5.8 can leave its transient systemd timer loaded after this
-        # update. Quiesce the container-ID-specific timer and any active probe
-        # before replacement so neither can fail after the container is gone.
-        ${pkgs.podman}/bin/podman update --health-interval=disable ${lib.escapeShellArg name} >/dev/null
+        # update, and can return 1 when disabling a timer with an in-flight
+        # probe. Continue to the explicit unit cleanup and container stop; those
+        # operations determine whether the managed service actually stopped.
+        ${pkgs.podman}/bin/podman update --health-interval=disable ${lib.escapeShellArg name} >/dev/null || true
         read -r container_id < /run/${name}/ctr-id
         [[ "$container_id" =~ ^[0-9a-f]{64}$ ]] || {
           echo "invalid ${name} container ID" >&2

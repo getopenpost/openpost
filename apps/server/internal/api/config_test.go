@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+	"regexp"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -81,4 +83,18 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 		{"bearerAuth": {}},
 	}, sessionState.Security, "session state supports anonymous and bearer-authenticated responses")
 	require.Contains(t, sessionState.Responses, "503")
+}
+
+func TestAPIReferenceLoadsItsSchemaFromTheServingInstance(t *testing.T) {
+	t.Parallel()
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
+	FinalizeOpenAPIContract(api)
+	page := systemGET(t, e, "/api/v1/docs")
+	require.Equal(t, http.StatusOK, page.Code)
+	match := regexp.MustCompile(`apiDescriptionUrl="([^"]+)"`).FindStringSubmatch(page.Body.String())
+	require.Len(t, match, 2)
+	schema := systemGET(t, e, match[1])
+	require.Equal(t, http.StatusOK, schema.Code, "API reference must load its advertised schema: %s", match[1])
+	require.Contains(t, schema.Body.String(), "openapi: 3.1.0")
 }

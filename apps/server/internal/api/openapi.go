@@ -8,6 +8,8 @@ const openAPIDescription = "OpenPost HTTP API for workspace-scoped social publis
 func OpenAPIConfig(version string) huma.Config {
 	config := huma.DefaultConfig("OpenPost API", version)
 	configureAutomationContract(&config)
+	// Huma builds the reference URL while registering routes, before finalization.
+	config.Servers = []*huma.Server{{URL: "https://example.com/api/v1"}}
 	config.Info.Description = openAPIDescription
 	config.Info.TermsOfService = "https://openpo.st/terms"
 	config.Info.Contact = &huma.Contact{

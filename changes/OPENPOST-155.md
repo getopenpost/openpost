@@ -5,3 +5,5 @@
 ### Fixed
 
 - Show Telegram connection availability from the configured bot and provider readiness checks instead of always marking it as planned. Provider approval remains required.
+
+- Load the instance API reference and schema examples from the versioned API path so administrators can use the documented operations.

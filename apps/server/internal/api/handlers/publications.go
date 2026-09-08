@@ -1628,6 +1628,17 @@ func (h *PublicationHandler) replacePublicationSegments(
 	for _, segment := range existing {
 		existingByID[segment.ID] = segment
 	}
+	// Vacate the nonnegative positions before reordering or replacing segments.
+	// Keep IDs intact so destination overrides survive; the transaction hides
+	// these temporary positions and rolls them back if any write fails.
+	if len(existing) > 0 {
+		if _, err := tx.NewUpdate().Model((*models.PublicationSegment)(nil)).
+			Set("position = -position - 1").
+			Where("publication_id = ?", publication.ID).
+			Exec(ctx); err != nil {
+			return err
+		}
+	}
 	keptIDs := make([]string, 0, len(inputs))
 	now := time.Now().UTC()
 	for position, input := range inputs {

@@ -9,16 +9,19 @@ import type { MediaMetadata } from './types';
 function media(id: string, audioCodecSupported?: boolean): MediaMetadata {
 	return {
 		id,
+		storageType: 'workspace',
 		fileName: `${id}.mp4`,
 		mimeType: 'video/mp4',
 		fileSize: 1024,
 		duration: 10,
 		width: 1920,
 		height: 1080,
+		fps: 30,
+		bitrate: 1_000_000,
 		codec: 'avc1',
 		audioCodecSupported,
 		tags: ['video']
-	} as MediaMetadata;
+	};
 }
 
 describe('countUnsupportedCodecMedia', () => {

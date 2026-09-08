@@ -7,7 +7,7 @@ import type { TranscriptionModel, TranscriptionQuantization } from './types';
  */
 const MIB = 1024 * 1024;
 
-const WHISPER_MODEL_BASE_ESTIMATES_MIB: Record<TranscriptionModel, number> = {
+const WHISPER_MODEL_BASE_ESTIMATES_MIB = {
 	// Parakeet is sized by backend via estimateParakeetRuntimeBytes(); this entry
 	// only satisfies the exhaustive map and is never scaled by quantization.
 	'parakeet-tdt-v3': 1270,
@@ -15,23 +15,23 @@ const WHISPER_MODEL_BASE_ESTIMATES_MIB: Record<TranscriptionModel, number> = {
 	'whisper-base': 420,
 	'whisper-small': 900,
 	'whisper-large': 2600
-};
+} satisfies Record<TranscriptionModel, number>;
 
 // Parakeet ONNX footprint: fp16 encoder (~1.24 GB) + int8 decoder_joint (~18 MB)
 // with the Nemo preprocessor on WebGPU; the WASM-only fallback uses the int8
 // encoder (~0.79 GB).
-const PARAKEET_RUNTIME_MIB: Record<'webgpu' | 'wasm', number> = {
+const PARAKEET_RUNTIME_MIB = {
 	webgpu: 1270,
 	wasm: 820
-};
+} satisfies Record<'webgpu' | 'wasm', number>;
 
-const QUANTIZATION_MULTIPLIER: Record<TranscriptionQuantization, number> = {
+const QUANTIZATION_MULTIPLIER = {
 	hybrid: 0.65,
 	fp32: 1,
 	fp16: 0.62,
 	q8: 0.58,
 	q4: 0.38
-};
+} satisfies Record<TranscriptionQuantization, number>;
 
 export function estimateTranscriptionModelBytes(
 	model: TranscriptionModel,

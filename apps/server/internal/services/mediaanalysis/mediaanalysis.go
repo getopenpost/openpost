@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -154,9 +155,24 @@ func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename string, 
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
+	duration, scanErr := packetDuration(stdout, frameRate)
+	if scanErr != nil {
+		cancel()
+	}
+	waitErr := cmd.Wait()
+	if scanErr != nil {
+		return 0, scanErr
+	}
+	if waitErr != nil {
+		return 0, waitErr
+	}
+	return duration, nil
+}
+
+func packetDuration(packets io.Reader, frameRate float64) (float64, error) {
 	var first, end float64
 	found := false
-	scanner := bufio.NewScanner(stdout)
+	scanner := bufio.NewScanner(packets)
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), ",")
 		if len(fields) < 2 {
@@ -178,15 +194,8 @@ func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename string, 
 		}
 		found = true
 	}
-	if scanner.Err() != nil {
-		cancel()
-	}
-	waitErr := cmd.Wait()
 	if err := scanner.Err(); err != nil {
 		return 0, err
-	}
-	if waitErr != nil {
-		return 0, waitErr
 	}
 	if !found || end <= first {
 		return 0, errors.New("video duration is unavailable")

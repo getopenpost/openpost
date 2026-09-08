@@ -68,27 +68,15 @@ OpenPost combines writing, media editing, scheduling, and results in one workspa
 
 [Watch the product tour](https://www.youtube.com/watch?v=_mZf3HzQaN8) · [Explore the app](https://openpo.st/features)
 
-## Get started
-
-**Hosted.** We run it for you. [Start a 14-day trial](https://app.openpo.st/register?plan=founder&billing_period=monthly)
-
-**Self-host.** Run OpenPost with Docker on your server:
-
-```bash
-git clone https://github.com/getopenpost/openpost.git
-cd openpost
-cp .env.example .env
-# set fresh secrets and OPENPOST_APP_URL, OPENPOST_PUBLIC_URL, OPENPOST_MEDIA_URL
-docker compose up -d
-```
-
-Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media.
-
-[Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
-
-**Automate.** [CLI guide](https://docs.openpo.st/guides/automation) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/api-reference)
-
 ## What you can do
+
+<p>
+  <a href="https://openpo.st/features#compose"><img src="assets/brand/features/compose.svg" alt="Compose" width="48" height="48"></a>
+  <a href="https://openpo.st/features#schedule"><img src="assets/brand/features/calendar.svg" alt="Scheduling" width="48" height="48"></a>
+  <a href="https://openpo.st/features#analytics-inbox"><img src="assets/brand/features/analytics.svg" alt="Analytics" width="48" height="48"></a>
+  <a href="https://app.openpo.st/image-editor"><img src="assets/brand/features/image-editor.svg" alt="Image Editor" width="48" height="48"></a>
+  <a href="https://app.openpo.st/video-editor"><img src="assets/brand/features/video-editor.svg" alt="Video Editor" width="48" height="48"></a>
+</p>
 
 - **Compose for every channel.** Write posts and threads, preview each account's version, and reuse account groups with Social Sets.
 - **AI writing and Ideate.** Find an idea, compare directions, and build drafts for your selected channels. Review the result before publishing.
@@ -114,6 +102,26 @@ The browser editors are free to try without an account. Exports have no watermar
 ![Video Editor with a screen recording and multitrack timeline](assets/screenshots/video-editor-dark.webp)
 
 [Quick Cut for simple trims](https://docs.openpo.st/guides/quick-cut) · [Explore all features](https://openpo.st/features) · [Usage guides](https://docs.openpo.st/guides/quickstart) · [API reference](https://docs.openpo.st/api-reference)
+
+## Get started
+
+**Hosted.** We run it for you. [Start a 14-day trial](https://app.openpo.st/register?plan=founder&billing_period=monthly)
+
+**Self-host.** Run OpenPost with Docker on your server:
+
+```bash
+git clone https://github.com/getopenpost/openpost.git
+cd openpost
+cp .env.example .env
+# set fresh secrets and OPENPOST_APP_URL, OPENPOST_PUBLIC_URL, OPENPOST_MEDIA_URL
+docker compose up -d
+```
+
+Open `http://localhost:8080`, create the first account, connect a social account. Default setup is one container, SQLite, local media.
+
+[Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
+
+**Automate.** [CLI guide](https://docs.openpo.st/guides/automation) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/api-reference)
 
 ## Supported platforms
 
@@ -142,6 +150,15 @@ bun run verify
 ```
 
 Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development setup](https://github.com/getopenpost/openpost/blob/main/docs/development/setup.md) before opening a PR.
+
+## Star history
+
+<!-- star-history:start -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/star-history/star-history-dark.svg">
+  <img alt="OpenPost GitHub star history" src="assets/star-history/star-history-light.svg" width="100%">
+</picture>
+<!-- star-history:end -->
 
 ## License and security
 

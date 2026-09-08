@@ -2691,6 +2691,13 @@
 		>
 			<ThemeIcon role="arrow-left" />
 		</Button>
+		<img
+			class="shrink-0"
+			src="/assets/brand/features/image-editor.svg"
+			alt={m.image_editor_title()}
+			width="24"
+			height="24"
+		/>
 		<EditorMenubar class="ml-1" ariaLabel={m.image_editor_menus()}>
 			<Menubar.Menu value="file">
 				<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>

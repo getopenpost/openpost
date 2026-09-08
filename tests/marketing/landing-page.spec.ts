@@ -2,31 +2,70 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { dismissTelemetryConsent } from "./helpers.js";
 
-test("landing preview switches destination copy without leaving the launch", async ({ page }) => {
+test("landing product preview follows the visitor's selection", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await dismissTelemetryConsent(page);
-  const preview = page.getByRole("group", { name: "Preview a destination" });
-  await expect(preview.getByRole("button", { name: "LinkedIn", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await preview.getByRole("button", { name: "Bluesky", exact: true }).click();
-  await expect(page.getByText("Bluesky rendition", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("A small thing we’ve been working on: Fieldnotes.", { exact: false }),
-  ).toBeVisible();
-  await preview.getByRole("button", { name: "Instagram", exact: true }).press("Enter");
-  await expect(page.getByText("Instagram rendition", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("Room for your next good idea. Meet Fieldnotes", { exact: false }),
-  ).toBeVisible();
-  await expect(preview.getByRole("button", { name: "Bluesky", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "false",
-  );
+  const picker = page.getByRole("group", { name: "Explore OpenPost" });
+  for (const name of ["Image Editor", "Video Editor", "Calendar", "Analytics", "Compose"]) {
+    const button = picker.getByRole("button", { name, exact: true });
+    await button.press("Enter");
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await expect(picker.locator('[aria-pressed="true"]')).toHaveCount(1);
+    const image = page.locator(".product-tour .preview img");
+    await expect(image).toHaveAttribute(
+      "alt",
+      new RegExp(name === "Compose" ? "composer" : name, "i"),
+    );
+    await expect
+      .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+      .toBe(true);
+  }
   expect(errors).toEqual([]);
+});
+
+test("testimonials link to their source and examples remain identified", async ({ page }) => {
+  await page.goto("/");
+  await dismissTelemetryConsent(page);
+  const stories = page.getByRole("region", { name: "First reactions." });
+  await expect(stories.getByRole("link", { name: /GreenSundance/ })).toHaveAttribute(
+    "href",
+    "https://www.reddit.com/r/foss/comments/1wa2075/comment/p8g2kn4/",
+  );
+  await expect(stories.getByRole("link", { name: /super2061/ })).toHaveAttribute(
+    "href",
+    "https://www.reddit.com/r/foss/comments/1wa2075/comment/p8fnhym/",
+  );
+  await stories.locator("summary").press("Enter");
+  await expect(
+    stories.getByText("Fictional examples of how people might use OpenPost."),
+  ).toBeVisible();
+  await expect(stories.getByText("Jonas Keller", { exact: false })).toBeVisible();
+  await expect(stories.locator("details a")).toHaveCount(0);
+});
+
+test("editor demonstrations load on demand and can be played by keyboard", async ({ page }) => {
+  await page.goto("/");
+  await dismissTelemetryConsent(page);
+  await expect(page.locator("main video")).toHaveCount(0);
+  for (const editor of ["Image Editor", "Video Editor"]) {
+    const summary = page.locator("summary").filter({ hasText: `Watch ${editor} in action` });
+    await summary.press("Enter");
+    const video = page.getByLabel(`${editor} demonstration`);
+    await expect(video).toBeVisible();
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
+      .toBeGreaterThan(0);
+    await video.focus();
+    await video.press("Space");
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime))
+      .toBeGreaterThan(0.2);
+    expect(await video.evaluate((v: HTMLVideoElement) => v.error)).toBeNull();
+    await summary.press("Enter");
+    await expect(video).toHaveCount(0);
+  }
 });
 
 test("landing keeps trial terms and its tour accessible without JavaScript", async ({
@@ -44,8 +83,19 @@ test("landing keeps trial terms and its tour accessible without JavaScript", asy
   await expect(
     page.getByRole("link", { name: "Watch the product tour", exact: true }),
   ).toHaveAttribute("href", /youtube\.com\/watch/);
+  for (const editor of ["Image Editor", "Video Editor"]) {
+    await page
+      .locator("summary")
+      .filter({ hasText: `Watch ${editor} in action` })
+      .click();
+    const recording = page.getByRole("link", { name: `Open the ${editor} recording` });
+    await expect(recording).toBeVisible();
+    await expect(recording).toHaveAttribute("href", /\/assets\/demos\/.+\.mp4$/);
+  }
   await page.locator("summary").filter({ hasText: "How does the free trial work?" }).click();
-  await expect(page.locator("details[open]")).toContainText("14");
+  await expect(
+    page.getByRole("region", { name: "A few questions." }).locator("details[open]"),
+  ).toContainText("14");
   await context.close();
 });
 
@@ -63,19 +113,27 @@ for (const width of [1440, 390, 320]) {
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
-      expect(
-        await page
-          .locator("img")
-          .evaluateAll((images) =>
-            images
-              .filter((image) => image.loading !== "lazy")
-              .every((image) => image.complete && image.naturalWidth > 0),
-          ),
-      ).toBe(true);
+      await expect(page.getByRole("group", { name: "Explore OpenPost" })).toBeVisible();
+      await expect
+        .poll(() =>
+          page
+            .locator("img")
+            .evaluateAll((images) =>
+              images
+                .filter((image) => image.loading !== "lazy")
+                .every((image) => image.complete && image.naturalWidth > 0),
+            ),
+        )
+        .toBe(true);
       if (process.env.OPENPOST_CAPTURE_LANDING === "1") {
         await page.evaluate(() => document.fonts.ready);
         await page.screenshot({ path: testInfo.outputPath(`hero-${width}-${colorScheme}.png`) });
-        for (const heading of ["studio-title", "schedule-title", "tour-title", "closing-title"]) {
+        for (const heading of [
+          "studio-title",
+          "schedule-title",
+          "stories-title",
+          "closing-title",
+        ]) {
           await page.locator(`#${heading}`).scrollIntoViewIfNeeded();
         }
         await page.getByRole("heading", { level: 1 }).scrollIntoViewIfNeeded();

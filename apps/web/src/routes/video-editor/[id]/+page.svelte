@@ -19,7 +19,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes/contracts';
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
-	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -2205,9 +2204,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		<div class="flex min-w-0 items-center gap-2">
 			<a
 				href="/video-editor"
+				aria-label="OpenPost"
 				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
-				<Logo class="h-5 w-auto" />
+				<img
+					src="/assets/brand/features/video-editor.svg"
+					alt={m.video_editor_title()}
+					width="28"
+					height="28"
+				/>
 			</a>
 			<EditorTitleInput
 				value={editorSession.project?.name ?? ''}

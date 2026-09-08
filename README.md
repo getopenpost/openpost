@@ -64,48 +64,69 @@
   <img alt="OpenPost composer with six social destinations and scheduling controls" src="./assets/screenshots/readme-hero-dark.webp" width="98%">
 </p>
 
-Write the post once. OpenPost adapts it for each platform, makes the media, schedules it, and brings the results, replies, and messages back into one place.
+OpenPost combines writing, media editing, scheduling, and results in one workspace. Keep a shared draft, then adjust the text, media, and timing for each account. Review every version before publishing.
 
-- **Composer**: one draft, then tailor text, media, and timing per account. Publish now or schedule it.
-- **Studio**: image editor, video editor, meme creator, and screen recorder, all in the browser.
-- **Calendar**: plan the month, reuse posting slots, track what's live, failed, or waiting.
-- **Inbox**: comments and DMs from every connected account, in one place.
-- **Analytics & Grow**: see what worked and do more of it; find people worth following.
-- **AI writing**: Ideate what to post, or turn a draft into one for every destination. You review before anything ships.
-- **Workspaces**: separate brands, clients, and teams, with their own accounts and members.
-- **API, CLI, MCP**: scripts and agents work against the same posts and permissions as the app, without your account passwords.
+[Watch the product tour](https://www.youtube.com/watch?v=_mZf3HzQaN8) · [Explore the app](https://openpo.st/features)
 
-That's the shape of it; the [docs](https://docs.openpo.st) cover the rest, including the Android app, brand kits, and auto-reposting.
+## Create your media
+
+The browser editors are free to try without an account. Exports have no watermark.
 
 <table>
   <tr>
-    <td width="50%" align="center">
-      <img alt="OpenPost monthly publishing calendar" src="./assets/screenshots/calendar-dark.webp" width="100%">
-      <br><strong>Plan the month</strong><br><sub>Never miss a day.</sub>
+    <td width="50%">
+      <img src="assets/brand/features/image-editor.svg" alt="" width="40" height="40">
+      <h3>Image Editor</h3>
+      <a href="https://app.openpo.st/image-editor"><img alt="Image Editor with a Lisbon tram photo and editable layers" src="assets/screenshots/image-editor-dark.webp" width="100%"></a>
+      <ul>
+        <li>Layers, text, shapes, and editable templates</li>
+        <li>Background removal, cropping, and color adjustments</li>
+        <li>Multi-page carousels with ordered exports</li>
+        <li>Custom fonts, brand colors, and version history for workspace designs</li>
+      </ul>
+      <a href="https://app.openpo.st/image-editor">Open the Image Editor</a> · <a href="https://openpo.st/assets/demos/image-editor.mp4">Watch a quick demo</a>
     </td>
-    <td width="50%" align="center">
-      <img alt="OpenPost results with account growth and post results" src="./assets/screenshots/analytics-dark.webp" width="100%">
-      <br><strong>See what worked</strong><br><sub>And then do more of it.</sub>
+    <td width="50%">
+      <img src="assets/brand/features/video-editor.svg" alt="" width="40" height="40">
+      <h3>Video Editor, beta</h3>
+      <a href="https://app.openpo.st/video-editor"><img alt="Video Editor with a screen recording and multitrack timeline" src="assets/screenshots/video-editor-dark.webp" width="100%"></a>
+      <ul>
+        <li>Multitrack cuts, transitions, effects, and keyframes</li>
+        <li>Captions and transcript-based editing</li>
+        <li>Curves, scopes, LUTs, and audio controls</li>
+        <li>Autosave, checkpoints, and optional workspace sync</li>
+      </ul>
+      <a href="https://app.openpo.st/video-editor">Open the Video Editor</a> · <a href="https://openpo.st/assets/demos/video-editor.mp4">Watch a quick demo</a>. Use desktop Chromium for the full editor. Mobile supports capture and project preparation.
     </td>
   </tr>
 </table>
 
+## Plan and publish
+
 <table>
   <tr>
-    <td width="50%" align="center">
-      <img alt="OpenPost Image Editor with a selected logo over a Lisbon tram photo" src="./assets/screenshots/image-editor-dark.webp" width="100%">
-      <br><strong>Make the thumbnail</strong><br><sub>Photoshop, in your browser, but it's easy to use.</sub>
+    <td width="50%">
+      <img src="assets/brand/features/calendar.svg" alt="" width="32" height="32">
+      <h3>Calendar</h3>
+      <img alt="Monthly publishing calendar" src="assets/screenshots/calendar-dark.webp" width="100%">
+      <p>Schedule publications, reuse posting slots, and inspect draft, published, failed, and retrying states.</p>
     </td>
-    <td width="50%" align="center">
-      <img alt="OpenPost Video Editor cutting a Study SOS screen recording" src="./assets/screenshots/video-editor-dark.webp" width="100%">
-      <br><strong>Edit the video</strong><br><sub>Capture on mobile, then continue a synced project in your browser (still in BETA)</sub>
+    <td width="50%">
+      <img src="assets/brand/features/analytics.svg" alt="" width="32" height="32">
+      <h3>Analytics</h3>
+      <img alt="Account growth and publication results" src="assets/screenshots/analytics-dark.webp" width="100%">
+      <p>Track account growth and post results where the connected platform supports them.</p>
     </td>
   </tr>
 </table>
+
+AI writing helps develop ideas and adapt drafts. Workspaces separate accounts, media, and members. The inbox collects supported comments and messages. The API, CLI, and MCP use the same posts and permissions as the app.
+
+[Feature overview](https://openpo.st/features) · [Automation docs](https://docs.openpo.st/mcp/)
 
 ## Supported platforms
 
-LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord (via webhook). Support varies by platform: not every one does DMs, comments, analytics, or Grow, and some need app review or public media URLs. OpenPost tells you what's missing before you publish.
+OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Publishing formats, messages, comments, analytics, and Grow support vary by platform. Some connections need app review or public media URLs.
 
 <!-- provider-certification:begin -->
 
@@ -115,15 +136,15 @@ A social app can appear in OpenPost before it is ready for real accounts.
 
 <!-- provider-certification:end -->
 
-Pinterest and Discord/Telegram bot connections aren't public posting options yet.
+Pinterest, Discord bots, and Telegram bots are not public posting options yet.
 
 [Provider readiness](https://docs.openpo.st/operations/provider-launch-matrix) · [Platform rules](https://docs.openpo.st/providers/)
 
 ## Get started
 
-**Hosted**: we run it for you. [Start a 14-day trial →](https://app.openpo.st/register?plan=founder&billing_period=monthly)
+**Hosted.** We run it for you. [Start a 14-day trial](https://app.openpo.st/register?plan=founder&billing_period=monthly)
 
-**Self-host**: Docker, your own server:
+**Self-host.** Run OpenPost with Docker on your server:
 
 ```bash
 git clone https://github.com/getopenpost/openpost.git
@@ -137,7 +158,7 @@ Open `http://localhost:8080`, create the first account, connect a social account
 
 [Installation reference](https://docs.openpo.st/self-hosting/) · [Hosted or self-hosted?](https://openpo.st/self-hosting)
 
-**Automate**: API, CLI, and MCP server work against the same posts and permissions as the app, no social credentials required. [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
+**Automate.** [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
 
 ## Develop
 
@@ -153,7 +174,7 @@ Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development set
 
 ## Help OpenPost grow
 
-If it's useful to you, star the repo; it helps more people find it.
+If OpenPost is useful to you, give the repo a star.
 
 <!-- star-history:start -->
 <picture>

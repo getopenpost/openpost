@@ -82,7 +82,9 @@ for (const width of [1440, 390, 320]) {
           .poll(async () => {
             const box = await enlarged.boundingBox();
             return box
-              ? box.width > original!.width * 1.1 &&
+              ? box.width > original!.width &&
+                  box.width >=
+                    Math.min(width - 32, ((900 - 32) * original!.width) / original!.height) - 2 &&
                   Math.abs(box.y + box.height / 2 - 450) < 2 &&
                   box.x >= 0 &&
                   box.x + box.width <= width + 1

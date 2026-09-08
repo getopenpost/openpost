@@ -58,6 +58,7 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 - Put Huma request size limits on `huma.Operation.MaxBodyBytes`. Do not read and replace an HTTP request body before Huma, because Huma's body-read deadline can then cancel a long-running handler after the body is already buffered.
 - External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `apps/server/internal/services/externalapps/`; keep durable signed delivery in `apps/server/internal/services/externalwebhooks/`.
 - AI features use maintained SDKs behind `apps/server/internal/ai/` and the shared model and configuration choices.
+- Keep feature identity SVGs in `assets/brand/features/` and distribute them through `scripts/asset-surfaces.ts`. Feature marks do not replace the protected Converge logo or functional control icons.
 - Keep marketing illustration colors in paired public light/dark tokens; do not change authenticated organization themes to style public campaigns.
 - Theme management reads unpublished drafts from the organization catalog; workspace assignments use published themes. Apply server-confirmed settings immediately and keep background refreshes outside the mutation busy state.
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.

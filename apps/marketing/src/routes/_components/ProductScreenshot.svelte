@@ -49,7 +49,10 @@
 		if (!zoom || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 		event.preventDefault();
 		if (expanded) void close();
-		else opening = zoom.open({ target: image });
+		else {
+			zoom.update({ margin: window.innerWidth < 640 ? 0 : 16 });
+			opening = zoom.open({ target: image });
+		}
 	}
 
 	async function close() {

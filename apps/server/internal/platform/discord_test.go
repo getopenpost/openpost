@@ -145,7 +145,8 @@ func TestDiscordBotAuthURLUsesInstallAndGuildSelectionScopes(t *testing.T) {
 	if query.Get("state") != "state-token" || query.Get("scope") != "identify guilds bot" {
 		t.Fatalf("unexpected OAuth query %v", query)
 	}
-	if query.Get("permissions") != "3072" {
+	// Discord requires View Channel, Send Messages, Embed Links, Attach Files, and Read Message History.
+	if query.Get("permissions") != "117760" {
 		t.Fatalf("unexpected bot permissions %q", query.Get("permissions"))
 	}
 }

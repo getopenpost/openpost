@@ -16,23 +16,27 @@ import (
 )
 
 const (
-	discordAPIBase                     = "https://discord.com/api/v10"
-	discordOAuthAuthorizeURL           = "https://discord.com/oauth2/authorize"
-	discordGuildTextChannel            = 0
-	discordGuildAnnouncementChannel    = 5
-	discordPermissionAdministrator     = uint64(1 << 3)
-	discordPermissionManageGuild       = uint64(1 << 5)
-	discordPermissionViewChannel       = uint64(1 << 10)
-	discordPermissionSendMessages      = uint64(1 << 11)
-	discordPermissionMentionEveryone   = uint64(1 << 17)
-	discordApplicationGuildMembers     = uint64(1 << 14)
-	discordApplicationGuildMembersLite = uint64(1 << 15)
-	discordInstallPermissions          = discordPermissionViewChannel | discordPermissionSendMessages
-	discordGuildCredentialPrefix       = "discord-guild:"
-	discordChannelPermissionLostCode   = "discord_channel_permission_lost"
-	discordMentionPermissionLostCode   = "discord_mention_permission_lost"
-	discordEmbedInvalidCode            = "discord_embed_invalid"
-	discordAnalyticsMaxMessages        = 25
+	discordAPIBase                      = "https://discord.com/api/v10"
+	discordOAuthAuthorizeURL            = "https://discord.com/oauth2/authorize"
+	discordGuildTextChannel             = 0
+	discordGuildAnnouncementChannel     = 5
+	discordPermissionAdministrator      = uint64(1 << 3)
+	discordPermissionManageGuild        = uint64(1 << 5)
+	discordPermissionViewChannel        = uint64(1 << 10)
+	discordPermissionSendMessages       = uint64(1 << 11)
+	discordPermissionEmbedLinks         = uint64(1 << 14)
+	discordPermissionAttachFiles        = uint64(1 << 15)
+	discordPermissionReadMessageHistory = uint64(1 << 16)
+	discordPermissionMentionEveryone    = uint64(1 << 17)
+	discordApplicationGuildMembers      = uint64(1 << 14)
+	discordApplicationGuildMembersLite  = uint64(1 << 15)
+	discordInstallPermissions           = discordPermissionViewChannel | discordPermissionSendMessages |
+		discordPermissionEmbedLinks | discordPermissionAttachFiles | discordPermissionReadMessageHistory
+	discordGuildCredentialPrefix     = "discord-guild:"
+	discordChannelPermissionLostCode = "discord_channel_permission_lost"
+	discordMentionPermissionLostCode = "discord_mention_permission_lost"
+	discordEmbedInvalidCode          = "discord_embed_invalid"
+	discordAnalyticsMaxMessages      = 25
 )
 
 type DiscordBotAdapter struct {

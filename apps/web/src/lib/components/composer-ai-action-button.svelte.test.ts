@@ -17,7 +17,10 @@ function buttonProps(hasText: boolean) {
 
 describe('ComposerAIActionButton', () => {
 	it('reserves the same action width while building with a longer localized label', async () => {
-		const props = { ...buttonProps(true), buildingLabel: 'Preparing your destination drafts...' };
+		const props = {
+			...buttonProps(true),
+			buildingLabel: 'Preparing your destination drafts...'
+		};
 		const screen = await render(ComposerAIActionButton, props);
 		const button = screen.getByRole('button', { name: props.buildLabel }).element();
 		await expect.poll(() => button.getBoundingClientRect().width).toBeGreaterThan(40);
@@ -35,9 +38,12 @@ describe('ComposerAIActionButton', () => {
 		const screen = await render(ComposerAIActionButton, ideateProps);
 		const ideateButton = screen.getByRole('button', { name: 'Ideate' });
 		const buttonElement = ideateButton.element();
+		const actionTrack = screen.container.querySelector<HTMLElement>('.ai-action-track')!;
 
 		await expect.element(ideateButton).toBeVisible();
 		expect(buttonElement.getAttribute('data-action-intent')).toBe('primary');
+		expect(screen.container.querySelectorAll('[data-ai-action-pill]')).toHaveLength(2);
+		expect(getComputedStyle(actionTrack).transitionDuration).toBe('0.4s');
 		await ideateButton.click();
 		expect(ideateProps.onclick).toHaveBeenCalledOnce();
 
@@ -48,5 +54,6 @@ describe('ComposerAIActionButton', () => {
 		expect(buildButton.element()).toBe(buttonElement);
 		expect(buttonElement.getAttribute('data-action-intent')).toBe('ordinary');
 		expect(screen.container.querySelectorAll('button')).toHaveLength(1);
+		await expect.poll(() => actionTrack.style.transform).toMatch(/^translateX\(-[1-9]/);
 	});
 });

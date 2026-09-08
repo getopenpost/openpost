@@ -229,6 +229,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
         await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
       }
       const videoWorkspaces = page.getByRole("tablist", {
         name: "Editor workspaces",
@@ -271,6 +272,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.getByRole("menuitem", { name: /Split/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
       }
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
@@ -278,8 +280,31 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         animations: "disabled",
       });
 
+      const videoHeader = await page.getByRole("banner").evaluate((element) => ({
+        background: getComputedStyle(element).backgroundColor,
+        height: element.getBoundingClientRect().height,
+      }));
       await page.goto(imageURL);
       await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+      await expect(page.getByText("Preparing canvas…", { exact: true })).toBeHidden();
+      await expect
+        .poll(() =>
+          page.getByRole("banner").evaluate((element) => ({
+            background: getComputedStyle(element).backgroundColor,
+            height: element.getBoundingClientRect().height,
+          })),
+        )
+        .toEqual(videoHeader);
+      if (width === 1440) {
+        const title = await page.getByRole("textbox", { name: "Design title" }).boundingBox();
+        const tabs = await page.getByRole("tablist", { name: "Editor workspaces" }).boundingBox();
+        const exportButton = await page
+          .getByRole("banner")
+          .getByRole("button", { name: "Export", exact: true })
+          .boundingBox();
+        expect(title!.x + title!.width).toBeLessThan(tabs!.x);
+        expect(exportButton!.x).toBeGreaterThan(tabs!.x + tabs!.width);
+      }
       if (width === 320) {
         await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         const mobileTitle = page.getByRole("textbox", { name: "Design title" });
@@ -287,6 +312,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await mobileTitle.fill("Mobile title");
         await expect(mobileTitle).toHaveValue("Mobile title");
         await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
       }
       await page.screenshot({
         path: `${screenshotDirectory}/image-edit-${width}-${theme.id}-${theme.scheme}.png`,
@@ -346,4 +372,44 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
   }
 
   expect(errors, errors.join(" | ")).toEqual([]);
+});
+
+test.describe("touch editor headers", () => {
+  test.use({ hasTouch: true });
+  test("keep workspace and export controls reachable on a narrow phone", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 1440, height: 960 });
+    const { token } = await registerUser(request, "touch-headers@example.com");
+    await createWorkspace(request, token, "Touch headers");
+    await authenticatePage(page, token);
+    const videoURL = await createVideoProject(page, "Touch project");
+    const imageURL = await createImageDesign(page);
+    await page.setViewportSize({ width: 320, height: 844 });
+    for (const url of [videoURL, imageURL]) {
+      await page.goto(url);
+      const header = page.getByRole("banner");
+      await expect(header.getByRole("tablist")).toBeVisible();
+      if (url === imageURL)
+        await expect(page.getByTestId("image-editor-save-indicator")).toBeVisible();
+      const targets = await header.locator("button:visible, a:visible").evaluateAll((elements) =>
+        elements.map((element) => ({
+          name: element.getAttribute("aria-label") || element.textContent,
+          width: element.getBoundingClientRect().width,
+          height: element.getBoundingClientRect().height,
+        })),
+      );
+      for (const target of targets) {
+        expect(target.width, target.name || "header target").toBeGreaterThanOrEqual(44);
+        expect(target.height, target.name || "header target").toBeGreaterThanOrEqual(44);
+      }
+      await header.getByRole("button", { name: "More actions" }).click();
+      await expect(page.getByRole("menu")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await expectNoHorizontalOverflow(page);
+    }
+  });
 });

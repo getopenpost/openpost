@@ -14,6 +14,7 @@
 	import AppToast from '$lib/components/app-toast.svelte';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import EditorMenubar from '$lib/components/editor-menubar.svelte';
+	import EditorHeader from '$lib/components/editor-header.svelte';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
 	import EditorWorkspaceTabs from '$lib/components/editor-workspace-tabs.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -1451,8 +1452,7 @@
 				return;
 			}
 		}
-		if (history.length > 1) history.back();
-		else void goto(resolveAppPath(guestMode ? '/image-editor' : '/media'));
+		await goto(resolveAppPath('/image-editor'));
 	}
 
 	async function openHistory(): Promise<void> {
@@ -2679,25 +2679,217 @@
 		tabindex={-1}
 		onchange={importProject}
 	/>
-	<header
-		class="flex h-14 shrink-0 items-center gap-1 border-b bg-background/95 px-2 backdrop-blur md:h-12"
-	>
-		<Button
-			variant="ghost"
-			size="icon-sm"
-			class="size-11 md:size-11 lg:size-8"
-			onclick={goBack}
-			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
-		>
-			<ThemeIcon role="arrow-left" />
-		</Button>
-		<img
-			class="shrink-0"
-			src="/assets/brand/features/image-editor.svg"
-			alt={m.image_editor_title()}
-			width="24"
-			height="24"
-		/>
+	<EditorHeader>
+		{#snippet identity()}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="size-11 shrink-0 md:size-8 [@media(pointer:coarse)]:size-11"
+				onclick={goBack}
+				aria-label={returnToken ? m.editor_back_to_post() : m.image_editor_title()}
+			>
+				<img src="/assets/brand/features/image-editor.svg" alt="" width="28" height="28" />
+			</Button>
+			<EditorTitleInput
+				value={editor.document?.title ?? ''}
+				class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
+				ariaLabel={m.image_editor_design_title()}
+				disabled={!editor.canEdit}
+				onchange={(value) =>
+					editor.mutate('Rename design', (document) => (document.title = value), 'document-title')}
+			/>
+		{/snippet}
+		{#snippet workspaces()}
+			<EditorWorkspaceTabs
+				value={activeEditorWorkspace}
+				options={[
+					{
+						id: 'edit',
+						label: m.image_editor_edit(),
+						emblem: { kind: 'theme', role: 'edit' }
+					},
+					{
+						id: 'color',
+						label: m.image_editor_color(),
+						emblem: { kind: 'theme', role: 'appearance' }
+					}
+				]}
+				ariaLabel={m.editor_workspaces()}
+				idPrefix="image-editor-workspace-tab"
+				panelId="image-editor-workspace-panel"
+				onvaluechange={(workspace) => {
+					activeEditorWorkspace = workspace === 'color' ? 'color' : 'edit';
+					if (activeEditorWorkspace === 'color') {
+						editor.rightPanelVisible = true;
+						if (window.innerWidth < 1024) mobileSheet = 'properties';
+					}
+				}}
+			/>
+		{/snippet}
+		{#snippet actions()}
+			<SaveIndicator
+				saving={editor.saveState === 'saving'}
+				saved={editor.saveState === 'saved'}
+				savingLabel={m.common_saving()}
+				savedLabel={guestMode ? m.image_editor_public_saved_device() : m.image_editor_saved()}
+				class="max-sm:px-0"
+				testId="image-editor-save-indicator"
+			/>
+			{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
+				<div
+					class="hidden max-w-52 min-w-0 items-center gap-1.5 truncate px-2 text-xs text-muted-foreground sm:flex"
+					title={editor.saveMessage}
+				>
+					<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
+					<span class="truncate">{editor.saveMessage}</span>
+				</div>
+			{/if}
+
+			<div class="flex items-center gap-1">
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+					onclick={undoEditor}
+					disabled={!editor.canUndo}
+					aria-label={editor.undoLabel
+						? m.image_editor_undo_named({ name: editor.undoLabel })
+						: m.image_editor_undo()}><ThemeIcon role="undo" /></Button
+				>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+					onclick={redoEditor}
+					disabled={!editor.canRedo}
+					aria-label={editor.redoLabel
+						? m.image_editor_redo_named({ name: editor.redoLabel })
+						: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
+				>
+				<Button
+					variant="default"
+					size="sm"
+					class="size-11 px-0 sm:h-8 sm:w-auto sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+					aria-label={returnToken ? m.image_editor_attach() : m.image_editor_export()}
+					onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
+				>
+					<ThemeIcon role="download" class="size-3.5" />
+					<span class="hidden sm:inline"
+						>{#if returnToken}{m.image_editor_attach()}{:else}{m.image_editor_export()}{/if}</span
+					>
+				</Button>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon-sm"
+								class="size-11 md:size-8 [@media(pointer:coarse)]:size-11"
+								aria-label={m.image_editor_more_actions()}
+							>
+								<ThemeIcon role="more-horizontal" />
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end">
+						<div class="w-64 p-1 md:hidden">
+							<EditorTitleInput
+								value={editor.document?.title ?? ''}
+								class="h-11 w-full"
+								ariaLabel={m.image_editor_design_title()}
+								disabled={!editor.canEdit}
+								onkeydown={(event) => {
+									if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+								}}
+								onchange={(value) =>
+									editor.mutate(
+										'Rename design',
+										(document) => (document.title = value),
+										'document-title'
+									)}
+							/>
+						</div>
+						<DropdownMenu.Separator class="md:hidden" />
+						{#each imageEditorCommandsForCategory('edit').filter((command) => command.id === 'undo' || command.id === 'redo') as command (command.id)}
+							<DropdownMenu.Item
+								onclick={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								<ThemeIcon role={command.id === 'undo' ? 'undo' : 'redo'} />
+								{commandMenuLabel(command.id)}
+							</DropdownMenu.Item>
+						{/each}
+						<DropdownMenu.Separator />
+						{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
+							{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
+							<DropdownMenu.Item
+								onclick={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{commandMenuLabel(command.id)}
+							</DropdownMenu.Item>
+						{/each}
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}
+							>{m.image_editor_layers()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item onclick={() => (mobileSheet = 'properties')}
+							>{m.image_editor_properties()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Separator />
+						{#each imageEditorCommandsForCategory('view') as command (command.id)}
+							{#if command.menuKind === 'checkbox' || command.id === 'focus_canvas'}
+								<DropdownMenu.CheckboxItem
+									checked={commandChecked(command.id)}
+									onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
+								>
+									{commandLabel(command.id)}
+								</DropdownMenu.CheckboxItem>
+							{:else}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+									title={commandDisabledReason(command.id) || undefined}
+								>
+									{commandLabel(command.id)}
+								</DropdownMenu.Item>
+							{/if}
+						{/each}
+						{#each imageEditorCommandsForCategory('layer').filter((command) => command.id === 'remove_background') as command (command.id)}
+							<DropdownMenu.Item
+								onclick={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{commandLabel(command.id)}
+							</DropdownMenu.Item>
+						{/each}
+						<DropdownMenu.Separator />
+						{#each imageEditorCommandsForCategory('help') as command (command.id)}
+							<DropdownMenu.Item onclick={() => executeEditorCommand(command.id)}>
+								<ThemeIcon role="help" />
+								{commandLabel(command.id)}
+							</DropdownMenu.Item>
+						{/each}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+				{#if guestMode}
+					<Button
+						variant="outline"
+						size="sm"
+						class="hidden h-8 2xl:inline-flex"
+						onclick={saveToOpenPost}
+					>
+						{m.image_editor_public_save_openpost()}
+					</Button>
+				{/if}
+			</div>
+		{/snippet}
+	</EditorHeader>
+	<div class="hidden shrink-0 border-b bg-card px-3 lg:block">
 		<EditorMenubar class="ml-1" ariaLabel={m.image_editor_menus()}>
 			<Menubar.Menu value="file">
 				<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
@@ -2821,193 +3013,7 @@
 				</Menubar.Content>
 			</Menubar.Menu>
 		</EditorMenubar>
-		<EditorWorkspaceTabs
-			value={activeEditorWorkspace}
-			options={[
-				{
-					id: 'edit',
-					label: m.image_editor_edit(),
-					emblem: { kind: 'theme', role: 'edit' }
-				},
-				{
-					id: 'color',
-					label: m.image_editor_color(),
-					emblem: { kind: 'theme', role: 'appearance' }
-				}
-			]}
-			ariaLabel={m.editor_workspaces()}
-			idPrefix="image-editor-workspace-tab"
-			panelId="image-editor-workspace-panel"
-			onvaluechange={(workspace) => {
-				activeEditorWorkspace = workspace === 'color' ? 'color' : 'edit';
-				if (activeEditorWorkspace === 'color') {
-					editor.rightPanelVisible = true;
-					if (window.innerWidth < 1024) mobileSheet = 'properties';
-				}
-			}}
-		/>
-		<SaveIndicator
-			saving={editor.saveState === 'saving'}
-			saved={editor.saveState === 'saved'}
-			savingLabel={m.common_saving()}
-			savedLabel={guestMode ? m.image_editor_public_saved_device() : m.image_editor_saved()}
-			class="max-[359px]:hidden"
-			testId="image-editor-save-indicator"
-		/>
-		{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
-			<div
-				class="hidden max-w-52 min-w-0 items-center gap-1.5 truncate px-2 text-xs text-muted-foreground sm:flex"
-				title={editor.saveMessage}
-			>
-				<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
-				<span class="truncate">{editor.saveMessage}</span>
-			</div>
-		{/if}
-		<EditorTitleInput
-			value={editor.document?.title ?? ''}
-			class="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 font-medium hover:border-input focus:border-input max-[359px]:hidden sm:max-w-56 sm:flex-none md:h-11 lg:ml-auto lg:h-8 lg:max-w-72"
-			ariaLabel={m.image_editor_design_title()}
-			disabled={!editor.canEdit}
-			onchange={(value) =>
-				editor.mutate('Rename design', (document) => (document.title = value), 'document-title')}
-		/>
-		<div class="flex items-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
-				onclick={undoEditor}
-				disabled={!editor.canUndo}
-				aria-label={editor.undoLabel
-					? m.image_editor_undo_named({ name: editor.undoLabel })
-					: m.image_editor_undo()}><ThemeIcon role="undo" /></Button
-			>
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
-				onclick={redoEditor}
-				disabled={!editor.canRedo}
-				aria-label={editor.redoLabel
-					? m.image_editor_redo_named({ name: editor.redoLabel })
-					: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
-			>
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							variant="ghost"
-							size="icon-sm"
-							class="size-11 md:size-11 lg:hidden"
-							aria-label={m.image_editor_more_actions()}
-						>
-							<ThemeIcon role="more-horizontal" />
-						</Button>
-					{/snippet}
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end">
-					<div class="w-64 p-1 min-[360px]:hidden">
-						<EditorTitleInput
-							value={editor.document?.title ?? ''}
-							class="h-11 w-full"
-							ariaLabel={m.image_editor_design_title()}
-							disabled={!editor.canEdit}
-							onkeydown={(event) => event.stopPropagation()}
-							onchange={(value) =>
-								editor.mutate(
-									'Rename design',
-									(document) => (document.title = value),
-									'document-title'
-								)}
-						/>
-					</div>
-					<DropdownMenu.Separator class="min-[360px]:hidden" />
-					{#each imageEditorCommandsForCategory('edit').filter((command) => command.id === 'undo' || command.id === 'redo') as command (command.id)}
-						<DropdownMenu.Item
-							onclick={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							<ThemeIcon role={command.id === 'undo' ? 'undo' : 'redo'} />
-							{commandMenuLabel(command.id)}
-						</DropdownMenu.Item>
-					{/each}
-					<DropdownMenu.Separator />
-					{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
-						{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
-						<DropdownMenu.Item
-							onclick={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{commandMenuLabel(command.id)}
-						</DropdownMenu.Item>
-					{/each}
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}
-						>{m.image_editor_layers()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Item onclick={() => (mobileSheet = 'properties')}
-						>{m.image_editor_properties()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Separator />
-					{#each imageEditorCommandsForCategory('view') as command (command.id)}
-						{#if command.menuKind === 'checkbox' || command.id === 'focus_canvas'}
-							<DropdownMenu.CheckboxItem
-								checked={commandChecked(command.id)}
-								onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
-							>
-								{commandLabel(command.id)}
-							</DropdownMenu.CheckboxItem>
-						{:else}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
-							>
-								{commandLabel(command.id)}
-							</DropdownMenu.Item>
-						{/if}
-					{/each}
-					{#each imageEditorCommandsForCategory('layer').filter((command) => command.id === 'remove_background') as command (command.id)}
-						<DropdownMenu.Item
-							onclick={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{commandLabel(command.id)}
-						</DropdownMenu.Item>
-					{/each}
-					<DropdownMenu.Separator />
-					{#each imageEditorCommandsForCategory('help') as command (command.id)}
-						<DropdownMenu.Item onclick={() => executeEditorCommand(command.id)}>
-							<ThemeIcon role="help" />
-							{commandLabel(command.id)}
-						</DropdownMenu.Item>
-					{/each}
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
-			{#if guestMode}
-				<Button
-					variant="outline"
-					size="sm"
-					class="hidden h-8 xl:inline-flex"
-					onclick={saveToOpenPost}
-				>
-					{m.image_editor_public_save_openpost()}
-				</Button>
-			{/if}
-			<Button
-				variant="default"
-				size="sm"
-				class="h-11 md:h-11 lg:h-8"
-				onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
-			>
-				{#if returnToken}{m.image_editor_attach()}{:else}{m.image_editor_export()}{/if}
-			</Button>
-		</div>
-	</header>
+	</div>
 
 	{#if !editor.canEdit}
 		<div class="border-b bg-muted px-3 py-2 text-center text-xs">
@@ -3160,7 +3166,7 @@
 		style:--image-editor-inspector-width={`${inspectorPanelWidth}px`}
 	>
 		<nav
-			class="hidden min-h-0 flex-col items-center gap-1 border-r bg-background py-2 lg:flex"
+			class="hidden min-h-0 flex-col items-center gap-1 border-r bg-card py-2 lg:flex"
 			aria-label={m.image_editor_tools()}
 		>
 			{#each tools as tool (tool.key)}
@@ -3450,7 +3456,7 @@
 			{/each}
 		</nav>
 		{#if !focusedCanvas && activeEditorWorkspace === 'edit'}
-			<aside class="relative hidden min-h-0 min-w-0 border-r bg-background lg:block">
+			<aside class="relative hidden min-h-0 min-w-0 border-r bg-card lg:block">
 				<div class="size-full min-h-0 overflow-hidden"><AssetPanel {guestMode} /></div>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -- focusable ARIA Window Splitter -->
@@ -3545,7 +3551,7 @@
 		{#if editor.rightPanelVisible && !focusedCanvas}
 			<aside
 				bind:this={inspectorElement}
-				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-l bg-background lg:grid"
+				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-l bg-card lg:grid"
 				style:--image-editor-layers-height={`${layersPanelHeight}px`}
 			>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->

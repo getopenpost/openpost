@@ -14,6 +14,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
+	import EditorHeader from '$lib/components/editor-header.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
@@ -2198,14 +2199,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <div
 	class="video-editor-theme flex h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
-	<header
-		class="grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-3"
-	>
-		<div class="flex min-w-0 items-center gap-2">
+	<EditorHeader>
+		{#snippet identity()}
 			<a
 				href="/video-editor"
 				aria-label="OpenPost"
-				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] md:size-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
 				<img
 					src="/assets/brand/features/video-editor.svg"
@@ -2217,40 +2216,40 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			<EditorTitleInput
 				value={editorSession.project?.name ?? ''}
 				ariaLabel={m.video_editor_project_name()}
-				class="hidden max-w-48 min-w-28 text-sm md:block"
+				class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
 				disabled={!editorSession.project}
 				onchange={(value) => editorSession.renameProject(value)}
 			/>
-		</div>
-		<div class="video-workspace-switcher">
-			<EditorWorkspaceTabs
-				value={activeWorkspace}
-				options={[
-					{
-						id: 'edit',
-						label: m.video_editor_workspace_edit(),
-						emblem: { kind: 'protected', role: 'editor-cut' }
-					},
-					{
-						id: 'color',
-						label: m.video_editor_workspace_color(),
-						emblem: { kind: 'theme', role: 'appearance' }
-					},
-					{
-						id: 'motion',
-						label: m.video_editor_workspace_motion(),
-						emblem: { kind: 'protected', role: 'editor-layers' }
-					}
-				]}
-				ariaLabel={m.video_editor_workspaces()}
-				idPrefix="editor-workspace-tab"
-				panelId="editor-workspace-panel"
-				onvaluechange={(workspace) => changeEditorWorkspace(workspace as EditorWorkspaceId)}
-			/>
-		</div>
-		<div
-			class="flex min-w-0 items-center justify-end gap-1 text-xs text-[var(--video-editor-muted)]"
-		>
+		{/snippet}
+		{#snippet workspaces()}
+			<div>
+				<EditorWorkspaceTabs
+					value={activeWorkspace}
+					options={[
+						{
+							id: 'edit',
+							label: m.video_editor_workspace_edit(),
+							emblem: { kind: 'protected', role: 'editor-cut' }
+						},
+						{
+							id: 'color',
+							label: m.video_editor_workspace_color(),
+							emblem: { kind: 'theme', role: 'appearance' }
+						},
+						{
+							id: 'motion',
+							label: m.video_editor_workspace_motion(),
+							emblem: { kind: 'protected', role: 'editor-layers' }
+						}
+					]}
+					ariaLabel={m.video_editor_workspaces()}
+					idPrefix="editor-workspace-tab"
+					panelId="editor-workspace-panel"
+					onvaluechange={(workspace) => changeEditorWorkspace(workspace as EditorWorkspaceId)}
+				/>
+			</div>
+		{/snippet}
+		{#snippet actions()}
 			{#if editorSession.saving}
 				<span class="hidden sm:inline">{m.video_editor_saving()}</span>
 			{:else if editorSession.saveError}
@@ -2355,7 +2354,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						class="mb-1 w-full"
 						disabled={!editorSession.project}
 						onchange={(value) => editorSession.renameProject(value)}
-						onkeydown={(event) => event.stopPropagation()}
+						onkeydown={(event) => {
+							if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+						}}
 					/>
 					<DropdownMenu.Item onclick={saveProject}>{m.common_save()}</DropdownMenu.Item>
 					<DropdownMenu.Item disabled={!commandHistory.canUndo} onclick={undoProject}>
@@ -2432,8 +2433,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
-		</div>
-	</header>
+		{/snippet}
+	</EditorHeader>
 	{#if projectSummary}
 		<div
 			class="shrink-0 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 py-1 text-xs text-[var(--video-editor-muted)] tabular-nums"
@@ -3451,22 +3452,3 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	codec={unsupportedAudioRequest?.codec ?? ''}
 	ondecision={resolveUnsupportedAudioDecision}
 />
-
-<style>
-	.video-workspace-switcher :global([role='tablist']) {
-		background: var(--video-editor-control);
-	}
-
-	.video-workspace-switcher :global([role='tab']) {
-		color: var(--video-editor-muted);
-	}
-
-	.video-workspace-switcher :global([role='tab']:hover) {
-		color: var(--video-editor-text);
-	}
-
-	.video-workspace-switcher :global([role='tab'][aria-selected='true']) {
-		background: var(--video-editor-selection);
-		color: var(--video-editor-selection-text);
-	}
-</style>

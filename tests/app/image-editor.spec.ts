@@ -95,6 +95,14 @@ test("public image editor creates, restores, and exports a local design", async 
     page.getByLabel("Notifications alt+T").getByText("Export downloaded."),
   ).toBeVisible();
 
+  const home = page
+    .getByRole("banner")
+    .getByRole("button", { name: "OpenPost Image Editor", exact: true });
+  await home.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/image-editor$/);
+  await expect(page.getByText("Local launch design", { exact: true })).toBeVisible();
+
   expect(workspaceWrites).toEqual([]);
   expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
 });

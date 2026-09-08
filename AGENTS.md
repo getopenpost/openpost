@@ -64,6 +64,7 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.
 - Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.
 - Render queues and completed exports use project export storage: browser storage scoped to the Workspace for Cloud Video Projects, the selected folder for local projects. Recording imports must verify their destination is still open before committing timeline changes.
+- Image and Video Editor headers share `editor-header.svelte` for layout and theme surfaces. Each editor owns its save, history, navigation, and export behavior; keep save feedback visible at narrow widths.
 - Image layers without `color_grade_version` retain legacy Fabric adjustments. Version 1 routes layer and page-output grading through the shared editor color pipeline and the Fabric preview/export adapter. Never migrate legacy layers implicitly.
 - A Video Editor sequence grade is one `sequenceColorGrade` adjustment item on its dedicated locked track. The timeline store keeps it over the full sequence range, and preview/export apply it once after compositing. Never treat it as an item-scoped adjustment layer.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.

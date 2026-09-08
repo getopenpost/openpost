@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.24.0] - 2026-09-08
+
+### Changed
+
+- Hosted pricing now has three plans: Solo at $29/month, Team at $59/month, and Agency at $99/month. Annual billing costs ten monthly payments. Every plan includes the full product, with 1, 3, or 10 workspaces and 1, 5, or 10 people per workspace.
+- Every workspace includes 10 social accounts, 500 scheduled publications per calendar month, 10 GB of media storage, and 10 GB of monthly uploads. No seat add-ons, AI credit packs, or automatic overage charges.
+- Pricing uses a full feature comparison table with audience labels, monthly and annual totals, and a plan selector on phones. Billing settings use the same catalog as signup and checkout.
+- The Hosted HTML fallback also lists the three current plans and monthly prices.
+- Cover scheduling, queues, AI writing and Ideate, memes, reposts, inbox messages, analytics, media organization, audience discovery, developer tools, and security on the landing page and in the README.
+- Stack README content for phones, show editor screenshots inline, and include surrounding app context in partial product screenshots. Give the crops more room inside their colored containers.
+- Refresh product screenshots from the app and include the meme creator in the existing capture process.
+- Rebuilt documentation with Fumadocs, focused publishing guides, a compact self-hosting section, searchable API operations generated from OpenAPI, and a custom responsive light and dark design. Old documentation links redirect to their replacements; engineering references now live in the repository.
+
+### Operators
+
+- Replace the configured Paddle prices with the new amounts before deploying this catalog. Solo retains the internal `founder` ID. Starter and Pro price settings have been removed. Previous signed purchase choices must be renewed; subscriptions are not migrated automatically. See the billing and usage development guide for rollout and rollback requirements.
+
+### Added
+
+- Connect Telegram channels and groups from account settings using a chat-bound, expiring command. The dialog explains where to find the chat ID and how to grant the bot publishing access.
+
+### Fixed
+
+- Show Telegram connection availability from the configured bot and provider readiness checks instead of always marking it as planned. Provider approval remains required.
+- Load the instance API reference and schema examples from the versioned API path so administrators can use the documented operations.
+- Align Image and Video Editor header colors, project names, workspace controls, and export actions. The Image Editor icon saves and returns to the project gallery, while drafts opened from the composer return to their post.
+- Let Escape dismiss editor menus while a project name has focus. Keep save feedback and touch controls visible on narrow screens.
+- Fix the Android app crashing on startup after a server has been saved or the user has logged in.
+- Hid the mobile documentation tab scrollbar so it no longer crowds the active underline. Tabs still scroll horizontally.
+- Replaced the page-action text chevron with a matching interface icon.
+- Added AI page actions, section filters in search, clearer setup and troubleshooting guides, and mobile navigation that keeps the active section in view.
+- Add all 16 AI client setup guides, client logos, and a visual MCP client picker.
+- Keep the shared-text notice and customization button below the post text so they do not overlap the last lines in destination tabs.
+
 ## [4.23.0] - 2026-09-08
 
 ### Fixed

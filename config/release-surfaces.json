@@ -27,7 +27,7 @@
     },
     "documentation": {
       "description": "Product, operator, contributor, policy, and generated documentation",
-      "prefixes": ["apps/docs/", "docs/", "licenses/", "packages/social-images/"],
+      "prefixes": ["apps/docs/", "tests/docs/", "docs/", "licenses/", "packages/social-images/"],
       "paths": [
         "AGENTS.md",
         "CHANGELOG.md",

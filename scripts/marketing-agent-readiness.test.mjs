@@ -62,16 +62,16 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
   assert.deepEqual(software.softwareHelp, {
     "@type": "WebPage",
-    url: "https://docs.openpo.st/usage/",
+    url: "https://docs.openpo.st/guides/quickstart",
   });
   assert.deepEqual(software.subjectOf, [
     {
       "@type": "WebPage",
-      url: "https://docs.openpo.st/development/",
+      url: "https://github.com/getopenpost/openpost/blob/main/docs/development/index.md",
     },
     {
       "@type": "WebPage",
-      url: "https://docs.openpo.st/usage/agent-assisted-publishing",
+      url: "https://docs.openpo.st/guides/automation",
     },
     {
       "@type": "WebPage",
@@ -97,10 +97,11 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.equal(faqPage.mainEntity[0].acceptedAnswer["@type"], "Answer");
 });
 
-test("platform guides use their direct canonical documentation URLs", () => {
+test("platform guides link to maintained account documentation", async () => {
   for (const platform of platforms) {
-    assert.equal(platform.docsUrl, `https://docs.openpo.st/providers/${platform.slug}`);
+    assert.equal(platform.docsUrl, "https://docs.openpo.st/guides/accounts");
   }
+  await readFile(new URL("../apps/docs/content/docs/guides/accounts.mdx", import.meta.url));
 });
 
 test("changelog feed contains only dated stable releases and escaped content", () => {

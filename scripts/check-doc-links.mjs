@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -29,6 +29,36 @@ export function configuredNavigationTargets(config) {
     visit(sidebar);
   }
   return [...targets].sort();
+}
+
+function fumadocsPageRoute(page) {
+  if (page === "index") return "/";
+  if (page.endsWith("/index")) return `/${page.slice(0, -6)}`;
+  return `/${page}`;
+}
+
+export function fumadocsNavigationTargets(root) {
+  const docsRoot = path.join(root, "apps/docs/content/docs");
+  if (!existsSync(docsRoot)) return [];
+  const targets = [];
+  const visit = (directory, relativeDirectory = "") => {
+    const metaPath = path.join(directory, "meta.json");
+    if (existsSync(metaPath)) {
+      const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+      for (const entry of Array.isArray(meta) ? meta : (meta.pages ?? [])) {
+        if (entry === "..." || typeof entry !== "string" || entry.startsWith("---")) continue;
+        const page = path.posix.join(relativeDirectory, entry.replace(/\.mdx?$/u, ""));
+        targets.push(fumadocsPageRoute(page));
+      }
+    }
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+        visit(path.join(directory, entry.name), path.posix.join(relativeDirectory, entry.name));
+      }
+    }
+  };
+  visit(docsRoot);
+  return [...new Set(targets)].sort();
 }
 
 export function localDocumentationCandidates(root, sourceFile, rawTarget) {
@@ -153,7 +183,9 @@ async function main() {
   const docsConfig = hasLegacyConfig
     ? (await import(pathToFileURL(path.join(repositoryRoot, configFile)).href)).default
     : undefined;
-  const navigationTargets = configuredNavigationTargets(docsConfig);
+  const navigationTargets = hasLegacyConfig
+    ? configuredNavigationTargets(docsConfig)
+    : fumadocsNavigationTargets(repositoryRoot);
   for (const target of navigationTargets) {
     if (!localDocumentationTargetExists(repositoryRoot, configFile, target)) {
       failures.push(`${configFile} -> ${target}`);
@@ -164,20 +196,19 @@ async function main() {
     (file) =>
       (file.startsWith("apps/docs/content/docs/") ||
         (file.startsWith("apps/docs/") && !file.startsWith("apps/docs/content/"))) &&
-      !file.startsWith("apps/docs/.generated/"),
+      !file.startsWith("apps/docs/.generated/") &&
+      !/^apps\/docs\/content\/docs\/api-reference\/[^/]+\/[^/]+\.mdx$/u.test(file),
   );
-  if (hasLegacyConfig) {
-    const unreachablePages = unreachableDocumentationPages(
-      repositoryRoot,
-      documentationPages,
-      navigationTargets,
-    );
-    failures.push(
-      ...unreachablePages.map(
-        (file) => `${file} is not reachable from the docs home or configured navigation`,
-      ),
-    );
-  }
+  const unreachablePages = unreachableDocumentationPages(
+    repositoryRoot,
+    documentationPages,
+    navigationTargets,
+  );
+  failures.push(
+    ...unreachablePages.map(
+      (file) => `${file} is not reachable from the docs home or configured navigation`,
+    ),
+  );
 
   if (failures.length > 0) {
     console.error(`Broken local documentation links:\n${failures.join("\n")}`);

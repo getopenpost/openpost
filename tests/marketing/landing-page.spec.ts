@@ -61,6 +61,45 @@ test("landing details and resources load without repeating full screenshots", as
   }
 });
 
+test("visitors can discover publishing, AI, memes, conversations, and developer tools", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dismissTelemetryConsent(page);
+  const features = page.getByRole("region", {
+    name: "From the first idea to the next conversation.",
+  });
+  for (const name of [
+    "Organize your media",
+    "Explore Grow",
+    "Plan your publishing",
+    "Explore AI writing",
+    "Make a meme",
+    "Explore analytics",
+    "Set repost rules",
+    "See inbox support",
+    "Connect your tools",
+    "Explore account security",
+  ]) {
+    const link = features.getByRole("link", { name, exact: true });
+    await link.scrollIntoViewIfNeeded();
+    await link.focus();
+    await expect(link).toBeFocused();
+    await expect(link).toHaveAttribute("href", /^(https:\/\/docs\.openpo\.st\/|\/developers)/);
+  }
+  for (const image of await features.locator("img").all()) {
+    await image.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth >= 1000),
+      )
+      .toBe(true);
+  }
+  await features.getByRole("link", { name: "Connect your tools", exact: true }).click();
+  await expect(page).toHaveURL(/\/developers$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+});
+
 test("landing keeps trial terms and its tour accessible without JavaScript", async ({
   browser,
 }) => {
@@ -114,7 +153,7 @@ for (const width of [1440, 390, 320]) {
         await page.screenshot({ path: testInfo.outputPath(`hero-${width}-${colorScheme}.png`) });
         for (const heading of [
           "studio-title",
-          "schedule-title",
+          "features-title",
           "resources-title",
           "stories-title",
           "closing-title",

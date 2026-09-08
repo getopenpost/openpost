@@ -13,6 +13,7 @@
 	} from './_marketing';
 	import HeroAccent from './_components/HeroAccent.svelte';
 	import ProductDetails from './_components/ProductDetails.svelte';
+	import ProductFeatures from './_components/ProductFeatures.svelte';
 	import Resources from './_components/Resources.svelte';
 	import CreatorStories from './_components/CreatorStories.svelte';
 	import ProductTour from './_components/ProductTour.svelte';
@@ -55,6 +56,8 @@
 		>
 	</div>
 </section>
+
+<ProductFeatures />
 
 <ProductDetails />
 

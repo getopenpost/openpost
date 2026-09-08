@@ -39,6 +39,7 @@ export const assetSurfaceManifest = {
     "brand/features/analytics.svg",
     "screenshots/main-dark.webp",
     "screenshots/calendar-detail.webp",
+    "screenshots/meme-creator-detail.webp",
     "screenshots/analytics-detail.webp",
     "screenshots/image-canvas-detail.webp",
     "screenshots/image-controls-detail.webp",

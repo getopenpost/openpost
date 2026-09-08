@@ -251,6 +251,7 @@ export const featureGroups = [
 		outcome:
 			'Write the shared publication once, then change text, media, schedule, and provider settings for each selected account before it leaves OpenPost.',
 		scope: [
+			'Use Ideate to find ideas, compare directions, and build drafts with the AI writing assistant.',
 			'Posts, threads, Stories, short videos, and videos use focused authoring paths.',
 			'Previews and validation stay tied to the selected destination and account.',
 			'Reusable Social Sets can start a draft with the right group of accounts.'
@@ -272,6 +273,8 @@ export const featureGroups = [
 		outcome:
 			'Choose an exact time or a saved weekly slot, then follow the publication and every account result from the calendar and activity views.',
 		scope: [
+			'Reusable posting slots, destination timing, and queue reminders keep the publishing schedule visible.',
+			'Auto repost rules set delays and engagement gates for supported native reposts.',
 			'Durable background jobs keep scheduled work across server restarts.',
 			'Each destination keeps its own status, result, and actionable error.',
 			'Safe failures can be retried without re-publishing successful destinations.'
@@ -293,6 +296,7 @@ export const featureGroups = [
 		outcome:
 			'Store media with alt text and metadata, create still designs in OpenPost Image Editor, or prepare clips in OpenPost Video Editor before returning the result to a draft.',
 		scope: [
+			'Create memes from built-in templates, editable captions, and replaceable images.',
 			'The media library keeps originals, previews, tags, collections, and editor exports together.',
 			'OpenPost Image Editor supports multi-page social designs and mobile editing.',
 			'OpenPost Video Editor supports local projects, timeline edits, captions, recovery, and export.'
@@ -316,6 +320,7 @@ export const featureGroups = [
 		scope: [
 			'Analytics separates views, impressions, reach, engagement, and follower counts when providers expose them.',
 			'Comments, reply actions, and inbox collection appear only for accounts that support them.',
+			'Repurpose previous content into a new draft. Grow suggests accounts to follow on Bluesky and Mastodon.',
 			'Permission and rate-limit errors keep the last successful counters visible.'
 		],
 		limit:

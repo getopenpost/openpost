@@ -11,6 +11,7 @@ const images = [
   { name: "main-dark", width: 2880 },
   ...[
     "calendar-detail",
+    "meme-creator-detail",
     "analytics-detail",
     "image-canvas-detail",
     "image-controls-detail",

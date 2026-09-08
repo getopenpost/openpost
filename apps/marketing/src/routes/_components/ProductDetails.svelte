@@ -19,7 +19,8 @@
 			icon: 'video-editor',
 			tone: 'blue',
 			title: 'A recording, ready to share.',
-			description: 'Cut clips, add captions, and adjust color and sound on a multitrack timeline.',
+			description:
+				'Record screen, camera, and mic. Cut clips, add captions, and adjust color and sound on a multitrack timeline.',
 			href: '/tools/social-media-video-editor',
 			base: '/assets/screenshots/video-preview-detail.webp',
 			detail: '/assets/screenshots/video-timeline-detail.webp',
@@ -79,51 +80,6 @@
 			</article>
 		{/each}
 	</div>
-	<div class="publishing" aria-labelledby="schedule-title">
-		<div class="publishing-copy">
-			<div class="feature-name">
-				<img
-					src="/assets/brand/features/calendar.svg"
-					alt=""
-					width="44"
-					height="44"
-					loading="lazy"
-				/><img
-					src="/assets/brand/features/analytics.svg"
-					alt=""
-					width="44"
-					height="44"
-					loading="lazy"
-				/>
-			</div>
-			<h2 id="schedule-title">Plan the week.<br />See what worked.</h2>
-			<p>
-				Give each channel its own text, media, and timing. Follow the results your connected
-				platforms make available.
-			</p>
-			<a class="focus-ring" href="/features"
-				>Explore publishing and analytics <ArrowUpRight size={17} /></a
-			>
-		</div>
-		<div class="composition mint schedule">
-			<img
-				class="calendar"
-				src="/assets/screenshots/calendar-detail.webp"
-				alt="Scheduled publications in the OpenPost calendar"
-				width="1800"
-				height="1100"
-				loading="lazy"
-			/>
-			<img
-				class="chart"
-				src="/assets/screenshots/analytics-detail.webp"
-				alt="Daily views reported by connected accounts"
-				width="1200"
-				height="500"
-				loading="lazy"
-			/>
-		</div>
-	</div>
 </section>
 
 <style>
@@ -167,46 +123,33 @@
 	.blue {
 		background: var(--marketing-blue);
 	}
-	.mint {
-		background: var(--marketing-mint);
-	}
 	.composition img {
 		position: absolute;
 		object-fit: contain;
 		height: auto;
-		border-radius: 8px;
+		border-radius: 10px;
 	}
 	.base {
-		width: 88%;
-		top: 8%;
-		left: 6%;
+		width: 84%;
+		top: 12%;
+		left: 8%;
 	}
 	.image-editor .base {
-		width: 100%;
-		max-width: none;
-		height: 76%;
-		object-fit: cover;
-		top: 12%;
-		left: -12%;
+		top: 16%;
 	}
 	.image-editor .detail {
 		width: 42%;
-		right: 5%;
-		bottom: 6%;
+		right: 8%;
+		bottom: 12%;
 	}
-
 	.video-editor .base {
-		width: 84%;
-		left: 8%;
-		top: 7%;
+		width: 80%;
+		left: 10%;
 	}
 	.video-editor .detail {
-		width: 88%;
-		left: 6%;
-		bottom: 9%;
-		min-height: 17%;
-		object-fit: cover;
-		object-position: left;
+		width: 84%;
+		left: 8%;
+		bottom: 12%;
 	}
 	.editor-copy {
 		padding: 24px 4px 0;
@@ -250,30 +193,6 @@
 		font-size: 12px;
 		color: var(--muted-foreground);
 	}
-	.publishing {
-		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-		align-items: center;
-		gap: 48px;
-		margin-top: 88px;
-	}
-	.publishing-copy p {
-		margin-top: 20px;
-	}
-	.schedule {
-		aspect-ratio: 1.3;
-	}
-	.calendar {
-		width: 95%;
-		max-width: none;
-		top: 8%;
-		left: 16%;
-	}
-	.chart {
-		width: 83%;
-		bottom: 8%;
-		left: 6%;
-	}
 	@media (max-width: 760px) {
 		.product-details {
 			padding-block: 48px;
@@ -282,13 +201,9 @@
 			display: grid;
 			gap: 20px;
 		}
-		.editors,
-		.publishing {
+		.editors {
 			grid-template-columns: minmax(0, 1fr);
 			gap: 36px;
-		}
-		.publishing {
-			margin-top: 56px;
 		}
 		h4 {
 			font-size: 24px;

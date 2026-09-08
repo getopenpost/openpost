@@ -68,78 +68,6 @@ OpenPost combines writing, media editing, scheduling, and results in one workspa
 
 [Watch the product tour](https://www.youtube.com/watch?v=_mZf3HzQaN8) · [Explore the app](https://openpo.st/features)
 
-## Create your media
-
-The browser editors are free to try without an account. Exports have no watermark.
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="assets/brand/features/image-editor.svg" alt="" width="40" height="40">
-      <h3>Image Editor</h3>
-      <a href="https://app.openpo.st/image-editor"><img alt="Image Editor with a Lisbon tram photo and editable layers" src="assets/screenshots/image-editor-dark.webp" width="100%"></a>
-      <ul>
-        <li>Layers, text, shapes, and editable templates</li>
-        <li>Background removal, cropping, and color adjustments</li>
-        <li>Multi-page carousels with ordered exports</li>
-        <li>Custom fonts, brand colors, and version history for workspace designs</li>
-      </ul>
-      <a href="https://app.openpo.st/image-editor">Open the Image Editor</a> · <a href="https://openpo.st/assets/demos/image-editor.mp4">Watch a quick demo</a>
-    </td>
-    <td width="50%">
-      <img src="assets/brand/features/video-editor.svg" alt="" width="40" height="40">
-      <h3>Video Editor, beta</h3>
-      <a href="https://app.openpo.st/video-editor"><img alt="Video Editor with a screen recording and multitrack timeline" src="assets/screenshots/video-editor-dark.webp" width="100%"></a>
-      <ul>
-        <li>Multitrack cuts, transitions, effects, and keyframes</li>
-        <li>Captions and transcript-based editing</li>
-        <li>Curves, scopes, LUTs, and audio controls</li>
-        <li>Autosave, checkpoints, and optional workspace sync</li>
-      </ul>
-      <a href="https://app.openpo.st/video-editor">Open the Video Editor</a> · <a href="https://openpo.st/assets/demos/video-editor.mp4">Watch a quick demo</a>. Use desktop Chromium for the full editor. Mobile supports capture and project preparation.
-    </td>
-  </tr>
-</table>
-
-## Plan and publish
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="assets/brand/features/calendar.svg" alt="" width="32" height="32">
-      <h3>Calendar</h3>
-      <img alt="Monthly publishing calendar" src="assets/screenshots/calendar-dark.webp" width="100%">
-      <p>Schedule publications, reuse posting slots, and inspect draft, published, failed, and retrying states.</p>
-    </td>
-    <td width="50%">
-      <img src="assets/brand/features/analytics.svg" alt="" width="32" height="32">
-      <h3>Analytics</h3>
-      <img alt="Account growth and publication results" src="assets/screenshots/analytics-dark.webp" width="100%">
-      <p>Track account growth and post results where the connected platform supports them.</p>
-    </td>
-  </tr>
-</table>
-
-AI writing helps develop ideas and adapt drafts. Workspaces separate accounts, media, and members. The inbox collects supported comments and messages. The API, CLI, and MCP use the same posts and permissions as the app.
-
-[Feature overview](https://openpo.st/features) · [Automation docs](https://docs.openpo.st/mcp/)
-
-## Supported platforms
-
-OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Publishing formats, messages, comments, analytics, and Grow support vary by platform. Some connections need app review or public media URLs.
-
-<!-- provider-certification:begin -->
-
-No posting option has passed our final live check on OpenPost Hosted yet.
-
-A social app can appear in OpenPost before it is ready for real accounts.
-
-<!-- provider-certification:end -->
-
-Pinterest, Discord bots, and Telegram bots are not public posting options yet.
-
-[Provider readiness](https://docs.openpo.st/operations/provider-launch-matrix) · [Platform rules](https://docs.openpo.st/providers/)
-
 ## Get started
 
 **Hosted.** We run it for you. [Start a 14-day trial](https://app.openpo.st/register?plan=founder&billing_period=monthly)
@@ -160,9 +88,52 @@ Open `http://localhost:8080`, create the first account, connect a social account
 
 **Automate.** [CLI guide](https://docs.openpo.st/cli/) · [MCP guide](https://docs.openpo.st/mcp/) · [API reference](https://docs.openpo.st/development/api-reference)
 
-## Develop
+## What you can do
 
-Go, Svelte 5, SvelteKit, Bun, Expo, Devenv.
+- **Compose for every channel.** Write posts and threads, preview each account's version, and reuse account groups with Social Sets.
+- **AI writing and Ideate.** Find an idea, compare directions, and build drafts for your selected channels. Review the result before publishing.
+- **Scheduling and queues.** Pick an exact time or the next free posting slot. Plan in the calendar, stagger destinations, and get reminders when your queue runs low.
+- **Auto repost.** Set delays and engagement rules for native reposts on supported networks, with per-post overrides.
+- **Memes and media.** Caption meme templates, replace images, and save the result alongside reusable templates, fonts, and brand assets. Find media with tags, collections, and favorites.
+- **Inbox and DMs.** Read and reply to supported comments and messages.
+- **Analytics and repurposing.** Compare results, track audience changes, and turn previous content into a new draft.
+- **Grow.** Discover accounts to follow on Bluesky and Mastodon. You choose who to follow.
+- **API, MCP, CLI, and n8n.** Draft, schedule, and inspect publications from your own scripts or AI tools.
+- **Teams and security.** Separate brands into workspaces with member roles. Protect accounts with passkeys, two-factor authentication, and session controls.
+
+### Create your media
+
+The browser editors are free to try without an account. Exports have no watermark.
+
+**[Image Editor](https://app.openpo.st/image-editor).** Layers, text, shapes, background removal, and color tools. Export one image or a multi-page carousel.
+
+![Image Editor with a Lisbon tram photo and editable layers](assets/screenshots/image-editor-dark.webp)
+
+**[Video Editor](https://app.openpo.st/video-editor), beta.** Screen, camera, and microphone recording. Multitrack editing, captions, transitions, keyframes, color, and audio. Save projects locally or sync to your workspace. Use desktop Chromium for the full editor; mobile supports capture and project preparation.
+
+![Video Editor with a screen recording and multitrack timeline](assets/screenshots/video-editor-dark.webp)
+
+[Quick Cut for simple trims](https://docs.openpo.st/usage/quick-cut) · [Explore all features](https://openpo.st/features) · [Usage guides](https://docs.openpo.st/usage/) · [Developer docs](https://docs.openpo.st/development/api-reference)
+
+## Supported platforms
+
+OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Publishing formats, messages, comments, analytics, and Grow support vary by platform. Some connections need app review or public media URLs.
+
+<!-- provider-certification:begin -->
+
+No posting option has passed our final live check on OpenPost Hosted yet.
+
+A social app can appear in OpenPost before it is ready for real accounts.
+
+<!-- provider-certification:end -->
+
+Pinterest, Discord bots, and Telegram bots are not public posting options yet.
+
+[Provider readiness](https://docs.openpo.st/operations/provider-launch-matrix) · [Platform rules](https://docs.openpo.st/providers/)
+
+## Contribute
+
+OpenPost uses Go, SvelteKit, and Expo. Development tools run through Devenv.
 
 ```bash
 direnv allow
@@ -171,17 +142,6 @@ bun run verify
 ```
 
 Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development setup](https://docs.openpo.st/development/setup) before opening a PR.
-
-## Help OpenPost grow
-
-If OpenPost is useful to you, give the repo a star.
-
-<!-- star-history:start -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/star-history/star-history-dark.svg">
-  <img alt="Star history" src="assets/star-history/star-history-light.svg">
-</picture>
-<!-- star-history:end -->
 
 ## License and security
 

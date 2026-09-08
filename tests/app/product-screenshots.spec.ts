@@ -1362,6 +1362,33 @@ test.describe("product screenshot capture", () => {
       composer.getByRole("button", { name: "Remove media" }),
     ]);
 
+    await composer.getByRole("button", { name: "Add media" }).click();
+    await mediaPicker.getByRole("tab", { name: "Meme", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "Templates", exact: true }).click();
+    await mediaPicker.getByRole("textbox", { name: "Search templates" }).fill("Drake");
+    await mediaPicker
+      .getByRole("button", { name: "Use the Drakeposting template", exact: true })
+      .click();
+    await mediaPicker
+      .getByRole("textbox", { name: "Caption 1", exact: true })
+      .fill("Writing the same post five times");
+    const memePreview = mediaPicker.getByRole("img", { name: "Preview of the Drakeposting meme" });
+    const previewResponse = page.waitForResponse(
+      (response) => response.url().includes("/memes/preview") && response.ok(),
+    );
+    await mediaPicker
+      .getByRole("textbox", { name: "Caption 2", exact: true })
+      .fill("One draft. Every channel.");
+    await previewResponse;
+    await expect(mediaPicker.getByText("Updating preview", { exact: true })).toHaveCount(0);
+    await expect
+      .poll(() =>
+        memePreview.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+      )
+      .toBe(true);
+    await captureDetail(mediaPicker, "meme-creator-detail.png");
+    await page.keyboard.press("Escape");
+
     await page.goto(`/calendar?workspace=${workspace.id}`);
     await expect(page.getByRole("heading", { name: "August 2026" })).toBeVisible();
     await expect(page.locator("[data-calendar-item]")).toHaveCount(calendarPublications.length);
@@ -1530,7 +1557,7 @@ test.describe("product screenshot capture", () => {
 
     await captureDetail(programMonitor, "video-preview-detail.png");
     await captureDetail(
-      page.getByRole("region", { name: "Timeline", exact: true }),
+      page.getByRole("region", { name: "Timeline", exact: true }).locator("xpath=ancestor::footer"),
       "video-timeline-detail.png",
     );
 
@@ -1552,8 +1579,23 @@ test.describe("product screenshot capture", () => {
 });
 
 async function captureDetail(element: Locator, filename: string) {
-  await element.screenshot({
+  await element.scrollIntoViewIfNeeded();
+  const page = element.page();
+  const bounds = await element.boundingBox();
+  const viewport = page.viewportSize();
+  if (!bounds || !viewport) throw new Error(`Cannot frame product detail: ${filename}`);
+  // Retain neighboring app surface so crops do not end at a control's edge.
+  const contextPadding = 20;
+  const x = Math.max(0, bounds.x - contextPadding);
+  const y = Math.max(0, bounds.y - contextPadding);
+  await page.screenshot({
     path: join(screenshotDirectory, filename),
+    clip: {
+      x,
+      y,
+      width: Math.min(viewport.width, bounds.x + bounds.width + contextPadding) - x,
+      height: Math.min(viewport.height, bounds.y + bounds.height + contextPadding) - y,
+    },
     animations: "disabled",
     caret: "hide",
     scale: "device",

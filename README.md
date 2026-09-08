@@ -164,7 +164,7 @@ Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [development set
 <!-- star-history:start -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/star-history/star-history-dark.svg">
-  <img alt="OpenPost GitHub star history" src="assets/star-history/star-history-light.svg" width="100%">
+  <img alt="Star history" src="assets/star-history/star-history-light.svg">
 </picture>
 <!-- star-history:end -->
 

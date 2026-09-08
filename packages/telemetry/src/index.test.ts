@@ -411,6 +411,14 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).not.toContain("https://example.com");
   });
 
+  it("retains public Svelte error codes without collecting URL parameters", () => {
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    subject.captureException(new Error("https://svelte.dev/e/each_key_duplicate?token=secret"));
+    expect(sdk.exceptions[0]?.error.message).toBe("Svelte error: each_key_duplicate");
+  });
+
   it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);

@@ -799,7 +799,13 @@ function sanitizeError(value: unknown): Error {
       : typeof Event !== "undefined" && value instanceof Event
         ? new Error(`${value.constructor.name || "Event"}: ${value.type || "unknown"}`)
         : new Error(typeof value === "string" ? value : "Unknown client error");
-  const result = new Error(scrubPropertyString(source.message || "Unknown client error"));
+  // Production Svelte errors contain only a documentation URL. Preserve the
+  // public error code before URL redaction, without retaining query values.
+  const message = (source.message || "Unknown client error").replace(
+    /https:\/\/svelte\.dev\/e\/([a-z_]+)(?:[?#][^\s]*)?(?=\s|$)/g,
+    "Svelte error: $1",
+  );
+  const result = new Error(scrubPropertyString(message));
   result.name = source.name || "Error";
   if (source.stack) result.stack = scrubStack(source.stack);
   return result;

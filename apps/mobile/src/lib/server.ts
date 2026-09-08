@@ -13,8 +13,17 @@ export const subscribeServer = identityStore.subscribeServer;
 export const getServerMutationRevision = identityStore.getServerMutationRevision;
 export const getPendingServerMutationCount = identityStore.getPendingServerMutationCount;
 
+let serverSnapshot: ServerConfig | null = null;
+let snapshotBaseUrl: string | null = null;
+
 export function getServer(): ServerConfig | null {
-  return serverConfig(identityStore.getServerBaseUrl());
+  const baseUrl = identityStore.getServerBaseUrl();
+  // React's external-store hook requires the same snapshot while state is unchanged.
+  if (baseUrl !== snapshotBaseUrl) {
+    serverSnapshot = serverConfig(baseUrl);
+    snapshotBaseUrl = baseUrl;
+  }
+  return serverSnapshot;
 }
 
 export async function loadServer(): Promise<ServerConfig | null> {

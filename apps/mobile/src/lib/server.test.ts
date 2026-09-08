@@ -88,6 +88,26 @@ describe("server persistence", () => {
     failingDeleteKey = null;
   });
 
+  test("keeps the server snapshot stable until the selected server changes", async () => {
+    values.set(SERVER_KEY, "https://app.openpo.st");
+    await loadServer();
+    const hosted = getServer();
+    expect(hosted).toEqual({ baseUrl: "https://app.openpo.st", isHosted: true });
+    expect(getServer()).toBe(hosted);
+
+    await loadServer();
+    expect(getServer()).toBe(hosted);
+
+    await setServer("https://social.example.com");
+    const selfHosted = getServer();
+    expect(selfHosted).toEqual({ baseUrl: "https://social.example.com", isHosted: false });
+    expect(selfHosted).not.toBe(hosted);
+    expect(getServer()).toBe(selfHosted);
+
+    await clearServer();
+    expect(getServer()).toBeNull();
+  });
+
   test("switches servers atomically once the replacement is durable", async () => {
     await setServer("https://social.example.com");
 

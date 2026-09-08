@@ -183,17 +183,7 @@ function documentationHTMLArtifact(page) {
 
 const documentationDiscoverySections = [
   ["user-guide", "User guide", "Create, schedule, publish, and review work in the OpenPost app."],
-  ["providers", "Providers", "Check destination setup, capabilities, limits, and readiness."],
-  ["cli", "CLI", "Use a terminal or automation job with a running OpenPost instance."],
-  ["mcp", "MCP", "Connect an AI assistant with explicit scopes and human review."],
-  ["installation", "Installation", "Install OpenPost using a supported deployment path."],
   ["self-hosting", "Self-hosting", "Run and maintain the complete OpenPost service."],
-  [
-    "configuration",
-    "Configuration",
-    "Configure storage, URLs, providers, and production settings.",
-  ],
-  ["operations", "Operations", "Monitor, back up, update, and troubleshoot an OpenPost instance."],
   ["api", "API", "Read the API guide and follow its authoritative OpenAPI JSON contract."],
   ["development", "Development", "Understand, test, contribute to, and release OpenPost."],
 ];
@@ -1145,9 +1135,8 @@ export const productionProjections = {
         "User, provider, self-hosting, CLI, MCP, operations, and developer documentation for OpenPost.",
       whenToUse: [
         "Use the user guide for work in the OpenPost web or mobile app.",
-        "Use provider guides to check setup, supported formats, limits, and current readiness.",
-        "Use the CLI, MCP, or API sections for automation and agent access.",
-        "Use installation, configuration, self-hosting, and operations sections to run an OpenPost instance.",
+        "Use the API reference and authoritative OpenAPI JSON contract for automation and agent access.",
+        "Use self-hosting and development references to run, test, and maintain an OpenPost instance.",
       ],
       whenNotToUse: [
         "Do not treat documentation as proof that a social provider or exact account can publish a format today; check current readiness and run the documented live test.",

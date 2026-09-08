@@ -56,8 +56,10 @@ export function localDocumentationCandidates(root, sourceFile, rawTarget) {
   return bases.flatMap((base) => [
     base,
     `${base}.md`,
+    `${base}.mdx`,
     path.join(base, "README.md"),
     path.join(base, "index.md"),
+    path.join(base, "index.mdx"),
   ]);
 }
 

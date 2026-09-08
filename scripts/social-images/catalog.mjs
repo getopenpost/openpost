@@ -23,6 +23,7 @@ async function markdownFiles(directory) {
 
 function pageTitle(page, source) {
   const { data, body } = pageSource(source);
+  if (typeof data.title === "string" && data.title.trim()) return data.title.trim();
   const heroName = data.hero?.name;
   if (typeof heroName === "string" && heroName.trim()) return heroName.trim();
   const heading = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
@@ -129,6 +130,16 @@ function corpusSection(page) {
 }
 
 function pagePolicy(page) {
+  if (page.startsWith("api-reference/") && page !== "api-reference/index.mdx") {
+    return {
+      agentRepresentation: { membership: "special" },
+      agentDiscovery: { membership: "unlisted" },
+      agentCorpus: {
+        membership: "excluded",
+        reason: "Generated operation pages are represented by the authoritative OpenAPI contract.",
+      },
+    };
+  }
   const section = discoveryEntrypoints.get(page);
   const corpusReason = corpusExclusions.get(page);
   const sizeExceptionReason = reviewedRepresentationSizeExceptions.get(page);

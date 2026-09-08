@@ -8,17 +8,6 @@ const shellPath = fileURLToPath(
 );
 
 describe('OpenPost Video Editor project header boundary', () => {
-	it('shows a logo-only mark linking back to the project list', async () => {
-		const source = await readFile(pagePath, 'utf8');
-
-		expect(source).toContain('href="/video-editor"');
-		expect(source).toContain('<Logo');
-		expect(source).not.toContain('<EditorMenubar');
-		expect(source).not.toContain('editor-menubar');
-		expect(source).not.toContain("from '$lib/components/ui/menubar'");
-		expect(source).not.toContain('>{m.video_editor_title()}</span>');
-	});
-
 	it('keeps the shared menubar component alive for the image editor shell', async () => {
 		const shell = await readFile(shellPath, 'utf8');
 

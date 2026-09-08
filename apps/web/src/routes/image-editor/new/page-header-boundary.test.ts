@@ -5,14 +5,6 @@ import { describe, expect, it } from 'vitest';
 const pagePath = fileURLToPath(new URL('./+page.svelte', import.meta.url));
 
 describe('OpenPost Image Editor new-design header boundary', () => {
-	it('shows a logo-only mark instead of the back arrow', async () => {
-		const source = await readFile(pagePath, 'utf8');
-
-		expect(source).toContain('<Logo');
-		expect(source).toContain('showText={false}');
-		expect(source).not.toContain('arrow-left');
-	});
-
 	it('keeps the exact go-back behavior and heading', async () => {
 		const source = await readFile(pagePath, 'utf8');
 

@@ -6026,7 +6026,7 @@
 											/>
 
 											{#if activeVariantAccountId && activePostIndex === i && !activeVariantIsUnsynced}
-												<div class="absolute inset-x-0 bottom-0 px-1 pb-2">
+												<div class="px-1 pb-2">
 													<div
 														class="rounded-xl border border-dashed border-border/80 bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm"
 													>

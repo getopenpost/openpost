@@ -1,4 +1,4 @@
-import { resolveBuiltInTheme } from './builtins.js';
+import { resolveWorkshopTheme } from './workshop.js';
 import {
 	THEME_COLOR_TOKEN_KEYS,
 	THEME_BORDER_STYLES,
@@ -707,7 +707,7 @@ function fallbackTheme(
 	theme: WebResolvedTheme,
 	reason: 'invalid-manifest' | 'unsafe-resource' | 'resource-failed'
 ): ResolvedTheme {
-	const fallback = resolveBuiltInTheme('workshop', theme.requestedScheme);
+	const fallback = resolveWorkshopTheme(theme.requestedScheme);
 	return { ...fallback, source: 'fallback', fallbackReason: reason };
 }
 

@@ -14,32 +14,17 @@
 		rememberAccountManagementContinuation
 	} from '$lib/account-management-route';
 	import { resolveAppPath } from '$lib/app-path';
-	import AccountManagement from '$lib/components/account-management.svelte';
-	import InstanceAdminUsers from '$lib/components/instance-admin-users.svelte';
-	import InstanceConfiguration from '$lib/components/instance-configuration.svelte';
-	import InstanceAIPrompts from '$lib/components/instance-ai-prompts.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
-	import OrganizationAuditSettings from '$lib/components/organization-audit-settings.svelte';
-	import OrganizationOwnershipSettings from '$lib/components/organization-ownership-settings.svelte';
-	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import RepostAutomationSettings from '$lib/components/repost-automation-settings.svelte';
 	import SettingsNavigation from '$lib/components/settings-navigation.svelte';
-	import BillingSettingsTab from '$lib/components/settings/BillingSettingsTab.svelte';
-	import BrandSettingsTab from '$lib/components/settings/BrandSettingsTab.svelte';
-	import DeveloperSettingsTab from '$lib/components/settings/DeveloperSettingsTab.svelte';
-	import ThemeAppearanceSettings from '$lib/components/themes/theme-appearance-settings.svelte';
-	import InstanceSettingsTab from '$lib/components/settings/InstanceSettingsTab.svelte';
-	import ProfileSettingsTab from '$lib/components/settings/ProfileSettingsTab.svelte';
-	import ScheduleSettingsTab from '$lib/components/settings/ScheduleSettingsTab.svelte';
-	import SecuritySettingsTab from '$lib/components/settings/SecuritySettingsTab.svelte';
-	import WorkspacePreferencesSettings from '$lib/components/settings/WorkspacePreferencesSettings.svelte';
 	import WorkspaceDeleteDialog from '$lib/components/workspace-delete-dialog.svelte';
-	import WorkspaceTeamSettings from '$lib/components/workspace-team-settings.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
-	import { getSettingsDestination, normalizeSettingsTab } from '$lib/settings-navigation';
+	import {
+		getSettingsDestination,
+		normalizeSettingsTab,
+		type SettingsTabID
+	} from '$lib/settings-navigation';
 	import {
 		getSettingsInitialLoadPlan,
 		provideSettingsInitialLoadBoundary
@@ -48,6 +33,55 @@
 	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { showToast } from '$lib/toast';
+
+	const settingsPanelLoaders = {
+		profile: () => import('$lib/components/settings/ProfileSettingsTab.svelte'),
+		notifications: () => import('$lib/components/notification-preferences.svelte'),
+		security: () => import('$lib/components/settings/SecuritySettingsTab.svelte'),
+		developer: () => import('$lib/components/settings/DeveloperSettingsTab.svelte'),
+		general: () => import('$lib/components/settings/WorkspacePreferencesSettings.svelte'),
+		brand: () => import('$lib/components/settings/BrandSettingsTab.svelte'),
+		appearance: () => import('$lib/components/themes/theme-appearance-settings.svelte'),
+		accounts: () => import('$lib/components/account-management.svelte'),
+		reposts: () => import('$lib/components/repost-automation-settings.svelte'),
+		schedule: () => import('$lib/components/settings/ScheduleSettingsTab.svelte'),
+		members: () => import('$lib/components/workspace-team-settings.svelte'),
+		plan: () => import('$lib/components/settings/BillingSettingsTab.svelte'),
+		sso: () => import('$lib/components/organization-sso-settings.svelte'),
+		audit: () => import('$lib/components/organization-audit-settings.svelte'),
+		ownership: () => import('$lib/components/organization-ownership-settings.svelte'),
+		instance: () => import('$lib/components/settings/InstanceSettingsTab.svelte'),
+		configuration: () => import('$lib/components/instance-configuration.svelte'),
+		'ai-prompts': () => import('$lib/components/instance-ai-prompts.svelte'),
+		users: () => import('$lib/components/instance-admin-users.svelte'),
+		'instance-audit': () => import('$lib/components/organization-audit-settings.svelte')
+	} satisfies Record<SettingsTabID, () => Promise<object>>;
+
+	type SettingsPanels = {
+		[Key in keyof typeof settingsPanelLoaders]?: Awaited<
+			ReturnType<(typeof settingsPanelLoaders)[Key]>
+		>;
+	};
+	let panels = $state.raw<SettingsPanels>({});
+	let panelFailure = $state<{ tab: SettingsTabID; message: string } | null>(null);
+	const pendingPanels = new Set<SettingsTabID>();
+	const panelError = $derived(panelFailure?.tab === activeSettingsTab ? panelFailure.message : '');
+
+	$effect(() => {
+		const tab = activeSettingsTab;
+		if (panels[tab] || pendingPanels.has(tab) || panelError) return;
+		pendingPanels.add(tab);
+		void settingsPanelLoaders[tab]()
+			.then((module) => {
+				if (active) panels = { ...panels, [tab]: module };
+			})
+			.catch(() => {
+				if (active) panelFailure = { tab, message: m.settings_panel_load_failed() };
+			})
+			.finally(() => {
+				pendingPanels.delete(tab);
+			});
+	});
 
 	const authState = $derived($auth);
 	let destructiveDialogOpen = $state(false);
@@ -102,7 +136,10 @@
 			!workspaceCtx.settingsError &&
 			(!workspaceCtx.currentWorkspace || workspaceCtx.settingsLoading)
 	);
-	const settingsLoading = $derived(workspaceSettingsInitialLoading || settingsInitialLoad.loading);
+	const settingsLoading = $derived(
+		!panelError &&
+			(!panels[activeSettingsTab] || workspaceSettingsInitialLoading || settingsInitialLoad.loading)
+	);
 
 	$effect.pre(() => settingsInitialLoad.activate(settingsInitialLoadPlan));
 
@@ -209,104 +246,174 @@
 	loadingItems={8}
 	mountWhileLoading
 >
-	{#if workspaceSettingsRequired && workspaceCtx.settingsError && activeSettingsTab !== 'audit'}
-		<InlineNotice tone="error" message={m.settings_workspace_load_failed()}>
-			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
-					{m.common_retry()}
-				</Button>
-			{/snippet}
-		</InlineNotice>
-	{:else}
-		<div class="min-w-0 space-y-8">
-			{#if workspaceSettingsRequired && workspaceCtx.settingsBackgroundError}
-				<InlineNotice tone="warning" message={m.settings_workspace_load_failed()}>
-					{#snippet actions()}
-						<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
-							{m.common_retry()}
-						</Button>
-					{/snippet}
-				</InlineNotice>
-			{/if}
-			<SettingsNavigation
-				active={activeSettingsTab}
-				showInstance={Boolean(authState.user?.is_admin)}
-			/>
-
-			<div class="max-w-5xl min-w-0 space-y-6">
-				{#if activeSettingsTab === 'profile'}
-					<ProfileSettingsTab />
-				{:else if activeSettingsTab === 'notifications'}
-					<NotificationPreferences
-						workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
-						workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
-						canEditQueue={workspaceCtx.currentWorkspace?.can_edit ?? false}
-					/>
-				{:else if activeSettingsTab === 'security'}
-					<SecuritySettingsTab />
-				{:else if activeSettingsTab === 'developer'}
-					<DeveloperSettingsTab />
-				{:else if activeSettingsTab === 'general'}
-					<WorkspacePreferencesSettings onDelete={() => (destructiveDialogOpen = true)} />
-				{:else if activeSettingsTab === 'brand'}
-					<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
-				{:else if activeSettingsTab === 'appearance'}
-					<ThemeAppearanceSettings />
-				{:else if activeSettingsTab === 'accounts'}
-					<AccountManagement
-						workspace={workspaceCtx.currentWorkspace}
-						workspaces={workspaceCtx.workspaces}
-						links={accountLinks}
-						feedback={accountFeedback}
-						onFeedbackDismiss={() => (accountFeedback = null)}
-						onContinue={continueAccountConnection}
-						onAccountsChanged={() => ui.refreshWorkspaceSetup()}
-					/>
-				{:else if activeSettingsTab === 'reposts'}
-					<RepostAutomationSettings workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
-				{:else if activeSettingsTab === 'schedule'}
-					<ScheduleSettingsTab />
-				{:else if activeSettingsTab === 'members'}
-					<WorkspaceTeamSettings
-						workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
-						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
-						currentUserID={authState.user?.id ?? ''}
-						active
-						onMembershipChanged={refreshMembershipBootstrap}
-					/>
-				{:else if activeSettingsTab === 'plan'}
-					<BillingSettingsTab />
-				{:else if activeSettingsTab === 'sso'}
-					<OrganizationSSOSettings
-						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
-						active
-					/>
-				{:else if activeSettingsTab === 'audit'}
-					<OrganizationAuditSettings
-						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
-						active
-					/>
-				{:else if activeSettingsTab === 'ownership'}
-					<OrganizationOwnershipSettings
-						preferredOrganizationID={page.url.searchParams.get('organization') ?? ''}
-						currentUserID={authState.user?.id ?? ''}
-						active
-						onDeleted={() => goto(resolve('/'))}
-					/>
-				{:else if authState.user?.is_admin && activeSettingsTab === 'instance'}
-					<InstanceSettingsTab userID={authState.user?.id ?? ''} active />
-				{:else if authState.user?.is_admin && activeSettingsTab === 'configuration'}
-					<InstanceConfiguration active />
-				{:else if authState.user?.is_admin && activeSettingsTab === 'ai-prompts'}
-					<InstanceAIPrompts active />
-				{:else if authState.user?.is_admin && activeSettingsTab === 'users'}
-					<InstanceAdminUsers />
-				{:else if authState.user?.is_admin && activeSettingsTab === 'instance-audit'}
-					<OrganizationAuditSettings organizationID="" active instanceWide />
+	<div class="min-w-0 space-y-8">
+		<SettingsNavigation
+			active={activeSettingsTab}
+			showInstance={Boolean(authState.user?.is_admin)}
+		/>
+		{#if panelError}
+			<InlineNotice tone="error" message={panelError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => window.location.reload()}
+						>{m.common_refresh()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{:else if workspaceSettingsRequired && workspaceCtx.settingsError && activeSettingsTab !== 'audit'}
+			<InlineNotice tone="error" message={m.settings_workspace_load_failed()}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{:else}
+			<div class="min-w-0 space-y-8">
+				{#if workspaceSettingsRequired && workspaceCtx.settingsBackgroundError}
+					<InlineNotice tone="warning" message={m.settings_workspace_load_failed()}>
+						{#snippet actions()}
+							<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
+								{m.common_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
 				{/if}
+
+				<div class="max-w-5xl min-w-0 space-y-6">
+					{#if activeSettingsTab === 'profile'}
+						{#if panels['profile']}
+							{@const ProfileSettingsTab = panels['profile'].default}
+							<ProfileSettingsTab />
+						{/if}
+					{:else if activeSettingsTab === 'notifications'}
+						{#if panels['notifications']}
+							{@const NotificationPreferences = panels['notifications'].default}
+							<NotificationPreferences
+								workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
+								workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
+								canEditQueue={workspaceCtx.currentWorkspace?.can_edit ?? false}
+							/>
+						{/if}
+					{:else if activeSettingsTab === 'security'}
+						{#if panels['security']}
+							{@const SecuritySettingsTab = panels['security'].default}
+							<SecuritySettingsTab />
+						{/if}
+					{:else if activeSettingsTab === 'developer'}
+						{#if panels['developer']}
+							{@const DeveloperSettingsTab = panels['developer'].default}
+							<DeveloperSettingsTab />
+						{/if}
+					{:else if activeSettingsTab === 'general'}
+						{#if panels['general']}
+							{@const WorkspacePreferencesSettings = panels['general'].default}
+							<WorkspacePreferencesSettings onDelete={() => (destructiveDialogOpen = true)} />
+						{/if}
+					{:else if activeSettingsTab === 'brand'}
+						{#if panels['brand']}
+							{@const BrandSettingsTab = panels['brand'].default}
+							<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
+						{/if}
+					{:else if activeSettingsTab === 'appearance'}
+						{#if panels['appearance']}
+							{@const ThemeAppearanceSettings = panels['appearance'].default}
+							<ThemeAppearanceSettings />
+						{/if}
+					{:else if activeSettingsTab === 'accounts'}
+						{#if panels['accounts']}
+							{@const AccountManagement = panels['accounts'].default}
+							<AccountManagement
+								workspace={workspaceCtx.currentWorkspace}
+								workspaces={workspaceCtx.workspaces}
+								links={accountLinks}
+								feedback={accountFeedback}
+								onFeedbackDismiss={() => (accountFeedback = null)}
+								onContinue={continueAccountConnection}
+								onAccountsChanged={() => ui.refreshWorkspaceSetup()}
+							/>
+						{/if}
+					{:else if activeSettingsTab === 'reposts'}
+						{#if panels['reposts']}
+							{@const RepostAutomationSettings = panels['reposts'].default}
+							<RepostAutomationSettings workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
+						{/if}
+					{:else if activeSettingsTab === 'schedule'}
+						{#if panels['schedule']}
+							{@const ScheduleSettingsTab = panels['schedule'].default}
+							<ScheduleSettingsTab />
+						{/if}
+					{:else if activeSettingsTab === 'members'}
+						{#if panels['members']}
+							{@const WorkspaceTeamSettings = panels['members'].default}
+							<WorkspaceTeamSettings
+								workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
+								organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
+								currentUserID={authState.user?.id ?? ''}
+								active
+								onMembershipChanged={refreshMembershipBootstrap}
+							/>
+						{/if}
+					{:else if activeSettingsTab === 'plan'}
+						{#if panels['plan']}
+							{@const BillingSettingsTab = panels['plan'].default}
+							<BillingSettingsTab />
+						{/if}
+					{:else if activeSettingsTab === 'sso'}
+						{#if panels['sso']}
+							{@const OrganizationSSOSettings = panels['sso'].default}
+							<OrganizationSSOSettings
+								organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
+								active
+							/>
+						{/if}
+					{:else if activeSettingsTab === 'audit'}
+						{#if panels['audit']}
+							{@const OrganizationAuditSettings = panels['audit'].default}
+							<OrganizationAuditSettings
+								organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
+								active
+							/>
+						{/if}
+					{:else if activeSettingsTab === 'ownership'}
+						{#if panels['ownership']}
+							{@const OrganizationOwnershipSettings = panels['ownership'].default}
+							<OrganizationOwnershipSettings
+								preferredOrganizationID={page.url.searchParams.get('organization') ?? ''}
+								currentUserID={authState.user?.id ?? ''}
+								active
+								onDeleted={() => goto(resolve('/'))}
+							/>
+						{/if}
+					{:else if authState.user?.is_admin && activeSettingsTab === 'instance'}
+						{#if panels['instance']}
+							{@const InstanceSettingsTab = panels['instance'].default}
+							<InstanceSettingsTab userID={authState.user?.id ?? ''} active />
+						{/if}
+					{:else if authState.user?.is_admin && activeSettingsTab === 'configuration'}
+						{#if panels['configuration']}
+							{@const InstanceConfiguration = panels['configuration'].default}
+							<InstanceConfiguration active />
+						{/if}
+					{:else if authState.user?.is_admin && activeSettingsTab === 'ai-prompts'}
+						{#if panels['ai-prompts']}
+							{@const InstanceAIPrompts = panels['ai-prompts'].default}
+							<InstanceAIPrompts active />
+						{/if}
+					{:else if authState.user?.is_admin && activeSettingsTab === 'users'}
+						{#if panels['users']}
+							{@const InstanceAdminUsers = panels['users'].default}
+							<InstanceAdminUsers />
+						{/if}
+					{:else if authState.user?.is_admin && activeSettingsTab === 'instance-audit'}
+						{#if panels['instance-audit']}
+							{@const OrganizationAuditSettings = panels['instance-audit'].default}
+							<OrganizationAuditSettings organizationID="" active instanceWide />
+						{/if}
+					{/if}
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </PageContainer>
 
 <WorkspaceDeleteDialog

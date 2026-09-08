@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { mode } from 'mode-watcher';
+	import { captureClientException } from '@openpost/telemetry';
 
 	import { resolvedThemeQueryOptions } from '@openpost/query-catalog';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { createThemeQueryAPI } from '$lib/query/themes';
 	import { toWebResolvedTheme } from '$lib/themes/web-resolved';
-	import ThemeApplicationBoundary from './theme-application-boundary.svelte';
 	import type { ThemeScheme, WebResolvedTheme } from '$lib/themes';
 
 	const themeApi = createThemeQueryAPI();
@@ -39,6 +39,24 @@
 	let active = $derived(
 		typeof document !== 'undefined' && authState.isAuthenticated && Boolean(workspaceID)
 	);
+	let ThemeApplicationBoundary = $state<
+		typeof import('./theme-application-boundary.svelte').default | null
+	>(null);
+	$effect(() => {
+		if (!active || ThemeApplicationBoundary) return;
+		let current = true;
+		void import('./theme-application-boundary.svelte')
+			.then((module) => {
+				if (current) ThemeApplicationBoundary = module.default;
+			})
+			.catch((error) => {
+				// The complete CSS fallback keeps the app usable if the theme download fails.
+				captureClientException(error, { error_boundary: 'theme_startup' });
+			});
+		return () => {
+			current = false;
+		};
+	});
 	// Hold the last resolved theme across workspace or scheme changes so a
 	// switch never flashes the Workshop fallback while the new query loads.
 	// The boundary keeps the retained theme applied until fresh data arrives.
@@ -49,4 +67,6 @@
 	let theme = $derived(retainedTheme);
 </script>
 
-<ThemeApplicationBoundary {active} scheme={effectiveScheme} {theme} />
+{#if active && ThemeApplicationBoundary}
+	<ThemeApplicationBoundary {active} scheme={effectiveScheme} {theme} />
+{/if}

@@ -66,6 +66,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 - AI features use maintained SDKs behind `apps/server/internal/ai/` and the shared model and configuration choices.
 - Keep feature identity SVGs in `assets/brand/features/` and distribute them through `scripts/asset-surfaces.ts`. Feature marks do not replace the protected Converge logo or functional control icons.
 - Keep marketing illustration colors in paired public light/dark tokens; do not change authenticated organization themes to style public campaigns.
+- Keep the built-in theme catalog out of startup imports. Settings loads only the selected panel, through its existing cold loading boundary; failed module downloads must leave navigation usable and offer a page refresh.
 - Theme management reads unpublished drafts from the organization catalog; workspace assignments use published themes. Apply server-confirmed settings immediately and keep background refreshes outside the mutation busy state.
 - Theme tests use the request-scoped application preview context and the existing theme runtime. Restore saved appearance on preview exit; persist the scheme only after assignment succeeds.
 - Theme chart tokens are categorical data colors. Keep `chart1` through `chart5` chromatic and pairwise distinct in every built-in scheme; reserve neutral gray for aggregated data outside the top series.

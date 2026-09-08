@@ -1,5 +1,3 @@
-import posthog from "posthog-js";
-
 export type TelemetrySurface = "app" | "marketing" | "docs";
 export type TelemetryPreference = "persistent" | "cookieless" | "off";
 export type TelemetryPreferenceStatus = TelemetryPreference | "undecided" | "unavailable";
@@ -155,6 +153,8 @@ const browserPreferenceStore: TelemetryPreferenceStore = {
 };
 
 export class BrowserTelemetry {
+  private loadedSDK: BrowserSDK | null;
+  private loadingSDK: Promise<void> | null = null;
   private configured = false;
   private configResolved = false;
   private disabled = false;
@@ -173,10 +173,40 @@ export class BrowserTelemetry {
   private routeTemplates = new Map<string, string>();
 
   constructor(
-    private readonly sdk: BrowserSDK,
+    private readonly sdkSource: BrowserSDK | (() => Promise<BrowserSDK>),
     private readonly runtimeAvailable: () => boolean = () => typeof window !== "undefined",
     private readonly preferenceStore: TelemetryPreferenceStore = browserPreferenceStore,
-  ) {}
+  ) {
+    this.loadedSDK = typeof sdkSource === "function" ? null : sdkSource;
+  }
+
+  private get sdk(): BrowserSDK {
+    if (!this.loadedSDK) throw new Error("Telemetry SDK is not loaded");
+    return this.loadedSDK;
+  }
+
+  private loadSDK(): void {
+    if (this.loadingSDK || typeof this.sdkSource !== "function") return;
+    this.loadingSDK = this.sdkSource()
+      .then((sdk) => {
+        this.loadedSDK = sdk;
+        // Configuration and consent may change while the download is in flight.
+        if (this.config) this.configure(this.config);
+      })
+      .catch(() => this.clearPendingCapture())
+      .finally(() => {
+        this.loadingSDK = null;
+      });
+  }
+
+  private canQueueCapture(): boolean {
+    return (
+      !this.configResolved ||
+      Boolean(
+        this.loadingSDK && (this.preference === "persistent" || this.preference === "cookieless"),
+      )
+    );
+  }
 
   configure(config: BrowserTelemetryConfig): void {
     if (!this.runtimeAvailable()) return;
@@ -216,6 +246,10 @@ export class BrowserTelemetry {
 
   private initialize(config: BrowserTelemetryConfig, preference: TelemetryPreference): void {
     if (preference === "off") return;
+    if (!this.loadedSDK) {
+      this.loadSDK();
+      return;
+    }
 
     this.sdk.init(config.projectToken!.trim(), {
       api_host: config.apiHost!.trim().replace(/\/+$/, ""),
@@ -288,7 +322,7 @@ export class BrowserTelemetry {
     const properties = allowlistedEventProperties(name, (args[0] ?? {}) as Record<string, unknown>);
     if (properties === null) return;
     if (!this.configured) {
-      if (!this.configResolved && this.pendingEvents.length < maxPendingEvents)
+      if (this.canQueueCapture() && this.pendingEvents.length < maxPendingEvents)
         this.pendingEvents.push({ name, properties });
       return;
     }
@@ -301,7 +335,7 @@ export class BrowserTelemetry {
     this.requestedPagePath = pathname;
     this.rememberRouteTemplate(cleanPath(window.location.pathname), path);
     if (!this.configured) {
-      if (!this.configResolved && this.pendingPageViews.length < maxPendingEvents) {
+      if (this.canQueueCapture() && this.pendingPageViews.length < maxPendingEvents) {
         this.pendingPageViews.push({ pathname });
       }
       return;
@@ -375,7 +409,7 @@ export class BrowserTelemetry {
     const sanitized = sanitizeError(error);
     const compacted = compactProperties(properties);
     if (!this.configured) {
-      if (!this.configResolved && this.pendingExceptions.length < maxPendingEvents) {
+      if (this.canQueueCapture() && this.pendingExceptions.length < maxPendingEvents) {
         this.pendingExceptions.push({
           error: sanitized,
           properties: compacted,
@@ -446,7 +480,10 @@ export class BrowserTelemetry {
   }
 }
 
-const telemetry = new BrowserTelemetry(posthog as unknown as BrowserSDK);
+const telemetry = new BrowserTelemetry(async () => {
+  const { default: posthog } = await import("posthog-js");
+  return posthog as unknown as BrowserSDK;
+});
 
 export function configureTelemetry(config: BrowserTelemetryConfig): void {
   telemetry.configure(config);

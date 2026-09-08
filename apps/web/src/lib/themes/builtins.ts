@@ -6,6 +6,7 @@ import type {
 	ThemeSchemeManifest
 } from './contracts.js';
 import { workshopTheme } from './builtins/workshop.js';
+import { resolveWorkshopTheme } from './workshop.js';
 import { studioTheme } from './builtins/studio.js';
 import { notebookTheme } from './builtins/notebook.js';
 import { playroomTheme } from './builtins/playroom.js';
@@ -98,15 +99,8 @@ export function resolveBuiltInTheme(
 	}
 
 	return {
-		id: WORKSHOP_FALLBACK_THEME.id,
-		revision: WORKSHOP_FALLBACK_THEME.revision,
-		name: WORKSHOP_FALLBACK_THEME.name,
-		iconPack: WORKSHOP_FALLBACK_THEME.iconPack,
+		...resolveWorkshopTheme(requestedScheme),
 		source: 'fallback',
-		requestedScheme,
-		scheme: requestedScheme,
-		manifest: cloneScheme(WORKSHOP_FALLBACK_THEME.schemes[requestedScheme]!),
-		fonts: [],
 		assets: [],
 		fallbackReason: requested ? 'unsupported-scheme' : 'missing-theme'
 	};

@@ -113,6 +113,80 @@ const configuredApp: BrowserTelemetryConfig = {
 };
 
 describe("BrowserTelemetry", () => {
+  it("downloads only after consent and preserves capture while loading", async () => {
+    const sdk = new FakeSDK();
+    const preference = new FakePreferenceStore(null);
+    let finish!: (sdk: FakeSDK) => void;
+    let loads = 0;
+    const subject = new BrowserTelemetry(
+      () => {
+        loads++;
+        return new Promise<FakeSDK>((resolve) => {
+          finish = resolve;
+        });
+      },
+      () => true,
+      preference,
+    );
+    subject.configure({ ...configuredApp, enabled: false });
+    subject.configure(configuredApp);
+    expect(loads).toBe(0);
+    subject.setPreference("persistent");
+    subject.configure(configuredApp);
+    expect(loads).toBe(1);
+    subject.identify("user-late");
+    subject.capture("signup started");
+    subject.captureException(new Error("loading failure"));
+    expect(sdk.events).toEqual([]);
+    finish(sdk);
+    await vi.waitFor(() => expect(sdk.initialized).toHaveLength(1));
+    expect(sdk.identified).toEqual(["user-late"]);
+    expect(sdk.events.map((event) => event.event)).toEqual(["signup started"]);
+    expect(sdk.exceptions.map((event) => event.error.message)).toEqual(["loading failure"]);
+  });
+
+  it.each(["off", "disabled", "privacy"])(
+    "respects %s changes during SDK loading",
+    async (change) => {
+      const sdk = new FakeSDK();
+      const preference = new FakePreferenceStore();
+      let finish!: (sdk: FakeSDK) => void;
+      const subject = new BrowserTelemetry(
+        () =>
+          new Promise<FakeSDK>((resolve) => {
+            finish = resolve;
+          }),
+        () => true,
+        preference,
+      );
+      subject.configure(configuredApp);
+      subject.capture("signup started");
+      if (change === "off") subject.setPreference("off");
+      if (change === "disabled") subject.configure({ ...configuredApp, enabled: false });
+      if (change === "privacy") preference.privacySignal = true;
+      finish(sdk);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(sdk.initialized).toEqual([]);
+      expect(sdk.events).toEqual([]);
+    },
+  );
+
+  it("recovers from a failed download without replaying its queued events", async () => {
+    const sdk = new FakeSDK();
+    let loads = 0;
+    const subject = new BrowserTelemetry(
+      () => (++loads === 1 ? Promise.reject(new Error("offline")) : Promise.resolve(sdk)),
+      () => true,
+      new FakePreferenceStore(),
+    );
+    subject.configure(configuredApp);
+    subject.capture("signup started");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    subject.configure(configuredApp);
+    await vi.waitFor(() => expect(sdk.initialized).toHaveLength(1));
+    expect(sdk.events).toEqual([]);
+  });
+
   it("uses private browser defaults and flushes queued identity and events", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);

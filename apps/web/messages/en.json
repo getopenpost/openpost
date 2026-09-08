@@ -2631,6 +2631,7 @@
 	"settings_schedule_description": "Reusable publishing times and scheduling defaults.",
 	"settings_general_description": "Name, image, color, and calendar defaults for {workspace}.",
 	"settings_loading_workspace": "Loading workspace…",
+	"settings_panel_load_failed": "Could not load settings. Refresh to try again.",
 	"settings_workspace_load_failed": "Could not load workspace settings.",
 	"settings_display_name": "Display name",
 	"settings_username": "Username",

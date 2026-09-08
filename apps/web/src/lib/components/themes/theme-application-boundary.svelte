@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { getApplicationThemePreview } from '$lib/themes/application-preview.svelte';
 	import { onDestroy } from 'svelte';
-	import {
-		resolveBuiltInTheme,
-		WebThemeRuntime,
-		type ThemeScheme,
-		type WebResolvedTheme
-	} from '$lib/themes';
+	import { WebThemeRuntime } from '$lib/themes/runtime';
+	import type { ThemeScheme, WebResolvedTheme } from '$lib/themes/contracts';
+	import { resolveWorkshopTheme } from '$lib/themes/workshop';
 
 	let {
 		active,
@@ -38,7 +35,7 @@
 
 	function unavailableTheme(requestedScheme: ThemeScheme): WebResolvedTheme {
 		return {
-			...resolveBuiltInTheme('workshop', requestedScheme),
+			...resolveWorkshopTheme(requestedScheme),
 			source: 'fallback',
 			fallbackReason: 'missing-theme'
 		};

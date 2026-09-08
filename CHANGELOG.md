@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.24.1] - 2026-09-08
+
+### Fixed
+
+- Request Discord bot permissions for attachments, embeds, and message lookup during installation, alongside viewing channels and sending messages. Existing installations can reconnect to grant the required permissions.
+
+### Security
+
+- Update Vitest to 4.1.11 and fast-uri to 3.1.6 to fix newly reported development-tool advisories.
+
 ## [4.24.0] - 2026-09-08
 
 ### Changed

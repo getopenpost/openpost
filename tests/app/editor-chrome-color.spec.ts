@@ -193,7 +193,7 @@ test("Sequence Auto Balance samples the composed frame without changing clip sel
 test("shared editor chrome and Color workspaces fit desktop and narrow phones", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error).slice(0, 300)));
@@ -203,7 +203,10 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
     }
   });
 
-  const { token } = await registerUser(request, "editor-chrome-color@example.com");
+  const { token } = await registerUser(
+    request,
+    `editor-chrome-color-${testInfo.repeatEachIndex}@example.com`,
+  );
   const workspace = await createWorkspace(request, token, "Shared editor chrome");
   await authenticatePage(page, token);
   const videoURL = await createVideoProject(page);
@@ -266,8 +269,6 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
         await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         await expect(page.getByRole("menuitem", { name: /Split/ })).toBeVisible();
-        await page.keyboard.press("Escape");
-        await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await page.keyboard.press("Escape");
       }

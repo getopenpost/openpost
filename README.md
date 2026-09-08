@@ -70,21 +70,15 @@ OpenPost combines writing, media editing, scheduling, and results in one workspa
 
 ## What you can do
 
-<p>
-  <a href="https://openpo.st/features#compose"><img src="assets/brand/features/compose.svg" alt="Compose" width="48" height="48"></a>
-  <a href="https://openpo.st/features#schedule"><img src="assets/brand/features/calendar.svg" alt="Scheduling" width="48" height="48"></a>
-  <a href="https://openpo.st/features#analytics-inbox"><img src="assets/brand/features/analytics.svg" alt="Analytics" width="48" height="48"></a>
-  <a href="https://app.openpo.st/image-editor"><img src="assets/brand/features/image-editor.svg" alt="Image Editor" width="48" height="48"></a>
-  <a href="https://app.openpo.st/video-editor"><img src="assets/brand/features/video-editor.svg" alt="Video Editor" width="48" height="48"></a>
-</p>
-
-- **Compose for every channel.** Write posts and threads, preview each account's version, and reuse account groups with Social Sets.
+- <img src="assets/brand/features/compose.svg" alt="" width="24" height="24" align="top"> **Compose for every channel.** Write posts and threads, preview each account's version, and reuse account groups with Social Sets.
+- <img src="assets/brand/features/image-editor.svg" alt="" width="24" height="24" align="top"> **[Image Editor](https://app.openpo.st/image-editor).** Create layered graphics and multi-page carousels without leaving OpenPost.
+- <img src="assets/brand/features/video-editor.svg" alt="" width="24" height="24" align="top"> **[Video Editor](https://app.openpo.st/video-editor), beta.** Record, trim, and edit videos with a multitrack timeline, captions, and audio.
 - **AI writing and Ideate.** Find an idea, compare directions, and build drafts for your selected channels. Review the result before publishing.
-- **Scheduling and queues.** Pick an exact time or the next free posting slot. Plan in the calendar, stagger destinations, and get reminders when your queue runs low.
+- <img src="assets/brand/features/calendar.svg" alt="" width="24" height="24" align="top"> **Scheduling and queues.** Pick an exact time or the next free posting slot. Plan in the calendar, stagger destinations, and get reminders when your queue runs low.
 - **Auto repost.** Set delays and engagement rules for native reposts on supported networks, with per-post overrides.
 - **Memes and media.** Caption meme templates, replace images, and save the result alongside reusable templates, fonts, and brand assets. Find media with tags, collections, and favorites.
 - **Inbox and DMs.** Read and reply to supported comments and messages.
-- **Analytics and repurposing.** Compare results, track audience changes, and turn previous content into a new draft.
+- <img src="assets/brand/features/analytics.svg" alt="" width="24" height="24" align="top"> **Analytics and repurposing.** Compare results, track audience changes, and turn previous content into a new draft.
 - **Grow.** Discover accounts to follow on Bluesky and Mastodon. You choose who to follow.
 - **API, MCP, CLI, and n8n.** Draft, schedule, and inspect publications from your own scripts or AI tools.
 - **Teams and security.** Separate brands into workspaces with member roles. Protect accounts with passkeys, two-factor authentication, and session controls.
@@ -93,11 +87,11 @@ OpenPost combines writing, media editing, scheduling, and results in one workspa
 
 The browser editors are free to try without an account. Exports have no watermark.
 
-**[Image Editor](https://app.openpo.st/image-editor).** Layers, text, shapes, background removal, and color tools. Export one image or a multi-page carousel.
+<img src="assets/brand/features/image-editor.svg" alt="" width="24" height="24" align="top"> **[Image Editor](https://app.openpo.st/image-editor).** Layers, text, shapes, background removal, and color tools. Export one image or a multi-page carousel.
 
 ![Image Editor with a Lisbon tram photo and editable layers](assets/screenshots/image-editor-dark.webp)
 
-**[Video Editor](https://app.openpo.st/video-editor), beta.** Screen, camera, and microphone recording. Multitrack editing, captions, transitions, keyframes, color, and audio. Save projects locally or sync to your workspace. Use desktop Chromium for the full editor; mobile supports capture and project preparation.
+<img src="assets/brand/features/video-editor.svg" alt="" width="24" height="24" align="top"> **[Video Editor](https://app.openpo.st/video-editor), beta.** Screen, camera, and microphone recording. Multitrack editing, captions, transitions, keyframes, color, and audio. Save projects locally or sync to your workspace. Use desktop Chromium for the full editor; mobile supports capture and project preparation.
 
 ![Video Editor with a screen recording and multitrack timeline](assets/screenshots/video-editor-dark.webp)
 

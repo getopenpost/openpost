@@ -1,0 +1,40 @@
+---
+title: API reference
+description: Authenticate and call the OpenPost HTTP API.
+---
+
+The API is JSON and lives under `/api/v1`. The generated reference below is the contract used by the web app, CLI, MCP, and external automation.
+
+## Authentication
+
+Use a browser session for interactive work or a bearer API token for automation:
+
+```http
+Authorization: Bearer YOUR_TOKEN
+```
+
+Create and revoke tokens in **Settings → Personal → Developer**. Give a token one workspace scope when possible. Treat it like a password and store it in your automation's secret store.
+
+## First request
+
+Replace the URL with your OpenPost server:
+
+```sh
+curl https://app.openpo.st/api/v1/workspaces \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Accept: application/json"
+```
+
+Use the returned workspace ID when an operation asks for one. Workspace access is checked for every private operation.
+
+## Generated operations
+
+Browse the generated endpoint pages:
+
+- [List workspaces](/api-reference/workspaces/list-workspaces)
+- [List publications](/api-reference/publications/list-publications)
+- [Create a publication](/api-reference/publications/create-publication)
+- [Schedule a publication](/api-reference/publications/schedule-publication)
+- [List connected accounts](/api-reference/accounts/list-accounts)
+
+The machine-readable contract is available at [`/openapi.json`](/openapi.json). Generate clients from that file instead of copying request or response schemas into another document.

@@ -1,0 +1,22 @@
+---
+title: Troubleshooting
+description: Fix common connection, media, scheduling, and delivery problems.
+---
+
+Start with the failed publication or account message. It usually names the provider, missing permission, invalid media URL, or expired authorization.
+
+## Account connection fails
+
+Check that the provider app is configured, the callback URL matches exactly, and the public OpenPost URL uses HTTPS. Reconnect after changing provider permissions. Bluesky uses an app password. Mastodon custom instances must be public HTTPS servers.
+
+## Media is rejected
+
+Check the file type, size, attachment count, and whether the provider can fetch the media from your public media URL. Threads, Facebook, Instagram, and TikTok publishing may need publicly reachable HTTPS media.
+
+## A scheduled post failed
+
+Open the publication, inspect the failed rendition, fix the provider or media issue, then retry that rendition. Other renditions keep their own status.
+
+## Self-hosted instance is unhealthy
+
+Check the container or process logs, the health endpoint, free disk space, database path, and media path. Confirm the database, media, and encryption secrets are backed up together before restoring.

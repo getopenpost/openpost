@@ -39,7 +39,7 @@ If an organization requires SSO, its token policy can deny app tokens or require
 
 Migration 084 changes older organization-wide token policies to workspace-scoped mode. It does not auto-bind existing unbound credentials; those tokens can no longer access required-SSO resources. Revoke them and issue one assured token per required workspace, or choose the deny policy.
 
-The browser CLI approval page lets the user choose a workspace or all workspaces. The backend verifies current membership before saving a bound approval. CLI and MCP approval endpoints require a signed-in browser session, so an existing bearer token cannot authorize a new credential. See [CLI authentication](/cli/authentication) for the device flow.
+The browser CLI approval page lets the user choose a workspace or all workspaces. The backend verifies current membership before saving a bound approval. CLI and MCP approval endpoints require a signed-in browser session, so an existing bearer token cannot authorize a new credential. See the [automation guide](/guides/automation) for the CLI device flow.
 
 ## Rotation and revocation
 

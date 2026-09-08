@@ -1,0 +1,28 @@
+---
+title: Configuration
+description: Configure URLs, storage, provider apps, and optional self-hosted services.
+---
+
+Set the app, public, and media URLs to the addresses users and providers can reach. Use HTTPS for production. OAuth callback URLs must match the configured public URL exactly.
+
+## Storage
+
+SQLite and local media are the default. Set a Postgres connection when the deployment needs a separate database. Set an S3-compatible media store when media should live outside the container. Back up both database and media.
+
+## Provider apps
+
+Self-hosted operators create provider apps and enter their client IDs, secrets, callback URLs, and requested permissions. Environment-defined provider apps are read-only in Settings and take precedence over database entries. Restart OpenPost after changing them.
+
+| Provider | Callback or setup requirement |
+| --- | --- |
+| X | OAuth callback registered in the X developer app |
+| LinkedIn, Threads, Facebook, Instagram | Meta or LinkedIn app with the required product and permissions |
+| TikTok | App configured for the chosen posting product, review may be required |
+| YouTube | Google OAuth client with the YouTube API enabled |
+| Mastodon | App per server, or automatic app setup on a public instance |
+| Bluesky | No provider app, use an account app password |
+| Discord | Incoming webhook URL |
+
+## Useful controls
+
+Set `OPENPOST_DISABLE_REGISTRATIONS=true` after the first administrator has created the instance. Configure CORS only for origins that need API access. Keep JWT and encryption secrets stable across restarts and restores.

@@ -125,5 +125,5 @@ This content covers public product and operating information only. Do not add au
 2. Run `bun run doctor` before broad or release work.
 3. Run scoped root checks while editing, then `bun run verify`.
 4. For visible changes, run the related app, docs, or marketing browser suite at desktop and phone widths.
-5. Before a public campaign, complete the [Launch Verification Matrix](/operations/provider-launch-matrix) for each account and format.
+5. Before a public campaign, complete the [Launch Verification Matrix](/self-hosting/maintenance) for each account and format.
 6. For a production release, follow [Releases and Versioning](/development/releases) and verify the workflow, release, deployed revision, and public readiness.

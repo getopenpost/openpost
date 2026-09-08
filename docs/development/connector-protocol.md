@@ -306,4 +306,4 @@ Before shipping a connector, prove that it:
 - redacts tokens, post bodies, and destination responses from logs
 - keeps every response at or below 1 MiB
 
-For operator setup and endpoint policy, see [Custom connectors](/configuration/custom-connectors).
+For operator setup and endpoint policy, see [Self-hosting configuration](/self-hosting/configuration).

@@ -1,0 +1,33 @@
+---
+title: Connect accounts
+description: Add and manage social accounts in a workspace.
+---
+
+Open **Settings → Workspace → Social accounts** and choose a provider. OpenPost sends you to that provider when the connection needs OAuth. Return to OpenPost to finish the connection and choose the destination.
+
+## What you need
+
+| Provider | Account or credential |
+| --- | --- |
+| Bluesky | Handle and app password |
+| Mastodon | Public HTTPS instance, or a preconfigured instance |
+| Discord | Incoming webhook URL |
+| X, LinkedIn, Threads, Facebook, Instagram, TikTok, YouTube | Provider account plus a configured provider app and approved permissions |
+
+Provider rules can change. OpenPost only shows actions that the connected account and granted permissions support. Instagram and Facebook require the account types and Page links required by Meta. TikTok and YouTube may require provider review before public posting.
+
+## After connecting
+
+Open the account details drawer to enable optional Analytics, Comments and replies, or Direct messages where supported. Grow is available for eligible Bluesky and Mastodon accounts. Each feature starts disabled on a new connection and enabling one queues its first refresh.
+
+## Remove or reconnect
+
+Use **Reconnect** when a provider permission or token expired. If several destinations share one authorization, disconnecting a destination leaves the other destinations connected. Removing the saved authorization disconnects every destination that uses it. Provider-side credentials remain active until you revoke them in that provider's settings.
+
+## Bluesky
+
+Create an app password in **Bluesky → Settings**, then enter the handle and app password in OpenPost. Use the handle, not the account email. No server-side OAuth app is required.
+
+## Mastodon
+
+Select a preconfigured server or enter a public HTTPS instance. Each Mastodon server can have its own app and limits.

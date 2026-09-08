@@ -1,0 +1,14 @@
+{
+  "title": "Guides",
+  "pages": [
+    "quickstart",
+    "accounts",
+    "publishing",
+    "scheduling",
+    "media",
+    "results",
+    "workspaces",
+    "automation",
+    "troubleshooting"
+  ]
+}

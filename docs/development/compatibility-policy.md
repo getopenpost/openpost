@@ -19,7 +19,7 @@ A route or schema member can become deprecated only when all of these are true:
 
 Removal requires at least 90 days and two later stable releases after the announcement. The review must cover `web`, `cli`, `mcp`, `mcp-media`, `n8n`, and other `api` callers. Every class needs recorded no-use or not-applicable evidence, and no known use can remain. A failed or incomplete review keeps the route.
 
-The request log's `route` and `consumer` fields provide low-cardinality evidence. The consumer value comes from a caller-controlled user agent, so it is a useful review hint, not proof of identity. See [Logs](/operations/logs) for the exact logging boundary.
+The request log's `route` and `consumer` fields provide low-cardinality evidence. The consumer value comes from a caller-controlled user agent, so it is a useful review hint, not proof of identity. See [Logs](/self-hosting/maintenance) for the exact logging boundary.
 
 ## Current decisions
 

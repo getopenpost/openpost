@@ -1,0 +1,4 @@
+{
+  "pages": ["index", "guides", "self-hosting", "api-reference"],
+  "defaultOpen": true
+}

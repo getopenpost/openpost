@@ -1,0 +1,25 @@
+---
+title: Automation
+description: Use the CLI, MCP, or n8n to prepare and schedule OpenPost work.
+---
+
+OpenPost has one workspace-aware API behind the web app, CLI, MCP, and external automation. Give each automation its own token and the smallest workspace scope it needs.
+
+## CLI
+
+Install a release binary from the [OpenPost releases](https://github.com/getopenpost/openpost/releases), then authenticate it against your server:
+
+```sh
+openpost auth login --server https://app.openpo.st
+openpost post create --text "Hello from OpenPost" --account ACCOUNT_ID
+```
+
+Run `openpost --help` for the installed command set. Use API-token login for CI and revoke that token from **Settings** when the job ends.
+
+## MCP
+
+Connect your MCP client to the OpenPost MCP endpoint and approve only the workspace access you need. Start with read-only inspection, then let the assistant prepare a draft for human review before scheduling it.
+
+## n8n
+
+Use an HTTP Request node with the OpenPost API base URL and an `Authorization: Bearer $OPENPOST_TOKEN` header. Store the token in n8n credentials, send JSON, and check the response before continuing to the next node. Use the generated [API reference](/api-reference) for operation names and request bodies.

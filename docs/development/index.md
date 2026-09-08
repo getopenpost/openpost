@@ -34,5 +34,5 @@ Developer docs are separate from user-facing docs and self-hosting docs. They ca
 
 ## Adjacent docs
 
-- If you are using OpenPost through the web app, CLI, or MCP client, start with [User Docs](/usage/).
+- If you are using OpenPost through the web app, CLI, or MCP client, start with [User Docs](/guides/).
 - If you are deploying or operating an instance, start with [Self-Hosting Docs](/self-hosting/).

@@ -361,8 +361,12 @@ a {
   .docs-sections {
     justify-content: flex-start;
     overflow-x: auto;
+    scrollbar-width: none;
     padding-inline: 0.7rem;
     gap: 1rem;
+  }
+  .docs-sections::-webkit-scrollbar {
+    display: none;
   }
   .docs-sections a {
     font-size: 0.8rem;

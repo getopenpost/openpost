@@ -204,8 +204,10 @@ export async function listRecorderDevices(): Promise<RecorderDeviceLists> {
 	if (!navigator.mediaDevices?.enumerateDevices) return { cameras: [], microphones: [] };
 	const devices = await navigator.mediaDevices.enumerateDevices();
 	return {
-		cameras: devices.filter((d) => d.kind === 'videoinput'),
-		microphones: devices.filter((d) => d.kind === 'audioinput')
+		// Empty IDs represent devices hidden until permission. The picker already
+		// offers the system default and cannot select these entries individually.
+		cameras: devices.filter((d) => d.kind === 'videoinput' && d.deviceId !== ''),
+		microphones: devices.filter((d) => d.kind === 'audioinput' && d.deviceId !== '')
 	};
 }
 

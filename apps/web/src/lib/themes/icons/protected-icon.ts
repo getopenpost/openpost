@@ -1,4 +1,12 @@
 export const PROTECTED_ICON_ROLES = [
+	'editor-zoom-in',
+	'editor-zoom-out',
+	'editor-zoom-fit',
+	'editor-fullscreen',
+	'editor-exit-fullscreen',
+	'editor-volume-muted',
+	'editor-volume-low',
+	'editor-volume-high',
 	'editor-animation',
 	'editor-backgrounds',
 	'editor-captions',

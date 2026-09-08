@@ -1,4 +1,13 @@
 <script lang="ts">
+	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
+	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
+	import ScanIcon from '@lucide/svelte/icons/scan';
+	import MaximizeIcon from '@lucide/svelte/icons/maximize';
+	import MinimizeIcon from '@lucide/svelte/icons/minimize';
+	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
+	import Volume1Icon from '@lucide/svelte/icons/volume-1';
+	import Volume2Icon from '@lucide/svelte/icons/volume-2';
+
 	import AlignCenterHorizontalIcon from '@lucide/svelte/icons/align-center-horizontal';
 	import AlignCenterVerticalIcon from '@lucide/svelte/icons/align-center-vertical';
 	import AlignEndHorizontalIcon from '@lucide/svelte/icons/align-end-horizontal';
@@ -76,6 +85,14 @@
 	let { icon, label, class: className }: Props = $props();
 	const Icon = $derived(
 		{
+			'editor-zoom-in': ZoomInIcon,
+			'editor-zoom-out': ZoomOutIcon,
+			'editor-zoom-fit': ScanIcon,
+			'editor-fullscreen': MaximizeIcon,
+			'editor-exit-fullscreen': MinimizeIcon,
+			'editor-volume-muted': VolumeXIcon,
+			'editor-volume-low': Volume1Icon,
+			'editor-volume-high': Volume2Icon,
 			'editor-animation': FilmIcon,
 			'editor-backgrounds': PanelsTopLeftIcon,
 			'editor-captions': CaptionsIcon,

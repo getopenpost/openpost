@@ -2216,13 +2216,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				disabled={!editorSession.project}
 				onchange={(value) => editorSession.renameProject(value)}
 			/>
-			{#if projectSummary}
-				<span
-					class="hidden min-w-0 truncate text-xs text-[var(--video-editor-muted)] tabular-nums xl:inline"
-				>
-					{projectSummary}
-				</span>
-			{/if}
 		</div>
 		<div class="video-workspace-switcher">
 			<EditorWorkspaceTabs
@@ -2275,7 +2268,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</span>
 				</Button>
 			{:else if !timelineStore.isDirty && !editorSession.projectDirty}
-				<span class="hidden sm:inline">{m.video_editor_saved()}</span>
+				<span class="hidden sm:inline"
+					>{cloudStorage ? m.video_editor_saved_cloud() : m.video_editor_saved()}</span
+				>
 			{/if}
 			<Button
 				type="button"
@@ -2434,6 +2429,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			</DropdownMenu.Root>
 		</div>
 	</header>
+	{#if projectSummary}
+		<div
+			class="shrink-0 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 py-1 text-xs text-[var(--video-editor-muted)] tabular-nums"
+			data-project-summary
+		>
+			{projectSummary}
+		</div>
+	{/if}
 
 	{#if !cloudStorage && gate.state !== 'ready'}
 		<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">

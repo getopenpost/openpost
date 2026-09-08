@@ -169,7 +169,6 @@
 	let draftTransform = $state<ItemTransform | null>(null);
 	let groupDraftTransforms = $state<Record<string, GroupTransform> | null>(null);
 	let draftCrop = $state<NonNullable<TimelineItem['crop']> | null>(null);
-	let draftText = $state<string | null>(null);
 	let draftCornerPin = $state<TimelineItemCornerPin | null>(null);
 	let editingText = $state(false);
 	let isPlaying = $state(editorSession.clock.isPlaying);
@@ -615,12 +614,7 @@
 					transform: directDraft
 						? (draftTransform ?? baseResolved.transform)
 						: baseResolved.transform,
-					crop: directDraft ? (draftCrop ?? baseResolved.crop) : baseResolved.crop,
-					text: directDraft ? (draftText ?? baseResolved.text) : baseResolved.text,
-					textSpans:
-						directDraft && draftText !== null && baseResolved.textSpans
-							? replaceTextSpanCopy(baseResolved.textSpans, draftText)
-							: baseResolved.textSpans
+					crop: directDraft ? (draftCrop ?? baseResolved.crop) : baseResolved.crop
 				},
 				inputs.width / canvasWidth,
 				inputs.height / canvasHeight
@@ -638,6 +632,7 @@
 			.filter((item) => item.type === 'shape' && item.isMask === true)
 			.map((item) => resolveVisualItem(item, false));
 		const resolveParticipant = (item: TimelineItem, beforeColor: boolean) => {
+			if (editingText && item.id === selectedItemId) return null;
 			if (item.type === 'shape' && item.isMask === true) return null;
 			const source = sourceProviders.get(item.id)?.() ?? null;
 			if (!source && item.type !== 'background') return null;
@@ -1371,10 +1366,11 @@
 	}
 
 	$effect(() => {
+		void editingText;
+		void selectedItemId;
 		void draftTransform;
 		void groupDraftTransforms;
 		void draftCrop;
-		void draftText;
 		void draftCornerPin;
 		void colorPreviewStore.effectDraft;
 		if (needsStackedComposition) scheduleStackFrame();
@@ -1513,7 +1509,6 @@
 								overrideTransform={groupDraftTransforms?.[item.id] ??
 									(item.id === selectedItemId ? (draftTransform ?? undefined) : undefined)}
 								overrideCrop={item.id === selectedItemId ? (draftCrop ?? undefined) : undefined}
-								overrideText={item.id === selectedItemId ? (draftText ?? undefined) : undefined}
 								hideContent={item.id === selectedItemId && editingText}
 								onselect={() => {
 									selectedItemId = item.id;
@@ -1575,7 +1570,6 @@
 									{isPlaying}
 									ontransformdraft={(value) => (draftTransform = value)}
 									oncropdraft={(value) => (draftCrop = value)}
-									ontextdraft={(value) => (draftText = value)}
 									oncornerpindraft={(value) => (draftCornerPin = value)}
 									ontextediting={(value) => (editingText = value)}
 									oncommitvalues={commitCanvasValues}

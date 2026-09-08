@@ -85,8 +85,10 @@ export async function insertRecordingArtifacts(
 	projectId: string,
 	artifacts: CaptureArtifact[],
 	anchorFrame: number,
-	runtime: RecordingImportRuntime = defaultRuntime
+	runtime: RecordingImportRuntime = defaultRuntime,
+	{ isCurrent }: { isCurrent: () => boolean }
 ): Promise<InsertRecordingResult> {
+	if (!isCurrent()) throw new Error('Recording destination changed');
 	if (artifacts.length === 0) return { mediaIds: [], itemIds: [] };
 	const fps = timelineStore.fps;
 	const baseFrame = Number.isFinite(anchorFrame) ? Math.max(0, Math.round(anchorFrame)) : 0;
@@ -147,6 +149,7 @@ export async function insertRecordingArtifacts(
 
 	// One atomic timeline transaction for all clips/tracks
 	try {
+		if (!isCurrent()) throw new Error('Recording destination changed');
 		return executeAtomic('INSERT_RECORDING', () => {
 			const itemIds: string[] = [];
 			const mediaIds = imported.map((entry) => entry.mediaId);

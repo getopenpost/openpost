@@ -134,6 +134,15 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ['ai-music-js', 'kokoro-js', 'phonemizer'],
 		include: [
+			'@lucide/svelte/icons/maximize',
+			'@lucide/svelte/icons/minimize',
+			'@lucide/svelte/icons/scan',
+			'@lucide/svelte/icons/volume-1',
+			'@lucide/svelte/icons/volume-2',
+			'@lucide/svelte/icons/volume-x',
+			'@lucide/svelte/icons/zoom-in',
+			'@lucide/svelte/icons/zoom-out',
+
 			'@huggingface/transformers',
 			'@lucide/svelte/icons/align-left',
 			'@lucide/svelte/icons/alert-circle',

@@ -79,7 +79,7 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
   ).resolves.toMatchObject({ outcome: "conflict" });
   await secondContext.close();
 
-  await page.getByRole("menuitem", { name: "File" }).click();
+  await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Version history" }).click();
   const history = page.getByRole("dialog", { name: "Version history" });
   await expect(history).toBeVisible();

@@ -8,7 +8,7 @@
  * Ported from FreeCut (MIT) — workspace-fs/exports.ts.
  */
 
-import { getWorkspaceRoot, requireWorkspaceRoot } from './root';
+import { exportStorageRoot } from './export-storage';
 import {
 	exists,
 	listDirectory,
@@ -73,7 +73,7 @@ export async function saveExportFile(
 	fileName: string,
 	data: Blob
 ): Promise<SavedExport> {
-	const root = requireWorkspaceRoot();
+	const root = await exportStorageRoot(projectId);
 	const pathOf = projectId
 		? (name: string) => projectExportFilePath(projectId, name)
 		: (name: string) => exportFilePath(name);
@@ -91,7 +91,7 @@ function generatedDirectoryTimestamp(name: string): number {
 
 /** List a project's saved export files and image-sequence directories, newest first. */
 export async function listExportEntries(projectId: string): Promise<ExportEntry[]> {
-	const root = requireWorkspaceRoot();
+	const root = await exportStorageRoot(projectId);
 	const directory = projectExportsDir(projectId);
 	const [directoryEntries, files] = await Promise.all([
 		listDirectory(root, directory),
@@ -130,15 +130,14 @@ export async function listExportEntries(projectId: string): Promise<ExportEntry[
 		);
 }
 
-export function readExportFile(path: string[]): Promise<Blob | null> {
-	return readBlob(requireWorkspaceRoot(), path);
+export async function readExportFile(path: string[]): Promise<Blob | null> {
+	return readBlob(await exportStorageRoot(path[0] === PROJECTS_DIR ? path[1] : undefined), path);
 }
 
-export function deleteExportEntry(path: string[], recursive = false): Promise<void> {
-	return removeEntry(requireWorkspaceRoot(), path, { recursive });
-}
-
-/** The user-picked workspace folder's name (for telling users where files land). */
-export function workspaceFolderName(): string | null {
-	return getWorkspaceRoot()?.name ?? null;
+export async function deleteExportEntry(path: string[], recursive = false): Promise<void> {
+	return removeEntry(
+		await exportStorageRoot(path[0] === PROJECTS_DIR ? path[1] : undefined),
+		path,
+		{ recursive }
+	);
 }

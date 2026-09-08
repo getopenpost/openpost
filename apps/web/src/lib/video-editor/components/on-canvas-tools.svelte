@@ -67,7 +67,6 @@
 		snappingEnabled = true,
 		ontransformdraft,
 		oncropdraft,
-		ontextdraft,
 		oncornerpindraft,
 		ontextediting,
 		oncommitvalues,
@@ -90,7 +89,6 @@
 		snappingEnabled?: boolean;
 		ontransformdraft: (transform: ItemTransform | null) => void;
 		oncropdraft: (crop: CropSettings | null) => void;
-		ontextdraft: (text: string | null) => void;
 		oncornerpindraft: (pin: TimelineItemCornerPin | null) => void;
 		ontextediting: (editing: boolean) => void;
 		oncommitvalues: (frame: number, values: CanvasAnimatedValues) => boolean;
@@ -267,7 +265,6 @@
 		snapLines = [];
 		ontransformdraft(null);
 		oncropdraft(null);
-		ontextdraft(null);
 		oncornerpindraft(null);
 		if (textSession) {
 			textSession = false;
@@ -740,7 +737,6 @@
 		if (textSession) return;
 		textSession = true;
 		draftText = item.text ?? '';
-		ontextdraft(draftText);
 		ontextediting(true);
 		requestAnimationFrame(() => {
 			const editor = textEditor;
@@ -778,9 +774,9 @@
 		);
 	}
 
+	// The native text editor paints each keystroke. Recompose the preview once on commit.
 	function updateText(value: string): void {
 		draftText = value;
-		ontextdraft(value);
 	}
 
 	function finishText(commit: boolean): void {
@@ -788,7 +784,6 @@
 		const value = draftText ?? item.text ?? '';
 		textSession = false;
 		ontextediting(false);
-		ontextdraft(null);
 		draftText = null;
 		if (commit && value !== (item.text ?? '')) {
 			oncommittext(value);

@@ -54,7 +54,8 @@ describe('recording artifact insertion', () => {
 			'project',
 			[artifact('screen', 0), artifact('camera', 50), artifact('microphone', 100)],
 			60,
-			runtime
+			runtime,
+			{ isCurrent: () => true }
 		);
 
 		expect(result.mediaIds).toEqual(['screen-media', 'camera-media', 'mic-media']);
@@ -93,6 +94,26 @@ describe('recording artifact insertion', () => {
 		expect(timelineStore.tracks).toHaveLength(0);
 	});
 
+	it('retains the new timeline when an import finishes after the project closes', async () => {
+		let current = true;
+		const rollback = vi.fn(async () => undefined);
+		const runtime: RecordingImportRuntime = {
+			importVideo: async () => {
+				current = false;
+				return media('old-project-media', 'video');
+			},
+			importAudio: vi.fn(),
+			rollback
+		};
+		await expect(
+			insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
+				isCurrent: () => current
+			})
+		).rejects.toThrow('Recording destination changed');
+		expect(timelineStore.items).toHaveLength(0);
+		expect(rollback).toHaveBeenCalledExactlyOnceWith('project', 'old-project-media');
+	});
+
 	it('leaves a single captured stream unlinked', async () => {
 		const runtime: RecordingImportRuntime = {
 			importVideo: vi.fn(async () => media('screen-media', 'video')),
@@ -100,7 +121,9 @@ describe('recording artifact insertion', () => {
 			rollback: vi.fn(async () => undefined)
 		};
 
-		await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime);
+		await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
+			isCurrent: () => true
+		});
 
 		expect(timelineStore.items).toHaveLength(1);
 		expect(timelineStore.items[0]?.linkedGroupId).toBeUndefined();
@@ -122,7 +145,8 @@ describe('recording artifact insertion', () => {
 				'project',
 				[artifact('screen', 0), artifact('camera', 20)],
 				0,
-				runtime
+				runtime,
+				{ isCurrent: () => true }
 			)
 		).rejects.toThrow('camera probe failed');
 		expect(rollback).toHaveBeenCalledExactlyOnceWith('project', 'screen-media');

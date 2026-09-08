@@ -1,5 +1,5 @@
 import type { Project } from '../project/types';
-import { getWorkspaceRoot } from '../workspace-fs/root';
+import { exportStorageRoot } from '../workspace-fs/export-storage';
 import { mediaPool } from './pool.svelte';
 import type {
 	AudioExportOptions,
@@ -56,7 +56,9 @@ export interface RenderWorkerPort extends EventTarget {
 export interface RenderExecutionDependencies {
 	workerAvailable: () => boolean;
 	createWorker: () => RenderWorkerPort;
-	workspaceRoot: () => FileSystemDirectoryHandle | null;
+	workspaceRoot: (
+		projectId: string
+	) => FileSystemDirectoryHandle | null | Promise<FileSystemDirectoryHandle | null>;
 	media: () => MediaMetadata[];
 	renderVideoMain: (
 		project: Project,
@@ -76,7 +78,7 @@ const defaultDependencies: RenderExecutionDependencies = {
 	workerAvailable: () => typeof Worker !== 'undefined',
 	createWorker: () =>
 		new Worker(new URL('./render-export.worker.ts', import.meta.url), { type: 'module' }),
-	workspaceRoot: getWorkspaceRoot,
+	workspaceRoot: exportStorageRoot,
 	media: () => mediaPool.mediaList,
 	renderVideoMain: async (project, options) =>
 		(await import('./render-export')).renderMultiTrackVideoArtifact(project, options),
@@ -115,14 +117,14 @@ function fallbackReason(error: Error | string): string | null {
 		: null;
 }
 
-function renderInWorker(
+async function renderInWorker(
 	job: RenderExecutionJob,
 	dependencies: RenderExecutionDependencies
 ): Promise<RenderedExportArtifact> {
 	if (!dependencies.workerAvailable()) {
 		return Promise.reject(new Error('WORKER_UNAVAILABLE:worker-api'));
 	}
-	const workspaceRoot = dependencies.workspaceRoot();
+	const workspaceRoot = await dependencies.workspaceRoot(job.project.id);
 	if (!workspaceRoot) {
 		return Promise.reject(new Error('WORKER_UNAVAILABLE:workspace-root'));
 	}
@@ -293,7 +295,7 @@ async function renderImageSequenceInWorker(
 	if (!dependencies.workerAvailable()) {
 		throw new Error('WORKER_UNAVAILABLE:worker-api');
 	}
-	const workspaceRoot = dependencies.workspaceRoot();
+	const workspaceRoot = await dependencies.workspaceRoot(job.project.id);
 	if (!workspaceRoot) {
 		throw new Error('WORKER_UNAVAILABLE:workspace-root');
 	}
@@ -359,8 +361,7 @@ async function renderImageSequenceInWorker(
 		const cleanupOwnedOutput = async (): Promise<void> => {
 			await activeWrite.catch(() => undefined);
 			if (workspaceAllocation) {
-				const root = dependencies.workspaceRoot();
-				if (!root) return;
+				const root = workspaceRoot;
 				const { listDirectory, removeEntry } = await import('../workspace-fs/fs-primitives');
 				for (const fileName of writtenFiles) {
 					try {
@@ -439,8 +440,7 @@ async function renderImageSequenceInWorker(
 					}
 				} else if (workspaceAllocation) {
 					const { writeBlob } = await import('../workspace-fs/fs-primitives');
-					const root = dependencies.workspaceRoot();
-					if (!root) throw new Error('Workspace root lost during sequence write.');
+					const root = workspaceRoot;
 					await writeBlob(root, [...workspaceAllocation.dirSegments, frame.fileName], frame.blob);
 				} else {
 					throw new Error('Image-sequence worker has no writable destination.');

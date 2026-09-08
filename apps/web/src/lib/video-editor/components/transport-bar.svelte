@@ -229,11 +229,11 @@
 							: m.video_editor_monitor_percent({ percent: monitorPercent })}
 					>
 						{#if previewPlaybackSettings.muted || previewPlaybackSettings.volume === 0}
-							<ThemeIcon role="audio" />
+							<ProtectedIcon icon="editor-volume-muted" />
 						{:else if previewPlaybackSettings.volume < 0.5}
-							<ThemeIcon role="audio" />
+							<ProtectedIcon icon="editor-volume-low" />
 						{:else}
-							<ThemeIcon role="audio" />
+							<ProtectedIcon icon="editor-volume-high" />
 						{/if}
 					</Button>
 				{/snippet}
@@ -254,9 +254,9 @@
 							: m.video_editor_monitor_mute()}
 						onclick={() => previewPlaybackSettings.toggleMute()}
 					>
-						{#if previewPlaybackSettings.muted}<ThemeIcon role="audio" />{:else}<ThemeIcon
-								role="audio"
-							/>{/if}
+						{#if previewPlaybackSettings.muted}<ProtectedIcon
+								icon="editor-volume-muted"
+							/>{:else}<ProtectedIcon icon="editor-volume-high" />{/if}
 					</Button>
 					<Slider
 						value={previewPlaybackSettings.muted ? 0 : previewPlaybackSettings.volume}
@@ -363,7 +363,7 @@
 			onclick={() =>
 				previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'out'))}
 		>
-			<ThemeIcon role="layout" />
+			<ProtectedIcon icon="editor-zoom-out" />
 		</Button>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
@@ -397,7 +397,7 @@
 			onclick={() =>
 				previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'in'))}
 		>
-			<ThemeIcon role="layout" />
+			<ProtectedIcon icon="editor-zoom-in" />
 		</Button>
 		<Button
 			size="icon-xs"
@@ -405,7 +405,9 @@
 			aria-label={fullscreen ? m.video_editor_exit_fullscreen() : m.video_editor_enter_fullscreen()}
 			onclick={() => void toggleFullscreen()}
 		>
-			{#if fullscreen}<ThemeIcon role="layout" />{:else}<ThemeIcon role="layout" />{/if}
+			{#if fullscreen}<ProtectedIcon icon="editor-exit-fullscreen" />{:else}<ProtectedIcon
+					icon="editor-fullscreen"
+				/>{/if}
 		</Button>
 		<Button
 			size="icon-xs"

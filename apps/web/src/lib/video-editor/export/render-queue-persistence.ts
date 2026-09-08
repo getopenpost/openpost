@@ -1,6 +1,6 @@
 import { readJson, writeJsonAtomic } from '../workspace-fs/fs-primitives';
 import { projectRenderQueuePath } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { exportStorageRoot } from '../workspace-fs/export-storage';
 import type { RenderQueueJob, RenderQueueSnapshot } from './render-queue-store';
 
 const SCHEMA_VERSION = 1;
@@ -82,7 +82,7 @@ export function restoreRenderQueue(document: PersistedRenderQueue | null): Resto
 
 export async function loadProjectRenderQueue(projectId: string): Promise<RestoredRenderQueue> {
 	const document = await readJson<PersistedRenderQueue>(
-		requireWorkspaceRoot(),
+		await exportStorageRoot(projectId),
 		projectRenderQueuePath(projectId)
 	);
 	return restoreRenderQueue(document);
@@ -94,7 +94,7 @@ export async function saveProjectRenderQueue(
 	isPaused: boolean
 ): Promise<void> {
 	await writeJsonAtomic(
-		requireWorkspaceRoot(),
+		await exportStorageRoot(projectId),
 		projectRenderQueuePath(projectId),
 		serializeRenderQueue(jobs, isPaused)
 	);

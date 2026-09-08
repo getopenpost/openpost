@@ -14,7 +14,7 @@ import { outputDurationFrames } from './render-plan';
 import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
 import { writeBlob, removeEntry, exists, listDirectory } from '../workspace-fs/fs-primitives';
 import { projectExportsDir } from '../workspace-fs/paths';
-import { requireWorkspaceRoot, getWorkspaceRoot } from '../workspace-fs/root';
+import { exportStorageRoot } from '../workspace-fs/export-storage';
 import { withKeyLock } from '../workspace-fs/with-key-lock';
 
 export type ImageSequenceFormat = 'png' | 'jpeg' | 'webp';
@@ -295,7 +295,7 @@ export async function renderImageSequenceToWorkspace(
 	const { totalFrames } = resolveSequenceRange(project, options.range);
 	if (totalFrames === 0) throw new Error('The selected export range is empty.');
 	const baseName = sanitizeSequenceBaseName(project.name);
-	const root = requireWorkspaceRoot();
+	const root = await exportStorageRoot(project.id);
 	const { dirName, dirSegments } = await allocateUniqueWorkspaceSequenceDirectory(
 		root,
 		project.id,
@@ -430,7 +430,7 @@ export async function renderImageSequenceZip(
 	let fileName = `${baseName}.zip`;
 	let savedToWorkspace = false;
 	let relPath: string | null = null;
-	const root = getWorkspaceRoot();
+	const root = await exportStorageRoot(project.id).catch(() => null);
 	if (root) {
 		try {
 			const saved = await writeUniqueWorkspaceSequenceZip(root, project.id, baseName, blob);

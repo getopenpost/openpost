@@ -5364,7 +5364,7 @@
 				title={m.video_editor_zoom_out_hint()}
 				onclick={() => zoomBy(1 / TIMELINE_ZOOM_STEP)}
 			>
-				<ThemeIcon role="layout" class="size-4" />
+				<ProtectedIcon icon="editor-zoom-out" class="size-4" />
 			</button>
 			<Slider
 				class="w-28"
@@ -5382,7 +5382,7 @@
 				title={m.video_editor_zoom_in_hint()}
 				onclick={() => zoomBy(TIMELINE_ZOOM_STEP)}
 			>
-				<ThemeIcon role="layout" class="size-4" />
+				<ProtectedIcon icon="editor-zoom-in" class="size-4" />
 			</button>
 			<button
 				type="button"
@@ -5400,7 +5400,7 @@
 				title={m.video_editor_zoom_fit_hint()}
 				onclick={zoomToFit}
 			>
-				<ThemeIcon role="layout" class="size-4" />
+				<ProtectedIcon icon="editor-zoom-fit" class="size-4" />
 			</button>
 		</div>
 	</div>

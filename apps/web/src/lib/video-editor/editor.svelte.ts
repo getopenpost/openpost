@@ -6,6 +6,7 @@
  * currentFrame so all panels stay in sync.
  */
 
+import { registerCloudExportProject } from './workspace-fs/export-storage';
 import { createLogger } from './workspace-fs/logger';
 import { getMediaForProject } from './workspace-fs/project-media';
 import { updateProject } from './workspace-fs/projects';
@@ -109,6 +110,7 @@ class EditorSession {
 	}
 
 	async load(projectId: string, cloudWorkspaceId = ''): Promise<void> {
+		if (cloudWorkspaceId) registerCloudExportProject(projectId, cloudWorkspaceId);
 		if (this.projectId && this.projectId !== projectId) {
 			try {
 				await this.flushAutosave();

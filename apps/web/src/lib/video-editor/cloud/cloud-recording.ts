@@ -2,6 +2,7 @@ import { createCapturedVideoProjectDocumentFromAssets } from '@openpost/video-pr
 import { uploadMediaFile } from '$lib/media-upload-client';
 import type { CaptureArtifact, RecorderKind } from '../recorder/recorder.svelte';
 import type { RecordingImportRuntime } from '../recorder/insert-recording';
+import { mediaPool } from '../media/pool.svelte';
 import { hashBlob } from '../project-bundle/bundle-utils';
 import { probeMediaFile } from '../media/probe-client';
 import { importCloudProjectAssetFile } from './import-project-assets';
@@ -167,6 +168,8 @@ export function createCloudRecordingImportRuntime<TDocument extends object>(
 	return {
 		importVideo: importFile,
 		importAudio: importFile,
-		rollback: async () => undefined
+		rollback: async (_projectId, mediaId) => {
+			mediaPool.remove(mediaId);
+		}
 	};
 }

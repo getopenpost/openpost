@@ -688,6 +688,7 @@ export function createShortcutImportReview(
 
 export function editorShortcutTargetIsDisabled(target: EventTarget | null): boolean {
 	if (!(target instanceof HTMLElement)) return false;
+	if (target.isContentEditable) return true;
 	if (target.closest('[data-editor-shortcuts-disabled]')) return true;
 	if (target.closest('[data-editor-shortcuts-enabled]')) return false;
 	if (target.closest('[data-editor-shortcuts-owned]')) return true;
@@ -697,11 +698,12 @@ export function editorShortcutTargetIsDisabled(target: EventTarget | null): bool
 function editorPlaybackTargetIsDisabled(target: EventTarget | null): boolean {
 	return (
 		target instanceof HTMLElement &&
-		Boolean(
-			target.closest(
-				'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
-			)
-		)
+		(target.isContentEditable ||
+			Boolean(
+				target.closest(
+					'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
+				)
+			))
 	);
 }
 
@@ -728,11 +730,12 @@ export function handleGlobalPlayPauseShortcut(
 function sceneBrowserShortcutTargetIsDisabled(target: EventTarget | null): boolean {
 	return (
 		target instanceof HTMLElement &&
-		Boolean(
-			target.closest(
-				'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
-			)
-		)
+		(target.isContentEditable ||
+			Boolean(
+				target.closest(
+					'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
+				)
+			))
 	);
 }
 

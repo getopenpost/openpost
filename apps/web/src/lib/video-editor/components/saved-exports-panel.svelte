@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { exportFolderName } from '../workspace-fs/export-storage';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -9,7 +10,6 @@
 		deleteExportEntry,
 		listExportEntries,
 		readExportFile,
-		workspaceFolderName,
 		type ExportEntry
 	} from '../workspace-fs/exports';
 	import { createLogger } from '../workspace-fs/logger';
@@ -22,7 +22,7 @@
 		listFiles?: typeof listExportEntries;
 		readFile?: typeof readExportFile;
 		deleteEntry?: typeof deleteExportEntry;
-		getFolderName?: typeof workspaceFolderName;
+		getFolderName?: typeof exportFolderName;
 	}
 	type LoadTrigger = Pick<Props, 'projectId' | 'refreshKey'>;
 
@@ -32,7 +32,7 @@
 		listFiles = listExportEntries,
 		readFile = readExportFile,
 		deleteEntry = deleteExportEntry,
-		getFolderName = workspaceFolderName
+		getFolderName = exportFolderName
 	}: Props = $props();
 
 	let entries = $state<ExportEntry[] | null>(null);
@@ -44,7 +44,7 @@
 	let pendingDelete = $state<ExportEntry | null>(null);
 	let loadGeneration = 0;
 
-	const folderName = $derived(getFolderName());
+	const folderName = $derived(getFolderName(projectId));
 
 	function pathKey(entry: ExportEntry): string {
 		return entry.path.join('/');
@@ -166,7 +166,7 @@
 		<span>
 			{folderName
 				? m.video_editor_saved_exports_location({ folder: folderName })
-				: m.video_editor_saved_exports_location_generic()}
+				: m.video_editor_saved_exports()}
 		</span>
 	</div>
 

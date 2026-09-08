@@ -111,7 +111,7 @@ async function maintainedCopyFiles(root) {
   const roots = [
     ".github/copilot-instructions.md",
     "README.md",
-    "apps/docs",
+    "docs/reference/providers",
     "docs/launch-kit",
     "apps/marketing/src",
     "packages/social-images/src/index.js",
@@ -168,7 +168,7 @@ export async function validateProviderCatalogFacts(root = repositoryRoot) {
     ...sameSetProblems("provider asset catalogue", [...publishedProviderAssetSlugs], canonical),
   );
 
-  const documentationPages = (await readdir(path.join(root, "apps/docs/providers")))
+  const documentationPages = (await readdir(path.join(root, "docs/reference/providers")))
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -3))
     .filter((slug) => !nonProviderDocumentationPages.has(slug));

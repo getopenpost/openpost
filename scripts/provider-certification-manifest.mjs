@@ -177,8 +177,8 @@ export async function assertPublicClaimSurfaces(manifest, repositoryRoot = root)
     marketingIndex: await read("apps/marketing/src/routes/platforms/+page.svelte"),
     marketingDetail: await read("apps/marketing/src/routes/platforms/[slug]/+page.svelte"),
     marketingLanding: await read("apps/marketing/src/routes/+page.svelte"),
-    providerIndex: await read("apps/docs/providers/index.md"),
-    launchMatrix: await read("apps/docs/operations/provider-launch-matrix.md"),
+    providerIndex: await read("docs/reference/providers/index.md"),
+    launchMatrix: await read("docs/reference/providers/launch-matrix.md"),
     certificationReadme: await read("config/provider-certification/README.md"),
     readme: await read("README.md"),
   });

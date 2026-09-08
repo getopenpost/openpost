@@ -44,7 +44,7 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
 export function checkMCPRegistryOwnership(root = repositoryRoot) {
   const manifest = JSON.parse(readFileSync(path.join(root, "config/mcp/server.json"), "utf8"));
   const listings = readFileSync(path.join(root, "docs/launch-kit/listings.md"), "utf8");
-  const docs = readFileSync(path.join(root, "apps/docs/development/mcp.md"), "utf8");
+  const docs = readFileSync(path.join(root, "docs/development/mcp.md"), "utf8");
   return validateMCPRegistryOwnership({ manifest, listings, docs });
 }
 

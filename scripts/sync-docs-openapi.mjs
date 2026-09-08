@@ -44,7 +44,7 @@ for (const target of targets) {
   console.log(`Synced OpenAPI spec -> ${path.relative(root, target)}`);
 }
 
-const cliDocs = path.join(root, "apps/docs", "reference", "cli.md");
+const cliDocs = path.join(root, "docs", "reference", "cli.md");
 const result = spawnSync("go", ["run", "./cmd/openpost-docs", cliDocs], {
   cwd: path.join(root, "apps/cli"),
   stdio: "inherit",
@@ -52,7 +52,7 @@ const result = spawnSync("go", ["run", "./cmd/openpost-docs", cliDocs], {
 if (result.status !== 0) {
   throw new Error(`Failed to generate CLI reference docs with exit code ${result.status}`);
 }
-const cliFormatter = spawnSync("bunx", ["oxfmt", "--write", "apps/docs/reference/cli.md"], {
+const cliFormatter = spawnSync("bunx", ["oxfmt", "--write", "docs/reference/cli.md"], {
   cwd: root,
   stdio: "inherit",
 });

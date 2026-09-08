@@ -1307,7 +1307,7 @@ test(
     const plannedTasks = new Map(turboPlan.tasks.map((task) => [task.taskId, task]));
     const publicBuilds = [
       ["marketing", "@openpost/site#build", "dist/**"],
-      ["documentation", "@openpost/docs#build", ".vitepress/dist/**"],
+      ["documentation", "@openpost/docs#build", "out/**"],
     ];
     for (const [surface, taskID, output] of publicBuilds) {
       const task = plannedTasks.get(taskID);
@@ -1338,7 +1338,7 @@ test(
       ],
       [
         "documentation",
-        path.join(root, "apps/docs/.vitepress/dist/_headers"),
+        path.join(root, "apps/docs/out/_headers"),
         docsSocialEntries.map((entry) => new URL(entry.canonical).pathname),
         ["/llms.txt", "/llms-full.txt"],
       ],
@@ -1380,7 +1380,7 @@ test(
         discoveryTarget: "https://openpo.st/index.md",
       },
       {
-        directory: path.join(root, "apps/docs/.vitepress/dist"),
+        directory: path.join(root, "apps/docs/out"),
         canonical: "https://docs.openpo.st",
         discoveryTarget: "https://docs.openpo.st/index.md",
       },
@@ -1580,7 +1580,7 @@ test(
     }
     assert.equal((pricing.match(/^\| Limit \|/gmu) ?? []).length, 1);
 
-    const docsDirectory = path.join(root, "apps/docs/.vitepress/dist");
+    const docsDirectory = path.join(root, "apps/docs/out");
     const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
     const docsCorpus = await readFile(path.join(docsDirectory, "llms-full.txt"), "utf8");
     const ordinaryDocs = docsSocialEntries.filter(

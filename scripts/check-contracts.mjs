@@ -15,7 +15,7 @@ const env = {
 const generatedPaths = [
   "apps/web/openapi.json",
   "packages/api-contract/src/schema.d.ts",
-  "apps/docs/reference/cli.md",
+  "docs/reference/cli.md",
   "packages/n8n-nodes-openpost/generated/selectedContract.ts",
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/actions/generated/requestMappers.ts",
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/descriptions/generated/descriptions.ts",

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
@@ -127,4 +129,107 @@ test("Video Editor project library and shell fit narrow screens", async ({ page 
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
+});
+
+test("timeline hover preview stays outside track headers and uses one navigator", async ({
+  page,
+}) => {
+  await createProject(page, "Timeline boundaries");
+  await addTextItem(page);
+  const timeline = page.locator("#video-editor-timeline-scroll");
+  const bounds = await timeline.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + 185, bounds!.y + 50);
+  const readout = page.locator("[data-timeline-preview-timecode]");
+  await expect(readout).toBeVisible();
+  await page.screenshot({
+    path: `/tmp/openpost-timeline-${process.env.OPENPOST_CAPTURE_PHASE ?? "after"}.png`,
+  });
+  const readoutBounds = await readout.boundingBox();
+  // Track controls occupy the first 180 pixels of the scrolling viewport.
+  expect(readoutBounds!.x).toBeGreaterThanOrEqual(bounds!.x + 180);
+
+  for (let index = 0; index < 6; index++)
+    await page.getByRole("button", { name: "Zoom in", exact: true }).last().click();
+  await timeline.evaluate((element) => {
+    element.scrollLeft = 240;
+  });
+  await page.mouse.move(bounds!.x + bounds!.width - 8, bounds!.y + 50);
+  await expect(readout).toBeVisible();
+  const rightBounds = await readout.boundingBox();
+  expect(rightBounds!.x + rightBounds!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+  await page.mouse.move(bounds!.x + 40, bounds!.y + 50);
+  await expect(readout).toBeHidden();
+  await expect(page.locator("[data-timeline-navigator]")).toBeVisible();
+  expect(await timeline.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("none");
+});
+
+test("imports video and a photo, places both, and reopens the timeline", async ({ page }) => {
+  test.setTimeout(90000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await createProject(page, "Imported media proof");
+  const files = await Promise.all(
+    ["study-sos-demo.mp4", "lisbon-tram.png"].map(async (name) => ({
+      name,
+      bytes: (
+        await readFile(
+          fileURLToPath(new URL(`./fixtures/product-screenshots/${name}`, import.meta.url)),
+        )
+      ).toString("base64"),
+    })),
+  );
+  await page.evaluate(async (files) => {
+    const root = await navigator.storage.getDirectory();
+    const imports = await root.getDirectoryHandle("test-imports", { create: true });
+    const handles = [];
+    for (const file of files) {
+      const handle = await imports.getFileHandle(file.name, { create: true });
+      const writable = await handle.createWritable();
+      await writable.write(
+        Uint8Array.from(atob(file.bytes), (character) => character.charCodeAt(0)),
+      );
+      await writable.close();
+      handles.push(handle);
+    }
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: async () => handles,
+    });
+  }, files);
+  await page.getByRole("button", { name: "Import media", exact: true }).click();
+  for (const name of ["study-sos-demo.mp4", "lisbon-tram.png"]) {
+    const place = page.getByRole("button", { name: `Place on timeline: ${name}`, exact: true });
+    await expect(place).toBeVisible({ timeout: 30000 });
+    await place.click();
+    await page.keyboard.press("Enter");
+  }
+  await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(
+    page.getByRole("banner").getByText("All changes saved locally", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
+  for (let index = 0; index < 4; index++)
+    await page.getByRole("button", { name: "Zoom out", exact: true }).last().click();
+  const clip = page
+    .locator("[data-timeline-item-id]")
+    .filter({ has: page.getByRole("button", { name: /^study-sos-demo.mp4\. Drag/ }) });
+  await clip.getByRole("button", { name: /^study-sos-demo.mp4\. Drag/ }).focus();
+  await page.keyboard.press("r");
+  const edge = clip.getByRole("button", { name: "Rate stretch clip", exact: true }).last();
+  await expect(edge).toBeVisible();
+  const edgeBounds = await edge.boundingBox();
+  const originalWidth = (await clip.boundingBox())!.width;
+  await page.mouse.move(
+    edgeBounds!.x + edgeBounds!.width / 2,
+    edgeBounds!.y + edgeBounds!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(edgeBounds!.x - 45, edgeBounds!.y + edgeBounds!.height / 2, { steps: 5 });
+  await page.mouse.up();
+  expect(errors).toEqual([]);
+  await expect.poll(async () => (await clip.boundingBox())!.width).toBeLessThan(originalWidth);
+  expect(errors).toEqual([]);
 });

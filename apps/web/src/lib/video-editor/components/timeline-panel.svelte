@@ -185,6 +185,7 @@
 		type CustomEasingPreset
 	} from '$lib/video-editor/timeline/custom-easing-presets';
 	import {
+		isRateStretchableType,
 		planCanvasNudge,
 		planLinkedMoveGesture,
 		planLinkedSlipGesture,
@@ -5621,7 +5622,7 @@
 					onpointermove={rememberTimelinePointer}
 					onpointerleave={forgetTimelinePointer}
 					onwheel={onTimelineWheel}
-					class="editor-protected-surface relative min-h-24 flex-1 overflow-auto bg-[var(--timeline-track)] pb-2"
+					class="editor-protected-surface timeline-scroll relative min-h-24 flex-1 overflow-auto bg-[var(--timeline-track)] pb-2"
 					data-editor-protected="timeline"
 					role="region"
 					aria-label={m.video_editor_timeline()}
@@ -6437,7 +6438,7 @@
 							</div>
 						{/if}
 
-						{#if $timelinePreviewScrub.frame !== null}
+						{#if $timelinePreviewScrub.frame !== null && timelineX($timelinePreviewScrub.frame) >= timelineViewport.scrollLeft + TRACK_HEADER_WIDTH}
 							<div
 								class="pointer-events-none absolute top-0 bottom-0 z-40 w-px bg-white/65"
 								style="left:{timelineX($timelinePreviewScrub.frame)}px"
@@ -6448,7 +6449,8 @@
 									class="absolute top-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] border border-black/70 bg-white"
 								></span>
 								<span
-									class="absolute top-6 left-1/2 -translate-x-1/2 rounded border border-white/20 bg-black/85 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-white shadow-sm"
+									class="absolute top-6 left-1 rounded border border-white/20 bg-black/85 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-white shadow-sm"
+									style:transform={`translateX(min(0px, calc(${timelineViewport.scrollLeft + timelineViewport.width - timelineX($timelinePreviewScrub.frame) - 8}px - 100%)))`}
 									data-timeline-preview-timecode
 								>
 									{formatTimelinePreviewTimecode($timelinePreviewScrub.frame, fps)}
@@ -6884,3 +6886,12 @@
 		onzoom={zoomTimelineFromNavigator}
 	/>
 </div>
+
+<style>
+	.timeline-scroll {
+		scrollbar-width: none;
+	}
+	.timeline-scroll::-webkit-scrollbar {
+		display: none;
+	}
+</style>

@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Security
 
+- Update Sharp to 0.35.4 and js-yaml to 4.3.2 to fix reported image-decoding and YAML parser vulnerabilities.
 - Update Vitest to 4.1.11 and fast-uri to 3.1.6 to fix newly reported development-tool advisories.
 
 ## [4.24.0] - 2026-09-08

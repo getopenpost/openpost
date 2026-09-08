@@ -8,12 +8,18 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Thread drafts now save after inserting, removing, reordering, or replacing entries without segment-position conflicts. Existing entries retain their destination overrides.
+- Fixed account content discovery jobs failing before provider requests on PostgreSQL installations.
 - Request Discord bot permissions for attachments, embeds, and message lookup during installation, alongside viewing channels and sending messages. Existing installations can reconnect to grant the required permissions.
 
 ### Security
 
 - Update Sharp to 0.35.4 and js-yaml to 4.3.2 to fix reported image-decoding and YAML parser vulnerabilities.
 - Update Vitest to 4.1.11 and fast-uri to 3.1.6 to fix newly reported development-tool advisories.
+
+### Changed
+
+- Bring pricing choices higher on the page, show the selected monthly or yearly price once, and remove repeated billing copy.
 
 ## [4.24.0] - 2026-09-08
 

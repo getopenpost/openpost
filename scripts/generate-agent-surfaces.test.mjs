@@ -320,7 +320,7 @@ function documentText(node) {
 
 function productionHTMLContract(
   source,
-  { canonical, description: expectedDescription, title, home = false },
+  { canonical, description: expectedDescription, title, home = false, unavailablePlatform },
 ) {
   const document = parse(source);
   const nodes = documentDescendants(document);
@@ -366,11 +366,11 @@ function productionHTMLContract(
       (node) =>
         ["dd", "li", "p", "td"].includes(node.tagName) &&
         documentText(node).replace(/\s+/gu, " ").trim().length >= 40,
-    ).length >= 2,
+    ).length >= (unavailablePlatform ? 1 : 2),
     `${canonical} must visibly explain what the page provides before hydration`,
   );
   assert.ok(
-    contentText.length >= 300,
+    contentText.length >= (unavailablePlatform ? 100 : 300),
     `${canonical} must provide substantive guidance and important limits before hydration`,
   );
   assert.ok(
@@ -382,6 +382,19 @@ function productionHTMLContract(
     ),
     `${canonical} must provide a public continuation before hydration`,
   );
+  if (unavailablePlatform) {
+    assert.ok(contentText.includes(`${unavailablePlatform} is not available yet.`));
+    assert.ok(
+      contentText.includes(`You cannot connect or publish to ${unavailablePlatform}`),
+      `${canonical} must explain the unavailable actions before hydration`,
+    );
+    assert.ok(
+      contentNodes.some(
+        (node) => node.tagName === "a" && documentAttribute(node, "href") === "/platforms",
+      ),
+      `${canonical} must offer other channels before hydration`,
+    );
+  }
   return { headNodes };
 }
 
@@ -1452,6 +1465,10 @@ test(
         canonical: route.canonical,
         description: route.description,
         title: route.title,
+        unavailablePlatform: {
+          "/platforms/pinterest": "Pinterest",
+          "/platforms/telegram": "Telegram",
+        }[route.path],
       });
       assert.ok(
         headNodes.some(

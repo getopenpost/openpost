@@ -57,7 +57,10 @@ for (const signedIn of [false, true]) {
     }
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    for (const route of [signedIn ? "image-editor/new" : "image-editor", "video-editor"]) {
+    const routes = signedIn
+      ? ["image-editor", "image-editor/new", "video-editor"]
+      : ["image-editor", "video-editor"];
+    for (const route of routes) {
       await page.goto(`/${route}`);
       const title = route.startsWith("image-editor") ? "Image Editor" : "Video Editor";
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();

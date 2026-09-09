@@ -546,7 +546,7 @@
 				{@render children()}
 			{/if}
 		{:else if isStandaloneRoute}
-			{#if !isPublicProfileRoute && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+			{#if !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 				<div class="fixed top-4 right-4 z-20">
 					<LanguageSwitcher compact />
 				</div>

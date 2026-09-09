@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.24.3] - 2026-09-09
+
+### Fixed
+
+- Accept bot certification evidence with no OAuth scopes, and apply the same production requirements when recording and checking it. Certification now covers every authoring format in an output profile, while changes to any format invalidate the old evidence.
+
 ## [4.24.2] - 2026-09-09
 
 ### Fixed

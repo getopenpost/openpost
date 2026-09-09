@@ -45,7 +45,7 @@ func TestTelegramCertificationRoundTrip(t *testing.T) {
 			if operation == OperationPublishScheduled {
 				publishCheck = CheckPublishScheduled
 			}
-			checks := []CheckResult{}
+			checks := make([]CheckResult, 0, 6)
 			for _, kind := range []CheckKind{CheckConnect, CheckAuthorization, publishCheck, CheckFinalResult, CheckRevoke} {
 				checks = append(checks, CheckResult{Kind: kind, Outcome: CheckOutcomePassed, CompletedAt: now, ExternalRefHash: "sha256:" + strings.Repeat("b", 64)})
 			}

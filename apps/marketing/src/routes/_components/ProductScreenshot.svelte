@@ -7,14 +7,34 @@
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { mode } from 'mode-watcher';
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 
 	let {
 		src,
+		lightSrc,
+		darkSrc,
 		alt,
 		label,
 		priority = false
-	}: { src: string; alt: string; label: string; priority?: boolean } = $props();
+	}: {
+		src?: string;
+		lightSrc?: string;
+		darkSrc?: string;
+		alt: string;
+		label: string;
+		priority?: boolean;
+	} = $props();
+	const resolvedLightSrc = $derived(lightSrc ?? src ?? '');
+	const resolvedDarkSrc = $derived(darkSrc ?? src ?? '');
+	const darkMedia = $derived(
+		mode.current === undefined
+			? '(prefers-color-scheme: dark)'
+			: mode.current === 'dark'
+				? 'all'
+				: 'not all'
+	);
+	const activeSrc = $derived(mode.current === 'dark' ? resolvedDarkSrc : resolvedLightSrc);
 	let image: HTMLImageElement;
 	let link: HTMLAnchorElement;
 	let zoom: Zoom | undefined;
@@ -75,7 +95,7 @@
 
 <a
 	bind:this={link}
-	href={src}
+	href={activeSrc}
 	class="screenshot-link focus-ring"
 	onclick={toggle}
 	aria-label={`${expanded ? 'Close' : 'Enlarge'} ${label} screenshot`}
@@ -84,15 +104,18 @@
 		if (expanded && event.key === 'Tab') void close();
 	}}
 >
-	<img
-		bind:this={image}
-		{src}
-		{alt}
-		width="2880"
-		height="1920"
-		loading={priority ? 'eager' : 'lazy'}
-		fetchpriority={priority ? 'high' : 'auto'}
-	/>
+	<picture>
+		<source media={darkMedia} srcset={resolvedDarkSrc} />
+		<img
+			bind:this={image}
+			src={resolvedLightSrc}
+			{alt}
+			width="2880"
+			height="1920"
+			loading={priority ? 'eager' : 'lazy'}
+			fetchpriority={priority ? 'high' : 'auto'}
+		/>
+	</picture>
 	<span class="zoom-hint"><ZoomIn size={16} aria-hidden="true" /> Enlarge screenshot</span>
 </a>
 {#if expanded}
@@ -116,6 +139,7 @@
 		display: block;
 		position: relative;
 	}
+	.screenshot-link picture,
 	.screenshot-link img {
 		display: block;
 		width: 100%;

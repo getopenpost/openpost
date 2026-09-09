@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
+	import ThemeImage from './ThemeImage.svelte';
 	const editors = [
 		{
 			name: 'Image Editor',
@@ -9,8 +10,10 @@
 			description:
 				'Layers, text, background removal, and color tools. Export one image or a whole carousel.',
 			href: '/tools/social-media-image-editor',
-			base: '/assets/screenshots/image-canvas-detail.webp',
-			detail: '/assets/screenshots/image-controls-detail.webp',
+			baseLight: '/assets/screenshots/image-canvas-detail-light.webp',
+			baseDark: '/assets/screenshots/image-canvas-detail-dark.webp',
+			detailLight: '/assets/screenshots/image-controls-detail-light.webp',
+			detailDark: '/assets/screenshots/image-controls-detail-dark.webp',
 			alt: 'An editable OpenPost design with a tram photo',
 			detailAlt: 'The Image Editor tone controls'
 		},
@@ -22,8 +25,10 @@
 			description:
 				'Record screen, camera, and mic. Cut clips, add captions, and adjust color and sound on a multitrack timeline.',
 			href: '/tools/social-media-video-editor',
-			base: '/assets/screenshots/video-preview-detail.webp',
-			detail: '/assets/screenshots/video-timeline-detail.webp',
+			baseLight: '/assets/screenshots/video-preview-detail-light.webp',
+			baseDark: '/assets/screenshots/video-preview-detail-dark.webp',
+			detailLight: '/assets/screenshots/video-timeline-detail-light.webp',
+			detailDark: '/assets/screenshots/video-timeline-detail-dark.webp',
 			alt: 'A video frame in the OpenPost program monitor',
 			detailAlt: 'The video timeline with its tracks, clip, and playhead'
 		}
@@ -39,21 +44,23 @@
 		{#each editors as editor (editor.icon)}
 			<article class="editor">
 				<div class="composition {editor.tone} {editor.icon}">
-					<img
+					<ThemeImage
 						class="base"
-						src={editor.base}
+						lightSrc={editor.baseLight}
+						darkSrc={editor.baseDark}
 						alt={editor.alt}
 						loading="lazy"
-						width="1200"
-						height="800"
+						width={1200}
+						height={800}
 					/>
-					<img
+					<ThemeImage
 						class="detail"
-						src={editor.detail}
+						lightSrc={editor.detailLight}
+						darkSrc={editor.detailDark}
 						alt={editor.detailAlt}
 						loading="lazy"
-						width="600"
-						height="500"
+						width={600}
+						height={500}
 					/>
 				</div>
 				<div class="editor-copy">
@@ -123,30 +130,30 @@
 	.blue {
 		background: var(--marketing-blue);
 	}
-	.composition img {
+	.composition :global(img) {
 		position: absolute;
 		object-fit: contain;
 		height: auto;
 		border-radius: 10px;
 	}
-	.base {
+	.composition :global(.base) {
 		width: 84%;
 		top: 12%;
 		left: 8%;
 	}
-	.image-editor .base {
+	.image-editor :global(.base) {
 		top: 16%;
 	}
-	.image-editor .detail {
+	.image-editor :global(.detail) {
 		width: 42%;
 		right: 8%;
 		bottom: 12%;
 	}
-	.video-editor .base {
+	.video-editor :global(.base) {
 		width: 80%;
 		left: 10%;
 	}
-	.video-editor .detail {
+	.video-editor :global(.detail) {
 		width: 84%;
 		left: 8%;
 		bottom: 12%;

@@ -4,7 +4,9 @@ import { dismissTelemetryConsent } from "./helpers.js";
 test("repeat visits do not accumulate screenshot click listeners", async ({ page }) => {
   const session = await page.context().newCDPSession(page);
   const listenerCount = async () => {
-    const document = await session.send("Runtime.evaluate", { expression: "document" });
+    const document = await session.send("Runtime.evaluate", {
+      expression: "document",
+    });
     const { listeners } = await session.send("DOMDebugger.getEventListeners", {
       objectId: document.result.objectId!,
     });
@@ -37,7 +39,9 @@ test("screenshot pointer clicks preserve new-tab links and remember an early Esc
   await page.goto("/");
   await dismissTelemetryConsent(page);
   await page.getByRole("button", { name: "Image Editor", exact: true }).click();
-  const trigger = page.getByRole("link", { name: "Enlarge Image Editor screenshot" });
+  const trigger = page.getByRole("link", {
+    name: "Enlarge Image Editor screenshot",
+  });
   const newPage = context.waitForEvent("page");
   await trigger.locator("img").click({ modifiers: ["ControlOrMeta"] });
   const imageTab = await newPage;

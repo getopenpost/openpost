@@ -156,6 +156,7 @@ const transparentMarketingTags = new Set([
   "kbd",
   "main",
   "mark",
+  "picture",
   "s",
   "samp",
   "section",

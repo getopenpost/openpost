@@ -9,6 +9,7 @@
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
+	import ThemeImage from './ThemeImage.svelte';
 	import { appUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';
 
 	type NavigationItem = { label: string; href: string };
@@ -133,11 +134,12 @@
 										class="group/tool focus-ring block overflow-hidden rounded-xl border bg-card p-0"
 									>
 										<div class="aspect-[3/2] overflow-hidden bg-black">
-											<img
-												src="/assets/screenshots/video-editor-dark.webp"
+											<ThemeImage
+												lightSrc="/assets/screenshots/video-editor-light.webp"
+												darkSrc="/assets/screenshots/video-editor-dark.webp"
 												alt=""
-												width="1440"
-												height="960"
+												width={1440}
+												height={960}
 												class="tool-preview size-full object-cover object-top transition-transform duration-300 group-hover/tool:scale-[1.03] group-focus-visible/tool:scale-[1.03]"
 											/>
 										</div>
@@ -163,11 +165,12 @@
 										class="group/tool focus-ring block overflow-hidden rounded-xl border bg-card p-0"
 									>
 										<div class="aspect-[3/2] overflow-hidden bg-black">
-											<img
-												src="/assets/screenshots/image-editor-dark.webp"
+											<ThemeImage
+												lightSrc="/assets/screenshots/image-editor-light.webp"
+												darkSrc="/assets/screenshots/image-editor-dark.webp"
 												alt=""
-												width="1440"
-												height="960"
+												width={1440}
+												height={960}
 												class="tool-preview size-full object-cover object-top transition-transform duration-300 group-hover/tool:scale-[1.03] group-focus-visible/tool:scale-[1.03]"
 											/>
 										</div>

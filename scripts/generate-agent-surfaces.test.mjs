@@ -667,7 +667,10 @@ test("marketing projection preserves tables and informative images with absolute
   <li>One workspace</li>
   <li>Three accounts</li>
 </ul>
-<img src="/proof.png" alt="OpenPost publishing result">
+<picture>
+  <source srcset="/proof-dark.png" media="(prefers-color-scheme: dark)">
+  <img src="/proof.png" alt="OpenPost publishing result">
+</picture>
 <img src="/decoration.svg" alt="">
 <script>privateState = true</script>`,
     ),

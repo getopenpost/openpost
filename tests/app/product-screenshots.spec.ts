@@ -613,7 +613,10 @@ function analyticsFixture() {
   ];
   const buildContentTrend = (segmentsByDay: TrendSegment[][]) =>
     segmentsByDay.map((segments, index) => {
-      const items = segments.map(([postIndex, value]) => ({ ...posts[postIndex], value }));
+      const items = segments.map(([postIndex, value]) => ({
+        ...posts[postIndex],
+        value,
+      }));
       return {
         date: rangeDates[index],
         value: items.reduce((total, item) => total + item.value, 0),
@@ -633,7 +636,10 @@ function analyticsFixture() {
       followers: { value: 6901, delta: 157, measured: 5 },
       follower_scope: "account_wide",
       engagement: { value: 33, measured: 1 },
-      views: { value: viewTrend.reduce((total, point) => total + point.value, 0), measured: 12 },
+      views: {
+        value: viewTrend.reduce((total, point) => total + point.value, 0),
+        measured: 12,
+      },
       impressions: { value: 8437, measured: 12 },
       reach: { value: 0, measured: 0 },
       published: 15,
@@ -695,10 +701,26 @@ function analyticsFixture() {
         collected_at: "2026-08-20T14:18:00Z",
         metrics: { likes: 22, comments: 6, reposts: 5, impressions: 980 },
         metric_metadata: {
-          likes: { unit: "count", aggregation: "lifetime_total", source: "threads" },
-          comments: { unit: "count", aggregation: "lifetime_total", source: "threads" },
-          reposts: { unit: "count", aggregation: "lifetime_total", source: "threads" },
-          impressions: { unit: "count", aggregation: "lifetime_total", source: "threads" },
+          likes: {
+            unit: "count",
+            aggregation: "lifetime_total",
+            source: "threads",
+          },
+          comments: {
+            unit: "count",
+            aggregation: "lifetime_total",
+            source: "threads",
+          },
+          reposts: {
+            unit: "count",
+            aggregation: "lifetime_total",
+            source: "threads",
+          },
+          impressions: {
+            unit: "count",
+            aggregation: "lifetime_total",
+            source: "threads",
+          },
         },
         measurements: {},
         engagement: 33,
@@ -842,6 +864,32 @@ async function createVideoEditorProject(page: Page, name: string): Promise<void>
 test.describe("product screenshot capture", () => {
   test.setTimeout(120_000);
 
+  let auth: Awaited<ReturnType<typeof registerUser>>;
+  let workspace: { id: string };
+  let backgroundMediaID: string;
+  let logoMediaID: string;
+
+  test.beforeAll(async ({ request }) => {
+    auth = await registerUser(request, "me@rgo.pt");
+    workspace = (await createWorkspace(request, auth.token, "Personal")) as { id: string };
+    [backgroundMediaID, logoMediaID] = await Promise.all([
+      uploadImageFixture(
+        request,
+        auth.token,
+        workspace.id,
+        "lisbon-tram.png",
+        await readFile(join(fixtureDirectory, rasterFixtureFiles["lisbon-tram"])),
+      ),
+      uploadImageFixture(
+        request,
+        auth.token,
+        workspace.id,
+        "logo.png",
+        await readFile(join(fixtureDirectory, rasterFixtureFiles["openpost-logo"])),
+      ),
+    ]);
+  });
+
   test.skip(
     !captureEnabled,
     "Run bun run capture:product-screenshots to update canonical product images.",
@@ -856,726 +904,730 @@ test.describe("product screenshot capture", () => {
     timezoneId: "Europe/Lisbon",
   });
 
-  test("captures current product surfaces with deterministic demo data", async ({
-    page,
-    request,
-  }) => {
-    await mkdir(screenshotDirectory, { recursive: true });
-    const rasterFixtureBodies = new Map(
-      await Promise.all(
-        Object.entries(rasterFixtureFiles).map(
-          async ([key, filename]) =>
-            [key, await readFile(join(fixtureDirectory, filename))] as const,
+  for (const captureScheme of ["dark", "light"] as const) {
+    test(`captures current product surfaces in ${captureScheme} mode`, async ({
+      page,
+      request,
+    }) => {
+      await mkdir(screenshotDirectory, { recursive: true });
+      const rasterFixtureBodies = new Map(
+        await Promise.all(
+          Object.entries(rasterFixtureFiles).map(
+            async ([key, filename]) =>
+              [key, await readFile(join(fixtureDirectory, filename))] as const,
+          ),
         ),
-      ),
-    );
-    const rasterFixtureBody = (key: RasterFixtureKey) => {
-      const body = rasterFixtureBodies.get(key);
-      if (!body) throw new Error(`Missing raster fixture ${key}`);
-      return body;
-    };
-    // A short excerpt from https://www.youtube.com/watch?v=-m-ea3jfRpo.
-    const studySOSVideo = await readFile(join(fixtureDirectory, "study-sos-demo.mp4"));
+      );
+      const rasterFixtureBody = (key: RasterFixtureKey) => {
+        const body = rasterFixtureBodies.get(key);
+        if (!body) throw new Error(`Missing raster fixture ${key}`);
+        return body;
+      };
+      // A short excerpt from https://www.youtube.com/watch?v=-m-ea3jfRpo.
+      const studySOSVideo = await readFile(join(fixtureDirectory, "study-sos-demo.mp4"));
 
-    const auth = await registerUser(request, "me@rgo.pt");
-    const workspace = await createWorkspace(request, auth.token, "Personal");
-    const [backgroundMediaID, logoMediaID] = await Promise.all([
-      uploadImageFixture(
-        request,
-        auth.token,
-        workspace.id,
-        "lisbon-tram.png",
-        rasterFixtureBody("lisbon-tram"),
-      ),
-      uploadImageFixture(
-        request,
-        auth.token,
-        workspace.id,
-        "logo.png",
-        rasterFixtureBody("openpost-logo"),
-      ),
-    ]);
-    imageEditorBackgroundFixture.id = backgroundMediaID;
-    imageEditorLogoFixture.id = logoMediaID;
-    const profile = await request.patch("/api/v1/auth/profile", {
-      headers: { Authorization: `Bearer ${auth.token}` },
-      data: {
-        display_name: "Rodrigo Dias",
-        avatar_url: rodrigoAvatarURL,
-      },
-    });
-    expect(profile.ok()).toBeTruthy();
-    const workspaceSettings = await request.patch(`/api/v1/workspaces/${workspace.id}/settings`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-      data: {
-        timezone: "Europe/Lisbon",
-        avatar_url: rodrigoAvatarURL,
-      },
-    });
-    expect(workspaceSettings.ok()).toBeTruthy();
-
-    const draftPublications = [
-      publicationFixture(
-        workspace.id,
-        "draft-wayland",
-        "draft",
-        "Finally moved over to Wayland. This is what changed.",
-        "2026-08-13T18:20:00Z",
-        ["account-threads", "account-x"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "draft-smart",
-        "draft",
-        "I hate it when I think I am so smart that I skip the simple fix.",
-        "2026-08-06T10:15:00Z",
-        ["account-mastodon"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "draft-images",
-        "draft",
-        "Google finally built an image tool I want to keep using.",
-        "2026-08-02T08:40:00Z",
-        ["account-linkedin"],
-      ),
-    ];
-    const calendarPublications = [
-      publicationFixture(
-        workspace.id,
-        "published-aug-02",
-        "published",
-        "What I learned rebuilding my publishing workflow",
-        "2026-08-02T09:09:00Z",
-        ["account-threads", "account-linkedin", "account-bluesky"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-05",
-        "published",
-        "A small release with a much clearer result",
-        "2026-08-05T08:57:00Z",
-        ["account-x", "account-bluesky", "account-linkedin"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-07",
-        "published",
-        "The product work I want to repeat",
-        "2026-08-07T13:04:00Z",
-        ["account-threads", "account-mastodon", "account-linkedin"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-10",
-        "published",
-        "One source post, six useful versions",
-        "2026-08-10T13:14:00Z",
-        ["account-mastodon", "account-x", "account-linkedin", "account-threads"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-12-morning",
-        "published",
-        "Why I keep the provider limits visible",
-        "2026-08-12T10:20:00Z",
-        ["account-linkedin"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-12-evening",
-        "published",
-        "The calendar should tell the truth at a glance",
-        "2026-08-12T17:02:00Z",
-        ["account-linkedin", "account-threads"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-13",
-        "published",
-        "Moving the daily setup to Wayland",
-        "2026-08-13T17:38:00Z",
-        ["account-bluesky", "account-linkedin", "account-x"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-14",
-        "published",
-        "A cleaner way to ship release notes",
-        "2026-08-14T16:09:00Z",
-        ["account-linkedin", "account-bluesky", "account-mastodon"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-16",
-        "published",
-        "What a companies-of-one workflow needs",
-        "2026-08-16T12:46:00Z",
-        ["account-bluesky"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-17-morning",
-        "published",
-        "The boring part of publishing should stay boring",
-        "2026-08-17T13:05:00Z",
-        ["account-threads", "account-linkedin", "account-bluesky"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-17-evening",
-        "published",
-        "Good automation still leaves the result visible",
-        "2026-08-17T14:58:00Z",
-        ["account-bluesky", "account-mastodon", "account-linkedin"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "published-aug-19",
-        "published",
-        "One workspace is enough when every state is clear",
-        "2026-08-19T08:52:00Z",
-        ["account-mastodon", "account-threads", "account-x"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "scheduled-aug-21",
-        "scheduled",
-        "Launch notes for the next OpenPost release",
-        "2026-08-21T16:00:00Z",
-        ["account-mastodon", "account-x", "account-linkedin"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "scheduled-aug-23",
-        "scheduled",
-        "Three details that made the editor calmer",
-        "2026-08-23T10:00:00Z",
-        ["account-bluesky", "account-mastodon", "account-x"],
-      ),
-      publicationFixture(
-        workspace.id,
-        "scheduled-aug-24",
-        "scheduled",
-        "A short note on product defaults",
-        "2026-08-24T13:00:00Z",
-        ["account-mastodon", "account-linkedin", "account-x"],
-      ),
-    ];
-
-    await authenticatePage(page, auth.token);
-    await page.addInitScript(() => {
-      localStorage.setItem("mode-watcher-mode", "dark");
-    });
-    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-    await page.clock.setFixedTime(new Date(fixedNow));
-    let editorMediaFixturesEnabled = false;
-    const visibleMediaFixtures = () =>
-      editorMediaFixturesEnabled ? allMediaFixtures : mediaFixtures;
-
-    const fulfillArtworkFixture = async (route: Route, key?: string) => {
-      const rasterBody = key ? rasterFixtureBodies.get(key) : undefined;
-      const svgBody = key ? artwork[key as keyof typeof artwork] : undefined;
-      if (!rasterBody && !svgBody) {
-        await route.abort();
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: rasterBody ? "image/png" : "image/svg+xml",
-        headers: { "cache-control": "public, max-age=31536000, immutable" },
-        body: rasterBody ?? svgBody,
+      imageEditorBackgroundFixture.id = backgroundMediaID;
+      imageEditorLogoFixture.id = logoMediaID;
+      const profile = await request.patch("/api/v1/auth/profile", {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        data: {
+          display_name: "Rodrigo Dias",
+          avatar_url: rodrigoAvatarURL,
+        },
       });
-    };
-    await page.route("**/marketing-fixtures/**", async (route) => {
-      const filename = new URL(route.request().url()).pathname.split("/").at(-1);
-      await fulfillArtworkFixture(route, filename?.replace(/\.(?:png|svg)$/u, ""));
-    });
-    await page.route("**/media/media-*", async (route) => {
-      const mediaID = new URL(route.request().url()).pathname.split("/").at(-1);
-      const item = allMediaFixtures.find((candidate) => candidate.id === mediaID);
-      await fulfillArtworkFixture(route, item?.artwork);
-    });
-
-    await page.route("**/api/v1/accounts?**", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: connectedAccounts,
+      expect(profile.ok()).toBeTruthy();
+      const workspaceSettings = await request.patch(`/api/v1/workspaces/${workspace.id}/settings`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        data: {
+          timezone: "Europe/Lisbon",
+          avatar_url: rodrigoAvatarURL,
+        },
       });
-    });
-    await page.route("**/api/v1/social-sets?**", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: [
-          {
-            id: "social-set-shortform",
-            workspace_id: workspace.id,
-            name: "Shortform writing",
-            is_default: true,
-            created_at: fixedNow,
-            updated_at: fixedNow,
-            accounts: connectedAccounts.map((account, displayOrder) => ({
-              social_account_id: account.id,
-              platform: account.platform,
-              account_username: account.account_username,
-              account_avatar_url: account.account_avatar_url,
-              display_order: displayOrder,
+      expect(workspaceSettings.ok()).toBeTruthy();
+
+      const draftPublications = [
+        publicationFixture(
+          workspace.id,
+          "draft-wayland",
+          "draft",
+          "Finally moved over to Wayland. This is what changed.",
+          "2026-08-13T18:20:00Z",
+          ["account-threads", "account-x"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "draft-smart",
+          "draft",
+          "I hate it when I think I am so smart that I skip the simple fix.",
+          "2026-08-06T10:15:00Z",
+          ["account-mastodon"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "draft-images",
+          "draft",
+          "Google finally built an image tool I want to keep using.",
+          "2026-08-02T08:40:00Z",
+          ["account-linkedin"],
+        ),
+      ];
+      const calendarPublications = [
+        publicationFixture(
+          workspace.id,
+          "published-aug-02",
+          "published",
+          "What I learned rebuilding my publishing workflow",
+          "2026-08-02T09:09:00Z",
+          ["account-threads", "account-linkedin", "account-bluesky"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-05",
+          "published",
+          "A small release with a much clearer result",
+          "2026-08-05T08:57:00Z",
+          ["account-x", "account-bluesky", "account-linkedin"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-07",
+          "published",
+          "The product work I want to repeat",
+          "2026-08-07T13:04:00Z",
+          ["account-threads", "account-mastodon", "account-linkedin"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-10",
+          "published",
+          "One source post, six useful versions",
+          "2026-08-10T13:14:00Z",
+          ["account-mastodon", "account-x", "account-linkedin", "account-threads"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-12-morning",
+          "published",
+          "Why I keep the provider limits visible",
+          "2026-08-12T10:20:00Z",
+          ["account-linkedin"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-12-evening",
+          "published",
+          "The calendar should tell the truth at a glance",
+          "2026-08-12T17:02:00Z",
+          ["account-linkedin", "account-threads"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-13",
+          "published",
+          "Moving the daily setup to Wayland",
+          "2026-08-13T17:38:00Z",
+          ["account-bluesky", "account-linkedin", "account-x"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-14",
+          "published",
+          "A cleaner way to ship release notes",
+          "2026-08-14T16:09:00Z",
+          ["account-linkedin", "account-bluesky", "account-mastodon"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-16",
+          "published",
+          "What a companies-of-one workflow needs",
+          "2026-08-16T12:46:00Z",
+          ["account-bluesky"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-17-morning",
+          "published",
+          "The boring part of publishing should stay boring",
+          "2026-08-17T13:05:00Z",
+          ["account-threads", "account-linkedin", "account-bluesky"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-17-evening",
+          "published",
+          "Good automation still leaves the result visible",
+          "2026-08-17T14:58:00Z",
+          ["account-bluesky", "account-mastodon", "account-linkedin"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "published-aug-19",
+          "published",
+          "One workspace is enough when every state is clear",
+          "2026-08-19T08:52:00Z",
+          ["account-mastodon", "account-threads", "account-x"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "scheduled-aug-21",
+          "scheduled",
+          "Launch notes for the next OpenPost release",
+          "2026-08-21T16:00:00Z",
+          ["account-mastodon", "account-x", "account-linkedin"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "scheduled-aug-23",
+          "scheduled",
+          "Three details that made the editor calmer",
+          "2026-08-23T10:00:00Z",
+          ["account-bluesky", "account-mastodon", "account-x"],
+        ),
+        publicationFixture(
+          workspace.id,
+          "scheduled-aug-24",
+          "scheduled",
+          "A short note on product defaults",
+          "2026-08-24T13:00:00Z",
+          ["account-mastodon", "account-linkedin", "account-x"],
+        ),
+      ];
+
+      await authenticatePage(page, auth.token);
+      await page.addInitScript((scheme) => {
+        localStorage.setItem("mode-watcher-mode", scheme);
+      }, captureScheme);
+      await page.emulateMedia({
+        colorScheme: captureScheme,
+        reducedMotion: "reduce",
+      });
+      await page.clock.setFixedTime(new Date(fixedNow));
+      let editorMediaFixturesEnabled = false;
+      const visibleMediaFixtures = () =>
+        editorMediaFixturesEnabled ? allMediaFixtures : mediaFixtures;
+
+      const fulfillArtworkFixture = async (route: Route, key?: string) => {
+        const rasterBody = key ? rasterFixtureBodies.get(key) : undefined;
+        const svgBody = key ? artwork[key as keyof typeof artwork] : undefined;
+        if (!rasterBody && !svgBody) {
+          await route.abort();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: rasterBody ? "image/png" : "image/svg+xml",
+          headers: { "cache-control": "public, max-age=31536000, immutable" },
+          body: rasterBody ?? svgBody,
+        });
+      };
+      await page.route("**/marketing-fixtures/**", async (route) => {
+        const filename = new URL(route.request().url()).pathname.split("/").at(-1);
+        await fulfillArtworkFixture(route, filename?.replace(/\.(?:png|svg)$/u, ""));
+      });
+      await page.route("**/media/media-*", async (route) => {
+        const mediaID = new URL(route.request().url()).pathname.split("/").at(-1);
+        const item = allMediaFixtures.find((candidate) => candidate.id === mediaID);
+        await fulfillArtworkFixture(route, item?.artwork);
+      });
+
+      await page.route("**/api/v1/accounts?**", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: connectedAccounts,
+        });
+      });
+      await page.route("**/api/v1/social-sets?**", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: [
+            {
+              id: "social-set-shortform",
+              workspace_id: workspace.id,
+              name: "Shortform writing",
+              is_default: true,
+              created_at: fixedNow,
+              updated_at: fixedNow,
+              accounts: connectedAccounts.map((account, displayOrder) => ({
+                social_account_id: account.id,
+                platform: account.platform,
+                account_username: account.account_username,
+                account_avatar_url: account.account_avatar_url,
+                display_order: displayOrder,
+              })),
+            },
+          ],
+        });
+      });
+      await page.route("**/api/v1/accounts/providers*", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: providerFixtures,
+        });
+      });
+      await page.route("**/api/v1/provider-readiness**", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            providers: connectedAccounts.map((account) => ({
+              provider: account.platform,
+              configured_app_state: "ready",
+              connected_accounts: 1,
+              blocking_issues: [],
+              next_actions: [],
             })),
           },
-        ],
+        });
       });
-    });
-    await page.route("**/api/v1/accounts/providers*", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: providerFixtures,
-      });
-    });
-    await page.route("**/api/v1/provider-readiness**", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          providers: connectedAccounts.map((account) => ({
+      await page.route("**/api/v1/capabilities/resolve", async (route) => {
+        const body = route.request().postDataJSON() as {
+          account_ids?: string[];
+          intent?: string;
+        };
+        const accounts = (body.account_ids ?? [])
+          .map((accountID) => connectedAccounts.find((account) => account.id === accountID))
+          .filter((account): account is (typeof connectedAccounts)[number] => Boolean(account))
+          .map((account) => ({
+            account_id: account.id,
+            active_constraints: {},
+            capability_revision: "product-screenshot-v1",
+            compatible: true,
+            intents: ["post", "thread"],
+            issues: [],
+            label:
+              providerFixtures.find((provider) => provider.platform === account.platform)
+                ?.display_name ?? account.platform,
+            media: {
+              allowed_mimes: ["image/jpeg", "image/png", "video/mp4"],
+              max_count: 4,
+              min_count: 0,
+              requires_https_fetchable: false,
+              requires_public_url: false,
+            },
+            media_shapes: ["landscape", "portrait", "square"],
+            native_scheduling: false,
+            openpost_queued: true,
+            output_profile: account.platform,
+            profile: account.platform,
             provider: account.platform,
-            configured_app_state: "ready",
-            connected_accounts: 1,
-            blocking_issues: [],
-            next_actions: [],
-          })),
-        },
+            requires_app_review: false,
+            requires_public_media: false,
+            immediate_readiness: { state: "healthy", publishable: true },
+            scheduled_readiness: { state: "healthy", publishable: true },
+            setting_groups: [],
+            text_limit: account.platform === "x" ? 280 : 3_000,
+          }));
+        await route.fulfill({
+          contentType: "application/json",
+          json: { accounts },
+        });
       });
-    });
-    await page.route("**/api/v1/capabilities/resolve", async (route) => {
-      const body = route.request().postDataJSON() as {
-        account_ids?: string[];
-        intent?: string;
-      };
-      const accounts = (body.account_ids ?? [])
-        .map((accountID) => connectedAccounts.find((account) => account.id === accountID))
-        .filter((account): account is (typeof connectedAccounts)[number] => Boolean(account))
-        .map((account) => ({
-          account_id: account.id,
-          active_constraints: {},
-          capability_revision: "product-screenshot-v1",
-          compatible: true,
-          intents: ["post", "thread"],
-          issues: [],
-          label:
-            providerFixtures.find((provider) => provider.platform === account.platform)
-              ?.display_name ?? account.platform,
-          media: {
-            allowed_mimes: ["image/jpeg", "image/png", "video/mp4"],
-            max_count: 4,
-            min_count: 0,
-            requires_https_fetchable: false,
-            requires_public_url: false,
+      await page.route("**/api/v1/media?**", async (route) => {
+        const fixtures = visibleMediaFixtures();
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            total: fixtures.length,
+            limit: 40,
+            offset: 0,
+            media: fixtures.map((item, index) => ({
+              id: item.id,
+              workspace_id: workspace.id,
+              mime_type: "image/png",
+              size: item.size,
+              original_filename: item.filename,
+              width: item.width,
+              height: item.height,
+              alt_text: `${item.filename.replace(/\.png$/, "")} marketing artwork`,
+              is_favorite: item.favorite,
+              created_at: new Date(Date.parse(fixedNow) - index * 86_400_000).toISOString(),
+              url: mediaFixtureURL(item.artwork),
+              thumbnail_url: mediaFixtureURL(item.artwork),
+              usage_count: item.usage,
+              can_delete: item.canDelete,
+              processing_status: "ready",
+              processing_progress: 100,
+              analysis_status: "complete",
+              duration_ms: 0,
+              frame_rate: 0,
+              source: "upload",
+              asset_kind: "image",
+              tags: [],
+            })),
           },
-          media_shapes: ["landscape", "portrait", "square"],
-          native_scheduling: false,
-          openpost_queued: true,
-          output_profile: account.platform,
-          profile: account.platform,
-          provider: account.platform,
-          requires_app_review: false,
-          requires_public_media: false,
-          immediate_readiness: { state: "healthy", publishable: true },
-          scheduled_readiness: { state: "healthy", publishable: true },
-          setting_groups: [],
-          text_limit: account.platform === "x" ? 280 : 3_000,
-        }));
-      await route.fulfill({
-        contentType: "application/json",
-        json: { accounts },
+        });
       });
-    });
-    await page.route("**/api/v1/media?**", async (route) => {
-      const fixtures = visibleMediaFixtures();
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          total: fixtures.length,
-          limit: 40,
-          offset: 0,
-          media: fixtures.map((item, index) => ({
-            id: item.id,
-            workspace_id: workspace.id,
-            mime_type: "image/png",
-            size: item.size,
-            original_filename: item.filename,
-            width: item.width,
-            height: item.height,
-            alt_text: `${item.filename.replace(/\.png$/, "")} marketing artwork`,
-            is_favorite: item.favorite,
-            created_at: new Date(Date.parse(fixedNow) - index * 86_400_000).toISOString(),
-            url: mediaFixtureURL(item.artwork),
-            thumbnail_url: mediaFixtureURL(item.artwork),
-            usage_count: item.usage,
-            can_delete: item.canDelete,
-            processing_status: "ready",
-            processing_progress: 100,
-            analysis_status: "complete",
-            duration_ms: 0,
-            frame_rate: 0,
-            source: "upload",
-            asset_kind: "image",
-            tags: [],
-          })),
-        },
+      await page.route("**/api/v1/media/storage?**", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            used_bytes: 31_247_565,
+            asset_count: visibleMediaFixtures().length,
+            internal_bytes: 0,
+            limit_bytes: 0,
+          },
+        });
       });
-    });
-    await page.route("**/api/v1/media/storage?**", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          used_bytes: 31_247_565,
-          asset_count: visibleMediaFixtures().length,
-          internal_bytes: 0,
-          limit_bytes: 0,
-        },
+      await page.route("**/api/v1/publications?**", async (route) => {
+        const requestURL = new URL(route.request().url());
+        const publications =
+          requestURL.searchParams.get("status") === "draft"
+            ? draftPublications
+            : calendarPublications;
+        await route.fulfill({
+          contentType: "application/json",
+          headers: { "X-Has-More": "false" },
+          json: publications,
+        });
       });
-    });
-    await page.route("**/api/v1/publications?**", async (route) => {
-      const requestURL = new URL(route.request().url());
-      const publications =
-        requestURL.searchParams.get("status") === "draft"
-          ? draftPublications
-          : calendarPublications;
-      await route.fulfill({
-        contentType: "application/json",
-        headers: { "X-Has-More": "false" },
-        json: publications,
-      });
-    });
-    await page.route("**/api/v1/posts/schedule-overview?**", async (route) => {
-      const month = new URL(route.request().url()).searchParams.get("month") ?? "";
-      const dayCounts = new Map<string, number>();
-      if (month === "2026-08") {
-        for (const publication of calendarPublications) {
-          const date = (publication.actual_run_at || publication.scheduled_at).slice(0, 10);
-          dayCounts.set(date, (dayCounts.get(date) ?? 0) + 1);
+      await page.route("**/api/v1/posts/schedule-overview?**", async (route) => {
+        const month = new URL(route.request().url()).searchParams.get("month") ?? "";
+        const dayCounts = new Map<string, number>();
+        if (month === "2026-08") {
+          for (const publication of calendarPublications) {
+            const date = (publication.actual_run_at || publication.scheduled_at).slice(0, 10);
+            dayCounts.set(date, (dayCounts.get(date) ?? 0) + 1);
+          }
         }
-      }
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          month,
-          selected_workspace_id: workspace.id,
-          days: [...dayCounts].map(([date, count]) => ({ date, count })),
-          platforms: [],
-          workspaces: [],
-        },
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            month,
+            selected_workspace_id: workspace.id,
+            days: [...dayCounts].map(([date, count]) => ({ date, count })),
+            platforms: [],
+            workspaces: [],
+          },
+        });
       });
-    });
-    await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
-    await page.route("**/api/v1/analytics**", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: analyticsFixture(),
+      await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/v1/analytics**", async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: analyticsFixture(),
+        });
       });
-    });
-    await page.route(`**/api/v1/workspaces/${workspace.id}/setup`, async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          activated: true,
-          visible: false,
-          completed_steps: 4,
-          total_steps: 4,
-          steps: [
-            { id: "workspace", completed: true },
-            { id: "destination", completed: true },
-            { id: "composition", completed: true },
-            { id: "publication", completed: true },
-          ],
-        },
+      await page.route(`**/api/v1/workspaces/${workspace.id}/setup`, async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            activated: true,
+            visible: false,
+            completed_steps: 4,
+            total_steps: 4,
+            steps: [
+              { id: "workspace", completed: true },
+              { id: "destination", completed: true },
+              { id: "composition", completed: true },
+              { id: "publication", completed: true },
+            ],
+          },
+        });
       });
-    });
-    let publicationRevision = 0;
-    let publicationState: Record<string, unknown> = {};
-    await page.route("**/api/v1/publications", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-      publicationRevision += 1;
-      publicationState = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
+      let publicationRevision = 0;
+      let publicationState: Record<string, unknown> = {};
+      await page.route("**/api/v1/publications", async (route) => {
+        if (route.request().method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        publicationRevision += 1;
+        publicationState = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            ...publicationState,
+            id: "screenshot-publication",
+            workspace_id: workspace.id,
+            revision: publicationRevision,
+            status: "draft",
+            renditions: publicationState.renditions ?? [],
+          },
+        });
+      });
+      await page.route("**/api/v1/publications/screenshot-publication", async (route) => {
+        if (route.request().method() !== "PUT") {
+          await route.continue();
+          return;
+        }
+        publicationRevision += 1;
+        publicationState = {
           ...publicationState,
-          id: "screenshot-publication",
-          workspace_id: workspace.id,
-          revision: publicationRevision,
-          status: "draft",
-          renditions: publicationState.renditions ?? [],
-        },
+          ...(route.request().postDataJSON() as Record<string, unknown>),
+        };
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            ...publicationState,
+            id: "screenshot-publication",
+            workspace_id: workspace.id,
+            revision: publicationRevision,
+            status: "draft",
+            renditions: publicationState.renditions ?? [],
+          },
+        });
       });
-    });
-    await page.route("**/api/v1/publications/screenshot-publication", async (route) => {
-      if (route.request().method() !== "PUT") {
-        await route.continue();
-        return;
-      }
-      publicationRevision += 1;
-      publicationState = {
-        ...publicationState,
-        ...(route.request().postDataJSON() as Record<string, unknown>),
-      };
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          ...publicationState,
-          id: "screenshot-publication",
-          workspace_id: workspace.id,
-          revision: publicationRevision,
-          status: "draft",
-          renditions: publicationState.renditions ?? [],
-        },
+
+      const pageErrors: string[] = [];
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+
+      await page.goto("/");
+      await expect(page.getByTestId("compose-shell")).toBeVisible();
+      await expect(page.getByTestId("composer-account-loading")).toHaveCount(0);
+      await expect(
+        page.getByTestId("composer-account-control").getByTestId("composer-account-icon"),
+      ).toHaveCount(3);
+      await expect(page.getByTestId("composer-account-control")).toContainText("+3");
+      await page
+        .locator("#post-textarea-0")
+        .fill(
+          "Approval prompts FEEL safe because they ask a human.\n\nBut the human is usually tired and doesn't want to read a huge confusing bash command.\n\nWelp...",
+        );
+      const composer = page.getByTestId("text-thread-composer-content");
+      await composer.getByRole("button", { name: "Add media" }).click();
+      const mediaPicker = page.getByRole("dialog");
+      await mediaPicker.getByRole("tab", { name: "Library" }).click();
+      await mediaPicker.getByRole("button", { name: "Select command-review.png" }).click();
+      await mediaPicker.getByRole("button", { name: "Add media", exact: true }).click();
+      await expect(composer.getByRole("button", { name: "Remove media" })).toBeVisible();
+      await expect(page.getByTestId("composer-primary-delivery-action")).toBeVisible();
+      await capture(page, `main-${captureScheme}.png`, [
+        page.getByTestId("desktop-composer-controls"),
+        composer.getByRole("button", { name: "Remove media" }),
+      ]);
+
+      await composer.getByRole("button", { name: "Add media" }).click();
+      await mediaPicker.getByRole("tab", { name: "Meme", exact: true }).click();
+      await mediaPicker.getByRole("tab", { name: "Templates", exact: true }).click();
+      await mediaPicker.getByRole("textbox", { name: "Search templates" }).fill("Drake");
+      await mediaPicker
+        .getByRole("button", {
+          name: "Use the Drakeposting template",
+          exact: true,
+        })
+        .click();
+      await mediaPicker
+        .getByRole("textbox", { name: "Caption 1", exact: true })
+        .fill("Writing the same post five times");
+      const memePreview = mediaPicker.getByRole("img", {
+        name: "Preview of the Drakeposting meme",
       });
-    });
-
-    const pageErrors: string[] = [];
-    page.on("pageerror", (error) => pageErrors.push(error.message));
-
-    await page.goto("/");
-    await expect(page.getByTestId("compose-shell")).toBeVisible();
-    await expect(page.getByTestId("composer-account-loading")).toHaveCount(0);
-    await expect(
-      page.getByTestId("composer-account-control").getByTestId("composer-account-icon"),
-    ).toHaveCount(3);
-    await expect(page.getByTestId("composer-account-control")).toContainText("+3");
-    await page
-      .locator("#post-textarea-0")
-      .fill(
-        "Approval prompts FEEL safe because they ask a human.\n\nBut the human is usually tired and doesn't want to read a huge confusing bash command.\n\nWelp...",
+      const previewResponse = page.waitForResponse(
+        (response) => response.url().includes("/memes/preview") && response.ok(),
       );
-    const composer = page.getByTestId("text-thread-composer-content");
-    await composer.getByRole("button", { name: "Add media" }).click();
-    const mediaPicker = page.getByRole("dialog");
-    await mediaPicker.getByRole("tab", { name: "Library" }).click();
-    await mediaPicker.getByRole("button", { name: "Select command-review.png" }).click();
-    await mediaPicker.getByRole("button", { name: "Add media", exact: true }).click();
-    await expect(composer.getByRole("button", { name: "Remove media" })).toBeVisible();
-    await expect(page.getByTestId("composer-primary-delivery-action")).toBeVisible();
-    await capture(page, "main-dark.png", [
-      page.getByTestId("desktop-composer-controls"),
-      composer.getByRole("button", { name: "Remove media" }),
-    ]);
+      await mediaPicker
+        .getByRole("textbox", { name: "Caption 2", exact: true })
+        .fill("One draft. Every channel.");
+      await previewResponse;
+      await expect(mediaPicker.getByText("Updating preview", { exact: true })).toHaveCount(0);
+      await expect
+        .poll(() =>
+          memePreview.evaluate(
+            (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      await captureDetail(mediaPicker, `meme-creator-detail-${captureScheme}.png`);
+      await page.keyboard.press("Escape");
 
-    await composer.getByRole("button", { name: "Add media" }).click();
-    await mediaPicker.getByRole("tab", { name: "Meme", exact: true }).click();
-    await mediaPicker.getByRole("tab", { name: "Templates", exact: true }).click();
-    await mediaPicker.getByRole("textbox", { name: "Search templates" }).fill("Drake");
-    await mediaPicker
-      .getByRole("button", { name: "Use the Drakeposting template", exact: true })
-      .click();
-    await mediaPicker
-      .getByRole("textbox", { name: "Caption 1", exact: true })
-      .fill("Writing the same post five times");
-    const memePreview = mediaPicker.getByRole("img", { name: "Preview of the Drakeposting meme" });
-    const previewResponse = page.waitForResponse(
-      (response) => response.url().includes("/memes/preview") && response.ok(),
-    );
-    await mediaPicker
-      .getByRole("textbox", { name: "Caption 2", exact: true })
-      .fill("One draft. Every channel.");
-    await previewResponse;
-    await expect(mediaPicker.getByText("Updating preview", { exact: true })).toHaveCount(0);
-    await expect
-      .poll(() =>
-        memePreview.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
-      )
-      .toBe(true);
-    await captureDetail(mediaPicker, "meme-creator-detail.png");
-    await page.keyboard.press("Escape");
-
-    await page.goto(`/calendar?workspace=${workspace.id}`);
-    await expect(page.getByRole("heading", { name: "August 2026" })).toBeVisible();
-    await expect(page.locator("[data-calendar-item]")).toHaveCount(calendarPublications.length);
-    await capture(page, "calendar-dark.png", [
-      page.getByRole("region", { name: "Monthly publishing calendar" }),
-      page.getByRole("button", {
-        name: /Launch notes for the next OpenPost release/u,
-      }),
-    ]);
-
-    await captureDetail(
-      page.getByRole("region", { name: "Monthly publishing calendar" }),
-      "calendar-detail.png",
-    );
-
-    await page.goto(`/analytics?workspace=${workspace.id}`);
-    await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
-    await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
-    const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
-    await expect(dailyViewsChart).toBeVisible();
-    await expect
-      .poll(() =>
-        page.getByTestId("analytics-chart-scroll").evaluate((viewport) => {
-          const canvas = viewport.firstElementChild;
-          if (!(canvas instanceof HTMLElement) || viewport.clientWidth === 0) return 0;
-          return canvas.getBoundingClientRect().width / viewport.clientWidth;
+      await page.goto(`/calendar?workspace=${workspace.id}`);
+      await expect(page.getByRole("heading", { name: "August 2026" })).toBeVisible();
+      await expect(page.locator("[data-calendar-item]")).toHaveCount(calendarPublications.length);
+      await capture(page, `calendar-${captureScheme}.png`, [
+        page.getByRole("region", { name: "Monthly publishing calendar" }),
+        page.getByRole("button", {
+          name: /Launch notes for the next OpenPost release/u,
         }),
-      )
-      .toBeGreaterThanOrEqual(0.99);
-    await capture(page, "analytics-dark.png", [
-      page.getByRole("heading", { name: "Measured insights" }),
-      dailyViewsChart,
-    ]);
+      ]);
 
-    await captureDetail(dailyViewsChart, "analytics-detail.png");
+      await captureDetail(
+        page.getByRole("region", { name: "Monthly publishing calendar" }),
+        `calendar-detail-${captureScheme}.png`,
+      );
 
-    await page.goto("/settings?tab=accounts");
-    await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
-    await expect(page.getByText("@rodrgds").first()).toBeVisible();
-    await expect(page.getByTestId("provider-card-bluesky")).toBeVisible();
-    await capture(page, "accounts-dark.png", [
-      page.getByRole("heading", { name: "Connected channels" }),
-      page.getByTestId("provider-card-youtube"),
-    ]);
+      await page.goto(`/analytics?workspace=${workspace.id}`);
+      await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
+      await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
+      const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
+      await expect(dailyViewsChart).toBeVisible();
+      await expect
+        .poll(() =>
+          page.getByTestId("analytics-chart-scroll").evaluate((viewport) => {
+            const canvas = viewport.firstElementChild;
+            if (!(canvas instanceof HTMLElement) || viewport.clientWidth === 0) return 0;
+            return canvas.getBoundingClientRect().width / viewport.clientWidth;
+          }),
+        )
+        .toBeGreaterThanOrEqual(0.99);
+      await capture(page, `analytics-${captureScheme}.png`, [
+        page.getByRole("heading", { name: "Measured insights" }),
+        dailyViewsChart,
+      ]);
 
-    await page.goto("/media");
-    await expect(page.getByRole("heading", { name: "Media", level: 1 })).toBeVisible();
-    await expect(page.getByText("command-review.png")).toBeVisible();
-    await page.waitForFunction(() =>
-      Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0),
-    );
-    await capture(page, "media-dark.png", [
-      page.getByRole("heading", { name: "Media", level: 1 }),
-      page.getByText("media-library.png"),
-    ]);
+      await captureDetail(dailyViewsChart, `analytics-detail-${captureScheme}.png`);
 
-    await page.evaluate(() => {
-      localStorage.setItem("openpost-image-editor-first-edit-v1", "1");
-    });
-    editorMediaFixturesEnabled = true;
-    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
-    await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
-    await page.getByRole("spinbutton", { name: "Height" }).fill("500");
-    await page.getByRole("button", { name: "Create custom design" }).click();
-    await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]+$/u);
-    const imageEditorStage = page.getByTestId("image-editor-stage");
-    await expect(imageEditorStage).toBeVisible();
-    await page.getByRole("textbox", { name: "Design title" }).fill("X Banner");
-    const imageProperties = page.locator(".image-editor-inspector");
-    await imageProperties.getByRole("button", { name: "Image", exact: true }).click();
-    await page.getByRole("button", { name: /lisbon-tram\.png/u }).click();
-    await imageProperties.getByRole("button", { name: "Fit" }).click();
-    await page.getByRole("option", { name: "Stretch", exact: true }).click();
-    await page.getByRole("button", { name: /logo\.png/u }).click();
-    const logoLayer = page.getByRole("treeitem", { name: /logo\.png, image/u });
-    await expect(logoLayer).toHaveAttribute("aria-selected", "true");
-    await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
-    await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).fill("147");
-    await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).press("Tab");
-    await imageProperties.getByRole("button", { name: "Center X" }).click();
-    await imageProperties.getByRole("button", { name: "Center Y" }).click();
-    await expect(imageProperties.getByRole("spinbutton", { name: "W", exact: true })).toHaveValue(
-      "147",
-    );
-    await expect(imageProperties.getByRole("spinbutton", { name: "H", exact: true })).toHaveValue(
-      "147",
-    );
-    await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
-    const adjustmentsButton = imageProperties.getByRole("button", {
-      name: "Adjustments",
-      exact: true,
-    });
-    await adjustmentsButton.click();
-    const brightnessSlider = imageProperties.getByRole("slider", { name: "Brightness" });
-    await brightnessSlider.press("End");
-    await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "1");
-    await brightnessSlider.scrollIntoViewIfNeeded();
-    await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
-      "data-state",
-      "saved",
-      { timeout: 15_000 },
-    );
-    await capture(page, "image-editor-dark.png", [
-      imageEditorStage,
-      logoLayer,
-      adjustmentsButton,
-      brightnessSlider,
-    ]);
+      await page.goto("/settings?tab=accounts");
+      await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
+      await expect(page.getByText("@rodrgds").first()).toBeVisible();
+      await expect(page.getByTestId("provider-card-bluesky")).toBeVisible();
+      await capture(page, `accounts-${captureScheme}.png`, [
+        page.getByRole("heading", { name: "Connected channels" }),
+        page.getByTestId("provider-card-youtube"),
+      ]);
 
-    await captureDetail(imageEditorStage, "image-canvas-detail.png");
-    await captureDetail(
-      imageProperties
-        .locator('[data-slot="collapsible-content"] > div')
-        .filter({ has: page.getByRole("heading", { name: "Tone", exact: true }) }),
-      "image-controls-detail.png",
-    );
+      await page.goto("/media");
+      await expect(page.getByRole("heading", { name: "Media", level: 1 })).toBeVisible();
+      await expect(page.getByText("command-review.png")).toBeVisible();
+      await page.waitForFunction(() =>
+        Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0),
+      );
+      await capture(page, `media-${captureScheme}.png`, [
+        page.getByRole("heading", { name: "Media", level: 1 }),
+        page.getByText("media-library.png"),
+      ]);
 
-    await installLocalVideoWorkspace(page, studySOSVideo.toString("base64"));
-    await createVideoEditorProject(page, "Study SOS cut");
-    await page.getByRole("button", { name: "Import media" }).click();
-    const placeStudySOS = page.getByRole("button", {
-      name: /Place on timeline: study-sos-demo\.mp4/u,
-    });
-    await expect(placeStudySOS).toBeVisible({ timeout: 30_000 });
-    await placeStudySOS.click();
-    await expect(page.locator("[data-media-placement-status]")).toBeVisible();
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Enter");
-    const timelineItems = page.locator("[data-timeline-item-id]");
-    await expect(timelineItems).toHaveCount(1);
-    await expect(timelineItems.first().locator("[data-filmstrip-tile]").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(timelineItems.first().locator("[data-waveform-window]")).toBeVisible({
-      timeout: 15_000,
-    });
-    const videoInspector = page.getByRole("complementary", { name: "Edit" });
-    const programMonitor = page.locator("[data-program-monitor]");
-    const programVideo = programMonitor.locator("video").first();
-    await expect(programMonitor).toBeVisible();
-    await expect(programVideo).toBeVisible();
-    await expect
-      .poll(
-        () =>
-          programVideo.evaluate((video) => ({
-            hasFrame: video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
-            width: video.videoWidth,
-            height: video.videoHeight,
-          })),
+      await page.evaluate(() => {
+        localStorage.setItem("openpost-image-editor-first-edit-v1", "1");
+      });
+      editorMediaFixturesEnabled = true;
+      await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+      await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
+      await page.getByRole("spinbutton", { name: "Height" }).fill("500");
+      await page.getByRole("button", { name: "Create custom design" }).click();
+      await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]+$/u);
+      const imageEditorStage = page.getByTestId("image-editor-stage");
+      await expect(imageEditorStage).toBeVisible();
+      await page.getByRole("textbox", { name: "Design title" }).fill("X Banner");
+      const imageProperties = page.locator(".image-editor-inspector");
+      await imageProperties.getByRole("button", { name: "Image", exact: true }).click();
+      await page.getByRole("button", { name: /lisbon-tram\.png/u }).click();
+      await imageProperties.getByRole("button", { name: "Fit" }).click();
+      await page.getByRole("option", { name: "Stretch", exact: true }).click();
+      await page.getByRole("button", { name: /logo\.png/u }).click();
+      const logoLayer = page.getByRole("treeitem", {
+        name: /logo\.png, image/u,
+      });
+      await expect(logoLayer).toHaveAttribute("aria-selected", "true");
+      await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
+      await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).fill("147");
+      await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).press("Tab");
+      await imageProperties.getByRole("button", { name: "Center X" }).click();
+      await imageProperties.getByRole("button", { name: "Center Y" }).click();
+      await expect(imageProperties.getByRole("spinbutton", { name: "W", exact: true })).toHaveValue(
+        "147",
+      );
+      await expect(imageProperties.getByRole("spinbutton", { name: "H", exact: true })).toHaveValue(
+        "147",
+      );
+      await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
+      const adjustmentsButton = imageProperties.getByRole("button", {
+        name: "Adjustments",
+        exact: true,
+      });
+      await adjustmentsButton.click();
+      const brightnessSlider = imageProperties.getByRole("slider", {
+        name: "Brightness",
+      });
+      await brightnessSlider.press("End");
+      await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "1");
+      await brightnessSlider.scrollIntoViewIfNeeded();
+      await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+        "data-state",
+        "saved",
         { timeout: 15_000 },
-      )
-      .toEqual({ hasFrame: true, width: 640, height: 360 });
-    await programVideo.evaluate(
-      () =>
-        new Promise((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(resolve));
+      );
+      await capture(page, `image-editor-${captureScheme}.png`, [
+        imageEditorStage,
+        logoLayer,
+        adjustmentsButton,
+        brightnessSlider,
+      ]);
+
+      await captureDetail(imageEditorStage, `image-canvas-detail-${captureScheme}.png`);
+      await captureDetail(
+        imageProperties.locator('[data-slot="collapsible-content"] > div').filter({
+          has: page.getByRole("heading", { name: "Tone", exact: true }),
         }),
-    );
-    const propertiesTab = videoInspector.getByRole("tab", { name: "Properties" });
-    await expect(propertiesTab).toHaveAttribute("aria-selected", "true");
-    await capture(page, "video-editor-dark.png", [
-      programMonitor,
-      timelineItems.first(),
-      propertiesTab,
-    ]);
+        `image-controls-detail-${captureScheme}.png`,
+      );
 
-    await captureDetail(programMonitor, "video-preview-detail.png");
-    await captureDetail(
-      page.getByRole("region", { name: "Timeline", exact: true }).locator("xpath=ancestor::footer"),
-      "video-timeline-detail.png",
-    );
+      await installLocalVideoWorkspace(page, studySOSVideo.toString("base64"));
+      await createVideoEditorProject(page, "Study SOS cut");
+      await page.getByRole("button", { name: "Import media" }).click();
+      const placeStudySOS = page.getByRole("button", {
+        name: /Place on timeline: study-sos-demo\.mp4/u,
+      });
+      await expect(placeStudySOS).toBeVisible({ timeout: 30_000 });
+      await placeStudySOS.click();
+      await expect(page.locator("[data-media-placement-status]")).toBeVisible();
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("Enter");
+      const timelineItems = page.locator("[data-timeline-item-id]");
+      await expect(timelineItems).toHaveCount(1);
+      await expect(timelineItems.first().locator("[data-filmstrip-tile]").first()).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(timelineItems.first().locator("[data-waveform-window]")).toBeVisible({
+        timeout: 15_000,
+      });
+      const videoInspector = page.getByRole("complementary", { name: "Edit" });
+      const programMonitor = page.locator("[data-program-monitor]");
+      const programVideo = programMonitor.locator("video").first();
+      await expect(programMonitor).toBeVisible();
+      await expect(programVideo).toBeVisible();
+      await expect
+        .poll(
+          () =>
+            programVideo.evaluate((video) => ({
+              hasFrame: video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+              width: video.videoWidth,
+              height: video.videoHeight,
+            })),
+          { timeout: 15_000 },
+        )
+        .toEqual({ hasFrame: true, width: 640, height: 360 });
+      await programVideo.evaluate(
+        () =>
+          new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+          }),
+      );
+      const propertiesTab = videoInspector.getByRole("tab", {
+        name: "Properties",
+      });
+      await expect(propertiesTab).toHaveAttribute("aria-selected", "true");
+      await capture(page, `video-editor-${captureScheme}.png`, [
+        programMonitor,
+        timelineItems.first(),
+        propertiesTab,
+      ]);
 
-    await page.goto("/settings?tab=general");
-    await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
-    await expect(page.locator('[data-settings-tab="general"]')).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    await capture(page, "settings-dark.png", [
-      page.getByRole("heading", { name: "General", level: 1 }),
-      page.getByRole("button", { name: "Save changes" }),
-    ]);
+      await captureDetail(programMonitor, `video-preview-detail-${captureScheme}.png`);
+      await captureDetail(
+        page
+          .getByRole("region", { name: "Timeline", exact: true })
+          .locator("xpath=ancestor::footer"),
+        `video-timeline-detail-${captureScheme}.png`,
+      );
 
-    await frameReadmeHero(page);
+      await page.goto("/settings?tab=general");
+      await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
+      await expect(page.locator('[data-settings-tab="general"]')).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      if (captureScheme === "dark") {
+        await capture(page, "settings-dark.png", [
+          page.getByRole("heading", { name: "General", level: 1 }),
+          page.getByRole("button", { name: "Save changes" }),
+        ]);
+      }
 
-    expect(pageErrors).toEqual([]);
-  });
+      if (captureScheme === "dark") await frameReadmeHero(page);
+
+      expect(pageErrors).toEqual([]);
+    });
+  }
 });
 
 async function captureDetail(element: Locator, filename: string) {

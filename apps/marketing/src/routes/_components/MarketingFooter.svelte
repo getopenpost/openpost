@@ -116,14 +116,14 @@
 									{#if link.href.startsWith('https://')}
 										<a
 											{...externalHref(link.href)}
-											class="focus-ring inline-flex min-h-11 items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground"
+											class="focus-ring inline-flex min-h-9 items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground [@media(pointer:coarse)]:min-h-11"
 										>
 											{link.label}
 										</a>
 									{:else}
 										<a
 											href={resolve(link.href as '/')}
-											class="focus-ring inline-flex min-h-11 items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground"
+											class="focus-ring inline-flex min-h-9 items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground [@media(pointer:coarse)]:min-h-11"
 										>
 											{link.label}
 										</a>

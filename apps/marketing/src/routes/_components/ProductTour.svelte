@@ -10,49 +10,56 @@
 		{
 			name: 'Compose',
 			icon: '/assets/brand/features/compose.svg',
-			src: '/assets/screenshots/main-dark.webp',
+			lightSrc: '/assets/screenshots/main-light.webp',
+			darkSrc: '/assets/screenshots/main-dark.webp',
 			alt: 'OpenPost composer with a draft, six social destinations, and scheduling controls',
 			caption: 'Turn your next idea into a post.'
 		},
 		{
 			name: 'Image Editor',
 			icon: '/assets/brand/features/image-editor.svg',
-			src: '/assets/screenshots/image-editor-dark.webp',
+			lightSrc: '/assets/screenshots/image-editor-light.webp',
+			darkSrc: '/assets/screenshots/image-editor-dark.webp',
 			alt: 'OpenPost Image Editor with a tram photo, editable layers, and color controls',
 			caption: 'Build an image from editable layers.'
 		},
 		{
 			name: 'Video Editor',
 			icon: '/assets/brand/features/video-editor.svg',
-			src: '/assets/screenshots/video-editor-dark.webp',
+			lightSrc: '/assets/screenshots/video-editor-light.webp',
+			darkSrc: '/assets/screenshots/video-editor-dark.webp',
 			alt: 'OpenPost Video Editor with a video preview and multitrack timeline',
 			caption: 'Cut, caption, and finish your video.'
 		},
 		{
 			name: 'Calendar',
 			icon: '/assets/brand/features/calendar.svg',
-			src: '/assets/screenshots/calendar-dark.webp',
+			lightSrc: '/assets/screenshots/calendar-light.webp',
+			darkSrc: '/assets/screenshots/calendar-dark.webp',
 			alt: 'OpenPost monthly calendar with scheduled publications',
 			caption: 'Keep the week in view.'
 		},
 		{
 			name: 'Analytics',
 			icon: '/assets/brand/features/analytics.svg',
-			src: '/assets/screenshots/analytics-dark.webp',
+			lightSrc: '/assets/screenshots/analytics-light.webp',
+			darkSrc: '/assets/screenshots/analytics-dark.webp',
 			alt: 'OpenPost analytics with account growth and publication results',
 			caption: 'Check the results from your connected accounts.'
 		},
 		{
 			name: 'Media',
 			icon: '/assets/brand/features/image-editor.svg',
-			src: '/assets/screenshots/media-dark.webp',
+			lightSrc: '/assets/screenshots/media-light.webp',
+			darkSrc: '/assets/screenshots/media-dark.webp',
 			alt: 'OpenPost media library with saved photos and reusable brand assets',
 			caption: 'Keep your photos, clips, and brand assets together.'
 		},
 		{
 			name: 'Accounts',
 			icon: '/assets/brand/features/compose.svg',
-			src: '/assets/screenshots/accounts-dark.webp',
+			lightSrc: '/assets/screenshots/accounts-light.webp',
+			darkSrc: '/assets/screenshots/accounts-dark.webp',
 			alt: 'OpenPost Accounts page with connected social profiles',
 			caption: 'Bring your social accounts into one place.'
 		}
@@ -136,7 +143,8 @@
 	<div class="preview">
 		{#key selected}
 			<ProductScreenshot
-				src={view.src}
+				lightSrc={view.lightSrc}
+				darkSrc={view.darkSrc}
 				alt={view.alt}
 				label={view.name}
 				priority={selected === 0}

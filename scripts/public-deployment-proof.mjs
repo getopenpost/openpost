@@ -15,10 +15,10 @@ const execFileAsync = promisify(execFile);
 
 const sampleRoutes = Object.freeze({
   marketing: [
-    { category: "core", route: "/features" },
+    { category: "core", route: "/pricing" },
     { category: "legal", route: "/privacy" },
     { category: "platform", route: "/platforms/x" },
-    { category: "self-hosting", route: "/self-hosting" },
+    { category: "guide", route: "/guides" },
     { category: "tool", route: "/tools/multi-platform-character-counter" },
   ],
   documentation: [
@@ -127,7 +127,9 @@ const nativeBoundaries = Object.freeze([
     contentType: "text/plain; charset=utf-8",
     deployment: "marketing",
     localPath: "robots.txt",
-    responseHeaders: { "content-signal": "search=yes, ai-input=yes, ai-train=yes" },
+    responseHeaders: {
+      "content-signal": "search=yes, ai-input=yes, ai-train=yes",
+    },
   },
   {
     label: "documentation robots",
@@ -136,7 +138,9 @@ const nativeBoundaries = Object.freeze([
     contentType: "text/plain; charset=utf-8",
     deployment: "documentation",
     localPath: "robots.txt",
-    responseHeaders: { "content-signal": "search=yes, ai-input=yes, ai-train=yes" },
+    responseHeaders: {
+      "content-signal": "search=yes, ai-input=yes, ai-train=yes",
+    },
   },
   {
     label: "app robots",
@@ -162,7 +166,11 @@ const nativeBoundaries = Object.freeze([
     status: 401,
     method: "POST",
     headers: { "content-type": "application/json" },
-    requestBody: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    requestBody: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+    }),
   },
   {
     label: "marketing asset",
@@ -643,7 +651,9 @@ export async function buildPublicProofChecks({
       ...boundary,
       ...(deployment ? { deploymentURL: deploymentURL(deployment, boundary.localPath) } : {}),
       ...(boundary.localPath
-        ? { expectedBody: await localArtifact(directory, boundary.localPath, boundary.binary) }
+        ? {
+            expectedBody: await localArtifact(directory, boundary.localPath, boundary.binary),
+          }
         : {}),
     });
   }
@@ -671,9 +681,9 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "marketing canonical redirect",
-      url: "https://openpo.st/features/?openpost_proof=redirect",
+      url: "https://openpo.st/pricing/?openpost_proof=redirect",
       status: 308,
-      location: "/features?openpost_proof=redirect",
+      location: "/pricing?openpost_proof=redirect",
     },
     {
       kind: "redirect",
@@ -717,7 +727,10 @@ async function main() {
       cwd: repositoryRoot,
     }),
   ]);
-  const localRevision = { head: headOutput.trim(), status: statusOutput.trim() };
+  const localRevision = {
+    head: headOutput.trim(),
+    status: statusOutput.trim(),
+  };
   assertLocalRevision(localRevision, revision);
   const [marketingDeployments, documentationDeployments, aiCrawlSnapshot] = await Promise.all(
     [

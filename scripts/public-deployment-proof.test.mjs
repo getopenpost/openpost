@@ -21,7 +21,11 @@ test("selects an active production deployment for the exact reviewed revision", 
       environment: "preview",
       url: "https://wrong.example",
       deployment_trigger: {
-        metadata: { branch: "feature", commit_hash: revision, commit_dirty: false },
+        metadata: {
+          branch: "feature",
+          commit_hash: revision,
+          commit_dirty: false,
+        },
       },
       latest_stage: { status: "success" },
     },
@@ -30,7 +34,11 @@ test("selects an active production deployment for the exact reviewed revision", 
       environment: "production",
       url: "https://reviewed.example",
       deployment_trigger: {
-        metadata: { branch: "main", commit_hash: revision, commit_dirty: false },
+        metadata: {
+          branch: "main",
+          commit_hash: revision,
+          commit_dirty: false,
+        },
       },
       latest_stage: { status: "success" },
     },
@@ -132,7 +140,11 @@ test("requires a bounded observation-only 24-hour AI crawl snapshot", () => {
     /observation, not a release KPI/u,
   );
   assert.throws(
-    () => validateAICrawlSnapshot({ ...snapshot, window_start: "2026-08-13T14:50:27Z" }),
+    () =>
+      validateAICrawlSnapshot({
+        ...snapshot,
+        window_start: "2026-08-13T14:50:27Z",
+      }),
     /exactly 24 hours/u,
   );
   assert.throws(
@@ -187,10 +199,10 @@ test("the live sample plan covers every required public category and machine bou
   assert.deepEqual(
     samples.marketing.map(({ category, route }) => [category, route]),
     [
-      ["core", "/features"],
+      ["core", "/pricing"],
       ["legal", "/privacy"],
       ["platform", "/platforms/x"],
-      ["self-hosting", "/self-hosting"],
+      ["guide", "/guides"],
       ["tool", "/tools/multi-platform-character-counter"],
     ],
   );
@@ -256,27 +268,27 @@ test("the live sample plan covers every required public category and machine bou
 test("proves status, media type, exact content, query isolation, and redirect behavior", async () => {
   const responses = new Map([
     [
-      "https://openpo.st/features.md",
+      "https://openpo.st/pricing.md",
       response(200, "text/markdown; charset=utf-8", "# Features\n", {
         "x-openpost-discovery": "current",
       }),
     ],
     [
-      "https://deployment.example/features.md",
+      "https://deployment.example/pricing.md",
       response(200, "text/markdown; charset=utf-8", "# Features\n", {
         "x-openpost-discovery": "current",
       }),
     ],
     [
-      "https://openpo.st/features.md?openpost_proof=query-isolation",
+      "https://openpo.st/pricing.md?openpost_proof=query-isolation",
       response(200, "text/markdown; charset=utf-8", "# Features\n", {
         "x-openpost-discovery": "current",
       }),
     ],
     [
-      "https://openpo.st/features/?openpost_proof=redirect",
+      "https://openpo.st/pricing/?openpost_proof=redirect",
       response(308, "text/html; charset=UTF-8", "", {
-        location: "https://openpo.st/features?openpost_proof=redirect",
+        location: "https://openpo.st/pricing?openpost_proof=redirect",
       }),
     ],
   ]);
@@ -292,8 +304,8 @@ test("proves status, media type, exact content, query isolation, and redirect be
       {
         kind: "artifact",
         name: "marketing core",
-        canonicalURL: "https://openpo.st/features.md",
-        deploymentURL: "https://deployment.example/features.md",
+        canonicalURL: "https://openpo.st/pricing.md",
+        deploymentURL: "https://deployment.example/pricing.md",
         contentType: "text/markdown; charset=utf-8",
         expectedBody: "# Features\n",
         responseHeaders: { "x-openpost-discovery": "current" },
@@ -302,9 +314,9 @@ test("proves status, media type, exact content, query isolation, and redirect be
       {
         kind: "redirect",
         name: "marketing canonical redirect",
-        url: "https://openpo.st/features/?openpost_proof=redirect",
+        url: "https://openpo.st/pricing/?openpost_proof=redirect",
         status: 308,
-        location: "/features?openpost_proof=redirect",
+        location: "/pricing?openpost_proof=redirect",
       },
     ],
   });
@@ -312,7 +324,7 @@ test("proves status, media type, exact content, query isolation, and redirect be
   assert.equal(result.length, 2);
   assert.equal(result[0].sha256.length, 64);
   assert.equal(result[0].query_isolated, true);
-  assert.equal(result[1].location, "https://openpo.st/features?openpost_proof=redirect");
+  assert.equal(result[1].location, "https://openpo.st/pricing?openpost_proof=redirect");
 });
 
 test("fails when a query changes generated content", async () => {

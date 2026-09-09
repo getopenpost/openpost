@@ -6,6 +6,7 @@
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Images from '@lucide/svelte/icons/images';
 	import Sprout from '@lucide/svelte/icons/sprout';
+	import ThemeImage from './ThemeImage.svelte';
 	const features = [
 		{
 			title: 'Your media library',
@@ -70,11 +71,12 @@
 			>
 		</div>
 		<div class="visual mint">
-			<img
-				src="/assets/screenshots/calendar-detail.webp"
+			<ThemeImage
+				lightSrc="/assets/screenshots/calendar-detail-light.webp"
+				darkSrc="/assets/screenshots/calendar-detail-dark.webp"
 				alt="OpenPost calendar showing scheduled publications across channels"
-				width="2272"
-				height="1600"
+				width={2272}
+				height={1600}
 				loading="lazy"
 			/>
 		</div>
@@ -128,11 +130,12 @@
 				>
 			</div>
 			<div class="visual lilac">
-				<img
-					src="/assets/screenshots/meme-creator-detail.webp"
+				<ThemeImage
+					lightSrc="/assets/screenshots/meme-creator-detail-light.webp"
+					darkSrc="/assets/screenshots/meme-creator-detail-dark.webp"
 					alt="OpenPost meme creator with editable captions and a rendered Drakeposting preview"
-					width="2400"
-					height="1600"
+					width={2400}
+					height={1600}
 					loading="lazy"
 				/>
 			</div>
@@ -151,11 +154,12 @@
 			>
 		</div>
 		<div class="visual blue">
-			<img
-				src="/assets/screenshots/analytics-detail.webp"
+			<ThemeImage
+				lightSrc="/assets/screenshots/analytics-detail-light.webp"
+				darkSrc="/assets/screenshots/analytics-detail-dark.webp"
 				alt="Daily views chart in OpenPost analytics"
-				width="2108"
-				height="578"
+				width={2108}
+				height={578}
 				loading="lazy"
 			/>
 		</div>
@@ -175,6 +179,7 @@
 <style>
 	.product-features {
 		padding-block: 72px 24px;
+		scroll-margin-top: 4rem;
 	}
 	.section-heading {
 		display: flex;
@@ -245,7 +250,7 @@
 		margin: 12px;
 		border-radius: 12px;
 	}
-	.visual img {
+	.visual :global(img) {
 		display: block;
 		width: 100%;
 		height: auto;

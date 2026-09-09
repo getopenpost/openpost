@@ -55,14 +55,15 @@ test("landing details and resources load without repeating full screenshots", as
   await page.goto("/");
   await dismissTelemetryConsent(page);
   await expect(page.locator("main video")).toHaveCount(0);
-  const details = page.getByRole("region", { name: "Make the media right here." });
+  const details = page.getByRole("region", {
+    name: "Make the media right here.",
+  });
   for (const image of await details.locator("img").all()) {
     await image.scrollIntoViewIfNeeded();
     await expect
       .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
       .toBe(true);
   }
-  await expect(details.locator('img[src$="-dark.webp"]')).toHaveCount(0);
   const resources = page.getByRole("region", { name: "A few useful starting points." });
   for (const path of [
     "/tools",
@@ -72,6 +73,46 @@ test("landing details and resources load without repeating full screenshots", as
   ]) {
     await expect(resources.locator(`a[href="${path}"]`)).toBeVisible();
   }
+});
+
+test("features navigation stays on the landing page", async ({ page }, testInfo) => {
+  await page.goto("/");
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  }
+  const navigation = page.getByRole("navigation", {
+    name: testInfo.project.name.includes("mobile") ? "Mobile navigation" : "Primary navigation",
+  });
+  const link = navigation.getByRole("link", { name: "Features", exact: true });
+  await expect(link).toHaveAttribute("href", "/#features");
+  await link.click();
+  await expect(page).toHaveURL(/\/#features$/);
+  await expect(page.locator("#features")).toBeInViewport();
+});
+
+test("provider marks use the available icon area", async ({ page }) => {
+  for (const platform of ["Pinterest", "Telegram"]) {
+    await page.goto(`/platforms/${platform.toLowerCase()}`);
+    const icon = page.getByRole("img", { name: platform, exact: true });
+    await expect(icon).toBeVisible();
+    expect(
+      await icon.evaluate((svg: SVGSVGElement) => {
+        const bounds = svg.getBBox();
+        const viewBox = svg.viewBox.baseVal;
+        return Math.min(bounds.width / viewBox.width, bounds.height / viewBox.height);
+      }),
+    ).toBeGreaterThanOrEqual(0.72);
+  }
+});
+
+test("footer link rows stay compact on precise pointers", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Coarse pointers retain 44px targets");
+  await page.goto("/");
+  const productLinks = page.locator("footer ul").first().getByRole("link");
+  const first = await productLinks.nth(0).boundingBox();
+  const second = await productLinks.nth(1).boundingBox();
+  expect(first?.height).toBe(32);
+  expect(second?.y! - first?.y!).toBe(32);
 });
 
 test("visitors can discover publishing, AI, memes, conversations, and developer tools", async ({
@@ -147,6 +188,14 @@ for (const width of [1440, 390, 320]) {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
       else await expect(page.locator("html")).not.toHaveClass(/dark/);
+      const productScreenshots = page.locator('main img[src^="/assets/screenshots/"]');
+      await expect(productScreenshots).toHaveCount(8);
+      for (const image of await productScreenshots.all()) {
+        await image.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() => image.evaluate((element: HTMLImageElement) => element.currentSrc))
+          .toMatch(new RegExp(`-${colorScheme}\\.webp$`));
+      }
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
@@ -164,7 +213,9 @@ for (const width of [1440, 390, 320]) {
         .toBe(true);
       if (process.env.OPENPOST_CAPTURE_LANDING === "1") {
         await page.evaluate(() => document.fonts.ready);
-        await page.screenshot({ path: testInfo.outputPath(`hero-${width}-${colorScheme}.png`) });
+        await page.screenshot({
+          path: testInfo.outputPath(`hero-${width}-${colorScheme}.png`),
+        });
         for (const heading of [
           "studio-title",
           "features-title",
@@ -188,8 +239,13 @@ test("mobile navigation lists each destination once", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
-  const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
-  await expect(navigation.getByRole("link", { name: "Features", exact: true })).toHaveCount(1);
+  const navigation = page.getByRole("navigation", {
+    name: "Mobile navigation",
+  });
+  await expect(navigation.getByRole("link", { name: "Features", exact: true })).toHaveAttribute(
+    "href",
+    "/#features",
+  );
   await expect(navigation.getByRole("link", { name: "Pricing", exact: true })).toHaveCount(1);
 });
 

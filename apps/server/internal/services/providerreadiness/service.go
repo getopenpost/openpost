@@ -217,7 +217,7 @@ func (s *Service) DecideConnection(ctx context.Context, provider, instanceURL st
 	configuration := s.resolveConnectionConfiguration(provider, instanceURL)
 	mandatoryCertification := requiresCertifiedOperation(provider, instanceURL)
 	contract, _ := ConnectionContract(provider, (s != nil && s.enforceCertification) || mandatoryCertification)
-	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+	if mandatoryCertification && (s == nil || !s.managedProduction) {
 		allowNonProductionCertification(&contract)
 	}
 	return s.Decide(ctx, DecisionRequest{
@@ -273,7 +273,7 @@ func (s *Service) DecideAccountOperation(ctx context.Context, account models.Soc
 	policyMode := account.Platform + "." + string(operation)
 	mandatoryCertification := requiresCertifiedOperation(account.Platform, accountConfigurationRef(account))
 	contract, _ := OperationContract(account.Platform, operation, (s != nil && s.enforceCertification) || mandatoryCertification, accountKind)
-	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+	if mandatoryCertification && (s == nil || !s.managedProduction) {
 		allowNonProductionCertification(&contract)
 	}
 	accountReferenceHash, referenceErr := AccountReferenceHash(account)
@@ -331,7 +331,7 @@ func (s *Service) decidePublication(ctx context.Context, input PublicationDecisi
 		accountKind,
 		policyMode,
 	)
-	if mandatoryCertification && (s == nil || !s.enforceCertification) {
+	if mandatoryCertification && (s == nil || !s.managedProduction) {
 		allowNonProductionCertification(&contract)
 	}
 	request := DecisionRequest{

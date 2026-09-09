@@ -241,7 +241,7 @@ func PublicationContract(
 	if operation != OperationPublishImmediate && operation != OperationPublishScheduled {
 		return CertificationContract{}, errors.New("publication readiness operation is invalid")
 	}
-	capabilityDigest, err := digestJSON(capability)
+	capabilityDigest, err := publicationOutputDigest(capability)
 	if err != nil {
 		return CertificationContract{}, err
 	}
@@ -283,6 +283,20 @@ func PublicationContract(
 		PolicyDigest:     policyDigest,
 		Requirements:     requirements,
 	}, nil
+}
+
+// A certification subject names an output profile, which can support several
+// authoring formats. Bind all of their constraints to the same evidence.
+func publicationOutputDigest(capability capabilities.Capability) (string, error) {
+	formats := []capabilities.Capability{capability}
+	for _, registered := range capabilities.All() {
+		if registered.Provider != capability.Provider || registered.OutputProfile != capability.OutputProfile || registered.Profile == capability.Profile {
+			continue
+		}
+		formats = append(formats, registered)
+	}
+	slices.SortFunc(formats, func(a, b capabilities.Capability) int { return strings.Compare(a.Profile, b.Profile) })
+	return digestJSON(formats)
 }
 
 // OperationContract binds each non-publishing provider operation to independent

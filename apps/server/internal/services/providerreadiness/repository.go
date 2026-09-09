@@ -596,7 +596,7 @@ func validRuntimeControlEnvelope(event RuntimeControlEvent) bool {
 }
 
 func canonicalStringSetJSON(values []string) (string, error) {
-	copyValues := append([]string(nil), values...)
+	copyValues := append([]string{}, values...)
 	slices.Sort(copyValues)
 	encoded, err := json.Marshal(copyValues)
 	if err != nil {

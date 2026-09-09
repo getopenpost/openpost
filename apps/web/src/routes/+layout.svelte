@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import PwaManager from '$lib/components/pwa-manager.svelte';
+	import NavigationProgress from '$lib/components/navigation-progress.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/auth';
@@ -475,6 +476,7 @@
 
 <QueryClientProvider client={queryClient}>
 	<ThemeAppShell />
+	<NavigationProgress />
 	{#if !isPreviewRoute}
 		<PwaManager />
 		<ModeWatcher

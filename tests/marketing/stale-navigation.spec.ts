@@ -18,7 +18,7 @@ test("failed route imports preserve their cause and allow recovery @desktop", as
     sessionStorage.setItem("openpost:chunk-reload", JSON.stringify({ count: 3, at: Date.now() }));
   });
   await page.route("**/_app/immutable/nodes/*.js", (route) => route.abort("failed"));
-  await page.getByRole("link", { name: "Features", exact: true }).first().click();
+  await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
   await expect(
     page.getByRole("heading", { name: "OpenPost could not load this page." }),
   ).toBeVisible();

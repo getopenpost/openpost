@@ -8,7 +8,15 @@ test("landing product preview follows the visitor's selection", async ({ page })
   await page.goto("/");
   await dismissTelemetryConsent(page);
   const picker = page.getByRole("group", { name: "Explore OpenPost" });
-  for (const name of ["Image Editor", "Video Editor", "Calendar", "Analytics", "Compose"]) {
+  for (const name of [
+    "Image Editor",
+    "Video Editor",
+    "Calendar",
+    "Analytics",
+    "Media",
+    "Accounts",
+    "Compose",
+  ]) {
     const button = picker.getByRole("button", { name, exact: true });
     await button.press("Enter");
     await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -56,7 +64,12 @@ test("landing details and resources load without repeating full screenshots", as
   }
   await expect(details.locator('img[src$="-dark.webp"]')).toHaveCount(0);
   const resources = page.getByRole("region", { name: "A few useful starting points." });
-  for (const path of ["/tools", "/guides", "/developers", "/platforms"]) {
+  for (const path of [
+    "/tools",
+    "/guides",
+    "https://docs.openpo.st/guides/quickstart",
+    "/platforms",
+  ]) {
     await expect(resources.locator(`a[href="${path}"]`)).toBeVisible();
   }
 });
@@ -85,7 +98,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
     await link.scrollIntoViewIfNeeded();
     await link.focus();
     await expect(link).toBeFocused();
-    await expect(link).toHaveAttribute("href", /^(https:\/\/docs\.openpo\.st\/|\/developers)/);
+    await expect(link).toHaveAttribute("href", /^https:\/\/docs\.openpo\.st\//);
   }
   for (const image of await features.locator("img").all()) {
     await image.scrollIntoViewIfNeeded();
@@ -95,8 +108,9 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
       )
       .toBe(true);
   }
-  await features.getByRole("link", { name: "Connect your tools", exact: true }).click();
-  await expect(page).toHaveURL(/\/developers$/);
+  await expect(
+    features.getByRole("link", { name: "Connect your tools", exact: true }),
+  ).toHaveAttribute("href", "https://docs.openpo.st/guides/automation");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 

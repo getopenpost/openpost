@@ -1,4 +1,5 @@
 <script lang="ts">
+	import HeroAccent from '../_components/HeroAccent.svelte';
 	import { resolve } from '$app/paths';
 	import { ArrowRight, ExternalLink, Mail, MessageCircle } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -23,17 +24,9 @@
 <section class="faq-hero border-b">
 	<div class="marketing-shell grid gap-10 py-16 sm:py-24 lg:grid-cols-[1fr_21rem] lg:items-end">
 		<div class="max-w-4xl">
-			<p class="section-label">FAQ</p>
-			<h1 class="marketing-title mt-5">Straight answers, including the limits.</h1>
-			<p class="mt-5 text-sm font-medium text-foreground">
-				Setup, publishing, billing, privacy, and self-hosting - answered without the sales filter.
-			</p>
-			<p class="marketing-copy mt-7">
-				These answers cover the questions that change setup, publishing, billing, or access. Each
-				answer points to the maintained page when more detail matters.
-			</p>
-			<p class="mt-4 text-sm font-medium text-muted-foreground">
-				For people checking OpenPost setup, publishing, billing, and access rules.
+			<h1 class="marketing-title">A few <HeroAccent>answers.</HeroAccent></h1>
+			<p class="marketing-copy mt-6">
+				Getting started, making content, and choosing a plan. Here’s what people want to know.
 			</p>
 		</div>
 		<nav class="faq-index" aria-label="FAQ topics">
@@ -59,8 +52,8 @@
 					aria-labelledby={`${category.id}-title`}
 				>
 					<div class="faq-group-heading">
-						<p class="section-label">{category.label}</p>
-						<h3 id={`${category.id}-title`}>{category.description}</h3>
+						<h3 id={`${category.id}-title`}>{category.label}</h3>
+						<p class="mt-4 text-sm text-muted-foreground">{category.description}</p>
 					</div>
 					<div class="faq-list">
 						{#each categoryFaqs as item (item.id)}
@@ -95,16 +88,15 @@
 <section class="contact-section border-y" aria-labelledby="faq-contact-title">
 	<div class="marketing-shell grid gap-10 py-14 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
 		<div>
-			<p class="section-label">Still deciding?</p>
 			<h2
 				id="faq-contact-title"
 				class="mt-4 text-3xl font-semibold tracking-[-0.035em] text-balance"
 			>
-				Ask with the context that matters.
+				Still have a question?
 			</h2>
 			<p class="mt-4 max-w-xl leading-7 text-muted-foreground">
-				For a setup or product question, use the community. For an account, billing, privacy, or
-				security question, email support and avoid posting private details in public.
+				Email us for help with your account or billing. Join the community to swap ideas and ask
+				about using OpenPost.
 			</p>
 		</div>
 		<div class="contact-actions">
@@ -117,7 +109,7 @@
 				<span><MessageCircle aria-hidden="true" /></span>
 				<span>
 					<strong>Ask the Discord community</strong>
-					<small>Setup, workflow, and self-hosting questions</small>
+					<small>Ideas, tips, and general questions</small>
 				</span>
 				<ExternalLink aria-hidden="true" />
 			</a>
@@ -135,12 +127,9 @@
 
 <section class="section-pad text-center" aria-labelledby="faq-next-title">
 	<div class="marketing-shell">
-		<p class="section-label">Next step</p>
-		<h2 id="faq-next-title" class="marketing-heading mx-auto mt-4">
-			See the workflow or compare its limits.
-		</h2>
+		<h2 id="faq-next-title" class="marketing-heading mx-auto mt-4">Take a closer look.</h2>
 		<div class="mt-8 flex flex-wrap justify-center gap-3">
-			<Button href="/features" size="lg">Explore features</Button>
+			<Button href="/#features" size="lg">Explore features</Button>
 			<Button href="/pricing" variant="outline" size="lg">Compare plans</Button>
 		</div>
 	</div>

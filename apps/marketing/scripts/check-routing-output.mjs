@@ -8,10 +8,10 @@ import { marketingErrorRecovery } from '../src/routes/_error-recovery.ts';
 const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputRoot = path.join(siteRoot, 'dist');
 
-await assert.rejects(
-	readFile(path.join(outputRoot, '_redirects'), 'utf8'),
-	(error) => error instanceof Error && 'code' in error && error.code === 'ENOENT',
-	'marketing build must not emit compatibility redirects'
+assert.equal(
+	await readFile(path.join(outputRoot, '_redirects'), 'utf8'),
+	await readFile(path.join(siteRoot, 'static', '_redirects'), 'utf8'),
+	'marketing must preserve the reviewed documentation consolidations'
 );
 
 const headers = await readFile(path.join(outputRoot, '_headers'), 'utf8');

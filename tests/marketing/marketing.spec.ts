@@ -10,14 +10,9 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   await expect(
     page.getByRole("link", { name: "Get started", exact: true }).first(),
   ).toHaveAttribute("href", "https://app.openpo.st/register?plan=founder&billing_period=monthly");
-  await expect(page.getByRole("link", { name: "User docs" }).first()).toHaveAttribute(
-    "href",
-    "https://docs.openpo.st/guides/quickstart",
-  );
-  await expect(page.getByRole("link", { name: "Developer docs" }).first()).toHaveAttribute(
-    "href",
-    "https://github.com/getopenpost/openpost/blob/main/docs/development/index.md",
-  );
+  await expect(
+    page.getByRole("link", { name: "Help centre", exact: true }).first(),
+  ).toHaveAttribute("href", "https://docs.openpo.st/guides/quickstart");
 });
 test("free tools directory links every working tool @desktop", async ({ page }) => {
   const toolSlugs = [
@@ -34,7 +29,7 @@ test("free tools directory links every working tool @desktop", async ({ page }) 
 
   await page.goto("/tools");
   await expect(
-    page.getByRole("heading", { name: "Finish the post before you sign up.", level: 1 }),
+    page.getByRole("heading", { name: "A few tools. On the house.", level: 1 }),
   ).toBeVisible();
   const main = page.getByRole("main");
   for (const slug of toolSlugs) {
@@ -92,7 +87,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   await expect(selfHosted).toContainText("no software fee");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
     "href",
-    "/self-hosting",
+    "https://docs.openpo.st/self-hosting",
   );
   await page.getByText("Trial and billing details").click();
   await expect(page.getByText("Paddle is the Merchant of Record", { exact: false })).toBeVisible();
@@ -137,56 +132,6 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   );
 });
 
-test("self-hosting path states the complete operator boundary without JavaScript", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const page = await context.newPage();
-
-  await page.goto("/self-hosting");
-  await expect(
-    page.getByRole("heading", {
-      name: "Your server. Your data. The same OpenPost.",
-    }),
-  ).toBeVisible();
-  await expect(page.getByText("No software fee", { exact: true })).toBeVisible();
-  for (const heading of [
-    "Infrastructure and data",
-    "Upgrades and backups",
-    "Provider projects",
-    "Support boundary",
-  ]) {
-    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-  }
-  await expect(page.getByRole("link", { name: "Open the deployment guide" })).toHaveAttribute(
-    "href",
-    "https://docs.openpo.st/self-hosting/",
-  );
-  await expect(page.getByRole("link", { name: "View source on GitHub" })).toHaveAttribute(
-    "href",
-    "https://github.com/getopenpost/openpost",
-  );
-  await expect(page.getByRole("link", { name: "Review the production checklist" })).toHaveAttribute(
-    "href",
-    "https://docs.openpo.st/self-hosting/configuration",
-  );
-
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("heading", { name: "Support boundary" })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-
-  await page.setViewportSize({ width: 320, height: 720 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  await context.close();
-});
-
 test("free marketing tools produce useful output @desktop", async ({ page }) => {
   await page.goto("/tools/multi-platform-character-counter");
   await page.waitForLoadState("networkidle");
@@ -207,7 +152,7 @@ test("free marketing tools produce useful output @desktop", async ({ page }) => 
   await expect(page.locator("select")).toHaveCount(0);
   await page
     .getByRole("button", {
-      name: /Account, links, polls, and media/,
+      name: /Post details/,
     })
     .click();
   await page.getByLabel("Handle").fill("@alice@hachyderm.io");

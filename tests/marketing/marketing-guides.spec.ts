@@ -4,8 +4,6 @@ const guideQuestions = [
   "What are the best social media tools for solo founders?",
   "How do I turn product updates into social media posts?",
   "How do I schedule social media posts on multiple platforms?",
-  "What social media schedulers can I self-host?",
-  "Which social media tools have an API and MCP server?",
 ];
 
 test.describe("buying guides without JavaScript", () => {
@@ -13,8 +11,8 @@ test.describe("buying guides without JavaScript", () => {
 
   test("readers can discover and read every sourced answer", async ({ page, request }) => {
     await page.goto("/guides");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "Choose a social media workflow that fits.",
+    await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName(
+      "Make more of what you make.",
     );
     const sitemap = await request.get("/sitemap.xml");
     const sitemapText = await sitemap.text();

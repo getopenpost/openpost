@@ -459,9 +459,12 @@
 	</div>
 {/snippet}
 
-<div class="mt-8 grid items-start gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
-	<section class="rounded-xl border bg-card p-4 sm:p-6" aria-labelledby="preview-controls-title">
-		<h2 id="preview-controls-title" class="text-lg font-semibold">Build the platform version</h2>
+<div class="mt-8 grid min-w-0 items-start gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
+	<section
+		class="min-w-0 rounded-xl border bg-card p-4 sm:p-6"
+		aria-labelledby="preview-controls-title"
+	>
+		<h2 id="preview-controls-title" class="text-lg font-semibold">Write your post</h2>
 		<p class="mt-1 text-sm leading-6 text-muted-foreground">
 			Controls appear only when the selected platform supports them.
 		</p>
@@ -524,13 +527,13 @@
 				<Button
 					type="button"
 					variant="outline"
-					class="h-auto min-h-11 w-full justify-between gap-3 px-3 py-2.5 text-left md:h-auto"
+					class="h-auto min-h-11 w-full justify-between gap-3 px-3 py-2.5 text-left whitespace-normal md:h-auto"
 					onclick={() => (optionsOpen = true)}
 				>
 					<span class="flex min-w-0 items-center gap-2.5">
 						<SlidersHorizontal class="size-4 shrink-0" />
 						<span class="grid min-w-0 gap-0.5">
-							<strong class="text-sm">Account, links, polls, and media</strong>
+							<strong class="text-sm">Post details</strong>
 							<small class="font-normal text-muted-foreground">
 								{activeOptionCount > 0
 									? `${activeOptionCount} custom option${activeOptionCount === 1 ? '' : 's'}`

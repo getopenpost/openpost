@@ -1,120 +1,166 @@
 <script lang="ts">
-	import { ArrowRight, ExternalLink, GitBranch, Globe2, UserRound } from '@lucide/svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import { Button } from '$lib/components/ui/button';
-	import { githubUrl, managedSignupUrl, supportMailUrl } from '../_marketing';
-
-	const principles = [
-		{
-			title: 'Start with the work',
-			detail:
-				'OpenPost starts with a launch, update, lesson, or idea, then helps prepare the versions each destination needs.'
-		},
-		{
-			title: 'Keep provider truth visible',
-			detail:
-				'Formats, limits, account setup, review needs, publishing state, and failures stay visible instead of being hidden by automation.'
-		},
-		{
-			title: 'Share one product model',
-			detail:
-				'The web app, mobile app, API, CLI, MCP server, and self-hosted service use the same publications, renditions, workspaces, and permissions.'
-		}
-	] as const;
+	import HeroAccent from '../_components/HeroAccent.svelte';
+	import { managedSignupUrl, githubUrl, supportMailUrl } from '../_marketing';
 </script>
 
-<section class="border-b py-16 sm:py-24">
-	<div class="marketing-shell grid gap-12 lg:grid-cols-[1fr_22rem] lg:items-end">
-		<div class="max-w-4xl">
-			<p class="section-label">About OpenPost</p>
-			<h1 class="marketing-title mt-5">A content workspace for companies of one.</h1>
-			<p class="marketing-copy mt-6">
-				OpenPost helps solo founders and small teams turn the work they are already doing into
-				channel-ready content, publish it across supported networks, and track what happened.
+<article class="about marketing-shell">
+	<header>
+		<h1>A business to run.<br /><HeroAccent>A story to tell.</HeroAccent></h1>
+		<p>
+			You made something useful. Now people need to hear about it.<br class="hidden sm:block" /> OpenPost
+			helps you do that without making social media your whole job.
+		</p>
+	</header>
+	<section class="about-story">
+		<div>
+			<h2>Built for the person<br />doing a bit of everything.</h2>
+			<p>
+				When you run a small business, the product, customers, and content often land on the same
+				desk. A quick update becomes a writing job, an image to edit, a video to trim, and several
+				apps to open.
 			</p>
-			<div class="mt-8 flex flex-wrap gap-3">
-				<Button href={managedSignupUrl} size="lg">Start free trial</Button>
-				<Button href={githubUrl} variant="outline" size="lg">
-					Browse the source
-					<ExternalLink data-icon="inline-end" />
-				</Button>
-			</div>
+			<p>
+				OpenPost puts that work in one place. Start with what you’re building or learning. Write the
+				post, make the media, and plan when to share it. Keep your drafts and assets ready for next
+				time.
+			</p>
+			<p>
+				The point is simple: spend less time repeating the work, and more time doing the work worth
+				sharing.
+			</p>
 		</div>
-		<aside class="border-l pl-6">
-			<UserRound class="size-5 text-primary" aria-hidden="true" />
-			<h2 class="mt-4 font-semibold">Operated by Rodrigo Dias</h2>
-			<p class="mt-2 text-sm leading-6 text-muted-foreground">
-				OpenPost is an independent product and open-source project operated from Porto, Portugal.
-				The Hosted service is the main product. Self-hosting remains a complete deployment option.
+		<aside>
+			<h2>Independent.<br />Made in Porto.</h2>
+			<p>OpenPost is built and operated by Rodrigo Dias in Porto, Portugal.</p>
+			<p>
+				It is a small, independent product for people building businesses of their own. Questions
+				and feedback reach the person making it.
 			</p>
-			<a
-				class="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary"
-				href={supportMailUrl}
-			>
-				Contact the operator <ArrowRight class="size-4" aria-hidden="true" />
-			</a>
+			<a href={supportMailUrl} class="focus-ring">Say hello <ArrowRight size={16} /></a>
 		</aside>
-	</div>
-</section>
-
-<section class="section-pad">
-	<div class="marketing-shell grid gap-12 lg:grid-cols-[0.68fr_1.32fr]">
+	</section>
+	<section class="about-values">
+		<h2>Useful tools.<br />Your decisions.</h2>
 		<div>
-			<p class="section-label">Why it exists</p>
-			<h2 class="marketing-heading mt-4">Publishing should not need a content team.</h2>
-		</div>
-		<div class="max-w-3xl space-y-6 text-lg leading-8 text-muted-foreground">
+			<h3>Make it yours.</h3>
 			<p>
-				Small companies still need to announce launches, explain decisions, share lessons, and stay
-				visible. The work is real, but moving it through separate writing, media, scheduling, and
-				reporting tools creates repeat work.
+				AI can help with a draft. You choose the words, images, and timing. Your business should
+				sound like you.
 			</p>
+			<h3>See what happened.</h3>
 			<p>
-				OpenPost keeps one source idea with destination-specific versions, media, timing, provider
-				settings, and results. It aims to remove repeat work without pretending every network works
-				the same way.
+				Know what is drafted, planned, published, or needs attention. When a channel cannot do
+				something, OpenPost should tell you.
 			</p>
+			<h3>Keep your options.</h3>
+			<p>
+				Use OpenPost in the cloud, or run the open-source software on your own server. The source is
+				public.
+			</p>
+			<a href={githubUrl} class="focus-ring"
+				>Explore the open-source project <ArrowRight size={16} /></a
+			>
 		</div>
+	</section>
+	<div class="about-action">
+		<Button href={managedSignupUrl} size="lg"
+			>Try OpenPost <ArrowRight data-icon="inline-end" /></Button
+		><a href="/#features" class="focus-ring">See what you can make <ArrowRight size={16} /></a>
 	</div>
-</section>
+</article>
 
-<section class="section-pad border-y bg-muted/20">
-	<div class="marketing-shell">
-		<div class="max-w-3xl">
-			<p class="section-label">Product principles</p>
-			<h2 class="marketing-heading mt-4">Clear outcomes and visible limits.</h2>
-		</div>
-		<div class="mt-10 divide-y border-y lg:grid lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-			{#each principles as principle (principle.title)}
-				<article class="py-7 lg:px-7 lg:first:pl-0 lg:last:pr-0">
-					<h3 class="text-xl font-semibold">{principle.title}</h3>
-					<p class="mt-3 text-sm leading-6 text-muted-foreground">{principle.detail}</p>
-				</article>
-			{/each}
-		</div>
-	</div>
-</section>
-
-<section class="section-pad">
-	<div class="marketing-shell grid gap-12 lg:grid-cols-2">
-		<div>
-			<Globe2 class="size-5 text-primary" aria-hidden="true" />
-			<h2 class="mt-5 text-3xl font-semibold tracking-[-0.03em] text-balance">Hosted service</h2>
-			<p class="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
-				OpenPost runs the server, updates, database, media storage, and public app. Customers
-				connect their accounts and use the web, mobile, API, CLI, or MCP interfaces.
-			</p>
-			<Button href={managedSignupUrl} class="mt-6">Try the Hosted service</Button>
-		</div>
-		<div class="border-t pt-10 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
-			<GitBranch class="size-5 text-primary" aria-hidden="true" />
-			<h2 class="mt-5 text-3xl font-semibold tracking-[-0.03em] text-balance">
-				Open-source project
-			</h2>
-			<p class="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
-				The full service is AGPL-3.0-only. Operators can deploy it on their own infrastructure,
-				choose storage and provider settings, and own updates, security, backups, and support.
-			</p>
-			<Button href={githubUrl} variant="outline" class="mt-6">View the repository</Button>
-		</div>
-	</div>
-</section>
+<style>
+	.about {
+		padding-block: 72px;
+	}
+	header {
+		text-align: center;
+	}
+	h1 {
+		font-size: clamp(42px, 5.7vw, 78px);
+		line-height: 1.06;
+		font-weight: 550;
+		letter-spacing: -0.04em;
+	}
+	header > p {
+		margin: 28px auto 0;
+		max-width: 64ch;
+		font-size: 18px;
+		line-height: 1.7;
+		color: var(--muted-foreground);
+	}
+	.about-story,
+	.about-values {
+		display: grid;
+		gap: 48px;
+		padding-block: 72px;
+	}
+	h2 {
+		font-size: clamp(30px, 3.5vw, 44px);
+		line-height: 1.15;
+		font-weight: 550;
+		letter-spacing: -0.03em;
+	}
+	p {
+		line-height: 1.8;
+		color: var(--muted-foreground);
+		margin-top: 20px;
+		max-width: 65ch;
+	}
+	aside {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+		padding: 36px;
+		border-radius: 16px;
+		align-self: start;
+	}
+	aside p {
+		color: inherit;
+	}
+	aside h2 {
+		font-size: 32px;
+	}
+	a:not(:global([data-slot='button'])) {
+		display: inline-flex;
+		gap: 8px;
+		align-items: center;
+		min-height: 44px;
+		margin-top: 12px;
+		font-size: 14px;
+		text-decoration: underline;
+		text-underline-offset: 5px;
+		border-radius: 4px;
+	}
+	.about-values {
+		border-block: 1px solid var(--border);
+	}
+	h3 {
+		font-size: 23px;
+		font-weight: 550;
+	}
+	h3:not(:first-child) {
+		margin-top: 32px;
+	}
+	.about-action {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 24px;
+		margin-top: 40px;
+	}
+	.about-action a {
+		margin-top: 0;
+	}
+	@media (min-width: 900px) {
+		.about-story {
+			grid-template-columns: 1.2fr 0.8fr;
+			gap: 96px;
+		}
+		.about-values {
+			grid-template-columns: 0.8fr 1.2fr;
+			gap: 96px;
+		}
+	}
+</style>

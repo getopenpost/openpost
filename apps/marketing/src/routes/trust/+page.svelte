@@ -62,16 +62,16 @@
 <header class="border-b py-14 sm:py-20">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">
 		<div class="max-w-4xl">
-			<p class="section-label">Hosted service trust register</p>
 			<h1 class="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-				Where Hosted service data is stored and processed.
+				Where your data goes.
 			</h1>
 			<p class="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-				This register is for customers and operators reviewing the Hosted service boundary.
+				See where OpenPost Cloud stores your data, which services help run it, and who can access
+				it.
 			</p>
 			<p class="mt-3 max-w-3xl text-lg leading-8 text-muted-foreground">
-				This dated register names the infrastructure, optional services, user-directed recipients,
-				and human access boundary for app.openpo.st. It does not make a certification claim.
+				The details below cover app.openpo.st and are reviewed regularly. They describe our
+				practices, not a security certification.
 			</p>
 		</div>
 		<dl class="border-y py-4 text-sm">
@@ -113,7 +113,6 @@
 <section class="section-pad">
 	<div class="marketing-shell grid gap-10 lg:grid-cols-[18rem_1fr]">
 		<div>
-			<p class="section-label">Data locations</p>
 			<h2 class="mt-4 text-3xl font-semibold tracking-tight text-balance">
 				Each storage boundary has a different retention rule.
 			</h2>
@@ -155,7 +154,6 @@
 <section class="section-pad border-y bg-muted/20">
 	<div class="marketing-shell">
 		<div class="max-w-3xl">
-			<p class="section-label">Service-provider register</p>
 			<h2 class="mt-4 text-3xl font-semibold tracking-tight text-balance">
 				Required services and feature-triggered recipients are named separately.
 			</h2>
@@ -217,7 +215,6 @@
 <section class="section-pad">
 	<div class="marketing-shell grid gap-10 lg:grid-cols-[18rem_1fr]">
 		<div>
-			<p class="section-label">User-directed recipients</p>
 			<h2 class="mt-4 text-3xl font-semibold tracking-tight text-balance">
 				Publishing and sign-in send data only to the service the user selects.
 			</h2>
@@ -254,7 +251,6 @@
 	<div class="marketing-shell grid gap-10 lg:grid-cols-[18rem_1fr]">
 		<div>
 			<ShieldCheck class="size-5 text-primary" aria-hidden="true" />
-			<p class="section-label mt-5">Human production access</p>
 			<h2 class="mt-4 text-3xl font-semibold tracking-tight text-balance">
 				The access boundary includes its limits.
 			</h2>
@@ -276,7 +272,6 @@
 
 <section class="section-pad">
 	<div class="reading-shell border-y py-8">
-		<p class="section-label">Changes and questions</p>
 		<h2 class="mt-4 text-2xl font-semibold tracking-tight">
 			Review the current register before relying on it.
 		</h2>

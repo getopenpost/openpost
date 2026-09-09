@@ -11,7 +11,7 @@
 	} from '../../tools/_lib/tool-utils';
 
 	const example =
-		'New in OpenPost: write once, tailor each account version, and check every post before you schedule it. https://openpo.st';
+		'Something new is coming Friday. Here’s a first look at what we’ve been making. https://example.com';
 	let draft = $state(example);
 
 	const visibleCharacters = $derived(graphemeCount(draft));
@@ -25,111 +25,182 @@
 	);
 </script>
 
-<div class="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">
-	<section class="rounded-lg border bg-card p-4 sm:p-6" aria-labelledby="counter-input-title">
-		<div class="flex flex-wrap items-start justify-between gap-4">
+<div class="counter">
+	<div class="counter-input">
+		<div class="counter-toolbar">
+			<label for="character-counter-input">Your post</label>
 			<div>
-				<h2 id="counter-input-title" class="text-lg font-semibold">Your post</h2>
-				<p class="mt-1 text-sm text-muted-foreground">
-					Counts update as you type. Composed emoji stay together as one visible character.
-				</p>
-			</div>
-			<div class="flex gap-2">
-				<Button type="button" size="sm" variant="ghost" onclick={() => (draft = example)}>
-					<Sparkles data-icon="inline-start" />
-					Example
-				</Button>
-				<Button type="button" size="sm" variant="ghost" onclick={() => (draft = '')}>
-					<RotateCcw data-icon="inline-start" />
-					Clear
-				</Button>
+				<Button type="button" size="sm" variant="ghost" onclick={() => (draft = example)}
+					><Sparkles data-icon="inline-start" />Example</Button
+				><Button type="button" size="sm" variant="ghost" onclick={() => (draft = '')}
+					><RotateCcw data-icon="inline-start" />Clear</Button
+				>
 			</div>
 		</div>
-
-		<label for="character-counter-input" class="sr-only">Post text</label>
 		<Textarea
 			id="character-counter-input"
 			bind:value={draft}
-			class="mt-5 min-h-72 p-4 text-base leading-7 md:text-base"
+			class="min-h-60 p-4 text-base leading-7 md:text-base"
 			placeholder="Paste or write a social post..."
 			spellcheck="true"
+			aria-label="Post text"
 		/>
-
-		<dl class="mt-4 grid grid-cols-3 divide-x rounded-xl border bg-muted/20 py-3 text-center">
-			<div class="px-2">
-				<dt class="text-xs text-muted-foreground">Visible chars</dt>
-				<dd class="mt-1 font-mono text-lg font-semibold">
-					{visibleCharacters.toLocaleString()}
-				</dd>
+		<dl>
+			<div>
+				<dt>Characters</dt>
+				<dd>{visibleCharacters.toLocaleString()}</dd>
 			</div>
-			<div class="px-2">
-				<dt class="text-xs text-muted-foreground">Words</dt>
-				<dd class="mt-1 font-mono text-lg font-semibold">
-					{words.toLocaleString()}
-				</dd>
+			<div>
+				<dt>Words</dt>
+				<dd>{words.toLocaleString()}</dd>
 			</div>
-			<div class="px-2">
-				<dt class="text-xs text-muted-foreground">Lines</dt>
-				<dd class="mt-1 font-mono text-lg font-semibold">
-					{lines.toLocaleString()}
-				</dd>
+			<div>
+				<dt>Lines</dt>
+				<dd>{lines.toLocaleString()}</dd>
 			</div>
 		</dl>
-	</section>
-
-	<section class="rounded-lg border bg-card p-4 sm:p-6" aria-labelledby="platform-counts-title">
-		<div>
-			<h2 id="platform-counts-title" class="text-lg font-semibold">Social network limits</h2>
-			<p class="mt-1 text-sm text-muted-foreground">
-				Compare one draft before adapting it per platform.
-			</p>
-		</div>
-
-		<div class="mt-5 grid gap-3">
+	</div>
+	<section aria-labelledby="platform-counts-title">
+		<h2 id="platform-counts-title">How it fits</h2>
+		<div class="counts">
 			{#each platformCounts as platform (platform.key)}
 				{@const remaining = platform.limit - platform.count}
-				{@const percentage = Math.min(100, (platform.count / platform.limit) * 100)}
-				<article class="rounded-xl border bg-background p-4">
-					<div class="flex items-center justify-between gap-4">
-						<div class="inline-flex min-w-0 items-center gap-2.5">
-							<PlatformIcon platform={platform.key} class="size-5 shrink-0" />
-							<h3 class="truncate text-sm font-semibold">{platform.name}</h3>
-						</div>
-						<span
-							class={[
-								'font-mono text-sm text-muted-foreground',
-								remaining < 0 && '!text-destructive'
-							]}
+				<div class="count">
+					<div class="count-label">
+						<PlatformIcon platform={platform.key} class="size-4" />
+						<h3>{platform.name}</h3>
+						<span class:over={remaining < 0}
+							>{platform.count.toLocaleString()} / {platform.limit.toLocaleString()}</span
 						>
-							{platform.count.toLocaleString()} / {platform.limit.toLocaleString()}
-						</span>
 					</div>
 					<div
-						class="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+						class="meter"
 						role="progressbar"
 						aria-label={`${platform.name} character use`}
 						aria-valuemin="0"
 						aria-valuemax={platform.limit}
 						aria-valuenow={Math.min(platform.count, platform.limit)}
 					>
-						<div
-							class={[
-								'h-full rounded-full bg-primary transition-[width]',
-								remaining < 0 && '!bg-destructive'
-							]}
-							style:width={`${percentage}%`}
-						></div>
+						<span
+							class:over={remaining < 0}
+							style:width={`${Math.min(100, (platform.count / platform.limit) * 100)}%`}
+						></span>
 					</div>
-					<div class="mt-2 flex items-start justify-between gap-3 text-xs leading-5">
-						<p class="text-muted-foreground">{platform.note}</p>
-						<p class={['shrink-0 font-medium text-primary', remaining < 0 && '!text-destructive']}>
-							{remaining >= 0
-								? `${remaining.toLocaleString()} left`
-								: `${Math.abs(remaining).toLocaleString()} over`}
-						</p>
-					</div>
-				</article>
+					<p class:over={remaining < 0}>
+						{remaining >= 0
+							? `${remaining.toLocaleString()} left`
+							: `${Math.abs(remaining).toLocaleString()} over`}
+					</p>
+					<p class="count-note">{platform.note}</p>
+				</div>
 			{/each}
 		</div>
 	</section>
 </div>
+
+<style>
+	.counter {
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		overflow: hidden;
+		background: var(--card);
+	}
+	.counter-input {
+		padding: 20px;
+	}
+	.counter-toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 12px;
+	}
+	.counter-toolbar label {
+		font-weight: 550;
+	}
+	.counter-toolbar > div {
+		display: flex;
+	}
+	dl {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 24px;
+		margin-top: 16px;
+	}
+	dl div {
+		display: flex;
+		gap: 8px;
+		align-items: baseline;
+	}
+	dt {
+		font-size: 12px;
+		color: var(--muted-foreground);
+	}
+	dd {
+		font-variant-numeric: tabular-nums;
+		font-weight: 550;
+	}
+	section {
+		padding: 20px;
+		border-top: 1px solid var(--border);
+	}
+	h2 {
+		font-size: 14px;
+		font-weight: 550;
+		margin-bottom: 20px;
+	}
+	.counts {
+		display: grid;
+		gap: 24px;
+	}
+	.count-label {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	h3 {
+		font-size: 12px;
+		font-weight: 550;
+	}
+	.count-label > span {
+		font-size: 11px;
+		color: var(--muted-foreground);
+		margin-left: auto;
+		font-variant-numeric: tabular-nums;
+	}
+	.meter {
+		height: 3px;
+		background: var(--muted);
+		margin-top: 10px;
+		overflow: hidden;
+	}
+	.meter span {
+		display: block;
+		height: 100%;
+		background: var(--primary);
+	}
+	.meter span.over {
+		background: var(--destructive);
+	}
+	.count p {
+		margin-top: 5px;
+		font-size: 11px;
+		color: var(--muted-foreground);
+	}
+	.count .count-note {
+		font-size: 11px;
+		line-height: 1.6;
+		max-width: 42ch;
+		margin-top: 8px;
+	}
+	.count p.over,
+	.count-label > .over {
+		color: var(--destructive);
+	}
+	@container tool (min-width: 550px) {
+		.counts {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+</style>

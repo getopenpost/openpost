@@ -12,7 +12,7 @@
 			<a
 				href={resolve('/guides')}
 				class="focus-ring inline-flex min-h-11 items-center rounded-md text-sm text-primary"
-				>← All buying guides</a
+				>← All publishing guides</a
 			>
 			<h1 class="marketing-title mt-5">{data.guide.question}</h1>
 			<p class="mt-6 text-sm text-muted-foreground">
@@ -20,23 +20,22 @@
 			</p>
 			<p class="marketing-copy mt-7">{data.guide.answer}</p>
 			<p class="mt-6 max-w-3xl text-sm leading-6 text-muted-foreground">
-				We build OpenPost. This is our buying guidance, not an independent ranking. Competitor
-				descriptions come from the linked sources.
+				Written by the team behind OpenPost. See the linked sources when comparing tools.
 			</p>
 		</div>
 		<div class="mt-12 grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 			<div class="max-w-3xl min-w-0">
 				<aside class="border-y py-6" aria-label="OpenPost Hosted readiness">
-					<h2 class="text-base font-semibold">Check Hosted readiness first</h2>
+					<h2 class="text-base font-semibold">Check your channels first</h2>
 					<p class="mt-3 leading-7 text-muted-foreground">
 						No posting option has passed OpenPost's final live check on Hosted yet. A listed
 						integration does not prove it is ready for real accounts. Check your destination before
 						relying on OpenPost for a launch.
 					</p>
 					<a
-						href="https://docs.openpo.st/self-hosting/maintenance"
+						href="/platforms"
 						class="focus-ring mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary"
-						>Read current provider readiness →</a
+						>Check channel availability →</a
 					>
 				</aside>
 				{#each data.guide.sections as section, i (section.title)}

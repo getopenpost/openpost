@@ -65,10 +65,10 @@
 
 	.marketing-title {
 		max-width: 14ch;
-		font-size: clamp(3rem, 7.5vw, 6.75rem);
-		font-weight: 660;
-		line-height: 0.92;
-		letter-spacing: -0.055em;
+		font-size: clamp(2.5rem, 5.7vw, 4.875rem);
+		font-weight: 550;
+		line-height: 1.06;
+		letter-spacing: -0.04em;
 		text-wrap: balance;
 	}
 

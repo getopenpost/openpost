@@ -1,4 +1,5 @@
 <script lang="ts">
+	import HeroAccent from '../_components/HeroAccent.svelte';
 	import { LockKeyhole } from '@lucide/svelte';
 	import EditorToolsShowcase from '../_components/EditorToolsShowcase.svelte';
 	import UtilityToolsGrid from '../_components/UtilityToolsGrid.svelte';
@@ -21,15 +22,15 @@
 			id="tools-title"
 			class="max-w-4xl text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance sm:text-6xl"
 		>
-			Finish the post before you sign up.
+			A few tools.<br /><HeroAccent>On the house.</HeroAccent>
 		</h1>
 		<p class="marketing-copy mt-6">
-			For creators preparing a post before signing up. Edit the media, check each platform, plan the
-			week, and build the link. Every tool works before you sign up.
+			Edit an image, trim a video, tidy a post, or check a link. Free tools for the small jobs
+			between an idea and hitting publish.
 		</p>
 		<p class="mt-5 inline-flex items-start gap-2 text-sm leading-6 text-muted-foreground">
 			<LockKeyhole class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-			Drafts stay local unless a tool clearly offers a live network check.
+			No account required. Each tool explains where your work is saved.
 		</p>
 	</div>
 </section>
@@ -58,13 +59,7 @@
 
 <style>
 	.tools-hero {
-		background:
-			radial-gradient(
-				circle at 78% 36%,
-				color-mix(in oklch, var(--primary) 9%, transparent),
-				transparent 25rem
-			),
-			color-mix(in oklch, var(--muted) 22%, var(--background));
+		background: var(--marketing-section);
 	}
 
 	.section-intro {

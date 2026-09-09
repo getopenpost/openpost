@@ -47,14 +47,14 @@
 				<span>Write</span><span>Edit</span><span>Publish</span>
 			</div>
 		</a>
-		<a href="/developers" class="developers focus-ring">
+		<a href="https://docs.openpo.st/guides/quickstart" class="developers focus-ring">
 			<div class="card-heading">
-				<h3>Connect your tools</h3>
+				<h3>A little help</h3>
 				<ArrowUpRight size={24} />
 			</div>
-			<p>Work through the API, CLI, MCP, or n8n.</p>
+			<p>From your first draft to your next video. Find a guide when you need one.</p>
 			<div class="developer-art" aria-hidden="true">
-				<span>API</span><span>CLI</span><span>MCP</span>
+				<span>Ideas</span><span>How-tos</span><span>Answers</span>
 			</div>
 		</a>
 		<a href="/platforms" class="platforms focus-ring">
@@ -62,7 +62,7 @@
 				<h3>Know your channels</h3>
 				<ArrowUpRight size={24} />
 			</div>
-			<p>Formats, limits, and setup for each platform.</p>
+			<p>Ideas, formats, and posting options for your business.</p>
 			<div class="platform-art" aria-hidden="true">
 				{#each platforms as platform (platform)}<PostizSocialLogo {platform} />{/each}
 			</div>

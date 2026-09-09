@@ -39,7 +39,7 @@
 				provider API use.
 			</p>
 		</div>
-		<a class="focus-ring" href="/self-hosting"
+		<a class="focus-ring" href="https://docs.openpo.st/self-hosting"
 			>Review self-hosting <ArrowRight aria-hidden="true" /></a
 		>
 	</div>

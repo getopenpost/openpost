@@ -22,15 +22,9 @@
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">
 		<div class="max-w-4xl">
-			<p class="section-label">Changelog</p>
-			<h1 class="marketing-title mt-5">What changed, in plain language.</h1>
-			<p class="mt-5 text-sm font-medium text-foreground">
-				This page is for users and operators reviewing changes before an update.
-			</p>
+			<h1 class="marketing-title mt-5">What’s new in OpenPost.</h1>
 			<p class="marketing-copy mt-6">
-				This page is generated from the repository changelog, the same record used for release
-				notes. This summary does not replace the complete fixes and migration details in the source
-				file.
+				New tools, small improvements, and fixes that make your day easier.
 			</p>
 			<div class="mt-8 flex flex-wrap gap-3">
 				<Button href={`${githubUrl}/blob/main/CHANGELOG.md`} size="lg">
@@ -95,7 +89,7 @@
 						rel="noreferrer"
 						class="mt-6 inline-flex items-center gap-2 text-sm font-medium text-primary"
 					>
-						View source record <ArrowRight class="size-4" />
+						Read the full release notes <ArrowRight class="size-4" />
 					</a>
 				</article>
 			{/each}
@@ -106,9 +100,9 @@
 <section class="border-t bg-muted/20 py-12">
 	<div class="marketing-shell flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
 		<div>
-			<h2 class="text-xl font-semibold">Need every migration, fix, and release note?</h2>
+			<h2 class="text-xl font-semibold">Looking for the details?</h2>
 			<p class="mt-2 text-sm leading-6 text-muted-foreground">
-				The repository changelog is the authoritative technical record.
+				Find every fix and update note in the full changelog.
 			</p>
 		</div>
 		<Button href={`${githubUrl}/blob/main/CHANGELOG.md`} variant="outline">

@@ -1,0 +1,13 @@
+/features /#features 301
+/features/ /#features 301
+/features.md /index.md 301
+/developers https://docs.openpo.st/guides/automation 301
+/developers/ https://docs.openpo.st/guides/automation 301
+/developers.md https://docs.openpo.st/guides/automation.md 301
+/self-hosting https://docs.openpo.st/self-hosting 301
+/self-hosting/ https://docs.openpo.st/self-hosting 301
+/self-hosting.md https://docs.openpo.st/self-hosting/index.md 301
+/guides/self-hosted-social-media-schedulers https://docs.openpo.st/self-hosting 301
+/guides/self-hosted-social-media-schedulers.md https://docs.openpo.st/self-hosting/index.md 301
+/guides/social-media-tools-with-api-and-mcp https://docs.openpo.st/guides/automation 301
+/guides/social-media-tools-with-api-and-mcp.md https://docs.openpo.st/guides/automation.md 301

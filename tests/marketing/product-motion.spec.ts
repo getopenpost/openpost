@@ -12,14 +12,14 @@ test("repeat visits do not accumulate screenshot click listeners", async ({ page
   };
   await page.goto("/");
   await dismissTelemetryConsent(page);
-  await expect(page.locator(".rough-annotation")).toHaveCount(1);
+  await expect(page.locator(".rough-annotation")).toHaveCount(2);
   const originalListeners = await listenerCount();
   for (let visit = 0; visit < 3; visit++) {
-    await page.getByRole("link", { name: "Features", exact: true }).first().click();
-    await expect(page).toHaveURL(/\/features$/);
+    await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/pricing$/);
     await page.getByRole("link", { name: "OpenPost home", exact: true }).first().click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator(".rough-annotation")).toHaveCount(1);
+    await expect(page.locator(".rough-annotation")).toHaveCount(2);
     expect(await listenerCount()).toBe(originalListeners);
   }
   await page.getByRole("button", { name: "Video Editor", exact: true }).click();
@@ -64,7 +64,7 @@ for (const width of [1440, 390, 320]) {
       });
       await page.goto("/");
       await dismissTelemetryConsent(page);
-      await expect(page.locator(".rough-annotation")).toHaveCount(1);
+      await expect(page.locator(".rough-annotation")).toHaveCount(2);
       await page.screenshot({ path: testInfo.outputPath("hero.png") });
       for (const editor of ["Image Editor", "Video Editor"]) {
         await page.getByRole("button", { name: editor, exact: true }).click();

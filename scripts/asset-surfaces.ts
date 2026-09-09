@@ -37,6 +37,8 @@ export const assetSurfaceManifest = {
     "logos/discord.svg",
   ],
   marketing: [
+    "marketing/paper-plane.webp",
+    "marketing/studio-cup.webp",
     "brand/fonts/Geist-Regular.ttf",
     "brand/fonts/Geist-SemiBold.ttf",
     "brand/fonts/Manrope-SemiBold.ttf",
@@ -48,6 +50,8 @@ export const assetSurfaceManifest = {
     "brand/features/calendar.svg",
     "brand/features/analytics.svg",
     "screenshots/main-dark.webp",
+    "screenshots/media-dark.webp",
+    "screenshots/accounts-dark.webp",
     "screenshots/calendar-detail.webp",
     "screenshots/meme-creator-detail.webp",
     "screenshots/analytics-detail.webp",
@@ -70,9 +74,6 @@ export const assetSurfaceManifest = {
     "postiz-socials/X.svg",
     "postiz-socials/Youtube.svg",
     "screenshots/image-editor-dark.webp",
-    "screenshots/main-dark.png",
-    "screenshots/media-dark.png",
-    "screenshots/settings-dark.png",
     "screenshots/video-editor-dark.webp",
   ],
 } as const satisfies Record<AssetSurface, readonly string[]>;

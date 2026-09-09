@@ -6,50 +6,56 @@
 		type PreviewFormat
 	} from '@openpost/social-preview';
 	import type { MarketingPlatform } from '../../_marketing';
-
-	interface Props {
-		platform: MarketingPlatform;
-	}
-
-	let { platform }: Props = $props();
-
-	const platformKey = $derived(normalizePreviewPlatform(platform.slug));
-	const format = $derived.by<PreviewFormat>(() => {
-		if (platform.slug === 'x') return 'thread';
-		if (platform.slug === 'youtube') return 'video';
-		if (platform.slug === 'tiktok') return 'video';
-		return 'post';
-	});
-	const segments = $derived(
+	import type { ChannelStory } from '../_stories';
+	let { platform, story }: { platform: MarketingPlatform; story: ChannelStory } = $props();
+	const format = $derived<PreviewFormat>(
 		platform.slug === 'x'
-			? platform.preview.chips.map((chip, index) => ({
-					id: `reply-${index}`,
-					text: index === 0 ? platform.preview.body : `${chip}: custom reply text for this account.`
-				}))
-			: [{ id: 'platform', text: platform.preview.body }]
+			? 'thread'
+			: ['youtube', 'tiktok'].includes(platform.slug)
+				? 'video'
+				: 'post'
 	);
 	const model = $derived(
 		createPreviewModel({
-			platform: platformKey,
+			platform: normalizePreviewPlatform(platform.slug),
 			format,
-			identity: {
-				displayName: 'OpenPost',
-				handle: platform.slug === 'mastodon' ? 'openpost@mastodon.social' : 'openpost'
-			},
-			segments,
-			contentWarning:
-				platform.slug === 'mastodon' ? 'Product update and publishing details' : undefined,
+			identity: story.preview
+				? { displayName: 'Studio example', handle: 'yourstudio' }
+				: {
+						displayName: 'OpenPost',
+						handle: platform.slug === 'mastodon' ? 'openpost@mastodon.social' : 'openpost'
+					},
+			segments: (platform.slug === 'x'
+				? [
+						story.example,
+						'Start with the problem your customer has.',
+						'Show the part that makes it easier.'
+					]
+				: [story.example]
+			).map((text, index) => ({ id: `example-${index}`, text })),
+			media: story.preview
+				? [
+						{
+							id: 'example-photo',
+							kind: 'image',
+							src: story.preview.image,
+							alt: story.preview.alt,
+							aspectRatio: 3 / 2
+						}
+					]
+				: [],
+			contentWarning: platform.slug === 'mastodon' ? 'A look at this week’s work' : undefined,
 			card:
 				platform.slug === 'bluesky'
 					? {
 							kind: 'link',
 							title: 'OpenPost',
-							description: platform.preview.detail,
+							description: 'Write posts, edit images and videos, and plan your week.',
 							domain: 'openpo.st'
 						}
 					: undefined,
-			title: platform.slug === 'youtube' ? platform.preview.headline : undefined,
-			subtitle: platform.slug === 'youtube' ? 'OpenPost product tour' : undefined
+			title: platform.slug === 'youtube' ? story.preview?.title : undefined,
+			subtitle: platform.slug === 'youtube' ? story.example : undefined
 		})
 	);
 </script>

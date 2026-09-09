@@ -33,9 +33,8 @@ export const demoVideoEmbedUrl =
 	'https://www.youtube-nocookie.com/embed/_mZf3HzQaN8?autoplay=1&rel=0';
 
 type NavigationSurface = 'primary' | 'resources' | 'mobile' | 'footer';
-type ResourceGroup = 'Learn' | 'Build' | 'OpenPost';
-type FooterGroup = 'Product' | 'Resources' | 'Documentation';
-
+type ResourceGroup = 'Learn' | 'OpenPost';
+type FooterGroup = 'Product' | 'Resources' | 'More';
 type MarketingNavigationItem = {
 	label: string;
 	href: string;
@@ -43,28 +42,21 @@ type MarketingNavigationItem = {
 	footerGroup: FooterGroup;
 	surfaces: readonly NavigationSurface[];
 };
-
 const navigationRegistry: readonly MarketingNavigationItem[] = [
 	{
-		label: 'Overview',
-		href: '/#product',
-		footerGroup: 'Product',
-		surfaces: ['footer']
-	},
-	{
 		label: 'Features',
-		href: '/features',
+		href: '/#features',
 		footerGroup: 'Product',
 		surfaces: ['primary', 'mobile', 'footer']
 	},
 	{
-		label: 'Platforms',
+		label: 'Channels',
 		href: '/platforms',
 		footerGroup: 'Product',
 		surfaces: ['primary', 'mobile', 'footer']
 	},
 	{
-		label: 'Tools',
+		label: 'Free tools',
 		href: '/tools',
 		footerGroup: 'Product',
 		surfaces: ['primary', 'mobile', 'footer']
@@ -74,6 +66,32 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 		href: '/pricing',
 		footerGroup: 'Product',
 		surfaces: ['primary', 'mobile', 'footer']
+	},
+	{
+		label: 'Image editor',
+		href: '/tools/social-media-image-editor',
+		footerGroup: 'Product',
+		surfaces: ['footer']
+	},
+	{
+		label: 'Video editor',
+		href: '/tools/social-media-video-editor',
+		footerGroup: 'Product',
+		surfaces: ['footer']
+	},
+	{
+		label: 'Help centre',
+		href: docsUrl,
+		group: 'Learn',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Publishing guides',
+		href: '/guides',
+		group: 'Learn',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
 	},
 	{
 		label: 'FAQ',
@@ -90,48 +108,6 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 		surfaces: ['resources', 'mobile', 'footer']
 	},
 	{
-		label: 'User docs',
-		href: docsUrl,
-		group: 'Build',
-		footerGroup: 'Documentation',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
-		label: 'Developers',
-		href: '/developers',
-		group: 'Build',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
-		label: 'Self-hosting',
-		href: '/self-hosting',
-		group: 'Build',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
-		label: 'GitHub source',
-		href: githubUrl,
-		group: 'Build',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
-		label: 'Buying guides',
-		href: '/guides',
-		group: 'Build',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
-		label: 'About',
-		href: '/about',
-		group: 'OpenPost',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
-	{
 		label: 'Contact',
 		href: '/contact',
 		group: 'OpenPost',
@@ -139,55 +115,50 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 		surfaces: ['resources', 'mobile', 'footer']
 	},
 	{
+		label: 'About',
+		href: '/about',
+		group: 'OpenPost',
+		footerGroup: 'More',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
 		label: 'Security',
 		href: '/security',
 		group: 'OpenPost',
-		footerGroup: 'Resources',
+		footerGroup: 'More',
 		surfaces: ['resources', 'mobile', 'footer']
 	},
-	{
-		label: 'Trust register',
-		href: '/trust',
-		group: 'OpenPost',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
-	},
+	{ label: 'Your data', href: '/trust', footerGroup: 'More', surfaces: ['footer'] },
 	{
 		label: 'Discord community',
 		href: discordCommunityUrl,
-		group: 'OpenPost',
-		footerGroup: 'Resources',
-		surfaces: ['resources', 'mobile', 'footer']
+		footerGroup: 'More',
+		surfaces: ['footer']
 	},
+	{ label: 'GitHub source', href: githubUrl, footerGroup: 'More', surfaces: ['footer'] },
 	{
 		label: 'Self-hosting guide',
 		href: selfHostingDocsUrl,
-		footerGroup: 'Documentation',
-		surfaces: ['footer']
-	},
-	{
-		label: 'Developer docs',
-		href: developerDocsUrl,
-		footerGroup: 'Documentation',
+		footerGroup: 'More',
 		surfaces: ['footer']
 	}
 ];
-
 const navigationFor = (surface: NavigationSurface) =>
 	navigationRegistry.filter((item) => item.surfaces.includes(surface));
-
 export const marketingNavigation = {
 	primary: navigationFor('primary'),
-	resourceGroups: (['Learn', 'Build', 'OpenPost'] as const).map((label) => ({
+	resourceGroups: (['Learn', 'OpenPost'] as const).map((label) => ({
 		label,
 		items: navigationRegistry.filter(
 			(item) => item.group === label && item.surfaces.includes('resources')
 		)
 	})),
 	mobile: navigationFor('mobile'),
-	footerGroups: (['Product', 'Resources', 'Documentation'] as const).map((title) => ({
+	footerGroups: (['Product', 'Resources', 'More'] as const).map((title) => ({
 		title,
-		links: navigationRegistry.filter((item) => item.footerGroup === title)
+		links: navigationRegistry.filter(
+			(item) => item.footerGroup === title && item.surfaces.includes('footer')
+		)
 	}))
 } as const;
 
@@ -243,140 +214,6 @@ export const plans = planCatalog.plans.map((plan) => ({
 	],
 	featured: plan.featured
 }));
-
-export const featureGroups = [
-	{
-		id: 'compose',
-		label: 'Compose and adapt',
-		title: 'Write once. Make each version fit where it goes.',
-		outcome:
-			'Write the shared publication once, then change text, media, schedule, and provider settings for each selected account before it leaves OpenPost.',
-		scope: [
-			'Use Ideate to find ideas, compare directions, and build drafts with the AI writing assistant.',
-			'Posts, threads, Stories, short videos, and videos use focused authoring paths.',
-			'Previews and validation stay tied to the selected destination and account.',
-			'Reusable Social Sets can start a draft with the right group of accounts.'
-		],
-		limit:
-			'Available formats, text rules, media rules, and settings still depend on the connected account and provider.',
-		proof: {
-			kind: 'image',
-			src: '/assets/screenshots/main-dark.png',
-			alt: 'OpenPost publication composer with destination-specific versions'
-		},
-		docsUrl: 'https://docs.openpo.st/guides/publishing',
-		next: { label: 'See destination guides', href: '/platforms' }
-	},
-	{
-		id: 'schedule',
-		label: 'Plan and publish',
-		title: 'See what is drafted, scheduled, running, published, or failed.',
-		outcome:
-			'Choose an exact time or a saved weekly slot, then follow the publication and every account result from the calendar and activity views.',
-		scope: [
-			'Reusable posting slots, destination timing, and queue reminders keep the publishing schedule visible.',
-			'Auto repost rules set delays and engagement gates for supported native reposts.',
-			'Durable background jobs keep scheduled work across server restarts.',
-			'Each destination keeps its own status, result, and actionable error.',
-			'Safe failures can be retried without re-publishing successful destinations.'
-		],
-		limit:
-			'Hosted service plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination.',
-		proof: {
-			kind: 'docs',
-			label: 'Scheduling and publication status guide',
-			href: 'https://docs.openpo.st/guides/scheduling'
-		},
-		docsUrl: 'https://docs.openpo.st/guides/scheduling',
-		next: { label: 'Compare plan limits', href: '/pricing#limits' }
-	},
-	{
-		id: 'media-editing',
-		label: 'Media and editing',
-		title: 'Edit images and video next to the media you reuse.',
-		outcome:
-			'Store media with alt text and metadata, create still designs in OpenPost Image Editor, or prepare clips in OpenPost Video Editor before returning the result to a draft.',
-		scope: [
-			'Create memes from built-in templates, editable captions, and replaceable images.',
-			'The media library keeps originals, previews, tags, collections, and editor exports together.',
-			'OpenPost Image Editor supports multi-page social designs and mobile editing.',
-			'OpenPost Video Editor supports local projects, timeline edits, captions, recovery, and export.'
-		],
-		limit:
-			'Video editing needs a compatible browser, and every publishing destination still enforces its own size, duration, codec, and aspect-ratio rules.',
-		proof: {
-			kind: 'image',
-			src: '/assets/screenshots/media-dark.png',
-			alt: 'OpenPost media library with reusable assets'
-		},
-		docsUrl: 'https://docs.openpo.st/guides/quickstart',
-		next: { label: 'Open the free editors', href: '/tools' }
-	},
-	{
-		id: 'analytics-inbox',
-		label: 'Analytics and conversations',
-		title: 'Check results and replies without waiting on providers.',
-		outcome:
-			'Inspect stored account and post snapshots, then handle supported comments, replies, alerts, and opted-in inbox messages from the same workspace.',
-		scope: [
-			'Analytics separates views, impressions, reach, engagement, and follower counts when providers expose them.',
-			'Comments, reply actions, and inbox collection appear only for accounts that support them.',
-			'Repurpose previous content into a new draft. Grow suggests accounts to follow on Bluesky and Mastodon.',
-			'Permission and rate-limit errors keep the last successful counters visible.'
-		],
-		limit:
-			'Coverage depends on provider permissions and the connected account. OpenPost does not provide social listening or cross-industry benchmarks.',
-		proof: {
-			kind: 'docs',
-			label: 'Analytics and communications guides',
-			href: 'https://docs.openpo.st/guides/results'
-		},
-		docsUrl: 'https://docs.openpo.st/guides/results',
-		next: { label: 'Check provider scope', href: '/platforms' }
-	},
-	{
-		id: 'teams',
-		label: 'Workspaces and teams',
-		title: 'Separate brands and clients without separating the publishing system.',
-		outcome:
-			'Keep accounts, media, schedules, automation, and member access inside an explicit workspace boundary, with plan usage enforced for its organization.',
-		scope: [
-			'Workspace roles control who can view, edit, publish, manage members, or administer the workspace.',
-			'Invitations and membership changes stay tied to the invited email and active workspace.',
-			'Team and Agency include multiple workspaces and shared access for teammates.'
-		],
-		limit:
-			'The pricing table lists included workspaces and people. Each workspace has its own usage allowances.',
-		proof: {
-			kind: 'image',
-			src: '/assets/screenshots/settings-dark.png',
-			alt: 'OpenPost workspace and account settings'
-		},
-		docsUrl: 'https://docs.openpo.st/guides/workspaces',
-		next: { label: 'Compare seats and workspaces', href: '/pricing#limits' }
-	},
-	{
-		id: 'automation',
-		label: 'Automation and self-hosting',
-		title: 'Use the same workspace rules from HTTP, the CLI, or an AI tool.',
-		outcome:
-			'Create scoped tokens for scripts and MCP clients, inspect operations before executing them, or run the complete service on infrastructure you control.',
-		scope: [
-			'The typed HTTP API, CLI, and MCP server use the same authorization and workspace boundaries.',
-			'Read-only and state-changing MCP operations stay separate.',
-			'Self-hosting uses one Go service, SQLite by default, and configurable database, media, and provider settings.'
-		],
-		limit:
-			'Automation still follows plan quotas, token scopes, workspace roles, provider readiness, and destination validation.',
-		proof: {
-			kind: 'docs',
-			label: 'Agent-assisted publishing guide',
-			href: 'https://docs.openpo.st/guides/automation'
-		},
-		docsUrl: developerDocsUrl,
-		next: { label: 'Review self-hosting', href: selfHostingDocsUrl }
-	}
-] as const;
 
 const platformImplementations = [
 	{
@@ -1062,20 +899,17 @@ export const tools = [
 	{
 		slug: 'social-media-video-editor',
 		name: 'Social media video editor',
-		description:
-			'Stream-copy combined or per-section cuts without transcoding, or use the complete desktop or touch editor for four social formats, captions, effects, and recording.'
+		description: 'Trim clips, add captions, and export a finished video without a watermark.'
 	},
 	{
 		slug: 'social-media-image-editor',
 		name: 'Social media image editor',
-		description:
-			'Create posts, carousel pages, Story slides, and thumbnails in a full browser editor with clean exports.'
+		description: 'Make a post, carousel, or thumbnail. Download it without a watermark.'
 	},
 	{
 		slug: 'multi-platform-character-counter',
-		name: 'Multi-platform character counter',
-		description:
-			'Paste once and compare one draft against the limits and counting rules for twelve social networks.'
+		name: 'Social media character counter',
+		description: 'Paste your post and check how it fits on each channel.'
 	},
 	{
 		slug: 'post-preview-generator',
@@ -1090,14 +924,13 @@ export const tools = [
 	},
 	{
 		slug: 'fediverse-handle-checker',
-		name: 'Fediverse handle checker',
-		description:
-			'Check Mastodon-style and Bluesky-style handles before adding them to launch plans.'
+		name: 'Social handle checker',
+		description: 'Check a Bluesky or Mastodon handle before you share it.'
 	},
 	{
 		slug: 'linkedin-text-formatter',
 		name: 'LinkedIn text formatter',
-		description: 'Prepare readable LinkedIn copy with lightweight formatting and length awareness.'
+		description: 'Tidy the spacing and style of your LinkedIn post.'
 	},
 	{
 		slug: 'best-time-to-post-calculator',
@@ -1115,114 +948,113 @@ export type MarketingToolSlug = (typeof tools)[number]['slug'];
 
 export const faqs = [
 	{
-		id: 'ai-credentials',
-		category: 'privacy',
-		question: 'Can an AI agent see my social account credentials?',
-		answer:
-			'No. The AI tool uses its own OpenPost token. Your social account keys stay encrypted inside OpenPost. Use mcp:read for read-only access. Use mcp:full only when the tool must create, change, schedule, or publish.',
-		learnMore: { label: 'Review security controls', href: '/security' }
-	},
-	{
 		id: 'free-trial',
 		category: 'billing',
 		question: 'How does the free trial work?',
-		answer:
-			'Every Hosted service plan starts with 14 days free. A card is required. OpenPost shows the exact renewal price and date before you start, and you can cancel from billing settings before the first charge.',
-		learnMore: { label: 'See plans and limits', href: '/pricing' }
+		answer: `${managedAccessSummary} Your renewal price and date are shown before you start.`,
+		learnMore: { label: 'Compare plans', href: '/pricing' }
 	},
 	{
 		id: 'choose-plan',
 		category: 'billing',
 		question: 'Which plan should I choose?',
 		answer:
-			'Choose Solo if you publish on your own, Team if you work with other people, or Agency if you manage client accounts. Every workspace includes the same tools and usage allowances. Team and Agency add workspaces and more people in each workspace.',
-		learnMore: { label: 'Compare plans', href: '/pricing' }
+			'Choose Solo if you work on your own, Team if others help with your content, or Agency if you manage clients. Every plan includes the same tools. Team and Agency add workspaces and more people.',
+		learnMore: { label: 'Find your plan', href: '/pricing' }
+	},
+	{
+		id: 'free-editors',
+		category: 'creating',
+		question: 'Can I try the editors without signing up?',
+		answer:
+			'Yes. Create images and edit videos for free, with no account or watermark. Local projects stay on your device unless you choose to save them to OpenPost.',
+		learnMore: { label: 'Try the free tools', href: '/tools' }
+	},
+	{
+		id: 'cancel',
+		category: 'billing',
+		question: 'Can I cancel my subscription?',
+		answer:
+			'Yes. Cancel from billing settings. Cancel during the trial before the first charge, or stop your next renewal. Your checkout and billing page show the dates that apply.',
+		learnMore: { label: 'Read the refund policy', href: '/refunds' }
+	},
+	{
+		id: 'ai-writing',
+		category: 'creating',
+		question: 'Can OpenPost help me write a post?',
+		answer:
+			'Yes. Use AI to explore ideas, draft an opening, or rewrite a post for a different channel. Review the words and facts before you schedule. You can write everything yourself too.',
+		learnMore: { label: 'Explore writing tools', href: '/#features' }
+	},
+	{
+		id: 'video-editor',
+		category: 'creating',
+		question: 'Can I edit images and videos in OpenPost?',
+		answer:
+			'Yes. The Image Editor supports text, layers, color adjustments, and multi-page designs. The Video Editor adds recording, trimming, captions, and timeline editing. Video editing is in beta and works best in desktop Chrome or Edge.',
+		learnMore: { label: 'Explore the editors', href: '/tools' }
+	},
+	{
+		id: 'channels',
+		category: 'publishing',
+		question: 'Which social channels can I use?',
+		answer:
+			'OpenPost includes integrations for major social networks, but posting options depend on your account. OpenPost Cloud posting has not completed its final live checks yet. Check the channel page or contact us before relying on it for an important launch. Pinterest and Telegram are unavailable.',
+		learnMore: { label: 'Check your channels', href: '/platforms' }
+	},
+	{
+		id: 'failed-post',
+		category: 'publishing',
+		question: 'What happens if a post fails?',
+		answer:
+			'OpenPost shows which account failed and what went wrong. Review the error and retry the accounts that can be retried, without publishing the successful ones again.',
+		learnMore: {
+			label: 'Help with scheduled posts',
+			href: 'https://docs.openpo.st/guides/scheduling'
+		}
+	},
+	{
+		id: 'analytics',
+		category: 'publishing',
+		question: 'Can I see how my posts perform?',
+		answer:
+			'Yes. See account growth and post results when your social network provides them. Available numbers, comments, and replies vary by connected account.',
+		learnMore: { label: 'Learn about results', href: 'https://docs.openpo.st/guides/results' }
 	},
 	{
 		id: 'extra-charges',
 		category: 'billing',
-		question: 'Will I pay extra for seats or AI?',
+		question: 'Will I pay extra for people or AI?',
 		answer:
-			'The listed price includes your plan’s workspaces, people, and AI writing tools. There are no AI credit packs or automatic overage charges. Monthly usage becomes available again in the next calendar month. Free storage or disconnect accounts to make room. Upgrade when you need more workspaces or people; usage allowances in each workspace stay the same. Tax is calculated at checkout.',
-		learnMore: { label: 'Read billing terms', href: '/terms' }
-	},
-	{
-		id: 'change-plans',
-		category: 'billing',
-		question: 'Can I change plans later?',
-		answer:
-			'Yes. Choose the limits you need now, then manage your subscription from OpenPost billing settings as your account count or team grows.',
-		learnMore: { label: 'Read billing terms', href: '/terms' }
-	},
-	{
-		id: 'analytics',
-		category: 'providers',
-		question: 'Does OpenPost include analytics?',
-		answer:
-			'Yes. OpenPost shows account growth and post results for 7, 30, or 90 days when the platform gives access. It also has comments, replies, and inboxes for supported accounts. It does not include social listening or large-company benchmarks.',
-		learnMore: {
-			label: 'Read the analytics guide',
-			href: 'https://docs.openpo.st/guides/results'
-		}
-	},
-	{
-		id: 'video-publishing',
-		category: 'providers',
-		question: 'Does video publishing work everywhere?',
-		answer:
-			'No. Video support and limits differ by platform. Some platforms also require app review or a public media link.',
-		learnMore: { label: 'Compare provider formats', href: '/platforms' }
-	},
-	{
-		id: 'own-provider-keys',
-		category: 'self-hosting',
-		question: 'Can I use my own social app keys?',
-		answer:
-			'Yes. A self-hosted operator can configure provider applications through deployment settings or the encrypted instance-admin fallback. The exact credentials and approval requirements depend on the provider.',
-		learnMore: {
-			label: 'Configure provider applications',
-			href: 'https://docs.openpo.st/self-hosting/configuration'
-		}
-	},
-	{
-		id: 'failed-post',
-		category: 'setup',
-		question: 'What happens if a post fails?',
-		answer:
-			'OpenPost keeps the error for each failed account. You can review it and retry only the accounts that can be retried.',
-		learnMore: {
-			label: 'Read the scheduling guide',
-			href: 'https://docs.openpo.st/guides/scheduling'
-		}
-	}
-] as const;
-
-export const faqCategories = [
-	{
-		id: 'setup',
-		label: 'Setup and publishing',
-		description: 'What happens while you connect accounts, schedule work, and recover a failure.'
-	},
-	{
-		id: 'providers',
-		label: 'Providers and results',
-		description: 'Where account permissions, formats, analytics, and media rules still differ.'
-	},
-	{
-		id: 'billing',
-		label: 'Plans and billing',
-		description: 'What the trial includes, when payment starts, and how plan changes work.'
+			'Your plan includes its listed people, workspaces, and AI writing tools. There are no AI credit packs or automatic overage charges. Each workspace has its own usage allowance. Tax is calculated at checkout.',
+		learnMore: { label: 'See what is included', href: '/pricing' }
 	},
 	{
 		id: 'privacy',
-		label: 'Privacy and access',
-		description: 'How tokens and connected-account credentials stay separate.'
+		category: 'account',
+		question: 'How are my social accounts protected?',
+		answer:
+			'OpenPost encrypts the keys used to connect your social accounts. You can protect your OpenPost sign-in with a passkey or two-factor authentication, and remove active sessions from your account settings.',
+		learnMore: { label: 'Read about security', href: '/security' }
 	},
 	{
-		id: 'self-hosting',
-		label: 'Self-hosting',
-		description: 'How operators can use their own deployment and provider applications.'
+		id: 'support',
+		category: 'account',
+		question: 'Where can I get help?',
+		answer:
+			'Start with the help centre for walkthroughs, or email us about your account, a billing question, or something that is not working. The Discord community is open for ideas and general questions.',
+		learnMore: { label: 'Get in touch', href: '/contact' }
 	}
+] as const;
+export const faqCategories = [
+	{ id: 'creating', label: 'Creating content', description: 'Writing, images, and videos.' },
+	{ id: 'publishing', label: 'Publishing', description: 'Your channels, schedule, and results.' },
+	{
+		id: 'billing',
+		label: 'Plans and billing',
+		description: 'The trial, your plan, and cancellation.'
+	},
+	{ id: 'account', label: 'Your account', description: 'Security and getting help.' }
 ] as const;
 
 export function getPlatform(slug: string) {

@@ -1,121 +1,143 @@
 <script lang="ts">
-	import {
-		ArrowRight,
-		ExternalLink,
-		Github,
-		Mail,
-		MessageCircle,
-		ShieldAlert
-	} from '@lucide/svelte';
-	import { discordCommunityUrl, githubUrl, supportEmail, supportMailUrl } from '../_marketing';
-
-	const contacts = [
-		{
-			title: 'Account, billing, privacy, or product support',
-			detail:
-				'Email support with the account email, workspace name, and a short description. Do not send passwords, social tokens, recovery codes, or payment-card details.',
-			label: supportEmail,
-			href: supportMailUrl,
-			icon: Mail,
-			external: false
-		},
-		{
-			title: 'Security report',
-			detail:
-				'Privately report a suspected vulnerability with the affected URL, impact, and safe steps to reproduce it. Do not post security reports in Discord or a public issue.',
-			label: 'openpost+security@rgo.pt',
-			href: 'mailto:openpost+security@rgo.pt',
-			icon: ShieldAlert,
-			external: false
-		},
-		{
-			title: 'Setup, workflow, or self-hosting question',
-			detail:
-				'Ask the public community when the answer can help other users and does not include private account or infrastructure details.',
-			label: 'Open the Discord community',
-			href: discordCommunityUrl,
-			icon: MessageCircle,
-			external: true
-		},
-		{
-			title: 'Bug report or contribution',
-			detail:
-				'Use the public repository for reproducible software bugs, feature discussions, code changes, and documentation fixes.',
-			label: 'Open GitHub',
-			href: githubUrl,
-			icon: Github,
-			external: true
-		}
-	] as const;
+	import { ArrowUpRight, Mail, MessageCircle } from '@lucide/svelte';
+	import HeroAccent from '../_components/HeroAccent.svelte';
+	import { supportMailUrl, supportEmail, discordCommunityUrl, docsUrl } from '../_marketing';
 </script>
 
-<section class="border-b py-16 sm:py-24">
-	<div class="marketing-shell">
-		<div class="max-w-4xl">
-			<p class="section-label">Contact OpenPost</p>
-			<h1 class="marketing-title mt-5">Send the question to the right place.</h1>
-			<p class="marketing-copy mt-6">
-				Use private email for account, billing, privacy, or security details. Use the community or
-				public repository for questions and reports that can help other people.
+<section class="contact marketing-shell">
+	<header>
+		<h1>Let’s <HeroAccent>talk.</HeroAccent></h1>
+		<p>A question, an idea, or something not working?<br />We’d like to hear from you.</p>
+	</header>
+	<div class="contact-options">
+		<section class="email">
+			<Mail size={28} />
+			<h2>Ask us directly.</h2>
+			<p>
+				For product questions, help with your account, or billing. Tell us what you need and include
+				the email you use for OpenPost.
 			</p>
+			<a href={supportMailUrl} class="focus-ring">{supportEmail}<ArrowUpRight size={20} /></a><small
+				>Please leave out passwords and payment-card details.</small
+			>
+		</section>
+		<section class="community">
+			<MessageCircle size={28} />
+			<h2>Join the conversation.</h2>
+			<p>Share what you’re making, swap ideas, and ask the community about using OpenPost.</p>
+			<a href={discordCommunityUrl} class="focus-ring"
+				>Join us on Discord <ArrowUpRight size={20} /></a
+			>
+		</section>
+	</div>
+	<div class="contact-more">
+		<div>
+			<h2>Looking for a walkthrough?</h2>
+			<p>
+				The help centre covers your first post, editing images and videos, and planning your
+				schedule.
+			</p>
+			<a href={docsUrl} class="focus-ring">Open the help centre <ArrowUpRight size={16} /></a>
+		</div>
+		<div>
+			<h2>Found a security issue?</h2>
+			<p>Send a private report with the affected page and steps to reproduce it.</p>
+			<a href="mailto:openpost+security@rgo.pt" class="focus-ring"
+				>openpost+security@rgo.pt <ArrowUpRight size={16} /></a
+			>
 		</div>
 	</div>
 </section>
 
-<section class="section-pad">
-	<div class="marketing-shell">
-		<div class="divide-y border-y">
-			{#each contacts as contact (contact.title)}
-				{@const Icon = contact.icon}
-				<article class="grid gap-5 py-7 sm:grid-cols-[3rem_1fr_auto] sm:items-center">
-					<div class="flex size-10 items-center justify-center">
-						<Icon class="size-5 text-primary" aria-hidden="true" />
-					</div>
-					<div>
-						<h2 class="text-xl font-semibold">{contact.title}</h2>
-						<p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{contact.detail}</p>
-					</div>
-					<a
-						class="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary"
-						href={contact.href}
-						target={contact.external ? '_blank' : undefined}
-						rel={contact.external ? 'noreferrer' : undefined}
-					>
-						{contact.label}
-						{#if contact.external}<ExternalLink
-								class="size-4"
-								aria-hidden="true"
-							/>{:else}<ArrowRight class="size-4" aria-hidden="true" />{/if}
-					</a>
-				</article>
-			{/each}
-		</div>
-	</div>
-</section>
-
-<section class="section-pad border-t bg-muted/20">
-	<div class="marketing-shell grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
-		<div>
-			<p class="section-label">Useful context</p>
-			<h2 class="mt-4 text-3xl font-semibold tracking-[-0.03em] text-balance">
-				Help us identify the problem without exposing secrets.
-			</h2>
-		</div>
-		<div>
-			<ul class="divide-y border-y text-sm leading-6 text-muted-foreground">
-				<li class="py-4">State whether you use the Hosted service or a self-hosted instance.</li>
-				<li class="py-4">
-					Include the page or feature, platform, post type, and approximate time.
-				</li>
-				<li class="py-4">
-					Copy the visible error after removing tokens, account IDs, and private content.
-				</li>
-				<li class="py-4">For billing, include the account email but never payment-card details.</li>
-			</ul>
-			<p class="mt-6 text-sm leading-6 text-muted-foreground">
-				OpenPost is operated by Rodrigo Dias, a sole trader in Porto, Portugal. The same operator
-				identity appears in the privacy policy and terms.
-			</p>
-		</div>
-	</div>
-</section>
+<style>
+	.contact {
+		padding-block: 72px;
+	}
+	header {
+		text-align: center;
+	}
+	h1 {
+		font-size: clamp(48px, 6vw, 80px);
+		line-height: 1.1;
+		font-weight: 550;
+		letter-spacing: -0.04em;
+	}
+	header p {
+		font-size: 18px;
+		line-height: 1.7;
+		color: var(--muted-foreground);
+		margin-top: 28px;
+	}
+	.contact-options {
+		display: grid;
+		gap: 24px;
+		margin-top: 64px;
+	}
+	.contact-options section {
+		border-radius: 16px;
+		padding: clamp(24px, 4vw, 48px);
+	}
+	.email {
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+	}
+	.community {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+	}
+	h2 {
+		font-size: 32px;
+		line-height: 1.2;
+		font-weight: 550;
+		letter-spacing: -0.025em;
+		margin-top: 28px;
+	}
+	p {
+		margin-top: 20px;
+		line-height: 1.75;
+		max-width: 58ch;
+	}
+	a {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 44px;
+		margin-top: 20px;
+		text-decoration: underline;
+		text-underline-offset: 5px;
+		border-radius: 4px;
+		overflow-wrap: anywhere;
+	}
+	a :global(svg) {
+		flex-shrink: 0;
+	}
+	small {
+		display: block;
+		margin-top: 12px;
+		line-height: 1.6;
+	}
+	.contact-more {
+		display: grid;
+		gap: 40px;
+		margin-top: 64px;
+	}
+	.contact-more h2 {
+		font-size: 24px;
+		margin-top: 0;
+	}
+	.contact-more p {
+		color: var(--muted-foreground);
+	}
+	.contact-more a {
+		font-size: 14px;
+	}
+	@media (min-width: 800px) {
+		.contact-options,
+		.contact-more {
+			grid-template-columns: 1fr 1fr;
+		}
+		.contact-more {
+			gap: 80px;
+		}
+	}
+</style>

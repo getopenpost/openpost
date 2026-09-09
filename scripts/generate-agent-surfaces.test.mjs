@@ -7,14 +7,12 @@ import test from "node:test";
 
 import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
-import { featureGroups, platforms } from "../apps/marketing/src/routes/_marketing.ts";
 import {
   discoveryDocument,
   generateAgentSurface,
   productionProjections,
   renderOriginVaryHeaders,
 } from "./generate-agent-surfaces.mjs";
-import centralFeatureEvidence from "./public-central-feature-evidence.json" with { type: "json" };
 
 async function runRootTask(root, arguments_, environment = {}) {
   await new Promise((resolve, reject) => {
@@ -507,7 +505,7 @@ test("production discovery gives agents direct interface guidance", () => {
   assert.match(marketing, /https:\/\/docs\.openpo\.st\/openapi\.json/u);
   assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
   assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
-  assert.match(marketing, /https:\/\/openpo\.st\/developers\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
@@ -1555,24 +1553,6 @@ test(
         ? /A card is required at checkout\./u
         : /No card is required at checkout\./u,
     );
-    const features = await readFile(path.join(marketingDirectory, "features.md"), "utf8");
-    assert.match(
-      features,
-      /!\[OpenPost publication composer with destination-specific versions\]\(https:\/\/openpo\.st\/assets\/screenshots\/main-dark\.png\)/u,
-    );
-    assert.deepEqual(
-      featureGroups.map(({ id }) => id).toSorted(),
-      Object.keys(centralFeatureEvidence).toSorted(),
-      "the reviewed central-feature contract must own every feature group exactly once",
-    );
-    for (const [featureID, evidence] of Object.entries(centralFeatureEvidence)) {
-      for (const claim of [evidence.title, evidence.outcome, evidence.boundary]) {
-        assert.ok(
-          features.includes(claim),
-          `features.md must preserve the reviewed ${featureID} product claim: ${claim}`,
-        );
-      }
-    }
     for (const policy of ["privacy", "terms", "refunds"]) {
       const html = await readFile(path.join(marketingDirectory, `${policy}.html`), "utf8");
       const markdown = await readFile(path.join(marketingDirectory, `${policy}.md`), "utf8");

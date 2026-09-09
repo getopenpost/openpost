@@ -1042,7 +1042,7 @@ export const productionProjections = {
             {
               title: "OpenPost developer entry point",
               description: "Choose the HTTP API, CLI, or MCP server for the job.",
-              url: "https://openpo.st/developers.md",
+              url: "https://docs.openpo.st/guides/automation.md",
             },
             {
               title: "OpenAPI JSON",

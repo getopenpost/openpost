@@ -36,7 +36,7 @@ export const marketingGuides = [
         href: "https://docs.postiz.com/general/introduction",
       },
     ],
-    next: { label: "Explore OpenPost features", href: "/features" },
+    next: { label: "Explore OpenPost features", href: "/#features" },
   },
   {
     slug: "turn-product-updates-into-social-media-posts",
@@ -44,7 +44,7 @@ export const marketingGuides = [
     socialDescription:
       "Turn one verified product update into destination-specific social posts, with separate text, media, and calls to action.",
     answer:
-      "Start with a concrete change, explain who it helps, and show the result. Keep one source draft, then adapt its length, opening, media, and call to action for each destination. OpenPost keeps those versions in one Publication; AI can help draft them, but you review the facts and final copy.",
+      "Start with a concrete change, explain who it helps, and show the result. Keep one source draft, then adapt its length, opening, media, and call to action for each destination. OpenPost keeps those versions together. AI can help with a draft, and you choose the final words.",
     sections: [
       {
         title: "Write down the evidence first",
@@ -62,7 +62,7 @@ export const marketingGuides = [
       },
       {
         title: "Keep the versions attached to the same idea",
-        text: "In OpenPost, a Publication holds the source idea and its destination-specific Renditions. Each Rendition can have its own text, media, format, and timing. Start in the composer, select the accounts, and review each destination before scheduling. Buffer's AI Assistant is another option to compare for rewriting and adapting existing text.",
+        text: "Start a draft in OpenPost, choose your accounts, and adjust the words and images for each channel. Your versions stay together, so you can return to the same idea without searching through several apps. Buffer's AI Assistant is another option to compare for rewriting and adapting existing text.",
       },
     ],
     sources: [
@@ -72,7 +72,7 @@ export const marketingGuides = [
       },
       { label: "Buffer AI Assistant", href: "https://buffer.com/ai-assistant" },
     ],
-    next: { label: "See the content workflow", href: "/features" },
+    next: { label: "See the content workflow", href: "/#features" },
   },
   {
     slug: "schedule-social-media-posts-on-multiple-platforms",
@@ -80,18 +80,18 @@ export const marketingGuides = [
     socialDescription:
       "Schedule one source idea across several platforms while checking account permissions, media rules, timezones, and partial failures.",
     answer:
-      "Use a scheduler that supports your exact accounts and formats. Connect the accounts, prepare a version for each destination, confirm the timezone, and schedule a small test. OpenPost models these as one Publication with separate Renditions, so text, media, and timing can differ without losing the shared source idea.",
+      "Use a scheduler that supports your exact accounts and formats. Connect the accounts, prepare a version for each destination, confirm the timezone, and schedule a small test. OpenPost keeps the drafts together while letting you change the text, media, and timing for each channel.",
     sections: [
       {
         title: "Check the account and format, not just the logo",
-        text: "A tool listing Instagram does not establish that every Instagram account type or format works. Check the provider setup, account permissions, app review requirements, and whether the post can publish directly. Confirm these for every destination you plan to use.",
+        text: "A tool listing Instagram does not establish that every Instagram account type or format works. Check the account requirements and whether your chosen post can publish directly. Confirm these for every destination you plan to use.",
       },
       {
         title: "Prepare and inspect every destination",
-        text: "Select the accounts in OpenPost's composer, write the shared draft, and then review each Rendition. Adjust text and media for that account. Choose the schedule and inspect any destination-specific timing before confirming.",
+        text: "Select the accounts in OpenPost's composer, write the shared draft, and then review each version. Adjust text and media for that account. Choose the schedule and inspect any destination-specific timing before confirming.",
         items: [
           "Verify the timezone and calendar date, especially around daylight saving changes.",
-          "Check media dimensions, duration, file size, and public URL requirements.",
+          "Check that your images and videos fit the channel.",
           "Use a small test post before scheduling an important launch.",
           "After publication, inspect the actual provider post and the recorded outcome.",
         ],
@@ -112,89 +112,5 @@ export const marketingGuides = [
       },
     ],
     next: { label: "Check platform support", href: "/platforms" },
-  },
-  {
-    slug: "self-hosted-social-media-schedulers",
-    question: "What social media schedulers can I self-host?",
-    socialDescription:
-      "Compare OpenPost and Postiz self-hosting, including deployment, backups, provider access, maintenance, and media storage.",
-    answer:
-      "OpenPost and Postiz both offer self-hosting. OpenPost's default setup uses one container with SQLite and local media; PostgreSQL is also supported. Compare deployment requirements, provider configuration, backup procedures, and the formats you need. Self-hosting gives you control of the service, while social networks still control API access and publishing rules.",
-    sections: [
-      {
-        title: "Compare operation before installation",
-        text: "OpenPost embeds its web interface in a Go binary and uses database-backed publishing jobs. Its default self-hosted setup keeps the database and media local. Postiz documents a separate self-hosting path as well as its Hosted service. Read each project's current installation instructions before selecting infrastructure.",
-      },
-      {
-        title: "You still need provider access",
-        text: "Running the application does not grant permission to publish to a social network. You may need provider applications, OAuth configuration, approved permissions, and publicly accessible media. Check the requirements for each account and format you intend to use.",
-      },
-      {
-        title: "Own the maintenance plan",
-        text: "Before relying on scheduled posts, make sure you can restore the service after a failure.",
-        items: [
-          "Back up the database, media, and required configuration securely.",
-          "Test a restore on a separate instance before you need it.",
-          "Configure HTTPS and the public application and media URLs.",
-          "Review the upgrade instructions and provider changes.",
-          "Compare software license obligations and infrastructure costs with Hosted pricing.",
-        ],
-      },
-    ],
-    sources: [
-      {
-        label: "OpenPost installation",
-        href: "https://docs.openpo.st/self-hosting/",
-      },
-      {
-        label: "OpenPost source and license",
-        href: "https://github.com/getopenpost/openpost",
-      },
-      {
-        label: "Postiz introduction",
-        href: "https://docs.postiz.com/general/introduction",
-      },
-    ],
-    next: { label: "Compare Hosted and self-hosted", href: "/self-hosting" },
-  },
-  {
-    slug: "social-media-tools-with-api-and-mcp",
-    question: "Which social media tools have an API and MCP server?",
-    socialDescription:
-      "Compare social publishing through APIs, CLIs, and MCP servers, including authentication, workspace access, review, and failure handling.",
-    answer:
-      "OpenPost and Postiz document API, CLI, and MCP access. OpenPost uses the same posts, workspace permissions, and account boundaries across its app and automation interfaces. Choose based on the operations you need, authentication, supported destinations, and how you inspect failures, rather than the presence of an MCP badge.",
-    sections: [
-      {
-        title: "Choose the interface for the job",
-        text: "Use an HTTP API for an application integration, a CLI for scripts and terminal work, and MCP when your assistant supports connecting to that server. These are ways to operate the publishing service; they do not remove social-network permissions or format limits.",
-      },
-      {
-        title: "Test the complete operation",
-        text: "A useful evaluation starts with a draft and ends with an inspectable result. In OpenPost, review the API or MCP documentation for authentication and supported operations, choose the intended workspace and account, create a draft, and inspect it in the app before allowing publication.",
-        items: [
-          "Can the integration access only the intended workspace and accounts?",
-          "Can you inspect and edit the draft before it publishes?",
-          "Can you retrieve the final state and understand provider failures?",
-          "Can you revoke access without sharing social account passwords?",
-        ],
-      },
-      {
-        title: "Keep publication deliberate",
-        text: "Give an automation only the access its job requires. Start with a draft-producing workflow, review the destination and timing, and enable publishing only when you have tested it. Neither API nor MCP access proves that a particular provider is ready for your account.",
-      },
-    ],
-    sources: [
-      {
-        label: "OpenPost API reference",
-        href: "https://docs.openpo.st/api-reference",
-      },
-      { label: "OpenPost MCP guide", href: "https://docs.openpo.st/guides/automation" },
-      {
-        label: "Postiz introduction",
-        href: "https://docs.postiz.com/general/introduction",
-      },
-    ],
-    next: { label: "Explore OpenPost automation", href: "/developers" },
   },
 ];

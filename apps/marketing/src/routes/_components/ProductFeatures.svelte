@@ -36,10 +36,10 @@
 			link: 'See inbox support'
 		},
 		{
-			title: 'API, MCP, and CLI',
+			title: 'Connect your tools',
 			icon: Terminal,
-			text: 'Draft and schedule from your scripts, AI tools, or n8n. Inspect the same publications and results.',
-			href: '/developers',
+			text: 'Bring OpenPost into the tools you already use. Draft with your AI assistant or connect a workflow in n8n.',
+			href: 'https://docs.openpo.st/guides/automation',
 			link: 'Connect your tools'
 		},
 		{
@@ -52,7 +52,7 @@
 	];
 </script>
 
-<section class="product-features marketing-shell" aria-labelledby="features-title">
+<section id="features" class="product-features marketing-shell" aria-labelledby="features-title">
 	<div class="section-heading">
 		<h2 id="features-title">From the first idea<br />to the next conversation.</h2>
 		<p>Write, schedule, publish, and follow up.<br />Keep it all in one workspace.</p>

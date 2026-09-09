@@ -204,7 +204,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
 
   const { token } = await registerUser(
     request,
-    `editor-chrome-color-${testInfo.repeatEachIndex}@example.com`,
+    `editor-chrome-color-${testInfo.repeatEachIndex}-${testInfo.retry}@example.com`,
   );
   const workspace = await createWorkspace(request, token, "Shared editor chrome");
   await authenticatePage(page, token);
@@ -352,10 +352,15 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
             position: { x: curveBounds!.width / 2, y: curveBounds!.height / 4 },
           });
           await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
+          await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           await page.getByRole("button", { name: /^Undo/ }).click();
           await expect(curve.locator("[data-curve-point]")).toHaveCount(points);
+          await expect.poll(() => designCanvasCenterPixel(page)).toEqual(originalPixel);
           await page.getByRole("button", { name: /^Redo/ }).click();
+          await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
+          const curvedPixel = await designCanvasCenterPixel(page);
           await offset.press("End");
+          await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(curvedPixel);
           const advancedPixel = await designCanvasCenterPixel(page);
           await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
             "data-state",

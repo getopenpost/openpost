@@ -196,7 +196,7 @@ export async function importFile(
 				...sourceIdentity,
 				fileName: file.name,
 				fileSize: file.size,
-				mimeType: file.type || 'application/octet-stream',
+				mimeType: probe.mimeType ?? (file.type || 'application/octet-stream'),
 				duration: probe.durationSeconds,
 				width: probe.width,
 				height: probe.height,

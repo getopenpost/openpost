@@ -27,8 +27,11 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 	options: CloudProjectAssetFileOptions<TDocument>
 ): Promise<MediaMetadata | null> {
 	const source = fileWithInferredMediaType(options.file);
-	const file = await prepareMediaImportFile(source);
+	let file = await prepareMediaImportFile(source);
 	const probe = await probeMediaFile(file);
+	if (probe.mimeType && probe.mimeType !== file.type) {
+		file = new File([file], file.name, { type: probe.mimeType, lastModified: file.lastModified });
+	}
 	if (probe.audioCodecSupported === false) {
 		const decision = await options.onUnsupportedAudio?.({
 			fileName: file.name,

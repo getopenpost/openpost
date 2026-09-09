@@ -15,6 +15,7 @@ import type { VideoFrameRateMetrics } from './types';
 import { probeVideoFrameRate } from './video-frame-rate';
 
 export interface MediaProbeResult {
+	mimeType?: string;
 	durationSeconds: number;
 	width: number;
 	height: number;
@@ -163,6 +164,7 @@ async function probeAnimatedImage(file: File): Promise<AnimationProbe | null> {
 
 self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 	const { id, file } = event.data;
+	let input: Input | undefined;
 	try {
 		const kind: MediaProbeResult['kind'] = file.type.startsWith('audio/')
 			? 'audio'
@@ -207,10 +209,19 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			return;
 		}
 
-		const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
+		input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 		const duration = await input.computeDuration();
 		const videoTrack = await input.getPrimaryVideoTrack();
 		const audioTrack = await input.getPrimaryAudioTrack();
+		if (!videoTrack && !audioTrack) {
+			throw new Error('The file does not contain a usable video or audio track.');
+		}
+		const mediaKind = videoTrack ? 'video' : 'audio';
+		const format = await input.getFormat();
+		const mimeType =
+			mediaKind === 'audio'
+				? format.mimeType.replace(/^video\//, 'audio/').replace('application/ogg', 'audio/ogg')
+				: format.mimeType;
 
 		let fps = 30;
 		let frameRateMetrics: VideoFrameRateMetrics | undefined;
@@ -245,11 +256,12 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			: undefined;
 
 		const result: MediaProbeResult = {
-			kind,
+			kind: mediaKind,
+			mimeType,
 			durationSeconds: duration || 0,
 			width,
 			height,
-			fps: kind === 'audio' ? 0 : fps,
+			fps: mediaKind === 'audio' ? 0 : fps,
 			frameRateMetrics,
 			videoCodec: videoCodec ?? undefined,
 			videoCodecSupported,
@@ -261,13 +273,13 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			hasAudio: Boolean(audioTrack)
 		};
 		self.postMessage({ id, ok: true, result });
-		// SAFETY: probe inputs implement dispose when the build supports it.
-		input.dispose?.();
 	} catch (error) {
 		self.postMessage({
 			id,
 			ok: false,
 			error: error instanceof Error ? error.message : String(error)
 		});
+	} finally {
+		input?.dispose();
 	}
 };

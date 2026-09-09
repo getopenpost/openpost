@@ -160,7 +160,7 @@ func (s *Service) analyze(ctx context.Context, mediaID string) error {
 	if err != nil {
 		return s.failAnalysis(ctx, media.ID, err)
 	}
-	if err := s.persistResult(ctx, media.ID, posterKey, result); err != nil {
+	if err := s.persistResult(ctx, media, posterKey, result); err != nil {
 		return s.failAnalysis(ctx, media.ID, err)
 	}
 	return nil
@@ -209,7 +209,8 @@ func (s *Service) analyzeMedia(ctx context.Context, media models.MediaAttachment
 	if result.AnalysisStatus != "" && result.AnalysisStatus != mediaanalysis.AnalysisStatusReady {
 		return mediaanalysis.Result{}, errors.New(firstNonEmpty(result.AnalysisError, "video analysis did not complete"))
 	}
-	if result.Width <= 0 || result.Height <= 0 || result.DurationMS <= 0 {
+	audioOnly := result.DominantType == "audio" && result.AudioCodec != ""
+	if result.DurationMS <= 0 || (!audioOnly && (result.Width <= 0 || result.Height <= 0)) {
 		return mediaanalysis.Result{}, errors.New("video analysis returned incomplete dimensions or duration")
 	}
 	if err := s.setProgress(ctx, media.ID, 70); err != nil {
@@ -232,10 +233,14 @@ func (s *Service) savePoster(ctx context.Context, media models.MediaAttachment, 
 
 func (s *Service) persistResult(
 	ctx context.Context,
-	mediaID string,
+	media models.MediaAttachment,
 	posterKey string,
 	result mediaanalysis.Result,
 ) error {
+	mimeType := media.MimeType
+	if result.DominantType == "audio" {
+		mimeType = "audio/" + strings.TrimPrefix(mimeType, "video/")
+	}
 	_, err := s.db.NewUpdate().
 		Model((*models.MediaAttachment)(nil)).
 		Set("processing_status = ?", statusReady).
@@ -247,7 +252,8 @@ func (s *Service) persistResult(
 		Set("duration_ms = ?", result.DurationMS).
 		Set("frame_rate = ?", result.FrameRate).
 		Set("aspect_ratio = ?", result.AspectRatio).
-		Set("dominant_type = ?", "video").
+		Set("dominant_type = ?", firstNonEmpty(result.DominantType, "video")).
+		Set("mime_type = ?", mimeType).
 		Set("container_format = ?", result.ContainerFormat).
 		Set("video_codec = ?", result.VideoCodec).
 		Set("video_profile = ?", result.VideoProfile).
@@ -258,7 +264,7 @@ func (s *Service) persistResult(
 		Set("rotation = ?", result.Rotation).
 		Set("audio_channels = ?", result.AudioChannels).
 		Set("thumbnail_object_key = ?", posterKey).
-		Where("id = ?", mediaID).
+		Where("id = ?", media.ID).
 		Exec(ctx)
 	return err
 }

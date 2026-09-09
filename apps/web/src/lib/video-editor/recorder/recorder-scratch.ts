@@ -1,3 +1,4 @@
+import { recordingExtension } from './record-mime';
 import { createLogger } from '../workspace-fs/logger';
 
 const logger = createLogger('RecorderScratch');
@@ -137,7 +138,7 @@ class OpfsSink implements ScratchSink {
 		if (!this.handle) throw new Error('Missing handle');
 		const file = await this.handle.getFile();
 		// Return as File with correct mime
-		return new File([file], `${this.id}.${this.kind}.webm`, {
+		return new File([file], `${this.id}.${this.kind}.${recordingExtension(this.mimeType)}`, {
 			type: this.mimeType || file.type,
 			lastModified: Date.now()
 		});
@@ -220,7 +221,7 @@ class MemoryFallbackSink implements ScratchSink {
 		// Memory fallback still returns a File assembled from bounded parts.
 		// This is bounded by MAX_FALLBACK_* so never unbounded.
 		const blob = new Blob(this.parts, { type: this.mimeType });
-		return new File([blob], `${this.id}.${this.kind}.webm`, {
+		return new File([blob], `${this.id}.${this.kind}.${recordingExtension(this.mimeType)}`, {
 			type: this.mimeType,
 			lastModified: Date.now()
 		});
@@ -436,10 +437,14 @@ export async function loadRecoverableScratchSessions(): Promise<RecoveredScratch
 					0,
 					Date.now() - manifest.createdAt - artifact.startOffsetMs
 				);
-				const blob = new File([stored], `${artifact.scratchId}.webm`, {
-					type: artifact.mimeType || stored.type,
-					lastModified: stored.lastModified
-				});
+				const blob = new File(
+					[stored],
+					`${artifact.scratchId}.${recordingExtension(artifact.mimeType)}`,
+					{
+						type: artifact.mimeType || stored.type,
+						lastModified: stored.lastModified
+					}
+				);
 				artifacts.push({
 					...artifact,
 					blob,

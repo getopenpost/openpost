@@ -6,6 +6,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { showToast } from '$lib/toast';
+	import { recordingExtension } from '../recorder/record-mime';
 	import {
 		recorder as defaultRecorder,
 		ScreenCaptureRecorder,
@@ -64,6 +65,7 @@
 	let autoGainControl = $state(savedPreferences.autoGainControl);
 	let cursorMode = $state(savedPreferences.cursorMode);
 	let inserting = $state(false);
+	let importError = $state<string | null>(null);
 	let destinationVersion = 0;
 	let mounted = true;
 	let pendingCapture = $state<{
@@ -283,7 +285,7 @@
 		return {
 			kind: artifact.kind,
 			url: URL.createObjectURL(artifact.blob),
-			name: `recording-${artifact.kind}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.webm`,
+			name: `recording-${artifact.kind}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${recordingExtension(artifact.mimeType || artifact.blob.type)}`,
 			scratchId: artifact.scratchId,
 			capture: artifact.capture ?? undefined
 		};
@@ -336,6 +338,7 @@
 	});
 
 	async function handleStart(): Promise<void> {
+		importError = null;
 		if (!hasSelection) {
 			showToast(m.video_editor_recording_failed(), 'error');
 			return;
@@ -388,6 +391,7 @@
 		destination: ReturnType<typeof recordingDestination>
 	): Promise<void> {
 		inserting = true;
+		importError = null;
 		try {
 			const result = await insertRecordingArtifacts(
 				destination.id,
@@ -401,8 +405,11 @@
 			showToast(m.video_editor_recording_inserted(), 'success');
 			await recorder.discardArtifacts(artifacts);
 			if (destination.isCurrent()) onopenchange(false);
-		} catch {
-			if (destination.isCurrent()) showToast(m.video_editor_recording_failed(), 'error');
+		} catch (error) {
+			if (destination.isCurrent()) {
+				importError = error instanceof Error ? error.message : m.video_editor_recording_failed();
+				showToast(m.video_editor_recording_failed(), 'error');
+			}
 		} finally {
 			inserting = false;
 		}
@@ -417,6 +424,7 @@
 	async function handleRecover(): Promise<void> {
 		if (captureBusy || inserting || recorder.lastArtifacts.length === 0) return;
 		inserting = true;
+		importError = null;
 		const destination = recordingDestination();
 		const insertedScratchIds = new Set<string>();
 		try {
@@ -442,7 +450,8 @@
 				editorSession.scheduleAutosave();
 			}
 			showToast(m.video_editor_recording_inserted(), 'success');
-		} catch {
+		} catch (error) {
+			importError = error instanceof Error ? error.message : m.video_editor_recording_failed();
 			showToast(m.video_editor_recording_failed(), 'error');
 		} finally {
 			for (const recovery of recoveryUrls) {
@@ -454,6 +463,7 @@
 	}
 
 	async function handleDiscardRecovery(): Promise<void> {
+		importError = null;
 		await recorder.clearRecoverableAndDiscard();
 		recoveryUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
 		recoveryUrls = [];
@@ -799,6 +809,15 @@
 					</div>
 				{/if}
 			</fieldset>
+
+			{#if importError}
+				<p
+					role="alert"
+					class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs break-words text-destructive"
+				>
+					{importError}
+				</p>
+			{/if}
 
 			<!-- Countdown / Progress -->
 			{#if requestingActive}

@@ -6,6 +6,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
+	import { recordingExtension } from '$lib/video-editor/recorder/record-mime';
 	import {
 		ScreenCaptureRecorder,
 		listRecorderDevices,
@@ -141,7 +142,7 @@
 				if (!mounted) return;
 				lastDownloads = artifacts.map((artifact) => ({
 					url: URL.createObjectURL(artifact.blob),
-					name: `recording-${artifact.kind}-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`,
+					name: `recording-${artifact.kind}-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${recordingExtension(artifact.mimeType || artifact.blob.type)}`,
 					kind: artifact.kind,
 					size: artifact.sizeBytes,
 					scratchId: artifact.scratchId
@@ -208,7 +209,7 @@
 				return;
 			}
 			const downloads = artifacts.map((a) => {
-				const ext = a.mimeType.includes('ogg') ? 'ogg' : 'webm';
+				const ext = recordingExtension(a.mimeType || a.blob.type);
 				const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 				const name = `recording-${a.kind}-${stamp}.${ext}`;
 				const url = URL.createObjectURL(a.blob);

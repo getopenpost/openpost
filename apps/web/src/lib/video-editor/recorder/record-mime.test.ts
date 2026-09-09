@@ -37,6 +37,14 @@ describe('record-mime helpers', () => {
 		expect(pickAudioMimeType()).toBe('');
 	});
 
+	it('records when the browser supports MP4 but not WebM', () => {
+		vi.stubGlobal('MediaRecorder', {
+			isTypeSupported: (type: string) => type === 'video/mp4' || type === 'audio/mp4'
+		});
+		expect(pickVideoMimeType()).toBe('video/mp4');
+		expect(pickAudioMimeType()).toBe('audio/mp4');
+	});
+
 	it('maps DOMException names to stable error codes', () => {
 		expect(mapRecorderError(new DOMException('', 'NotAllowedError'))).toBe('permission-denied');
 		expect(mapRecorderError(new DOMException('', 'NotFoundError'))).toBe('no-device');

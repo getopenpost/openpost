@@ -115,17 +115,24 @@ func (a FFmpegAnalyzer) Analyze(ctx context.Context, input Input) (Result, error
 	if err != nil {
 		return failedVideoResult(err), err
 	}
-	video, _, _ := primaryStreams(probe.Streams)
-	if video != nil && parsePositiveFloat(video.Duration) <= 0 && parsePositiveFloat(probe.Format.Duration) <= 0 {
-		duration, durationErr := a.recordingDuration(ctx, input.Filename, parseFrameRate(video.AvgFrameRate))
+	video, audio := primaryStreams(probe.Streams)
+	primary, selector := video, "v:0"
+	if primary == nil {
+		primary, selector = audio, "a:0"
+	}
+	if primary != nil && parsePositiveFloat(primary.Duration) <= 0 && parsePositiveFloat(probe.Format.Duration) <= 0 {
+		duration, durationErr := a.recordingDuration(ctx, input.Filename, selector, parseFrameRate(primary.AvgFrameRate))
 		if durationErr != nil {
 			return failedVideoResult(durationErr), durationErr
 		}
-		video.Duration = strconv.FormatFloat(duration, 'f', -1, 64)
+		primary.Duration = strconv.FormatFloat(duration, 'f', -1, 64)
 	}
 	result, durationSeconds, err := resultFromProbe(probe)
 	if err != nil {
 		return failedVideoResult(err), err
+	}
+	if result.DominantType == "audio" {
+		return result, nil
 	}
 	if poster, posterErr := a.renderPoster(ctx, input.Filename, durationSeconds); posterErr == nil {
 		result.PosterMIMEType = "image/jpeg"
@@ -136,7 +143,7 @@ func (a FFmpegAnalyzer) Analyze(ctx context.Context, input Input) (Result, error
 
 // Streaming WebM recordings omit duration metadata. Read packet timestamps without
 // decoding frames or retaining a recording-sized packet list in memory.
-func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename string, frameRate float64) (float64, error) {
+func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename, selector string, frameRate float64) (float64, error) {
 	ffprobe := a.FFprobePath
 	if ffprobe == "" {
 		ffprobe = "ffprobe"
@@ -147,7 +154,7 @@ func (a FFmpegAnalyzer) recordingDuration(ctx context.Context, filename string, 
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(probeCtx, ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time,duration_time", "-of", "csv=p=0", filename)
+	cmd := exec.CommandContext(probeCtx, ffprobe, "-v", "error", "-select_streams", selector, "-show_entries", "packet=pts_time,duration_time", "-of", "csv=p=0", filename)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return 0, err
@@ -235,16 +242,35 @@ func (a FFmpegAnalyzer) probe(ctx context.Context, filename string) (probeOutput
 }
 
 func resultFromProbe(probe probeOutput) (Result, float64, error) {
-	videoStream, audioCodec, audioChannels := primaryStreams(probe.Streams)
-	if videoStream == nil {
-		return Result{}, 0, errors.New("no video stream found")
+	videoStream, audioStream := primaryStreams(probe.Streams)
+	primary := videoStream
+	if primary == nil {
+		primary = audioStream
 	}
-	durationSeconds := parsePositiveFloat(videoStream.Duration)
+	if primary == nil {
+		return Result{}, 0, errors.New("no video or audio stream found")
+	}
+	durationSeconds := parsePositiveFloat(primary.Duration)
 	if durationSeconds <= 0 {
 		durationSeconds = parsePositiveFloat(probe.Format.Duration)
 	}
 	if durationSeconds <= 0 {
 		return Result{}, 0, errors.New("video duration is unavailable")
+	}
+	if videoStream == nil {
+		return Result{
+			DurationMS:      int64(durationSeconds * 1000),
+			ContainerFormat: strings.Split(probe.Format.FormatName, ",")[0],
+			AudioCodec:      audioStream.CodecName,
+			AudioChannels:   audioStream.Channels,
+			BitRate:         parsePositiveInt64(firstNonEmpty(audioStream.BitRate, probe.Format.BitRate)),
+			AnalysisStatus:  AnalysisStatusReady,
+			DominantType:    "audio",
+		}, durationSeconds, nil
+	}
+	audioCodec, audioChannels := "", 0
+	if audioStream != nil {
+		audioCodec, audioChannels = audioStream.CodecName, audioStream.Channels
 	}
 	width, height := displayDimensions(videoStream)
 	result := Result{
@@ -268,10 +294,8 @@ func resultFromProbe(probe probeOutput) (Result, float64, error) {
 	return result, durationSeconds, nil
 }
 
-func primaryStreams(streams []probeStream) (*probeStream, string, int) {
-	var videoStream *probeStream
-	audioCodec := ""
-	audioChannels := 0
+func primaryStreams(streams []probeStream) (*probeStream, *probeStream) {
+	var videoStream, audioStream *probeStream
 	for i := range streams {
 		stream := &streams[i]
 		switch stream.CodecType {
@@ -280,13 +304,12 @@ func primaryStreams(streams []probeStream) (*probeStream, string, int) {
 				videoStream = stream
 			}
 		case "audio":
-			if audioCodec == "" {
-				audioCodec = stream.CodecName
-				audioChannels = stream.Channels
+			if audioStream == nil {
+				audioStream = stream
 			}
 		}
 	}
-	return videoStream, audioCodec, audioChannels
+	return videoStream, audioStream
 }
 
 func displayDimensions(videoStream *probeStream) (int, int) {

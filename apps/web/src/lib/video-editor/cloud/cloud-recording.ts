@@ -7,6 +7,7 @@ import { hashBlob } from '../project-bundle/bundle-utils';
 import { probeMediaFile } from '../media/probe-client';
 import { importCloudProjectAssetFile } from './import-project-assets';
 import { CloudVideoProjectRepository } from './project-repository';
+import { recordingExtension } from '../recorder/record-mime';
 
 export type RecorderCloudDocument = ReturnType<typeof createCapturedVideoProjectDocumentFromAssets>;
 
@@ -64,16 +65,10 @@ const defaultRuntime: RecorderCloudRuntime = {
 	}
 };
 
-function extension(mimeType: string): string {
-	if (mimeType.includes('ogg')) return 'ogg';
-	if (mimeType.includes('mp4')) return 'mp4';
-	return 'webm';
-}
-
 function artifactFile(artifact: CaptureArtifact, timestamp: string): File {
 	return new File(
 		[artifact.blob],
-		`recording-${artifact.kind}-${timestamp}.${extension(artifact.mimeType)}`,
+		`recording-${artifact.kind}-${timestamp}.${recordingExtension(artifact.mimeType || artifact.blob.type)}`,
 		{ type: artifact.mimeType || artifact.blob.type, lastModified: Date.now() }
 	);
 }

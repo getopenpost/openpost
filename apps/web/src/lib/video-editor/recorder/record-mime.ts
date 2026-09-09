@@ -2,14 +2,24 @@
 export const VIDEO_MIME_CANDIDATES = [
 	'video/webm;codecs=vp9,opus',
 	'video/webm;codecs=vp8,opus',
-	'video/webm'
+	'video/webm',
+	'video/mp4'
 ] as const;
 
 export const AUDIO_MIME_CANDIDATES = [
 	'audio/webm;codecs=opus',
 	'audio/webm',
-	'audio/ogg;codecs=opus'
+	'audio/ogg;codecs=opus',
+	'audio/mp4'
 ] as const;
+
+export function recordingExtension(mimeType: string): string {
+	const type = mimeType.split(';', 1)[0]?.trim().toLowerCase();
+	if (type === 'audio/ogg' || type === 'video/ogg') return 'ogg';
+	if (type === 'audio/mp4') return 'm4a';
+	if (type === 'video/mp4') return 'mp4';
+	return 'webm';
+}
 
 export type RecorderVideoResolution = '720p' | '1080p' | '2160p';
 export type RecorderVideoFrameRate = 24 | 30 | 60;

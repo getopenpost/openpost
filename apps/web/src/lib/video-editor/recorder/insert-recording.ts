@@ -6,6 +6,7 @@ import { importGeneratedVideo, importRecordedAudio } from '../media/import.svelt
 import { rollbackNewGeneratedMedia } from '../media/import.svelte';
 import type { CaptureArtifact, RecorderKind } from './recorder.svelte';
 import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
+import { recordingExtension } from './record-mime';
 
 const logger = createLogger('InsertRecording');
 
@@ -47,13 +48,6 @@ function recorderKindToTrackName(kind: RecorderKind, index: number): string {
 
 function trackKindForRecorder(kind: RecorderKind): TimelineTrack['kind'] {
 	return kind === 'microphone' ? 'audio' : 'video';
-}
-
-function mimeExtension(mimeType: string): string {
-	if (mimeType.includes('ogg')) return 'ogg';
-	if (mimeType.includes('mp4')) return 'mp4';
-	if (mimeType.includes('audio')) return 'webm';
-	return 'webm';
 }
 
 function captureMetadataForArtifact(
@@ -104,7 +98,7 @@ export async function insertRecordingArtifacts(
 	try {
 		for (const artifact of artifacts) {
 			const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-			const ext = mimeExtension(artifact.mimeType);
+			const ext = recordingExtension(artifact.mimeType || artifact.blob.type);
 			const kindLabel = artifact.kind;
 			const fileName = `recording-${kindLabel}-${stamp}.${ext}`;
 			const file = new File([artifact.blob], fileName, {

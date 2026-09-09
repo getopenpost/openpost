@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	"github.com/uptrace/bun"
 )
@@ -29,7 +30,7 @@ type Ledger interface {
 	AppendRuntimeControl(context.Context, RuntimeControlEvent) error
 }
 
-// AuthorizationSource resolves the canonical provider grant attached to an
+// AuthorizationSource resolves the canonical grant or bot installation for an
 // account. It is intentionally separate from Ledger so pure evaluation tests
 // can use a fact-only ledger while runtime callers share one authorization
 // boundary.
@@ -53,6 +54,9 @@ func (r *Repository) AuthorizationForAccount(
 	if r == nil || r.db == nil {
 		return AuthorizationEvidence{}, errors.New("provider readiness repository is unavailable")
 	}
+	if account.Platform == capabilities.ProviderTelegram {
+		return r.telegramAuthorization(ctx, account, now)
+	}
 	if strings.TrimSpace(account.OAuthGrantID) == "" {
 		return AuthorizationForAccount(account, nil, now), nil
 	}
@@ -71,6 +75,30 @@ func (r *Repository) AuthorizationForAccount(
 		return AuthorizationEvidence{}, fmt.Errorf("load provider authorization: %w", err)
 	}
 	return AuthorizationForAccount(account, &grant, now), nil
+}
+
+// Telegram grants posting access to the installed bot, without a user OAuth grant.
+func (r *Repository) telegramAuthorization(ctx context.Context, account models.SocialAccount, now time.Time) (AuthorizationEvidence, error) {
+	denied := AuthorizationForAccount(account, nil, now)
+	if !account.IsActive {
+		return denied, nil
+	}
+	var connection models.TelegramConnection
+	err := r.db.NewSelect().Model(&connection).
+		Where("social_account_id = ?", account.ID).
+		Where("workspace_id = ?", account.WorkspaceID).
+		Where("chat_id = ?", account.AccountID).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return denied, nil
+	}
+	if err != nil {
+		return AuthorizationEvidence{}, fmt.Errorf("load Telegram installation authorization: %w", err)
+	}
+	if connection.InstalledAt.IsZero() || connection.PermissionsVerifiedAt.IsZero() {
+		return denied, nil
+	}
+	return AuthorizationEvidence{State: AuthorizationStateValid, ValidatedAt: connection.PermissionsVerifiedAt}, nil
 }
 
 func (r *Repository) LatestApprovalReview(ctx context.Context, subject Subject) (*ApprovalReview, error) {

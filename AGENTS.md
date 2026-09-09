@@ -73,6 +73,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 - Image layers without `color_grade_version` retain legacy Fabric adjustments. Version 1 routes layer and page-output grading through the shared editor color pipeline and the Fabric preview/export adapter. Never migrate legacy layers implicitly.
 - A Video Editor sequence grade is one `sequenceColorGrade` adjustment item on its dedicated locked track. The timeline store keeps it over the full sequence range, and preview/export apply it once after compositing. Never treat it as an item-scoped adjustment layer.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.
+- Telegram authorization comes from its verified installation for the same account, workspace, and chat. Do not require a user OAuth grant for bot-token publishing.
 
 ## Execution
 

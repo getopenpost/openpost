@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "アカウントを再読み込み",
 	"accounts_telegram_chat_id": "TelegramチャットID",
 	"accounts_telegram_generate": "接続コマンドを取得",
-	"accounts_telegram_chat_id_help": "Telegram Web Aでチャンネルまたはグループを開きます。アドレスの#の後にある数字をマイナス記号も含めてコピーしてください。アンダースコア以降は含めません。"
+	"accounts_telegram_chat_id_help": "Telegram Web Aでチャンネルまたはグループを開きます。アドレスの#の後にある数字をマイナス記号も含めてコピーしてください。アンダースコア以降は含めません。",
+	"editor_start_image_title": "画像エディター",
+	"editor_start_video_title": "動画エディター",
+	"editor_start_image_description": "画像を開くか、空白のキャンバスから始めましょう。",
+	"editor_start_video_description": "動画を作成して、クリップ、画像、録画を追加しましょう。",
+	"editor_start_new_project": "新規プロジェクト",
+	"editor_start_custom_project": "カスタムプロジェクト",
+	"editor_start_workspace_image_description": "空白のキャンバスから始めるか、テンプレートを選びましょう。"
 }

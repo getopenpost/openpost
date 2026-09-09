@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "Reload accounts",
 	"accounts_telegram_chat_id": "Telegram chat ID",
 	"accounts_telegram_generate": "Get connection command",
-	"accounts_telegram_chat_id_help": "Open your channel or group in Telegram Web A. Copy the number after # in the address, including the minus sign, and stop before any underscore."
+	"accounts_telegram_chat_id_help": "Open your channel or group in Telegram Web A. Copy the number after # in the address, including the minus sign, and stop before any underscore.",
+	"editor_start_image_title": "Image Editor",
+	"editor_start_video_title": "Video Editor",
+	"editor_start_image_description": "Open an image or start with a blank canvas.",
+	"editor_start_video_description": "Start a video, then add clips, images, or a recording.",
+	"editor_start_new_project": "New project",
+	"editor_start_custom_project": "Custom project",
+	"editor_start_workspace_image_description": "Start with a blank canvas or choose a template."
 }

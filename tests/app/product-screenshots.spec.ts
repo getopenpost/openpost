@@ -853,7 +853,7 @@ async function createVideoEditorProject(page: Page, name: string): Promise<void>
   await page.getByRole("button", { name: "Local only", exact: true }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill(name);
   await page.getByRole("button", { name: /YouTube, 1920 × 1080/u }).click();
   await page.getByRole("button", { name: "Create", exact: true }).click();

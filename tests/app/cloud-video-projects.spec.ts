@@ -25,7 +25,10 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
 
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Cross-device launch");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("textbox", { name: "Project name" }).press("Tab");
+  await expect(
+    page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+\?storage=cloud$/u);
   const projectId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
@@ -134,7 +137,10 @@ test("lists a saved Cloud Video Project after returning from the editor", async 
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Return to project");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("textbox", { name: "Project name" }).press("Tab");
+  await expect(
+    page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+\?storage=cloud$/u);
   await page.goto("/video-editor");
   await expect(page.getByRole("heading", { name: "Return to project" })).toBeVisible();

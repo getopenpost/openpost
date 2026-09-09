@@ -5,7 +5,10 @@ async function newProject(page: Page, name: string) {
   if (new URL(page.url()).pathname !== "/video-editor") await page.goto("/video-editor");
   await page.getByRole("button", { name: "New project", exact: true }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill(name);
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("textbox", { name: "Project name" }).press("Tab");
+  await expect(
+    page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 

@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "계정 새로고침",
 	"accounts_telegram_chat_id": "Telegram 채팅 ID",
 	"accounts_telegram_generate": "연결 명령어 받기",
-	"accounts_telegram_chat_id_help": "Telegram Web A에서 채널이나 그룹을 여세요. 주소의 # 뒤 숫자를 마이너스 부호와 함께 복사하세요. 밑줄 이후는 제외하세요."
+	"accounts_telegram_chat_id_help": "Telegram Web A에서 채널이나 그룹을 여세요. 주소의 # 뒤 숫자를 마이너스 부호와 함께 복사하세요. 밑줄 이후는 제외하세요.",
+	"editor_start_image_title": "이미지 편집기",
+	"editor_start_video_title": "동영상 편집기",
+	"editor_start_image_description": "이미지를 열거나 빈 캔버스로 시작하세요.",
+	"editor_start_video_description": "동영상을 만들고 클립, 이미지 또는 녹화본을 추가하세요.",
+	"editor_start_new_project": "새 프로젝트",
+	"editor_start_custom_project": "사용자 지정 프로젝트",
+	"editor_start_workspace_image_description": "빈 캔버스로 시작하거나 템플릿을 선택하세요."
 }

@@ -1,10 +1,3 @@
-<!--
-THESIS: Public OpenPost Image Editor is a local workbench that starts with making, not an authentication pitch.
-OWN-WORLD: OpenPost warm neutrals, compact Geist controls, structural borders, and one scarce orange action signal.
-STORY: Choose a social format, open a local image, or use a template; edit and export; save to OpenPost only when cloud value matters.
-FIRST VIEWPORT: A quiet product header, direct promise, image-import action, and real social-format choices, with recent local work leading for returning visitors.
-FORM: Operate surface extending the established OpenPost Image Editor start screen; no marketing hero, editor fork, watermark, or export gate.
--->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -21,8 +14,8 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
-	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
-	import Logo from '$lib/components/Logo.svelte';
+	import EditorStart from '$lib/components/editor-start.svelte';
+	import EditorFormatButton from '$lib/components/editor-format-button.svelte';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
 	import { imageEditorQueryAPI } from '$lib/query/image-editor';
 	import {
@@ -61,6 +54,9 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	let enabled = $derived(configQuery.data?.enabled ?? true);
 	let presets = $derived<ImageEditorPreset[]>(configQuery.data?.presets ?? []);
 	let templates = $derived<ImageEditorTemplate[]>(templatesQuery.data ?? []);
+	let blankPreset = $derived(
+		presets.find((preset) => preset.key === 'instagram-square') ?? presets[0]
+	);
 	let loading = $derived(
 		localLoading ||
 			(configQuery.isPending && !configQuery.data) ||
@@ -278,67 +274,50 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 </svelte:head>
 
 <div class="image-editor-theme min-h-dvh bg-background text-foreground">
-	<header class="border-b bg-background">
-		<div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
-			<a
-				href={resolveAppPath('/')}
-				class="flex min-h-11 items-center"
-				aria-label={m.common_openpost()}
-			>
-				<Logo width={112} height={33} />
-			</a>
-			<span class="hidden text-sm text-muted-foreground sm:inline">/ {m.image_editor_title()}</span>
-			<div class="ml-auto flex items-center gap-1.5">
-				<LanguageSwitcher compact />
-				{#if authState.isAuthenticated}
-					<Button href="/image-editor/new" variant="outline" size="sm">
-						{m.image_editor_public_workspace()}
-					</Button>
-				{:else}
-					<Button href="/login?redirect=%2Fimage-editor" variant="ghost" size="sm">
-						{m.landing_sign_in()}
-					</Button>
-				{/if}
-			</div>
-		</div>
-	</header>
-
-	<main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-		<div class="max-w-3xl">
-			<p class="text-sm font-medium text-primary">{m.image_editor_public_free_tool()}</p>
-			<h1
-				bind:this={pageHeading}
-				tabindex="-1"
-				class="mt-2 text-3xl leading-tight font-semibold tracking-tight text-balance outline-none sm:text-4xl"
-			>
-				{m.image_editor_public_heading()}
-			</h1>
-			<p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-				{m.image_editor_public_description()}
-			</p>
-			<div class="mt-6 flex flex-wrap items-center gap-3">
-				<Button
-					size="lg"
-					onclick={() => fileInput?.click()}
-					disabled={Boolean(creating) || !enabled}
+	<EditorStart
+		kind="image"
+		title={m.editor_start_image_title()}
+		description={m.editor_start_image_description()}
+		bind:heading={pageHeading}
+	>
+		{#snippet utility()}
+			{#if authState.isAuthenticated}
+				<Button href="/image-editor/new" variant="ghost" size="sm"
+					>{m.image_editor_workspace_category()}</Button
 				>
-					{#if creating === 'image'}
-						<ProtectedIcon icon="loading" class="animate-spin" />
-					{:else}
-						<ThemeIcon role="image-add" />
-					{/if}
-					{m.image_editor_public_open_image()}
-				</Button>
-				<p class="text-sm text-muted-foreground">{m.image_editor_public_no_account()}</p>
-				<Input
-					bind:ref={fileInput}
-					type="file"
-					accept="image/png,image/jpeg,image/webp"
-					class="sr-only !size-px !p-0"
-					onchange={() => void openImage()}
-				/>
-			</div>
-		</div>
+			{:else}
+				<Button href="/login?redirect=%2Fimage-editor" variant="ghost" size="sm"
+					>{m.landing_sign_in()}</Button
+				>
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			<Button
+				onclick={() => blankPreset && startPreset(blankPreset)}
+				disabled={Boolean(creating) || !enabled || !blankPreset}
+			>
+				{#if creating === blankPreset?.key}<ProtectedIcon
+						icon="loading"
+						class="animate-spin motion-reduce:animate-none"
+					/>{:else}<ThemeIcon role="add" />{/if}
+				{m.editor_start_new_project()}
+			</Button>
+			<Button
+				variant="outline"
+				onclick={() => fileInput?.click()}
+				disabled={Boolean(creating) || !enabled}
+			>
+				<ThemeIcon role="image-add" />{m.image_editor_public_open_image()}
+			</Button>
+			<Input
+				bind:ref={fileInput}
+				type="file"
+				accept="image/png,image/jpeg,image/webp"
+				aria-label={m.image_editor_public_open_image()}
+				class="hidden"
+				onchange={() => void openImage()}
+			/>
+		{/snippet}
 
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mt-6 max-w-3xl" />
@@ -372,6 +351,57 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 					{/snippet}
 				</InlineNotice>
 			{/if}
+			<section aria-labelledby="formats-heading">
+				<h2 id="formats-heading" class="mb-3 text-base font-semibold">
+					{m.image_editor_choose_format()}
+				</h2>
+				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+					{#each presets as preset (preset.key)}
+						<EditorFormatButton
+							label={presetName(preset)}
+							width={preset.width_px}
+							height={preset.height_px}
+							disabled={Boolean(creating)}
+							busy={creating === preset.key}
+							onclick={() => void startPreset(preset)}
+						/>
+					{/each}
+				</div>
+			</section>
+
+			<details class="mt-4 border-b pb-4">
+				<summary class="min-h-11 cursor-pointer py-3 text-sm font-medium"
+					>{m.image_editor_custom_size()}</summary
+				>
+				<section class="pt-3" aria-labelledby="custom-heading">
+					<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-end">
+						<div>
+							<h2 id="custom-heading" class="text-base font-semibold">
+								{m.image_editor_custom_size()}
+							</h2>
+							<p class="mt-1 text-sm text-muted-foreground">{m.image_editor_custom_limits()}</p>
+						</div>
+						<div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+							<label class="grid gap-1 text-xs">
+								<span>{m.image_editor_width()}</span>
+								<Input type="number" min="64" max="4096" bind:value={customWidth} />
+							</label>
+							<label class="grid gap-1 text-xs">
+								<span>{m.image_editor_height()}</span>
+								<Input type="number" min="64" max="4096" bind:value={customHeight} />
+							</label>
+							<Button
+								variant="outline"
+								class="self-end sm:w-auto"
+								onclick={startCustom}
+								disabled={Boolean(creating)}
+							>
+								{m.image_editor_create_custom()}
+							</Button>
+						</div>
+					</div>
+				</section>
+			</details>
 			{#if recentDesigns.length > 0}
 				<section class="mt-12" aria-labelledby="recent-designs-heading">
 					<div class="mb-4 flex items-end justify-between gap-4">
@@ -428,76 +458,6 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 				</section>
 			{/if}
 
-			<section class="mt-12" aria-labelledby="formats-heading">
-				<div class="mb-4">
-					<h2 id="formats-heading" class="text-lg font-semibold">
-						{m.image_editor_choose_format()}
-					</h2>
-					<p class="mt-1 text-sm text-muted-foreground">{m.image_editor_choose_format_body()}</p>
-				</div>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-					{#each presets as preset (preset.key)}
-						<button
-							type="button"
-							class="group min-h-44 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-							onclick={() => startPreset(preset)}
-							disabled={Boolean(creating)}
-						>
-							<div
-								class="mb-3 flex aspect-[4/3] items-center justify-center rounded-lg bg-neutral-800 p-4"
-							>
-								<div
-									class="max-h-full max-w-full bg-orange-50 shadow-sm"
-									style:aspect-ratio={`${preset.width_px}/${preset.height_px}`}
-									style:height={preset.height_px > preset.width_px ? '100%' : 'auto'}
-									style:width={preset.width_px >= preset.height_px ? '100%' : 'auto'}
-								></div>
-							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium">{presetName(preset)}</span
-								>
-								{#if creating === preset.key}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin"
-									/>{/if}
-							</div>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{preset.width_px} × {preset.height_px}
-							</p>
-						</button>
-					{/each}
-				</div>
-			</section>
-
-			<section class="mt-8 border-y py-6" aria-labelledby="custom-heading">
-				<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-end">
-					<div>
-						<h2 id="custom-heading" class="text-base font-semibold">
-							{m.image_editor_custom_size()}
-						</h2>
-						<p class="mt-1 text-sm text-muted-foreground">{m.image_editor_custom_limits()}</p>
-					</div>
-					<div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-						<label class="grid gap-1 text-xs">
-							<span>{m.image_editor_width()}</span>
-							<Input type="number" min="64" max="4096" bind:value={customWidth} />
-						</label>
-						<label class="grid gap-1 text-xs">
-							<span>{m.image_editor_height()}</span>
-							<Input type="number" min="64" max="4096" bind:value={customHeight} />
-						</label>
-						<Button
-							variant="outline"
-							class="self-end sm:w-auto"
-							onclick={startCustom}
-							disabled={Boolean(creating)}
-						>
-							{m.image_editor_create_custom()}
-						</Button>
-					</div>
-				</div>
-			</section>
-
 			<section class="mt-12" aria-labelledby="templates-heading">
 				<div class="mb-4">
 					<h2 id="templates-heading" class="text-lg font-semibold">
@@ -540,7 +500,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 				{m.image_editor_public_storage_note()}
 			</p>
 		{/if}
-	</main>
+	</EditorStart>
 </div>
 
 <DestructiveConfirmDialog

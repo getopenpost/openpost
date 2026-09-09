@@ -26,6 +26,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import { startImageEditorMetric } from '$lib/image-editor/telemetry';
+	import EditorStart from '$lib/components/editor-start.svelte';
+	import EditorFormatButton from '$lib/components/editor-format-button.svelte';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
 
@@ -362,20 +364,34 @@
 <svelte:head><title>{m.image_editor_new_design()} · {m.image_editor_title()}</title></svelte:head>
 
 <div class="image-editor-theme min-h-dvh bg-background">
-	<header
-		class="sticky top-0 z-10 flex h-14 items-center border-b bg-background/95 px-3 backdrop-blur"
+	<EditorStart
+		kind="image"
+		title={m.editor_start_image_title()}
+		description={m.editor_start_workspace_image_description()}
 	>
-		<Button
-			variant="ghost"
-			size="icon-sm"
-			onclick={goBack}
-			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
-			><img src="/assets/brand/features/image-editor.svg" alt="" width="28" height="28" /></Button
-		>
-		<h1 class="ml-2 text-sm font-semibold">{m.image_editor_new_design()}</h1>
-	</header>
+		{#snippet utility()}
+			<Button
+				variant="ghost"
+				size="sm"
+				onclick={goBack}
+				aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}
+			>
+				<ThemeIcon role="arrow-left" />{returnToken ? m.editor_back_to_post() : m.common_back()}
+			</Button>
+		{/snippet}
+		{#snippet actions()}
+			<Button
+				onclick={() => void createPreset('instagram-square')}
+				disabled={Boolean(creating) || loading || !enabled || !workspaceID}
+			>
+				{#if creating === 'instagram-square'}<ProtectedIcon
+						icon="loading"
+						class="animate-spin motion-reduce:animate-none"
+					/>{:else}<ThemeIcon role="add" />{/if}
+				{m.editor_start_new_project()}
+			</Button>
+		{/snippet}
 
-	<main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
 		{#if loading && !usableContent}
 			<div class="min-h-[60dvh]">
 				<PageLoading layout="sections" label={m.image_editor_load()} items={4} />
@@ -439,7 +455,51 @@
 				/>
 			{/if}
 
-			<section aria-labelledby="templates-heading">
+			<section aria-labelledby="preset-heading">
+				<h2 id="preset-heading" class="mb-3 text-base font-semibold">
+					{m.image_editor_choose_format()}
+				</h2>
+				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+					{#each presets as preset (preset.key)}
+						<EditorFormatButton
+							label={presetName(preset)}
+							width={preset.width_px}
+							height={preset.height_px}
+							disabled={Boolean(creating)}
+							busy={creating === preset.key}
+							onclick={() => void createPreset(preset.key)}
+						/>
+					{/each}
+				</div>
+			</section>
+
+			<details class="mt-4 border-b pb-4">
+				<summary class="min-h-11 cursor-pointer py-3 text-sm font-medium"
+					>{m.image_editor_custom_size()}</summary
+				>
+				<section class="pt-3" aria-labelledby="custom-heading">
+					<h2 id="custom-heading" class="text-sm font-semibold">{m.image_editor_custom_size()}</h2>
+					<p class="mt-1 text-xs text-muted-foreground">{m.image_editor_custom_limits()}</p>
+					<div class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+						<label class="grid gap-1 text-xs">
+							<span>{m.image_editor_width()}</span>
+							<Input type="number" min="64" max="4096" bind:value={customWidth} />
+						</label>
+						<label class="grid gap-1 text-xs">
+							<span>{m.image_editor_height()}</span>
+							<Input type="number" min="64" max="4096" bind:value={customHeight} />
+						</label>
+						<Button
+							class="self-end"
+							onclick={() => createPreset('custom')}
+							disabled={Boolean(creating)}
+						>
+							{m.image_editor_create_custom()}
+						</Button>
+					</div>
+				</section>
+			</details>
+			<section class="mt-8" aria-labelledby="templates-heading">
 				<div class="mb-3">
 					<h2 id="templates-heading" class="text-base font-semibold">
 						{m.image_editor_starter_templates()}
@@ -487,66 +547,6 @@
 					</Button>
 				{/if}
 			</section>
-
-			<section class="mt-10" aria-labelledby="preset-heading">
-				<h2 id="preset-heading" class="mb-3 text-base font-semibold">
-					{m.image_editor_social_presets()}
-				</h2>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-					{#each presets as preset (preset.key)}
-						<button
-							type="button"
-							class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
-							onclick={() => createPreset(preset.key)}
-							disabled={Boolean(creating)}
-						>
-							<div
-								class="mb-3 flex aspect-[4/3] items-center justify-center rounded-lg bg-neutral-800 p-4"
-							>
-								<div
-									class="max-h-full max-w-full bg-orange-50"
-									style:aspect-ratio={`${preset.width_px}/${preset.height_px}`}
-									style:height={preset.height_px > preset.width_px ? '100%' : 'auto'}
-									style:width={preset.width_px >= preset.height_px ? '100%' : 'auto'}
-								></div>
-							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium">{presetName(preset)}</span
-								>
-								{#if creating === preset.key}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin"
-									/>{/if}
-							</div>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{preset.width_px} × {preset.height_px}
-							</p>
-						</button>
-					{/each}
-				</div>
-			</section>
-
-			<section class="mt-8 rounded-xl border bg-card p-4" aria-labelledby="custom-heading">
-				<h2 id="custom-heading" class="text-sm font-semibold">{m.image_editor_custom_size()}</h2>
-				<p class="mt-1 text-xs text-muted-foreground">{m.image_editor_custom_limits()}</p>
-				<div class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-					<label class="grid gap-1 text-xs">
-						<span>{m.image_editor_width()}</span>
-						<Input type="number" min="64" max="4096" bind:value={customWidth} />
-					</label>
-					<label class="grid gap-1 text-xs">
-						<span>{m.image_editor_height()}</span>
-						<Input type="number" min="64" max="4096" bind:value={customHeight} />
-					</label>
-					<Button
-						class="self-end"
-						onclick={() => createPreset('custom')}
-						disabled={Boolean(creating)}
-					>
-						{m.image_editor_create_custom()}
-					</Button>
-				</div>
-			</section>
 		{/if}
-	</main>
+	</EditorStart>
 </div>

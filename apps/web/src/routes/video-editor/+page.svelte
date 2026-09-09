@@ -1,11 +1,13 @@
-<!--
-Local-first OpenPost Video Editor entry.
-OWN-WORLD: dark editing chrome over OpenPost warm neutrals; the workspace folder on disk is the source of truth.
-STORY: pick (or reconnect) a workspace folder once, then work with projects that never leave the machine.
--->
 <script lang="ts">
+	import { projectPresetName } from '$lib/video-editor/project/preset-label';
 	import { goto } from '$app/navigation';
-	import Logo from '$lib/components/Logo.svelte';
+	import EditorStart from '$lib/components/editor-start.svelte';
+	import EditorFormatButton from '$lib/components/editor-format-button.svelte';
+	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import {
+		DEFAULT_PROJECT_CREATION_SETTINGS,
+		PROJECT_PRESETS
+	} from '$lib/video-editor/project/project-presets';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
@@ -144,17 +146,16 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		}
 	});
 
-	async function createCloudProject(name: string): Promise<void> {
+	async function createCloudProject(
+		name: string,
+		settings: ProjectCreationSettings
+	): Promise<void> {
 		const repository = cloudRepository;
 		if (!repository || cloudCreating) return;
 		cloudCreating = true;
 		try {
 			const { createBlankProject } = await import('$lib/video-editor/project/defaults');
-			const project = createBlankProject(name, {
-				width: 1920,
-				height: 1080,
-				fps: 30
-			});
+			const project = createBlankProject(name, settings);
 			const created = await repository.create(project.name, project);
 			await goto(`/video-editor/${created.id}?storage=cloud`);
 		} catch (error) {
@@ -162,6 +163,20 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		} finally {
 			cloudCreating = false;
 		}
+	}
+
+	async function startProject(
+		settings: ProjectCreationSettings = DEFAULT_PROJECT_CREATION_SETTINGS
+	): Promise<void> {
+		if (creating || cloudCreating || gate.busy || importing || bundleOperation) return;
+		if (storageMode === 'cloud' && cloudRepository) {
+			await createCloudProject(m.video_editor_project_untitled(), settings);
+			return;
+		}
+		if (gate.state === 'pick') await gate.pickFolder();
+		else if (gate.state === 'reconnect') await gate.reconnect();
+		if (gate.state !== 'ready') return;
+		await handleCreateProject(m.video_editor_project_untitled(), settings);
 	}
 
 	async function openCloudProject(project: CloudVideoProject<Project>): Promise<void> {
@@ -646,17 +661,12 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 <div
 	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
-	<header
-		class="flex items-center justify-between border-b border-[var(--video-editor-border)] px-4 py-2"
+	<EditorStart
+		kind="video"
+		title={m.editor_start_video_title()}
+		description={m.editor_start_video_description()}
 	>
-		<a
-			href="/editors"
-			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
-		>
-			<Logo class="h-5 w-auto" />
-			<span class="text-sm font-semibold">{m.video_editor_title()}</span>
-		</a>
-		<div class="flex items-center gap-2">
+		{#snippet utility()}
 			{#if cloudWorkspaceId}
 				<div
 					class="flex rounded-lg border border-[var(--video-editor-border)] p-0.5"
@@ -685,23 +695,59 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 			{#if storageMode === 'local' && gate.state === 'ready'}
 				<WorkspaceIndicator {gate} />
 			{/if}
-		</div>
-	</header>
+		{/snippet}
+		{#snippet actions()}
+			<Button
+				onclick={() => void startProject()}
+				disabled={creating ||
+					cloudCreating ||
+					gate.busy ||
+					importing ||
+					bundleOperation !== null ||
+					(storageMode === 'local' &&
+						(gate.state === 'initializing' || gate.state === 'unavailable'))}
+			>
+				{#if creating || cloudCreating || gate.busy}<ProtectedIcon
+						icon="loading"
+						class="animate-spin motion-reduce:animate-none"
+					/>{:else}<ThemeIcon role="add" />{/if}
+				{m.editor_start_new_project()}
+			</Button>
+		{/snippet}
+		{#if (storageMode === 'cloud' && cloudRepository) || gate.state === 'pick' || gate.state === 'ready' || gate.state === 'reconnect'}
+			<section class="mb-8" aria-labelledby="video-formats-heading">
+				<h2 id="video-formats-heading" class="mb-3 text-base font-semibold">
+					{m.image_editor_choose_format()}
+				</h2>
+				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+					{#each PROJECT_PRESETS.slice(0, 4) as preset (preset.id)}
+						<EditorFormatButton
+							label={projectPresetName(preset.id)}
+							width={preset.width}
+							height={preset.height}
+							disabled={creating ||
+								cloudCreating ||
+								gate.busy ||
+								importing ||
+								bundleOperation !== null}
+							onclick={() => void startProject(preset)}
+						/>
+					{/each}
+				</div>
+			</section>
+		{/if}
 
-	<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
 		{#if storageMode === 'cloud' && cloudRepository}
 			<CloudProjectBrowser
 				projects={cloudProjects}
 				trashedProjects={cloudTrashedProjects}
 				loading={cloudLoading}
 				error={cloudError}
-				creating={cloudCreating}
 				localProjects={projectCatalog.projects}
 				importingId={cloudImportingId}
 				exportingId={cloudExportingId}
 				offlineProjectIds={cloudOfflineProjectIds}
 				offlineBusyId={cloudOfflineBusyId}
-				oncreate={createCloudProject}
 				onopen={openCloudProject}
 				ontrash={trashCloudProject}
 				onrestore={restoreCloudProject}
@@ -711,7 +757,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				onrefresh={loadCloudProjects}
 			/>
 		{:else if gate.state !== 'ready'}
-			<WorkspaceGatePanel {gate} />
+			<WorkspaceGatePanel {gate} variant="inline" />
 		{:else if gate.state === 'ready'}
 			<ProjectBrowser
 				projects={projectCatalog.projects}
@@ -746,5 +792,5 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				onemptytrash={handleEmptyTrash}
 			/>
 		{/if}
-	</main>
+	</EditorStart>
 </div>

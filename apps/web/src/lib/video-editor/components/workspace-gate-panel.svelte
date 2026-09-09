@@ -6,14 +6,17 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { WorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
 
-	let { gate }: { gate: WorkspaceGate } = $props();
+	let { gate, variant = 'standalone' }: { gate: WorkspaceGate; variant?: 'standalone' | 'inline' } =
+		$props();
 </script>
 
 {#if gate.state === 'initializing'}
 	<PageLoading label={m.editors_loading()} />
 {:else if gate.state === 'unavailable'}
 	<div class="max-w-md text-center">
-		<h1 class="text-lg font-semibold">{m.video_editor_gate_unavailable_title()}</h1>
+		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="text-lg font-semibold"
+			>{m.video_editor_gate_unavailable_title()}</svelte:element
+		>
 		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_gate_unavailable_body()}
 		</p>
@@ -21,14 +24,15 @@
 	</div>
 {:else if gate.state === 'pick' || gate.state === 'reconnect'}
 	<div
+		class:inline={variant === 'inline'}
 		class="w-full max-w-md rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-8 text-center"
 	>
 		<ThemeIcon role="workspace" class="mx-auto size-10 text-[var(--video-editor-primary)]" />
-		<h1 class="mt-4 text-lg font-semibold">
+		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="mt-4 text-lg font-semibold">
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_title()
 				: m.video_editor_gate_reconnect_title()}
-		</h1>
+		</svelte:element>
 		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_body()
@@ -37,9 +41,13 @@
 		{#if gate.error}
 			<InlineNotice tone="error" class="mt-4 text-left">{gate.error}</InlineNotice>
 		{/if}
-		<div class="mt-6 flex flex-col items-center gap-2">
+		<div class="gate-actions mt-6 flex flex-col items-center gap-2">
 			{#if gate.state === 'pick'}
-				<Button onclick={() => gate.pickFolder()} disabled={gate.busy}>
+				<Button
+					variant={variant === 'inline' ? 'outline' : 'default'}
+					onclick={() => gate.pickFolder()}
+					disabled={gate.busy}
+				>
 					{#if gate.busy}
 						<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
 					{:else}
@@ -63,3 +71,29 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.inline {
+		max-width: none;
+		padding: 24px 0;
+		border-width: 1px 0 0;
+		border-radius: 0;
+		background: transparent;
+		text-align: left;
+	}
+	.inline > :global(svg) {
+		display: none;
+	}
+	.inline :global(h2) {
+		margin-top: 0;
+		font-size: 16px;
+	}
+	.inline > p {
+		max-width: 65ch;
+		line-height: 1.6;
+	}
+	.inline .gate-actions {
+		align-items: flex-start;
+		margin-top: 16px;
+	}
+</style>

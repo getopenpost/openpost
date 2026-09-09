@@ -40,7 +40,7 @@ async function createProject(
   }
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill(name);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
@@ -117,7 +117,7 @@ test("Video Editor project library and shell fit narrow screens", async ({ page 
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
 
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Responsive review");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();

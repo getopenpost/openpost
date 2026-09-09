@@ -418,13 +418,8 @@ describe('editor route theme color boundary', () => {
 		expect(source).not.toContain('type="range"');
 	});
 
-	it('uses the resolved editor palette for every video route shell', async () => {
-		for (const route of [
-			videoEditorRoute,
-			newVideoEditorRoute,
-			fullVideoEditorRoute,
-			recorderRoute
-		]) {
+	it('uses the resolved editor palette for video editing and recording shells', async () => {
+		for (const route of [newVideoEditorRoute, fullVideoEditorRoute, recorderRoute]) {
 			const source = await readFile(route, 'utf8');
 			expect(source).toContain('video-editor-theme');
 			expect(source).toContain('bg-[var(--video-editor-canvas)]');

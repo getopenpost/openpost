@@ -29,7 +29,7 @@ async function createProject(page: Page): Promise<string> {
   await installLocalWorkspacePicker(page);
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder" }).click();
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Recovery proof");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);

@@ -9,6 +9,7 @@ test("signed-in creators can use built-in templates in their workspace", async (
   const workspace = await createWorkspace(request, auth.token, "Image workspace");
   await authenticatePage(page, auth.token);
   await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page.getByText("Custom size", { exact: true }).first().click();
   await expect(page.getByRole("spinbutton", { name: "Width" })).toBeVisible();
   await page.getByRole("button", { name: "Create custom design" }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
@@ -66,7 +67,7 @@ test("public image editor creates, restores, and exports a local design", async 
   });
 
   await page.goto("/image-editor");
-  await expect(page.getByRole("heading", { name: "Free social media image editor" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Image Editor", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Instagram square/ }).click();
 
   await expect(page).toHaveURL(/\/image-editor\/local_design_/);

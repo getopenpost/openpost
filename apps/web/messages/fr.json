@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "Recharger les comptes",
 	"accounts_telegram_chat_id": "Identifiant du chat Telegram",
 	"accounts_telegram_generate": "Obtenir la commande de connexion",
-	"accounts_telegram_chat_id_help": "Ouvrez votre chaîne ou groupe dans Telegram Web A. Copiez le nombre après # dans l’adresse, signe moins compris, en vous arrêtant avant tout tiret bas."
+	"accounts_telegram_chat_id_help": "Ouvrez votre chaîne ou groupe dans Telegram Web A. Copiez le nombre après # dans l’adresse, signe moins compris, en vous arrêtant avant tout tiret bas.",
+	"editor_start_image_title": "Éditeur d’images",
+	"editor_start_video_title": "Éditeur vidéo",
+	"editor_start_image_description": "Ouvrez une image ou commencez avec une page vide.",
+	"editor_start_video_description": "Créez une vidéo, puis ajoutez des clips, des images ou un enregistrement.",
+	"editor_start_new_project": "Nouveau projet",
+	"editor_start_custom_project": "Projet personnalisé",
+	"editor_start_workspace_image_description": "Commencez avec une page vide ou choisissez un modèle."
 }

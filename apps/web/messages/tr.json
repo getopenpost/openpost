@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "Hesapları yeniden yükle",
 	"accounts_telegram_chat_id": "Telegram sohbet kimliği",
 	"accounts_telegram_generate": "Bağlantı komutu al",
-	"accounts_telegram_chat_id_help": "Kanalınızı veya grubunuzu Telegram Web A’da açın. Adresteki # işaretinden sonraki sayıyı eksi işaretiyle birlikte kopyalayın. Alt çizgiden sonrasını almayın."
+	"accounts_telegram_chat_id_help": "Kanalınızı veya grubunuzu Telegram Web A’da açın. Adresteki # işaretinden sonraki sayıyı eksi işaretiyle birlikte kopyalayın. Alt çizgiden sonrasını almayın.",
+	"editor_start_image_title": "Görsel düzenleyici",
+	"editor_start_video_title": "Video düzenleyici",
+	"editor_start_image_description": "Bir görsel açın veya boş bir tuvalle başlayın.",
+	"editor_start_video_description": "Bir video başlatın, ardından klip, görsel veya kayıt ekleyin.",
+	"editor_start_new_project": "Yeni proje",
+	"editor_start_custom_project": "Özel proje",
+	"editor_start_workspace_image_description": "Boş bir tuvalle başlayın veya bir şablon seçin."
 }

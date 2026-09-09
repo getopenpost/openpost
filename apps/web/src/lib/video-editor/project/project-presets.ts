@@ -14,7 +14,7 @@ export type ProjectPresetId =
 
 // Ported from FreeCut (MIT): ProjectTemplate platform/namePrefix metadata.
 // `name` stays in Paraglide messages (see projectPresetName in
-// project-browser.svelte); `platform` is the uppercase eyebrow and
+// preset-label.ts); `platform` is the uppercase eyebrow and
 // `namePrefix` seeds collision-free default project names.
 export interface ProjectPreset extends ProjectCreationSettings {
 	id: ProjectPresetId;

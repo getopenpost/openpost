@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "Konten neu laden",
 	"accounts_telegram_chat_id": "Telegram-Chat-ID",
 	"accounts_telegram_generate": "Verbindungsbefehl abrufen",
-	"accounts_telegram_chat_id_help": "Öffne deinen Kanal oder deine Gruppe in Telegram Web A. Kopiere die Zahl nach # in der Adresse einschließlich Minuszeichen bis vor einen eventuellen Unterstrich."
+	"accounts_telegram_chat_id_help": "Öffne deinen Kanal oder deine Gruppe in Telegram Web A. Kopiere die Zahl nach # in der Adresse einschließlich Minuszeichen bis vor einen eventuellen Unterstrich.",
+	"editor_start_image_title": "Bildeditor",
+	"editor_start_video_title": "Videoeditor",
+	"editor_start_image_description": "Öffne ein Bild oder beginne mit einer leeren Leinwand.",
+	"editor_start_video_description": "Starte ein Video und füge Clips, Bilder oder eine Aufnahme hinzu.",
+	"editor_start_new_project": "Neues Projekt",
+	"editor_start_custom_project": "Benutzerdefiniertes Projekt",
+	"editor_start_workspace_image_description": "Beginne mit einer leeren Leinwand oder wähle eine Vorlage."
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { projectPresetName } from '$lib/video-editor/project/preset-label';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -191,23 +192,6 @@
 		return `${width}:${height}`;
 	}
 
-	function projectPresetName(id: ProjectPresetId): string {
-		switch (id) {
-			case 'youtube-1080p':
-				return m.video_editor_project_preset_youtube();
-			case 'vertical-9-16':
-				return m.video_editor_project_preset_vertical();
-			case 'instagram-square':
-				return m.video_editor_project_preset_instagram_square();
-			case 'instagram-portrait':
-				return m.video_editor_project_preset_instagram_portrait();
-			case 'x-landscape':
-				return m.video_editor_project_preset_x();
-			case 'linkedin-landscape':
-				return m.video_editor_project_preset_linkedin();
-		}
-	}
-
 	function formatDuration(seconds: number): string {
 		const rounded = Math.max(0, Math.round(seconds));
 		const hours = Math.floor(rounded / 3600);
@@ -315,9 +299,9 @@
 	});
 </script>
 
-<div class="w-full max-w-5xl">
+<div class="w-full">
 	<div class="flex items-center justify-between gap-3">
-		<h1 class="text-base font-semibold">{m.video_editor_projects_title()}</h1>
+		<h2 class="text-base font-semibold">{m.video_editor_projects_title()}</h2>
 		<div class="flex items-center gap-2">
 			<Input
 				bind:ref={jsonImportInput}
@@ -373,10 +357,11 @@
 			<Button
 				size="sm"
 				disabled={creating || importing || exportingId !== null || bundleOperation !== null}
+				variant="outline"
 				onclick={() => (showNewProject = !showNewProject)}
 			>
 				<ThemeIcon role="add" class="size-4" />
-				{m.video_editor_project_new()}
+				{m.editor_start_custom_project()}
 			</Button>
 		</div>
 	</div>

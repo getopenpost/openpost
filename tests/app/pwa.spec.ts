@@ -229,7 +229,7 @@ test("a cached local video project reopens and exports offline", async ({ page, 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
   await page.getByRole("button", { name: "Choose folder" }).click();
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Offline video proof");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();

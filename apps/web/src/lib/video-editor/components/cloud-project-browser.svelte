@@ -11,8 +11,6 @@
 		trashedProjects,
 		loading,
 		error,
-		creating,
-		oncreate,
 		onopen,
 		ontrash,
 		onrestore,
@@ -30,8 +28,6 @@
 		trashedProjects: CloudVideoProject<Project>[];
 		loading: boolean;
 		error: string;
-		creating: boolean;
-		oncreate: (name: string) => Promise<void>;
 		onopen: (project: CloudVideoProject<Project>) => Promise<void>;
 		ontrash: (project: CloudVideoProject<Project>) => Promise<void>;
 		onrestore: (project: CloudVideoProject<Project>) => Promise<void>;
@@ -46,8 +42,6 @@
 		onrefresh: () => Promise<void>;
 	} = $props();
 
-	let creatingOpen = $state(false);
-	let name = $state('');
 	let query = $state('');
 	let busyProjectId = $state<string | null>(null);
 	const visible = $derived(
@@ -55,12 +49,6 @@
 			project.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
 		)
 	);
-
-	async function create(): Promise<void> {
-		await oncreate(name.trim() || m.video_editor_project_untitled());
-		name = '';
-		creatingOpen = false;
-	}
 
 	async function trash(project: CloudVideoProject<Project>): Promise<void> {
 		busyProjectId = project.id;
@@ -88,68 +76,39 @@
 	}
 </script>
 
-<section class="w-full max-w-5xl" aria-labelledby="cloud-video-projects-title">
+<section class="w-full" aria-labelledby="cloud-video-projects-title">
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div>
-			<h1 id="cloud-video-projects-title" class="text-base font-semibold">
+			<h2 id="cloud-video-projects-title" class="text-base font-semibold">
 				{m.video_editor_cloud_projects()}
-			</h1>
+			</h2>
 			<p class="mt-1 text-sm text-[var(--video-editor-muted)]">
 				{m.video_editor_cloud_projects_description()}
 			</p>
 		</div>
-		<div class="flex gap-2">
-			<Button variant="outline" size="sm" onclick={() => void onrefresh()} disabled={loading}>
-				<ThemeIcon role="refresh" class="size-4" />
-				{m.common_retry()}
-			</Button>
-			<Button size="sm" onclick={() => (creatingOpen = !creatingOpen)} disabled={creating}>
-				<ThemeIcon role="add" class="size-4" />
-				{m.video_editor_project_new()}
-			</Button>
-		</div>
 	</div>
 
-	{#if creatingOpen}
-		<form
-			class="mt-4 flex gap-2"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void create();
-			}}
-		>
+	{#if projects.length > 0}
+		<div class="mt-4">
 			<Input
-				bind:value={name}
-				maxlength={100}
-				aria-label={m.video_editor_project_name()}
-				placeholder={m.video_editor_project_untitled()}
+				bind:value={query}
+				aria-label={m.video_editor_project_search()}
+				placeholder={m.video_editor_project_search()}
 			/>
-			<Button type="submit" disabled={creating}>
-				{#if creating}<ProtectedIcon
-						icon="loading"
-						class="size-4 animate-spin motion-reduce:animate-none"
-					/>{/if}
-				{m.video_editor_project_create()}
-			</Button>
-		</form>
+		</div>
 	{/if}
-
-	<div class="mt-4">
-		<Input
-			bind:value={query}
-			aria-label={m.video_editor_project_search()}
-			placeholder={m.video_editor_project_search()}
-		/>
-	</div>
 
 	{#if loading}
 		<p class="mt-8 text-center text-sm text-[var(--video-editor-muted)]" role="status">
 			{m.video_editor_cloud_projects_loading()}
 		</p>
 	{:else if error}
-		<p class="mt-8 text-center text-sm text-destructive" role="alert">
-			{error}
-		</p>
+		<div class="mt-6">
+			<p class="text-sm text-destructive" role="alert">{error}</p>
+			<Button class="mt-3" variant="outline" onclick={() => void onrefresh()}
+				>{m.common_retry()}</Button
+			>
+		</div>
 	{:else if visible.length === 0}
 		<p class="mt-8 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_cloud_empty()}

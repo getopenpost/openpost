@@ -8663,5 +8663,12 @@
 	"accounts_telegram_reload": "重新加载账号",
 	"accounts_telegram_chat_id": "Telegram 聊天 ID",
 	"accounts_telegram_generate": "获取连接命令",
-	"accounts_telegram_chat_id_help": "在 Telegram Web A 中打开你的频道或群组。复制地址中 # 后的数字，包括负号，不要包含下划线及其后的内容。"
+	"accounts_telegram_chat_id_help": "在 Telegram Web A 中打开你的频道或群组。复制地址中 # 后的数字，包括负号，不要包含下划线及其后的内容。",
+	"editor_start_image_title": "图片编辑器",
+	"editor_start_video_title": "视频编辑器",
+	"editor_start_image_description": "打开图片或从空白画布开始。",
+	"editor_start_video_description": "创建视频，然后添加片段、图片或录制内容。",
+	"editor_start_new_project": "新建项目",
+	"editor_start_custom_project": "自定义项目",
+	"editor_start_workspace_image_description": "从空白画布开始或选择模板。"
 }

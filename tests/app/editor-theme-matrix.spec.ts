@@ -86,7 +86,7 @@ async function createVideoProject(page: Page): Promise<string> {
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Local only" }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Theme matrix");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();

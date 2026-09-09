@@ -9,6 +9,12 @@ const manifest = readReleaseSurfaceManifest();
 test("changed files route to their CI paths", () => {
   const cases = [
     {
+      name: "marketing illustrations and provenance rebuild the public site",
+      files: ["assets/marketing/paper-plane.webp", "assets/marketing/paper-plane.webp.json"],
+      on: ["marketing"],
+      off: ["application", "frontend", "backend", "documentation", "image", "android"],
+    },
+    {
       name: "social artwork stays outside application builds",
       files: ["assets/social/openpost/banners/x-paper.png"],
       on: ["marketing"],

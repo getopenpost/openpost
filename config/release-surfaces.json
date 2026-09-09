@@ -22,6 +22,7 @@
         "packages/legal-policy/",
         "packages/social-images/",
         "packages/social-preview/",
+        "assets/marketing/",
         "assets/social/"
       ]
     },

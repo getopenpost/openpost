@@ -64,6 +64,17 @@ test("the README keeps live provider claims in plain language", () => {
   );
 });
 
+test("the README can omit the certification section", () => {
+  const manifest = { schema_version: 1, claims: [] };
+  const sources = validPublicClaimSurfaces(renderPublicClaimProjection(manifest));
+  assert.doesNotThrow(() =>
+    validatePublicClaimSurfaceSources(manifest, {
+      ...sources,
+      readme: "# OpenPost\n\nSee the provider documentation for integration details.",
+    }),
+  );
+});
+
 test("a complete production subject with current local and live proof is claimable", () => {
   const manifest = validManifest();
   assert.equal(validatePublicClaimManifest(manifest, { now }).claims.length, 1);

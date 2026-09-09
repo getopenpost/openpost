@@ -157,9 +157,10 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
     }
   }
   const readmeProjection = renderPublicClaimProjection(manifest, { detailLevel: "summary" });
+  const readme = sources.readme ?? "";
   if (
-    extractPublicClaimProjection(sources.readme ?? "", "README provider section") !==
-    readmeProjection
+    (readme.includes(publicProjectionStart) || readme.includes(publicProjectionEnd)) &&
+    extractPublicClaimProjection(readme, "README provider section") !== readmeProjection
   ) {
     throw new Error("README provider section public certification projection is stale");
   }

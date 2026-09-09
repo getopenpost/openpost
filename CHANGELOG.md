@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.25.0] - 2026-09-09
+
+### Changed
+
+- Point the Features navigation to the landing-page feature section and tighten footer link spacing.
+- Rewrote the public channel, tool, FAQ, About, Contact, and Security pages around creating content and running a business. Free tools now open directly into a compact workspace, with practical guides below.
+- Added a five-second screenshot tour with seven views, pause controls, and reduced-motion support. Refreshed the footer with a paper-plane illustration and an interactive character wordmark.
+- Moved Features links to the landing page and consolidated developer and self-hosting information into the help centre, with redirects for the removed marketing pages.
+
+### Fixed
+
+- Size Pinterest and Telegram marks consistently with other provider icons.
+- Match landing-page product screenshots to the selected light or dark appearance.
+- Cloud video project lists now show saved names after renaming, restoring a revision, or resolving a conflict.
+- Apply saved or system appearance before the app downloads, preventing a white flash when entering or refreshing in dark mode.
+- Keep timeline hover timecodes inside the editing area and hide the native scrollbar when the custom timeline navigator is visible.
+- Restore rate stretching for imported clips. Dragging a clip edge no longer fails before changing its playback speed.
+
+### Improved
+
+- Image and Video Editor start pages now share a compact layout with direct new-project actions, visible format choices, and recent work below. Custom settings remain available. Local video projects ask for folder access when needed.
+- Load analytics only when enabled and permitted by the user's privacy choice, reducing startup downloads.
+- Load workspace theme support after sign-in and keep the full theme catalog out of the app shell.
+- Download Settings panels when opened, retain loaded panels during navigation, and offer refresh recovery if a panel download fails.
+
+### Added
+
+- Grade image layers or the full page with the same color wheels, RGB curves, histogram, waveform, parade, and vectorscope used by the Video Editor. Save grades with the design and preserve them in previews and exports.
+
 ## [4.24.3] - 2026-09-09
 
 ### Fixed

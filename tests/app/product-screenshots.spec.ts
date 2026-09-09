@@ -1491,6 +1491,7 @@ test.describe("product screenshot capture", () => {
       });
       editorMediaFixturesEnabled = true;
       await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+      await page.getByText("Custom size", { exact: true }).first().click();
       await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
       await page.getByRole("spinbutton", { name: "Height" }).fill("500");
       await page.getByRole("button", { name: "Create custom design" }).click();

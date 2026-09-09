@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.25.1] - 2026-09-09
+
+### Fixed
+
+- Show one language control on the Image Editor start page when signed in.
+
 ## [4.25.0] - 2026-09-09
 
 ### Changed

@@ -1091,7 +1091,6 @@
 				title={formatCalendarTitle()}
 				contentClass="min-w-max shrink-0"
 				titleClass="whitespace-nowrap"
-				loading={initialLoading}
 				class="flex-wrap gap-2"
 			>
 				{#snippet actions()}

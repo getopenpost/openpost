@@ -812,102 +812,108 @@
 		</Button>
 	{/snippet}
 
-	<div class="space-y-5">
-		<CommunicationsNavigation active="engagement" />
-
-		<div class="flex flex-wrap items-center gap-3">
-			<Select.Root
-				type="single"
-				value={platformFilter || 'all'}
-				onValueChange={(value) => {
-					platformFilter = value === 'all' ? '' : value;
-					const selectedAccount = accounts.find((account) => account.id === accountFilter);
-					if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
-						accountFilter = '';
-					}
-				}}
-			>
-				<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
-					{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
-					{#each knownPlatforms as provider (provider)}
-						<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<Select.Root
-				type="single"
-				value={accountFilter || 'all'}
-				onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
-			>
-				<Select.Trigger
-					class="h-11 w-60 sm:h-9"
-					aria-label={accountFilterLabel(accounts.find((account) => account.id === accountFilter))}
+	{#snippet navigation()}
+		<div class="space-y-5">
+			<CommunicationsNavigation active="engagement" />
+			<div class="flex flex-wrap items-center gap-3">
+				<Select.Root
+					type="single"
+					value={platformFilter || 'all'}
+					onValueChange={(value) => {
+						platformFilter = value === 'all' ? '' : value;
+						const selectedAccount = accounts.find((account) => account.id === accountFilter);
+						if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
+							accountFilter = '';
+						}
+					}}
 				>
-					{#if accountFilter}
-						{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
-						{#if selectedAccount}
-							<SocialAccountIdentity
-								name={accountName(selectedAccount)}
-								platform={selectedAccount.platform}
-								avatarUrl={selectedAccount.account_avatar_url}
-								size="sm"
-							/>
+					<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
+						{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
+						{#each knownPlatforms as provider (provider)}
+							<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Select.Root
+					type="single"
+					value={accountFilter || 'all'}
+					onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+				>
+					<Select.Trigger
+						class="h-11 w-60 sm:h-9"
+						aria-label={accountFilterLabel(
+							accounts.find((account) => account.id === accountFilter)
+						)}
+					>
+						{#if accountFilter}
+							{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
+							{#if selectedAccount}
+								<SocialAccountIdentity
+									name={accountName(selectedAccount)}
+									platform={selectedAccount.platform}
+									avatarUrl={selectedAccount.account_avatar_url}
+									size="sm"
+								/>
+							{:else}
+								{m.engagement_all_accounts()}
+							{/if}
 						{:else}
 							{m.engagement_all_accounts()}
 						{/if}
-					{:else}
-						{m.engagement_all_accounts()}
-					{/if}
-				</Select.Trigger>
-				<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
-					<Select.Item value="all" class="min-h-11">{m.engagement_all_accounts()}</Select.Item>
-					{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
-						<Select.Item value={account.id} class="min-h-12 py-2">
-							<SocialAccountIdentity
-								name={accountName(account)}
-								platform={account.platform}
-								avatarUrl={account.account_avatar_url}
-							/>
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<DestinationOptionCombobox
-				id="engagement-publication-filter"
-				value={publicationFilter}
-				label={m.engagement_all_posts()}
-				placeholder={m.engagement_all_posts()}
-				searchPlaceholder={m.engagement_search_posts()}
-				emptyLabel={m.engagement_no_posts_found()}
-				loadingLabel={m.common_loading()}
-				options={publicationOptions}
-				loading={publicationLoading}
-				hasMore={Boolean(publicationCursor)}
-				loadMoreLabel={m.engagement_load_older_posts()}
-				error={publicationError}
-				retryLabel={m.common_retry()}
-				class="max-w-80 min-w-52 sm:h-9"
-				onValueChange={selectPublication}
-				onSearch={searchPublications}
-				onLoadMore={() => void publicationQuery.fetchNextPage()}
-				onRetry={() => void publicationQuery.refetch()}
-			/>
-			<label class="flex min-h-11 items-center gap-2 text-sm">
-				<Checkbox bind:checked={unreadOnly} />
-				{m.engagement_unread_only()}
-			</label>
-			<label class="flex min-h-11 items-center gap-2 text-sm">
-				<Checkbox bind:checked={archived} />
-				{m.engagement_archived()}
-			</label>
-			<span class="ms-auto text-sm text-muted-foreground">{total}</span>
+					</Select.Trigger>
+					<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
+						<Select.Item value="all" class="min-h-11">{m.engagement_all_accounts()}</Select.Item>
+						{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
+							<Select.Item value={account.id} class="min-h-12 py-2">
+								<SocialAccountIdentity
+									name={accountName(account)}
+									platform={account.platform}
+									avatarUrl={account.account_avatar_url}
+								/>
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<DestinationOptionCombobox
+					id="engagement-publication-filter"
+					value={publicationFilter}
+					label={m.engagement_all_posts()}
+					placeholder={m.engagement_all_posts()}
+					searchPlaceholder={m.engagement_search_posts()}
+					emptyLabel={m.engagement_no_posts_found()}
+					loadingLabel={m.common_loading()}
+					options={publicationOptions}
+					loading={publicationLoading}
+					hasMore={Boolean(publicationCursor)}
+					loadMoreLabel={m.engagement_load_older_posts()}
+					error={publicationError}
+					retryLabel={m.common_retry()}
+					class="max-w-80 min-w-52 sm:h-9"
+					onValueChange={selectPublication}
+					onSearch={searchPublications}
+					onLoadMore={() => void publicationQuery.fetchNextPage()}
+					onRetry={() => void publicationQuery.refetch()}
+				/>
+				<label class="flex min-h-11 items-center gap-2 text-sm">
+					<Checkbox bind:checked={unreadOnly} />
+					{m.engagement_unread_only()}
+				</label>
+				<label class="flex min-h-11 items-center gap-2 text-sm">
+					<Checkbox bind:checked={archived} />
+					{m.engagement_archived()}
+				</label>
+				<span class="ms-auto text-sm text-muted-foreground">{total}</span>
+			</div>
+			<p class="-mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+				{m.engagement_archive_help()}
+			</p>
 		</div>
-		<p class="-mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-			{m.engagement_archive_help()}
-		</p>
+	{/snippet}
+
+	<div class="space-y-5">
 		{#if backgroundError}
 			<InlineNotice tone="error" message={backgroundError}>
 				{#snippet actions()}

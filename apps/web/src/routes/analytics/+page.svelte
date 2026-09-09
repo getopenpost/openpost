@@ -725,7 +725,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	loadingMessage={m.common_loading()}
 	loadingLayout="sections"
 	loadingItems={5}
-	loadingActionCount={2}
 >
 	{#if analyticsEmptyIsFeatureDisabled}
 		<EmptyState

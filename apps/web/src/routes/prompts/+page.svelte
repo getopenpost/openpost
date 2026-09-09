@@ -228,7 +228,6 @@
 	loading={routeLoading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="grid"
-	loadingActionCount={3}
 >
 	{#snippet actions()}
 		<Select.Root

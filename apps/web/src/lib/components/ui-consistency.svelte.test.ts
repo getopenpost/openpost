@@ -71,19 +71,14 @@ describe('shared page states', () => {
 
 		await vi.advanceTimersByTimeAsync(149);
 		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
-		await expect.element(screen.getByText('Create draft')).not.toBeInTheDocument();
-		const delayedAction = screen.container.querySelector(
-			'[data-slot="page-header-actions"] [data-slot="skeleton"]'
-		);
-		expect(delayedAction).not.toBeNull();
-		expect(delayedAction?.classList.contains('invisible')).toBe(true);
+		await expect.element(screen.getByText('Create draft')).toBeVisible();
 
 		await vi.advanceTimersByTimeAsync(1);
 		await expect.element(screen.getByTestId('page-loading')).toBeVisible();
 		await expect.element(screen.getByText('Loading drafts')).toBeInTheDocument();
 		await expect.element(screen.getByText('Loaded drafts')).not.toBeInTheDocument();
 		expect(screen.container.querySelectorAll('[data-slot="page-loading"]')).toHaveLength(1);
-		expect(delayedAction?.classList.contains('invisible')).toBe(false);
+		await expect.element(screen.getByText('Create draft')).toBeVisible();
 
 		await screen.rerender({
 			title: 'Drafts',

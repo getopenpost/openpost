@@ -708,8 +708,85 @@
 		</Button>
 	{/snippet}
 
+	{#snippet navigation()}
+		<div class="space-y-5">
+			<CommunicationsNavigation active="messages" />
+			<div class="flex flex-wrap items-center gap-3">
+				<Select.Root
+					type="single"
+					value={platformFilter || 'all'}
+					onValueChange={(value) => {
+						platformFilter = value === 'all' ? '' : value;
+						const selectedAccount = accounts.find((account) => account.id === accountFilter);
+						if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
+							accountFilter = '';
+						}
+					}}
+				>
+					<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
+						{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
+						{#each knownPlatforms as provider (provider)}
+							<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Select.Root
+					type="single"
+					value={accountFilter || 'all'}
+					onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+				>
+					<Select.Trigger
+						class="h-11 w-60 sm:h-9"
+						aria-label={accountFilterLabel(
+							accounts.find((account) => account.id === accountFilter)
+						)}
+					>
+						{#if accountFilter}
+							{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
+							{#if selectedAccount}
+								<SocialAccountIdentity
+									name={accountName(selectedAccount)}
+									platform={selectedAccount.platform}
+									avatarUrl={selectedAccount.account_avatar_url}
+									size="sm"
+								/>
+							{:else}
+								{m.engagement_all_accounts()}
+							{/if}
+						{:else}
+							{m.engagement_all_accounts()}
+						{/if}
+					</Select.Trigger>
+					<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
+						<Select.Item value="all" class="min-h-11">{m.engagement_all_accounts()}</Select.Item>
+						{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
+							<Select.Item value={account.id} class="min-h-12 py-2">
+								<SocialAccountIdentity
+									name={accountName(account)}
+									platform={account.platform}
+									avatarUrl={account.account_avatar_url}
+								/>
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<label class="flex min-h-11 items-center gap-2 text-sm">
+					<Checkbox
+						checked={archived}
+						onCheckedChange={(checked) => {
+							archived = checked;
+						}}
+					/>
+					{m.engagement_archived()}
+				</label>
+			</div>
+		</div>
+	{/snippet}
+
 	<div class="space-y-5">
-		<CommunicationsNavigation active="messages" />
 		{#if backgroundError}
 			<InlineNotice tone="error" message={backgroundError}>
 				{#snippet actions()}
@@ -743,77 +820,6 @@
 				message={`${getPlatformName(state.platform)}: ${state.error_message || m.messages_sync_attention()}`}
 			/>
 		{/each}
-
-		<div class="flex flex-wrap items-center gap-3">
-			<Select.Root
-				type="single"
-				value={platformFilter || 'all'}
-				onValueChange={(value) => {
-					platformFilter = value === 'all' ? '' : value;
-					const selectedAccount = accounts.find((account) => account.id === accountFilter);
-					if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
-						accountFilter = '';
-					}
-				}}
-			>
-				<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
-					{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
-					{#each knownPlatforms as provider (provider)}
-						<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<Select.Root
-				type="single"
-				value={accountFilter || 'all'}
-				onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
-			>
-				<Select.Trigger
-					class="h-11 w-60 sm:h-9"
-					aria-label={accountFilterLabel(accounts.find((account) => account.id === accountFilter))}
-				>
-					{#if accountFilter}
-						{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
-						{#if selectedAccount}
-							<SocialAccountIdentity
-								name={accountName(selectedAccount)}
-								platform={selectedAccount.platform}
-								avatarUrl={selectedAccount.account_avatar_url}
-								size="sm"
-							/>
-						{:else}
-							{m.engagement_all_accounts()}
-						{/if}
-					{:else}
-						{m.engagement_all_accounts()}
-					{/if}
-				</Select.Trigger>
-				<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
-					<Select.Item value="all" class="min-h-11">{m.engagement_all_accounts()}</Select.Item>
-					{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
-						<Select.Item value={account.id} class="min-h-12 py-2">
-							<SocialAccountIdentity
-								name={accountName(account)}
-								platform={account.platform}
-								avatarUrl={account.account_avatar_url}
-							/>
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<label class="flex min-h-11 items-center gap-2 text-sm">
-				<Checkbox
-					checked={archived}
-					onCheckedChange={(checked) => {
-						archived = checked;
-					}}
-				/>
-				{m.engagement_archived()}
-			</label>
-		</div>
 
 		{#if error && !messagingAllDisabled}
 			<InlineNotice tone="error" message={error}>

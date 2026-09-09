@@ -47,6 +47,8 @@ Web ships with the endpoint. Mobile falls back to the existing auth, Workspace, 
 Each route owns one first-viewport loading boundary and starts independent reads together. Nested children do not create a second sequence of loaders for reads the route can start. The editors hub is the recorded exception: it composes independent image and video sections, so each section keeps its own delayed boundary while the shared header and search stay mounted.
 
 - With no usable data, wait 150 ms before showing a content-shaped page loader.
+- Keep page actions, section navigation, and filters mounted and usable while the selected content loads. `PageContainer` places its `navigation` snippet outside the busy content region; Settings placeholders describe the selected panel only.
+- Route navigation uses delayed BProgress feedback. Query refreshes and uploads, exports, or AI operations retain their own loading feedback.
 - Keep cached data visible during background refresh.
 - Initial failures show a retryable inline error. Background failures keep stale content visible with a non-blocking notice.
 - Show an empty state only after a successful zero-result response.

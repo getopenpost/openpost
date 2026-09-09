@@ -4,7 +4,6 @@
 	import type { ThemeIconRole } from '$lib/themes';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		title: string;
@@ -15,9 +14,6 @@
 		description?: string;
 		meta?: Snippet;
 		actions?: Snippet;
-		loading?: boolean;
-		loadingPlaceholderVisible?: boolean;
-		loadingActionCount?: number;
 		contentClass?: string;
 		titleClass?: string;
 		class?: string;
@@ -31,20 +27,10 @@
 		description,
 		meta,
 		actions,
-		loading = false,
-		loadingPlaceholderVisible = true,
-		loadingActionCount = 2,
 		contentClass,
 		titleClass,
 		class: className
 	}: Props = $props();
-
-	const loadingActionKeys = $derived(
-		Array.from(
-			{ length: Math.max(0, Math.floor(loadingActionCount)) },
-			(_, index) => `header-action-${index}`
-		)
-	);
 </script>
 
 <header
@@ -90,18 +76,7 @@
 			data-slot="page-header-actions"
 			class="page-header-actions flex w-full shrink-0 flex-wrap items-center gap-2"
 		>
-			{#if loading}
-				{#each loadingActionKeys as key, index (key)}
-					<Skeleton
-						class={cn(
-							index === 0 ? 'h-9 w-32' : 'h-9 w-24',
-							!loadingPlaceholderVisible && 'invisible'
-						)}
-					/>
-				{/each}
-			{:else}
-				{@render actions()}
-			{/if}
+			{@render actions()}
 		</div>
 	{/if}
 </header>

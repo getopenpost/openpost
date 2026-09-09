@@ -23,7 +23,7 @@
 </script>
 
 <nav
-	class="flex gap-1 border-b"
+	class="flex min-w-0 gap-1 overflow-x-auto border-b"
 	aria-label={m.communications_navigation()}
 	data-testid="communications-navigation"
 >
@@ -32,7 +32,7 @@
 		data-cuelume-toggle="toggle"
 		onclick={(event) => navigate(event, '/inbox/engagement')}
 		class={[
-			'flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
+			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
 			active === 'engagement'
 				? 'border-primary text-foreground'
 				: 'border-transparent text-muted-foreground hover:text-foreground'
@@ -47,7 +47,7 @@
 		data-cuelume-toggle="toggle"
 		onclick={(event) => navigate(event, '/inbox/messages')}
 		class={[
-			'flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
+			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
 			active === 'messages'
 				? 'border-primary text-foreground'
 				: 'border-transparent text-muted-foreground hover:text-foreground'
@@ -62,7 +62,7 @@
 		data-cuelume-toggle="toggle"
 		onclick={(event) => navigate(event, '/inbox/notifications')}
 		class={[
-			'flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
+			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
 			active === 'notifications'
 				? 'border-primary text-foreground'
 				: 'border-transparent text-muted-foreground hover:text-foreground'

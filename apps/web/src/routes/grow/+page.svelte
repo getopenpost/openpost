@@ -702,24 +702,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		{/if}
 	{/snippet}
 
-	<div class="flex min-w-0 flex-col gap-4">
-		{#if readError}
-			<InlineNotice tone="error" message={readError}>
-				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={retryReads}
-						>{m.grow_load_failed_retry()}</Button
-					>
-				{/snippet}
-			</InlineNotice>
-		{:else if backgroundReadError}
-			<InlineNotice tone="error" message={backgroundReadError}>
-				{#snippet actions()}
-					<Button variant="outline" size="sm" onclick={retryReads}
-						>{m.grow_load_failed_retry()}</Button
-					>
-				{/snippet}
-			</InlineNotice>
-		{/if}
+	{#snippet navigation()}
 		{#if showAccountSelector}
 			<div class="flex flex-wrap items-center gap-3">
 				<label for="grow-account-select" class="text-sm font-medium">{m.grow_for_label()}</label>
@@ -775,6 +758,25 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</span>
 				{/if}
 			</div>
+		{/if}
+	{/snippet}
+	<div class="flex min-w-0 flex-col gap-4">
+		{#if readError}
+			<InlineNotice tone="error" message={readError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryReads}
+						>{m.grow_load_failed_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{:else if backgroundReadError}
+			<InlineNotice tone="error" message={backgroundReadError}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={retryReads}
+						>{m.grow_load_failed_retry()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 
 		{#if isStaleDisabled}

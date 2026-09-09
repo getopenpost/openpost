@@ -247,8 +247,6 @@
 
 <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{statusMessage}</p>
 
-<CommunicationsNavigation active="notifications" />
-
 <PageContainer
 	title={m.notifications_heading()}
 	description={workspaceName ? m.notifications_description({ workspace: workspaceName }) : ''}
@@ -257,6 +255,9 @@
 	loadingLayout="list"
 	loadingItems={6}
 >
+	{#snippet navigation()}
+		<CommunicationsNavigation active="notifications" />
+	{/snippet}
 	{#snippet actions()}
 		<div class="flex flex-wrap gap-2">
 			<Button

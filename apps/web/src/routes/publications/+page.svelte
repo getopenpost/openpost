@@ -830,57 +830,60 @@
 	<title>{m.activity_title()} — {m.common_openpost()}</title>
 </svelte:head>
 
-<PageContainer
-	title={m.activity_title()}
-	description={m.activity_description()}
-	themeIconRole="publications"
-	loading={initialLoading}
-	loadingLayout="list"
-	loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
->
-	{#snippet actions()}
-		<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>
-			<ThemeIcon role="refresh" class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
-			{m.common_refresh()}
-		</Button>
-		<Button size="sm" onclick={() => goto(resolveAppPath('/'))}>
-			<ThemeIcon role="add" class="mr-1.5 size-3.5" />
-			{m.activity_new_post()}
-		</Button>
-	{/snippet}
-
-	{#if visibleError}
-		<InlineNotice
-			tone={currentViewLoaded && !error ? 'warning' : 'error'}
-			message={visibleError}
-			onDismiss={() => {
-				error = '';
-				queryError = '';
-			}}
-			dismissLabel={m.common_dismiss()}
-		>
-			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => loadData()}>{m.common_refresh()}</Button>
-			{/snippet}
-		</InlineNotice>
-	{/if}
-	{#if successMessage}
-		<InlineNotice
-			tone="success"
-			message={successMessage}
-			onDismiss={() => (successMessage = '')}
-			dismissLabel={m.common_dismiss()}
-		/>
-	{/if}
-	{#if currentViewLoaded}
-		<Tabs bind:value={activeTab}>
-			<TabsList class="mb-6 no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden">
+<Tabs bind:value={activeTab} class="min-w-0 flex-1">
+	<PageContainer
+		title={m.activity_title()}
+		description={m.activity_description()}
+		themeIconRole="publications"
+		loading={initialLoading}
+		loadingLayout="list"
+		loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
+	>
+		{#snippet navigation()}
+			<TabsList class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden">
 				<TabsTrigger value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
 				<TabsTrigger value="published">{m.activity_tab_published()}</TabsTrigger>
 				<TabsTrigger value="failed">{m.activity_tab_failed()}</TabsTrigger>
 				<TabsTrigger value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
 			</TabsList>
+		{/snippet}
+		{#snippet actions()}
+			<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>
+				<ThemeIcon role="refresh" class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
+				{m.common_refresh()}
+			</Button>
+			<Button size="sm" onclick={() => goto(resolveAppPath('/'))}>
+				<ThemeIcon role="add" class="mr-1.5 size-3.5" />
+				{m.activity_new_post()}
+			</Button>
+		{/snippet}
 
+		{#if visibleError}
+			<InlineNotice
+				tone={currentViewLoaded && !error ? 'warning' : 'error'}
+				message={visibleError}
+				onDismiss={() => {
+					error = '';
+					queryError = '';
+				}}
+				dismissLabel={m.common_dismiss()}
+			>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => loadData()}
+						>{m.common_refresh()}</Button
+					>
+				{/snippet}
+			</InlineNotice>
+		{/if}
+		{#if successMessage}
+			<InlineNotice
+				tone="success"
+				message={successMessage}
+				onDismiss={() => (successMessage = '')}
+				dismissLabel={m.common_dismiss()}
+			/>
+		{/if}
+		{#if currentViewLoaded}
 			<TabsContent value="scheduled">
 				{@render postList(
 					scheduledPosts,
@@ -987,24 +990,24 @@
 			<TabsContent value="drafts">
 				{@render postList(drafts, m.activity_empty_drafts_title(), m.activity_empty_drafts_body())}
 			</TabsContent>
-		</Tabs>
-		<div class="mt-6 flex min-h-10 items-center justify-between gap-3 border-t pt-4">
-			<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
-				{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
-			</span>
-			{#if publicationsInfinite.hasNextPage}
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={loading || publicationsInfinite.isFetchingNextPage}
-					onclick={loadMorePublicationHistory}
-				>
-					{#if publicationsInfinite.isFetchingNextPage}
-						<ThemeIcon role="refresh" class="mr-1.5 size-3.5 animate-spin" />
-					{/if}
-					{m.notifications_load_more()}
-				</Button>
-			{/if}
-		</div>
-	{/if}
-</PageContainer>
+			<div class="mt-6 flex min-h-10 items-center justify-between gap-3 border-t pt-4">
+				<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+					{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
+				</span>
+				{#if publicationsInfinite.hasNextPage}
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={loading || publicationsInfinite.isFetchingNextPage}
+						onclick={loadMorePublicationHistory}
+					>
+						{#if publicationsInfinite.isFetchingNextPage}
+							<ThemeIcon role="refresh" class="mr-1.5 size-3.5 animate-spin" />
+						{/if}
+						{m.notifications_load_more()}
+					</Button>
+				{/if}
+			</div>
+		{/if}
+	</PageContainer>
+</Tabs>

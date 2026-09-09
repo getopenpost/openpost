@@ -19,6 +19,8 @@
 		description?: string;
 		/** Optional header actions (buttons, etc.) */
 		actions?: Snippet;
+		/** Navigation and filters that remain usable while content loads. */
+		navigation?: Snippet;
 		/** Whether to show loading state */
 		loading?: boolean;
 		/** Optional loading message */
@@ -29,8 +31,6 @@
 		loadingVariant?: PageLoadingProps['variant'];
 		/** Number of repeated placeholder items */
 		loadingItems?: number;
-		/** Number of controls represented in the loading header */
-		loadingActionCount?: number;
 		/** Mount content during its first load so child reads can start behind the page placeholder */
 		mountWhileLoading?: boolean;
 		/** Render only the content when the page is embedded in another shell */
@@ -45,12 +45,12 @@
 		themeIconRole,
 		description,
 		actions,
+		navigation,
 		loading = false,
 		loadingMessage = 'Loading...',
 		loadingLayout = 'list',
 		loadingVariant = 'profile',
 		loadingItems = 4,
-		loadingActionCount = 2,
 		mountWhileLoading = false,
 		embedded = false,
 		children
@@ -60,6 +60,11 @@
 </script>
 
 {#if embedded}
+	{#if navigation}
+		<div data-slot="page-navigation" data-theme-type="body" class="min-w-0 empty:hidden">
+			{@render navigation()}
+		</div>
+	{/if}
 	<div data-slot="page-content" data-theme-type="body" class="min-w-0" aria-busy={loading}>
 		{#if mountWhileLoading}
 			{#if loading && loadingPlaceholder.current}
@@ -90,17 +95,13 @@
 	</div>
 {:else}
 	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
-		<PageHeader
-			{title}
-			icon={Icon}
-			{themeIconRole}
-			{description}
-			{actions}
-			{loading}
-			loadingPlaceholderVisible={loadingPlaceholder.current}
-			{loadingActionCount}
-		/>
+		<PageHeader {title} icon={Icon} {themeIconRole} {description} {actions} />
 
+		{#if navigation}
+			<div data-slot="page-navigation" data-theme-type="body" class="min-w-0 empty:hidden">
+				{@render navigation()}
+			</div>
+		{/if}
 		<div data-slot="page-content" data-theme-type="body" class="min-w-0" aria-busy={loading}>
 			{#if mountWhileLoading}
 				{#if loading && loadingPlaceholder.current}

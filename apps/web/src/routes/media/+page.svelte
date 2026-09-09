@@ -1451,6 +1451,146 @@
 		{/if}
 	{/snippet}
 
+	{#snippet navigation()}
+		<nav
+			class="flex gap-1 overflow-x-auto pb-3"
+			aria-label={m.media_lifecycle_navigation()}
+			data-testid="media-lifecycle-tabs"
+		>
+			{#each [{ value: 'library' as const, label: m.media_lifecycle_library() }, { value: 'temporary' as const, label: m.media_lifecycle_temporary() }, { value: 'trash' as const, label: m.media_lifecycle_trash() }] as view (view.value)}
+				<Button
+					variant={lifecycleView === view.value ? 'secondary' : 'ghost'}
+					size="sm"
+					class="shrink-0 rounded-full"
+					onclick={() => {
+						lifecycleView = view.value;
+						currentPage = 0;
+						void loadMedia(selectedWorkspaceId);
+					}}
+				>
+					{view.label}
+				</Button>
+			{/each}
+		</nav>
+
+		<div
+			class="flex flex-col gap-2 pb-4 md:flex-row md:items-center"
+			data-testid="media-filter-bar"
+		>
+			<form
+				class="flex min-w-0 flex-1 gap-2"
+				onsubmit={(event) => {
+					event.preventDefault();
+					submitSearch();
+				}}
+			>
+				<div class="relative min-w-0 flex-1">
+					<ThemeIcon
+						role="search"
+						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						class="h-11 pr-10 pl-9"
+						bind:value={searchInput}
+						placeholder={m.media_search_filename_alt()}
+						onkeydown={(event) => {
+							if (event.key === 'Enter' && !event.isComposing) {
+								event.preventDefault();
+								submitSearch();
+							}
+						}}
+					/>
+					{#if searchInput || appliedSearch}
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							class="absolute top-1/2 right-0.5 size-10 -translate-y-1/2"
+							aria-label={m.media_clear_search()}
+							onclick={clearSearch}
+						>
+							<ThemeIcon role="close" class="size-4" />
+						</Button>
+					{/if}
+				</div>
+				<Button
+					type="submit"
+					variant="outline"
+					size="icon"
+					aria-label={m.media_picker_search_action()}
+				>
+					<ThemeIcon role="search" />
+				</Button>
+			</form>
+			<div class="flex min-w-0 items-center gap-1.5 overflow-x-auto">
+				{#if lifecycleView === 'library'}
+					<Button
+						variant={filter === 'favorites' ? 'secondary' : 'ghost'}
+						size="sm"
+						class="shrink-0"
+						onclick={() => changeFilter(filter === 'favorites' ? 'all' : 'favorites')}
+					>
+						<ThemeIcon role="favorite" fill={filter === 'favorites' ? 'currentColor' : 'none'} />
+						{m.media_filter_favorites()}
+					</Button>
+				{/if}
+				<Button
+					type="button"
+					variant={activeDetailFilterCount > 0 ? 'secondary' : 'outline'}
+					class="h-11 shrink-0"
+					aria-label={m.media_filters()}
+					onclick={() => (filterDialogOpen = true)}
+				>
+					<ThemeIcon role="controls" />
+					<span>{m.media_filters()}</span>
+					{#if activeDetailFilterCount > 0}
+						<span
+							class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+						>
+							{activeDetailFilterCount}
+						</span>
+					{/if}
+				</Button>
+				<Select.Root type="single" value={sort} onValueChange={changeSort}>
+					<Select.Trigger class="h-11 w-[7.75rem] text-sm">
+						{sort === 'newest'
+							? m.media_sort_newest()
+							: sort === 'oldest'
+								? m.media_sort_oldest()
+								: sort === 'name'
+									? m.media_sort_name()
+									: sort === 'recently_used'
+										? m.media_recently_used()
+										: m.media_sort_size()}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="newest">{m.media_sort_newest()}</Select.Item>
+						<Select.Item value="oldest">{m.media_sort_oldest()}</Select.Item>
+						<Select.Item value="name">{m.media_sort_name()}</Select.Item>
+						<Select.Item value="size">{m.media_sort_size()}</Select.Item>
+						<Select.Item value="recently_used">{m.media_recently_used()}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					class="hidden sm:inline-flex"
+					onclick={() => (layoutMode = layoutMode === 'grid' ? 'list' : 'grid')}
+					aria-label={layoutMode === 'grid' ? m.media_compact_view() : m.media_grid_view()}
+				>
+					{#if layoutMode === 'grid'}<ThemeIcon role="layout" />{:else}<ThemeIcon
+							role="layout"
+						/>{/if}
+				</Button>
+				{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode && lifecycleView !== 'trash'}
+					<Button variant="outline" size="sm" class="h-11" onclick={() => (isSelectionMode = true)}>
+						{m.media_select()}
+					</Button>
+				{/if}
+			</div>
+		</div>
+	{/snippet}
+
 	{#if mediaLoading && mediaDataReady}
 		<span class="sr-only" role="status">{m.common_loading()}</span>
 	{/if}
@@ -1491,140 +1631,6 @@
 		</InlineNotice>
 	{/if}
 
-	<nav
-		class="flex gap-1 overflow-x-auto pb-3"
-		aria-label={m.media_lifecycle_navigation()}
-		data-testid="media-lifecycle-tabs"
-	>
-		{#each [{ value: 'library' as const, label: m.media_lifecycle_library() }, { value: 'temporary' as const, label: m.media_lifecycle_temporary() }, { value: 'trash' as const, label: m.media_lifecycle_trash() }] as view (view.value)}
-			<Button
-				variant={lifecycleView === view.value ? 'secondary' : 'ghost'}
-				size="sm"
-				class="shrink-0 rounded-full"
-				onclick={() => {
-					lifecycleView = view.value;
-					currentPage = 0;
-					void loadMedia(selectedWorkspaceId);
-				}}
-			>
-				{view.label}
-			</Button>
-		{/each}
-	</nav>
-
-	<div class="flex flex-col gap-2 pb-4 md:flex-row md:items-center" data-testid="media-filter-bar">
-		<form
-			class="flex min-w-0 flex-1 gap-2"
-			onsubmit={(event) => {
-				event.preventDefault();
-				submitSearch();
-			}}
-		>
-			<div class="relative min-w-0 flex-1">
-				<ThemeIcon
-					role="search"
-					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					class="h-11 pr-10 pl-9"
-					bind:value={searchInput}
-					placeholder={m.media_search_filename_alt()}
-					onkeydown={(event) => {
-						if (event.key === 'Enter' && !event.isComposing) {
-							event.preventDefault();
-							submitSearch();
-						}
-					}}
-				/>
-				{#if searchInput || appliedSearch}
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						class="absolute top-1/2 right-0.5 size-10 -translate-y-1/2"
-						aria-label={m.media_clear_search()}
-						onclick={clearSearch}
-					>
-						<ThemeIcon role="close" class="size-4" />
-					</Button>
-				{/if}
-			</div>
-			<Button
-				type="submit"
-				variant="outline"
-				size="icon"
-				aria-label={m.media_picker_search_action()}
-			>
-				<ThemeIcon role="search" />
-			</Button>
-		</form>
-		<div class="flex min-w-0 items-center gap-1.5 overflow-x-auto">
-			{#if lifecycleView === 'library'}
-				<Button
-					variant={filter === 'favorites' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="shrink-0"
-					onclick={() => changeFilter(filter === 'favorites' ? 'all' : 'favorites')}
-				>
-					<ThemeIcon role="favorite" fill={filter === 'favorites' ? 'currentColor' : 'none'} />
-					{m.media_filter_favorites()}
-				</Button>
-			{/if}
-			<Button
-				type="button"
-				variant={activeDetailFilterCount > 0 ? 'secondary' : 'outline'}
-				class="h-11 shrink-0"
-				aria-label={m.media_filters()}
-				onclick={() => (filterDialogOpen = true)}
-			>
-				<ThemeIcon role="controls" />
-				<span>{m.media_filters()}</span>
-				{#if activeDetailFilterCount > 0}
-					<span
-						class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-					>
-						{activeDetailFilterCount}
-					</span>
-				{/if}
-			</Button>
-			<Select.Root type="single" value={sort} onValueChange={changeSort}>
-				<Select.Trigger class="h-11 w-[7.75rem] text-sm">
-					{sort === 'newest'
-						? m.media_sort_newest()
-						: sort === 'oldest'
-							? m.media_sort_oldest()
-							: sort === 'name'
-								? m.media_sort_name()
-								: sort === 'recently_used'
-									? m.media_recently_used()
-									: m.media_sort_size()}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="newest">{m.media_sort_newest()}</Select.Item>
-					<Select.Item value="oldest">{m.media_sort_oldest()}</Select.Item>
-					<Select.Item value="name">{m.media_sort_name()}</Select.Item>
-					<Select.Item value="size">{m.media_sort_size()}</Select.Item>
-					<Select.Item value="recently_used">{m.media_recently_used()}</Select.Item>
-				</Select.Content>
-			</Select.Root>
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				class="hidden sm:inline-flex"
-				onclick={() => (layoutMode = layoutMode === 'grid' ? 'list' : 'grid')}
-				aria-label={layoutMode === 'grid' ? m.media_compact_view() : m.media_grid_view()}
-			>
-				{#if layoutMode === 'grid'}<ThemeIcon role="layout" />{:else}<ThemeIcon
-						role="layout"
-					/>{/if}
-			</Button>
-			{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode && lifecycleView !== 'trash'}
-				<Button variant="outline" size="sm" class="h-11" onclick={() => (isSelectionMode = true)}>
-					{m.media_select()}
-				</Button>
-			{/if}
-		</div>
-	</div>
 	{#if appliedSearch && !mediaLoading && !error}
 		<p class="pb-3 text-sm text-muted-foreground" role="status" data-testid="media-result-count">
 			{totalCount === 1

@@ -246,11 +246,13 @@
 	loadingItems={8}
 	mountWhileLoading
 >
-	<div class="min-w-0 space-y-8">
+	{#snippet navigation()}
 		<SettingsNavigation
 			active={activeSettingsTab}
 			showInstance={Boolean(authState.user?.is_admin)}
 		/>
+	{/snippet}
+	<div class="min-w-0 space-y-8">
 		{#if panelError}
 			<InlineNotice tone="error" message={panelError}>
 				{#snippet actions()}

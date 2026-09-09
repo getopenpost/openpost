@@ -143,62 +143,54 @@
 				</div>
 			</div>
 		{:else if layout === 'settings'}
-			<div class="grid min-w-0 items-start gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-				<div class="space-y-2">
-					<Skeleton class="h-10 w-full lg:hidden" />
-					{#each itemKeys as key (key)}
-						<Skeleton class="hidden h-9 w-full lg:block" />
-					{/each}
-				</div>
-				<div class="flex min-w-0 flex-col gap-5">
-					{#if variant === 'profile'}
-						<div class="flex items-center gap-4">
-							<Skeleton class="size-20 shrink-0 rounded-full" />
-							<div class="min-w-0 flex-1 space-y-3">
-								<Skeleton class="h-4 w-32" />
-								<Skeleton class="h-9 w-full" />
-							</div>
+			<div class="flex min-w-0 flex-col gap-5">
+				{#if variant === 'profile'}
+					<div class="flex items-center gap-4">
+						<Skeleton class="size-20 shrink-0 rounded-full" />
+						<div class="min-w-0 flex-1 space-y-3">
+							<Skeleton class="h-4 w-32" />
+							<Skeleton class="h-9 w-full" />
 						</div>
-						<Skeleton class="h-px w-full" />
-						<div class="grid gap-4 sm:grid-cols-2">
-							<Skeleton class="h-20" />
-							<Skeleton class="h-20" />
-						</div>
-					{:else if variant === 'cards'}
-						<Skeleton class="h-5 w-44" />
-						<Skeleton class="h-4 w-64 max-w-full" />
-						<div class="grid gap-3 sm:grid-cols-2">
-							<Skeleton class="h-28 rounded-lg" />
-							<Skeleton class="h-28 rounded-lg" />
-						</div>
-						<Skeleton class="mt-3 h-24 rounded-lg" />
-					{:else if variant === 'list'}
-						<Skeleton class="h-5 w-44" />
-						<Skeleton class="h-4 w-64 max-w-full" />
-						<div class="divide-y border-y">
-							{#each itemKeys.slice(0, 3) as key (`setting-${key}`)}
-								<div class="flex items-center gap-3 py-4">
-									<Skeleton class="size-9 shrink-0 rounded-md" />
-									<div class="min-w-0 flex-1 space-y-2">
-										<Skeleton class="h-4 w-2/5" />
-										<Skeleton class="h-3 w-4/5" />
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						{#each ['primary', 'secondary'] as section (section)}
-							<div class="space-y-3">
-								<Skeleton class="h-5 w-44" />
-								<Skeleton class="h-4 w-64 max-w-full" />
-								<div class="grid gap-4 sm:grid-cols-2">
-									<Skeleton class="h-16 rounded-md" />
-									<Skeleton class="h-16 rounded-md" />
+					</div>
+					<Skeleton class="h-px w-full" />
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Skeleton class="h-20" />
+						<Skeleton class="h-20" />
+					</div>
+				{:else if variant === 'cards'}
+					<Skeleton class="h-5 w-44" />
+					<Skeleton class="h-4 w-64 max-w-full" />
+					<div class="grid gap-3 sm:grid-cols-2">
+						<Skeleton class="h-28 rounded-lg" />
+						<Skeleton class="h-28 rounded-lg" />
+					</div>
+					<Skeleton class="mt-3 h-24 rounded-lg" />
+				{:else if variant === 'list'}
+					<Skeleton class="h-5 w-44" />
+					<Skeleton class="h-4 w-64 max-w-full" />
+					<div class="divide-y border-y">
+						{#each itemKeys.slice(0, 3) as key (`setting-${key}`)}
+							<div class="flex items-center gap-3 py-4">
+								<Skeleton class="size-9 shrink-0 rounded-md" />
+								<div class="min-w-0 flex-1 space-y-2">
+									<Skeleton class="h-4 w-2/5" />
+									<Skeleton class="h-3 w-4/5" />
 								</div>
 							</div>
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{:else}
+					{#each ['primary', 'secondary'] as section (section)}
+						<div class="space-y-3">
+							<Skeleton class="h-5 w-44" />
+							<Skeleton class="h-4 w-64 max-w-full" />
+							<div class="grid gap-4 sm:grid-cols-2">
+								<Skeleton class="h-16 rounded-md" />
+								<Skeleton class="h-16 rounded-md" />
+							</div>
+						</div>
+					{/each}
+				{/if}
 			</div>
 		{:else if layout === 'composer'}
 			<div class="flex min-h-[28rem] flex-col">

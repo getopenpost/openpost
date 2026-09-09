@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	AutosaveRetention = 30 * 24 * time.Hour
-	TrashRetention    = 30 * 24 * time.Hour
-	MaxDocumentBytes  = 16 * 1024 * 1024
+	AutosaveRetention   = 30 * 24 * time.Hour
+	TrashRetention      = 30 * 24 * time.Hour
+	MaxDocumentBytes    = 16 * 1024 * 1024
+	maxProjectNameBytes = 160
 
 	MutationSet    = "set"
 	MutationDelete = "delete"
@@ -483,9 +484,11 @@ func (s *Service) RestoreRevision(ctx context.Context, actor workspaceaccess.Act
 		}
 		now := s.now().UTC()
 		nextRevision := project.HeadRevision + 1
+		name := documentProjectName(document, project.Name)
 		update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
 			Set("head_revision = ?", nextRevision).
 			Set("document_json = ?", string(document)).
+			Set("name = ?", name).
 			Set("sync_status = ?", status).
 			Set("attention_reason = ?", attention).
 			Set("updated_by_user_id = ?", actor.UserID).
@@ -513,6 +516,7 @@ func (s *Service) RestoreRevision(ctx context.Context, actor workspaceaccess.Act
 		}
 		project.HeadRevision = nextRevision
 		project.DocumentJSON = string(document)
+		project.Name = name
 		project.SyncStatus = status
 		project.AttentionReason = attention
 		project.UpdatedByUserID = actor.UserID
@@ -580,7 +584,7 @@ func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, 
 	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	input.Name = strings.TrimSpace(input.Name)
 	input.DeviceID = strings.TrimSpace(input.DeviceID)
-	if input.WorkspaceID == "" || input.Name == "" || len(input.Name) > 160 {
+	if input.WorkspaceID == "" || input.Name == "" || len(input.Name) > maxProjectNameBytes {
 		return nil, ErrInvalid
 	}
 	document, err := normalizeDocument(input.Document)
@@ -752,9 +756,11 @@ func (s *Service) applyMutationToHead(ctx context.Context, tx bun.Tx, actor work
 	}
 	now := s.now().UTC()
 	nextRevision := project.HeadRevision + 1
+	name := documentProjectName(document, project.Name)
 	update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
 		Set("head_revision = ?", nextRevision).
 		Set("document_json = ?", string(document)).
+		Set("name = ?", name).
 		Set("sync_status = ?", status).
 		Set("attention_reason = ?", attention).
 		Set("updated_by_user_id = ?", actor.UserID).
@@ -786,6 +792,7 @@ func (s *Service) applyMutationToHead(ctx context.Context, tx bun.Tx, actor work
 	}
 	project.HeadRevision = nextRevision
 	project.DocumentJSON = string(document)
+	project.Name = name
 	project.SyncStatus = status
 	project.AttentionReason = attention
 	project.UpdatedByUserID = actor.UserID
@@ -891,9 +898,11 @@ func (s *Service) useConflictBranch(ctx context.Context, tx bun.Tx, actor worksp
 		return err
 	}
 	nextRevision := project.HeadRevision + 1
+	name := documentProjectName(document, project.Name)
 	update, err := tx.NewUpdate().Model((*models.VideoProject)(nil)).
 		Set("head_revision = ?", nextRevision).
 		Set("document_json = ?", string(document)).
+		Set("name = ?", name).
 		Set("updated_by_user_id = ?", actor.UserID).
 		Set("updated_at = ?", now).
 		Where("id = ? AND head_revision = ?", project.ID, project.HeadRevision).
@@ -920,6 +929,7 @@ func (s *Service) useConflictBranch(ctx context.Context, tx bun.Tx, actor worksp
 	}
 	project.HeadRevision = nextRevision
 	project.DocumentJSON = string(document)
+	project.Name = name
 	project.UpdatedByUserID = actor.UserID
 	project.UpdatedAt = now
 	return nil
@@ -962,6 +972,20 @@ func (s *Service) ListRevisions(ctx context.Context, actor workspaceaccess.Actor
 		})
 	}
 	return out, nil
+}
+
+func documentProjectName(raw json.RawMessage, fallback string) string {
+	var document struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return fallback
+	}
+	name := strings.TrimSpace(document.Name)
+	if name == "" || len(name) > maxProjectNameBytes {
+		return fallback
+	}
+	return name
 }
 
 func normalizeDocument(raw json.RawMessage) (json.RawMessage, error) {

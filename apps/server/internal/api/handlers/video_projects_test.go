@@ -83,6 +83,36 @@ func TestCloudVideoProjectCreateLoadAndWorkspaceAuthorization(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, otherWorkspace.Code, otherWorkspace.Body.String())
 }
 
+func TestCloudVideoProjectNameFollowsEditsAndRestoredRevision(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1", "name": "Untitled project", "device_id": "desktop-a",
+		"document": map[string]any{"name": "Untitled project"},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &project))
+	renamed := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/mutations", map[string]any{
+		"workspace_id": "ws-1", "mutation_id": "rename", "base_revision": 1, "device_id": "desktop-a",
+		"operations": []map[string]any{{"kind": "set", "target": "project:name", "path": "/name", "value": "Launch video"}},
+	})
+	require.Equal(t, http.StatusOK, renamed.Code, renamed.Body.String())
+	listName := func() string {
+		listed := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects?workspace_id=ws-1", nil)
+		require.Equal(t, http.StatusOK, listed.Code, listed.Body.String())
+		var projects []VideoProjectResponse
+		require.NoError(t, json.Unmarshal(listed.Body.Bytes(), &projects))
+		require.Len(t, projects, 1)
+		return projects[0].Name
+	}
+	require.Equal(t, "Launch video", listName())
+	restored := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/restore-revision", map[string]any{
+		"workspace_id": "ws-1", "revision": 1, "device_id": "desktop-a",
+	})
+	require.Equal(t, http.StatusOK, restored.Code, restored.Body.String())
+	require.Equal(t, "Untitled project", listName())
+}
+
 func TestCloudVideoProjectRebasesDisjointEditsAndPreservesOverlappingConflict(t *testing.T) {
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{

@@ -26,7 +26,6 @@ export type CaptionSearchMode = 'keyword' | 'semantic';
 // Persisted layout-dock flags port FreeCut's MIT-licensed editor layout
 // (Copyright (c) 2025 FreeCut): per-device sidebar open state and full-column
 // expansion. Theater mode is OpenPost-specific.
-export type ExpandedSidebar = 'none' | 'left' | 'right';
 
 export interface EditorSettingsValue {
 	maxUndoHistory: number;
@@ -53,7 +52,8 @@ export interface EditorSettingsValue {
 	defaultCaptionStylePresetId: CaptionStylePresetId;
 	leftSidebarCollapsed: boolean;
 	rightSidebarCollapsed: boolean;
-	expandedSidebar: ExpandedSidebar;
+	leftSidebarFullColumn: boolean;
+	rightSidebarFullColumn: boolean;
 	theaterMode: boolean;
 }
 
@@ -82,7 +82,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	defaultCaptionStylePresetId: DEFAULT_CAPTION_STYLE_PRESET_ID,
 	leftSidebarCollapsed: false,
 	rightSidebarCollapsed: false,
-	expandedSidebar: 'none',
+	leftSidebarFullColumn: true,
+	rightSidebarFullColumn: false,
 	theaterMode: false
 };
 
@@ -128,10 +129,6 @@ function isTranscriptionLanguage(value: JsonValue | undefined): value is string 
 
 function isCaptionSearchMode(value: JsonValue | undefined): value is CaptionSearchMode {
 	return value === 'keyword' || value === 'semantic';
-}
-
-function normalizeExpandedSidebar(value: JsonValue | undefined): ExpandedSidebar {
-	return value === 'left' || value === 'right' ? value : 'none';
 }
 
 function normalizeLayoutFlag(value: JsonValue | undefined, fallback: boolean): boolean {
@@ -236,7 +233,14 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 			record.rightSidebarCollapsed,
 			DEFAULT_EDITOR_SETTINGS.rightSidebarCollapsed
 		),
-		expandedSidebar: normalizeExpandedSidebar(record.expandedSidebar),
+		leftSidebarFullColumn: normalizeLayoutFlag(
+			record.leftSidebarFullColumn,
+			DEFAULT_EDITOR_SETTINGS.leftSidebarFullColumn
+		),
+		rightSidebarFullColumn: normalizeLayoutFlag(
+			record.rightSidebarFullColumn,
+			record.expandedSidebar === 'right'
+		),
 		theaterMode: normalizeLayoutFlag(record.theaterMode, DEFAULT_EDITOR_SETTINGS.theaterMode)
 	};
 }
@@ -349,8 +353,11 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		get rightSidebarCollapsed(): boolean {
 			return state.rightSidebarCollapsed;
 		},
-		get expandedSidebar(): ExpandedSidebar {
-			return state.expandedSidebar;
+		get leftSidebarFullColumn(): boolean {
+			return state.leftSidebarFullColumn;
+		},
+		get rightSidebarFullColumn(): boolean {
+			return state.rightSidebarFullColumn;
 		},
 		get theaterMode(): boolean {
 			return state.theaterMode;

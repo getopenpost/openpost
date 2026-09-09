@@ -38,11 +38,12 @@ describe('editor-settings caption search mode', () => {
 });
 
 describe('editor-settings layout dock', () => {
-	it('keeps sidebars open, unexpanded, and out of theater mode by default', () => {
+	it('keeps the assets column full height and the tools above the timeline by default', () => {
 		const settings = normalizeEditorSettings({});
 		expect(settings.leftSidebarCollapsed).toBe(false);
 		expect(settings.rightSidebarCollapsed).toBe(false);
-		expect(settings.expandedSidebar).toBe('none');
+		expect(settings.leftSidebarFullColumn).toBe(true);
+		expect(settings.rightSidebarFullColumn).toBe(false);
 		expect(settings.theaterMode).toBe(false);
 	});
 
@@ -55,9 +56,13 @@ describe('editor-settings layout dock', () => {
 		});
 		expect(settings.leftSidebarCollapsed).toBe(true);
 		expect(settings.rightSidebarCollapsed).toBe(true);
-		expect(settings.expandedSidebar).toBe('left');
+		expect(settings.leftSidebarFullColumn).toBe(true);
 		expect(settings.theaterMode).toBe(true);
-		expect(normalizeEditorSettings({ expandedSidebar: 'center' }).expandedSidebar).toBe('none');
+		expect(normalizeEditorSettings({ expandedSidebar: 'right' }).rightSidebarFullColumn).toBe(true);
+		expect(
+			normalizeEditorSettings({ rightSidebarFullColumn: false, expandedSidebar: 'right' })
+				.rightSidebarFullColumn
+		).toBe(false);
 		expect(normalizeEditorSettings({ leftSidebarCollapsed: 1 }).leftSidebarCollapsed).toBe(false);
 		expect(normalizeEditorSettings({ theaterMode: 'yes' }).theaterMode).toBe(false);
 	});
@@ -68,11 +73,13 @@ describe('editor-settings layout dock', () => {
 		const assetWidth = first.assetBrowserWidth;
 		const inspectorWidth = first.inspectorPanelWidth;
 		first.set('leftSidebarCollapsed', true);
-		first.set('expandedSidebar', 'right');
+		first.set('leftSidebarFullColumn', false);
+		first.set('rightSidebarFullColumn', true);
 		first.set('theaterMode', true);
 		const second = createEditorSettingsStore(storage);
 		expect(second.leftSidebarCollapsed).toBe(true);
-		expect(second.expandedSidebar).toBe('right');
+		expect(second.leftSidebarFullColumn).toBe(false);
+		expect(second.rightSidebarFullColumn).toBe(true);
 		expect(second.theaterMode).toBe(true);
 		expect(second.assetBrowserWidth).toBe(assetWidth);
 		expect(second.inspectorPanelWidth).toBe(inspectorWidth);

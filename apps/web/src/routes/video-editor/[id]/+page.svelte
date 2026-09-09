@@ -168,7 +168,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	} from '$lib/video-editor/timeline/color-playhead-selection';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
-	import type { ExpandedSidebar } from '$lib/video-editor/settings/editor-settings.svelte';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import {
 		canExtractEmbeddedSubtitles,
@@ -561,37 +560,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const effectiveColorDockHeight = $derived(
 		Math.max(colorDockMinimum, Math.min(colorDockHeight, colorDockMaximum))
 	);
-	// Layout dock: sidebar collapse, column expand, and preview theater mode.
-	// Collapse/expand semantics port FreeCut's MIT-licensed editor layout
-	// (Copyright (c) 2025 FreeCut): persisted left/right open flags, persisted
-	// full-column expansion, and clamped widths that survive reload. Adapted to
-	// Svelte runes and OpenPost theming; theater mode is OpenPost-specific.
-	// Collapsing never touches the stored widths or the selected left panel, so
-	// toggling back restores the exact previous layout. The preview player stays
-	// mounted in every mode; rails only hide it with CSS when a sidebar expands.
+	// FreeCut (MIT, Copyright (c) 2025 FreeCut) keeps sidebar visibility and
+	// full-height docking independent. CSS placement keeps every panel mounted.
 	const LAYOUT_RAIL_WIDTH = '2.75rem';
 	let leftSidebarCollapsed = $state(editorSettings.leftSidebarCollapsed);
 	let rightSidebarCollapsed = $state(editorSettings.rightSidebarCollapsed);
-	let expandedSidebar = $state<ExpandedSidebar>(editorSettings.expandedSidebar);
+	let leftSidebarFullColumn = $state(editorSettings.leftSidebarFullColumn);
+	let rightSidebarFullColumn = $state(editorSettings.rightSidebarFullColumn);
 	let theaterMode = $state(editorSettings.theaterMode);
 	const layoutDockActive = $derived(activeWorkspace === 'edit');
 	const layoutTheaterActive = $derived(theaterMode && layoutDockActive);
-	const layoutExpanded = $derived<ExpandedSidebar>(layoutDockActive ? expandedSidebar : 'none');
 	const leftSidebarRail = $derived(
-		layoutDockActive && (leftSidebarCollapsed || layoutTheaterActive || layoutExpanded === 'right')
+		layoutDockActive && (leftSidebarCollapsed || layoutTheaterActive)
 	);
 	const rightSidebarRail = $derived(
-		layoutDockActive && (rightSidebarCollapsed || layoutTheaterActive || layoutExpanded === 'left')
+		layoutDockActive && (rightSidebarCollapsed || layoutTheaterActive)
 	);
-	const programRail = $derived(layoutExpanded !== 'none');
-	const layoutDockWide = $derived(
-		layoutDockActive && (leftSidebarRail || rightSidebarRail || programRail || layoutTheaterActive)
-	);
+	const leftFullColumn = $derived(leftSidebarFullColumn && !layoutTheaterActive);
+	const rightFullColumn = $derived(rightSidebarFullColumn && !layoutTheaterActive);
 	const editGridColumns = $derived.by(() => {
 		if (!layoutDockActive) return '';
-		if (layoutExpanded === 'left') return `minmax(0,1fr) ${LAYOUT_RAIL_WIDTH} ${LAYOUT_RAIL_WIDTH}`;
-		if (layoutExpanded === 'right')
-			return `${LAYOUT_RAIL_WIDTH} ${LAYOUT_RAIL_WIDTH} minmax(0,1fr)`;
 		const left = leftSidebarRail ? LAYOUT_RAIL_WIDTH : 'var(--asset-browser-width)';
 		const right = rightSidebarRail ? LAYOUT_RAIL_WIDTH : 'var(--inspector-panel-width)';
 		return `${left} minmax(0,1fr) ${right}`;
@@ -604,7 +592,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function toggleLeftSidebar(): void {
-		if (layoutExpanded === 'left') setExpandedSidebar('none', false);
 		const next = !leftSidebarCollapsed;
 		leftSidebarCollapsed = next;
 		editorSettings.set('leftSidebarCollapsed', next);
@@ -617,7 +604,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function toggleRightSidebar(): void {
-		if (layoutExpanded === 'right') setExpandedSidebar('none', false);
 		const next = !rightSidebarCollapsed;
 		rightSidebarCollapsed = next;
 		editorSettings.set('rightSidebarCollapsed', next);
@@ -628,60 +614,46 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function expandLeftSidebar(): void {
-		if (layoutExpanded === 'right') {
-			setExpandedSidebar('none');
-			return;
-		}
-		if (layoutTheaterActive) {
-			setTheaterMode(false);
-			return;
-		}
+		if (layoutTheaterActive) setTheaterMode(false);
 		if (leftSidebarCollapsed) toggleLeftSidebar();
 	}
 
 	function expandRightSidebar(): void {
-		if (layoutExpanded === 'left') {
-			setExpandedSidebar('none');
-			return;
-		}
-		if (layoutTheaterActive) {
-			setTheaterMode(false);
-			return;
-		}
+		if (layoutTheaterActive) setTheaterMode(false);
 		if (rightSidebarCollapsed) toggleRightSidebar();
 	}
 
-	function setExpandedSidebar(next: ExpandedSidebar, restoreFocus = true): void {
-		const previous = expandedSidebar;
-		if (next !== 'none' && layoutTheaterActive) {
-			theaterMode = false;
-			editorSettings.set('theaterMode', false);
+	function selectLeftPanel(panel: LeftPanel): void {
+		if (leftPanel === panel && !leftSidebarRail) {
+			toggleLeftSidebar();
+			return;
 		}
-		expandedSidebar = next;
-		editorSettings.set('expandedSidebar', next);
-		emitEditorSound(next === 'none' ? 'toggleOff' : 'toggleOn', editorSession.clock.isPlaying);
-		if (!restoreFocus) return;
-		if (next === 'none' && previous !== 'none') {
-			focusLayoutControl(`[data-layout-toggle="expand-column-${previous}"]`);
-		} else if (next !== 'none') {
-			focusLayoutControl('[data-layout-toggle="restore-columns"]');
-		}
+		leftPanel = panel;
+		expandLeftSidebar();
 	}
 
 	function toggleExpandSidebar(side: 'left' | 'right'): void {
-		setExpandedSidebar(expandedSidebar === side ? 'none' : side);
+		if (layoutTheaterActive) setTheaterMode(false);
+		if (side === 'left') {
+			leftSidebarFullColumn = !leftSidebarFullColumn;
+			editorSettings.set('leftSidebarFullColumn', leftSidebarFullColumn);
+		} else {
+			rightSidebarFullColumn = !rightSidebarFullColumn;
+			editorSettings.set('rightSidebarFullColumn', rightSidebarFullColumn);
+		}
+		emitEditorSound(
+			(side === 'left' ? leftSidebarFullColumn : rightSidebarFullColumn) ? 'toggleOn' : 'toggleOff',
+			editorSession.clock.isPlaying
+		);
 	}
 
 	function setTheaterMode(next: boolean): void {
-		if (next && expandedSidebar !== 'none') {
-			expandedSidebar = 'none';
-			editorSettings.set('expandedSidebar', 'none');
-		}
 		theaterMode = next;
 		editorSettings.set('theaterMode', next);
 		emitEditorSound(next ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
 		focusLayoutControl('[data-layout-toggle="theater"]');
 	}
+
 	let textVoiceRequest = $state<TextVoiceRequest | null>(null);
 	const activeWorkspace = $derived.by(() => editorWorkspace.current);
 	const activeMotionComposition = $derived(
@@ -799,6 +771,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (!next) return;
 		event.preventDefault();
 		leftPanel = next.value;
+		if (orientation === 'vertical') expandLeftSidebar();
 		requestAnimationFrame(() => {
 			document
 				.querySelector<HTMLButtonElement>(
@@ -2526,7 +2499,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-assets-panel"
-								class="relative h-[min(44%,22rem)] min-h-24 w-full min-w-0 flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
+								class="relative h-[min(44%,22rem)] min-h-24 w-full min-w-0 flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-start-1 {leftFullColumn
+									? 'lg:row-span-2'
+									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
 									? 'flex'
@@ -2564,7 +2539,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
 																	aria-selected={leftPanel === option.value}
-																	onclick={() => (leftPanel = option.value)}
+																	onclick={() => selectLeftPanel(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2596,7 +2571,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
 																	aria-selected={leftPanel === option.value}
-																	onclick={() => (leftPanel = option.value)}
+																	onclick={() => selectLeftPanel(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2673,13 +2648,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<Button
 													size="icon-xs"
 													variant="ghost"
-													aria-label={m.video_editor_expand_assets_column()}
-													title={`${m.video_editor_expand_assets_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_LEFT_SIDEBAR)})`}
-													aria-pressed={layoutExpanded === 'left'}
+													aria-label={leftSidebarFullColumn
+														? m.video_editor_restore_panel_layout()
+														: m.video_editor_expand_assets_column()}
+													title={`${leftSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_assets_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_LEFT_SIDEBAR)})`}
+													aria-pressed={leftSidebarFullColumn}
 													data-layout-toggle="expand-column-left"
 													onclick={() => toggleExpandSidebar('left')}
 												>
-													<ThemeIcon role="layout" />
+													<ThemeIcon role={leftSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
 												</Button>
 												<Button
 													size="icon-xs"
@@ -2853,32 +2830,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
 								? 'lg:col-start-2 lg:row-start-1'
-								: ''} {programRail ? 'lg:overflow-hidden' : ''}"
+								: ''}"
 						>
-							{#if programRail}
-								<div
-									class="hidden w-full flex-col items-center gap-2 border-x border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] py-2 lg:flex"
-									aria-label={m.video_editor_program_monitor()}
-								>
-									<Button
-										size="icon-sm"
-										variant="ghost"
-										class="shrink-0 text-[var(--video-editor-muted)]"
-										aria-label={m.video_editor_restore_panel_layout()}
-										title={m.video_editor_restore_panel_layout()}
-										data-layout-toggle="restore-columns"
-										onclick={() => setExpandedSidebar('none')}
-									>
-										<ThemeIcon
-											role={layoutExpanded === 'left' ? 'chevron-right' : 'chevron-left'}
-										/>
-									</Button>
-								</div>
-							{/if}
 							<div
-								class="min-h-0 min-w-0 flex-1 bg-[var(--video-editor-canvas)] {programRail
-									? 'lg:hidden'
-									: ''} {activeWorkspace === 'color'
+								class="min-h-0 min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
+								'color'
 									? 'flex flex-col lg:flex-row'
 									: showSourceMonitor
 										? 'flex flex-col xl:flex-row'
@@ -2983,7 +2939,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-tools-panel"
-								class="relative h-[min(44%,22rem)] min-h-0 w-full min-w-0 flex-none flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto {rightSidebarRail
+								class="relative h-[min(44%,22rem)] min-h-0 w-full min-w-0 flex-none flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-3 lg:row-start-1 {rightFullColumn
+									? 'lg:row-span-2'
+									: 'lg:row-span-1'} lg:flex lg:h-auto {rightSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
 									? 'flex'
@@ -3034,13 +2992,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<Button
 											size="icon-xs"
 											variant="ghost"
-											aria-label={m.video_editor_expand_tools_column()}
-											title={`${m.video_editor_expand_tools_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_RIGHT_SIDEBAR)})`}
-											aria-pressed={layoutExpanded === 'right'}
+											aria-label={rightSidebarFullColumn
+												? m.video_editor_restore_panel_layout()
+												: m.video_editor_expand_tools_column()}
+											title={`${rightSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_tools_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_RIGHT_SIDEBAR)})`}
+											aria-pressed={rightSidebarFullColumn}
 											data-layout-toggle="expand-column-right"
 											onclick={() => toggleExpandSidebar('right')}
 										>
-											<ThemeIcon role="layout" />
+											<ThemeIcon role={rightSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
 										</Button>
 										<Button
 											size="icon-xs"
@@ -3325,9 +3285,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<footer
 							class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
-								? layoutDockWide
-									? 'lg:col-span-3 lg:col-start-1 lg:row-start-2 lg:h-auto'
-									: 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
+								? `lg:row-start-2 lg:h-auto ${leftFullColumn ? 'lg:col-start-2' : 'lg:col-start-1'} ${rightFullColumn ? 'lg:col-end-3' : 'lg:col-end-4'}`
 								: 'lg:h-[var(--timeline-height)]'}"
 						>
 							<PanelResizeHandle

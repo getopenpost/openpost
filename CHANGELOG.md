@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.24.2] - 2026-09-09
+
+### Fixed
+
+- Allow verified Telegram bot installations to publish without an OAuth grant. Readiness still requires an active account and a verified installation for the same workspace and chat.
+
 ## [4.24.1] - 2026-09-08
 
 ### Fixed

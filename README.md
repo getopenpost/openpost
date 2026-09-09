@@ -83,20 +83,6 @@ OpenPost combines writing, media editing, scheduling, and results in one workspa
 - **API, MCP, CLI, and n8n.** Draft, schedule, and inspect publications from your own scripts or AI tools.
 - **Teams and security.** Separate brands into workspaces with member roles. Protect accounts with passkeys, two-factor authentication, and session controls.
 
-### Create your media
-
-The browser editors are free to try without an account. Exports have no watermark.
-
-<img src="assets/brand/features/image-editor.svg" alt="" width="24" height="24" align="top"> **[Image Editor](https://app.openpo.st/image-editor).** Layers, text, shapes, background removal, and color tools. Export one image or a multi-page carousel.
-
-![Image Editor with a Lisbon tram photo and editable layers](assets/screenshots/image-editor-dark.webp)
-
-<img src="assets/brand/features/video-editor.svg" alt="" width="24" height="24" align="top"> **[Video Editor](https://app.openpo.st/video-editor), beta.** Screen, camera, and microphone recording. Multitrack editing, captions, transitions, keyframes, color, and audio. Save projects locally or sync to your workspace. Use desktop Chromium for the full editor; mobile supports capture and project preparation.
-
-![Video Editor with a screen recording and multitrack timeline](assets/screenshots/video-editor-dark.webp)
-
-[Quick Cut for simple trims](https://docs.openpo.st/guides/quick-cut) · [Explore all features](https://openpo.st/features) · [Usage guides](https://docs.openpo.st/guides/quickstart) · [API reference](https://docs.openpo.st/api-reference)
-
 ## Get started
 
 **Hosted.** We run it for you. [Start for free](https://app.openpo.st/register?plan=founder&billing_period=monthly)
@@ -119,7 +105,7 @@ Open `http://localhost:8080`, create the first account, connect a social account
 
 ## Supported platforms
 
-OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Publishing formats, messages, comments, analytics, and Grow support vary by platform. Some connections need app review or public media URLs.
+OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Some connections need app review or public media URLs.
 
 <!-- provider-certification:begin -->
 

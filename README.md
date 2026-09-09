@@ -107,16 +107,6 @@ Open `http://localhost:8080`, create the first account, connect a social account
 
 OpenPost has integrations for LinkedIn, Facebook, Instagram, X, TikTok, YouTube, Threads, Bluesky, Mastodon, and Discord webhooks. Some connections need app review or public media URLs.
 
-<!-- provider-certification:begin -->
-
-No posting option has passed our final live check on OpenPost Hosted yet.
-
-A social app can appear in OpenPost before it is ready for real accounts.
-
-<!-- provider-certification:end -->
-
-Pinterest, Discord bots, and Telegram bots are not public posting options yet.
-
 [Connect accounts](https://docs.openpo.st/guides/accounts) · [Self-hosted integrations](https://docs.openpo.st/self-hosting/integrations)
 
 ## Contribute

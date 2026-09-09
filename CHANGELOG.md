@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.26.0] - 2026-09-09
+
+### Added
+
+- A delayed, theme-aware navigation progress bar with reduced-motion support.
+- MP4 recording fallback for browsers that cannot record WebM, with matching MP4, M4A, and Ogg download filenames.
+
+### Fixed
+
+- Keep Settings section navigation visible while panels download or load data. Show placeholders only for the selected panel.
+- Keep Publications tabs, Inbox navigation and filters, Grow account selection, Media filters, and page actions available while content loads. Calendar date controls stay visible while loading another range.
+- Screen, camera, and microphone recordings import together without treating microphone WebM files as video. Downloaded audio recordings use their actual tracks when imported again. Failed imports retain downloadable captures and show the error beside recovery controls.
+- Video Editor sidebar column controls now extend each panel beside the timeline independently, matching FreeCut. Collapsing and reopening panels preserves their width and docking, asset tabs reopen their panel, and the preview remains visible while changing columns.
+
 ## [4.25.1] - 2026-09-09
 
 ### Fixed

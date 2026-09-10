@@ -177,6 +177,8 @@
 		border: 1px solid var(--border);
 		border-radius: 16px;
 		background: var(--card);
+		background-image: var(--marketing-dither-pattern);
+		background-size: 32px 32px;
 	}
 	.view-picker {
 		display: grid;

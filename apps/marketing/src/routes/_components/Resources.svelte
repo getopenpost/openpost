@@ -92,23 +92,25 @@
 		padding: 28px;
 		overflow: hidden;
 		min-width: 0;
+		background-image: var(--marketing-dither-pattern);
+		background-size: 32px 32px;
 	}
 	.tools {
 		grid-row: span 2;
-		background: var(--marketing-lilac);
+		background-color: var(--marketing-lilac);
 		color: var(--marketing-lilac-ink);
 	}
 	.guides {
 		grid-column: span 2;
-		background: var(--marketing-mint);
+		background-color: var(--marketing-mint);
 		color: var(--marketing-mint-ink);
 	}
 	.developers {
-		background: var(--marketing-blue);
+		background-color: var(--marketing-blue);
 		color: var(--marketing-blue-ink);
 	}
 	.platforms {
-		background: var(--marketing-section);
+		background-color: var(--marketing-section);
 		color: var(--foreground);
 	}
 	.card-heading {

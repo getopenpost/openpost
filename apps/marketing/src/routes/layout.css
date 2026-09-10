@@ -122,40 +122,54 @@
 	}
 }
 
-/* Public surfaces keep Workshop chrome and give authored examples their own palette. */
+/* Public Dither colors are independent of saved organization themes. */
 :root {
-	--marketing-soft-ink: oklch(0.52 0.025 145);
-	--marketing-lilac: oklch(0.91 0.04 300);
-	--marketing-lilac-ink: oklch(0.3 0.055 300);
-	--marketing-mint: oklch(0.92 0.06 130);
-	--marketing-mint-ink: oklch(0.28 0.04 145);
-	--marketing-blue: oklch(0.92 0.035 235);
-	--marketing-blue-ink: oklch(0.3 0.05 245);
-	--marketing-launch-art: #d7edb6;
-	--marketing-launch-art-ink: #213b2c;
-	--marketing-launch-fold-1: #396747;
-	--marketing-launch-fold-2: #588254;
-	--marketing-launch-fold-3: #80a66c;
-	--marketing-launch-fold-4: #aacb86;
-	--marketing-launch-fold-5: #eaf4ce;
-	--marketing-section: oklch(0.965 0.006 80);
+	--marketing-soft-ink: oklch(0.43 0.08 42);
+	--marketing-lilac: oklch(0.91 0.035 48);
+	--marketing-lilac-ink: oklch(0.3 0.08 38);
+	--marketing-mint: oklch(0.9 0.025 78);
+	--marketing-mint-ink: oklch(0.29 0.045 48);
+	--marketing-blue: oklch(0.34 0.025 48);
+	--marketing-blue-ink: oklch(0.94 0.02 78);
+	--marketing-launch-art: #e5d6bd;
+	--marketing-launch-art-ink: #3c2b22;
+	--marketing-launch-fold-1: #653a2b;
+	--marketing-launch-fold-2: #8f5238;
+	--marketing-launch-fold-3: #b87452;
+	--marketing-launch-fold-4: #d49a71;
+	--marketing-launch-fold-5: #f0e3ce;
+	--marketing-section: oklch(0.95 0.012 78);
+	--marketing-dither-ink: oklch(0.4 0.13 45);
+	--marketing-dither-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath fill='%239b4c2b' fill-opacity='.065' d='M0 0h2v2H0zM16 4h2v2h-2zM8 12h2v2H8zM24 16h2v2h-2zM4 24h2v2H4zM20 28h2v2h-2z'/%3E%3C/svg%3E");
 	scrollbar-color: var(--border) var(--background);
 	caret-color: var(--foreground);
 }
 .dark {
-	--marketing-soft-ink: oklch(0.72 0.035 145);
-	--marketing-lilac: oklch(0.29 0.04 300);
-	--marketing-lilac-ink: oklch(0.9 0.035 300);
-	--marketing-mint: oklch(0.29 0.035 145);
-	--marketing-mint-ink: oklch(0.91 0.05 130);
-	--marketing-blue: oklch(0.28 0.035 245);
-	--marketing-blue-ink: oklch(0.91 0.035 235);
-	--marketing-launch-art: #1f3427;
-	--marketing-launch-art-ink: #e4f2d2;
-	--marketing-launch-fold-1: #89a86e;
-	--marketing-launch-fold-2: #75935f;
-	--marketing-launch-fold-3: #638050;
-	--marketing-launch-fold-4: #506b43;
-	--marketing-launch-fold-5: #dcebbe;
-	--marketing-section: oklch(0.18 0.008 55);
+	--marketing-soft-ink: oklch(0.75 0.07 42);
+	--marketing-lilac: oklch(0.28 0.035 42);
+	--marketing-lilac-ink: oklch(0.91 0.035 68);
+	--marketing-mint: oklch(0.26 0.025 64);
+	--marketing-mint-ink: oklch(0.91 0.03 78);
+	--marketing-blue: oklch(0.3 0.025 48);
+	--marketing-blue-ink: oklch(0.94 0.02 78);
+	--marketing-launch-art: #2c2420;
+	--marketing-launch-art-ink: #f1dfc4;
+	--marketing-launch-fold-1: #b87553;
+	--marketing-launch-fold-2: #9b5d43;
+	--marketing-launch-fold-3: #7f4a38;
+	--marketing-launch-fold-4: #633a2e;
+	--marketing-launch-fold-5: #ead9bd;
+	--marketing-section: oklch(0.19 0.012 55);
+	--marketing-dither-ink: oklch(0.76 0.14 45);
+	--marketing-dither-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath fill='%23c77a55' fill-opacity='.1' d='M0 0h2v2H0zM16 4h2v2h-2zM8 12h2v2H8zM24 16h2v2h-2zM4 24h2v2H4zM20 28h2v2h-2z'/%3E%3C/svg%3E");
+}
+
+/* The public landing surface uses Dither as a material, keeping texture close to product detail. */
+.landing-hero,
+.product-features,
+.product-details,
+.resources,
+.stories,
+.faq-section {
+	position: relative;
 }

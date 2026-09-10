@@ -262,7 +262,7 @@
 				{#if mode.current === 'dark'}<Sun />{:else}<Moon />{/if}
 			</Button>
 			<Button href={`${appUrl}/login`} variant="ghost" size="sm">Sign in</Button>
-			<Button href={managedSignupUrl} size="sm">
+			<Button href={managedSignupUrl} size="sm" class="nav-cta">
 				Get started
 				<ArrowRight data-icon="inline-end" />
 			</Button>
@@ -325,7 +325,7 @@
 					>
 						{#if mode.current === 'dark'}<Sun />{:else}<Moon />{/if}
 					</Button>
-					<Button href={managedSignupUrl} size="sm">Get started</Button>
+					<Button href={managedSignupUrl} size="sm" class="nav-cta">Get started</Button>
 				</div>
 			</div>
 		</nav>
@@ -336,7 +336,18 @@
 	.marketing-nav {
 		border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
 		background: color-mix(in oklch, var(--background) 88%, transparent);
-		backdrop-filter: blur(18px) saturate(140%);
+		backdrop-filter: none;
+	}
+
+	:global(.nav-cta) {
+		background-color: var(--marketing-dither-ink);
+		background-image: var(--marketing-dither-pattern);
+		background-size: 32px 32px;
+		color: var(--primary-foreground);
+	}
+
+	:global(.nav-cta:hover) {
+		background-color: color-mix(in oklch, var(--marketing-dither-ink) 88%, var(--foreground));
 	}
 
 	/* The shadcn Content ships md:w-auto; the destinations panel needs a real width. */

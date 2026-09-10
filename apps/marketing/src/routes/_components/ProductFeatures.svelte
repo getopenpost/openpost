@@ -249,6 +249,8 @@
 		overflow: hidden;
 		border-radius: 16px;
 		background: var(--card);
+		background-image: var(--marketing-dither-pattern);
+		background-size: 32px 32px;
 	}
 	.copy {
 		padding: 32px;

@@ -123,12 +123,14 @@
 		border-radius: 14px;
 		aspect-ratio: 1.45;
 		isolation: isolate;
+		background-image: var(--marketing-dither-pattern);
+		background-size: 32px 32px;
 	}
 	.lilac {
-		background: var(--marketing-lilac);
+		background-color: var(--marketing-lilac);
 	}
 	.blue {
-		background: var(--marketing-blue);
+		background-color: var(--marketing-blue);
 	}
 	.composition :global(img) {
 		position: absolute;

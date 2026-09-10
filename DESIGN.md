@@ -136,7 +136,7 @@ The frontmatter tokens and values below define Workshop, the complete fallback a
 
 ## Public surfaces
 
-Marketing uses Dither’s warm canvas, orange-brown action accents, ordered pixel texture, and protected identity. Orange stays concentrated in the mark and action accents. Broad page backgrounds and headings use neutral tones.
+Marketing uses Dither’s warm canvas, orange-brown action accents, ordered pixel texture, and protected identity. Keep the green, blue, and lilac sections and green illustrations. Orange stays concentrated in the mark and action accents; do not recolor the whole landing page to match it.
 
 The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
 

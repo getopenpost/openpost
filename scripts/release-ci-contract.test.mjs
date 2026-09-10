@@ -189,17 +189,21 @@ for (const [job, step, prefixes] of [
   });
 }
 
-test("image promotion requires the downloaded digest and matching OCI identity", () => {
-  const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-image-"));
-  const revision = "a".repeat(40);
-  const digest = `sha256:${"b".repeat(64)}`;
-  try {
-    mkdirSync(path.join(directory, "bin"));
-    mkdirSync(path.join(directory, "tested-image"));
-    // Stand in for remote Actions and registry I/O while executing the workflow's shell.
-    for (const [name, command] of Object.entries({
-      gh: "#!/bin/sh\nexit 0\n",
-      docker: `#!/bin/sh
+// Four workflow subprocesses share CPU with the parallel release checks.
+test(
+  "image promotion requires the downloaded digest and matching OCI identity",
+  { timeout: 30_000 },
+  () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-image-"));
+    const revision = "a".repeat(40);
+    const digest = `sha256:${"b".repeat(64)}`;
+    try {
+      mkdirSync(path.join(directory, "bin"));
+      mkdirSync(path.join(directory, "tested-image"));
+      // Stand in for remote Actions and registry I/O while executing the workflow's shell.
+      for (const [name, command] of Object.entries({
+        gh: "#!/bin/sh\nexit 0\n",
+        docker: `#!/bin/sh
 case "$1" in
   login) cat >/dev/null ;;
   pull) printf '%s' "$2" > pulled-image ;;
@@ -212,59 +216,60 @@ case "$1" in
   *) exit 1 ;;
 esac
 `,
-    })) {
-      const file = path.join(directory, "bin", name);
-      writeFileSync(file, command);
-      chmodSync(file, 0o755);
-    }
-    for (const [imageDigest, imageVersion, imageRevision, succeeds] of [
-      [digest, "v4.0.0", revision, true],
-      [digest, "v3.9.0", revision, false],
-      [digest, "v4.0.0", "c".repeat(40), false],
-      ["latest", "v4.0.0", revision, false],
-    ]) {
-      writeFileSync(path.join(directory, "tested-image/image-digest.txt"), `${imageDigest}\n`);
-      const output = path.join(directory, "output");
-      writeFileSync(output, "");
-      const result = spawnSync(
-        "bash",
-        [
-          "-e",
-          "-o",
-          "pipefail",
-          "-c",
-          workflowStepScript(release, "verify-candidate", "Verify the tested image"),
-        ],
-        {
-          cwd: directory,
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            PATH: `${directory}/bin:${process.env.PATH}`,
-            GH_TOKEN: "test",
-            GITHUB_ACTOR: "test",
-            GITHUB_REPOSITORY: "getopenpost/openpost",
-            CI_RUN_ID: "1",
-            IMAGE_ARTIFACT: "test",
-            REGISTRY: "ghcr.io",
-            IMAGE_NAME: "getopenpost/openpost",
-            GITHUB_REF_NAME: "v4.0.0",
-            GITHUB_SHA: revision,
-            GITHUB_OUTPUT: output,
-            TEST_IMAGE_VERSION: imageVersion,
-            TEST_IMAGE_REVISION: imageRevision,
+      })) {
+        const file = path.join(directory, "bin", name);
+        writeFileSync(file, command);
+        chmodSync(file, 0o755);
+      }
+      for (const [imageDigest, imageVersion, imageRevision, succeeds] of [
+        [digest, "v4.0.0", revision, true],
+        [digest, "v3.9.0", revision, false],
+        [digest, "v4.0.0", "c".repeat(40), false],
+        ["latest", "v4.0.0", revision, false],
+      ]) {
+        writeFileSync(path.join(directory, "tested-image/image-digest.txt"), `${imageDigest}\n`);
+        const output = path.join(directory, "output");
+        writeFileSync(output, "");
+        const result = spawnSync(
+          "bash",
+          [
+            "-e",
+            "-o",
+            "pipefail",
+            "-c",
+            workflowStepScript(release, "verify-candidate", "Verify the tested image"),
+          ],
+          {
+            cwd: directory,
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              PATH: `${directory}/bin:${process.env.PATH}`,
+              GH_TOKEN: "test",
+              GITHUB_ACTOR: "test",
+              GITHUB_REPOSITORY: "getopenpost/openpost",
+              CI_RUN_ID: "1",
+              IMAGE_ARTIFACT: "test",
+              REGISTRY: "ghcr.io",
+              IMAGE_NAME: "getopenpost/openpost",
+              GITHUB_REF_NAME: "v4.0.0",
+              GITHUB_SHA: revision,
+              GITHUB_OUTPUT: output,
+              TEST_IMAGE_VERSION: imageVersion,
+              TEST_IMAGE_REVISION: imageRevision,
+            },
           },
-        },
-      );
-      assert.equal(result.status === 0, succeeds, result.stderr);
-      assert.equal(readFileSync(output, "utf8"), succeeds ? `digest=${digest}\n` : "");
-      if (succeeds)
-        assert.equal(
-          readFileSync(path.join(directory, "pulled-image"), "utf8"),
-          `ghcr.io/getopenpost/openpost@${digest}`,
         );
+        assert.equal(result.status === 0, succeeds, result.stderr);
+        assert.equal(readFileSync(output, "utf8"), succeeds ? `digest=${digest}\n` : "");
+        if (succeeds)
+          assert.equal(
+            readFileSync(path.join(directory, "pulled-image"), "utf8"),
+            `ghcr.io/getopenpost/openpost@${digest}`,
+          );
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
     }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
+  },
+);

@@ -126,6 +126,9 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await page.keyboard.press("Enter");
   const back = page.getByRole("menuitem", { name: "Back", exact: true });
   await expect(back).toBeFocused();
+  // Menu reflow can emit pointerleave without a new pointer action.
+  await back.dispatchEvent("pointerleave", { pointerType: "mouse" });
+  await expect(back).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(profile).toBeFocused();
   await page.keyboard.press("Escape");

@@ -17,15 +17,13 @@
 	let workspaceItem = $state<HTMLDivElement | null>(null);
 	let profileItem = $state<HTMLDivElement | null>(null);
 
-	async function openSection(event: Event, next: 'workspace' | 'profile') {
-		event.preventDefault();
+	async function openSection(next: 'workspace' | 'profile') {
 		section = next;
 		await tick();
 		backItem?.focus();
 	}
 
-	async function goBack(event: Event) {
-		event.preventDefault();
+	async function goBack() {
 		const previous = section;
 		section = 'main';
 		await tick();
@@ -34,7 +32,11 @@
 </script>
 
 {#if section !== 'main'}
-	<DropdownMenu.Item class="min-h-11 gap-3" bind:ref={backItem} onSelect={goBack}
+	<DropdownMenu.Item
+		class="min-h-11 gap-3"
+		bind:ref={backItem}
+		closeOnSelect={false}
+		onSelect={goBack}
 		><ThemeIcon role="chevron-left" class="size-4" />{m.common_back()}</DropdownMenu.Item
 	>
 	<DropdownMenu.Separator />
@@ -65,7 +67,8 @@
 	<DropdownMenu.Item
 		class="min-h-11 gap-3"
 		bind:ref={workspaceItem}
-		onSelect={(event) => openSection(event, 'workspace')}
+		closeOnSelect={false}
+		onSelect={() => openSection('workspace')}
 		><ThemeIcon role="organization" class="size-4" />{m.sidebar_workspace()}<ThemeIcon
 			role="chevron-right"
 			class="ml-auto size-4"
@@ -74,7 +77,8 @@
 	<DropdownMenu.Item
 		class="min-h-11 gap-3"
 		bind:ref={profileItem}
-		onSelect={(event) => openSection(event, 'profile')}
+		closeOnSelect={false}
+		onSelect={() => openSection('profile')}
 		><ThemeIcon role="user" class="size-4" />{m.personal_profile()}<ThemeIcon
 			role="chevron-right"
 			class="ml-auto size-4"

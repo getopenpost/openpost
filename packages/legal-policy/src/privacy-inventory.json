@@ -1263,6 +1263,18 @@
       "duration": "Until the view changes or site data is cleared.",
       "necessity": "functional",
       "source_refs": ["apps/web/src/lib/stores/publication-view.svelte.ts"]
+    },
+    {
+      "id": "local-publication-list-tab",
+      "technology": "localStorage",
+      "owner": "OpenPost application navigation",
+      "identifier_kind": "exact",
+      "identifier": "openpost-publication-list-tab",
+      "purpose": "Restores the selected Scheduled, Published, Failed, or Drafts tab in the Publications list.",
+      "scope": "Application origin for the current browser profile.",
+      "duration": "Until the tab changes or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/stores/publication-view.svelte.ts"]
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
@@ -11,7 +12,10 @@ test.beforeAll(async () => {
 });
 
 async function login(request: APIRequestContext, page: Page) {
-  const { token } = await registerUser(request, "mobile-theme-usability@example.com");
+  const { token } = await registerUser(
+    request,
+    `mobile-theme-usability-${randomUUID()}@example.com`,
+  );
   await createWorkspace(request, token, "Mobile theme usability");
   await authenticatePage(page, token);
 }
@@ -51,7 +55,7 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   const newAction = navigation.getByRole("button", { name: "New" });
   await expect(newAction).toBeVisible();
   expect((await newAction.textContent())?.trim()).toBe("");
-  for (const label of ["Calendar", "Publications", "Media", "More"]) {
+  for (const label of ["Inbox", "Publications", "Media", "More"]) {
     expect((await navigation.getByRole("button", { name: label }).textContent())?.trim()).toBe("");
   }
   const navigationBounds = await navigation.boundingBox();
@@ -66,8 +70,12 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   );
   expect(menuBackground).not.toMatch(/\/\s*(?:0\.\d+|\d+%)\s*\)?$/);
 
-  await menu.getByRole("menuitem", { name: /Appearance/ }).click();
-  const darkOption = page.getByRole("menuitem", { name: "Dark", exact: true });
+  await menu.getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Preferences", exact: true }).click();
+  const preferences = page.getByRole("dialog", { name: "Preferences", exact: true });
+  await expect(preferences).toHaveCSS("opacity", "1");
+  const darkOption = preferences.getByRole("button", { name: "Dark", exact: true });
   await expect(darkOption).toBeVisible();
   const optionBounds = await darkOption.boundingBox();
   expect(optionBounds).not.toBeNull();
@@ -76,8 +84,8 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
 
   await page.screenshot({ path: `${screenshotDirectory}/appearance-menu-dark.png` });
 
-  await menu.getByRole("menuitem", { name: /Language/ }).click();
-  const portugueseOption = page.getByRole("menuitem", {
+  await preferences.getByLabel("Language", { exact: true }).click();
+  const portugueseOption = page.getByRole("option", {
     name: "Português do Brasil",
     exact: true,
   });
@@ -87,11 +95,9 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   expect(languageBounds!.x).toBeGreaterThanOrEqual(0);
   expect(languageBounds!.x + languageBounds!.width).toBeLessThanOrEqual(390);
 
-  await menu.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
-  await page.screenshot({ path: `${screenshotDirectory}/more-menu-scrolled.png` });
+  await page.screenshot({ path: `${screenshotDirectory}/language-options.png` });
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
 
   await page.goto("/publications");
   const pageGap = await page
@@ -102,7 +108,9 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
 
   await page.setViewportSize({ width: 320, height: 800 });
   await navigation.getByRole("button", { name: "More" }).click();
-  await menu.getByRole("menuitem", { name: /Language/ }).click();
+  await menu.getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await menu.getByRole("menuitem", { name: "Preferences", exact: true }).click();
+  await preferences.getByLabel("Language", { exact: true }).click();
   await expect(portugueseOption).toBeVisible();
   const narrowLanguageBounds = await portugueseOption.boundingBox();
   expect(narrowLanguageBounds).not.toBeNull();

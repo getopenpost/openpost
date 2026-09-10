@@ -1,12 +1,9 @@
-<!-- Compact, responsive, accessible background inspector using shared primitives. -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { Input } from '$lib/components/ui/input';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
-	import { Button } from '$lib/components/ui/button';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { Label } from '$lib/components/ui/label';
 	import type {
 		TimelineItem,
 		KeyframeProperty,
@@ -14,6 +11,7 @@
 	} from '$lib/video-editor/project/types';
 	import {
 		setBackground,
+		updateBackground,
 		updateBackgroundBackgroundColor,
 		updateBackgroundColors,
 		updateBackgroundDensity,
@@ -26,13 +24,20 @@
 		updateBackgroundScale,
 		updateBackgroundSmoothness
 	} from '$lib/video-editor/timeline/actions/backgrounds';
+	import ShaderBackgroundControls from './shader-background-controls.svelte';
+	import { backgroundPresetLabel as presetLabel } from '../backgrounds/labels';
 	import { BACKGROUND_PRESETS } from '$lib/video-editor/backgrounds/presets';
+	import { clampBackground } from '../backgrounds/types';
+	import { shaderBackgroundSupport } from '../backgrounds/shader-support.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 
 	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
 	const bg = $derived(item.background!);
+	onMount(() => {
+		shaderBackgroundSupport.check();
+	});
 
 	function commitKeyframeOr(
 		keyframeProp: KeyframeProperty | undefined,
@@ -48,32 +53,10 @@
 		onedit();
 	}
 
-	function presetLabel(id: string): string {
-		switch (id) {
-			case 'mesh-sunset':
-				return m.video_editor_background_preset_mesh_sunset();
-			case 'mesh-ocean':
-				return m.video_editor_background_preset_mesh_ocean();
-			case 'mesh-forest':
-				return m.video_editor_background_preset_mesh_forest();
-			case 'mesh-neon':
-				return m.video_editor_background_preset_mesh_neon();
-			case 'pattern-dots':
-				return m.video_editor_background_preset_pattern_dots();
-			case 'pattern-grid':
-				return m.video_editor_background_preset_pattern_grid();
-			case 'pattern-stripes':
-				return m.video_editor_background_preset_pattern_stripes();
-			case 'pattern-checker':
-				return m.video_editor_background_preset_pattern_checker();
-			default:
-				return id;
-		}
-	}
-
 	function applyPreset(id: string): void {
 		const preset = BACKGROUND_PRESETS.find((p) => p.id === id);
 		if (!preset) return;
+		if (preset.background.kind === 'shader' && !shaderBackgroundSupport.check()) return;
 		setBackground(item.id, preset.background);
 		onedit();
 	}
@@ -87,79 +70,30 @@
 		{m.video_editor_backgrounds_title()}
 	</h3>
 
-	<div class="flex flex-col gap-1.5">
-		<Label class="text-[10px] text-[var(--video-editor-muted)]" for="bg-preset"
-			>{m.video_editor_background_preset()}</Label
-		>
-		<div
-			class="grid grid-cols-4 gap-1.5 max-[360px]:grid-cols-2"
-			role="group"
-			aria-label={m.video_editor_background_preset()}
-			id="bg-preset"
-		>
-			{#each BACKGROUND_PRESETS as preset (preset.id)}
-				<Button
-					variant="outline"
-					size="sm"
-					class="h-14 flex-col gap-0.5 truncate px-1 text-[10px] leading-3"
-					aria-label={presetLabel(preset.id)}
-					onclick={() => applyPreset(preset.id)}
-				>
-					<span
-						aria-hidden="true"
-						class="h-6 w-full rounded-sm border border-[var(--video-editor-border)]"
-						style:background={preset.background.kind === 'mesh-gradient'
-							? `linear-gradient(135deg, ${preset.background.colors[0]}, ${preset.background.colors[1]}, ${preset.background.colors[2]}, ${preset.background.colors[3]})`
-							: preset.background.background}
-					></span>
-					<span class="truncate">{presetLabel(preset.id)}</span>
-				</Button>
-			{/each}
-		</div>
-	</div>
+	<AppSelect
+		value={BACKGROUND_PRESETS.find(
+			(preset) =>
+				JSON.stringify(clampBackground(preset.background)) === JSON.stringify(clampBackground(bg))
+		)?.id ?? ''}
+		placeholder={m.video_editor_gpu_option_custom()}
+		options={BACKGROUND_PRESETS.map((preset) => ({
+			value: preset.id,
+			label: presetLabel(preset.id),
+			disabled: preset.background.kind === 'shader' && !shaderBackgroundSupport.available
+		}))}
+		ariaLabel={m.video_editor_background_preset()}
+		onValueChange={applyPreset}
+	/>
 
-	<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
-		{m.video_editor_background_kind()}
-		<AppSelect
-			class="mt-0.5 h-8 w-full text-xs"
-			value={bg.kind}
-			options={[
-				{ value: 'mesh-gradient', label: m.video_editor_background_kind_mesh() },
-				{ value: 'pattern', label: m.video_editor_background_kind_pattern() }
-			]}
-			ariaLabel={m.video_editor_background_kind()}
-			onValueChange={(value) => {
-				if (value === 'mesh-gradient' && bg.kind !== 'mesh-gradient') {
-					setBackground(item.id, {
-						kind: 'mesh-gradient',
-						colors: ['#ff7a18', '#af002d', '#319197', '#1a1a2e'],
-						smoothness: 0.55,
-						rotation: bg.rotation ?? 0,
-						scale: bg.scale ?? 1,
-						offsetX: bg.offsetX ?? 0,
-						offsetY: bg.offsetY ?? 0
-					});
-					onedit();
-				} else if (value === 'pattern' && bg.kind !== 'pattern') {
-					setBackground(item.id, {
-						kind: 'pattern',
-						pattern: 'dots',
-						foreground: '#ff7a18',
-						background: '#0f0f0f',
-						scale: 1,
-						rotation: bg.rotation ?? 0,
-						offsetX: bg.offsetX ?? 0,
-						offsetY: bg.offsetY ?? 0,
-						density: 0.5,
-						foregroundOpacity: 1
-					});
-					onedit();
-				}
+	{#if bg.kind === 'shader'}
+		<ShaderBackgroundControls
+			background={bg}
+			onchange={(patch) => {
+				updateBackground(item.id, patch);
+				onedit();
 			}}
 		/>
-	</label>
-
-	{#if bg.kind === 'mesh-gradient'}
+	{:else if bg.kind === 'mesh-gradient'}
 		<div class="grid grid-cols-2 gap-1.5 max-[360px]:grid-cols-1">
 			{#each [0, 1, 2, 3] as idx (idx)}
 				<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
@@ -209,8 +143,14 @@
 				options={[
 					{ value: 'dots', label: m.video_editor_background_pattern_dots() },
 					{ value: 'grid', label: m.video_editor_background_pattern_grid() },
-					{ value: 'stripes', label: m.video_editor_background_pattern_stripes() },
-					{ value: 'checker', label: m.video_editor_background_pattern_checker() }
+					{
+						value: 'stripes',
+						label: m.video_editor_background_pattern_stripes()
+					},
+					{
+						value: 'checker',
+						label: m.video_editor_background_pattern_checker()
+					}
 				]}
 				ariaLabel={m.video_editor_background_pattern_kind()}
 				onValueChange={(v) => {
@@ -354,7 +294,9 @@
 		</label>
 	</div>
 
-	<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
-		{m.video_editor_background_hint()}
-	</p>
+	{#if bg.kind !== 'shader'}
+		<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
+			{m.video_editor_background_hint()}
+		</p>
+	{/if}
 </section>

@@ -8678,5 +8678,18 @@
 	"publication_view_label": "Publikationsansicht",
 	"publication_view_list": "Liste",
 	"personal_profile": "Profil",
-	"personal_usage_unavailable": "Optionale Nutzungsanalysen sind in dieser Instanz nicht verfügbar."
+	"personal_usage_unavailable": "Optionale Nutzungsanalysen sind in dieser Instanz nicht verfügbar.",
+	"video_editor_shader_title": "Shader",
+	"video_editor_shader_aurora": "Polarlicht",
+	"video_editor_shader_dusk": "Abenddämmerung",
+	"video_editor_shader_ribbons": "Bänder",
+	"video_editor_shader_mono": "Monochrom",
+	"video_editor_shader_clouds": "Wolken",
+	"video_editor_shader_neural": "Neuronal",
+	"video_editor_shader_hint": "Animierte Hintergründe. Wähle eine Vorlage, um sie am Abspielkopf einzufügen.",
+	"video_editor_shader_unavailable": "Shader-Hintergründe benötigen WebGL 2. Aktiviere die Grafikbeschleunigung oder versuche einen anderen Browser.",
+	"video_editor_shader_phase": "Startphase",
+	"video_editor_shader_still_hint": "Setze die Geschwindigkeit auf 0 für einen unbewegten Hintergrund.",
+	"video_editor_shader_twist": "Drehung",
+	"video_editor_shader_classic": "Verläufe und Muster"
 }

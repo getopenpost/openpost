@@ -52,7 +52,11 @@
 	</Select.Trigger>
 	<Select.Content class={contentClass}>
 		{#each options as option (option.value)}
-			<Select.Item value={option.value} disabled={option.disabled}>{option.label}</Select.Item>
+			<Select.Item
+				value={option.value}
+				disabled={option.disabled}
+				aria-disabled={option.disabled || undefined}>{option.label}</Select.Item
+			>
 		{/each}
 	</Select.Content>
 </Select.Root>

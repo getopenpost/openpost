@@ -1,7 +1,9 @@
+import { DEFAULT_SHADER_BACKGROUND, isBackgroundShader } from './shaders';
 import type {
 	BackgroundMeshBackground,
 	BackgroundPatternBackground,
 	BackgroundPatternKind,
+	ShaderBackground,
 	ProceduralBackground
 } from '../project/types';
 
@@ -12,9 +14,11 @@ export type PatternBackgroundPatch = Partial<Omit<BackgroundPatternBackground, '
 export type CommonBackgroundPatch = Partial<
 	Pick<ProceduralBackground, 'rotation' | 'scale' | 'offsetX' | 'offsetY'>
 >;
-export type BackgroundPatch = MeshBackgroundPatch & PatternBackgroundPatch;
+export type BackgroundPatch = MeshBackgroundPatch &
+	PatternBackgroundPatch &
+	Partial<Omit<ShaderBackground, 'kind'>>;
 
-export const BACKGROUND_KINDS = ['mesh-gradient', 'pattern'] as const;
+export const BACKGROUND_KINDS = ['mesh-gradient', 'pattern', 'shader'] as const;
 export const PATTERN_KINDS = ['dots', 'grid', 'stripes', 'checker'] as const;
 
 export const DEFAULT_MESH_BACKGROUND: ProceduralBackground = {
@@ -64,6 +68,20 @@ function toMeshColors(input: readonly string[] | undefined): [string, string, st
 }
 
 export function clampBackground(value: ProceduralBackground): ProceduralBackground {
+	if (value.kind === 'shader') {
+		return {
+			kind: 'shader',
+			shader: isBackgroundShader(value.shader) ? value.shader : 'mesh',
+			colors: toMeshColors(value.colors),
+			speed: clamp(Number.isFinite(value.speed) ? value.speed : 0.5, 0, 3),
+			phase: clamp(Number.isFinite(value.phase) ? value.phase : 0, 0, 60),
+			detail: clamp(Number.isFinite(value.detail) ? value.detail : 0.5, 0, 1),
+			rotation: clamp(Number.isFinite(value.rotation) ? value.rotation : 0, -360, 360),
+			scale: clamp(Number.isFinite(value.scale) ? value.scale : 1, 0.25, 4),
+			offsetX: clamp(Number.isFinite(value.offsetX) ? value.offsetX : 0, -0.5, 0.5),
+			offsetY: clamp(Number.isFinite(value.offsetY) ? value.offsetY : 0, -0.5, 0.5)
+		};
+	}
 	if (value.kind === 'mesh-gradient') {
 		return {
 			kind: 'mesh-gradient',
@@ -100,5 +118,6 @@ export function cloneBackground(value: ProceduralBackground): ProceduralBackgrou
 export function createDefaultBackground(
 	kind: ProceduralBackground['kind'] = 'mesh-gradient'
 ): ProceduralBackground {
+	if (kind === 'shader') return cloneBackground(DEFAULT_SHADER_BACKGROUND);
 	return cloneBackground(kind === 'pattern' ? DEFAULT_PATTERN_BACKGROUND : DEFAULT_MESH_BACKGROUND);
 }

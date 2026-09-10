@@ -59,28 +59,30 @@ function applyPatch(itemId: string, patch: BackgroundPatch, commandType: string)
 		if (!item || item.type !== 'background' || !item.background) return false;
 		const current = item.background;
 		const next =
-			current.kind === 'mesh-gradient'
-				? cloneBackground({
-						kind: 'mesh-gradient',
-						colors: patch.colors ?? current.colors,
-						smoothness: patch.smoothness ?? current.smoothness,
-						rotation: patch.rotation ?? current.rotation,
-						scale: patch.scale ?? current.scale,
-						offsetX: patch.offsetX ?? current.offsetX,
-						offsetY: patch.offsetY ?? current.offsetY
-					})
-				: cloneBackground({
-						kind: 'pattern',
-						pattern: patch.pattern ?? current.pattern,
-						foreground: patch.foreground ?? current.foreground,
-						background: patch.background ?? current.background,
-						scale: patch.scale ?? current.scale,
-						rotation: patch.rotation ?? current.rotation,
-						offsetX: patch.offsetX ?? current.offsetX,
-						offsetY: patch.offsetY ?? current.offsetY,
-						density: patch.density ?? current.density,
-						foregroundOpacity: patch.foregroundOpacity ?? current.foregroundOpacity
-					});
+			current.kind === 'shader'
+				? cloneBackground({ ...current, ...patch, kind: 'shader' })
+				: current.kind === 'mesh-gradient'
+					? cloneBackground({
+							kind: 'mesh-gradient',
+							colors: patch.colors ?? current.colors,
+							smoothness: patch.smoothness ?? current.smoothness,
+							rotation: patch.rotation ?? current.rotation,
+							scale: patch.scale ?? current.scale,
+							offsetX: patch.offsetX ?? current.offsetX,
+							offsetY: patch.offsetY ?? current.offsetY
+						})
+					: cloneBackground({
+							kind: 'pattern',
+							pattern: patch.pattern ?? current.pattern,
+							foreground: patch.foreground ?? current.foreground,
+							background: patch.background ?? current.background,
+							scale: patch.scale ?? current.scale,
+							rotation: patch.rotation ?? current.rotation,
+							offsetX: patch.offsetX ?? current.offsetX,
+							offsetY: patch.offsetY ?? current.offsetY,
+							density: patch.density ?? current.density,
+							foregroundOpacity: patch.foregroundOpacity ?? current.foregroundOpacity
+						});
 		timelineStore._updateItems([{ id: itemId, patch: { background: next } }]);
 		return true;
 	});

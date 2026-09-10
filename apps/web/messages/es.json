@@ -8678,5 +8678,18 @@
 	"publication_view_label": "Vista de publicaciones",
 	"publication_view_list": "Lista",
 	"personal_profile": "Perfil",
-	"personal_usage_unavailable": "Las estadísticas opcionales de uso no están disponibles en esta instancia."
+	"personal_usage_unavailable": "Las estadísticas opcionales de uso no están disponibles en esta instancia.",
+	"video_editor_shader_title": "Shaders",
+	"video_editor_shader_aurora": "Aurora",
+	"video_editor_shader_dusk": "Atardecer",
+	"video_editor_shader_ribbons": "Cintas",
+	"video_editor_shader_mono": "Monocromo",
+	"video_editor_shader_clouds": "Nubes",
+	"video_editor_shader_neural": "Neuronal",
+	"video_editor_shader_hint": "Fondos animados. Selecciona un diseño para añadirlo en el cabezal de reproducción.",
+	"video_editor_shader_unavailable": "Los fondos con shaders requieren WebGL 2. Activa la aceleración gráfica o prueba otro navegador.",
+	"video_editor_shader_phase": "Fase inicial",
+	"video_editor_shader_still_hint": "Establece la velocidad en 0 para un fondo estático.",
+	"video_editor_shader_twist": "Giro",
+	"video_editor_shader_classic": "Degradados y patrones"
 }

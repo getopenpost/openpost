@@ -94,6 +94,7 @@ export function renderBackgroundCpu(
 	height: number
 ): void {
 	const bg = clampBackground(background);
+	if (bg.kind === 'shader') throw new Error('Shader backgrounds require the shader renderer.');
 	const w = Math.max(1, Math.round(width));
 	const h = Math.max(1, Math.round(height));
 	ctx.clearRect(0, 0, w, h);
@@ -193,6 +194,7 @@ export function renderBackgroundCpuReference(
 	height: number
 ): void {
 	const bg = clampBackground(background);
+	if (bg.kind === 'shader') throw new Error('Shader backgrounds require the shader renderer.');
 	const w = Math.max(1, Math.round(width));
 	const h = Math.max(1, Math.round(height));
 	ctx.clearRect(0, 0, w, h);
@@ -570,6 +572,7 @@ export function createBackgroundGpuRenderer(): BackgroundGpuAdapter | null {
 				return false;
 			}
 			const bg = clampBackground(background);
+			if (bg.kind === 'shader') throw new Error('Shader backgrounds require the shader renderer.');
 			const w = Math.max(1, Math.round(width));
 			const h = Math.max(1, Math.round(height));
 			if (ownedCanvas.width !== w) ownedCanvas.width = w;

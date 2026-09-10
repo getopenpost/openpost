@@ -1,3 +1,4 @@
+import { SHADER_PRESETS } from './shaders';
 import type { ProceduralBackground } from './types';
 import { cloneBackground } from './types';
 
@@ -7,11 +8,9 @@ export interface BackgroundPreset {
 	background: ProceduralBackground;
 }
 
-/**
- * Compact preset catalog — 8 entries (4 mesh, 4 pattern).
- * Immutable entries; callers must clone before assigning to a timeline item.
- */
+/** Callers clone presets before assigning them to a timeline item. */
 export const BACKGROUND_PRESETS: readonly BackgroundPreset[] = [
+	...SHADER_PRESETS,
 	{
 		id: 'mesh-sunset',
 		label: 'Sunset mesh',

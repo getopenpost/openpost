@@ -8678,5 +8678,18 @@
 	"publication_view_label": "게시물 보기",
 	"publication_view_list": "목록",
 	"personal_profile": "프로필",
-	"personal_usage_unavailable": "이 인스턴스에서는 선택적 사용 분석을 사용할 수 없습니다."
+	"personal_usage_unavailable": "이 인스턴스에서는 선택적 사용 분석을 사용할 수 없습니다.",
+	"video_editor_shader_title": "셰이더",
+	"video_editor_shader_aurora": "오로라",
+	"video_editor_shader_dusk": "황혼",
+	"video_editor_shader_ribbons": "리본",
+	"video_editor_shader_mono": "단색",
+	"video_editor_shader_clouds": "구름",
+	"video_editor_shader_neural": "뉴럴",
+	"video_editor_shader_hint": "움직이는 배경입니다. 프리셋을 선택하면 재생 헤드 위치에 추가됩니다.",
+	"video_editor_shader_unavailable": "셰이더 배경에는 WebGL 2가 필요합니다. 그래픽 가속을 켜거나 다른 브라우저를 사용해 보세요.",
+	"video_editor_shader_phase": "시작 위상",
+	"video_editor_shader_still_hint": "속도를 0으로 설정하면 배경이 정지합니다.",
+	"video_editor_shader_twist": "비틀기",
+	"video_editor_shader_classic": "그라데이션 및 패턴"
 }

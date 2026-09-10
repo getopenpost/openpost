@@ -8678,5 +8678,18 @@
 	"publication_view_label": "Publication view",
 	"publication_view_list": "List",
 	"personal_profile": "Profile",
-	"personal_usage_unavailable": "Optional usage analytics are unavailable on this instance."
+	"personal_usage_unavailable": "Optional usage analytics are unavailable on this instance.",
+	"video_editor_shader_title": "Shaders",
+	"video_editor_shader_aurora": "Aurora",
+	"video_editor_shader_dusk": "Dusk",
+	"video_editor_shader_ribbons": "Ribbons",
+	"video_editor_shader_mono": "Monochrome",
+	"video_editor_shader_clouds": "Clouds",
+	"video_editor_shader_neural": "Neural",
+	"video_editor_shader_hint": "Animated backgrounds. Select a preset to add it at the playhead.",
+	"video_editor_shader_unavailable": "Shader backgrounds need WebGL 2. Enable graphics acceleration or try another browser.",
+	"video_editor_shader_phase": "Starting phase",
+	"video_editor_shader_still_hint": "Set speed to 0 for a still background.",
+	"video_editor_shader_twist": "Twist",
+	"video_editor_shader_classic": "Gradients and patterns"
 }

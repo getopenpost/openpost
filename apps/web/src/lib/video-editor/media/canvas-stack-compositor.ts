@@ -1,3 +1,5 @@
+import { ShaderBackgroundRenderer } from '../backgrounds/shader-renderer';
+import { shaderTime } from '../backgrounds/shaders';
 /** Shared preview/export compositor for transformed layers and real backdrops. */
 
 import type { TimelineItem, TimelineTransition } from '../project/types';
@@ -253,6 +255,7 @@ export class CanvasStackCompositor {
 	private backgroundCanvas: StackCanvas;
 	private backgroundContext: StackContext;
 	private backgroundGpu: BackgroundGpuAdapter | null = null;
+	private shaderRenderer: ShaderBackgroundRenderer | null = null;
 	private readonly createBackgroundGpuOnDemand: boolean;
 	private lastBackgroundKey: string | null = null;
 	private gpuCallCount = 0;
@@ -430,13 +433,13 @@ export class CanvasStackCompositor {
 		);
 	}
 
-	private backgroundStackSource(item: TimelineItem): StackLayerSource | null {
+	private backgroundStackSource(item: TimelineItem, time: number): StackLayerSource | null {
 		if (item.type !== 'background' || !item.background) return null;
 		const bg = clampBackground(item.background);
 		const transform = item.transform ?? {};
 		const width = Math.max(1, Math.round(transform.width ?? this.width));
 		const height = Math.max(1, Math.round(transform.height ?? this.height));
-		const key = `${JSON.stringify(bg)}_${width}x${height}`;
+		const key = `${JSON.stringify(bg)}_${width}x${height}_${bg.kind === 'shader' ? shaderTime(bg, time) : 0}`;
 		if (
 			this.lastBackgroundKey === key &&
 			this.lastBackgroundW === width &&
@@ -444,10 +447,27 @@ export class CanvasStackCompositor {
 		) {
 			return { source: this.backgroundCanvas, width, height };
 		}
+		this.lastBackgroundKey = null;
 		const next = ensureCanvasSize(this.backgroundCanvas, this.backgroundContext, width, height);
 		this.backgroundCanvas = next.canvas;
 		this.backgroundContext = next.context;
 		this.backgroundContext.clearRect(0, 0, width, height);
+		if (bg.kind === 'shader') {
+			try {
+				this.shaderRenderer ??= new ShaderBackgroundRenderer();
+				this.backgroundContext.drawImage(this.shaderRenderer.render(bg, width, height, time), 0, 0);
+				this.lastBackgroundKey = key;
+				this.lastBackgroundW = width;
+				this.lastBackgroundH = height;
+			} catch (error) {
+				this.recordExactRenderFailure(
+					error instanceof Error ? error.message : 'Shader rendering failed.'
+				);
+				this.shaderRenderer?.dispose();
+				this.shaderRenderer = null;
+			}
+			return { source: this.backgroundCanvas, width, height };
+		}
 		if (
 			!this.backgroundGpu &&
 			this.createBackgroundGpuOnDemand &&
@@ -608,7 +628,7 @@ export class CanvasStackCompositor {
 		time: number,
 		masks: readonly TimelineItem[] = []
 	): void {
-		const bgSource = this.backgroundStackSource(item);
+		const bgSource = this.backgroundStackSource(item, time);
 		const effectiveSource = bgSource ?? source;
 		if (!effectiveSource) return;
 		const processed = this.renderGpuEffects(effectiveSource, item, time);
@@ -820,6 +840,8 @@ export class CanvasStackCompositor {
 		releaseCanvas(this.layerCanvas);
 		releaseCanvas(this.cornerPinCanvas);
 		releaseCanvas(this.backgroundCanvas);
+		this.shaderRenderer?.dispose();
+		this.shaderRenderer = null;
 		if (this.backgroundGpu) {
 			this.backgroundGpu.dispose();
 			this.backgroundGpu = null;

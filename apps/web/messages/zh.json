@@ -8678,5 +8678,18 @@
 	"publication_view_label": "发布视图",
 	"publication_view_list": "列表",
 	"personal_profile": "个人资料",
-	"personal_usage_unavailable": "此实例不提供可选的使用情况分析。"
+	"personal_usage_unavailable": "此实例不提供可选的使用情况分析。",
+	"video_editor_shader_title": "着色器",
+	"video_editor_shader_aurora": "极光",
+	"video_editor_shader_dusk": "暮色",
+	"video_editor_shader_ribbons": "丝带",
+	"video_editor_shader_mono": "单色",
+	"video_editor_shader_clouds": "云雾",
+	"video_editor_shader_neural": "神经网络",
+	"video_editor_shader_hint": "动态背景。选择预设，将其添加到播放头位置。",
+	"video_editor_shader_unavailable": "着色器背景需要 WebGL 2。请启用图形加速或尝试其他浏览器。",
+	"video_editor_shader_phase": "起始相位",
+	"video_editor_shader_still_hint": "将速度设为 0 可获得静态背景。",
+	"video_editor_shader_twist": "扭曲",
+	"video_editor_shader_classic": "渐变和图案"
 }

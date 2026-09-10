@@ -8678,5 +8678,18 @@
 	"publication_view_label": "投稿の表示",
 	"publication_view_list": "リスト",
 	"personal_profile": "プロフィール",
-	"personal_usage_unavailable": "このインスタンスでは任意の利用状況分析は利用できません。"
+	"personal_usage_unavailable": "このインスタンスでは任意の利用状況分析は利用できません。",
+	"video_editor_shader_title": "シェーダー",
+	"video_editor_shader_aurora": "オーロラ",
+	"video_editor_shader_dusk": "夕暮れ",
+	"video_editor_shader_ribbons": "リボン",
+	"video_editor_shader_mono": "モノクロ",
+	"video_editor_shader_clouds": "雲",
+	"video_editor_shader_neural": "ニューラル",
+	"video_editor_shader_hint": "動く背景です。プリセットを選ぶと再生ヘッドの位置に追加されます。",
+	"video_editor_shader_unavailable": "シェーダー背景には WebGL 2 が必要です。グラフィックアクセラレーションを有効にするか、別のブラウザーをお試しください。",
+	"video_editor_shader_phase": "開始位相",
+	"video_editor_shader_still_hint": "速度を 0 にすると静止した背景になります。",
+	"video_editor_shader_twist": "ねじれ",
+	"video_editor_shader_classic": "グラデーションとパターン"
 }

@@ -1,58 +1,54 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { addBackgroundItem } from '$lib/video-editor/timeline/actions/backgrounds';
 	import { BACKGROUND_PRESETS } from '$lib/video-editor/backgrounds/presets';
+	import { backgroundPresetLabel } from '../backgrounds/labels';
+	import BackgroundThumbnail from './background-thumbnail.svelte';
+	import { shaderBackgroundSupport } from '../backgrounds/shader-support.svelte';
 
 	let { oninserted }: { oninserted: (itemId: string) => void } = $props();
-
-	function presetLabel(id: string): string {
-		switch (id) {
-			case 'mesh-sunset':
-				return m.video_editor_background_preset_mesh_sunset();
-			case 'mesh-ocean':
-				return m.video_editor_background_preset_mesh_ocean();
-			case 'mesh-forest':
-				return m.video_editor_background_preset_mesh_forest();
-			case 'mesh-neon':
-				return m.video_editor_background_preset_mesh_neon();
-			case 'pattern-dots':
-				return m.video_editor_background_preset_pattern_dots();
-			case 'pattern-grid':
-				return m.video_editor_background_preset_pattern_grid();
-			case 'pattern-stripes':
-				return m.video_editor_background_preset_pattern_stripes();
-			case 'pattern-checker':
-				return m.video_editor_background_preset_pattern_checker();
-			default:
-				return id;
-		}
-	}
+	onMount(() => {
+		shaderBackgroundSupport.check();
+	});
 </script>
 
 <div
-	class="flex min-h-0 flex-1 flex-col overflow-y-auto p-2"
+	class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-2"
 	aria-label={m.video_editor_backgrounds_title()}
 >
-	<p class="mb-2 text-xs leading-relaxed text-muted-foreground">
-		{m.video_editor_backgrounds_hint()}
-	</p>
-	<div class="grid grid-cols-2 gap-1.5">
-		{#each BACKGROUND_PRESETS as preset (preset.id)}
-			<button
-				type="button"
-				class="group flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2 py-2 text-[11px] text-muted-foreground hover:border-ring hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-				onclick={() => oninserted(addBackgroundItem(preset.id))}
-				aria-label={presetLabel(preset.id)}
-			>
-				<span
-					aria-hidden="true"
-					class="h-10 w-full rounded-sm border border-border"
-					style:background={preset.background.kind === 'mesh-gradient'
-						? `linear-gradient(135deg, ${preset.background.colors[0]}, ${preset.background.colors[1]}, ${preset.background.colors[2]})`
-						: preset.background.background}
-				></span>
-				<span>{presetLabel(preset.id)}</span>
-			</button>
-		{/each}
-	</div>
+	{#each [true, false] as shaders (shaders)}
+		<section class="space-y-2">
+			<h3 class="text-xs font-medium">
+				{shaders ? m.video_editor_shader_title() : m.video_editor_shader_classic()}
+			</h3>
+			{#if shaders}
+				<p class="text-xs leading-relaxed text-muted-foreground">
+					{m.video_editor_shader_hint()}
+				</p>
+				{#if !shaderBackgroundSupport.available}
+					<p class="text-xs leading-relaxed text-muted-foreground" role="status">
+						{m.video_editor_shader_unavailable()}
+					</p>
+				{/if}
+			{/if}
+			<div class="grid grid-cols-2 gap-2">
+				{#each BACKGROUND_PRESETS.filter((preset) => (preset.background.kind === 'shader') === shaders) as preset (preset.id)}
+					<button
+						type="button"
+						class="group flex min-h-20 min-w-0 flex-col gap-1.5 rounded-md p-1 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={shaders && !shaderBackgroundSupport.available}
+						onclick={() => oninserted(addBackgroundItem(preset.id))}
+						aria-label={backgroundPresetLabel(preset.id)}
+					>
+						<BackgroundThumbnail
+							background={preset.background}
+							onfailure={() => shaderBackgroundSupport.reportFailure()}
+						/>
+						<span class="px-0.5">{backgroundPresetLabel(preset.id)}</span>
+					</button>
+				{/each}
+			</div>
+		</section>
+	{/each}
 </div>

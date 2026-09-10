@@ -643,7 +643,7 @@ export interface SubtitleWord {
 	text: string;
 }
 
-export type BackgroundKind = 'mesh-gradient' | 'pattern';
+export type BackgroundKind = 'mesh-gradient' | 'pattern' | 'shader';
 export type BackgroundPatternKind = 'dots' | 'grid' | 'stripes' | 'checker';
 
 export interface BackgroundMeshBackground {
@@ -669,7 +669,25 @@ export interface BackgroundPatternBackground {
 	foregroundOpacity: number;
 }
 
-export type ProceduralBackground = BackgroundMeshBackground | BackgroundPatternBackground;
+export type BackgroundShader = 'mesh' | 'swirl' | 'clouds' | 'neural';
+
+export interface ShaderBackground {
+	kind: 'shader';
+	shader: BackgroundShader;
+	colors: [string, string, string, string];
+	speed: number;
+	phase: number;
+	detail: number;
+	rotation: number;
+	scale: number;
+	offsetX: number;
+	offsetY: number;
+}
+
+export type ProceduralBackground =
+	| BackgroundMeshBackground
+	| BackgroundPatternBackground
+	| ShaderBackground;
 
 export interface TimelineItem
 	extends

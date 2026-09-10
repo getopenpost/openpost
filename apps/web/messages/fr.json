@@ -8678,5 +8678,18 @@
 	"publication_view_label": "Vue des publications",
 	"publication_view_list": "Liste",
 	"personal_profile": "Profil",
-	"personal_usage_unavailable": "Les statistiques facultatives d’utilisation ne sont pas disponibles sur cette instance."
+	"personal_usage_unavailable": "Les statistiques facultatives d’utilisation ne sont pas disponibles sur cette instance.",
+	"video_editor_shader_title": "Shaders",
+	"video_editor_shader_aurora": "Aurore",
+	"video_editor_shader_dusk": "Crépuscule",
+	"video_editor_shader_ribbons": "Rubans",
+	"video_editor_shader_mono": "Monochrome",
+	"video_editor_shader_clouds": "Nuages",
+	"video_editor_shader_neural": "Neuronal",
+	"video_editor_shader_hint": "Arrière-plans animés. Sélectionnez un modèle pour l’ajouter à la tête de lecture.",
+	"video_editor_shader_unavailable": "Les arrière-plans avec shaders nécessitent WebGL 2. Activez l’accélération graphique ou essayez un autre navigateur.",
+	"video_editor_shader_phase": "Phase initiale",
+	"video_editor_shader_still_hint": "Réglez la vitesse sur 0 pour un arrière-plan fixe.",
+	"video_editor_shader_twist": "Torsion",
+	"video_editor_shader_classic": "Dégradés et motifs"
 }

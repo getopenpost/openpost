@@ -103,6 +103,7 @@
 		"@openpost/telemetry": "workspace:*",
 		"@openpost/video-project": "workspace:*",
 		"@paddle/paddle-js": "^1.6.4",
+		"@paper-design/shaders": "0.0.80",
 		"@tanstack/svelte-query": "6.1.48",
 		"@tanstack/table-core": "^8.21.3",
 		"ai-music-js": "0.5.0",

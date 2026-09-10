@@ -8678,5 +8678,18 @@
 	"publication_view_label": "Yayın görünümü",
 	"publication_view_list": "Liste",
 	"personal_profile": "Profil",
-	"personal_usage_unavailable": "Bu sunucuda isteğe bağlı kullanım analizi kullanılamıyor."
+	"personal_usage_unavailable": "Bu sunucuda isteğe bağlı kullanım analizi kullanılamıyor.",
+	"video_editor_shader_title": "Shader efektleri",
+	"video_editor_shader_aurora": "Kutup ışıkları",
+	"video_editor_shader_dusk": "Alacakaranlık",
+	"video_editor_shader_ribbons": "Şeritler",
+	"video_editor_shader_mono": "Tek renk",
+	"video_editor_shader_clouds": "Bulutlar",
+	"video_editor_shader_neural": "Sinir ağı",
+	"video_editor_shader_hint": "Hareketli arka planlar. Oynatma kafasının konumuna eklemek için bir hazır ayar seçin.",
+	"video_editor_shader_unavailable": "Shader arka planları WebGL 2 gerektirir. Grafik hızlandırmayı açın veya başka bir tarayıcı deneyin.",
+	"video_editor_shader_phase": "Başlangıç fazı",
+	"video_editor_shader_still_hint": "Sabit bir arka plan için hızı 0 olarak ayarlayın.",
+	"video_editor_shader_twist": "Bükülme",
+	"video_editor_shader_classic": "Renk geçişleri ve desenler"
 }

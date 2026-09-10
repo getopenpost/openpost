@@ -17,26 +17,26 @@
 <p align="center">
   <a href="https://github.com/getopenpost/openpost/releases">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/downloads/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=dark">
-      <img src="https://shieldcn.dev/github/downloads/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=light" alt="Release downloads">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/downloads-dark.svg">
+      <img src="./assets/badges/downloads-light.svg" alt="Release downloads">
     </picture>
   </a>
   <a href="https://github.com/getopenpost/openpost/releases">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/release/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=dark">
-      <img src="https://shieldcn.dev/github/release/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=light" alt="Latest release">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/release-dark.svg">
+      <img src="./assets/badges/release-light.svg" alt="Latest release">
     </picture>
   </a>
   <a href="https://github.com/getopenpost/openpost/actions/workflows/ci.yml">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/ci/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=dark">
-      <img src="https://shieldcn.dev/github/ci/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=light" alt="Build status">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/build-dark.svg">
+      <img src="./assets/badges/build-light.svg" alt="Build status">
     </picture>
   </a>
   <a href="https://github.com/getopenpost/openpost/stargazers">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/stars/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=dark">
-      <img src="https://shieldcn.dev/github/stars/getopenpost/openpost.svg?variant=outline&amp;size=sm&amp;font=geist&amp;mode=light" alt="GitHub stars">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/stars-dark.svg">
+      <img src="./assets/badges/stars-light.svg" alt="GitHub stars">
     </picture>
   </a>
 </p>

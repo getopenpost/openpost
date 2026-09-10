@@ -597,16 +597,12 @@ in
             OPENPOST_PADDLE_CLIENT_TOKEN=${config.sops.placeholder.openpost_paddle_client_token}
             OPENPOST_PADDLE_WEBHOOK_SECRET=${config.sops.placeholder.openpost_paddle_webhook_secret}
             OPENPOST_PADDLE_CHECKOUT_RETURN_URL=https://${cfg.domain}/checkout?status=success
-            OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID=pri_01kz8y75epf02dvf9yt0hcbxsr
-            OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID=pri_01kz8y75zmdb45ferqj6dq1s68
-            OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID=pri_01kz8y774fgdve480x8pcd4tzq
-            OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID=pri_01kz8y77nfx8myhzjbbrnpfn5f
-            OPENPOST_PADDLE_PRO_MONTHLY_PRICE_ID=pri_01kz8y78txwwdhbvte7gsjkpr3
-            OPENPOST_PADDLE_PRO_ANNUAL_PRICE_ID=pri_01kz8y79je6s27tgpgw2s6kpnb
-            OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID=pri_01kz8y7argrs3zygh0j73wmf9n
-            OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID=pri_01kz8y7b9n73r8v989skf9hbj1
-            OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID=pri_01kz8y7ccz8ve0gp2erm4yvssw
-            OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID=pri_01kz8y7cy4bjsmtdtjwpwns4wf
+            OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID=pri_01m21bzkts6zxgzz8g5zd4x0zf
+            OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID=pri_01m21bzm6y19q2a85jf7pzg3mm
+            OPENPOST_PADDLE_TEAM_MONTHLY_PRICE_ID=pri_01m21bzmrv1gnd4v169db6xmhw
+            OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID=pri_01m21bzn4qbkteczj2zq3bsj6y
+            OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID=pri_01m21bznnqq8bwqg0a5vfrpm3b
+            OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID=pri_01m21bzp1ajvekhqk2hn4xmj2h
           '';
           mode = "0400";
           restartUnits = openpostApplicationUnits;

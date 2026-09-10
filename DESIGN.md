@@ -243,6 +243,10 @@ Shared empty states place an original static SVG wave field in a 120px by 64px s
 
 The shared SVG mask and Bayer thresholds live in `apps/web/src/lib/components/dither/paint.ts`. Preserve the Dither Kit attribution in the adjacent `NOTICE.md`. The wave field adds no continuous rendering loop.
 
+Dither buttons ease their pixel gradient on hover, keyboard focus, and press. Chart inspection emphasizes the selected day while preserving solid value boundaries and readable series labels. Tooltips stay within the visible chart viewport and dismiss with Escape. Motion uses the shared theme timings and reduced-motion rules.
+
+The theme editor offers a coordinated Dither accent hue for both schemes, plus color pickers beside the CSS values for individual tokens. The hue control retains the palette's lightness, neutral surfaces, status colors, and distinct chart series. Color pickers preserve each token's existing opacity, and swatches display it. Edit opacity directly in the adjacent CSS value. Changes use the existing draft, undo, publish, and assignment flow. The Dither gradient component supports horizontal and vertical fades, with an optional second color.
+
 Custom Dither button recipes must preserve text contrast after the texture is composited in every interaction state. Theme previews block interaction with `inert` so sample controls retain their normal appearance.
 
 ### Buttons

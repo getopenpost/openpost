@@ -27,6 +27,11 @@ describe('AnalyticsPerformanceChart', () => {
 						{ key: 'gain', label: 'Gained followers', platform: 'x', value: 12 },
 						{ key: 'loss', label: 'Lost followers', platform: 'youtube', value: -6 }
 					]
+				},
+				{
+					date: '2026-09-11',
+					value: 3,
+					items: [{ key: 'gain-2', label: 'Gained followers', platform: 'x', value: 3 }]
 				}
 			],
 			metric: 'followers',
@@ -55,8 +60,21 @@ describe('AnalyticsPerformanceChart', () => {
 			await userEvent.keyboard('{Enter}');
 			await expect.element(screen.getByRole('status')).toHaveTextContent('+6');
 			await expect.element(screen.getByRole('status')).toHaveTextContent('-6');
+			await day.hover();
+			const nextDay = screen.getByRole('button', { name: '2026-09-11, 3 Daily followers' });
+			const nextDayElement = nextDay.element();
+			if (!(nextDayElement instanceof SVGElement)) throw new Error('Chart day is unavailable');
+			nextDayElement.focus();
+			await expect.element(screen.getByRole('status')).toHaveTextContent('2026-09-11');
+			await expect.element(nextDay).toHaveAttribute('data-chart-active', 'true');
+			dayElement.focus();
+			await expect.element(day).toHaveAttribute('data-chart-active', 'true');
+			await userEvent.keyboard('{Escape}');
+			await expect.element(screen.getByRole('status')).not.toBeInTheDocument();
+			await userEvent.keyboard('{Enter}');
+			await expect.element(screen.getByRole('status')).toHaveTextContent('+6');
 			await runtime.apply(resolveBuiltInTheme('workshop', 'light'), figure);
-			expect(bars.map((bar) => getComputedStyle(bar).maskImage)).toEqual(['none', 'none']);
+			expect(bars.map((bar) => getComputedStyle(bar).maskImage)).toEqual(['none', 'none', 'none']);
 			expect(bars.map(geometry)).toEqual(original);
 		} finally {
 			runtime.clear(figure);

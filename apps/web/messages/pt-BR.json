@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "Ganho de amarelo",
 	"video_editor_paper_search": "Pesquisar fundos",
 	"video_editor_paper_all": "Todos os shaders",
-	"video_editor_paper_empty": "Nenhum fundo encontrado."
+	"video_editor_paper_empty": "Nenhum fundo encontrado.",
+	"theme_editor_accent_hue": "Tom do destaque",
+	"theme_editor_accent_hue_description": "Atualiza a cor de destaque Dither nos dois modos. Ajuste as cores individuais abaixo."
 }

@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "Gain du jaune",
 	"video_editor_paper_search": "Rechercher des arrière-plans",
 	"video_editor_paper_all": "Tous les shaders",
-	"video_editor_paper_empty": "Aucun arrière-plan trouvé."
+	"video_editor_paper_empty": "Aucun arrière-plan trouvé.",
+	"theme_editor_accent_hue": "Teinte d’accent",
+	"theme_editor_accent_hue_description": "Modifie l’accent Dither dans les deux modes. Ajustez chaque couleur ci-dessous."
 }

@@ -222,13 +222,13 @@ type ThemeShellTokens struct {
 }
 
 type ThemeComponentRecipes struct {
-	Button       string `json:"button" enum:"solid,tonal,outlined,precise,pill"`
+	Button       string `json:"button" enum:"solid,tonal,outlined,precise,pill,dither"`
 	Link         string `json:"link" enum:"underlined,subtle,plain"`
 	Tabs         string `json:"tabs" enum:"underline,pill,segmented"`
 	Navigation   string `json:"navigation" enum:"quiet,tonal,outlined"`
 	Input        string `json:"input" enum:"filled,outlined,underlined"`
 	Select       string `json:"select" enum:"filled,outlined,underlined"`
-	Card         string `json:"card" enum:"flat,outlined,paper,lifted"`
+	Card         string `json:"card" enum:"flat,outlined,paper,lifted,dither"`
 	Container    string `json:"container" enum:"flat,outlined,tinted"`
 	Table        string `json:"table" enum:"ruled,striped,plain"`
 	List         string `json:"list" enum:"divided,spaced,plain"`
@@ -245,7 +245,7 @@ type ThemeComponentRecipes struct {
 	EmptyState   string `json:"emptyState" enum:"plain,illustrated,framed"`
 	LoadingState string `json:"loadingState" enum:"spinner,pulse,skeleton"`
 	EditorChrome string `json:"editorChrome" enum:"neutral,compact,precision"`
-	Decoration   string `json:"decoration" enum:"none,editorial,playful,botanical,study,tactile,precision"`
+	Decoration   string `json:"decoration" enum:"none,editorial,playful,botanical,study,tactile,precision,dither"`
 }
 
 type ThemeSchemeManifest struct {

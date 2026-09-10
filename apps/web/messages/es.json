@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "Ganancia de amarillo",
 	"video_editor_paper_search": "Buscar fondos",
 	"video_editor_paper_all": "Todos los shaders",
-	"video_editor_paper_empty": "No se encontraron fondos."
+	"video_editor_paper_empty": "No se encontraron fondos.",
+	"theme_editor_accent_hue": "Tono de acento",
+	"theme_editor_accent_hue_description": "Actualiza el acento Dither en ambos modos. Ajusta los colores individuales abajo."
 }

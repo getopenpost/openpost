@@ -1,5 +1,11 @@
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
+	import ColorPicker from '$lib/components/color-picker.svelte';
+	import DitherGradient from '$lib/components/dither/dither-gradient.svelte';
+	import { convert } from '@asamuzakjp/css-color';
+	import { themeAccentHue } from './theme-editor-accent';
+	import { themePickerColor } from './theme-editor-color';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale, type Locale } from '$lib/paraglide/runtime';
@@ -38,6 +44,7 @@
 		theme: ThemeManifest;
 		manifest: ThemeSchemeManifest;
 		onUpdateValue: ThemeValueUpdater;
+		onUpdateAccent: (hue: number) => void;
 		onUpdateTypography: ThemeTypographyUpdater;
 		onUpdateFontFamily: (role: ThemeTypographyRole, family: string) => void;
 		onUpdateMotion: ThemeMotionUpdater;
@@ -50,6 +57,7 @@
 		theme,
 		manifest,
 		onUpdateValue,
+		onUpdateAccent,
 		onUpdateTypography,
 		onUpdateFontFamily,
 		onUpdateMotion,
@@ -58,6 +66,7 @@
 	}: Props = $props();
 	const colorGroups = $derived(themeColorGroups(locale));
 	const componentGroups = $derived(themeComponentGroups(locale));
+	const accentHue = $derived(themeAccentHue(manifest));
 
 	const typographyFields = [
 		['size', () => m.theme_editor_size()],
@@ -103,6 +112,53 @@
 
 {#if panel === 'colors'}
 	<div class="space-y-3">
+		{#if manifest.components.decoration === 'dither'}
+			<section
+				class="space-y-3 rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
+				aria-label={m.theme_editor_accent_hue()}
+			>
+				<div class="flex items-center justify-between gap-3">
+					<label for="theme-accent-hue" class="text-sm font-semibold"
+						>{m.theme_editor_accent_hue()}</label
+					>
+					<div class="relative h-8 w-20 shrink-0 overflow-hidden rounded border border-border">
+						<DitherGradient
+							color={manifest.colors.actionFocal}
+							baseColor={manifest.colors.canvas}
+							direction="right"
+						/>
+					</div>
+				</div>
+				<p class="text-xs leading-relaxed text-muted-foreground">
+					{m.theme_editor_accent_hue_description()}
+				</p>
+				<div class="flex items-center gap-3">
+					<Slider
+						value={accentHue}
+						min={0}
+						max={359}
+						ariaLabel={m.theme_editor_accent_hue()}
+						ariaValueText={`${accentHue}°`}
+						onValueChange={onUpdateAccent}
+						trackClass="bg-[linear-gradient(to_right,#e34b4b,#b6a21a,#46a34c,#21a6ae,#5972d9,#be56c5,#e34b4b)]"
+						rangeClass="hidden"
+					/>
+					<Input
+						id="theme-accent-hue"
+						type="number"
+						min="0"
+						max="359"
+						step="1"
+						value={accentHue}
+						class="w-20 shrink-0 tabular-nums"
+						oninput={(event) => {
+							const value = event.currentTarget.valueAsNumber;
+							if (Number.isFinite(value) && value >= 0 && value <= 359) onUpdateAccent(value);
+						}}
+					/>
+				</div>
+			</section>
+		{/if}
 		{#each colorGroups as group (group.id)}
 			<details
 				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
@@ -114,13 +170,18 @@
 				<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
 				<div class="mt-3 grid gap-3">
 					{#each group.fields as field (field)}
-						<label class="grid gap-1.5 text-xs font-medium" for={`theme-color-${field}`}>
-							<span>{themeEditorTokenLabel(field, locale)}</span>
+						<div class="grid gap-1.5 text-xs font-medium">
+							<label for={`theme-color-${field}`}>{themeEditorTokenLabel(field, locale)}</label>
 							<span class="flex items-center gap-2">
-								<span
-									class="size-8 shrink-0 rounded-[var(--theme-radius-sm,var(--radius))] border border-border"
-									style:background={manifest.colors[field]}
-								></span>
+								<ColorPicker
+									label={m.brand_choose_color({ name: themeEditorTokenLabel(field, locale) })}
+									value={convert.colorToHex(manifest.colors[field]) ?? '#000000'}
+									swatchColor={manifest.colors[field]}
+									variant="swatch"
+									live={false}
+									onChange={(value) =>
+										onUpdateValue('colors', field, themePickerColor(manifest.colors[field], value))}
+								/>
 								<Input
 									id={`theme-color-${field}`}
 									value={manifest.colors[field]}
@@ -128,7 +189,7 @@
 									class="font-mono"
 								/>
 							</span>
-						</label>
+						</div>
 					{/each}
 				</div>
 			</details>

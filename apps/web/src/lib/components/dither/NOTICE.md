@@ -2,7 +2,10 @@
 
 The ordered dithering and alpha falloff in `paint.ts` are adapted from
 [`pixel.ts`, `dither-paint.ts`, and `gradient.tsx`](https://github.com/Boring-Software-Inc/dither-kit/tree/1e7faee9aa252e499651e6736ed65f7a07d9a6bd/registry/dither-kit).
-The button treatment also follows `button.tsx` at that revision.
+The button treatment also follows `button.tsx` at that revision. Its eased
+hover and pressed intensity informed the CSS texture transitions. The
+directional gradients and chart hover emphasis follow `gradient.tsx` and
+`bar-canvas.tsx`; chart scales and data remain owned by OpenPost.
 
 Dither Kit's root `package.json` declares MIT. That revision has no separate
 license file or copyright notice. Attribution: Boring Software Inc., Dither Kit.

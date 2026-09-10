@@ -19,8 +19,11 @@
 	}
 
 	let { points, metric, label, emptyLabel, otherLabel, formatValue, formatDate }: Props = $props();
-	let activeDate = $state('');
+	let hoveredDate = $state('');
+	let focusedDate = $state('');
+	const activeDate = $derived(hoveredDate || focusedDate);
 	let viewportWidth = $state(0);
+	let scrollOffset = $state(0);
 
 	const margin = { top: 18, right: 16, bottom: 34, left: 52 };
 	const plotHeight = 236;
@@ -37,6 +40,17 @@
 	const chartWidth = $derived(margin.left + plotWidth + margin.right);
 	const barWidth = $derived(Math.max(8, Math.min(24, slotWidth - 7)));
 	const activePoint = $derived(points.find((point) => point.date === activeDate));
+	const tooltipInset = 8;
+	const tooltipWidth = $derived(Math.min(256, Math.max(0, viewportWidth - tooltipInset * 2)));
+	const tooltipLeft = $derived(
+		Math.min(
+			scrollOffset + viewportWidth - tooltipWidth / 2 - tooltipInset,
+			Math.max(
+				scrollOffset + tooltipWidth / 2 + tooltipInset,
+				x(points.findIndex((point) => point.date === activeDate)) + barWidth / 2
+			)
+		)
+	);
 	const rankedPlatforms = $derived.by(() => {
 		const totals = new Map<string, number>();
 		for (const point of points) {
@@ -131,6 +145,11 @@
 		return `${formatDate(point.date)}, ${formatValue(point.value)} ${label}`;
 	}
 
+	function inspectDate(date: string) {
+		hoveredDate = '';
+		focusedDate = date;
+	}
+
 	function tooltipItemLabel(item: DailyItem) {
 		return metric === 'followers'
 			? formatSocialAccountName(item.label, item.platform) || item.label
@@ -143,12 +162,21 @@
 	}
 </script>
 
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key !== 'Escape') return;
+		hoveredDate = '';
+		focusedDate = '';
+	}}
+/>
+
 <figure class="min-w-0" aria-label={label} data-metric={metric}>
 	{#if points.length}
 		<div
 			class="relative overflow-x-auto overscroll-x-contain pb-1"
 			data-testid="analytics-chart-scroll"
 			bind:clientWidth={viewportWidth}
+			onscroll={(event) => (scrollOffset = event.currentTarget.scrollLeft)}
 		>
 			<div class="relative" style={`width: ${chartWidth}px; height: ${chartHeight}px`}>
 				<svg
@@ -178,20 +206,21 @@
 					{#each points as point, index (point.date)}
 						<g
 							class="analytics-day"
+							data-chart-active={activeDate ? activeDate === point.date : undefined}
 							role="button"
 							tabindex="0"
 							aria-label={pointLabel(point)}
-							onclick={() => (activeDate = point.date)}
+							onclick={() => inspectDate(point.date)}
 							onkeydown={(event) => {
 								if (event.key === 'Enter' || event.key === ' ') {
 									event.preventDefault();
-									activeDate = point.date;
+									inspectDate(point.date);
 								}
 							}}
-							onmouseenter={() => (activeDate = point.date)}
-							onmouseleave={() => (activeDate = '')}
-							onfocus={() => (activeDate = point.date)}
-							onblur={() => (activeDate = '')}
+							onmouseenter={() => (hoveredDate = point.date)}
+							onmouseleave={() => (hoveredDate = '')}
+							onfocus={() => inspectDate(point.date)}
+							onblur={() => (focusedDate = '')}
 						>
 							{#each positiveSegments(point) as segment (`positive-${segment.item.key}`)}
 								<ChartBar
@@ -235,8 +264,9 @@
 
 				{#if activePoint}
 					<div
-						class="pointer-events-none absolute top-2 z-10 w-64 -translate-x-1/2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
-						style={`left: ${Math.min(chartWidth - 140, Math.max(140, x(points.indexOf(activePoint)) + barWidth / 2))}px`}
+						class="analytics-tooltip pointer-events-none absolute top-2 z-10 -translate-x-1/2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+						style:left={`${tooltipLeft}px`}
+						style:width={`${tooltipWidth}px`}
 						role="status"
 					>
 						<div class="flex items-baseline justify-between gap-3 border-b border-border pb-2">
@@ -308,5 +338,29 @@
 	.analytics-day:focus-visible .analytics-hit-area {
 		stroke: var(--ring);
 		stroke-width: 2;
+	}
+
+	.analytics-hit-area {
+		fill: var(--action-focal);
+		fill-opacity: 0;
+		transition: fill-opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing);
+	}
+
+	.analytics-day[data-chart-active='true'] .analytics-hit-area {
+		fill-opacity: 0.05;
+	}
+
+	.analytics-tooltip {
+		animation: chart-tooltip-enter var(--theme-motion-entry-duration)
+			var(--theme-motion-entry-easing);
+	}
+
+	@keyframes chart-tooltip-enter {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 </style>

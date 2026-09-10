@@ -974,26 +974,44 @@
 	}
 
 	[data-theme-button='dither']
-		[data-slot='button']:is(
+		[data-slot='button']:where(
 			[data-action-intent='focal'],
 			[data-action-intent='primary'],
 			[data-action-intent='ordinary']
-		):not(:disabled, [aria-disabled='true'])::before {
+		):where(:not(:disabled, [aria-disabled='true']))::before {
 		position: absolute;
 		z-index: -1;
 		inset: 0;
 		border-radius: inherit;
-		background-color: currentColor;
+		background-image: linear-gradient(
+			110deg,
+			color-mix(in srgb, currentColor 40%, transparent),
+			currentColor 45%,
+			color-mix(in srgb, currentColor 40%, transparent)
+		);
+		background-size: 240% 100%;
+		background-position: 100% 0;
 		content: '';
 		opacity: 0.14;
 		mask-image: var(--theme-dither-mask);
 		mask-size: 8px 100%;
 		mask-repeat: repeat-x;
 		pointer-events: none;
+		transition:
+			opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing),
+			background-position var(--theme-duration-slow) var(--theme-motion-hover-easing);
 	}
 
-	[data-theme-button='dither'] [data-slot='button']:hover::before {
+	[data-theme-button='dither'] [data-slot='button']:focus-visible::before {
 		opacity: 0.18;
+		background-position: 0 0;
+	}
+
+	@media (hover: hover) {
+		[data-theme-button='dither'] [data-slot='button']:hover::before {
+			opacity: 0.18;
+			background-position: 0 0;
+		}
 	}
 
 	[data-theme-button='dither'] [data-slot='button']:active::before {
@@ -1038,6 +1056,21 @@
 
 	[data-theme-decoration='dither'] [data-chart-outline] {
 		display: block;
+	}
+
+	[data-theme-decoration='dither'] :is([data-chart-fill], [data-chart-outline]) {
+		transition:
+			opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing),
+			stroke-opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing);
+	}
+
+	[data-theme-decoration='dither'] [data-chart-active='false'] [data-chart-fill] {
+		opacity: 0.6;
+	}
+
+	[data-theme-decoration='dither'] [data-chart-active='true'] [data-chart-outline] {
+		stroke-opacity: 1;
+		stroke-width: 1.5;
 	}
 
 	[data-slot='dither-field'] {

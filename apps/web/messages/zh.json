@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "黄色增益",
 	"video_editor_paper_search": "搜索背景",
 	"video_editor_paper_all": "全部着色器",
-	"video_editor_paper_empty": "未找到背景。"
+	"video_editor_paper_empty": "未找到背景。",
+	"theme_editor_accent_hue": "强调色色相",
+	"theme_editor_accent_hue_description": "更新两种模式下的 Dither 强调色。可在下方调整各个颜色。"
 }

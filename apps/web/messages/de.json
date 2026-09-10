@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "Gelbverstärkung",
 	"video_editor_paper_search": "Hintergründe suchen",
 	"video_editor_paper_all": "Alle Shader",
-	"video_editor_paper_empty": "Keine Hintergründe gefunden."
+	"video_editor_paper_empty": "Keine Hintergründe gefunden.",
+	"theme_editor_accent_hue": "Akzentfarbton",
+	"theme_editor_accent_hue_description": "Ändert den Dither-Akzent in beiden Modi. Einzelne Farben lassen sich unten anpassen."
 }

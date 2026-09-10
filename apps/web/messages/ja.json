@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "イエローのゲイン",
 	"video_editor_paper_search": "背景を検索",
 	"video_editor_paper_all": "すべてのシェーダー",
-	"video_editor_paper_empty": "背景が見つかりません。"
+	"video_editor_paper_empty": "背景が見つかりません。",
+	"theme_editor_accent_hue": "アクセントの色相",
+	"theme_editor_accent_hue_description": "両方のモードのDitherアクセントを変更します。個々の色は下で調整できます。"
 }

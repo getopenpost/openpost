@@ -14,6 +14,7 @@
 		id,
 		label,
 		value,
+		swatchColor,
 		disabled = false,
 		brandColors,
 		recentColors = [],
@@ -26,6 +27,7 @@
 		id?: string;
 		label: string;
 		value: string;
+		swatchColor?: string;
 		disabled?: boolean;
 		brandColors?: readonly ColorPickerPreset[];
 		recentColors?: readonly string[];
@@ -122,7 +124,9 @@
 				title={`${label}: ${normalizeHex(value).toUpperCase()}`}
 			>
 				{#if variant === 'field'}
-					<span class="w-10 shrink-0 border-r border-input" style:background={normalizeHex(value)}
+					<span
+						class="w-10 shrink-0 border-r border-input"
+						style:background-color={swatchColor ?? normalizeHex(value)}
 					></span>
 					<span class="min-w-0 flex-1 self-center truncate px-2 font-mono uppercase"
 						>{normalizeHex(value)}</span
@@ -130,7 +134,7 @@
 				{:else}
 					<span
 						class="size-full rounded-sm ring-1 ring-foreground/15"
-						style:background={normalizeHex(value)}
+						style:background-color={swatchColor ?? normalizeHex(value)}
 					></span>
 				{/if}
 			</button>

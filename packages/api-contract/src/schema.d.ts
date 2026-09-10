@@ -13212,9 +13212,9 @@ export interface components {
             /** @enum {string} */
             badge: "solid" | "tonal" | "outlined";
             /** @enum {string} */
-            button: "solid" | "tonal" | "outlined" | "precise" | "pill";
+            button: "solid" | "tonal" | "outlined" | "precise" | "pill" | "dither";
             /** @enum {string} */
-            card: "flat" | "outlined" | "paper" | "lifted";
+            card: "flat" | "outlined" | "paper" | "lifted" | "dither";
             /** @enum {string} */
             checkbox: "solid" | "tonal" | "outlined";
             /** @enum {string} */
@@ -13222,7 +13222,7 @@ export interface components {
             /** @enum {string} */
             container: "flat" | "outlined" | "tinted";
             /** @enum {string} */
-            decoration: "none" | "editorial" | "playful" | "botanical" | "study" | "tactile" | "precision";
+            decoration: "none" | "editorial" | "playful" | "botanical" | "study" | "tactile" | "precision" | "dither";
             /** @enum {string} */
             dialog: "flat" | "outlined" | "elevated";
             /** @enum {string} */

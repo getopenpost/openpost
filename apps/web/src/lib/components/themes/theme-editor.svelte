@@ -43,6 +43,7 @@
 	import ThemeEditorResourcesPanel from './theme-editor-resources-panel.svelte';
 	import ThemeEditorRevisionsPanel from './theme-editor-revisions-panel.svelte';
 	import ThemeEditorTokenPanel from './theme-editor-token-panel.svelte';
+	import { updateDitherAccent } from './theme-editor-accent';
 	import {
 		parseThemeEditorValidationMessage,
 		parseThemeExternalErrorMessage,
@@ -912,6 +913,12 @@
 							theme={draft}
 							manifest={schemeManifest}
 							onUpdateValue={updateValue}
+							onUpdateAccent={(hue) =>
+								applyDraft(
+									m.theme_editor_section_updated({ section: panelLabels.colors.toLowerCase() }),
+									updateDitherAccent(cloneTheme(draft), hue),
+									'dither-accent'
+								)}
 							onUpdateTypography={updateTypographyRole}
 							onUpdateFontFamily={updateFontFamily}
 							onUpdateMotion={updateMotionRecipe}

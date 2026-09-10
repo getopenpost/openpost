@@ -41,6 +41,8 @@ const trend = Array.from({ length: 30 }, (_, index) => ({
 }));
 
 for (const [themeID, scheme] of [
+  ["dither", "light"],
+  ["dither", "dark"],
   ["workshop", "light"],
   ["workshop", "dark"],
   ["studio", "light"],
@@ -97,24 +99,23 @@ for (const [themeID, scheme] of [
           }),
         );
         const family = builtins.find((theme) => theme.id === themeID)!;
-        if (themeID !== "workshop")
-          await page.route("**/api/v1/themes/resolved?**", (route) =>
-            route.fulfill({
-              json: {
-                id: family.id,
-                revision: family.revision,
-                name: family.name,
-                iconPack: family.iconPack,
-                source: "builtin",
-                requestedScheme: scheme,
-                scheme,
-                // SAFETY: Each test case pairs a built-in family with a scheme it declares.
-                manifest: family.schemes[scheme as keyof typeof family.schemes],
-                fonts: [],
-                assets: [],
-              },
-            }),
-          );
+        await page.route("**/api/v1/themes/resolved?**", (route) =>
+          route.fulfill({
+            json: {
+              id: family.id,
+              revision: family.revision,
+              name: family.name,
+              iconPack: family.iconPack,
+              source: "builtin",
+              requestedScheme: scheme,
+              scheme,
+              // SAFETY: Each test case pairs a built-in family with a scheme it declares.
+              manifest: family.schemes[scheme as keyof typeof family.schemes],
+              fonts: [],
+              assets: [],
+            },
+          }),
+        );
         await page.emulateMedia({
           colorScheme: scheme,
           reducedMotion: width === 320 ? "reduce" : "no-preference",
@@ -164,6 +165,34 @@ for (const [themeID, scheme] of [
         await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
         await page.getByRole("img", { name: "Daily views" }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath("chart.png") });
+        if (themeID === "dither") {
+          const figure = page.getByRole("figure", { name: "Daily views" });
+          const day = figure.getByRole("button").nth(width < 768 ? 6 : 15);
+          const bar = day.locator("[data-chart-fill]").first();
+          const before = await bar.evaluate((el: SVGRectElement) => ({
+            x: el.x.baseVal.value,
+            y: el.y.baseVal.value,
+            height: el.height.baseVal.value,
+          }));
+          await day.focus();
+          await expect(day).toHaveAttribute("data-chart-active", "true");
+          const tooltip = figure.getByRole("status");
+          await expect(tooltip).toBeVisible();
+          const bounds = (await tooltip.boundingBox())!;
+          const viewport = (await figure.getByTestId("analytics-chart-scroll").boundingBox())!;
+          expect(bounds.x).toBeGreaterThanOrEqual(viewport.x);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.x + viewport.width);
+          expect(
+            await bar.evaluate((el: SVGRectElement) => ({
+              x: el.x.baseVal.value,
+              y: el.y.baseVal.value,
+              height: el.height.baseVal.value,
+            })),
+          ).toEqual(before);
+          await figure.screenshot({
+            path: `.impeccable/review/dither-polish/analytics-${width}-${scheme}.png`,
+          });
+        }
         await section
           .locator("h2")
           .evaluate((element) => element.scrollIntoView({ block: "start" }));

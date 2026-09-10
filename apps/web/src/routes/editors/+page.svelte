@@ -379,7 +379,7 @@
 		/>
 	</div>
 
-	<div class="space-y-8">
+	<div class="mt-6 space-y-8">
 		<section
 			class="space-y-3"
 			aria-labelledby="editor-catalog-designs-heading"
@@ -546,7 +546,7 @@
 					</div>
 				</InlineNotice>
 			{:else if videoWorkspaceGate.state === 'pick'}
-				<InlineNotice>
+				<InlineNotice class="flex-col items-stretch sm:flex-row sm:items-center">
 					<div>
 						<h3 class="font-medium">{m.video_editor_gate_pick_title()}</h3>
 						<p class="mt-0.5 text-muted-foreground">{m.video_editor_gate_pick_body()}</p>

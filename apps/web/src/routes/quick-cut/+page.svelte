@@ -1272,7 +1272,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	<main class="mx-auto flex w-full max-w-6xl min-w-0 flex-1 flex-col gap-4 p-3 sm:p-4">
 		{#if sources.length === 0}
 			<div
-				class="mx-auto mt-10 max-w-xl rounded-2xl border border-dashed bg-card p-8 text-center shadow-sm sm:mt-16"
+				class="mx-auto mt-10 w-full max-w-xl min-w-0 rounded-2xl border border-dashed bg-card p-4 text-center shadow-sm sm:mt-16 sm:p-8"
 			>
 				<h1 class="text-lg font-semibold">{m.quick_cut_empty_title()}</h1>
 				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
@@ -1280,7 +1280,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				</p>
 				{#if cloudWorkspaceId}
 					<div
-						class="mx-auto mt-5 flex w-fit rounded-lg border bg-muted/40 p-1"
+						class="mx-auto mt-5 flex w-fit max-w-full flex-wrap justify-center rounded-lg border bg-muted/40 p-1"
 						role="group"
 						aria-label={m.video_editor_storage()}
 					>
@@ -1327,7 +1327,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 								disabled={cloudLoading}
 								onclick={() => void loadCloudProjectList()}
 							>
-								{m.common_retry()}
+								{cloudError ? m.common_retry() : m.common_refresh()}
 							</Button>
 						</div>
 						{#if cloudError}
@@ -1354,6 +1354,10 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 									</li>
 								{/each}
 							</ul>
+						{:else}
+							<p class="mt-3 text-sm text-muted-foreground">
+								{m.video_editor_projects_empty()}
+							</p>
 						{/if}
 					</div>
 				{/if}

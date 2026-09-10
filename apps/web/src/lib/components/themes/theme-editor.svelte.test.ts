@@ -15,6 +15,35 @@ function previewFrame(element: Element): HTMLIFrameElement {
 describe('ThemeEditor', () => {
 	afterEach(() => switchLocale('en', { reload: false }));
 
+	it('edits the accent of the selected Dither scheme when the other scheme uses a different material', async () => {
+		const initialTheme = duplicateThemeManifest(getBuiltInTheme('dither'), 'custom', 'Custom');
+		initialTheme.schemes.light!.components.decoration = 'none';
+		const screen = render(ThemeEditor, { initialTheme });
+		await screen.getByRole('button', { name: 'Dark', exact: true }).click();
+		const hue = screen.getByRole('spinbutton', { name: 'Accent hue', exact: true });
+		await hue.fill('305');
+		await expect.element(hue).toHaveValue(305);
+		await expect
+			.element(screen.getByRole('slider', { name: 'Accent hue' }))
+			.toHaveAttribute('aria-valuenow', '305');
+	});
+
+	it('changes a typeface as one selection and closes its menu', async () => {
+		const initialTheme = duplicateThemeManifest(getBuiltInTheme('dither'), 'custom', 'Custom');
+		const screen = render(ThemeEditor, { initialTheme });
+		await screen.getByRole('button', { name: 'Type', exact: true }).click();
+		await screen.getByRole('button', { name: /^Family / }).click();
+		await screen.getByRole('option', { name: 'Inter', exact: true }).click();
+		await expect.element(screen.getByRole('listbox')).not.toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('button', { name: /^Family / }))
+			.toHaveTextContent('Inter Variable');
+		await screen.getByRole('button', { name: 'Undo' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: /^Family / }))
+			.toHaveTextContent('Geist Variable');
+	});
+
 	it('edits the real scoped preview and can undo the complete change', async () => {
 		const initialTheme = duplicateThemeManifest(
 			getBuiltInTheme('workshop'),
@@ -31,7 +60,7 @@ describe('ThemeEditor', () => {
 			setBrowserSurface: vi.fn(() => vi.fn())
 		};
 		const screen = render(ThemeEditor, { initialTheme, runtime: new WebThemeRuntime(loaders) });
-		const canvas = screen.getByLabelText('Canvas');
+		const canvas = screen.getByLabelText('Canvas', { exact: true });
 
 		await canvas.fill('#F1F5FF');
 		await expect.element(screen.getByText('Unsaved changes')).toBeVisible();
@@ -128,7 +157,7 @@ describe('ThemeEditor', () => {
 		await screen.getByLabelText('Theme manifest JSON').fill(JSON.stringify(changed));
 		await screen.getByRole('button', { name: 'Guided' }).click();
 
-		await expect.element(screen.getByLabelText('Canvas')).toHaveValue('#F1F5FF');
+		await expect.element(screen.getByLabelText('Canvas', { exact: true })).toHaveValue('#F1F5FF');
 		await expect.element(screen.getByText('Unsaved changes')).toBeVisible();
 	});
 
@@ -162,7 +191,7 @@ describe('ThemeEditor', () => {
 			onPublish
 		});
 
-		await screen.getByLabelText('Canvas').fill('url(https://example.com/tracker)');
+		await screen.getByLabelText('Canvas', { exact: true }).fill('url(https://example.com/tracker)');
 
 		await expect.element(screen.getByRole('button', { name: 'Publish' })).toBeDisabled();
 		await expect.element(screen.getByText(/current draft is incomplete/i)).toBeVisible();
@@ -180,7 +209,7 @@ describe('ThemeEditor', () => {
 			onSave: vi.fn().mockRejectedValue(new Error('The draft changed on another device'))
 		});
 
-		await screen.getByLabelText('Canvas').fill('#F1F5FF');
+		await screen.getByLabelText('Canvas', { exact: true }).fill('#F1F5FF');
 		await screen.getByRole('button', { name: 'Save draft' }).click();
 
 		await expect
@@ -206,7 +235,7 @@ describe('ThemeEditor', () => {
 			onReload
 		});
 
-		await screen.getByLabelText('Canvas').fill('#F1F5FF');
+		await screen.getByLabelText('Canvas', { exact: true }).fill('#F1F5FF');
 		await screen.getByRole('button', { name: 'Save draft' }).click();
 		await screen.getByRole('button', { name: 'Reload latest' }).click();
 

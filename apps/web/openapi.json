@@ -19080,11 +19080,11 @@
 						"type": "string"
 					},
 					"button": {
-						"enum": ["solid", "tonal", "outlined", "precise", "pill"],
+						"enum": ["solid", "tonal", "outlined", "precise", "pill", "dither"],
 						"type": "string"
 					},
 					"card": {
-						"enum": ["flat", "outlined", "paper", "lifted"],
+						"enum": ["flat", "outlined", "paper", "lifted", "dither"],
 						"type": "string"
 					},
 					"checkbox": {
@@ -19100,7 +19100,16 @@
 						"type": "string"
 					},
 					"decoration": {
-						"enum": ["none", "editorial", "playful", "botanical", "study", "tactile", "precision"],
+						"enum": [
+							"none",
+							"editorial",
+							"playful",
+							"botanical",
+							"study",
+							"tactile",
+							"precision",
+							"dither"
+						],
 						"type": "string"
 					},
 					"dialog": {

@@ -357,7 +357,7 @@
 	<main class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
 		<!-- Preview -->
 		<section
-			class="relative flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.3_0.01_55)] bg-[oklch(0.12_0.008_55)] p-3"
+			class="editor-protected-surface relative flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] p-3 text-[var(--video-editor-text)]"
 			data-editor-protected="capture-preview"
 			aria-label={m.record_preview_empty()}
 		>

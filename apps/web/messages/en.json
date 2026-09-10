@@ -8838,5 +8838,7 @@
 	"video_editor_paper_yellow_gain": "Yellow gain",
 	"video_editor_paper_search": "Search backgrounds",
 	"video_editor_paper_all": "All shaders",
-	"video_editor_paper_empty": "No backgrounds found."
+	"video_editor_paper_empty": "No backgrounds found.",
+	"theme_editor_accent_hue": "Accent hue",
+	"theme_editor_accent_hue_description": "Update the Dither accent in both schemes. Adjust individual colors below."
 }

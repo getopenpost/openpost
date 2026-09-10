@@ -10,10 +10,15 @@ import { styleStarHistory } from "./style-star-history.mjs";
 
 const source = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="120" style="background:#fff">
 <filter id="sketch"><feTurbulence baseFrequency=".05"/></filter>
-<g transform="translate(20 20)">
+<g pointer-events="all" transform="translate(20 20)">
 <g class="xaxis"><path class="domain" d="M.5.5h100" transform="translate(0 80)"/></g>
 <path class="xkcd-chart-xyline" d="M0 80L50 40L100 0" fill="none" stroke="#dd4528" filter="url(#sketch)"/>
-</g><text x="20" y="115">Jan</text></svg>`;
+<svg><svg><rect width="8" height="8"/><text>getopenpost/openpost</text></svg></svg>
+</g><text x="20" y="115">Jan</text>
+<text x="50%" y="30">Star History</text>
+<svg><defs><clipPath id="clip-circle-title"><circle cx="70" cy="10" r="5"/></clipPath></defs></svg>
+<image width="10" height="10" x="65" y="5" clip-path="url(#clip-circle-title)"/>
+</svg>`;
 
 for (const scheme of ["light", "dark"]) {
   test(`${scheme} chart has a transparent canvas and dithered fill beneath the original curve`, async () => {
@@ -21,6 +26,7 @@ for (const scheme of ["light", "dark"]) {
     assert.match(result, /d="M0 80L50 40L100 0"/);
     assert.match(result, />Jan<\/text>/);
     assert.doesNotMatch(result, /feTurbulence|filter="url/);
+    assert.doesNotMatch(result, /Star History|getopenpost\/openpost|clip-circle-title/);
     const { data, info } = await sharp(Buffer.from(result))
       .ensureAlpha()
       .raw()

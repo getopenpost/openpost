@@ -82,11 +82,14 @@ export async function styleStarHistory(source, scheme) {
         element.setAttribute("aria-label", "OpenPost GitHub star history");
       },
     })
-    .on("filter, [data-star-history-decoration]", {
-      element(element) {
-        element.remove();
+    .on(
+      'filter, [data-star-history-decoration], text[y="30"], #clip-circle-title, image[clip-path="url(#clip-circle-title)"], g[pointer-events="all"] > svg',
+      {
+        element(element) {
+          element.remove();
+        },
       },
-    })
+    )
     .on("[filter]", {
       element(element) {
         element.removeAttribute("filter");
@@ -94,10 +97,9 @@ export async function styleStarHistory(source, scheme) {
     })
     .on("text", {
       element(element) {
-        const size = element.getAttribute("y") === "30" ? 20 : 14;
         element.setAttribute(
           "style",
-          `font-family:Geist,sans-serif;font-size:${size}px;fill:${theme.ink}`,
+          `font-family:Geist,sans-serif;font-size:14px;fill:${theme.ink}`,
         );
       },
     })

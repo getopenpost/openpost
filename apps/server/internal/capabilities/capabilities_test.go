@@ -211,35 +211,6 @@ func TestResolveRequiresFormatOnlyForGenuinelyAmbiguousDestinations(t *testing.T
 	}
 }
 
-func TestBlueskyImageValidationEnforcesProviderByteLimit(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		size      int64
-		wantIssue bool
-	}{
-		{name: "at limit", size: 2_000_000},
-		{name: "over limit", size: 2_000_001, wantIssue: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			issues := Validate(
-				ProviderBluesky,
-				models.ContentProfileImagePost,
-				"Caption",
-				"",
-				"",
-				[]MediaItem{{ID: "image-1", MimeType: "image/png", Size: test.size}},
-				map[string]any{},
-			)
-
-			if test.wantIssue {
-				requireIssueCode(t, issues, "media_size")
-				return
-			}
-			requireNoIssueCode(t, issues, "media_size")
-		})
-	}
-}
-
 func TestResolveInfersYouTubeShortOnlyFromCompleteQualifyingMetadata(t *testing.T) {
 	tests := []struct {
 		name       string

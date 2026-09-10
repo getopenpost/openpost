@@ -28,7 +28,11 @@ async function expectRenderedShader(page: Page) {
     .toBe(true);
 }
 
-async function createShaderProject(page: Page, preset = "Aurora") {
+async function createShaderProject(
+  page: Page,
+  preset = "Aurora",
+  resolution?: { width: number; height: number },
+) {
   await page.addInitScript(() => {
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
@@ -43,7 +47,25 @@ async function createShaderProject(page: Page, preset = "Aurora") {
   });
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder", exact: true }).click();
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  if (resolution) {
+    await page.getByRole("button", { name: "Custom project", exact: true }).click();
+    await page.getByRole("textbox", { name: "Project name", exact: true }).fill("Shader proof");
+    await page
+      .getByRole("button", {
+        name: "Custom Custom size Enter width, height and frame rate",
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("spinbutton", { name: "Width", exact: true })
+      .fill(String(resolution.width));
+    await page
+      .getByRole("spinbutton", { name: "Height", exact: true })
+      .fill(String(resolution.height));
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+  }
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
     timeout: 15_000,
   });
@@ -204,7 +226,8 @@ test("Paper backgrounds and chained shader effects survive reopening and export"
   await page.setViewportSize({ width: 1440, height: 900 });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await createShaderProject(page, "Warp");
+  // Keep the real 90-frame shader-chain export affordable on CI's software renderer.
+  await createShaderProject(page, "Warp", { width: 640, height: 360 });
   const colors = page.getByRole("slider", { name: "Warp: Colors", exact: true });
   await colors.press("ArrowLeft");
   await expect(colors).toHaveAttribute("aria-valuenow", "3");

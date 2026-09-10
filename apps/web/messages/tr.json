@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "Kişileri bul",
+	"grow_title": "Kişileri bul",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "Bir video başlatın, ardından klip, görsel veya kayıt ekleyin.",
 	"editor_start_new_project": "Yeni proje",
 	"editor_start_custom_project": "Özel proje",
-	"editor_start_workspace_image_description": "Boş bir tuvalle başlayın veya bir şablon seçin."
+	"editor_start_workspace_image_description": "Boş bir tuvalle başlayın veya bir şablon seçin.",
+	"personal_preferences": "Tercihler",
+	"personal_usage_data": "Kullanım verisi paylaşımı",
+	"personal_help_feedback": "Yardım ve geri bildirim",
+	"navigation_connected_accounts": "Bağlı hesaplar",
+	"publication_view_label": "Yayın görünümü",
+	"publication_view_list": "Liste",
+	"personal_profile": "Profil",
+	"personal_usage_unavailable": "Bu sunucuda isteğe bağlı kullanım analizi kullanılamıyor."
 }

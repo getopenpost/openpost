@@ -25,6 +25,7 @@
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { feedbackDiagnostics } from '$lib/feedback-diagnostics';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
+	import PersonalPreferencesDialog from '$lib/components/personal-preferences-dialog.svelte';
 	import BillingRecoveryNotice from '$lib/components/billing-recovery-notice.svelte';
 	import ConnectivityNotice from '$lib/components/connectivity-notice.svelte';
 	import { captureWebReauthGrant } from '$lib/auth/reauth';
@@ -575,6 +576,7 @@
 					<MobileBottomNav />
 					<DayPostsModal />
 					<FeedbackDialog />
+					<PersonalPreferencesDialog />
 				</Sidebar.Inset>
 			</Sidebar.Provider>
 		{/if}

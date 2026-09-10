@@ -1251,6 +1251,18 @@
       "duration": "Entries are replaced by a new service-worker build and outdated Workbox precaches are deleted during activation; browser pressure or site-data clearing can remove them earlier.",
       "necessity": "functional",
       "source_refs": ["apps/web/vite.config.ts"]
+    },
+    {
+      "id": "local-publication-view",
+      "technology": "localStorage",
+      "owner": "OpenPost application navigation",
+      "identifier_kind": "exact",
+      "identifier": "openpost-publication-view",
+      "purpose": "Restores the last selected List or Calendar view of Publications.",
+      "scope": "Application origin for the current browser profile.",
+      "duration": "Until the view changes or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/stores/publication-view.svelte.ts"]
     }
   ]
 }

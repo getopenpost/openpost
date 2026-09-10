@@ -13,7 +13,8 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes';
-	import AccountPreferencesMenu from './account-preferences-menu.svelte';
+	import MobileMoreMenu from './mobile-more-menu.svelte';
+	import { publicationView } from '$lib/stores/publication-view.svelte';
 
 	const items = mobileNavigation;
 	let moreMenuOpen = $state(false);
@@ -21,8 +22,8 @@
 
 	function iconFor(id: (typeof items)[number]['id']): ThemeIconRole {
 		switch (id) {
-			case 'calendar':
-				return 'calendar';
+			case 'communications':
+				return 'communications';
 			case 'publications':
 				return 'publications';
 			case 'media':
@@ -36,8 +37,8 @@
 		switch (id) {
 			case 'new':
 				return m.sidebar_new();
-			case 'calendar':
-				return m.sidebar_calendar();
+			case 'communications':
+				return m.sidebar_communications();
 			case 'publications':
 				return m.sidebar_activity();
 			case 'media':
@@ -54,7 +55,7 @@
 			if (!ui.startNewPost()) return;
 			if (pathname === '/') return;
 		}
-		goto(resolveAppPath(item.href));
+		goto(resolveAppPath(item.id === 'publications' ? publicationView.href : item.href));
 	}
 </script>
 
@@ -68,31 +69,62 @@
 			{@const icon = iconFor(item.id)}
 			{@const active = isNavigationItemActive(item, pathname)}
 			<li>
-				<button
-					type="button"
-					data-theme-navigation-item
-					data-active={active}
-					data-cuelume-toggle={item.id === 'new' ? 'release' : 'tick'}
-					class={[
-						'flex min-h-[var(--theme-touch-target)] w-full items-center justify-center rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-						item.id === 'new'
-							? 'text-primary'
-							: active
-								? 'bg-accent text-foreground'
-								: 'text-muted-foreground'
-					]}
-					onclick={() => navigate(item)}
-					aria-current={active ? 'page' : undefined}
-					aria-label={labelFor(item.id)}
-				>
-					<span
-						class={item.id === 'new'
-							? 'flex size-10 items-center justify-center rounded-lg border border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_-6px_color-mix(in_oklch,var(--primary)_80%,black)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:shadow-sm'
-							: 'flex size-7 items-center justify-center'}
+				{#if item.id === 'new'}
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<button
+									{...props}
+									type="button"
+									class="flex min-h-11 w-full items-center justify-center rounded-md text-primary focus-visible:ring-2 focus-visible:ring-ring"
+									aria-label={m.sidebar_new()}><ThemeIcon role="add" class="size-6" /></button
+								>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content side="top" align="center" class="w-[min(18rem,calc(100vw-2rem))]">
+							<DropdownMenu.Item class="min-h-11 gap-3" onclick={() => navigate(item)}
+								><ThemeIcon
+									role="compose"
+									class="size-4"
+								/>{m.sidebar_new_post()}</DropdownMenu.Item
+							>
+							<DropdownMenu.Item
+								class="min-h-11 gap-3"
+								onclick={() => goto(resolveAppPath('/image-editor'))}
+								><ThemeIcon
+									role="image"
+									class="size-4"
+								/>{m.image_editor_title()}</DropdownMenu.Item
+							>
+							<DropdownMenu.Item
+								class="min-h-11 gap-3"
+								onclick={() => goto(resolveAppPath('/video-editor'))}
+								><ThemeIcon
+									role="video"
+									class="size-4"
+								/>{m.video_editor_title()}</DropdownMenu.Item
+							>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				{:else}
+					<button
+						type="button"
+						data-theme-navigation-item
+						data-active={active}
+						data-cuelume-toggle="tick"
+						class={[
+							'flex min-h-[var(--theme-touch-target)] w-full items-center justify-center rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+							active ? 'bg-accent text-foreground' : 'text-muted-foreground'
+						]}
+						onclick={() => navigate(item)}
+						aria-current={active ? 'page' : undefined}
+						aria-label={labelFor(item.id)}
 					>
-						<ThemeIcon role={icon} class={item.id === 'new' ? 'size-6' : 'size-5'} />
-					</span>
-				</button>
+						<span class="flex size-7 items-center justify-center"
+							><ThemeIcon role={icon} class="size-5" /></span
+						>
+					</button>
+				{/if}
 			</li>
 		{/each}
 		<li>
@@ -123,9 +155,7 @@
 					align="end"
 					sideOffset={8}
 				>
-					<AccountPreferencesMenu
-						showDestinations
-						inlineAppearance
+					<MobileMoreMenu
 						onNavigate={() => {
 							moreMenuOpen = false;
 						}}

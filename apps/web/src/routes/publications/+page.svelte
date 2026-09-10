@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import CopyButton from '$lib/components/copy-button.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
@@ -848,6 +849,7 @@
 			</TabsList>
 		{/snippet}
 		{#snippet actions()}
+			<PublicationViewSwitch view="list" />
 			<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>
 				<ThemeIcon role="refresh" class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
 				{m.common_refresh()}

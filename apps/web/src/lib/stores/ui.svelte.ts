@@ -29,6 +29,7 @@ export class UIState {
 	pendingPrompt = $state<PendingPrompt | null>(null);
 	pendingRepurposeHandoff = $state.raw<RepurposeHandoff | null>(null);
 	isFeedbackOpen = $state(false);
+	isPreferencesOpen = $state(false);
 	#publicationInvalidationCoalescer = new PublicationInvalidationCoalescer();
 	#publicationRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 	#composerResetGuards = new SvelteSet<() => boolean>();

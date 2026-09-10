@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "사람 찾기",
+	"grow_title": "사람 찾기",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "동영상을 만들고 클립, 이미지 또는 녹화본을 추가하세요.",
 	"editor_start_new_project": "새 프로젝트",
 	"editor_start_custom_project": "사용자 지정 프로젝트",
-	"editor_start_workspace_image_description": "빈 캔버스로 시작하거나 템플릿을 선택하세요."
+	"editor_start_workspace_image_description": "빈 캔버스로 시작하거나 템플릿을 선택하세요.",
+	"personal_preferences": "환경설정",
+	"personal_usage_data": "사용 데이터 공유",
+	"personal_help_feedback": "도움말 및 피드백",
+	"navigation_connected_accounts": "연결된 계정",
+	"publication_view_label": "게시물 보기",
+	"publication_view_list": "목록",
+	"personal_profile": "프로필",
+	"personal_usage_unavailable": "이 인스턴스에서는 선택적 사용 분석을 사용할 수 없습니다."
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { publicationView } from '$lib/stores/publication-view.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -30,7 +31,6 @@
 	let authState = $derived($auth);
 	let createWorkspaceOpen = $state(false);
 	let profileMenuOpen = $state(false);
-	let workspaceNavigationExpanded = $state(true);
 	const sidebar = Sidebar.useSidebar();
 	const currentPath = $derived(page.url.pathname);
 	const currentWorkspaceName = $derived(
@@ -50,32 +50,16 @@
 			icon: navigationIcon(item.id)
 		}))
 	);
-	const sidebarNavigationItems = $derived(
+	const workspaceNavigationItems = $derived(
 		navigationItems.filter((item) =>
-			['calendar', 'publications', 'communications', 'growth', 'analytics', 'media'].includes(
-				item.id
-			)
+			['publications', 'communications', 'analytics', 'media'].includes(item.id)
 		)
 	);
-	const workspaceNavigationItems = $derived([
-		...navigationItems.filter((item) =>
-			[
-				'calendar',
-				'publications',
-				'communications',
-				'growth',
-				'analytics',
-				'media',
-				'editors'
-			].includes(item.id)
-		)
-	]);
+	const sidebarNavigationItems = $derived(workspaceNavigationItems);
+	const moreNavigationItems = $derived(
+		navigationItems.filter((item) => ['growth', 'editors'].includes(item.id))
+	);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
-	const workspaceNavigationToggleLabel = $derived(
-		workspaceNavigationExpanded
-			? m.sidebar_collapse_workspace_navigation()
-			: m.sidebar_expand_workspace_navigation()
-	);
 
 	function navigationIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
 		switch (id) {
@@ -150,7 +134,7 @@
 			if (!ui.startNewPost()) return;
 			if (currentPath === '/') return;
 		}
-		goto(resolveAppPath(href));
+		goto(resolveAppPath(href === '/publications' ? publicationView.href : href));
 	}
 
 	function handleNewPostClick(event: MouseEvent) {
@@ -165,7 +149,7 @@
 
 <Sidebar.Root collapsible="icon" class="pt-[env(safe-area-inset-top)]">
 	<Sidebar.Header class="gap-2 border-b border-sidebar-border p-2" data-testid="app-sidebar">
-		<div class="flex h-8 items-center gap-2">
+		<div class="flex items-center gap-2 group-data-[collapsible=icon]:flex-col">
 			<a
 				href={resolve('/')}
 				class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
@@ -175,57 +159,76 @@
 				<Logo width={26} height={26} showText={sidebar.state !== 'collapsed'} decorative />
 			</a>
 
-			{#if sidebar.state !== 'collapsed'}
-				<div class="ms-auto flex shrink-0 items-center gap-0.5">
-					<NotificationBell compact />
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<button
-									{...props}
-									type="button"
-									class="inline-flex size-8 items-center justify-center rounded-md hover:bg-navigation-hover focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-sidebar-accent"
-									aria-label={`${m.sidebar_switch_workspace()}: ${currentWorkspaceName}`}
-									title={m.sidebar_switch_workspace()}
-									data-testid="workspace-menu-trigger"
-								>
-									<Avatar.Root class="size-7 rounded-md">
-										{#if currentWorkspaceAvatarURL}
-											<Avatar.Image src={currentWorkspaceAvatarURL} alt={currentWorkspaceName} />
-										{/if}
-										<Avatar.Fallback
-											class="rounded-md bg-sidebar-accent text-[10px] font-semibold text-sidebar-foreground"
-										>
-											{currentWorkspaceInitials}
-										</Avatar.Fallback>
-									</Avatar.Root>
-									<span class="sr-only">{currentWorkspaceName}</span>
-								</button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content class="w-64" side="right" align="start" sideOffset={6}>
-							<WorkspaceMenuItems
-								onCreate={openCreateWorkspace}
-								onSelect={() => sidebar.setOpenMobile(false)}
-							/>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-				</div>
-			{/if}
+			<div class="ms-auto flex shrink-0 items-center gap-0.5">
+				{#if sidebar.state !== 'collapsed'}<NotificationBell compact />{/if}
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<button
+								{...props}
+								type="button"
+								class="inline-flex size-8 items-center justify-center rounded-md hover:bg-navigation-hover focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-sidebar-accent"
+								aria-label={`${m.sidebar_switch_workspace()}: ${currentWorkspaceName}`}
+								title={m.sidebar_switch_workspace()}
+								data-testid="workspace-menu-trigger"
+							>
+								<Avatar.Root class="size-7 rounded-md">
+									{#if currentWorkspaceAvatarURL}
+										<Avatar.Image src={currentWorkspaceAvatarURL} alt={currentWorkspaceName} />
+									{/if}
+									<Avatar.Fallback
+										class="rounded-md bg-sidebar-accent text-[10px] font-semibold text-sidebar-foreground"
+									>
+										{currentWorkspaceInitials}
+									</Avatar.Fallback>
+								</Avatar.Root>
+								<span class="sr-only">{currentWorkspaceName}</span>
+							</button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content class="w-64" side="right" align="start" sideOffset={6}>
+						<WorkspaceMenuItems
+							onCreate={openCreateWorkspace}
+							onSelect={() => sidebar.setOpenMobile(false)}
+						/>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+			</div>
 		</div>
 
-		<Button
-			href={resolve('/')}
-			variant={currentPath === '/' ? 'secondary' : 'default'}
-			size="sm"
-			class="h-10 w-full gap-2 group-data-[collapsible=icon]:px-0"
-			aria-label={m.sidebar_new_post()}
-			data-testid="sidebar-new-post"
-			onclick={handleNewPostClick}
-		>
-			<ThemeIcon role="compose" class="size-4" />
-			{#if sidebar.state !== 'collapsed'}<span>{m.sidebar_new_post()}</span>{/if}
-		</Button>
+		<div class="flex gap-1 group-data-[collapsible=icon]:flex-col">
+			<Button
+				href={resolve('/')}
+				variant={currentPath === '/' ? 'secondary' : 'default'}
+				size="sm"
+				class="h-10 min-w-0 flex-1 gap-2 group-data-[collapsible=icon]:px-0"
+				aria-label={m.sidebar_new_post()}
+				data-testid="sidebar-new-post"
+				onclick={handleNewPostClick}
+			>
+				<ThemeIcon role="compose" class="size-4" />
+				{#if sidebar.state !== 'collapsed'}<span>{m.sidebar_new_post()}</span>{/if}
+			</Button>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}<Button
+							{...props}
+							variant="outline"
+							size="icon"
+							class="h-10 w-9 group-data-[collapsible=icon]:w-full"
+							aria-label={m.sidebar_new()}><ThemeIcon role="chevron-down" class="size-4" /></Button
+						>{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="start">
+					<DropdownMenu.Item onclick={() => navigate('/image-editor')}
+						><ThemeIcon role="image" class="size-4" />{m.image_editor_title()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => navigate('/video-editor')}
+						><ThemeIcon role="video" class="size-4" />{m.video_editor_title()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		</div>
 	</Sidebar.Header>
 
 	<Sidebar.Content class={showDesktopPlanner ? 'overflow-hidden pt-2' : 'px-2 py-3'}>
@@ -256,74 +259,46 @@
 
 	<Sidebar.Footer class="border-t border-sidebar-border p-2" data-testid="sidebar-workspace-footer">
 		{#if showDesktopPlanner}
-			<div class="pb-1">
-				<div class="flex items-center">
-					<button
-						type="button"
-						class="inline-flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-navigation-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-						aria-expanded={workspaceNavigationExpanded}
-						aria-controls="sidebar-workspace-navigation"
-						aria-label={workspaceNavigationToggleLabel}
-						title={workspaceNavigationToggleLabel}
-						onclick={() => (workspaceNavigationExpanded = !workspaceNavigationExpanded)}
+			<Sidebar.Menu class="gap-0.5" data-testid="sidebar-workspace-navigation">
+				{#each workspaceNavigationItems as item (item.id)}
+					<Sidebar.MenuItem
+						><Sidebar.MenuButton
+							class="h-9 text-sm [@media(pointer:coarse)]:h-11"
+							tooltipContent={item.label}
+							isActive={isSidebarNavigationItemActive(item)}
+							onclick={() => navigate(item.href)}
+							><ThemeIcon role={item.icon} class="size-4" /><span>{item.label}</span
+							></Sidebar.MenuButton
+						></Sidebar.MenuItem
 					>
-						<span class="flex-1 text-left">{m.sidebar_workspace()}</span>
-						<ThemeIcon
-							role="chevron-down"
-							class={[
-								'size-3.5 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none',
-								!workspaceNavigationExpanded && '-rotate-180'
-							]}
-						/>
-					</button>
-				</div>
-				<div
-					id="sidebar-workspace-navigation"
-					data-testid="sidebar-workspace-navigation"
-					class={[
-						'workspace-navigation-collapse',
-						workspaceNavigationExpanded && 'workspace-navigation-expanded'
-					]}
-					aria-hidden={!workspaceNavigationExpanded}
-					inert={!workspaceNavigationExpanded}
-				>
-					<div>
-						<Sidebar.Menu class="gap-0.5">
-							{#each workspaceNavigationItems as item (item.id)}
-								<Sidebar.MenuItem>
-									<Sidebar.MenuButton
-										isActive={isSidebarNavigationItemActive(item)}
-										class="h-8 gap-2 px-2 text-xs"
-										tooltipContent={item.label}
-										onclick={() => navigate(item.href)}
-									>
-										<ThemeIcon role={item.icon} class="size-3.5" />
-										<span>{item.label}</span>
-									</Sidebar.MenuButton>
-								</Sidebar.MenuItem>
-							{/each}
-						</Sidebar.Menu>
-					</div>
-				</div>
-			</div>
+				{/each}
+			</Sidebar.Menu>
 		{/if}
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}<Sidebar.MenuButton
+						{...props}
+						class="h-9 [@media(pointer:coarse)]:h-11"
+						tooltipContent={m.sidebar_more()}
+						isActive={moreNavigationItems.some(isSidebarNavigationItemActive)}
+						><ThemeIcon role="more-horizontal" class="size-4" /><span>{m.sidebar_more()}</span
+						></Sidebar.MenuButton
+					>{/snippet}
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content side="right" align="end" class="w-52">
+				{#each moreNavigationItems as item (item.id)}
+					<DropdownMenu.Item
+						class="min-h-9 gap-3 [@media(pointer:coarse)]:min-h-11"
+						onclick={() => navigate(item.href)}
+						><ThemeIcon role={item.icon} class="size-4" />{item.label}</DropdownMenu.Item
+					>
+				{/each}
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 		<Sidebar.Menu
 			class={showDesktopPlanner ? 'border-t border-sidebar-border pt-1' : ''}
 			data-testid="sidebar-secondary-navigation"
 		>
-			{#if !showDesktopPlanner}
-				<Sidebar.MenuItem>
-					<Sidebar.MenuButton
-						class="h-10 text-sm"
-						tooltipContent={m.editors_title()}
-						isActive={currentPath.startsWith('/editors')}
-						onclick={() => navigate('/editors')}
-					>
-						<ThemeIcon role="editors" class="size-4" />
-						<span>{m.editors_title()}</span>
-					</Sidebar.MenuButton>
-				</Sidebar.MenuItem>
-			{/if}
 			{#if sidebar.state === 'collapsed'}
 				<NotificationBell />
 			{/if}
@@ -366,10 +341,6 @@
 						sideOffset={6}
 					>
 						<AccountPreferencesMenu
-							showDestinations={sidebar.state === 'collapsed'}
-							showEditors={showDesktopPlanner}
-							showSettings
-							onCreateWorkspace={openCreateWorkspace}
 							onNavigate={() => {
 								profileMenuOpen = false;
 								sidebar.setOpenMobile(false);
@@ -384,24 +355,3 @@
 </Sidebar.Root>
 
 <CreateWorkspaceDialog bind:open={createWorkspaceOpen} />
-
-<style>
-	.workspace-navigation-collapse {
-		display: grid;
-		grid-template-rows: 0fr;
-		opacity: 0;
-		transition:
-			grid-template-rows 220ms cubic-bezier(0.25, 1, 0.5, 1),
-			opacity 140ms ease-out;
-	}
-
-	.workspace-navigation-collapse > div {
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.workspace-navigation-expanded {
-		grid-template-rows: 1fr;
-		opacity: 1;
-	}
-</style>

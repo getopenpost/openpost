@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { onDestroy, untrack } from 'svelte';
@@ -1088,12 +1089,14 @@
 	<header class="border-b bg-background/95">
 		<div class="px-4 py-4 lg:px-6" style="container-type: inline-size;">
 			<PageHeader
-				title={formatCalendarTitle()}
+				title={m.activity_title()}
+				description={formatCalendarTitle()}
 				contentClass="min-w-max shrink-0"
 				titleClass="whitespace-nowrap"
 				class="flex-wrap gap-2"
 			>
 				{#snippet actions()}
+					<PublicationViewSwitch view="calendar" />
 					<div class="flex flex-wrap items-center gap-1.5">
 						<div class="inline-flex rounded-md border bg-card p-1">
 							<Tooltip.Root>

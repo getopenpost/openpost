@@ -191,7 +191,7 @@ for (const scheme of ["light", "dark"] as const) {
     await install.click();
     expect(await page.evaluate(() => sessionStorage.getItem("install-prompt-called"))).toBe("yes");
     await page.getByTestId("profile-menu-trigger").click();
-    await expect(install).toBeVisible();
+    await expect(install).not.toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
     await expect(install).not.toBeVisible();
     await page.keyboard.press("Escape");

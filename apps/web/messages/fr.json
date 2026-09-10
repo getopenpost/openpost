@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "Trouver des personnes",
+	"grow_title": "Trouver des personnes",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "Créez une vidéo, puis ajoutez des clips, des images ou un enregistrement.",
 	"editor_start_new_project": "Nouveau projet",
 	"editor_start_custom_project": "Projet personnalisé",
-	"editor_start_workspace_image_description": "Commencez avec une page vide ou choisissez un modèle."
+	"editor_start_workspace_image_description": "Commencez avec une page vide ou choisissez un modèle.",
+	"personal_preferences": "Préférences",
+	"personal_usage_data": "Partage des données d’utilisation",
+	"personal_help_feedback": "Aide et commentaires",
+	"navigation_connected_accounts": "Comptes connectés",
+	"publication_view_label": "Vue des publications",
+	"publication_view_list": "Liste",
+	"personal_profile": "Profil",
+	"personal_usage_unavailable": "Les statistiques facultatives d’utilisation ne sont pas disponibles sur cette instance."
 }

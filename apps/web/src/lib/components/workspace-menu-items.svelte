@@ -95,6 +95,16 @@
 	</DropdownMenu.Item>
 {/if}
 {#if showSettings}
+	<DropdownMenu.Item
+		class={touchSize ? 'min-h-11' : ''}
+		onclick={() => {
+			onSelect?.();
+			goto(resolveAppPath('/settings?tab=accounts'));
+		}}
+	>
+		<ThemeIcon role="users" class="mr-2 size-4 text-muted-foreground" />
+		{m.navigation_connected_accounts()}
+	</DropdownMenu.Item>
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={openWorkspaceSettings}>
 		<ThemeIcon role="settings" class="mr-2 size-4 text-muted-foreground" />
 		{m.sidebar_workspace_settings()}

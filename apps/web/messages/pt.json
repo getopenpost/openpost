@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Opções rápidas",
 	"compose_choose_date_time": "Escolha data e horário",
 	"settings_danger_zone": "Zona de perigo",
-	"sidebar_grow": "Crescer",
-	"grow_title": "Crescer",
+	"sidebar_grow": "Encontrar pessoas",
+	"grow_title": "Encontrar pessoas",
 	"grow_description": "Encontre pessoas que vale a pena seguir.",
 	"grow_for_label": "Para",
 	"grow_account_placeholder": "Selecione uma conta",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "Começa um vídeo e adiciona clipes, imagens ou uma gravação.",
 	"editor_start_new_project": "Novo projeto",
 	"editor_start_custom_project": "Projeto personalizado",
-	"editor_start_workspace_image_description": "Começa com uma tela em branco ou escolhe um modelo."
+	"editor_start_workspace_image_description": "Começa com uma tela em branco ou escolhe um modelo.",
+	"personal_preferences": "Preferências",
+	"personal_usage_data": "Partilha de dados de utilização",
+	"personal_help_feedback": "Ajuda e sugestões",
+	"navigation_connected_accounts": "Contas ligadas",
+	"publication_view_label": "Vista das publicações",
+	"publication_view_list": "Lista",
+	"personal_profile": "Perfil",
+	"personal_usage_unavailable": "As estatísticas opcionais de utilização não estão disponíveis nesta instância."
 }

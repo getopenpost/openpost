@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "查找用户",
+	"grow_title": "查找用户",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "创建视频，然后添加片段、图片或录制内容。",
 	"editor_start_new_project": "新建项目",
 	"editor_start_custom_project": "自定义项目",
-	"editor_start_workspace_image_description": "从空白画布开始或选择模板。"
+	"editor_start_workspace_image_description": "从空白画布开始或选择模板。",
+	"personal_preferences": "偏好设置",
+	"personal_usage_data": "使用数据共享",
+	"personal_help_feedback": "帮助与反馈",
+	"navigation_connected_accounts": "已连接的账户",
+	"publication_view_label": "发布视图",
+	"publication_view_list": "列表",
+	"personal_profile": "个人资料",
+	"personal_usage_unavailable": "此实例不提供可选的使用情况分析。"
 }

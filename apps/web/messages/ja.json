@@ -5567,8 +5567,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "ユーザーを探す",
+	"grow_title": "ユーザーを探す",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "動画を作成して、クリップ、画像、録画を追加しましょう。",
 	"editor_start_new_project": "新規プロジェクト",
 	"editor_start_custom_project": "カスタムプロジェクト",
-	"editor_start_workspace_image_description": "空白のキャンバスから始めるか、テンプレートを選びましょう。"
+	"editor_start_workspace_image_description": "空白のキャンバスから始めるか、テンプレートを選びましょう。",
+	"personal_preferences": "環境設定",
+	"personal_usage_data": "利用データの共有",
+	"personal_help_feedback": "ヘルプとフィードバック",
+	"navigation_connected_accounts": "接続済みアカウント",
+	"publication_view_label": "投稿の表示",
+	"publication_view_list": "リスト",
+	"personal_profile": "プロフィール",
+	"personal_usage_unavailable": "このインスタンスでは任意の利用状況分析は利用できません。"
 }

@@ -5608,8 +5608,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "Find people",
+	"grow_title": "Find people",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "Start a video, then add clips, images, or a recording.",
 	"editor_start_new_project": "New project",
 	"editor_start_custom_project": "Custom project",
-	"editor_start_workspace_image_description": "Start with a blank canvas or choose a template."
+	"editor_start_workspace_image_description": "Start with a blank canvas or choose a template.",
+	"personal_preferences": "Preferences",
+	"personal_usage_data": "Usage data sharing",
+	"personal_help_feedback": "Help & feedback",
+	"navigation_connected_accounts": "Connected accounts",
+	"publication_view_label": "Publication view",
+	"publication_view_list": "List",
+	"personal_profile": "Profile",
+	"personal_usage_unavailable": "Optional usage analytics are unavailable on this instance."
 }

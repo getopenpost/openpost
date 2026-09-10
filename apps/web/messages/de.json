@@ -5562,8 +5562,8 @@
 	"compose_quick_schedule": "Quick options",
 	"compose_choose_date_time": "Choose a date and time",
 	"settings_danger_zone": "Danger zone",
-	"sidebar_grow": "Grow",
-	"grow_title": "Grow",
+	"sidebar_grow": "Personen finden",
+	"grow_title": "Personen finden",
 	"grow_description": "Find people worth connecting with.",
 	"grow_for_label": "For",
 	"grow_account_placeholder": "Select an account",
@@ -8670,5 +8670,13 @@
 	"editor_start_video_description": "Starte ein Video und füge Clips, Bilder oder eine Aufnahme hinzu.",
 	"editor_start_new_project": "Neues Projekt",
 	"editor_start_custom_project": "Benutzerdefiniertes Projekt",
-	"editor_start_workspace_image_description": "Beginne mit einer leeren Leinwand oder wähle eine Vorlage."
+	"editor_start_workspace_image_description": "Beginne mit einer leeren Leinwand oder wähle eine Vorlage.",
+	"personal_preferences": "Einstellungen",
+	"personal_usage_data": "Nutzungsdaten teilen",
+	"personal_help_feedback": "Hilfe und Feedback",
+	"navigation_connected_accounts": "Verbundene Konten",
+	"publication_view_label": "Publikationsansicht",
+	"publication_view_list": "Liste",
+	"personal_profile": "Profil",
+	"personal_usage_unavailable": "Optionale Nutzungsanalysen sind in dieser Instanz nicht verfügbar."
 }

@@ -30,7 +30,7 @@ export type AppRouteFamily =
 export const appRouteFamilies = {
 	root: ['/'],
 	calendar: ['/calendar'],
-	publications: ['/publications'],
+	publications: ['/publications', '/calendar'],
 	communications: ['/inbox'],
 	growth: ['/grow'],
 	analytics: ['/analytics'],
@@ -82,7 +82,7 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 	{ id: 'settings', label: 'Settings', href: '/settings', family: 'settings', mobile: false }
 ];
 
-const mobileNavigationOrder = ['calendar', 'publications', 'new', 'media'] as const;
+const mobileNavigationOrder = ['publications', 'communications', 'new', 'media'] as const;
 
 export const mobileNavigation = mobileNavigationOrder.map((id) =>
 	primaryNavigation.find((item) => item.id === id)!
@@ -106,7 +106,6 @@ export function isMoreNavigationRoute(pathname: string): boolean {
 	return (
 		isAppRouteInFamily(pathname, 'growth') ||
 		isAppRouteInFamily(pathname, 'analytics') ||
-		isAppRouteInFamily(pathname, 'communications') ||
 		isAppRouteInFamily(pathname, 'editors') ||
 		isAppRouteInFamily(pathname, 'settings') ||
 		isLocalEditorRoute(pathname)

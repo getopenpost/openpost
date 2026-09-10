@@ -336,18 +336,12 @@
 	.marketing-nav {
 		border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
 		background: color-mix(in oklch, var(--background) 88%, transparent);
-		backdrop-filter: none;
+		backdrop-filter: blur(18px) saturate(140%);
 	}
 
 	:global(.nav-cta) {
-		background-color: var(--marketing-dither-ink);
 		background-image: var(--marketing-dither-pattern);
 		background-size: 32px 32px;
-		color: var(--primary-foreground);
-	}
-
-	:global(.nav-cta:hover) {
-		background-color: color-mix(in oklch, var(--marketing-dither-ink) 88%, var(--foreground));
 	}
 
 	/* The shadcn Content ships md:w-auto; the destinations panel needs a real width. */

@@ -92,11 +92,11 @@ components:
 
 ## Overview
 
-**Default app and marketing theme: Dither. Recovery and documentation theme: Workshop.**
+**Default authenticated app theme: Dither. Marketing keeps its original public palette with Dither texture. Recovery and documentation theme: Workshop.**
 
-OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using restrained orange-brown controls, warm paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Workshop remains the complete fallback and documentation reference.
+OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using restrained orange-brown controls, warm paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Marketing preserves its original green, blue, and lilac public palette, with the Dither texture applied as a restrained visual effect. Workshop remains the complete fallback and documentation reference.
 
-The authenticated app stays compact and predictable. Marketing uses the same warm Dither materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
+The authenticated app stays compact and predictable. Marketing keeps its original spacious public layout, colorful authored panels, shared neutral controls, and sparse Dither texture. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
 
 **Key Characteristics:**
 
@@ -136,7 +136,7 @@ The frontmatter tokens and values below define Workshop, the complete fallback a
 
 ## Public surfaces
 
-Marketing uses Dither’s warm canvas, orange-brown action accents, ordered pixel texture, and protected identity. Keep the green, blue, and lilac sections and green illustrations. Orange stays concentrated in the mark and action accents; do not recolor the whole landing page to match it.
+Marketing keeps its warm public canvas, protected identity, green, blue, and lilac authored sections, and original shared button colors in both schemes. Sparse Dither texture is an effect layer on the landing tour, authored panels, resources, and primary CTA surfaces. Texture does not replace the public palette or change button backgrounds and foregrounds.
 
 The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
 

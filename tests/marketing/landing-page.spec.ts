@@ -184,6 +184,30 @@ test("landing keeps trial terms and its tour accessible without JavaScript", asy
   await context.close();
 });
 
+test("landing CTAs keep shared action colors beneath the Dither texture", async ({ page }) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.goto("/");
+    const cta = page.getByRole("link", { name: "Start your free trial", exact: true }).first();
+    const colors = await cta.evaluate((element) => {
+      const button = getComputedStyle(element);
+      const root = getComputedStyle(document.documentElement);
+      const probe = document.createElement("span");
+      probe.style.backgroundColor = root.getPropertyValue("--action-primary");
+      document.body.append(probe);
+      const sharedActionColor = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return {
+        backgroundColor: button.backgroundColor,
+        sharedActionColor,
+        texture: button.backgroundImage,
+      };
+    });
+    expect(colors.backgroundColor).toBe(colors.sharedActionColor);
+    expect(colors.texture).toContain("svg");
+  }
+});
+
 for (const width of [1440, 390, 320]) {
   for (const colorScheme of ["light", "dark"] as const) {
     test(`landing fits ${width}px in ${colorScheme} with reduced motion`, async ({

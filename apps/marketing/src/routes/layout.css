@@ -122,7 +122,7 @@
 	}
 }
 
-/* Public Dither colors are independent of saved organization themes. */
+/* Public surfaces keep Workshop chrome and give authored examples their own palette. */
 :root {
 	--marketing-soft-ink: oklch(0.52 0.025 145);
 	--marketing-lilac: oklch(0.91 0.04 300);
@@ -139,7 +139,6 @@
 	--marketing-launch-fold-4: #aacb86;
 	--marketing-launch-fold-5: #eaf4ce;
 	--marketing-section: oklch(0.965 0.006 80);
-	--marketing-dither-ink: oklch(0.4 0.13 45);
 	--marketing-dither-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath fill='%239b4c2b' fill-opacity='.065' d='M0 0h2v2H0zM16 4h2v2h-2zM8 12h2v2H8zM24 16h2v2h-2zM4 24h2v2H4zM20 28h2v2h-2z'/%3E%3C/svg%3E");
 	scrollbar-color: var(--border) var(--background);
 	caret-color: var(--foreground);
@@ -160,16 +159,5 @@
 	--marketing-launch-fold-4: #506b43;
 	--marketing-launch-fold-5: #dcebbe;
 	--marketing-section: oklch(0.18 0.008 55);
-	--marketing-dither-ink: oklch(0.76 0.14 45);
 	--marketing-dither-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath fill='%23c77a55' fill-opacity='.1' d='M0 0h2v2H0zM16 4h2v2h-2zM8 12h2v2H8zM24 16h2v2h-2zM4 24h2v2H4zM20 28h2v2h-2z'/%3E%3C/svg%3E");
-}
-
-/* The public landing surface uses Dither as a material, keeping texture close to product detail. */
-.landing-hero,
-.product-features,
-.product-details,
-.resources,
-.stories,
-.faq-section {
-	position: relative;
 }

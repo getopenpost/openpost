@@ -93,19 +93,17 @@
 
 <style>
 	.landing-hero {
-		padding-top: clamp(48px, 8vw, 96px);
+		padding-top: 64px;
 	}
 	.hero-intro {
 		text-align: center;
-		max-width: 58rem;
-		margin-inline: auto;
 		margin-bottom: 40px;
 	}
 	h1 {
-		font-size: clamp(42px, 6.3vw, 88px);
-		font-weight: 620;
-		letter-spacing: -0.035em;
-		line-height: 1.02;
+		font-size: clamp(40px, 5.7vw, 78px);
+		font-weight: 550;
+		letter-spacing: -0.04em;
+		line-height: 1.06;
 	}
 	h1 span {
 		color: var(--marketing-soft-ink);
@@ -126,31 +124,10 @@
 	:global(.landing-cta) {
 		height: 48px;
 		padding-inline: 24px;
-		border-radius: 10px;
+		border-radius: 9px;
 		font-size: 14px;
-		background-color: var(--marketing-dither-ink);
 		background-image: var(--marketing-dither-pattern);
 		background-size: 32px 32px;
-		color: var(--primary-foreground);
-		transition:
-			transform 160ms ease,
-			background-color 160ms ease;
-	}
-	:global(.landing-cta:hover) {
-		background-color: color-mix(in oklch, var(--marketing-dither-ink) 88%, var(--foreground));
-		transform: translateY(-1px);
-	}
-	:global(.landing-cta:active) {
-		transform: translateY(1px);
-	}
-	@media (prefers-reduced-motion: reduce) {
-		:global(.landing-cta) {
-			transition: none;
-		}
-		:global(.landing-cta:hover),
-		:global(.landing-cta:active) {
-			transform: none;
-		}
 	}
 	.trial-note {
 		margin-top: 12px;
@@ -179,8 +156,7 @@
 		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 20px;
-		padding-block: 28px 48px;
-		border-top: 1px solid color-mix(in oklch, var(--marketing-dither-ink) 22%, var(--border));
+		padding-block: 32px 48px;
 	}
 	.platform-marks {
 		display: flex;

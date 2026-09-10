@@ -5,12 +5,11 @@
 		| (Omit<Extract<SelectPrimitive.RootProps, { type: 'single' }>, 'type'> & { type?: 'single' })
 		| Extract<SelectPrimitive.RootProps, { type: 'multiple' }>;
 
-	let {
-		open = $bindable(false),
-		value = $bindable(),
-		type = 'single',
-		...restProps
-	}: Props = $props();
+	let { open = $bindable(false), value = $bindable(), ...restProps }: Props = $props();
 </script>
 
-<SelectPrimitive.Root bind:open bind:value={value as never} {type} {...restProps} />
+{#if restProps.type === 'multiple'}
+	<SelectPrimitive.Root {...restProps} bind:open bind:value={value as string[]} />
+{:else}
+	<SelectPrimitive.Root {...restProps} type="single" bind:open bind:value={value as string} />
+{/if}

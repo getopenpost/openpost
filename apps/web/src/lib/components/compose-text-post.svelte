@@ -5561,16 +5561,12 @@
 						testId="composer-save-indicator"
 					/>
 				{/if}
-				{#if accounts.length > 0}
-					<ComposerValidationMenu
-						issues={visibleGlobalIssues}
-						class="size-8"
-						onSelect={focusComposerIssue}
-					/>
-				{/if}
 			</div>
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
+				{#if accounts.length > 0}
+					<ComposerValidationMenu issues={visibleGlobalIssues} onSelect={focusComposerIssue} />
+				{/if}
 				<Tooltip.Root>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}

@@ -36,9 +36,9 @@
 					{...props}
 					type="button"
 					variant="ghost"
-					size="icon"
+					size="sm"
 					class={cn(
-						'size-11 shrink-0 sm:size-9',
+						'min-h-9 max-w-full shrink-0 gap-1.5 [@media(pointer:coarse)]:min-h-11',
 						hasErrors
 							? 'text-destructive hover:text-destructive'
 							: 'text-warning-foreground hover:text-warning-foreground',
@@ -47,11 +47,8 @@
 					aria-label={`${m.compose_check_before_publishing()} (${issues.length})`}
 					data-testid="composer-validation-control"
 				>
-					{#if hasErrors}
-						<ProtectedIcon icon="error" class="size-4" />
-					{:else}
-						<ProtectedIcon icon="warning" class="size-4" />
-					{/if}
+					<ProtectedIcon icon="warning" class="size-4 shrink-0" />
+					<span>{m.compose_issue_count({ count: issues.length })}</span>
 				</Button>
 			{/snippet}
 		</Popover.Trigger>

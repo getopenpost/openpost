@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.27.0] - 2026-09-10
+
+### Changed
+
+- Simplified workspace navigation, grouped Calendar and List under Publications, and remembered the last view.
+- Moved connected accounts and workspace settings into the workspace menu. Grouped personal appearance, language, sounds, and usage data choices in Preferences.
+- Added image and video creation choices under New and kept secondary tools in More.
+
+### Fixed
+
+- Replaced the composer's unexplained red validation icon with a labeled issue count beside the publishing controls. The issue list still explains each blocker and opens the affected field.
+
 ## [4.26.0] - 2026-09-09
 
 ### Added

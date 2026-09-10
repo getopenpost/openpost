@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 )
 
 func TestListPublicationEventsIdentifiesExactDestinationAndMarksOlderOutcomesSuperseded(t *testing.T) {
@@ -108,6 +109,11 @@ func TestListPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T) 
 		(*models.PublicationAuthorization)(nil),
 		(*models.DraftRevisionChange)(nil),
 	)
+	testPublicationEventsPaginatesSafeActorAttributedHistory(t, db)
+}
+
+func testPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T, db *bun.DB) {
+	t.Helper()
 	ctx := context.Background()
 	now := time.Date(2026, time.August, 9, 12, 0, 0, 0, time.UTC)
 	_, err := db.NewInsert().Model(&models.User{

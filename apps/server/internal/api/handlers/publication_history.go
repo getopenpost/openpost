@@ -425,18 +425,18 @@ func (h *PublicationHandler) loadHistoryAuthorizations(
 		DestinationCount    int       `bun:"destination_count"`
 	}
 	err := h.db.NewSelect().
-		TableExpr("publication_authorizations AS authorization").
-		ColumnExpr("authorization.batch_id").
-		ColumnExpr("MIN(authorization.actor_user_id) AS actor_user_id").
-		ColumnExpr("MIN(authorization.actor_origin) AS actor_origin").
-		ColumnExpr("MIN(authorization.actor_client_name) AS actor_client_name").
-		ColumnExpr("MIN(authorization.action) AS action").
-		ColumnExpr("MIN(authorization.policy_mode) AS policy_mode").
-		ColumnExpr("MAX(authorization.publication_revision) AS publication_revision").
-		ColumnExpr("MIN(authorization.scheduled_at) AS scheduled_at").
+		TableExpr("publication_authorizations AS history_authorization").
+		ColumnExpr("history_authorization.batch_id").
+		ColumnExpr("MIN(history_authorization.actor_user_id) AS actor_user_id").
+		ColumnExpr("MIN(history_authorization.actor_origin) AS actor_origin").
+		ColumnExpr("MIN(history_authorization.actor_client_name) AS actor_client_name").
+		ColumnExpr("MIN(history_authorization.action) AS action").
+		ColumnExpr("MIN(history_authorization.policy_mode) AS policy_mode").
+		ColumnExpr("MAX(history_authorization.publication_revision) AS publication_revision").
+		ColumnExpr("MIN(history_authorization.scheduled_at) AS scheduled_at").
 		ColumnExpr("COUNT(*) AS destination_count").
-		Where("authorization.batch_id IN (?)", bun.List(batchIDs)).
-		Group("authorization.batch_id").
+		Where("history_authorization.batch_id IN (?)", bun.List(batchIDs)).
+		Group("history_authorization.batch_id").
 		Scan(ctx, &rows)
 	if err != nil {
 		if isMissingPublicationHistoryTable(err) {

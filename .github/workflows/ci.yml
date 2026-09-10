@@ -275,6 +275,7 @@ jobs:
         run: |
           set -o pipefail
           go test -tags dev -count=1 -json \
+            ./internal/api/handlers \
             ./internal/database \
             ./internal/database/migrations \
             ./internal/queue \
@@ -293,6 +294,7 @@ jobs:
             exit 1
           fi
           for required_test in \
+            TestListPublicationEventsPostgres \
             TestRevisionMediaReferencesMigrationPostgres \
             TestPostgresWorkersClaimDifferentDueJobsWithoutWaiting \
             TestS3CompatibleStorageIntegration; do

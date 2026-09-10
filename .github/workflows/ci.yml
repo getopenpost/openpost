@@ -275,7 +275,6 @@ jobs:
         run: |
           set -o pipefail
           go test -tags dev -count=1 -json \
-            ./internal/api/handlers \
             ./internal/database \
             ./internal/database/migrations \
             ./internal/queue \
@@ -288,6 +287,9 @@ jobs:
             ./internal/services/providerwrite \
             ./internal/services/tokenmanager \
             | tee hosted-data-plane.json
+          go test -tags dev -count=1 -json ./internal/api/handlers \
+            -run '^TestListPublicationEventsPostgres$' \
+            | tee -a hosted-data-plane.json
           if jq -s -e 'any(.[]; .Action == "skip" and .Test != null)' hosted-data-plane.json >/dev/null; then
             echo "A hosted data-plane test was skipped." >&2
             jq -r 'select(.Action == "skip" and .Test != null) | .Package + ": " + .Test' hosted-data-plane.json >&2

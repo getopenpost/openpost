@@ -102,14 +102,8 @@ describe('editor route theme color boundary', () => {
 				name: 'recorder',
 				url: recorderRoute,
 				reason:
-					'The capture preview and live input meter keep fixed neutral and signal colors for media truth.',
-				expected: [
-					'bg-emerald-400',
-					'bg-red-400',
-					'bg-white/10',
-					'oklch(0.12_0.008_55)',
-					'oklch(0.3_0.01_55)'
-				]
+					'The input meter keeps signal colors; the capture preview uses the protected editor palette.',
+				expected: ['bg-emerald-400', 'bg-red-400', 'bg-white/10']
 			},
 			{
 				name: 'image editor route',

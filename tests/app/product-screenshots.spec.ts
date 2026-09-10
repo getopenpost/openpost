@@ -1096,6 +1096,13 @@ test.describe("product screenshot capture", () => {
       ];
 
       await authenticatePage(page, auth.token);
+      await page.route(/\/api\/v1\/auth\/(?:me|session-state)$/u, async (route) => {
+        const response = await route.fetch();
+        const profile = await response.json();
+        const user = profile.user ?? profile;
+        user.email = "me@rgo.pt";
+        await route.fulfill({ response, json: profile });
+      });
       await page.addInitScript((scheme) => {
         localStorage.setItem("mode-watcher-mode", scheme);
       }, captureScheme);

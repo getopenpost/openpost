@@ -524,6 +524,71 @@ func TestInsertRenditionsResolvesStaleLinkedInTextProfileAfterMediaIsAdded(t *te
 	require.Equal(t, "linkedin.post", rendition.OutputProfile)
 }
 
+func TestPublicationMediaAltTextPersistsForCanonicalAndRenditionOverrides(t *testing.T) {
+	db := createHandlerTestDB(t,
+		(*models.Publication)(nil),
+		(*models.PublicationSegment)(nil),
+		(*models.PublicationSegmentMedia)(nil),
+		(*models.Rendition)(nil),
+		(*models.RenditionMedia)(nil),
+		(*models.RenditionSegment)(nil),
+		(*models.RenditionSegmentMedia)(nil),
+		(*models.MediaAttachment)(nil),
+	)
+	ctx := t.Context()
+	now := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
+	publication := &models.Publication{
+		ID: "publication-alt", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		Title: "Accessible image", Intent: models.PublishingIntentPost,
+		ContentProfile: models.ContentProfileImagePost, SourceText: "Caption", SourceContent: "Caption",
+		Status: models.PublicationStatusDraft, MetadataJSON: "{}", ReleasePlanJSON: "{}",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	account := models.SocialAccount{ID: "account-1", WorkspaceID: "workspace-1", Platform: "bluesky"}
+	_, err := db.NewInsert().Model(publication).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.MediaAttachment{
+		ID: "image-1", WorkspaceID: publication.WorkspaceID, OriginalFilename: "image.png",
+		MimeType: "image/png", Size: 1024, CreatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	handler := NewPublicationHandler(db, testAuthenticator{}, nil)
+	canonicalInput := PublicationSegmentInput{
+		ID: "client-segment", Body: publication.SourceText,
+		Media: []PublicationMediaInput{{MediaID: "image-1", Role: "attachment", AltText: "Canonical description"}},
+	}
+	var segments []models.PublicationSegment
+	require.NoError(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var insertErr error
+		segments, insertErr = handler.insertPublicationSegments(txCtx, tx, publication, []PublicationSegmentInput{canonicalInput})
+		return insertErr
+	}))
+
+	_, loadedCanonical, err := handler.loadCanonicalSegmentInputsWithDB(ctx, db, publication.ID)
+	require.NoError(t, err)
+	require.Equal(t, "Canonical description", loadedCanonical[0].Media[0].AltText)
+
+	require.NoError(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return handler.insertRenditions(
+			txCtx, tx, publication, segments, loadedCanonical,
+			[]RenditionInput{{
+				SocialAccountID: account.ID,
+				Profile:         models.ContentProfileImagePost,
+				Media: []PublicationMediaInput{{
+					MediaID: "image-1", Role: "attachment", AltText: "Destination description",
+				}},
+			}},
+			nil,
+			map[string]models.SocialAccount{account.ID: account},
+		)
+	}))
+
+	var renditionMedia models.RenditionSegmentMedia
+	require.NoError(t, db.NewSelect().Model(&renditionMedia).Scan(ctx))
+	require.Equal(t, "Destination description", renditionMedia.AltText)
+}
+
 func TestReplacePublicationSegmentsKeepsDestinationOverridesForStableSegmentIDs(t *testing.T) {
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),

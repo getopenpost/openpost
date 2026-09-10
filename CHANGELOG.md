@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.28.0] - 2026-09-10
+
+### Added
+
+- Video Editor includes all 30 Paper shader families: 20 backgrounds, seven image filters, and three logo animations. Search Backgrounds or Effects, then adjust colors, patterns, motion, and placement. Logo animations can follow transparency, dark areas, or light areas of a clip. Existing presets retain their appearance, and authored shader settings persist through saves, undo, and export.
+- Dither pixel-wave artwork in empty states, textured loading placeholders, and matching progress bars. Texture is decorative and disappears in forced-colors mode. The app's loading preview uses the same shared controls.
+- Dither button gradient transitions for hover, keyboard focus, and press, with reduced-motion support.
+- Coordinated Dither accent hue controls for light and dark appearance, individual theme color pickers, and directional two-color dither gradients.
+- Chart inspection emphasis with fading tooltips that stay within the visible chart area.
+- Dither and Dither Moss themes, each with light and dark schemes, in Settings → Organization → Appearance.
+- Reusable dithered button, card, and chart treatments, plus a decorative gradient component adapted from Dither Kit. Custom themes can select the new recipes. Chart values, keyboard inspection, and solid value outlines remain available.
+
+### Changed
+
+- Simplified the Analytics feature mark and added distinct marks for Media, Inbox, Accounts, Recorder, Ideas, Automation, Grow, Repost, Workspaces, and Meme Maker. The family now appears in application page headings, the README, the landing tour, and customer guides.
+- Kept Recorder save controls visible on narrow phone screens.
+- Organizations with no saved appearance now start with Dither in both light and dark. Saved organization themes and Workspace overrides keep their current choice. Workshop remains available and handles theme recovery.
+
+### Fixed
+
+- Theme preview scene, color scheme, and viewport selectors now switch and close correctly.
+- Custom Dither drafts can be saved and published through the API.
+- Theme selectors keep one selected value and close after selection.
+- Chart inspection preserves keyboard focus when the pointer leaves and dismisses with Escape.
+- Theme color pickers preserve transparency, and Quick Cut's start controls fit narrow phone screens.
+- Recorder preview text stays readable in light appearance.
+- Quick Cut distinguishes an empty catalog from a failed load; Editors gives search and folder setup more room on phones.
+- Theme previews show normal control styles while keeping sample controls noninteractive.
+
 ## [4.27.0] - 2026-09-10
 
 ### Changed

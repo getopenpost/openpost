@@ -15,6 +15,10 @@ repeating SVG mask. Svelte and the existing semantic component recipes own the
 controls, chart data, focus, and interaction. No React, Motion, chart engine,
 remote assets, or continuous rendering loop is required.
 
+`scripts/style-star-history.mjs` uses the same Bayer thresholds and the
+per-column alpha falloff from `dither-paint.ts` to fill the area under the
+existing star-history curve. The SVG and PNG backgrounds stay transparent.
+
 Additional visual references: [Canvas UI](https://github.com/DavidHDev/canvas-ui/tree/34b1e46cd8dc56b8a1e7746561104008bdabee5c/src/lib)
 and [DitherKit](https://ditherkit.com/). Canvas UI's `DitheredObject` and
 `RetroDither` Svelte wrappers and renderers were inspected. Its MIT + Commons

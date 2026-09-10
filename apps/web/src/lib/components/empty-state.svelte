@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { IconComponent } from '$lib/component-types';
 	import { Button } from '$lib/components/ui/button';
+	import DitherField from '$lib/components/dither/dither-field.svelte';
 	import type { ThemeIconRole } from '$lib/themes';
 	import { ThemeIcon } from '$lib/themes/icons';
 
@@ -67,12 +68,18 @@
 		variant
 	]} {sizeClasses[size]}"
 >
-	<div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-		{#if themeIconRole}
-			<ThemeIcon role={themeIconRole} class="size-5 text-muted-foreground" />
-		{:else if Icon}
-			<Icon class="size-5 text-muted-foreground" />
-		{/if}
+	<div
+		data-slot="empty-state-symbol"
+		class="relative flex h-[var(--theme-empty-symbol-height,2.5rem)] w-[var(--theme-empty-symbol-width,2.5rem)] shrink-0 items-center justify-center rounded-md bg-[var(--theme-empty-symbol-background,var(--muted))]"
+	>
+		<DitherField />
+		<span class="relative flex size-10 items-center justify-center rounded-md bg-muted">
+			{#if themeIconRole}
+				<ThemeIcon role={themeIconRole} class="size-5 text-muted-foreground" />
+			{:else if Icon}
+				<Icon class="size-5 text-muted-foreground" />
+			{/if}
+		</span>
 	</div>
 	<div class="min-w-0 flex-1">
 		{#if headingLevel === 3}

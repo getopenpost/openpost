@@ -19,7 +19,11 @@
 </script>
 
 <div
-	class={cn('h-1.5 overflow-hidden rounded-full bg-muted', className)}
+	data-slot="progress-meter"
+	class={cn(
+		'h-1.5 overflow-hidden rounded-[var(--theme-progress-radius,999px)] bg-muted',
+		className
+	)}
 	role="progressbar"
 	aria-label={label}
 	aria-valuemin="0"
@@ -28,7 +32,8 @@
 >
 	{#key phase}
 		<div
-			class={cn('progress-fill h-full rounded-full bg-primary', fillClass)}
+			data-slot="progress-fill"
+			class={cn('progress-fill h-full rounded-[inherit] bg-primary', fillClass)}
 			class:indeterminate={value === null}
 			style:width={value === null ? '35%' : `${value * 100}%`}
 		></div>

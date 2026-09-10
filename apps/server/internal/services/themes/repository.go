@@ -162,8 +162,8 @@ func loadSettings(ctx context.Context, db bun.IDB, organizationID string) (setti
 	var row settingsRow
 	err := db.NewSelect().Model(&row).Where("organization_id = ?", organizationID).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		workshop := builtInReference(BuiltIns()["workshop"])
-		return settingsRow{OrganizationID: organizationID, DefaultReferenceKind: string(workshop.Kind), DefaultReferenceID: workshop.ID, DefaultReferenceVersion: workshop.Version}, nil
+		defaultTheme := builtInReference(BuiltIns()["dither"])
+		return settingsRow{OrganizationID: organizationID, DefaultReferenceKind: string(defaultTheme.Kind), DefaultReferenceID: defaultTheme.ID, DefaultReferenceVersion: defaultTheme.Version}, nil
 	}
 	if err != nil {
 		return settingsRow{}, fmt.Errorf("%w: load Organization theme settings", ErrUnavailable)

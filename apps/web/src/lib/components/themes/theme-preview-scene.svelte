@@ -3,6 +3,8 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import ProgressMeter from '$lib/components/progress-meter.svelte';
 	import { getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type { WebResolvedTheme } from '$lib/themes';
@@ -408,20 +410,12 @@
 									alt={loadingAsset.alt ?? ''}
 								/>
 							{/if}
-							<div
-								data-slot="skeleton"
-								class="h-20 animate-pulse rounded-[var(--theme-radius-lg,var(--radius))] bg-muted motion-reduce:animate-none"
-							></div>
+							<Skeleton class="h-20" />
 							<div class="grid grid-cols-2 gap-3">
-								<div
-									data-slot="skeleton"
-									class="h-28 animate-pulse rounded-[var(--theme-radius-lg,var(--radius))] bg-muted motion-reduce:animate-none"
-								></div>
-								<div
-									data-slot="skeleton"
-									class="h-28 animate-pulse rounded-[var(--theme-radius-lg,var(--radius))] bg-muted motion-reduce:animate-none"
-								></div>
+								<Skeleton class="h-28" />
+								<Skeleton class="h-28" />
 							</div>
+							<ProgressMeter fraction={null} label={copy.loadingPublications} />
 							<p data-theme-type="metadata" class="text-center text-muted-foreground">
 								{copy.loadingPublications}
 							</p>

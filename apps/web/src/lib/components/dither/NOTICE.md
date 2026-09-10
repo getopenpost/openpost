@@ -12,6 +12,14 @@ repeating SVG mask. Svelte and the existing semantic component recipes own the
 controls, chart data, focus, and interaction. No React, Motion, chart engine,
 remote assets, or continuous rendering loop is required.
 
+Additional visual references: [Canvas UI](https://github.com/DavidHDev/canvas-ui/tree/34b1e46cd8dc56b8a1e7746561104008bdabee5c/src/lib)
+and [DitherKit](https://ditherkit.com/). Canvas UI's `DitheredObject` and
+`RetroDither` Svelte wrappers and renderers were inspected. Its MIT + Commons
+Clause license restricts redistribution of components and ports; no Canvas UI
+code is included here. DitherKit's browser demo informed the pixel treatment;
+no application code or artwork was copied. `dither-field.svelte` is OpenPost's
+own geometric wave field, using the attributed Bayer thresholds above.
+
 MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

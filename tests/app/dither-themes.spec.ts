@@ -104,6 +104,8 @@ test("Dither themes apply, survive reload, and restore Workshop", async ({ page,
   await expect(page.getByRole("heading", { name: "Appearance", exact: true }).first()).toBeVisible({
     timeout: 30_000,
   });
+  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+  await page.getByRole("button", { name: "Apply Workshop", exact: true }).click();
   for (const name of ["Dither", "Dither Moss", "Workshop"]) {
     const id = name.toLowerCase().replaceAll(" ", "-");
     const apply = page.getByRole("button", { name: `Apply ${name}`, exact: true });

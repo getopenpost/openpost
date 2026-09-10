@@ -92,17 +92,17 @@ components:
 
 ## Overview
 
-**Default Creative North Star: "The Well-Maintained Workshop"**
+**Default app theme: Dither. Public brand and recovery theme: Workshop.**
 
-OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Workshop is the default theme and complete fallback. Its identity comes from precise composition, warm-tinted neutrals, a restrained orange signal, and the Converge mark, not from decorative dashboard effects.
+OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using cobalt controls, cool paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Workshop remains the complete fallback and public brand reference.
 
-The authenticated app stays compact and predictable. Marketing pages use the same materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
+The authenticated app stays compact and predictable. Marketing pages retain Workshop materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
 
 **Key Characteristics:**
 
-- Warm technical minimalism rather than corporate dashboard styling.
+- Compact working layouts across theme families.
 - Thin structural borders and tonal layers instead of decorative shadows.
-- Orange reserved for action, selection, and meaningful status.
+- Each theme's focal color marks action and selection; semantic colors preserve status meaning.
 - Compact app hierarchy with more spacious public and reading surfaces.
 - Consistent page, loading, empty, notice, toast, and destructive patterns.
 
@@ -114,7 +114,7 @@ Use the standalone mark when “OpenPost” is already written beside it or spac
 
 ## Colors
 
-The values below define Workshop. Warm neutrals carry most of that family; orange is a scarce product signal. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
+The frontmatter tokens and values below define Workshop, the complete fallback and public brand reference. Warm neutrals carry most of that family; orange is a scarce product signal. Dither's app palette is defined in `apps/web/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
 
 ### Primary
 
@@ -233,9 +233,13 @@ Workshop uses a 12px base corner, 10px controls, 12px cards, and 14–16px promi
 
 ### Dither material
 
-Dither pairs cobalt actions with Geist and outlined navigation. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
+Dither pairs cobalt actions with cool paper or charcoal, Geist, and outlined navigation. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
 
-Ordered pixel textures sit behind button labels, along card bottoms, and inside chart bars. Text, focus rings, and chart value boundaries stay solid. Charts retain semantic series colors, labels, and keyboard interaction. Forced-colors mode removes the texture. Native clients use the same palette and shape tokens with solid fills.
+Ordered Bayer textures sit behind button labels, along card bottoms, inside chart bars, and over shared skeletons and progress fills. Text, focus rings, and chart value boundaries stay solid. Charts retain semantic series colors, labels, and keyboard interaction. Forced-colors mode removes visible decoration. Native clients use the same palette and shape tokens with solid fills.
+
+Shared empty states place an original static SVG wave field in a 120px by 64px symbol area behind a solid 40px icon tile. The field is decorative and hidden from assistive technology. Progress meters use the theme's small corner radius, while loading previews use the real Skeleton and ProgressMeter components. Existing reduced-motion behavior stays intact.
+
+The shared SVG mask and Bayer thresholds live in `apps/web/src/lib/components/dither/paint.ts`. Preserve the Dither Kit attribution in the adjacent `NOTICE.md`. The wave field adds no continuous rendering loop.
 
 Custom Dither button recipes must preserve text contrast after the texture is composited in every interaction state. Theme previews block interaction with `inert` so sample controls retain their normal appearance.
 

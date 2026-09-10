@@ -96,7 +96,7 @@ for (const width of [1440, 390, 320]) {
       await page.getByRole("button", { name: "Test Supabase", exact: true }).click();
       await expect(page.locator("html")).toHaveAttribute("data-theme-id", "supabase");
       await page.getByRole("button", { name: "Stop testing" }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "workshop");
+      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
       await page.getByRole("button", { name: "Create theme", exact: true }).focus();
       await page.keyboard.press("Enter");
@@ -147,7 +147,7 @@ test("tests every built-in theme and restores the saved theme when leaving Appea
   }
   await page.getByRole("button", { name: "Publications", exact: true }).click();
   await expect(page).toHaveURL(/\/publications(?:\?|$)/);
-  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "workshop");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
   await page.goBack();
   await expect(page.getByRole("button", { name: "Create theme", exact: true })).toBeEnabled();
 });

@@ -2,8 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ditherThreshold } from "../apps/web/src/lib/components/dither/paint.ts";
 
-export const DEFAULT_REPOSITORY = "getopenpost/openpost";
-export const BADGE_NAMES = ["downloads", "release", "build", "stars"];
+const DEFAULT_REPOSITORY = "getopenpost/openpost";
+const BADGE_NAMES = ["downloads", "release", "build", "stars"];
 
 const COLORS = {
   downloads: {
@@ -71,32 +71,24 @@ function githubHeaders(token) {
 }
 
 async function githubJSON(url, token, fetchImpl = fetch) {
-  const response = await fetchImpl(url, { headers: githubHeaders(token) });
-  if (!response.ok)
-    throw new Error(`GitHub API request failed (${response.status})`);
+  const response = await fetchImpl(url, {
+    headers: githubHeaders(token),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`GitHub API request failed (${response.status})`);
   return response.json();
 }
 
 export async function fetchBadgeData(
   repository,
-  {
-    token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN,
-    fetchImpl = fetch,
-  } = {},
+  { token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN, fetchImpl = fetch } = {},
 ) {
-  const encodedRepository = repository
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
+  const encodedRepository = repository.split("/").map(encodeURIComponent).join("/");
   const base = `https://api.github.com/repos/${encodedRepository}`;
   const [repo, release, workflow] = await Promise.all([
     githubJSON(base, token, fetchImpl),
     githubJSON(`${base}/releases/latest`, token, fetchImpl),
-    githubJSON(
-      `${base}/actions/workflows/ci.yml/runs?branch=main&per_page=1`,
-      token,
-      fetchImpl,
-    ),
+    githubJSON(`${base}/actions/workflows/ci.yml/runs?branch=main&per_page=1`, token, fetchImpl),
   ]);
 
   let downloads = 0;
@@ -106,8 +98,7 @@ export async function fetchBadgeData(
       token,
       fetchImpl,
     );
-    if (!Array.isArray(releases))
-      throw new Error("GitHub releases response was not an array");
+    if (!Array.isArray(releases)) throw new Error("GitHub releases response was not an array");
     for (const item of releases) {
       if (!item || !Array.isArray(item.assets))
         throw new Error("GitHub release was missing an assets array");
@@ -115,46 +106,38 @@ export async function fetchBadgeData(
       for (const asset of item.assets) {
         if (!asset || typeof asset !== "object")
           throw new Error("GitHub returned an invalid release asset");
-        if (
-          !Number.isSafeInteger(asset.download_count) ||
-          asset.download_count < 0
-        ) {
+        if (!Number.isSafeInteger(asset.download_count) || asset.download_count < 0) {
           throw new Error("GitHub returned an invalid release download count");
         }
         downloads += asset.download_count;
         if (!Number.isSafeInteger(downloads))
-          throw new Error(
-            "GitHub release downloads exceeded the safe integer limit",
-          );
+          throw new Error("GitHub release downloads exceeded the safe integer limit");
       }
     }
     if (releases.length < 100) break;
   }
 
-  if (
-    !Number.isSafeInteger(repo.stargazers_count) ||
-    repo.stargazers_count < 0
-  ) {
+  if (!Number.isSafeInteger(repo.stargazers_count) || repo.stargazers_count < 0) {
     throw new Error("GitHub returned an invalid star count");
   }
   if (typeof release.tag_name !== "string" || !release.tag_name) {
     throw new Error("GitHub returned an invalid latest release");
   }
   if (!workflow || !Array.isArray(workflow.workflow_runs))
-    throw new Error(
-      "GitHub workflow response was missing a workflow_runs array",
-    );
+    throw new Error("GitHub workflow response was missing a workflow_runs array");
   const latestRun = workflow.workflow_runs[0];
-  const build =
-    latestRun?.status !== "completed"
-      ? "pending"
-      : latestRun.conclusion === "success"
-        ? "passing"
-        : ["failure", "timed_out", "action_required"].includes(
-              latestRun.conclusion,
-            )
-          ? "failing"
-          : "pending";
+  let build = latestRun ? "pending" : "no runs";
+  if (latestRun && typeof latestRun.status !== "string") {
+    throw new Error("GitHub returned an invalid workflow status");
+  }
+  if (latestRun?.status === "completed") {
+    if (typeof latestRun.conclusion !== "string" || !latestRun.conclusion) {
+      throw new Error("GitHub returned a completed workflow without a conclusion");
+    }
+    build =
+      { success: "passing", failure: "failing" }[latestRun.conclusion] ??
+      latestRun.conclusion.replaceAll("_", " ");
+  }
   return {
     downloads,
     release: release.tag_name,
@@ -199,19 +182,18 @@ function ditherPattern() {
 
 export function renderBadge(kind, value, mode) {
   if (!BADGE_NAMES.includes(kind)) throw new Error(`Unknown badge: ${kind}`);
-  const labels = {
-    downloads: "downloads",
-    release: "release",
-    build: "build",
-    stars: "stars",
-  };
-  const label = labels[kind];
+  const label = kind;
   const displayValue = String(value);
   const labelWidth = textWidth(label);
   const valueWidth = textWidth(displayValue);
   const width = labelWidth + valueWidth;
-  const palette =
-    kind === "build" ? COLORS.build[displayValue]?.[mode] : COLORS[kind][mode];
+  const buildTone =
+    displayValue === "passing"
+      ? "passing"
+      : ["failing", "timed out", "action required", "startup failure"].includes(displayValue)
+        ? "failing"
+        : "pending";
+  const palette = kind === "build" ? COLORS.build[buildTone][mode] : COLORS[kind][mode];
   if (!palette) throw new Error(`Unknown ${kind} value: ${displayValue}`);
   const [labelBackground, valueBackground, labelInk, valueInk] = palette;
   const valueX = labelWidth;
@@ -230,9 +212,7 @@ export async function writeBadges(data, outputDir) {
     }
   }
   await mkdir(destination, { recursive: true });
-  await Promise.all(
-    files.map(({ path, content }) => writeFile(path, `${content}\n`, "utf8")),
-  );
+  await Promise.all(files.map(({ path, content }) => writeFile(path, `${content}\n`, "utf8")));
   return files.map(({ path }) => path);
 }
 
@@ -242,9 +222,7 @@ if (import.meta.main) {
     if (!options) process.exit(0);
     const data = await fetchBadgeData(options.repository);
     await writeBadges(data, options.outputDir);
-    console.log(
-      `Updated ${BADGE_NAMES.length * 2} README badges for ${options.repository}.`,
-    );
+    console.log(`Updated ${BADGE_NAMES.length * 2} README badges for ${options.repository}.`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

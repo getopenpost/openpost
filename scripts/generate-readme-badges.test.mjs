@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import sharp from "sharp";
 import {
   fetchBadgeData,
   parseArguments,
@@ -25,8 +26,7 @@ test("fetches truthful counts and paginates every release page", async () => {
   const fetchImpl = async (url) => {
     requests.push(url);
     if (url.endsWith("/openpost")) return response({ stargazers_count: 42 });
-    if (url.endsWith("/releases/latest"))
-      return response({ tag_name: "v1.2.3" });
+    if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.2.3" });
     if (url.includes("/actions/workflows/ci.yml/runs"))
       return response({
         workflow_runs: [{ status: "completed", conclusion: "success" }],
@@ -48,9 +48,7 @@ test("fetches truthful counts and paginates every release page", async () => {
     build: "passing",
     stars: 42,
   });
-  assert.ok(
-    requests.some((url) => url.includes("/releases?per_page=100&page=2")),
-  );
+  assert.ok(requests.some((url) => url.includes("/releases?per_page=100&page=2")));
 });
 
 test("fails closed on API errors", async () => {
@@ -66,10 +64,8 @@ test("fails closed on API errors", async () => {
 test("excludes draft releases and rejects malformed release assets", async () => {
   const baseResponses = (releases) => async (url) => {
     if (url.endsWith("/openpost")) return response({ stargazers_count: 1 });
-    if (url.endsWith("/releases/latest"))
-      return response({ tag_name: "v1.0.0" });
-    if (url.includes("/actions/workflows/ci.yml/runs"))
-      return response({ workflow_runs: [] });
+    if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.0.0" });
+    if (url.includes("/actions/workflows/ci.yml/runs")) return response({ workflow_runs: [] });
     return response(releases);
   };
   const data = await fetchBadgeData("getopenpost/openpost", {
@@ -88,17 +84,46 @@ test("excludes draft releases and rejects malformed release assets", async () =>
   );
 });
 
-test("renders accessible light and dark SVG badges with crisp Dither pixels", () => {
-  const svg = renderBadge("downloads", 1234, "light");
-  assert.match(svg, /<title[^>]*>downloads: 1234<\/title>/u);
-  assert.match(svg, /shape-rendering="crispEdges"/u);
-  assert.match(svg, /fill-opacity="0\.500"/u);
-  assert.match(svg, /clipPath id="badge-clip"/u);
-  assert.match(renderBadge("stars", 42, "dark"), /#ffd45c/u);
-  assert.match(renderBadge("build", "failing", "light"), /#ef9a9a/u);
+test("shows stopped CI outcomes without calling them pending or failing", async () => {
+  for (const conclusion of ["cancelled", "skipped", "neutral", "stale"]) {
+    const data = await fetchBadgeData("getopenpost/openpost", {
+      fetchImpl: async (url) => {
+        if (url.endsWith("/openpost")) return response({ stargazers_count: 1 });
+        if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.0.0" });
+        if (url.includes("/actions/workflows/ci.yml/runs")) {
+          return response({ workflow_runs: [{ status: "completed", conclusion }] });
+        }
+        return response([]);
+      },
+    });
+    assert.equal(data.build, conclusion);
+    assert.match(
+      renderBadge("build", data.build, "dark"),
+      new RegExp(`<title[^>]*>build: ${conclusion}</title>`),
+    );
+  }
 });
 
-test("writes all badge variants only after data fetch succeeds", async () => {
+test("renders readable values and a real pixel texture in both schemes", async () => {
+  for (const mode of ["light", "dark"]) {
+    const svg = renderBadge("downloads", 1234, mode);
+    assert.match(svg, /<title[^>]*>downloads: 1234<\/title>/u);
+    const { data, info } = await sharp(Buffer.from(svg))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const pixel = (x, y) => [
+      ...data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4),
+    ];
+    assert.equal(pixel(0, 0)[3], 0, "the rounded corner stays transparent");
+    assert.deepEqual(pixel(92, 22), pixel(93, 22), "texture cells stay crisp at native badge size");
+    const row = Array.from({ length: 24 }, (_, index) => pixel(90 + index, 22)[0]);
+    assert.ok(Math.max(...row) - Math.min(...row) > 8, "dither pixels remain visibly distinct");
+    assert.match(renderBadge("release", "v1<&", mode), /v1&lt;&amp;/u);
+  }
+});
+
+test("writes all light and dark badge variants", async () => {
   const outputDir = await mkdtemp(join(tmpdir(), "openpost-badges-"));
   try {
     const files = await writeBadges(
@@ -106,19 +131,16 @@ test("writes all badge variants only after data fetch succeeds", async () => {
       outputDir,
     );
     assert.equal(files.length, 8);
-    assert.match(
-      await readFile(join(outputDir, "release-dark.svg"), "utf8"),
-      /v1\.2\.3/u,
-    );
+    assert.match(await readFile(join(outputDir, "release-dark.svg"), "utf8"), /v1\.2\.3/u);
   } finally {
     await rm(outputDir, { recursive: true, force: true });
   }
 });
 
 test("parses only supported options", () => {
-  assert.deepEqual(
-    parseArguments(["--repo", "owner/project", "--output-dir", "tmp/badges"]),
-    { repository: "owner/project", outputDir: "tmp/badges" },
-  );
+  assert.deepEqual(parseArguments(["--repo", "owner/project", "--output-dir", "tmp/badges"]), {
+    repository: "owner/project",
+    outputDir: "tmp/badges",
+  });
   assert.throws(() => parseArguments(["--unknown"]), /Unknown argument/u);
 });

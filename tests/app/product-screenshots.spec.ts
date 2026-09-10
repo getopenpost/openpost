@@ -7,6 +7,7 @@ import {
   type Route,
 } from "@playwright/test";
 import { mkdir, readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
@@ -870,7 +871,7 @@ test.describe("product screenshot capture", () => {
   let logoMediaID: string;
 
   test.beforeAll(async ({ request }) => {
-    auth = await registerUser(request, "me@rgo.pt");
+    auth = await registerUser(request, `product-capture-${randomUUID()}@example.com`);
     workspace = (await createWorkspace(request, auth.token, "Personal")) as { id: string };
     [backgroundMediaID, logoMediaID] = await Promise.all([
       uploadImageFixture(
@@ -1431,7 +1432,10 @@ test.describe("product screenshot capture", () => {
       await page.keyboard.press("Escape");
 
       await page.goto(`/calendar?workspace=${workspace.id}`);
-      await expect(page.getByRole("heading", { name: "August 2026" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Publications", exact: true })).toBeVisible();
+      await expect(
+        page.getByTestId("page-header").getByText("August 2026", { exact: true }),
+      ).toBeVisible();
       await expect(page.locator("[data-calendar-item]")).toHaveCount(calendarPublications.length);
       await capture(page, `calendar-${captureScheme}.png`, [
         page.getByRole("region", { name: "Monthly publishing calendar" }),

@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.29.0] - 2026-09-10
+
+### Fixed
+
+- Preserve contextual alt text, roles, and thumbnail timestamps when publication media is created or replaced through MCP or the API.
+- Reject Bluesky images larger than 2,000,000 bytes during validation, scheduling, and immediate publishing.
+- Restore the viewer's workspace theme when opening a public profile directly, and use Dither for anonymous visitors.
+- Render multiple delivery targets for the same account without breaking the publication list.
+- Apply the selected theme’s tab shape and active indicator consistently.
+- Align the New post button with its adjacent menu button.
+- Keep the calendar's date range visible and preserve its scroll area beneath the shared page header.
+
+### Changed
+
+- Use restrained orange-brown Dither colors by default across the app and mobile theme catalog. Saved theme choices still take precedence. The landing page adds orange action accents and Dither textures while keeping its green, blue, and lilac palette.
+- Use compact, consistent app headings and theme icons. Keep feature artwork in public materials.
+- Rebuild Publications around searchable rows, account summaries, and expandable delivery details. Keep shared List and Calendar actions visible while content loads, and remember the selected status tab when switching views.
+
+### Added
+
+- Show audience composition by account in Analytics, using stored follower counts and a separate total for smaller accounts.
+- Animate Dither button textures on hover, focus, and press, respecting reduced motion.
+
 ## [4.28.0] - 2026-09-10
 
 ### Added

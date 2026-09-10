@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Keep Video Editor layout changes from stealing focus after another control is selected.
+- Preserve keyboard focus when moving between sections of the mobile menu.
 - Fixed version history failing to load on PostgreSQL for publications with publishing authorization events.
 - Replaced the composer's unexplained red validation icon with a labeled issue count beside the publishing controls. The issue list still explains each blocker and opens the affected field.
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import ChartBar from '$lib/components/ui/chart/chart-bar.svelte';
 	import { formatSocialAccountName } from '$lib/utils';
 
 	type DailyPoint = components['schemas']['DailyBreakdownPoint'];
@@ -193,22 +194,20 @@
 							onblur={() => (activeDate = '')}
 						>
 							{#each positiveSegments(point) as segment (`positive-${segment.item.key}`)}
-								<rect
+								<ChartBar
 									x={x(index)}
 									y={y(segment.end)}
 									width={barWidth}
 									height={Math.max(1, y(segment.start) - y(segment.end))}
-									rx="2"
 									fill={segmentColor(segment.item)}
 								/>
 							{/each}
 							{#each negativeSegments(point) as segment (`negative-${segment.item.key}`)}
-								<rect
+								<ChartBar
 									x={x(index)}
 									y={y(segment.start)}
 									width={barWidth}
 									height={Math.max(1, y(segment.end) - y(segment.start))}
-									rx="2"
 									fill={segmentColor(segment.item)}
 								/>
 							{/each}

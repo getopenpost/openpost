@@ -1,3 +1,4 @@
+import { DITHER_GRADIENT_MASK } from '../components/dither/paint.js';
 import { resolveWorkshopTheme } from './workshop.js';
 import {
 	THEME_COLOR_TOKEN_KEYS,
@@ -6,6 +7,7 @@ import {
 	THEME_COMPONENT_RECIPE_KEYS,
 	THEME_COMPONENT_RECIPE_OPTIONS,
 	THEME_DENSITIES,
+	THEME_DITHER_MAX_OPACITY,
 	THEME_MOTION_RECIPE_KEYS,
 	THEME_PROTECTED_EDITOR_TOKEN_KEYS,
 	THEME_REDUCED_MOTION_OPTIONS,
@@ -500,6 +502,10 @@ export function themeSchemeToCssVariables(
 
 	const { colors, typography, spacing, shape, elevation, motion, shell } = theme.manifest;
 	return {
+		'--theme-dither-mask': Object.values(theme.manifest.components).includes('dither')
+			? DITHER_GRADIENT_MASK
+			: 'none',
+		'--theme-dither-max-opacity': String(THEME_DITHER_MAX_OPACITY),
 		'--background': colors.canvas,
 		'--foreground': colors.ink,
 		'--card': colors.surface,

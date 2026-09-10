@@ -202,6 +202,7 @@ export function themeEditorTokenLabel(value: string, locale: Locale = getLocale(
 }
 
 export function themeEditorValueLabel(value: string, locale: Locale = getLocale()): string {
+	if (value === 'dither') return 'Dither';
 	return labelFor(valueMessages, value, locale);
 }
 

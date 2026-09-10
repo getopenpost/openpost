@@ -67,7 +67,9 @@ const expectedFamilies = [
 	'origin',
 	'column',
 	'duolingo',
-	'quizlet'
+	'quizlet',
+	'dither',
+	'dither-moss'
 ] as const;
 
 const expectedDarkOnlyFamilies = [
@@ -79,12 +81,37 @@ const expectedDarkOnlyFamilies = [
 	'origin'
 ] as const;
 
-const expectedDualSchemeFamilies = ['workshop', 'studio', 'playroom', 'cloud-garden'] as const;
+const expectedDualSchemeFamilies = [
+	'workshop',
+	'studio',
+	'playroom',
+	'cloud-garden',
+	'dither',
+	'dither-moss'
+] as const;
 const expectedDualSchemeFamilyIDs = new Set<string>(expectedDualSchemeFamilies);
 const expectedDarkOnlyFamilyIDs = new Set<string>(expectedDarkOnlyFamilies);
 
 describe('built-in themes', () => {
-	it('publishes the twenty-four versioned families with explicit scheme support', () => {
+	it('keeps Dither action text readable through the strongest texture tier', () => {
+		for (const id of ['dither', 'dither-moss'] as const) {
+			for (const scheme of ['light', 'dark'] as const) {
+				const colors = getBuiltInTheme(id).schemes[scheme]!.colors;
+				for (const intent of ['actionFocal', 'actionPrimary', 'actionOrdinary'] as const) {
+					const ink = colors[`${intent}Ink`];
+					for (const state of [intent, `${intent}Hover`, `${intent}Active`] as const) {
+						const textured = `color-mix(in srgb, ${ink} 22%, ${colors[state]})`;
+						expect(
+							themeColorContrastRatio(ink, textured),
+							`${id} ${scheme} ${state}`
+						).toBeGreaterThanOrEqual(4.5);
+					}
+				}
+			}
+		}
+	});
+
+	it('publishes the twenty-six versioned families with explicit scheme support', () => {
 		expect(BUILT_IN_THEMES.map((theme) => theme.id)).toEqual(expectedFamilies);
 		for (const id of expectedDualSchemeFamilies) {
 			expect(getBuiltInTheme(id).supportedSchemes).toEqual(['light', 'dark']);

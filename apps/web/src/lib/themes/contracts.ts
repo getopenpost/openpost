@@ -2,6 +2,8 @@ export const THEME_SCHEMES = ['light', 'dark'] as const;
 export type ThemeScheme = (typeof THEME_SCHEMES)[number];
 export type ThemeSchemePreference = ThemeScheme | 'system';
 
+export const THEME_DITHER_MAX_OPACITY = 0.22;
+
 export const THEME_FAMILY_IDS = [
 	'workshop',
 	'studio',
@@ -26,7 +28,9 @@ export const THEME_FAMILY_IDS = [
 	'column',
 	'linear',
 	'quizlet',
-	'posthog'
+	'posthog',
+	'dither',
+	'dither-moss'
 ] as const;
 export type ThemeFamilyId = (typeof THEME_FAMILY_IDS)[number];
 
@@ -391,13 +395,13 @@ export const THEME_COMPONENT_RECIPE_KEYS = [
 export type ThemeComponentRecipe = (typeof THEME_COMPONENT_RECIPE_KEYS)[number];
 
 export const THEME_COMPONENT_RECIPE_OPTIONS = {
-	button: ['solid', 'tonal', 'outlined', 'precise', 'pill'],
+	button: ['solid', 'tonal', 'outlined', 'precise', 'pill', 'dither'],
 	link: ['underlined', 'subtle', 'plain'],
 	tabs: ['underline', 'pill', 'segmented'],
 	navigation: ['quiet', 'tonal', 'outlined'],
 	input: ['filled', 'outlined', 'underlined'],
 	select: ['filled', 'outlined', 'underlined'],
-	card: ['flat', 'outlined', 'paper', 'lifted'],
+	card: ['flat', 'outlined', 'paper', 'lifted', 'dither'],
 	container: ['flat', 'outlined', 'tinted'],
 	table: ['ruled', 'striped', 'plain'],
 	list: ['divided', 'spaced', 'plain'],
@@ -414,7 +418,16 @@ export const THEME_COMPONENT_RECIPE_OPTIONS = {
 	emptyState: ['plain', 'illustrated', 'framed'],
 	loadingState: ['spinner', 'pulse', 'skeleton'],
 	editorChrome: ['neutral', 'compact', 'precision'],
-	decoration: ['none', 'editorial', 'playful', 'botanical', 'study', 'tactile', 'precision']
+	decoration: [
+		'none',
+		'editorial',
+		'playful',
+		'botanical',
+		'study',
+		'tactile',
+		'precision',
+		'dither'
+	]
 } as const;
 
 export type ThemeComponentRecipes = {

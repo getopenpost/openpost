@@ -41,6 +41,8 @@ var builtInOrder = []string{
 	"column",
 	"duolingo",
 	"quizlet",
+	"dither",
+	"dither-moss",
 }
 
 func builtInVersion(family BuiltInFamily) int {

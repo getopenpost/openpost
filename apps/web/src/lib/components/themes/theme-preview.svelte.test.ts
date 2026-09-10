@@ -14,6 +14,31 @@ function previewFrame(element: Element): HTMLIFrameElement {
 describe('ThemePreview', () => {
 	afterEach(() => switchLocale('en', { reload: false }));
 
+	it('shows enabled theme controls while keeping a noninteractive preview inert', async () => {
+		const screen = render(ThemePreview, {
+			theme: resolveBuiltInTheme('dither', 'light'),
+			label: 'Dither controls',
+			runtime: new WebThemeRuntime({
+				stageFonts: async () => ({ release: () => undefined }),
+				loadAssets: async () => undefined,
+				loadIconPack: async () => undefined,
+				setBrowserSurface: () => () => undefined
+			})
+		});
+		await expect.element(screen.getByTestId('theme-preview')).toHaveAttribute('aria-busy', 'false');
+		const frame = previewFrame(screen.getByTestId('theme-preview').element());
+		const doc = frame.contentDocument!;
+		expect(doc.documentElement.dataset.themeId).toBe('dither');
+		const button = doc.querySelector<HTMLButtonElement>('[data-action-intent="focal"]')!;
+		expect(button.disabled).toBe(false);
+		expect(doc.querySelector<HTMLElement>('[data-preview-scene]')!.inert).toBe(true);
+		button.focus();
+		expect(doc.activeElement).not.toBe(button);
+		expect(frame.contentWindow!.getComputedStyle(button, '::before').maskImage).toContain(
+			'data:image/svg+xml'
+		);
+	});
+
 	it('stages initial resources once and only restages for a changed theme', async () => {
 		const loaders: ThemeRuntimeLoaders = {
 			stageFonts: vi.fn(async () => ({ release: vi.fn() })),

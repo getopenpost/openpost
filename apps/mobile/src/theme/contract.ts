@@ -96,13 +96,13 @@ export const NATIVE_CANVAS_TREATMENTS = [
 export type NativeCanvasTreatment = (typeof NATIVE_CANVAS_TREATMENTS)[number];
 
 export const NATIVE_COMPONENT_RECIPE_OPTIONS = {
-  button: ["solid", "tonal", "outlined", "precise", "pill"],
+  button: ["solid", "tonal", "outlined", "precise", "pill", "dither"],
   link: ["underlined", "subtle", "plain"],
   tabs: ["underline", "pill", "segmented"],
   navigation: ["quiet", "tonal", "outlined"],
   input: ["filled", "outlined", "underlined"],
   select: ["filled", "outlined", "underlined"],
-  card: ["flat", "outlined", "paper", "lifted"],
+  card: ["flat", "outlined", "paper", "lifted", "dither"],
   container: ["flat", "outlined", "tinted"],
   table: ["ruled", "striped", "plain"],
   list: ["divided", "spaced", "plain"],
@@ -119,7 +119,16 @@ export const NATIVE_COMPONENT_RECIPE_OPTIONS = {
   emptyState: ["plain", "illustrated", "framed"],
   loadingState: ["spinner", "pulse", "skeleton"],
   editorChrome: ["neutral", "compact", "precision"],
-  decoration: ["none", "editorial", "playful", "botanical", "study", "tactile", "precision"],
+  decoration: [
+    "none",
+    "editorial",
+    "playful",
+    "botanical",
+    "study",
+    "tactile",
+    "precision",
+    "dither",
+  ],
 } as const;
 
 export type NativeComponentRecipes = {

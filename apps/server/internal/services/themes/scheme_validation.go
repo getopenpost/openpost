@@ -43,6 +43,11 @@ func NormalizeSchemeManifest(scheme ColorScheme, input ThemeSchemeManifest) (The
 	if err := validateColorTokens(input.Colors); err != nil {
 		return ThemeSchemeManifest{}, err
 	}
+	if input.Components.Button == "dither" {
+		if err := validateDitherActionContrast(input.Colors); err != nil {
+			return ThemeSchemeManifest{}, err
+		}
+	}
 	if !reflect.DeepEqual(input.ProtectedEditor, protectedEditorTokens(scheme)) {
 		return ThemeSchemeManifest{}, invalidManifest("protectedEditor", "is code-owned and cannot be changed")
 	}
@@ -239,13 +244,13 @@ func validateComponents(input ThemeComponentRecipes) error {
 		value   string
 		allowed []string
 	}{
-		{"button", input.Button, []string{"solid", "tonal", "outlined", "precise", "pill"}},
+		{"button", input.Button, []string{"solid", "tonal", "outlined", "precise", "pill", "dither"}},
 		{"link", input.Link, []string{"underlined", "subtle", "plain"}},
 		{"tabs", input.Tabs, []string{"underline", "pill", "segmented"}},
 		{"navigation", input.Navigation, []string{"quiet", "tonal", "outlined"}},
 		{"input", input.Input, []string{"filled", "outlined", "underlined"}},
 		{"select", input.Select, []string{"filled", "outlined", "underlined"}},
-		{"card", input.Card, []string{"flat", "outlined", "paper", "lifted"}},
+		{"card", input.Card, []string{"flat", "outlined", "paper", "lifted", "dither"}},
 		{"container", input.Container, []string{"flat", "outlined", "tinted"}},
 		{"table", input.Table, []string{"ruled", "striped", "plain"}},
 		{"list", input.List, []string{"divided", "spaced", "plain"}},
@@ -262,7 +267,7 @@ func validateComponents(input ThemeComponentRecipes) error {
 		{"emptyState", input.EmptyState, []string{"plain", "illustrated", "framed"}},
 		{"loadingState", input.LoadingState, []string{"spinner", "pulse", "skeleton"}},
 		{"editorChrome", input.EditorChrome, []string{"neutral", "compact", "precision"}},
-		{"decoration", input.Decoration, []string{"none", "editorial", "playful", "botanical", "study", "tactile", "precision"}},
+		{"decoration", input.Decoration, []string{"none", "editorial", "playful", "botanical", "study", "tactile", "precision", "dither"}},
 	}
 	for _, check := range checks {
 		if !slices.Contains(check.allowed, check.value) {

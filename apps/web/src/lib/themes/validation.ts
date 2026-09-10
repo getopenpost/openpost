@@ -1,6 +1,7 @@
 import { convert, isColor } from '@asamuzakjp/css-color';
 import {
 	THEME_COLOR_TOKEN_KEYS,
+	THEME_DITHER_MAX_OPACITY,
 	THEME_MOTION_RECIPE_KEYS,
 	THEME_REDUCED_MOTION_OPTIONS,
 	THEME_TYPOGRAPHY_ROLE_KEYS,
@@ -544,6 +545,22 @@ function hasDistinctStatusColors(colors: ThemeColorTokens): boolean {
 	return true;
 }
 
+function hasReadableDitherActions(manifest: ThemeSchemeManifest): boolean {
+	if (manifest.components.button !== 'dither') return true;
+	const colors = manifest.colors;
+	for (const intent of ['actionFocal', 'actionPrimary', 'actionOrdinary'] as const) {
+		const ink = colors[`${intent}Ink`];
+		for (const state of [intent, `${intent}Hover`, `${intent}Active`] as const) {
+			const texture = `color-mix(in srgb, ${ink} ${THEME_DITHER_MAX_OPACITY * 100}%, ${colors[state]})`;
+			for (const underlay of [colors.canvas, colors.surface]) {
+				const ratio = themeColorContrastRatio(ink, texture, underlay);
+				if (ratio === undefined || ratio < MINIMUM_TEXT_CONTRAST) return false;
+			}
+		}
+	}
+	return true;
+}
+
 export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): boolean {
 	const spacing = manifest.spacing;
 	const shape = manifest.shape;
@@ -573,6 +590,7 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 		THEME_COLOR_TOKEN_KEYS.every((key) => isSafeThemeColor(manifest.colors[key])) &&
 		hasReadableColorPairs(manifest.colors) &&
 		hasReadableActionStates(manifest.colors) &&
+		hasReadableDitherActions(manifest) &&
 		hasVisibleFocus(manifest.colors) &&
 		hasDistinctDestructiveAction(manifest.colors) &&
 		hasDistinctStatusColors(manifest.colors) &&

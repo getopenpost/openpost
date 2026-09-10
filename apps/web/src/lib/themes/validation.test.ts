@@ -89,6 +89,13 @@ describe('theme manifest value validation', () => {
 		expect(themeColorContrastRatio('rgb(0 0 0 / 50%)', 'white')).toBeCloseTo(3.98, 2);
 	});
 
+	it('rejects a custom Dither button recipe when its texture makes the label unreadable', () => {
+		const manifest = resolveBuiltInTheme('workshop', 'light').manifest;
+		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(true);
+		manifest.components.button = 'dither';
+		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(false);
+	});
+
 	it('keeps every built-in scheme inside the same safety floor', () => {
 		for (const theme of BUILT_IN_THEMES) {
 			for (const manifest of Object.values(theme.schemes)) {

@@ -36,6 +36,7 @@
 
 <div
 	class="theme-preview-scene relative h-screen max-w-full overflow-hidden bg-background text-foreground"
+	inert={!interactive}
 	data-preview-scene={scene}
 	data-slot="app-shell"
 	data-theme-type="body"
@@ -166,7 +167,7 @@
 							</h3>
 						</div>
 						{#if showCreateAction}
-							<Button size="sm" intent="focal" disabled={!interactive}
+							<Button size="sm" intent="focal"
 								><ThemeIcon role="compose" class="size-3.5" /> {copy.createPost}</Button
 							>
 						{/if}
@@ -193,7 +194,7 @@
 								<span data-theme-type="metadata" class="text-muted-foreground"
 									>{copy.composerDestinations}</span
 								>
-								<Button size="sm" intent="primary" disabled={!interactive}>{copy.review}</Button>
+								<Button size="sm" intent="primary">{copy.review}</Button>
 							</div>
 						</section>
 					{:else if scene === 'calendar'}
@@ -312,21 +313,18 @@
 						>
 							<label data-theme-type="label" class="grid gap-1.5">
 								{copy.workspaceNameLabel}
-								<Input data-theme-type="body" value="Northstar" readonly={!interactive} />
+								<Input data-theme-type="body" value="Northstar" />
 							</label>
 							<label data-theme-type="label" class="grid gap-1.5">
 								{copy.defaultTimezone}
 								<AppSelect
 									value="Europe/Lisbon"
 									options={[{ value: 'Europe/Lisbon', label: 'Europe/Lisbon' }]}
-									disabled={!interactive}
 								/>
 							</label>
 							<div class="flex flex-wrap justify-end gap-2 pt-1">
-								<Button size="sm" intent="quiet" disabled={!interactive}>{copy.cancel}</Button>
-								<Button size="sm" intent="primary" disabled={!interactive}
-									>{copy.saveChanges}</Button
-								>
+								<Button size="sm" intent="quiet">{copy.cancel}</Button>
+								<Button size="sm" intent="primary">{copy.saveChanges}</Button>
 							</div>
 						</form>
 					{:else if scene === 'dialog'}
@@ -351,12 +349,8 @@
 										{copy.deleteDraftDescription}
 									</p>
 									<div class="mt-4 flex justify-end gap-2">
-										<Button size="sm" intent="quiet" disabled={!interactive}
-											>{copy.keepDraft}</Button
-										>
-										<Button size="sm" intent="destructive" disabled={!interactive}
-											>{copy.delete}</Button
-										>
+										<Button size="sm" intent="quiet">{copy.keepDraft}</Button>
+										<Button size="sm" intent="destructive">{copy.delete}</Button>
 									</div>
 								</div>
 							</div>
@@ -401,9 +395,7 @@
 								<p data-theme-type="body" class="mt-1 text-muted-foreground">
 									{copy.emptyDescription}
 								</p>
-								<Button class="mt-4" size="sm" intent="focal" disabled={!interactive}
-									>{copy.createPost}</Button
-								>
+								<Button class="mt-4" size="sm" intent="focal">{copy.createPost}</Button>
 							</div>
 						</div>
 					{:else if scene === 'loading'}

@@ -231,6 +231,14 @@ Workshop uses a 12px base corner, 10px controls, 12px cards, and 14–16px promi
 
 ## Components
 
+### Dither material
+
+Dither pairs cobalt actions with Geist and outlined navigation. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
+
+Ordered pixel textures sit behind button labels, along card bottoms, and inside chart bars. Text, focus rings, and chart value boundaries stay solid. Charts retain semantic series colors, labels, and keyboard interaction. Forced-colors mode removes the texture. Native clients use the same palette and shape tokens with solid fills.
+
+Custom Dither button recipes must preserve text contrast after the texture is composited in every interaction state. Theme previews block interaction with `inert` so sample controls retain their normal appearance.
+
 ### Buttons
 
 - **Shape:** Compact medium corners with a 36px desktop height and 44px coarse-pointer target.

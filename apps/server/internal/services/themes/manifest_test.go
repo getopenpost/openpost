@@ -24,6 +24,16 @@ func TestDecodeManifestRejectsUnknownAndFutureSchemas(t *testing.T) {
 	}
 }
 
+func TestDitherRecipeRejectsUnreadableCustomActionTexture(t *testing.T) {
+	manifest := *BuiltIns()["workshop"].Schemes.Light
+	_, err := NormalizeSchemeManifest(SchemeLight, manifest)
+	require.NoError(t, err)
+	manifest.Components.Button = "dither"
+	_, err = NormalizeSchemeManifest(SchemeLight, manifest)
+	require.ErrorIs(t, err, ErrInvalidManifest)
+	require.ErrorContains(t, err, "dither")
+}
+
 func TestDecodeStoredManifestRejectsClientSuppliedNativeDerivative(t *testing.T) {
 	manifest := BuiltIns()["workshop"]
 	manifest.Fonts = []ThemeFontFace{{

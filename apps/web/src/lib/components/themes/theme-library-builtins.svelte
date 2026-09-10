@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import DitherGradient from '$lib/components/dither/dither-gradient.svelte';
 	import type { Locale } from '$lib/paraglide/runtime';
 	import type { ThemeScheme, ThemeSchemeManifest } from '$lib/themes';
 	import {
@@ -89,9 +90,13 @@
 									style:background={preview?.colors.ink ?? 'var(--foreground)'}
 								></div>
 								<div
-									class="h-4 w-1/2 rounded"
+									class="relative h-4 w-1/2 rounded"
 									style:background={preview?.colors.actionFocal ?? 'var(--primary)'}
-								></div>
+								>
+									{#if preview?.components.button === 'dither'}
+										<DitherGradient color={preview.colors.actionFocalInk} opacity={0.3} />
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>

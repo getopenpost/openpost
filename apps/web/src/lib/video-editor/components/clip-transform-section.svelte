@@ -295,7 +295,7 @@
 
 <div class="flex flex-col gap-2" data-testid="clip-transform-panel">
 	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		data-testid="clip-transform-section"
 	>
 		<h3
@@ -473,7 +473,7 @@
 	</section>
 
 	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 	>
 		<h3
 			class="flex h-8 items-center border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"

@@ -415,7 +415,7 @@
 			{#each bands as band (band.key)}
 				{@const bandType = value(band, 'typeKey')}
 				<details
-					class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+					class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 				>
 					<summary class="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-xs">
 						<span class="w-14 font-medium text-[var(--video-editor-muted)]">{band.label()}</span>

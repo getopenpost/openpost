@@ -64,6 +64,49 @@ test("a collapsed asset tab opens its panel in one click", async ({ page }) => {
 });
 
 for (const scheme of ["light", "dark"] as const) {
+  test(`property panels stay neutral while controls retain their accent in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await createProject(page, "Neutral properties");
+    await page
+      .getByRole("complementary", { name: "Assets" })
+      .getByRole("button", { name: "Add layer" })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    const panels = page.getByTestId("clip-transform-panel").locator("section");
+    await expect(panels).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath(`properties-${scheme}.png`) });
+    for (const panel of await panels.all()) {
+      const colors = await panel.evaluate((element) => {
+        const probe = document.createElement("span");
+        element.append(probe);
+        probe.style.backgroundColor = "var(--card)";
+        const neutral = getComputedStyle(probe).backgroundColor;
+        probe.style.backgroundColor = "var(--action-ordinary-hover)";
+        const hover = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return { actual: getComputedStyle(element).backgroundColor, neutral, hover };
+      });
+      expect(colors.actual).toBe(colors.neutral);
+      expect(colors.actual).not.toBe(colors.hover);
+    }
+    const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
+    await opacity.focus();
+    await opacity.press("ArrowLeft");
+    await expect(opacity).toHaveAttribute("aria-valuenow", "99");
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator("[data-program-monitor]")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await page.screenshot({ path: testInfo.outputPath(`properties-${scheme}-${width}.png`) });
+    }
+  });
+
   test(`panel transitions preserve geometry and size in ${scheme}`, async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     const errors: string[] = [];

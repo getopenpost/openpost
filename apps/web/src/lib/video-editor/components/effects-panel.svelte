@@ -696,7 +696,7 @@
 							{#snippet child({ props })}
 								<div
 									{...props}
-									class="flex min-h-8 items-center justify-between gap-1 bg-[var(--video-editor-control-hover)] px-1"
+									class="flex min-h-8 items-center justify-between gap-1 bg-[var(--video-editor-panel)] px-1"
 									data-effect-context-trigger
 								>
 									<button

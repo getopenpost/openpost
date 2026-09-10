@@ -202,7 +202,7 @@
 						{m.video_editor_duck_targets_hint()}
 					</p>
 					<div
-						class="grid max-h-32 grid-cols-1 gap-1 overflow-y-auto rounded bg-[var(--video-editor-control-hover)] p-2"
+						class="grid max-h-32 grid-cols-1 gap-1 overflow-y-auto rounded bg-[var(--video-editor-panel)] p-2"
 					>
 						{#each availableTracks as track (track.id)}
 							<label

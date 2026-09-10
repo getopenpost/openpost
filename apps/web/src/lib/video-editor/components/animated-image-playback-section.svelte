@@ -96,7 +96,7 @@
 
 {#if items.length > 0}
 	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		data-testid="animated-image-playback-section"
 	>
 		<h3

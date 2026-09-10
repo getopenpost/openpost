@@ -18,104 +18,111 @@ function runTurbo(directory, args) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 
-test("the frontend package cache restores output and invalidates on root assets", async (t) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-build-graph-"));
-  const cacheDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-build-graph-cache-"));
-  const runCountPath = path.join(
-    os.tmpdir(),
-    `openpost-build-graph-runs-${path.basename(directory)}.txt`,
-  );
-  t.after(async () => {
-    await rm(directory, { recursive: true, force: true });
-    await rm(cacheDirectory, { recursive: true, force: true });
-    await rm(runCountPath, { force: true });
-  });
-  await mkdir(path.join(directory, "apps/web"), { recursive: true });
-  await mkdir(path.join(directory, "assets"), { recursive: true });
-  const rootTurbo = JSON.parse(await readFile(path.join(root, "turbo.json"), "utf8"));
-  const frontendTurbo = JSON.parse(
-    await readFile(path.join(root, "apps/web", "turbo.json"), "utf8"),
-  );
-  await Promise.all([
-    writeFile(
-      path.join(directory, "package.json"),
-      `${JSON.stringify({
-        name: "build-graph-fixture",
-        private: true,
-        packageManager: "npm@10.9.0",
-        workspaces: ["apps/web"],
-      })}\n`,
-    ),
-    writeFile(
-      path.join(directory, "package-lock.json"),
-      `${JSON.stringify({
-        name: "build-graph-fixture",
-        lockfileVersion: 3,
-        requires: true,
-        packages: {
-          "": { name: "build-graph-fixture", workspaces: ["apps/web"] },
-          "apps/web": { name: "@fixture/web", version: "1.0.0" },
-        },
-      })}\n`,
-    ),
-    writeFile(path.join(directory, ".gitignore"), ".turbo/\n"),
-    writeFile(path.join(directory, "turbo.json"), `${JSON.stringify(rootTurbo)}\n`),
-    writeFile(path.join(directory, "apps/web", "turbo.json"), `${JSON.stringify(frontendTurbo)}\n`),
-    writeFile(
-      path.join(directory, "apps/web", "package.json"),
-      `${JSON.stringify({
-        name: "@fixture/web",
-        version: "1.0.0",
-        private: true,
-        scripts: { build: "node build.mjs" },
-      })}\n`,
-    ),
-    writeFile(
-      path.join(directory, "apps/web", "build.mjs"),
-      [
-        'import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";',
-        'const input = await readFile(new URL("../../assets/cache-input.txt", import.meta.url));',
-        'await mkdir(new URL("./build", import.meta.url), { recursive: true });',
-        'await writeFile(new URL("./build/artifact.txt", import.meta.url), input);',
-        `await appendFile(${JSON.stringify(runCountPath)}, "run\\n");`,
-        "",
-      ].join("\n"),
-    ),
-    writeFile(path.join(directory, "assets", "cache-input.txt"), "alpha\n"),
-  ]);
+test(
+  "the frontend package cache restores output and invalidates on root assets",
+  { timeout: 30_000 },
+  async (t) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-build-graph-"));
+    const cacheDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-build-graph-cache-"));
+    const runCountPath = path.join(
+      os.tmpdir(),
+      `openpost-build-graph-runs-${path.basename(directory)}.txt`,
+    );
+    t.after(async () => {
+      await rm(directory, { recursive: true, force: true });
+      await rm(cacheDirectory, { recursive: true, force: true });
+      await rm(runCountPath, { force: true });
+    });
+    await mkdir(path.join(directory, "apps/web"), { recursive: true });
+    await mkdir(path.join(directory, "assets"), { recursive: true });
+    const rootTurbo = JSON.parse(await readFile(path.join(root, "turbo.json"), "utf8"));
+    const frontendTurbo = JSON.parse(
+      await readFile(path.join(root, "apps/web", "turbo.json"), "utf8"),
+    );
+    await Promise.all([
+      writeFile(
+        path.join(directory, "package.json"),
+        `${JSON.stringify({
+          name: "build-graph-fixture",
+          private: true,
+          packageManager: "npm@10.9.0",
+          workspaces: ["apps/web"],
+        })}\n`,
+      ),
+      writeFile(
+        path.join(directory, "package-lock.json"),
+        `${JSON.stringify({
+          name: "build-graph-fixture",
+          lockfileVersion: 3,
+          requires: true,
+          packages: {
+            "": { name: "build-graph-fixture", workspaces: ["apps/web"] },
+            "apps/web": { name: "@fixture/web", version: "1.0.0" },
+          },
+        })}\n`,
+      ),
+      writeFile(path.join(directory, ".gitignore"), ".turbo/\n"),
+      writeFile(path.join(directory, "turbo.json"), `${JSON.stringify(rootTurbo)}\n`),
+      writeFile(
+        path.join(directory, "apps/web", "turbo.json"),
+        `${JSON.stringify(frontendTurbo)}\n`,
+      ),
+      writeFile(
+        path.join(directory, "apps/web", "package.json"),
+        `${JSON.stringify({
+          name: "@fixture/web",
+          version: "1.0.0",
+          private: true,
+          scripts: { build: "node build.mjs" },
+        })}\n`,
+      ),
+      writeFile(
+        path.join(directory, "apps/web", "build.mjs"),
+        [
+          'import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";',
+          'const input = await readFile(new URL("../../assets/cache-input.txt", import.meta.url));',
+          'await mkdir(new URL("./build", import.meta.url), { recursive: true });',
+          'await writeFile(new URL("./build/artifact.txt", import.meta.url), input);',
+          `await appendFile(${JSON.stringify(runCountPath)}, "run\\n");`,
+          "",
+        ].join("\n"),
+      ),
+      writeFile(path.join(directory, "assets", "cache-input.txt"), "alpha\n"),
+    ]);
 
-  const common = [
-    "run",
-    "build",
-    "--filter",
-    "@fixture/web",
-    "--cache-dir",
-    cacheDirectory,
-    "--output-logs",
-    "errors-only",
-  ];
-  runTurbo(directory, [...common, "--force"]);
-  assert.equal(
-    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
-    "alpha\n",
-  );
-  await rm(path.join(directory, "apps/web", "build"), { recursive: true });
+    const common = [
+      "run",
+      "build",
+      "--filter",
+      "@fixture/web",
+      "--cache-dir",
+      cacheDirectory,
+      "--output-logs",
+      "errors-only",
+    ];
+    runTurbo(directory, [...common, "--force"]);
+    assert.equal(
+      await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
+      "alpha\n",
+    );
+    await rm(path.join(directory, "apps/web", "build"), { recursive: true });
 
-  runTurbo(directory, common);
-  assert.equal(
-    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
-    "alpha\n",
-  );
-  assert.equal(await readFile(runCountPath, "utf8"), "run\n");
+    runTurbo(directory, common);
+    assert.equal(
+      await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
+      "alpha\n",
+    );
+    assert.equal(await readFile(runCountPath, "utf8"), "run\n");
 
-  await writeFile(path.join(directory, "assets", "cache-input.txt"), "beta\n");
-  runTurbo(directory, common);
-  assert.equal(
-    await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
-    "beta\n",
-  );
-  assert.equal(await readFile(runCountPath, "utf8"), "run\nrun\n");
-});
+    await writeFile(path.join(directory, "assets", "cache-input.txt"), "beta\n");
+    runTurbo(directory, common);
+    assert.equal(
+      await readFile(path.join(directory, "apps/web", "build", "artifact.txt"), "utf8"),
+      "beta\n",
+    );
+    assert.equal(await readFile(runCountPath, "utf8"), "run\nrun\n");
+  },
+);
 
 test("the frontend cache stores compiled output without immutable editor assets", async () => {
   const turboJSON = JSON.parse(await readFile(path.join(root, "apps/web", "turbo.json"), "utf8"));

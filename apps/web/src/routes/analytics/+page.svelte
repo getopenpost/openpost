@@ -717,6 +717,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 {/if}
 
 <PageContainer
+	featureMark="analytics"
 	title={m.analytics_title()}
 	themeIconRole="analytics"
 	description={m.analytics_description()}

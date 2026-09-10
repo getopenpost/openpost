@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
+	import type { FeatureMarkName } from '$lib/components/feature-mark.svelte';
 	import type { ThemeIconRole } from '$lib/themes';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -13,6 +14,7 @@
 		title: string;
 		/** Optional icon component to display before title */
 		icon?: IconComponent;
+		featureMark?: FeatureMarkName;
 		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
 		themeIconRole?: ThemeIconRole;
 		/** Optional plain-text description below the title */
@@ -43,6 +45,7 @@
 		title,
 		icon: Icon,
 		themeIconRole,
+		featureMark,
 		description,
 		actions,
 		navigation,
@@ -95,7 +98,7 @@
 	</div>
 {:else}
 	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
-		<PageHeader {title} icon={Icon} {themeIconRole} {description} {actions} />
+		<PageHeader {title} icon={Icon} {themeIconRole} {featureMark} {description} {actions} />
 
 		{#if navigation}
 			<div data-slot="page-navigation" data-theme-type="body" class="min-w-0 empty:hidden">

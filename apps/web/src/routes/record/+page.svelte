@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import Logo from '$lib/components/Logo.svelte';
+	import FeatureMark from '$lib/components/feature-mark.svelte';
 	import { showToast } from '$lib/toast';
 	import { recordingExtension } from '$lib/video-editor/recorder/record-mime';
 	import {
@@ -323,13 +324,14 @@
 	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
 	<header
-		class="flex items-center justify-between border-b border-[var(--video-editor-border)] px-3 py-2"
+		class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[var(--video-editor-border)] px-3 py-2"
 	>
 		<a
 			href="/editors"
-			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex min-h-11 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
 		>
 			<Logo class="h-5 w-auto" />
+			<FeatureMark name="recorder" size={28} />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
 		</a>
 		{#if cloudWorkspaceId && !captureBusy}

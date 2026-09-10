@@ -689,6 +689,7 @@
 {/if}
 
 <PageContainer
+	featureMark="inbox"
 	title={m.messages_heading()}
 	description={m.messages_description()}
 	themeIconRole="inbox"

@@ -49,7 +49,7 @@
 		},
 		{
 			name: 'Media',
-			icon: '/assets/brand/features/image-editor.svg',
+			icon: '/assets/brand/features/media.svg',
 			lightSrc: '/assets/screenshots/media-light.webp',
 			darkSrc: '/assets/screenshots/media-dark.webp',
 			alt: 'OpenPost media library with saved photos and reusable brand assets',
@@ -57,7 +57,7 @@
 		},
 		{
 			name: 'Accounts',
-			icon: '/assets/brand/features/compose.svg',
+			icon: '/assets/brand/features/accounts.svg',
 			lightSrc: '/assets/screenshots/accounts-light.webp',
 			darkSrc: '/assets/screenshots/accounts-dark.webp',
 			alt: 'OpenPost Accounts page with connected social profiles',

@@ -164,7 +164,7 @@ a {
   line-height: 1.6;
   color: var(--color-fd-muted-foreground);
 }
-.home-quickstart > svg {
+.home-quickstart > img {
   color: var(--color-fd-primary);
   flex-shrink: 0;
 }
@@ -287,7 +287,20 @@ a {
   justify-content: space-between;
 }
 .docs-page-heading h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
   margin: 0;
+}
+.docs-page-heading h1 > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.docs-feature-mark {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
 }
 .page-actions {
   display: inline-flex;

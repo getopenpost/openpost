@@ -1089,6 +1089,7 @@
 	<header class="border-b bg-background/95">
 		<div class="px-4 py-4 lg:px-6" style="container-type: inline-size;">
 			<PageHeader
+				featureMark="calendar"
 				title={m.activity_title()}
 				description={formatCalendarTitle()}
 				contentClass="min-w-max shrink-0"

@@ -1423,6 +1423,7 @@
 {/if}
 
 <PageContainer
+	featureMark="media"
 	title={m.media_hub_title()}
 	description={descriptionText}
 	themeIconRole="image"

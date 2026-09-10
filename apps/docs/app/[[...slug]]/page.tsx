@@ -10,6 +10,21 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+const featureMarks: Record<string, string> = {
+  "guides/quickstart.mdx": "/assets/brand/features/compose.svg",
+  "guides/publishing.mdx": "/assets/brand/features/compose.svg",
+  "guides/image-editor.mdx": "/assets/brand/features/image-editor.svg",
+  "guides/video-editor.mdx": "/assets/brand/features/video-editor.svg",
+  "guides/scheduling.mdx": "/assets/brand/features/calendar.svg",
+  "guides/analytics.mdx": "/assets/brand/features/analytics.svg",
+  "guides/media-library.mdx": "/assets/brand/features/media.svg",
+  "guides/inbox.mdx": "/assets/brand/features/inbox.svg",
+  "guides/accounts.mdx": "/assets/brand/features/accounts.svg",
+  "guides/recording.mdx": "/assets/brand/features/recorder.svg",
+  "guides/workspaces.mdx": "/assets/brand/features/workspaces.svg",
+  "guides/automation.mdx": "/assets/brand/features/automation.svg",
+};
+
 type Props = { params: Promise<{ slug?: string[] }> };
 export default async function Page({ params }: Props) {
   const { slug } = await params;
@@ -20,7 +35,19 @@ export default async function Page({ params }: Props) {
   return (
     <DocsPage toc={page.data.toc} full={page.data.full} tabIndex={-1}>
       <div className="docs-page-heading">
-        <DocsTitle>{page.data.title}</DocsTitle>
+        <DocsTitle>
+          {featureMarks[page.path] && (
+            <img
+              src={featureMarks[page.path]}
+              alt=""
+              aria-hidden="true"
+              width={36}
+              height={36}
+              className="docs-feature-mark"
+            />
+          )}
+          <span>{page.data.title}</span>
+        </DocsTitle>
         <div className="page-actions">
           {!page.data._openapi && (
             <MarkdownCopyButton markdownUrl={`/${page.path.replace(/\.mdx?$/, ".md")}`}>

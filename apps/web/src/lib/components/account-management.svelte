@@ -1456,6 +1456,7 @@
 {/if}
 
 <PageContainer
+	featureMark="accounts"
 	title={m.accounts_heading()}
 	description={m.accounts_description()}
 	themeIconRole="users"

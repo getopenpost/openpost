@@ -833,6 +833,7 @@
 
 <Tabs bind:value={activeTab} class="min-w-0 flex-1">
 	<PageContainer
+		featureMark="calendar"
 		title={m.activity_title()}
 		description={m.activity_description()}
 		themeIconRole="publications"

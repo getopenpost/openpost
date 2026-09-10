@@ -141,12 +141,19 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
     await expect(link).toBeFocused();
     await expect(link).toHaveAttribute("href", /^https:\/\/docs\.openpo\.st\//);
   }
-  for (const image of await features.locator("img").all()) {
+  for (const image of await features.locator(".visual img").all()) {
     await image.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
         image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth >= 1000),
       )
+      .toBe(true);
+  }
+  for (const mark of await features.locator('img[src*="/brand/features/"]').all()) {
+    await mark.scrollIntoViewIfNeeded();
+    await expect(mark).toHaveAttribute("alt", "");
+    await expect
+      .poll(() => mark.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
       .toBe(true);
   }
   await expect(

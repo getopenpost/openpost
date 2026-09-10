@@ -1,51 +1,45 @@
 <script lang="ts">
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-	import Repeat from '@lucide/svelte/icons/repeat-2';
-	import Inbox from '@lucide/svelte/icons/inbox';
-	import Terminal from '@lucide/svelte/icons/terminal';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import Images from '@lucide/svelte/icons/images';
-	import Sprout from '@lucide/svelte/icons/sprout';
 	import ThemeImage from './ThemeImage.svelte';
 	const features = [
 		{
 			title: 'Your media library',
-			icon: Images,
+			icon: '/assets/brand/features/media.svg',
 			text: 'Keep templates, brand assets, and fonts ready to reuse. Find files with tags, collections, and favorites. Draft alt text with AI.',
 			href: 'https://docs.openpo.st/guides/media',
 			link: 'Organize your media'
 		},
 		{
 			title: 'Grow your network',
-			icon: Sprout,
+			icon: '/assets/brand/features/grow.svg',
 			text: 'Find people to follow on Bluesky and Mastodon. Review recommendations and mutual connections, then choose who to follow.',
 			href: 'https://docs.openpo.st/guides/results',
 			link: 'Explore Grow'
 		},
 		{
 			title: 'Auto repost',
-			icon: Repeat,
+			icon: '/assets/brand/features/repost.svg',
 			text: 'Give a post another turn. Set delays and engagement rules, with overrides for individual posts.',
 			href: 'https://docs.openpo.st/guides/scheduling',
 			link: 'Set repost rules'
 		},
 		{
 			title: 'Inbox and DMs',
-			icon: Inbox,
+			icon: '/assets/brand/features/inbox.svg',
 			text: 'Follow conversations and reply to comments and messages from supported connected accounts.',
 			href: 'https://docs.openpo.st/guides/results',
 			link: 'See inbox support'
 		},
 		{
 			title: 'Connect your tools',
-			icon: Terminal,
+			icon: '/assets/brand/features/automation.svg',
 			text: 'Bring OpenPost into the tools you already use. Draft with your AI assistant or connect a workflow in n8n.',
 			href: 'https://docs.openpo.st/guides/automation',
 			link: 'Connect your tools'
 		},
 		{
 			title: 'Teams and security',
-			icon: ShieldCheck,
+			icon: '/assets/brand/features/workspaces.svg',
 			text: 'Separate workspaces and member roles. Sign in with passkeys or two-factor authentication and manage active sessions.',
 			href: 'https://docs.openpo.st/guides/workspaces',
 			link: 'Explore account security'
@@ -60,8 +54,15 @@
 	</div>
 	<article class="schedule feature-panel">
 		<div class="copy">
-			<span class="eyebrow">Scheduling and queues</span>
-			<h3>A posting rhythm<br />you can keep.</h3>
+			<h3 class="feature-heading">
+				<img
+					src="/assets/brand/features/calendar.svg"
+					alt=""
+					width="44"
+					height="44"
+					loading="lazy"
+				/><span>A posting rhythm<br />you can keep.</span>
+			</h3>
 			<p>
 				Pick a time or use your next free posting slot. Plan the week in your calendar, stagger
 				channels, and get a reminder when the queue runs low.
@@ -84,8 +85,15 @@
 	<div class="feature-pair">
 		<article class="feature-panel ai">
 			<div class="copy">
-				<span class="eyebrow">AI writing assistant</span>
-				<h3>Start with an idea.<br />Or find one with Ideate.</h3>
+				<h3 class="feature-heading">
+					<img
+						src="/assets/brand/features/ideas.svg"
+						alt=""
+						width="44"
+						height="44"
+						loading="lazy"
+					/><span>Start with an idea.<br />Or find one with Ideate.</span>
+				</h3>
 				<p>
 					Explore ideas and compare directions. Use Social Sets to choose an account group, build
 					drafts for each channel, and review every version.
@@ -119,8 +127,15 @@
 		</article>
 		<article class="feature-panel memes">
 			<div class="copy">
-				<span class="eyebrow">Meme creator</span>
-				<h3>Sometimes a meme<br />says it better.</h3>
+				<h3 class="feature-heading">
+					<img
+						src="/assets/brand/features/memes.svg"
+						alt=""
+						width="44"
+						height="44"
+						loading="lazy"
+					/><span>Sometimes a meme<br />says it better.</span>
+				</h3>
 				<p>
 					Pick a template, write the captions, and swap in your images. Save the result to Media or
 					attach it to your post.
@@ -143,8 +158,15 @@
 	</div>
 	<article class="analytics feature-panel">
 		<div class="copy">
-			<span class="eyebrow">Analytics</span>
-			<h3>See what people respond to.</h3>
+			<h3 class="feature-heading">
+				<img
+					src="/assets/brand/features/analytics.svg"
+					alt=""
+					width="44"
+					height="44"
+					loading="lazy"
+				/><span>See what people respond to.</span>
+			</h3>
 			<p>
 				Follow views, reach, engagement, and audience changes. Compare posts using the metrics your
 				connected platforms provide, then repurpose a post into a fresh draft.
@@ -167,8 +189,11 @@
 	<div class="more-features">
 		{#each features as feature (feature.title)}
 			<article>
-				<feature.icon size={25} strokeWidth={1.5} />
-				<h3>{feature.title}</h3>
+				<h3 class="feature-heading">
+					<img src={feature.icon} alt="" width="36" height="36" loading="lazy" /><span
+						>{feature.title}</span
+					>
+				</h3>
 				<p>{feature.text}</p>
 				<a class="focus-ring" href={feature.href}>{feature.link} <ArrowUpRight size={16} /></a>
 			</article>
@@ -209,12 +234,16 @@
 	.copy p {
 		margin-top: 16px;
 	}
-	.eyebrow {
-		display: block;
-		font-size: 13px;
-		font-weight: 550;
-		margin-bottom: 16px;
-		color: var(--muted-foreground);
+	.feature-heading {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+	.feature-heading img {
+		flex: none;
+	}
+	.feature-heading span {
+		min-width: 0;
 	}
 	.feature-panel {
 		overflow: hidden;
@@ -323,7 +352,7 @@
 	}
 	.more-features h3 {
 		font-size: 20px;
-		margin-block: 18px 12px;
+		margin-block: 0 12px;
 	}
 	.more-features p {
 		font-size: 14px;

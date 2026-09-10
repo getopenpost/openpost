@@ -2688,7 +2688,7 @@
 				onclick={goBack}
 				aria-label={returnToken ? m.editor_back_to_post() : m.image_editor_title()}
 			>
-				<img src="/assets/brand/features/image-editor.svg" alt="" width="28" height="28" />
+				<ThemeIcon role="chevron-left" class="size-5" />
 			</Button>
 			<EditorTitleInput
 				value={editor.document?.title ?? ''}

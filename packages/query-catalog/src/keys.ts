@@ -28,10 +28,17 @@ export const openPostQueryKeys = {
       [...openPostWorkspaceKey(workspaceId), "publications", "list"] as const,
     activityRoot: publicationActivityRootKey,
     activityAll: publicationActivityKey,
-    activity: (workspaceId: string, bucket: ActivityPublicationBucket, page: QueryPage) =>
+    activity: (
+      workspaceId: string,
+      bucket: ActivityPublicationBucket,
+      page: QueryPage,
+      search = "",
+    ) =>
       [
         ...publicationActivityKey(workspaceId, bucket),
-        { cursor: page.cursor ?? "", limit: page.limit },
+        search.trim()
+          ? { cursor: page.cursor ?? "", limit: page.limit, search: search.trim() }
+          : { cursor: page.cursor ?? "", limit: page.limit },
       ] as const,
     detail: (workspaceId: string, publicationId: string) =>
       [...openPostWorkspaceKey(workspaceId), "publications", "detail", publicationId] as const,

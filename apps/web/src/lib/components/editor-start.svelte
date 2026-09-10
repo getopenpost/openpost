@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import FeatureMark from '$lib/components/feature-mark.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -54,12 +53,13 @@
 <main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
 	<div class="mb-8 flex flex-wrap items-center justify-between gap-5">
 		<div class="flex min-w-0 items-center gap-4">
-			<FeatureMark name={`${kind}-editor`} size={52} />
 			<div class="min-w-0">
 				<h1
+					data-theme-type="title"
+					data-app-title
 					bind:this={heading}
 					tabindex="-1"
-					class="text-2xl font-semibold tracking-tight outline-none"
+					class="outline-none"
 				>
 					{title}
 				</h1>

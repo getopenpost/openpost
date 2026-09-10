@@ -234,7 +234,6 @@
 </svelte:head>
 
 <PageContainer
-	featureMark={activeSettingsTab === 'accounts' ? 'accounts' : undefined}
 	title={activeSettingsTitle}
 	description={activeSettingsDescription}
 	themeIconRole="settings"

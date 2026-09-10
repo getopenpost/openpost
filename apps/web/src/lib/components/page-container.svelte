@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
-	import type { FeatureMarkName } from '$lib/components/feature-mark.svelte';
 	import type { ThemeIconRole } from '$lib/themes';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -14,7 +13,6 @@
 		title: string;
 		/** Optional icon component to display before title */
 		icon?: IconComponent;
-		featureMark?: FeatureMarkName;
 		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
 		themeIconRole?: ThemeIconRole;
 		/** Optional plain-text description below the title */
@@ -37,6 +35,8 @@
 		mountWhileLoading?: boolean;
 		/** Render only the content when the page is embedded in another shell */
 		embedded?: boolean;
+		/** Let a canvas or calendar own scrolling within the remaining page height. */
+		contentLayout?: 'document' | 'fill';
 		/** Page content */
 		children: Snippet;
 	}
@@ -45,7 +45,6 @@
 		title,
 		icon: Icon,
 		themeIconRole,
-		featureMark,
 		description,
 		actions,
 		navigation,
@@ -56,6 +55,7 @@
 		loadingItems = 4,
 		mountWhileLoading = false,
 		embedded = false,
+		contentLayout = 'document',
 		children
 	}: Props = $props();
 
@@ -97,8 +97,13 @@
 		{/if}
 	</div>
 {:else}
-	<div data-slot="page-container" data-theme-content style="container-type: inline-size;">
-		<PageHeader {title} icon={Icon} {themeIconRole} {featureMark} {description} {actions} />
+	<div
+		data-slot="page-container"
+		data-content-layout={contentLayout}
+		data-theme-content
+		style="container-type: inline-size;"
+	>
+		<PageHeader {title} icon={Icon} {themeIconRole} {description} {actions} />
 
 		{#if navigation}
 			<div data-slot="page-navigation" data-theme-type="body" class="min-w-0 empty:hidden">

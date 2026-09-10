@@ -10,6 +10,7 @@ interface ActivityPublicationsQuery {
 	limit: number;
 	offset: number;
 	cursor?: string;
+	search?: string;
 }
 
 interface FailedJobsQuery {
@@ -57,6 +58,7 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 				offset: 0
 			};
 			if (page.cursor) query.cursor = page.cursor;
+			if (page.search?.trim()) query.search = page.search.trim();
 			const { data, response } = await queryGET({
 				signal,
 				fallback: 'Unable to load publications',

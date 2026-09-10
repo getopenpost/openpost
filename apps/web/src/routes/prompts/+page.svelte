@@ -222,7 +222,6 @@
 {/if}
 
 <PageContainer
-	featureMark="ideas"
 	title={m.prompts_title()}
 	description={m.prompts_description()}
 	themeIconRole="idea"

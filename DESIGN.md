@@ -92,11 +92,11 @@ components:
 
 ## Overview
 
-**Default app theme: Dither. Public brand and recovery theme: Workshop.**
+**Default app and marketing theme: Dither. Recovery and documentation theme: Workshop.**
 
-OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using cobalt controls, cool paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Workshop remains the complete fallback and public brand reference.
+OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using restrained orange-brown controls, warm paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Workshop remains the complete fallback and documentation reference.
 
-The authenticated app stays compact and predictable. Marketing pages retain Workshop materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
+The authenticated app stays compact and predictable. Marketing uses the same warm Dither materials with more breathing room and stronger type contrast. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
 
 **Key Characteristics:**
 
@@ -114,7 +114,7 @@ Use the standalone mark when “OpenPost” is already written beside it or spac
 
 ## Colors
 
-The frontmatter tokens and values below define Workshop, the complete fallback and public brand reference. Warm neutrals carry most of that family; orange is a scarce product signal. Dither's app palette is defined in `apps/web/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
+The frontmatter tokens and values below define Workshop, the complete fallback and documentation reference. Warm neutrals carry most of that family; orange is a scarce product signal. Dither's app palette is defined in `apps/web/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
 
 ### Primary
 
@@ -136,7 +136,7 @@ The frontmatter tokens and values below define Workshop, the complete fallback a
 
 ## Public surfaces
 
-Marketing keeps Workshop’s warm canvas, ink, shared controls, and protected identity. Orange stays concentrated in the mark and action accents. Broad page backgrounds and headings use neutral tones.
+Marketing uses Dither’s warm canvas, orange-brown action accents, ordered pixel texture, and protected identity. Orange stays concentrated in the mark and action accents. Broad page backgrounds and headings use neutral tones.
 
 The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
 
@@ -144,7 +144,7 @@ The landing page opens with a zoomable product tour using raw 2x screenshots, wi
 
 The shared marketing footer places a decorative ASCII OpenPost wordmark above the brand and link rows on mint. A paper-plane illustration overlaps the section above it. Keep link rows compact while preserving 44px coarse-pointer targets. Pointer movement changes the wordmark's characters; reduced motion keeps them still.
 
-Feature marks live in `assets/brand/features/`. Their charcoal rim, colored inset, white panels, literal upper symbols, and divided base distinguish tools, while each tool has a fixed color and literal symbol. Use them at editor entry points, application page titles, public feature sections, and customer guide headings, paired with visible text. Keep the same artwork in light and dark. The white field protects the pictogram contrast. Use 24–28px marks in compact app and README rows, 36px in docs, and 44–52px for feature introductions. The app renders these through `feature-mark.svelte` and the shared page header’s `featureMark` prop. They are feature identifiers, not replacements for the protected Converge brand mark, status colors, or action icons. Keep SVGs as the source and distribute them through `scripts/asset-surfaces.ts`.
+Feature artwork lives in `assets/brand/features/` for the README, public feature sections, and existing customer guides. Keep that artwork unchanged across schemes. Application page titles, navigation, editor entry points, and controls use the theme icon system, without feature artwork. The Converge brand mark remains protected. Distribute public artwork through `scripts/asset-surfaces.ts`.
 
 The screenshot tour distributes its selectors across the preview width, wrapping on mobile, with a filling underline for the active view. Advance every five seconds while visible; pause on hover or keyboard focus and provide an explicit pause/play control. Reduced motion disables autoplay. Essential copy, signup links, screenshots, the product-tour link, and FAQ answers remain available without JavaScript. Keep preview and zoom controls accessible by keyboard.
 
@@ -235,7 +235,7 @@ Workshop uses a 12px base corner, 10px controls, 12px cards, and 14–16px promi
 
 ### Dither material
 
-Dither pairs cobalt actions with cool paper or charcoal, Geist, and outlined navigation. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
+Dither pairs orange-brown actions at hue 45 with warm paper or charcoal at neutral hue 50, Geist, and outlined navigation. Use `oklch(0.4 0.13 45)` for light focal actions and `oklch(0.76 0.14 45)` for dark focal actions. Broad backgrounds remain neutral. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
 
 Ordered Bayer textures sit behind button labels, along card bottoms, inside chart bars, and over shared skeletons and progress fills. Text, focus rings, and chart value boundaries stay solid. Charts retain semantic series colors, labels, and keyboard interaction. Forced-colors mode removes visible decoration. Native clients use the same palette and shape tokens with solid fills.
 
@@ -307,3 +307,5 @@ Authenticated routes use `PageContainer`, `PageHeader`, `SectionHeader`, and con
 - **Don't** create one-off loading, empty, success, error, or destructive patterns when a shared primitive exists.
 
 Documentation uses neutral white and charcoal reading surfaces with muted blue links. Orange stays in the product mark.
+
+App page titles use the theme’s typeface, weight, and tracking with `data-app-title`, capped at 1.25rem and a 1.4 line height. List and Calendar share the Publications header. Public profiles use the viewer’s saved Workspace theme after direct navigation or reload, and Dither for anonymous visits. Activity intensity derives from the active primary color.

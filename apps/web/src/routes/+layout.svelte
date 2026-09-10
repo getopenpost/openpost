@@ -3,7 +3,7 @@
 	import PwaManager from '$lib/components/pwa-manager.svelte';
 	import NavigationProgress from '$lib/components/navigation-progress.svelte';
 	import { ModeWatcher } from 'mode-watcher';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { auth } from '$lib/stores/auth';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { captureTelemetryPageView } from '@openpost/telemetry';
@@ -74,6 +74,18 @@
 	let currentPath = $derived($page.url.pathname);
 	let isPreviewRoute = $derived(currentPath === '/preview');
 	let isPublicProfileRoute = $derived(currentPath.startsWith('/u/'));
+	$effect(() => {
+		if (!isPublicProfileRoute || authState.isLoading || !authState.isAuthenticated) return;
+		const actorID = authState.user?.id;
+		// Public profiles skip onboarding, but signed-in viewers still use their workspace theme.
+		void untrack(() =>
+			workspaceCtx.initialize(undefined, {
+				selectionIsCurrent: () => authState.user?.id === actorID
+			})
+		).catch(() => {
+			// Public content remains available when the viewer's workspace cannot load.
+		});
+	});
 	let isErrorRoute = $derived($page.status >= 400);
 	let isManagedEdition = $state(false);
 	const publicRoutes = [
@@ -476,7 +488,7 @@
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>
-	<ThemeAppShell />
+	<ThemeAppShell publicDefault={isPublicRoute && !isPreviewRoute} />
 	<NavigationProgress />
 	{#if !isPreviewRoute}
 		<PwaManager />

@@ -38,6 +38,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
+	import AnalyticsAccountComposition from '$lib/components/analytics-account-composition.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -717,7 +718,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 {/if}
 
 <PageContainer
-	featureMark="analytics"
 	title={m.analytics_title()}
 	themeIconRole="analytics"
 	description={m.analytics_description()}
@@ -1069,6 +1069,21 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						? m.analytics_follower_chart_legend()
 						: m.analytics_content_chart_legend()}
 				</p>
+			</section>
+
+			<section
+				class="rounded-xl border bg-card p-4 sm:p-5"
+				aria-labelledby="analytics-composition-heading"
+			>
+				<div class="mb-5">
+					<h2 id="analytics-composition-heading" class="text-base font-semibold">
+						{m.analytics_audience_title()}
+					</h2>
+					<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
+						{m.analytics_audience_description()}
+					</p>
+				</div>
+				<AnalyticsAccountComposition {accounts} formatValue={formatNumber} {accountLabel} />
 			</section>
 
 			{#if analyticsInsights.length}

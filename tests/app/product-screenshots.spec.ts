@@ -1282,12 +1282,13 @@ test.describe("product screenshot capture", () => {
       await page.route("**/api/v1/publications?**", async (route) => {
         const requestURL = new URL(route.request().url());
         const publications =
-          requestURL.searchParams.get("status") === "draft"
+          requestURL.searchParams.get("status") === "draft" ||
+          requestURL.searchParams.get("activity_bucket") === "draft"
             ? draftPublications
             : calendarPublications;
         await route.fulfill({
           contentType: "application/json",
-          headers: { "X-Has-More": "false" },
+          headers: { "X-Has-More": "false", "X-Total-Count": String(publications.length) },
           json: publications,
         });
       });
@@ -1442,10 +1443,24 @@ test.describe("product screenshot capture", () => {
       await captureDetail(mediaPicker, `meme-creator-detail-${captureScheme}.png`);
       await page.keyboard.press("Escape");
 
+      await page.goto(`/publications?tab=drafts&workspace=${workspace.id}`);
+      await expect(page.getByTestId("publication-list")).toContainText(
+        "Finally moved over to Wayland",
+      );
+      for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: captureViewport.height });
+        await page.screenshot({
+          path: `.impeccable/review/dither-migration/publications-populated-${width}-${captureScheme}.png`,
+        });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+      }
+      await page.setViewportSize(captureViewport);
       await page.goto(`/calendar?workspace=${workspace.id}`);
       await expect(page.getByRole("heading", { name: "Publications", exact: true })).toBeVisible();
       await expect(
-        page.getByTestId("page-header").getByText("August 2026", { exact: true }),
+        page.locator('[data-slot="page-navigation"]').getByText("August 2026", { exact: true }),
       ).toBeVisible();
       await expect(page.locator("[data-calendar-item]")).toHaveCount(calendarPublications.length);
       await capture(page, `calendar-${captureScheme}.png`, [
@@ -1475,11 +1490,25 @@ test.describe("product screenshot capture", () => {
         )
         .toBeGreaterThanOrEqual(0.99);
       await capture(page, `analytics-${captureScheme}.png`, [
-        page.getByRole("heading", { name: "Measured insights" }),
+        page.getByRole("heading", { name: "Audience by account" }),
         dailyViewsChart,
       ]);
 
       await captureDetail(dailyViewsChart, `analytics-detail-${captureScheme}.png`);
+      for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: captureViewport.height });
+        const audience = page.getByRole("region", { name: "Audience by account", exact: true });
+        await expect(audience.getByTestId("analytics-composition-chart")).toBeVisible();
+        await page.mouse.move(0, 0);
+        await audience.screenshot({
+          path: `.impeccable/review/dither-migration/audience-${width}-${captureScheme}.png`,
+          animations: "disabled",
+        });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+      }
+      await page.setViewportSize(captureViewport);
 
       await page.goto("/settings?tab=accounts");
       await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();

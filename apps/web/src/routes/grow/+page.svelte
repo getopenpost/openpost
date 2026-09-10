@@ -674,7 +674,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 </script>
 
 <PageContainer
-	featureMark="grow"
 	title={m.grow_title()}
 	description={m.grow_description()}
 	themeIconRole="growth"

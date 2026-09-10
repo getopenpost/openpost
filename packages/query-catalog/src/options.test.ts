@@ -88,4 +88,26 @@ describe("infinite publication options", () => {
     );
     expect(options.getNextPageParam?.(second)).toBeUndefined();
   });
+
+  it("forwards search and keeps searched activity in a separate cache key", async () => {
+    const listActivityPublications = vi.fn(async () => activityPage(["post-search"]));
+    const api = { listActivityPublications } as Pick<OpenPostQueryAPI, "listActivityPublications">;
+    const options = activityPublicationsInfiniteQueryOptions(api, "workspace-1", "draft", {
+      limit: 40,
+      search: " launch ",
+    });
+    const plain = activityPublicationsInfiniteQueryOptions(api, "workspace-1", "draft", {
+      limit: 40,
+    });
+    expect(options.queryKey).not.toEqual(plain.queryKey);
+
+    const signal = new AbortController().signal;
+    await options.queryFn({ client: new QueryClient(), pageParam: "", signal } as never);
+    expect(listActivityPublications).toHaveBeenCalledWith(
+      "workspace-1",
+      "draft",
+      { limit: 40, cursor: "", search: "launch" },
+      signal,
+    );
+  });
 });

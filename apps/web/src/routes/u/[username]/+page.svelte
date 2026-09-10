@@ -1,10 +1,3 @@
-<!--
-THESIS: Publishing consistency is visible as a personal record; the page refuses a social-feed profile and puts the activity field first.
-OWN-WORLD: Warm black or canvas, restrained type, hairline divisions, and orange contribution cells that intensify with posting cadence.
-STORY: A visitor identifies the creator, understands their publishing record, sees where they post, and can start their own OpenPost profile.
-FIRST VIEWPORT: Avatar, name, handle, five plain statistics, and the first edge of the year-long activity field sit in one quiet column.
-FORM: Public activity ledger, adapted from contribution charts without gamified badges or invented scores.
--->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -178,7 +171,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 					<p class="text-sm font-medium text-primary">
 						{m.public_profile_disabled_title()}
 					</p>
-					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
+					<h1 data-theme-type="title" data-app-title class="mt-4 text-balance">
 						{m.public_profile_disabled_body()}
 					</h1>
 				</div>
@@ -189,7 +182,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 					<p class="text-sm font-medium text-primary">
 						{m.public_profile_unavailable_title()}
 					</p>
-					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
+					<h1 data-theme-type="title" data-app-title class="mt-4 text-balance">
 						{m.public_profile_unavailable_body()}
 					</h1>
 					<Button href={resolve('/' as const)} class="mt-8">Visit OpenPost</Button>
@@ -201,7 +194,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 					<p class="text-sm font-medium text-primary">
 						{m.public_profile_error_title()}
 					</p>
-					<h1 class="mt-4 text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
+					<h1 data-theme-type="title" data-app-title class="mt-4 text-balance">
 						{m.public_profile_error_body()}
 					</h1>
 					<Button
@@ -239,7 +232,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 						</div>
 					{/if}
 				</div>
-				<h1 id="profile-name" class="mt-4 text-3xl font-medium tracking-[-0.03em]">
+				<h1 id="profile-name" data-theme-type="title" data-app-title class="mt-4">
 					{profileName}
 				</h1>
 				<div class="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -291,7 +284,7 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 							</p>
 						{/if}
 					</div>
-					<p class="sr-only">One square per day. Darker orange means more publications.</p>
+					<p class="sr-only">One square per day. Stronger color means more publications.</p>
 					<div class="activity-scroll mt-4 overflow-x-auto pb-2" {@attach showRecentActivity}>
 						<div class="activity-field">
 							<div class="activity-months" aria-hidden="true">
@@ -391,10 +384,10 @@ FORM: Public activity ledger, adapted from contribution charts without gamified 
 
 	.profile-canvas {
 		--activity-0: color-mix(in oklch, var(--muted) 62%, var(--background));
-		--activity-1: oklch(0.78 0.075 57);
-		--activity-2: oklch(0.7 0.11 50);
-		--activity-3: oklch(0.62 0.145 46);
-		--activity-4: oklch(0.55 0.17 42);
+		--activity-1: color-mix(in oklch, var(--primary) 25%, var(--background));
+		--activity-2: color-mix(in oklch, var(--primary) 50%, var(--background));
+		--activity-3: color-mix(in oklch, var(--primary) 75%, var(--background));
+		--activity-4: var(--primary);
 	}
 
 	.profile-stats > div {

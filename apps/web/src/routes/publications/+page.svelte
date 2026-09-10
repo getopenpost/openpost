@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import CopyButton from '$lib/components/copy-button.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes';
 	import type { ProtectedIconRole } from '$lib/themes/icons';
@@ -13,12 +13,15 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { ui } from '$lib/stores/ui.svelte';
+	import { publicationView, isPublicationListTab } from '$lib/stores/publication-view.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { deliveryRecoveryAction, deliveryStateLabel } from '$lib/delivery-presentation';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -76,14 +79,36 @@
 	let hasLoaded = $state(false);
 	let error = $state('');
 	let queryError = $state('');
+	let searchQuery = $state('');
 	let dataWorkspaceID = $state('');
 	let dataActivityBucket = $state<ActivityPublicationBucket | ''>('');
+	let dataSearch = $state('');
 	let dataRequestSequence = 0;
 	let destinationActionSequence = 0;
 	const failureDismissalToastIDs = new Set<string | number>();
+	const requestedTab = page.url.searchParams.get('tab');
 	let activeTab = $state<ActivityTab>(
-		page.url.searchParams.get('tab') === 'drafts' ? 'drafts' : 'scheduled'
+		isPublicationListTab(requestedTab) ? requestedTab : publicationView.listTab
 	);
+	$effect(() => {
+		if (page.route.id !== '/publications') return;
+		const tab = page.url.searchParams.get('tab');
+		const selectedTab = isPublicationListTab(tab) ? tab : untrack(() => publicationView.listTab);
+		activeTab = selectedTab;
+		publicationView.rememberListTab(selectedTab);
+	});
+	function selectActivityTab(value: string) {
+		if (!isPublicationListTab(value)) return;
+		activeTab = value;
+		publicationView.rememberListTab(value);
+		if (page.route.id !== '/publications') return;
+		const url = new URL(page.url);
+		const tab = url.searchParams.get('tab');
+		if (tab === value || (tab === null && value === 'scheduled')) return;
+		if (value === 'scheduled') url.searchParams.delete('tab');
+		else url.searchParams.set('tab', value);
+		replaceState(url, page.state);
+	}
 	const publicationPageSize = 40;
 	const jobPageSize = 50;
 	const operationScope = new PublicationOperationScope<AuthIdentityToken | undefined>();
@@ -155,18 +180,29 @@
 			.filter((post) => activityBucket(post) === 'draft')
 			.toSorted((a, b) => timestamp(b.created_at) - timestamp(a.created_at))
 	);
+	const activePosts = $derived(
+		activeTab === 'scheduled'
+			? scheduledPosts
+			: activeTab === 'published'
+				? publishedPosts
+				: activeTab === 'failed'
+					? failedPosts
+					: drafts
+	);
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const activeActivityBucket = $derived(activityBucketForTab(activeTab));
+	const searchTerm = $derived(searchQuery.trim());
 	const publicationsInfinite = createInfiniteQuery(() =>
 		activityPublicationsInfiniteQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
-			limit: publicationPageSize
+			limit: publicationPageSize,
+			search: searchTerm
 		})
 	);
 	const failedJobsInfinite = createInfiniteQuery(() => ({
 		...failedJobsInfiniteQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
 		enabled: Boolean(currentWorkspaceID && activeActivityBucket === 'failed')
 	}));
-	// Pages stay in the Query cache under the workspace+bucket key, so revisits
+	// Pages stay in the Query cache under the workspace+bucket+search key, so revisits
 	// and tab switches reuse fetched pages instead of refetching page one.
 	const posts = $derived.by(() => {
 		const seen = new Set<string>();
@@ -214,6 +250,7 @@
 		hasLoaded &&
 			dataWorkspaceID === currentWorkspaceID &&
 			dataActivityBucket === activeActivityBucket &&
+			dataSearch === searchTerm &&
 			initialQueriesSettled
 	);
 	const initialLoading = $derived(
@@ -231,7 +268,12 @@
 	$effect(() => {
 		const workspaceId = currentWorkspaceID;
 		const activityBucket = activeActivityBucket;
-		if (dataWorkspaceID === workspaceId && dataActivityBucket === activityBucket) return;
+		if (
+			dataWorkspaceID === workspaceId &&
+			dataActivityBucket === activityBucket &&
+			dataSearch === searchTerm
+		)
+			return;
 		untrack(() => {
 			dismissFailureDismissalToasts();
 			operationScope.supersedeView();
@@ -241,6 +283,7 @@
 			const workspaceChanged = dataWorkspaceID !== workspaceId;
 			dataWorkspaceID = workspaceId;
 			dataActivityBucket = activityBucket;
+			dataSearch = searchTerm;
 			hasLoaded = false;
 			error = '';
 			queryError = '';
@@ -546,6 +589,7 @@
 	}
 
 	function activityViewIsCurrent(operation: ActivityOperation) {
+		if (dataSearch !== searchTerm) return false;
 		return operationScope.viewIsCurrent(operation, {
 			workspaceId: currentWorkspaceID,
 			viewKey: dataActivityBucket === activeActivityBucket ? dataActivityBucket : '',
@@ -574,6 +618,9 @@
 				}
 			);
 		}
+		void queryClient.invalidateQueries({
+			queryKey: openPostQueryKeys.publications.activityRoot(workspaceId)
+		});
 	}
 
 	function invalidateActivity(workspaceId: string, activities?: ActivityPublicationBucket[]) {
@@ -719,108 +766,163 @@
 </script>
 
 {#snippet postList(items: ActivityItem[], emptyTitle: string, emptyDescription: string)}
-	{#if items.length === 0 && !publicationPage.nextCursor}
+	{#if items.length === 0}
 		<EmptyState
 			themeIconRole="file"
-			title={emptyTitle}
-			description={emptyDescription}
+			title={searchTerm ? m.media_search_results({ count: 0, query: searchTerm }) : emptyTitle}
+			description={searchTerm ? undefined : emptyDescription}
+			actionLabel={searchTerm ? m.media_clear_search() : undefined}
+			onAction={searchTerm ? () => (searchQuery = '') : undefined}
 			variant="muted"
 		/>
 	{:else if items.length > 0}
-		<div class="divide-y border-y">
+		<div class="divide-y overflow-hidden rounded-xl border bg-card" data-testid="publication-list">
 			{#each items as post (post.id)}
 				{@const statusIconValue = statusIcon(post)}
-				<article class="group flex items-start gap-3 py-4 sm:gap-4">
-					<div class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-						{#if statusIconValue.kind === 'protected'}
-							<ProtectedIcon icon={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
-						{:else}
-							<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
-						{/if}
-					</div>
-					<div class="min-w-0 flex-1">
-						<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-							<span class={['font-medium', statusClass(post)]}>{statusLabel(post)}</span>
-							<span class="text-muted-foreground">
-								{formatDateTime(post.actual_run_at || post.scheduled_at || post.created_at)}
-							</span>
+				{@const accountDestinations = [
+					...new Map(
+						post.destinations.map((destination) => [destination.social_account_id, destination])
+					).values()
+				]}
+				<article class="group p-3 transition-colors hover:bg-muted/30 sm:p-4">
+					<div class="flex items-start gap-3 sm:gap-4">
+						<div
+							class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50"
+						>
+							{#if statusIconValue.kind === 'protected'}
+								<ProtectedIcon icon={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
+							{:else}
+								<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
+							{/if}
 						</div>
-						<p class="mt-1.5 max-w-[72ch] text-sm leading-6 text-foreground/92">
-							{truncate(postText(post))}
-						</p>
-						{#if post.destinations?.length}
-							<div
-								class={[
-									'mt-3 max-w-2xl rounded-md border',
-									post.status === 'failed'
-										? 'border-destructive/15 bg-destructive/[0.035]'
-										: 'border-border bg-card'
-								]}
+						<div class="min-w-0 flex-1">
+							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+								<span class={['font-medium', statusClass(post)]}>{statusLabel(post)}</span>
+								<span class="text-muted-foreground">
+									{formatDateTime(post.actual_run_at || post.scheduled_at || post.created_at)}
+								</span>
+								{#if post.isThread}
+									<span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+										{threadPostCount(post.postCount)}
+									</span>
+								{/if}
+							</div>
+							<a
+								href={resolveAppPath(post.href)}
+								class="mt-1.5 block max-w-[72ch] rounded-sm text-sm leading-6 text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 							>
-								{#if post.status === 'failed'}
-									<div
-										class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
-									>
-										<div>
-											<p class="text-xs font-medium">{m.activity_delivery_details()}</p>
-											<p class="text-xs text-muted-foreground">{destinationSummary(post)}</p>
-										</div>
-										<div class="flex items-center gap-1">
-											<CopyButton
-												variant="ghost"
+								{truncate(postText(post))}
+							</a>
+							{#if post.destinations?.length}
+								<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+									{#each accountDestinations.slice(0, 4) as destination (destination.social_account_id)}
+										{@const account = destinationAccount(destination)}
+										<span
+											class="inline-flex max-w-52 items-center gap-1.5 rounded-md border bg-background px-2 py-1"
+										>
+											<SocialAccountIdentity
+												name={destinationName(destination)}
+												platform={destination.platform}
+												avatarUrl={account?.avatar_url}
 												size="sm"
-												class="h-8 text-xs"
-												value={buildDeliveryReport(post)}
-												scopeKey={`${workspaceCtx.currentWorkspace?.id}:${post.id}`}
-												label={m.activity_copy_report()}
-												successLabel={m.activity_report_copied()}
-												errorMessage={m.activity_report_copy_failed()}
-												fallbackLabel={m.activity_copy_report()}
+												showPlatform={false}
+												class="gap-1.5 text-xs"
 											/>
-											<Button
-												variant="ghost"
-												size="sm"
-												class="h-8 text-xs"
-												onclick={() => dismissFailedPost(post)}
+										</span>
+									{/each}
+									{#if accountDestinations.length > 4}
+										<span class="rounded-full bg-muted px-2 py-1"
+											>+{accountDestinations.length - 4}</span
+										>
+									{/if}
+								</div>
+							{/if}
+							{#if post.destinations?.length}
+								<details
+									class="group/delivery mt-3 max-w-2xl rounded-lg border bg-background/60"
+									open={post.status === 'failed'}
+								>
+									<summary
+										class="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+									>
+										<span class="flex items-center gap-2"
+											><ThemeIcon
+												role="chevron-right"
+												class="size-3.5 transition-transform group-open/delivery:rotate-90"
+											/>{m.activity_delivery_details()}</span
+										>
+										<span class="text-muted-foreground">{destinationSummary(post)}</span>
+									</summary>
+									<div
+										class={[
+											'border-t px-3',
+											post.status === 'failed'
+												? 'border-destructive/15 bg-destructive/[0.035]'
+												: 'border-border bg-card/50'
+										]}
+									>
+										{#if post.status === 'failed'}
+											<div
+												class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
 											>
-												{m.activity_dismiss_failed()}
-											</Button>
+												<div class="ml-auto flex items-center gap-1">
+													<CopyButton
+														variant="ghost"
+														size="sm"
+														class="h-8 text-xs"
+														value={buildDeliveryReport(post)}
+														scopeKey={`${workspaceCtx.currentWorkspace?.id}:${post.id}`}
+														label={m.activity_copy_report()}
+														successLabel={m.activity_report_copied()}
+														errorMessage={m.activity_report_copy_failed()}
+														fallbackLabel={m.activity_copy_report()}
+													/>
+													<Button
+														variant="ghost"
+														size="sm"
+														class="h-8 text-xs"
+														onclick={() => dismissFailedPost(post)}
+													>
+														{m.activity_dismiss_failed()}
+													</Button>
+												</div>
+											</div>
+										{/if}
+										<div class="divide-y divide-border/70 px-3">
+											{#each post.destinations as destination (destination.id)}
+												<PublicationDeliveryCard
+													rendition={destination}
+													destinationLabel={destinationName(destination)}
+													variant="compact"
+													retrying={retryingDestination ===
+														`${post.id}:${destination.social_account_id}:${destination.target_key}`}
+													onRetry={() => runDestinationAction(post, destination)}
+													onManualResolution={() => runDestinationAction(post, destination)}
+												/>
+											{/each}
 										</div>
 									</div>
-								{/if}
-								<div class="divide-y divide-border/70 px-3">
-									{#each post.destinations as destination (destination.social_account_id)}
-										<PublicationDeliveryCard
-											rendition={destination}
-											destinationLabel={destinationName(destination)}
-											variant="compact"
-											retrying={retryingDestination ===
-												`${post.id}:${destination.social_account_id}:${destination.target_key}`}
-											onRetry={() => runDestinationAction(post, destination)}
-											onManualResolution={() => runDestinationAction(post, destination)}
-										/>
-									{/each}
-								</div>
-							</div>
-						{/if}
+								</details>
+							{/if}
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="min-h-10 shrink-0"
+							onclick={() => goto(resolveAppPath(post.href))}
+							aria-label={post.status === 'published' || post.status === 'publishing'
+								? m.activity_view_post({ title: truncate(postText(post), 40) })
+								: m.activity_edit_post({ title: truncate(postText(post), 40) })}
+						>
+							{#if post.status === 'published' || post.status === 'publishing'}
+								<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
+								<span class="hidden sm:inline">{m.activity_view_details()}</span>
+							{:else}
+								<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
+								<span class="hidden sm:inline">{m.common_edit()}</span>
+							{/if}
+						</Button>
 					</div>
-					<Button
-						variant="ghost"
-						size="sm"
-						class="min-h-10 shrink-0"
-						onclick={() => goto(resolveAppPath(post.href))}
-						aria-label={post.status === 'published' || post.status === 'publishing'
-							? m.activity_view_post({ title: truncate(postText(post), 40) })
-							: m.activity_edit_post({ title: truncate(postText(post), 40) })}
-					>
-						{#if post.status === 'published' || post.status === 'publishing'}
-							<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
-							<span class="hidden sm:inline">{m.activity_view_details()}</span>
-						{:else}
-							<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
-							<span class="hidden sm:inline">{m.common_edit()}</span>
-						{/if}
-					</Button>
 				</article>
 			{/each}
 		</div>
@@ -831,9 +933,8 @@
 	<title>{m.activity_title()} — {m.common_openpost()}</title>
 </svelte:head>
 
-<Tabs bind:value={activeTab} class="min-w-0 flex-1">
+<Tabs value={activeTab} onValueChange={selectActivityTab} class="min-w-0 flex-1">
 	<PageContainer
-		featureMark="calendar"
 		title={m.activity_title()}
 		description={m.activity_description()}
 		themeIconRole="publications"
@@ -842,20 +943,44 @@
 		loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 	>
 		{#snippet navigation()}
-			<TabsList class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden">
-				<TabsTrigger value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
-				<TabsTrigger value="published">{m.activity_tab_published()}</TabsTrigger>
-				<TabsTrigger value="failed">{m.activity_tab_failed()}</TabsTrigger>
-				<TabsTrigger value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
-			</TabsList>
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<TabsList
+					class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden sm:w-auto"
+				>
+					<TabsTrigger class="sm:px-3" value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
+					<TabsTrigger class="sm:px-3" value="published">{m.activity_tab_published()}</TabsTrigger>
+					<TabsTrigger class="sm:px-3" value="failed">{m.activity_tab_failed()}</TabsTrigger>
+					<TabsTrigger class="sm:px-3" value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
+				</TabsList>
+				<div class="flex w-full items-center gap-2 sm:w-auto">
+					<div class="relative min-w-0 flex-1 sm:w-64">
+						<ThemeIcon
+							role="search"
+							class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+						/>
+						<Input
+							bind:value={searchQuery}
+							class="h-10 pl-9"
+							aria-label={m.engagement_search_posts()}
+							placeholder={m.engagement_search_posts()}
+						/>
+					</div>
+					<Button
+						variant="outline"
+						size="icon-sm"
+						aria-label={m.common_refresh()}
+						onclick={() => loadData()}
+						disabled={loading}
+					>
+						<ThemeIcon role="refresh" class={`size-4 ${loading ? 'animate-spin' : ''}`} />
+					</Button>
+				</div>
+			</div>
 		{/snippet}
 		{#snippet actions()}
 			<PublicationViewSwitch view="list" />
-			<Button variant="outline" size="sm" onclick={() => loadData()} disabled={loading}>
-				<ThemeIcon role="refresh" class={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
-				{m.common_refresh()}
-			</Button>
-			<Button size="sm" onclick={() => goto(resolveAppPath('/'))}>
+
+			<Button variant="focal" size="sm" onclick={() => goto(resolveAppPath('/'))}>
 				<ThemeIcon role="add" class="mr-1.5 size-3.5" />
 				{m.activity_new_post()}
 			</Button>
@@ -885,6 +1010,22 @@
 				onDismiss={() => (successMessage = '')}
 				dismissLabel={m.common_dismiss()}
 			/>
+		{/if}
+		{#if currentViewLoaded}
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<div class="min-w-0">
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						{searchQuery
+							? m.media_search_results({ count: publicationPage.total, query: searchQuery })
+							: m.stock_results_count({ shown: activePosts.length, total: publicationPage.total })}
+					</p>
+				</div>
+				{#if searchQuery}
+					<Button variant="ghost" size="sm" class="shrink-0" onclick={() => (searchQuery = '')}>
+						{m.media_clear_search()}
+					</Button>
+				{/if}
+			</div>
 		{/if}
 		{#if currentViewLoaded}
 			<TabsContent value="scheduled">
@@ -993,11 +1134,11 @@
 			<TabsContent value="drafts">
 				{@render postList(drafts, m.activity_empty_drafts_title(), m.activity_empty_drafts_body())}
 			</TabsContent>
-			<div class="mt-6 flex min-h-10 items-center justify-between gap-3 border-t pt-4">
-				<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
-					{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
-				</span>
-				{#if publicationsInfinite.hasNextPage}
+			{#if publicationsInfinite.hasNextPage}
+				<div class="mt-6 flex min-h-10 items-center justify-between gap-3 border-t pt-4">
+					<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+						{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
+					</span>
 					<Button
 						variant="outline"
 						size="sm"
@@ -1009,8 +1150,8 @@
 						{/if}
 						{m.notifications_load_more()}
 					</Button>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		{/if}
 	</PageContainer>
 </Tabs>

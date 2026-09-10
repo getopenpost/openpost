@@ -46,4 +46,26 @@ describe('OpenPost web query API', () => {
 		controller.abort();
 		expect(request.signal.aborted).toBe(true);
 	});
+
+	it('forwards normalized Activity search terms', async () => {
+		const fetchMock = vi.fn(
+			async () => new Response('[]', { headers: { 'Content-Type': 'application/json' } })
+		);
+		const transport = createClient<paths>({
+			baseUrl: 'https://openpost.test/api/v1',
+			fetch: fetchMock
+		});
+		const api = createOpenPostQueryAPI(transport);
+
+		await api.listActivityPublications(
+			'workspace-1',
+			'draft',
+			{ limit: 40, cursor: '', search: '  launch  ' },
+			new AbortController().signal
+		);
+
+		const request = fetchMock.mock.calls[0]?.[0];
+		if (!request) throw new Error('Expected the Activity request');
+		expect(new URL(request.url).searchParams.get('search')).toBe('launch');
+	});
 });

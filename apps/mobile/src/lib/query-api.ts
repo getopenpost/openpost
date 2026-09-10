@@ -68,6 +68,7 @@ export function createMobileQueryAPI(getTransport: () => QueryTransport): Mobile
               query: {
                 workspace_id: workspaceId,
                 activity_bucket: activity,
+                search: page.search?.trim() || undefined,
                 limit: page.limit,
                 cursor: page.cursor || undefined,
               },

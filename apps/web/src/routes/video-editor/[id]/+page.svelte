@@ -2180,15 +2180,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		{#snippet identity()}
 			<a
 				href="/video-editor"
-				aria-label="OpenPost"
+				aria-label={m.video_editor_title()}
 				class="flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] md:size-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
-				<img
-					src="/assets/brand/features/video-editor.svg"
-					alt={m.video_editor_title()}
-					width="28"
-					height="28"
-				/>
+				<ThemeIcon role="chevron-left" class="size-5" />
 			</a>
 			<EditorTitleInput
 				value={editorSession.project?.name ?? ''}

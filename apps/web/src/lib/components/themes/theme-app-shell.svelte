@@ -8,7 +8,18 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { createThemeQueryAPI } from '$lib/query/themes';
 	import { toWebResolvedTheme } from '$lib/themes/web-resolved';
-	import type { ThemeScheme, WebResolvedTheme } from '$lib/themes';
+	import type { ThemeManifest, ThemeScheme, WebResolvedTheme } from '$lib/themes';
+
+	let { publicDefault = false }: { publicDefault?: boolean } = $props();
+	let publicManifest = $state.raw<ThemeManifest | null>(null);
+	$effect(() => {
+		if (!publicDefault || publicManifest) return;
+		void import('$lib/themes/builtins/dither')
+			.then(({ ditherTheme }) => {
+				publicManifest = ditherTheme;
+			})
+			.catch((error) => captureClientException(error, { error_boundary: 'public_theme_startup' }));
+	});
 
 	const themeApi = createThemeQueryAPI();
 
@@ -37,7 +48,8 @@
 	);
 
 	let active = $derived(
-		typeof document !== 'undefined' && authState.isAuthenticated && Boolean(workspaceID)
+		typeof document !== 'undefined' &&
+			(publicDefault || (authState.isAuthenticated && Boolean(workspaceID)))
 	);
 	let ThemeApplicationBoundary = $state<
 		typeof import('./theme-application-boundary.svelte').default | null
@@ -64,7 +76,22 @@
 	$effect(() => {
 		if (resolved.data) retainedTheme = toWebResolvedTheme(resolved.data);
 	});
-	let theme = $derived(retainedTheme);
+	let theme = $derived.by<WebResolvedTheme | null>(() => {
+		if (authState.isAuthenticated && workspaceID && retainedTheme) return retainedTheme;
+		if (!publicDefault || !publicManifest) return null;
+		return {
+			id: publicManifest.id,
+			revision: publicManifest.revision,
+			name: publicManifest.name,
+			iconPack: publicManifest.iconPack,
+			source: 'builtin',
+			requestedScheme: effectiveScheme,
+			scheme: effectiveScheme,
+			manifest: structuredClone(publicManifest.schemes[effectiveScheme]!),
+			fonts: [],
+			assets: structuredClone(publicManifest.assets)
+		};
+	});
 </script>
 
 {#if active && ThemeApplicationBoundary}

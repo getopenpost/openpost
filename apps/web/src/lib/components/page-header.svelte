@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { IconComponent } from '$lib/component-types';
-	import FeatureMark, { type FeatureMarkName } from '$lib/components/feature-mark.svelte';
 	import type { ThemeIconRole } from '$lib/themes';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
@@ -9,7 +8,6 @@
 	interface Props {
 		title: string;
 		icon?: IconComponent;
-		featureMark?: FeatureMarkName;
 		/** Semantic icon role resolved from the active organization theme (preferred over icon) */
 		themeIconRole?: ThemeIconRole;
 		eyebrow?: string;
@@ -25,7 +23,6 @@
 		title,
 		icon: Icon,
 		themeIconRole,
-		featureMark,
 		eyebrow,
 		description,
 		meta,
@@ -53,10 +50,8 @@
 				<span>{eyebrow}</span>
 			</div>
 		{/if}
-		<h1 data-theme-type="title" class="flex items-center gap-2.5">
-			{#if featureMark}
-				<FeatureMark name={featureMark} />
-			{:else if themeIconRole && !eyebrow}
+		<h1 data-theme-type="title" data-app-title class="flex items-center gap-2.5">
+			{#if themeIconRole && !eyebrow}
 				<ThemeIcon role={themeIconRole} class="size-5 shrink-0 text-primary" />
 			{:else if Icon && !eyebrow}
 				<Icon class="size-5 shrink-0 text-primary" />
@@ -90,7 +85,7 @@
 	@container (min-width: 44rem) {
 		.page-header {
 			flex-direction: row;
-			align-items: flex-start;
+			align-items: center;
 			justify-content: space-between;
 		}
 

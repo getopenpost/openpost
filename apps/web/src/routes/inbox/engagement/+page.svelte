@@ -731,7 +731,6 @@
 {/if}
 
 <PageContainer
-	featureMark="inbox"
 	title={m.engagement_heading()}
 	description={m.engagement_description()}
 	themeIconRole="communications"

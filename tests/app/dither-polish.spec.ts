@@ -61,6 +61,24 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
           ? page.getByRole("button", { name: "Start recording", exact: true })
           : page.getByRole("heading").first(),
       ).toBeVisible();
+      if (path === "/" && width === 1440) {
+        const newPost = page.getByTestId("sidebar-new-post");
+        const newPostMenu = page.getByTestId("sidebar-new-post-menu");
+        await expect
+          .poll(async () => {
+            const [main, menu] = await Promise.all([
+              newPost.boundingBox(),
+              newPostMenu.boundingBox(),
+            ]);
+            return Boolean(
+              main &&
+              menu &&
+              main.height > 0 &&
+              Math.round(main.height) === Math.round(menu.height),
+            );
+          })
+          .toBe(true);
+      }
       await page.evaluate(() => document.fonts.ready);
       if (path === "/quick-cut") {
         await expect(
@@ -120,14 +138,14 @@ test.describe("touch theme controls", () => {
     await page.goto("/settings?tab=appearance");
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     const hue = page.getByRole("spinbutton", { name: "Accent hue", exact: true });
-    await expect(hue).toHaveValue("255");
+    await expect(hue).toHaveValue("45");
     await hue.fill("305");
     await expect(page.getByRole("slider", { name: "Accent hue" })).toHaveAttribute(
       "aria-valuenow",
       "305",
     );
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(hue).toHaveValue("255");
+    await expect(hue).toHaveValue("45");
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     await expect(hue).toHaveValue("305");
     await page.getByRole("button", { name: "Choose Canvas color", exact: true }).click();

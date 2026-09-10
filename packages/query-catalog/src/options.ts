@@ -62,10 +62,19 @@ export function activityPublicationsQueryOptions(
   api: Pick<OpenPostQueryAPI, "listActivityPublications">,
   workspaceId: string,
   bucket: ActivityPublicationBucket,
-  page: QueryPage,
+  page: QueryPage & { readonly search?: string },
 ) {
-  const normalizedPage = { limit: page.limit, cursor: page.cursor ?? "" };
-  const queryKey = openPostQueryKeys.publications.activity(workspaceId, bucket, normalizedPage);
+  const normalizedPage = {
+    limit: page.limit,
+    cursor: page.cursor ?? "",
+    search: page.search?.trim() ?? "",
+  };
+  const queryKey = openPostQueryKeys.publications.activity(
+    workspaceId,
+    bucket,
+    normalizedPage,
+    normalizedPage.search,
+  );
   return {
     ...openPostQueryPolicy(
       bucket === "scheduled" || bucket === "failed" ? liveQueryStaleTime : queryStaleTime,
@@ -78,7 +87,9 @@ export function activityPublicationsQueryOptions(
       const result = await api.listActivityPublications(
         workspaceId,
         bucket,
-        normalizedPage,
+        normalizedPage.search
+          ? normalizedPage
+          : { limit: normalizedPage.limit, cursor: normalizedPage.cursor },
         signal,
       );
       throwIfAborted(signal);
@@ -94,12 +105,18 @@ export function activityPublicationsInfiniteQueryOptions(
   api: Pick<OpenPostQueryAPI, "listActivityPublications">,
   workspaceId: string,
   bucket: ActivityPublicationBucket,
-  page: Pick<QueryPage, "limit">,
+  page: Pick<QueryPage, "limit"> & { readonly search?: string },
 ) {
-  const queryKey = openPostQueryKeys.publications.activity(workspaceId, bucket, {
-    limit: page.limit,
-    cursor: "",
-  });
+  const search = page.search?.trim() ?? "";
+  const queryKey = openPostQueryKeys.publications.activity(
+    workspaceId,
+    bucket,
+    {
+      limit: page.limit,
+      cursor: "",
+    },
+    search,
+  );
   return {
     ...openPostQueryPolicy(
       bucket === "scheduled" || bucket === "failed" ? liveQueryStaleTime : queryStaleTime,
@@ -117,7 +134,9 @@ export function activityPublicationsInfiniteQueryOptions(
       const result = await api.listActivityPublications(
         workspaceId,
         bucket,
-        { limit: page.limit, cursor: pageParam },
+        search
+          ? { limit: page.limit, cursor: pageParam, search }
+          : { limit: page.limit, cursor: pageParam },
         signal,
       );
       throwIfAborted(signal);

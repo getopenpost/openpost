@@ -196,12 +196,12 @@
 			</div>
 		</div>
 
-		<div class="flex gap-1 group-data-[collapsible=icon]:flex-col">
+		<div class="flex items-stretch gap-1 group-data-[collapsible=icon]:flex-col">
 			<Button
 				href={resolve('/')}
-				variant={currentPath === '/' ? 'secondary' : 'default'}
+				variant="focal"
 				size="sm"
-				class="h-10 min-w-0 flex-1 gap-2 group-data-[collapsible=icon]:px-0"
+				class="min-w-0 flex-1 gap-2 group-data-[collapsible=icon]:px-0"
 				aria-label={m.sidebar_new_post()}
 				data-testid="sidebar-new-post"
 				onclick={handleNewPostClick}
@@ -214,9 +214,11 @@
 					{#snippet child({ props })}<Button
 							{...props}
 							variant="outline"
-							size="icon"
-							class="h-10 w-9 group-data-[collapsible=icon]:w-full"
-							aria-label={m.sidebar_new()}><ThemeIcon role="chevron-down" class="size-4" /></Button
+							size="sm"
+							class="w-9 px-0 group-data-[collapsible=icon]:w-full"
+							aria-label={m.sidebar_new()}
+							data-testid="sidebar-new-post-menu"
+							><ThemeIcon role="chevron-down" class="size-4" /></Button
 						>{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="start">

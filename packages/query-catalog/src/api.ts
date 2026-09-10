@@ -24,7 +24,7 @@ export interface OpenPostQueryAPI {
   listActivityPublications(
     workspaceId: string,
     bucket: ActivityPublicationBucket,
-    page: QueryPage,
+    page: QueryPage & { readonly search?: string },
     signal: AbortSignal,
   ): Promise<QueryPageResult<Publication>>;
   listCalendarPublications(

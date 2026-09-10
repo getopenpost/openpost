@@ -80,7 +80,7 @@ test("removed paths retain their previous release surface", () => {
 
 test("release comparisons can read manifests before and after the repository move", () => {
   const root = mkdtempSync(path.join(tmpdir(), "openpost-release-history-"));
-  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "ignore" });
   try {
     git("init", "--quiet");
     const manifest = { schema_version: 1, surfaces: { application: { prefixes: ["backend/"] } } };
@@ -96,7 +96,7 @@ test("release comparisons can read manifests before and after the repository mov
       "-m",
       "Original layout",
     );
-    const original = git("rev-parse", "HEAD");
+    git("tag", "before-move");
     mkdirSync(path.join(root, "config"));
     git("mv", "release-surfaces.json", "config/release-surfaces.json");
     const moved = { schema_version: 1, surfaces: { application: { prefixes: ["apps/server/"] } } };
@@ -112,7 +112,7 @@ test("release comparisons can read manifests before and after the repository mov
       "-m",
       "Grouped layout",
     );
-    assert.deepEqual(readReleaseSurfaceManifestAtRevision(original, root), manifest);
+    assert.deepEqual(readReleaseSurfaceManifestAtRevision("before-move", root), manifest);
     assert.deepEqual(readReleaseSurfaceManifestAtRevision("HEAD", root), moved);
   } finally {
     rmSync(root, { recursive: true, force: true });

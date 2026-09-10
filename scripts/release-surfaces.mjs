@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function readGitPaths(args, root) {
+function readGitOutput(args, root) {
   const outputDirectory = mkdtempSync(path.join(tmpdir(), "openpost-release-paths-"));
   const outputPath = path.join(outputDirectory, "paths");
   try {
@@ -14,7 +14,7 @@ function readGitPaths(args, root) {
       "sh",
       [
         "-c",
-        'output="$1"; shift; exec git "$@" -z > "$output"',
+        'output="$1"; shift; exec git "$@" > "$output"',
         "openpost-read-git-paths",
         outputPath,
         ...args,
@@ -24,10 +24,16 @@ function readGitPaths(args, root) {
         stdio: ["ignore", "ignore", "inherit"],
       },
     );
-    return readFileSync(outputPath, "utf8").split("\0").filter(Boolean);
+    return readFileSync(outputPath, "utf8");
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true });
   }
+}
+
+function readGitPaths(args, root) {
+  return readGitOutput([...args, "-z"], root)
+    .split("\0")
+    .filter(Boolean);
 }
 
 export function readReleaseSurfaceManifest(root = repositoryRoot) {
@@ -39,12 +45,7 @@ export function readReleaseSurfaceManifestAtRevision(revision, root = repository
   const currentPath = "config/release-surfaces.json";
   const paths = readGitPaths(["ls-tree", "--name-only", revision, currentPath], root);
   const manifestPath = paths.includes(currentPath) ? currentPath : "release-surfaces.json";
-  return JSON.parse(
-    execFileSync("git", ["show", `${revision}:${manifestPath}`], {
-      cwd: root,
-      encoding: "utf8",
-    }),
-  );
+  return JSON.parse(readGitOutput(["show", `${revision}:${manifestPath}`], root));
 }
 
 export function classifyReleasePath(file, manifest) {

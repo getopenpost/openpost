@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.30.0] - 2026-09-10
+
+### Fixed
+
+- Document the saved Publications status tab in the browser-storage privacy inventory.
+- Read historical release manifests reliably when the local runtime drops captured Git output.
+- Keep Video Editor property, playback, audio, and effect panels neutral while preserving the active theme on controls.
+- Restore the original landing layout, typography, colors, and buttons while retaining sparse Dither effects. Refresh product screenshots across the app, marketing, and documentation assets.
+
+### Added
+
+- Give the README download, release, build, and star badges readable Dither textures in light and dark. GitHub Actions refreshes their actual values after CI and releases, every six hours, or on demand.
+
+### Changed
+
+- Give the README star-history chart a transparent background, crisp line, and Dither area fill. Scheduled updates preserve the same style in light and dark.
+- Keep the plot focused on the data by removing its repeated title, logo, and repository legend.
+
 ## [4.29.0] - 2026-09-10
 
 ### Fixed

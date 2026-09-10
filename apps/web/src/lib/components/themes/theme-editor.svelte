@@ -1012,6 +1012,7 @@
 					</div>
 					<div class="flex flex-wrap gap-2">
 						<Select.Root
+							type="single"
 							value={previewScheme}
 							onValueChange={(value) =>
 								value && (previewScheme = value as ThemeScheme | 'editing' | 'system' | 'fallback')}
@@ -1028,6 +1029,7 @@
 							</Select.Content>
 						</Select.Root>
 						<Select.Root
+							type="single"
 							value={scene}
 							onValueChange={(value) => value && (scene = value as ThemePreviewScene)}
 							><Select.Trigger size="sm" aria-label={m.theme_editor_preview_scene()}
@@ -1039,6 +1041,7 @@
 							></Select.Root
 						>
 						<Select.Root
+							type="single"
 							value={viewport}
 							onValueChange={(value) => value && (viewport = value as ThemePreviewViewport)}
 							><Select.Trigger size="sm" aria-label={m.theme_editor_preview_viewport()}

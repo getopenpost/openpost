@@ -5,3 +5,7 @@
 ### Added
 
 - Dither pixel-wave artwork in empty states, textured loading placeholders, and matching progress bars. Texture is decorative and disappears in forced-colors mode. The app's loading preview uses the same shared controls.
+
+### Fixed
+
+- Theme preview scene, color scheme, and viewport selectors now switch and close correctly.

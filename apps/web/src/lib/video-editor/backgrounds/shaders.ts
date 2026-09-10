@@ -1,3 +1,4 @@
+import { BACKGROUND_SHADERS, getPaperShader, paperDefaultParams } from '../effects/paper/catalog';
 import type { BackgroundShader, ShaderBackground } from '../project/types';
 
 export interface ShaderPreset {
@@ -66,13 +67,40 @@ export const SHADER_PRESETS: readonly ShaderPreset[] = [
 		['#8fd9e8', '#306ac3', '#091327', '#000000'],
 		0.55,
 		0.35
+	),
+	...BACKGROUND_SHADERS.map(
+		(shader): ShaderPreset => ({
+			id: `shader-paper-${shader.id}`,
+			label: shader.label,
+			background: {
+				kind: 'shader',
+				shader: `paper:${shader.id}`,
+				parameters: paperDefaultParams(shader),
+				colors: ['#000000', '#000000', '#000000', '#000000'],
+				detail: 0,
+				speed: shader.sizing.speed,
+				phase: 0,
+				scale: shader.sizing.scale,
+				rotation: shader.sizing.rotation,
+				offsetX: shader.sizing.offsetX,
+				offsetY: shader.sizing.offsetY
+			}
+		})
 	)
 ];
 
 export const DEFAULT_SHADER_BACKGROUND = SHADER_PRESETS[0]!.background;
 
 export function isBackgroundShader(value: string): value is BackgroundShader {
-	return value === 'mesh' || value === 'swirl' || value === 'clouds' || value === 'neural';
+	return (
+		value === 'mesh' ||
+		value === 'swirl' ||
+		value === 'clouds' ||
+		value === 'neural' ||
+		(typeof value === 'string' &&
+			value.startsWith('paper:') &&
+			getPaperShader(value.slice(6))?.category === 'background')
+	);
 }
 
 export function shaderColorCount(shader: BackgroundShader): number {

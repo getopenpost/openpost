@@ -75,7 +75,7 @@
 		posterController?.abort();
 		posterController = new AbortController();
 		const signal = posterController.signal;
-		const loaded = await getEffectPreviewSample();
+		const loaded = await getEffectPreviewSample(templates);
 		if (destroyed || !visible || !loaded || signal.aborted) return;
 		sample = loaded;
 		if (!usesGpu) {

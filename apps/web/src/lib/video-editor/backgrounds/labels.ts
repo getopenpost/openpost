@@ -1,6 +1,12 @@
+import { getPaperShader } from '../effects/paper/catalog';
+import { paperLabel } from '../effects/paper/i18n';
 import { m } from '$lib/paraglide/messages';
 
 export function backgroundPresetLabel(id: string): string {
+	if (id.startsWith('shader-paper-')) {
+		const shader = getPaperShader(id.slice(13));
+		if (shader) return paperLabel(shader.label);
+	}
 	switch (id) {
 		case 'shader-aurora':
 			return m.video_editor_shader_aurora();

@@ -1,6 +1,6 @@
 import type { Project, ProjectTimeline, TimelineItem, TimelineTrack } from './types';
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 export interface ProjectMigration {
 	version: number;
@@ -203,6 +203,14 @@ const PROJECT_MIGRATIONS: ReadonlyMap<number, ProjectMigration> = new Map([
 		{
 			version: 8,
 			description: 'Support authored shader backgrounds',
+			migrate: (project) => project
+		}
+	],
+	[
+		9,
+		{
+			version: 9,
+			description: 'Support the complete Paper shader catalogue and authored parameters',
 			migrate: (project) => project
 		}
 	]

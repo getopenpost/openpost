@@ -1,3 +1,5 @@
+import type { PaperBackgroundId } from '../effects/paper/catalog';
+import type { GpuParamValues } from '../effects/gpu/types';
 /**
  * Project document model for the OpenPost Video Editor.
  *
@@ -669,11 +671,17 @@ export interface BackgroundPatternBackground {
 	foregroundOpacity: number;
 }
 
-export type BackgroundShader = 'mesh' | 'swirl' | 'clouds' | 'neural';
+export type BackgroundShader =
+	| 'mesh'
+	| 'swirl'
+	| 'clouds'
+	| 'neural'
+	| `paper:${PaperBackgroundId}`;
 
 export interface ShaderBackground {
 	kind: 'shader';
 	shader: BackgroundShader;
+	parameters?: GpuParamValues;
 	colors: [string, string, string, string];
 	speed: number;
 	phase: number;

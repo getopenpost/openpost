@@ -1,3 +1,3 @@
 ### Added
 
-- Video Editor Backgrounds now includes six editable shader presets: Aurora, Dusk, Ribbons, Monochrome, Clouds, and Neural. Adjust colors, motion speed, starting phase, detail, and placement, or set speed to zero for a still background. Shader animation follows the timeline when scrubbing and exporting.
+- Video Editor includes all 30 Paper shader families: 20 backgrounds, seven image filters, and three logo animations. Search Backgrounds or Effects, then adjust colors, patterns, motion, and placement. Logo animations can follow transparency, dark areas, or light areas of a clip. Existing presets retain their appearance, and authored shader settings persist through saves, undo, and export.

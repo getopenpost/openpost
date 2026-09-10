@@ -30,10 +30,8 @@
 		};
 	} = $props();
 
-	let draftNumber = $state(0);
 	let draftText = $state('');
 	let draftColor = $state('');
-	let editingNumber = $state(false);
 	let editingText = $state(false);
 	let editingColor = $state(false);
 
@@ -42,6 +40,7 @@
 			? Number(value ?? param.default)
 			: Number(param.default)
 	);
+	let draftNumber = $derived(numericValue);
 	const stringValue = $derived(String(value ?? param.default));
 	const booleanValue = $derived((value ?? param.default) === true);
 	const localizedParamLabel = $derived(gpuParamLabel(param));
@@ -51,10 +50,6 @@
 			: []
 	);
 	const keyframeLabel = $derived(`${effectLabel}: ${localizedParamLabel}`);
-
-	$effect(() => {
-		if (!editingNumber) draftNumber = numericValue;
-	});
 
 	$effect(() => {
 		if (!editingText) draftText = stringValue;
@@ -112,7 +107,7 @@
 {#if !param.type || param.type === 'number'}
 	<label class="flex items-center gap-2 text-xs">
 		<span
-			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			class="w-20 shrink-0 leading-tight break-words text-[var(--video-editor-muted)]"
 			title={localizedParamLabel}
 		>
 			{localizedParamLabel}
@@ -125,11 +120,9 @@
 			value={draftNumber}
 			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
 			onValueChange={(next) => {
-				editingNumber = true;
 				draftNumber = next;
 			}}
 			onValueCommit={(next) => {
-				editingNumber = false;
 				draftNumber = next;
 				oncommit(next);
 			}}
@@ -151,7 +144,7 @@
 {:else if param.type === 'select'}
 	<label class="flex items-center gap-2 text-xs">
 		<span
-			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			class="w-20 shrink-0 leading-tight break-words text-[var(--video-editor-muted)]"
 			title={localizedParamLabel}
 		>
 			{localizedParamLabel}
@@ -167,7 +160,7 @@
 {:else if param.type === 'color'}
 	<div class="flex min-h-8 items-center gap-2 text-xs">
 		<span
-			class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]"
+			class="w-20 shrink-0 leading-tight break-words text-[var(--video-editor-muted)]"
 			title={localizedParamLabel}
 		>
 			{localizedParamLabel}

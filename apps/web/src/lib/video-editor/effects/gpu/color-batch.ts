@@ -127,7 +127,7 @@ export function packColorBatch(
 		const effect = effects[index]!;
 		const kind = INLINE_COLOR_EFFECT_KINDS.get(effect.effectId);
 		const definition = getGpuEffect(effect.effectId);
-		if (kind === undefined || !definition) {
+		if (kind === undefined || !definition || definition.paperShader !== undefined) {
 			throw new Error(`GPU effect cannot join an inline color batch: ${effect.effectId}`);
 		}
 		kinds[index] = kind;

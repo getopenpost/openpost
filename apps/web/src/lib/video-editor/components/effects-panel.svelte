@@ -148,7 +148,8 @@
 		blur: m.video_editor_gpu_category_blur(),
 		distort: m.video_editor_gpu_category_distort(),
 		stylize: m.video_editor_gpu_category_stylize(),
-		keying: m.video_editor_gpu_category_keying()
+		keying: m.video_editor_gpu_category_keying(),
+		shader: m.video_editor_shader_title()
 	});
 	const builtInPresetLabels = $derived<Record<string, string>>({
 		'trigger-wave-layer': m.video_editor_effect_preset_trigger_wave_layer(),

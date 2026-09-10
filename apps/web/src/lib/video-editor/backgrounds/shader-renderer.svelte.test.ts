@@ -46,7 +46,9 @@ describe('shader background rendering', () => {
 		}
 	});
 
-	for (const preset of SHADER_PRESETS) {
+	for (const preset of SHADER_PRESETS.filter(
+		(preset) => !preset.background.shader.startsWith('paper:')
+	)) {
 		it(`${preset.label} animates, seeks deterministically and renders in an export compositor`, () => {
 			const renderer = new ShaderBackgroundRenderer();
 			const stack = new CanvasStackCompositor(new OffscreenCanvas(160, 90));

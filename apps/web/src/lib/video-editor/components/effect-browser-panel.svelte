@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
@@ -31,6 +32,7 @@
 	} = $props();
 
 	let scroller = $state<HTMLElement | null>(null);
+	let search = $state('');
 	let activeId = $state<string | null>(null);
 
 	const categoryLabels = $derived<Record<string, string>>({
@@ -38,7 +40,8 @@
 		blur: m.video_editor_gpu_category_blur(),
 		distort: m.video_editor_gpu_category_distort(),
 		stylize: m.video_editor_gpu_category_stylize(),
-		keying: m.video_editor_gpu_category_keying()
+		keying: m.video_editor_gpu_category_keying(),
+		shader: m.video_editor_shader_title()
 	});
 	const presetLabels = $derived<Record<string, string>>({
 		'trigger-wave-layer': m.video_editor_effect_preset_trigger_wave_layer(),
@@ -73,6 +76,19 @@
 			}))
 		}))
 	]);
+
+	const filteredGroups = $derived(
+		groups
+			.map((group) => ({
+				...group,
+				items: group.items.filter((item) =>
+					`${group.label} ${item.label}`
+						.toLocaleLowerCase()
+						.includes(search.trim().toLocaleLowerCase())
+				)
+			}))
+			.filter((group) => group.items.length > 0)
+	);
 
 	function cloneTemplate(template: EffectTemplate): EffectTemplate {
 		return template.kind === 'gpu'
@@ -125,6 +141,13 @@
 	class="effect-browser min-h-0 flex-1 overflow-y-auto p-2"
 	aria-label={m.video_editor_effects()}
 >
+	<Input
+		type="search"
+		bind:value={search}
+		placeholder={m.video_editor_effects_search()}
+		aria-label={m.video_editor_effects_search()}
+		class="mb-2"
+	/>
 	<p class="mb-2 text-[10px] leading-4 text-[var(--video-editor-muted)]">
 		{m.video_editor_effects_add_or_drag()}
 	</p>
@@ -141,7 +164,10 @@
 		<span>{m.video_editor_add_adjustment_layer()}</span>
 	</button>
 
-	{#each groups as group (group.id)}
+	{#if filteredGroups.length === 0}<p class="text-xs text-muted-foreground" role="status">
+			{m.video_editor_effects_no_results()}
+		</p>{/if}
+	{#each filteredGroups as group (group.id)}
 		<section class="mb-4 last:mb-0">
 			<h3
 				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"
@@ -174,7 +200,7 @@
 							effects={item.effectId ? undefined : item.effects}
 							viewport={scroller}
 							active={activeId === item.id}
-							class="aspect-video w-full rounded"
+							class="aspect-video w-full rounded max-md:h-12 max-md:object-cover"
 						/>
 						<span>{item.label}</span>
 					</button>

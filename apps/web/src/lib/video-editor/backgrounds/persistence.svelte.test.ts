@@ -102,7 +102,7 @@ describe('shader authored state', () => {
 			...createBlankProject('Shaders'),
 			schemaVersion: 7
 		}).project;
-		expect(project.schemaVersion).toBe(8);
+		expect(project.schemaVersion).toBe(9);
 		timelineStore.setAll({
 			tracks: project.timeline!.tracks,
 			items: [],
@@ -133,5 +133,50 @@ describe('shader authored state', () => {
 		const portable = JSON.parse(JSON.stringify(portableVideoProjectDocument(project)));
 		const normalized = normalizeProject(portable);
 		expect(normalized.project.timeline!.items[0]!.background).toEqual(updated);
+	});
+});
+
+describe('Paper parameter persistence', () => {
+	it('retains palette, shape and distortion edits through undo, reopen and cloning', async () => {
+		const { portableVideoProjectDocument } = await import('@openpost/video-project');
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+		const project = createBlankProject('Paper');
+		timelineStore.setAll({ tracks: project.timeline!.tracks, items: [], currentFrame: 0, fps: 30 });
+		const id = addBackgroundItem('shader-paper-warp');
+		const original = timelineStore.itemById.get(id)!.background!;
+		if (original.kind !== 'shader') throw new Error('Expected shader background');
+		updateBackground(id, {
+			parameters: {
+				...original.parameters,
+				shape: '2',
+				colorCount: 3,
+				color1: '#33bbcc80',
+				swirl: 0.33
+			},
+			speed: 0.25,
+			phase: 6.5
+		});
+		const edited = timelineStore.itemById.get(id)!.background!;
+		expect(edited).toMatchObject({
+			shader: 'paper:warp',
+			parameters: { shape: '2', colorCount: 3, color1: '#33bbcc80', swirl: 0.33 },
+			speed: 0.25,
+			phase: 6.5
+		});
+		commandHistory.undo();
+		expect(timelineStore.itemById.get(id)!.background).toEqual(original);
+		commandHistory.redo();
+		expect(timelineStore.itemById.get(id)!.background).toEqual(edited);
+		project.timeline!.items = [...timelineStore.items];
+		const reopened = normalizeProject(
+			JSON.parse(JSON.stringify(portableVideoProjectDocument(project)))
+		).project;
+		expect(reopened.timeline!.items[0]!.background).toEqual(edited);
+		const copy = cloneProjectDocument(reopened, { createId: ids(), now: 1 });
+		const copied = copy.timeline!.items[0]!.background!;
+		if (copied.kind !== 'shader') throw new Error('Expected cloned shader');
+		copied.parameters!.color1 = '#ffffff';
+		expect(reopened.timeline!.items[0]!.background).toEqual(edited);
 	});
 });

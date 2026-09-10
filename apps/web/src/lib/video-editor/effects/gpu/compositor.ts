@@ -19,7 +19,8 @@ import type {
 import { BLEND_MODE_INDEX, type BlendMode } from './blend-modes';
 import { BLEND_MODES_GLSL, EFFECT_COMMON_GLSL, FULLSCREEN_VERTEX_GLSL } from './shader-source';
 import { getGpuEffect } from './registry';
-import type { GpuParamValues, GpuShaderDefinition } from './types';
+import type { GpuParamValues, GpuProgramDefinition } from './types';
+import { PaperShaderRenderer } from '../paper/renderer';
 import { gpuResourcePool } from './gpu-resource-pool';
 import { COLOR_BATCH_FRAGMENT_SOURCE, packColorBatch, planEffectPasses } from './color-batch';
 
@@ -47,7 +48,7 @@ interface ProgramBundle {
 
 const VERTEX_SHADER = FULLSCREEN_VERTEX_GLSL;
 
-function fragmentShaderSource(definition: GpuShaderDefinition): string {
+function fragmentShaderSource(definition: GpuProgramDefinition): string {
 	return `#version 300 es
 precision highp float;
 precision highp sampler2D;
@@ -63,7 +64,7 @@ void main() {
 `;
 }
 
-function scatterVertexShaderSource(definition: GpuShaderDefinition): string {
+function scatterVertexShaderSource(definition: GpuProgramDefinition): string {
 	if (!definition.scatterVertexSource || !definition.scatterEntryPoint) {
 		throw new Error(`GPU compositor: ${definition.id} has an incomplete scatter definition`);
 	}
@@ -166,6 +167,7 @@ export class GpuCompositor implements EditorColorCompositor {
 		string,
 		{ texture: WebGLTexture; key: string; dimension: '2d' | '3d'; target: number }
 	>();
+	private paperRenderer: PaperShaderRenderer | undefined;
 	private disposed = false;
 	private lastFailure: string | null = null;
 
@@ -219,7 +221,7 @@ export class GpuCompositor implements EditorColorCompositor {
 		return texture;
 	}
 
-	private getProgram(definition: GpuShaderDefinition): ProgramBundle {
+	private getProgram(definition: GpuProgramDefinition): ProgramBundle {
 		const cached = this.programs.get(definition.id);
 		if (cached) return cached;
 		const gl = this.gl;
@@ -270,7 +272,7 @@ export class GpuCompositor implements EditorColorCompositor {
 		if (this.colorBatchUnavailable) return null;
 		const gl = this.gl;
 		try {
-			const definition: GpuShaderDefinition = {
+			const definition: GpuProgramDefinition = {
 				id: 'inline-color-batch',
 				label: 'Inline color batch',
 				category: 'color',
@@ -370,7 +372,7 @@ export class GpuCompositor implements EditorColorCompositor {
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 	}
 
-	private ensureDataTexture(definition: GpuShaderDefinition, params: GpuParamValues): void {
+	private ensureDataTexture(definition: GpuProgramDefinition, params: GpuParamValues): void {
 		const spec = definition.dataTexture;
 		const gl = this.gl;
 		if (!spec) return;
@@ -539,6 +541,29 @@ export class GpuCompositor implements EditorColorCompositor {
 				if (!definition) {
 					throw new Error(`GPU effect renderer unavailable: ${entry.effectId}`);
 				}
+				if (definition.paperShader !== undefined) {
+					this.paperRenderer ??= new PaperShaderRenderer(gl);
+					const params = entry.params;
+					this.paperRenderer.draw(
+						definition.paperShader,
+						{
+							params,
+							seconds: options.time ?? 0,
+							speed: Number(params.speed ?? 0),
+							phase: Number(params.phase ?? 0),
+							scale: Number(params.scale ?? 1),
+							rotation: Number(params.rotation ?? 0),
+							offsetX: Number(params.offsetX ?? 0),
+							offsetY: Number(params.offsetY ?? 0)
+						},
+						width,
+						height,
+						currentTexture ?? undefined
+					);
+					currentTexture = targetTexture;
+					passIndex++;
+					continue;
+				}
 				const bundle = this.getProgram(definition);
 				gl.useProgram(bundle.program);
 
@@ -631,6 +656,7 @@ export class GpuCompositor implements EditorColorCompositor {
 			this.canvas.removeEventListener('webglcontextlost', this.contextLostListener);
 			this.contextLostListener = null;
 		}
+		this.paperRenderer?.dispose();
 		const lost = gl.isContextLost?.() === true;
 		if (!lost) {
 			for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);

@@ -5,7 +5,12 @@
 
 import { createGpuCompositor, type GpuCompositor } from '../gpu/compositor';
 import { getGpuEffect } from '../gpu/registry';
-import { normalizeGpuParam, type GpuParamValues, type GpuShaderDefinition } from '../gpu/types';
+import {
+	defaultGpuParams,
+	normalizeGpuParam,
+	type GpuParamValues,
+	type GpuShaderDefinition
+} from '../gpu/types';
 import { EFFECT_DEFINITIONS, effectUnit, type CssFilterType } from '../types';
 import type { EffectTemplate } from '../../timeline/effect-drop';
 
@@ -13,6 +18,7 @@ export const EFFECT_PREVIEW_WIDTH = 160;
 export const EFFECT_PREVIEW_HEIGHT = 90;
 
 const SAMPLE_URL = new URL('./effect-preview-sample.svg', import.meta.url).href;
+const LOGO_SAMPLE_URL = new URL('./effect-preview-logo.svg', import.meta.url).href;
 
 interface PreviewPipeline {
 	canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -21,7 +27,7 @@ interface PreviewPipeline {
 
 let pipeline: PreviewPipeline | null = null;
 let pipelinePromise: Promise<PreviewPipeline | null> | null = null;
-let samplePromise: Promise<HTMLCanvasElement | OffscreenCanvas | null> | null = null;
+const samplePromises = new Map<string, Promise<HTMLCanvasElement | OffscreenCanvas | null>>();
 let cssPreviewCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
 const posterCache = new Map<string, EffectPreviewFrame>();
 
@@ -108,7 +114,7 @@ function activePosterWaiters(job: PosterJob): PosterWaiter[] {
 async function renderPosterJob(job: PosterJob): Promise<EffectPreviewFrame | null> {
 	const cached = posterCache.get(job.key);
 	if (cached) return cached;
-	const sample = await getEffectPreviewSample();
+	const sample = await getEffectPreviewSample(job.effects);
 	if (!sample || activePosterWaiters(job).length === 0) return null;
 	if (job.effects.some((effect) => effect.kind === 'gpu')) {
 		await ensureEffectPreviewPipeline();
@@ -196,10 +202,18 @@ function getReadyEffectPreviewPipeline(): PreviewPipeline | null {
 	return pipeline;
 }
 
-/** Decode the bundled frame once. Every preview draws from this same source. */
-export function getEffectPreviewSample(): Promise<HTMLCanvasElement | OffscreenCanvas | null> {
-	if (samplePromise) return samplePromise;
-	samplePromise = new Promise((resolve) => {
+/** Decode each bundled sample once; logo effects need transparent input bounds. */
+export function getEffectPreviewSample(
+	effects: readonly EffectTemplate[] = []
+): Promise<HTMLCanvasElement | OffscreenCanvas | null> {
+	const source = effects.some(
+		(effect) => effect.kind === 'gpu' && getGpuEffect(effect.effectId)?.preview?.sample === 'logo'
+	)
+		? LOGO_SAMPLE_URL
+		: SAMPLE_URL;
+	const cached = samplePromises.get(source);
+	if (cached) return cached;
+	const samplePromise = new Promise<HTMLCanvasElement | OffscreenCanvas | null>((resolve) => {
 		const canvas = createCanvas(EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
 		// eslint-disable-next-line anti-slop/no-runtime-typeof -- this is the SSR boundary for the browser Image API.
 		if (!canvas || typeof Image === 'undefined') {
@@ -217,13 +231,16 @@ export function getEffectPreviewSample(): Promise<HTMLCanvasElement | OffscreenC
 			resolve(canvas);
 		};
 		image.onerror = () => resolve(null);
-		image.src = SAMPLE_URL;
+		image.src = source;
 	});
+	samplePromises.set(source, samplePromise);
 	return samplePromise;
 }
 
 /** Push neutral defaults toward a useful poster value without leaving the declared range. */
 export function getShowcaseParams(definition: GpuShaderDefinition): GpuParamValues {
+	if (definition.preview)
+		return { ...defaultGpuParams(definition.schema), ...definition.preview.params };
 	return Object.fromEntries(
 		definition.schema.map((param) => {
 			if (!param.type || param.type === 'number') {

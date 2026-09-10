@@ -1,3 +1,4 @@
+import { getPaperShader, normalizePaperParams } from '../effects/paper/catalog';
 import { DEFAULT_SHADER_BACKGROUND, isBackgroundShader } from './shaders';
 import type {
 	BackgroundMeshBackground,
@@ -69,18 +70,22 @@ function toMeshColors(input: readonly string[] | undefined): [string, string, st
 
 export function clampBackground(value: ProceduralBackground): ProceduralBackground {
 	if (value.kind === 'shader') {
-		return {
+		const shader = isBackgroundShader(value.shader) ? value.shader : 'mesh';
+		const paper = shader.startsWith('paper:') ? getPaperShader(shader.slice(6)) : undefined;
+		const background: ShaderBackground = {
 			kind: 'shader',
-			shader: isBackgroundShader(value.shader) ? value.shader : 'mesh',
+			shader,
 			colors: toMeshColors(value.colors),
 			speed: clamp(Number.isFinite(value.speed) ? value.speed : 0.5, 0, 3),
 			phase: clamp(Number.isFinite(value.phase) ? value.phase : 0, 0, 60),
 			detail: clamp(Number.isFinite(value.detail) ? value.detail : 0.5, 0, 1),
 			rotation: clamp(Number.isFinite(value.rotation) ? value.rotation : 0, -360, 360),
 			scale: clamp(Number.isFinite(value.scale) ? value.scale : 1, 0.25, 4),
-			offsetX: clamp(Number.isFinite(value.offsetX) ? value.offsetX : 0, -0.5, 0.5),
-			offsetY: clamp(Number.isFinite(value.offsetY) ? value.offsetY : 0, -0.5, 0.5)
+			offsetX: clamp(Number.isFinite(value.offsetX) ? value.offsetX : 0, -1, 1),
+			offsetY: clamp(Number.isFinite(value.offsetY) ? value.offsetY : 0, -1, 1)
 		};
+		if (paper) background.parameters = normalizePaperParams(paper, value.parameters);
+		return background;
 	}
 	if (value.kind === 'mesh-gradient') {
 		return {

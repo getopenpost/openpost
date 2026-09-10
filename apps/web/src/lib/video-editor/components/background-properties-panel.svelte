@@ -56,7 +56,12 @@
 	function applyPreset(id: string): void {
 		const preset = BACKGROUND_PRESETS.find((p) => p.id === id);
 		if (!preset) return;
-		if (preset.background.kind === 'shader' && !shaderBackgroundSupport.check()) return;
+		if (
+			preset.background.kind === 'shader' &&
+			(!shaderBackgroundSupport.check() ||
+				!shaderBackgroundSupport.isAvailable(preset.background.shader))
+		)
+			return;
 		setBackground(item.id, preset.background);
 		onedit();
 	}
@@ -79,7 +84,9 @@
 		options={BACKGROUND_PRESETS.map((preset) => ({
 			value: preset.id,
 			label: presetLabel(preset.id),
-			disabled: preset.background.kind === 'shader' && !shaderBackgroundSupport.available
+			disabled:
+				preset.background.kind === 'shader' &&
+				!shaderBackgroundSupport.isAvailable(preset.background.shader)
 		}))}
 		ariaLabel={m.video_editor_background_preset()}
 		onValueChange={applyPreset}
@@ -233,8 +240,8 @@
 			>
 			<Slider
 				value={bg.rotation}
-				min={-180}
-				max={180}
+				min={-360}
+				max={360}
 				step={1}
 				ariaLabel={m.video_editor_background_rotation()}
 				onValueCommit={(v) =>
@@ -268,8 +275,8 @@
 			>
 			<Slider
 				value={bg.offsetX}
-				min={-0.5}
-				max={0.5}
+				min={bg.kind === 'shader' ? -1 : -0.5}
+				max={bg.kind === 'shader' ? 1 : 0.5}
 				step={0.01}
 				ariaLabel={m.video_editor_background_offset_x()}
 				onValueCommit={(v) =>
@@ -284,8 +291,8 @@
 			>
 			<Slider
 				value={bg.offsetY}
-				min={-0.5}
-				max={0.5}
+				min={bg.kind === 'shader' ? -1 : -0.5}
+				max={bg.kind === 'shader' ? 1 : 0.5}
 				step={0.01}
 				ariaLabel={m.video_editor_background_offset_y()}
 				onValueCommit={(v) =>

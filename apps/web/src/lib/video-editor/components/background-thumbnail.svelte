@@ -6,8 +6,18 @@
 	let { background, onfailure }: { background: ProceduralBackground; onfailure?: () => void } =
 		$props();
 	let canvas: HTMLCanvasElement;
+	let visible = $state(false);
+	$effect(() => {
+		if (!canvas) return;
+		const observer = new IntersectionObserver(([entry]) => {
+			visible = entry?.isIntersecting === true;
+		});
+		observer.observe(canvas);
+		return () => observer.disconnect();
+	});
 
 	$effect(() => {
+		if (!visible) return;
 		const context = canvas?.getContext('2d');
 		if (!context) return;
 		if (background.kind !== 'shader') {

@@ -1,3 +1,4 @@
+import { PaperShaderRenderer } from '../effects/paper/renderer';
 import {
 	meshGradientFragmentShader,
 	swirlFragmentShader,
@@ -13,6 +14,10 @@ const FRAGMENTS = {
 	clouds: perlinNoiseFragmentShader,
 	neural: neuroNoiseFragmentShader
 };
+
+function isLegacyShader(shader: BackgroundShader): shader is keyof typeof FRAGMENTS {
+	return Object.hasOwn(FRAGMENTS, shader);
+}
 
 // Paper's public fragment shaders consume centered object/pattern coordinates.
 // A fixed design height keeps the same composition at preview and export sizes.
@@ -64,19 +69,23 @@ export class ShaderBackgroundRenderer {
 	private readonly canvas: OffscreenCanvas;
 	private readonly gl: WebGL2RenderingContext;
 	private readonly programs = new Map<BackgroundShader, CompiledShader>();
+	private readonly paper: PaperShaderRenderer;
 	private disposed = false;
 
 	constructor() {
 		this.canvas = new OffscreenCanvas(1, 1);
 		const gl = this.canvas.getContext('webgl2', {
-			alpha: false,
+			alpha: true,
+			premultipliedAlpha: false,
 			antialias: false
 		});
 		if (!gl) throw new Error('Shader backgrounds require WebGL 2.');
 		this.gl = gl;
+		this.paper = new PaperShaderRenderer(gl);
 	}
 
 	private compile(shader: BackgroundShader): CompiledShader {
+		if (!isLegacyShader(shader)) throw new Error(`Unknown legacy shader: ${shader}`);
 		const cached = this.programs.get(shader);
 		if (cached) return cached;
 		const gl = this.gl;
@@ -119,6 +128,17 @@ export class ShaderBackgroundRenderer {
 		if (this.disposed) throw new Error('Shader renderer is disposed.');
 		const gl = this.gl;
 		if (gl.isContextLost()) throw new Error('Shader graphics context was lost.');
+		if (background.shader.startsWith('paper:')) {
+			if (this.canvas.width !== width) this.canvas.width = width;
+			if (this.canvas.height !== height) this.canvas.height = height;
+			this.paper.draw(
+				background.shader.slice(6),
+				{ ...background, params: background.parameters ?? {}, seconds },
+				width,
+				height
+			);
+			return this.canvas;
+		}
 		const { program, uniforms } = this.compile(background.shader);
 		if (this.canvas.width !== width) this.canvas.width = width;
 		if (this.canvas.height !== height) this.canvas.height = height;
@@ -173,6 +193,7 @@ export class ShaderBackgroundRenderer {
 		this.disposed = true;
 		for (const { program } of this.programs.values()) this.gl.deleteProgram(program);
 		this.programs.clear();
+		this.paper.dispose();
 		this.gl.getExtension('WEBGL_lose_context')?.loseContext();
 	}
 }

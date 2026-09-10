@@ -23,6 +23,7 @@ import { halftone } from './shaders/halftone';
 import * as distortEffects from './shaders/distort';
 import { curves } from './curves';
 import { lut } from './lut';
+import { PAPER_GPU_EFFECTS } from '../paper/gpu-effects';
 
 /** Every definition, in stable category order (color, blur, keying, stylize, distort). */
 export const GPU_EFFECT_CATALOG: readonly GpuShaderDefinition[] = [
@@ -79,7 +80,8 @@ export const GPU_EFFECT_CATALOG: readonly GpuShaderDefinition[] = [
 	distortEffects.rippleGlass,
 	distortEffects.glassMosaic,
 	distortEffects.blocks,
-	distortEffects.droste
+	distortEffects.droste,
+	...PAPER_GPU_EFFECTS
 ];
 
 const GPU_EFFECT_REGISTRY = new Map<string, GpuShaderDefinition>(

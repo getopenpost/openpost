@@ -8,7 +8,7 @@
  * individual float uniforms.
  */
 
-export type GpuEffectCategory = 'color' | 'blur' | 'distort' | 'stylize' | 'keying';
+export type GpuEffectCategory = 'color' | 'blur' | 'distort' | 'stylize' | 'keying' | 'shader';
 
 /** Named owner contract for open param/uniform dictionaries. */
 export type GpuParamValue = number | string | boolean;
@@ -80,10 +80,23 @@ export interface GpuDataTextureSpec {
 	};
 }
 
-export interface GpuShaderDefinition {
+interface GpuEffectDefinition {
 	id: string;
 	label: string;
 	category: GpuEffectCategory;
+	schema: readonly GpuParamSchema[];
+	/** Catalog-only sample and parameter overrides; authored effects keep their defaults. */
+	preview?: { sample?: 'logo'; params: GpuParamValues };
+}
+
+export interface PaperGpuShaderDefinition extends GpuEffectDefinition {
+	paperShader: string;
+}
+
+export type GpuShaderDefinition = GpuProgramDefinition | PaperGpuShaderDefinition;
+
+export interface GpuProgramDefinition extends GpuEffectDefinition {
+	paperShader?: undefined;
 	/** Fragment entry function name inside `fragmentSource`. */
 	entryPoint: string;
 	/**
@@ -99,7 +112,6 @@ export interface GpuShaderDefinition {
 	 */
 	scatterVertexSource?: string;
 	scatterEntryPoint?: string;
-	schema: readonly GpuParamSchema[];
 	/**
 	 * Map stored params (+ frame width/height/time in seconds) to uniform
 	 * values. Port of FreeCut's packUniforms, expanded to named uniforms.

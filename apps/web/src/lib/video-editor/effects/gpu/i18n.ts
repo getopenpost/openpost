@@ -1,3 +1,4 @@
+import { paperLabel } from '../paper/i18n';
 import { m } from '$lib/paraglide/messages';
 import type { GpuParamSchema, GpuShaderDefinition } from './types';
 
@@ -323,15 +324,15 @@ const optionMessages = new Map<string, () => string>([
 
 /** Localize catalog labels without coupling render definitions to Paraglide. */
 export function gpuEffectLabel(definition: GpuShaderDefinition): string {
-	return effectMessages.get(definition.id)?.() ?? definition.label;
+	return effectMessages.get(definition.id)?.() ?? paperLabel(definition.label);
 }
 
 /** Parameter labels are shared when their exact editor meaning is shared. */
 export function gpuParamLabel(param: Pick<GpuParamSchema, 'label'>): string {
-	return parameterMessages.get(param.label)?.() ?? param.label;
+	return parameterMessages.get(param.label)?.() ?? paperLabel(param.label);
 }
 
 /** Select option values stay stable in project files while their labels follow the UI locale. */
 export function gpuOptionLabel(option: { label: string }): string {
-	return optionMessages.get(option.label)?.() ?? option.label;
+	return optionMessages.get(option.label)?.() ?? paperLabel(option.label);
 }

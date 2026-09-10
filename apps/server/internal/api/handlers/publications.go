@@ -1578,10 +1578,13 @@ func (h *PublicationHandler) insertPublicationSegments(
 		}
 		for order, media := range input.Media {
 			row := models.PublicationSegmentMedia{
-				SegmentID:    segment.ID,
-				MediaID:      media.MediaID,
-				DisplayOrder: order,
-				SettingsJSON: mustJSON(media.Settings),
+				SegmentID:            segment.ID,
+				MediaID:              media.MediaID,
+				Role:                 publicationFirstNonEmpty(media.Role, "attachment"),
+				DisplayOrder:         order,
+				AltText:              media.AltText,
+				ThumbnailTimestampMS: media.ThumbnailTimestampMS,
+				SettingsJSON:         mustJSON(media.Settings),
 			}
 			if _, err := tx.NewInsert().Model(&row).Exec(ctx); err != nil {
 				return nil, err
@@ -1685,10 +1688,13 @@ func (h *PublicationHandler) replacePublicationSegments(
 		}
 		for order, media := range input.Media {
 			row := &models.PublicationSegmentMedia{
-				SegmentID:    segmentID,
-				MediaID:      media.MediaID,
-				DisplayOrder: order,
-				SettingsJSON: mustJSON(media.Settings),
+				SegmentID:            segmentID,
+				MediaID:              media.MediaID,
+				Role:                 publicationFirstNonEmpty(media.Role, "attachment"),
+				DisplayOrder:         order,
+				AltText:              media.AltText,
+				ThumbnailTimestampMS: media.ThumbnailTimestampMS,
+				SettingsJSON:         mustJSON(media.Settings),
 			}
 			if _, err := tx.NewInsert().Model(row).Exec(ctx); err != nil {
 				return err
@@ -2165,7 +2171,11 @@ func publicationMediaInputsEqual(left, right []PublicationMediaInput) bool {
 		return false
 	}
 	for index := range left {
-		if left[index].MediaID != right[index].MediaID {
+		if left[index].MediaID != right[index].MediaID ||
+			publicationFirstNonEmpty(left[index].Role, "attachment") != publicationFirstNonEmpty(right[index].Role, "attachment") ||
+			left[index].AltText != right[index].AltText ||
+			left[index].ThumbnailTimestampMS != right[index].ThumbnailTimestampMS ||
+			mustJSON(left[index].Settings) != mustJSON(right[index].Settings) {
 			return false
 		}
 	}
@@ -2277,8 +2287,11 @@ func (h *PublicationHandler) loadCanonicalSegmentInputsWithDB(
 		_ = json.Unmarshal([]byte(row.SettingsJSON), &settings)
 		position := positionByID[row.SegmentID]
 		inputs[position].Media = append(inputs[position].Media, PublicationMediaInput{
-			MediaID:  row.MediaID,
-			Settings: settings,
+			MediaID:              row.MediaID,
+			Role:                 row.Role,
+			AltText:              row.AltText,
+			ThumbnailTimestampMS: row.ThumbnailTimestampMS,
+			Settings:             settings,
 		})
 	}
 	return segments, inputs, nil
@@ -2396,14 +2409,14 @@ func (h *PublicationHandler) loadRenditionSegmentMediaWithDB(
 		RenditionSegmentID   string `bun:"rendition_segment_id"`
 		Role                 string `bun:"role"`
 		DisplayOrder         int    `bun:"display_order"`
-		AltText              string `bun:"alt_text"`
+		AltText              string `bun:"context_alt_text"`
 		ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 		SettingsJSON         string `bun:"settings_json"`
 		models.MediaAttachment
 	}
 	if err := db.NewSelect().
 		TableExpr("rendition_segment_media AS rsm").
-		ColumnExpr("rsm.rendition_segment_id, rsm.role, rsm.display_order, rsm.alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
+		ColumnExpr("rsm.rendition_segment_id, rsm.role, rsm.display_order, rsm.alt_text AS context_alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
 		ColumnExpr("m.*").
 		Join("JOIN media_attachments AS m ON m.id = rsm.media_id").
 		Where("rsm.rendition_segment_id IN (?)", bun.List(segmentIDs)).
@@ -2625,13 +2638,13 @@ func (h *PublicationHandler) loadRenditionMediaWithDB(ctx context.Context, db bu
 		RenditionID          string `bun:"rendition_id"`
 		Role                 string `bun:"role"`
 		DisplayOrder         int    `bun:"display_order"`
-		AltText              string `bun:"alt_text"`
+		AltText              string `bun:"context_alt_text"`
 		ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 		models.MediaAttachment
 	}
 	if err := db.NewSelect().
 		TableExpr("rendition_media AS rm").
-		ColumnExpr("rm.rendition_id, rm.role, rm.display_order, rm.alt_text, rm.thumbnail_timestamp_ms").
+		ColumnExpr("rm.rendition_id, rm.role, rm.display_order, rm.alt_text AS context_alt_text, rm.thumbnail_timestamp_ms").
 		ColumnExpr("m.*").
 		Join("JOIN media_attachments AS m ON m.id = rm.media_id").
 		Where("rm.rendition_id IN (?)", bun.List(ids)).

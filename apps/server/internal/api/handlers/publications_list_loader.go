@@ -12,10 +12,13 @@ import (
 )
 
 type publicationSegmentMediaRow struct {
-	PublicationID string `bun:"publication_id"`
-	SegmentID     string `bun:"segment_id"`
-	DisplayOrder  int    `bun:"display_order"`
-	SettingsJSON  string `bun:"settings_json"`
+	PublicationID        string `bun:"publication_id"`
+	SegmentID            string `bun:"segment_id"`
+	Role                 string `bun:"role"`
+	DisplayOrder         int    `bun:"display_order"`
+	AltText              string `bun:"context_alt_text"`
+	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
+	SettingsJSON         string `bun:"settings_json"`
 	models.MediaAttachment
 }
 
@@ -24,7 +27,7 @@ type renditionMediaListRow struct {
 	RenditionID          string `bun:"rendition_id"`
 	Role                 string `bun:"role"`
 	DisplayOrder         int    `bun:"display_order"`
-	AltText              string `bun:"alt_text"`
+	AltText              string `bun:"context_alt_text"`
 	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 	models.MediaAttachment
 }
@@ -33,7 +36,7 @@ type renditionSegmentMediaListRow struct {
 	RenditionSegmentID   string `bun:"rendition_segment_id"`
 	Role                 string `bun:"role"`
 	DisplayOrder         int    `bun:"display_order"`
-	AltText              string `bun:"alt_text"`
+	AltText              string `bun:"context_alt_text"`
 	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 	SettingsJSON         string `bun:"settings_json"`
 	models.MediaAttachment
@@ -145,7 +148,7 @@ func (h *PublicationHandler) loadPublicationListSegments(
 	var mediaRows []publicationSegmentMediaRow
 	if err := db.NewSelect().
 		TableExpr("publication_segment_media AS psm").
-		ColumnExpr("ps.publication_id, psm.segment_id, psm.display_order, psm.settings_json").
+		ColumnExpr("ps.publication_id, psm.segment_id, psm.role, psm.display_order, psm.alt_text AS context_alt_text, psm.thumbnail_timestamp_ms, psm.settings_json").
 		ColumnExpr("m.*").
 		Join("JOIN publication_segments AS ps ON ps.id = psm.segment_id").
 		Join("JOIN media_attachments AS m ON m.id = psm.media_id").
@@ -158,7 +161,7 @@ func (h *PublicationHandler) loadPublicationListSegments(
 		return nil, nil, huma.Error500InternalServerError("failed to load publication segment media")
 	}
 	for _, row := range mediaRows {
-		item := mediaSummary(row.MediaAttachment, "attachment", row.DisplayOrder, "", 0)
+		item := mediaSummary(row.MediaAttachment, row.Role, row.DisplayOrder, row.AltText, row.ThumbnailTimestampMS)
 		_ = json.Unmarshal([]byte(row.SettingsJSON), &item.Settings)
 		mediaBySegment[row.SegmentID] = append(mediaBySegment[row.SegmentID], item)
 	}
@@ -200,7 +203,7 @@ func (h *PublicationHandler) loadPublicationListRenditions(
 	var mediaRows []renditionMediaListRow
 	if err := db.NewSelect().
 		TableExpr("rendition_media AS rm").
-		ColumnExpr("r.publication_id, rm.rendition_id, rm.role, rm.display_order, rm.alt_text, rm.thumbnail_timestamp_ms").
+		ColumnExpr("r.publication_id, rm.rendition_id, rm.role, rm.display_order, rm.alt_text AS context_alt_text, rm.thumbnail_timestamp_ms").
 		ColumnExpr("m.*").
 		Join("JOIN renditions AS r ON r.id = rm.rendition_id").
 		Join("JOIN media_attachments AS m ON m.id = rm.media_id").
@@ -279,7 +282,7 @@ func (h *PublicationHandler) loadPublicationListRenditionSegments(
 	var mediaRows []renditionSegmentMediaListRow
 	if err := db.NewSelect().
 		TableExpr("rendition_segment_media AS rsm").
-		ColumnExpr("rsm.rendition_segment_id, rsm.role, rsm.display_order, rsm.alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
+		ColumnExpr("rsm.rendition_segment_id, rsm.role, rsm.display_order, rsm.alt_text AS context_alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
 		ColumnExpr("m.*").
 		Join("JOIN rendition_segments AS rs ON rs.id = rsm.rendition_segment_id").
 		Join("JOIN renditions AS r ON r.id = rs.rendition_id").

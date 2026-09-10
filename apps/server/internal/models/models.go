@@ -1469,10 +1469,13 @@ type PublicationSegment struct {
 type PublicationSegmentMedia struct {
 	bun.BaseModel `bun:"table:publication_segment_media"`
 
-	SegmentID    string `bun:"segment_id,pk" json:"segment_id"`
-	MediaID      string `bun:"media_id,pk" json:"media_id"`
-	DisplayOrder int    `bun:"display_order,notnull,default:0" json:"display_order"`
-	SettingsJSON string `bun:"settings_json,notnull,default:'{}'" json:"settings_json"`
+	SegmentID            string `bun:"segment_id,pk" json:"segment_id"`
+	MediaID              string `bun:"media_id,pk" json:"media_id"`
+	Role                 string `bun:"role,notnull,default:'attachment'" json:"role"`
+	DisplayOrder         int    `bun:"display_order,notnull,default:0" json:"display_order"`
+	AltText              string `bun:"alt_text,notnull,default:''" json:"alt_text"`
+	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms,notnull,default:0" json:"thumbnail_timestamp_ms"`
+	SettingsJSON         string `bun:"settings_json,notnull,default:'{}'" json:"settings_json"`
 }
 
 type Rendition struct {

@@ -918,14 +918,14 @@ func (s *Service) failRenditionSegment(ctx context.Context, segment *models.Rend
 
 func (s *Service) loadRenditionSegmentMedia(ctx context.Context, segmentID string) ([]models.MediaAttachment, []string, []map[string]interface{}, error) {
 	var rows []struct {
-		AltText              string `bun:"alt_text"`
+		AltText              string `bun:"context_alt_text"`
 		ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 		SettingsJSON         string `bun:"settings_json"`
 		models.MediaAttachment
 	}
 	if err := s.db.NewSelect().
 		TableExpr("rendition_segment_media AS rsm").
-		ColumnExpr("rsm.alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
+		ColumnExpr("rsm.alt_text AS context_alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
 		ColumnExpr("ma.*").
 		Join("JOIN media_attachments AS ma ON ma.id = rsm.media_id").
 		Where("rsm.rendition_segment_id = ?", segmentID).
@@ -2188,13 +2188,13 @@ func settingStringPublisher(settings map[string]interface{}, key string) string 
 
 func (s *Service) loadRenditionMedia(ctx context.Context, renditionID string) ([]models.MediaAttachment, []string, []map[string]interface{}, error) {
 	var rows []struct {
-		AltText              string `bun:"alt_text"`
+		AltText              string `bun:"context_alt_text"`
 		ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms"`
 		models.MediaAttachment
 	}
 	if err := s.db.NewSelect().
 		TableExpr("rendition_media AS rm").
-		ColumnExpr("rm.alt_text, rm.thumbnail_timestamp_ms").
+		ColumnExpr("rm.alt_text AS context_alt_text, rm.thumbnail_timestamp_ms").
 		ColumnExpr("ma.*").
 		Join("JOIN media_attachments AS ma ON ma.id = rm.media_id").
 		Where("rm.rendition_id = ?", renditionID).

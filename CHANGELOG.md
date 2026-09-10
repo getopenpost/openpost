@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Fixed version history failing to load on PostgreSQL for publications with publishing authorization events.
 - Replaced the composer's unexplained red validation icon with a labeled issue count beside the publishing controls. The issue list still explains each blocker and opens the affected field.
 
 ## [4.26.0] - 2026-09-09

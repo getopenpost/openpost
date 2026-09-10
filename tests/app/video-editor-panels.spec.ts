@@ -149,9 +149,14 @@ for (const scheme of ["light", "dark"] as const) {
     await assertLayout(false, false);
     await page.keyboard.press("Escape");
     await assertLayout(true, true);
-    await page.locator('[data-layout-toggle="theater"]').click();
-    await expect(page.locator('[data-layout-toggle="theater"]')).toBeFocused();
-    await page.locator("[data-program-monitor]").focus();
+    await page.evaluate(() => {
+      document.querySelector<HTMLButtonElement>('[data-layout-toggle="theater"]')!.click();
+      document.querySelector<HTMLElement>("[data-program-monitor]")!.focus();
+    });
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    await expect(page.locator("[data-program-monitor]")).toBeFocused();
     await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
     await expect(page.locator('[data-layout-toggle="theater"]')).toHaveAttribute(
       "aria-pressed",

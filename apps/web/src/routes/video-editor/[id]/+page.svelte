@@ -586,7 +586,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	});
 
 	function focusLayoutControl(selector: string): void {
+		const previousFocus = document.activeElement;
 		requestAnimationFrame(() => {
+			const focusWasRemoved =
+				!previousFocus?.isConnected && document.activeElement === document.body;
+			if (document.activeElement !== previousFocus && !focusWasRemoved) return;
 			document.querySelector<HTMLElement>(selector)?.focus();
 		});
 	}

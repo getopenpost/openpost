@@ -28,9 +28,10 @@ const (
 	ProviderX         = "x"
 	ProviderYouTube   = "youtube"
 
-	capabilityRevision   = "2026-09-03.1"
+	capabilityRevision   = "2026-09-10.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
+	blueskyImageMaxBytes = 2_000_000
 )
 
 type Profile struct {
@@ -133,6 +134,7 @@ type MediaConstraint struct {
 	MaxVideoAspectRatio    string   `json:"max_video_aspect_ratio,omitempty"`
 	MaxDurationSeconds     int      `json:"max_duration_seconds,omitempty"`
 	MaxSizeBytes           int64    `json:"max_size_bytes,omitempty"`
+	MaxImageSizeBytes      int64    `json:"max_image_size_bytes,omitempty"`
 	MinWidth               int      `json:"min_width,omitempty"`
 	MaxWidth               int      `json:"max_width,omitempty"`
 	MinHeight              int      `json:"min_height,omitempty"`
@@ -373,9 +375,9 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderX, Profile: models.ContentProfileLongVideo, Label: "X video", TextLimit: 25_000, Media: xVideo, Settings: xSettings(), Caveats: []string{"Text and video limits are expanded only when the connected account reports an active X subscription."}}),
 
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortText, Label: "Bluesky post", TextLimit: 300, Media: text, Settings: blueskySettings()}),
-		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}}, Settings: blueskySettings()}),
+		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}, MaxImageSizeBytes: blueskyImageMaxBytes}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileLinkShare, Label: "Bluesky link", TextLimit: 300, Media: text, Settings: blueskySettings()}),
-		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileImagePost, Label: "Bluesky images", TextLimit: 300, Media: MediaConstraint{MinCount: 1, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"}}, Settings: blueskySettings()}),
+		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileImagePost, Label: "Bluesky images", TextLimit: 300, Media: MediaConstraint{MinCount: 1, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"}, MaxImageSizeBytes: blueskyImageMaxBytes}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortVideo, Label: "Bluesky video", TextLimit: 300, Media: blueskyVideo, Settings: blueskySettings()}),
 
 		defaultQueued(Capability{Provider: ProviderMastodon, Profile: models.ContentProfileShortText, Label: "Mastodon post", TextLimit: 500, Media: text, Settings: mastodonSettings()}),
@@ -1857,6 +1859,9 @@ func validateMediaItem(capability Capability, item MediaItem) []ValidationIssue 
 	}
 	if capability.Media.MaxSizeBytes > 0 && item.Size > capability.Media.MaxSizeBytes {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_size", Message: "Media file is too large", Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
+	}
+	if strings.HasPrefix(item.MimeType, "image/") && capability.Media.MaxImageSizeBytes > 0 && item.Size > capability.Media.MaxImageSizeBytes {
+		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_size", Message: fmt.Sprintf("Image is %d bytes; the maximum is %d bytes", item.Size, capability.Media.MaxImageSizeBytes), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
 	for _, boundary := range []struct {
 		invalid bool

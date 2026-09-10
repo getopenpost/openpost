@@ -9687,6 +9687,8 @@ export interface components {
             /** Format: int64 */
             max_height?: number;
             /** Format: int64 */
+            max_image_size_bytes?: number;
+            /** Format: int64 */
             max_size_bytes?: number;
             max_video_aspect_ratio?: string;
             /** Format: int64 */

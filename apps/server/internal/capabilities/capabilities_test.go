@@ -211,6 +211,46 @@ func TestResolveRequiresFormatOnlyForGenuinelyAmbiguousDestinations(t *testing.T
 	}
 }
 
+func TestBlueskyImageValidationEnforcesProviderByteLimit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		size      int64
+		wantIssue bool
+	}{
+		{name: "at limit", size: 2_000_000},
+		{name: "over limit", size: 2_000_001, wantIssue: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			issues := Validate(
+				ProviderBluesky,
+				models.ContentProfileImagePost,
+				"Caption",
+				"",
+				"",
+				[]MediaItem{{ID: "image-1", MimeType: "image/png", Size: test.size}},
+				map[string]any{},
+			)
+
+			if test.wantIssue {
+				requireIssueCode(t, issues, "media_size")
+				return
+			}
+			requireNoIssueCode(t, issues, "media_size")
+		})
+	}
+
+	issues := Validate(
+		ProviderBluesky,
+		models.ContentProfileThread,
+		"Caption",
+		"",
+		"",
+		[]MediaItem{{ID: "video-1", MimeType: "video/mp4", Size: 2_000_001, AnalysisStatus: "ready"}},
+		map[string]any{},
+	)
+	requireNoIssueCode(t, issues, "media_size")
+}
+
 func TestResolveInfersYouTubeShortOnlyFromCompleteQualifyingMetadata(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -416,7 +456,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 			require.Equal(t, tt.maxBytes, capability.Media.MaxSizeBytes)
 			require.Equal(t, tt.maxDuration, capability.Media.MaxDurationSeconds)
 			require.ElementsMatch(t, tt.allowedMIMEs, capability.Media.AllowedMIMEs)
-			require.Equal(t, "2026-09-03.1", capability.CapabilityRevision)
+			require.Equal(t, "2026-09-10.1", capability.CapabilityRevision)
 		})
 	}
 }

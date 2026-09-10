@@ -10563,6 +10563,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"max_image_size_bytes": {
+						"format": "int64",
+						"type": "integer"
+					},
 					"max_size_bytes": {
 						"format": "int64",
 						"type": "integer"

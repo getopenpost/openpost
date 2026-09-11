@@ -22,7 +22,7 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const chromiumUse = {
   launchOptions: {
     ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {}),
-    args: ["--enable-unsafe-swiftshader", "--use-gl=swiftshader"],
+    args: ["--enable-unsafe-swiftshader", "--use-gl=angle", "--use-angle=swiftshader"],
   },
 };
 

@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Video Editor background and effect galleries use still previews while browsing and animate the active preview on hover or keyboard focus. This avoids compiling the shader catalog when a panel opens or scrolls.
+- Video Editor clips can move between visual tracks. New projects label these tracks Visual 1 and Visual 2; existing project names remain intact. Track moves support undo, cancellation, linked audio, and saved projects, and reject locked or occupied destinations.
+- When `post create --schedule` creates a draft but scheduling fails, the CLI reports the publication ID and a command to retry scheduling without creating another draft. Add `post schedule <id> --at <time>` as an alias for `publication schedule`.
+- If scheduling succeeds but the status lookup fails, the CLI reports that scheduling was accepted and provides a command to check the existing publication.
 - Public logos and the README wordmark use burnt orange on light backgrounds and peach on dark backgrounds. The landing page logo follows the visitor's theme switch.
 - Sign-in pages no longer download the authenticated workspace navigation and dialogs. The workspace shell loads once after sign-in and remains mounted during navigation.
 

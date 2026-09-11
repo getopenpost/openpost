@@ -6,14 +6,10 @@
 	import { onMount, untrack } from 'svelte';
 	import { auth } from '$lib/stores/auth';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
-	import { captureTelemetryPageView } from '@openpost/telemetry';
+	import { captureClientException, captureTelemetryPageView } from '@openpost/telemetry';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { page } from '$app/stores';
-	import * as Sidebar from '$lib/components/ui/sidebar';
-	import SidebarLeft from '$lib/components/sidebar-left.svelte';
-	import MobileBottomNav from '$lib/components/mobile-bottom-nav.svelte';
-	import DayPostsModal from '$lib/components/day-posts-modal.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import AppLoading from '$lib/components/app-loading.svelte';
@@ -24,9 +20,6 @@
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { feedbackDiagnostics } from '$lib/feedback-diagnostics';
-	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
-	import PersonalPreferencesPortal from '$lib/components/personal-preferences-portal.svelte';
-	import BillingRecoveryNotice from '$lib/components/billing-recovery-notice.svelte';
 	import ConnectivityNotice from '$lib/components/connectivity-notice.svelte';
 	import { captureWebReauthGrant } from '$lib/auth/reauth';
 	import { client } from '$lib/api/client';
@@ -129,6 +122,23 @@
 				(route) => currentPath === route || currentPath.startsWith(`${route}/`)
 			)
 	);
+	let WorkspaceShell = $state<
+		typeof import('$lib/components/workspace-shell.svelte').default | null
+	>(null);
+	let shellLoadFailed = $state(false);
+	let shellLoadRequested = false;
+	$effect(() => {
+		if (!authState.isAuthenticated || isStandaloneRoute || shellLoadRequested) return;
+		shellLoadRequested = true;
+		void import('$lib/components/workspace-shell.svelte')
+			.then((module) => {
+				WorkspaceShell = module.default;
+			})
+			.catch((error) => {
+				shellLoadFailed = true;
+				captureClientException(error, { error_boundary: 'workspace_shell' });
+			});
+	});
 	let isPublicImageEditorRoute = $derived(
 		currentPath === '/image-editor' || currentPath.startsWith('/image-editor/local_design_')
 	);
@@ -568,29 +578,21 @@
 			{/if}
 			{@render children()}
 		{:else}
-			<a
-				href="#main-content"
-				class="fixed top-2 left-2 z-[100] -translate-y-16 rounded-md bg-background px-3 py-2 text-sm font-medium shadow-lg transition-transform focus:translate-y-0 focus:ring-2 focus:ring-ring focus:outline-none"
-			>
-				{m.common_skip_to_content()}
-			</a>
-			<Sidebar.Provider style="padding-top: env(safe-area-inset-top);">
-				<SidebarLeft />
-				<Sidebar.Inset
-					id="main-content"
-					tabindex={-1}
-					class="pb-[var(--mobile-bottom-nav-clearance)] md:pb-0"
-				>
-					<BillingRecoveryNotice workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
-					<div class="flex min-h-0 flex-1 flex-col overflow-auto">
-						{@render children()}
-					</div>
-					<MobileBottomNav />
-					<DayPostsModal />
-					<FeedbackDialog />
-					<PersonalPreferencesPortal />
-				</Sidebar.Inset>
-			</Sidebar.Provider>
+			{#if WorkspaceShell}
+				<WorkspaceShell {children} />
+			{:else if shellLoadFailed}
+				<div class="flex min-h-dvh items-center justify-center px-4 py-12">
+					<InlineNotice tone="error" message={m.workspace_load_failed()} class="w-full max-w-lg">
+						{#snippet actions()}
+							<Button variant="outline" onclick={() => window.location.reload()}
+								>{m.common_refresh()}</Button
+							>
+						{/snippet}
+					</InlineNotice>
+				</div>
+			{:else}
+				<AppLoading label={m.common_loading()} />
+			{/if}
 		{/if}
 	{/key}
 </QueryClientProvider>

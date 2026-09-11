@@ -1,3 +1,3 @@
----
-"web": Fixed editor browser checks after the shared header actions and deferred personal preferences loading until it is opened.
----
+### Fixed
+
+- Sign-in pages no longer download the authenticated workspace navigation and dialogs. The workspace shell loads once after sign-in and remains mounted during navigation.

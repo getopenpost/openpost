@@ -1,6 +1,6 @@
 # Feature icons
 
-These transparent SVG icons are public artwork for README feature tiles, public feature sections, and customer guides. Each icon uses a simple, recognizable pictogram on a 24px grid, with sparse square dither pixels near the edge. The artwork is identical in light and dark themes, so its midtone colors and pale accents are chosen to stay legible on both.
+These transparent SVG icons are public artwork for the README feature list, public feature sections, and customer guides. Each pictogram fills a 24px grid, with a few transparent square cuts along one edge. The artwork is identical in light and dark themes, using deeper silhouettes and pale badge colors for details. Accounts uses linked chains, Find people uses a person and magnifier, and Workspaces uses a team.
 
 Use icons beside visible feature names. App controls, navigation, provider marks, status glyphs, and the protected OpenPost Converge mark keep their own icon systems. Do not use these feature icons in authenticated app chrome.
 

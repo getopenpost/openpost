@@ -495,6 +495,16 @@ jobs:
         env:
           OPENPOST_E2E_PREBUILT: "1"
         run: bun run test -- e2e-app
+      - name: Retain application browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-app-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
 
   browser-marketing:
     name: Marketing browser suite

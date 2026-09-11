@@ -14,6 +14,20 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
     page.getByRole("link", { name: "Help centre", exact: true }).first(),
   ).toHaveAttribute("href", "https://docs.openpo.st/guides/quickstart");
 });
+
+test("resources menu uses one column per resource group @desktop", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Resources", exact: true }).click();
+
+  const menuGrid = page.locator(".resource-menu > div");
+  await expect(menuGrid).toBeVisible();
+  expect(
+    await menuGrid.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    ),
+  ).toBe(2);
+});
+
 test("free tools directory links every working tool @desktop", async ({ page }) => {
   const toolSlugs = [
     "social-media-video-editor",

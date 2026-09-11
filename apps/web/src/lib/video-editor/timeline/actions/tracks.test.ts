@@ -168,7 +168,7 @@ describe('timeline track actions', () => {
 		expect(renameTrack('track-video-main', '   ')).toBe(false);
 		commandHistory.undo();
 		expect(timelineStore.tracks.find((track) => track.id === 'track-video-main')?.name).toBe(
-			'Video'
+			'Visual 1'
 		);
 	});
 });

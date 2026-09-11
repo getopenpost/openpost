@@ -1,6 +1,6 @@
 /** Pure edit plans for live timeline pointer and keyboard gestures. */
 
-import type { TimelineItem, TimelineTransition } from '../project/types';
+import type { TimelineItem, TimelineTrack, TimelineTransition } from '../project/types';
 import {
 	calculateTrimSourceUpdate,
 	clampToAdjacentItems,
@@ -27,7 +27,10 @@ import {
 	getSynchronizedLinkedCounterpartPair,
 	getSynchronizedLinkedItems
 } from './utils/linked-items';
-import { clampMoveDeltaToTrackGaps } from './track-occupancy';
+import {
+	clampMoveDeltaToTrackGaps,
+	updatesIntroduceExclusiveTrackOverlap
+} from './track-occupancy';
 import { shiftSpeedRampSourceFrames } from './source-time-map';
 
 export interface TrimGesturePlan {
@@ -68,6 +71,7 @@ export interface RippleTrimGesturePlan {
 export interface TimelineMove {
 	id: string;
 	from: number;
+	trackId?: string;
 }
 
 /**
@@ -181,7 +185,8 @@ export function planLinkedMoveGesture(
 	item: TimelineItem,
 	proposedFrom: number,
 	allItems: TimelineItem[],
-	selectedItemIds: string[] = [item.id]
+	selectedItemIds: string[] = [item.id],
+	destination?: { trackId: string; tracks: readonly TimelineTrack[] }
 ): TimelineMove[] {
 	const items = withAnchor(item, allItems);
 	const participantById = new Map<string, TimelineItem>();
@@ -194,6 +199,45 @@ export function planLinkedMoveGesture(
 	participantById.set(item.id, item);
 	const participants = [...participantById.values()];
 	let delta = proposedFrom - item.from;
+	if (destination) {
+		const original = participants.map((participant) => ({
+			id: participant.id,
+			from: participant.from,
+			trackId: participant.trackId
+		}));
+		const kind = item.type === 'audio' ? 'audio' : 'video';
+		const tracks = destination.tracks
+			.filter((track) => !track.isGroup && track.kind === kind)
+			.toSorted((left, right) => left.order - right.order);
+		const sourceIndex = tracks.findIndex((track) => track.id === item.trackId);
+		const targetIndex = tracks.findIndex((track) => track.id === destination.trackId);
+		if (sourceIndex < 0 || targetIndex < 0) return original;
+		const offset = targetIndex - sourceIndex;
+		const moves: TimelineMove[] = [];
+		for (const participant of participants) delta = Math.max(delta, -participant.from);
+		if (offset === 0)
+			delta = clampMoveDeltaToTrackGaps(items, new Set(participantById.keys()), delta);
+		for (const participant of participants) {
+			const source = destination.tracks.find((track) => track.id === participant.trackId);
+			if (!source || source.locked) return original;
+			const sameKind = (participant.type === 'audio' ? 'audio' : 'video') === kind;
+			const index = tracks.findIndex((track) => track.id === participant.trackId);
+			if (sameKind && index < 0) return original;
+			const target = sameKind
+				? tracks[index + offset]
+				: destination.tracks.find((track) => track.id === participant.trackId);
+			if (!target || target.locked || target.isGroup) return original;
+			moves.push({ id: participant.id, from: participant.from + delta, trackId: target.id });
+		}
+		if (
+			updatesIntroduceExclusiveTrackOverlap(
+				items,
+				moves.map(({ id, from, trackId }) => ({ id, patch: { from, trackId } }))
+			)
+		)
+			return original;
+		return moves;
+	}
 	delta = clampMoveDeltaToTrackGaps(items, new Set(participantById.keys()), delta);
 	return participants.map((participant) => ({
 		id: participant.id,

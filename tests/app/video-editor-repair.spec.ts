@@ -204,7 +204,7 @@ test("editing text over a background does not leave the old lettering underneath
   await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("button", { name: "Ocean mesh", exact: true }).click();
   const canvas = page.locator<HTMLCanvasElement>("[data-stacked-preview]");
-  const overlay = page.getByRole("group", { name: "Overlay", exact: true });
+  const overlay = page.getByRole("group", { name: "Visual 2", exact: true });
   await overlay.getByRole("button", { name: "Hide track", exact: true }).click();
   await expect
     .poll(() =>

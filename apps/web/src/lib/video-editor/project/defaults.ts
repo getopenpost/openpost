@@ -30,7 +30,7 @@ export function createDefaultTracks(): TimelineTrack[] {
 	return [
 		{
 			id: 'track-video-overlay',
-			name: m.video_editor_overlay_item(),
+			name: m.video_editor_track_video_name({ number: 2 }),
 			kind: 'video',
 			height: 64,
 			locked: false,
@@ -41,7 +41,7 @@ export function createDefaultTracks(): TimelineTrack[] {
 		},
 		{
 			id: 'track-video-main',
-			name: m.video_editor_property_video(),
+			name: m.video_editor_track_video_name({ number: 1 }),
 			kind: 'video',
 			height: 96,
 			locked: false,
@@ -225,7 +225,7 @@ export function normalizeProject(project: Project): NormalizedProject {
 	if (!mediaTracks(timeline.tracks).some((track) => track.kind !== 'audio')) {
 		timeline.tracks.push({
 			id: 'track-video-main',
-			name: m.video_editor_property_video(),
+			name: m.video_editor_track_video_name({ number: 1 }),
 			kind: 'video',
 			height: 96,
 			locked: false,

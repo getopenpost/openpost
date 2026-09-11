@@ -39,3 +39,5 @@ Paper permits commercial app and video use under Apache 2.0. Its exact LICENSE a
 ## Updating catalog posters
 
 Start the frontend with `bun run dev -- frontend`, then run `bun scripts/generate-video-editor-posters.mjs` in Devenv. `OPENPOST_PREVIEW_URL` selects a different development URL. The script captures the same background and effect renderers used by the editor, at fixed sequence time, into `apps/web/static/video-editor-previews/`. Regenerate and commit these assets when built-in presets or their rendering change.
+
+Visual tracks accept video, images, text, subtitles, shapes, backgrounds, and effects. Drag clips between visual tracks; audio stays on audio tracks. Default tracks are named Visual 1 and Visual 2. Existing saved names and the persisted `video` track kind remain unchanged.

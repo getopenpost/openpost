@@ -232,6 +232,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import {
 		addTransition,
+		pruneInvalidTransitions,
 		pruneOrphanedTransitions,
 		removeTransition,
 		transitionsStore,
@@ -764,6 +765,7 @@
 		id: string;
 		pointerId: number;
 		startX: number;
+		startY: number;
 		original: TimelineItem;
 		beforeSnapshot: TimelineSnapshot;
 		editItems: TimelineItem[];
@@ -783,6 +785,7 @@
 		trackPushDelta: number;
 		activated: boolean;
 		latestClientX: number;
+		latestClientY: number;
 		rafId: number | null;
 	} = null;
 	let activeSnapTarget = $state<SnapTarget | null>(null);
@@ -3383,6 +3386,7 @@
 			id,
 			pointerId: event.pointerId,
 			startX: event.clientX,
+			startY: event.clientY,
 			original: $state.snapshot(item),
 			beforeSnapshot,
 			editItems,
@@ -3406,6 +3410,7 @@
 				kind === 'trim-end' ||
 				isRateStretchKind(kind),
 			latestClientX: event.clientX,
+			latestClientY: event.clientY,
 			rafId: null
 		};
 		window.addEventListener('pointermove', onPointerMove);
@@ -3422,6 +3427,7 @@
 	function onPointerMove(event: PointerEvent): void {
 		if (!drag || event.pointerId !== drag.pointerId) return;
 		drag.latestClientX = event.clientX;
+		drag.latestClientY = event.clientY;
 		if (drag.rafId !== null) return;
 		drag.rafId = requestAnimationFrame(() => {
 			if (!drag) return;
@@ -3433,7 +3439,11 @@
 	function applyPointerFrame(clientX: number): void {
 		if (!drag) return;
 		const pixelDelta = clientX - drag.startX;
-		if (!drag.activated && Math.abs(pixelDelta) < DRAG_THRESHOLD_PIXELS) return;
+		const pointerDistance =
+			drag.kind === 'move'
+				? Math.hypot(pixelDelta, drag.latestClientY - drag.startY)
+				: Math.abs(pixelDelta);
+		if (!drag.activated && pointerDistance < DRAG_THRESHOLD_PIXELS) return;
 		drag.activated = true;
 		const deltaFrames = pxDeltaToFrames(pixelDelta);
 		if (drag.kind === 'track-push' && drag.trackPushPlan) {
@@ -3461,8 +3471,14 @@
 				: { snappedFrame: proposed, snapTarget: null, didSnap: false };
 			const from = Math.max(0, snap.snappedFrame);
 			activeSnapTarget = from === snap.snappedFrame ? snap.snapTarget : null;
+			const targetTrackId =
+				document.elementFromPoint(clientX, drag.latestClientY)?.closest<HTMLElement>('[data-track]')
+					?.dataset.track ?? drag.original.trackId;
 			previewMoveItems(
-				planLinkedMoveGesture(drag.original, from, drag.editItems, drag.selectedItemIds)
+				planLinkedMoveGesture(drag.original, from, drag.editItems, drag.selectedItemIds, {
+					trackId: targetTrackId,
+					tracks: effectiveMediaTracks(drag.beforeSnapshot.tracks)
+				})
 			);
 			return;
 		}
@@ -3693,6 +3709,7 @@
 				pruneOrphanedTransitions();
 			}
 		}
+		if (!cancelled && completed.kind === 'move') pruneInvalidTransitions();
 		const completedItem = timelineStore.itemById.get(completed.id);
 		const didBoundaryEdit =
 			completedItem !== undefined &&
@@ -3735,7 +3752,8 @@
 			cancelAnimationFrame(drag.rafId);
 			drag.rafId = null;
 		}
-		applyPointerFrame(drag.latestClientX);
+		drag.latestClientY = event.clientY;
+		applyPointerFrame(event.clientX);
 		finishDrag(false);
 	}
 

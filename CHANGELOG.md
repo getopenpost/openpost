@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.30.1] - 2026-09-11
+
+### Fixed
+
+- Use the Dither palette's accent for focus rings and editor selections, removing the unexpected purple highlights from the orange and green themes.
+- Load pinned translation plugins from installed dependencies so builds continue when the plugin CDN is unavailable.
+
+### Changed
+
+- Preserve the exact outlined wordmark and Converge geometry in the README lockups. The bottom-left orange module dissolves outward and down-left through sparse square transparent gaps, while the other three modules remain solid.
+- Recolor standalone transparent orange marks to the exact peach-orange `#FD975D`; reversed and background-backed artwork keeps its existing treatment.
+- Keep the authenticated app logo on the active theme's focal action color instead of forcing the public peach mark.
+
 ## [4.30.0] - 2026-09-10
 
 ### Fixed

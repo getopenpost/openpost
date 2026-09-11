@@ -53,7 +53,6 @@
 
 <p align="center">
   Both editors are free to use without an account or watermark.<br>
-  The video editor is in beta and supports current desktop Chrome and Edge.
 </p>
 
 <p align="center">

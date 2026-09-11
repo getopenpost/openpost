@@ -97,6 +97,27 @@ for (const scheme of ["light", "dark"] as const) {
     await opacity.focus();
     await opacity.press("ArrowLeft");
     await expect(opacity).toHaveAttribute("aria-valuenow", "99");
+    const accents = await opacity.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.transition = "none";
+      element.append(probe);
+      const color = (token: string) => {
+        probe.style.color = `var(${token})`;
+        return getComputedStyle(probe).color;
+      };
+      const focus = color("--ring");
+      const editor = color("--video-editor-focus");
+      const primary = color("--action-focal");
+      probe.remove();
+      return { focus, editor, primary };
+    });
+    const hue = (color: string) => {
+      const coordinates = /^oklch\([\d.]+\s+[\d.]+\s+([\d.]+)\)$/.exec(color);
+      expect(coordinates, `expected a computed OKLCH color, received ${color}`).not.toBeNull();
+      return Number(coordinates![1]);
+    };
+    expect(hue(accents.focus), "focus follows the active theme's hue").toBe(hue(accents.primary));
+    expect(accents.editor, "editor selections follow the same focus accent").toBe(accents.focus);
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.locator("[data-program-monitor]")).toBeVisible();

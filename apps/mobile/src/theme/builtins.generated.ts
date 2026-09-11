@@ -7874,7 +7874,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           warning: "#ffecc5ff",
           onWarning: "#633f00ff",
           link: "#7d2800ff",
-          focus: "#1c1410ff",
+          focus: "#903a03ff",
           scrim: "#1c141085",
           shadow: "#1c1410ff",
           status: {
@@ -8146,7 +8146,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           warning: "#362600ff",
           onWarning: "#f2c86cff",
           link: "#f99262ff",
-          focus: "#d79fffff",
+          focus: "#ff9f6fff",
           scrim: "#f3f2ec85",
           shadow: "#f3f2ecff",
           status: {
@@ -8426,7 +8426,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           warning: "#ffecc5ff",
           onWarning: "#633f00ff",
           link: "#005a25ff",
-          focus: "#18160eff",
+          focus: "#006c35ff",
           scrim: "#18160e85",
           shadow: "#18160eff",
           status: {
@@ -8698,7 +8698,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           warning: "#362600ff",
           onWarning: "#f2c86cff",
           link: "#63d18fff",
-          focus: "#d79fffff",
+          focus: "#6ad895ff",
           scrim: "#f3f2ec85",
           shadow: "#f3f2ecff",
           status: {

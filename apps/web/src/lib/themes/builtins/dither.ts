@@ -63,7 +63,7 @@ function ditherScheme(appearance: ThemeScheme, palette: 'orange' | 'moss') {
 				surfaceRaised: dark ? `oklch(0.23 0.014 ${neutralHue})` : surface,
 				mutedInk: dark ? `oklch(0.74 0.018 ${neutralHue})` : `oklch(0.44 0.02 ${neutralHue})`,
 				border,
-				focus: dark ? 'oklch(0.8 0.17 305)' : ink,
+				focus: dark ? `oklch(0.8 0.14 ${hue})` : `oklch(0.46 0.13 ${hue})`,
 				caret: signal,
 				link: signal,
 				selection,

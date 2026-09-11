@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Updated the mobile app's Expo SDK 57 packages and native plugins together to keep Android release builds compatible.
 - Video Editor background and effect galleries use still previews while browsing and animate the active preview on hover or keyboard focus. This avoids compiling the shader catalog when a panel opens or scrolls.
 - Video Editor clips can move between visual tracks. New projects label these tracks Visual 1 and Visual 2; existing project names remain intact. Track moves support undo, cancellation, linked audio, and saved projects, and reject locked or occupied destinations.
 - When `post create --schedule` creates a draft but scheduling fails, the CLI reports the publication ID and a command to retry scheduling without creating another draft. Add `post schedule <id> --at <time>` as an alias for `publication schedule`.

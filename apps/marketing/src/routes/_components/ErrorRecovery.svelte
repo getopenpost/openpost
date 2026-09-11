@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { ArrowLeft, ArrowRight, ExternalLink, LifeBuoy } from '@lucide/svelte';
 	import { marketingErrorRecovery } from '../_error-recovery';
+	import ThemeImage from './ThemeImage.svelte';
 
 	interface Props {
 		status?: number;
@@ -30,7 +31,14 @@
 <section class="error-recovery" aria-labelledby="error-recovery-title">
 	<div class="error-shell">
 		<a class="focus-ring brand" href={resolve('/')} aria-label="OpenPost home">
-			<img src="/assets/brand/logo.svg" alt="" width="36" height="28" />
+			<ThemeImage
+				lightSrc="/assets/brand/logo.svg"
+				darkSrc="/assets/brand/logo-dark.svg"
+				alt=""
+				width={28}
+				height={28}
+				loading="eager"
+			/>
 			<span>OpenPost</span>
 		</a>
 

@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import AsciiWordmark from './AsciiWordmark.svelte';
 	import HeroAccent from './HeroAccent.svelte';
+	import ThemeImage from './ThemeImage.svelte';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import { Button } from '$lib/components/ui/button';
 	import Github from '@lucide/svelte/icons/github';
@@ -60,7 +61,14 @@
 					class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md"
 					aria-label="OpenPost home"
 				>
-					<img src="/assets/brand/logo.svg" alt="" width="28" height="28" class="shrink-0" />
+					<ThemeImage
+						lightSrc="/assets/brand/logo.svg"
+						darkSrc="/assets/brand/logo-dark.svg"
+						alt=""
+						width={28}
+						height={28}
+						class="shrink-0"
+					/>
 					<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]"
 						>OpenPost</span
 					>

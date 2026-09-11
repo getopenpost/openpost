@@ -3,6 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import HeroAccent from '../HeroAccent.svelte';
+	import ThemeImage from '../ThemeImage.svelte';
 	import {
 		managedSignupUrl,
 		managedTrialNote,
@@ -41,7 +42,9 @@
 				</section>
 				{#each article.sections as section (section.title)}<section>
 						<h2>{section.title}</h2>
-						{#each section.paragraphs as paragraph (paragraph)}<p>{paragraph}</p>{/each}
+						{#each section.paragraphs as paragraph (paragraph)}<p>
+								{paragraph}
+							</p>{/each}
 					</section>{/each}
 				<section>
 					<h2>Common questions</h2>
@@ -67,7 +70,13 @@
 		>
 			<div class="promo-content">
 				<div class="promo-brand">
-					<img src="/assets/brand/logo.svg" alt="" width="24" height="24" /><span>OpenPost</span>
+					<ThemeImage
+						lightSrc="/assets/brand/logo.svg"
+						darkSrc="/assets/brand/logo-dark.svg"
+						alt=""
+						width={24}
+						height={24}
+					/><span>OpenPost</span>
 				</div>
 				<h2>A good post.<br /><HeroAccent>Then another.</HeroAccent></h2>
 				<p>Keep your ideas, images, videos, and schedule in one place.</p>

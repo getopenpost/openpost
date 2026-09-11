@@ -52,6 +52,7 @@ export const assetSurfaceManifest = {
     "brand/fonts/Geist-SemiBold.ttf",
     "brand/fonts/Manrope-SemiBold.ttf",
     "brand/logo.svg",
+    "brand/logo-dark.svg",
     "brand/features/compose.svg",
     "brand/features/image-editor.svg",
     "brand/features/video-editor.svg",

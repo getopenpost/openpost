@@ -46,7 +46,15 @@
 			href={resolve('/')}
 			aria-label="OpenPost home"
 		>
-			<img src="/assets/brand/logo.svg" alt="" width="28" height="28" class="shrink-0" />
+			<ThemeImage
+				lightSrc="/assets/brand/logo.svg"
+				darkSrc="/assets/brand/logo-dark.svg"
+				alt=""
+				width={28}
+				height={28}
+				loading="eager"
+				class="shrink-0"
+			/>
 			<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]">OpenPost</span>
 		</a>
 
@@ -226,7 +234,9 @@
 						<div class="grid grid-cols-3 gap-3">
 							{#each resourceGroups as group (group.label)}
 								<div>
-									<p class="px-3 pb-1.5 text-xs font-semibold text-foreground">{group.label}</p>
+									<p class="px-3 pb-1.5 text-xs font-semibold text-foreground">
+										{group.label}
+									</p>
 									<ul class="grid gap-0.5">
 										{#each group.items as item (item.href)}
 											<li>

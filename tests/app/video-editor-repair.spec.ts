@@ -48,7 +48,10 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await expect(page.locator("header").getByText("Saved to OpenPost", { exact: true })).toBeVisible({
     timeout: 15000,
   });
-  await page.locator("header").getByRole("link", { name: "OpenPost", exact: true }).click();
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
   await page.goto(url);
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
   await expect(page.getByRole("img", { name: "A launch with spaces", exact: true })).toBeVisible();
@@ -56,14 +59,19 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
   await expect(
-    page.getByText("Saved Text proof.mp4 to the exports folder.", { exact: true }),
+    page.getByText("Saved Text proof.mp4 to the exports folder.", {
+      exact: true,
+    }),
   ).toBeVisible({ timeout: 60000 });
   await page.getByRole("button", { name: "Exports", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Download Text proof.mp4", exact: true }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
-  await page.locator("header").getByRole("link", { name: "OpenPost", exact: true }).click();
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await newProject(page, "Text proof");
   await expect(page.locator("[data-project-summary]")).toContainText("0 clips");
@@ -147,7 +155,9 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   await expect(page.locator("[data-project-summary]")).toContainText("1 clip");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("header").getByText(/saved/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("header").getByText(/saved/i)).toBeVisible({
+    timeout: 15000,
+  });
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Record screen" }).click();
   await dialog.getByRole("button", { name: "Start recording" }).click();
@@ -169,7 +179,9 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog.getByText("00:02", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Stop recording" }).click();
   await expect(
-    page.getByText("The recording could not be added to this project.", { exact: true }),
+    page.getByText("The recording could not be added to this project.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(1);
   await page.unroute(uploadRoute);

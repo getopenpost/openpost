@@ -418,7 +418,7 @@ test.describe("touch editor headers", () => {
   }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width: 1440, height: 960 });
-    const { token } = await registerUser(request, "touch-headers@example.com");
+    const { token } = await registerUser(request, `touch-headers-${Date.now()}@example.com`);
     await createWorkspace(request, token, "Touch headers");
     await authenticatePage(page, token);
     const videoURL = await createVideoProject(page, "Touch project");
@@ -447,9 +447,7 @@ test.describe("touch editor headers", () => {
       await expect(page.getByRole("menu")).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
       if (url === imageURL) {
-        const home = header
-          .getByRole("button")
-          .filter({ has: page.locator('img[src="/assets/brand/features/image-editor.svg"]') });
+        const home = header.getByRole("button", { name: /Image Editor/u });
         await expect(home).toHaveCount(1);
         await home.click();
         await expect(page).toHaveURL(/\/image-editor$/u);

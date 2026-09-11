@@ -21,6 +21,16 @@ export interface AudioOwnerInput {
 	usesProcessedAudio: boolean;
 }
 
+/** Use the audio-bearing source when reverse shuttle visuals come from a video-only proxy. */
+export function resolveReverseShuttleAudioUrl(
+	item: TimelineItem,
+	visualUrl?: string | null,
+	audioUrl?: string | null
+): string | null {
+	if (item.type === 'video' && audioUrl) return audioUrl;
+	return visualUrl ?? null;
+}
+
 export function resolveAudioOwner(input: AudioOwnerInput): AudioOwner {
 	const { item, tracks, allItems, mediaEntry, usesSeparateProxyAudio, usesProcessedAudio } = input;
 	if (item.type !== 'video' && item.type !== 'audio') return 'none';

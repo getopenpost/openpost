@@ -9,7 +9,10 @@
 		getShuttleMediaPlaybackRate,
 		isReverseShuttleRate
 	} from '$lib/video-editor/preview/shuttle';
-	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
+	import {
+		resolveAudioOwner,
+		resolveReverseShuttleAudioUrl
+	} from '$lib/video-editor/preview/audio-owner';
 	import { effectsToCssFilter } from '$lib/video-editor/effects/filter';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
 	import {
@@ -313,7 +316,10 @@
 			usesProcessedAudio
 		});
 		const ownsShuttleAudio = audioOwner === 'embedded' || audioOwner === 'separateProxy';
-		const sourceUrl = audioOwner === 'separateProxy' ? audioUrl : url;
+		const sourceUrl =
+			audioOwner === 'separateProxy'
+				? audioUrl
+				: resolveReverseShuttleAudioUrl(item, url, audioUrl);
 		if (!isPlaying || !isReverseShuttleRate(transportRate) || !ownsShuttleAudio || !sourceUrl) {
 			shuttleScheduler?.dispose();
 			shuttleScheduler = null;

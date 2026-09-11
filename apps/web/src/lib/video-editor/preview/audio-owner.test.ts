@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAudioOwner } from './audio-owner';
+import { resolveAudioOwner, resolveReverseShuttleAudioUrl } from './audio-owner';
 import type { MediaPoolEntry } from '../media/pool.svelte';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 
@@ -148,5 +148,23 @@ describe('resolveAudioOwner', () => {
 				usesProcessedAudio: false
 			})
 		).toBe('unsupported');
+	});
+});
+
+describe('resolveReverseShuttleAudioUrl', () => {
+	it('uses the audio-bearing source when the visual preview is a video-only proxy', () => {
+		expect(
+			resolveReverseShuttleAudioUrl(
+				makeItem({ type: 'video' }),
+				'blob:video-only-proxy',
+				'blob:original-with-audio'
+			)
+		).toBe('blob:original-with-audio');
+	});
+
+	it('falls back to the visual source when no separate audio source is available', () => {
+		expect(resolveReverseShuttleAudioUrl(makeItem({ type: 'video' }), 'blob:video', null)).toBe(
+			'blob:video'
+		);
 	});
 });

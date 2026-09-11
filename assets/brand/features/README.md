@@ -1,29 +1,25 @@
-# Feature marks
+# Feature icons
 
-The SVG files here are the shipped artwork. Each mark pairs one fixed color and pictogram with OpenPost's envelope frame. Keep the frame on the 112px grid and leave white space between the pictogram, rim, and fold.
+These transparent SVG icons are public artwork for README feature tiles, public feature sections, and customer guides. Each icon uses a simple, recognizable pictogram on a 24px grid, with sparse square dither pixels near the edge. The artwork is identical in light and dark themes, so its midtone colors and pale accents are chosen to stay legible on both.
 
-Use marks beside visible feature names. App titles use `FeatureMark` through the shared page header. Navigation, actions, provider marks, and status glyphs keep their own icon systems. Use the same artwork in light and dark.
+Use icons beside visible feature names. App controls, navigation, provider marks, status glyphs, and the protected OpenPost Converge mark keep their own icon systems. Do not use these feature icons in authenticated app chrome.
 
-| Feature      | Mark                                                       | Color     |
-| ------------ | ---------------------------------------------------------- | --------- |
-| Compose      | <img src="compose.svg" alt="" width="48" height="48">      | `#C25406` |
-| Image Editor | <img src="image-editor.svg" alt="" width="48" height="48"> | `#8045AE` |
-| Video Editor | <img src="video-editor.svg" alt="" width="48" height="48"> | `#7146B4` |
-| Calendar     | <img src="calendar.svg" alt="" width="48" height="48">     | `#2862BC` |
-| Analytics    | <img src="analytics.svg" alt="" width="48" height="48">    | `#287D59` |
-| Media        | <img src="media.svg" alt="" width="48" height="48">        | `#167D8D` |
-| Inbox        | <img src="inbox.svg" alt="" width="48" height="48">        | `#B53F68` |
-| Accounts     | <img src="accounts.svg" alt="" width="48" height="48">     | `#4F5DB5` |
-| Recorder     | <img src="recorder.svg" alt="" width="48" height="48">     | `#BD493F` |
-| Ideas        | <img src="ideas.svg" alt="" width="48" height="48">        | `#A97816` |
-| Automation   | <img src="automation.svg" alt="" width="48" height="48">   | `#4B708F` |
-| Grow         | <img src="grow.svg" alt="" width="48" height="48">         | `#527F3C` |
-| Repost       | <img src="repost.svg" alt="" width="48" height="48">       | `#7B792C` |
-| Workspaces   | <img src="workspaces.svg" alt="" width="48" height="48">   | `#916047` |
-| Meme Maker   | <img src="memes.svg" alt="" width="48" height="48">        | `#A24491` |
+| Feature      | Icon                                                       | Palette              |
+| ------------ | ---------------------------------------------------------- | -------------------- |
+| Compose      | <img src="compose.svg" alt="" width="24" height="24">      | `#c96d32`, `#ffad66` |
+| Image Editor | <img src="image-editor.svg" alt="" width="24" height="24"> | `#477d62`, `#72d18d` |
+| Video Editor | <img src="video-editor.svg" alt="" width="24" height="24"> | `#526fa0`, `#ffd45c` |
+| Calendar     | <img src="calendar.svg" alt="" width="24" height="24">     | `#477d62`, `#72d18d` |
+| Analytics    | <img src="analytics.svg" alt="" width="24" height="24">    | `#477d62`, `#72d18d` |
+| Media        | <img src="media.svg" alt="" width="24" height="24">        | `#397b86`, `#72d18d` |
+| Inbox        | <img src="inbox.svg" alt="" width="24" height="24">        | `#a84b5b`, `#ffad66` |
+| Accounts     | <img src="accounts.svg" alt="" width="24" height="24">     | `#4770a0`, `#9fc3e4` |
+| Recorder     | <img src="recorder.svg" alt="" width="24" height="24">     | `#ad4e42`, `#ffad66` |
+| Ideas        | <img src="ideas.svg" alt="" width="24" height="24">        | `#a97925`, `#ffd45c` |
+| Automation   | <img src="automation.svg" alt="" width="24" height="24">   | `#4770a0`, `#9fc3e4` |
+| Grow         | <img src="grow.svg" alt="" width="24" height="24">         | `#477d62`, `#72d18d` |
+| Repost       | <img src="repost.svg" alt="" width="24" height="24">       | `#667633`, `#ffd45c` |
+| Workspaces   | <img src="workspaces.svg" alt="" width="24" height="24">   | `#875d3e`, `#ffad66` |
+| Meme Maker   | <img src="memes.svg" alt="" width="24" height="24">        | `#a24d89`, `#ffd45c` |
 
-## Generation references
-
-The 2026-09-10 additions and Analytics redesign began with the built-in image generation tool. [The exact prompts](source/generation.json) and WebP copies of those concepts are kept in `source/`. Generated texture, uneven frames, and simulated transparency are reference artifacts. The SVGs were redrawn to preserve the family geometry and remain sharp at small sizes.
-
-Distribute artwork through `scripts/asset-surfaces.ts` and `bun scripts/sync-assets.mjs`. Source references stay out of deployed asset lists.
+The SVGs are hand-authored and remain sharp at small sizes. Distribute public artwork through `scripts/asset-surfaces.ts` and `bun scripts/sync-assets.mjs` when a consuming surface changes.

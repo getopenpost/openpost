@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 async function newProject(page: Page, name: string) {
@@ -78,6 +78,22 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   expect(errors).toEqual([]);
 });
 
+async function waitForRecording(dialog: Locator): Promise<void> {
+  await expect(dialog.getByRole("button", { name: "Stop recording" })).toBeEnabled({
+    timeout: 15000,
+  });
+  await expect
+    .poll(
+      async () => {
+        const elapsed = await dialog.getByText(/\d+:\d{2}/).innerText();
+        const time = elapsed.match(/(\d+):(\d{2})/)!;
+        return Number(time[1]) * 60 + Number(time[2]);
+      },
+      { timeout: 15000 },
+    )
+    .toBeGreaterThanOrEqual(2);
+}
+
 test("recording setup fits both themes and imports a real streaming WebM", async ({
   page,
   request,
@@ -150,7 +166,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await dialog.getByRole("button", { name: "Countdown" }).click();
   await page.getByRole("option", { name: "Off", exact: true }).click();
   await dialog.getByRole("button", { name: "Start recording" }).click();
-  await expect(dialog.getByText("00:02", { exact: true })).toBeVisible();
+  await waitForRecording(dialog);
   await dialog.getByRole("button", { name: "Stop recording" }).click();
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   await expect(page.locator("[data-project-summary]")).toContainText("1 clip");
@@ -161,7 +177,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Record screen" }).click();
   await dialog.getByRole("button", { name: "Start recording" }).click();
-  await expect(dialog.getByText("00:02", { exact: true })).toBeVisible();
+  await waitForRecording(dialog);
   await page.evaluate(() => window.dispatchEvent(new Event("test-stop-sharing")));
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   await expect(page.locator("[data-project-summary]")).toContainText("2 clips");
@@ -176,7 +192,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Record screen" }).click();
   await dialog.getByRole("button", { name: "Start recording" }).click();
-  await expect(dialog.getByText("00:02", { exact: true })).toBeVisible();
+  await waitForRecording(dialog);
   await dialog.getByRole("button", { name: "Stop recording" }).click();
   await expect(
     page.getByText("The recording could not be added to this project.", {

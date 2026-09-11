@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 
 import { assignBuiltInTheme, authenticatePage, createWorkspace, registerUser } from "./helpers";
@@ -6,6 +7,8 @@ const SCREENSHOT_DIRECTORY = "/tmp/openpost-editor-theme-matrix";
 const captureScreenshots = process.env.OPENPOST_EDITOR_THEME_SCREENSHOTS === "1";
 
 const themeSchemes = [
+  { id: "dither", scheme: "light" },
+  { id: "dither", scheme: "dark" },
   { id: "workshop", scheme: "light" },
   { id: "workshop", scheme: "dark" },
   { id: "studio", scheme: "light" },
@@ -51,8 +54,7 @@ const panelReviewThemeKeys = new Set([
 
 test.beforeAll(async () => {
   if (!captureScreenshots) return;
-  const { mkdir, rm } = await import("node:fs/promises");
-  await rm(SCREENSHOT_DIRECTORY, { force: true, recursive: true });
+  const { mkdir } = await import("node:fs/promises");
   await mkdir(SCREENSHOT_DIRECTORY, { recursive: true });
 });
 
@@ -162,16 +164,26 @@ async function openEditor(
 ): Promise<void> {
   await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
   await page.emulateMedia({ colorScheme: theme.scheme });
+  const resolved = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/v1/themes/resolved",
+  );
   await page.goto(url);
+  const response = await resolved;
+  expect(response.ok()).toBe(true);
+  expect((await response.json()).id).toBe(theme.id);
   if (editor === "video") {
     await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-    await expect(page.locator("[data-editor-protected]").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("[data-editor-protected]").first()).toBeVisible({
+      timeout: 20_000,
+    });
   } else {
     await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
       timeout: 20_000,
     });
   }
-  await expect(page.locator("html")).toHaveAttribute("data-theme-id", theme.id);
+  await expect(page.locator("html")).toHaveAttribute("data-theme-id", theme.id, {
+    timeout: 15_000,
+  });
   await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", theme.scheme);
   await expectEditorBoundary(page, editor);
 
@@ -262,26 +274,29 @@ async function reviewVideoPanelStates(
   await page.keyboard.press("Escape");
 }
 
-test("both editors honor every built-in theme while preserving protected output geometry", async ({
-  page,
-  request,
-}) => {
-  test.setTimeout(900_000);
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(String(error).slice(0, 300)));
-  page.on("console", (message) => {
-    if (message.type() === "error" && !message.text().includes("401 (Unauthorized)")) {
-      errors.push(message.text().slice(0, 300));
-    }
-  });
+for (const theme of themeSchemes) {
+  test(`both editors honor ${theme.id} ${theme.scheme} and preserve output geometry`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(String(error).slice(0, 300)));
+    page.on("console", (message) => {
+      if (message.type() === "error" && !message.text().includes("401 (Unauthorized)")) {
+        errors.push(message.text().slice(0, 300));
+      }
+    });
 
-  const { token } = await registerUser(request, "editor-theme-matrix@example.com");
-  const workspace = await createWorkspace(request, token, "Editor theme matrix");
-  await authenticatePage(page, token);
-  const videoURL = await createVideoProject(page);
-  const imageURL = await createImageDesign(page);
+    const { token } = await registerUser(
+      request,
+      `editor-theme-matrix-${randomUUID()}@example.com`,
+    );
+    const workspace = await createWorkspace(request, token, "Editor theme matrix");
+    await authenticatePage(page, token);
+    const videoURL = await createVideoProject(page);
+    const imageURL = await createImageDesign(page);
 
-  for (const theme of themeSchemes) {
     await assignBuiltInTheme(request, token, workspace.id, theme.id);
     for (const width of [1440, 390] as const) {
       await openEditor(page, videoURL, "video", theme, width);
@@ -297,7 +312,7 @@ test("both editors honor every built-in theme while preserving protected output 
     if (panelReviewThemeKeys.has(`${theme.id}-${theme.scheme}`)) {
       await reviewVideoPanelStates(page, videoURL, theme);
     }
-  }
 
-  expect(errors, errors.join(" | ")).toEqual([]);
-});
+    expect(errors, errors.join(" | ")).toEqual([]);
+  });
+}

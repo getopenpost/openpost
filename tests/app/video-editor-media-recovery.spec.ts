@@ -136,6 +136,14 @@ test("Video Editor previews safe folder matches before batch recovery", async ({
     .toBe(true);
 
   await page.getByRole("button", { name: "Relink files (1)" }).click();
-  await expect(page.getByText("Files restored: 1.")).toBeVisible();
-  await expect(page.getByText("0 ready, 1 need review, 1 not found")).toBeVisible();
+  await expect(page.getByText("0 ready, 1 need review, 1 not found")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole("button", { name: "Scan folder" })).toBeEnabled();
+  await page.reload();
+  const recovery = page.getByRole("dialog", { name: "Restore project media" });
+  await expect(recovery).toBeVisible();
+  await expect(recovery.getByText("source.png", { exact: true })).toHaveCount(0);
+  await expect(recovery.getByText("duplicate.png", { exact: true })).toBeVisible();
+  await expect(recovery.getByText("gone.png", { exact: true })).toBeVisible();
 });

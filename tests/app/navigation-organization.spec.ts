@@ -52,13 +52,16 @@ test("navigation separates work, workspace management, and personal preferences"
 });
 
 for (const width of [1440, 390, 320]) {
-  test(`navigation and preferences fit at ${width}px`, async ({ page, request }, testInfo) => {
-    const auth = await registerUser(request, `nav-${width}-${randomUUID()}@example.com`);
-    await createWorkspace(request, auth.token, "Navigation workspace");
-    await authenticatePage(page, auth.token);
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto("/publications");
-    for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light", "dark"] as const) {
+    test(`navigation and preferences fit at ${width}px in ${scheme}`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      const auth = await registerUser(request, `nav-${width}-${randomUUID()}@example.com`);
+      await createWorkspace(request, auth.token, "Navigation workspace");
+      await authenticatePage(page, auth.token);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/publications");
       if (width < 768) {
         await page
           .getByRole("navigation", { name: "Primary navigation" })
@@ -69,9 +72,15 @@ for (const width of [1440, 390, 320]) {
         await page.getByTestId("profile-menu-trigger").click();
       }
       await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Preferences", exact: true });
+      const dialog = page.getByRole("dialog", {
+        name: "Preferences",
+        exact: true,
+      });
       await dialog
-        .getByRole("button", { name: scheme === "light" ? "Light" : "Dark", exact: true })
+        .getByRole("button", {
+          name: scheme === "light" ? "Light" : "Dark",
+          exact: true,
+        })
         .click();
       await expect(dialog).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
@@ -102,8 +111,8 @@ for (const width of [1440, 390, 320]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
-    }
-  });
+    });
+  }
 }
 
 test("mobile menus preserve keyboard focus and expose editor creation", async ({

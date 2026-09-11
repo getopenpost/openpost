@@ -1641,6 +1641,9 @@ test.describe("product screenshot capture", () => {
         name: "Properties",
       });
       await expect(propertiesTab).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByRole("region", { name: "Background tasks", exact: true })).toBeHidden({
+        timeout: 30_000,
+      });
       await capture(page, `video-editor-${captureScheme}.png`, [
         programMonitor,
         timelineItems.first(),

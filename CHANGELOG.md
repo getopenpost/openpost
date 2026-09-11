@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.30.2] - 2026-09-11
+
+### Changed
+
+- Public feature icons now use larger, simpler shapes without the surrounding logo tiles. Small transparent pixel cuts add dithering, with green, orange, yellow, and blue colors drawn from the README badges.
+
+### Fixed
+
+- Public logos and the README wordmark use burnt orange on light backgrounds and peach on dark backgrounds. The landing page logo follows the visitor's theme switch.
+- Sign-in pages no longer download the authenticated workspace navigation and dialogs. The workspace shell loads once after sign-in and remains mounted during navigation.
+
 ## [4.30.1] - 2026-09-11
 
 ### Fixed

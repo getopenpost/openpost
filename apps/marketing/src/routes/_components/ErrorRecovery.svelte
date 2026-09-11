@@ -143,11 +143,6 @@
 		font-weight: 650;
 	}
 
-	.brand img {
-		width: 2.25rem;
-		height: 1.75rem;
-	}
-
 	.error-grid {
 		display: grid;
 		gap: 3rem;

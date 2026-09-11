@@ -112,6 +112,8 @@ The Converge symbol is the canonical OpenPost mark. Four equal rounded modules f
 
 Use the standalone mark when “OpenPost” is already written beside it or space is compact. Use the supplied outlined Manrope Semibold lockup for README, brand references, and static compositions that need the complete name. On light surfaces, use Workshop Orange for the symbol and Carbon Ink for the wordmark. On Workshop Orange, use the reversed white lockup. “Your socials, on steroids.” is the approved brand headline; it is optional, never mandatory UI chrome.
 
+README lockups add subtle Dither shading inside the four orange modules, preserving their silhouette and the outlined wordmark.
+
 ## Colors
 
 The frontmatter tokens and values below define Workshop, the complete fallback and documentation reference. Warm neutrals carry most of that family; orange is a scarce product signal. Dither's app palette is defined in `apps/web/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.

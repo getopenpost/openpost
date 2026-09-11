@@ -39,6 +39,7 @@ const checks = {
     bunTest(
       "scripts/build-graph.test.mjs",
       "scripts/frontend-vite-build.test.mjs",
+      "scripts/paraglide-offline.test.mjs",
       "scripts/package-frontend.test.mjs",
       "scripts/precompress-static.test.mjs",
     ),

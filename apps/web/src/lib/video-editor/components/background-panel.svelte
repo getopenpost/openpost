@@ -9,6 +9,7 @@
 	import { shaderBackgroundSupport } from '../backgrounds/shader-support.svelte';
 
 	let search = $state('');
+	let activeId = $state<string | null>(null);
 	const matching = $derived(
 		BACKGROUND_PRESETS.filter((preset) =>
 			backgroundPresetLabel(preset.id)
@@ -60,9 +61,20 @@
 							!shaderBackgroundSupport.isAvailable(preset.background.shader)}
 						onclick={() => oninserted(addBackgroundItem(preset.id))}
 						aria-label={backgroundPresetLabel(preset.id)}
+						onpointerenter={(event) => {
+							if (event.pointerType !== 'touch') activeId = preset.id;
+						}}
+						onpointerleave={() => {
+							if (activeId === preset.id) activeId = null;
+						}}
+						onfocus={() => (activeId = preset.id)}
+						onblur={() => {
+							if (activeId === preset.id) activeId = null;
+						}}
 					>
 						<BackgroundThumbnail
 							background={preset.background}
+							active={activeId === preset.id}
 							onfailure={() => {
 								if (preset.background.kind === 'shader')
 									shaderBackgroundSupport.reportFailure(preset.background.shader);

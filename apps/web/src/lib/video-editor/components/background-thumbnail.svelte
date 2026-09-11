@@ -1,45 +1,80 @@
 <script lang="ts">
 	import type { ProceduralBackground } from '../project/types';
-	import { renderBackgroundCpu } from '../backgrounds/render';
 	import { ShaderBackgroundRenderer } from '../backgrounds/shader-renderer';
+	import { backgroundPosterUrl } from '../effects/preview/catalog-posters';
+	import { createPreviewActivity } from '../effects/preview/preview-activity.svelte';
 
-	let { background, onfailure }: { background: ProceduralBackground; onfailure?: () => void } =
-		$props();
-	let canvas: HTMLCanvasElement;
-	let visible = $state(false);
-	$effect(() => {
-		if (!canvas) return;
-		const observer = new IntersectionObserver(([entry]) => {
-			visible = entry?.isIntersecting === true;
-		});
-		observer.observe(canvas);
-		return () => observer.disconnect();
-	});
+	let {
+		background,
+		active = false,
+		onfailure
+	}: {
+		background: ProceduralBackground;
+		active?: boolean;
+		onfailure?: () => void;
+	} = $props();
+	let host = $state<HTMLElement>();
+	let canvas = $state<HTMLCanvasElement>();
+	const preview = createPreviewActivity(
+		() => active && background.kind === 'shader',
+		() => host
+	);
+	const poster = $derived(backgroundPosterUrl(background));
 
 	$effect(() => {
-		if (!visible) return;
-		const context = canvas?.getContext('2d');
+		const target = canvas;
+		const shader = background;
+		if (!preview.active || !target || shader.kind !== 'shader') return;
+		const context = target.getContext('2d');
 		if (!context) return;
-		if (background.kind !== 'shader') {
-			renderBackgroundCpu(context, background, 160, 90);
-			return;
-		}
 		let renderer: ShaderBackgroundRenderer | undefined;
-		try {
-			renderer = new ShaderBackgroundRenderer();
-			context.drawImage(renderer.render(background, 160, 90, 0), 0, 0);
-		} catch {
-			onfailure?.();
-		} finally {
+		let frame = 0;
+		let startedAt = 0;
+		let lastDrawAt = 0;
+		const draw = (now: number) => {
+			try {
+				renderer ??= new ShaderBackgroundRenderer();
+				if (!startedAt) startedAt = now;
+				if (!lastDrawAt || now - lastDrawAt >= 1000 / 24) {
+					context.clearRect(0, 0, 160, 90);
+					context.drawImage(renderer.render(shader, 160, 90, (now - startedAt) / 1000), 0, 0);
+					lastDrawAt = now;
+				}
+				frame = requestAnimationFrame(draw);
+			} catch {
+				renderer?.dispose();
+				onfailure?.();
+			}
+		};
+		frame = requestAnimationFrame(draw);
+		return () => {
+			cancelAnimationFrame(frame);
 			renderer?.dispose();
-		}
+		};
 	});
 </script>
 
-<canvas
-	bind:this={canvas}
-	width="160"
-	height="90"
-	class="aspect-video w-full rounded-sm object-cover max-md:h-12"
-	aria-hidden="true"
-></canvas>
+<span
+	bind:this={host}
+	class="relative block aspect-video w-full overflow-hidden rounded-sm max-md:h-12"
+>
+	<img
+		src={poster}
+		alt=""
+		width="320"
+		height="180"
+		loading="lazy"
+		decoding="async"
+		draggable="false"
+		class="size-full object-cover"
+	/>
+	{#if preview.active}
+		<canvas
+			bind:this={canvas}
+			width="160"
+			height="90"
+			class="absolute inset-0 size-full object-cover"
+			aria-hidden="true"
+		></canvas>
+	{/if}
+</span>

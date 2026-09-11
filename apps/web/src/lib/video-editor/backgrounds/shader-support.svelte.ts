@@ -1,6 +1,5 @@
 import type { BackgroundShader } from '../project/types';
 import { ShaderBackgroundRenderer } from './shader-renderer';
-import { SHADER_PRESETS } from './shaders';
 
 let available = $state<boolean | undefined>();
 let failed = $state<BackgroundShader[]>([]);
@@ -18,7 +17,6 @@ export const shaderBackgroundSupport = {
 		let renderer: ShaderBackgroundRenderer | undefined;
 		try {
 			renderer = new ShaderBackgroundRenderer();
-			renderer.render(SHADER_PRESETS[0]!.background, 2, 2, 0);
 			available = true;
 		} catch {
 			available = false;

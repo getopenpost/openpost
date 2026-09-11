@@ -3,6 +3,7 @@
  * Ported from FreeCut's effect-thumbnail engine and adapted to OpenPost's registry.
  */
 
+import { previewKey } from './preview-key';
 import { createGpuCompositor, type GpuCompositor } from '../gpu/compositor';
 import { getGpuEffect } from '../gpu/registry';
 import {
@@ -77,16 +78,6 @@ function clonePreviewCanvas(
 	if (!copy || !context) return null;
 	context.drawImage(source, 0, 0, EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
 	return copy;
-}
-
-function previewKey(effects: readonly EffectTemplate[]): string {
-	return JSON.stringify(
-		effects.map((effect) =>
-			effect.kind === 'gpu'
-				? ['gpu', effect.effectId, effect.enabled !== false, effect.params ?? null]
-				: ['css', effect.effectType, effect.enabled !== false, effect.amount ?? null]
-		)
-	);
 }
 
 function schedulePosterQueue(): void {
@@ -288,7 +279,8 @@ export function cssPreviewFilter(type: CssFilterType, amount: number, strength =
 function renderGpuEffectPreview(
 	sample: TexImageSource,
 	effects: readonly { effectId: string; target: GpuParamValues }[],
-	strength: number
+	strength: number,
+	time: number
 ): (HTMLCanvasElement | OffscreenCanvas) | null {
 	const ready = getReadyEffectPreviewPipeline();
 	if (!ready) return null;
@@ -299,7 +291,8 @@ function renderGpuEffectPreview(
 		effects.map((effect) => ({
 			effectId: effect.effectId,
 			params: blendGpuPreviewParams(effect.effectId, effect.target, strength)
-		}))
+		})),
+		{ time }
 	);
 	return rendered ? ready.canvas : null;
 }
@@ -308,7 +301,8 @@ function renderGpuEffectPreview(
 export function renderEffectPreviewFrame(
 	sample: HTMLCanvasElement | OffscreenCanvas,
 	effects: readonly EffectTemplate[],
-	strength: number
+	strength: number,
+	time = 0
 ): EffectPreviewFrame {
 	const enabled = effects.filter((effect) => effect.enabled !== false);
 	const cssEffects = enabled.filter((effect) => effect.kind === 'css');
@@ -327,7 +321,7 @@ export function renderEffectPreviewFrame(
 	let source: HTMLCanvasElement | OffscreenCanvas = sample;
 	let gpuRendered = false;
 	if (gpuEffects.length > 0) {
-		const output = renderGpuEffectPreview(source, gpuEffects, strength);
+		const output = renderGpuEffectPreview(source, gpuEffects, strength, time);
 		if (output) {
 			source = output;
 			gpuRendered = true;

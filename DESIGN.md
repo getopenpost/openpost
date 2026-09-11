@@ -110,9 +110,9 @@ The authenticated app stays compact and predictable. Marketing keeps its origina
 
 The Converge symbol is the canonical OpenPost mark. Four equal rounded modules face one centered opening, expressing one workspace publishing outward. Preserve the exact supplied geometry: four-fold symmetry, even axis gaps, and a square footprint that remains legible at 16px. Do not redraw it as a pen, star, flower, window, or generic app grid.
 
-Use the standalone mark when “OpenPost” is already written beside it or space is compact. Use the supplied outlined Manrope Semibold lockup for README, brand references, and static compositions that need the complete name. On light surfaces, use Workshop Orange for the symbol and Carbon Ink for the wordmark. On Workshop Orange, use the reversed white lockup. “Your socials, on steroids.” is the approved brand headline; it is optional, never mandatory UI chrome.
+Use the standalone mark when “OpenPost” is already written beside it or space is compact. Use the supplied outlined Manrope Semibold lockup for README, brand references, and static compositions that need the complete name. Transparent public standalone marks use peach-orange `#FD975D`; the authenticated app mark follows the active theme's `--action-focal` role. On Workshop Orange, use the reversed white lockup. “Your socials, on steroids.” is the approved brand headline; it is optional, never mandatory UI chrome.
 
-README lockups add subtle Dither shading inside the four orange modules, preserving their silhouette and the outlined wordmark.
+README lockups keep the exact outlined wordmark and three solid Converge modules, while the bottom-left module dissolves outward and down-left through sparse square transparent gaps. Standalone transparent marks use the approved peach-orange `#FD975D`; reversed and background-backed artwork keeps its existing treatment.
 
 ## Colors
 

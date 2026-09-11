@@ -28,7 +28,7 @@
 		aria-hidden={decorative || showText ? 'true' : undefined}
 		class="h-auto max-w-full shrink-0"
 	>
-		<g fill="#B74C05">
+		<g fill="var(--action-focal)">
 			<path d="M24 4h36v28L32 60H4V24A20 20 0 0 1 24 4Z" />
 			<path d="M68 4h36a20 20 0 0 1 20 20v36H96L68 32Z" />
 			<path d="M4 68h28l28 28v28H24a20 20 0 0 1-20-20Z" />

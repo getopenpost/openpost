@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const workflow = readFileSync(".github/workflows/star-history.yml", "utf8");
+const workflow = readFileSync(".github/workflows/readme-assets.yml", "utf8");
 const probe = workflow
   .match(/- name: Check for new stars[\s\S]*?run: \|\n((?: {10}[^\n]*\n)+)/)?.[1]
   .replace(/^ {10}/gm, "");

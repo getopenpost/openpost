@@ -30,7 +30,7 @@
 <section class="error-recovery" aria-labelledby="error-recovery-title">
 	<div class="error-shell">
 		<a class="focus-ring brand" href={resolve('/')} aria-label="OpenPost home">
-			<img src="/logo.svg" alt="" width="36" height="28" />
+			<img src="/assets/brand/logo.svg" alt="" width="36" height="28" />
 			<span>OpenPost</span>
 		</a>
 

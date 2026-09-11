@@ -87,7 +87,7 @@ const html = `<!doctype html>
   <body>
     <main class="page">
       <div class="shell">
-        <a class="brand" href="/" aria-label="OpenPost home"><img src="/logo.svg" alt="" width="36" height="28" /><span>OpenPost</span></a>
+        <a class="brand" href="/" aria-label="OpenPost home"><img src="/assets/brand/logo.svg" alt="" width="36" height="28" /><span>OpenPost</span></a>
         <div class="grid">
           <div>
             <p class="code">${content.status} · ${escapeHTML(content.label)}</p>

@@ -5,7 +5,6 @@
 	import Clapperboard from '@lucide/svelte/icons/clapperboard';
 	import Images from '@lucide/svelte/icons/images';
 	import { mode, toggleMode } from 'mode-watcher';
-	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
@@ -47,7 +46,7 @@
 			href={resolve('/')}
 			aria-label="OpenPost home"
 		>
-			<Logo width={36} height={28} decorative />
+			<img src="/assets/brand/logo.svg" alt="" width="28" height="28" class="shrink-0" />
 			<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]">OpenPost</span>
 		</a>
 

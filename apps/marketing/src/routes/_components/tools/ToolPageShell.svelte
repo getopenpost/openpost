@@ -3,7 +3,6 @@
 	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import HeroAccent from '../HeroAccent.svelte';
-	import Logo from '$lib/components/Logo.svelte';
 	import {
 		managedSignupUrl,
 		managedTrialNote,
@@ -68,7 +67,7 @@
 		>
 			<div class="promo-content">
 				<div class="promo-brand">
-					<Logo width={30} height={24} decorative /><span>OpenPost</span>
+					<img src="/assets/brand/logo.svg" alt="" width="24" height="24" /><span>OpenPost</span>
 				</div>
 				<h2>A good post.<br /><HeroAccent>Then another.</HeroAccent></h2>
 				<p>Keep your ideas, images, videos, and schedule in one place.</p>

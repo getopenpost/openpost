@@ -8,7 +8,6 @@
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
-	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import {
@@ -61,7 +60,7 @@
 					class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md"
 					aria-label="OpenPost home"
 				>
-					<Logo width={36} height={28} decorative />
+					<img src="/assets/brand/logo.svg" alt="" width="28" height="28" class="shrink-0" />
 					<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]"
 						>OpenPost</span
 					>

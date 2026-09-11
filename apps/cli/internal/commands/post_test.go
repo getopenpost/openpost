@@ -166,3 +166,86 @@ func TestParseThreadMarkdown(t *testing.T) {
 		})
 	}
 }
+
+func TestPostCreateScheduleFailureRecovery(t *testing.T) {
+	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
+	creates, schedules := 0, 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/workspaces":
+			_, _ = w.Write([]byte(`[{"id":"ws-1","name":"Production"}]`))
+		case "GET /api/v1/workspaces/ws-1/settings":
+			_, _ = w.Write([]byte(`{"timezone":"Europe/Lisbon"}`))
+		case "GET /api/v1/media":
+			_, _ = w.Write([]byte(`[]`))
+		case "POST /api/v1/publications":
+			creates++
+			_, _ = w.Write([]byte(`{"id":"post-1","revision":1,"status":"draft"}`))
+		case "POST /api/v1/publications/post-1/schedule":
+			schedules++
+			if schedules == 1 {
+				http.Error(w, `{"detail":"queue unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = w.Write([]byte(`{"message":"Scheduled","job_id":"job-1"}`))
+		case "GET /api/v1/publications/post-1":
+			_, _ = w.Write([]byte(`{"id":"post-1","revision":1,"status":"draft"}`))
+		case "PUT /api/v1/publications/post-1":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Error(err)
+			}
+			if body["scheduled_at"] != "2099-01-02T12:00:00Z" {
+				t.Errorf("recovery time = %v", body["scheduled_at"])
+			}
+			_, _ = w.Write([]byte(`{"id":"post-1","revision":2,"status":"draft"}`))
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	args := []string{"--instance", srv.URL, "--token", "op_cli_test", "--workspace", "Production"}
+	_, err := executeRootCaptureStdout(t, append(args, "post", "create", "--content", "Hello", "--schedule", "2099-01-02T12:00:00Z")...)
+	recovery := "openpost post schedule post-1 --at 2099-01-02T12:00:00Z"
+	if err == nil || !strings.Contains(err.Error(), "draft created") || !strings.Contains(err.Error(), recovery) || !strings.Contains(err.Error(), "queue unavailable") {
+		t.Fatalf("expected partial success and recovery command, got %v", err)
+	}
+	_, err = executeRootCaptureStdout(t, append(args, strings.Fields(strings.TrimPrefix(recovery, "openpost "))...)...)
+	if err != nil {
+		t.Fatalf("recovery failed: %v", err)
+	}
+	if creates != 1 || schedules != 2 {
+		t.Fatalf("creates=%d schedules=%d", creates, schedules)
+	}
+}
+
+func TestPostCreateReportsAcceptedScheduleWhenStatusLookupFails(t *testing.T) {
+	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/workspaces":
+			_, _ = w.Write([]byte(`[{"id":"ws-1","name":"Production"}]`))
+		case "GET /api/v1/workspaces/ws-1/settings":
+			_, _ = w.Write([]byte(`{"timezone":"Europe/Lisbon"}`))
+		case "GET /api/v1/media":
+			_, _ = w.Write([]byte(`[]`))
+		case "POST /api/v1/publications":
+			_, _ = w.Write([]byte(`{"id":"post-1","revision":1,"status":"draft"}`))
+		case "POST /api/v1/publications/post-1/schedule":
+			_, _ = w.Write([]byte(`{"message":"Scheduled","job_id":"job-1"}`))
+		case "GET /api/v1/publications/post-1":
+			http.Error(w, `{"detail":"status unavailable"}`, http.StatusServiceUnavailable)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	_, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "--workspace", "Production", "post", "create", "--content", "Hello", "--schedule", "2099-01-02T12:00:00Z")
+	if err == nil || !strings.Contains(err.Error(), "created and scheduling accepted") || !strings.Contains(err.Error(), "openpost post view post-1") || !strings.Contains(err.Error(), "status unavailable") {
+		t.Fatalf("expected accepted schedule and status recovery command, got %v", err)
+	}
+}

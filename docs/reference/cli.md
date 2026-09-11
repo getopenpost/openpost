@@ -950,13 +950,14 @@ openpost post
 
 **Subcommands**
 
-| Command                | Description                      |
-| ---------------------- | -------------------------------- |
-| `openpost post create` | Create a draft or scheduled post |
-| `openpost post delete` | Delete a draft or scheduled post |
-| `openpost post list`   | List posts                       |
-| `openpost post update` | Update a draft or scheduled post |
-| `openpost post view`   | View a post                      |
+| Command                  | Description                      |
+| ------------------------ | -------------------------------- |
+| `openpost post create`   | Create a draft or scheduled post |
+| `openpost post delete`   | Delete a draft or scheduled post |
+| `openpost post list`     | List posts                       |
+| `openpost post schedule` | Schedule an existing publication |
+| `openpost post update`   | Update a draft or scheduled post |
+| `openpost post view`     | View a post                      |
 
 ### `openpost post create`
 
@@ -1034,6 +1035,35 @@ openpost post list [flags]
 | `--limit`  | `0`     | maximum number of posts to return                     |
 | `--offset` | `0`     | number of posts to skip                               |
 | `--status` | `-`     | filter by status: draft, scheduled, published, failed |
+
+**Inherited Flags**
+
+| Flag          | Default | Description                                                        |
+| ------------- | ------- | ------------------------------------------------------------------ |
+| `--instance`  | `-`     | OpenPost instance URL (default: profile or $OPENPOST_INSTANCE)     |
+| `--json`      | `false` | emit machine-readable JSON instead of tables/prose                 |
+| `--no-color`  | `false` | disable ANSI colors                                                |
+| `--profile`   | `-`     | profile name from config (default: $OPENPOST_PROFILE or 'default') |
+| `--quiet`     | `false` | suppress non-error output                                          |
+| `--token`     | `-`     | API token override (default: keyring or $OPENPOST_TOKEN)           |
+| `--workspace` | `-`     | workspace name or ID (default: profile or $OPENPOST_WORKSPACE)     |
+| `--yes`       | `false` | skip interactive confirmations                                     |
+
+### `openpost post schedule`
+
+Schedule an existing publication
+
+**Usage**
+
+```text
+openpost post schedule &lt;publication-id&gt; [flags]
+```
+
+**Flags**
+
+| Flag   | Default | Description                                   |
+| ------ | ------- | --------------------------------------------- |
+| `--at` | `-`     | schedule time, natural language, or next-slot |
 
 **Inherited Flags**
 

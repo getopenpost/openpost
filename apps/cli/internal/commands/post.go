@@ -42,6 +42,7 @@ func newPostCmd() *cobra.Command {
 	cmd.AddCommand(newPostViewCmd())
 	cmd.AddCommand(newPostUpdateCmd())
 	cmd.AddCommand(newPostDeleteCmd())
+	cmd.AddCommand(newPublicationScheduleCmd())
 	return cmd
 }
 
@@ -102,11 +103,12 @@ func newPostCreateCmd() *cobra.Command {
 			}
 			if scheduledAt != nil {
 				if _, err := client.SchedulePublication(cmd.Context(), publication.ID, publication.Revision); err != nil {
-					return err
+					return fmt.Errorf("draft created (publication %s), but scheduling failed: %w\nRetry scheduling the existing publication: openpost post schedule %s --at %s\nDo not rerun post create; it creates another draft", publication.ID, err, publication.ID, scheduledAt.Format(time.RFC3339Nano))
 				}
-				publication, err = client.GetPublication(cmd.Context(), publication.ID)
+				publicationID := publication.ID
+				publication, err = client.GetPublication(cmd.Context(), publicationID)
 				if err != nil {
-					return err
+					return fmt.Errorf("publication %s created and scheduling accepted, but fetching its status failed: %w\nCheck it with: openpost post view %s", publicationID, err, publicationID)
 				}
 			}
 			return printPostPublicationSummary(cfg, publication)

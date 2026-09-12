@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { ditherThreshold } from "../apps/web/src/lib/components/dither/paint.ts";
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
-const BADGE_NAMES = ["downloads", "release", "build", "stars"];
+const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];
+const X_LOGO_PATH =
+  "M18.901 1.153h3.68l-8.04 9.19L24 22.847h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.83L0 1.154h7.594l5.24 6.932Zm-1.291 19.492h2.04L6.486 3.24H4.298Z";
 
 const COLORS = {
   downloads: {
@@ -14,23 +16,13 @@ const COLORS = {
     light: ["#ffe5d0", "#f3b77f", "#4c210d", "#2a160b"],
     dark: ["#3b2416", "#ffad66", "#fff0e2", "#2a160b"],
   },
-  build: {
-    passing: {
-      light: ["#e2f1e8", "#a8ddb8", "#173d24", "#102117"],
-      dark: ["#183022", "#72d18d", "#e7f8eb", "#102117"],
-    },
-    failing: {
-      light: ["#f9e1e1", "#ef9a9a", "#4d1616", "#2b0e0e"],
-      dark: ["#3b1e20", "#ff8585", "#ffeaea", "#2b0e0e"],
-    },
-    pending: {
-      light: ["#e2ebf4", "#a8c4dc", "#172a3b", "#0f1c28"],
-      dark: ["#1e2d3b", "#9fc3e4", "#e7f2fc", "#0f1c28"],
-    },
-  },
   stars: {
     light: ["#fff1bc", "#ffd45c", "#382600", "#201500"],
     dark: ["#3c3214", "#ffd45c", "#fff7d6", "#211900"],
+  },
+  "follow-dev": {
+    light: ["#e8e8e8", "#d0d0d0", "#242424", "#111111"],
+    dark: ["#292929", "#e8e8e8", "#f4f4f4", "#111111"],
   },
 };
 
@@ -85,10 +77,9 @@ export async function fetchBadgeData(
 ) {
   const encodedRepository = repository.split("/").map(encodeURIComponent).join("/");
   const base = `https://api.github.com/repos/${encodedRepository}`;
-  const [repo, release, workflow] = await Promise.all([
+  const [repo, release] = await Promise.all([
     githubJSON(base, token, fetchImpl),
     githubJSON(`${base}/releases/latest`, token, fetchImpl),
-    githubJSON(`${base}/actions/workflows/ci.yml/runs?branch=main&per_page=1`, token, fetchImpl),
   ]);
 
   let downloads = 0;
@@ -123,25 +114,9 @@ export async function fetchBadgeData(
   if (typeof release.tag_name !== "string" || !release.tag_name) {
     throw new Error("GitHub returned an invalid latest release");
   }
-  if (!workflow || !Array.isArray(workflow.workflow_runs))
-    throw new Error("GitHub workflow response was missing a workflow_runs array");
-  const latestRun = workflow.workflow_runs[0];
-  let build = latestRun ? "pending" : "no runs";
-  if (latestRun && typeof latestRun.status !== "string") {
-    throw new Error("GitHub returned an invalid workflow status");
-  }
-  if (latestRun?.status === "completed") {
-    if (typeof latestRun.conclusion !== "string" || !latestRun.conclusion) {
-      throw new Error("GitHub returned a completed workflow without a conclusion");
-    }
-    build =
-      { success: "passing", failure: "failing" }[latestRun.conclusion] ??
-      latestRun.conclusion.replaceAll("_", " ");
-  }
   return {
     downloads,
     release: release.tag_name,
-    build,
     stars: repo.stargazers_count,
   };
 }
@@ -182,22 +157,20 @@ function ditherPattern() {
 
 export function renderBadge(kind, value, mode) {
   if (!BADGE_NAMES.includes(kind)) throw new Error(`Unknown badge: ${kind}`);
-  const label = kind;
-  const displayValue = String(value);
+  const isFollowBadge = kind === "follow-dev";
+  const label = isFollowBadge ? "follow dev" : kind;
+  const displayValue = isFollowBadge ? "X" : String(value);
   const labelWidth = textWidth(label);
-  const valueWidth = textWidth(displayValue);
+  const valueWidth = isFollowBadge ? 28 : textWidth(displayValue);
   const width = labelWidth + valueWidth;
-  const buildTone =
-    displayValue === "passing"
-      ? "passing"
-      : ["failing", "timed out", "action required", "startup failure"].includes(displayValue)
-        ? "failing"
-        : "pending";
-  const palette = kind === "build" ? COLORS.build[buildTone][mode] : COLORS[kind][mode];
+  const palette = COLORS[kind][mode];
   if (!palette) throw new Error(`Unknown ${kind} value: ${displayValue}`);
   const [labelBackground, valueBackground, labelInk, valueInk] = palette;
   const valueX = labelWidth;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(displayValue)}</title><desc id="desc">OpenPost ${escapeXML(label)} badge</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><path d="M6 0h${Math.ceil(width) - 12}a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6H6a6 6 0 0 1-6-6V6A6 6 0 0 1 6 0Z" fill="none" stroke="#000" stroke-opacity="0.12"/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g><text x="${valueX + valueWidth / 2}" y="14" fill="${valueInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(displayValue)}</text></svg>`;
+  const valueMarkup = isFollowBadge
+    ? `<path d="${X_LOGO_PATH}" transform="translate(${valueX + 5} 5) scale(0.75)" fill="${valueInk}"/>`
+    : `<text x="${valueX + valueWidth / 2}" y="14" fill="${valueInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(displayValue)}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(displayValue)}</title><desc id="desc">OpenPost ${escapeXML(label)} badge</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><path d="M6 0h${Math.ceil(width) - 12}a6 6 0 0 1 6 6v16a6 6 0 0 1-6-6H6a6 6 0 0 1-6-6V6A6 6 0 0 1 6 0Z" fill="none" stroke="#000" stroke-opacity="0.12"/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
 }
 
 export async function writeBadges(data, outputDir) {

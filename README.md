@@ -27,16 +27,16 @@
       <img src="./assets/badges/release-light.svg" alt="Latest release">
     </picture>
   </a>
-  <a href="https://github.com/getopenpost/openpost/actions/workflows/ci.yml">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/build-dark.svg">
-      <img src="./assets/badges/build-light.svg" alt="Build status">
-    </picture>
-  </a>
   <a href="https://github.com/getopenpost/openpost/stargazers">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/stars-dark.svg">
       <img src="./assets/badges/stars-light.svg" alt="GitHub stars">
+    </picture>
+  </a>
+  <a href="https://url.rgo.pt/x">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/follow-dev-dark.svg">
+      <img src="./assets/badges/follow-dev-light.svg" alt="Follow the developer on X">
     </picture>
   </a>
 </p>

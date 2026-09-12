@@ -2,7 +2,6 @@
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { cn, getPlatformColor } from '$lib/utils';
-	import type { HTMLAttributes } from 'svelte/elements';
 
 	interface Props {
 		name: string;
@@ -10,6 +9,7 @@
 		avatarUrl?: string | null;
 		size?: 'sm' | 'default' | 'lg';
 		class?: string;
+		'data-testid'?: string;
 	}
 
 	let {
@@ -18,8 +18,8 @@
 		avatarUrl = '',
 		size = 'default',
 		class: className = '',
-		...restProps
-	}: Props & HTMLAttributes<HTMLSpanElement> = $props();
+		'data-testid': testId
+	}: Props = $props();
 
 	const fallback = $derived.by(() => {
 		const normalized = name.trim().replace(/^@+/, '');
@@ -36,7 +36,7 @@
 
 	function handleAvatarLoad(event: Event) {
 		const image = event.currentTarget;
-		if (image instanceof HTMLImageElement && image.getAttribute('src') === avatarUrl) {
+		if (avatarUrl && image instanceof HTMLImageElement && image.getAttribute('src') === avatarUrl) {
 			loadedAvatarUrl = avatarUrl;
 		}
 	}
@@ -49,7 +49,7 @@
 	}
 </script>
 
-<Avatar.Root {size} class={cn('overflow-visible', className)} {...restProps}>
+<Avatar.Root {size} class={cn('overflow-visible', className)} data-testid={testId}>
 	{#snippet child({ props })}
 		<span {...props} aria-hidden="true">
 			{#if avatarUrl}

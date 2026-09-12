@@ -96,8 +96,19 @@ test("renders readable values and a real pixel texture in both schemes", async (
     assert.ok(Math.max(...row) - Math.min(...row) > 8, "dither pixels remain visibly distinct");
     assert.match(renderBadge("release", "v1<&", mode), /v1&lt;&amp;/u);
     const followBadge = renderBadge("follow-dev", undefined, mode);
-    assert.match(followBadge, /<title[^>]*>follow dev: X<\/title>/u);
+    assert.match(followBadge, /<title[^>]*>follow: X<\/title>/u);
     assert.match(followBadge, /<path d="M18\.901 1\.153/u);
+    const { data: followPixels, info: followInfo } = await sharp(Buffer.from(followBadge))
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const followPixel = (x, y) => [
+      ...followPixels.subarray((y * followInfo.width + x) * 4, (y * followInfo.width + x) * 4 + 4),
+    ];
+    assert.deepEqual(
+      followPixel(5, 15),
+      followPixel(5, 14),
+      "the outline does not cross the label",
+    );
   }
 });
 
@@ -107,7 +118,7 @@ test("writes all light and dark badge variants", async () => {
     const files = await writeBadges({ downloads: 12, release: "v1.2.3", stars: 9 }, outputDir);
     assert.equal(files.length, 8);
     assert.match(await readFile(join(outputDir, "release-dark.svg"), "utf8"), /v1\.2\.3/u);
-    assert.match(await readFile(join(outputDir, "follow-dev-dark.svg"), "utf8"), /follow dev: X/u);
+    assert.match(await readFile(join(outputDir, "follow-dev-dark.svg"), "utf8"), /follow: X/u);
   } finally {
     await rm(outputDir, { recursive: true, force: true });
   }

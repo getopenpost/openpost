@@ -158,7 +158,7 @@ function ditherPattern() {
 export function renderBadge(kind, value, mode) {
   if (!BADGE_NAMES.includes(kind)) throw new Error(`Unknown badge: ${kind}`);
   const isFollowBadge = kind === "follow-dev";
-  const label = isFollowBadge ? "follow dev" : kind;
+  const label = isFollowBadge ? "follow" : kind;
   const displayValue = isFollowBadge ? "X" : String(value);
   const labelWidth = textWidth(label);
   const valueWidth = isFollowBadge ? 28 : textWidth(displayValue);
@@ -170,7 +170,7 @@ export function renderBadge(kind, value, mode) {
   const valueMarkup = isFollowBadge
     ? `<path d="${X_LOGO_PATH}" transform="translate(${valueX + 5} 5) scale(0.75)" fill="${valueInk}"/>`
     : `<text x="${valueX + valueWidth / 2}" y="14" fill="${valueInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(displayValue)}</text>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(displayValue)}</title><desc id="desc">OpenPost ${escapeXML(label)} badge</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><path d="M6 0h${Math.ceil(width) - 12}a6 6 0 0 1 6 6v16a6 6 0 0 1-6-6H6a6 6 0 0 1-6-6V6A6 6 0 0 1 6 0Z" fill="none" stroke="#000" stroke-opacity="0.12"/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(displayValue)}</title><desc id="desc">OpenPost ${escapeXML(label)} badge</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><rect x='0.5' y='0.5' width='${Math.ceil(width) - 1}' height='27' rx='5.5' fill='none' stroke='#000' stroke-opacity='0.12'/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
 }
 
 export async function writeBadges(data, outputDir) {

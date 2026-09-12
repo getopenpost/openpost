@@ -7,6 +7,7 @@ import {
 
 function status(providerStatus: string, accessRestricted: boolean) {
 	return {
+		organization_id: 'organization-1',
 		workspace_id: 'workspace-1',
 		status: providerStatus,
 		can_manage_billing: true,
@@ -47,7 +48,12 @@ describe('billing recovery', () => {
 	});
 
 	it('accepts only a complete workspace-scoped recovery status', () => {
-		expect(parseBillingRecoveryStatus(status('past_due', true))).toEqual(status('past_due', true));
+		expect(parseBillingRecoveryStatus(status('past_due', true))).toMatchObject(
+			status('past_due', true)
+		);
+		expect(
+			parseBillingRecoveryStatus({ ...status('past_due', true), organization_id: '' })
+		).toBeNull();
 		expect(
 			parseBillingRecoveryStatus({ ...status('past_due', true), workspace_id: '' })
 		).toBeNull();

@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { client } from '$lib/api/client';
+	import type { components } from '$lib/api/types';
 	import { getLocaleTag } from '$lib/i18n';
 	import { checkoutPathForPlan, hostedPlanFromSearchParams } from '$lib/billing';
 	import {
@@ -183,7 +184,9 @@
 		return cost.cost_microusd + cost.reserved_cost_microusd;
 	}
 
-	function presentBillingStatus(status: BillingStatus): BillingStatus {
+	function presentBillingStatus(
+		status: components['schemas']['BillingStatusResponse']
+	): BillingStatus {
 		return {
 			...status,
 			status: status.status ?? 'none',

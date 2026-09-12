@@ -3,6 +3,7 @@ import type { components } from '$lib/api/types';
 export type BillingPortalPurpose = components['schemas']['CreateBillingPortalInputBody']['purpose'];
 
 export interface BillingRecoveryStatus {
+	organization_id: string;
 	workspace_id: string;
 	status: string;
 	can_manage_billing: boolean;
@@ -15,6 +16,7 @@ export function requiresBillingRecovery(status: BillingRecoveryStatus | null | u
 }
 
 interface BillingRecoveryPayload {
+	organization_id?: unknown;
 	workspace_id?: unknown;
 	status?: unknown;
 	can_manage_billing?: unknown;
@@ -27,6 +29,8 @@ export function parseBillingRecoveryStatus(value: unknown): BillingRecoveryStatu
 	// SAFETY: The parser validates every field from this JSON object before returning a BillingRecoveryStatus.
 	const payload = value as BillingRecoveryPayload;
 	if (
+		typeof payload.organization_id !== 'string' ||
+		!payload.organization_id ||
 		typeof payload.workspace_id !== 'string' ||
 		!payload.workspace_id ||
 		typeof payload.status !== 'string' ||
@@ -38,6 +42,7 @@ export function parseBillingRecoveryStatus(value: unknown): BillingRecoveryStatu
 		return null;
 	}
 	return {
+		organization_id: payload.organization_id,
 		workspace_id: payload.workspace_id,
 		status: payload.status,
 		can_manage_billing: payload.can_manage_billing,

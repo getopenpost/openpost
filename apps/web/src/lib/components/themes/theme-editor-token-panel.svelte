@@ -68,6 +68,10 @@
 	const componentGroups = $derived(themeComponentGroups(locale));
 	const accentHue = $derived(themeAccentHue(manifest));
 
+	function isOption<T extends string>(options: readonly T[], value: string): value is T {
+		return options.some((option) => option === value);
+	}
+
 	const typographyFields = [
 		['size', () => m.theme_editor_size()],
 		['lineHeight', () => m.theme_editor_line_height()],
@@ -216,7 +220,7 @@
 						{m.theme_editor_family()}
 						<Select.Root
 							value={manifest.typography[role].family}
-							onValueChange={(value) => value && onUpdateFontFamily(role, value)}
+							onValueChange={(value: string) => value && onUpdateFontFamily(role, value)}
 						>
 							<Select.Trigger class="w-full">{manifest.typography[role].family}</Select.Trigger>
 							<Select.Content>
@@ -243,7 +247,7 @@
 							{#if uploadedWeights.length > 0}
 								<Select.Root
 									value={String(manifest.typography[role].weight)}
-									onValueChange={(value) =>
+									onValueChange={(value: string) =>
 										value && onUpdateTypography(role, 'weight', Number(value))}
 								>
 									<Select.Trigger class="w-full">{manifest.typography[role].weight}</Select.Trigger>
@@ -285,7 +289,9 @@
 			{m.theme_editor_density()}
 			<Select.Root
 				value={manifest.spacing.density}
-				onValueChange={(value) => value && onUpdateValue('spacing', 'density', value)}
+				onValueChange={(value: string) => {
+					if (isOption(THEME_DENSITIES, value)) onUpdateValue('spacing', 'density', value);
+				}}
 			>
 				<Select.Trigger class="w-full"
 					>{themeEditorValueLabel(manifest.spacing.density, locale)}</Select.Trigger
@@ -322,7 +328,9 @@
 			{m.theme_editor_border_style()}
 			<Select.Root
 				value={manifest.shape.borderStyle}
-				onValueChange={(value) => value && onUpdateValue('shape', 'borderStyle', value)}
+				onValueChange={(value: string) => {
+					if (isOption(THEME_BORDER_STYLES, value)) onUpdateValue('shape', 'borderStyle', value);
+				}}
 			>
 				<Select.Trigger class="w-full"
 					>{themeEditorValueLabel(manifest.shape.borderStyle, locale)}</Select.Trigger
@@ -403,7 +411,10 @@
 			{m.theme_editor_canvas_treatment()}
 			<Select.Root
 				value={manifest.shell.canvasTreatment}
-				onValueChange={(value) => value && onUpdateValue('shell', 'canvasTreatment', value)}
+				onValueChange={(value: string) => {
+					if (isOption(THEME_CANVAS_TREATMENTS, value))
+						onUpdateValue('shell', 'canvasTreatment', value);
+				}}
 			>
 				<Select.Trigger class="w-full"
 					>{themeEditorValueLabel(manifest.shell.canvasTreatment, locale)}</Select.Trigger
@@ -433,7 +444,10 @@
 							{themeEditorTokenLabel(field, locale)}
 							<Select.Root
 								value={String(manifest.components[field])}
-								onValueChange={(value) => value && onUpdateValue('components', field, value)}
+								onValueChange={(value: string) => {
+									if (isOption(THEME_COMPONENT_RECIPE_OPTIONS[field], value))
+										onUpdateValue('components', field, value);
+								}}
 							>
 								<Select.Trigger class="w-full"
 									>{themeEditorValueLabel(manifest.components[field], locale)}</Select.Trigger

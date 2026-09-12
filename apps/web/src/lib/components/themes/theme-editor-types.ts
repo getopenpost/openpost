@@ -35,10 +35,13 @@ export interface ThemeAssetUploadInput {
 	alt: string;
 }
 
-export type ThemeValueUpdater = (
-	section: ThemeEditorSection,
-	key: string,
-	value: string | number
+export type ThemeValueUpdater = <
+	Section extends ThemeEditorSection,
+	Key extends keyof ThemeSchemeManifest[Section]
+>(
+	section: Section,
+	key: Key,
+	value: ThemeSchemeManifest[Section][Key]
 ) => void;
 
 export type ThemeTypographyUpdater = (

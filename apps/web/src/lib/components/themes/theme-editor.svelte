@@ -113,10 +113,10 @@
 	let draft = $state(untrack(() => cloneTheme(initialTheme)));
 	let savedFingerprint = $state(untrack(() => themeEditorFingerprint(initialTheme)));
 	let loadedIdentity = $state('');
-	let editorMode: 'guided' | 'manifest' = $state('guided');
+	let editorMode = $state<'guided' | 'manifest'>('guided');
 	let panel: ThemeEditorPanel = $state('colors');
 	let scheme: ThemeScheme = $state(untrack(() => initialTheme.supportedSchemes[0] ?? 'light'));
-	let previewScheme: ThemeScheme | 'editing' | 'system' | 'fallback' = $state('editing');
+	let previewScheme = $state<ThemeScheme | 'editing' | 'system' | 'fallback'>('editing');
 	let systemScheme: ThemeScheme = $state('light');
 	let scene: ThemePreviewScene = $state('dashboard');
 	let viewport: ThemePreviewViewport = $state('desktop');
@@ -352,7 +352,7 @@
 		applyDraft(
 			m.theme_editor_section_updated({ section: panelLabels[section].toLowerCase() }),
 			next,
-			`${scheme}-${section}-${key}`
+			`${scheme}-${section}-${String(key)}`
 		);
 	}
 
@@ -438,7 +438,7 @@
 	function resetSection() {
 		if (!isThemeEditorSection(panel)) return;
 		const sectionBaseline = cloneTheme(baseline);
-		sectionBaseline.schemes[scheme] ??= cloneTheme(
+		sectionBaseline.schemes[scheme] ??= structuredClone(
 			resolveBuiltInTheme('workshop', scheme).manifest
 		);
 		applyDraft(

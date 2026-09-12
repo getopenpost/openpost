@@ -106,6 +106,36 @@ describe('DestinationSettingsDialog', () => {
 		);
 	});
 
+	it('keeps a required Discord channel open when the bot has no writable channels', async () => {
+		const reason = 'Grant the bot permission to post in a channel, then retry.';
+		const onRetry = vi.fn();
+		const screen = await render(DestinationSettingsDialog, {
+			props: {
+				open: true,
+				account: discordAccount,
+				settings: [
+					setting('channel_id', 'Channel', {
+						control: 'remote_picker',
+						type: 'select',
+						options_source: 'discord_channels',
+						required: true,
+						unavailable_reason: reason
+					})
+				],
+				values: {},
+				optionGroups: { discord_channels: [] },
+				onChange: vi.fn(),
+				onRetry
+			}
+		});
+
+		await screen.getByRole('button', { name: 'Done' }).click();
+		await expect.element(screen.getByRole('dialog')).toBeVisible();
+		expect(screen.getByRole('alert').element().textContent).toContain(reason);
+		await screen.getByRole('button', { name: 'Try again' }).click();
+		expect(onRetry).toHaveBeenCalledOnce();
+	});
+
 	it('offers typed Discord embed fields and preserves the typed JSON value', async () => {
 		const onChange = vi.fn();
 		const screen = await render(DestinationSettingsDialog, {
@@ -125,6 +155,30 @@ describe('DestinationSettingsDialog', () => {
 			description: 'Details'
 		});
 		expect(document.getElementById('destination-setting-embed')?.tagName).not.toBe('TEXTAREA');
+	});
+
+	it.each([
+		['invalid field collection', '{"fields":123}'],
+		['missing nested text', '{"footer":{}}'],
+		['unknown nested fields', '{"footer":{"text":"Thanks","extra":"preserve"}}']
+	])('keeps an embed with %s editable as raw JSON', async (_case, embed) => {
+		const onChange = vi.fn();
+		const screen = await render(DestinationSettingsDialog, {
+			props: {
+				open: true,
+				account: discordAccount,
+				settings: [setting('embed', 'Embed', { control: 'structured_editor', type: 'json' })],
+				values: { embed },
+				onChange
+			}
+		});
+
+		const rawEditor = screen.getByRole('textbox', { name: 'Embed JSON' });
+		await expect.element(rawEditor).toHaveValue(embed);
+		await expect.element(screen.getByRole('alert')).toBeVisible();
+		expect(screen.getByRole('textbox', { name: 'Title' }).query()).toBeNull();
+		await rawEditor.fill(`${embed} `);
+		expect(onChange).toHaveBeenCalledWith('embed', `${embed} `);
 	});
 
 	it('chooses a TikTok photo cover from attached media rather than an arbitrary index', async () => {
@@ -226,7 +280,7 @@ describe('DestinationSettingsDialog', () => {
 		expect(onChange).toHaveBeenCalledWith('mention_role_ids', ['role-1', 'role-2']);
 	});
 
-	it('shows unavailable X capabilities without fake editable controls', async () => {
+	it('keeps unavailable X capabilities out of the main settings while retaining their reasons', async () => {
 		const quoteReason = 'Quote publishing requires X Enterprise API access.';
 		const communityReason =
 			'X has not granted this account access to Community publishing options.';
@@ -261,15 +315,49 @@ describe('DestinationSettingsDialog', () => {
 		});
 
 		await expect.element(screen.getByRole('heading', { name: 'X settings' })).toBeVisible();
+		await expect.element(screen.getByText('Unavailable (3)')).toBeVisible();
+		await expect.element(screen.getByText(quoteReason)).not.toBeVisible();
+		await screen.getByText('Unavailable (3)').click();
 		await expect.element(screen.getByText(quoteReason)).toBeVisible();
 		await expect.element(screen.getByText(communityReason)).toBeVisible();
 		await expect.element(screen.getByText(locationReason)).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Done' })).toBeVisible();
 
-		expect(document.getElementById('destination-setting-quote_url')).toBeNull();
+		expect(document.querySelector('input#destination-setting-quote_url')).toBeNull();
 		expect(document.getElementById('destination-setting-community_id')).toBeNull();
 		expect(document.getElementById('destination-setting-location_id')).toBeNull();
 		expect(document.querySelectorAll('input[placeholder="Search options"]')).toHaveLength(0);
+	});
+
+	it('keeps an authored unsupported value and its reason inspectable', async () => {
+		const quoteReason = 'Quote publishing requires X Enterprise API access.';
+		const screen = await render(DestinationSettingsDialog, {
+			props: {
+				open: true,
+				account: xAccount,
+				settings: [
+					setting('quote_url', 'Quote post', {
+						control: 'quote_url',
+						unavailable_reason: quoteReason
+					}),
+					setting('community_id', 'Community', {
+						control: 'remote_picker',
+						type: 'select',
+						options_source: 'x_communities',
+						unavailable_reason: 'Community publishing is unavailable.'
+					})
+				],
+				values: { quote_url: 'https://x.com/example/status/1' },
+				onChange: vi.fn()
+			}
+		});
+
+		await expect.element(screen.getByText(quoteReason)).toBeVisible();
+		await expect.element(screen.getByText('https://x.com/example/status/1')).toBeVisible();
+		await expect.element(screen.getByText('Unavailable (1)')).toBeVisible();
+		expect(document.getElementById('destination-setting-quote_url')?.textContent).toBe(
+			'Quote post'
+		);
 	});
 
 	it('searches YouTube categories and playlists inside their comboboxes', async () => {

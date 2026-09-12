@@ -121,12 +121,26 @@
 					(setting) =>
 						setting.scope !== 'media_item' &&
 						setting.group === group &&
-						dependenciesMet(setting, values)
+						dependenciesMet(setting, values) &&
+						(!setting.unavailable_reason ||
+							isAlwaysRequired(setting) ||
+							hasVisibleValue(setting, values))
 				)
 			}))
 			.filter((entry) => entry.settings.length > 0)
 	);
 	const mediaSettings = $derived(settings.filter((setting) => setting.scope === 'media_item'));
+	const unavailableSettings = $derived(
+		settings.filter(
+			(setting) =>
+				setting.unavailable_reason &&
+				!isAlwaysRequired(setting) &&
+				(setting.scope === 'media_item'
+					? mediaItems.length > 0 &&
+						!mediaItems.some((item) => hasVisibleValue(setting, mediaValues[item.id] ?? {}))
+					: dependenciesMet(setting, values) && !hasVisibleValue(setting, values))
+		)
+	);
 	const videoMediaItem = $derived(
 		mediaItems.find((item) => item.mimeType.startsWith('video/')) ??
 			(mediaItems.length === 1 ? mediaItems[0] : undefined)
@@ -139,6 +153,18 @@
 
 	function valueAsBoolean(key: string, scopedValues = values): boolean {
 		return Boolean(scopedValues[key]);
+	}
+
+	function hasVisibleValue(setting: SettingDefinition, scopedValues: DestinationSettings): boolean {
+		const value = scopedValues[setting.key];
+		if (value === undefined || value === null || value === '') return false;
+		if (value === false) return setting.default === true;
+		if (Array.isArray(value) && value.length === 0) return false;
+		return value !== setting.default;
+	}
+
+	function isAlwaysRequired(setting: SettingDefinition): boolean {
+		return setting.required && setting.required_policy !== 'when_available';
 	}
 
 	function dynamicOptions(setting: SettingDefinition): DestinationOption[] {
@@ -198,7 +224,7 @@
 		return groupedSettings
 			.flatMap((entry) => entry.settings)
 			.find((setting) => {
-				if (!setting.required || setting.unavailable_reason) return false;
+				if (!setting.required) return false;
 				if (
 					setting.required_policy === 'when_available' &&
 					setting.options_source &&
@@ -212,13 +238,15 @@
 
 	function optionLabel(setting: SettingDefinition, option: string): string {
 		if (setting.key === 'mention_policy') {
-			return option === 'none' ? 'No mentions' : 'Selected people or roles';
+			return option === 'none'
+				? m.compose_setting_mention_none()
+				: m.compose_setting_mention_selected();
 		}
 		if (setting.key === 'graduation_strategy' && option === 'SS_PERFORMANCE') {
-			return 'Based on performance';
+			return m.compose_setting_graduation_performance();
 		}
 		if (setting.key === 'license' && option === 'creativeCommon') {
-			return 'Creative Commons';
+			return m.compose_setting_license_creative_commons();
 		}
 		const words = option
 			.replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -277,6 +305,15 @@
 				setting: settingLabel(missing),
 				platform: account ? getPlatformName(account.platform) : ''
 			});
+			if (missing.unavailable_reason) {
+				validationMessage += ` ${missing.unavailable_reason}`;
+			} else if (
+				missing.options_source &&
+				!optionsLoading &&
+				(optionGroups[missing.options_source]?.length ?? 0) === 0
+			) {
+				validationMessage += ` ${m.compose_no_provider_options({ setting: settingLabel(missing) })}`;
+			}
 		}
 		showToast(validationMessage, 'error');
 		requestAnimationFrame(() => {
@@ -378,7 +415,16 @@
 
 		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
 			{#if validationMessage}
-				<InlineNotice tone="error" message={validationMessage} />
+				<InlineNotice tone="error" message={validationMessage}>
+					{#snippet actions()}
+						{#if onRetry && validationKey && validationKey !== '__format__'}
+							<Button type="button" variant="outline" size="sm" onclick={onRetry}>
+								<ThemeIcon role="refresh" class="size-3.5" />
+								{m.common_retry()}
+							</Button>
+						{/if}
+					{/snippet}
+				</InlineNotice>
 			{/if}
 			{#if optionsError}
 				<InlineNotice tone="error" message={optionsError}>
@@ -442,10 +488,21 @@
 									: ''}
 							>
 								{#if setting.unavailable_reason}
-									<p class="text-sm font-medium text-foreground">{settingLabel(setting)}</p>
+									<p
+										id="destination-setting-{setting.key}"
+										tabindex="-1"
+										class="text-sm font-medium text-foreground"
+									>
+										{settingLabel(setting)}
+									</p>
 									<p class="mt-1 text-xs text-muted-foreground">
 										{setting.unavailable_reason}
 									</p>
+									{#if hasVisibleValue(setting, values)}
+										<code class="mt-2 block rounded-md bg-muted px-2 py-1 text-xs break-all">
+											{valueAsString(setting.key)}
+										</code>
+									{/if}
 								{:else if setting.type === 'boolean'}
 									<label class="flex min-h-11 items-center gap-3 text-sm">
 										<Checkbox
@@ -700,8 +757,12 @@
 					<div class="space-y-3">
 						{#each mediaItems as item, mediaIndex (item.id)}
 							{@const scopedValues = mediaValues[item.id] ?? {}}
-							{@const applicableSettings = mediaSettings.filter((setting) =>
-								dependenciesMet(setting, scopedValues)
+							{@const applicableSettings = mediaSettings.filter(
+								(setting) =>
+									dependenciesMet(setting, scopedValues) &&
+									(!setting.unavailable_reason ||
+										isAlwaysRequired(setting) ||
+										hasVisibleValue(setting, scopedValues))
 							)}
 							{#if applicableSettings.length > 0}
 								<fieldset class="space-y-3 rounded-md border p-3">
@@ -724,6 +785,13 @@
 													<p class="mt-1 text-xs text-muted-foreground">
 														{setting.unavailable_reason}
 													</p>
+													{#if hasVisibleValue(setting, scopedValues)}
+														<code
+															class="mt-2 block rounded-md bg-muted px-2 py-1 text-xs break-all"
+														>
+															{valueAsString(setting.key, scopedValues)}
+														</code>
+													{/if}
 												{:else if setting.type === 'boolean'}
 													<label class="flex min-h-11 items-center gap-3 text-sm">
 														<Checkbox
@@ -859,6 +927,22 @@
 						{/each}
 					</div>
 				</section>
+			{/if}
+
+			{#if unavailableSettings.length > 0}
+				<details class="border-t pt-3">
+					<summary class="min-h-11 cursor-pointer py-2 text-sm text-muted-foreground">
+						{m.accounts_provider_unavailable()} ({unavailableSettings.length})
+					</summary>
+					<ul class="space-y-3 pb-2">
+						{#each unavailableSettings as setting (setting.key)}
+							<li>
+								<p class="text-sm font-medium">{settingLabel(setting)}</p>
+								<p class="text-xs text-muted-foreground">{setting.unavailable_reason}</p>
+							</li>
+						{/each}
+					</ul>
+				</details>
 			{/if}
 		</div>
 

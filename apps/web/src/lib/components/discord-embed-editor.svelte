@@ -36,13 +36,68 @@
 		'author',
 		'fields'
 	]);
+	function isRecord(value: unknown): value is Record<string, unknown> {
+		return value !== null && typeof value === 'object' && !Array.isArray(value);
+	}
+
+	function hasStringShape(
+		value: unknown,
+		required: string[],
+		optional: string[] = []
+	): value is Record<string, string> {
+		if (!isRecord(value)) return false;
+		if (Object.keys(value).some((key) => !required.includes(key) && !optional.includes(key)))
+			return false;
+		return (
+			required.every((key) => typeof value[key] === 'string') &&
+			optional.every((key) => value[key] === undefined || typeof value[key] === 'string')
+		);
+	}
+
+	function isEmbed(value: unknown): value is Embed {
+		if (!isRecord(value) || Object.keys(value).some((key) => !allowedKeys.has(key))) return false;
+		if (
+			['title', 'description', 'url', 'timestamp'].some(
+				(key) => value[key] !== undefined && typeof value[key] !== 'string'
+			)
+		)
+			return false;
+		if (
+			value.color !== undefined &&
+			(typeof value.color !== 'number' ||
+				!Number.isInteger(value.color) ||
+				value.color < 0 ||
+				value.color > 0xffffff)
+		)
+			return false;
+		if (value.footer !== undefined && !hasStringShape(value.footer, ['text'], ['icon_url']))
+			return false;
+		if (value.image !== undefined && !hasStringShape(value.image, ['url'])) return false;
+		if (value.thumbnail !== undefined && !hasStringShape(value.thumbnail, ['url'])) return false;
+		if (value.author !== undefined && !hasStringShape(value.author, ['name'], ['url', 'icon_url']))
+			return false;
+		if (value.fields !== undefined) {
+			if (!Array.isArray(value.fields)) return false;
+			if (
+				value.fields.some(
+					(field) =>
+						!isRecord(field) ||
+						Object.keys(field).some((key) => !['name', 'value', 'inline'].includes(key)) ||
+						typeof field.name !== 'string' ||
+						typeof field.value !== 'string' ||
+						(field.inline !== undefined && typeof field.inline !== 'boolean')
+				)
+			)
+				return false;
+		}
+		return true;
+	}
+
 	const parsed = $derived.by((): Embed | null => {
 		if (!value.trim()) return {};
 		try {
 			const result: unknown = JSON.parse(value);
-			if (!result || typeof result !== 'object' || Array.isArray(result)) return null;
-			if (Object.keys(result).some((key) => !allowedKeys.has(key))) return null;
-			return result as Embed;
+			return isEmbed(result) ? result : null;
 		} catch {
 			return null;
 		}
@@ -88,14 +143,14 @@
 <div {id} class="mt-2 space-y-3">
 	{#if !active}
 		<Button type="button" variant="outline" class="min-h-11" onclick={() => (editing = true)}>
-			Add embed
+			{m.compose_embed_add()}
 		</Button>
 	{:else if !parsed}
 		<p class="text-sm text-destructive" role="alert">
-			This saved embed cannot be shown as fields. Correct its JSON to continue.
+			{m.compose_embed_invalid_json()}
 		</p>
 		<Textarea
-			aria-label="Embed JSON"
+			aria-label={m.compose_embed_json()}
 			class="min-h-32 font-mono text-xs"
 			{value}
 			oninput={(event) => onChange(event.currentTarget.value)}
@@ -128,7 +183,7 @@
 			</div>
 		</div>
 		<details class="space-y-3 rounded-md border p-3">
-			<summary class="cursor-pointer text-sm font-medium">More embed details</summary>
+			<summary class="cursor-pointer text-sm font-medium">{m.compose_embed_more()}</summary>
 			<div class="grid gap-3 pt-3 sm:grid-cols-2">
 				<div class="sm:col-span-2">
 					<label class="text-xs font-medium" for={`${id}-url`}>{m.compose_link_url()}</label>
@@ -143,7 +198,7 @@
 				<div>
 					<ColorPicker
 						id={`${id}-color`}
-						label="Embed color"
+						label={m.compose_embed_color()}
 						value={parsed.color === undefined
 							? '#000000'
 							: `#${parsed.color.toString(16).padStart(6, '0')}`}
@@ -153,11 +208,14 @@
 							type="button"
 							variant="ghost"
 							size="sm"
-							onclick={() => save({ ...parsed, color: undefined })}>Clear color</Button
+							onclick={() => save({ ...parsed, color: undefined })}
+							>{m.compose_embed_clear_color()}</Button
 						>{/if}
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-timestamp`}>Timestamp</label>
+					<label class="text-xs font-medium" for={`${id}-timestamp`}
+						>{m.compose_embed_timestamp()}</label
+					>
 					<Input
 						id={`${id}-timestamp`}
 						type="datetime-local"
@@ -173,7 +231,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-image`}>Image URL</label>
+					<label class="text-xs font-medium" for={`${id}-image`}
+						>{m.compose_embed_image_url()}</label
+					>
 					<Input
 						id={`${id}-image`}
 						type="url"
@@ -183,7 +243,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-thumbnail`}>Thumbnail URL</label>
+					<label class="text-xs font-medium" for={`${id}-thumbnail`}
+						>{m.compose_embed_thumbnail_url()}</label
+					>
 					<Input
 						id={`${id}-thumbnail`}
 						type="url"
@@ -193,7 +255,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-author`}>Author name</label>
+					<label class="text-xs font-medium" for={`${id}-author`}
+						>{m.compose_embed_author_name()}</label
+					>
 					<Input
 						id={`${id}-author`}
 						class="mt-1 h-11"
@@ -204,7 +268,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-author-url`}>Author URL</label>
+					<label class="text-xs font-medium" for={`${id}-author-url`}
+						>{m.compose_embed_author_url()}</label
+					>
 					<Input
 						id={`${id}-author-url`}
 						type="url"
@@ -222,7 +288,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-author-icon`}>Author icon URL</label>
+					<label class="text-xs font-medium" for={`${id}-author-icon`}
+						>{m.compose_embed_author_icon_url()}</label
+					>
 					<Input
 						id={`${id}-author-icon`}
 						type="url"
@@ -240,7 +308,7 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-footer`}>Footer</label>
+					<label class="text-xs font-medium" for={`${id}-footer`}>{m.compose_embed_footer()}</label>
 					<Input
 						id={`${id}-footer`}
 						class="mt-1 h-11"
@@ -251,7 +319,9 @@
 					/>
 				</div>
 				<div>
-					<label class="text-xs font-medium" for={`${id}-footer-icon`}>Footer icon URL</label>
+					<label class="text-xs font-medium" for={`${id}-footer-icon`}
+						>{m.compose_embed_footer_icon_url()}</label
+					>
 					<Input
 						id={`${id}-footer-icon`}
 						type="url"
@@ -272,9 +342,12 @@
 			<div class="space-y-3 pt-3">
 				{#each parsed.fields ?? [] as field, index (index)}
 					<fieldset class="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-						<legend class="px-1 text-xs font-medium">Field {index + 1}</legend>
+						<legend class="px-1 text-xs font-medium"
+							>{m.compose_embed_field({ number: String(index + 1) })}</legend
+						>
 						<div>
-							<label class="text-xs font-medium" for={`${id}-field-name-${index}`}>Name</label
+							<label class="text-xs font-medium" for={`${id}-field-name-${index}`}
+								>{m.compose_embed_field_name()}</label
 							><Input
 								id={`${id}-field-name-${index}`}
 								class="mt-1 h-11"
@@ -284,7 +357,8 @@
 							/>
 						</div>
 						<div>
-							<label class="text-xs font-medium" for={`${id}-field-value-${index}`}>Value</label
+							<label class="text-xs font-medium" for={`${id}-field-value-${index}`}
+								>{m.compose_embed_field_value()}</label
 							><Input
 								id={`${id}-field-value-${index}`}
 								class="mt-1 h-11"
@@ -297,7 +371,7 @@
 							><Checkbox
 								checked={Boolean(field.inline)}
 								onCheckedChange={(checked) => updateField(index, { inline: checked })}
-							/>Inline</label
+							/>{m.compose_embed_inline()}</label
 						>
 						<Button
 							type="button"
@@ -308,7 +382,7 @@
 								save({
 									...parsed,
 									fields: parsed.fields?.filter((_, fieldIndex) => fieldIndex !== index)
-								})}>Remove field</Button
+								})}>{m.compose_embed_remove_field()}</Button
 						>
 					</fieldset>
 				{/each}
@@ -318,7 +392,7 @@
 						size="sm"
 						onclick={() =>
 							save({ ...parsed, fields: [...(parsed.fields ?? []), { name: '', value: '' }] })}
-						>Add field</Button
+						>{m.compose_embed_add_field()}</Button
 					>{/if}
 			</div>
 		</details>

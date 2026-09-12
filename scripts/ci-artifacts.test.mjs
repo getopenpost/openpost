@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { selectAttemptArtifact } from "./ci-artifacts.mjs";
@@ -50,4 +51,15 @@ test("rejects missing, malformed, expired, or ambiguous latest artifacts", () =>
       ),
     /not uniquely identified/u,
   );
+});
+
+test("image CI resolves the successful frontend artifact across attempts", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const imageJob = workflow.split("\n  image:\n")[1]?.split("\n  release-candidate:\n")[0];
+  assert.ok(imageJob, "image job exists");
+  assert.match(
+    imageJob,
+    /scripts\/ci-artifacts\.mjs resolve[^\n]*frontend-public-\$\{GITHUB_SHA\}-/u,
+  );
+  assert.match(imageJob, /name: \$\{\{ steps\.frontend-artifact\.outputs\.name \}\}/u);
 });

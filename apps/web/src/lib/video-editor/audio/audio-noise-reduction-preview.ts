@@ -52,6 +52,7 @@ export async function processPreviewNoiseReduction(
 	if (!w) {
 		return applyNoiseReduction(channels, sampleRate, settings, signal);
 	}
+	const activeWorker = w;
 
 	const requestId = crypto.randomUUID();
 	const channelBuffers = channels.map((ch) => {
@@ -64,7 +65,7 @@ export async function processPreviewNoiseReduction(
 		const handleAbort = (): void => {
 			cleanup();
 			// SAFETY: abort payload matches worker's typed discriminant.
-			w.postMessage({
+			activeWorker.postMessage({
 				type: 'abort',
 				requestId
 			} satisfies NoiseReductionAbort);
@@ -102,14 +103,14 @@ export async function processPreviewNoiseReduction(
 
 		function cleanup(): void {
 			signal?.removeEventListener('abort', handleAbort);
-			w.removeEventListener('message', onMessage);
-			w.removeEventListener('error', onError);
+			activeWorker.removeEventListener('message', onMessage);
+			activeWorker.removeEventListener('error', onError);
 		}
 
-		w.addEventListener('message', onMessage);
-		w.addEventListener('error', onError);
+		activeWorker.addEventListener('message', onMessage);
+		activeWorker.addEventListener('error', onError);
 		// SAFETY: request payload matches worker's typed contract; buffers are transferred.
-		w.postMessage(
+		activeWorker.postMessage(
 			{
 				type: 'process',
 				requestId,

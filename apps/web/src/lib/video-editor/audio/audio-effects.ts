@@ -216,6 +216,7 @@ export function createDefaultAudioEffect(type: 'delay', id?: string): DelayEffec
 export function createDefaultAudioEffect(type: 'chorus', id?: string): ChorusEffect;
 export function createDefaultAudioEffect(type: 'flanger', id?: string): FlangerEffect;
 export function createDefaultAudioEffect(type: 'distortion', id?: string): DistortionEffect;
+export function createDefaultAudioEffect(type: AudioEffectType, id?: string): AudioEffect;
 export function createDefaultAudioEffect(
 	type: AudioEffectType,
 	id = crypto.randomUUID()

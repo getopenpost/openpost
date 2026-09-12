@@ -568,15 +568,16 @@
 	</div>
 
 	{#if eqTarget}
+		{@const target = eqTarget}
 		<aside
 			id="mixer-eq-panel"
 			class="absolute inset-y-0 right-0 z-20 w-full max-w-md overflow-y-auto border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
-			aria-label={eqTitle(eqTarget)}
+			aria-label={eqTitle(target)}
 			data-mixer-eq-panel
 		>
 			<div class="mb-2 flex min-h-9 items-center justify-between gap-2">
 				<h3 class="truncate text-xs font-semibold text-[var(--video-editor-text)]">
-					{eqOwnerName(eqTarget)}
+					{eqOwnerName(target)}
 				</h3>
 				<button
 					type="button"
@@ -587,19 +588,19 @@
 					<ThemeIcon role="close" class="size-4" />
 				</button>
 			</div>
-			{#if eqTarget.kind === 'master'}
+			{#if target.kind === 'master'}
 				<AudioEqPanel
 					settings={timelineStore.busAudioEq}
-					title={eqTitle(eqTarget)}
+					title={eqTitle(target)}
 					onsettingschange={updateMasterEq}
 					open
 				/>
 			{:else}
-				{@const eqTrack = timelineStore.tracks.find((track) => track.id === eqTarget.trackId)}
+				{@const eqTrack = timelineStore.tracks.find((track) => track.id === target.trackId)}
 				{#if eqTrack}
 					<AudioEqPanel
 						settings={eqTrack.audioEq}
-						title={eqTitle(eqTarget)}
+						title={eqTitle(target)}
 						onsettingschange={(settings) => updateTrackEq(eqTrack.id, settings)}
 						open
 					/>

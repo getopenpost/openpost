@@ -19,6 +19,7 @@ const media: MediaMetadata = {
 	height: 0,
 	fps: 0,
 	codec: 'pcm',
+	bitrate: 0,
 	audioCodec: 'pcm',
 	audioCodecSupported: true,
 	tags: ['audio']

@@ -180,11 +180,6 @@ async function decodeSourceSlice(
 		}
 		return { channels, sampleRate };
 	} finally {
-		try {
-			sink?.close?.();
-		} catch {
-			// The decoder may already have closed its sink after an abort or decode failure.
-		}
 		input.dispose?.();
 	}
 }

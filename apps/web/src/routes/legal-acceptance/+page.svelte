@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { goto } from '$app/navigation';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { resolve } from '$app/paths';
@@ -95,7 +96,7 @@
 	{#if authConfigurationQuery.isError}
 		<InlineNotice
 			tone={authConfiguration ? 'warning' : 'error'}
-			message={authConfigurationQuery.error?.message ?? m.auth_config_load_failed()}
+			message={readQueryErrorMessage(authConfigurationQuery.error) ?? m.auth_config_load_failed()}
 			class="mb-4"
 		>
 			{#snippet actions()}

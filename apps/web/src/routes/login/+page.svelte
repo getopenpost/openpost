@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { auth } from '$lib/stores/auth';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { goto } from '$app/navigation';
@@ -42,7 +43,9 @@
 	const authConfiguration = $derived(authConfigurationQuery.data ?? null);
 	const oidcProviders = $derived(oidcProvidersQuery.data ?? []);
 	const queryLoadError = $derived(
-		authConfigurationQuery.error?.message ?? oidcProvidersQuery.error?.message ?? ''
+		readQueryErrorMessage(authConfigurationQuery.error) ??
+			readQueryErrorMessage(oidcProvidersQuery.error) ??
+			''
 	);
 	const hostedEdition =
 		typeof document !== 'undefined' &&

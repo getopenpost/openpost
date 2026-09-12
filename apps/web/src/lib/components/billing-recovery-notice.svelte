@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import { ProtectedIcon } from '$lib/themes/icons';
@@ -160,7 +161,9 @@
 {#if workspaceID && (authorizationError || billingStatusQuery.isError)}
 	<InlineNotice
 		tone="warning"
-		message={authorizationError || billingStatusQuery.error?.message || m.settings_action_failed()}
+		message={authorizationError ||
+			readQueryErrorMessage(billingStatusQuery.error) ||
+			m.settings_action_failed()}
 		class="rounded-none border-x-0 border-t-0 px-4 py-3 md:px-6"
 	>
 		{#snippet actions()}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		externalAdminApplicationsQueryOptions,
@@ -41,7 +42,7 @@
 	let loading = $derived(applicationsQuery.isPending);
 	let busy = $state(false);
 	let actionError = $state('');
-	let error = $derived(actionError || applicationsQuery.error?.message || '');
+	let error = $derived(actionError || readQueryErrorMessage(applicationsQuery.error) || '');
 	let name = $state('');
 	let clientType = $state('public');
 	let redirectURIs = $state('');

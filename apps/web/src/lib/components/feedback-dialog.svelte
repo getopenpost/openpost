@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -41,7 +42,7 @@
 		return data ? { ...data, diagnostic_categories: data.diagnostic_categories ?? [] } : null;
 	});
 	const loading = $derived(feedbackConfigQuery.isPending || feedbackConfigQuery.isFetching);
-	const visibleError = $derived(error || (feedbackConfigQuery.error?.message ?? ''));
+	const visibleError = $derived(error || (readQueryErrorMessage(feedbackConfigQuery.error) ?? ''));
 
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
@@ -216,7 +217,7 @@
 		{#if config && feedbackConfigQuery.isError}
 			<InlineNotice
 				tone="warning"
-				message={feedbackConfigQuery.error?.message ?? m.feedback_load_failed()}
+				message={readQueryErrorMessage(feedbackConfigQuery.error) ?? m.feedback_load_failed()}
 			>
 				{#snippet actions()}
 					<Button

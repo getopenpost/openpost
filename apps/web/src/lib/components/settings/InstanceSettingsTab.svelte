@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import InstanceAdminOverview from '$lib/components/instance-admin-overview.svelte';
@@ -31,7 +32,9 @@
 	const loading = $derived(
 		active && Boolean(userID) && !authorizationError && updateStatusQuery.isPending
 	);
-	const error = $derived(authorizationError || updateStatusQuery.error?.message || '');
+	const error = $derived(
+		authorizationError || readQueryErrorMessage(updateStatusQuery.error) || ''
+	);
 	const reportInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceStatus
 	);

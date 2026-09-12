@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import type { Attachment } from 'svelte/attachments';
@@ -43,9 +44,11 @@
 	});
 	const backgroundError = $derived(
 		loadState === 'ready'
-			? (authConfigurationQuery.error?.message ?? profileQuery.error?.message ?? '')
+			? (readQueryErrorMessage(authConfigurationQuery.error) ??
+					readQueryErrorMessage(profileQuery.error) ??
+					'')
 			: loadState === 'disabled' && authConfigurationQuery.data?.public_profiles_enabled === false
-				? (authConfigurationQuery.error?.message ?? '')
+				? (readQueryErrorMessage(authConfigurationQuery.error) ?? '')
 				: ''
 	);
 	const profileName = $derived(profile?.display_name || profile?.username || 'OpenPost');

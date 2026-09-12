@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
@@ -66,7 +67,7 @@
 	const publicProfilesAvailable = $derived(
 		authConfigurationQuery.data?.public_profiles_enabled ?? null
 	);
-	const publicProfilesError = $derived(authConfigurationQuery.error?.message ?? '');
+	const publicProfilesError = $derived(readQueryErrorMessage(authConfigurationQuery.error) ?? '');
 
 	const profileEmail = $derived(authState.user?.email ?? '');
 	const profileAvatarURL = $derived(authState.user?.avatar_url ?? '');

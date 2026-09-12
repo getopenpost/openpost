@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import InstanceAdminTrend from '$lib/components/instance-admin-trend.svelte';
@@ -27,7 +28,9 @@
 	}));
 	const overview = $derived(authorizationError ? null : (overviewQuery.data ?? null));
 	const overviewLoading = $derived(!authorizationError && overviewQuery.isPending);
-	const overviewError = $derived(authorizationError || overviewQuery.error?.message || '');
+	const overviewError = $derived(
+		authorizationError || readQueryErrorMessage(overviewQuery.error) || ''
+	);
 	const reportInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceOverview
 	);

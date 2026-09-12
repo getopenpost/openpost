@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import {
@@ -118,7 +119,7 @@
 	const usersLoading = $derived(
 		!authorizationError && (usersQuery.isFetching || usersQuery.isPending)
 	);
-	const usersError = $derived(authorizationError || usersQuery.error?.message || '');
+	const usersError = $derived(authorizationError || readQueryErrorMessage(usersQuery.error) || '');
 	const reportInitialLoad = registerSettingsInitialLoad(
 		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceUsers
 	);

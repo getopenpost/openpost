@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		externalApplicationQueryKeys,
@@ -25,7 +26,7 @@
 	);
 	let installations = $derived<Installation[]>(installationsQuery.data ?? []);
 	let loading = $derived(installationsQuery.isPending);
-	let error = $derived(installationsQuery.error?.message ?? '');
+	let error = $derived(readQueryErrorMessage(installationsQuery.error) ?? '');
 	let pendingRevocation = $state<PendingRevocation | null>(null);
 	let confirmOpen = $state(false);
 

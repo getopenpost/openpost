@@ -52,10 +52,6 @@ export interface ScratchSink {
 	get chunks(): number;
 }
 
-interface OpfsStorageManager extends StorageManager {
-	getDirectory?: () => Promise<FileSystemDirectoryHandle>;
-}
-
 class OpfsSink implements ScratchSink {
 	readonly id: string;
 	readonly kind: ScratchKind;
@@ -241,8 +237,7 @@ class MemoryFallbackSink implements ScratchSink {
 }
 
 async function getOpfsDir(): Promise<FileSystemDirectoryHandle | null> {
-	// SAFETY: Some supported browsers expose the standard OPFS method before TypeScript's DOM types do.
-	const storage = globalThis.navigator?.storage as OpfsStorageManager | undefined;
+	const storage = globalThis.navigator?.storage;
 	if (!storage?.getDirectory) return null;
 	try {
 		const root = await storage.getDirectory();
@@ -268,11 +263,11 @@ export async function holdScratchRecoveryLock(sessionId: string): Promise<() => 
 	recoveryManifestName(sessionId);
 	const locks = globalThis.navigator?.locks;
 	if (!locks) return () => undefined;
-	let releaseLock = () => undefined;
+	let releaseLock: () => void = () => undefined;
 	const held = new Promise<void>((resolve) => {
 		releaseLock = resolve;
 	});
-	let confirmLock = () => undefined;
+	let confirmLock: () => void = () => undefined;
 	const acquired = new Promise<void>((resolve) => {
 		confirmLock = resolve;
 	});
@@ -522,8 +517,7 @@ export async function discardScratchById(id: string): Promise<void> {
 }
 
 export function isOpfsAvailable(): boolean {
-	// SAFETY: Some supported browsers expose the standard OPFS method before TypeScript's DOM types do.
-	const storage = globalThis.navigator?.storage as OpfsStorageManager | undefined;
+	const storage = globalThis.navigator?.storage;
 	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- capability probe at the browser boundary
 	return typeof storage?.getDirectory === 'function';
 }

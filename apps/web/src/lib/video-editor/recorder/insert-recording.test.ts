@@ -8,6 +8,7 @@ import { insertRecordingArtifacts, type RecordingImportRuntime } from './insert-
 function artifact(kind: CaptureArtifact['kind'], startOffsetMs: number): CaptureArtifact {
 	return {
 		kind,
+		scratchId: `${kind}-scratch`,
 		blob: new Blob([kind], { type: kind === 'microphone' ? 'audio/webm' : 'video/webm' }),
 		mimeType: kind === 'microphone' ? 'audio/webm' : 'video/webm',
 		durationMs: 1_000,

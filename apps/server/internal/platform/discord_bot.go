@@ -32,11 +32,12 @@ const (
 	discordApplicationGuildMembersLite  = uint64(1 << 15)
 	discordInstallPermissions           = discordPermissionViewChannel | discordPermissionSendMessages |
 		discordPermissionEmbedLinks | discordPermissionAttachFiles | discordPermissionReadMessageHistory
-	discordGuildCredentialPrefix     = "discord-guild:"
-	discordChannelPermissionLostCode = "discord_channel_permission_lost"
-	discordMentionPermissionLostCode = "discord_mention_permission_lost"
-	discordEmbedInvalidCode          = "discord_embed_invalid"
-	discordAnalyticsMaxMessages      = 25
+	discordGuildCredentialPrefix        = "discord-guild:"
+	discordChannelPermissionLostCode    = "discord_channel_permission_lost"
+	discordAttachmentPermissionLostCode = "discord_attach_files_permission_lost"
+	discordMentionPermissionLostCode    = "discord_mention_permission_lost"
+	discordEmbedInvalidCode             = "discord_embed_invalid"
+	discordAnalyticsMaxMessages         = 25
 )
 
 type DiscordBotAdapter struct {
@@ -517,6 +518,9 @@ func (d *DiscordBotAdapter) publish(ctx context.Context, guildID string, req *Pu
 	channelPermissions, permitted := permissionContext.channelPermissions(channelID)
 	if !permitted {
 		return PublishResult{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
+	}
+	if len(media) > 0 && channelPermissions&discordPermissionAttachFiles == 0 {
+		return PublishResult{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordAttachmentPermissionLostCode}
 	}
 	mentionUsers, mentionRoles, err := d.approvedMentions(ctx, permissionContext, channelPermissions, req.Settings)
 	if err != nil {

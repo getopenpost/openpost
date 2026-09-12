@@ -138,6 +138,9 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 		return Failure{}, false
 	}
 	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	if kind == FailurePermission && code == "discord_attach_files_permission_lost" {
+		failure.Message = "Allow Attach Files for the bot in this Discord channel, or remove the attachments."
+	}
 	failure.Subcode = providerErr.Subcode
 	failure.TraceID = providerErr.TraceID
 	return failure, true

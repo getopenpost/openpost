@@ -51,3 +51,15 @@ func TestRetryDelayIsBoundedAndHonorsRetryAfter(t *testing.T) {
 	require.Equal(t, 24*time.Minute, RetryDelay(20, 2*time.Hour, -0.2))
 	require.Equal(t, 36*time.Second, RetryDelay(1, 0, 0.9))
 }
+
+func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
+	failure := ClassifyFailure(&platform.HTTPError{
+		StatusCode: http.StatusForbidden,
+		Code:       "discord_attach_files_permission_lost",
+	})
+	require.Equal(t, FailurePermission, failure.Kind)
+	require.False(t, failure.Retryable)
+	require.Equal(t, FailureActionProvider, failure.Action)
+	require.Contains(t, failure.Message, "Attach Files")
+	require.Contains(t, failure.Message, "remove the attachments")
+}

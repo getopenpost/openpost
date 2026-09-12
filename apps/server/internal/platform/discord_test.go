@@ -321,6 +321,132 @@ func TestDiscordBotPublishesToSelectedPermittedChannel(t *testing.T) {
 	}
 }
 
+func TestDiscordBotPublishesImageAndVideoAttachmentsToSelectedChannel(t *testing.T) {
+	for _, tc := range []struct {
+		name, mime, filename, body string
+	}{
+		{"image", "image/png", "launch.png", "image-bytes"},
+		{"video", "video/mp4", "launch.mp4", "video-bytes"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			originalClient := httpClient
+			defer func() { httpClient = originalClient }()
+			permissionChecked := false
+			mutations := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				if request.Header.Get("Authorization") != "Bot global-bot-token" {
+					t.Fatalf("missing bot authorization for %s", request.URL.Path)
+				}
+				switch request.URL.Path {
+				case "/api/v10/guilds/100":
+					return jsonResponse(request, `{"id":"100","roles":[{"id":"100","permissions":"35840"}]}`), nil
+				case "/api/v10/users/@me":
+					return jsonResponse(request, `{"id":"bot-1"}`), nil
+				case "/api/v10/guilds/100/members/bot-1":
+					return jsonResponse(request, `{"user":{"id":"bot-1"}}`), nil
+				case "/api/v10/guilds/100/channels":
+					permissionChecked = true
+					return jsonResponse(request, `[{"id":"channel-1","guild_id":"100","name":"general","type":0}]`), nil
+				case "/api/v10/channels/channel-1/messages":
+					if !permissionChecked || request.Method != http.MethodPost {
+						t.Fatal("message sent before selected channel permission check")
+					}
+					mutations++
+					reader, err := request.MultipartReader()
+					if err != nil {
+						t.Fatal(err)
+					}
+					var payload struct {
+						Content     string `json:"content"`
+						Attachments []struct {
+							Filename    string `json:"filename"`
+							Description string `json:"description"`
+						} `json:"attachments"`
+					}
+					var uploaded string
+					for {
+						part, err := reader.NextPart()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							t.Fatal(err)
+						}
+						data, err := io.ReadAll(part)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if part.FormName() == "payload_json" {
+							if err := json.Unmarshal(data, &payload); err != nil {
+								t.Fatal(err)
+							}
+						} else if part.FileName() == tc.filename {
+							uploaded = string(data)
+						}
+					}
+					if payload.Content != "Launch update" || len(payload.Attachments) != 1 || payload.Attachments[0].Filename != tc.filename || payload.Attachments[0].Description != "Launch media" || uploaded != tc.body {
+						t.Fatalf("unexpected multipart payload %#v, uploaded %q", payload, uploaded)
+					}
+					return jsonResponse(request, `{"id":"message-1","channel_id":"channel-1"}`), nil
+				default:
+					t.Fatalf("unexpected request %s", request.URL.String())
+					return nil, errors.New("unexpected request")
+				}
+			})}
+
+			request := &PublishRequest{Content: "Launch update", Settings: map[string]interface{}{"channel_id": "channel-1"}, MediaAltTexts: []string{"Launch media"}}
+			fenced := false
+			request.SetWriteFence(func(PublishResult) error { fenced = true; return nil }, nil)
+			result, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").PublishWithMedia(t.Context(), "ignored", "100", request, []UploadMediaRequest{{MimeType: tc.mime, Filename: tc.filename, Size: int64(len(tc.body)), Reader: strings.NewReader(tc.body)}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !fenced || mutations != 1 || result.ExternalID != "message-1" || result.SubmissionState != PublishSubmissionAccepted {
+				t.Fatalf("unexpected result %#v, fenced %t, mutations %d", result, fenced, mutations)
+			}
+		})
+	}
+}
+
+func TestDiscordBotAttachmentPermissionLossFailsBeforeMessageMutation(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	messageMutations := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Path {
+		case "/api/v10/guilds/100":
+			// View Channel and Send Messages are granted, Attach Files is not.
+			return jsonResponse(request, `{"id":"100","roles":[{"id":"100","permissions":"3072"}]}`), nil
+		case "/api/v10/users/@me":
+			return jsonResponse(request, `{"id":"bot-1"}`), nil
+		case "/api/v10/guilds/100/members/bot-1":
+			return jsonResponse(request, `{"user":{"id":"bot-1"}}`), nil
+		case "/api/v10/guilds/100/channels":
+			return jsonResponse(request, `[{"id":"channel-1","guild_id":"100","name":"general","type":0}]`), nil
+		case "/api/v10/channels/channel-1/messages":
+			messageMutations++
+			_, _ = io.Copy(io.Discard, request.Body)
+			return jsonResponse(request, `{"id":"message-1","channel_id":"channel-1"}`), nil
+		default:
+			t.Fatalf("unexpected request %s", request.URL.String())
+			return nil, errors.New("unexpected request")
+		}
+	})}
+
+	writeStarted := false
+	request := &PublishRequest{Content: "Launch update", Settings: map[string]interface{}{"channel_id": "channel-1"}}
+	request.SetWriteFence(func(PublishResult) error { writeStarted = true; return nil }, nil)
+	_, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").PublishWithMedia(
+		t.Context(), "ignored", "100", request,
+		[]UploadMediaRequest{{MimeType: "image/png", Filename: "launch.png", Size: 11, Reader: strings.NewReader("image-bytes")}},
+	)
+	var providerError *HTTPError
+	if !errors.As(err, &providerError) || providerError.Code != discordAttachmentPermissionLostCode || writeStarted || messageMutations != 0 {
+		t.Fatalf("attachment permission loss must block before write: error %v, started %t, mutations %d", err, writeStarted, messageMutations)
+	}
+}
+
 func TestDiscordBotPermissionLossFailsBeforeMessageMutation(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

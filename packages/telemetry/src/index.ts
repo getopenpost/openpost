@@ -746,6 +746,12 @@ function sanitizeSDKProperties(
       sanitized[key] = safeReferrerOrigin(value);
       continue;
     }
+    // PostHog parses Error.stack before this hook. Retain the same public asset
+    // locations here so source-map resolution survives the second privacy pass.
+    if (key === "filename" && typeof value === "string" && looksLikeURL(value)) {
+      sanitized[key] = scrubStackURL(value);
+      continue;
+    }
     if (key === "url" && typeof value === "string") continue;
     if (key === "name" && typeof value === "string" && looksLikeURL(value)) continue;
     if (Array.isArray(value)) {
@@ -872,6 +878,9 @@ function scrubStackURL(value: string): string {
   const withoutQueryOrFragment = value.replace(/[?#].*$/, "");
   try {
     const url = new URL(withoutQueryOrFragment);
+    if (typeof window === "undefined" || url.origin !== window.location.origin) {
+      return "[redacted-url]";
+    }
     const pathname = url.pathname;
     if (
       /^\/(?:_app\/immutable|assets)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(

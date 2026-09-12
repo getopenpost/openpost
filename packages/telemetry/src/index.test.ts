@@ -493,7 +493,62 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).toBe("Svelte error: each_key_duplicate");
   });
 
+  it("retains source-map asset locations through the SDK before_send boundary", () => {
+    vi.stubGlobal("window", { location: { origin: "https://app.openpo.st", pathname: "/" } });
+    try {
+      const sdk = new FakeSDK();
+      const subject = configuredTelemetry(sdk);
+      subject.configure(configuredApp);
+      const beforeSend = sdk.initialized[0]!.options.before_send as (event: {
+        event: string;
+        properties: Record<string, unknown>;
+      }) => { properties: Record<string, unknown> };
+      const event = beforeSend({
+        event: "$exception",
+        properties: {
+          $exception_list: [
+            {
+              stacktrace: {
+                frames: [
+                  {
+                    filename:
+                      "https://app.openpo.st/_app/immutable/chunks/editor.ABC123.js?token=secret",
+                    lineno: 12,
+                    colno: 3,
+                  },
+                  {
+                    filename: "https://private.example/assets/customer-file.js?token=secret",
+                    lineno: 4,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      expect(event.properties.$exception_list).toEqual([
+        {
+          stacktrace: {
+            frames: [
+              {
+                filename: "https://app.openpo.st/_app/immutable/chunks/editor.ABC123.js",
+                lineno: 12,
+                colno: 3,
+              },
+              { filename: "[redacted-url]", lineno: 4 },
+            ],
+          },
+        },
+      ]);
+      expect(JSON.stringify(event)).not.toContain("secret");
+      expect(JSON.stringify(event)).not.toContain("customer-file");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
+    vi.stubGlobal("window", { location: { origin: "https://app.openpo.st", pathname: "/" } });
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
@@ -511,6 +566,7 @@ describe("BrowserTelemetry", () => {
     expect(stack).toContain("[redacted-url]");
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");
+    vi.unstubAllGlobals();
   });
 });
 

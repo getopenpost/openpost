@@ -176,6 +176,7 @@
 			</h3>
 			<div class="effect-grid">
 				{#each group.items as item (item.id)}
+					{@const effectId = 'effectId' in item ? item.effectId : undefined}
 					<button
 						type="button"
 						draggable="true"
@@ -196,8 +197,8 @@
 						}}
 					>
 						<EffectThumbnail
-							effectId={item.effectId}
-							effects={item.effectId ? undefined : item.effects}
+							{effectId}
+							effects={effectId ? undefined : item.effects}
 							viewport={scroller}
 							active={activeId === item.id}
 							class="aspect-video w-full rounded max-md:h-12 max-md:object-cover"

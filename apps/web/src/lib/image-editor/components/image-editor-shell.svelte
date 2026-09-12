@@ -576,7 +576,7 @@
 					editableTextLayers.length > 0 ? editableTextLayers : textLayers
 				).reduce<ImageEditorLayer | undefined>(
 					(largest, layer) =>
-						!largest || (layer.text?.fontSize ?? 0) > (largest.text?.fontSize ?? 0)
+						!largest || (layer.text?.font_size ?? 0) > (largest.text?.font_size ?? 0)
 							? layer
 							: largest,
 					undefined

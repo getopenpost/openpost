@@ -537,6 +537,24 @@ jobs:
       - env:
           OPENPOST_E2E_PREBUILT: "1"
         run: bun run test -- e2e
+      - name: Collect marketing browser diagnostics
+        if: failure()
+        run: |
+          mkdir -p marketing-browser-diagnostics
+          if [ -d "$HOME/.config/.wrangler/logs" ]; then
+            cp -R "$HOME/.config/.wrangler/logs" marketing-browser-diagnostics/wrangler-logs
+          fi
+      - name: Retain marketing browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-marketing-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+            marketing-browser-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
 
   cache-contract:
     name: Frontend cache contract

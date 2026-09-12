@@ -68,7 +68,7 @@ describe('ClearKeyframesDialog', () => {
 		await screen.getByRole('option', { name: 'Opacity' }).click();
 		await expect.element(screen.getByText('Keyframes to remove: 2.')).toBeVisible();
 		const clearButton = screen.getByRole('button', { name: 'Clear 2' });
-		expect(clearButton.element().offsetHeight).toBe(44);
+		expect(clearButton.element().getBoundingClientRect().height).toBe(44);
 
 		await clearButton.click();
 		expect(oncleared).toHaveBeenCalledWith({

@@ -200,7 +200,7 @@ export function calculateTransformResize({
 	oppositeAnchored: boolean;
 	canvasWidth: number;
 	canvasHeight: number;
-}): ItemTransform {
+}): Required<Pick<ItemTransform, 'x' | 'y' | 'width' | 'height' | 'rotation'>> & ItemTransform {
 	const origin = {
 		x: canvasWidth / 2 + startTransform.x,
 		y: canvasHeight / 2 + startTransform.y

@@ -647,7 +647,7 @@
 			<Input
 				class="h-8 min-w-0 flex-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs"
 				bind:value={presetName}
-				maxlength="80"
+				maxlength={80}
 				aria-label={m.video_editor_effects_preset_name()}
 				placeholder={m.video_editor_effects_preset_name()}
 				onkeydown={(event) => {

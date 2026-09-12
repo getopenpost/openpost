@@ -123,11 +123,11 @@ describe('media directory recovery', () => {
 		);
 
 		expect(
-			plan.entries.map(({ mediaId, status, candidatePath, candidatePaths }) => ({
-				mediaId,
-				status,
-				candidatePath,
-				candidatePaths
+			plan.entries.map((entry) => ({
+				mediaId: entry.mediaId,
+				status: entry.status,
+				candidatePath: entry.status === 'exact' ? entry.candidatePath : undefined,
+				candidatePaths: entry.status === 'conflict' ? entry.candidatePaths : undefined
 			}))
 		).toEqual([
 			{

@@ -442,7 +442,7 @@
 					event.currentTarget.value = '';
 				}}
 			/>
-			<Button type="button" variant="outline" size="sm" onclick={() => importInput.click()}>
+			<Button type="button" variant="outline" size="sm" onclick={() => importInput?.click()}>
 				<ThemeIcon role="upload" class="size-3.5" />
 				{m.video_editor_shortcuts_import()}
 			</Button>

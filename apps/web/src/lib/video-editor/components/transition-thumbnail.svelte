@@ -92,7 +92,8 @@
 
 	$effect(() => {
 		stopAnimation();
-		if (!active || !visible || !frames) {
+		const activeFrames = frames;
+		if (!active || !visible || !activeFrames) {
 			if (visible) drawSource(poster);
 			return;
 		}
@@ -108,7 +109,7 @@
 				const phase = ((now - startedAt) % 2200) / 1100;
 				drawSource(
 					renderTransitionPreviewFrame(
-						frames,
+						activeFrames,
 						presentationId,
 						direction,
 						phase <= 1 ? phase : 2 - phase

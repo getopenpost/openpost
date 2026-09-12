@@ -842,7 +842,7 @@
 					</p>
 				</div>
 			{:else if recordingActive || stoppingActive}
-				<div class="min-w-0 space-y-3" disabled={captureBusy || inserting}>
+				<div class="min-w-0 space-y-3">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<span aria-live="polite" class="flex items-center gap-2 font-mono text-lg tabular-nums">
 							<span

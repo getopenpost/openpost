@@ -141,12 +141,13 @@
 			additiveLayers().length > 0 ||
 			activeModifiers().length > 0
 	);
-	const selectedIsMotionClip = $derived(
-		selectedItems.length === 1 &&
-			selectedItems[0]?.type === 'composition' &&
-			sequenceStore.compositionById.get(selectedItems[0].compositionId)?.editorKind ===
-				'composite-2d'
-	);
+	const selectedIsMotionClip = $derived.by(() => {
+		const item = selectedItems[0];
+		if (selectedItems.length !== 1 || item?.type !== 'composition' || !item.compositionId) {
+			return false;
+		}
+		return sequenceStore.compositionById.get(item.compositionId)?.editorKind === 'composite-2d';
+	});
 	const parkedKeyframeCount = $derived(
 		selectedItems.reduce((count, item) => count + countTrimmedKeyframes(item), 0)
 	);

@@ -390,7 +390,7 @@
 	let repurposePrivateContextNotes = $state('');
 	let repurposeReviewActive = $state(false);
 	let appliedRepurposeHandoffID = '';
-	let aiVoiceName = $state(m.compose_ai_default_voice());
+	let aiVoiceName = $state<string>(m.compose_ai_default_voice());
 	let aiVoiceProfileID = $state('');
 	let aiActiveBuild = $state.raw<PublicationBuild | null>(null);
 	let aiPendingResult = $state.raw<PublicationBuildResult | null>(null);
@@ -4319,7 +4319,7 @@
 		return [...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))];
 	}
 
-	function selectedAIAssets(): PublicationBuildRequest['assets'] {
+	function selectedAIAssets(): NonNullable<PublicationBuildRequest['assets']> {
 		return [...new Set(posts.flatMap((post) => post.mediaIds))].slice(0, 10).map((mediaID) => ({
 			media_id: mediaID,
 			role: 'context' as const,

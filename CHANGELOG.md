@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.30.3] - 2026-09-12
+
+### Fixed
+
+- Accept Bluesky MP4 videos up to 300,000,000 bytes and 10 minutes. Apply the same limits to thread authoring and provider validation, and continue rejecting MOV files.
+- Retain safe provider error codes, subcodes, trace IDs, and HTTP status in terminal background-job reports. Intermediate retries remain unreported, and provider-returned prose is excluded from logs.
+- Accept TikTok WebM videos consistently during authoring and publishing.
+- Reject mixed video attachments and multiple videos within an X or Bluesky thread segment before scheduling.
+- Ask again for declined Facebook and Instagram permissions when connecting or reconnecting an account.
+- Keep the remote post link when a later thread reply or YouTube thumbnail step fails. Retrying resumes from the saved provider result without publishing the completed prefix again.
+- Preserve Mastodon's returned post URL through the API and background publishing worker.
+- Preserve public JavaScript asset paths in browser error reports so PostHog can resolve source maps. Private URLs and query parameters remain redacted.
+
+### Changed
+
+- Use the landing page's transparent logo in the desktop and mobile documentation headers, with matching light and dark variants.
+
+### Added
+
+- Add a generated media-limits guide with exact catalogue limits, provider references, and account-specific exceptions.
+
 ## [4.30.2] - 2026-09-11
 
 ### Changed

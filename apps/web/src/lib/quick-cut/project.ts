@@ -15,13 +15,14 @@ const MAX_SOURCES = 64;
 const MAX_SEGMENTS = 200;
 const MAX_KEYFRAMES = 20000;
 const MAX_NAME_LENGTH = 100;
+const rotationSchema = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]);
 
 const videoStreamSchema = z.object({
 	index: z.number().min(0).max(32),
 	codec: z.string().nullable(),
 	width: z.number().min(0).max(8192),
 	height: z.number().min(0).max(8192),
-	rotation: z.number(),
+	rotation: rotationSchema,
 	fps: z.number().nullable(),
 	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES).optional(),
 	keyframeState: z.enum(['known', 'unknown']).optional()
@@ -52,7 +53,7 @@ const sourceMetaSchema = z.object({
 	audioCodec: z.string().nullable(),
 	sampleRate: z.number().nullable(),
 	channels: z.number().nullable(),
-	rotation: z.number(),
+	rotation: rotationSchema,
 	fps: z.number().nullable(),
 	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES),
 	keyframeState: z.enum(['known', 'unknown', 'audio-only']),

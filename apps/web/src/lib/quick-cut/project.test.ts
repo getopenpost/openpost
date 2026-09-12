@@ -28,6 +28,22 @@ function source(id = 'source-a'): QuickCutSourceMetadata {
 }
 
 describe('quick-cut project parsing', () => {
+	it('rejects rotations that the media model cannot represent', () => {
+		const project = createNewProject([source()]);
+		const malformed = {
+			...project,
+			sources: [
+				{
+					...source(),
+					rotation: 45,
+					videoStreams: [{ ...source().videoStreams[0], rotation: 45 }]
+				}
+			]
+		};
+
+		expect(() => parseProject(JSON.stringify(malformed))).toThrow(/invalid project/i);
+	});
+
 	it('round-trips an ordered multi-source edit', () => {
 		const project = createNewProject([source('a'), source('b')]);
 		project.removeMarkedRanges = true;

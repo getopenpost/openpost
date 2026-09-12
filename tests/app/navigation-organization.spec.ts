@@ -108,6 +108,18 @@ for (const width of [1440, 390, 320]) {
       });
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
+      if (width >= 768) {
+        const media = page
+          .getByTestId("sidebar-workspace-navigation")
+          .getByRole("button", { name: "Media", exact: true });
+        const idle = await media.evaluate((element) => getComputedStyle(element).backgroundColor);
+        await media.hover();
+        await expect
+          .poll(() => media.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe(idle);
+        await media.focus();
+        await expect(media).toBeFocused();
+      }
       await page.screenshot({
         path: testInfo.outputPath(`navigation-${scheme}.png`),
         animations: "disabled",

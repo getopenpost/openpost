@@ -497,10 +497,12 @@ describe('auth recovery-code verification', () => {
 			id: 'logout-second-user',
 			email: 'second@example.com'
 		};
+		const post = vi.fn();
+		post.mockReturnValue(logoutResponse);
 		const isolatedAuth = createAuthStore({
 			client: {
 				GET: client.GET,
-				POST: vi.fn(() => logoutResponse)
+				POST: post
 			},
 			getPasskeyAssertion: vi.fn(),
 			notificationInbox: { clear: vi.fn() },
@@ -549,7 +551,8 @@ describe('auth recovery-code verification', () => {
 			email_verified: true,
 			created_at: '2026-08-09T00:00:00Z'
 		};
-		const post = vi.fn(() => logoutResponse.promise);
+		const post = vi.fn();
+		post.mockReturnValue(logoutResponse.promise);
 		const isolatedAuth = createAuthStore({
 			client: { GET: client.GET, POST: post },
 			getPasskeyAssertion: vi.fn(),
@@ -1040,11 +1043,11 @@ describe('auth recovery-code verification', () => {
 
 	it('ignores an initialization failure superseded by a projected user', async () => {
 		let rejectBootstrap!: (cause: Error) => void;
-		const fetchQuery = vi.fn(
-			() =>
-				new Promise((_, reject) => {
-					rejectBootstrap = reject;
-				})
+		const fetchQuery = vi.fn();
+		fetchQuery.mockReturnValue(
+			new Promise((_, reject) => {
+				rejectBootstrap = reject;
+			})
 		);
 		const isolatedAuth = createAuthStore({
 			isBrowser: true,

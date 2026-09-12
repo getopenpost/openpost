@@ -28,7 +28,7 @@ describe('publicationDraftCopy', () => {
 			metadata: { campaign: 'launch' },
 			created_at: '2026-08-26T10:00:00Z',
 			updated_at: '2026-08-27T10:00:01Z',
-			repost_override: { mode: 'disabled' },
+			repost_override: { mode: 'off' },
 			media: [],
 			segments: [
 				{
@@ -117,7 +117,7 @@ describe('publicationDraftCopy', () => {
 			goal: 'announce',
 			audience: 'founders',
 			metadata: { campaign: 'launch' },
-			repost_override: { mode: 'disabled' },
+			repost_override: { mode: 'off' },
 			segments: [
 				{
 					id: 'segment-1',

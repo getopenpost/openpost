@@ -55,7 +55,7 @@ describe('sent inbox message reconciliation', () => {
 
 function infiniteData(items: DirectMessage[]): InfiniteData<MessagePage, string> {
 	return {
-		pages: [{ items, next_cursor: '', sync_states: [] }],
+		pages: [{ items, next_cursor: '' }],
 		pageParams: ['']
 	};
 }

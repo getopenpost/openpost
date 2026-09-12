@@ -105,11 +105,11 @@ describe('publication query invalidation bridge', () => {
 
 		await bridge.observe({
 			revision: 1,
-			entries: [{ workspaceId: 'workspace-1', scopes: ['activity'], dateKeys: [] }]
+			entries: [{ workspaceId: 'workspace-1', scopes: ['activity'], activities: [], dateKeys: [] }]
 		});
 		await bridge.observe({
 			revision: 2,
-			entries: [{ workspaceId: 'workspace-2', scopes: ['activity'], dateKeys: [] }]
+			entries: [{ workspaceId: 'workspace-2', scopes: ['activity'], activities: [], dateKeys: [] }]
 		});
 
 		expect(isInvalidated(client, workspaceOneActivity)).toBe(true);
@@ -136,8 +136,8 @@ describe('publication query invalidation bridge', () => {
 		await bridge.observe({
 			revision: 3,
 			entries: [
-				{ workspaceId: '*', scopes: ['activity'], dateKeys: [] },
-				{ workspaceId: 'workspace-1', scopes: ['drafts'], dateKeys: [] }
+				{ workspaceId: '*', scopes: ['activity'], activities: [], dateKeys: [] },
+				{ workspaceId: 'workspace-1', scopes: ['drafts'], activities: [], dateKeys: [] }
 			]
 		});
 
@@ -175,7 +175,7 @@ describe('publication query invalidation bridge', () => {
 
 		await bridge.observe({
 			revision: 1,
-			entries: [{ workspaceId: 'workspace-1', scopes: ['drafts'], dateKeys: [] }]
+			entries: [{ workspaceId: 'workspace-1', scopes: ['drafts'], activities: [], dateKeys: [] }]
 		});
 
 		expect(isInvalidated(client, workspaceOneDrafts)).toBe(true);
@@ -185,7 +185,7 @@ describe('publication query invalidation bridge', () => {
 
 		await bridge.observe({
 			revision: 2,
-			entries: [{ workspaceId: '*', scopes: ['drafts'], dateKeys: [] }]
+			entries: [{ workspaceId: '*', scopes: ['drafts'], activities: [], dateKeys: [] }]
 		});
 
 		expect(isInvalidated(client, workspaceTwoDrafts)).toBe(true);

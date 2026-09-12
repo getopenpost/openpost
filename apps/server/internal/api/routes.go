@@ -276,7 +276,11 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	capabilityResolverHandler.RegisterRoutes(api)
 	handlers.NewProviderReadinessHandler(deps.DB, deps.Authenticator, deps.ProviderReadinessService, deps.Providers).RegisterRoutes(api)
 	handlers.NewProviderReadinessAdminHandler(deps.DB, deps.Authenticator, deps.ProviderReadinessService).RegisterRoutes(api)
-	handlers.NewDestinationOptionsHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenSource).RegisterRoutes(api)
+	destinationOptionsHandler := handlers.NewDestinationOptionsHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenSource)
+	if deps.TelegramService != nil {
+		destinationOptionsHandler.SetTelegramChatOptions(deps.TelegramService)
+	}
+	destinationOptionsHandler.RegisterRoutes(api)
 	publicationHandler := handlers.NewPublicationHandler(deps.DB, deps.Authenticator, deps.Entitlement)
 	publicationHandler.SetCapabilityDependencies(deps.Providers, deps.TokenSource)
 	publicationHandler.SetConnectorRegistry(deps.ConnectorRegistry)

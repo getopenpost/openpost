@@ -18,11 +18,20 @@ type AccessTokenSource interface {
 	GetValidAccessToken(ctx context.Context, accountID string) (string, error)
 }
 
+type TelegramChatOptionSource interface {
+	ConnectedChatOption(ctx context.Context, account models.SocialAccount) (*platform.DestinationOption, error)
+}
+
 type DestinationOptionsHandler struct {
 	db          *bun.DB
 	auth        middleware.Authenticator
 	providers   map[string]platform.Adapter
 	tokenSource AccessTokenSource
+	telegram    TelegramChatOptionSource
+}
+
+func (h *DestinationOptionsHandler) SetTelegramChatOptions(source TelegramChatOptionSource) {
+	h.telegram = source
 }
 
 func NewDestinationOptionsHandler(db *bun.DB, auth middleware.Authenticator, providers map[string]platform.Adapter, tokenSource AccessTokenSource) *DestinationOptionsHandler {
@@ -86,6 +95,16 @@ func (h *DestinationOptionsHandler) RegisterRoutes(api huma.API) {
 			return nil, err
 		}
 
+		if account.Platform == "telegram" {
+			options, err := h.connectedTelegramChatOptions(ctx, account)
+			if err != nil {
+				return nil, err
+			}
+			output := &DestinationOptionsOutput{}
+			output.Body.Options = map[string][]platform.DestinationOption{"telegram_chats": options}
+			return output, nil
+		}
+
 		adapter := h.adapterForDestinationAccount(account)
 		if adapter == nil {
 			return nil, huma.Error400BadRequest("provider is not configured")
@@ -128,6 +147,24 @@ func (h *DestinationOptionsHandler) registerPublishingOptions(api huma.API) {
 		account, err := h.loadDestinationAccount(ctx, input.AccountID)
 		if err != nil {
 			return nil, err
+		}
+		if account.Platform == "telegram" {
+			if input.Source != "telegram_chats" {
+				return nil, huma.Error400BadRequest("unknown Telegram publishing option source")
+			}
+			options, err := h.connectedTelegramChatOptions(ctx, account)
+			if err != nil {
+				return nil, err
+			}
+			limit := input.Limit
+			if limit <= 0 || limit > 100 {
+				limit = 25
+			}
+			page := paginatePublishingOptions(options, input.Search, input.Cursor, limit)
+			output := &PublishingOptionsOutput{}
+			output.Body.Options = page.Options
+			output.Body.NextCursor = page.NextCursor
+			return output, nil
 		}
 		adapter := h.adapterForDestinationAccount(account)
 		if adapter == nil {
@@ -183,6 +220,21 @@ func (h *DestinationOptionsHandler) registerPublishingOptions(api huma.API) {
 		output.Body.NextCursor = page.NextCursor
 		return output, nil
 	})
+}
+
+func (h *DestinationOptionsHandler) connectedTelegramChatOptions(ctx context.Context, account models.SocialAccount) ([]platform.DestinationOption, error) {
+	if h.telegram == nil {
+		return nil, huma.Error502BadGateway("Telegram publishing options are unavailable")
+	}
+	option, err := h.telegram.ConnectedChatOption(ctx, account)
+	if err != nil {
+		log.Printf("failed to load Telegram publishing options account=%s: %v", account.ID, err)
+		return nil, huma.Error502BadGateway("failed to load Telegram publishing options")
+	}
+	if option == nil {
+		return []platform.DestinationOption{}, nil
+	}
+	return []platform.DestinationOption{*option}, nil
 }
 
 func publishingOptionsRequiredScope(provider, source string) string {

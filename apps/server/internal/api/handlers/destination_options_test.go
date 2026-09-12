@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/stretchr/testify/require"
 )
 
@@ -152,4 +154,105 @@ func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "Reconnect this Threads account")
 	require.Empty(t, tokenSource.accountID)
 	require.Empty(t, adapter.token)
+}
+
+func TestTelegramPublishingOptionsOnlyExposeTheVerifiedAccountChat(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.TelegramConnection)(nil))
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	for _, entry := range []struct {
+		id, chatID, connectedChatID, title string
+	}{
+		{"telegram-1", "-100111", "-100111", "Launches"},
+		{"telegram-2", "-100222", "-100222", "Private team"},
+		{"telegram-3", "-100333", "-100444", "Wrong installation"},
+	} {
+		_, err = db.NewInsert().Model(&models.SocialAccount{
+			ID: entry.id, WorkspaceID: "ws-1", Platform: "telegram", AccountID: entry.chatID,
+			AccountUsername: entry.title, AccessTokenEnc: []byte{}, IsActive: true,
+		}).Exec(t.Context())
+		require.NoError(t, err)
+		_, err = db.NewInsert().Model(&models.TelegramConnection{
+			SocialAccountID: entry.id, WorkspaceID: "ws-1", ChatID: entry.connectedChatID, ChatType: "channel",
+			InstalledAt: now, CoverageStartedAt: now, CoverageKind: "since_installation",
+			PermissionsVerifiedAt: now, CreatedAt: now,
+		}).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	tokenSource := &destinationOptionsTokenSource{}
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler := NewDestinationOptionsHandler(db, testAuthenticator{}, nil, tokenSource)
+	handler.SetTelegramChatOptions(telegramservice.NewService(db, nil, "openpost_bot", "secret"))
+	handler.RegisterRoutes(api)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-1/publishing-options/telegram_chats", nil)
+	req.Header.Set("Authorization", "Bearer web-token")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var output struct {
+		Options []platform.DestinationOption `json:"options"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &output))
+	require.Equal(t, []platform.DestinationOption{{Value: "-100111", Label: "Launches"}}, output.Options)
+	require.Empty(t, tokenSource.accountID, "Telegram options must use the installation, not user OAuth")
+
+	otherReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-2/publishing-options/telegram_chats", nil)
+	otherReq.Header.Set("Authorization", "Bearer web-token")
+	otherRec := httptest.NewRecorder()
+	e.ServeHTTP(otherRec, otherReq)
+	require.Equal(t, http.StatusOK, otherRec.Code, otherRec.Body.String())
+	require.NoError(t, json.Unmarshal(otherRec.Body.Bytes(), &output))
+	require.Equal(t, []platform.DestinationOption{{Value: "-100222", Label: "Private team"}}, output.Options)
+
+	legacyReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-1/destination-options", nil)
+	legacyReq.Header.Set("Authorization", "Bearer web-token")
+	legacyRec := httptest.NewRecorder()
+	e.ServeHTTP(legacyRec, legacyReq)
+	require.Equal(t, http.StatusOK, legacyRec.Code, legacyRec.Body.String())
+	var legacyOutput struct {
+		Options map[string][]platform.DestinationOption `json:"options"`
+	}
+	require.NoError(t, json.Unmarshal(legacyRec.Body.Bytes(), &legacyOutput))
+	require.Equal(t, []platform.DestinationOption{{Value: "-100111", Label: "Launches"}},
+		legacyOutput.Options["telegram_chats"])
+
+	mismatchedReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-3/publishing-options/telegram_chats", nil)
+	mismatchedReq.Header.Set("Authorization", "Bearer web-token")
+	mismatchedRec := httptest.NewRecorder()
+	e.ServeHTTP(mismatchedRec, mismatchedReq)
+	require.Equal(t, http.StatusOK, mismatchedRec.Code, mismatchedRec.Body.String())
+	require.NoError(t, json.Unmarshal(mismatchedRec.Body.Bytes(), &output))
+	require.Empty(t, output.Options)
+
+	searchReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-1/publishing-options/telegram_chats?search=Private", nil)
+	searchReq.Header.Set("Authorization", "Bearer web-token")
+	searchRec := httptest.NewRecorder()
+	e.ServeHTTP(searchRec, searchReq)
+	require.Equal(t, http.StatusOK, searchRec.Code, searchRec.Body.String())
+	require.NoError(t, json.Unmarshal(searchRec.Body.Bytes(), &output))
+	require.Empty(t, output.Options)
+
+	_, err = db.NewUpdate().Model((*models.TelegramConnection)(nil)).
+		Set("permissions_verified_at = ?", time.Time{}).
+		Where("social_account_id = ?", "telegram-1").Exec(t.Context())
+	require.NoError(t, err)
+	unverifiedReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/telegram-1/publishing-options/telegram_chats", nil)
+	unverifiedReq.Header.Set("Authorization", "Bearer web-token")
+	unverifiedRec := httptest.NewRecorder()
+	e.ServeHTTP(unverifiedRec, unverifiedReq)
+	require.Equal(t, http.StatusOK, unverifiedRec.Code, unverifiedRec.Body.String())
+	require.NoError(t, json.Unmarshal(unverifiedRec.Body.Bytes(), &output))
+	require.Empty(t, output.Options)
 }

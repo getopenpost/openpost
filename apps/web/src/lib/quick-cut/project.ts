@@ -7,7 +7,12 @@ import {
 import { requireWorkspaceRoot, getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 import { saveHandle, getHandle } from '$lib/video-editor/workspace-fs/handles-db';
 import { quickCutProjectPath } from './paths';
-import type { QuickCutProject, QuickCutSourceMetadata, QuickCutSegment } from './types';
+import type {
+	QuickCutProject,
+	QuickCutSourceMetadata,
+	QuickCutSegment,
+	QuickCutVideoStream
+} from './types';
 import type { QuickCutSource } from './types';
 import { createHash } from './fingerprint';
 
@@ -114,48 +119,48 @@ const legacyProjectSchema = z.object({
 	updatedAt: z.number().optional()
 });
 
-function normalizeSourceStreams(source: QuickCutSourceMetadata): QuickCutSourceMetadata {
-	let videoStreams = source.videoStreams ?? [];
-	let audioStreams = source.audioStreams ?? [];
-	if (videoStreams.length === 0 && source.videoCodec !== null) {
-		videoStreams = [
-			{
-				index: 0,
-				codec: source.videoCodec,
-				width: source.width,
-				height: source.height,
-				rotation: source.rotation,
-				fps: source.fps,
-				keyframeTimestamps: source.keyframeTimestamps ?? [],
-				keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
-			}
-		];
-	} else {
-		videoStreams = videoStreams.map((vs, idx) => {
-			if (vs.keyframeTimestamps !== undefined && vs.keyframeState !== undefined) return vs;
-			if (idx === 0 && source.keyframeTimestamps && source.keyframeState !== 'audio-only') {
-				return {
-					...vs,
-					keyframeTimestamps: source.keyframeTimestamps,
-					keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
-				};
-			}
+function normalizeSourceStreams(source: z.infer<typeof sourceMetaSchema>): QuickCutSourceMetadata {
+	const videoStreams: QuickCutVideoStream[] = (source.videoStreams ?? []).map((stream, index) => {
+		if (stream.keyframeTimestamps !== undefined && stream.keyframeState !== undefined) {
 			return {
-				...vs,
-				keyframeTimestamps: vs.keyframeTimestamps ?? [],
-				keyframeState: vs.keyframeState ?? 'unknown'
+				...stream,
+				keyframeTimestamps: stream.keyframeTimestamps,
+				keyframeState: stream.keyframeState
 			};
+		}
+		if (index === 0 && source.keyframeState !== 'audio-only') {
+			return {
+				...stream,
+				keyframeTimestamps: source.keyframeTimestamps,
+				keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
+			};
+		}
+		return {
+			...stream,
+			keyframeTimestamps: stream.keyframeTimestamps ?? [],
+			keyframeState: stream.keyframeState ?? 'unknown'
+		};
+	});
+	const audioStreams = [...(source.audioStreams ?? [])];
+	if (videoStreams.length === 0 && source.videoCodec !== null) {
+		videoStreams.push({
+			index: 0,
+			codec: source.videoCodec,
+			width: source.width,
+			height: source.height,
+			rotation: source.rotation,
+			fps: source.fps,
+			keyframeTimestamps: source.keyframeTimestamps,
+			keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
 		});
 	}
 	if (audioStreams.length === 0 && source.audioCodec !== null) {
-		audioStreams = [
-			{
-				index: 0,
-				codec: source.audioCodec,
-				sampleRate: source.sampleRate,
-				channels: source.channels
-			}
-		];
+		audioStreams.push({
+			index: 0,
+			codec: source.audioCodec,
+			sampleRate: source.sampleRate,
+			channels: source.channels
+		});
 	}
 	const normalized: QuickCutSourceMetadata = {
 		...source,
@@ -285,6 +290,7 @@ export function parseProject(json: string): QuickCutProject {
 				}
 			];
 			const segs = o.segments ?? [];
+			/* oxlint-disable anti-slop/no-runtime-typeof -- Legacy segment fields are untrusted JSON and are normalized here before validation. */
 			const migratedSegments: QuickCutSegment[] = segs.map((s) => {
 				const id = typeof s.id === 'string' ? s.id : crypto.randomUUID();
 				const start = typeof s.start === 'number' ? s.start : 0;
@@ -293,6 +299,7 @@ export function parseProject(json: string): QuickCutProject {
 				const enabled = typeof s.enabled === 'boolean' ? s.enabled : true;
 				return { id, sourceId: legacyId, start, end, name, enabled };
 			});
+			/* oxlint-enable anti-slop/no-runtime-typeof */
 			const migrated = {
 				version: 1 as const,
 				id: typeof o.id === 'string' ? o.id : crypto.randomUUID(),
@@ -305,7 +312,8 @@ export function parseProject(json: string): QuickCutProject {
 				createdAt: o.createdAt ?? Date.now(),
 				updatedAt: o.updatedAt ?? Date.now()
 			};
-			return validateProject(projectSchema.parse(migrated));
+			const validated = projectSchema.parse(migrated);
+			return validateProject({ ...validated, sources: legacySources });
 		}
 	}
 	throw new Error(`Invalid project: ${current.error.issues[0]?.message ?? 'schema error'}`);

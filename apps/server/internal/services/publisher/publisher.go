@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -665,6 +666,9 @@ func (s *Service) publishRenditionSegments(
 			if rootExternalID == "" {
 				rootExternalID = segment.ExternalID
 				rootExternalURL = segment.ExternalURL
+				if err := saveRenditionExternalIdentity(ctx, s.db, rendition.ID, rootExternalID, rootExternalURL); err != nil {
+					return err
+				}
 			}
 			parentExternalID = segment.ExternalID
 			continue
@@ -784,21 +788,29 @@ func (s *Service) publishRenditionSegments(
 
 		externalID := publishResult.ExternalID
 		externalURL := firstNonEmptyPublisherString(publishResult.ExternalURL, publisherExternalURL(externalID))
-		if _, err := s.db.NewUpdate().Model(segment).
-			Set("status = ?", models.RenditionStatusPublished).
-			Set("external_id = ?", externalID).
-			Set("external_url = ?", externalURL).
-			Set("error_message = ''").
-			Set("error_kind = ''").
-			Set("error_code = ''").
-			Set("error_http_status = 0").
-			Set("error_retryable = ?", false).
-			Set("error_retry_at = NULL").
-			Set("error_action = ''").
-			Set("updated_at = ?", time.Now().UTC()).
-			Where("id = ?", segment.ID).
-			Exec(ctx); err != nil {
-			return fmt.Errorf("persisting rendition segment result: %w", err)
+		if err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+			if _, err := tx.NewUpdate().Model(segment).
+				Set("status = ?", models.RenditionStatusPublished).
+				Set("external_id = ?", externalID).
+				Set("external_url = ?", externalURL).
+				Set("error_message = ''").
+				Set("error_kind = ''").
+				Set("error_code = ''").
+				Set("error_http_status = 0").
+				Set("error_retryable = ?", false).
+				Set("error_retry_at = NULL").
+				Set("error_action = ''").
+				Set("updated_at = ?", time.Now().UTC()).
+				Where("id = ?", segment.ID).
+				Exec(ctx); err != nil {
+				return fmt.Errorf("persisting rendition segment result: %w", err)
+			}
+			if rootExternalID == "" {
+				return saveRenditionExternalIdentity(ctx, tx, rendition.ID, externalID, externalURL)
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 		if rootExternalID == "" {
 			rootExternalID = externalID
@@ -1503,6 +1515,13 @@ func (s *Service) saveRenditionMediaDelivery(
 		UpdatedAt:           now,
 	}
 	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		// YouTube creates the video during upload, before thumbnail/caption
+		// finalization. Other providers' upload IDs are not publication IDs.
+		if account.Platform == "youtube" && state.ProviderMediaID != "" {
+			if err := saveRenditionExternalIdentity(ctx, tx, rendition.ID, state.ProviderMediaID, "https://www.youtube.com/watch?v="+url.QueryEscape(state.ProviderMediaID)); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.NewInsert().Model(delivery).
 			On("CONFLICT (rendition_id, media_id) DO UPDATE").
 			Set("workspace_id = EXCLUDED.workspace_id").

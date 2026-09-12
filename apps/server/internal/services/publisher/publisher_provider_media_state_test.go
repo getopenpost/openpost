@@ -188,6 +188,33 @@ type fakeResumablePublisherAdapter struct {
 	thumbnailReaders []bool
 }
 
+type thumbnailFailurePublisherAdapter struct{ fakePublisherAdapter }
+
+func (f *thumbnailFailurePublisherAdapter) UploadMediaResumable(_ context.Context, _, _ string, _ platform.UploadMediaRequest, state platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
+	state.ProviderMediaID = "uploaded-video"
+	state.Status = platform.MediaUploadUploaded
+	state.RetryClassification = platform.MediaRetryReconcile
+	if err := checkpoint(state); err != nil {
+		return "", err
+	}
+	return "", platform.NewHTTPError(http.StatusServiceUnavailable, nil, nil)
+}
+
+func TestYouTubeThumbnailFailureRetainsVisibleVideoIdentity(t *testing.T) {
+	adapter := &thumbnailFailurePublisherAdapter{}
+	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
+	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-thumbnail", "rendition-thumbnail", models.MediaAttachment{ID: "video-thumbnail"})
+	var media models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "video-thumbnail").Scan(t.Context()))
+	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	require.ErrorContains(t, err, "503")
+	var saved models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&saved).Where("id = ?", rendition.ID).Scan(t.Context()))
+	require.Equal(t, "uploaded-video", saved.ExternalID)
+	require.Equal(t, "https://www.youtube.com/watch?v=uploaded-video", saved.ExternalURL)
+	require.NotEqual(t, models.RenditionStatusPublished, saved.Status)
+}
+
 func (f *fakeResumablePublisherAdapter) UploadMediaWithMetadata(context.Context, string, string, platform.UploadMediaRequest) (string, error) {
 	return "", fmt.Errorf("blocking metadata upload must not be used")
 }

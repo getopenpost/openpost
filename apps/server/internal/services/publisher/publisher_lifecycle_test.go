@@ -93,7 +93,7 @@ func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *test
 
 	adapter := &fakePublisherAdapter{
 		preFenceErrors: []error{nil, &platform.HTTPError{StatusCode: 503, Code: "temporarily_unavailable"}, nil},
-		externalIDs:    []string{"external-root", "", "external-reply"},
+		externalIDs:    []string{"https://provider.example/posts/root", "", "external-reply"},
 	}
 	srv := newPublisherLifecycleTestServer(t, adapter)
 	ctx := context.Background()
@@ -114,13 +114,18 @@ func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *test
 	var first models.RenditionSegment
 	require.NoError(t, srv.db.NewSelect().Model(&first).Where("id = ?", "rendition-segment-1").Scan(ctx))
 	require.Equal(t, models.RenditionStatusPublished, first.Status)
-	require.Equal(t, "external-root", first.ExternalID)
+	require.Equal(t, "https://provider.example/posts/root", first.ExternalID)
+	var partial models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&partial).Where("id = ?", "rendition-1").Scan(ctx))
+	require.Equal(t, "https://provider.example/posts/root", partial.ExternalID, "retain the live root when a reply fails")
+	require.Equal(t, "https://provider.example/posts/root", partial.ExternalURL)
+	require.NotEqual(t, models.RenditionStatusPublished, partial.Status)
 
 	require.NoError(t, srv.publishPublication(t))
 	require.Equal(t, 3, adapter.publishCalls)
 	require.Len(t, adapter.publishRequests, 2)
 	require.Equal(t, "", adapter.publishRequests[0].ReplyToID)
-	require.Equal(t, "external-root", adapter.publishRequests[1].ReplyToID)
+	require.Equal(t, "https://provider.example/posts/root", adapter.publishRequests[1].ReplyToID)
 	require.Equal(t, "Root", adapter.publishRequests[0].Content)
 	require.Equal(t, "Reply", adapter.publishRequests[1].Content)
 

@@ -263,15 +263,21 @@ func (m *MastodonAdapter) waitForMediaProcessing(ctx context.Context, accessToke
 }
 
 func (m *MastodonAdapter) Publish(ctx context.Context, accessToken, _ string, req *PublishRequest) (PublishResult, error) {
-	return executePreparedPublishWrite(req, PublishResult{
-		ProviderState: "create_status", RetrySafety: PublishRetryIdempotent,
-		IdempotencyTTL: time.Hour,
-	}, func() (string, error) {
-		return m.publish(ctx, accessToken, req)
-	})
+	prepared := PublishResult{ProviderState: "create_status", RetrySafety: PublishRetryIdempotent, IdempotencyTTL: time.Hour}
+	if err := req.BeginWrite(prepared); err != nil {
+		return PublishResult{}, err
+	}
+	result, err := m.publish(ctx, accessToken, req)
+	if err != nil {
+		return prepared, err
+	}
+	if err := req.Checkpoint(result); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
-func (m *MastodonAdapter) publish(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
+func (m *MastodonAdapter) publish(ctx context.Context, accessToken string, req *PublishRequest) (PublishResult, error) {
 	// Update alt text for each uploaded media before attaching to the status
 	for i, mediaID := range req.PlatformMediaIDs {
 		altText := ""
@@ -295,14 +301,14 @@ func (m *MastodonAdapter) publish(ctx context.Context, accessToken string, req *
 				headerAuthorization: bearerPrefix + accessToken,
 			})
 			if err != nil {
-				return "", fmt.Errorf("updating mastodon media alt text: %w", err)
+				return PublishResult{}, fmt.Errorf("updating mastodon media alt text: %w", err)
 			}
 		}
 	}
 
 	formValues, err := buildMastodonStatusForm(req)
 	if err != nil {
-		return "", err
+		return PublishResult{}, err
 	}
 	headers := map[string]string{headerAuthorization: bearerPrefix + accessToken}
 	if req.IdempotencyKey != "" {
@@ -310,17 +316,21 @@ func (m *MastodonAdapter) publish(ctx context.Context, accessToken string, req *
 	}
 	respBody, err := DoFormURLEncodedValues(ctx, "POST", m.instanceURL+"/api/v1/statuses", formValues, headers)
 	if err != nil {
-		return "", fmt.Errorf("posting to mastodon: %w", err)
+		return PublishResult{}, fmt.Errorf("posting to mastodon: %w", err)
 	}
 
 	var statusResp struct {
-		ID string `json:"id"`
+		ID  string `json:"id"`
+		URL string `json:"url"`
 	}
 	if unmarshalErr := json.Unmarshal(respBody, &statusResp); unmarshalErr != nil {
-		return "", fmt.Errorf("decoding mastodon post: %w", unmarshalErr)
+		return PublishResult{}, fmt.Errorf("decoding mastodon post: %w", unmarshalErr)
 	}
 
-	return statusResp.ID, nil
+	result := AcceptedPublishResult(statusResp.ID)
+	result.ExternalURL = statusResp.URL
+	result.ProviderState = "create_status"
+	return result, nil
 }
 
 func (m *MastodonAdapter) Repost(ctx context.Context, accessToken, _ string, req RepostRequest) (RepostResult, error) {

@@ -106,18 +106,18 @@ describe('complete Paper catalogue', () => {
 			try {
 				expect(
 					compositor.render(sourceFrame(), 256, 144, effects, { time: 0 }),
-					compositor.failureReason()
+					compositor.failureReason() ?? undefined
 				).toBe(true);
 				const first = pixels(canvas);
 				expect(first).not.toEqual(pixels(sourceFrame()));
 				expect(
 					compositor.render(sourceFrame(true), 256, 144, effects, { time: 0 }),
-					compositor.failureReason()
+					compositor.failureReason() ?? undefined
 				).toBe(true);
 				expect(pixels(canvas)).not.toEqual(first);
 				expect(
 					compositor.render(sourceFrame(), 256, 144, effects, { time: 2 }),
-					compositor.failureReason()
+					compositor.failureReason() ?? undefined
 				).toBe(true);
 				const later = pixels(canvas);
 				if (Number(params.speed) > 0) expect(later).not.toEqual(first);
@@ -128,7 +128,7 @@ describe('complete Paper catalogue', () => {
 				try {
 					expect(
 						exporter.render(sourceFrame(), 256, 144, effects, { time: 2 }),
-						exporter.failureReason()
+						exporter.failureReason() ?? undefined
 					).toBe(true);
 					expect(pixels(exportCanvas)).toEqual(later);
 				} finally {
@@ -163,7 +163,7 @@ it('Heatmap retains the size and position of logos at either image edge', () => 
 			context.fillRect(x, 100, 32, 48);
 			expect(
 				compositor.render(source, 256, 256, [{ effectId: effect.id, params }]),
-				compositor.failureReason()
+				compositor.failureReason() ?? undefined
 			).toBe(true);
 			const output = pixels(canvas);
 			const occupied: number[] = [];

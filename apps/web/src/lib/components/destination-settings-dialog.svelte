@@ -315,7 +315,7 @@
 				validationMessage += ` ${m.compose_no_provider_options({ setting: settingLabel(missing) })}`;
 			}
 		}
-		showToast(validationMessage, 'error');
+		showToast(validationMessage, 'error', { position: 'top-right' });
 		requestAnimationFrame(() => {
 			const target = document.getElementById(
 				validationKey === '__format__'
@@ -417,7 +417,7 @@
 			{#if validationMessage}
 				<InlineNotice tone="error" message={validationMessage}>
 					{#snippet actions()}
-						{#if onRetry && validationKey && validationKey !== '__format__'}
+						{#if onRetry && settings.some((setting) => setting.key === validationKey && setting.options_source && !optionGroups[setting.options_source]?.length)}
 							<Button type="button" variant="outline" size="sm" onclick={onRetry}>
 								<ThemeIcon role="refresh" class="size-3.5" />
 								{m.common_retry()}

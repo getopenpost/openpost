@@ -10,6 +10,7 @@
 	data-slot="toaster"
 	theme={mode.current}
 	class="toaster group"
+	mobileOffset={{ top: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
 	style="--normal-bg: var(--popover); --normal-text: var(--popover-foreground); --normal-border: var(--border);"
 	{...restProps}
 >
@@ -24,10 +25,14 @@
 	:global([data-sonner-toaster][data-sonner-theme='light']),
 	:global([data-sonner-toaster][data-sonner-theme='dark']) {
 		--success-text: var(--success-foreground);
+		--error-bg:
+			linear-gradient(var(--action-destructive), var(--action-destructive)), var(--popover);
+		--error-text: var(--action-destructive-foreground);
+		--error-border: color-mix(in oklch, var(--destructive) 40%, var(--border));
 	}
 
 	@media (max-width: 600px) {
-		:global([data-sonner-toaster][data-x-position='center']) {
+		:global([data-sonner-toaster][data-x-position]) {
 			left: var(--mobile-offset-left);
 			right: var(--mobile-offset-right);
 			width: auto;

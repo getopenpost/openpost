@@ -34,6 +34,7 @@
 			: undefined;
 		const data = {
 			action,
+			position: tone === 'error' ? ('top-right' as const) : undefined,
 			closeButton: true,
 			onDismiss,
 			duration: tone === 'error' ? Infinity : undefined

@@ -70,10 +70,27 @@ describe('composerDestinationSettings', () => {
 			}
 		];
 
-		expect(composerDestinationSettings('youtube', [], catalog, 'youtube.short')).toEqual([
+		expect(composerDestinationSettings('youtube', undefined, catalog, 'youtube.short')).toEqual([
 			privacy,
 			title
 		]);
+	});
+
+	it('keeps an account-specific empty settings list instead of restoring generic bot fields', () => {
+		expect(
+			composerDestinationSettings(
+				'discord',
+				[],
+				[
+					{
+						provider: 'discord',
+						output_profile: 'discord.post',
+						settings: [setting('channel_id', 'discord_channels')]
+					}
+				],
+				'discord.post'
+			)
+		).toEqual([]);
 	});
 });
 

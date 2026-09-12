@@ -1336,7 +1336,7 @@
 		const resolved = resolvedCapabilities[account.id];
 		return composerDestinationSettings(
 			getPlatformKey(account.platform),
-			resolved?.settings ?? [],
+			resolved?.output_profile ? (resolved.settings ?? []) : undefined,
 			capabilities,
 			requestedOutputProfiles[account.id] || resolved?.output_profile || ''
 		).filter((field) => {

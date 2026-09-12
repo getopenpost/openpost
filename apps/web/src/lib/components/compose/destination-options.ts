@@ -18,11 +18,11 @@ export interface DestinationSettingInvalidation {
 
 export function composerDestinationSettings(
 	provider: string,
-	resolvedSettings: SettingDefinition[],
+	resolvedSettings: SettingDefinition[] | undefined,
 	catalog: readonly Pick<Capability, 'provider' | 'output_profile' | 'settings'>[],
 	outputProfile = ''
 ): SettingDefinition[] {
-	if (resolvedSettings.length > 0) return resolvedSettings;
+	if (resolvedSettings !== undefined) return resolvedSettings;
 
 	const providerCapabilities = catalog.filter((capability) => capability.provider === provider);
 	const matchingCapability = outputProfile

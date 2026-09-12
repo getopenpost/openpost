@@ -2307,6 +2307,8 @@
 	"social_set_delete_title": "Delete this Social Set?",
 	"social_set_description": "Save account groups, formats, and settings for new drafts. Existing drafts keep their settings.",
 	"social_set_edit_settings": "Edit post settings",
+	"social_set_media_settings_on_post": "미디어별 설정은 게시물에서 선택하세요.",
+	"social_set_no_reusable_settings": "이 계정에는 재사용 가능한 게시물 설정이 없습니다.",
 	"social_set_format_auto": "Choose for each post",
 	"social_set_picker_body": "Choose a Social Set or adjust its accounts.",
 	"social_set_load_failed": "Social Sets could not be loaded.",

@@ -79,6 +79,42 @@ func TestSocialSetRejectsSettingsOutsideAccountAndScope(t *testing.T) {
 	}
 }
 
+func TestSocialSetDefaultsValidateValuesAndAccountMode(t *testing.T) {
+	server := newSocialSetsTestServer(t)
+	_, err := server.db.NewInsert().Model(&[]models.SocialAccount{
+		{ID: "discord-bot", WorkspaceID: "ws-1", Platform: "discord", CapabilityState: `{"connection_type":"bot"}`, AccessTokenEnc: []byte("token"), IsActive: true},
+		{ID: "discord-webhook", WorkspaceID: "ws-1", Platform: "discord", CapabilityState: `{"connection_type":"webhook"}`, AccessTokenEnc: []byte("token"), IsActive: true},
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	for _, scenario := range []struct {
+		name    string
+		account map[string]any
+		status  int
+	}{
+		{"bot channel preset", map[string]any{"social_account_id": "discord-bot", "default_settings": map[string]any{"channel_id": "channel-1"}}, http.StatusOK},
+		{"bot channel can wait for post", map[string]any{"social_account_id": "discord-bot"}, http.StatusOK},
+		{"mention choice needs channel", map[string]any{"social_account_id": "discord-bot", "default_settings": map[string]any{"mention_policy": "selected"}}, http.StatusBadRequest},
+		{"webhook has fixed channel", map[string]any{"social_account_id": "discord-webhook", "default_settings": map[string]any{"channel_id": "channel-1"}}, http.StatusBadRequest},
+		{"invalid embed JSON", map[string]any{"social_account_id": "discord-bot", "default_settings": map[string]any{"embed": "{bad"}}, http.StatusBadRequest},
+		{"embed needs content", map[string]any{"social_account_id": "discord-bot", "default_settings": map[string]any{"embed": `{"footer":{}}`}}, http.StatusBadRequest},
+		{"valid embed preset", map[string]any{"social_account_id": "discord-bot", "default_settings": map[string]any{"embed": `{"title":"Launch"}`}}, http.StatusOK},
+		{"invalid select option", map[string]any{"social_account_id": "acc-1", "default_settings": map[string]any{"reply_settings": "bogus"}}, http.StatusBadRequest},
+		{"invalid boolean type", map[string]any{"social_account_id": "acc-1", "default_settings": map[string]any{"made_with_ai": "yes"}}, http.StatusBadRequest},
+		{"poll duration out of bounds", map[string]any{"social_account_id": "acc-1", "default_output_profile": "x.thread", "default_segment_settings": map[string]any{"poll_options": "Yes\nNo", "poll_duration_minutes": 20000}}, http.StatusBadRequest},
+		{"attachment preset needs post media", map[string]any{"social_account_id": "acc-2", "default_output_profile": "instagram.story", "default_settings": map[string]any{"cover_media_id": "media-from-another-workspace"}}, http.StatusBadRequest},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			response := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
+				"workspace_id": "ws-1", "name": scenario.name, "accounts": []map[string]any{scenario.account},
+			})
+			require.Equal(t, scenario.status, response.Code, response.Body.String())
+			if scenario.name == "attachment preset needs post media" {
+				require.Contains(t, response.Body.String(), "Choose media-specific settings on the post")
+			}
+		})
+	}
+}
+
 func TestSocialSetDefaultsFillOnlyMissingPublicationSettings(t *testing.T) {
 	input := CreatePublicationBody{
 		SourceText: "First post",

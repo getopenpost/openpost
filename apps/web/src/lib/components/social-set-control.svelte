@@ -16,7 +16,6 @@
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { getLocaleTag } from '$lib/i18n';
 	import {
-		composerDestinationSettings,
 		invalidateDependentDestinationSettings,
 		loadableDestinationOptionSources,
 		mergeDestinationOptions
@@ -47,6 +46,7 @@
 	type SocialSet = components['schemas']['SocialSetResponse'];
 	type SocialSetAccountInput = components['schemas']['SocialSetAccountInput'];
 	type Capability = components['schemas']['Capability'];
+	type ResolvedAccountCapability = components['schemas']['ResolvedAccountCapability'];
 	type SettingDefinition = components['schemas']['SettingDefinition'];
 	type DestinationOption = components['schemas']['DestinationOption'];
 	type DefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
@@ -96,6 +96,11 @@
 	let editorSegmentSettings = $state<Record<string, DefaultSettings>>({});
 	let settingsEditorAccountId = $state('');
 	let settingsEditorOpen = $state(false);
+	let settingsResolved = $state<ResolvedAccountCapability | null>(null);
+	let settingsResolveLoading = $state(false);
+	let settingsResolveError = $state('');
+	let settingsResolveInfo = $state('');
+	let settingsResolveSequence = 0;
 	let settingsOptions = $state<Record<string, DestinationOption[]>>({});
 	let settingsOptionCursors = $state<Record<string, string>>({});
 	let settingsOptionsLoading = $state(false);
@@ -129,7 +134,9 @@
 		accounts.find((account) => account.id === settingsEditorAccountId) ?? null
 	);
 	const settingsEditorFields = $derived(
-		settingsEditorAccount ? settingsFields(settingsEditorAccount) : []
+		settingsResolved?.account_id === settingsEditorAccountId
+			? (settingsResolved.settings ?? []).filter(reusableDefaultField)
+			: []
 	);
 	const settingsEditorValues = $derived({
 		...(editorSettings[settingsEditorAccountId] ?? {}),
@@ -167,9 +174,7 @@
 		editorOutputProfiles = {};
 		editorSettings = {};
 		editorSegmentSettings = {};
-		settingsEditorOpen = false;
-		settingsEditorAccountId = '';
-		settingsOptionsSequence += 1;
+		resetSettingsEditor();
 		saving = false;
 		deleting = false;
 		deleteOpen = false;
@@ -234,6 +239,7 @@
 	}
 
 	function startNewSet() {
+		resetSettingsEditor();
 		editorId = '';
 		editorName = '';
 		editorDefault = sets.length === 0;
@@ -244,6 +250,7 @@
 	}
 
 	function startEditing(set: SocialSet) {
+		resetSettingsEditor();
 		editorId = set.id;
 		editorName = set.name;
 		editorDefault = set.is_default;
@@ -266,6 +273,20 @@
 				{ ...(account.default_segment_settings ?? {}) }
 			])
 		);
+	}
+
+	function resetSettingsEditor() {
+		settingsEditorOpen = false;
+		settingsEditorAccountId = '';
+		settingsResolved = null;
+		settingsResolveSequence += 1;
+		settingsResolveLoading = false;
+		settingsResolveError = '';
+		settingsResolveInfo = '';
+		settingsOptionsSequence += 1;
+		settingsOptions = {};
+		settingsOptionCursors = {};
+		settingsOptionsError = '';
 	}
 
 	function toggleEditorAccount(accountId: string) {
@@ -297,19 +318,16 @@
 		return formats;
 	}
 
-	function settingsFields(account: SocialAccount): SettingDefinition[] {
-		const provider = getPlatformKey(account.platform);
-		const profile = editorOutputProfiles[account.id] ?? '';
-		const matching = composerDestinationSettings(provider, [], capabilities, profile);
-		if (matching.length > 0) return matching.filter((field) => field.scope !== 'media_item');
-		const unique = new Map<string, SettingDefinition>();
-		for (const capability of capabilities) {
-			if (capability.provider !== provider) continue;
-			for (const field of capability.settings ?? []) {
-				if (field.scope !== 'media_item' && !unique.has(field.key)) unique.set(field.key, field);
-			}
-		}
-		return [...unique.values()];
+	function reusableDefaultField(field: SettingDefinition): boolean {
+		if (field.scope === 'media_item' || field.type === 'media') return false;
+		if (field.key.endsWith('_media_id')) return false;
+		if (
+			['media_picker', 'captions_file', 'cover_frame', 'cover_index', 'video_thumbnail'].includes(
+				field.control ?? ''
+			)
+		)
+			return false;
+		return !(field.dependencies ?? []).some((dependency) => dependency.key.endsWith('_media_id'));
 	}
 
 	function updateEditorSetting(key: string, value: ComposerSettingValue) {
@@ -321,24 +339,94 @@
 		const current = (
 			segment ? (editorSegmentSettings[account.id] ?? {}) : (editorSettings[account.id] ?? {})
 		) as ComposerSettings;
-		const next = invalidateDependentDestinationSettings(
+		const invalidated = invalidateDependentDestinationSettings(
 			settingsEditorFields.filter((candidate) => candidate.scope === field.scope),
 			current,
 			key,
 			value
-		).values;
-		if (segment) editorSegmentSettings = { ...editorSegmentSettings, [account.id]: next };
-		else editorSettings = { ...editorSettings, [account.id]: next };
+		);
+		if (segment)
+			editorSegmentSettings = { ...editorSegmentSettings, [account.id]: invalidated.values };
+		else editorSettings = { ...editorSettings, [account.id]: invalidated.values };
+		for (const source of invalidated.optionSources) {
+			const nextOptions = { ...settingsOptions };
+			delete nextOptions[source];
+			settingsOptions = nextOptions;
+			const nextCursors = { ...settingsOptionCursors };
+			delete nextCursors[source];
+			settingsOptionCursors = nextCursors;
+		}
 		void loadSettingsOptions(account, true);
 	}
 
-	function openSettingsEditor(account: SocialAccount) {
+	async function openSettingsEditor(account: SocialAccount) {
 		settingsEditorAccountId = account.id;
+		settingsEditorOpen = false;
+		settingsResolved = null;
+		settingsOptionsSequence += 1;
 		settingsOptions = {};
 		settingsOptionCursors = {};
 		settingsOptionsError = '';
-		settingsEditorOpen = true;
-		void loadSettingsOptions(account);
+		settingsResolveError = '';
+		settingsResolveInfo = '';
+		const sequence = ++settingsResolveSequence;
+		settingsResolveLoading = true;
+		const locale = getLocaleTag();
+		const [, region = 'US'] = locale.split('-');
+		const profile = editorOutputProfiles[account.id] ?? '';
+		const values = editorSettings[account.id] ?? {};
+		try {
+			const { data, error: resolveError } = await client.POST('/capabilities/resolve', {
+				body: {
+					account_ids: [account.id],
+					requested_output_profiles: profile ? { [account.id]: profile } : {},
+					account_settings: { [account.id]: values },
+					segments: [{ id: 'social-set-default', content: 'Draft' }],
+					locale,
+					region
+				}
+			});
+			if (sequence !== settingsResolveSequence || settingsEditorAccountId !== account.id) return;
+			if (resolveError)
+				throw new Error(resolveError.detail || m.compose_load_capabilities_failed());
+			settingsResolved = data?.accounts?.find((item) => item.account_id === account.id) ?? null;
+			if (!settingsResolved) throw new Error(m.compose_load_capabilities_failed());
+			const allowed = (settingsResolved.settings ?? []).filter(reusableDefaultField);
+			const destinationKeys = new Set(
+				allowed.filter((field) => field.scope === 'destination').map((field) => field.key)
+			);
+			const segmentKeys = new Set(
+				allowed.filter((field) => field.scope === 'segment').map((field) => field.key)
+			);
+			editorSettings = {
+				...editorSettings,
+				[account.id]: Object.fromEntries(
+					Object.entries(editorSettings[account.id] ?? {}).filter(([key]) =>
+						destinationKeys.has(key)
+					)
+				)
+			};
+			editorSegmentSettings = {
+				...editorSegmentSettings,
+				[account.id]: Object.fromEntries(
+					Object.entries(editorSegmentSettings[account.id] ?? {}).filter(([key]) =>
+						segmentKeys.has(key)
+					)
+				)
+			};
+			if (allowed.length === 0) {
+				settingsResolveInfo = m.social_set_no_reusable_settings();
+				return;
+			}
+			settingsEditorOpen = true;
+			void loadSettingsOptions(account);
+		} catch (cause) {
+			if (sequence === settingsResolveSequence)
+				settingsResolveError =
+					cause instanceof Error ? cause.message : m.compose_load_capabilities_failed();
+		} finally {
+			if (sequence === settingsResolveSequence) settingsResolveLoading = false;
+		}
 	}
 
 	async function loadSettingsOptions(
@@ -352,7 +440,7 @@
 			...(editorSettings[account.id] ?? {}),
 			...(editorSegmentSettings[account.id] ?? {})
 		};
-		let sources = loadableDestinationOptionSources(settingsFields(account), onlySource, values);
+		let sources = loadableDestinationOptionSources(settingsEditorFields, onlySource, values);
 		if (!force && !search)
 			sources = sources.filter((source) => settingsOptions[source] === undefined);
 		if (sources.length === 0) return;
@@ -712,6 +800,7 @@
 
 					<fieldset class="space-y-2">
 						<legend class="text-sm font-medium">{m.social_set_accounts()}</legend>
+						<p class="text-xs text-muted-foreground">{m.social_set_media_settings_on_post()}</p>
 						{#each accounts as account (account.id)}
 							<div class="rounded-md border px-3 py-2.5">
 								<label class="flex min-h-11 items-center gap-3 text-sm">
@@ -736,6 +825,7 @@
 											>
 											<AppSelect
 												id="social-set-format-{account.id}"
+												ariaLabel={m.compose_format_for_account({ account: accountLabel(account) })}
 												value={editorOutputProfiles[account.id] || '__auto__'}
 												options={accountFormats(account)}
 												onValueChange={(value) => {
@@ -750,11 +840,20 @@
 											type="button"
 											variant="outline"
 											class="h-11"
+											disabled={settingsResolveLoading && settingsEditorAccountId === account.id}
 											onclick={() => openSettingsEditor(account)}
 										>
-											{m.social_set_edit_settings()}
+											{settingsResolveLoading && settingsEditorAccountId === account.id
+												? m.common_loading()
+												: m.social_set_edit_settings()}
 										</Button>
 									</div>
+									{#if settingsResolveError && settingsEditorAccountId === account.id}
+										<InlineNotice tone="error" message={settingsResolveError} />
+									{/if}
+									{#if settingsResolveInfo && settingsEditorAccountId === account.id}
+										<InlineNotice tone="info" message={settingsResolveInfo} />
+									{/if}
 								{/if}
 							</div>
 						{/each}
@@ -799,14 +898,6 @@
 	optionsLoading={settingsOptionsLoading}
 	optionsError={settingsOptionsError}
 	scopeLabel={editorName.trim()}
-	formatValue={settingsEditorAccount ? (editorOutputProfiles[settingsEditorAccount.id] ?? '') : ''}
-	formatOptions={settingsEditorAccount
-		? accountFormats(settingsEditorAccount).filter((option) => option.value !== '__auto__')
-		: []}
-	onFormatChange={(value) => {
-		if (settingsEditorAccount)
-			editorOutputProfiles = { ...editorOutputProfiles, [settingsEditorAccount.id]: value };
-	}}
 	onChange={updateEditorSetting}
 	onOptionSearch={(setting, search) => {
 		if (settingsEditorAccount)

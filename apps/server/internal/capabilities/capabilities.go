@@ -1600,6 +1600,106 @@ func validateSettingDefinition(capability Capability, field SettingDefinition, s
 	return issues
 }
 
+// ValidateDefaultSettings checks only values supplied for a reusable preset.
+// Missing required fields remain a decision for the publication that uses it.
+func ValidateDefaultSettings(capability Capability, scope string, values, context map[string]any) []ValidationIssue {
+	fields := make(map[string]SettingDefinition, len(capability.Settings))
+	for _, field := range capability.Settings {
+		fields[field.Key] = field
+	}
+	issues := []ValidationIssue{}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := values[key]
+		field, ok := fields[key]
+		if !ok || field.Scope != scope {
+			issues = append(issues, ValidationIssue{Severity: "error", Code: "unsupported_setting", Field: key, Message: key + " is not supported by this account or scope"})
+			continue
+		}
+		if attachmentDependentDefault(field) {
+			issues = append(issues, settingValidationIssue(capability, field, "setting_requires_post_media", "Choose media-specific settings on the post."))
+			continue
+		}
+		if value == nil {
+			continue
+		}
+		if text, ok := value.(string); ok && text == "" {
+			continue
+		}
+		if !validDefaultSettingType(field, value) {
+			issues = append(issues, settingValidationIssue(capability, field, "setting_type_invalid", field.Label+" has an invalid value"))
+			continue
+		}
+		validated := field
+		validated.Dependencies = nil
+		for _, condition := range field.Dependencies {
+			if _, known := fields[condition.Key]; known {
+				validated.Dependencies = append(validated.Dependencies, condition)
+			}
+		}
+		validated.Conflicts = nil
+		for _, condition := range field.Conflicts {
+			if _, known := fields[condition.Key]; known {
+				validated.Conflicts = append(validated.Conflicts, condition)
+			}
+		}
+		issues = append(issues, validateSettingDefinition(capability, validated, context, 0)...)
+	}
+	return issues
+}
+
+func attachmentDependentDefault(field SettingDefinition) bool {
+	if field.Type == "media" || strings.HasSuffix(field.Key, "_media_id") {
+		return true
+	}
+	switch field.Control {
+	case "media_picker", "captions_file", "cover_frame", "cover_index", "video_thumbnail":
+		return true
+	}
+	for _, dependency := range field.Dependencies {
+		if strings.HasSuffix(dependency.Key, "_media_id") {
+			return true
+		}
+	}
+	return false
+}
+
+func validDefaultSettingType(field SettingDefinition, value any) bool {
+	switch field.Type {
+	case "boolean":
+		_, ok := value.(bool)
+		return ok
+	case "number":
+		switch typed := value.(type) {
+		case float64:
+			return !math.IsNaN(typed) && !math.IsInf(typed, 0)
+		case int, int64, json.Number:
+			return true
+		case string:
+			number, err := strconv.ParseFloat(typed, 64)
+			return err == nil && !math.IsNaN(number) && !math.IsInf(number, 0)
+		default:
+			return false
+		}
+	case "json":
+		switch typed := value.(type) {
+		case string:
+			return json.Valid([]byte(typed))
+		case map[string]any, []any:
+			return true
+		default:
+			return false
+		}
+	default:
+		_, ok := value.(string)
+		return ok
+	}
+}
+
 func validateTextConstraint(capability Capability, field, value string, constraint TextConstraint) []ValidationIssue {
 	length := TextLength(capability.Provider, value)
 	if constraint.Required && strings.TrimSpace(value) == "" {

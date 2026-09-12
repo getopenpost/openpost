@@ -54,7 +54,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.
 - Publications are the canonical authored-content inventory. Page reads use stored state; provider calls occur only in explicit sync or durable job flows.
-- Social Set account formats and destination/post settings are defaults for new publications. Copy them into renditions and rendition segments on create, let explicit post values win, and never rewrite existing publications when a set changes.
+- Social Set account formats and reusable destination/post settings are defaults for new publications. Copy them into renditions and rendition segments on create, let explicit post values win, and never rewrite existing publications when a set changes. Keep attachment-specific settings on the post. Account-resolved settings are authoritative even when empty; use provider catalog fields only before account resolution.
 - Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `apps/server/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.

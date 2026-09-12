@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/uptrace/bun"
 )
 
@@ -330,42 +331,49 @@ func validateSocialSetAccounts(ctx context.Context, db bun.IDB, workspaceID stri
 	for _, input := range inputs {
 		profile := strings.TrimSpace(input.DefaultOutputProfile)
 		account := accounts[input.SocialAccountID]
+		var selected capabilities.Capability
 		if profile != "" {
-			if _, ok := capabilities.FindOutput(account.Platform, profile); !ok {
+			var ok bool
+			selected, ok = capabilities.FindOutput(account.Platform, profile)
+			if !ok {
 				return nil, huma.Error400BadRequest("default_output_profile is not supported by its account")
 			}
+		} else {
+			selected = capabilities.Resolve(account.Platform, capabilities.ResolveInput{
+				Segments: []capabilities.ResolveSegment{{ID: "social-set", Body: "Draft"}},
+			}).Capability
 		}
-		if err := validateSocialSetDefaultSettings(account.Platform, profile, input.DefaultSettings, capabilities.SettingScopeDestination); err != nil {
+		resolved := capabilities.ResolvedCapability{Capability: selected}
+		applyAccountDestinationSettings(account, input.DefaultSettings, &resolved)
+		context := make(map[string]any, len(input.DefaultSettings)+len(input.DefaultSegmentSettings))
+		for key, value := range input.DefaultSettings {
+			context[key] = value
+		}
+		for key, value := range input.DefaultSegmentSettings {
+			context[key] = value
+		}
+		if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSettings, context, capabilities.SettingScopeDestination); err != nil {
 			return nil, err
 		}
-		if err := validateSocialSetDefaultSettings(account.Platform, profile, input.DefaultSegmentSettings, capabilities.SettingScopeSegment); err != nil {
+		if account.Platform == capabilities.ProviderDiscord {
+			if err := platform.ValidateDiscordEmbedPreset(input.DefaultSettings["embed"]); err != nil {
+				return nil, huma.Error400BadRequest("Social Set embed is invalid: " + err.Error())
+			}
+		}
+		if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSegmentSettings, context, capabilities.SettingScopeSegment); err != nil {
 			return nil, err
 		}
 	}
 	return accounts, nil
 }
 
-func validateSocialSetDefaultSettings(provider, outputProfile string, values map[string]any, scope string) error {
-	provider = strings.ToLower(strings.TrimSpace(provider))
+func validateSocialSetDefaultSettings(capability capabilities.Capability, values, context map[string]any, scope string) error {
 	encoded, err := json.Marshal(values)
 	if err != nil || len(encoded) > 16*1024 {
 		return huma.Error400BadRequest("Social Set default settings are invalid or too large")
 	}
-	allowed := map[string]struct{}{}
-	for _, capability := range capabilities.All() {
-		if capability.Provider != provider || (outputProfile != "" && capability.OutputProfile != outputProfile) {
-			continue
-		}
-		for _, field := range capability.Settings {
-			if field.Scope == scope {
-				allowed[field.Key] = struct{}{}
-			}
-		}
-	}
-	for key := range values {
-		if _, ok := allowed[key]; !ok {
-			return huma.Error400BadRequest("Social Set default setting " + key + " is not supported by its account or scope")
-		}
+	if issues := capabilities.ValidateDefaultSettings(capability, scope, values, context); len(issues) > 0 {
+		return huma.Error400BadRequest(issues[0].Message)
 	}
 	return nil
 }

@@ -2307,6 +2307,8 @@
 	"social_set_delete_title": "Eliminar este Conjunto Social?",
 	"social_set_description": "Guarda grupos de contas, formatos e definições para novos rascunhos. Os rascunhos existentes mantêm as suas definições.",
 	"social_set_edit_settings": "Editar definições da publicação",
+	"social_set_media_settings_on_post": "Escolhe as definições de multimédia em cada publicação.",
+	"social_set_no_reusable_settings": "Esta conta não tem definições de publicação reutilizáveis.",
 	"social_set_format_auto": "Escolher em cada publicação",
 	"social_set_picker_body": "Escolhe um Conjunto Social ou ajusta as respetivas contas.",
 	"social_set_load_failed": "Não foi possível carregar os Conjuntos Sociais.",

@@ -2307,6 +2307,8 @@
 	"social_set_delete_title": "Delete this Social Set?",
 	"social_set_description": "Save account groups, formats, and settings for new drafts. Existing drafts keep their settings.",
 	"social_set_edit_settings": "Edit post settings",
+	"social_set_media_settings_on_post": "メディア固有の設定は投稿で選択してください。",
+	"social_set_no_reusable_settings": "このアカウントには再利用できる投稿設定がありません。",
 	"social_set_format_auto": "Choose for each post",
 	"social_set_picker_body": "Choose a Social Set or adjust its accounts.",
 	"social_set_load_failed": "Social Sets could not be loaded.",

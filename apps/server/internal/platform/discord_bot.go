@@ -1119,6 +1119,12 @@ func discordEmbeds(settings map[string]interface{}) ([]discordEmbed, error) {
 	return []discordEmbed{embed}, nil
 }
 
+// ValidateDiscordEmbedPreset applies the same embed rules used at publish time.
+func ValidateDiscordEmbedPreset(value any) error {
+	_, err := discordEmbeds(map[string]any{"embed": value})
+	return err
+}
+
 func validateDiscordEmbed(embed discordEmbed) error {
 	if !discordEmbedHasVisibleContent(embed) {
 		return fmt.Errorf("embed must contain visible content")

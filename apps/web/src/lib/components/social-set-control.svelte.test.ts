@@ -36,30 +36,17 @@ describe('Social Set request ownership', () => {
 		];
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
+		postMock.mockImplementation((path) => {
+			if (path !== '/capabilities/resolve') throw new Error(`Unexpected POST ${path}`);
+			return Promise.resolve(
+				response({ accounts: [{ account_id: 'acc-1', settings: [xReplySetting] }] })
+			) as never;
+		});
 		putMock.mockImplementation(() => new Promise(() => {}) as never);
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
 			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
-			capabilities: [
-				{
-					provider: 'x',
-					output_profile: 'x.post',
-					label: 'Post',
-					settings: [
-						{
-							key: 'reply_settings',
-							label: 'Who can reply',
-							message_key: '',
-							group: 'conversation',
-							control: 'select',
-							type: 'select',
-							scope: 'destination',
-							required: false,
-							options: ['following', 'mentionedUsers']
-						}
-					]
-				}
-			] as never,
+			capabilities: [{ provider: 'x', output_profile: 'x.post', label: 'Post' }] as never,
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
@@ -84,6 +71,85 @@ describe('Social Set request ownership', () => {
 						social_account_id: 'acc-1',
 						default_output_profile: 'x.post',
 						default_settings: { reply_settings: 'mentionedUsers' },
+						default_segment_settings: {}
+					}
+				]
+			}
+		});
+	});
+
+	it('uses account-resolved fields for bot and webhook Social Set presets', async () => {
+		const existing = socialSet('workspace-a');
+		existing.accounts = [
+			{
+				social_account_id: 'webhook',
+				platform: 'discord',
+				display_order: 0,
+				default_settings: { channel_id: 'stale' }
+			},
+			{ social_account_id: 'bot', platform: 'discord', display_order: 1 }
+		];
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
+		installResolvedReads();
+		postMock.mockImplementation((path, request: { body?: { account_ids?: string[] } }) => {
+			if (path !== '/capabilities/resolve') throw new Error(`Unexpected POST ${path}`);
+			const accountId = request.body?.account_ids?.[0];
+			return Promise.resolve(
+				response({
+					accounts: [
+						{ account_id: accountId, settings: accountId === 'bot' ? [discordChannelSetting] : [] }
+					]
+				})
+			) as never;
+		});
+		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [
+				{ id: 'webhook', platform: 'discord', account_username: 'fixed' },
+				{ id: 'bot', platform: 'discord', account_username: 'bot' }
+			] as never,
+			capabilities: [
+				{
+					provider: 'discord',
+					output_profile: 'discord.message',
+					label: 'Message',
+					settings: [discordChannelSetting]
+				}
+			] as never,
+			selectedSetId: existing.id,
+			onApply: vi.fn()
+		});
+		await openManager(screen);
+		await screen.getByRole('button', { name: 'Edit post settings' }).nth(0).click();
+		await expect
+			.element(screen.getByText('This account has no reusable post settings.'))
+			.toBeVisible();
+		const settingsDialog = screen.getByRole('dialog', { name: 'Discord settings' });
+		await expect.element(settingsDialog).not.toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Edit post settings' }).nth(1).click();
+		await expect.element(settingsDialog.getByRole('combobox', { name: 'Channel' })).toBeVisible();
+		await settingsDialog.getByRole('button', { name: 'Done' }).click();
+		await screen
+			.getByRole('dialog', { name: 'Manage Social Sets' })
+			.getByRole('button', { name: 'Save' })
+			.click();
+		expect(putMock).toHaveBeenCalledWith('/social-sets/{id}', {
+			params: { path: { id: existing.id } },
+			body: {
+				name: existing.name,
+				is_default: false,
+				accounts: [
+					{
+						social_account_id: 'webhook',
+						default_output_profile: undefined,
+						default_settings: {},
+						default_segment_settings: {}
+					},
+					{
+						social_account_id: 'bot',
+						default_output_profile: undefined,
+						default_settings: {},
 						default_segment_settings: {}
 					}
 				]
@@ -167,6 +233,30 @@ function socialSet(workspaceID: string): SocialSet {
 		updated_at: '2026-09-01T10:00:00Z'
 	};
 }
+
+const xReplySetting = {
+	key: 'reply_settings',
+	label: 'Who can reply',
+	message_key: '',
+	group: 'conversation',
+	control: 'select',
+	type: 'select',
+	scope: 'destination',
+	required: false,
+	options: ['following', 'mentionedUsers']
+};
+
+const discordChannelSetting = {
+	key: 'channel_id',
+	label: 'Channel',
+	message_key: '',
+	group: 'distribution',
+	control: 'remote_picker',
+	type: 'select',
+	scope: 'destination',
+	required: true,
+	options_source: 'discord_channels'
+};
 
 function response<T>(data: T) {
 	return { data, error: undefined, response: new Response(null, { status: 200 }) };

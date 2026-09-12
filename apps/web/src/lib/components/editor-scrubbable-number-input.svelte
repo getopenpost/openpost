@@ -79,9 +79,9 @@
 	}
 
 	function startScrub(event: PointerEvent): void {
-		if (disabled || event.button !== 0 || document.activeElement === input) return;
+		if (disabled || event.button !== 0 || document.activeElement === input || !input) return;
 		event.preventDefault();
-		event.currentTarget.setPointerCapture?.(event.pointerId);
+		input.setPointerCapture(event.pointerId);
 		drag = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
@@ -102,8 +102,8 @@
 		if (!drag || drag.pointerId !== event.pointerId) return;
 		const scrubbed = drag.scrubbed;
 		drag = null;
-		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
+		if (input?.hasPointerCapture(event.pointerId)) {
+			input.releasePointerCapture(event.pointerId);
 		}
 		if (scrubbed) commit();
 		else {
@@ -120,6 +120,7 @@
 	}
 
 	function handleInput(event: Event): void {
+		if (!(event.currentTarget instanceof HTMLInputElement)) return;
 		const raw = event.currentTarget.value;
 		draft = raw;
 		if (raw.trim() === '') return;
@@ -128,6 +129,7 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
+		if (!(event.currentTarget instanceof HTMLInputElement)) return;
 		event.stopPropagation();
 		if (event.key === 'Enter') {
 			if (draft !== null) commit(event.currentTarget.value);

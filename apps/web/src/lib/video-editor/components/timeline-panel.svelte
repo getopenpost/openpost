@@ -1660,6 +1660,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const target = event.target instanceof HTMLElement ? event.target : event.currentTarget;
+		if (!(target instanceof HTMLElement)) return;
 		const bounds = target.getBoundingClientRect();
 		target.dispatchEvent(
 			new MouseEvent('contextmenu', {

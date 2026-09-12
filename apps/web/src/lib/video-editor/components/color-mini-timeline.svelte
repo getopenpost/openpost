@@ -206,12 +206,13 @@
 
 	function finishScrub(event: PointerEvent): void {
 		if (!scrub || event.pointerId !== scrub.pointerId) return;
+		const target = event.currentTarget;
 		const active = scrub;
 		if (active.animationFrame !== null) cancelAnimationFrame(active.animationFrame);
 		const frame = frameFromClientX(event.clientX);
 		scrub = null;
-		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
+		if (target instanceof HTMLElement && target.hasPointerCapture(event.pointerId)) {
+			target.releasePointerCapture(event.pointerId);
 		}
 		if (frame !== null) setCurrentFrame(frame);
 		timelinePreviewScrub.clear();
@@ -224,20 +225,23 @@
 		}
 		const active = scrub;
 		scrub = null;
-		if (event && active && event.currentTarget.hasPointerCapture?.(active.pointerId)) {
-			event.currentTarget.releasePointerCapture(active.pointerId);
+		const target = event?.currentTarget;
+		if (target instanceof HTMLElement && active && target.hasPointerCapture(active.pointerId)) {
+			target.releasePointerCapture(active.pointerId);
 		}
 		timelinePreviewScrub.clear();
 	}
 
 	function startScrub(event: PointerEvent): void {
 		if (event.button !== 0 || scrub || timelineStore.seekLocked) return;
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLElement)) return;
 		editorSession.pausePlayback();
 		event.preventDefault();
-		event.currentTarget.setPointerCapture?.(event.pointerId);
+		target.setPointerCapture(event.pointerId);
 		scrub = {
 			pointerId: event.pointerId,
-			rect: event.currentTarget.getBoundingClientRect(),
+			rect: target.getBoundingClientRect(),
 			latestClientX: event.clientX,
 			animationFrame: null
 		};

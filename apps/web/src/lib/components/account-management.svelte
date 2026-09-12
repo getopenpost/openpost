@@ -705,7 +705,7 @@
 			editingAccount?.id === account.id;
 		accountMetadataRefreshing = true;
 		accountMetadataRefreshError = '';
-		let failureMessage = m.accounts_refresh_profile_failed();
+		let failureMessage: string = m.accounts_refresh_profile_failed();
 		try {
 			const {
 				data,

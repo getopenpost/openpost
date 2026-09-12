@@ -40,7 +40,6 @@ const links = {
 
 const account: SocialAccount = {
 	id: 'account-1',
-	workspace_id: workspace.id,
 	slug: 'x-founder',
 	platform: 'x',
 	account_id: 'provider-account-1',
@@ -209,7 +208,8 @@ describe('account management modes', () => {
 			workspace,
 			workspaces: [workspace],
 			links,
-			onContinue: vi.fn()
+			onContinue: vi.fn(),
+			onAccountsChanged: vi.fn()
 		});
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
@@ -294,7 +294,8 @@ describe('account management modes', () => {
 			workspace,
 			workspaces: [workspace],
 			links,
-			onContinue: vi.fn()
+			onContinue: vi.fn(),
+			onAccountsChanged: vi.fn()
 		});
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();

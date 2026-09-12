@@ -1,58 +1,67 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+
+async function openDiscordPublication(
+  page: Page,
+  request: APIRequestContext,
+  width: number,
+  scheme: "light" | "dark",
+) {
+  const { token } = await registerUser(request, `bot-settings-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, token, "Integration settings");
+  const accountID = randomUUID();
+  const databasePath = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
+  execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
+    databasePath,
+    `INSERT INTO social_accounts
+    (id, workspace_id, slug, platform, account_id, account_username, access_token_encrypted,
+     capability_state_json, is_active)
+    VALUES ('${accountID}', '${workspace.id}', 'discord-test', 'discord', 'guild-test',
+    'Test server', X'00', '{"connection_type":"bot"}', 1);`,
+  ]);
+  const created = await request.post("/api/v1/publications", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      workspace_id: workspace.id,
+      title: "Integration settings check",
+      source_text: "A clearly labelled local test draft.",
+      content_profile: "short_text",
+      social_account_ids: [accountID],
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const publication = await created.json();
+  await page.route(`**/api/v1/accounts/${accountID}/publishing-options/**`, (route) =>
+    route.fulfill({
+      json: {
+        options: [
+          { value: "channel-test", label: "#test-posts" },
+          { value: "channel-updates", label: "#updates" },
+        ],
+      },
+    }),
+  );
+  await authenticatePage(page, token);
+  await page.addInitScript((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
+  await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(`/publications/${publication.id}`);
+}
 
 for (const width of [1440, 390, 320]) {
   for (const scheme of ["light", "dark"] as const) {
     test(`Discord settings keep required feedback usable at ${width}px in ${scheme}`, async ({
       page,
       request,
-    }, testInfo) => {
-      const { token } = await registerUser(request, `bot-settings-${randomUUID()}@example.com`);
-      const workspace = await createWorkspace(request, token, "Integration settings");
-      const accountID = randomUUID();
-      const databasePath = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
-      execFileSync("sqlite3", [
-        "-cmd",
-        ".timeout 5000",
-        databasePath,
-        `INSERT INTO social_accounts
-        (id, workspace_id, slug, platform, account_id, account_username, access_token_encrypted,
-         capability_state_json, is_active)
-        VALUES ('${accountID}', '${workspace.id}', 'discord-test', 'discord', 'guild-test',
-        'Test server', X'00', '{"connection_type":"bot"}', 1);`,
-      ]);
-      const created = await request.post("/api/v1/publications", {
-        headers: { Authorization: `Bearer ${token}` },
-        data: {
-          workspace_id: workspace.id,
-          title: "Integration settings check",
-          source_text: "A clearly labelled local test draft.",
-          content_profile: "short_text",
-          social_account_ids: [accountID],
-        },
-      });
-      expect(created.ok(), await created.text()).toBe(true);
-      const publication = await created.json();
-      await page.route(`**/api/v1/accounts/${accountID}/publishing-options/**`, (route) =>
-        route.fulfill({
-          json: {
-            options: [
-              { value: "channel-test", label: "#test-posts" },
-              { value: "channel-updates", label: "#updates" },
-            ],
-          },
-        }),
-      );
-      await authenticatePage(page, token);
-      await page.addInitScript((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.setViewportSize({ width, height: 900 });
+    }) => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      await page.goto(`/publications/${publication.id}`);
+      await openDiscordPublication(page, request, width, scheme);
       await page.getByRole("tab", { name: /^Test server/ }).click();
       await page.getByRole("button", { name: "Platform settings", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
@@ -81,10 +90,6 @@ for (const width of [1440, 390, 320]) {
         .include("[data-sonner-toast]")
         .analyze();
       expect(requiredAccessibility.violations).toEqual([]);
-      await page.screenshot({
-        path: testInfo.outputPath(`required-channel-${width}-${scheme}.png`),
-        animations: "disabled",
-      });
       await dialog
         .getByRole("button", { name: "Close", exact: true })
         .click({ trial: true, timeout: 1500 });
@@ -98,13 +103,22 @@ for (const width of [1440, 390, 320]) {
       await dialog.getByLabel("Description", { exact: true }).fill("A structured embed preview.");
       const accessibility = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
       expect(accessibility.violations).toEqual([]);
-      await page.screenshot({
-        path: testInfo.outputPath(`embed-${width}-${scheme}.png`),
-        animations: "disabled",
-      });
       await dialog.getByRole("button", { name: "Done", exact: true }).click();
       await expect(dialog).not.toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      expect(errors).toEqual([]);
+    });
 
+    test(`Discord Social Set defaults persist at ${width}px in ${scheme}`, async ({
+      page,
+      request,
+    }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await openDiscordPublication(page, request, width, scheme);
+      const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
       await page.getByTestId("composer-account-control").click();
       await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
       const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
@@ -126,10 +140,6 @@ for (const width of [1440, 390, 320]) {
       const socialSet = await savedResponse.json();
       expect(socialSet.accounts[0].default_settings).toEqual({ channel_id: "channel-test" });
       await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
-      await page.screenshot({
-        path: testInfo.outputPath(`social-set-${width}-${scheme}.png`),
-        animations: "disabled",
-      });
       await page.keyboard.press("Escape");
       await expect(manager).not.toBeVisible();
       await page.getByTestId("composer-account-control").click();

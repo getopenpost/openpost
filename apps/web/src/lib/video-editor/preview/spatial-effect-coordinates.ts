@@ -23,11 +23,10 @@ function clampUnit(value: number): number {
 }
 
 function visibleSourceRange(item: Pick<TimelineItem, 'crop'>) {
-	const crop = item.crop ?? {};
-	const left = Math.min(0.999, Math.max(0, crop.left ?? 0));
-	const right = Math.min(0.999, Math.max(0, crop.right ?? 0));
-	const top = Math.min(0.999, Math.max(0, crop.top ?? 0));
-	const bottom = Math.min(0.999, Math.max(0, crop.bottom ?? 0));
+	const left = Math.min(0.999, Math.max(0, item.crop?.left ?? 0));
+	const right = Math.min(0.999, Math.max(0, item.crop?.right ?? 0));
+	const top = Math.min(0.999, Math.max(0, item.crop?.top ?? 0));
+	const bottom = Math.min(0.999, Math.max(0, item.crop?.bottom ?? 0));
 	return {
 		left,
 		top,

@@ -56,7 +56,7 @@
 	let dragTarget: DragTarget | null = $state(null);
 	let dragSnapshot: DragSnapshot | null = null;
 	let pendingPreview: DragPreview | null = null;
-	let dragPreview: DragPreview | null = $state(null);
+	let dragPreview = $state<DragPreview | null>(null);
 	let animationFrame: number | null = null;
 	let resizeObserver: ResizeObserver | null = null;
 	let pointerMediaQuery: MediaQueryList | null = null;

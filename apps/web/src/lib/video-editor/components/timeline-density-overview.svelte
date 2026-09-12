@@ -44,8 +44,9 @@
 	}
 
 	function itemAtPointer(event: PointerEvent, bucket: TimelineDensityBucket): TimelineItem {
-		const rect = event.currentTarget.getBoundingClientRect();
-		const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5;
+		const target = event.currentTarget;
+		const rect = target instanceof Element ? target.getBoundingClientRect() : null;
+		const ratio = rect && rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5;
 		return findTimelineDensityBucketItem(
 			bucket,
 			bucket.from + Math.min(1, Math.max(0, ratio)) * bucket.durationInFrames

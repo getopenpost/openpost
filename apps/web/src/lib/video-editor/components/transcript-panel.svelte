@@ -71,14 +71,14 @@
 	const cueLayout = $derived(
 		buildCueListLayout(cueEntries.map((entry) => `${entry.item.id}:${entry.cue.id}`))
 	);
+	let cueScrollTop = $state(0);
+	let cueViewportHeight = $state(384);
 	const cueWindow = $derived(queryCueListWindow(cueLayout, cueScrollTop, cueViewportHeight));
 	const visibleCueEntries = $derived(cueEntries.slice(cueWindow.startIndex, cueWindow.endIndex));
 
 	/** In-flight inline edits keyed by cue id; committed to the store on blur. */
 	let draftTexts = $state<Record<string, string>>({});
 	let cueScrollEl: HTMLDivElement | null = $state(null);
-	let cueScrollTop = $state(0);
-	let cueViewportHeight = $state(384);
 	let editVideoMode = $state(false);
 	let transcriptScope = $state<'selection' | 'project'>('selection');
 	let selectionAnchorIndex = $state(-1);

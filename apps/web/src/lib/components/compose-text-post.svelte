@@ -573,6 +573,7 @@
 	}
 
 	const activePost = $derived(posts[activePostIndex] ?? posts[0]);
+	const isThread = $derived(posts.length > 1);
 	const hasContent = $derived(hasAnyContent(posts));
 	const hasPendingPasteMediaUploads = $derived(hasUnsettledPasteMediaUploads(pasteMediaUploads));
 	const canBuildPost = $derived(
@@ -790,7 +791,6 @@
 		)
 	);
 	const totalChars = $derived(posts.reduce((sum, p) => sum + p.content.length, 0));
-	const isThread = $derived(posts.length > 1);
 	const textComposerMode = $derived<ComposerModeKey>(isThread ? 'thread' : 'post');
 	const compatibleAccounts = $derived(accounts);
 	const autoSavesDraft = $derived(!isEditMode || initialPublication?.status === 'draft');

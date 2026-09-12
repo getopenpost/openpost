@@ -11,6 +11,7 @@
 	} from '$lib/video-editor/effects/wheel-channels';
 	import { getGpuEffect, getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import { gpuEffectLabel, gpuParamLabel } from '$lib/video-editor/effects/gpu/i18n';
+	import type { GpuNumberParamSchema } from '$lib/video-editor/effects/gpu/types';
 	import type { GpuEffect } from '$lib/video-editor/effects/types';
 	import {
 		effectKeyframeValue,
@@ -65,7 +66,10 @@
 
 	const topParameters = EDITOR_COLOR_PRIMARY_TOP_PARAMETERS;
 	const bottomParameters = EDITOR_COLOR_PRIMARY_BOTTOM_PARAMETERS;
-	const parameterDisplays = {
+	const parameterDisplays: Record<
+		string,
+		{ scale: number; bias: number; step: number; decimals: number }
+	> = {
 		temperature: { scale: 40, bias: 0, step: 10, decimals: 1 },
 		tint: { scale: 1, bias: 0, step: 0.1, decimals: 2 },
 		contrast: { scale: 1, bias: 0, step: 0.005, decimals: 3 },
@@ -77,8 +81,8 @@
 		saturation: { scale: 0.5, bias: 50, step: 0.5, decimals: 2 },
 		hue: { scale: 1, bias: 0, step: 0.5, decimals: 2 },
 		lumMix: { scale: 1, bias: 0, step: 0.5, decimals: 2 }
-	} satisfies Record<string, { scale: number; bias: number; step: number; decimals: number }>;
-	const parameterAccents = {
+	};
+	const parameterAccents: Record<string, string> = {
 		temperature: 'neutral',
 		contrast: 'neutral',
 		pivot: 'neutral',
@@ -87,7 +91,7 @@
 		hue: 'hue',
 		saturation: 'rgb',
 		colorBoost: 'rgb'
-	} satisfies Record<string, string>;
+	};
 
 	let {
 		itemId,
@@ -168,8 +172,9 @@
 		)
 	);
 
-	function schema(name: string) {
-		return definition?.schema.find((entry) => entry.name === name);
+	function schema(name: string): GpuNumberParamSchema | undefined {
+		const entry = definition.schema.find((candidate) => candidate.name === name);
+		return entry?.type === undefined || entry?.type === 'number' ? entry : undefined;
 	}
 
 	function label(name: string): string {

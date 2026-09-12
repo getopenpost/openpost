@@ -117,7 +117,32 @@ export function resetThemeSection(
 			scheme
 		});
 	}
-	targetScheme[section] = structuredClone(sourceScheme[section]);
+	switch (section) {
+		case 'colors':
+			targetScheme.colors = structuredClone(sourceScheme.colors);
+			break;
+		case 'typography':
+			targetScheme.typography = structuredClone(sourceScheme.typography);
+			break;
+		case 'spacing':
+			targetScheme.spacing = structuredClone(sourceScheme.spacing);
+			break;
+		case 'shape':
+			targetScheme.shape = structuredClone(sourceScheme.shape);
+			break;
+		case 'elevation':
+			targetScheme.elevation = structuredClone(sourceScheme.elevation);
+			break;
+		case 'motion':
+			targetScheme.motion = structuredClone(sourceScheme.motion);
+			break;
+		case 'shell':
+			targetScheme.shell = structuredClone(sourceScheme.shell);
+			break;
+		case 'components':
+			targetScheme.components = structuredClone(sourceScheme.components);
+			break;
+	}
 	return next;
 }
 
@@ -797,12 +822,22 @@ export function randomizeThemeManifest(
 		const card = ['flat', 'outlined', 'paper', 'lifted'] as const;
 		target.components.button = button[Math.floor(random() * button.length)]!;
 		target.components.card = card[Math.floor(random() * card.length)]!;
-		target.components.container = ['flat', 'outlined', 'tinted'][Math.floor(random() * 3)]!;
-		target.components.tabs = ['underline', 'pill', 'segmented'][Math.floor(random() * 3)]!;
-		target.components.navigation = ['quiet', 'tonal', 'outlined'][Math.floor(random() * 3)]!;
-		target.components.table = ['ruled', 'striped', 'plain'][Math.floor(random() * 3)]!;
-		target.components.emptyState = ['plain', 'illustrated', 'framed'][Math.floor(random() * 3)]!;
-		target.components.loadingState = ['spinner', 'pulse', 'skeleton'][Math.floor(random() * 3)]!;
+		target.components.container = (['flat', 'outlined', 'tinted'] as const)[
+			Math.floor(random() * 3)
+		]!;
+		target.components.tabs = (['underline', 'pill', 'segmented'] as const)[
+			Math.floor(random() * 3)
+		]!;
+		target.components.navigation = (['quiet', 'tonal', 'outlined'] as const)[
+			Math.floor(random() * 3)
+		]!;
+		target.components.table = (['ruled', 'striped', 'plain'] as const)[Math.floor(random() * 3)]!;
+		target.components.emptyState = (['plain', 'illustrated', 'framed'] as const)[
+			Math.floor(random() * 3)
+		]!;
+		target.components.loadingState = (['spinner', 'pulse', 'skeleton'] as const)[
+			Math.floor(random() * 3)
+		]!;
 	}
 	return next;
 }

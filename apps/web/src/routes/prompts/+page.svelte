@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
+	import type { operations } from '$lib/api/types';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
@@ -32,6 +33,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/paraglide/messages';
+	type PromptsQueryParams = NonNullable<operations['get-random-prompt']['parameters']['query']>;
 
 	let selectedCategory = $state<string>('all');
 	let showAddPrompt = $state(false);

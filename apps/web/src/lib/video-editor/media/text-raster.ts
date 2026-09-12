@@ -5,6 +5,7 @@ import {
 	layoutTextBlock,
 	lineInkWidth,
 	type LaidOutLine,
+	type LaidOutRun,
 	type TextBlockLayout
 } from '../typography/text-block-layout';
 import {

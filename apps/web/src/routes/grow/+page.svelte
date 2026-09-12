@@ -56,10 +56,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		GrowthSort,
 		GrowthView,
 		RecommendationView,
+		SocialAccount,
 		SyncStateView
 	} from '$lib/growth-helpers';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
-	import { isFeatureEffective } from '$lib/feature-disabled';
+	import { isFeatureEffective, type FeatureState } from '$lib/feature-disabled';
 
 	let selectedAccountID = $state<string | null>(null);
 	let items = $state.raw<RecommendationView[]>([]);

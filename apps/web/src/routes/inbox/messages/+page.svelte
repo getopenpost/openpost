@@ -46,6 +46,7 @@
 
 	type Conversation = components['schemas']['Conversation'];
 	type DirectMessage = components['schemas']['DirectMessage'];
+	type SocialAccount = components['schemas']['AccountResponse'];
 	type Attachment = { type: string; url: string; name?: string; thumbnail?: string };
 	type AttachmentJSONValue =
 		| string

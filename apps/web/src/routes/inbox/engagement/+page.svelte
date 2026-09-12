@@ -53,7 +53,9 @@
 	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
 
 	type EngagementItem = components['schemas']['EngagementItem'];
+	type EngagementSyncState = components['schemas']['EngagementSyncState'];
 	type Publication = components['schemas']['PublicationResponse'];
+	type SocialAccount = components['schemas']['AccountResponse'];
 	type EngagementQueryKey = ReturnType<typeof inboxQueryKeys.engagement>;
 	type EngagementMutationScope = {
 		session: QueryMutationSession;

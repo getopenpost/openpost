@@ -9,6 +9,7 @@ import {
 	themeAssetsQueryOptions,
 	themeRevisionsQueryOptions,
 	themeSettingsQueryOptions,
+	type ResolvedThemeScheme,
 	type ThemeQueryAPI
 } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
